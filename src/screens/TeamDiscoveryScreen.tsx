@@ -151,10 +151,10 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
 
       console.log('TeamDiscoveryScreen: Fetching teams from Nostr relays...');
 
-      // Get Nostr teams
+      // Get Nostr teams - NO ACTIVITY FILTERING to match working script
       const nostrTeamService = getNostrTeamService();
       const nostrTeams = await nostrTeamService.discoverFitnessTeams({
-        activityTypes: ['fitness', 'running', 'workout', 'team'],
+        // Removed activity type filtering to allow all teams like BULLISH, CYCLESTR, RUNSTR
         limit: 50,
       });
 
@@ -246,8 +246,7 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
                 onPress={onCaptainDashboard}
                 activeOpacity={0.7}
               >
-                <Text style={styles.captainDashboardBtnText}>👑</Text>
-                <Text style={styles.captainDashboardLabel}>Dashboard</Text>
+                <Text style={styles.captainDashboardLabel}>Captain</Text>
               </TouchableOpacity>
             )}
             {onCreateTeam && (
@@ -383,7 +382,6 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
                 key={team.id}
                 team={team}
                 onPress={handleTeamSelect}
-                onJoinPress={handleTeamJoin}
               />
             );
           })
@@ -443,18 +441,12 @@ const styles = StyleSheet.create({
   },
 
   captainDashboardBtn: {
-    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: theme.colors.accent,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
-    gap: 6,
-  },
-
-  captainDashboardBtnText: {
-    fontSize: 14,
-    lineHeight: 16,
   },
 
   captainDashboardLabel: {

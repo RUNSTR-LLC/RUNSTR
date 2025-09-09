@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Workout Query Performance Test</title>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #0a0a0a; color: #fff; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .test-config { background: #1a1a1a; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .results { background: #1a1a1a; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .success { color: #00ff88; }
+        .error { color: #ff4444; }
+        .warning { color: #ffaa00; }
+        button { background: #ff6600; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #ff8833; }
+        .log { background: #000; padding: 10px; border-radius: 4px; font-family: monospace; white-space: pre-wrap; max-height: 400px; overflow-y: auto; }
+        input { padding: 8px; margin: 5px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏃‍♂️ Workout Query Performance Tester</h1>
+        
+        <div class="test-config">
+            <h3>Ultra-Fast Query Strategy Testing</h3>
+            <p style="color: #ffaa00;">🔐 Your nsec stays in your browser - never sent anywhere</p>
+            
+            <label>Your Nsec (nsec1...): <input type="password" id="testNsec" placeholder="nsec1abc..." style="width: 400px;"></label><br>
+            <small style="color: #888;">Or use Pubkey (npub1...): <input type="text" id="testPubkey" placeholder="npub1abc..." style="width: 300px;"></small><br><br>
+            
+            <label>Relay URLs (comma separated):</label><br>
+            <textarea id="relayUrls" style="width: 100%; height: 60px; background: #333; color: #fff; border: 1px solid #555;">wss://relay.damus.io,wss://relay.primal.net,wss://nos.lol,wss://nostr.wine</textarea><br>
+            
+            <label>Quick Test: <input type="checkbox" id="quickTest" checked> (2s timeout, 50 events max)</label><br><br>
+            
+            <button onclick="runUltraFastTests()" id="runButton">🚀 Find Your Fastest Strategy</button>
+            <button onclick="clearResults()" style="background: #666;">Clear Results</button>
+        </div>
+
+        <div class="results">
+            <h3>Test Results</h3>
+            <div id="testResults" class="log">Click "Run Performance Tests" to start...</div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/nostr-tools@2.5.2/lib/nostr.bundle.js"></script>
+    <script>
+        let testResults = [];
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : type === 'warning' ? 'warning' : '';
+            const resultDiv = document.getElementById('testResults');
+            resultDiv.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            resultDiv.scrollTop = resultDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function clearResults() {
+            document.getElementById('testResults').innerHTML = 'Cleared results...\n';
+            testResults = [];
+        }
+
+        async function testQueryStrategy(strategyName, queryFunction, timeout = 5000) {
+            log(`\n🧪 Testing: ${strategyName} (${timeout}ms timeout)`);
+            
+            const startTime = Date.now();
+            let success = false;
+            let eventCount = 0;
+            let errorMessage = null;
+            
+            try {
+                // Create timeout promise
+                const timeoutPromise = new Promise((resolve) => 
+                    setTimeout(() => resolve({ events: [], timedOut: true }), timeout)
+                );
+                
+                // Race the query against timeout
+                const result = await Promise.race([
+                    queryFunction(),
+                    timeoutPromise
+                ]);
+                
+                const duration = Date.now() - startTime;
+                
+                if (result.timedOut) {
+                    log(`⏱️ ${strategyName}: Timed out after ${timeout}ms`, 'warning');
+                    eventCount = 0;
+                    success = false;
+                    errorMessage = 'Timeout';
+                } else {
+                    eventCount = Array.isArray(result) ? result.length : (result.length || result.size || 0);
+                    success = true;
+                    log(`✅ ${strategyName}: ${eventCount} events in ${duration}ms`, 'success');
+                }
+                
+                return {
+                    strategyName,
+                    eventCount,
+                    duration,
+                    success,
+                    errorMessage,
+                    timeout
+                };
+            } catch (error) {
+                const duration = Date.now() - startTime;
+                log(`❌ ${strategyName}: Failed after ${duration}ms - ${error.message}`, 'error');
+                return {
+                    strategyName,
+                    eventCount: 0,
+                    duration,
+                    success: false,
+                    errorMessage: error.message,
+                    timeout
+                };
+            }
+        }
+
+        async function queryWithNostrTools(filter, relayUrls, strategyName) {
+            const pool = new NostrTools.SimplePool();
+            
+            try {
+                log(`📡 ${strategyName}: Querying ${relayUrls.length} relays...`);
+                
+                const events = await pool.querySync(relayUrls, filter);
+                pool.close(relayUrls);
+                
+                log(`📥 ${strategyName}: Received ${events.length} raw events`);
+                
+                // Filter for actual workout events (client-side filtering)
+                const workoutEvents = events.filter(event => {
+                    // Basic 1301 event validation
+                    if (event.kind !== 1301) return false;
+                    
+                    // Look for workout-related tags
+                    const hasWorkoutTags = event.tags.some(tag => 
+                        ['distance', 'duration', 'exercise', 'title'].includes(tag[0])
+                    );
+                    
+                    return hasWorkoutTags;
+                });
+                
+                log(`🏃‍♂️ ${strategyName}: Found ${workoutEvents.length} workout events after filtering`);
+                return workoutEvents;
+            } catch (error) {
+                pool.close(relayUrls);
+                throw error;
+            }
+        }
+
+        async function runUltraFastTests() {
+            const runButton = document.getElementById('runButton');
+            runButton.disabled = true;
+            runButton.textContent = '🔄 Finding Fastest Strategy...';
+            
+            clearResults();
+            
+            const testNsec = document.getElementById('testNsec').value.trim();
+            const testPubkey = document.getElementById('testPubkey').value.trim();
+            const relayUrlsText = document.getElementById('relayUrls').value.trim();
+            const quickTest = document.getElementById('quickTest').checked;
+            
+            let pubkeyHex;
+            let keySource = '';
+            
+            // Handle nsec or npub input
+            if (testNsec) {
+                try {
+                    const decoded = NostrTools.nip19.decode(testNsec);
+                    if (decoded.type !== 'nsec') {
+                        throw new Error('Invalid nsec format');
+                    }
+                    pubkeyHex = NostrTools.getPublicKey(decoded.data);
+                    keySource = 'nsec (converted to pubkey)';
+                    log(`🔐 Nsec decoded safely to pubkey: ${pubkeyHex.slice(0, 16)}...`);
+                } catch (error) {
+                    log(`❌ Invalid nsec format: ${error.message}`, 'error');
+                    runButton.disabled = false;
+                    runButton.textContent = '🚀 Find Your Fastest Strategy';
+                    return;
+                }
+            } else if (testPubkey) {
+                try {
+                    const decoded = NostrTools.nip19.decode(testPubkey);
+                    pubkeyHex = decoded.data;
+                    keySource = 'npub';
+                    log(`✅ Pubkey decoded: ${pubkeyHex.slice(0, 16)}...`);
+                } catch (error) {
+                    log(`❌ Invalid pubkey format: ${error.message}`, 'error');
+                    runButton.disabled = false;
+                    runButton.textContent = '🚀 Find Your Fastest Strategy';
+                    return;
+                }
+            } else {
+                log('❌ Please enter your nsec or npub', 'error');
+                runButton.disabled = false;
+                runButton.textContent = '🚀 Find Your Fastest Strategy';
+                return;
+            }
+            
+            const relayUrls = relayUrlsText.split(',').map(url => url.trim()).filter(url => url);
+            const timeout = quickTest ? 2000 : 5000;
+            const maxEvents = quickTest ? 50 : 200;
+            
+            log('🚀 Ultra-Fast Strategy Testing Started');
+            log('='.repeat(70));
+            log(`📋 Testing with: ${keySource}, ${relayUrls.length} relays, ${timeout/1000}s timeout`);
+            log(`🎯 Goal: Find 70% faster method for your 30s → 3-5s target`);
+            log('');
+
+            // ULTRA-FAST STRATEGIES - Based on your successful 3.6s kind-only result
+            const testStrategies = [
+                // Strategy A: Kind-only + Client Filter (YOUR PROVEN FAST METHOD)
+                ['🚀 Kind-only + Client Filter (PROVEN FAST)', async () => {
+                    log(`Strategy A: Kind-only query (your 3.6s success method)...`);
+                    const events = await queryWithNostrTools({
+                        kinds: [1301],
+                        limit: maxEvents * 2 // Get more events, filter client-side
+                    }, relayUrls, 'UltraFast-KindOnly');
+                    
+                    // Client-side filter for YOUR events
+                    const yourEvents = events.filter(event => event.pubkey === pubkeyHex);
+                    log(`🎯 Filtered ${events.length} total → ${yourEvents.length} yours`);
+                    return yourEvents;
+                }, timeout],
+                
+                // Strategy B: Author+Kind with Racing (2s timeout)
+                ['⚡ Author+Kind Racing (2s)', () => queryWithNostrTools({
+                    kinds: [1301],
+                    authors: [pubkeyHex],
+                    limit: maxEvents
+                }, relayUrls, 'Racing-AuthorKind'), timeout],
+                
+                // Strategy C: Progressive Loading (First 20, then more)
+                ['🔄 Progressive Loading (First 20)', () => queryWithNostrTools({
+                    kinds: [1301],
+                    authors: [pubkeyHex],
+                    limit: 20  // Just first 20 for instant results
+                }, relayUrls, 'Progressive-20'), Math.min(timeout, 1500)],
+                
+                // Strategy D: Recent Only (Last 30 days)
+                ['📅 Recent 30 Days Only', () => queryWithNostrTools({
+                    kinds: [1301],
+                    authors: [pubkeyHex],
+                    since: Math.floor(Date.now()/1000) - 30*24*60*60,
+                    limit: maxEvents
+                }, relayUrls, 'Recent30Days'), timeout],
+                
+                // Strategy E: Single Fastest Relay Only
+                ['🏃 Single Relay Speed Test', async () => {
+                    log(`Strategy E: Testing individual relay speeds...`);
+                    const results = [];
+                    let bestEvents = [];
+                    
+                    for (const relayUrl of relayUrls.slice(0, 2)) { // Test first 2 relays
+                        try {
+                            const startTime = Date.now();
+                            const events = await queryWithNostrTools({
+                                kinds: [1301],
+                                authors: [pubkeyHex],
+                                limit: 20
+                            }, [relayUrl], `SingleRelay-${relayUrl.split('.')[1]}`);
+                            
+                            const duration = Date.now() - startTime;
+                            results.push({ relay: relayUrl, events: events.length, time: duration });
+                            log(`  ${relayUrl}: ${events.length} events in ${duration}ms`);
+                            
+                            // Keep the events from the first successful relay
+                            if (events.length > 0 && bestEvents.length === 0) {
+                                bestEvents = events;
+                                break; // Stop at first successful relay
+                            }
+                        } catch (error) {
+                            log(`  ${relayUrl}: Failed - ${error.message}`);
+                        }
+                    }
+                    
+                    return bestEvents;
+                }, timeout * 2],
+            ];
+
+            const results = [];
+
+            for (const [name, queryFn, timeout] of testStrategies) {
+                const result = await testQueryStrategy(name, queryFn, timeout);
+                results.push(result);
+                
+                // Wait between tests to avoid overwhelming relays
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+
+            // Analyze results
+            analyzeResults(results);
+            
+            runButton.disabled = false;
+            runButton.textContent = '🚀 Find Your Fastest Strategy';
+        }
+
+        function analyzeResults(results) {
+            log('\n📊 PERFORMANCE ANALYSIS');
+            log('='.repeat(60));
+            
+            // Filter successful results only
+            const successfulResults = results.filter(r => r.success);
+            
+            if (successfulResults.length === 0) {
+                log('❌ No successful queries found. Check network connectivity and pubkey.', 'error');
+                return;
+            }
+            
+            // Sort by duration (fastest first)
+            successfulResults.sort((a, b) => a.duration - b.duration);
+            
+            log('\n🏆 SPEED RANKINGS:', 'success');
+            successfulResults.forEach((result, index) => {
+                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+                const eventsPerSec = result.duration > 0 ? (result.eventCount / (result.duration / 1000)).toFixed(1) : '∞';
+                
+                log(`${medal} ${result.strategyName}`);
+                log(`    Duration: ${result.duration}ms | Events: ${result.eventCount} | Rate: ${eventsPerSec} events/sec`);
+            });
+            
+            // Show failed strategies
+            const failedResults = results.filter(r => !r.success);
+            if (failedResults.length > 0) {
+                log('\n❌ FAILED STRATEGIES:', 'error');
+                failedResults.forEach(result => {
+                    log(`   ${result.strategyName}: ${result.errorMessage} (${result.duration}ms)`);
+                });
+            }
+            
+            // Recommendations
+            const fastest = successfulResults[0];
+            const slowest = successfulResults[successfulResults.length - 1];
+            const speedup = slowest.duration / fastest.duration;
+            
+            log('\n💡 RECOMMENDATIONS:', 'success');
+            log(`🏆 Fastest: ${fastest.strategyName} - ${fastest.duration}ms`);
+            log(`🐌 Slowest: ${slowest.strategyName} - ${slowest.duration}ms`); 
+            log(`⚡ Potential speedup: ${speedup.toFixed(1)}x faster`);
+            
+            // Specific recommendations based on results
+            if (fastest.strategyName.includes('Recent')) {
+                log('\n✅ RECOMMENDATION: Implement recent-first loading strategy');
+                log('   - Load recent workouts first for instant results');
+                log('   - Load older workouts in background');
+            }
+            
+            if (fastest.timeout <= 3000) {
+                log('\n✅ RECOMMENDATION: Use shorter timeouts with Promise.race');
+                log('   - 3-second timeout provides best user experience'); 
+                log('   - Implement timeout racing for faster perceived loading');
+            }
+            
+            if (fastest.strategyName.includes('Client Filter')) {
+                log('\n✅ RECOMMENDATION: Consider kind-only queries with client-side filtering');
+                log('   - May be faster if relay indexes kinds better than authors');
+                log('   - Test with your specific relay setup');
+            }
+        }
+    </script>
+</body>
+</html>

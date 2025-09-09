@@ -1,13 +1,12 @@
 /**
  * TeamCard Component - Exact match to HTML mockup team card
- * Shows team info, stats, activities and join option
+ * Shows team info, stats, activities - navigation only (no join button)
  */
 
 import React from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   Pressable,
 } from 'react-native';
@@ -19,24 +18,18 @@ import { DifficultyIndicator } from '../ui/DifficultyIndicator';
 interface TeamCardProps {
   team: DiscoveryTeam;
   onPress?: (team: DiscoveryTeam) => void;
-  onJoinPress: (team: DiscoveryTeam) => void;
   style?: any;
 }
 
 export const TeamCard: React.FC<TeamCardProps> = ({
   team,
   onPress,
-  onJoinPress,
   style,
 }) => {
   const handleCardPress = () => {
     if (onPress) {
       onPress(team);
     }
-  };
-
-  const handleJoinPress = () => {
-    onJoinPress(team);
   };
 
   return (
@@ -98,15 +91,6 @@ export const TeamCard: React.FC<TeamCardProps> = ({
           ))}
         </View>
       </View>
-
-      {/* Join Button */}
-      <TouchableOpacity
-        style={styles.joinBtn}
-        onPress={handleJoinPress}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.joinBtnText}>Join Team</Text>
-      </TouchableOpacity>
     </Pressable>
   );
 };
@@ -228,23 +212,5 @@ const styles = StyleSheet.create({
     // Exact CSS: font-size: 12px; color: #ccc;
     fontSize: 12,
     color: theme.colors.textSecondary, // #ccc
-  },
-
-  joinBtn: {
-    // Exact CSS: background: #fff; color: #000; border: none; padding: 12px 20px; border-radius: 12px; font-size: 14px; font-weight: 600;
-    backgroundColor: theme.colors.text, // #fff
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 12,
-  },
-
-  joinBtnText: {
-    // Exact CSS: font-size: 14px; font-weight: 600;
-    fontSize: 14,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.accentText, // #000
   },
 });

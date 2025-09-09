@@ -15,12 +15,14 @@ import { BottomTabNavigator } from './navigation/BottomTabNavigator';
 import { SplashScreen } from './components/ui/SplashScreen';
 import { createStackNavigator } from '@react-navigation/stack';
 import { TeamCreationWizard } from './components/wizards/TeamCreationWizard';
+import { TeamDashboardScreen } from './screens/TeamDashboardScreen';
 import { User } from './types';
 
 // Types for authenticated app navigation
 type AuthenticatedStackParamList = {
   MainTabs: undefined;
   TeamCreation: undefined;
+  TeamDashboard: { team: any; userIsMember?: boolean };
 };
 
 const AuthenticatedStack = createStackNavigator<AuthenticatedStackParamList>();
@@ -76,6 +78,31 @@ const AppContent: React.FC = () => {
               }}
               onCancel={() => {
                 navigation.goBack(); // Return to tabs
+              }}
+            />
+          )}
+        </AuthenticatedStack.Screen>
+
+        {/* Team Dashboard Screen */}
+        <AuthenticatedStack.Screen
+          name="TeamDashboard"
+          options={{
+            headerShown: false,
+          }}
+        >
+          {({ navigation, route }) => (
+            <TeamDashboardScreen
+              team={route.params.team}
+              userIsMember={route.params.userIsMember || false}
+              currentUser={user}
+              onBack={() => navigation.goBack()}
+              onJoinTeam={() => {
+                console.log('Team joined from dashboard');
+                navigation.goBack(); // Return after joining
+              }}
+              onCaptainDashboard={() => {
+                console.log('Navigate to captain dashboard');
+                // TODO: Add captain dashboard navigation
               }}
             />
           )}

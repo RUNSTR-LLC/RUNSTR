@@ -60,34 +60,34 @@ export class NostrTeamService {
 
   /**
    * Discover fitness teams from Nostr relays using Kind 33404 events
+   * WORKING SCRIPT IMPLEMENTATION - MATCHES enhanced-team-discovery.js
    */
   async discoverFitnessTeams(
     filters?: TeamDiscoveryFilters
   ): Promise<NostrTeam[]> {
-    console.log(
-      '🔍 NostrTeamService: Discovering fitness teams from relays...'
-    );
-    console.log('🚨 ENHANCED NostrTeamService ACTIVE - THIS SHOULD APPEAR IN LOGS 🚨');
+    console.log('🚀🚀🚀 ULTRA ENHANCED NostrTeamService ACTIVE - WORKING SCRIPT VERSION 🚀🚀🚀');
+    console.log('📊 Enhanced Nostr Team Discovery Starting...');
+    console.log(`📡 Connecting to ${this.relayUrls.length} relays for comprehensive team search`);
 
     try {
-      const nostrFilter: Filter = {
-        kinds: [33404], // Kind 33404 - Fitness Team events
-        limit: filters?.limit || 200, // Enhanced limit for comprehensive discovery
-        // Removed 'since' filter to get ALL teams ever created, not just last 30 days
+      // USE EXACT WORKING SCRIPT FILTER - NO 'SINCE' FILTER
+      const nostrFilter = {
+        kinds: [33404],
+        limit: 200 // Increased limit to capture more historical teams
+        // NO 'since' filter - this is the key difference from failing system
       };
+
+      console.log('🐛 ULTRA DEBUG: Filter being used (should have NO since):', JSON.stringify(nostrFilter, null, 2));
 
       const teams: NostrTeam[] = [];
       const processedEventIds = new Set<string>();
 
-      console.log('🔗 Connecting to Nostr relays for team discovery...');
-
-      // Connect to multiple relays and fetch events
+      // Connect to multiple relays and fetch events - EXACT SCRIPT IMPLEMENTATION
       const relayPromises = this.relayUrls.map(async (url) => {
         try {
-          console.log(`🔌 Connecting to relay: ${url}`);
+          console.log(`🔌 Connecting to ${url}...`);
           const relay = await Relay.connect(url);
 
-          console.log(`📡 Subscribing to Kind 33404 events on ${url}`);
           const sub = relay.subscribe([nostrFilter], {
             onevent: (event: Event) => {
               // Avoid duplicates from multiple relays
@@ -96,69 +96,62 @@ export class NostrTeamService {
               }
               processedEventIds.add(event.id);
 
-              console.log(`📥 Team event received from ${url}:`, event.id);
+              console.log(`📥 Event ${event.id.substring(0, 8)}... from ${url}`);
 
               try {
-                // Only process public teams like runstr-github does
-                if (this.isTeamPublic(event as NostrTeamEvent)) {
-                  const team = this.parseTeamEvent(event as NostrTeamEvent);
-                  if (team) {
-                    console.log(`🔄 Processing team: ${team.name}`);
-                    
-                    // Check validation first
-                    if (!this.isValidTeam(team)) {
-                      console.log(`❌ Team "${team.name}" failed validation`);
-                      return;
-                    }
-                    
-                    // Check filters second
-                    if (!this.matchesFilters(team, filters)) {
-                      console.log(`❌ Team "${team.name}" filtered out by activity filters`);
-                      return;
-                    }
-                    
-                    teams.push(team);
-                    this.discoveredTeams.set(team.id, team);
-                    console.log(
-                      `✅ Added public team: ${team.name} (${team.memberCount} members)`
-                    );
-                  } else {
-                    console.log(`⚠️ Failed to parse team event ${event.id}`);
-                  }
-                } else {
-                  console.log(`📝 Skipped private team: ${event.id}`);
+                // Parse team event
+                const team = this.parseTeamEvent(event as NostrTeamEvent);
+                
+                if (!team) {
+                  return;
                 }
+                
+                // Check if team is public
+                if (!this.isTeamPublic(event as NostrTeamEvent)) {
+                  console.log(`📝 Private team filtered: ${this.getTeamName(event as NostrTeamEvent)}`);
+                  return;
+                }
+                
+                // ULTRA PERMISSIVE VALIDATION - MATCHES WORKING SCRIPT
+                if (!this.isValidTeam(team)) {
+                  console.log(`⚠️ Team filtered (validation): ${team.name}`);
+                  return;
+                }
+                
+                // Team passed all filters
+                teams.push(team);
+                this.discoveredTeams.set(team.id, team);
+                
+                console.log(`✅ Valid team discovered: ${team.name} (${team.memberCount} members)`);
+                
               } catch (error) {
-                console.warn(
-                  `⚠️  Failed to parse team event ${event.id}:`,
-                  error
-                );
+                console.warn(`⚠️ Error processing event ${event.id}:`, error);
               }
             },
-            oneose: () => {
-              console.log(`✅ End of stored events from ${url}`);
-            },
+            oneose: () => console.log(`✅ EOSE received from ${url}`),
           });
 
-          // Extended timeout for comprehensive historical data collection
+          // Extended timeout for better historical data collection
           setTimeout(() => {
             sub.close();
             relay.close();
-            console.log(`🔌 Closed connection to ${url}`);
-          }, 12000); // Enhanced from 5s to 12s for better historical coverage
+            console.log(`🔌 Timeout: Closed connection to ${url} after 12s`);
+          }, 12000);
+
         } catch (error) {
           console.warn(`❌ Failed to connect to relay ${url}:`, error);
         }
       });
 
-      // Wait for all relay connections to complete
+      // Wait for all relay connections
       await Promise.allSettled(relayPromises);
-
-      // Extended wait for comprehensive historical event collection
-      await new Promise((resolve) => setTimeout(resolve, 5000)); // Enhanced from 2s to 5s
+      
+      // Extended wait for comprehensive historical events
+      console.log('⏳ Waiting 15 seconds for comprehensive historical data collection...');
+      await new Promise(resolve => setTimeout(resolve, 15000));
 
       console.log(
-        `🚨 ENHANCED NostrTeamService RESULT: Found ${teams.length} fitness teams from ${this.relayUrls.length} relays`
+        `🚀🚀🚀 ULTRA ENHANCED RESULT: Found ${teams.length} fitness teams from ${this.relayUrls.length} relays`
       );
       
       // Enhanced logging for debugging
@@ -168,9 +161,9 @@ export class NostrTeamService {
           console.log(`  ${index + 1}. ${team.name} (${team.memberCount} members)`);
         });
       } else {
-        console.log('⚠️ No teams passed all filters - check activity type matching');
+        console.log('⚠️ No teams passed all filters');
       }
-      return teams.sort((a, b) => b.createdAt - a.createdAt); // Most recent first
+      return teams.sort((a, b) => b.createdAt - a.createdAt);
     } catch (error) {
       console.error('❌ NostrTeamService: Error discovering teams:', error);
       return [];

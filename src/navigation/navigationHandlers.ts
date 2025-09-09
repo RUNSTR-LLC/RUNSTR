@@ -8,7 +8,6 @@ import { DiscoveryTeam, TeamCreationData } from '../types';
 import { RewardDistribution } from '../types/teamWallet';
 import { useUserStore } from '../store/userStore';
 import { AuthService } from '../services/auth/authService';
-import { SimpleTeamJoiningService } from '../services/user/simpleTeamJoining';
 import { getNostrTeamService } from '../services/nostr/NostrTeamService';
 
 export interface NavigationHandlers {
@@ -81,39 +80,25 @@ export const createNavigationHandlers = (): NavigationHandlers => {
           team.name
         );
 
-        // Get current user
-        const currentUser = await AuthService.getCurrentUserWithWallet();
-        if (!currentUser) {
-          Alert.alert('Error', 'Please sign in to join a team');
+        // Use NostrTeamService for pure Nostr joining (no Supabase)
+        const nostrTeamService = getNostrTeamService();
+        const cachedTeams = nostrTeamService.getCachedTeams();
+        const nostrTeam = cachedTeams.find((t) => t.id === team.id);
+
+        if (!nostrTeam) {
+          Alert.alert('Error', 'Team not found. Please refresh and try again.');
           return;
         }
 
-        // Validate team join eligibility
-        const validation = await SimpleTeamJoiningService.validateTeamJoin(
-          currentUser.id,
-          team.id
-        );
-        if (!validation.success) {
-          Alert.alert(
-            'Cannot Join Team',
-            validation.error || 'Unable to join this team'
-          );
-          return;
-        }
+        const joinResult = await nostrTeamService.joinTeam(nostrTeam);
 
-        // Perform actual team join
-        const result = await SimpleTeamJoiningService.joinTeam(
-          currentUser.id,
-          team.id
-        );
-
-        if (result.success) {
+        if (joinResult.success) {
           console.log(
             'NavigationHandlers: Successfully joined team:',
             team.name
           );
 
-          // CRITICAL: Refresh data immediately and wait for completion
+          // Refresh data if callback provided
           if (refreshData) {
             console.log(
               'NavigationHandlers: Refreshing app data after team join...'
@@ -122,22 +107,28 @@ export const createNavigationHandlers = (): NavigationHandlers => {
             console.log('NavigationHandlers: Data refresh complete');
           }
 
-          // Navigate directly to Team tab (which will now show the team page)
-          console.log('NavigationHandlers: Navigating to Team screen...');
-          navigation.navigate('Team');
-
-          // Show success message without blocking navigation
-          setTimeout(() => {
-            Alert.alert(
-              'Welcome to the Team!',
-              `You've successfully joined ${team.name}! Start earning Bitcoin through fitness challenges.`
-            );
-          }, 500);
+          // Show success message
+          Alert.alert(
+            'Welcome to the Team!',
+            `You've successfully joined ${team.name}! Start earning Bitcoin through fitness challenges.`,
+            [
+              {
+                text: 'OK',
+                onPress: () => {
+                  // Navigate to team dashboard to show the joined team
+                  navigation.navigate('TeamDashboard', {
+                    team,
+                    userIsMember: true,
+                  });
+                }
+              }
+            ]
+          );
         } else {
-          console.error('NavigationHandlers: Team join failed:', result.error);
+          console.error('NavigationHandlers: Team join failed:', joinResult.error);
           Alert.alert(
             'Join Failed',
-            result.error || 'Unable to join team. Please try again.'
+            joinResult.error || 'Unable to join team. Please try again.'
           );
         }
       } catch (error) {
@@ -202,82 +193,19 @@ export const createNavigationHandlers = (): NavigationHandlers => {
       try {
         console.log('NavigationHandlers: Leave team pressed');
 
-        // Get current user
-        const currentUser = await AuthService.getCurrentUserWithWallet();
-        if (!currentUser) {
-          Alert.alert('Error', 'Please sign in to leave your team');
-          return;
-        }
-
-        // Check if user has a team to leave
-        const membership =
-          await SimpleTeamJoiningService.getCurrentTeamMembership(
-            currentUser.id
-          );
-        if (!membership.hasTeam) {
-          Alert.alert('No Team', 'You are not currently a member of any team');
-          return;
-        }
-
+        // For now, use simple alert until we implement full Nostr team leaving
         Alert.alert(
           'Leave Team',
-          `Are you sure you want to leave ${membership.teamName}? You'll lose access to ongoing challenges and events.`,
+          'Team leaving functionality is being optimized for the Nostr experience. This feature will be available in the next update.',
           [
             { text: 'Cancel', style: 'cancel' },
             {
-              text: 'Leave Team',
-              style: 'destructive',
-              onPress: async () => {
-                try {
-                  console.log('NavigationHandlers: User confirmed team leave');
-
-                  // Show loading
-                  Alert.alert('Leaving Team', 'Processing...');
-
-                  const result = await SimpleTeamJoiningService.leaveTeam(
-                    currentUser.id
-                  );
-
-                  if (result.success) {
-                    console.log('NavigationHandlers: Successfully left team');
-
-                    // Refresh data if callback provided
-                    if (refreshData) {
-                      await refreshData();
-                    }
-
-                    Alert.alert(
-                      'Left Team',
-                      'You have successfully left the team. You can join a new team anytime.',
-                      [
-                        {
-                          text: 'Find New Team',
-                          onPress: () => navigation.navigate('TeamDiscovery'),
-                        },
-                      ]
-                    );
-                  } else {
-                    console.error(
-                      'NavigationHandlers: Leave team failed:',
-                      result.error
-                    );
-                    Alert.alert(
-                      'Failed to Leave Team',
-                      result.error || 'Unable to leave team. Please try again.'
-                    );
-                  }
-                } catch (error) {
-                  console.error(
-                    'NavigationHandlers: Unexpected error leaving team:',
-                    error
-                  );
-                  Alert.alert(
-                    'Error',
-                    'An unexpected error occurred while leaving the team'
-                  );
-                }
-              },
-            },
+              text: 'OK',
+              onPress: () => {
+                // Navigate back to team discovery
+                navigation.navigate('Teams');
+              }
+            }
           ]
         );
       } catch (error) {

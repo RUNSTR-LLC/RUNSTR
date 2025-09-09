@@ -67,6 +67,10 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [nsecKey, setNsecKey] = useState<string | null>(null);
+  
+  // OPTIMIZATION: Tab state persistence
+  const [tabDataLoaded, setTabDataLoaded] = useState(false);
+  const [lastLoadTime, setLastLoadTime] = useState<number>(0);
 
   // HealthKit state
   const [healthKitStats, setHealthKitStats] = useState<{
@@ -86,7 +90,7 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
 
   useEffect(() => {
     checkHealthKitStatus();
-    loadWorkouts();
+    loadWorkoutsOptimized();
     loadNsecKey();
   }, []);
 
@@ -149,19 +153,42 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
     onSyncSourcePress(provider);
   };
 
-  // Workout loading functions
-  const loadWorkouts = async () => {
+  // OPTIMIZED: Workout loading with tab state persistence
+  const loadWorkoutsOptimized = async () => {
+    const CACHE_VALIDITY_MS = 5 * 60 * 1000; // 5 minutes
+    const currentTime = Date.now();
+    
+    // OPTIMIZATION: Don't re-query if data is fresh and we've loaded before
+    if (tabDataLoaded && (currentTime - lastLoadTime) < CACHE_VALIDITY_MS) {
+      console.log('⚡ Tab data is fresh, skipping query (tab state persistence)');
+      setIsLoading(false);
+      return;
+    }
+
     try {
+      console.log('🔄 Loading workouts with optimizations...');
+      const startTime = Date.now();
+      
       const result = await mergeService.getMergedWorkouts(currentUserId, currentUserPubkey);
+      
       setWorkouts(result.allWorkouts);
       setMergeResult(result);
+      setTabDataLoaded(true);
+      setLastLoadTime(currentTime);
+      
+      const loadDuration = Date.now() - startTime;
+      console.log(`✅ Workouts loaded: ${result.allWorkouts.length} total, ${loadDuration}ms, fromCache: ${result.fromCache}`);
+      
     } catch (error) {
-      console.error('Failed to load workouts:', error);
+      console.error('Failed to load optimized workouts:', error);
       // Don't show alert - this is in a tab, keep it silent
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Legacy function kept for compatibility
+  const loadWorkouts = loadWorkoutsOptimized;
 
   const loadNsecKey = async () => {
     try {
@@ -173,19 +200,29 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
     }
   };
 
+  // OPTIMIZED: Refresh with cache clearing for pull-to-refresh
   const handleRefresh = useCallback(async () => {
     if (!currentUserPubkey) {
-      console.warn('No pubkey available for sync');
+      console.warn('No pubkey available for optimized refresh');
       return;
     }
 
     setIsRefreshing(true);
     try {
-      await syncService.triggerManualSync(currentUserId, currentUserPubkey);
-      await loadWorkouts();
+      console.log('🔄 Force refresh: clearing cache and fetching fresh data...');
+      
+      // Use the optimized force refresh method
+      const result = await mergeService.forceRefreshWorkouts(currentUserId, currentUserPubkey);
+      
+      setWorkouts(result.allWorkouts);
+      setMergeResult(result);
+      setTabDataLoaded(true);
+      setLastLoadTime(Date.now());
+      
+      console.log(`✅ Force refresh completed: ${result.allWorkouts.length} workouts, duration: ${result.loadDuration}ms`);
       onWorkoutsSynced?.();
     } catch (error) {
-      console.error('Sync failed:', error);
+      console.error('❌ Optimized refresh failed:', error);
       // Silent fail in tab context
     } finally {
       setIsRefreshing(false);
@@ -424,15 +461,15 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
     <View style={styles.container}>
       {/* Fixed header content */}
       <View>
-        {/* Sync Status */}
-        {currentUserPubkey && (
+        {/* Sync Status - Hidden for now */}
+        {/* {currentUserPubkey && (
           <WorkoutSyncStatus
             userId={currentUserId}
             pubkey={currentUserPubkey}
             onManualSync={handleRefresh}
             style={styles.syncStatus}
           />
-        )}
+        )} */}
 
         {/* Apple Health Integration */}
         {healthKitService.getStatus().available && (

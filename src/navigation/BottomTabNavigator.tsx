@@ -7,6 +7,7 @@ import React from 'react';
 import { Text, View, StyleSheet, TouchableOpacity } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../styles/theme';
 
 // Screens
@@ -79,18 +80,21 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
         }}
       >
         {({ navigation }) => (
-          <View style={styles.tabContent}>
+          <SafeAreaView style={styles.tabContent} edges={['top']}>
             {/* Header with plus button for team creation */}
             <View style={styles.teamsHeader}>
               <Text style={styles.headerTitle}>Teams</Text>
               <TouchableOpacity
                 style={styles.createButton}
                 onPress={() => {
+                  console.log('+ button pressed, onNavigateToTeamCreation:', !!onNavigateToTeamCreation);
                   if (onNavigateToTeamCreation) {
                     onNavigateToTeamCreation();
-                  } else if (user?.role === 'captain') {
-                    // Navigate to team creation - this will be handled by parent
-                    console.log('Navigate to team creation');
+                  } else {
+                    // Fallback: Navigate to team creation directly
+                    console.log('No onNavigateToTeamCreation prop, attempting direct navigation');
+                    // For now, show alert to debug
+                    alert('Team creation navigation not connected');
                   }
                 }}
               >
@@ -106,16 +110,18 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
                 // Teams tab doesn't close - it's always visible
                 console.log('Teams tab - no close action needed');
               }}
-              onTeamJoin={(team) =>
-                handlers.handleTeamJoin(team, navigation, refresh)
-              }
+              onTeamJoin={(team) => {
+                // This won't be called since we removed the join button from cards
+                // But keeping it to satisfy TypeScript
+                console.log('Team join from card (should not happen):', team.name);
+              }}
               onTeamSelect={(team) => handlers.handleTeamView(team, navigation)}
               onRefresh={refresh}
               showHeader={false} // Don't show header - we provide our own
               showCloseButton={false} // No close button needed in tabs
               // No onCreateTeam prop - handled by header plus button
             />
-          </View>
+          </SafeAreaView>
         )}
       </Tab.Screen>
 
@@ -204,7 +210,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingTop: 8,
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
