@@ -1,0 +1,12 @@
+[submodule "reference/level-fitness-ios"]
+	path = reference/level-fitness-ios
+	url = https://github.com/RUNSTR-LLC/Level-Fitness-iOS.git
+[submodule "reference/runstr-ios"]
+	path = reference/runstr-ios
+	url = https://github.com/RUNSTR-LLC/RUNSTR-IOS.git
+[submodule "reference/runstr-github"]
+	path = reference/runstr-github
+	url = https://github.com/HealthNoteLabs/Runstr.git
+[submodule "reference/nostr-tools"]
+	path = reference/nostr-tools
+	url = https://github.com/nbd-wtf/nostr-tools.git

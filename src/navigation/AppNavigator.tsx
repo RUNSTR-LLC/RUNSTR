@@ -1,0 +1,450 @@
+/**
+ * AppNavigator - Main navigation container for the RUNSTR app
+ * Handles stack navigation between screens and modal presentations
+ */
+
+import React from 'react';
+import { View, ActivityIndicator, Text } from 'react-native';
+// Navigation container provided by Expo Router - removed NavigationContainer import
+import { createStackNavigator } from '@react-navigation/stack';
+
+import { theme } from '../styles/theme';
+
+// Screens
+import { TeamScreen } from '../screens/TeamScreen';
+import { ProfileScreen } from '../screens/ProfileScreen';
+import { WalletScreen } from '../screens/WalletScreen';
+import { TeamDiscoveryScreen } from '../screens/TeamDiscoveryScreen';
+import { CaptainDashboardScreen } from '../screens/CaptainDashboardScreen';
+import { NostrOnboardingWizard } from '../components/wizards/NostrOnboardingWizard';
+import { TeamCreationWizard } from '../components/wizards/TeamCreationWizard';
+import { EventDetailScreen } from '../screens/EventDetailScreen';
+import { ChallengeDetailScreen } from '../screens/ChallengeDetailScreen';
+
+// Navigation Configuration
+import {
+  screenConfigurations,
+  defaultScreenOptions,
+} from './screenConfigurations';
+import { createNavigationHandlers } from './navigationHandlers';
+
+// Data Hooks
+import { useNavigationData } from '../hooks/useNavigationData';
+
+// Screen params for type safety
+export type RootStackParamList = {
+  Team: undefined;
+  TeamDashboard: { team: any; userIsMember?: boolean }; // Individual team dashboard
+  Profile: undefined;
+  Wallet: undefined;
+  CaptainDashboard: undefined;
+  TeamDiscovery: {
+    isOnboarding?: boolean;
+    currentTeamId?: string;
+  };
+  Onboarding: undefined;
+  TeamCreation: undefined;
+  EventDetail: { eventId: string };
+  ChallengeDetail: { challengeId: string };
+};
+
+const Stack = createStackNavigator<RootStackParamList>();
+
+interface AppNavigatorProps {
+  initialRoute?: keyof RootStackParamList;
+  isFirstTime?: boolean;
+}
+
+export const AppNavigator: React.FC<AppNavigatorProps> = ({
+  initialRoute,
+  isFirstTime = false,
+}) => {
+  // Fetch real data instead of using mock data
+  const {
+    user,
+    teamData,
+    profileData,
+    walletData,
+    captainDashboardData,
+    availableTeams,
+    isLoading,
+    error,
+    refresh,
+  } = useNavigationData();
+
+  // Determine initial route based on user state
+  const getInitialRoute = (): keyof RootStackParamList => {
+    if (initialRoute) {
+      console.log(
+        '🎯 AppNavigator: Using explicit initialRoute:',
+        initialRoute
+      );
+      return initialRoute;
+    }
+
+    // Simplified logic: authenticated users always go to Profile
+    if (isFirstTime) {
+      console.log('🎯 AppNavigator: First time user, going to Onboarding');
+      return 'Onboarding';
+    }
+
+    console.log('🎯 AppNavigator: Authenticated user, going to Profile');
+    return 'Profile'; // Always go to Profile for authenticated users
+  };
+
+  // Create navigation handlers
+  const handlers = createNavigationHandlers();
+
+  // Show loading screen while fetching data
+  if (isLoading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: theme.colors.background,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+      >
+        <ActivityIndicator size="large" color={theme.colors.accent} />
+        <Text
+          style={{
+            color: theme.colors.text,
+            marginTop: 16,
+            fontSize: 16,
+          }}
+        >
+          Loading...
+        </Text>
+      </View>
+    );
+  }
+
+  // Show error screen if data loading failed
+  if (error && !isFirstTime) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: theme.colors.background,
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 20,
+        }}
+      >
+        <Text
+          style={{
+            color: theme.colors.text,
+            fontSize: 16,
+            textAlign: 'center',
+            marginBottom: 16,
+          }}
+        >
+          {error}
+        </Text>
+        <Text
+          onPress={refresh}
+          style={{
+            color: theme.colors.accent,
+            fontSize: 16,
+            textDecorationLine: 'underline',
+          }}
+        >
+          Retry
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <Stack.Navigator
+      initialRouteName={getInitialRoute()}
+      screenOptions={defaultScreenOptions}
+    >
+      {/* Main Team Screen - Always shows Team Discovery */}
+      <Stack.Screen name="Team" options={screenConfigurations.Team}>
+        {({ navigation }) => (
+          <TeamDiscoveryScreen
+            teams={availableTeams}
+            isLoading={isLoading}
+            onClose={() => navigation.navigate('Profile')}
+            onTeamJoin={(team) =>
+              handlers.handleTeamJoin(team, navigation, refresh)
+            }
+            onTeamSelect={(team) => handlers.handleTeamView(team, navigation)}
+            onRefresh={refresh}
+            onCreateTeam={() => {
+              navigation.navigate('TeamCreation');
+            }}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* Individual Team Dashboard */}
+      <Stack.Screen name="TeamDashboard" options={screenConfigurations.Team}>
+        {({ navigation, route }) => {
+          const { team, userIsMember = false } = route.params;
+
+          return (
+            <TeamScreen
+              data={{
+                team: {
+                  id: team.id,
+                  name: team.name,
+                  description: team.description,
+                  captainId: team.captainId,
+                  prizePool: team.prizePool || 0,
+                  memberCount: team.memberCount,
+                  joinReward: team.joinReward || 0,
+                  exitFee: team.exitFee || 0,
+                  avatar: team.avatar || '',
+                  createdAt: team.createdAt,
+                  isActive: team.isActive,
+                },
+                leaderboard: [],
+                events: [],
+                challenges: [],
+              }}
+              onMenuPress={() => handlers.handleMenuPress(navigation)}
+              onCaptainDashboard={() =>
+                handlers.handleCaptainDashboard(navigation)
+              }
+              onAddChallenge={() => handlers.handleAddChallenge(navigation)}
+              onEventPress={(eventId) =>
+                navigation.navigate('EventDetail', { eventId })
+              }
+              onChallengePress={(challengeId) =>
+                navigation.navigate('ChallengeDetail', { challengeId })
+              }
+              onNavigateToProfile={() => navigation.navigate('Profile')}
+              onLeaveTeam={() => handlers.handleLeaveTeam(navigation, refresh)}
+              onTeamDiscovery={() => navigation.navigate('Team')}
+              onJoinTeam={() =>
+                handlers.handleTeamJoin(team, navigation, refresh)
+              }
+              isCaptain={user?.role === 'captain'}
+              showJoinButton={!userIsMember}
+              userIsMember={userIsMember}
+            />
+          );
+        }}
+      </Stack.Screen>
+
+      {/* Profile Screen */}
+      <Stack.Screen name="Profile" options={screenConfigurations.Profile}>
+        {({ navigation }) =>
+          profileData ? (
+            <ProfileScreen
+              data={profileData}
+              onNavigateToTeam={() => navigation.navigate('Team')}
+              onNavigateToTeamDiscovery={() =>
+                navigation.navigate('TeamDiscovery')
+              }
+              onViewCurrentTeam={() => navigation.navigate('Team')}
+              onCaptainDashboard={() =>
+                handlers.handleCaptainDashboard(navigation)
+              }
+              onTeamCreation={() => handlers.handleTeamCreation(navigation)}
+              onEditProfile={handlers.handleEditProfile}
+              onSyncSourcePress={handlers.handleSyncSourcePress}
+              onManageSubscription={handlers.handleManageSubscription}
+              onHelp={handlers.handleHelp}
+              onContactSupport={handlers.handleContactSupport}
+              onPrivacyPolicy={handlers.handlePrivacyPolicy}
+              onSignOut={() => handlers.handleSignOut(navigation)}
+            />
+          ) : (
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: theme.colors.background,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ color: theme.colors.text }}>
+                Loading Profile...
+              </Text>
+            </View>
+          )
+        }
+      </Stack.Screen>
+
+      {/* Wallet Screen */}
+      <Stack.Screen name="Wallet" options={screenConfigurations.Wallet}>
+        {({ navigation }) =>
+          walletData ? (
+            <WalletScreen
+              data={walletData}
+              onBack={() => navigation.goBack()}
+              onSettings={handlers.handleSettings}
+              onViewAllActivity={handlers.handleViewAllActivity}
+              onSendComplete={(amount, destination) =>
+                console.log('Send:', amount, 'to', destination)
+              }
+              onReceiveComplete={(invoice) =>
+                console.log('Received invoice:', invoice)
+              }
+              onAutoWithdrawChange={(enabled, threshold) =>
+                console.log('Auto-withdraw:', enabled, threshold)
+              }
+              onWithdraw={() => console.log('Withdraw')}
+              onRetryConnection={() => console.log('Retry connection')}
+            />
+          ) : (
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: theme.colors.background,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ color: theme.colors.text }}>
+                Loading Wallet...
+              </Text>
+            </View>
+          )
+        }
+      </Stack.Screen>
+
+      {/* Captain Dashboard Screen */}
+      <Stack.Screen
+        name="CaptainDashboard"
+        options={screenConfigurations.CaptainDashboard}
+      >
+        {({ navigation }) =>
+          user?.role === 'captain' && captainDashboardData ? (
+            <CaptainDashboardScreen
+              data={captainDashboardData}
+              captainId={user.id}
+              onNavigateToTeam={() => navigation.navigate('Team')}
+              onNavigateToProfile={() => navigation.navigate('Profile')}
+              onSettingsPress={handlers.handleSettings}
+              onInviteMember={handlers.handleInviteMember}
+              onEditMember={handlers.handleEditMember}
+              onKickMember={handlers.handleKickMember}
+              onDistributeRewards={handlers.handleDistributeRewards}
+              onViewWalletHistory={handlers.handleViewWalletHistory}
+              onViewAllActivity={handlers.handleViewAllActivity}
+            />
+          ) : (
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: theme.colors.background,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ color: theme.colors.text }}>
+                {user?.role !== 'captain'
+                  ? 'Not authorized'
+                  : 'Loading Dashboard...'}
+              </Text>
+            </View>
+          )
+        }
+      </Stack.Screen>
+
+      {/* Team Discovery Modal */}
+      <Stack.Screen
+        name="TeamDiscovery"
+        options={screenConfigurations.TeamDiscovery}
+      >
+        {({ navigation, route }) => (
+          <TeamDiscoveryScreen
+            teams={availableTeams}
+            isLoading={isLoading}
+            onClose={() => {
+              handlers.handleTeamDiscoveryClose();
+              navigation.goBack();
+            }}
+            onTeamJoin={(team) =>
+              handlers.handleTeamJoin(team, navigation, refresh)
+            }
+            onTeamSelect={(team) => handlers.handleTeamView(team, navigation)}
+            onRefresh={refresh}
+            onCreateTeam={
+              user?.role === 'captain'
+                ? () => {
+                    navigation.goBack(); // Close team discovery
+                    navigation.navigate('TeamCreation'); // Navigate to team creation
+                  }
+                : undefined
+            }
+          />
+        )}
+      </Stack.Screen>
+
+      {/* Nostr Onboarding Wizard */}
+      <Stack.Screen name="Onboarding" options={screenConfigurations.Onboarding}>
+        {({ navigation }) => (
+          <NostrOnboardingWizard
+            onComplete={(data) =>
+              handlers.handleOnboardingComplete(data, navigation)
+            }
+            onSkip={() => handlers.handleOnboardingSkip(navigation)}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* Team Creation Wizard */}
+      <Stack.Screen
+        name="TeamCreation"
+        options={screenConfigurations.TeamCreation}
+      >
+        {({ navigation }) => {
+          // Only render TeamCreationWizard if user is authenticated
+          if (!user) {
+            return (
+              <View
+                style={{
+                  flex: 1,
+                  backgroundColor: theme.colors.background,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: theme.colors.text }}>
+                  Please sign in first
+                </Text>
+              </View>
+            );
+          }
+
+          return (
+            <TeamCreationWizard
+              currentUser={user}
+              onComplete={(teamData, teamId) =>
+                handlers.handleTeamCreationComplete(
+                  teamData,
+                  navigation,
+                  teamId
+                )
+              }
+              onNavigateToTeam={(teamId) =>
+                handlers.handleNavigateToTeam(teamId, navigation)
+              }
+              onCancel={() => navigation.goBack()}
+            />
+          );
+        }}
+      </Stack.Screen>
+
+      {/* Event Detail Screen */}
+      <Stack.Screen
+        name="EventDetail"
+        options={screenConfigurations.EventDetail}
+        component={EventDetailScreen}
+      />
+
+      {/* Challenge Detail Screen */}
+      <Stack.Screen
+        name="ChallengeDetail"
+        options={screenConfigurations.ChallengeDetail}
+        component={ChallengeDetailScreen}
+      />
+    </Stack.Navigator>
+  );
+};

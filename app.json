@@ -9,7 +9,25 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "entitlements": {
+        "com.apple.developer.applesignin": [
+          "Default",
+          "Default"
+        ],
+        "com.apple.developer.healthkit": true,
+        "com.apple.developer.healthkit.access": [
+          "health-records",
+          "health-records"
+        ]
+      },
+      "infoPlist": {
+        "NSUserTrackingUsageDescription": "This identifier will be used to deliver personalized ads to you.",
+        "CFBundleDisplayName": "RUNSTR",
+        "NSHealthShareUsageDescription": "RUNSTR needs access to your workout data to automatically sync your fitness activities and calculate team rankings for Bitcoin rewards.",
+        "NSHealthUpdateUsageDescription": "RUNSTR needs to read your workout data to track your fitness progress and team contributions."
+      },
+      "bundleIdentifier": "com.anonymous.runstr.project"
     },
     "android": {
       "adaptiveIcon": {
@@ -20,11 +38,11 @@
     },
     "web": {
       "bundler": "metro",
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "expo-router",
+      "expo-apple-authentication",
       [
         "expo-splash-screen",
         {
@@ -33,10 +51,16 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#ffffff",
+          "defaultChannel": "default"
+        }
       ]
     ],
-    "experiments": {
-      "typedRoutes": true
-    }
+    "main": "index.js"
   }
 }

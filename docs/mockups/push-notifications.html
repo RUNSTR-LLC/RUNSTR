@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RUNSTR - Push Notifications</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #000;
+            color: #fff;
+            overflow-x: hidden;
+            padding: 20px;
+        }
+
+        .notification-container {
+            width: 375px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .notification-category {
+            margin-bottom: 32px;
+        }
+
+        .category-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: #fff;
+            text-align: center;
+            letter-spacing: -0.5px;
+        }
+
+        /* RUNSTR Notification Style */
+        .notification-card {
+            background: #0a0a0a;
+            border: 1px solid #1a1a1a;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+
+        .notification-header {
+            background: #000;
+            padding: 8px 16px;
+            border-bottom: 1px solid #1a1a1a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .app-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .app-icon {
+            width: 20px;
+            height: 20px;
+            background: #fff;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 700;
+            color: #000;
+        }
+
+        .app-name {
+            font-size: 12px;
+            font-weight: 600;
+            color: #ccc;
+        }
+
+        .notification-time {
+            font-size: 11px;
+            color: #666;
+        }
+
+        .notification-content {
+            padding: 16px;
+        }
+
+        .notification-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 4px;
+            line-height: 1.2;
+        }
+
+        .notification-body {
+            font-size: 14px;
+            color: #999;
+            line-height: 1.3;
+            margin-bottom: 12px;
+        }
+
+        /* Urgent notifications */
+        .notification-urgent {
+            border-color: #1a1a1a;
+            animation: urgentGlow 2s infinite;
+        }
+
+        @keyframes urgentGlow {
+            0%, 100% { box-shadow: 0 0 0 rgba(255, 255, 255, 0); }
+            50% { box-shadow: 0 0 8px rgba(255, 255, 255, 0.15); }
+        }
+
+        .urgent-banner {
+            background: #fff;
+            color: #000;
+            padding: 8px 16px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            text-align: center;
+        }
+
+        /* Rich content sections */
+        .rich-content {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #1a1a1a;
+        }
+
+        .leaderboard-mini {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .leaderboard-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: #ccc;
+        }
+
+        .leaderboard-position {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .position-number {
+            width: 18px;
+            height: 18px;
+            background: #333;
+            border-radius: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .position-number.highlight {
+            background: #fff;
+            color: #000;
+        }
+
+        .position-change {
+            font-size: 10px;
+            color: #fff;
+        }
+
+        .earnings-section {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            margin-top: 12px;
+        }
+
+        .earnings-amount {
+            font-size: 20px;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 2px;
+        }
+
+        .earnings-label {
+            font-size: 11px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Action buttons */
+        .notification-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .action-btn {
+            flex: 1;
+            background: transparent;
+            color: #fff;
+            border: 1px solid #333;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .action-btn:hover {
+            background: #1a1a1a;
+        }
+
+        .action-btn.primary {
+            background: #fff;
+            color: #000;
+            border-color: #fff;
+        }
+
+        .action-btn.primary:hover {
+            background: #e5e5e5;
+        }
+
+        /* Notification types */
+        .notification-earnings .app-icon {
+            background: #fff;
+        }
+
+        .notification-competition .app-icon {
+            background: #fff;
+        }
+
+        .notification-team .app-icon {
+            background: #fff;
+        }
+
+        .notification-reminder .app-icon {
+            background: #333;
+            color: #fff;
+        }
+
+        /* Grouped notifications */
+        .grouped-notification {
+            background: #0a0a0a;
+            border: 1px solid #1a1a1a;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .group-header {
+            background: #000;
+            padding: 12px 16px;
+            border-bottom: 1px solid #1a1a1a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .group-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .group-count {
+            font-size: 11px;
+            color: #666;
+            background: #1a1a1a;
+            padding: 3px 8px;
+            border-radius: 6px;
+        }
+
+        .group-notifications {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .group-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid #1a1a1a;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .group-item:last-child {
+            border-bottom: none;
+        }
+
+        .group-icon {
+            width: 24px;
+            height: 24px;
+            background: #333;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: #fff;
+            flex-shrink: 0;
+        }
+
+        .group-text {
+            flex: 1;
+            font-size: 13px;
+            color: #ccc;
+        }
+
+        .group-time {
+            font-size: 11px;
+            color: #666;
+        }
+
+        /* Special indicators */
+        .notification-new::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: #fff;
+            border-radius: 0 2px 2px 0;
+        }
+
+        .notification-new {
+            position: relative;
+        }
+
+        /* Live indicator */
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-bottom: 8px;
+        }
+
+        .live-dot {
+            width: 6px;
+            height: 6px;
+            background: #fff;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .live-text {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #ccc;
+        }
+    </style>
+</head>
+<body>
+    <div class="notification-container">
+        <!-- Live Competition Updates -->
+        <div class="notification-category">
+            <div class="category-title">Live Competition Updates</div>
+            
+            <!-- Critical Position Loss -->
+            <div class="notification-card notification-competition">
+                <div class="notification-header">
+                    <div class="app-info">
+                        <div class="app-icon">R</div>
+                        <div class="app-name">RUNSTR</div>
+                    </div>
+                    <div class="notification-time">now</div>
+                </div>
+                <div class="notification-content">
+                    <div class="live-indicator">
+                        <div class="live-dot"></div>
+                        <div class="live-text">Live</div>
+                    </div>
+                    <div class="notification-title">Sarah is 0.2km behind you</div>
+                    <div class="notification-body">She's gaining fast in Weekly 5K - defend your position!</div>
+                    
+                    <div class="rich-content">
+                        <div class="leaderboard-mini">
+                            <div class="leaderboard-row">
+                                <div class="leaderboard-position">
+                                    <div class="position-number">1</div>
+                                    <span>Alex</span>
+                                </div>
+                                <span>21:45</span>
+                            </div>
+                            <div class="leaderboard-row">
+                                <div class="leaderboard-position">
+                                    <div class="position-number highlight">2</div>
+                                    <span>You</span>
+                                </div>
+                                <span>24:18</span>
+                            </div>
+                            <div class="leaderboard-row">
+                                <div class="leaderboard-position">
+                                    <div class="position-number">3</div>
+                                    <span>Sarah</span>
+                                    <div class="position-change">↗ gaining</div>
+                                </div>
+                                <span>24:30</span>
+                            </div>
+                        </div>
+                        <div class="notification-actions">
+                            <button class="action-btn">View Race</button>
+                            <button class="action-btn primary">Start Run</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Position Gained -->
+            <div class="notification-card notification-competition">
+                <div class="notification-header">
+                    <div class="app-info">
+                        <div class="app-icon">R</div>
+                        <div class="app-name">RUNSTR</div>
+                    </div>
+                    <div class="notification-time">5m ago</div>
+                </div>
+                <div class="notification-content">
+                    <div class="notification-title">You moved up to 3rd place!</div>
+                    <div class="notification-body">Great job! You passed Mike in Bitcoin Runners Weekly 5K</div>
+                </div>
+            </div>
+
+            <!-- Competition Ending Soon -->
+            <div class="notification-card">
+                <div class="notification-header">
+                    <div class="app-info">
+                        <div class="app-icon">R</div>
+                        <div class="app-name">RUNSTR</div>
+                    </div>
+                    <div class="notification-time">2h ago</div>
+                </div>
+                <div class="notification-content">
+                    <div class="notification-title">4 hours left in Weekly 5K</div>
+                    <div class="notification-body">You're in 3rd place. 15,000 sats prize pool closes tonight</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bitcoin Rewards -->
+        <div class="notification-category">
+            <div class="category-title">Bitcoin Rewards</div>
+            
+            <!-- Competition Win - Rich -->
+            <div class="notification-card notification-earnings">
+                <div class="notification-header">
+                    <div class="app-info">
+                        <div class="app-icon">R</div>
+                        <div class="app-name">RUNSTR</div>
+                    </div>
+                    <div class="notification-time">1h ago</div>
+                </div>
+                <div class="notification-content">
+                    <div class="notification-title">You earned 1,500 sats!</div>
+                    <div class="notification-body">3rd place in Bitcoin Runners Weekly 5K</div>
+                    
+                    <div class="earnings-section">
+                        <div class="earnings-amount">1,500 sats</div>
+                        <div class="earnings-label">Added to your wallet</div>
+                    </div>
+                    
+                    <div class="notification-actions">
+                        <button class="action-btn">View Wallet</button>
+                        <button class="action-btn primary">Join Next Event</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Challenge Won -->
+            <div class="notification-card notification-earnings">
+                <div class="notification-header">
+                    <div class="app-info">
+                        <div class="app-icon">R</div>
+                        <div class="app-name">RUNSTR</div>
+                    </div>
+                    <div class="notification-time">1d ago</div>
+                </div>
+                <div class="notification-content">
+                    <div class="notification-title">Challenge won! +2,500 sats</div>
+                    <div class="notification-body">You beat Sarah in distance challenge. Great work!</div>
+                </div>
+            </div>
+
+            <!-- Weekly Earnings Summary -->
+            <div class="notification-card notification-earnings">
+                <div class="notification-header">
+                    <div class="app-info">
+                        <div class="app-icon">R</div>
+                        <div class="app-name">RUNSTR</div>
+                    </div>
+                    <div class="notification-time">Mon 9AM</div>
+                </div>
+                <div class="notification-content">
+                    <div class="notification-title">Weekly earnings: 8,750 sats</div>
+                    <div class="notification-body">+2,100 vs last week. You're on fire! Keep it up</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Team Activity -->
+        <div class="notification-category">
+            <div class="category-title">Team Activity</div>
+            
+            <!-- New Event Created -->
+            <div class="notification-card notification-team">
+                <div class="notification-header">
+                    <div class="app-info">
+                        <div class="app-icon">R</div>
+                        <div class="app-name">RUNSTR</div>
+                    </div>
+                    <div class="notification-time">3h ago</div>
+                </div>
+                <div class="notification-content">
+                    <div class="notification-title">New event: Marathon Prep</div>
+                    <div class="notification-body">Bitcoin Runners team • Training session on Dec 20</div>
+                </div>
+            </div>
+
+            <!-- Challenge Invitation -->
+            <div class="notification-card notification-competition">
+                <div class="notification-header">
+                    <div class="app-info">
+                        <div class="app-icon">R</div>
+                        <div class="app-name">RUNSTR</div>
+                    </div>
+                    <div class="notification-time">6h ago</div>
+                </div>
+                <div class="notification-content">
+                    <div class="notification-title">Alex challenged you!</div>
+                    <div class="notification-body">10K distance challenge • 3,000 sats prize • Ends Dec 30</div>
+                    
+                    <div class="notification-actions">
+                        <button class="action-btn">Decline</button>
+                        <button class="action-btn primary">Accept</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Team Member Joined -->
+            <div class="notification-card notification-team">
+                <div class="notification-header">
+                    <div class="app-info">
+                        <div class="app-icon">R</div>
+                        <div class="app-name">RUNSTR</div>
+                    </div>
+                    <div class="notification-time">1d ago</div>
+                </div>
+                <div class="notification-content">
+                    <div class="notification-title">Jordan joined your team</div>
+                    <div class="notification-body">Bitcoin Runners now has 25 members</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity Reminders -->
+        <div class="notification-category">
+            <div class="category-title">Activity Reminders</div>
+            
+            <!-- Workout Reminder -->
+            <div class="notification-card notification-reminder">
+                <div class="notification-header">
+                    <div class="app-info">
+                        <div class="app-icon">R</div>
+                        <div class="app-name">RUNSTR</div>
+                    </div>
+                    <div class="notification-time">7AM</div>
+                </div>
+                <div class="notification-content">
+                    <div class="notification-title">Time for your morning run</div>
+                    <div class="notification-body">You have 3 active competitions. Let's earn some sats!</div>
+                </div>
+            </div>
+
+            <!-- Streak Reminder -->
+            <div class="notification-card notification-reminder">
+                <div class="notification-header">
+                    <div class="app-info">
+                        <div class="app-icon">R</div>
+                        <div class="app-name">RUNSTR</div>
+                    </div>
+                    <div class="notification-time">6PM</div>
+                </div>
+                <div class="notification-content">
+                    <div class="notification-title">Keep your streak alive!</div>
+                    <div class="notification-body">5 days in a row. Don't break it now - quick run?</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grouped Notifications -->
+        <div class="notification-category">
+            <div class="category-title">Grouped Updates</div>
+            
+            <div class="grouped-notification">
+                <div class="group-header">
+                    <div class="group-title">RUNSTR</div>
+                    <div class="group-count">5 notifications</div>
+                </div>
+                <div class="group-notifications">
+                    <div class="group-item">
+                        <div class="group-icon">+</div>
+                        <div class="group-text">Earned 1,500 sats from Weekly 5K</div>
+                        <div class="group-time">1h</div>
+                    </div>
+                    <div class="group-item">
+                        <div class="group-icon">⚡</div>
+                        <div class="group-text">Mike challenged you to Sprint Race</div>
+                        <div class="group-time">2h</div>
+                    </div>
+                    <div class="group-item">
+                        <div class="group-icon">↑</div>
+                        <div class="group-text">You moved up to 3rd place</div>
+                        <div class="group-time">4h</div>
+                    </div>
+                    <div class="group-item">
+                        <div class="group-icon">E</div>
+                        <div class="group-text">New team event: Hill Run</div>
+                        <div class="group-time">6h</div>
+                    </div>
+                    <div class="group-item">
+                        <div class="group-icon">+</div>
+                        <div class="group-text">Lisa joined Bitcoin Runners</div>
+                        <div class="group-time">8h</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,184 @@
+
+> runstr.project@1.0.0 lint
+> expo lint
+
+env: load .env
+env: export EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY
+
+/Users/dakotabrown/runstr.project/src/components/event/EventParticipants.tsx
+  7:34  warning  'ScrollView' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/components/notifications/NotificationCard.tsx
+  10:3  warning  'TouchableOpacity' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/components/profile/NotificationsTab.tsx
+  12:3  warning  'Animated' is defined but never used    @typescript-eslint/no-unused-vars
+  13:3  warning  'ScrollView' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/components/team/ChallengesCard.tsx
+  11:10  warning  'Button' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/components/team/TeamActivityFeed.tsx
+  8:10  warning  'theme' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/components/team/TeamDiscoveryManager.tsx
+  80:10  warning  'isSubscribed' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  80:24  warning  'setIsSubscribed' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/components/team/TeamJoinModal.tsx
+   16:3   warning  'Pressable' is defined but never used                    @typescript-eslint/no-unused-vars
+   42:10  warning  'userPreferences' is assigned a value but never used     @typescript-eslint/no-unused-vars
+   42:27  warning  'setUserPreferences' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   78:14  warning  'error' is defined but never used                        @typescript-eslint/no-unused-vars
+   99:14  warning  'error' is defined but never used                        @typescript-eslint/no-unused-vars
+  104:9   warning  'formatTimeAgo' is assigned a value but never used       @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/components/team/TeamMembersSection.tsx
+  6:17  warning  'useState' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/components/wallet/ReceiveBitcoinForm.tsx
+  71:9  warning  'handleSubmit' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/components/wizards/ChallengeCreationWizard.tsx
+    6:27  warning  'useEffect' is defined but never used                                                                                       @typescript-eslint/no-unused-vars
+   22:3   warning  'TeammateInfo' is defined but never used                                                                                    @typescript-eslint/no-unused-vars
+   23:3   warning  'ChallengeType' is defined but never used                                                                                   @typescript-eslint/no-unused-vars
+   24:3   warning  'User' is defined but never used                                                                                            @typescript-eslint/no-unused-vars
+   80:5   warning  'error' is assigned a value but never used                                                                                  @typescript-eslint/no-unused-vars
+   82:5   warning  'formatWagerDisplay' is assigned a value but never used                                                                     @typescript-eslint/no-unused-vars
+   84:5   warning  'refreshTeammates' is assigned a value but never used                                                                       @typescript-eslint/no-unused-vars
+  138:6   warning  React Hook useCallback has a missing dependency: 'handleCreateChallenge'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/dakotabrown/runstr.project/src/components/wizards/TeamCreationWizard.tsx
+    6:27  warning  'useEffect' is defined but never used               @typescript-eslint/no-unused-vars
+   38:10  warning  'teamCode' is assigned a value but never used       @typescript-eslint/no-unused-vars
+  135:9   warning  'getStepNumber' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/components/wizards/steps/ChallengeTypeStep.tsx
+  119:7  warning  'ChallengeCategory' is already defined  @typescript-eslint/no-redeclare
+
+/Users/dakotabrown/runstr.project/src/components/wizards/steps/ChooseOpponentStep.tsx
+  15:24  warning  'ChallengeCreationData' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/components/wizards/steps/ReviewConfirmStep.tsx
+  12:3  warning  'ChallengeType' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/components/wizards/steps/ReviewLaunchStep.tsx
+  6:27  warning  'useEffect' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/components/wizards/steps/WalletSetupStep.tsx
+    6:27  warning  'useEffect' is defined but never used           @typescript-eslint/no-unused-vars
+  114:9   warning  'maskEmail' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/hooks/useNavigationData.ts
+  237:6  warning  React Hook useEffect has a missing dependency: 'refresh'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/dakotabrown/runstr.project/src/navigation/AppNavigator.tsx
+  12:10  warning  'DiscoveryTeam' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/navigation/screenConfigurations.ts
+  6:35  warning  'CardStyleInterpolators' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/screens/ChallengeDetailScreen.tsx
+    9:3   warning  'Text' is defined but never used                                                                                                                                                                                                                                                             @typescript-eslint/no-unused-vars
+   12:3   warning  'TouchableOpacity' is defined but never used                                                                                                                                                                                                                                                 @typescript-eslint/no-unused-vars
+   79:6   warning  React Hook useEffect has a missing dependency: 'challengeData.timer.timeRemaining'. Either include it or remove the dependency array. You can also replace multiple useState variables with useReducer if 'setTimeRemaining' needs the current value of 'challengeData.timer.timeRemaining'  react-hooks/exhaustive-deps
+  157:22  warning  'error' is defined but never used                                                                                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/screens/EventDetailScreen.tsx
+  300:7  warning  'LoadingState' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  312:7  warning  'ErrorState' is assigned a value but never used    @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/screens/TeamDiscoveryScreen.tsx
+  242:24  warning  The ref value 'discoverySession.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'discoverySession.current' to a variable inside the effect, and use that variable in the cleanup function  react-hooks/exhaustive-deps
+
+/Users/dakotabrown/runstr.project/src/screens/WalletScreen.tsx
+  6:27  warning  'useEffect' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/services/auth/authService.ts
+   9:3  warning  'generateNostrKeyPair' is defined but never used  @typescript-eslint/no-unused-vars
+  10:3  warning  'validateNsec' is defined but never used          @typescript-eslint/no-unused-vars
+  11:3  warning  'nsecToNpub' is defined but never used            @typescript-eslint/no-unused-vars
+  12:3  warning  'storeNsecLocally' is defined but never used      @typescript-eslint/no-unused-vars
+  13:3  warning  'getNsecFromStorage' is defined but never used    @typescript-eslint/no-unused-vars
+  16:3  warning  'generateDisplayName' is defined but never used   @typescript-eslint/no-unused-vars
+  17:3  warning  'normalizeNsecInput' is defined but never used    @typescript-eslint/no-unused-vars
+  26:3  warning  'AuthProvider' is defined but never used          @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/services/auth/providers/appleAuthProvider.ts
+  14:11  warning  'AppleAuthData' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/services/auth/providers/googleAuthProvider.ts
+   12:15  warning  'AuthResult' is defined but never used          @typescript-eslint/no-unused-vars
+   12:43  warning  'User' is defined but never used                @typescript-eslint/no-unused-vars
+  269:13  warning  'seedBytes' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/services/auth/providers/nostrAuthProvider.ts
+  8:3  warning  'generateNostrKeyPair' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/services/challengeService.ts
+  11:3   warning  'User' is defined but never used                    @typescript-eslint/no-unused-vars
+  14:11  warning  'CreateChallengeRequest' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/services/coinosService.ts
+   11:7   warning  'RUNSTR_LIGHTNING_ADDRESS' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   60:11  warning  'CoinOSRegisterRequest' is defined but never used              @typescript-eslint/no-unused-vars
+   79:11  warning  'CoinOSInvoiceRequest' is defined but never used               @typescript-eslint/no-unused-vars
+   95:11  warning  'CoinOSPaymentRequest' is defined but never used               @typescript-eslint/no-unused-vars
+  492:14  warning  'error' is defined but never used                              @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/services/fitness/backgroundSyncService.ts
+  7:20  warning  'Platform' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/services/fitness/fitnessService.ts
+  16:3  warning  'TeamStats' is defined but never used          @typescript-eslint/no-unused-vars
+  20:3  warning  'BatchDistribution' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/services/fitness/healthKitService.ts
+  135:27  warning  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  216:27  warning  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/dakotabrown/runstr.project/src/services/fitness/rewardDistributionService.ts
+  9:15  warning  'User' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/services/fitness/teamLeaderboardService.ts
+  314:13  warning  'totalWorkouts' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  315:13  warning  'totalDistance' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  316:13  warning  'totalScore' is assigned a value but never used     @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/services/notifications/NotificationScheduler.ts
+  8:3  warning  'NotificationType' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/services/notifications/NotificationService.ts
+  10:3  warning  'NotificationAction' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/services/user/profileService.ts
+   8:3  warning  'TeamMatchingAlgorithm' is defined but never used  @typescript-eslint/no-unused-vars
+  14:3  warning  'Workout' is defined but never used                @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/services/user/simpleTeamJoining.ts
+    8:30  warning  'User' is defined but never used                @typescript-eslint/no-unused-vars
+  151:34  warning  'teamError' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/services/user/teamMembershipService.ts
+  13:3  warning  'User' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/store/teamStore.ts
+  8:8  warning  Using exported name 'TeamService' as identifier for default import  import/no-named-as-default
+
+/Users/dakotabrown/runstr.project/src/store/userStore.ts
+  14:3  warning  'User' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/utils/nostr.ts
+  327:12  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  340:12  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/utils/teamMatching.ts
+  6:47  warning  'User' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/dakotabrown/runstr.project/src/utils/testAuthFlow.ts
+  166:11  warning  'testNsec' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  246:18  warning  'error' is defined but never used              @typescript-eslint/no-unused-vars
+
+✖ 87 problems (0 errors, 87 warnings)
+

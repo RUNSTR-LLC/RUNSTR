@@ -1,0 +1,817 @@
+/**
+ * LeagueCreationWizard - Multi-day league creation with date range picker
+ * Activity Type → Competition Type → Date Range Selection → Additional Settings
+ */
+
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  TextInput,
+  Switch,
+} from 'react-native';
+import { theme } from '../../styles/theme';
+import { WizardStepContainer, WizardStep } from './WizardStepContainer';
+
+// Same activity types as events but with league-specific competition options
+const LEAGUE_COMPETITION_MAP = {
+  Running: [
+    'Total Distance',
+    'Average Pace',
+    'Longest Run',
+    'Most Consistent',
+    'Weekly Streaks',
+  ],
+  Walking: [
+    'Total Steps',
+    'Total Distance',
+    'Daily Average',
+    'Most Consistent',
+    'Weekly Streaks',
+  ],
+  Cycling: [
+    'Total Distance',
+    'Longest Ride',
+    'Total Elevation',
+    'Average Speed',
+    'Weekly Streaks',
+  ],
+  'Strength Training': [
+    'Total Workouts',
+    'Total Duration',
+    'Personal Records',
+    'Most Consistent',
+    'Weekly Streaks',
+  ],
+  Meditation: [
+    'Total Duration',
+    'Session Count',
+    'Daily Average',
+    'Longest Session',
+    'Weekly Streaks',
+  ],
+  Yoga: [
+    'Total Duration',
+    'Session Count',
+    'Pose Diversity',
+    'Most Consistent',
+    'Weekly Streaks',
+  ],
+  Diet: [
+    'Nutrition Score',
+    'Calorie Consistency',
+    'Macro Balance',
+    'Meal Logging',
+    'Weekly Streaks',
+  ],
+} as const;
+
+type ActivityType = keyof typeof LEAGUE_COMPETITION_MAP;
+type CompetitionType = (typeof LEAGUE_COMPETITION_MAP)[ActivityType][number];
+
+interface LeagueData {
+  activityType: ActivityType | null;
+  competitionType: CompetitionType | null;
+  startDate: Date | null;
+  endDate: Date | null;
+  duration: number; // in days
+  entryFeesSats: number;
+  maxParticipants: number;
+  requireApproval: boolean;
+  leagueName: string;
+  description: string;
+  scoringFrequency: 'daily' | 'weekly' | 'total';
+  allowLateJoining: boolean;
+}
+
+interface LeagueCreationWizardProps {
+  visible: boolean;
+  teamId: string;
+  captainPubkey: string;
+  onClose: () => void;
+  onLeagueCreated: (leagueData: LeagueData) => void;
+}
+
+export const LeagueCreationWizard: React.FC<LeagueCreationWizardProps> = ({
+  visible,
+  teamId,
+  captainPubkey,
+  onClose,
+  onLeagueCreated,
+}) => {
+  const [currentStep, setCurrentStep] = useState(0);
+  const [leagueData, setLeagueData] = useState<LeagueData>({
+    activityType: null,
+    competitionType: null,
+    startDate: null,
+    endDate: null,
+    duration: 7,
+    entryFeesSats: 0,
+    maxParticipants: 50,
+    requireApproval: true,
+    leagueName: '',
+    description: '',
+    scoringFrequency: 'total',
+    allowLateJoining: false,
+  });
+
+  // Reset wizard when opened
+  useEffect(() => {
+    if (visible) {
+      setCurrentStep(0);
+      setLeagueData({
+        activityType: null,
+        competitionType: null,
+        startDate: null,
+        endDate: null,
+        duration: 7,
+        entryFeesSats: 0,
+        maxParticipants: 50,
+        requireApproval: true,
+        leagueName: '',
+        description: '',
+        scoringFrequency: 'total',
+        allowLateJoining: false,
+      });
+    }
+  }, [visible]);
+
+  // Update end date when start date or duration changes
+  useEffect(() => {
+    if (leagueData.startDate && leagueData.duration) {
+      const endDate = new Date(leagueData.startDate);
+      endDate.setDate(endDate.getDate() + leagueData.duration - 1);
+      setLeagueData((prev) => ({ ...prev, endDate }));
+    }
+  }, [leagueData.startDate, leagueData.duration]);
+
+  // Wizard steps configuration
+  const steps: WizardStep[] = [
+    {
+      id: 'activity',
+      title: 'Choose Activity Type',
+      isValid: !!leagueData.activityType,
+    },
+    {
+      id: 'competition',
+      title: 'Select Competition Type',
+      isValid: !!leagueData.competitionType,
+    },
+    {
+      id: 'duration',
+      title: 'Set Duration & Dates',
+      isValid: !!leagueData.startDate && !!leagueData.endDate,
+    },
+    {
+      id: 'settings',
+      title: 'Additional Settings',
+      isValid: leagueData.leagueName.length > 0,
+    },
+  ];
+
+  const handleNext = () => {
+    if (currentStep < steps.length - 1) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const handleComplete = () => {
+    onLeagueCreated(leagueData);
+  };
+
+  const selectActivityType = (activity: ActivityType) => {
+    setLeagueData((prev) => ({
+      ...prev,
+      activityType: activity,
+      competitionType: null, // Reset competition type when activity changes
+    }));
+  };
+
+  const selectCompetitionType = (competition: CompetitionType) => {
+    setLeagueData((prev) => ({ ...prev, competitionType: competition }));
+  };
+
+  const selectDuration = (days: number) => {
+    setLeagueData((prev) => ({ ...prev, duration: days }));
+  };
+
+  const setStartDate = (date: Date) => {
+    setLeagueData((prev) => ({ ...prev, startDate: date }));
+  };
+
+  const updateSettings = (field: keyof LeagueData, value: any) => {
+    setLeagueData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  // Generate duration options
+  const getDurationOptions = () => [
+    { label: '1 Week', days: 7, description: 'Short sprint challenge' },
+    { label: '2 Weeks', days: 14, description: 'Build momentum' },
+    { label: '1 Month', days: 30, description: 'Sustained effort' },
+    { label: '6 Weeks', days: 42, description: 'Habit formation' },
+    { label: '3 Months', days: 90, description: 'Long-term commitment' },
+  ];
+
+  // Generate quick start date options
+  const getStartDateOptions = () => {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    const nextMonday = new Date(today);
+    const daysUntilMonday = (8 - today.getDay()) % 7;
+    nextMonday.setDate(today.getDate() + daysUntilMonday);
+
+    const firstOfNextMonth = new Date(
+      today.getFullYear(),
+      today.getMonth() + 1,
+      1
+    );
+
+    return [
+      { label: 'Tomorrow', date: tomorrow },
+      { label: 'Next Monday', date: nextMonday },
+      { label: 'First of Next Month', date: firstOfNextMonth },
+    ];
+  };
+
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 0: // Activity Type Selection
+        return (
+          <ScrollView
+            style={styles.stepContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <Text style={styles.stepDescription}>
+              Choose the primary activity type for this league
+            </Text>
+            <View style={styles.optionsGrid}>
+              {Object.keys(LEAGUE_COMPETITION_MAP).map((activity) => (
+                <TouchableOpacity
+                  key={activity}
+                  style={[
+                    styles.optionCard,
+                    leagueData.activityType === activity &&
+                      styles.optionCardSelected,
+                  ]}
+                  onPress={() => selectActivityType(activity as ActivityType)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.optionCardText,
+                      leagueData.activityType === activity &&
+                        styles.optionCardTextSelected,
+                    ]}
+                  >
+                    {activity}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+        );
+
+      case 1: // Competition Type Selection
+        if (!leagueData.activityType) return null;
+        const competitionOptions =
+          LEAGUE_COMPETITION_MAP[leagueData.activityType];
+
+        return (
+          <ScrollView
+            style={styles.stepContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <Text style={styles.stepDescription}>
+              Select the scoring format for {leagueData.activityType} league
+            </Text>
+            <View style={styles.optionsList}>
+              {competitionOptions.map((competition) => (
+                <TouchableOpacity
+                  key={competition}
+                  style={[
+                    styles.competitionOption,
+                    leagueData.competitionType === competition &&
+                      styles.competitionOptionSelected,
+                  ]}
+                  onPress={() => selectCompetitionType(competition)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.competitionOptionText,
+                      leagueData.competitionType === competition &&
+                        styles.competitionOptionTextSelected,
+                    ]}
+                  >
+                    {competition}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+        );
+
+      case 2: // Duration & Date Selection
+        return (
+          <ScrollView
+            style={styles.stepContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <Text style={styles.stepDescription}>
+              Set the league duration and start date
+            </Text>
+
+            <Text style={styles.sectionTitle}>Duration</Text>
+            <View style={styles.durationOptions}>
+              {getDurationOptions().map((option) => (
+                <TouchableOpacity
+                  key={option.days}
+                  style={[
+                    styles.durationOption,
+                    leagueData.duration === option.days &&
+                      styles.durationOptionSelected,
+                  ]}
+                  onPress={() => selectDuration(option.days)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.durationOptionContent}>
+                    <Text
+                      style={[
+                        styles.durationOptionLabel,
+                        leagueData.duration === option.days &&
+                          styles.durationOptionLabelSelected,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                    <Text style={styles.durationOptionDescription}>
+                      {option.description}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.sectionTitle}>Start Date</Text>
+            <View style={styles.startDateOptions}>
+              {getStartDateOptions().map((option, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.startDateOption,
+                    leagueData.startDate?.toDateString() ===
+                      option.date.toDateString() &&
+                      styles.startDateOptionSelected,
+                  ]}
+                  onPress={() => setStartDate(option.date)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.startDateOptionText,
+                      leagueData.startDate?.toDateString() ===
+                        option.date.toDateString() &&
+                        styles.startDateOptionTextSelected,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                  <Text style={styles.startDateOptionDate}>
+                    {option.date.toLocaleDateString()}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {leagueData.startDate && leagueData.endDate && (
+              <View style={styles.dateRangeDisplay}>
+                <Text style={styles.dateRangeLabel}>League Duration:</Text>
+                <Text style={styles.dateRangeText}>
+                  {leagueData.startDate.toLocaleDateString()} -{' '}
+                  {leagueData.endDate.toLocaleDateString()}
+                </Text>
+                <Text style={styles.dateRangeDays}>
+                  {leagueData.duration} days
+                </Text>
+              </View>
+            )}
+          </ScrollView>
+        );
+
+      case 3: // Additional Settings
+        return (
+          <ScrollView
+            style={styles.stepContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <Text style={styles.stepDescription}>
+              Configure league details and settings
+            </Text>
+
+            <View style={styles.settingsForm}>
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>League Name *</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={leagueData.leagueName}
+                  onChangeText={(text) => updateSettings('leagueName', text)}
+                  placeholder="Enter league name"
+                  placeholderTextColor={theme.colors.textMuted}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Description</Text>
+                <TextInput
+                  style={[styles.textInput, styles.textArea]}
+                  value={leagueData.description}
+                  onChangeText={(text) => updateSettings('description', text)}
+                  placeholder="League description (optional)"
+                  placeholderTextColor={theme.colors.textMuted}
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Scoring Frequency</Text>
+                <View style={styles.scoringOptions}>
+                  {['daily', 'weekly', 'total'].map((frequency) => (
+                    <TouchableOpacity
+                      key={frequency}
+                      style={[
+                        styles.scoringOption,
+                        leagueData.scoringFrequency === frequency &&
+                          styles.scoringOptionSelected,
+                      ]}
+                      onPress={() =>
+                        updateSettings('scoringFrequency', frequency)
+                      }
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.scoringOptionText,
+                          leagueData.scoringFrequency === frequency &&
+                            styles.scoringOptionTextSelected,
+                        ]}
+                      >
+                        {frequency.charAt(0).toUpperCase() + frequency.slice(1)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Entry Fee (sats)</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={leagueData.entryFeesSats.toString()}
+                  onChangeText={(text) =>
+                    updateSettings('entryFeesSats', parseInt(text) || 0)
+                  }
+                  placeholder="0"
+                  placeholderTextColor={theme.colors.textMuted}
+                  keyboardType="numeric"
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Max Participants</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={leagueData.maxParticipants.toString()}
+                  onChangeText={(text) =>
+                    updateSettings('maxParticipants', parseInt(text) || 50)
+                  }
+                  placeholder="50"
+                  placeholderTextColor={theme.colors.textMuted}
+                  keyboardType="numeric"
+                />
+              </View>
+
+              <View style={styles.switchRow}>
+                <Text style={styles.switchLabel}>Require Captain Approval</Text>
+                <Switch
+                  value={leagueData.requireApproval}
+                  onValueChange={(value) =>
+                    updateSettings('requireApproval', value)
+                  }
+                  trackColor={{
+                    false: theme.colors.border,
+                    true: theme.colors.accent,
+                  }}
+                  thumbColor={theme.colors.text}
+                />
+              </View>
+
+              <View style={styles.switchRow}>
+                <Text style={styles.switchLabel}>Allow Late Joining</Text>
+                <Switch
+                  value={leagueData.allowLateJoining}
+                  onValueChange={(value) =>
+                    updateSettings('allowLateJoining', value)
+                  }
+                  trackColor={{
+                    false: theme.colors.border,
+                    true: theme.colors.accent,
+                  }}
+                  thumbColor={theme.colors.text}
+                />
+              </View>
+            </View>
+          </ScrollView>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <WizardStepContainer
+      visible={visible}
+      currentStep={currentStep}
+      steps={steps}
+      wizardTitle="Create League"
+      onClose={onClose}
+      onNext={handleNext}
+      onPrevious={handlePrevious}
+      onComplete={handleComplete}
+      canGoNext={steps[currentStep]?.isValid}
+      canGoPrevious={currentStep > 0}
+      isLastStep={currentStep === steps.length - 1}
+    >
+      {renderStepContent()}
+    </WizardStepContainer>
+  );
+};
+
+const styles = StyleSheet.create({
+  stepContent: {
+    flex: 1,
+  },
+
+  stepDescription: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.text,
+    marginBottom: 12,
+    marginTop: 16,
+  },
+
+  // Activity selection styles (reused from Event wizard)
+  optionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+
+  optionCard: {
+    flexBasis: '47%',
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+  },
+
+  optionCardSelected: {
+    borderColor: theme.colors.accent,
+    backgroundColor: theme.colors.accent + '20',
+  },
+
+  optionCardText: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.text,
+    textAlign: 'center',
+  },
+
+  optionCardTextSelected: {
+    color: theme.colors.accent,
+  },
+
+  // Competition selection styles
+  optionsList: {
+    gap: 12,
+  },
+
+  competitionOption: {
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    padding: 16,
+  },
+
+  competitionOptionSelected: {
+    borderColor: theme.colors.accent,
+    backgroundColor: theme.colors.accent + '20',
+  },
+
+  competitionOptionText: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.text,
+  },
+
+  competitionOptionTextSelected: {
+    color: theme.colors.accent,
+  },
+
+  // Duration selection styles
+  durationOptions: {
+    gap: 12,
+    marginBottom: 24,
+  },
+
+  durationOption: {
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    padding: 16,
+  },
+
+  durationOptionSelected: {
+    borderColor: theme.colors.accent,
+    backgroundColor: theme.colors.accent + '20',
+  },
+
+  durationOptionContent: {
+    gap: 4,
+  },
+
+  durationOptionLabel: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.text,
+  },
+
+  durationOptionLabelSelected: {
+    color: theme.colors.accent,
+  },
+
+  durationOptionDescription: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+  },
+
+  // Start date selection styles
+  startDateOptions: {
+    gap: 12,
+    marginBottom: 24,
+  },
+
+  startDateOption: {
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    padding: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  startDateOptionSelected: {
+    borderColor: theme.colors.accent,
+    backgroundColor: theme.colors.accent + '20',
+  },
+
+  startDateOptionText: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.text,
+  },
+
+  startDateOptionTextSelected: {
+    color: theme.colors.accent,
+  },
+
+  startDateOptionDate: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+  },
+
+  dateRangeDisplay: {
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.accent,
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+  },
+
+  dateRangeLabel: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginBottom: 4,
+  },
+
+  dateRangeText: {
+    fontSize: 16,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.accent,
+  },
+
+  dateRangeDays: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginTop: 4,
+  },
+
+  // Settings form styles
+  settingsForm: {
+    gap: 20,
+  },
+
+  formGroup: {
+    gap: 8,
+  },
+
+  formLabel: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.text,
+  },
+
+  textInput: {
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    color: theme.colors.text,
+  },
+
+  textArea: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+
+  scoringOptions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+
+  scoringOption: {
+    flex: 1,
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+  },
+
+  scoringOptionSelected: {
+    borderColor: theme.colors.accent,
+    backgroundColor: theme.colors.accent + '20',
+  },
+
+  scoringOptionText: {
+    fontSize: 12,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.text,
+  },
+
+  scoringOptionTextSelected: {
+    color: theme.colors.accent,
+  },
+
+  switchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+
+  switchLabel: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.text,
+  },
+});
