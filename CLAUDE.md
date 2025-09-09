@@ -129,6 +129,39 @@ Simple two-tab interface with dark theme:
 
 **Note:** No phase should be marked "complete" until TypeScript compiles without errors and lessons learned have been reviewed.
 
+## Git Workflow Requirements
+**MANDATORY: After every successful fix or feature implementation:**
+
+1. **Commit Successful Changes:**
+   ```bash
+   git add .
+   git status                    # Verify changes are appropriate
+   git commit -m "descriptive message about the fix/feature"
+   git push origin main         # Save progress to GitHub
+   ```
+
+2. **Commit Message Guidelines:**
+   - **Fix commits**: "Fix: [brief description of what was fixed]"
+   - **Feature commits**: "Feature: [brief description of new functionality]" 
+   - **Refactor commits**: "Refactor: [what was improved/reorganized]"
+   - **Documentation commits**: "Docs: [what documentation was added/updated]"
+
+3. **When to Commit:**
+   - ✅ After successfully fixing a bug or error
+   - ✅ After completing a new feature or component
+   - ✅ After major refactoring that improves code structure
+   - ✅ After updating documentation or configuration
+   - ❌ Do NOT commit broken or incomplete implementations
+   - ❌ Do NOT commit if TypeScript compilation fails
+
+4. **Progress Preservation:**
+   - Each commit serves as a checkpoint to prevent work loss
+   - Enables easy rollback if new changes introduce issues
+   - Creates clear development history for future reference
+   - Facilitates team collaboration and code review
+
+**Note:** This rule ensures continuous progress preservation and maintains a clean development history on GitHub.
+
 ## Current Development Status - HealthKit Workout Posting Complete
 ✅ Project structure and architecture established
 ✅ Two-tab navigation (Teams/Profile) with bottom tab navigation
