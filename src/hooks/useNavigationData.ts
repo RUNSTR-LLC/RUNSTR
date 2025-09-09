@@ -330,8 +330,8 @@ export const useNavigationData = (): NavigationData => {
       console.log('useNavigationData: No cached teams, fetching fresh...');
       const nostrTeamService = getNostrTeamService();
       const nostrTeams = await nostrTeamService.discoverFitnessTeams({
-        limit: 20,
-        since: Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60, // Last 7 days
+        limit: 50, // Increased limit for better discovery
+        // Removed since filter to access ALL historical teams
       });
 
       // Convert NostrTeam to DiscoveryTeam format

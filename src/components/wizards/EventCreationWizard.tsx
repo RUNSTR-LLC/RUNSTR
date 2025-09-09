@@ -12,9 +12,17 @@ import {
   ScrollView,
   TextInput,
   Switch,
+  Alert,
 } from 'react-native';
 import { theme } from '../../styles/theme';
 import { WizardStepContainer, WizardStep } from './WizardStepContainer';
+import { NostrCompetitionService } from '../../services/nostr/NostrCompetitionService';
+import { useUserStore } from '../../store/userStore';
+import { getNsecFromStorage, nsecToPrivateKey } from '../../utils/nostr';
+import type {
+  NostrActivityType,
+  NostrEventCompetitionType,
+} from '../../types/nostrCompetition';
 
 // Activity types and their specific competition options
 const ACTIVITY_COMPETITION_MAP = {
@@ -57,8 +65,8 @@ const ACTIVITY_COMPETITION_MAP = {
   Diet: ['Calorie Tracking', 'Macro Goals', 'Meal Logging', 'Nutrition Score'],
 } as const;
 
-type ActivityType = keyof typeof ACTIVITY_COMPETITION_MAP;
-type CompetitionType = (typeof ACTIVITY_COMPETITION_MAP)[ActivityType][number];
+type ActivityType = NostrActivityType;
+type CompetitionType = NostrEventCompetitionType;
 
 interface EventData {
   activityType: ActivityType | null;
@@ -89,6 +97,8 @@ export const EventCreationWizard: React.FC<EventCreationWizardProps> = ({
   onEventCreated,
 }) => {
   const [currentStep, setCurrentStep] = useState(0);
+  const [isCreating, setIsCreating] = useState(false);
+  const user = useUserStore((state) => state.user);
   const [eventData, setEventData] = useState<EventData>({
     activityType: null,
     competitionType: null,
@@ -153,8 +163,73 @@ export const EventCreationWizard: React.FC<EventCreationWizardProps> = ({
     }
   };
 
-  const handleComplete = () => {
-    onEventCreated(eventData);
+  const handleComplete = async () => {
+    if (!user) {
+      Alert.alert('Error', 'User not found. Please log in again.');
+      return;
+    }
+
+    setIsCreating(true);
+
+    try {
+      console.log('🎯 Creating event with Nostr Competition Service');
+      
+      // Get user's private key from storage
+      const nsec = await getNsecFromStorage(user.id);
+      if (!nsec) {
+        Alert.alert('Error', 'Cannot access your private key. Please log in again.');
+        return;
+      }
+
+      // Convert nsec to private key hex
+      const privateKeyHex = nsecToPrivateKey(nsec);
+
+      // Prepare event data for Nostr
+      const eventCreationData = {
+        teamId,
+        name: eventData.eventName,
+        description: eventData.description,
+        activityType: eventData.activityType!,
+        competitionType: eventData.competitionType!,
+        eventDate: eventData.eventDate!.toISOString(),
+        entryFeesSats: eventData.entryFeesSats,
+        maxParticipants: eventData.maxParticipants,
+        requireApproval: eventData.requireApproval,
+        targetValue: eventData.targetValue,
+        targetUnit: eventData.targetUnit,
+      };
+
+      console.log('🎯 Creating event:', eventCreationData);
+
+      // Create event using Nostr Competition Service
+      const result = await NostrCompetitionService.createEvent(
+        eventCreationData,
+        privateKeyHex
+      );
+
+      if (result.success) {
+        console.log('✅ Event created successfully:', result.competitionId);
+        Alert.alert(
+          'Success!', 
+          `Event "${eventData.eventName}" has been created and published to Nostr relays.`,
+          [{ text: 'OK', onPress: () => {
+            onEventCreated(eventData);
+            onClose();
+          }}]
+        );
+      } else {
+        throw new Error(result.message || 'Failed to create event');
+      }
+    } catch (error) {
+      console.error('❌ Failed to create event:', error);
+      Alert.alert(
+        'Error', 
+        `Failed to create event: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const selectActivityType = (activity: ActivityType) => {
@@ -431,6 +506,8 @@ export const EventCreationWizard: React.FC<EventCreationWizardProps> = ({
       canGoNext={steps[currentStep]?.isValid}
       canGoPrevious={currentStep > 0}
       isLastStep={currentStep === steps.length - 1}
+      isProcessing={isCreating}
+      processingText="Creating Event..."
     >
       {renderStepContent()}
     </WizardStepContainer>

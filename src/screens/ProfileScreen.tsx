@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, RefreshControl } from 'react-native';
 import { theme } from '../styles/theme';
 import { ProfileTab, ProfileScreenData, NotificationSettings } from '../types';
 
@@ -34,6 +34,7 @@ interface ProfileScreenProps {
   onContactSupport?: () => void;
   onPrivacyPolicy?: () => void;
   onSignOut?: () => void;
+  onRefresh?: () => void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
@@ -51,10 +52,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onContactSupport,
   onPrivacyPolicy,
   onSignOut,
+  onRefresh,
 }) => {
   const [activeTab, setActiveTab] = useState<ProfileTab>('workouts');
   const [notificationSettings, setNotificationSettings] =
     useState<NotificationSettings>(data.notificationSettings);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Event handlers
   const handleEditProfile = () => {
@@ -85,6 +88,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   const handleSignOut = () => {
     onSignOut?.();
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await onRefresh?.();
+    setIsRefreshing(false);
   };
 
   const handleNotificationSettingChange = (
@@ -144,26 +153,36 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Profile</Text>
-      </View>
-
-      {/* Profile Header */}
-      <ProfileHeader user={data.user} />
-
-      {/* Wallet Section removed - user wallets not supported, only team wallets */}
-
-      {/* Tab Navigation */}
-      <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
-
-      {/* Tab Content */}
-      <ScrollView
-        style={styles.tabContent}
-        contentContainerStyle={styles.tabContentContainer}
+      <ScrollView 
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.colors.text}
+            colors={[theme.colors.text]}
+          />
+        }
         showsVerticalScrollIndicator={false}
       >
-        {renderTabContent()}
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Profile</Text>
+        </View>
+
+        {/* Profile Header */}
+        <ProfileHeader user={data.user} />
+
+        {/* Wallet Section removed - user wallets not supported, only team wallets */}
+
+        {/* Tab Navigation */}
+        <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+
+        {/* Tab Content */}
+        <View style={styles.tabContent}>
+          {renderTabContent()}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -191,6 +210,15 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.bold, // 700
     color: theme.colors.text,
     letterSpacing: -0.5,
+  },
+
+  scrollContainer: {
+    flex: 1,
+  },
+
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 20, // Add some bottom padding for better UX
   },
 
   // CSS: flex: 1; overflow-y: auto; padding: 0 20px; min-height: 0;

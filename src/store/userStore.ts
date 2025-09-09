@@ -108,31 +108,53 @@ export const useUserStore = create<UserStoreState>()(
       set({ isLoadingUser: true, userError: null });
 
       try {
-        const userProfile = await UserService.getUserProfile(userId);
+        console.log('🔍 UserStore: Loading user with pure Nostr profile service...');
+        
+        // Use DirectNostrProfileService instead of legacy UserService
+        const { DirectNostrProfileService } = await import('../services/user/directNostrProfileService');
+        const directUser = await DirectNostrProfileService.getCurrentUserProfile();
 
-        if (userProfile) {
+        if (directUser) {
+          // Convert DirectNostrUser to UserProfile format for store compatibility
+          const userProfile = {
+            id: directUser.id,
+            name: directUser.name,
+            email: directUser.email,
+            npub: directUser.npub,
+            role: directUser.role,
+            teamId: directUser.teamId,
+            currentTeamId: directUser.currentTeamId,
+            createdAt: directUser.createdAt,
+            lastSyncAt: directUser.lastSyncAt,
+            bio: directUser.bio,
+            website: directUser.website,
+            picture: directUser.picture,
+            banner: directUser.banner,
+            lud16: directUser.lud16,
+            displayName: directUser.displayName,
+            // Default empty values for store compatibility
+            preferences: undefined,
+            fitnessProfile: undefined,
+            teamJoinedAt: undefined,
+            teamSwitchCooldownUntil: undefined,
+          };
+
+          console.log('✅ UserStore: Loaded pure Nostr user profile:', userProfile.name);
+
           set({
             user: userProfile,
-            fitnessProfile: userProfile.fitnessProfile || null,
+            fitnessProfile: userProfile.fitnessProfile || undefined,
           });
 
-          // Load additional data in parallel
-          const promises = [
-            get().loadSwitchCooldown(),
-            get().loadParticipationStats(),
-          ];
-
-          if (userProfile.fitnessProfile?.recentWorkouts) {
-            promises.push(get().loadFitnessImprovement());
-          }
-
-          await Promise.allSettled(promises);
+          // Skip additional data loading for now to avoid more Supabase calls
+          console.log('ℹ️  UserStore: Skipping additional data loading to avoid legacy service calls');
+          
         } else {
-          set({ userError: 'Failed to load user profile' });
+          set({ userError: 'Failed to load user profile from Nostr' });
         }
       } catch (error) {
-        console.error('Error loading user:', error);
-        set({ userError: 'Failed to load user data' });
+        console.error('❌ UserStore: Error loading user with pure Nostr:', error);
+        set({ userError: 'Failed to load user data from Nostr' });
       } finally {
         set({ isLoadingUser: false });
       }

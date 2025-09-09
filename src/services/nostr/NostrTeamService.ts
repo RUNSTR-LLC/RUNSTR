@@ -67,6 +67,7 @@ export class NostrTeamService {
     console.log(
       '🔍 NostrTeamService: Discovering fitness teams from relays...'
     );
+    console.log('🚨 ENHANCED NostrTeamService ACTIVE - THIS SHOULD APPEAR IN LOGS 🚨');
 
     try {
       const nostrFilter: Filter = {
@@ -101,16 +102,28 @@ export class NostrTeamService {
                 // Only process public teams like runstr-github does
                 if (this.isTeamPublic(event as NostrTeamEvent)) {
                   const team = this.parseTeamEvent(event as NostrTeamEvent);
-                  if (
-                    team &&
-                    this.matchesFilters(team, filters) &&
-                    this.isValidTeam(team)
-                  ) {
+                  if (team) {
+                    console.log(`🔄 Processing team: ${team.name}`);
+                    
+                    // Check validation first
+                    if (!this.isValidTeam(team)) {
+                      console.log(`❌ Team "${team.name}" failed validation`);
+                      return;
+                    }
+                    
+                    // Check filters second
+                    if (!this.matchesFilters(team, filters)) {
+                      console.log(`❌ Team "${team.name}" filtered out by activity filters`);
+                      return;
+                    }
+                    
                     teams.push(team);
                     this.discoveredTeams.set(team.id, team);
                     console.log(
                       `✅ Added public team: ${team.name} (${team.memberCount} members)`
                     );
+                  } else {
+                    console.log(`⚠️ Failed to parse team event ${event.id}`);
                   }
                 } else {
                   console.log(`📝 Skipped private team: ${event.id}`);
@@ -145,8 +158,18 @@ export class NostrTeamService {
       await new Promise((resolve) => setTimeout(resolve, 5000)); // Enhanced from 2s to 5s
 
       console.log(
-        `✅ NostrTeamService: Found ${teams.length} fitness teams from ${this.relayUrls.length} relays`
+        `🚨 ENHANCED NostrTeamService RESULT: Found ${teams.length} fitness teams from ${this.relayUrls.length} relays`
       );
+      
+      // Enhanced logging for debugging
+      if (teams.length > 0) {
+        console.log('📋 Teams discovered:');
+        teams.forEach((team, index) => {
+          console.log(`  ${index + 1}. ${team.name} (${team.memberCount} members)`);
+        });
+      } else {
+        console.log('⚠️ No teams passed all filters - check activity type matching');
+      }
       return teams.sort((a, b) => b.createdAt - a.createdAt); // Most recent first
     } catch (error) {
       console.error('❌ NostrTeamService: Error discovering teams:', error);
@@ -249,11 +272,15 @@ export class NostrTeamService {
    */
   private isValidTeam(team: NostrTeam): boolean {
     // Must have a valid name
-    if (!team.name || team.name.trim() === '') return false;
+    if (!team.name || team.name.trim() === '') {
+      console.log(`🚨 FILTERING OUT: Empty team name`);
+      return false;
+    }
     
     // Filter only obvious deleted/test teams (more permissive)
     const name = team.name.toLowerCase();
     if (name === 'deleted' || name === 'test' || name.startsWith('test ')) {
+      console.log(`🚨 FILTERING OUT: Deleted/test team "${team.name}"`);
       return false;
     }
 
@@ -267,7 +294,7 @@ export class NostrTeamService {
   }
 
   /**
-   * Check if team matches discovery filters
+   * Check if team matches discovery filters (enhanced permissive filtering)
    */
   private matchesFilters(
     team: NostrTeam,
@@ -275,23 +302,73 @@ export class NostrTeamService {
   ): boolean {
     if (!filters) return true;
 
-    // Filter by activity types
+    // Enhanced permissive activity type filtering
     if (filters.activityTypes && filters.activityTypes.length > 0) {
-      const hasMatchingActivity = filters.activityTypes.some((filterType) =>
-        team.tags.some(
-          (tag) =>
-            tag.toLowerCase().includes(filterType.toLowerCase()) ||
-            team.activityType?.toLowerCase().includes(filterType.toLowerCase())
-        )
-      );
-      if (!hasMatchingActivity) return false;
+      console.log(`🔍 Checking team "${team.name}" against activity filters:`, {
+        teamTags: team.tags,
+        teamActivityType: team.activityType,
+        requestedFilters: filters.activityTypes
+      });
+      
+      // Expanded fitness-related terms for broader matching
+      const fitnessTerms = [
+        ...filters.activityTypes,
+        'run', 'walk', 'cycle', 'bike', 'cardio', 'exercise', 'sport',
+        'training', 'club', 'health', 'active', 'movement', 'outdoor'
+      ];
+      
+      const hasMatchingActivity = fitnessTerms.some((filterType) => {
+        const filterLower = filterType.toLowerCase();
+        
+        // Check team tags
+        const tagMatch = team.tags.some(tag => 
+          tag.toLowerCase().includes(filterLower)
+        );
+        
+        // Check team activity type
+        const activityMatch = team.activityType?.toLowerCase().includes(filterLower);
+        
+        // Check team name for fitness-related terms
+        const nameMatch = team.name.toLowerCase().includes(filterLower);
+        
+        // Check team description for fitness-related terms
+        const descMatch = team.description?.toLowerCase().includes(filterLower);
+        
+        return tagMatch || activityMatch || nameMatch || descMatch;
+      });
+      
+      // Fallback: For general fitness discovery, allow all teams that aren't obviously non-fitness
+      const isGeneralFitnessDiscovery = filters.activityTypes.includes('fitness') || 
+                                        filters.activityTypes.includes('team');
+      
+      if (!hasMatchingActivity && isGeneralFitnessDiscovery) {
+        // Allow teams unless they're clearly non-fitness (e.g., tech, gaming, etc.)
+        const nonFitnessTerms = ['tech', 'gaming', 'crypto', 'trading', 'programming', 'software'];
+        const isNonFitness = nonFitnessTerms.some(term => 
+          team.name.toLowerCase().includes(term) ||
+          team.description?.toLowerCase().includes(term)
+        );
+        
+        if (!isNonFitness) {
+          console.log(`✅ Team "${team.name}" allowed via general fitness fallback`);
+          return true;
+        }
+      }
+      
+      if (!hasMatchingActivity) {
+        console.log(`❌ Team "${team.name}" filtered out - no activity match`);
+        return false;
+      }
+      
+      console.log(`✅ Team "${team.name}" matches activity filters`);
     }
 
-    // Filter by location
+    // Filter by location (unchanged)
     if (filters.location && team.location) {
       if (
         !team.location.toLowerCase().includes(filters.location.toLowerCase())
       ) {
+        console.log(`❌ Team "${team.name}" filtered out - location mismatch`);
         return false;
       }
     }

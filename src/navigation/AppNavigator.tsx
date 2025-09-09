@@ -16,10 +16,10 @@ import { ProfileScreen } from '../screens/ProfileScreen';
 import { WalletScreen } from '../screens/WalletScreen';
 import { TeamDiscoveryScreen } from '../screens/TeamDiscoveryScreen';
 import { CaptainDashboardScreen } from '../screens/CaptainDashboardScreen';
-import { NostrOnboardingWizard } from '../components/wizards/NostrOnboardingWizard';
 import { TeamCreationWizard } from '../components/wizards/TeamCreationWizard';
 import { EventDetailScreen } from '../screens/EventDetailScreen';
 import { ChallengeDetailScreen } from '../screens/ChallengeDetailScreen';
+import { LoginScreen } from '../screens/LoginScreen';
 
 // Navigation Configuration
 import {
@@ -33,6 +33,7 @@ import { useNavigationData } from '../hooks/useNavigationData';
 
 // Screen params for type safety
 export type RootStackParamList = {
+  Login: undefined;
   Team: undefined;
   TeamDashboard: { team: any; userIsMember?: boolean }; // Individual team dashboard
   Profile: undefined;
@@ -42,7 +43,6 @@ export type RootStackParamList = {
     isOnboarding?: boolean;
     currentTeamId?: string;
   };
-  Onboarding: undefined;
   TeamCreation: undefined;
   EventDetail: { eventId: string };
   ChallengeDetail: { challengeId: string };
@@ -83,13 +83,8 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
     }
 
     // Simplified logic: authenticated users always go to Profile
-    if (isFirstTime) {
-      console.log('🎯 AppNavigator: First time user, going to Onboarding');
-      return 'Onboarding';
-    }
-
-    console.log('🎯 AppNavigator: Authenticated user, going to Profile');
-    return 'Profile'; // Always go to Profile for authenticated users
+    console.log('🎯 AppNavigator: Going to Profile');
+    return 'Profile';
   };
 
   // Create navigation handlers
@@ -161,6 +156,13 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
       initialRouteName={getInitialRoute()}
       screenOptions={defaultScreenOptions}
     >
+      {/* Login Screen - No callback needed, AuthContext handles everything */}
+      <Stack.Screen 
+        name="Login" 
+        component={LoginScreen}
+        options={{ headerShown: false }}
+      />
+
       {/* Main Team Screen - Always shows Team Discovery */}
       <Stack.Screen name="Team" options={screenConfigurations.Team}>
         {({ navigation }) => (
@@ -377,17 +379,6 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
         )}
       </Stack.Screen>
 
-      {/* Nostr Onboarding Wizard */}
-      <Stack.Screen name="Onboarding" options={screenConfigurations.Onboarding}>
-        {({ navigation }) => (
-          <NostrOnboardingWizard
-            onComplete={(data) =>
-              handlers.handleOnboardingComplete(data, navigation)
-            }
-            onSkip={() => handlers.handleOnboardingSkip(navigation)}
-          />
-        )}
-      </Stack.Screen>
 
       {/* Team Creation Wizard */}
       <Stack.Screen

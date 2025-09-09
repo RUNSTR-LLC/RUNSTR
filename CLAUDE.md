@@ -7,28 +7,26 @@ RUNSTR.APP is a React Native mobile application that transforms fitness routines
 
 ## Core User & Captain Experience
 **User Flow**: Nsec login → Profile screen → Teams discovery → Team joining → Competition participation
-**Captain Flow**: Teams page → Captain dashboard → Wizard-driven competition creation → Member management → Bitcoin distribution
+**Captain Flow**: Teams page → Captain dashboard → Competition creation → Member management → Bitcoin distribution
 
 **Key Features**:
-- Seamless Nostr authentication with automatic profile/workout import
+- **Nostr-Only Authentication**: Direct nsec login with automatic profile/workout import from stored keys
 - **HealthKit Workout Posting**: Transform Apple Health workouts into Nostr events and social media cards
-- Two-tier membership system (local + official Nostr lists)
 - Real-time team discovery from multiple Nostr relays
 - Captain dashboard with join request management
-- Wizard-driven competition creation (7 activity types, cascading dropdowns)
+- Competition creation (7 activity types, cascading dropdowns)
 - Automatic leaderboard scoring based on captain-defined parameters
 - Bitcoin integration for entry fees and prize distribution
-- Team-branded push notifications with real-time competition event processing
 - **Beautiful Social Cards**: Instagram-worthy workout achievement graphics with RUNSTR branding
 
-**Platform-Specific Authentication**:
-- **iOS**: Login with Apple + Login with Nostr (manual nsec input)
-- **Android**: Login with Google + Login with Nostr (Amber signer integration)
+**Authentication**:
+- **Simple Login Screen**: Show login screen unless npub/nsec found in local storage
+- **Direct Nostr Authentication**: Manual nsec input only (no platform-specific auth)
 
 ## Key Technologies
 - **Frontend**: React Native with TypeScript (Expo framework)
 - **Data Layer**: Pure Nostr events (no centralized backend)
-- **Authentication**: Nostr (nsec) with platform-specific options (Apple/Google)
+- **Authentication**: Nostr (nsec) only
 - **Fitness Data**: Kind 1301 events from Nostr relays + Apple HealthKit integration
 - **Team Data**: Custom Nostr event kinds for teams, leagues, events, challenges
 - **Bitcoin**: Lightning Network integration via CoinOS API
@@ -47,11 +45,10 @@ RUNSTR.APP is a React Native mobile application that transforms fitness routines
 ```
 src/
 ├── components/        # Reusable UI components (<500 lines each)
-│   ├── ui/           # Basic components (Card, Button, Avatar, StatusBar)
+│   ├── ui/           # Basic components (Card, Button, Avatar, StatusBar)  
 │   ├── team/         # Team-specific components
 │   ├── profile/      # Profile-specific components
-│   ├── fitness/      # Workout posting and display components
-│   └── wizards/      # Onboarding and setup flows
+│   └── fitness/      # Workout posting and display components
 ├── screens/          # Main app screens
 ├── services/         # External API integrations
 │   └── notifications/ # Team-branded push notification system
@@ -63,10 +60,11 @@ src/
 
 ## App Flow Architecture
 **1. Authentication & Profile Import**:
+- Show login screen unless npub/nsec found in local storage
 - Nsec login automatically imports profile from kind 0 events
 - Workout data synced from kind 1301 events across Nostr relays
 - Apple HealthKit workouts automatically imported and available for posting
-- Direct navigation to Profile screen (no onboarding wizard)
+- Direct navigation to Profile screen after authentication
 
 **2. Two-Tab Navigation**:
 - **Profile Tab**: Personal dashboard with unified workout history (HealthKit + Nostr), posting controls, team membership, account settings
@@ -197,7 +195,7 @@ Simple two-tab interface with dark theme:
 **Previous Implementation - Push Notifications**:
 - `TeamContextService.ts` - Single source of truth for team membership and context
 - `NostrNotificationEventHandler.ts` - Real-time competition event processing (kinds 1101, 1102, 1103)
-- Updated `TeamNotificationFormatter.ts` - Migrated from Supabase to Nostr team data
+- `TeamNotificationFormatter.ts` - Nostr-native team data formatting
 - Enhanced `NotificationService.ts` - Competition event monitoring integration
 
 ## Lessons Learned from Phase 1 Troubleshooting
@@ -230,5 +228,5 @@ Simple two-tab interface with dark theme:
 - **Core User Journey**: Platform login → Teams feed → Team participation → Bitcoin rewards
 - **Two-Page Focus**: Keep UI simple with just Teams and Profile tabs
 - **Nostr-Native Data**: All team/workout data comes from Nostr events
-- **Platform-Specific Auth**: Different login flows for iOS (Apple/nsec) vs Android (Google/Amber)
+- **Nostr-Only Auth**: Simple nsec input for all platforms
 - **Real Data Only**: No mock data - all functionality uses actual Nostr events

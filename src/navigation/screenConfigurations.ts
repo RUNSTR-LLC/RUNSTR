@@ -74,12 +74,6 @@ export const screenConfigurations = {
     ...modalSlideFromBottomAnimation,
   } as StackNavigationOptions,
 
-  // Onboarding Wizard - modal presentation
-  Onboarding: {
-    presentation: 'modal' as const,
-    animationEnabled: true,
-    headerShown: false,
-  } as StackNavigationOptions,
 
   // Team Creation Wizard - modal presentation
   TeamCreation: {

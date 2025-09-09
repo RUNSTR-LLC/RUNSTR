@@ -12,9 +12,18 @@ import {
   ScrollView,
   TextInput,
   Switch,
+  Alert,
 } from 'react-native';
 import { theme } from '../../styles/theme';
 import { WizardStepContainer, WizardStep } from './WizardStepContainer';
+import { NostrCompetitionService } from '../../services/nostr/NostrCompetitionService';
+import { useUserStore } from '../../store/userStore';
+import { getNsecFromStorage, nsecToPrivateKey } from '../../utils/nostr';
+import type {
+  NostrActivityType,
+  NostrLeagueCompetitionType,
+  NostrScoringFrequency,
+} from '../../types/nostrCompetition';
 
 // Same activity types as events but with league-specific competition options
 const LEAGUE_COMPETITION_MAP = {
@@ -69,8 +78,8 @@ const LEAGUE_COMPETITION_MAP = {
   ],
 } as const;
 
-type ActivityType = keyof typeof LEAGUE_COMPETITION_MAP;
-type CompetitionType = (typeof LEAGUE_COMPETITION_MAP)[ActivityType][number];
+type ActivityType = NostrActivityType;
+type CompetitionType = NostrLeagueCompetitionType;
 
 interface LeagueData {
   activityType: ActivityType | null;
@@ -103,6 +112,8 @@ export const LeagueCreationWizard: React.FC<LeagueCreationWizardProps> = ({
   onLeagueCreated,
 }) => {
   const [currentStep, setCurrentStep] = useState(0);
+  const [isCreating, setIsCreating] = useState(false);
+  const user = useUserStore((state) => state.user);
   const [leagueData, setLeagueData] = useState<LeagueData>({
     activityType: null,
     competitionType: null,
@@ -184,8 +195,75 @@ export const LeagueCreationWizard: React.FC<LeagueCreationWizardProps> = ({
     }
   };
 
-  const handleComplete = () => {
-    onLeagueCreated(leagueData);
+  const handleComplete = async () => {
+    if (!user) {
+      Alert.alert('Error', 'User not found. Please log in again.');
+      return;
+    }
+
+    setIsCreating(true);
+
+    try {
+      console.log('🏁 Creating league with Nostr Competition Service');
+      
+      // Get user's private key from storage
+      const nsec = await getNsecFromStorage(user.id);
+      if (!nsec) {
+        Alert.alert('Error', 'Cannot access your private key. Please log in again.');
+        return;
+      }
+
+      // Convert nsec to private key hex
+      const privateKeyHex = nsecToPrivateKey(nsec);
+
+      // Prepare league data for Nostr
+      const leagueCreationData = {
+        teamId,
+        name: leagueData.leagueName,
+        description: leagueData.description,
+        activityType: leagueData.activityType!,
+        competitionType: leagueData.competitionType!,
+        startDate: leagueData.startDate!.toISOString(),
+        endDate: leagueData.endDate!.toISOString(),
+        duration: leagueData.duration,
+        entryFeesSats: leagueData.entryFeesSats,
+        maxParticipants: leagueData.maxParticipants,
+        requireApproval: leagueData.requireApproval,
+        allowLateJoining: leagueData.allowLateJoining,
+        scoringFrequency: leagueData.scoringFrequency,
+      };
+
+      console.log('📊 Creating league:', leagueCreationData);
+
+      // Create league using Nostr Competition Service
+      const result = await NostrCompetitionService.createLeague(
+        leagueCreationData,
+        privateKeyHex
+      );
+
+      if (result.success) {
+        console.log('✅ League created successfully:', result.competitionId);
+        Alert.alert(
+          'Success!', 
+          `League "${leagueData.leagueName}" has been created and published to Nostr relays.`,
+          [{ text: 'OK', onPress: () => {
+            onLeagueCreated(leagueData);
+            onClose();
+          }}]
+        );
+      } else {
+        throw new Error(result.message || 'Failed to create league');
+      }
+    } catch (error) {
+      console.error('❌ Failed to create league:', error);
+      Alert.alert(
+        'Error', 
+        `Failed to create league: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const selectActivityType = (activity: ActivityType) => {
@@ -553,6 +631,8 @@ export const LeagueCreationWizard: React.FC<LeagueCreationWizardProps> = ({
       canGoNext={steps[currentStep]?.isValid}
       canGoPrevious={currentStep > 0}
       isLastStep={currentStep === steps.length - 1}
+      isProcessing={isCreating}
+      processingText="Creating League..."
     >
       {renderStepContent()}
     </WizardStepContainer>

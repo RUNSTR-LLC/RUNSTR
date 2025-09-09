@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { theme } from '../../styles/theme';
 import { ProfileScreenData, Team } from '../../types';
 import { Card } from '../ui/Card';
@@ -69,7 +69,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({
   onSignOut,
 }) => {
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Team Management Section */}
       {onChangeTeam && onJoinTeam && (
         <TeamManagementSection
@@ -134,7 +134,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({
           />
         </Card>
       )}
-    </View>
+    </ScrollView>
   );
 };
 

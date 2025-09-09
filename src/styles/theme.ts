@@ -38,6 +38,7 @@ export const colors = {
   primary: '#0a84ff', // Primary action color
   textTertiary: '#999999', // For darker text
   gray: '#333333', // For borders and backgrounds
+  error: '#ff4444', // Error messages and validation
 } as const;
 
 export const typography = {

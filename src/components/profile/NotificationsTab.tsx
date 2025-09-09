@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { theme } from '../../styles/theme';
 import { NotificationSettings, NotificationHistory } from '../../types';
 import { Card } from '../ui/Card';
@@ -139,7 +139,7 @@ export const NotificationsTab: React.FC<NotificationsTabProps> = ({
   ];
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Push Notifications Settings */}
       <Card style={styles.card}>
         <Text style={styles.cardTitle}>Push Notifications</Text>
@@ -239,7 +239,7 @@ export const NotificationsTab: React.FC<NotificationsTabProps> = ({
           </View>
         )}
       </Card>
-    </View>
+    </ScrollView>
   );
 };
 

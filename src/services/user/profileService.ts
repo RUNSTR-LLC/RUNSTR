@@ -214,7 +214,7 @@ export class ProfileService {
         (sum, w) => sum + (w.distance || 0),
         0
       );
-      const totalDuration = workouts.reduce((sum, w) => sum + w.duration, 0);
+      const totalDuration = workouts.reduce((sum, w) => sum + (w.duration || 0), 0);
 
       const avgDistance = totalDistance / totalWorkouts;
       const avgDuration = totalDuration / totalWorkouts;

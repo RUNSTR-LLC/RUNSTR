@@ -9,11 +9,25 @@ import { NostrRelayManager } from '../nostr/NostrRelayManager';
 import { NostrTeamService } from '../nostr/NostrTeamService';
 import type { NostrFilter } from '../nostr/NostrProtocolHandler';
 import type { NostrTeam } from '../nostr/NostrTeamService';
-import type {
-  Competition,
-  CompetitionParticipant,
-  CompetitionLeaderboard,
-} from './competitionService';
+import type { NostrCompetition } from '../integrations/NostrCompetitionContextService';
+import type { CompetitionGoalType } from '../../types/nostrCompetition';
+
+// Updated interfaces for Nostr compatibility
+export interface CompetitionParticipant {
+  pubkey: string;
+  totalDistance: number; // meters
+  totalDuration: number; // seconds
+  workoutCount: number;
+  averagePace: number; // seconds per km
+  lastActivity: number; // Unix timestamp
+}
+
+export interface CompetitionLeaderboard {
+  competitionId: string;
+  participants: LeaderboardEntry[];
+  lastUpdated: number; // Unix timestamp
+  totalWorkouts: number;
+}
 
 export interface WorkoutEvent {
   id: string;
@@ -76,7 +90,7 @@ export class LeaderboardService {
    * Calculate competition leaderboard from team member workouts
    */
   async calculateLeaderboard(
-    competition: Competition,
+    competition: NostrCompetition,
     team: NostrTeam
   ): Promise<CompetitionLeaderboard> {
     console.log(
@@ -94,11 +108,29 @@ export class LeaderboardService {
         return this.createEmptyLeaderboard(competition.id);
       }
 
+      // Determine competition time range
+      let startTime: number, endTime: number;
+      
+      if (competition.type === 'league') {
+        startTime = Math.floor(new Date(competition.startDate!).getTime() / 1000);
+        endTime = Math.floor(new Date(competition.endDate!).getTime() / 1000);
+      } else {
+        // Event - use the event date as a full day
+        const eventDate = new Date(competition.eventDate!);
+        const startOfDay = new Date(eventDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(eventDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        
+        startTime = Math.floor(startOfDay.getTime() / 1000);
+        endTime = Math.floor(endOfDay.getTime() / 1000);
+      }
+
       // Query workout events from team members during competition timeframe
       const workoutEvents = await this.queryMemberWorkouts(
         teamMembers,
-        competition.startTime,
-        competition.endTime,
+        startTime,
+        endTime,
         competition.id
       );
 
@@ -181,7 +213,7 @@ export class LeaderboardService {
    * Get cached leaderboard or calculate if not cached
    */
   async getLeaderboard(
-    competition: Competition,
+    competition: NostrCompetition,
     team: NostrTeam,
     forceRefresh = false
   ): Promise<CompetitionLeaderboard> {
@@ -202,7 +234,7 @@ export class LeaderboardService {
    * Subscribe to real-time leaderboard updates
    */
   async subscribeToLeaderboardUpdates(
-    competition: Competition,
+    competition: NostrCompetition,
     team: NostrTeam,
     callback: (leaderboard: CompetitionLeaderboard) => void
   ): Promise<string> {
@@ -213,12 +245,30 @@ export class LeaderboardService {
     // Get team members for targeted subscription
     const teamMembers = await this.teamService.getTeamMembers(team);
 
+    // Determine competition time range for subscription
+    let startTime: number, endTime: number;
+    
+    if (competition.type === 'league') {
+      startTime = Math.floor(new Date(competition.startDate!).getTime() / 1000);
+      endTime = Math.floor(new Date(competition.endDate!).getTime() / 1000);
+    } else {
+      // Event - use the event date as a full day
+      const eventDate = new Date(competition.eventDate!);
+      const startOfDay = new Date(eventDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(eventDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      
+      startTime = Math.floor(startOfDay.getTime() / 1000);
+      endTime = Math.floor(endOfDay.getTime() / 1000);
+    }
+
     const filters: NostrFilter[] = [
       {
         kinds: [1301],
         authors: teamMembers,
-        since: competition.startTime,
-        until: competition.endTime,
+        since: startTime,
+        until: endTime,
       },
     ];
 
@@ -424,7 +474,7 @@ export class LeaderboardService {
    */
   private calculateParticipantStats(
     workouts: WorkoutEvent[],
-    goalType: Competition['goalType']
+    goalType: CompetitionGoalType
   ) {
     let totalDistance = 0;
     let totalDuration = 0;
@@ -465,7 +515,7 @@ export class LeaderboardService {
    */
   private calculateScore(
     stats: ReturnType<typeof this.calculateParticipantStats>,
-    competition: Competition
+    competition: NostrCompetition
   ): number {
     switch (competition.goalType) {
       case 'distance':
@@ -480,8 +530,14 @@ export class LeaderboardService {
 
       case 'consistency':
         // Score based on workout frequency and consistency
-        const competitionDays =
-          (competition.endTime - competition.startTime) / (24 * 60 * 60);
+        let competitionDays = 1; // Default for events
+        
+        if (competition.type === 'league' && competition.startDate && competition.endDate) {
+          const startTime = Math.floor(new Date(competition.startDate).getTime() / 1000);
+          const endTime = Math.floor(new Date(competition.endDate).getTime() / 1000);
+          competitionDays = (endTime - startTime) / (24 * 60 * 60);
+        }
+        
         const workoutsPerDay = stats.workoutCount / competitionDays;
         return workoutsPerDay * 1000; // Scale for better scoring
 
@@ -527,7 +583,7 @@ export class LeaderboardService {
    * Get competition statistics
    */
   async getCompetitionStats(
-    competition: Competition,
+    competition: NostrCompetition,
     team: NostrTeam
   ): Promise<CompetitionStats> {
     const leaderboard = await this.getLeaderboard(competition, team);
@@ -558,8 +614,12 @@ export class LeaderboardService {
         (p) => p.workoutCount! > 0
       ).length,
       timeRange: {
-        start: competition.startTime,
-        end: competition.endTime,
+        start: competition.type === 'league' 
+          ? Math.floor(new Date(competition.startDate!).getTime() / 1000)
+          : Math.floor(new Date(competition.eventDate!).getTime() / 1000),
+        end: competition.type === 'league'
+          ? Math.floor(new Date(competition.endDate!).getTime() / 1000) 
+          : Math.floor(new Date(competition.eventDate!).getTime() / 1000) + (24 * 60 * 60), // End of event day
         current: Math.floor(Date.now() / 1000),
       },
     };

@@ -6,6 +6,7 @@
 import React from 'react';
 import { Text, View, StyleSheet, TouchableOpacity } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 
 // Screens
@@ -48,24 +49,22 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
         tabBarActiveTintColor: theme.colors.text,
         tabBarInactiveTintColor: theme.colors.textMuted,
         tabBarLabelStyle: styles.tabBarLabel,
-        tabBarIcon: ({ focused }) => {
-          let iconText = '';
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName: keyof typeof Ionicons.glyphMap = 'help-outline';
 
           if (route.name === 'Teams') {
-            iconText = focused ? '👥' : '👤';
+            iconName = focused ? 'people' : 'people-outline';
           } else if (route.name === 'Profile') {
-            iconText = focused ? '🏃‍♂️' : '🏃';
+            iconName = focused ? 'person' : 'person-outline';
           }
 
           return (
-            <Text
-              style={[
-                styles.tabIcon,
-                { color: focused ? theme.colors.text : theme.colors.textMuted },
-              ]}
-            >
-              {iconText}
-            </Text>
+            <Ionicons
+              name={iconName}
+              size={size || 24}
+              color={color}
+              style={styles.tabIcon}
+            />
           );
         },
       })}
@@ -151,6 +150,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
               onContactSupport={handlers.handleContactSupport}
               onPrivacyPolicy={handlers.handlePrivacyPolicy}
               onSignOut={() => handlers.handleSignOut(navigation)}
+              onRefresh={refresh}
             />
           ) : (
             <View style={styles.loadingContainer}>
@@ -172,11 +172,16 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.background, // #000000
     borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    paddingVertical: 8,
-    height: 80,
+    borderTopColor: theme.colors.border, // #1a1a1a  
+    paddingTop: 10,
+    paddingBottom: 10,
+    height: 85,
+    elevation: 0,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
   },
 
   tabBarLabel: {
@@ -186,8 +191,7 @@ const styles = StyleSheet.create({
   },
 
   tabIcon: {
-    fontSize: 20,
-    marginBottom: 4,
+    marginBottom: 2,
   },
 
   tabContent: {

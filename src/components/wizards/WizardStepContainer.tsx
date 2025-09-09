@@ -33,6 +33,8 @@ interface WizardStepContainerProps {
   canGoPrevious: boolean;
   isLastStep: boolean;
   children: React.ReactNode;
+  isProcessing?: boolean;
+  processingText?: string;
 }
 
 export const WizardStepContainer: React.FC<WizardStepContainerProps> = ({
@@ -48,6 +50,8 @@ export const WizardStepContainer: React.FC<WizardStepContainerProps> = ({
   canGoPrevious,
   isLastStep,
   children,
+  isProcessing = false,
+  processingText = 'Processing...',
 }) => {
   const currentStepData = steps[currentStep];
 
@@ -139,20 +143,20 @@ export const WizardStepContainer: React.FC<WizardStepContainerProps> = ({
             style={[
               styles.navigationButton,
               styles.nextButton,
-              !canGoNext && styles.navigationButtonDisabled,
+              (!canGoNext || isProcessing) && styles.navigationButtonDisabled,
             ]}
             onPress={isLastStep ? onComplete : onNext}
-            disabled={!canGoNext}
+            disabled={!canGoNext || isProcessing}
             activeOpacity={0.7}
           >
             <Text
               style={[
                 styles.navigationButtonText,
                 styles.nextButtonText,
-                !canGoNext && styles.navigationButtonTextDisabled,
+                (!canGoNext || isProcessing) && styles.navigationButtonTextDisabled,
               ]}
             >
-              {isLastStep ? 'Create' : 'Next'}
+              {isProcessing && isLastStep ? processingText : (isLastStep ? 'Create' : 'Next')}
             </Text>
           </TouchableOpacity>
         </View>
