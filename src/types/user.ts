@@ -26,6 +26,9 @@ export interface User {
   banner?: string; // banner field from Nostr profile (banner URL)
   lud16?: string; // Lightning address from Nostr profile
   displayName?: string; // display_name from Nostr profile
+
+  // Hybrid Model Sync Status
+  isSupabaseSynced?: boolean; // Whether user data is synced to Supabase for enhanced features
 }
 
 // Sync Status Types

@@ -25,7 +25,6 @@ import { useChallengeCreation } from '../../hooks/useChallengeCreation';
 // Step components
 import { ChooseOpponentStep } from './steps/ChooseOpponentStep';
 import { ChallengeTypeStep } from './steps/ChallengeTypeStep';
-import { WagerAmountStep } from './steps/WagerAmountStep';
 import { ReviewConfirmStep } from './steps/ReviewConfirmStep';
 import { SuccessScreen } from './steps/SuccessScreen';
 
@@ -37,7 +36,6 @@ const WizardProgress: React.FC<WizardProgressProps> = ({ currentStep }) => {
   const steps: ChallengeCreationStep[] = [
     'choose_opponent',
     'challenge_type',
-    'wager_amount',
     'review_confirm',
   ];
 
@@ -65,8 +63,7 @@ export const ChallengeCreationWizard: React.FC<
   const [currentStep, setCurrentStep] =
     useState<ChallengeCreationStep>('choose_opponent');
   const [formData, setFormData] = useState<ChallengeCreationData>({
-    wagerAmount: 1000,
-    duration: 7,
+    duration: 7, // Default challenge duration
   });
 
   // Use challenge creation hook for data and actions
@@ -74,8 +71,6 @@ export const ChallengeCreationWizard: React.FC<
     teammates: hookTeammates,
     isLoading,
     error,
-    validateWager,
-    formatWagerDisplay,
     createChallenge,
     refreshTeammates,
     clearError,
@@ -95,14 +90,12 @@ export const ChallengeCreationWizard: React.FC<
         return !!formData.opponentId && !!formData.opponentInfo;
       case 'challenge_type':
         return !!formData.challengeType;
-      case 'wager_amount':
-        return validateWager(formData.wagerAmount).isValid;
       case 'review_confirm':
         return true;
       default:
         return false;
     }
-  }, [currentStep, formData, validateWager]);
+  }, [currentStep, formData]);
 
   // Navigation handlers
   const handleNext = useCallback(() => {
@@ -115,9 +108,6 @@ export const ChallengeCreationWizard: React.FC<
         setCurrentStep('challenge_type');
         break;
       case 'challenge_type':
-        setCurrentStep('wager_amount');
-        break;
-      case 'wager_amount':
         // Calculate expiration date
         const expirationDate = new Date();
         expirationDate.setDate(expirationDate.getDate() + formData.duration);
@@ -138,11 +128,8 @@ export const ChallengeCreationWizard: React.FC<
       case 'challenge_type':
         setCurrentStep('choose_opponent');
         break;
-      case 'wager_amount':
-        setCurrentStep('challenge_type');
-        break;
       case 'review_confirm':
-        setCurrentStep('wager_amount');
+        setCurrentStep('challenge_type');
         break;
     }
   }, [currentStep]);
@@ -155,8 +142,7 @@ export const ChallengeCreationWizard: React.FC<
       // Validate all form data before submission
       if (
         !formData.opponentId ||
-        !formData.challengeType ||
-        !formData.wagerAmount
+        !formData.challengeType
       ) {
         throw new Error(
           'Please complete all required fields before creating the challenge.'
@@ -199,29 +185,7 @@ export const ChallengeCreationWizard: React.FC<
               setTimeout(() => handleCreateChallenge(), 1000);
             },
           });
-        } else if (
-          error.message.includes('insufficient funds') ||
-          error.message.includes('balance')
-        ) {
-          errorTitle = 'Insufficient Balance';
-          errorMessage =
-            "You don't have enough sats in your wallet for this wager amount.";
-          actions = [
-            {
-              text: 'Add Funds',
-              onPress: () => {
-                // Navigate to wallet screen (would need navigation prop)
-                clearError();
-              },
-            },
-            {
-              text: 'Change Amount',
-              onPress: () => {
-                setCurrentStep('wager_amount');
-                clearError();
-              },
-            },
-          ];
+        // Removed insufficient funds error - no wagers in this phase
         } else if (
           error.message.includes('user not found') ||
           error.message.includes('opponent')
@@ -336,20 +300,7 @@ export const ChallengeCreationWizard: React.FC<
           </View>
         )}
 
-        {currentStep === 'wager_amount' && (
-          <View style={styles.stepContainer}>
-            <Text style={styles.stepTitle}>Set Wager</Text>
-            <Text style={styles.stepSubtitle}>
-              How much are you wagering on this challenge?
-            </Text>
-            <WagerAmountStep
-              wagerAmount={formData.wagerAmount}
-              onWagerAmountChange={(wagerAmount) => {
-                updateFormData({ wagerAmount });
-              }}
-            />
-          </View>
-        )}
+        {/* Removed wager step - no Bitcoin functionality in this phase */}
 
         {currentStep === 'review_confirm' && (
           <View style={styles.stepContainer}>
@@ -367,7 +318,7 @@ export const ChallengeCreationWizard: React.FC<
             onDone={() => {
               // Reset wizard and close
               setCurrentStep('choose_opponent');
-              setFormData({ wagerAmount: 1000, duration: 7 });
+              setFormData({ duration: 7 });
               onCancel();
             }}
           />

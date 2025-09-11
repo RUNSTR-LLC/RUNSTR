@@ -10,6 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
+      "userInterfaceStyle": "dark",
       "entitlements": {
         "com.apple.developer.applesignin": [
           "Default",
@@ -25,16 +26,23 @@
         "NSUserTrackingUsageDescription": "This identifier will be used to deliver personalized ads to you.",
         "CFBundleDisplayName": "RUNSTR",
         "NSHealthShareUsageDescription": "RUNSTR needs access to your workout data to automatically sync your fitness activities and calculate team rankings for Bitcoin rewards.",
-        "NSHealthUpdateUsageDescription": "RUNSTR needs to read your workout data to track your fitness progress and team contributions."
+        "NSHealthUpdateUsageDescription": "RUNSTR needs to read your workout data to track your fitness progress and team contributions.",
+        "UIUserInterfaceStyle": "Dark"
       },
-      "bundleIdentifier": "com.anonymous.runstr.project"
+      "bundleIdentifier": "com.anonymous.runstr.project",
+      "splash": {
+        "image": "./assets/images/splash-icon.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#000000"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.anonymous.runstr.project"
     },
     "web": {
       "bundler": "metro",
@@ -44,12 +52,24 @@
     "plugins": [
       "expo-apple-authentication",
       [
+        "@yzlin/expo-healthkit",
+        {
+          "NSHealthShareUsageDescription": "RUNSTR needs access to your workout data to automatically sync your fitness activities and calculate team rankings for Bitcoin rewards.",
+          "NSHealthUpdateUsageDescription": "RUNSTR needs to read your workout data to track your fitness progress and team contributions.",
+          "background": true
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
+          "imageWidth": 300,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#000000",
+          "dark": {
+            "image": "./assets/images/splash-icon.png",
+            "backgroundColor": "#000000"
+          }
         }
       ],
       [

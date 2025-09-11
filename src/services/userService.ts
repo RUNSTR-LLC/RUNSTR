@@ -3,10 +3,7 @@
  * Re-exports all user-related services from focused modules
  */
 
-// Re-export Authentication Service
-// Default export for backwards compatibility
-import { ProfileService } from './user/profileService';
-
+// Re-export Authentication Service  
 export { AuthService } from './auth/authService';
 
 // Re-export Profile Service
@@ -17,4 +14,6 @@ export {
   TeamMembershipService,
   type TeamSwitchResult,
 } from './user/teamMembershipService';
-export default ProfileService;
+
+// Default export for backwards compatibility
+export { ProfileService as default } from './user/profileService';

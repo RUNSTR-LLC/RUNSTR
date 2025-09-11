@@ -7,6 +7,7 @@ import { NostrRelayManager } from '../nostr/NostrRelayManager';
 import { TeamContextService } from './TeamContextService';
 import { TeamNotificationFormatter } from './TeamNotificationFormatter';
 import { ExpoNotificationProvider } from './ExpoNotificationProvider';
+import { NotificationPreferencesService } from './NotificationPreferencesService';
 import { useUserStore } from '../../store/userStore';
 import { analytics } from '../../utils/analytics';
 import type { Event } from 'nostr-tools';
@@ -563,24 +564,23 @@ export class NostrNotificationEventHandler {
     userId: string
   ): Promise<NotificationSettings | null> {
     try {
-      // Get user settings from store - this would need to be enhanced
-      // to support multiple users or a user lookup service
+      // Check if this is the current user
       const userStore = useUserStore.getState();
-      if (userStore.user && userStore.user.id === userId) {
-        return (
-          userStore.user.notificationSettings || {
-            eventNotifications: true,
-            leagueUpdates: true,
-            teamAnnouncements: true,
-            bitcoinRewards: true,
-            challengeUpdates: true,
-            liveCompetitionUpdates: true,
-            workoutReminders: true,
-          }
-        );
+      const isCurrentUser = userStore.user && (
+        userStore.user.id === userId || 
+        userStore.user.npub === userId
+      );
+
+      if (isCurrentUser) {
+        // Get actual user preferences from persistent storage
+        const settings = await NotificationPreferencesService.getNotificationSettings();
+        console.log(`📱 Using real notification preferences for current user: ${userId.slice(0, 20)}...`);
+        return settings;
       }
 
-      // For other users, assume default settings
+      // For other users (in multi-user scenarios), we can't access their preferences
+      // In practice, this handler should mainly process events for the current user
+      console.log(`📱 Using default notification settings for other user: ${userId.slice(0, 20)}...`);
       return {
         eventNotifications: true,
         leagueUpdates: true,
@@ -592,7 +592,16 @@ export class NostrNotificationEventHandler {
       };
     } catch (error) {
       console.error('Failed to get user notification settings:', error);
-      return null;
+      // Return permissive defaults on error to avoid blocking notifications completely
+      return {
+        eventNotifications: true,
+        leagueUpdates: true,
+        teamAnnouncements: true,
+        bitcoinRewards: true,
+        challengeUpdates: true,
+        liveCompetitionUpdates: true,
+        workoutReminders: true,
+      };
     }
   }
 

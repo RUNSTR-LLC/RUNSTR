@@ -54,9 +54,7 @@ export const ChallengesCard: React.FC<ChallengesCardProps> = ({
               <Text style={styles.challengeDate}>{challenge.date}</Text>
             </View>
             <Text style={styles.challengeDetails}>{challenge.details}</Text>
-            <View style={styles.prizeContainer}>
-              <Text style={styles.challengePrize}>{challenge.prize}</Text>
-            </View>
+            {/* Removed prize display - no Bitcoin functionality in this phase */}
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -123,15 +121,5 @@ const styles = StyleSheet.create({
     lineHeight: 14,
     marginBottom: 3,
   },
-  prizeContainer: {
-    alignSelf: 'flex-start',
-  },
-  challengePrize: {
-    fontSize: 10,
-    color: theme.colors.text,
-    backgroundColor: theme.colors.border,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
+  // Removed prize styles - no Bitcoin functionality in this phase
 });

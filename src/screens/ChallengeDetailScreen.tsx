@@ -31,6 +31,8 @@ import { RulesSection } from '../components/challenge/RulesSection';
 
 // Real Data Services
 import { ChallengeService } from '../services/challengeService';
+import { NostrCompetitionLeaderboardService } from '../services/competition/nostrCompetitionLeaderboardService';
+import type { CompetitionLeaderboard, CompetitionParticipant } from '../services/competition/nostrCompetitionLeaderboardService';
 
 type ChallengeDetailRouteProp = RouteProp<
   RootStackParamList,
@@ -59,6 +61,8 @@ export const ChallengeDetailScreen: React.FC<ChallengeDetailScreenProps> = ({
   const [watchStatus, setWatchStatus] = useState<
     'not_watching' | 'watching' | 'participating'
   >('not_watching');
+  const [leaderboard, setLeaderboard] = useState<CompetitionLeaderboard | null>(null);
+  const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(false);
 
   // Load challenge data
   useEffect(() => {
@@ -70,65 +74,158 @@ export const ChallengeDetailScreen: React.FC<ChallengeDetailScreenProps> = ({
     setError(null);
 
     try {
-      // For now, we'll fetch pending challenges and find the one we need
-      // In a full implementation, there would be a getChallengeById method
-      const pendingChallenges = await ChallengeService.getUserPendingChallenges(
-        'current-user-id'
-      );
-      const challenge = pendingChallenges.find((c) => c.id === challengeId);
-
-      if (!challenge) {
-        throw new Error(`Challenge not found: ${challengeId}`);
-      }
-
-      // Convert Challenge to ChallengeDetailData (simplified for now)
-      const challengeDetailData: ChallengeDetailData = {
-        id: challenge.id,
-        name: challenge.name || 'Challenge',
-        description: challenge.description || 'No description available',
-        prizePool: challenge.prizePool || 0,
-        competitors: [], // TODO: Get actual competitor data
-        progress: {
-          isParticipating: false,
-          isWatching: true,
-          status:
-            challenge.status === 'completed'
-              ? 'completed'
-              : challenge.status === 'pending'
-              ? 'expired'
-              : 'active',
-          isCompleted: challenge.status === 'completed',
-        },
-        timer: {
-          timeRemaining: '0d 0h 0m', // TODO: Calculate actual time remaining
-          isExpired: false,
-        },
-        rules: [
-          {
-            id: '1',
-            text: 'Complete the challenge requirements before deadline',
-          },
-          { id: '2', text: 'Activities must be tracked through RUNSTR app' },
-          { id: '3', text: 'Winner takes the full prize pool' },
-        ],
-        status: challenge.status as
-          | 'pending'
-          | 'accepted'
-          | 'active'
-          | 'completed'
-          | 'disputed',
-        formattedPrize: `${challenge.prizePool || 0} sats`,
-        formattedDeadline: 'To be calculated', // TODO: Format actual deadline
+      // For now, create a demo challenge scenario
+      // In full implementation, challenges would be stored as Nostr events
+      const mockChallengeParams = {
+        activityType: 'Running',
+        goalType: 'distance' as const,
+        startTime: Math.floor((Date.now() - 24 * 60 * 60 * 1000) / 1000), // Started 1 day ago
+        endTime: Math.floor((Date.now() + 6 * 24 * 60 * 60 * 1000) / 1000), // Ends in 6 days
+        goalValue: 10, // 10km challenge
+        goalUnit: 'km',
       };
 
-      setChallengeData(challengeDetailData);
-      setTimeRemaining(challengeDetailData.timer.timeRemaining);
+      // Mock participant pubkeys (in real implementation, these would come from challenge event)
+      const participant1 = 'npub1participant1example12345678901234567890';
+      const participant2 = 'npub1participant2example12345678901234567890';
+
+      // Load real leaderboard data for the challenge
+      setIsLoadingLeaderboard(true);
+      const leaderboardService = NostrCompetitionLeaderboardService.getInstance();
+      
+      try {
+        const challengeLeaderboard = await leaderboardService.computeChallengeLeaderboard(
+          challengeId,
+          participant1,
+          participant2,
+          mockChallengeParams,
+          'current_user_id' // TODO: Get actual current user ID from auth
+        );
+        
+        setLeaderboard(challengeLeaderboard);
+        
+        // Convert leaderboard participants to competitor format
+        const competitors = challengeLeaderboard.participants.map((participant: CompetitionParticipant, index: number) => ({
+          id: participant.pubkey,
+          name: participant.name || `Participant ${index + 1}`,
+          avatar: participant.name?.charAt(0).toUpperCase() || `P${index + 1}`,
+          score: participant.score,
+          position: participant.position || index + 1,
+          distance: participant.totalDistance ? `${Math.round(participant.totalDistance / 1000)} km` : '0 km',
+          time: participant.totalDuration ? formatDuration(participant.totalDuration) : '0 min',
+          workouts: participant.workoutCount || 0,
+          isWinner: participant.position === 1 && challengeLeaderboard.participants.length > 1,
+          status: 'completed' as const,
+          progress: {
+            value: participant.totalDistance || 0,
+            percentage: Math.min(100, ((participant.totalDistance || 0) / (mockChallengeParams.goalValue || 1) / 1000) * 100),
+            unit: 'km'
+          }
+        }));
+
+        // Calculate time remaining
+        const timeRemainingSeconds = mockChallengeParams.endTime - Math.floor(Date.now() / 1000);
+        const formattedTimeRemaining = formatTimeRemaining(timeRemainingSeconds);
+        const isExpired = timeRemainingSeconds <= 0;
+        const isCompleted = isExpired; // For demo purposes
+
+        // Create challenge detail data with real leaderboard
+        const challengeDetailData: ChallengeDetailData = {
+          id: challengeId,
+          name: `${mockChallengeParams.goalValue}${mockChallengeParams.goalUnit} ${mockChallengeParams.activityType} Challenge`,
+          description: `Complete ${mockChallengeParams.goalValue} ${mockChallengeParams.goalUnit} of ${mockChallengeParams.activityType.toLowerCase()} before the deadline`,
+          prizePool: 1000, // Mock prize pool in sats
+          competitors,
+          progress: {
+            isParticipating: false, // TODO: Check if current user is participating
+            isWatching: true,
+            status: isCompleted ? 'completed' : (isExpired ? 'completed' : 'active'),
+            isCompleted,
+            winner: competitors.find(c => c.isWinner),
+          },
+          timer: {
+            timeRemaining: formattedTimeRemaining,
+            isExpired,
+          },
+          rules: [
+            {
+              id: '1',
+              text: `Complete ${mockChallengeParams.goalValue} ${mockChallengeParams.goalUnit} of ${mockChallengeParams.activityType.toLowerCase()} before deadline`,
+            },
+            { id: '2', text: 'Activities must be tracked and published to Nostr (kind 1301 events)' },
+            { id: '3', text: 'Winner determined by total distance covered' },
+            { id: '4', text: 'Challenge results updated in real-time from Nostr workout events' },
+          ],
+          status: isCompleted ? 'completed' : (isExpired ? 'expired' : 'active'),
+          formattedPrize: '1000 sats',
+          formattedDeadline: new Date(mockChallengeParams.endTime * 1000).toLocaleDateString(),
+        };
+
+        setChallengeData(challengeDetailData);
+        setTimeRemaining(challengeDetailData.timer.timeRemaining);
+        
+      } catch (leaderboardError) {
+        console.error('Failed to load challenge leaderboard:', leaderboardError);
+        
+        // Fall back to basic challenge data without leaderboard
+        const challengeDetailData: ChallengeDetailData = {
+          id: challengeId,
+          name: 'Challenge',
+          description: 'Head-to-head fitness challenge',
+          prizePool: 0,
+          competitors: [],
+          progress: {
+            isParticipating: false,
+            isWatching: true,
+            status: 'active',
+            isCompleted: false,
+          },
+          timer: {
+            timeRemaining: '0d 0h 0m',
+            isExpired: false,
+          },
+          rules: [
+            { id: '1', text: 'Complete the challenge requirements before deadline' },
+            { id: '2', text: 'Activities must be tracked through RUNSTR app' },
+            { id: '3', text: 'Winner takes the full prize pool' },
+          ],
+          status: 'active',
+          formattedPrize: '0 sats',
+          formattedDeadline: 'TBD',
+        };
+        setChallengeData(challengeDetailData);
+      } finally {
+        setIsLoadingLeaderboard(false);
+      }
+      
     } catch (err) {
       console.error('Failed to load challenge data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load challenge');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Helper function to format duration
+  const formatDuration = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
+  };
+
+  // Helper function to format time remaining
+  const formatTimeRemaining = (seconds: number): string => {
+    if (seconds <= 0) return '0d 0h 0m';
+
+    const days = Math.floor(seconds / (24 * 3600));
+    const hours = Math.floor((seconds % (24 * 3600)) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+
+    return `${days}d ${hours}h ${minutes}m`;
   };
 
   // Timer countdown effect (for live updates)

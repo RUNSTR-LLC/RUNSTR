@@ -1,6 +1,9 @@
 # HealthKit Implementation Guide
 ## Complete Integration for Apple Health Sync
 
+## ⚠️ **iOS ONLY INTEGRATION** 
+**Important**: This HealthKit integration only works on **physical iOS devices**. Android users will continue to use manual Nostr workout posting. HealthKit cannot be tested in iOS simulators.
+
 ## ✅ AUTOMATED IMPLEMENTATION COMPLETE
 
 I've implemented the complete HealthKit integration system that seamlessly integrates with your existing RUNSTR architecture. Here's what's been created:
@@ -34,8 +37,11 @@ I've implemented the complete HealthKit integration system that seamlessly integ
 ## 🔧 MANUAL STEPS YOU MUST COMPLETE
 
 ### **Step 1: Install Dependencies** (5 minutes)
+**Note**: Dependencies are already installed. The integration uses `@yzlin/expo-healthkit` v0.14.0.
+
+If you need to reinstall:
 ```bash
-npm install react-native-health
+npm install @yzlin/expo-healthkit
 cd ios && pod install
 ```
 
@@ -88,9 +94,11 @@ Add these keys to `ios/runstr/Info.plist` (before closing `</dict>`):
 ## 📊 WHAT HAPPENS AFTER SETUP
 
 ### **Automatic Background Sync:**
-- Every 30 minutes, app syncs new Apple Health workouts
+- Every 30 minutes, app syncs new Apple Health workouts (configurable)
 - Workouts from ALL fitness apps (Strava, Nike Run Club, Apple Fitness+) automatically appear
 - Background sync works even when app is closed
+- Smart sync: only syncs when app returns to foreground if 15+ minutes have passed
+- Battery optimized: configurable intervals for different usage patterns
 
 ### **Competition Integration:**
 - HealthKit workouts automatically count toward team competitions  
@@ -126,11 +134,11 @@ Your existing Nostr 1301 sync continues working alongside HealthKit, creating a 
 
 After completing manual steps, verify:
 
-- [ ] `npm install react-native-health` completed
+- [ ] `@yzlin/expo-healthkit` dependency is available (already installed)
 - [ ] `pod install` completed successfully  
 - [ ] HealthKit capability added in Xcode
 - [ ] Info.plist permissions added
-- [ ] App builds and runs on physical iPhone
+- [ ] App builds and runs on **physical iPhone** (required - simulators don't support HealthKit)
 - [ ] HealthKit permission card appears in Profile tab
 - [ ] Permission request works and shows iOS permission dialog
 - [ ] Workouts sync successfully from Apple Health
@@ -141,9 +149,10 @@ After completing manual steps, verify:
 ## 📞 TROUBLESHOOTING
 
 ### **"HealthKit library not available" error:**
-- Ensure `npm install react-native-health` was run
-- Run `pod install` in ios/ directory
+- Ensure `@yzlin/expo-healthkit` is installed (already included in dependencies)
+- Run `pod install` in ios/ directory  
 - Clean and rebuild app
+- Verify app is running on physical iOS device (not simulator)
 
 ### **Permission dialog not appearing:**
 - Check Info.plist has correct permission keys

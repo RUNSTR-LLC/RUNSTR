@@ -6,7 +6,6 @@
 
 import { useState, useEffect } from 'react';
 import { AuthService } from '../services/auth/authService';
-import { TeamService } from '../services/teamService';
 import { getNostrTeamService } from '../services/nostr/NostrTeamService';
 import { DirectNostrProfileService } from '../services/user/directNostrProfileService';
 import coinosService from '../services/coinosService';
@@ -104,15 +103,10 @@ export const useNavigationData = (): NavigationData => {
 
     try {
       console.log('Fetching team data for team:', teamId);
-      const teamScreenData = await TeamService.getTeamScreenData(teamId);
-
-      if (teamScreenData) {
-        setTeamData(teamScreenData);
-        console.log('Successfully loaded team data:', teamScreenData.team.name);
-      } else {
-        console.warn('No team data found for team:', teamId);
-        setTeamData(null);
-      }
+      // TODO: Replace with Nostr team service equivalent
+      // const teamScreenData = await TeamService.getTeamScreenData(teamId);
+      console.warn('Team screen data loading disabled - needs Nostr implementation');
+      setTeamData(null);
     } catch (error) {
       console.error('Error fetching team data:', error);
       setError('Failed to load team data');
@@ -158,11 +152,10 @@ export const useNavigationData = (): NavigationData => {
       let currentTeam = null;
       if (user.teamId) {
         try {
-          currentTeam = await TeamService.getUserTeam(user.id);
-          console.log(
-            'useNavigationData: Fetched user team:',
-            currentTeam?.name || 'Team data incomplete'
-          );
+          // TODO: Replace with Nostr team service equivalent
+          // currentTeam = await TeamService.getUserTeam(user.id);
+          console.log('useNavigationData: User team loading disabled - needs Nostr implementation');
+          currentTeam = null;
         } catch (error) {
           console.warn('useNavigationData: Failed to fetch user team:', error);
         }
@@ -314,25 +307,23 @@ export const useNavigationData = (): NavigationData => {
 
   const fetchAvailableTeams = async (): Promise<void> => {
     try {
-      console.log('useNavigationData: Fetching teams with caching...');
+      console.log('🚀 useNavigationData: BYPASSING CACHE - fetching fresh teams from Nostr...');
       
-      // First try to get cached teams (instant if available)
-      const { NostrCacheService } = await import('../services/cache/NostrCacheService');
-      const cachedTeams = await NostrCacheService.getCachedTeams() as DiscoveryTeam[];
-      
-      if (cachedTeams.length > 0) {
-        console.log(`⚡ useNavigationData: Found ${cachedTeams.length} cached teams`);
-        setAvailableTeams(cachedTeams);
-        return; // Use cached data, background refresh will happen via preload service
-      }
-      
-      // No cache available, fetch fresh data
-      console.log('useNavigationData: No cached teams, fetching fresh...');
+      // SKIP CACHE - always fetch fresh data to avoid stale team problem
       const nostrTeamService = getNostrTeamService();
+      console.log('🔥 useNavigationData: CALLING discoverFitnessTeams...');
       const nostrTeams = await nostrTeamService.discoverFitnessTeams({
         limit: 50, // Increased limit for better discovery
         // Removed since filter to access ALL historical teams
       });
+      
+      console.log(`🔥 useNavigationData: RAW NOSTR TEAMS RETURNED: ${nostrTeams.length}`);
+      console.log('🔥 useNavigationData: RAW TEAMS:', nostrTeams.map(t => ({
+        id: t.id,
+        name: t.name,
+        memberCount: t.memberCount,
+        isPublic: t.isPublic
+      })));
 
       // Convert NostrTeam to DiscoveryTeam format
       const discoveryTeams: DiscoveryTeam[] = nostrTeams.map((team) => ({
@@ -361,12 +352,20 @@ export const useNavigationData = (): NavigationData => {
       }));
 
       console.log(
-        `useNavigationData: Found ${discoveryTeams.length} fresh teams`
+        `🎯 useNavigationData: Found ${discoveryTeams.length} FRESH teams from Nostr (no cache)`
       );
+      console.log('🎯 useNavigationData: CONVERTED DISCOVERY TEAMS:', discoveryTeams.map(t => ({
+        id: t.id,
+        name: t.name,
+        memberCount: t.memberCount,
+        isActive: t.isActive
+      })));
       
-      // Cache the fresh data for future use
-      await NostrCacheService.setCachedTeams(discoveryTeams);
+      // Skip caching for now to avoid stale data issues
+      // await NostrCacheService.setCachedTeams(discoveryTeams);
+      console.log('🔥 useNavigationData: CALLING setAvailableTeams...');
       setAvailableTeams(discoveryTeams);
+      console.log('🔥 useNavigationData: setAvailableTeams CALLED SUCCESSFULLY');
     } catch (error) {
       console.error('Error fetching teams:', error);
       setError('Failed to load teams');

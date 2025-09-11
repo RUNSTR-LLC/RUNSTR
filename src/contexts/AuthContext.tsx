@@ -195,10 +195,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       try {
         await checkStoredCredentials();
         
-        // Initialize background services if authenticated
+        // Initialize background services if authenticated (OPTIONAL - won't block authentication)
         if (isAuthenticated) {
           try {
-            console.log('🏃‍♂️ AuthContext: Initializing background services...');
+            console.log('🏃‍♂️ AuthContext: Attempting to initialize background services...');
             const { BackgroundSyncService } = await import(
               '../services/fitness/backgroundSyncService'
             );
@@ -208,10 +208,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             if (result.success) {
               console.log('✅ AuthContext: Background sync activated');
             } else {
-              console.warn('⚠️  AuthContext: Background sync initialization failed:', result.error);
+              console.warn('⚠️  AuthContext: Background sync initialization failed (non-critical):', result.error);
             }
           } catch (bgError) {
-            console.warn('⚠️  AuthContext: Background services failed to initialize:', bgError);
+            console.warn('⚠️  AuthContext: Background services unavailable (non-critical):', bgError);
+            // This is intentionally non-blocking - app should work without background services
           }
         }
         
@@ -225,7 +226,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
 
     initializeAuth();
-  }, [isAuthenticated, checkStoredCredentials]);
+  }, [checkStoredCredentials]); // Removed isAuthenticated to prevent infinite loop
 
   // Context value - all state and actions
   const contextValue: AuthContextType = {

@@ -6,7 +6,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Event } from 'nostr-tools';
-import { NostrRelayManager } from '../nostr/NostrRelayManager';
+import { NostrRelayManager, nostrRelayManager } from '../nostr/NostrRelayManager';
 import { NostrListService } from '../nostr/NostrListService';
 import type { NostrFilter } from '../nostr/NostrProtocolHandler';
 
@@ -48,7 +48,7 @@ export class TeamMembershipService {
   private readonly JOIN_REQUESTS_KEY = 'runstr:joinRequests';
 
   constructor(relayManager?: NostrRelayManager) {
-    this.relayManager = relayManager || new NostrRelayManager();
+    this.relayManager = relayManager || nostrRelayManager;
     this.listService = NostrListService.getInstance(this.relayManager);
   }
 

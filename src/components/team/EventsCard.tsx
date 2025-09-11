@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../ui/Card';
 import { FormattedEvent } from '../../types';
 import { theme } from '../../styles/theme';
@@ -13,16 +14,25 @@ import { theme } from '../../styles/theme';
 interface EventsCardProps {
   events: FormattedEvent[];
   onEventPress?: (eventId: string) => void;
+  onAddEvent?: () => void;
+  isCaptain?: boolean;
 }
 
 export const EventsCard: React.FC<EventsCardProps> = ({
   events,
   onEventPress,
+  onAddEvent,
+  isCaptain = false,
 }) => {
   return (
     <Card style={styles.card}>
       <View style={styles.header}>
         <Text style={styles.title}>Events</Text>
+        {isCaptain && onAddEvent && (
+          <TouchableOpacity onPress={onAddEvent} style={styles.addButton}>
+            <Ionicons name="add" size={16} color={theme.colors.background} />
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView
@@ -64,6 +74,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: theme.colors.text,
+  },
+  addButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: theme.colors.text,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   scrollableList: {
     flex: 1,

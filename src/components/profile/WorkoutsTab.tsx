@@ -22,8 +22,10 @@ import type { WorkoutType } from '../../types/workout';
 import { Card } from '../ui/Card';
 import { LoadingOverlay } from '../ui/LoadingStates';
 import { HealthKitPermissionCard } from '../fitness/HealthKitPermissionCard';
+import { HealthKitErrorBoundary } from '../fitness/HealthKitErrorBoundary';
 import { WorkoutSyncStatus } from '../fitness/WorkoutSyncStatus';
 import { WorkoutActionButtons } from '../fitness/WorkoutActionButtons';
+import { PerformanceDashboard } from './PerformanceDashboard';
 import {
   WorkoutMergeService,
   type UnifiedWorkout,
@@ -67,6 +69,11 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [nsecKey, setNsecKey] = useState<string | null>(null);
+  
+  // Load More functionality - progressive loading like HTML test
+  const [hasMoreWorkouts, setHasMoreWorkouts] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [oldestTimestamp, setOldestTimestamp] = useState<number | null>(null);
   
   // OPTIMIZATION: Tab state persistence
   const [tabDataLoaded, setTabDataLoaded] = useState(false);
@@ -176,6 +183,27 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
       setTabDataLoaded(true);
       setLastLoadTime(currentTime);
       
+      // Track oldest timestamp for Load More functionality
+      if (result.allWorkouts.length > 0) {
+        const timestamps = result.allWorkouts.map(w => new Date(w.startTime).getTime() / 1000);
+        const oldest = Math.min(...timestamps);
+        setOldestTimestamp(oldest);
+        
+        // IMPROVED: Show Load More if we hit the query limit OR have reasonable data (suggests more available)
+        const hitQueryLimit = result.allWorkouts.length >= 100; // If we hit limit, likely more available
+        const hasReasonableData = result.allWorkouts.length >= 5; // Lower threshold from 20 to 5
+        const dataSpansTime = result.allWorkouts.length >= 2; // Even with few workouts, might have historical
+        
+        setHasMoreWorkouts(hitQueryLimit || hasReasonableData || dataSpansTime);
+        
+        console.log(`📊 Load More status: oldest=${new Date(oldest * 1000).toLocaleDateString()}, hasMore=${hitQueryLimit || hasReasonableData || dataSpansTime}`);
+        console.log(`   Reasons: hitLimit=${hitQueryLimit}, reasonable=${hasReasonableData}, spans=${dataSpansTime}`);
+      } else {
+        // Even with no workouts, show Load More with explanatory message
+        setHasMoreWorkouts(true);
+        console.log('📊 No workouts found - still showing Load More for historical search');
+      }
+      
       const loadDuration = Date.now() - startTime;
       console.log(`✅ Workouts loaded: ${result.allWorkouts.length} total, ${loadDuration}ms, fromCache: ${result.fromCache}`);
       
@@ -184,6 +212,60 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
       // Don't show alert - this is in a tab, keep it silent
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Load More functionality - fetch older workouts progressively
+  const loadMoreWorkouts = async () => {
+    if (isLoadingMore || !hasMoreWorkouts || !oldestTimestamp || !currentUserPubkey) {
+      console.log('⚠️ Load More skipped:', { isLoadingMore, hasMoreWorkouts, hasTimestamp: !!oldestTimestamp, hasPubkey: !!currentUserPubkey });
+      return;
+    }
+
+    setIsLoadingMore(true);
+    
+    try {
+      console.log(`🔄 Loading more workouts older than: ${new Date(oldestTimestamp * 1000).toLocaleDateString()}`);
+      
+      // Get older workouts using the oldest timestamp as the "until" parameter
+      const result = await mergeService.getMergedWorkoutsWithPagination(
+        currentUserId, 
+        currentUserPubkey, 
+        oldestTimestamp
+      );
+      
+      if (result.allWorkouts.length > 0) {
+        // Append new older workouts to existing list
+        const updatedWorkouts = [...workouts, ...result.allWorkouts];
+        setWorkouts(updatedWorkouts);
+        setMergeResult({
+          ...result,
+          allWorkouts: updatedWorkouts,
+          healthKitCount: (mergeResult?.healthKitCount || 0) + result.healthKitCount,
+          nostrCount: (mergeResult?.nostrCount || 0) + result.nostrCount,
+          duplicateCount: (mergeResult?.duplicateCount || 0) + result.duplicateCount,
+        });
+        
+        // Update oldest timestamp for next load more
+        const timestamps = result.allWorkouts.map(w => new Date(w.startTime).getTime() / 1000);
+        const newOldest = Math.min(...timestamps);
+        setOldestTimestamp(newOldest);
+        
+        // Determine if there are still more workouts to load
+        // If we got fewer than expected, probably reached the end
+        setHasMoreWorkouts(result.allWorkouts.length >= 10);
+        
+        console.log(`✅ Loaded ${result.allWorkouts.length} more workouts, new oldest: ${new Date(newOldest * 1000).toLocaleDateString()}, hasMore: ${result.allWorkouts.length >= 10}`);
+      } else {
+        // No more workouts found
+        setHasMoreWorkouts(false);
+        console.log('📭 No more workouts found - reached the end');
+      }
+    } catch (error) {
+      console.error('❌ Load More failed:', error);
+      // Don't show alert - this is background loading
+    } finally {
+      setIsLoadingMore(false);
     }
   };
 
@@ -473,36 +555,31 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
 
         {/* Apple Health Integration */}
         {healthKitService.getStatus().available && (
-          <HealthKitPermissionCard
-            userId={currentUserId}
-            teamId={currentUserTeamId}
-            onPermissionGranted={handleHealthKitPermissionGranted}
-            onPermissionDenied={(error) => {
-              console.error('HealthKit permission denied:', error);
+          <HealthKitErrorBoundary 
+            fallbackMessage="Apple Health sync is temporarily unavailable. Your workouts can still be posted manually."
+            onRetry={() => {
+              // Trigger a re-render by updating HealthKit status
+              checkHealthKitStatus();
             }}
-            showStats={true}
-          />
+          >
+            <HealthKitPermissionCard
+              userId={currentUserId}
+              teamId={currentUserTeamId}
+              onPermissionGranted={handleHealthKitPermissionGranted}
+              onPermissionDenied={(error) => {
+                console.error('HealthKit permission denied:', error);
+              }}
+              showStats={true}
+            />
+          </HealthKitErrorBoundary>
         )}
 
-        {/* Stats Summary */}
+        {/* Performance Dashboard - Replaces basic stats */}
         {mergeResult && (
-          <Card style={styles.statsCard}>
-            <Text style={styles.statsTitle}>Total Workouts</Text>
-            <Text style={styles.statsValue}>
-              {mergeResult.allWorkouts.length} workouts
-            </Text>
-            <View style={styles.statsBreakdown}>
-              <Text style={styles.statsSubtext}>
-                HealthKit: {mergeResult.healthKitCount} • Nostr:{' '}
-                {mergeResult.nostrCount}
-              </Text>
-              {mergeResult.duplicateCount > 0 && (
-                <Text style={styles.statsSubtext}>
-                  ({mergeResult.duplicateCount} duplicates removed)
-                </Text>
-              )}
-            </View>
-          </Card>
+          <PerformanceDashboard 
+            mergeResult={mergeResult} 
+            isLoading={isLoading}
+          />
         )}
 
         {/* Filters & Sort */}
@@ -578,6 +655,39 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
             )}
           </Card>
         }
+        ListFooterComponent={
+          hasMoreWorkouts ? (
+            <View style={styles.loadMoreContainer}>
+              <TouchableOpacity
+                style={[styles.loadMoreButton, isLoadingMore && styles.loadMoreButtonDisabled]}
+                onPress={loadMoreWorkouts}
+                disabled={isLoadingMore}
+              >
+                <Text style={styles.loadMoreText}>
+                  {isLoadingMore ? 'Searching historical workouts...' : 'Load Historical Workouts'}
+                </Text>
+                {!isLoadingMore && (
+                  <MaterialIcons 
+                    name="keyboard-arrow-down" 
+                    size={20} 
+                    color={theme.colors.accent} 
+                    style={styles.loadMoreIcon}
+                  />
+                )}
+              </TouchableOpacity>
+              <Text style={styles.loadMoreHint}>
+                {oldestTimestamp 
+                  ? `Showing 2 years of workouts since ${new Date(oldestTimestamp * 1000).toLocaleDateString()}`
+                  : `Search your complete workout history • Tap to load older workouts`}
+              </Text>
+              {workouts.length === 0 && (
+                <Text style={styles.dataRangeHint}>
+                  🔍 No workouts found in recent period • Try loading historical data
+                </Text>
+              )}
+            </View>
+          ) : null
+        }
         style={styles.flatList}
       />
     </View>
@@ -594,34 +704,7 @@ const styles = StyleSheet.create({
     margin: 16,
   },
   
-  statsCard: {
-    margin: 16,
-    padding: 16,
-    alignItems: 'center',
-  },
-  
-  statsTitle: {
-    color: theme.colors.textMuted,
-    fontSize: 14,
-    marginBottom: 4,
-  },
-  
-  statsValue: {
-    color: theme.colors.text,
-    fontSize: 24,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  
-  statsSubtext: {
-    color: theme.colors.textSecondary,
-    fontSize: 12,
-  },
-  
-  statsBreakdown: {
-    alignItems: 'center',
-    gap: 4,
-  },
+  // Removed old stats styles - now using PerformanceDashboard component
   
   controlsContainer: {
     paddingHorizontal: 16,
@@ -802,5 +885,54 @@ const styles = StyleSheet.create({
   
   flatList: {
     flex: 1,
+  },
+  
+  loadMoreContainer: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+  },
+  
+  loadMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.cardBackground,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.accent,
+    marginBottom: 8,
+  },
+  
+  loadMoreButtonDisabled: {
+    backgroundColor: theme.colors.border,
+    borderColor: theme.colors.border,
+  },
+  
+  loadMoreText: {
+    color: theme.colors.accent,
+    fontSize: 14,
+    fontWeight: '600',
+    marginRight: 4,
+  },
+  
+  loadMoreIcon: {
+    marginLeft: 4,
+  },
+  
+  loadMoreHint: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  
+  dataRangeHint: {
+    color: theme.colors.textSecondary,
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
 });

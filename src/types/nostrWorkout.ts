@@ -125,7 +125,8 @@ export type NostrWorkoutErrorType =
   | 'missing_data'
   | 'duplicate_event'
   | 'storage_error'
-  | 'network_timeout';
+  | 'network_timeout'
+  | 'delegation_error';
 
 export interface NostrWorkoutError {
   type: NostrWorkoutErrorType;

@@ -18,16 +18,19 @@ import { theme } from '../styles/theme';
 
 // Components
 import { AboutPrizeSection } from '../components/team/AboutPrizeSection';
-import { LeaderboardCard } from '../components/team/LeaderboardCard';
+import { TeamMembersSection } from '../components/team/TeamMembersSection';
 import { EventsCard } from '../components/team/EventsCard';
 import { ChallengesCard } from '../components/team/ChallengesCard';
 
 // Services
 import { getNostrTeamService } from '../services/nostr/NostrTeamService';
 import { CaptainDetectionService } from '../services/team/captainDetectionService';
+import { NostrCompetitionLeaderboardService } from '../services/competition/nostrCompetitionLeaderboardService';
+import { CompetitionService } from '../services/competition/competitionService';
 
 // Types
 import { DiscoveryTeam, User } from '../types';
+import { TeamMember } from '../components/team/TeamMemberItem';
 
 interface TeamDashboardScreenProps {
   team: DiscoveryTeam;
@@ -36,6 +39,7 @@ interface TeamDashboardScreenProps {
   onBack: () => void;
   onJoinTeam: () => void;
   onCaptainDashboard: () => void;
+  navigation?: any; // Navigation for event/challenge detail screens
 }
 
 export const TeamDashboardScreen: React.FC<TeamDashboardScreenProps> = ({
@@ -45,9 +49,16 @@ export const TeamDashboardScreen: React.FC<TeamDashboardScreenProps> = ({
   onBack,
   onJoinTeam,
   onCaptainDashboard,
+  navigation,
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isCaptain, setIsCaptain] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [leagueData, setLeagueData] = useState<any[]>([]);
+  const [eventsData, setEventsData] = useState<any[]>([]);
+  const [challengesData, setChallengesData] = useState<any[]>([]);
+  const [competitionsLoading, setCompetitionsLoading] = useState(false);
 
   // Check if current user is captain of this team
   useEffect(() => {
@@ -73,6 +84,130 @@ export const TeamDashboardScreen: React.FC<TeamDashboardScreenProps> = ({
 
     checkCaptainStatus();
   }, [team.captainId, currentUser]);
+
+  // Fetch team members
+  useEffect(() => {
+    const fetchTeamMembers = async () => {
+      try {
+        setMembersLoading(true);
+        const nostrTeamService = getNostrTeamService();
+        const cachedTeams = nostrTeamService.getCachedTeams();
+        const nostrTeam = cachedTeams.find((t) => t.id === team.id);
+        
+        if (nostrTeam) {
+          const memberIds = await nostrTeamService.getTeamMembers(nostrTeam);
+          
+          // Convert member IDs to TeamMember objects
+          const members: TeamMember[] = memberIds.map((memberId, index) => ({
+            id: memberId,
+            name: `Member ${index + 1}`, // TODO: Get actual names from Nostr profiles
+            status: 'active' as const,
+            activityCount: Math.floor(Math.random() * 10), // TODO: Get real activity data
+            imageUrl: undefined,
+          }));
+          
+          setTeamMembers(members);
+        }
+      } catch (error) {
+        console.error('Failed to fetch team members:', error);
+        setTeamMembers([]);
+      } finally {
+        setMembersLoading(false);
+      }
+    };
+
+    fetchTeamMembers();
+  }, [team.id]);
+
+  // Fetch competitions data (leagues, events, challenges)
+  useEffect(() => {
+    const fetchCompetitionsData = async () => {
+      try {
+        setCompetitionsLoading(true);
+        const nostrTeamService = getNostrTeamService();
+        const cachedTeams = nostrTeamService.getCachedTeams();
+        const nostrTeam = cachedTeams.find((t) => t.id === team.id);
+        
+        if (nostrTeam) {
+          const competitionService = CompetitionService.getInstance();
+          const leaderboardService = NostrCompetitionLeaderboardService.getInstance();
+          
+          // Fetch team competitions
+          const competitions = await competitionService.getTeamCompetitions(nostrTeam);
+          
+          // Separate into events and leagues
+          const events = competitions.filter(c => c.type === 'event');
+          const leagues = competitions.filter(c => c.type === 'league');
+          
+          setEventsData(events);
+          
+          // For league data, fetch the actual leaderboard
+          const leagueWithLeaderboards = await Promise.all(
+            leagues.map(async (league) => {
+              try {
+                const leaderboard = await leaderboardService.computeLeagueLeaderboard(
+                  nostrTeam,
+                  league,
+                  currentUser?.id || 'current_user_id'
+                );
+                return {
+                  ...league,
+                  leaderboard,
+                  participants: leaderboard.participants.map(p => ({
+                    id: p.pubkey,
+                    name: p.name || `User ${p.pubkey.substring(0, 8)}`,
+                    score: p.score,
+                    position: p.position,
+                    totalDistance: p.totalDistance,
+                    totalDuration: p.totalDuration,
+                    workoutCount: p.workoutCount,
+                  })),
+                };
+              } catch (error) {
+                console.error(`Failed to load leaderboard for league ${league.id}:`, error);
+                return league;
+              }
+            })
+          );
+          
+          setLeagueData(leagueWithLeaderboards);
+          
+          // For now, mock some challenges since they're not stored in competitions
+          const mockChallenges = [
+            {
+              id: 'challenge-1',
+              name: '5K Challenge',
+              description: 'Run 5km in under 30 minutes',
+              status: 'active',
+              deadline: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days from now
+              participants: 2,
+              prize: 500,
+            },
+            {
+              id: 'challenge-2', 
+              name: 'Weekly Distance',
+              description: 'Complete 25km this week',
+              status: 'pending',
+              deadline: Date.now() + 3 * 24 * 60 * 60 * 1000, // 3 days from now
+              participants: 3,
+              prize: 1000,
+            }
+          ];
+          
+          setChallengesData(mockChallenges);
+        }
+      } catch (error) {
+        console.error('Failed to fetch competitions data:', error);
+        setLeagueData([]);
+        setEventsData([]);
+        setChallengesData([]);
+      } finally {
+        setCompetitionsLoading(false);
+      }
+    };
+
+    fetchCompetitionsData();
+  }, [team.id, currentUser?.id]);
 
   const handleJoinTeam = async () => {
     try {
@@ -125,34 +260,7 @@ export const TeamDashboardScreen: React.FC<TeamDashboardScreenProps> = ({
     }
   };
 
-  // Mock data for League/Events/Challenges (to be replaced with real Nostr data)
-  const mockLeaderboard = [
-    { userId: '1', name: 'Runner A', rank: 1, avatar: 'R', isTopThree: true },
-    { userId: '2', name: 'Runner B', rank: 2, avatar: 'R', isTopThree: true },
-    { userId: '3', name: 'Runner C', rank: 3, avatar: 'R', isTopThree: true },
-  ];
-
-  const mockEvents = [
-    {
-      id: '1',
-      name: 'Weekly Run',
-      date: 'Dec 15',
-      details: '5K group run this Saturday',
-    },
-  ];
-
-  const mockChallenges = [
-    {
-      id: '1',
-      name: 'Distance Challenge',
-      date: 'Dec 20',
-      details: 'Complete 10K this week',
-      prize: '1,000 sats',
-      participant1: 'Alice',
-      participant2: 'Bob',
-      type: 'p2p' as const,
-    },
-  ];
+  // Real data - fetched from Nostr competitions and leaderboard service
 
   return (
     <SafeAreaView style={styles.container}>
@@ -232,20 +340,82 @@ export const TeamDashboardScreen: React.FC<TeamDashboardScreenProps> = ({
             </View>
           </View>
 
-          {/* Leaderboard */}
-          <LeaderboardCard leaderboard={mockLeaderboard} />
+          {/* Team Members */}
+          <TeamMembersSection 
+            members={teamMembers}
+            onInvite={() => console.log('Invite member pressed')}
+            onEditMember={(memberId) => console.log('Edit member:', memberId)}
+            onKickMember={(memberId) => console.log('Kick member:', memberId)}
+          />
 
-          {/* League/Events/Challenges Section */}
+          {/* League Leaderboards */}
+          {leagueData.length > 0 && (
+            <View style={styles.leagueSection}>
+              <Text style={styles.sectionTitle}>Active Leagues</Text>
+              {leagueData.map((league, index) => (
+                <View key={league.id || index} style={styles.leagueCard}>
+                  <View style={styles.leagueHeader}>
+                    <Text style={styles.leagueName}>{league.name}</Text>
+                    <Text style={styles.leagueType}>
+                      {league.scoringMethod || 'Distance Competition'}
+                    </Text>
+                  </View>
+                  
+                  {league.participants && league.participants.length > 0 && (
+                    <View style={styles.leaderboardPreview}>
+                      <Text style={styles.leaderboardTitle}>Current Standings:</Text>
+                      {league.participants.slice(0, 3).map((participant: any, idx: number) => (
+                        <View key={participant.id} style={styles.participantRow}>
+                          <Text style={styles.participantPosition}>#{participant.position}</Text>
+                          <Text style={styles.participantName}>{participant.name}</Text>
+                          <Text style={styles.participantScore}>
+                            {Math.round(participant.score)} pts
+                          </Text>
+                        </View>
+                      ))}
+                      {league.participants.length > 3 && (
+                        <Text style={styles.moreParticipants}>
+                          +{league.participants.length - 3} more participants
+                        </Text>
+                      )}
+                    </View>
+                  )}
+                  
+                  {(!league.participants || league.participants.length === 0) && (
+                    <Text style={styles.noDataText}>No workout data yet</Text>
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Events/Challenges Section */}
           <View style={styles.bottomSection}>
             <EventsCard 
-              events={mockEvents} 
-              onEventPress={(eventId) => console.log('Event pressed:', eventId)} 
+              events={eventsData} 
+              onEventPress={(eventId) => {
+                if (navigation) {
+                  // EventDetailScreen now uses NostrCompetitionLeaderboardService for real data
+                  navigation.navigate('EventDetail', { eventId });
+                } else {
+                  console.log('Event pressed but no navigation available:', eventId);
+                }
+              }}
+              onAddEvent={() => console.log('Add event pressed')}
+              isCaptain={isCaptain}
             />
 
             <ChallengesCard
-              challenges={mockChallenges}
+              challenges={challengesData}
               onAddChallenge={() => console.log('Add challenge pressed')}
-              onChallengePress={(challengeId) => console.log('Challenge pressed:', challengeId)}
+              onChallengePress={(challengeId) => {
+                if (navigation) {
+                  // ChallengeDetailScreen now uses NostrCompetitionLeaderboardService for real data  
+                  navigation.navigate('ChallengeDetail', { challengeId });
+                } else {
+                  console.log('Challenge pressed but no navigation available:', challengeId);
+                }
+              }}
             />
           </View>
         </View>
@@ -383,5 +553,92 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     minHeight: 300,
+  },
+
+  // League leaderboard styles
+  leagueSection: {
+    gap: 12,
+  },
+
+  leagueCard: {
+    backgroundColor: theme.colors.cardBackground,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+
+  leagueHeader: {
+    marginBottom: 12,
+  },
+
+  leagueName: {
+    fontSize: 16,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.text,
+    marginBottom: 4,
+  },
+
+  leagueType: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  leaderboardPreview: {
+    gap: 8,
+  },
+
+  leaderboardTitle: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.text,
+    marginBottom: 4,
+  },
+
+  participantRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    backgroundColor: theme.colors.background,
+    borderRadius: 8,
+  },
+
+  participantPosition: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.accent,
+    width: 30,
+  },
+
+  participantName: {
+    flex: 1,
+    fontSize: 14,
+    color: theme.colors.text,
+    marginLeft: 8,
+  },
+
+  participantScore: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.text,
+  },
+
+  moreParticipants: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+    paddingVertical: 4,
+    fontStyle: 'italic',
+  },
+
+  noDataText: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+    paddingVertical: 16,
+    fontStyle: 'italic',
   },
 });

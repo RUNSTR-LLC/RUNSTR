@@ -17,7 +17,6 @@ import { theme } from '../styles/theme';
 import { DiscoveryTeam } from '../types';
 import { TeamCard } from '../components/team/TeamCard';
 import { analytics } from '../utils/analytics';
-import { TeamDiscoveryService } from '../services/team/teamDiscoveryService';
 import {
   getNostrTeamService,
   type NostrTeam,
@@ -72,10 +71,9 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
     // Track when team discovery opens
     analytics.trackTeamDiscoveryOpened('direct');
 
-    // Fetch teams if not provided via props
-    if (!propTeams || propTeams.length === 0) {
-      fetchTeams();
-    }
+    // ALWAYS fetch fresh teams from Nostr (bypass stale cache)
+    console.log('🚀 TeamDiscoveryScreen: ALWAYS fetching fresh teams from Nostr');
+    fetchTeams();
 
     // Capture current session for cleanup
     const currentSession = discoverySession.current;
@@ -149,26 +147,42 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
       setIsLoading(true);
       setError(null);
 
-      console.log('TeamDiscoveryScreen: Fetching teams from Nostr relays...');
+      console.log('🔥 TeamDiscoveryScreen: FETCHING teams from Nostr relays...');
 
       // Get Nostr teams - NO ACTIVITY FILTERING to match working script
       const nostrTeamService = getNostrTeamService();
+      console.log('🔥 TeamDiscoveryScreen: CALLING discoverFitnessTeams...');
       const nostrTeams = await nostrTeamService.discoverFitnessTeams({
         // Removed activity type filtering to allow all teams like BULLISH, CYCLESTR, RUNSTR
         limit: 50,
       });
 
       console.log(
-        `TeamDiscoveryScreen: Found ${nostrTeams.length} Nostr teams`
+        `🔥 TeamDiscoveryScreen: RAW NOSTR TEAMS RETURNED: ${nostrTeams.length}`
       );
+      console.log('🔥 TeamDiscoveryScreen: RAW NOSTR TEAMS:', nostrTeams.map(t => ({
+        id: t.id,
+        name: t.name,
+        memberCount: t.memberCount,
+        isPublic: t.isPublic,
+        createdAt: t.createdAt
+      })));
 
       // Convert Nostr teams to DiscoveryTeam format
+      console.log('🔥 TeamDiscoveryScreen: CONVERTING NostrTeams to DiscoveryTeams...');
       const discoveryTeams = nostrTeams.map(convertNostrTeamToDiscoveryTeam);
+      console.log('🔥 TeamDiscoveryScreen: CONVERTED DISCOVERY TEAMS:', discoveryTeams.map(t => ({
+        id: t.id,
+        name: t.name,
+        memberCount: t.memberCount,
+        isActive: t.isActive
+      })));
 
       // Use only real Nostr teams - no mock data
+      console.log('🔥 TeamDiscoveryScreen: CALLING setTeams...');
       setTeams(discoveryTeams);
       console.log(
-        `TeamDiscoveryScreen: Loaded ${discoveryTeams.length} real Nostr teams`
+        `🔥 TeamDiscoveryScreen: setTeams CALLED - should now display ${discoveryTeams.length} teams in UI`
       );
 
       if (discoveryTeams.length === 0) {
@@ -238,7 +252,6 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
       {/* Header */}
       {showHeader && (
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Choose Your Team</Text>
           <View style={styles.headerActions}>
             {captainStatus.showCaptainDashboard && onCaptainDashboard && (
               <TouchableOpacity
@@ -372,19 +385,24 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
             </View>
           </View>
         ) : (
-          teams.map((team) => {
-            // Track team card view
-            discoverySession.current.trackTeamViewed(team.id);
-            analytics.trackTeamCardViewed(team);
+          <>
+            {console.log(`🔥 RENDER: About to render ${teams.length} teams in UI:`, teams.map(t => ({ id: t.id, name: t.name })))}
+            {teams.map((team) => {
+              // Track team card view
+              discoverySession.current.trackTeamViewed(team.id);
+              analytics.trackTeamCardViewed(team);
 
-            return (
-              <TeamCard
-                key={team.id}
-                team={team}
-                onPress={handleTeamSelect}
-              />
-            );
-          })
+              console.log(`🔥 RENDERING TEAM CARD: ${team.name} with key: ${team.id}`);
+              
+              return (
+                <TeamCard
+                  key={team.id}
+                  team={team}
+                  onPress={handleTeamSelect}
+                />
+              );
+            })}
+          </>
         )}
       </ScrollView>
     </SafeAreaView>

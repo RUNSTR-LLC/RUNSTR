@@ -8,13 +8,37 @@ import { Platform } from 'react-native';
 import { supabase } from '../supabase';
 import type { WorkoutData, WorkoutType } from '../../types/workout';
 
-// Import react-native-health for iOS only
-let AppleHealthKit: any = null;
+// Environment-based logging utility
+const isDevelopment = __DEV__;
+const debugLog = (message: string, ...args: any[]) => {
+  if (isDevelopment) {
+    console.log(message, ...args);
+  }
+};
+const errorLog = (message: string, ...args: any[]) => {
+  console.error(message, ...args); // Always log errors
+};
+
+// Import @yzlin/expo-healthkit for iOS only
+let ExpoHealthKit: any = null;
+
 if (Platform.OS === 'ios') {
   try {
-    AppleHealthKit = require('react-native-health').default;
+    const healthKitModule = require('@yzlin/expo-healthkit');
+    
+    // Check different export patterns
+    if (healthKitModule.default) {
+      ExpoHealthKit = healthKitModule.default;
+    } else if (healthKitModule.ExpoHealthKit) {
+      ExpoHealthKit = healthKitModule.ExpoHealthKit;
+    } else if (typeof healthKitModule === 'object' && healthKitModule.isHealthDataAvailable) {
+      ExpoHealthKit = healthKitModule;
+    } else {
+      ExpoHealthKit = healthKitModule;
+    }
   } catch (e) {
-    console.warn('HealthKit library not available');
+    errorLog('HealthKit Service: Failed to import @yzlin/expo-healthkit:', e.message);
+    ExpoHealthKit = null;
   }
 }
 
@@ -62,6 +86,8 @@ export class HealthKitService {
   private isAuthorized = false;
   private syncInProgress = false;
   private lastSyncAt?: Date;
+  private readonly DEFAULT_TIMEOUT = 30000; // 30 seconds
+  private readonly PERMISSION_TIMEOUT = 15000; // 15 seconds for permissions
 
   private constructor() {}
 
@@ -76,7 +102,27 @@ export class HealthKitService {
    * Check if HealthKit is available on this device
    */
   static isAvailable(): boolean {
-    return Platform.OS === 'ios' && AppleHealthKit !== null;
+    return Platform.OS === 'ios' && ExpoHealthKit !== null;
+  }
+
+  /**
+   * Wrap HealthKit operations with timeout protection to prevent freezing
+   */
+  private async withTimeout<T>(
+    promise: Promise<T>, 
+    timeoutMs: number = this.DEFAULT_TIMEOUT,
+    operation: string = 'HealthKit operation'
+  ): Promise<T> {
+    const timeout = new Promise<never>((_, reject) => 
+      setTimeout(() => reject(new Error(`${operation} timed out after ${timeoutMs}ms`)), timeoutMs)
+    );
+    
+    try {
+      return await Promise.race([promise, timeout]);
+    } catch (error) {
+      errorLog(`${operation} failed:`, error);
+      throw error;
+    }
   }
 
   /**
@@ -91,7 +137,7 @@ export class HealthKitService {
     }
 
     try {
-      console.log('🍎 Initializing HealthKit service...');
+      debugLog('HealthKit: Initializing service...');
 
       // Request permissions from iOS
       const permissionsResult = await this.requestPermissions();
@@ -100,11 +146,11 @@ export class HealthKitService {
       }
 
       this.isAuthorized = true;
-      console.log('✅ HealthKit initialized and authorized');
+      debugLog('HealthKit: Initialized and authorized');
 
       return { success: true };
     } catch (error) {
-      console.error('❌ HealthKit initialization failed:', error);
+      errorLog('HealthKit: Initialization failed:', error);
       return {
         success: false,
         error: `Initialization failed: ${
@@ -121,29 +167,61 @@ export class HealthKitService {
     success: boolean;
     error?: string;
   }> {
-    return new Promise((resolve) => {
+    try {
+      debugLog('HealthKit: Requesting permissions...');
+      
+      // Check if HealthKit is available first with timeout
+      const available = await this.withTimeout(
+        ExpoHealthKit.isHealthDataAvailable(),
+        5000, // 5 second timeout for availability check
+        'HealthKit availability check'
+      );
+      
+      if (!available) {
+        return {
+          success: false,
+          error: 'HealthKit is not available on this device',
+        };
+      }
+
+      // Request permissions for reading workout and activity data
       const permissions = {
-        permissions: {
-          read: HEALTHKIT_READ_PERMISSIONS,
-          write: [], // No write permissions needed for sync-only functionality
-        },
+        read: [
+          'HKQuantityTypeIdentifierActiveEnergyBurned',
+          'HKQuantityTypeIdentifierDistanceWalkingRunning', 
+          'HKQuantityTypeIdentifierDistanceCycling',
+          'HKQuantityTypeIdentifierHeartRate',
+          'HKWorkoutTypeIdentifier',
+        ],
+        write: [], // No write permissions needed for sync-only functionality
       };
 
-      console.log('🔐 Requesting HealthKit permissions...');
-      AppleHealthKit.initHealthKit(permissions, (error: any) => {
-        if (error) {
-          console.error('❌ HealthKit permission denied:', error);
-          resolve({
-            success: false,
-            error:
-              'HealthKit permissions denied. Enable in Settings > Privacy & Security > Health > RUNSTR',
-          });
+      await this.withTimeout(
+        ExpoHealthKit.requestAuthorization(permissions),
+        this.PERMISSION_TIMEOUT,
+        'HealthKit permission request'
+      );
+      
+      debugLog('HealthKit: Permissions requested successfully');
+      return { success: true };
+    } catch (error) {
+      errorLog('HealthKit: Permission request failed:', error);
+      
+      // Provide user-friendly error messages for common timeout scenarios
+      let errorMessage = 'HealthKit permissions denied';
+      if (error instanceof Error) {
+        if (error.message.includes('timed out')) {
+          errorMessage = 'Permission request is taking too long. Please try again or check your device settings.';
         } else {
-          console.log('✅ HealthKit permissions granted');
-          resolve({ success: true });
+          errorMessage = error.message;
         }
-      });
-    });
+      }
+      
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    }
   }
 
   /**
@@ -165,12 +243,12 @@ export class HealthKitService {
     }
 
     this.syncInProgress = true;
-    console.log(`🏃‍♂️ Starting HealthKit sync for user ${userId}`);
+    debugLog(`HealthKit: Starting sync for user ${userId}`);
 
     try {
       // Fetch workouts from last 30 days
       const healthKitWorkouts = await this.fetchRecentWorkouts();
-      console.log(`📱 Fetched ${healthKitWorkouts.length} HealthKit workouts`);
+      debugLog(`HealthKit: Fetched ${healthKitWorkouts.length} workouts`);
 
       // Process and save new workouts
       let newWorkouts = 0;
@@ -189,8 +267,8 @@ export class HealthKitService {
       }
 
       this.lastSyncAt = new Date();
-      console.log(
-        `✅ HealthKit sync complete: ${newWorkouts} new workouts, ${skippedWorkouts} skipped`
+      debugLog(
+        `HealthKit: Sync complete - ${newWorkouts} new, ${skippedWorkouts} skipped`
       );
 
       return {
@@ -200,7 +278,7 @@ export class HealthKitService {
         skippedWorkouts,
       };
     } catch (error) {
-      console.error('❌ HealthKit sync failed:', error);
+      errorLog('HealthKit: Sync failed:', error);
       return {
         success: false,
         error: `Sync failed: ${
@@ -216,36 +294,47 @@ export class HealthKitService {
    * Fetch recent workouts from HealthKit
    */
   private async fetchRecentWorkouts(): Promise<HealthKitWorkout[]> {
-    return new Promise((resolve, reject) => {
+    try {
       const options = {
-        startDate: new Date(
-          Date.now() - 30 * 24 * 60 * 60 * 1000
-        ).toISOString(), // 30 days ago
-        endDate: new Date().toISOString(),
+        from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
+        to: new Date(),
         limit: 100, // Reasonable limit to avoid overwhelming the system
       };
 
-      AppleHealthKit.getSamples(
-        'Workout',
-        options,
-        (error: any, results: any[]) => {
-          if (error) {
-            console.error('❌ Failed to fetch HealthKit workouts:', error);
-            reject(error);
-          } else {
-            // Filter out invalid workouts
-            const validWorkouts = (results || []).filter(
-              (workout) => workout.UUID && workout.startDate && workout.endDate
-            );
-
-            console.log(
-              `📥 Retrieved ${validWorkouts.length} valid workouts from HealthKit`
-            );
-            resolve(validWorkouts);
-          }
-        }
+      const results = await this.withTimeout(
+        ExpoHealthKit.queryWorkouts(options),
+        this.DEFAULT_TIMEOUT,
+        'HealthKit workout query'
       );
-    });
+      
+      // Filter out invalid workouts and transform to our format
+      const validWorkouts = (results || []).filter(
+        (workout: any) => workout.uuid && workout.startDate && workout.endDate
+      ).map((workout: any) => ({
+        UUID: workout.uuid,
+        startDate: workout.startDate,
+        endDate: workout.endDate,
+        duration: workout.duration || 0,
+        totalDistance: workout.totalDistance || 0,
+        totalEnergyBurned: workout.totalEnergyBurned || 0,
+        workoutActivityType: workout.workoutActivityType || 0,
+        sourceName: workout.sourceName || 'Unknown',
+      }));
+
+      debugLog(
+        `HealthKit: Retrieved ${validWorkouts.length} valid workouts`
+      );
+      return validWorkouts;
+    } catch (error) {
+      errorLog('HealthKit: Failed to fetch workouts:', error);
+      
+      // Provide user-friendly error messages for timeout scenarios
+      if (error instanceof Error && error.message.includes('timed out')) {
+        throw new Error('Workout sync is taking too long. Please try syncing fewer days or check your internet connection.');
+      }
+      
+      throw error;
+    }
   }
 
   /**
@@ -265,7 +354,6 @@ export class HealthKitService {
       const duration = Math.round(hkWorkout.duration || 0);
       if (duration < 60) {
         // Skip workouts shorter than 1 minute
-        console.log(`⏩ Skipping short workout: ${duration}s`);
         return null;
       }
 
@@ -299,8 +387,8 @@ export class HealthKitService {
         },
       };
     } catch (error) {
-      console.error(
-        '❌ Error normalizing HealthKit workout:',
+      errorLog(
+        'HealthKit: Error normalizing workout:',
         error,
         hkWorkout
       );
@@ -348,16 +436,16 @@ export class HealthKitService {
       });
 
       if (insertError) {
-        console.error('❌ Error inserting workout:', insertError);
+        errorLog('HealthKit: Error inserting workout:', insertError);
         return 'error';
       }
 
-      console.log(
-        `💾 Saved HealthKit workout: ${workout.type}, ${workout.duration}s, ${workout.distance}m`
+      debugLog(
+        `HealthKit: Saved workout - ${workout.type}, ${workout.duration}s`
       );
       return 'saved';
     } catch (error) {
-      console.error('❌ Error saving HealthKit workout:', error);
+      errorLog('HealthKit: Error saving workout:', error);
       return 'error';
     }
   }
@@ -410,7 +498,7 @@ export class HealthKitService {
         lastSyncDate: this.lastSyncAt?.toISOString(),
       };
     } catch (error) {
-      console.error('Error getting HealthKit sync stats:', error);
+      errorLog('HealthKit: Error getting sync stats:', error);
       return {
         totalHealthKitWorkouts: 0,
         recentSyncs: 0,

@@ -4,8 +4,10 @@
  */
 
 import { create } from 'zustand';
-import { RealtimeChannel } from '@supabase/supabase-js';
-import { TeamService } from '../services/teamService';
+// Disabled Supabase import to prevent bundle failure
+// import { RealtimeChannel } from '@supabase/supabase-js';
+// Disabled TeamService import to prevent bundle failure
+// import { TeamService } from '../services/teamService';
 import type {
   TeamDiscoveryState,
   DiscoveryTeam,
@@ -14,9 +16,9 @@ import type {
 } from '../types';
 
 interface TeamStoreState extends TeamDiscoveryState {
-  // Real-time subscription
-  subscription: RealtimeChannel | null;
-  setSubscription: (subscription: RealtimeChannel | null) => void;
+  // Real-time subscription (disabled to prevent bundle failure)
+  subscription: any | null;
+  setSubscription: (subscription: any | null) => void;
 
   // Internal helpers
   _setLoading: (loading: boolean) => void;
@@ -43,7 +45,9 @@ export const useTeamStore = create<TeamStoreState>((set: any, get: any) => ({
     set({ isLoading: true, error: null });
 
     try {
-      const teams = await TeamService.getTeamsForDiscovery();
+      // TODO: Replace with Nostr team discovery
+      console.warn('TeamStore: getTeamsForDiscovery disabled - needs Nostr implementation');
+      const teams: DiscoveryTeam[] = [];
       const featuredTeams = teams.filter((team) => team.isFeatured);
 
       set({
@@ -55,17 +59,9 @@ export const useTeamStore = create<TeamStoreState>((set: any, get: any) => ({
       // Set up real-time subscription if not already active
       const currentSubscription = get().subscription;
       if (!currentSubscription) {
-        const subscription = TeamService.subscribeToTeamUpdates(
-          (updatedTeams) => {
-            const updatedFeatured = updatedTeams.filter(
-              (team) => team.isFeatured
-            );
-            set({
-              teams: updatedTeams,
-              featuredTeams: updatedFeatured,
-            });
-          }
-        );
+        // TODO: Replace with Nostr team subscription
+        console.warn('TeamStore: subscribeToTeamUpdates disabled');
+        const subscription = null; // TODO: TeamService.subscribeToTeamUpdates(callback)
         set({ subscription });
       }
     } catch (error) {
@@ -81,10 +77,9 @@ export const useTeamStore = create<TeamStoreState>((set: any, get: any) => ({
     set({ isLoading: true, error: null, searchFilters: filters });
 
     try {
-      const teams = await TeamService.searchTeams(
-        filters.query || '',
-        filters.difficulty
-      );
+      // TODO: Replace with Nostr team search
+      console.warn('TeamStore: searchTeams disabled');
+      const teams: DiscoveryTeam[] = []; // TODO: await TeamService.searchTeams(filters.query || '', filters.difficulty)
 
       // Apply additional filters
       let filteredTeams = teams;
@@ -119,7 +114,9 @@ export const useTeamStore = create<TeamStoreState>((set: any, get: any) => ({
     set({ isJoining: true, error: null });
 
     try {
-      const result = await TeamService.joinTeam(teamId, userId);
+      // TODO: Replace with Nostr team joining
+      console.warn('TeamStore: joinTeam disabled');
+      const result = { success: false, error: 'Not implemented' }; // await TeamService.joinTeam(teamId, userId);
 
       if (result.success) {
         // Update user's team in store
@@ -151,7 +148,9 @@ export const useTeamStore = create<TeamStoreState>((set: any, get: any) => ({
     set({ isJoining: true, error: null });
 
     try {
-      const result = await TeamService.leaveTeam(userId);
+      // TODO: Replace with Nostr team leaving
+      console.warn('TeamStore: leaveTeam disabled');
+      const result = { success: false, error: 'Not implemented' }; // await TeamService.leaveTeam(userId);
 
       if (result.success) {
         set({ userTeam: null });

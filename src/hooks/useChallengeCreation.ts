@@ -5,8 +5,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { ChallengeService } from '../services/challengeService';
-import { validateWagerAmount, formatSats } from '../utils/bitcoinUtils';
-// Removed mock data import - using real ChallengeService.getTeamMembers
+import { getNostrTeamService } from '../services/nostr/NostrTeamService';
+// Removed Bitcoin utilities - no wagers in this phase
 import type { TeammateInfo, ChallengeCreationData, User } from '../types';
 
 interface UseChallengeCreationProps {
@@ -20,10 +20,6 @@ interface UseChallengeCreationReturn {
   teammates: TeammateInfo[];
   isLoading: boolean;
   error: string | null;
-
-  // Validation
-  validateWager: (amount: number) => { isValid: boolean; error?: string };
-  formatWagerDisplay: (amount: number) => string;
 
   // Actions
   createChallenge: (challengeData: ChallengeCreationData) => Promise<void>;
@@ -41,11 +37,11 @@ export const useChallengeCreation = ({
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * Fetch team members for challenge creation
+   * Fetch team members for challenge creation using NostrTeamService
    */
   const fetchTeammates = useCallback(async () => {
-    if (!currentUser?.id || !teamId) {
-      console.warn('Missing currentUser or teamId for fetching teammates');
+    if (!currentUser?.npub || !teamId) {
+      console.warn('Missing currentUser npub or teamId for fetching teammates');
       setTeammates([]);
       return;
     }
@@ -54,16 +50,38 @@ export const useChallengeCreation = ({
     setError(null);
 
     try {
-      const teammateData = await ChallengeService.getTeamMembers(
-        teamId,
-        currentUser.id
-      );
+      const nostrTeamService = getNostrTeamService();
+      const cachedTeams = nostrTeamService.getCachedTeams();
+      const nostrTeam = cachedTeams.find((t) => t.id === teamId);
+      
+      if (!nostrTeam) {
+        throw new Error('Team not found in cached teams');
+      }
 
-      if (!teammateData || teammateData.length === 0) {
+      const memberIds = await nostrTeamService.getTeamMembers(nostrTeam);
+      
+      if (!memberIds || memberIds.length === 0) {
         throw new Error('No teammates available for challenges');
       }
 
-      setTeammates(teammateData);
+      // Filter out current user and convert to TeammateInfo format
+      const teammates: TeammateInfo[] = memberIds
+        .filter((memberId) => memberId !== currentUser.npub && memberId !== currentUser.id)
+        .map((memberId, index) => ({
+          id: memberId,
+          name: `Member ${index + 1}`, // TODO: Get actual names from Nostr profiles
+          avatar: `M${index + 1}`, // First letter of name for now
+          stats: {
+            challengesCount: 0, // TODO: Get real challenge stats when available
+            winsCount: 0, // TODO: Get real win stats when available
+          },
+        }));
+
+      if (teammates.length === 0) {
+        throw new Error('Your team needs at least 2 members to create challenges');
+      }
+
+      setTeammates(teammates);
     } catch (err) {
       console.error('Failed to fetch teammates:', err);
 
@@ -74,17 +92,8 @@ export const useChallengeCreation = ({
         if (err.message.includes('network') || err.message.includes('fetch')) {
           errorMessage =
             'Network error. Please check your connection and try again.';
-        } else if (
-          err.message.includes('unauthorized') ||
-          err.message.includes('403')
-        ) {
-          errorMessage =
-            "You don't have permission to access team member data.";
-        } else if (
-          err.message.includes('not found') ||
-          err.message.includes('404')
-        ) {
-          errorMessage = 'Team not found. Please contact your team captain.';
+        } else if (err.message.includes('Team not found')) {
+          errorMessage = 'Team not found. Please refresh and try again.';
         } else if (err.message.includes('No teammates')) {
           errorMessage =
             'Your team needs at least 2 members to create challenges.';
@@ -96,21 +105,9 @@ export const useChallengeCreation = ({
     } finally {
       setIsLoading(false);
     }
-  }, [currentUser?.id, teamId]);
+  }, [currentUser?.npub, currentUser?.id, teamId]);
 
-  /**
-   * Validate wager amount using bitcoinUtils
-   */
-  const validateWager = useCallback((amount: number) => {
-    return validateWagerAmount(amount);
-  }, []);
-
-  /**
-   * Format wager amount for display
-   */
-  const formatWagerDisplay = useCallback((amount: number) => {
-    return formatSats(amount);
-  }, []);
+  // Removed Bitcoin validation - no wagers in this phase
 
   /**
    * Create challenge using ChallengeService
@@ -134,15 +131,7 @@ export const useChallengeCreation = ({
           throw new Error('Please select a challenge type');
         }
 
-        if (!challengeData.wagerAmount || challengeData.wagerAmount <= 0) {
-          throw new Error('Please enter a valid wager amount');
-        }
-
-        // Validate wager amount using bitcoin utilities
-        const wagerValidation = validateWagerAmount(challengeData.wagerAmount);
-        if (!wagerValidation.isValid) {
-          throw new Error(wagerValidation.error || 'Invalid wager amount');
-        }
+        // No wager validation needed in this phase
 
         // Check if opponent is still available (in case they left the team)
         const currentTeammates = teammates.find(
@@ -205,9 +194,7 @@ export const useChallengeCreation = ({
           if (err.message.includes('timeout')) {
             errorMessage =
               'Challenge creation timed out. Please check your connection and try again.';
-          } else if (err.message.includes('insufficient funds')) {
-            errorMessage =
-              'Insufficient balance in your wallet for this wager amount.';
+          // Removed insufficient funds error - no wagers in this phase
           } else if (
             err.message.includes('duplicate') ||
             err.message.includes('already exists')
@@ -259,10 +246,6 @@ export const useChallengeCreation = ({
     teammates,
     isLoading,
     error,
-
-    // Validation
-    validateWager,
-    formatWagerDisplay,
 
     // Actions
     createChallenge,

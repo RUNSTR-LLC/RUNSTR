@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { theme } from '../styles/theme';
 import { useAuth } from '../contexts/AuthContext';
@@ -98,7 +99,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
         <View style={styles.content}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>Welcome to RUNSTR</Text>
+            <Image 
+              source={require('../../assets/images/splash-icon.png')} 
+              style={styles.logo}
+              resizeMode="contain"
+            />
             <Text style={styles.subtitle}>
               Bitcoin-powered fitness competitions
             </Text>
@@ -213,12 +218,10 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 40,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: theme.colors.text,
-    marginBottom: 8,
-    letterSpacing: -0.5,
+  logo: {
+    width: 300,
+    height: 100,
+    marginBottom: 20,
   },
   subtitle: {
     fontSize: 16,

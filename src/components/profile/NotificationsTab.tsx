@@ -119,7 +119,7 @@ export const NotificationsTab: React.FC<NotificationsTabProps> = ({
     {
       key: 'eventNotifications' as keyof NotificationSettings,
       title: 'Event Notifications',
-      subtitle: 'Competitions, deadlines, results',
+      subtitle: 'Competitions, deadlines, results, starting soon alerts',
     },
     {
       key: 'leagueUpdates' as keyof NotificationSettings,
@@ -129,12 +129,12 @@ export const NotificationsTab: React.FC<NotificationsTabProps> = ({
     {
       key: 'teamAnnouncements' as keyof NotificationSettings,
       title: 'Team Announcements',
-      subtitle: 'Captain messages, updates',
+      subtitle: 'Captain messages, join requests, updates',
     },
     {
-      key: 'bitcoinRewards' as keyof NotificationSettings,
-      title: 'Bitcoin Rewards',
-      subtitle: 'Workout earnings, payouts',
+      key: 'challengeUpdates' as keyof NotificationSettings,
+      title: 'Challenge Updates',
+      subtitle: 'Challenge invitations, peer-to-peer challenges',
     },
   ];
 

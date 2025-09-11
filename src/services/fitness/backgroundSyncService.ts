@@ -33,14 +33,18 @@ export interface SyncConfiguration {
   enableNotifications: boolean;
   syncOnAppBackground: boolean;
   syncOnAppForeground: boolean;
+  foregroundSyncThresholdMinutes: number; // How long to wait before syncing on foreground
+  maxBackoffDelayMinutes: number; // Maximum delay for exponential backoff
 }
 
 const DEFAULT_SYNC_CONFIG: SyncConfiguration = {
-  intervalMinutes: 30, // Sync every 30 minutes
+  intervalMinutes: 30, // Sync every 30 minutes - good for battery life
   retryAttempts: 3,
   enableNotifications: true,
   syncOnAppBackground: true,
   syncOnAppForeground: true,
+  foregroundSyncThresholdMinutes: 15, // Increased from 10min to reduce unnecessary syncs
+  maxBackoffDelayMinutes: 120, // Maximum 2 hour delay for failed syncs
 };
 
 export class BackgroundSyncService {
@@ -51,6 +55,7 @@ export class BackgroundSyncService {
   private syncConfig = DEFAULT_SYNC_CONFIG;
   private appStateListener: any = null;
   private retryTimeouts = new Map<string, NodeJS.Timeout>();
+  private failureCount = 0; // Track consecutive failures for backoff
 
   private constructor() {
     this.setupAppStateListener();
@@ -61,6 +66,31 @@ export class BackgroundSyncService {
       BackgroundSyncService.instance = new BackgroundSyncService();
     }
     return BackgroundSyncService.instance;
+  }
+
+  /**
+   * Update sync configuration - allows users to customize sync behavior
+   * Recommended settings:
+   * - Low battery usage: intervalMinutes: 60, foregroundSyncThresholdMinutes: 30
+   * - Balanced (default): intervalMinutes: 30, foregroundSyncThresholdMinutes: 15  
+   * - Frequent sync: intervalMinutes: 15, foregroundSyncThresholdMinutes: 10
+   */
+  updateSyncConfiguration(config: Partial<SyncConfiguration>): void {
+    this.syncConfig = { ...this.syncConfig, ...config };
+    
+    // Restart periodic sync if interval changed
+    if (config.intervalMinutes && this.syncInterval) {
+      this.startPeriodicSync();
+    }
+    
+    console.log('BackgroundSync: Configuration updated', this.syncConfig);
+  }
+
+  /**
+   * Get current sync configuration
+   */
+  getSyncConfiguration(): SyncConfiguration {
+    return { ...this.syncConfig };
   }
 
   /**
@@ -147,8 +177,8 @@ export class BackgroundSyncService {
         if (nextAppState === 'active' && this.syncConfig.syncOnAppForeground) {
           // App came to foreground - sync if it's been a while
           const timeSinceLastSync = Date.now() - this.lastSyncTime;
-          if (timeSinceLastSync > 10 * 60 * 1000) {
-            // 10 minutes
+          const thresholdMs = this.syncConfig.foregroundSyncThresholdMinutes * 60 * 1000;
+          if (timeSinceLastSync > thresholdMs) {
             this.performBackgroundSync('foreground');
           }
         } else if (

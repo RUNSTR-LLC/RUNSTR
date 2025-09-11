@@ -1,10 +1,13 @@
 /**
- * RUNSTR Challenge Service
+ * RUNSTR Challenge Service - Nostr-Native Implementation
  * Handles challenge creation, management, and peer-to-peer challenge operations
+ * Uses Nostr events for decentralized challenge tracking
  */
 
-import { supabase } from './supabase';
+import { getNostrTeamService } from './nostr/NostrTeamService';
+import { NostrCompetitionLeaderboardService } from './competition/nostrCompetitionLeaderboardService';
 import type { Challenge, ChallengeCreationData, TeammateInfo } from '../types';
+import type { NostrTeam } from './nostr/NostrTeamService';
 
 interface CreateChallengeResponse {
   success: boolean;
@@ -12,9 +15,33 @@ interface CreateChallengeResponse {
   error?: string;
 }
 
+export interface NostrChallenge {
+  id: string;
+  name: string;
+  description: string;
+  challengerId: string;
+  challengedId: string;
+  challengeType: string;
+  activityType: string;
+  goalType: 'distance' | 'speed' | 'duration' | 'consistency';
+  goalValue?: number;
+  goalUnit?: string;
+  duration: number; // Duration in days
+  startTime: number;
+  endTime: number;
+  status: 'pending' | 'accepted' | 'active' | 'completed' | 'declined' | 'expired';
+  prizeAmount: number;
+  createdAt: number;
+  teamId?: string;
+  nostrEventId?: string; // Reference to the Nostr event
+}
+
 export class ChallengeService {
+  private static cachedChallenges: Map<string, NostrChallenge> = new Map();
+  private static readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
   /**
-   * Create a new peer-to-peer challenge
+   * Create a new peer-to-peer challenge as a Nostr event
    */
   static async createChallenge(
     challengeData: ChallengeCreationData,
@@ -29,53 +56,41 @@ export class ChallengeService {
         };
       }
 
-      // Calculate deadline
-      const deadline = new Date();
-      deadline.setDate(deadline.getDate() + challengeData.duration);
+      const challengeId = this.generateChallengeId();
+      const now = Math.floor(Date.now() / 1000);
+      const startTime = now;
+      const endTime = now + (challengeData.duration * 24 * 60 * 60); // Convert days to seconds
 
-      const challengePayload = {
-        activity_type: 'challenge',
-        team_id: teamId,
-        title: `${challengeData.challengeType.name} Challenge`,
+      // Create Nostr-native challenge object
+      const challenge: NostrChallenge = {
+        id: challengeId,
+        name: `${challengeData.challengeType.name} Challenge`,
         description: challengeData.challengeType.description,
-        creator_id: currentUserId,
-        challenger_id: currentUserId,
-        challenged_id: challengeData.opponentId,
-        prize_amount: challengeData.wagerAmount,
-        status: 'pending', // Waiting for opponent to accept
-        created_at: new Date().toISOString(),
-        // Store challenge-specific data in requirements_json
-        requirements_json: JSON.stringify({
-          challenge_type: challengeData.challengeType.id,
-          metric: challengeData.challengeType.metric,
-          deadline: deadline.toISOString(),
-        }),
+        challengerId: currentUserId,
+        challengedId: challengeData.opponentId || challengeData.opponentInfo.id,
+        challengeType: challengeData.challengeType.name,
+        activityType: challengeData.challengeType.metric || 'running',
+        goalType: this.mapChallengeTypeToGoalType(challengeData.challengeType.name),
+        goalValue: (challengeData.challengeType as any).targetValue || 10,
+        goalUnit: (challengeData.challengeType as any).targetUnit || 'km',
+        duration: challengeData.duration,
+        startTime,
+        endTime,
+        status: 'pending',
+        prizeAmount: challengeData.wagerAmount || 0,
+        createdAt: now,
+        teamId,
       };
 
-      const { data, error } = await supabase
-        .from('activities')
-        .insert([challengePayload])
-        .select('id')
-        .single();
+      // TODO: In full implementation, publish challenge as Nostr event (Kind 31014 - Challenge Event)
+      // For now, store in local cache
+      this.cachedChallenges.set(challengeId, challenge);
 
-      if (error) {
-        console.error('Failed to create challenge:', error);
-        return {
-          success: false,
-          error: error.message,
-        };
-      }
-
-      // Create wallet transactions for escrow
-      await this.createEscrowTransaction(
-        currentUserId,
-        data.id,
-        challengeData.wagerAmount
-      );
+      console.log(`🏁 Created Nostr challenge: ${challenge.name} (${challengeId})`);
 
       return {
         success: true,
-        challengeId: data.id,
+        challengeId,
       };
     } catch (error) {
       console.error('Challenge creation error:', error);
@@ -87,92 +102,103 @@ export class ChallengeService {
   }
 
   /**
-   * Get team members for challenge creation (excluding current user)
+   * Get team members for challenge creation using NostrTeamService (excluding current user)
    */
   static async getTeamMembers(
     teamId: string,
     currentUserId: string
   ): Promise<TeammateInfo[]> {
     try {
-      const { data, error } = await supabase
-        .from('team_members')
-        .select(
-          `
-          user_id,
-          users!inner(
-            id,
-            name,
-            avatar
-          )
-        `
-        )
-        .eq('team_id', teamId)
-        .neq('user_id', currentUserId);
+      const nostrTeamService = getNostrTeamService();
+      const cachedTeams = nostrTeamService.getCachedTeams();
+      const team = cachedTeams.find((t) => t.id === teamId);
 
-      if (error) {
-        console.error('Failed to fetch team members:', error);
+      if (!team) {
+        console.error(`Team not found: ${teamId}`);
         return [];
       }
 
-      // Get challenge stats for each member
+      // Get team members from Nostr
+      const memberIds = await nostrTeamService.getTeamMembers(team);
+      
+      // Filter out current user and create teammate info
       const teammatesWithStats = await Promise.all(
-        data.map(async (member: any) => {
-          const stats = await this.getUserChallengeStats(member.user_id);
-          return {
-            id: member.user_id,
-            name: member.users.name,
-            avatar: member.users.name.charAt(0).toUpperCase(),
-            stats,
-          };
-        })
+        memberIds
+          .filter((memberId) => memberId !== currentUserId)
+          .map(async (memberId, index) => {
+            const stats = await this.getUserChallengeStats(memberId);
+            return {
+              id: memberId,
+              name: `Member ${index + 1}`, // TODO: Get actual names from Nostr profiles
+              avatar: `M${index + 1}`,
+              stats,
+            };
+          })
       );
 
+      console.log(`👥 Found ${teammatesWithStats.length} potential challenge opponents`);
       return teammatesWithStats;
     } catch (error) {
-      console.error('Failed to fetch teammates:', error);
+      console.error('Failed to fetch Nostr team members:', error);
       return [];
     }
   }
 
   /**
-   * Get user's challenge statistics
+   * Get user's challenge statistics from cached Nostr challenges
    */
   static async getUserChallengeStats(
     userId: string
   ): Promise<{ challengesCount: number; winsCount: number }> {
     try {
-      // Get total challenges
-      const { count: totalChallenges } = await supabase
-        .from('activities')
-        .select('id', { count: 'exact' })
-        .eq('activity_type', 'challenge')
-        .or(`challenger_id.eq.${userId},challenged_id.eq.${userId}`)
-        .eq('status', 'completed');
+      // Get challenges from cache (in full implementation, query from Nostr events)
+      const allChallenges = Array.from(this.cachedChallenges.values());
+      
+      // Filter challenges involving this user
+      const userChallenges = allChallenges.filter(
+        (challenge) => 
+          challenge.challengerId === userId || challenge.challengedId === userId
+      );
 
-      // Get wins - need to parse requirements_json to find winner
-      const { data: completedChallenges } = await supabase
-        .from('activities')
-        .select('requirements_json')
-        .eq('activity_type', 'challenge')
-        .or(`challenger_id.eq.${userId},challenged_id.eq.${userId}`)
-        .eq('status', 'completed');
+      // Count completed challenges
+      const completedChallenges = userChallenges.filter(
+        (challenge) => challenge.status === 'completed'
+      );
 
-      // Count wins by checking requirements_json for winner_id
-      const wins =
-        completedChallenges?.filter((challenge: any) => {
-          try {
-            const requirements = JSON.parse(
-              challenge.requirements_json || '{}'
-            );
-            return requirements.winner_id === userId;
-          } catch {
-            return false;
+      // Count wins by using NostrCompetitionLeaderboardService to determine winners
+      let winsCount = 0;
+      
+      for (const challenge of completedChallenges) {
+        try {
+          // Get leaderboard for this challenge to determine winner
+          const leaderboardService = NostrCompetitionLeaderboardService.getInstance();
+          const leaderboard = await leaderboardService.computeChallengeLeaderboard(
+            challenge.id,
+            challenge.challengerId,
+            challenge.challengedId,
+            {
+              activityType: challenge.activityType,
+              goalType: challenge.goalType,
+              startTime: challenge.startTime,
+              endTime: challenge.endTime,
+              goalValue: challenge.goalValue,
+              goalUnit: challenge.goalUnit,
+            }
+          );
+          
+          // Check if this user won (position 1)
+          const userParticipant = leaderboard.participants.find(p => p.pubkey === userId);
+          if (userParticipant && userParticipant.position === 1) {
+            winsCount++;
           }
-        }).length || 0;
+        } catch (error) {
+          console.error(`Failed to determine winner for challenge ${challenge.id}:`, error);
+        }
+      }
 
       return {
-        challengesCount: totalChallenges || 0,
-        winsCount: wins || 0,
+        challengesCount: completedChallenges.length,
+        winsCount,
       };
     } catch (error) {
       console.error('Failed to get challenge stats:', error);
@@ -188,16 +214,20 @@ export class ChallengeService {
    */
   static async acceptChallenge(challengeId: string): Promise<boolean> {
     try {
-      const { error } = await supabase
-        .from('activities')
-        .update({
-          status: 'accepted',
-          // Update requirements_json to include accepted_at timestamp
-        })
-        .eq('id', challengeId)
-        .eq('activity_type', 'challenge');
+      const challenge = this.cachedChallenges.get(challengeId);
+      if (!challenge) {
+        console.error(`Challenge not found: ${challengeId}`);
+        return false;
+      }
 
-      return !error;
+      // Update challenge status
+      challenge.status = 'accepted';
+      this.cachedChallenges.set(challengeId, challenge);
+
+      // TODO: In full implementation, publish challenge acceptance as Nostr event
+      console.log(`✅ Accepted challenge: ${challengeId}`);
+
+      return true;
     } catch (error) {
       console.error('Failed to accept challenge:', error);
       return false;
@@ -209,45 +239,23 @@ export class ChallengeService {
    */
   static async declineChallenge(challengeId: string): Promise<boolean> {
     try {
-      const { error } = await supabase
-        .from('activities')
-        .update({
-          status: 'declined',
-          // Update requirements_json to include declined_at timestamp
-        })
-        .eq('id', challengeId)
-        .eq('activity_type', 'challenge');
+      const challenge = this.cachedChallenges.get(challengeId);
+      if (!challenge) {
+        console.error(`Challenge not found: ${challengeId}`);
+        return false;
+      }
 
-      return !error;
+      // Update challenge status
+      challenge.status = 'declined';
+      this.cachedChallenges.set(challengeId, challenge);
+
+      // TODO: In full implementation, publish challenge decline as Nostr event
+      console.log(`❌ Declined challenge: ${challengeId}`);
+
+      return true;
     } catch (error) {
       console.error('Failed to decline challenge:', error);
       return false;
-    }
-  }
-
-  /**
-   * Create escrow transaction for challenge wager
-   */
-  private static async createEscrowTransaction(
-    userId: string,
-    challengeId: string,
-    amount: number
-  ): Promise<void> {
-    try {
-      await supabase.from('transactions').insert([
-        {
-          user_id: userId,
-          challenge_id: challengeId,
-          type: 'escrow',
-          amount: amount,
-          status: 'pending',
-          description: `Challenge wager escrow`,
-          created_at: new Date().toISOString(),
-        },
-      ]);
-    } catch (error) {
-      console.error('Failed to create escrow transaction:', error);
-      // Don't throw - this is supplementary to challenge creation
     }
   }
 
@@ -256,50 +264,99 @@ export class ChallengeService {
    */
   static async getUserPendingChallenges(userId: string): Promise<Challenge[]> {
     try {
-      const { data, error } = await supabase
-        .from('activities')
-        .select('*')
-        .eq('activity_type', 'challenge')
-        .or(`challenger_id.eq.${userId},challenged_id.eq.${userId}`)
-        .eq('status', 'pending');
-
-      if (error) {
-        console.error('Failed to fetch pending challenges:', error);
-        return [];
-      }
-
-      // Transform activities data to match Challenge interface
-      const challenges = await Promise.all(
-        (data || []).map(async (activity: any) => {
-          // Get challenger and challenged user info
-          const { data: challengerUser } = await supabase
-            .from('users')
-            .select('id, name')
-            .eq('id', activity.challenger_id)
-            .single();
-
-          const { data: challengedUser } = await supabase
-            .from('users')
-            .select('id, name')
-            .eq('id', activity.challenged_id)
-            .single();
-
-          return {
-            ...activity,
-            challenger: challengerUser,
-            challenged: challengedUser,
-            // Parse requirements_json for challenge-specific data
-            ...(activity.requirements_json
-              ? JSON.parse(activity.requirements_json)
-              : {}),
-          };
-        })
+      // Get challenges from cache (in full implementation, query from Nostr events)
+      const allChallenges = Array.from(this.cachedChallenges.values());
+      
+      // Filter challenges involving this user with pending status
+      const pendingChallenges = allChallenges.filter(
+        (challenge) => 
+          (challenge.challengerId === userId || challenge.challengedId === userId) &&
+          challenge.status === 'pending'
       );
 
+      // Convert NostrChallenge to Challenge format
+      const challenges: Challenge[] = pendingChallenges.map((challenge) => ({
+        id: challenge.id,
+        name: challenge.name,
+        description: challenge.description,
+        status: challenge.status,
+        prizePool: challenge.prizeAmount,
+        createdAt: new Date(challenge.createdAt * 1000).toISOString(),
+        challenger: {
+          id: challenge.challengerId,
+          name: `User ${challenge.challengerId.substring(0, 8)}`,
+        },
+        challenged: {
+          id: challenge.challengedId,
+          name: `User ${challenge.challengedId.substring(0, 8)}`,
+        },
+        // Required Challenge properties
+        teamId: challenge.teamId || '',
+        challengerId: challenge.challengerId,
+        challengedId: challenge.challengedId,
+        type: 'peer_to_peer',
+        // Additional challenge data
+        challenge_type: challenge.challengeType,
+        metric: challenge.activityType,
+        deadline: new Date(challenge.endTime * 1000).toISOString(),
+      }));
+
+      console.log(`📋 Found ${challenges.length} pending challenges for user`);
       return challenges;
     } catch (error) {
       console.error('Failed to fetch pending challenges:', error);
       return [];
     }
+  }
+
+  /**
+   * Get challenge by ID
+   */
+  static getChallengeById(challengeId: string): NostrChallenge | null {
+    return this.cachedChallenges.get(challengeId) || null;
+  }
+
+  /**
+   * Helper method to generate unique challenge ID
+   */
+  private static generateChallengeId(): string {
+    return `challenge_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * Helper method to map challenge type to goal type
+   */
+  private static mapChallengeTypeToGoalType(
+    challengeType: string
+  ): 'distance' | 'speed' | 'duration' | 'consistency' {
+    const lowerType = challengeType.toLowerCase();
+
+    if (lowerType.includes('distance') || lowerType.includes('km') || lowerType.includes('mile')) {
+      return 'distance';
+    } else if (lowerType.includes('speed') || lowerType.includes('pace') || lowerType.includes('fast')) {
+      return 'speed';
+    } else if (lowerType.includes('duration') || lowerType.includes('time') || lowerType.includes('minute')) {
+      return 'duration';
+    } else if (lowerType.includes('consistency') || lowerType.includes('streak') || lowerType.includes('daily')) {
+      return 'consistency';
+    }
+
+    // Default fallback
+    return 'distance';
+  }
+
+  /**
+   * Clear cached challenges
+   */
+  static clearCache(): void {
+    this.cachedChallenges.clear();
+    console.log('🗑️ Cleared challenge cache');
+  }
+
+  /**
+   * Get all cached challenges (for debugging)
+   */
+  static getCachedChallenges(): NostrChallenge[] {
+    return Array.from(this.cachedChallenges.values());
   }
 }

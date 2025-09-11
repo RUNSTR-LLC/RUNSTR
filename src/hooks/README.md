@@ -1,0 +1,10 @@
+# Hooks Directory
+
+Custom React hooks providing reusable logic and state management across RUNSTR components.
+
+## Files
+
+- **useChallengeCreation.ts** - Hook for managing challenge creation wizard state and validation
+- **useNavigationData.ts** - Hook for handling navigation data passing between screens
+- **useTeamWallet.ts** - Hook for managing team Bitcoin wallet operations and permissions
+- **useWalletBalance.ts** - Hook for fetching and monitoring Bitcoin wallet balance

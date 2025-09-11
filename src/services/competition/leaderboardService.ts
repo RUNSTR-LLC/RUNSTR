@@ -5,7 +5,7 @@
  */
 
 import type { Event } from 'nostr-tools';
-import { NostrRelayManager } from '../nostr/NostrRelayManager';
+import { NostrRelayManager, nostrRelayManager } from '../nostr/NostrRelayManager';
 import { NostrTeamService } from '../nostr/NostrTeamService';
 import type { NostrFilter } from '../nostr/NostrProtocolHandler';
 import type { NostrTeam } from '../nostr/NostrTeamService';
@@ -71,7 +71,7 @@ export class LeaderboardService {
   private static instance: LeaderboardService;
 
   constructor(relayManager?: NostrRelayManager) {
-    this.relayManager = relayManager || new NostrRelayManager();
+    this.relayManager = relayManager || nostrRelayManager;
     this.teamService = new NostrTeamService();
   }
 

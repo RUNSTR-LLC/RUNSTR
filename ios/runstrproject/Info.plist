@@ -79,13 +79,5 @@
     <string>Automatic</string>
     <key>UIViewControllerBasedStatusBarAppearance</key>
     <false/>
-    <key>NSHealthShareUsageDescription</key>
-    <string>RUNSTR syncs your workout data to enable Bitcoin-earning fitness competitions with your team</string>
-    <key>NSHealthUpdateUsageDescription</key>  
-    <string>RUNSTR can save workouts to your Health app for backup</string>
-    <key>UIRequiredDeviceCapabilities</key>
-    <array>
-        <string>healthkit</string>
-    </array>
   </dict>
 </plist>

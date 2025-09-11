@@ -3,8 +3,8 @@
  * Integrates with Profile tab for seamless workout sync setup
  */
 
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, InteractionManager } from 'react-native';
 import { AntDesign } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { Card } from '../ui/Card';
@@ -39,8 +39,18 @@ export const HealthKitPermissionCard: React.FC<
     lastSyncDate?: string;
   }>({ totalHealthKitWorkouts: 0 });
 
+  // AbortController for cancelling long-running operations
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   useEffect(() => {
     checkCurrentStatus();
+    
+    // Cleanup abort controller on unmount
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, []);
 
   const checkCurrentStatus = async () => {
@@ -70,125 +80,214 @@ export const HealthKitPermissionCard: React.FC<
     }
   };
 
+  const cancelSync = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsLoading(false);
+    setStatus(status === 'requesting' ? 'unknown' : 'granted');
+  };
+
   const requestPermissionAndSync = async () => {
+    // Cancel any existing operation
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // Create new AbortController for this operation
+    abortControllerRef.current = new AbortController();
+    
     setIsLoading(true);
     setStatus('requesting');
 
-    try {
-      // First request permissions
-      const permissionResult = await healthKitService.initialize();
+    // Defer heavy operations until after UI interactions complete
+    InteractionManager.runAfterInteractions(async () => {
+      try {
+        // Check if operation was cancelled before starting
+        if (abortControllerRef.current?.signal.aborted) {
+          throw new Error('Operation cancelled');
+        }
 
-      if (!permissionResult.success) {
-        setStatus('denied');
-        onPermissionDenied?.(permissionResult.error || 'Permission denied');
+        // First request permissions
+        const permissionResult = await healthKitService.initialize();
 
-        Alert.alert(
-          'Permission Required',
-          'To sync your Apple Health workouts with RUNSTR competitions, please enable permissions in iPhone Settings > Privacy & Security > Health > RUNSTR',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Open Settings',
-              onPress: () => {
-                // In a real app, you could use Linking.openSettings()
-                console.log('Open Settings requested');
+        // Check if operation was cancelled after permissions
+        if (abortControllerRef.current?.signal.aborted) {
+          throw new Error('Operation cancelled');
+        }
+
+        if (!permissionResult.success) {
+          setStatus('denied');
+          onPermissionDenied?.(permissionResult.error || 'Permission denied');
+
+          Alert.alert(
+            'Permission Required',
+            'To sync your Apple Health workouts with RUNSTR competitions, please enable permissions in iPhone Settings > Privacy & Security > Health > RUNSTR',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Open Settings',
+                onPress: () => {
+                  // In a real app, you could use Linking.openSettings()
+                  console.log('Open Settings requested');
+                },
               },
-            },
-          ]
-        );
-        return;
-      }
-
-      // Permission granted, now sync workouts
-      setStatus('syncing');
-      const syncResult = await healthKitService.syncWorkouts(userId, teamId);
-
-      if (syncResult.success) {
-        setStatus('granted');
-
-        const newWorkouts = syncResult.newWorkouts || 0;
-        const totalWorkouts = syncResult.workoutsCount || 0;
-
-        onPermissionGranted?.({ newWorkouts, totalWorkouts });
-
-        if (newWorkouts > 0) {
-          Alert.alert(
-            'Apple Health Connected! 🍎',
-            `Successfully synced ${newWorkouts} new workouts from Apple Health. These will automatically count toward your team competitions!`,
-            [{ text: 'Awesome!' }]
+            ]
           );
+          setIsLoading(false);
+          return;
+        }
+
+        // Permission granted, now sync workouts
+        setStatus('syncing');
+        
+        // Check if operation was cancelled before sync
+        if (abortControllerRef.current?.signal.aborted) {
+          throw new Error('Operation cancelled');
+        }
+        
+        const syncResult = await healthKitService.syncWorkouts(userId, teamId);
+
+        // Check if operation was cancelled after sync
+        if (abortControllerRef.current?.signal.aborted) {
+          throw new Error('Operation cancelled');
+        }
+
+        if (syncResult.success) {
+          setStatus('granted');
+
+          const newWorkouts = syncResult.newWorkouts || 0;
+          const totalWorkouts = syncResult.workoutsCount || 0;
+
+          onPermissionGranted?.({ newWorkouts, totalWorkouts });
+
+          if (newWorkouts > 0) {
+            Alert.alert(
+              'Apple Health Connected! 🍎',
+              `Successfully synced ${newWorkouts} new workouts from Apple Health. These will automatically count toward your team competitions!`,
+              [{ text: 'Awesome!' }]
+            );
+          } else {
+            Alert.alert(
+              'Apple Health Connected! 🍎',
+              'RUNSTR will now automatically sync your workouts and include them in competitions. Your future workouts will appear here within 30 minutes.',
+              [{ text: 'Great!' }]
+            );
+          }
+
+          // Reload stats
+          if (showStats) {
+            await loadStats();
+          }
         } else {
-          Alert.alert(
-            'Apple Health Connected! 🍎',
-            'RUNSTR will now automatically sync your workouts and include them in competitions. Your future workouts will appear here within 30 minutes.',
-            [{ text: 'Great!' }]
-          );
+          setStatus('denied');
+          onPermissionDenied?.(syncResult.error || 'Sync failed');
         }
-
-        // Reload stats
-        if (showStats) {
-          await loadStats();
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        
+        // Handle cancellation gracefully
+        if (errorMessage === 'Operation cancelled') {
+          console.log('HealthKit operation was cancelled by user');
+          // Don't change status for cancellation, just stop loading
+        } else {
+          setStatus('denied');
+          onPermissionDenied?.(errorMessage);
+          console.error('HealthKit setup error:', error);
         }
-      } else {
-        setStatus('denied');
-        onPermissionDenied?.(syncResult.error || 'Sync failed');
+      } finally {
+        setIsLoading(false);
+        // Clear the abort controller when operation completes
+        abortControllerRef.current = null;
       }
-    } catch (error) {
-      setStatus('denied');
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      onPermissionDenied?.(errorMessage);
-      console.error('HealthKit setup error:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    });
   };
 
   const handleManualSync = async () => {
     if (status !== 'granted') return;
 
-    setIsLoading(true);
-    try {
-      const syncResult = await healthKitService.syncWorkouts(userId, teamId);
-
-      if (syncResult.success) {
-        const newWorkouts = syncResult.newWorkouts || 0;
-
-        if (newWorkouts > 0) {
-          Alert.alert(
-            'Sync Complete! ✅',
-            `Found ${newWorkouts} new workouts from Apple Health`,
-            [{ text: 'Great!' }]
-          );
-          onPermissionGranted?.({
-            newWorkouts,
-            totalWorkouts: syncResult.workoutsCount || 0,
-          });
-        } else {
-          Alert.alert(
-            'Sync Complete! ✅',
-            'Your Apple Health workouts are up to date',
-            [{ text: 'OK' }]
-          );
-        }
-
-        // Reload stats
-        if (showStats) {
-          await loadStats();
-        }
-      }
-    } catch (error) {
-      console.error('Manual sync error:', error);
-      Alert.alert(
-        'Sync Failed',
-        'Could not sync workouts at this time. Please try again later.'
-      );
-    } finally {
-      setIsLoading(false);
+    // Cancel any existing operation
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
+    
+    // Create new AbortController for this operation
+    abortControllerRef.current = new AbortController();
+
+    setIsLoading(true);
+    
+    // Defer heavy sync operations until after UI interactions complete
+    InteractionManager.runAfterInteractions(async () => {
+      try {
+        // Check if operation was cancelled before starting
+        if (abortControllerRef.current?.signal.aborted) {
+          throw new Error('Operation cancelled');
+        }
+
+        const syncResult = await healthKitService.syncWorkouts(userId, teamId);
+
+        // Check if operation was cancelled after sync
+        if (abortControllerRef.current?.signal.aborted) {
+          throw new Error('Operation cancelled');
+        }
+
+        if (syncResult.success) {
+          const newWorkouts = syncResult.newWorkouts || 0;
+
+          if (newWorkouts > 0) {
+            Alert.alert(
+              'Sync Complete! ✅',
+              `Found ${newWorkouts} new workouts from Apple Health`,
+              [{ text: 'Great!' }]
+            );
+            onPermissionGranted?.({
+              newWorkouts,
+              totalWorkouts: syncResult.workoutsCount || 0,
+            });
+          } else {
+            Alert.alert(
+              'Sync Complete! ✅',
+              'Your Apple Health workouts are up to date',
+              [{ text: 'OK' }]
+            );
+          }
+
+          // Reload stats
+          if (showStats) {
+            await loadStats();
+          }
+        }
+      } catch (error) {
+        console.error('Manual sync error:', error);
+        
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        
+        // Handle cancellation gracefully
+        if (errorMessage === 'Operation cancelled') {
+          console.log('Manual sync was cancelled by user');
+          // Don't show error for cancellation
+        } else {
+          // Provide user-friendly error messages for timeout scenarios
+          const userMessage = errorMessage.includes('timed out')
+            ? 'Sync is taking too long. Please try again or check your internet connection.'
+            : 'Could not sync workouts at this time. Please try again later.';
+          
+          Alert.alert('Sync Failed', userMessage);
+        }
+      } finally {
+        setIsLoading(false);
+        // Clear the abort controller when operation completes
+        abortControllerRef.current = null;
+      }
+    });
   };
 
   const getStatusText = (): string => {
+    if (isLoading) {
+      return 'Tap to cancel sync';
+    }
+    
     switch (status) {
       case 'granted':
         return showStats && stats.totalHealthKitWorkouts > 0
@@ -234,9 +333,13 @@ export const HealthKitPermissionCard: React.FC<
       <TouchableOpacity
         style={styles.content}
         onPress={
-          status === 'granted' ? handleManualSync : requestPermissionAndSync
+          isLoading 
+            ? cancelSync 
+            : status === 'granted' 
+              ? handleManualSync 
+              : requestPermissionAndSync
         }
-        disabled={isLoading}
+        disabled={false} // Always enabled - changes function based on state
         activeOpacity={0.7}
       >
         <View style={styles.header}>
@@ -258,14 +361,21 @@ export const HealthKitPermissionCard: React.FC<
             </Text>
           </View>
           <View style={styles.actions}>
-            {status === 'granted' && (
+            {status === 'granted' && !isLoading && (
               <AntDesign
                 name="checkcircle"
                 size={16}
                 color={theme.colors.statusConnected}
               />
             )}
-            {(status === 'requesting' || status === 'syncing') && (
+            {isLoading && (
+              <AntDesign
+                name="close"
+                size={16}
+                color={theme.colors.primary}
+              />
+            )}
+            {(status === 'requesting' || status === 'syncing') && !isLoading && (
               <Text style={styles.loadingText}>⟳</Text>
             )}
           </View>

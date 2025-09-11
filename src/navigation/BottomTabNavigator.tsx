@@ -83,7 +83,6 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
           <SafeAreaView style={styles.tabContent} edges={['top']}>
             {/* Header with plus button for team creation */}
             <View style={styles.teamsHeader}>
-              <Text style={styles.headerTitle}>Teams</Text>
               <TouchableOpacity
                 style={styles.createButton}
                 onPress={() => {
@@ -208,7 +207,7 @@ const styles = StyleSheet.create({
   teamsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 16,

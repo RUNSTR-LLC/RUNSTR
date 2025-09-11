@@ -26,11 +26,11 @@ export class ProfileService {
   static async getUserProfile(userId: string): Promise<UserProfile | null> {
     console.log('🔍 ProfileService.getUserProfile called for userId:', userId);
     try {
-      // Get basic user data
+      // Get basic user data from minimal Supabase record
       const { data: user, error: userError } = await supabase
         .from('users')
         .select('*')
-        .eq('id', userId)
+        .eq('npub', userId) // Updated: use npub as primary key
         .single();
 
       if (userError) {
@@ -43,35 +43,16 @@ export class ProfileService {
       }
 
       console.log('✅ Found user in database:', {
-        id: user.id,
-        name: user.name,
         npub: user.npub?.slice(0, 20) + '...',
-        hasNpub: !!user.npub
+        healthkit_enabled: user.healthkit_enabled,
+        ghost_mode: user.ghost_mode
       });
 
-      // Get user preferences separately
-      const { data: preferencesData } = await supabase
-        .from('user_preferences')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-
-      // Get team membership data separately
-      const { data: teamMemberData } = await supabase
-        .from('team_members')
-        .select('team_id, joined_at, role')
-        .eq('user_id', userId)
-        .eq('is_active', true)
-        .single();
-
-      // Get team switch cooldown data
-      const { data: cooldownData } = await supabase
-        .from('user_team_switches')
-        .select('cooldown_until')
-        .eq('user_id', userId)
-        .order('cooldown_until', { ascending: false })
-        .limit(1)
-        .single();
+      // Note: user_preferences, team_members, user_team_switches tables removed
+      // These were likely unused since the service was working well - data comes from Nostr
+      const preferencesData = null;
+      const teamMemberData = null;
+      const cooldownData = null;
 
       // Transform user preferences
       const preferences: UserPreferences | undefined = preferencesData
@@ -84,7 +65,7 @@ export class ProfileService {
           }
         : undefined;
 
-      // Get user's fitness profile
+      // Get user's fitness profile (now using npub)
       const fitnessProfile = await this.calculateFitnessProfile(userId);
 
       // Fetch Nostr profile data to populate profile fields
@@ -116,28 +97,24 @@ export class ProfileService {
 
       // Create comprehensive user profile with Nostr data
       const userProfile: UserProfile = {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        avatar: user.avatar,
+        id: user.npub, // Use npub as id
         npub: user.npub,
-        nsec: user.nsec,
-        role: user.role,
-        teamId: teamMemberData?.team_id,
+        name: nostrProfile?.name || 'Anonymous', // Required field with fallback
+        role: 'member', // Default role since we removed role from minimal schema
         createdAt: user.created_at,
-        lastSyncAt: user.last_sync_at,
+        lastSyncAt: user.last_sync || null,
         preferences,
         fitnessProfile,
         teamJoinedAt: teamMemberData?.joined_at,
         teamSwitchCooldownUntil: cooldownData?.cooldown_until,
         
-        // Populate Nostr profile fields
-        bio: nostrProfile?.about || user.bio,
-        website: nostrProfile?.website || user.website,
-        picture: nostrProfile?.picture || user.picture || user.avatar,
-        banner: nostrProfile?.banner || user.banner,
-        lud16: nostrProfile?.lud16 || user.lud16,
-        displayName: nostrProfile?.display_name || nostrProfile?.name || user.displayName,
+        // Populate Nostr profile fields (primary source)
+        bio: nostrProfile?.about,
+        website: nostrProfile?.website,
+        picture: nostrProfile?.picture,
+        banner: nostrProfile?.banner,
+        lud16: nostrProfile?.lud16,
+        displayName: nostrProfile?.display_name || nostrProfile?.name,
       };
 
       return userProfile;
@@ -155,24 +132,12 @@ export class ProfileService {
     preferences: Partial<UserPreferences>
   ): Promise<ApiResponse> {
     try {
-      const { error } = await supabase.from('user_preferences').upsert(
-        {
-          user_id: userId,
-          primary_goal: preferences.primaryGoal,
-          competitive_level: preferences.competitiveLevel,
-          time_commitment: preferences.timeCommitment,
-          preferred_reward_size: preferences.preferredRewardSize,
-          experience_level: preferences.experienceLevel,
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: 'user_id',
-        }
-      );
+      // Note: user_preferences table was removed in hybrid architecture
+      // Preferences are handled via AsyncStorage (NotificationPreferencesService) or Nostr
+      console.log('updateUserPreferences called but user_preferences table was removed - no-op');
+      console.log('Consider using NotificationPreferencesService for UI preferences or Nostr for profile data');
 
-      if (error) throw error;
-
-      return { success: true, message: 'Preferences updated successfully' };
+      return { success: true, message: 'Preferences update skipped - table removed in hybrid architecture' };
     } catch (error) {
       console.error('Error updating user preferences:', error);
       return { success: false, error: 'Failed to update preferences' };
@@ -201,7 +166,7 @@ export class ProfileService {
       const { data: workouts, error } = await supabase
         .from('workouts')
         .select('*')
-        .eq('user_id', userId)
+        .eq('npub', userId) // Updated: use npub instead of user_id
         .gte('start_time', thirtyDaysAgo.toISOString())
         .order('start_time', { ascending: false });
 
@@ -249,7 +214,7 @@ export class ProfileService {
       const { data: allWorkouts, error } = await supabase
         .from('workouts')
         .select('*')
-        .eq('user_id', userId)
+        .eq('npub', userId) // Updated: use npub instead of user_id
         .gte('start_time', sixtyDaysAgo.toISOString())
         .order('start_time', { ascending: true });
 

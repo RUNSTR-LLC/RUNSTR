@@ -31,6 +31,8 @@ import { EventDetails } from '../components/event/EventDetails';
 
 // Real Data Services
 import { CompetitionService } from '../services/competition/competitionService';
+import { NostrCompetitionLeaderboardService } from '../services/competition/nostrCompetitionLeaderboardService';
+import type { CompetitionLeaderboard, CompetitionParticipant } from '../services/competition/nostrCompetitionLeaderboardService';
 
 type EventDetailRouteProp = RouteProp<RootStackParamList, 'EventDetail'>;
 type EventDetailNavigationProp = StackNavigationProp<
@@ -54,6 +56,8 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
   const [joinStatus, setJoinStatus] = useState<
     'not_joined' | 'joined' | 'completed'
   >('not_joined');
+  const [leaderboard, setLeaderboard] = useState<CompetitionLeaderboard | null>(null);
+  const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(false);
 
   // Load event data
   useEffect(() => {
@@ -72,47 +76,119 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
         throw new Error(`Event not found: ${eventId}`);
       }
 
-      // Convert Competition to EventDetailData
-      const eventDetailData: EventDetailData = {
-        id: competition.id,
-        name: competition.name,
-        description: competition.description,
-        startDate: new Date(competition.startTime * 1000).toISOString(),
-        endDate: new Date(competition.endTime * 1000).toISOString(),
-        prizePool: 0, // TODO: Get from team wallet or competition metadata
-        participants: [], // TODO: Fetch from team members
-        participantDetails: [], // TODO: Fetch from team members with details
-        stats: {
-          participantCount: competition.participantCount,
-          completedCount: 0, // TODO: Calculate from workout submissions
-        },
-        progress: {
-          isJoined: false, // TODO: Check if current user is participating
-          timeRemaining: calculateTimeRemaining(competition.endTime),
-          status: getEventStatus(competition),
-          percentage: calculateEventProgress(competition),
-          daysRemaining: Math.ceil(
-            (competition.endTime - Date.now() / 1000) / (24 * 60 * 60)
-          ),
-        },
-        status: getEventStatus(competition),
-        formattedPrize: '0 sats', // TODO: Format actual prize
-        formattedTimeRemaining: formatTimeRemaining(competition.endTime),
-        details: {
-          distance: competition.goalValue
-            ? `${competition.goalValue} ${competition.goalUnit || 'units'}`
-            : 'No specific target',
-          duration: competition.type === 'event' ? '1 day' : '30 days',
-          activityType: competition.goalType,
-          createdBy: 'Team Captain', // TODO: Get actual creator name
-          startDate: new Date(
-            competition.startTime * 1000
-          ).toLocaleDateString(),
-          endDate: new Date(competition.endTime * 1000).toLocaleDateString(),
-        },
-      };
+      // Load real leaderboard data
+      setIsLoadingLeaderboard(true);
+      const leaderboardService = NostrCompetitionLeaderboardService.getInstance();
+      
+      try {
+        const eventLeaderboard = await leaderboardService.computeEventLeaderboard(
+          competition,
+          undefined, // Let it fetch all team members
+          'current_user_id' // TODO: Get actual current user ID from auth
+        );
+        
+        setLeaderboard(eventLeaderboard);
+        
+        // Convert leaderboard participants to participant details format
+        const participantDetails = eventLeaderboard.participants.map((participant: CompetitionParticipant) => ({
+          id: participant.pubkey,
+          name: participant.name || `User ${participant.pubkey.substring(0, 8)}`,
+          avatar: participant.name?.charAt(0).toUpperCase() || 'U',
+          position: participant.position || 0,
+          score: participant.score,
+          distance: participant.totalDistance ? `${Math.round(participant.totalDistance / 1000)} km` : '0 km',
+          time: participant.totalDuration ? formatDuration(participant.totalDuration) : '0 min',
+          workouts: participant.workoutCount || 0,
+          lastActivity: participant.lastActivity || 0,
+          status: 'completed' as const,
+        }));
 
-      setEventData(eventDetailData);
+        // Convert Competition to EventDetailData with real leaderboard data
+        const eventDetailData: EventDetailData = {
+          id: competition.id,
+          name: competition.name,
+          description: competition.description,
+          startDate: new Date(competition.startTime * 1000).toISOString(),
+          endDate: new Date(competition.endTime * 1000).toISOString(),
+          prizePool: competition.entryFeesSats * eventLeaderboard.participants.length, // Calculate from entry fees
+          participants: participantDetails, // Use formatted participant details
+          participantDetails, // Real participant details from leaderboard
+          stats: {
+            participantCount: eventLeaderboard.participants.length,
+            completedCount: eventLeaderboard.participants.filter(p => (p.workoutCount || 0) > 0).length,
+          },
+          progress: {
+            isJoined: false, // TODO: Check if current user is participating
+            timeRemaining: calculateTimeRemaining(competition.endTime),
+            status: getEventStatus(competition),
+            percentage: calculateEventProgress(competition),
+            daysRemaining: Math.ceil(
+              (competition.endTime - Date.now() / 1000) / (24 * 60 * 60)
+            ),
+          },
+          status: getEventStatus(competition),
+          formattedPrize: `${competition.entryFeesSats * eventLeaderboard.participants.length} sats`,
+          formattedTimeRemaining: formatTimeRemaining(competition.endTime),
+          details: {
+            distance: competition.goalValue
+              ? `${competition.goalValue} ${competition.goalUnit || 'units'}`
+              : 'No specific target',
+            duration: competition.type === 'event' ? '1 day' : '30 days',
+            activityType: competition.activityType,
+            createdBy: 'Team Captain', // TODO: Get actual creator name from competition.captainPubkey
+            startDate: new Date(
+              competition.startTime * 1000
+            ).toLocaleDateString(),
+            endDate: new Date(competition.endTime * 1000).toLocaleDateString(),
+          },
+        };
+
+        setEventData(eventDetailData);
+      } catch (leaderboardError) {
+        console.error('Failed to load leaderboard data:', leaderboardError);
+        // Fall back to basic event data without leaderboard
+        const eventDetailData: EventDetailData = {
+          id: competition.id,
+          name: competition.name,
+          description: competition.description,
+          startDate: new Date(competition.startTime * 1000).toISOString(),
+          endDate: new Date(competition.endTime * 1000).toISOString(),
+          prizePool: 0,
+          participants: [],
+          participantDetails: [],
+          stats: {
+            participantCount: 0,
+            completedCount: 0,
+          },
+          progress: {
+            isJoined: false,
+            timeRemaining: calculateTimeRemaining(competition.endTime),
+            status: getEventStatus(competition),
+            percentage: calculateEventProgress(competition),
+            daysRemaining: Math.ceil(
+              (competition.endTime - Date.now() / 1000) / (24 * 60 * 60)
+            ),
+          },
+          status: getEventStatus(competition),
+          formattedPrize: '0 sats',
+          formattedTimeRemaining: formatTimeRemaining(competition.endTime),
+          details: {
+            distance: competition.goalValue
+              ? `${competition.goalValue} ${competition.goalUnit || 'units'}`
+              : 'No specific target',
+            duration: competition.type === 'event' ? '1 day' : '30 days',
+            activityType: competition.activityType,
+            createdBy: 'Team Captain',
+            startDate: new Date(
+              competition.startTime * 1000
+            ).toLocaleDateString(),
+            endDate: new Date(competition.endTime * 1000).toLocaleDateString(),
+          },
+        };
+        setEventData(eventDetailData);
+      } finally {
+        setIsLoadingLeaderboard(false);
+      }
     } catch (err) {
       console.error('Failed to load event data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load event');
@@ -154,6 +230,16 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
 
     if (days > 0) return `${days}d ${hours}h left`;
     return `${hours}h left`;
+  };
+
+  const formatDuration = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
   };
 
   // Handle back navigation

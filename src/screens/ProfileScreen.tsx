@@ -3,10 +3,11 @@
  * Matches HTML mockup profile screen exactly
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, SafeAreaView, RefreshControl } from 'react-native';
 import { theme } from '../styles/theme';
 import { ProfileTab, ProfileScreenData, NotificationSettings } from '../types';
+import { NotificationPreferencesService } from '../services/notifications/NotificationPreferencesService';
 
 // UI Components
 // BottomNavigation removed - using BottomTabNavigator instead
@@ -58,6 +59,26 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [notificationSettings, setNotificationSettings] =
     useState<NotificationSettings>(data.notificationSettings);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoadingNotificationSettings, setIsLoadingNotificationSettings] = useState(true);
+
+  // Load notification settings from persistent storage on mount
+  useEffect(() => {
+    const loadNotificationSettings = async () => {
+      setIsLoadingNotificationSettings(true);
+      try {
+        const settings = await NotificationPreferencesService.getNotificationSettings();
+        setNotificationSettings(settings);
+        console.log('📱 Loaded notification settings:', settings);
+      } catch (error) {
+        console.error('Error loading notification settings:', error);
+        // Keep existing settings from props as fallback
+      } finally {
+        setIsLoadingNotificationSettings(false);
+      }
+    };
+
+    loadNotificationSettings();
+  }, []);
 
   // Event handlers
   const handleEditProfile = () => {
@@ -96,14 +117,34 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     setIsRefreshing(false);
   };
 
-  const handleNotificationSettingChange = (
+  const handleNotificationSettingChange = async (
     key: keyof NotificationSettings,
     value: boolean
   ) => {
-    setNotificationSettings((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
+    try {
+      // Update local state immediately for responsive UI
+      setNotificationSettings((prev) => ({
+        ...prev,
+        [key]: value,
+      }));
+
+      // Persist the change to storage
+      const updatedSettings = await NotificationPreferencesService.updateNotificationSetting(key, value);
+      console.log(`📱 Updated notification setting ${key}: ${value}`);
+      
+      // Ensure local state matches persisted state
+      setNotificationSettings(updatedSettings);
+    } catch (error) {
+      console.error(`Error updating notification setting ${key}:`, error);
+      
+      // Revert local state on error
+      setNotificationSettings((prev) => ({
+        ...prev,
+        [key]: !value, // Revert to previous value
+      }));
+      
+      // TODO: Could show error toast to user here
+    }
   };
 
   const renderTabContent = () => {
@@ -166,10 +207,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Profile</Text>
-        </View>
 
         {/* Profile Header */}
         <ProfileHeader user={data.user} />

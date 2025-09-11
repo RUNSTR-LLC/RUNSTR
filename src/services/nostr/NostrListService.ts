@@ -5,7 +5,7 @@
  */
 
 import type { Event } from 'nostr-tools';
-import { NostrRelayManager } from './NostrRelayManager';
+import { NostrRelayManager, nostrRelayManager } from './NostrRelayManager';
 import type { NostrFilter } from './NostrProtocolHandler';
 
 export interface NostrListEvent extends Event {
@@ -46,7 +46,7 @@ export class NostrListService {
   private static instance: NostrListService;
 
   constructor(relayManager?: NostrRelayManager) {
-    this.relayManager = relayManager || new NostrRelayManager();
+    this.relayManager = relayManager || nostrRelayManager;
   }
 
   static getInstance(relayManager?: NostrRelayManager): NostrListService {
