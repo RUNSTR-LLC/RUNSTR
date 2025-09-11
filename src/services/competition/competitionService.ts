@@ -1,14 +1,18 @@
 /**
- * CompetitionService - Nostr-based Events and Leagues
+ * Enhanced Competition Service - Nostr-based Events and Leagues with Auto-Entry Integration
  * Creates and manages 1-day events and 30-day leagues using Kind 31013
  * Integrates with team membership lists for fast participant queries
+ * Phase 4: Enhanced with auto-entry system and real-time leaderboard updates
  */
 
 import type { Event } from 'nostr-tools';
 import { NostrRelayManager, nostrRelayManager } from '../nostr/NostrRelayManager';
 import { NostrTeamService } from '../nostr/NostrTeamService';
+import EventEligibilityService from './eventEligibilityService';
 import type { NostrFilter } from '../nostr/NostrProtocolHandler';
 import type { NostrTeam } from '../nostr/NostrTeamService';
+import type { EligibleEvent, EventAutoEntryResult } from './eventEligibilityService';
+import type { NostrWorkout } from '../../types/nostrWorkout';
 
 export interface Competition {
   id: string;

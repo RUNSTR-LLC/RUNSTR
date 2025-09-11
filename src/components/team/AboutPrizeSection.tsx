@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Button } from '../ui/Button';
+import { CaptainDashboardButton } from './CaptainDashboardButton';
 import { theme } from '../../styles/theme';
 
 interface AboutPrizeSectionProps {
@@ -8,6 +9,7 @@ interface AboutPrizeSectionProps {
   prizePool: number;
   onCaptainDashboard: () => void;
   isCaptain: boolean;
+  captainLoading?: boolean;
 }
 
 export const AboutPrizeSection: React.FC<AboutPrizeSectionProps> = ({
@@ -15,6 +17,7 @@ export const AboutPrizeSection: React.FC<AboutPrizeSectionProps> = ({
   prizePool,
   onCaptainDashboard,
   isCaptain,
+  captainLoading = false,
 }) => {
   const formatPrizePool = (amount: number): string => {
     return amount.toLocaleString();
@@ -32,11 +35,12 @@ export const AboutPrizeSection: React.FC<AboutPrizeSectionProps> = ({
           <Text style={styles.prizeCurrency}>sat prize pool</Text>
         </View>
         {isCaptain && (
-          <Button
-            variant="outline"
+          <CaptainDashboardButton
             onPress={onCaptainDashboard}
+            isLoading={captainLoading}
+            variant="outline"
+            size="medium"
             style={styles.actionButton}
-            title="Captain Dashboard"
           />
         )}
       </View>

@@ -298,7 +298,17 @@ export class WorkoutMergeService {
           // Try to extract tags but accept ANYTHING - no requirements
           for (const tag of tags) {
             if (tag[0] === 'exercise' && tag[1]) workoutType = tag[1];
-            if (tag[0] === 'duration' && tag[1]) duration = parseFloat(tag[1]) || 0;
+            if (tag[0] === 'duration' && tag[1]) {
+              const timeStr = tag[1];
+              const parts = timeStr.split(':').map((p: string) => parseInt(p));
+              if (parts.length === 3) {
+                duration = parts[0] * 3600 + parts[1] * 60 + parts[2]; // H:M:S
+              } else if (parts.length === 2) {
+                duration = parts[0] * 60 + parts[1]; // M:S
+              } else {
+                duration = 0;
+              }
+            }
             if (tag[0] === 'distance' && tag[1]) distance = parseFloat(tag[1]) || 0;
             if (tag[0] === 'calories' && tag[1]) calories = parseInt(tag[1]) || 0;
             // Could be other tag formats - just try them all

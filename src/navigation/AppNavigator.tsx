@@ -11,7 +11,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { theme } from '../styles/theme';
 
 // Screens
-import { TeamScreen } from '../screens/TeamScreen';
+import { EnhancedTeamScreen } from '../screens/EnhancedTeamScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { WalletScreen } from '../screens/WalletScreen';
 import { TeamDiscoveryScreen } from '../screens/TeamDiscoveryScreen';
@@ -188,7 +188,7 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
           const { team, userIsMember = false } = route.params;
 
           return (
-            <TeamScreen
+            <EnhancedTeamScreen
               data={{
                 team: {
                   id: team.id,
@@ -224,7 +224,6 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
               onJoinTeam={() =>
                 handlers.handleTeamJoin(team, navigation, refresh)
               }
-              isCaptain={user?.role === 'captain'}
               showJoinButton={!userIsMember}
               userIsMember={userIsMember}
             />

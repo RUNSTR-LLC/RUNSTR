@@ -9,6 +9,7 @@ import { RewardDistribution } from '../types/teamWallet';
 import { useUserStore } from '../store/userStore';
 import { AuthService } from '../services/auth/authService';
 import { getNostrTeamService } from '../services/nostr/NostrTeamService';
+import { CaptainDetectionService } from '../services/team/captainDetectionService';
 
 export interface NavigationHandlers {
   handleTeamJoin: (
@@ -248,10 +249,11 @@ export const createNavigationHandlers = (): NavigationHandlers => {
     // Profile Screen Handlers
     handleCaptainDashboard: async (navigation: any) => {
       try {
-        // Check if user is authenticated and has captain role
-        const currentUser = await AuthService.getCurrentUserWithWallet();
-
-        if (!currentUser) {
+        console.log('🎖️ NavigationHandlers: Captain dashboard access requested');
+        
+        // Get current user from store
+        const user = useUserStore.getState().user;
+        if (!user) {
           Alert.alert(
             'Access Denied',
             'Please sign in to access the captain dashboard'
@@ -259,36 +261,29 @@ export const createNavigationHandlers = (): NavigationHandlers => {
           return;
         }
 
-        if (currentUser.role !== 'captain') {
+        // Use CaptainDetectionService to check captain status
+        const captainService = CaptainDetectionService.getInstance();
+        const captainStatus = await captainService.getCaptainStatus(user.id);
+
+        if (!captainStatus.isCaptain) {
+          console.log('❌ NavigationHandlers: User is not a captain of any team');
           Alert.alert(
             'Access Denied',
-            'Only team captains can access the dashboard. Upgrade to a captain account to manage teams and events.'
+            'Only team captains can access the dashboard. Create a team to become a captain.'
           );
           return;
         }
 
-        if (!currentUser.teamId) {
-          Alert.alert(
-            'No Team',
-            'You need to create or join a team before accessing the captain dashboard.',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              {
-                text: 'Create Team',
-                onPress: () => navigation.navigate('TeamCreation'),
-              },
-            ]
-          );
-          return;
-        }
-
-        console.log('Captain dashboard access granted for:', currentUser.name);
+        console.log(`✅ NavigationHandlers: Captain access granted - User captains ${captainStatus.captainOfTeams.length} team(s)`);
+        
+        // Navigate to captain dashboard
         navigation.navigate('CaptainDashboard');
+        
       } catch (error) {
-        console.error('Error checking captain dashboard access:', error);
+        console.error('❌ NavigationHandlers: Error checking captain dashboard access:', error);
         Alert.alert(
           'Error',
-          'Unable to verify access permissions. Please try again.'
+          'Unable to verify captain permissions. Please try again.'
         );
       }
     },
