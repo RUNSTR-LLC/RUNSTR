@@ -4,8 +4,8 @@
  * Creates visually stunning workout achievement cards with RUNSTR branding
  */
 
-import type { UnifiedWorkout } from '../fitness/workoutMergeService';
 import type { WorkoutType } from '../../types/workout';
+import type { PublishableWorkout } from './workoutPublishingService';
 
 export interface WorkoutCardOptions {
   template?: 'achievement' | 'progress' | 'minimal' | 'stats';
@@ -84,7 +84,7 @@ export class WorkoutCardGenerator {
    * Generate workout card as SVG
    */
   async generateWorkoutCard(
-    workout: UnifiedWorkout,
+    workout: PublishableWorkout,
     options: WorkoutCardOptions = {}
   ): Promise<WorkoutCardData> {
     try {
@@ -116,7 +116,7 @@ export class WorkoutCardGenerator {
    * Create SVG card content
    */
   private createSVGCard(
-    workout: UnifiedWorkout,
+    workout: PublishableWorkout,
     config: (typeof CARD_TEMPLATES)[keyof typeof CARD_TEMPLATES],
     options: WorkoutCardOptions
   ): string {
@@ -225,7 +225,7 @@ export class WorkoutCardGenerator {
    * Create workout title
    */
   private createTitle(
-    workout: UnifiedWorkout,
+    workout: PublishableWorkout,
     y: number,
     accentColor: string
   ): string {
@@ -250,7 +250,7 @@ export class WorkoutCardGenerator {
    * Create stats section with key metrics
    */
   private createStatsSection(
-    workout: UnifiedWorkout,
+    workout: PublishableWorkout,
     y: number,
     accentColor: string
   ): string {
@@ -283,7 +283,7 @@ export class WorkoutCardGenerator {
    * Create achievement badge
    */
   private createAchievementBadge(
-    workout: UnifiedWorkout,
+    workout: PublishableWorkout,
     y: number,
     accentColor: string
   ): string {
@@ -305,7 +305,7 @@ export class WorkoutCardGenerator {
    * Create motivational message
    */
   private createMotivationalMessage(
-    workout: UnifiedWorkout,
+    workout: PublishableWorkout,
     y: number,
     accentColor: string
   ): string {
@@ -324,7 +324,7 @@ export class WorkoutCardGenerator {
    * Create RUNSTR branding
    */
   private createBranding(
-    workout: UnifiedWorkout,
+    workout: PublishableWorkout,
     y: number,
     accentColor: string
   ): string {
@@ -344,7 +344,7 @@ export class WorkoutCardGenerator {
    * Get formatted workout stats
    */
   private getWorkoutStats(
-    workout: UnifiedWorkout
+    workout: PublishableWorkout
   ): Array<{ value: string; label: string }> {
     const stats = [];
 
@@ -397,7 +397,7 @@ export class WorkoutCardGenerator {
   /**
    * Get achievement text for workout
    */
-  private getAchievementText(workout: UnifiedWorkout): string | null {
+  private getAchievementText(workout: PublishableWorkout): string | null {
     // Distance-based achievements
     if (workout.distance) {
       const km = workout.distance / 1000;
@@ -425,7 +425,7 @@ export class WorkoutCardGenerator {
   /**
    * Get motivational message
    */
-  private getMotivationalMessage(workout: UnifiedWorkout): string {
+  private getMotivationalMessage(workout: PublishableWorkout): string {
     const messages = {
       running: [
         'Every step forward is a step toward achieving something bigger and better than your current situation.',
@@ -496,7 +496,7 @@ export class WorkoutCardGenerator {
    * Generate batch cards for multiple workouts
    */
   async generateBatchCards(
-    workouts: UnifiedWorkout[],
+    workouts: PublishableWorkout[],
     options: WorkoutCardOptions = {},
     onProgress?: (completed: number, total: number) => void
   ): Promise<WorkoutCardData[]> {

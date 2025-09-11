@@ -12,9 +12,18 @@ import {
 } from './workoutCardGenerator';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Event, EventTemplate } from 'nostr-tools';
-import type { UnifiedWorkout } from '../fitness/workoutMergeService';
+import type { Workout } from '../../types/workout';
 import type { WorkoutType } from '../../types/workout';
-import { WorkoutMergeService } from '../fitness/workoutMergeService';
+
+// Extended workout interface for publishing (simplified from UnifiedWorkout)
+export interface PublishableWorkout extends Workout {
+  elevationGain?: number;
+  unitSystem?: 'metric' | 'imperial';
+  nostrEventId?: string;
+  sourceApp?: string;
+  canSyncToNostr?: boolean;
+  canPostToSocial?: boolean;
+}
 
 export interface WorkoutPublishResult {
   success: boolean;
@@ -49,12 +58,10 @@ interface WorkoutEventData {
 export class WorkoutPublishingService {
   private static instance: WorkoutPublishingService;
   private protocolHandler: NostrProtocolHandler;
-  private workoutMergeService: WorkoutMergeService;
   private cardGenerator: WorkoutCardGenerator;
 
   private constructor() {
     this.protocolHandler = new NostrProtocolHandler();
-    this.workoutMergeService = WorkoutMergeService.getInstance();
     this.cardGenerator = WorkoutCardGenerator.getInstance();
   }
 
@@ -69,7 +76,7 @@ export class WorkoutPublishingService {
    * Save HealthKit workout as Kind 1301 Nostr event
    */
   async saveWorkoutToNostr(
-    workout: UnifiedWorkout,
+    workout: PublishableWorkout,
     privateKeyHex: string,
     userId: string
   ): Promise<WorkoutPublishResult> {
@@ -96,13 +103,6 @@ export class WorkoutPublishingService {
       const publishResult = await this.publishEventToRelays(signedEvent);
 
       if (publishResult.success) {
-        // Update workout status
-        await this.workoutMergeService.updateWorkoutStatus(userId, workout.id, {
-          workoutId: workout.id,
-          syncedToNostr: true,
-          nostrEventId: signedEvent.id,
-        });
-
         console.log(`✅ Workout saved to Nostr: ${signedEvent.id}`);
       }
 
@@ -120,7 +120,7 @@ export class WorkoutPublishingService {
    * Post workout as Kind 1 social event with workout card
    */
   async postWorkoutToSocial(
-    workout: UnifiedWorkout,
+    workout: PublishableWorkout,
     privateKeyHex: string,
     userId: string,
     options: SocialPostOptions = {}
@@ -151,12 +151,6 @@ export class WorkoutPublishingService {
       const publishResult = await this.publishEventToRelays(signedEvent);
 
       if (publishResult.success) {
-        // Update workout status
-        await this.workoutMergeService.updateWorkoutStatus(userId, workout.id, {
-          workoutId: workout.id,
-          postedToSocial: true,
-        });
-
         console.log(`✅ Workout posted to social: ${signedEvent.id}`);
       }
 
@@ -171,9 +165,9 @@ export class WorkoutPublishingService {
   }
 
   /**
-   * Convert UnifiedWorkout to Nostr event data format
+   * Convert Workout to Nostr event data format
    */
-  private convertWorkoutToEventData(workout: UnifiedWorkout): WorkoutEventData {
+  private convertWorkoutToEventData(workout: PublishableWorkout): WorkoutEventData {
     return {
       type: workout.type,
       duration: workout.duration,
@@ -191,7 +185,7 @@ export class WorkoutPublishingService {
   /**
    * Create tags for kind 1301 workout events
    */
-  private createWorkoutEventTags(workout: UnifiedWorkout): string[][] {
+  private createWorkoutEventTags(workout: PublishableWorkout): string[][] {
     const tags: string[][] = [
       ['d', workout.id], // Unique identifier
       ['activity', workout.type],
@@ -225,7 +219,7 @@ export class WorkoutPublishingService {
   /**
    * Create tags for kind 1 social posts
    */
-  private createSocialPostTags(workout: UnifiedWorkout): string[][] {
+  private createSocialPostTags(workout: PublishableWorkout): string[][] {
     const tags: string[][] = [
       ['t', 'fitness'], // General fitness hashtag
       ['t', workout.type], // Activity-specific hashtag
@@ -261,7 +255,7 @@ export class WorkoutPublishingService {
    * Generate social post content with RUNSTR branding and optional workout card
    */
   private async generateSocialPostContent(
-    workout: UnifiedWorkout,
+    workout: PublishableWorkout,
     options: SocialPostOptions
   ): Promise<string> {
     let content = '';
@@ -324,7 +318,7 @@ export class WorkoutPublishingService {
   /**
    * Generate motivational message based on workout
    */
-  private generateMotivationalMessage(workout: UnifiedWorkout): string {
+  private generateMotivationalMessage(workout: PublishableWorkout): string {
     const messages = {
       running: [
         'Just crushed another run! 🏃‍♂️',
@@ -360,7 +354,7 @@ export class WorkoutPublishingService {
   /**
    * Format workout stats for social post
    */
-  private formatWorkoutStats(workout: UnifiedWorkout): string {
+  private formatWorkoutStats(workout: PublishableWorkout): string {
     const stats = [];
 
     // Duration
@@ -394,7 +388,7 @@ export class WorkoutPublishingService {
   /**
    * Generate achievement callouts
    */
-  private generateAchievements(workout: UnifiedWorkout): string | null {
+  private generateAchievements(workout: PublishableWorkout): string | null {
     const achievements = [];
 
     // Distance-based achievements
@@ -482,7 +476,7 @@ export class WorkoutPublishingService {
    * Batch publish multiple workouts
    */
   async batchSaveWorkouts(
-    workouts: UnifiedWorkout[],
+    workouts: PublishableWorkout[],
     privateKeyHex: string,
     userId: string,
     onProgress?: (completed: number, total: number) => void

@@ -267,9 +267,9 @@ export class WorkoutMergeService {
         console.log('📨 NDK EOSE received - continuing to wait for complete timeout...');
       });
 
-      // Wait for ALL events (nuclear approach - generous timeout like teams) 
-      console.log('⏰ NDK NUCLEAR TIMEOUT: Waiting 30 seconds for ALL 1301 events...');
-      await new Promise(resolve => setTimeout(resolve, 30000));
+      // Wait for ALL events (nuclear approach - ultra-fast timeout proven by script) 
+      console.log('⏰ NDK NUCLEAR TIMEOUT: Waiting 3 seconds for ALL 1301 events...');
+      await new Promise(resolve => setTimeout(resolve, 3000));
       
       subscription.stop();
 
@@ -601,7 +601,7 @@ export class WorkoutMergeService {
   private backgroundRefreshWorkouts(userId: string, pubkey: string): void {
     console.log('🔄 Starting background refresh to keep cache fresh...');
     
-    // Non-blocking background refresh
+    // Non-blocking background refresh (3s delay to avoid conflicts)
     setTimeout(async () => {
       try {
         const freshWorkouts = await this.fetchNostrWorkouts(userId, pubkey);

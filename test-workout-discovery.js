@@ -134,13 +134,13 @@ async function discoverWorkoutEvents(hexPubkey) {
       }
     );
 
-    // Wait for events - longer timeout for comprehensive search
-    console.log('⏰ Waiting 15 seconds for ALL events from all relays...\n');
+    // Wait for events - testing with extreme minimal timeout
+    console.log('⏰ Waiting 3 seconds for ALL events from all relays...\n');
     setTimeout(() => {
       subscription.close();
       pool.close(RELAY_URLS);
       resolve({ allEvents, eventsByRelay });
-    }, 15000);
+    }, 3000);
   });
 }
 

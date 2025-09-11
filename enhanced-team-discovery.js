@@ -58,8 +58,8 @@ class EnhancedTeamDiscovery {
     await Promise.allSettled(relayPromises);
     
     // Extended wait for historical events
-    console.log('⏳ Waiting 15 seconds for comprehensive historical data collection...');
-    await new Promise(resolve => setTimeout(resolve, 15000));
+    console.log('⏳ Waiting 3 seconds for comprehensive historical data collection...');
+    await new Promise(resolve => setTimeout(resolve, 3000));
     
     this.analyzeResults();
     this.generateReport();
@@ -82,8 +82,8 @@ class EnhancedTeamDiscovery {
       setTimeout(() => {
         sub.close();
         relay.close();
-        console.log(`🔌 Timeout: Closed connection to ${url} after 12s`);
-      }, 12000);
+        console.log(`🔌 Timeout: Closed connection to ${url} after 3s`);
+      }, 3000);
 
     } catch (error) {
       console.warn(`❌ Failed to connect to ${url}:`, error.message);
