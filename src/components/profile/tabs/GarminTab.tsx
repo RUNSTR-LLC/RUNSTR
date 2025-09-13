@@ -12,7 +12,6 @@ export const GarminTab: React.FC = () => {
   return (
     <View style={styles.container}>
       <Card style={styles.comingSoonCard}>
-        <Text style={styles.icon}>⌚</Text>
         <Text style={styles.title}>Garmin Connect</Text>
         <Text style={styles.subtitle}>Coming Soon</Text>
         <Text style={styles.description}>

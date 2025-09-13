@@ -137,16 +137,23 @@ export class HealthKitService {
     }
 
     try {
-      debugLog('HealthKit: Initializing service...');
-
+      console.log('🔍 DEBUG: HealthKit initialize() starting...');
+      
+      // Simplified approach: Just request permissions directly
+      // iOS should handle already-granted permissions without showing dialogs
+      console.log('🔍 DEBUG: Requesting permissions directly...');
+      
       // Request permissions from iOS
       const permissionsResult = await this.requestPermissions();
+      console.log('🔍 DEBUG: Permission request result:', permissionsResult);
+      
       if (!permissionsResult.success) {
+        console.log('🔍 DEBUG: Permission request failed, returning failure');
         return permissionsResult;
       }
 
       this.isAuthorized = true;
-      debugLog('HealthKit: Initialized and authorized');
+      console.log('🔍 DEBUG: HealthKit initialized and authorized successfully');
 
       return { success: true };
     } catch (error) {
@@ -161,9 +168,9 @@ export class HealthKitService {
   }
 
   /**
-   * Request HealthKit permissions from iOS
+   * Request HealthKit permissions from iOS - now public for UI components
    */
-  private async requestPermissions(): Promise<{
+  async requestPermissions(): Promise<{
     success: boolean;
     error?: string;
   }> {
@@ -184,20 +191,19 @@ export class HealthKitService {
         };
       }
 
-      // Request permissions for reading workout and activity data
-      const permissions = {
-        read: [
-          'HKQuantityTypeIdentifierActiveEnergyBurned',
-          'HKQuantityTypeIdentifierDistanceWalkingRunning', 
-          'HKQuantityTypeIdentifierDistanceCycling',
-          'HKQuantityTypeIdentifierHeartRate',
-          'HKWorkoutTypeIdentifier',
-        ],
-        write: [], // No write permissions needed for sync-only functionality
-      };
+      // Define permissions arrays - native module expects two separate arrays
+      const readPermissions = [
+        'HKQuantityTypeIdentifierActiveEnergyBurned',
+        'HKQuantityTypeIdentifierDistanceWalkingRunning', 
+        'HKQuantityTypeIdentifierDistanceCycling',
+        'HKQuantityTypeIdentifierHeartRate',
+        'HKWorkoutTypeIdentifier',
+      ];
+      const writePermissions: string[] = []; // No write permissions needed for sync-only functionality
 
+      // Call with two separate array parameters (share, read) as expected by native module
       await this.withTimeout(
-        ExpoHealthKit.requestAuthorization(permissions),
+        ExpoHealthKit.requestAuthorization(writePermissions, readPermissions),
         this.PERMISSION_TIMEOUT,
         'HealthKit permission request'
       );
@@ -451,6 +457,53 @@ export class HealthKitService {
   }
 
   /**
+   * Check the actual iOS HealthKit authorization status (not session-based)
+   */
+  private async checkActualAuthorizationStatus(): Promise<boolean> {
+    if (!HealthKitService.isAvailable()) {
+      return false;
+    }
+
+    try {
+      // Define the same permissions we request
+      const readPermissions = [
+        'HKQuantityTypeIdentifierActiveEnergyBurned',
+        'HKQuantityTypeIdentifierDistanceWalkingRunning',
+        'HKQuantityTypeIdentifierDistanceCycling',
+        'HKQuantityTypeIdentifierHeartRate',
+        'HKWorkoutTypeIdentifier',
+      ];
+      const writePermissions: string[] = []; // No write permissions needed
+
+      // Check actual iOS authorization status using native method
+      // Try object format first (like the original broken requestAuthorization call)
+      const authStatus = await this.withTimeout(
+        ExpoHealthKit.getRequestStatusForAuthorization({
+          read: readPermissions,
+          write: writePermissions
+        }),
+        5000,
+        'Authorization status check'
+      );
+
+      // DEBUG: Log what iOS actually returns so we can fix our logic
+      console.log('🔍 DEBUG: iOS authStatus actual value:', authStatus);
+      console.log('🔍 DEBUG: authStatus type:', typeof authStatus);
+      console.log('🔍 DEBUG: authStatus JSON:', JSON.stringify(authStatus));
+
+      // For now, let's be more permissive while we debug
+      // Consider authorized if we get any truthy response that's not explicitly denied
+      const isAuthorized = authStatus && authStatus !== 'denied' && authStatus !== 'notDetermined';
+      console.log('🔍 DEBUG: isAuthorized result:', isAuthorized);
+      
+      return isAuthorized;
+    } catch (error) {
+      debugLog('HealthKit: Error checking authorization status:', error);
+      return false;
+    }
+  }
+
+  /**
    * Get current service status
    */
   getStatus(): {
@@ -461,7 +514,29 @@ export class HealthKitService {
   } {
     return {
       available: HealthKitService.isAvailable(),
-      authorized: this.isAuthorized,
+      authorized: this.isAuthorized, // Still use session flag for immediate response
+      syncInProgress: this.syncInProgress,
+      lastSyncAt: this.lastSyncAt?.toISOString(),
+    };
+  }
+
+  /**
+   * Get current service status with real iOS authorization check
+   */
+  async getStatusWithRealCheck(): Promise<{
+    available: boolean;
+    authorized: boolean;
+    syncInProgress: boolean;
+    lastSyncAt?: string;
+  }> {
+    const actuallyAuthorized = await this.checkActualAuthorizationStatus();
+    
+    // Update our session flag to match reality
+    this.isAuthorized = actuallyAuthorized;
+    
+    return {
+      available: HealthKitService.isAvailable(),
+      authorized: actuallyAuthorized,
       syncInProgress: this.syncInProgress,
       lastSyncAt: this.lastSyncAt?.toISOString(),
     };
@@ -503,6 +578,90 @@ export class HealthKitService {
         totalHealthKitWorkouts: 0,
         recentSyncs: 0,
       };
+    }
+  }
+
+  /**
+   * Get recent workouts for AppleHealthTab - public method for UI components
+   */
+  async getRecentWorkouts(userId: string, days: number = 30): Promise<any[]> {
+    if (!HealthKitService.isAvailable()) {
+      debugLog('HealthKit: Not available, returning empty array');
+      return [];
+    }
+
+    if (!this.isAuthorized) {
+      debugLog('HealthKit: Not authorized, attempting initialization...');
+      const initResult = await this.initialize();
+      if (!initResult.success) {
+        errorLog('HealthKit: Failed to initialize for getRecentWorkouts:', initResult.error);
+        return [];
+      }
+    }
+
+    try {
+      debugLog(`HealthKit: Fetching recent workouts (${days} days) for user ${userId}`);
+
+      // Use the existing fetchRecentWorkouts method but with custom date range
+      const daysAgo = new Date();
+      daysAgo.setDate(daysAgo.getDate() - days);
+
+      const options = {
+        from: daysAgo,
+        to: new Date(),
+        limit: 100, // Reasonable limit
+      };
+
+      const healthKitWorkouts = await this.withTimeout(
+        ExpoHealthKit.queryWorkouts(options),
+        this.DEFAULT_TIMEOUT,
+        `HealthKit workout query for ${days} days`
+      );
+
+      // Filter and transform to match expected format
+      const validWorkouts = (healthKitWorkouts || []).filter(
+        (workout: any) => workout.uuid && workout.startDate && workout.endDate
+      ).map((workout: any) => {
+        const workoutData = this.normalizeWorkout(
+          {
+            UUID: workout.uuid,
+            startDate: workout.startDate,
+            endDate: workout.endDate,
+            duration: workout.duration || 0,
+            totalDistance: workout.totalDistance || 0,
+            totalEnergyBurned: workout.totalEnergyBurned || 0,
+            workoutActivityType: workout.workoutActivityType || 0,
+            sourceName: workout.sourceName || 'Unknown',
+          },
+          userId
+        );
+
+        // Return in format expected by AppleHealthTab (simplified Workout interface)
+        return {
+          id: workoutData?.id || `healthkit_${workout.uuid}`,
+          type: workoutData?.type || 'other',
+          duration: workoutData?.duration || 0,
+          distance: workoutData?.distance || 0,
+          calories: workoutData?.calories || 0,
+          startTime: workout.startDate,
+          endTime: workout.endDate,
+          source: 'healthkit',
+          metadata: workoutData?.metadata || {},
+        };
+      }).filter(Boolean); // Remove any null results
+
+      debugLog(`HealthKit: Retrieved ${validWorkouts.length} valid workouts for UI`);
+      return validWorkouts;
+    } catch (error) {
+      errorLog('HealthKit: Error in getRecentWorkouts:', error);
+      
+      // Provide user-friendly error messages for timeout scenarios
+      if (error instanceof Error && error.message.includes('timed out')) {
+        throw new Error('Workout sync is taking too long. Please try again or check your internet connection.');
+      }
+      
+      // Return empty array instead of throwing for UI components
+      return [];
     }
   }
 }

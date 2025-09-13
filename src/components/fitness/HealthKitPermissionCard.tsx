@@ -59,14 +59,20 @@ export const HealthKitPermissionCard: React.FC<
       return;
     }
 
-    const healthKitStatus = healthKitService.getStatus();
+    try {
+      // Use the new method that checks actual iOS authorization status
+      const healthKitStatus = await healthKitService.getStatusWithRealCheck();
 
-    if (healthKitStatus.authorized) {
-      setStatus('granted');
-      if (showStats) {
-        loadStats();
+      if (healthKitStatus.authorized) {
+        setStatus('granted');
+        if (showStats) {
+          loadStats();
+        }
+      } else {
+        setStatus('unknown');
       }
-    } else {
+    } catch (error) {
+      console.error('Error checking HealthKit status:', error);
       setStatus('unknown');
     }
   };
@@ -344,15 +350,6 @@ export const HealthKitPermissionCard: React.FC<
       >
         <View style={styles.header}>
           <View style={styles.iconContainer}>
-            <AntDesign
-              name="apple1"
-              size={20}
-              color={
-                status === 'granted'
-                  ? theme.colors.statusConnected
-                  : theme.colors.text
-              }
-            />
           </View>
           <View style={styles.info}>
             <Text style={styles.title}>Apple Health</Text>

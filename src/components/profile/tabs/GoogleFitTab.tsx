@@ -12,7 +12,6 @@ export const GoogleFitTab: React.FC = () => {
   return (
     <View style={styles.container}>
       <Card style={styles.comingSoonCard}>
-        <Text style={styles.icon}>🏃‍♀️</Text>
         <Text style={styles.title}>Google Fit</Text>
         <Text style={styles.subtitle}>Coming Soon</Text>
         <Text style={styles.description}>
