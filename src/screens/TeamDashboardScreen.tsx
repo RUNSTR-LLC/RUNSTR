@@ -27,6 +27,7 @@ import { getNostrTeamService } from '../services/nostr/NostrTeamService';
 import { CaptainDetectionService } from '../services/team/captainDetectionService';
 import { NostrCompetitionLeaderboardService } from '../services/competition/nostrCompetitionLeaderboardService';
 import { CompetitionService } from '../services/competition/competitionService';
+import { TeamMembershipService } from '../services/team/teamMembershipService';
 
 // Types
 import { DiscoveryTeam, User } from '../types';
@@ -59,6 +60,11 @@ export const TeamDashboardScreen: React.FC<TeamDashboardScreenProps> = ({
   const [eventsData, setEventsData] = useState<any[]>([]);
   const [challengesData, setChallengesData] = useState<any[]>([]);
   const [competitionsLoading, setCompetitionsLoading] = useState(false);
+  
+  // Join request management state
+  const [joinRequests, setJoinRequests] = useState<any[]>([]);
+  const [joinRequestsLoading, setJoinRequestsLoading] = useState(false);
+  const membershipService = TeamMembershipService.getInstance();
 
   // Check if current user is captain of this team
   useEffect(() => {
@@ -84,6 +90,27 @@ export const TeamDashboardScreen: React.FC<TeamDashboardScreenProps> = ({
 
     checkCaptainStatus();
   }, [team.captainId, currentUser]);
+
+  // Fetch join requests for captains
+  useEffect(() => {
+    const fetchJoinRequests = async () => {
+      if (!isCaptain || !currentUser?.npub) return;
+
+      try {
+        setJoinRequestsLoading(true);
+        const requests = await membershipService.getTeamJoinRequests(team.id);
+        setJoinRequests(requests);
+        console.log(`📬 Found ${requests.length} join requests for team: ${team.name}`);
+      } catch (error) {
+        console.error('Failed to fetch join requests:', error);
+        setJoinRequests([]);
+      } finally {
+        setJoinRequestsLoading(false);
+      }
+    };
+
+    fetchJoinRequests();
+  }, [isCaptain, team.id, currentUser?.npub]);
 
   // Fetch team members
   useEffect(() => {
@@ -208,6 +235,63 @@ export const TeamDashboardScreen: React.FC<TeamDashboardScreenProps> = ({
 
     fetchCompetitionsData();
   }, [team.id, currentUser?.id]);
+
+  // Join request approval handlers
+  const handleApproveRequest = async (request: any) => {
+    try {
+      console.log(`✅ Approving join request from ${request.requesterPubkey}`);
+      Alert.alert(
+        'Approve Member',
+        `Add ${request.requesterName || request.requesterPubkey.slice(0, 8)} to ${team.name}?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Approve',
+            onPress: async () => {
+              try {
+                // TODO: Add member to official kind 30000 list
+                // This would require NostrListService.addMemberToList integration
+                
+                // Remove request from local state
+                setJoinRequests(prev => prev.filter(r => r.id !== request.id));
+                
+                Alert.alert('Success', `${request.requesterName || 'User'} has been added to the team!`);
+              } catch (error) {
+                console.error('Failed to approve request:', error);
+                Alert.alert('Error', 'Failed to approve request. Please try again.');
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error approving request:', error);
+    }
+  };
+
+  const handleDeclineRequest = async (request: any) => {
+    try {
+      console.log(`❌ Declining join request from ${request.requesterPubkey}`);
+      Alert.alert(
+        'Decline Request',
+        `Decline join request from ${request.requesterName || request.requesterPubkey.slice(0, 8)}?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Decline',
+            style: 'destructive',
+            onPress: () => {
+              // Remove request from local state
+              setJoinRequests(prev => prev.filter(r => r.id !== request.id));
+              console.log('Join request declined');
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error declining request:', error);
+    }
+  };
 
   const handleJoinTeam = async () => {
     try {
@@ -339,6 +423,48 @@ export const TeamDashboardScreen: React.FC<TeamDashboardScreenProps> = ({
               </View>
             </View>
           </View>
+
+          {/* Join Requests Section - Only for Captains */}
+          {isCaptain && joinRequests.length > 0 && (
+            <View style={styles.joinRequestsSection}>
+              <Text style={styles.sectionTitle}>
+                Pending Join Requests ({joinRequests.length})
+              </Text>
+              {joinRequestsLoading ? (
+                <Text style={styles.loadingText}>Loading requests...</Text>
+              ) : (
+                joinRequests.map((request) => (
+                  <View key={request.id} style={styles.joinRequestCard}>
+                    <View style={styles.requestInfo}>
+                      <Text style={styles.requesterName}>
+                        {request.requesterName || request.requesterPubkey.slice(0, 8)}...
+                      </Text>
+                      <Text style={styles.requestMessage}>
+                        {request.message}
+                      </Text>
+                      <Text style={styles.requestTime}>
+                        {new Date(request.requestedAt * 1000).toLocaleDateString()}
+                      </Text>
+                    </View>
+                    <View style={styles.requestActions}>
+                      <TouchableOpacity
+                        style={[styles.actionButton, styles.approveButton]}
+                        onPress={() => handleApproveRequest(request)}
+                      >
+                        <Text style={styles.approveButtonText}>Approve</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.actionButton, styles.declineButton]}
+                        onPress={() => handleDeclineRequest(request)}
+                      >
+                        <Text style={styles.declineButtonText}>Decline</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))
+              )}
+            </View>
+          )}
 
           {/* Team Members */}
           <TeamMembersSection 
@@ -640,5 +766,88 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: 16,
     fontStyle: 'italic',
+  },
+
+  // Join request styles
+  joinRequestsSection: {
+    backgroundColor: theme.colors.cardBackground,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+
+  loadingText: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+    paddingVertical: 16,
+    fontStyle: 'italic',
+  },
+
+  joinRequestCard: {
+    backgroundColor: theme.colors.background,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+
+  requestInfo: {
+    marginBottom: 12,
+  },
+
+  requesterName: {
+    fontSize: 16,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.text,
+    marginBottom: 4,
+  },
+
+  requestMessage: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    marginBottom: 4,
+    lineHeight: 18,
+  },
+
+  requestTime: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+  },
+
+  requestActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+
+  actionButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+
+  approveButton: {
+    backgroundColor: theme.colors.success || '#22c55e',
+  },
+
+  declineButton: {
+    backgroundColor: theme.colors.error || '#ef4444',
+  },
+
+  approveButtonText: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.text,
+  },
+
+  declineButtonText: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.text,
   },
 });

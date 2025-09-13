@@ -46,7 +46,7 @@ export const PrizeDisplay: React.FC<PrizeDisplayProps> = ({
     <View style={[styles.container, style]}>
       <View style={styles.prizeAmount}>
         <Text style={styles.prizeNumber}>{formatSats(prizePool)}</Text>
-        <Text style={styles.prizeCurrency}>sat prize pool</Text>
+        <Text style={styles.prizeCurrency}>League Prize Pool</Text>
       </View>
 
       {recentPayout && (

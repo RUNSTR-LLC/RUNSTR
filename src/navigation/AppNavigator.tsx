@@ -190,19 +190,17 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
           return (
             <EnhancedTeamScreen
               data={{
-                team: {
-                  id: team.id,
-                  name: team.name,
-                  description: team.description,
-                  captainId: team.captainId,
-                  prizePool: team.prizePool || 0,
-                  memberCount: team.memberCount,
-                  joinReward: team.joinReward || 0,
-                  exitFee: team.exitFee || 0,
-                  avatar: team.avatar || '',
-                  createdAt: team.createdAt,
-                  isActive: team.isActive,
-                },
+                team: (() => {
+                  console.log('🔍 AppNavigator: Team data being passed to EnhancedTeamScreen:', {
+                    id: team?.id,
+                    name: team?.name,
+                    captain: team?.captain ? team.captain.slice(0, 10) + '...' : 'missing',
+                    captainId: team?.captainId ? team.captainId.slice(0, 10) + '...' : 'missing',  
+                    captainNpub: team?.captainNpub ? team.captainNpub.slice(0, 20) + '...' : 'missing',
+                    fullTeamKeys: team ? Object.keys(team) : 'no team object',
+                  });
+                  return team;
+                })(), // Pass original team data to preserve all captain fields
                 leaderboard: [],
                 events: [],
                 challenges: [],

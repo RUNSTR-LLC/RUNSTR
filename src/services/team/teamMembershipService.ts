@@ -1,13 +1,15 @@
 /**
  * TeamMembershipService - Two-Tier Membership System
  * Handles local-first team joining with eventual Nostr consistency
- * Local membership for instant UX + official list membership via captain approval
+ * Local membership for instant UX + official kind 30000 list membership via captain approval
+ * Integrates with TeamJoinRequestService for complete join workflow
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Event } from 'nostr-tools';
 import { NostrRelayManager, nostrRelayManager } from '../nostr/NostrRelayManager';
 import { NostrListService } from '../nostr/NostrListService';
+import { TeamJoinRequestService } from './TeamJoinRequestService';
 import type { NostrFilter } from '../nostr/NostrProtocolHandler';
 
 export interface LocalMembership {
@@ -41,15 +43,16 @@ export interface MembershipStatus {
 export class TeamMembershipService {
   private relayManager: NostrRelayManager;
   private listService: NostrListService;
+  private joinRequestService: TeamJoinRequestService;
   private static instance: TeamMembershipService;
 
   // Storage keys
   private readonly LOCAL_MEMBERSHIPS_KEY = 'runstr:localMemberships';
-  private readonly JOIN_REQUESTS_KEY = 'runstr:joinRequests';
 
   constructor(relayManager?: NostrRelayManager) {
     this.relayManager = relayManager || nostrRelayManager;
     this.listService = NostrListService.getInstance(this.relayManager);
+    this.joinRequestService = TeamJoinRequestService.getInstance(this.relayManager);
   }
 
   static getInstance(relayManager?: NostrRelayManager): TeamMembershipService {
@@ -165,148 +168,87 @@ export class TeamMembershipService {
   }
 
   // ================================================================================
-  // JOIN REQUEST MANAGEMENT (Kind 33406)
+  // JOIN REQUEST MANAGEMENT (Kind 1104 via TeamJoinRequestService)
   // ================================================================================
 
   /**
-   * Prepare join request event (Kind 33406) - requires external signing
+   * Prepare join request event (Kind 1104) - requires external signing
+   * Uses TeamJoinRequestService for consistent request handling
    */
   prepareJoinRequest(
     teamId: string,
+    teamName: string,
     teamCaptainPubkey: string,
     userPubkey: string,
     message?: string
   ) {
-    console.log(`📝 Preparing join request for team: ${teamId}`);
+    console.log(`📝 Preparing join request for team: ${teamName} (${teamId})`);
 
-    // Create team 'a' tag reference (assuming team is kind 33404)
-    const teamATag = `33404:${teamCaptainPubkey}:${teamId}`;
-
-    const tags: string[][] = [
-      ['a', teamATag], // Reference to the team event
-      ['p', teamCaptainPubkey], // Notify team captain
-      ['t', 'team-join'], // Tag for easy discovery
-      ['team_id', teamId], // Custom tag for team identification
-    ];
-
-    const eventTemplate = {
-      kind: 33406,
-      created_at: Math.floor(Date.now() / 1000),
-      tags,
-      content: message || 'Request to join team',
-      pubkey: userPubkey,
-    };
-
-    console.log(`✅ Prepared join request template for team: ${teamId}`);
-    return eventTemplate;
+    return this.joinRequestService.prepareJoinRequest(
+      {
+        teamId,
+        teamName,
+        captainPubkey: teamCaptainPubkey,
+        message: message || 'Request to join team',
+      },
+      userPubkey
+    );
   }
 
   /**
    * Get join requests for a team (captain view)
+   * Delegates to TeamJoinRequestService for consistent handling
    */
-  async getTeamJoinRequests(
-    teamId: string,
-    captainPubkey: string
-  ): Promise<JoinRequest[]> {
+  async getTeamJoinRequests(teamId: string): Promise<JoinRequest[]> {
     console.log(`🔍 Fetching join requests for team: ${teamId}`);
 
     try {
-      const teamATag = `33404:${captainPubkey}:${teamId}`;
-
-      const filters: NostrFilter[] = [
-        {
-          kinds: [33406],
-          '#a': [teamATag], // Join requests for this team
-          since: Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60, // Last 7 days
-          limit: 50,
-        },
-      ];
-
-      const joinRequests: JoinRequest[] = [];
-      const processedIds = new Set<string>();
-
-      const subscriptionId = await this.relayManager.subscribeToEvents(
-        filters,
-        (event: Event, relayUrl: string) => {
-          if (processedIds.has(event.id)) return;
-          processedIds.add(event.id);
-
-          console.log(`📥 Join request received from ${relayUrl}:`, event.id);
-
-          try {
-            const joinRequest = this.parseJoinRequest(event, teamId);
-            if (joinRequest) {
-              joinRequests.push(joinRequest);
-              console.log(
-                `✅ Parsed join request from: ${joinRequest.requesterPubkey}`
-              );
-            }
-          } catch (error) {
-            console.warn(`⚠️ Failed to parse join request ${event.id}:`, error);
-          }
-        }
-      );
-
-      // Wait for initial results
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // Clean up subscription
-      this.relayManager.unsubscribe(subscriptionId);
-
-      // Sort by newest first
-      joinRequests.sort((a, b) => b.requestedAt - a.requestedAt);
-
-      console.log(
-        `✅ Found ${joinRequests.length} join requests for team: ${teamId}`
-      );
-      return joinRequests;
+      const requests = await this.joinRequestService.getTeamJoinRequests(teamId);
+      
+      // Convert TeamJoinRequest to JoinRequest format
+      return requests.map(req => ({
+        id: req.id,
+        teamId: req.teamId,
+        teamName: req.teamName,
+        requesterPubkey: req.requesterId,
+        requesterName: req.requesterName,
+        requestedAt: req.timestamp,
+        message: req.message,
+        nostrEvent: req.nostrEvent,
+      }));
     } catch (error) {
-      console.error(
-        `❌ Failed to fetch join requests for team ${teamId}:`,
-        error
-      );
+      console.error(`❌ Failed to fetch join requests for team ${teamId}:`, error);
       return [];
     }
   }
 
   /**
    * Subscribe to real-time join requests (for captain dashboard)
+   * Delegates to TeamJoinRequestService for consistent handling
    */
   async subscribeToJoinRequests(
-    teamId: string,
     captainPubkey: string,
     callback: (joinRequest: JoinRequest) => void
   ): Promise<string> {
-    console.log(`🔔 Subscribing to join requests for team: ${teamId}`);
+    console.log(`🔔 Subscribing to join requests for captain: ${captainPubkey}`);
 
-    const teamATag = `33404:${captainPubkey}:${teamId}`;
-
-    const filters: NostrFilter[] = [
-      {
-        kinds: [33406],
-        '#a': [teamATag],
-        since: Math.floor(Date.now() / 1000), // Only new requests from now
-      },
-    ];
-
-    const subscriptionId = await this.relayManager.subscribeToEvents(
-      filters,
-      (event: Event, relayUrl: string) => {
-        console.log(`🔔 New join request from ${relayUrl}:`, event.id);
-
-        try {
-          const joinRequest = this.parseJoinRequest(event, teamId);
-          if (joinRequest) {
-            callback(joinRequest);
-            console.log(`✅ New join request: ${joinRequest.requesterPubkey}`);
-          }
-        } catch (error) {
-          console.warn(`⚠️ Failed to parse join request ${event.id}:`, error);
-        }
+    return this.joinRequestService.subscribeToJoinRequests(
+      captainPubkey,
+      (teamJoinRequest) => {
+        // Convert TeamJoinRequest to JoinRequest format
+        const joinRequest: JoinRequest = {
+          id: teamJoinRequest.id,
+          teamId: teamJoinRequest.teamId,
+          teamName: teamJoinRequest.teamName,
+          requesterPubkey: teamJoinRequest.requesterId,
+          requesterName: teamJoinRequest.requesterName,
+          requestedAt: teamJoinRequest.timestamp,
+          message: teamJoinRequest.message,
+          nostrEvent: teamJoinRequest.nostrEvent,
+        };
+        callback(joinRequest);
       }
     );
-
-    return subscriptionId;
   }
 
   // ================================================================================
@@ -343,53 +285,74 @@ export class TeamMembershipService {
   }
 
   /**
-   * Check if user is in team's official list
+   * Check if user is in team's official kind 30000 list
+   * Uses dTag pattern: ${teamId}-members for team membership lists
    */
   async isOfficialMember(
     userPubkey: string,
     teamId: string,
     captainPubkey: string
   ): Promise<boolean> {
-    return await this.listService.isInList(captainPubkey, teamId, userPubkey);
+    const memberListDTag = `${teamId}-members`;
+    return await this.listService.isInList(captainPubkey, memberListDTag, userPubkey);
+  }
+
+  // ================================================================================
+  // TEAM MEMBER LIST MANAGEMENT (Kind 30000)
+  // ================================================================================
+
+  /**
+   * Prepare team member list creation (Kind 30000) - requires external signing
+   * Creates initial empty member list for a team
+   */
+  prepareMemberListCreation(
+    teamId: string,
+    teamName: string,
+    captainPubkey: string,
+    initialMembers: string[] = []
+  ) {
+    console.log(`📝 Preparing member list creation for team: ${teamName}`);
+
+    const memberListDTag = `${teamId}-members`;
+    
+    return this.listService.prepareListCreation(
+      {
+        name: `${teamName} Members`,
+        description: `Official member list for team: ${teamName}`,
+        members: [captainPubkey, ...initialMembers], // Captain is always included
+        dTag: memberListDTag,
+        listType: 'people', // Kind 30000 for people lists
+      },
+      captainPubkey
+    );
+  }
+
+  /**
+   * Get team members from official kind 30000 list
+   */
+  async getTeamMembers(teamId: string, captainPubkey: string): Promise<string[]> {
+    const memberListDTag = `${teamId}-members`;
+    return await this.listService.getListMembers(captainPubkey, memberListDTag);
+  }
+
+  /**
+   * Get team member list stats
+   */
+  async getTeamMemberStats(
+    teamId: string,
+    captainPubkey: string
+  ): Promise<{
+    memberCount: number;
+    lastUpdated: number;
+    age: number;
+  } | null> {
+    const memberListDTag = `${teamId}-members`;
+    return await this.listService.getListStats(captainPubkey, memberListDTag);
   }
 
   // ================================================================================
   // UTILITIES
   // ================================================================================
-
-  /**
-   * Parse join request event into our format
-   */
-  private parseJoinRequest(
-    event: Event,
-    expectedTeamId: string
-  ): JoinRequest | null {
-    try {
-      const teamIdTag = event.tags.find((t) => t[0] === 'team_id')?.[1];
-
-      // Verify this is for the expected team
-      if (teamIdTag !== expectedTeamId) {
-        return null;
-      }
-
-      // Extract team name from the event (might be in content or we'll resolve later)
-      const teamName =
-        event.tags.find((t) => t[0] === 'team_name')?.[1] || 'Unknown Team';
-
-      return {
-        id: event.id,
-        teamId: expectedTeamId,
-        teamName,
-        requesterPubkey: event.pubkey,
-        requestedAt: event.created_at,
-        message: event.content,
-        nostrEvent: event,
-      };
-    } catch (error) {
-      console.error('Failed to parse join request:', error);
-      return null;
-    }
-  }
 
   /**
    * Clear local memberships (useful for testing)

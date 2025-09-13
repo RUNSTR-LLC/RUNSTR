@@ -46,9 +46,31 @@ export const useNavigationData = (): NavigationData => {
   const fetchUserData = async (): Promise<UserWithWallet | null> => {
     try {
       console.log('🔍 useNavigationData: Starting progressive user data loading...');
+      console.log('🔍 useNavigationData: DEBUG - Current AsyncStorage state check...');
+      
+      // DEBUG: Check what's actually in AsyncStorage
+      try {
+        const { getNpubFromStorage, getNsecFromStorage, getAuthMethod } = await import('../utils/nostr');
+        const asyncStorageNpub = await getNpubFromStorage();
+        const asyncStorageAuthMethod = await getAuthMethod();
+        console.log('🔍 useNavigationData: DEBUG AsyncStorage direct check:', {
+          hasNpub: !!asyncStorageNpub,
+          npubPreview: asyncStorageNpub?.slice(0, 20) + '...' || 'null',
+          authMethod: asyncStorageAuthMethod
+        });
+      } catch (asyncError) {
+        console.log('🔍 useNavigationData: DEBUG AsyncStorage check failed:', asyncError);
+      }
       
       // Step 1: Try to get fallback profile immediately (instant display)
+      console.log('🔍 useNavigationData: STEP 1 - Attempting DirectNostrProfileService.getFallbackProfile()...');
       const fallbackUser = await DirectNostrProfileService.getFallbackProfile();
+      console.log('🔍 useNavigationData: STEP 1 result:', {
+        success: !!fallbackUser,
+        hasNpub: !!fallbackUser?.npub,
+        npubPreview: fallbackUser?.npub?.slice(0, 20) + '...' || 'null',
+        displayName: fallbackUser?.displayName || 'null'
+      });
       if (fallbackUser) {
         console.log('🏃‍♂️ useNavigationData: Got fallback profile for immediate display');
         setUser(fallbackUser);
@@ -56,8 +78,15 @@ export const useNavigationData = (): NavigationData => {
       }
       
       // Step 2: Try direct Nostr profile with caching (may be instant if cached)
+      console.log('🔍 useNavigationData: STEP 2 - Attempting DirectNostrProfileService.getCurrentUserProfile()...');
       try {
         const directNostrUser = await DirectNostrProfileService.getCurrentUserProfile();
+        console.log('🔍 useNavigationData: STEP 2 result:', {
+          success: !!directNostrUser,
+          hasNpub: !!directNostrUser?.npub,
+          npubPreview: directNostrUser?.npub?.slice(0, 20) + '...' || 'null',
+          displayName: directNostrUser?.displayName || 'null'
+        });
         if (directNostrUser) {
           console.log('✅ useNavigationData: Got user from DirectNostrProfileService');
           setUser(directNostrUser);
@@ -68,9 +97,15 @@ export const useNavigationData = (): NavigationData => {
       }
       
       // Step 3: Fallback to Supabase-based approach for Apple/Google users
+      console.log('🔍 useNavigationData: STEP 3 - Attempting AuthService.getCurrentUserWithWallet()...');
       try {
-        console.log('🔄 useNavigationData: Trying Supabase fallback...');
         const userData = await AuthService.getCurrentUserWithWallet();
+        console.log('🔍 useNavigationData: STEP 3 result:', {
+          success: !!userData,
+          hasNpub: !!userData?.npub,
+          npubPreview: userData?.npub?.slice(0, 20) + '...' || 'null',
+          displayName: userData?.displayName || 'null'
+        });
         if (userData) {
           console.log('✅ useNavigationData: Got user from AuthService (Supabase)');
           setUser(userData);

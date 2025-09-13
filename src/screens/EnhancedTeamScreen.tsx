@@ -16,6 +16,8 @@ import { TeamScreenData } from '../types';
 import { theme } from '../styles/theme';
 import { useCaptainDetection, useTeamCaptainDetection } from '../hooks/useCaptainDetection';
 import { useLeagueRankings } from '../hooks/useLeagueRankings';
+import { useUserStore } from '../store/userStore';
+import { isTeamMember, isTeamCaptain } from '../utils/teamUtils';
 
 interface EnhancedTeamScreenProps {
   data: TeamScreenData;
@@ -29,7 +31,7 @@ interface EnhancedTeamScreenProps {
   onTeamDiscovery: () => void;
   onJoinTeam?: () => void;
   showJoinButton?: boolean;
-  userIsMember?: boolean;
+  userIsMemberProp?: boolean;
 }
 
 export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
@@ -44,9 +46,19 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
   onTeamDiscovery,
   onJoinTeam,
   showJoinButton = false,
-  userIsMember = true,
+  userIsMemberProp = true,
 }) => {
   const { team, leaderboard, events, challenges } = data;
+  
+  // Debug team data received
+  console.log('🔍 EnhancedTeamScreen: Team data received:', {
+    id: team?.id,
+    name: team?.name,
+    captain: team?.captain ? team.captain.slice(0, 10) + '...' : 'missing',
+    captainId: team?.captainId ? team.captainId.slice(0, 10) + '...' : 'missing',
+    captainNpub: team?.captainNpub ? team.captainNpub.slice(0, 20) + '...' : 'missing',
+    fullTeamKeys: team ? Object.keys(team) : 'no team object',
+  });
   
   // Use captain detection hook for this specific team
   const {
@@ -57,6 +69,28 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
     refreshCaptainStatus,
     isCaptainOfThisTeam,
   } = useTeamCaptainDetection(team.id);
+
+  // Get current user from store
+  const { user } = useUserStore();
+  const currentUserNpub = user?.npub;
+
+  // Calculate membership status using utility functions
+  const calculatedUserIsMember = isTeamMember(currentUserNpub, team);
+  const userIsCaptain = isTeamCaptain(currentUserNpub, team);
+
+  // Debug logging for captain detection
+  useEffect(() => {
+    console.log('🐛 EnhancedTeamScreen Debug:', {
+      teamName: team.name,
+      teamId: team.id,
+      currentUserNpub: currentUserNpub?.slice(0, 8) + '...',
+      teamCaptainId: 'captainId' in team ? team.captainId?.slice(0, 8) + '...' : 'N/A',
+      teamCaptainNpub: 'captainNpub' in team ? team.captainNpub?.slice(0, 8) + '...' : 'N/A',
+      userIsCaptain,
+      calculatedUserIsMember,
+      hookIsCaptain: isCaptain,
+    });
+  }, [currentUserNpub, team.id, userIsCaptain, calculatedUserIsMember, isCaptain]);
 
   // Use league rankings hook to check for active competitions
   const {
@@ -153,10 +187,10 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
       <TeamHeader
         teamName={team.name}
         onMenuPress={onMenuPress}
-        onLeaveTeam={userIsMember ? onLeaveTeam : undefined}
+        onLeaveTeam={calculatedUserIsMember ? onLeaveTeam : undefined}
         onJoinTeam={showJoinButton ? onJoinTeam : undefined}
         onTeamDiscovery={onTeamDiscovery}
-        userIsMember={userIsMember}
+        userIsMember={calculatedUserIsMember}
       />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -165,7 +199,9 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
             description={team.description}
             prizePool={team.prizePool}
             onCaptainDashboard={handleCaptainDashboard}
-            isCaptain={isCaptain}
+            onJoinTeam={onJoinTeam}
+            isCaptain={userIsCaptain || isCaptain}
+            isMember={calculatedUserIsMember || userIsCaptain || isCaptain}
             captainLoading={captainLoading}
           />
 

@@ -10,6 +10,8 @@ import { useUserStore } from '../store/userStore';
 import { AuthService } from '../services/auth/authService';
 import { getNostrTeamService } from '../services/nostr/NostrTeamService';
 import { CaptainDetectionService } from '../services/team/captainDetectionService';
+import { isTeamMember, isTeamCaptain } from '../utils/teamUtils';
+import { DirectNostrProfileService } from '../services/user/directNostrProfileService';
 
 export interface NavigationHandlers {
   handleTeamJoin: (
@@ -18,7 +20,7 @@ export interface NavigationHandlers {
     refreshData?: () => Promise<void>
   ) => Promise<void>;
   handleTeamSelect: (team: DiscoveryTeam) => void;
-  handleTeamView: (team: DiscoveryTeam, navigation: any) => void;
+  handleTeamView: (team: DiscoveryTeam, navigation: any, userNpub?: string) => Promise<void>;
   handleTeamDiscoveryClose: () => void;
   handleMenuPress: (navigation: any) => void;
   handleLeaveTeam: (
@@ -160,15 +162,58 @@ export const createNavigationHandlers = (): NavigationHandlers => {
       );
     },
 
-    handleTeamView: (team: DiscoveryTeam, navigation: any) => {
+    handleTeamView: async (team: DiscoveryTeam, navigation: any, userNpub?: string) => {
       console.log(
         'NavigationHandlers: Navigating to team dashboard:',
         team.name
       );
 
-      // TODO: Check if user is a member of this team
-      // For now, assume user is not a member (they can join multiple teams)
-      const userIsMember = false;
+      // Use passed userNpub (from working discovery page auth) instead of AsyncStorage lookups
+      let currentUserNpub: string | undefined = userNpub;
+      
+      console.log('🔄 NavigationHandlers: User from passed parameter (same as working discovery):', {
+        hasNpub: !!currentUserNpub,
+        npubSlice: currentUserNpub?.slice(0, 20) + '...' || 'undefined',
+      });
+      
+      // Only try AsyncStorage fallback if no npub was passed
+      if (!currentUserNpub) {
+        try {
+          const userData = await AuthService.getCurrentUserWithWallet();
+          currentUserNpub = userData?.npub;
+          
+          console.log('🔧 NavigationHandlers: Fallback to AuthService:', {
+            hasUser: !!userData,
+            hasNpub: !!currentUserNpub,
+            npubSlice: currentUserNpub?.slice(0, 20) + '...' || 'undefined',
+          });
+        } catch (error) {
+          console.error('❌ NavigationHandlers: Failed to get user from AuthService:', error);
+          // Final fallback to store
+          const user = useUserStore.getState().user;
+          currentUserNpub = user?.npub;
+          console.log('🔧 NavigationHandlers: Final fallback to store:', {
+            hasUser: !!user,
+            hasNpub: !!currentUserNpub,
+          });
+        }
+      }
+      
+      // Use the same logic as EnhancedTeamScreen to determine membership
+      const calculatedUserIsMember = isTeamMember(currentUserNpub, team);
+      const userIsCaptain = isTeamCaptain(currentUserNpub, team);
+      
+      // Member status includes both regular members and captains
+      const userIsMember = calculatedUserIsMember || userIsCaptain;
+
+      console.log('🎖️ NavigationHandlers: Team view navigation:', {
+        teamName: team.name,
+        userNpub: currentUserNpub?.slice(0, 8) + '...',
+        teamCaptainId: 'captainId' in team ? team.captainId?.slice(0, 8) + '...' : 'N/A',
+        userIsCaptain,
+        calculatedUserIsMember,
+        finalUserIsMember: userIsMember,
+      });
 
       navigation.navigate('TeamDashboard', {
         team,

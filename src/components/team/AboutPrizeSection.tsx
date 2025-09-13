@@ -8,7 +8,9 @@ interface AboutPrizeSectionProps {
   description: string;
   prizePool: number;
   onCaptainDashboard: () => void;
+  onJoinTeam?: () => void;
   isCaptain: boolean;
+  isMember: boolean;
   captainLoading?: boolean;
 }
 
@@ -16,7 +18,9 @@ export const AboutPrizeSection: React.FC<AboutPrizeSectionProps> = ({
   description,
   prizePool,
   onCaptainDashboard,
+  onJoinTeam,
   isCaptain,
+  isMember,
   captainLoading = false,
 }) => {
   const formatPrizePool = (amount: number): string => {
@@ -34,15 +38,39 @@ export const AboutPrizeSection: React.FC<AboutPrizeSectionProps> = ({
           <Text style={styles.prizeNumber}>{formatPrizePool(prizePool)}</Text>
           <Text style={styles.prizeCurrency}>sat prize pool</Text>
         </View>
-        {isCaptain && (
-          <CaptainDashboardButton
-            onPress={onCaptainDashboard}
-            isLoading={captainLoading}
-            variant="outline"
-            size="medium"
-            style={styles.actionButton}
-          />
-        )}
+        <View style={styles.buttonContainer}>
+          {/* Membership Status Button - Always show for members or join button for non-members */}
+          {isMember ? (
+            <Button
+              title="Joined"
+              variant="outline"
+              size="medium"
+              style={[styles.actionButton, styles.joinedButton]}
+              disabled={true}
+            />
+          ) : (
+            onJoinTeam && (
+              <Button
+                title="Join Team"
+                variant="primary"
+                size="medium"
+                onPress={onJoinTeam}
+                style={styles.actionButton}
+              />
+            )
+          )}
+          
+          {/* Captain Dashboard Button - Additional button for captains only */}
+          {isCaptain && (
+            <CaptainDashboardButton
+              onPress={onCaptainDashboard}
+              isLoading={captainLoading}
+              variant="outline"
+              size="medium"
+              style={styles.actionButton}
+            />
+          )}
+        </View>
       </View>
     </View>
   );
@@ -90,7 +118,15 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontWeight: '500',
   },
+  buttonContainer: {
+    gap: 8,
+    alignItems: 'flex-end',
+    marginTop: 8,
+  },
   actionButton: {
-    marginTop: 6,
+    minWidth: 120,
+  },
+  joinedButton: {
+    opacity: 0.7,
   },
 });

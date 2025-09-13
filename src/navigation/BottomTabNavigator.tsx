@@ -114,7 +114,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
                 // But keeping it to satisfy TypeScript
                 console.log('Team join from card (should not happen):', team.name);
               }}
-              onTeamSelect={(team) => handlers.handleTeamView(team, navigation)}
+              onTeamSelect={(team) => handlers.handleTeamView(team, navigation, user?.npub)}
               onRefresh={refresh}
               showHeader={false} // Don't show header - we provide our own
               showCloseButton={false} // No close button needed in tabs

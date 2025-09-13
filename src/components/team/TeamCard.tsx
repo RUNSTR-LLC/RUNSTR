@@ -1,34 +1,68 @@
 /**
- * TeamCard Component - Exact match to HTML mockup team card
- * Shows team info, stats, activities - navigation only (no join button)
+ * TeamCard Component - Team discovery with join workflow
+ * Shows team info, stats, activities, and join button for membership management
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
+  Alert,
 } from 'react-native';
 import { theme } from '../../styles/theme';
 import { DiscoveryTeam } from '../../types';
 import { PrizeDisplay } from '../ui/PrizeDisplay';
-import { DifficultyIndicator } from '../ui/DifficultyIndicator';
-import { isTeamCaptain } from '../../utils/teamUtils';
+import { isTeamCaptain, isTeamMember } from '../../utils/teamUtils';
+import { TeamMembershipService } from '../../services/team/teamMembershipService';
+
+// Helper function to extract activity type from team content
+const extractActivityType = (team: DiscoveryTeam): string => {
+  const content = `${team.name} ${team.about}`.toLowerCase();
+  
+  if (content.includes('running') || content.includes('run') || content.includes('marathon') || content.includes('5k') || content.includes('10k')) {
+    return 'Running';
+  }
+  if (content.includes('cycling') || content.includes('bike') || content.includes('bicycle') || content.includes('ride')) {
+    return 'Cycling';
+  }
+  if (content.includes('swimming') || content.includes('swim') || content.includes('pool')) {
+    return 'Swimming';
+  }
+  if (content.includes('walking') || content.includes('walk') || content.includes('hike') || content.includes('hiking')) {
+    return 'Walking';
+  }
+  if (content.includes('gym') || content.includes('workout') || content.includes('fitness') || content.includes('strength')) {
+    return 'Gym';
+  }
+  if (content.includes('yoga') || content.includes('pilates') || content.includes('meditation')) {
+    return 'Yoga';
+  }
+  
+  return 'Fitness';
+};
 
 interface TeamCardProps {
   team: DiscoveryTeam;
   onPress?: (team: DiscoveryTeam) => void;
+  onJoinRequest?: (team: DiscoveryTeam) => Promise<void>;
   style?: any;
-  currentUserNpub?: string; // For captain detection
+  currentUserNpub?: string; // For captain detection and membership
 }
+
+type MembershipButtonState = 'join' | 'pending' | 'member' | 'captain' | 'loading';
 
 export const TeamCard: React.FC<TeamCardProps> = ({
   team,
   onPress,
+  onJoinRequest,
   style,
   currentUserNpub,
 }) => {
+  const [buttonState, setButtonState] = useState<MembershipButtonState>('loading');
+  const membershipService = TeamMembershipService.getInstance();
+
   const handleCardPress = () => {
     if (onPress) {
       onPress(team);
@@ -36,6 +70,73 @@ export const TeamCard: React.FC<TeamCardProps> = ({
   };
 
   const isCaptain = isTeamCaptain(currentUserNpub, team);
+  const activityType = extractActivityType(team);
+
+  // Check membership status on mount
+  useEffect(() => {
+    checkMembershipStatus();
+  }, [currentUserNpub, team]);
+
+  const checkMembershipStatus = async () => {
+    if (!currentUserNpub) {
+      setButtonState('join');
+      return;
+    }
+
+    // Captain gets special state
+    if (isCaptain) {
+      setButtonState('captain');
+      return;
+    }
+
+    try {
+      setButtonState('loading');
+      const isMember = await isTeamMember(currentUserNpub, team);
+      
+      if (isMember) {
+        setButtonState('member');
+      } else {
+        // Check if there's a pending request
+        const membershipStatus = await membershipService.getMembershipStatus(
+          currentUserNpub,
+          team.teamId,
+          team.captainId
+        );
+        setButtonState(membershipStatus.hasRequestPending ? 'pending' : 'join');
+      }
+    } catch (error) {
+      console.error('Failed to check membership status:', error);
+      setButtonState('join');
+    }
+  };
+
+  const handleJoinPress = async () => {
+    if (!currentUserNpub || buttonState !== 'join') return;
+
+    try {
+      setButtonState('loading');
+
+      // Join locally first for instant UX
+      await membershipService.joinTeamLocally(
+        team.teamId,
+        team.name,
+        team.captainId,
+        currentUserNpub
+      );
+
+      // Call external join request handler if provided
+      if (onJoinRequest) {
+        await onJoinRequest(team);
+      }
+
+      // Update button state
+      setButtonState('pending');
+    } catch (error) {
+      console.error('Failed to join team:', error);
+      Alert.alert('Error', 'Failed to join team. Please try again.');
+      setButtonState('join');
+    }
+  };
 
   return (
     <Pressable
@@ -76,8 +177,8 @@ export const TeamCard: React.FC<TeamCardProps> = ({
           <Text style={styles.statValue}>{team.stats.memberCount}</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Avg Pace</Text>
-          <Text style={styles.statValue}>{team.stats.avgPace}</Text>
+          <Text style={styles.statLabel}>Activity</Text>
+          <Text style={styles.statValue}>{activityType}</Text>
         </View>
         <View style={styles.statItem}>
           <Text style={styles.statLabel}>Active Events</Text>
@@ -89,20 +190,30 @@ export const TeamCard: React.FC<TeamCardProps> = ({
         </View>
       </View>
 
-      {/* Difficulty Indicator */}
-      <DifficultyIndicator level={team.difficulty} />
+      {/* Membership Button */}
+      {currentUserNpub && buttonState !== 'captain' && (
+        <Pressable
+          style={[
+            styles.membershipButton,
+            buttonState === 'member' && styles.memberButton,
+            buttonState === 'pending' && styles.pendingButton,
+            buttonState === 'loading' && styles.loadingButton,
+          ]}
+          onPress={handleJoinPress}
+          disabled={buttonState === 'loading' || buttonState === 'pending' || buttonState === 'member'}
+        >
+          <Text style={[
+            styles.membershipButtonText,
+            buttonState === 'member' && styles.memberButtonText,
+            buttonState === 'pending' && styles.pendingButtonText,
+          ]}>
+            {buttonState === 'loading' ? 'Loading...' :
+             buttonState === 'pending' ? 'Request Sent' :
+             buttonState === 'member' ? 'Member' : 'Join Team'}
+          </Text>
+        </Pressable>
+      )}
 
-      {/* Activity Section */}
-      <View style={styles.activitySection}>
-        <Text style={styles.activityTitle}>Recent Activity</Text>
-        <View style={styles.activityItems}>
-          {team.recentActivities.slice(0, 3).map((activity) => (
-            <Text key={activity.id} style={styles.activityItem}>
-              • {activity.description}
-            </Text>
-          ))}
-        </View>
-      </View>
     </Pressable>
   );
 };
@@ -220,30 +331,42 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  activitySection: {
-    // Exact CSS: border-top: 1px solid #1a1a1a; padding-top: 12px;
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border, // #1a1a1a
-    paddingTop: 12,
+  membershipButton: {
+    backgroundColor: theme.colors.accent, // Gold/yellow
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
     marginTop: 12,
   },
 
-  activityTitle: {
-    // Exact CSS: font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;
-    fontSize: 12,
-    color: theme.colors.textMuted, // #666
+  memberButton: {
+    backgroundColor: theme.colors.success || '#22c55e', // Green for members
+  },
+
+  pendingButton: {
+    backgroundColor: theme.colors.textMuted, // Gray for pending
+  },
+
+  loadingButton: {
+    backgroundColor: theme.colors.textMuted,
+    opacity: 0.6,
+  },
+
+  membershipButtonText: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.accentText,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 8,
   },
 
-  activityItems: {
-    gap: 4,
+  memberButtonText: {
+    color: theme.colors.text,
   },
 
-  activityItem: {
-    // Exact CSS: font-size: 12px; color: #ccc;
-    fontSize: 12,
-    color: theme.colors.textSecondary, // #ccc
+  pendingButtonText: {
+    color: theme.colors.text,
   },
+
 });

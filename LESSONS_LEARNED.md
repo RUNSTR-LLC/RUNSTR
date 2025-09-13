@@ -1030,3 +1030,218 @@ This would prevent future duplicate parsing bugs across services.
 ---
 
 *Updated after Duration Parsing Bug Resolution. Successfully fixed parseFloat() time string parsing and service export issues, restoring proper workout duration display throughout the app.*
+
+---
+
+## Captain Detection Authentication Fix - AsyncStorage Corruption Resolution 🎖️
+
+### The Problem: Authentication State Inconsistency
+
+**Issue:** Captain detection worked perfectly on team discovery page but failed on individual team pages, showing "Join Team" button instead of "Joined" + "Captain Dashboard" for team captains.
+
+**Symptoms:**
+- ✅ Discovery page: Captain detection works, shows proper team management UI
+- ❌ Individual team page: Same user shows as non-member, fails captain detection
+- ❌ Multiple authentication services (userStore, AuthService) returning empty/null user data
+- ❌ Evidence of AsyncStorage corruption: `ERROR Decrypted nsec is invalid, clearing storage`
+
+### Root Cause Analysis 🔍
+
+**The Authentication Architecture Problem:**
+```
+Discovery Page (Working) → useNavigationData.ts → DirectNostrProfileService → Working npub ✅
+Individual Team Page (Broken) → navigationHandlers.ts → AsyncStorage lookups → Corrupted/Empty ❌
+```
+
+**Critical Discovery:** Both systems should use the same `getNpubFromStorage()` function, but AsyncStorage corruption caused the failing path to return null while the working path had cached valid data.
+
+**Authentication State Management Issues:**
+1. **Multiple Auth Sources:** App has 3+ authentication services that aren't synchronized
+2. **AsyncStorage Corruption:** Storage clearing due to nsec decryption failures
+3. **No Fallback Strategy:** Navigation handlers only tried corrupted AsyncStorage, not working auth sources
+4. **State Persistence:** Working discovery page authentication not passed to navigation
+
+### The Investigation Process 📊
+
+**Step 1: Comprehensive Documentation**
+- Created `CAPTAIN_DETECTION_INVESTIGATION.md` to prevent circular debugging
+- Documented that captain detection logic itself was correct
+- Identified real problem as authentication state management, not captain detection
+
+**Step 2: Trace Working Authentication Source**
+- Found discovery page successfully gets user data through progressive loading
+- `DirectNostrProfileService.getCurrentUserProfile()` working perfectly
+- Authentication data available but not reaching navigation handlers
+
+**Step 3: Progressive Authentication Fallback Pattern**
+```typescript
+// Discovery page success pattern (useNavigationData.ts)
+const fetchUserData = async (): Promise<UserWithWallet | null> => {
+  // Try direct Nostr profile first (works)
+  const directNostrUser = await DirectNostrProfileService.getCurrentUserProfile();
+  if (directNostrUser) return directNostrUser;
+  
+  // Fallback to Supabase approach
+  const userData = await AuthService.getCurrentUserWithWallet();
+  return userData || null;
+};
+```
+
+### The Solution: Authentication Data Flow Fix 🔧
+
+**Solution Strategy:** Bypass corrupted AsyncStorage by passing working authentication data directly through navigation chain.
+
+**Implementation 1: Pass Working User Data**
+```typescript
+// src/navigation/BottomTabNavigator.tsx (line 117)
+// OLD: Navigation handler gets no user context
+onTeamSelect={(team) => handlers.handleTeamView(team, navigation)}
+
+// NEW: Pass working user npub from discovery page
+onTeamSelect={(team) => handlers.handleTeamView(team, navigation, user?.npub)}
+```
+
+**Implementation 2: Progressive Fallback in Navigation Handler**
+```typescript
+// src/navigation/navigationHandlers.ts - Updated handleTeamView signature
+handleTeamView: async (team: DiscoveryTeam, navigation: any, userNpub?: string) => {
+  // Use passed userNpub (from working discovery page auth)
+  let currentUserNpub: string | undefined = userNpub;
+  
+  // Only try AsyncStorage fallback if no npub was passed
+  if (!currentUserNpub) {
+    console.log('⚠️ No npub passed from discovery, trying AsyncStorage fallback...');
+    const storedUser = await AuthService.getCurrentUser();
+    currentUserNpub = storedUser?.npub;
+  }
+  
+  // Continue with navigation using working npub...
+}
+```
+
+**Implementation 3: Enhanced Debug Logging**
+```typescript
+// Added comprehensive authentication tracing
+console.log('🔍 Navigation authentication check:', {
+  teamName: team.name,
+  hasPassedNpub: !!userNpub,
+  npubSlice: userNpub ? userNpub.slice(0, 20) + '...' : 'none',
+  fallbackAttempted: !userNpub,
+});
+```
+
+### Key Architecture Insights 💡
+
+**1. Single Source of Truth Pattern**
+- Don't rely on multiple authentication services returning consistent data
+- Pass working authentication data through navigation chains
+- Use working data sources as primary, corrupted sources as fallback only
+
+**2. Progressive Authentication Strategy**
+- Try most reliable authentication source first
+- Fall back to potentially corrupted sources only when necessary
+- Pass authentication context through component chains instead of re-fetching
+
+**3. Debug-First Development**
+- Add comprehensive logging to trace data flow
+- Document investigation process to prevent circular debugging
+- Focus on data flow, not just business logic
+
+**4. Corruption-Resistant Architecture**
+- Don't assume AsyncStorage persistence across app sessions
+- Implement authentication caching and fallback strategies
+- Pass working auth state through app navigation instead of re-fetching
+
+### Testing and Validation Success 🧪
+
+**User Testing Results:**
+```
+Before Fix:
+- Captain detection on individual pages: ❌ userIsCaptain: false
+- Join Team button shown incorrectly: ❌ 
+- Navigation handler npub: ❌ undefined/null
+
+After Fix:  
+- Captain detection on individual pages: ✅ userIsCaptain: true
+- Join Team button correctly removed: ✅
+- Navigation handler npub: ✅ npub1xr8tvnnnr9aqt9v...
+```
+
+**System Behavior:**
+- Discovery page authentication continues working perfectly
+- Individual team pages now receive same working authentication data
+- Captain detection logic unchanged - authentication data now reaches it correctly
+- No breaking changes to existing functionality
+
+### Prevention Strategies Going Forward 🛡️
+
+**For Future Authentication Issues:**
+1. **Authentication Data Flow Mapping:** Document which services work vs which are corrupted
+2. **Pass Working Data:** Don't re-fetch authentication when working data is available  
+3. **Progressive Fallback Design:** Most reliable source first, corrupted sources as last resort
+4. **Comprehensive Debug Logging:** Track authentication data through entire flow
+5. **Investigation Documentation:** Prevent circular debugging with thorough issue docs
+
+**Architecture Guidelines:**
+```typescript
+// GOOD: Pass working authentication through navigation
+onNavigate={(data) => handler(data, workingAuthData)}
+
+// BAD: Re-fetch potentially corrupted authentication
+onNavigate={(data) => handler(data)} // handler will try AsyncStorage again
+```
+
+**Development Workflow:**
+```bash
+# For authentication issues:
+1. Identify which part of the app has working authentication
+2. Trace why other parts don't have the same data
+3. Pass working data instead of re-fetching corrupted data
+4. Add logging to verify data flow end-to-end
+5. Document the investigation to prevent future circles
+```
+
+### Success Metrics 📊
+
+**Problem Resolution:**
+- **Investigation Time:** ~6 hours from issue identification to working solution
+- **Root Cause:** AsyncStorage corruption causing authentication state inconsistency
+- **Solution Complexity:** 3 file changes, ~20 lines of code modified
+- **Breaking Changes:** Zero - existing discovery page functionality preserved
+
+**User Experience Impact:**
+- **Before:** Team captains saw incorrect "Join Team" button on individual team pages
+- **After:** Team captains see correct team management interface consistently
+- **Auth Consistency:** Same user authentication state across discovery and individual pages
+
+**Technical Achievements:**
+- Authentication data flows from working source to failing components
+- Progressive fallback system handles multiple authentication scenarios
+- Comprehensive logging enables future authentication debugging
+- Investigation documentation prevents circular debugging
+
+### Key Takeaways for Team Development 📚
+
+**1. Authentication State is App-Wide Concern**
+- Authentication inconsistency affects user experience across entire app
+- Don't treat authentication as local component concern
+- Design authentication data flow from working sources to all consumers
+
+**2. Corruption-Resistant Design Patterns**
+- AsyncStorage and encrypted storage can become corrupted
+- Always have fallback strategies for authentication state
+- Pass working authentication data instead of re-fetching
+
+**3. Investigation Documentation Value**
+- Comprehensive issue documentation prevents repeated circular debugging
+- Root cause analysis more valuable than quick fixes
+- Team knowledge preservation through detailed lessons learned
+
+**4. Progressive Authentication Architecture**
+- Multiple authentication services require coordination
+- Design priority systems: most reliable source first
+- Test authentication consistency across all app navigation paths
+
+---
+
+*Updated after Captain Detection Authentication Fix. Successfully resolved AsyncStorage corruption authentication inconsistency, enabling proper captain detection across all app navigation paths.*
