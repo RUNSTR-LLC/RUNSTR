@@ -118,6 +118,8 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
               onRefresh={refresh}
               showHeader={false} // Don't show header - we provide our own
               showCloseButton={false} // No close button needed in tabs
+              currentUserPubkey={user?.npub} // Pass current user's npub for captain detection
+              onCaptainDashboard={() => handlers.handleCaptainDashboard(navigation)}
               // No onCreateTeam prop - handled by header plus button
             />
           </SafeAreaView>

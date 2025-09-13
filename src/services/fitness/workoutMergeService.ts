@@ -1,10 +1,9 @@
 /**
- * Workout Merge Service - Unified Workout Display & Status Tracking
- * Combines HealthKit and Nostr workouts for display in WorkoutHistoryScreen
- * Tracks posting status (synced to Nostr, posted to social) for UI state management
+ * Workout Merge Service - SIMPLIFIED: Pure Nostr Workout Display
+ * Focuses on kind 1301 events using proven nuclear approach
+ * Tracks posting status for UI state management (manual "Save to Nostr" workflow)
  */
 
-import { supabase } from '../supabase';
 import { NostrWorkoutService } from './nostrWorkoutService';
 import { NostrCacheService } from '../cache/NostrCacheService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -77,81 +76,61 @@ export class WorkoutMergeService {
   }
 
   /**
-   * OPTIMIZED: Get merged workouts with cache-first loading
-   * Shows cached results instantly (0ms), updates in background
+   * SIMPLIFIED: Get pure Nostr workouts with nuclear approach
+   * Focuses on manual "Save to Nostr" workflow - no HealthKit hybrid complexity
    */
   async getMergedWorkouts(userId: string, pubkey?: string): Promise<WorkoutMergeResult> {
     const startTime = Date.now();
     
     try {
-      console.log('⚡ ULTRA DEBUG: WorkoutMergeService entry point - analyzing pubkey chain...');
-      console.log('⚡ ULTRA DEBUG: getMergedWorkouts called with:', {
-        userId,
-        pubkey: pubkey ? pubkey.slice(0, 12) + '...' : 'undefined',
-        pubkeyLength: pubkey?.length || 0,
-        pubkeyType: pubkey?.startsWith('npub1') ? 'npub' : pubkey?.length === 64 ? 'hex' : 'unknown'
-      });
+      console.log('⚡ SIMPLIFIED: Pure Nostr workout fetching for user', userId);
+      console.log('💡 SIMPLIFIED: Manual "Save to Nostr" workflow - no hybrid complexity');
       
       if (!pubkey) {
-        console.log('❌ ULTRA DEBUG: No pubkey provided - this explains why no workouts are found!');
-        console.log('💡 ULTRA DEBUG: Check ProfileScreen.tsx:158 - is data.user.npub actually set?');
+        console.log('❌ No pubkey provided - returning empty results');
+        return {
+          allWorkouts: [],
+          healthKitCount: 0,
+          nostrCount: 0,
+          duplicateCount: 0,
+          fromCache: false,
+          loadDuration: Date.now() - startTime,
+          cacheAge: 0,
+        };
       }
-      
-      console.log('⚡ WorkoutMergeService: Starting cache-first merge for user', userId);
 
-      // 🔧 TEMPORARY: CACHE BYPASS FOR SIMPLE WORKOUT SERVICE TESTING
-      // Forcing fresh data fetch to test our 113x improvement SimpleWorkoutService
-      console.log('🔥 CACHE BYPASS: Forcing fresh data fetch to test SimpleWorkoutService...');
-      
-      // SKIP ALL CACHE OPERATIONS - Just focus on NDK workout discovery
-      console.log('🔥 CACHE BYPASS: Skipping all cache operations to test NDK workout discovery');
+      // SIMPLIFIED: Pure Nostr workflow - just fetch kind 1301 events
+      const [nostrWorkouts, postingStatus] = await Promise.all([
+        this.fetchNostrWorkouts(userId, pubkey),
+        this.getWorkoutPostingStatus(userId),
+      ]);
 
-      // OPTIMIZATION 2: Cache miss - fetch from network with Author+Kind Racing
-      console.log('💾 Cache miss, fetching from network with Author+Kind Racing (704ms target)...');
-      const [healthKitWorkouts, nostrWorkouts, postingStatus] =
-        await Promise.all([
-          this.fetchHealthKitWorkouts(userId),
-          this.fetchNostrWorkouts(userId, pubkey),
-          this.getWorkoutPostingStatus(userId),
-        ]);
+      console.log(`📊 SIMPLIFIED: Found ${nostrWorkouts.length} Nostr workouts`);
 
-      console.log(
-        `📱 Author+Kind Racing: Found ${healthKitWorkouts.length} HealthKit workouts, ${nostrWorkouts.length} Nostr workouts`
-      );
-
-      // Cache the Nostr workouts for future instant loading (Author+Kind Racing makes caching more valuable)
-      if (pubkey && nostrWorkouts.length > 0) {
+      // Cache the Nostr workouts
+      if (nostrWorkouts.length > 0) {
         await NostrCacheService.setCachedWorkouts(pubkey, nostrWorkouts);
         await this.setCacheTimestamp(userId);
-        console.log(`💾 Author+Kind Racing: Cached ${nostrWorkouts.length} workouts for instant future loading`);
+        console.log(`💾 Cached ${nostrWorkouts.length} workouts`);
       }
 
-      // Deduplicate and merge workouts
-      const mergedResult = this.mergeAndDeduplicateWorkouts(
-        healthKitWorkouts,
-        nostrWorkouts,
-        postingStatus
-      );
+      // SIMPLIFIED: No merge complexity - just convert Nostr workouts to unified format
+      const unifiedWorkouts = this.convertNostrToUnified(nostrWorkouts, postingStatus);
 
-      // Cache merge timestamp
-      await AsyncStorage.setItem(
-        `${STORAGE_KEYS.LAST_MERGE}_${userId}`,
-        new Date().toISOString()
-      );
-
-      console.log(
-        `✅ Merged ${mergedResult.allWorkouts.length} total workouts (${mergedResult.duplicateCount} duplicates removed)`
-      );
+      console.log(`✅ SIMPLIFIED: ${unifiedWorkouts.length} workouts ready for display`);
       
       return {
-        ...mergedResult,
+        allWorkouts: unifiedWorkouts,
+        healthKitCount: 0, // Pure Nostr approach
+        nostrCount: nostrWorkouts.length,
+        duplicateCount: 0, // No deduplication needed in pure approach
         fromCache: false,
         loadDuration: Date.now() - startTime,
         cacheAge: 0,
       };
     } catch (error) {
-      console.error('❌ WorkoutMergeService: Error merging workouts:', error);
-      throw new Error('Failed to merge workout data');
+      console.error('❌ SIMPLIFIED WorkoutMergeService: Error fetching workouts:', error);
+      throw new Error('Failed to fetch workout data');
     }
   }
 
@@ -330,7 +309,8 @@ export class WorkoutMergeService {
             nostrEventId: event.id,
             nostrPubkey: event.pubkey,
             sourceApp: 'ultra_nuclear_discovery',
-            tags: event.tags || []
+            nostrCreatedAt: event.created_at,
+            unitSystem: 'metric' as const
           };
 
           workouts.push(workout);
@@ -352,7 +332,8 @@ export class WorkoutMergeService {
             nostrEventId: event.id,
             nostrPubkey: event.pubkey,
             sourceApp: 'fallback_nuclear',
-            tags: event.tags || []
+            nostrCreatedAt: event.created_at,
+            unitSystem: 'metric' as const
           };
           workouts.push(fallbackWorkout);
           console.log(`🆘 FALLBACK WORKOUT ${workouts.length}: raw_1301 - ${new Date(fallbackWorkout.startTime).toDateString()}`);
@@ -379,74 +360,31 @@ export class WorkoutMergeService {
 
 
   /**
-   * Merge and deduplicate workouts from both sources
+   * SIMPLIFIED: Convert Nostr workouts to unified format (no merge complexity)
    */
-  private mergeAndDeduplicateWorkouts(
-    healthKitWorkouts: Workout[],
+  private convertNostrToUnified(
     nostrWorkouts: NostrWorkout[],
     postingStatus: Map<string, WorkoutStatusUpdate>
-  ): WorkoutMergeResult {
-    const unifiedWorkouts: UnifiedWorkout[] = [];
-    const processedIds = new Set<string>();
-    let duplicateCount = 0;
-
-    // Process Nostr workouts first (they have more complete data)
-    for (const nostrWorkout of nostrWorkouts) {
-      const unified: UnifiedWorkout = {
-        ...nostrWorkout,
-        // Nostr workouts are already synced and can be posted to social
-        syncedToNostr: true,
-        postedToSocial:
-          postingStatus.get(nostrWorkout.id)?.postedToSocial || false,
-        postingInProgress: false,
-        canSyncToNostr: false, // Already synced
-        canPostToSocial: true,
-      };
-
-      unifiedWorkouts.push(unified);
-      processedIds.add(this.generateDedupeKey(nostrWorkout));
-    }
-
-    // Process HealthKit workouts, checking for duplicates
-    for (const healthKitWorkout of healthKitWorkouts) {
-      const dedupeKey = this.generateDedupeKey(healthKitWorkout);
-
-      if (processedIds.has(dedupeKey)) {
-        duplicateCount++;
-        continue;
-      }
-
-      const status = postingStatus.get(healthKitWorkout.id) || {
-        workoutId: healthKitWorkout.id,
-      };
-      const unified: UnifiedWorkout = {
-        ...healthKitWorkout,
-        // HealthKit workouts need status from storage
-        syncedToNostr: status.syncedToNostr || false,
-        postedToSocial: status.postedToSocial || false,
-        postingInProgress: false,
-        canSyncToNostr: !(status.syncedToNostr || false),
-        canPostToSocial: true,
-        // Add Nostr event ID if synced
-        nostrEventId: status.nostrEventId,
-      };
-
-      unifiedWorkouts.push(unified);
-      processedIds.add(dedupeKey);
-    }
+  ): UnifiedWorkout[] {
+    console.log('🔧 SIMPLIFIED: Converting Nostr workouts to unified format');
+    
+    const unifiedWorkouts: UnifiedWorkout[] = nostrWorkouts.map(nostrWorkout => ({
+      ...nostrWorkout,
+      // Nostr workouts are already synced (since they're from kind 1301 events)
+      syncedToNostr: true,
+      postedToSocial: postingStatus.get(nostrWorkout.id)?.postedToSocial || false,
+      postingInProgress: false,
+      canSyncToNostr: false, // Already synced to Nostr
+      canPostToSocial: true, // Can always post to social
+    }));
 
     // Sort by start time (newest first)
     unifiedWorkouts.sort(
-      (a, b) =>
-        new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+      (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
     );
 
-    return {
-      allWorkouts: unifiedWorkouts,
-      healthKitCount: healthKitWorkouts.length,
-      nostrCount: nostrWorkouts.length,
-      duplicateCount,
-    };
+    console.log(`✅ SIMPLIFIED: Converted ${unifiedWorkouts.length} Nostr workouts`);
+    return unifiedWorkouts;
   }
 
   /**
@@ -674,13 +612,17 @@ export class WorkoutMergeService {
       
       console.log(`📊 Pagination results: ${olderHealthKitWorkouts.length} HealthKit, ${olderNostrWorkouts.length} Nostr`);
 
-      // Merge and deduplicate older workouts
+      // SIMPLIFIED: Convert older Nostr workouts to unified format
       const postingStatus = await this.getWorkoutPostingStatus(userId);
-      const mergedResult = this.mergeAndDeduplicateWorkouts(
-        olderHealthKitWorkouts,
-        olderNostrWorkouts,
-        postingStatus
-      );
+      const unifiedWorkouts = this.convertNostrToUnified(olderNostrWorkouts, postingStatus);
+      
+      // Create simplified result (no HealthKit in pure Nostr approach)
+      const mergedResult = {
+        allWorkouts: unifiedWorkouts,
+        healthKitCount: 0, // Pure Nostr approach
+        nostrCount: olderNostrWorkouts.length,
+        duplicateCount: 0, // No deduplication needed
+      };
 
       const loadDuration = Date.now() - startTime;
 

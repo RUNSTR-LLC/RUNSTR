@@ -55,7 +55,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AppNavigator } from './navigation/AppNavigator';
 import { BottomTabNavigator } from './navigation/BottomTabNavigator';
-import { SplashScreen } from './components/ui/SplashScreen';
+import { SplashScreen as AppSplashScreen } from './components/ui/SplashScreen';
 import { createStackNavigator } from '@react-navigation/stack';
 import { TeamCreationWizard } from './components/wizards/TeamCreationWizard';
 import { TeamDashboardScreen } from './screens/TeamDashboardScreen';
@@ -208,7 +208,7 @@ const AppContent: React.FC = () => {
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
 
       {isInitializing ? (
-        <SplashScreen
+        <AppSplashScreen
           onComplete={() => {
             // AuthContext handles all initialization now
             // Just show a simple loading screen

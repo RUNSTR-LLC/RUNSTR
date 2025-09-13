@@ -133,7 +133,7 @@ open ios/runstrproject.xcworkspace
 ✅ Fresh Xcode build completes successfully
 ✅ iOS app connects without "No script URL provided" error
 
-## Failed Troubleshooting Session: September 2025
+## Failed Troubleshooting Session #1: September 12, 2025
 
 ### Systematic Failure Analysis
 
@@ -183,7 +183,61 @@ Throughout these attempts, a pattern emerged: while I could successfully start M
 4. **Expo Go Integration**: Missing QR code interface and unclear manual URL entry process
 5. **Process Management**: Multiple background Metro instances created conflicts and resource competition
 
+## Failed Troubleshooting Session #2: September 13, 2025
+
+### Advanced Xcode Build & Deploy Approach
+
+**Step 1: Nuclear Metro Reset**
+- Executed: `killall -9 node; sleep 3` (eliminated 30+ conflicting Metro processes)
+- Verified: `lsof -i :8081 || echo "Port 8081 is clear"` 
+- Cleared: `rm -rf ios/build; rm -rf ~/Library/Developer/Xcode/DerivedData/runstrproject-*`
+
+**Step 2: Direct Xcode Build Success**
+- Executed: `xcodebuild -workspace runstrproject.xcworkspace -scheme runstrproject -destination "platform=iOS,id=00008110-001830320AEB601E" build -allowProvisioningUpdates`
+- **Result**: ✅ Successfully compiled all 124 React Native targets
+- **Result**: ✅ Build completed with exit code 0
+
+**Step 3: Direct Device Installation Success**
+- Executed: `xcodebuild -workspace runstrproject.xcworkspace -scheme runstrproject -destination "platform=iOS,id=00008110-001830320AEB601E" install -allowProvisioningUpdates`
+- **Result**: ✅ Installation completed successfully (exit code 0)
+- **Result**: ✅ App installed to iPhone (00008110-001830320AEB601E)
+
+**Step 4: Metro Server Verification**
+- Started: `EXPO_DEV_SERVER_HOST=192.168.0.171 npx expo start --port 8081 --clear`
+- Verified: `curl -I http://192.168.0.171:8081` returned `HTTP/1.1 200 OK`
+- Opened: `ios/runstrproject.xcworkspace` in Xcode successfully
+
+**Step 5: Final Device Launch Attempt**
+- Executed: `xcodebuild -workspace runstrproject.xcworkspace -scheme runstrproject -destination "platform=iOS,id=00008110-001830320AEB601E" -allowProvisioningUpdates`
+- **Result**: ✅ Build and launch command completed successfully
+- **Network Status**: Both devices confirmed on same WiFi network
+- **Simulator Status**: ✅ iOS Simulator works perfectly with Metro server
+- **Final Result**: ❌ **Physical iPhone failed to connect to Metro server despite all technical milestones achieved**
+
+### Critical System State at Failure
+
+**Technical Success Indicators:**
+- ✅ Metro server running and network accessible (192.168.0.171:8081)
+- ✅ App successfully built, installed, and launched on physical device
+- ✅ Xcode project opened and device properly detected
+- ✅ All iOS caches cleared and build artifacts removed
+- ✅ Single clean Metro process (no conflicts)
+- ✅ Network connectivity verified via curl
+
+**Environment Verification:**
+- ✅ Same WiFi network (Mac and iPhone)
+- ✅ iOS Simulator connects and works normally
+- ✅ Network IP confirmed: 192.168.0.171
+- ✅ Metro port confirmed: 8081
+- ✅ All background Metro processes eliminated
+
+### Root Cause Assessment
+
+Despite achieving every documented technical milestone - successful Xcode build, device installation, Metro server accessibility, network verification, and app launch - the fundamental Metro-to-physical-device connection remains broken. This represents a systemic issue beyond standard troubleshooting approaches, possibly related to iOS network security policies, device-specific Metro discovery mechanisms, or React Native/Expo framework limitations with physical device connectivity.
+
+The consistent pattern where iOS Simulator works perfectly while physical devices fail suggests the issue lies in the network discovery/connection layer between Metro bundler and iOS devices, rather than in build processes or Metro server functionality.
+
 ---
 
-**Last Updated:** September 12, 2025
+**Last Updated:** September 13, 2025
 **Tested Configuration:** macOS, iOS physical device, React Native + Expo

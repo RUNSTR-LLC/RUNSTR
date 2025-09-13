@@ -399,6 +399,7 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
                   key={team.id}
                   team={team}
                   onPress={handleTeamSelect}
+                  currentUserNpub={currentUserPubkey}
                 />
               );
             })}

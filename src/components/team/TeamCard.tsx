@@ -14,23 +14,28 @@ import { theme } from '../../styles/theme';
 import { DiscoveryTeam } from '../../types';
 import { PrizeDisplay } from '../ui/PrizeDisplay';
 import { DifficultyIndicator } from '../ui/DifficultyIndicator';
+import { isTeamCaptain } from '../../utils/teamUtils';
 
 interface TeamCardProps {
   team: DiscoveryTeam;
   onPress?: (team: DiscoveryTeam) => void;
   style?: any;
+  currentUserNpub?: string; // For captain detection
 }
 
 export const TeamCard: React.FC<TeamCardProps> = ({
   team,
   onPress,
   style,
+  currentUserNpub,
 }) => {
   const handleCardPress = () => {
     if (onPress) {
       onPress(team);
     }
   };
+
+  const isCaptain = isTeamCaptain(currentUserNpub, team);
 
   return (
     <Pressable
@@ -44,11 +49,18 @@ export const TeamCard: React.FC<TeamCardProps> = ({
           <Text style={styles.teamName}>{team.name}</Text>
           <Text style={styles.teamAbout}>{team.about}</Text>
         </View>
-        {team.isFeatured && (
-          <View style={styles.featuredBadge}>
-            <Text style={styles.featuredBadgeText}>Featured</Text>
-          </View>
-        )}
+        <View style={styles.badgeContainer}>
+          {team.isFeatured && (
+            <View style={styles.featuredBadge}>
+              <Text style={styles.featuredBadgeText}>Featured</Text>
+            </View>
+          )}
+          {isCaptain && (
+            <View style={styles.captainBadge}>
+              <Text style={styles.captainBadgeText}>Captain</Text>
+            </View>
+          )}
+        </View>
       </View>
 
       {/* Prize Section */}
@@ -185,6 +197,27 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: theme.typography.weights.semiBold,
     color: theme.colors.text,
+  },
+
+  badgeContainer: {
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+
+  captainBadge: {
+    backgroundColor: theme.colors.accent, // Gold/yellow for captain
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+
+  captainBadgeText: {
+    fontSize: 10,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.accentText,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 
   activitySection: {
