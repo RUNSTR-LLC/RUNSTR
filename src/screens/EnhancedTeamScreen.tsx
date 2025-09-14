@@ -164,14 +164,19 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
 
   // Enhanced captain dashboard handler - simplified since we already know captain status
   const handleCaptainDashboard = () => {
-    console.log('🎖️ EnhancedTeamScreen: Captain dashboard pressed');
+    console.log('🎖️🎖️🎖️ EnhancedTeamScreen: handleCaptainDashboard CALLED!');
     console.log('🎖️ User is captain:', userIsCaptain);
+    console.log('🎖️ passedUserIsCaptain:', passedUserIsCaptain);
+    console.log('🎖️ Type of onCaptainDashboard:', typeof onCaptainDashboard);
 
     // Since userIsCaptain is already determined by navigation, we can trust it
     if (userIsCaptain) {
       console.log('✅ Captain access granted - navigating to dashboard');
+      console.log('✅ Calling onCaptainDashboard now...');
       onCaptainDashboard();
+      console.log('✅ onCaptainDashboard called successfully');
     } else {
+      console.log('❌ User is not captain, showing alert');
       Alert.alert(
         'Captain Access Only',
         'This feature is only available to team captains. If you believe this is an error, please try logging out and back in.',
