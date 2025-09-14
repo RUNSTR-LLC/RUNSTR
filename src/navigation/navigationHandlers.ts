@@ -122,6 +122,7 @@ export const createNavigationHandlers = (): NavigationHandlers => {
                   navigation.navigate('TeamDashboard', {
                     team,
                     userIsMember: true,
+                    currentUserNpub, // Pass the working npub to avoid component-level AsyncStorage corruption
                   });
                 }
               }
@@ -218,6 +219,8 @@ export const createNavigationHandlers = (): NavigationHandlers => {
       navigation.navigate('TeamDashboard', {
         team,
         userIsMember,
+        currentUserNpub, // Pass the working npub to avoid component-level AsyncStorage corruption
+        userIsCaptain, // Pass the correctly calculated captain status
       });
     },
 

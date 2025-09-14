@@ -23,6 +23,14 @@ export const AboutPrizeSection: React.FC<AboutPrizeSectionProps> = ({
   isMember,
   captainLoading = false,
 }) => {
+  // Debug logging for captain button rendering
+  console.log('🎖️ AboutPrizeSection: Render props debug:', {
+    isCaptain,
+    isMember,
+    captainLoading,
+    hasOnCaptainDashboard: !!onCaptainDashboard,
+    hasOnJoinTeam: !!onJoinTeam,
+  });
   const formatPrizePool = (amount: number): string => {
     return amount.toLocaleString();
   };

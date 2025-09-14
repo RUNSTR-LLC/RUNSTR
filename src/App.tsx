@@ -67,7 +67,7 @@ import { User } from './types';
 type AuthenticatedStackParamList = {
   MainTabs: undefined;
   TeamCreation: undefined;
-  TeamDashboard: { team: any; userIsMember?: boolean };
+  TeamDashboard: { team: any; userIsMember?: boolean; currentUserNpub?: string; userIsCaptain?: boolean };
   EventDetail: { eventId: string };
   ChallengeDetail: { challengeId: string };
 };

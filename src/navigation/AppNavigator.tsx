@@ -185,7 +185,7 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
       {/* Individual Team Dashboard */}
       <Stack.Screen name="TeamDashboard" options={screenConfigurations.Team}>
         {({ navigation, route }) => {
-          const { team, userIsMember = false } = route.params;
+          const { team, userIsMember = false, currentUserNpub, userIsCaptain = false } = route.params;
 
           return (
             <EnhancedTeamScreen
@@ -224,6 +224,8 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
               }
               showJoinButton={!userIsMember}
               userIsMember={userIsMember}
+              currentUserNpub={currentUserNpub} // Pass working npub to avoid AsyncStorage corruption
+              userIsCaptain={userIsCaptain} // Pass correctly calculated captain status from navigation
             />
           );
         }}

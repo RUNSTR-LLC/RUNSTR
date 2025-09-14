@@ -32,6 +32,8 @@ interface EnhancedTeamScreenProps {
   onJoinTeam?: () => void;
   showJoinButton?: boolean;
   userIsMemberProp?: boolean;
+  currentUserNpub?: string; // Passed from navigation to avoid AsyncStorage corruption
+  userIsCaptain?: boolean; // Passed from navigation to avoid recalculation
 }
 
 export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
@@ -47,6 +49,8 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
   onJoinTeam,
   showJoinButton = false,
   userIsMemberProp = true,
+  currentUserNpub, // Working npub from navigation to avoid AsyncStorage corruption
+  userIsCaptain: passedUserIsCaptain = false, // Correctly calculated captain status from navigation
 }) => {
   const { team, leaderboard, events, challenges } = data;
   
@@ -70,27 +74,41 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
     isCaptainOfThisTeam,
   } = useTeamCaptainDetection(team.id);
 
-  // Get current user from store
-  const { user } = useUserStore();
-  const currentUserNpub = user?.npub;
+  // Use working currentUserNpub from navigation instead of corrupted store  
+  const { user } = useUserStore(); // Keep for compatibility but prefer navigation parameter
+  const workingUserNpub = currentUserNpub || user?.npub; // Use navigation param first, fallback to store
 
   // Calculate membership status using utility functions
-  const calculatedUserIsMember = isTeamMember(currentUserNpub, team);
-  const userIsCaptain = isTeamCaptain(currentUserNpub, team);
+  const calculatedUserIsMember = isTeamMember(workingUserNpub, team);
+  // Use passed captain status from navigation instead of recalculating
+  const userIsCaptain = passedUserIsCaptain;
+  
+  // Debug logging for captain detection values
+  console.log('🎖️ EnhancedTeamScreen: Captain detection values:', {
+    navigationNpub: currentUserNpub ? currentUserNpub.slice(0, 12) + '...' : 'not passed',
+    storeNpub: user?.npub ? user.npub.slice(0, 12) + '...' : 'corrupted/missing',
+    workingUserNpub: workingUserNpub ? workingUserNpub.slice(0, 12) + '...' : 'missing',
+    teamCaptainId: 'captainId' in team ? team.captainId?.slice(0, 12) + '...' : 'N/A',
+    teamCaptainNpub: 'captainNpub' in team ? team.captainNpub?.slice(0, 12) + '...' : 'N/A',
+    passedUserIsCaptain,
+    userIsCaptain, // This should now be the same as passedUserIsCaptain
+    calculatedUserIsMember,
+    hookIsCaptain: isCaptain,
+  });
 
   // Debug logging for captain detection
   useEffect(() => {
     console.log('🐛 EnhancedTeamScreen Debug:', {
       teamName: team.name,
       teamId: team.id,
-      currentUserNpub: currentUserNpub?.slice(0, 8) + '...',
+      workingUserNpub: workingUserNpub?.slice(0, 8) + '...',
       teamCaptainId: 'captainId' in team ? team.captainId?.slice(0, 8) + '...' : 'N/A',
       teamCaptainNpub: 'captainNpub' in team ? team.captainNpub?.slice(0, 8) + '...' : 'N/A',
       userIsCaptain,
       calculatedUserIsMember,
       hookIsCaptain: isCaptain,
     });
-  }, [currentUserNpub, team.id, userIsCaptain, calculatedUserIsMember, isCaptain]);
+  }, [workingUserNpub, team.id, userIsCaptain, calculatedUserIsMember, isCaptain]);
 
   // Use league rankings hook to check for active competitions
   const {
@@ -200,7 +218,7 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
             prizePool={team.prizePool}
             onCaptainDashboard={handleCaptainDashboard}
             onJoinTeam={onJoinTeam}
-            isCaptain={userIsCaptain || isCaptain}
+            isCaptain={userIsCaptain}
             isMember={calculatedUserIsMember || userIsCaptain || isCaptain}
             captainLoading={captainLoading}
           />
