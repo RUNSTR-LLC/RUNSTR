@@ -19,6 +19,7 @@ import { theme } from '../styles/theme';
 // Components
 import { AboutPrizeSection } from '../components/team/AboutPrizeSection';
 import { TeamMembersSection } from '../components/team/TeamMembersSection';
+import { LeagueRankingsSection } from '../components/team/LeagueRankingsSection';
 import { EventsCard } from '../components/team/EventsCard';
 import { ChallengesCard } from '../components/team/ChallengesCard';
 
@@ -410,10 +411,6 @@ export const TeamDashboardScreen: React.FC<TeamDashboardScreenProps> = ({
                 <Text style={styles.statLabel}>Members</Text>
               </View>
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>{team.stats.avgPace}</Text>
-                <Text style={styles.statLabel}>Avg Pace</Text>
-              </View>
-              <View style={styles.statItem}>
                 <Text style={styles.statValue}>{team.stats.activeEvents}</Text>
                 <Text style={styles.statLabel}>Events</Text>
               </View>
@@ -466,12 +463,26 @@ export const TeamDashboardScreen: React.FC<TeamDashboardScreenProps> = ({
             </View>
           )}
 
-          {/* Team Members */}
-          <TeamMembersSection 
-            members={teamMembers}
-            onInvite={() => console.log('Invite member pressed')}
-            onEditMember={(memberId) => console.log('Edit member:', memberId)}
-            onKickMember={(memberId) => console.log('Kick member:', memberId)}
+          {/* League Rankings - Always show instead of Team Members */}
+          <LeagueRankingsSection
+            competitionId={`${team.id}-default-streak`}
+            participants={[]}
+            parameters={{
+              activityType: 'Any' as any,
+              competitionType: 'Most Consistent' as any,
+              startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+              endDate: new Date().toISOString(),
+              scoringFrequency: 'daily' as const,
+            }}
+            onMemberPress={(npub) => {
+              console.log(`👤 Member pressed: ${npub.slice(0, 8)}...`);
+            }}
+            onViewFullLeaderboard={() => {
+              console.log('📊 View full leaderboard pressed');
+            }}
+            maxDisplayed={10}
+            teamId={team.id}
+            isDefaultLeague={true}
           />
 
           {/* League Leaderboards */}

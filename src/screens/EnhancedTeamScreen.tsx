@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { BottomNavigation } from '../components/ui/BottomNavigation';
 import { TeamHeader } from '../components/team/TeamHeader';
 import { AboutPrizeSection } from '../components/team/AboutPrizeSection';
@@ -17,7 +17,8 @@ import { theme } from '../styles/theme';
 import { useCaptainDetection, useTeamCaptainDetection } from '../hooks/useCaptainDetection';
 import { useLeagueRankings } from '../hooks/useLeagueRankings';
 import { useUserStore } from '../store/userStore';
-import { isTeamMember, isTeamCaptain } from '../utils/teamUtils';
+import { isTeamMember, isTeamCaptain, isTeamCaptainEnhanced } from '../utils/teamUtils';
+import { getUserNostrIdentifiers } from '../utils/nostr';
 
 interface EnhancedTeamScreenProps {
   data: TeamScreenData;
@@ -74,13 +75,36 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
     isCaptainOfThisTeam,
   } = useTeamCaptainDetection(team.id);
 
-  // Use working currentUserNpub from navigation instead of corrupted store  
+  // Use working currentUserNpub from navigation instead of corrupted store
   const { user } = useUserStore(); // Keep for compatibility but prefer navigation parameter
   const workingUserNpub = currentUserNpub || user?.npub; // Use navigation param first, fallback to store
 
+  // Get user identifiers with hex support for enhanced captain detection
+  const [userIdentifiers, setUserIdentifiers] = React.useState<{ npub: string | null; hexPubkey: string | null } | null>(null);
+
+  React.useEffect(() => {
+    getUserNostrIdentifiers().then(setUserIdentifiers);
+  }, []);
+
   // Calculate membership status using utility functions
   const calculatedUserIsMember = isTeamMember(workingUserNpub, team);
-  // Use passed captain status from navigation instead of recalculating
+
+  // Debug: Log the exact team object structure
+  console.log('🔥 TEAM OBJECT STRUCTURE:', {
+    teamId: team?.id,
+    teamName: team?.name,
+    hasCaptainId: 'captainId' in team,
+    captainId: team?.captainId,
+    hasCaptain: 'captain' in team,
+    captain: team?.captain,
+    hasCaptainNpub: 'captainNpub' in team,
+    captainNpub: team?.captainNpub,
+    workingUserNpub: workingUserNpub?.slice(0, 20) + '...',
+    userHexPubkey: userIdentifiers?.hexPubkey?.slice(0, 20) + '...',
+  });
+
+  // Use the captain status passed from navigation - it's already correctly calculated
+  // The navigation handler has already determined if the user is captain
   const userIsCaptain = passedUserIsCaptain;
   
   // Debug logging for captain detection values
@@ -94,6 +118,12 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
     userIsCaptain, // This should now be the same as passedUserIsCaptain
     calculatedUserIsMember,
     hookIsCaptain: isCaptain,
+  });
+
+  console.log('🔴 CRITICAL: Captain status being passed to AboutPrizeSection:', {
+    userIsCaptain,
+    passedUserIsCaptain,
+    willShowButton: userIsCaptain === true
   });
 
   // Debug logging for captain detection
@@ -132,23 +162,21 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
     }
   }, [team.id, checkCaptainStatus]);
 
-  // Enhanced captain dashboard handler with loading state
-  const handleCaptainDashboard = async () => {
-    console.log('🎖️ EnhancedTeamScreen: Captain dashboard pressed, checking fresh status...');
-    
-    try {
-      // Refresh captain status to ensure we have the latest data
-      await refreshCaptainStatus();
-      
-      if (isCaptain) {
-        console.log('✅ EnhancedTeamScreen: Captain status confirmed, opening dashboard');
-        onCaptainDashboard();
-      } else {
-        console.warn('❌ EnhancedTeamScreen: Captain status check failed, access denied');
-        // The hook will handle error display
-      }
-    } catch (error) {
-      console.error('❌ EnhancedTeamScreen: Captain dashboard access error:', error);
+  // Enhanced captain dashboard handler - simplified since we already know captain status
+  const handleCaptainDashboard = () => {
+    console.log('🎖️ EnhancedTeamScreen: Captain dashboard pressed');
+    console.log('🎖️ User is captain:', userIsCaptain);
+
+    // Since userIsCaptain is already determined by navigation, we can trust it
+    if (userIsCaptain) {
+      console.log('✅ Captain access granted - navigating to dashboard');
+      onCaptainDashboard();
+    } else {
+      Alert.alert(
+        'Captain Access Only',
+        'This feature is only available to team captains. If you believe this is an error, please try logging out and back in.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -223,12 +251,18 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
             captainLoading={captainLoading}
           />
 
-          {/* Dynamic League Rankings or Static Leaderboard */}
-          {hasActiveLeague && activeLeague ? (
+          {/* Always show League Rankings - with default 30-day streak if no active league */}
+          <View style={{ marginVertical: 12 }}>
             <LeagueRankingsSection
-              competitionId={activeLeague.competitionId}
-              participants={activeLeague.participants}
-              parameters={activeLeague.parameters}
+              competitionId={activeLeague?.competitionId || `${team.id}-default-streak`}
+              participants={activeLeague?.participants || []}
+              parameters={activeLeague?.parameters || {
+                activityType: 'Any' as any,
+                competitionType: 'Most Consistent' as any,
+                startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+                endDate: new Date().toISOString(),
+                scoringFrequency: 'daily' as const,
+              }}
               onMemberPress={(npub) => {
                 console.log(`👤 Member pressed: ${npub.slice(0, 8)}...`);
                 // Could navigate to member profile
@@ -237,11 +271,11 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
                 console.log('📊 View full leaderboard pressed');
                 // Could navigate to full leaderboard screen
               }}
-              maxDisplayed={5}
+              maxDisplayed={10}
+              teamId={team.id}
+              isDefaultLeague={!hasActiveLeague}
             />
-          ) : (
-            <LeaderboardCard leaderboard={formattedLeaderboard} />
-          )}
+          </View>
 
           <View style={styles.bottomSection}>
             <EventsCard 

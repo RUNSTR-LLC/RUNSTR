@@ -100,9 +100,6 @@ export const CaptainDashboardButton: React.FC<CaptainDashboardButtonProps> = ({
           />
         )}
         
-        {showIcon && !isLoading && (
-          <Text style={[...getTextStyles(), styles.icon]}>⚡</Text>
-        )}
         
         <Text style={getTextStyles()}>
           {isLoading ? 'Loading...' : 'Captain Dashboard'}

@@ -254,13 +254,17 @@ export class NdkTeamService {
             id: teamId,
             name: teamName,
             description: ndkEvent.content || '',
+            captain: captainId, // Add captain field
             captainId: captainId,
+            captainNpub: captainId, // For compatibility
             memberCount: 1, // Default
             isPublic: true, // Default - show everything else
             activityType: 'general',
             tags: [],
             createdAt: ndkEvent.created_at || Math.floor(Date.now() / 1000),
-            updatedAt: ndkEvent.created_at || Math.floor(Date.now() / 1000),
+            nostrEvent: this.convertNdkEventToStandard(ndkEvent), // Add nostrEvent using correct method name
+            hasListSupport: false, // Default
+            memberListId: undefined, // Default
           };
 
           teams.push(simpleTeam);
@@ -473,6 +477,7 @@ export class NdkTeamService {
         id: `${captain}:${teamUUID || event.id}`,
         name,
         description: event.content || '',
+        captain: captain, // Add captain field with hex pubkey
         captainId: captain,
         captainNpub: captain,
         memberCount,

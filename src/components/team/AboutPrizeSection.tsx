@@ -44,7 +44,7 @@ export const AboutPrizeSection: React.FC<AboutPrizeSectionProps> = ({
       <View style={styles.prizeSection}>
         <View style={styles.prizeAmount}>
           <Text style={styles.prizeNumber}>{formatPrizePool(prizePool)}</Text>
-          <Text style={styles.prizeCurrency}>sat prize pool</Text>
+          <Text style={styles.prizeCurrency}>League prize pool</Text>
         </View>
         <View style={styles.buttonContainer}>
           {/* Membership Status Button - Always show for members or join button for non-members */}
@@ -68,16 +68,17 @@ export const AboutPrizeSection: React.FC<AboutPrizeSectionProps> = ({
             )
           )}
           
-          {/* Captain Dashboard Button - Additional button for captains only */}
-          {isCaptain && (
-            <CaptainDashboardButton
-              onPress={onCaptainDashboard}
-              isLoading={captainLoading}
-              variant="outline"
-              size="medium"
-              style={styles.actionButton}
-            />
-          )}
+          {/* Captain Dashboard Button - Always show, validate on click */}
+          <CaptainDashboardButton
+            onPress={() => {
+              console.log('🎖️ Captain Dashboard button clicked!');
+              onCaptainDashboard();
+            }}
+            isLoading={captainLoading}
+            variant="outline"
+            size="medium"
+            style={styles.actionButton}
+          />
         </View>
       </View>
     </View>

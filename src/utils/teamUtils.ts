@@ -9,12 +9,12 @@ import { nip19 } from 'nostr-tools';
 
 /**
  * Check if a user is the captain of a specific team
- * @param userNpub - User's Nostr public key
+ * @param userNpub - User's Nostr public key (npub or hex format)
  * @param team - Team to check (either NostrTeam or DiscoveryTeam format)
  * @returns Boolean indicating if user is the team captain
  */
 export function isTeamCaptain(
-  userNpub: string | undefined | null, 
+  userNpub: string | undefined | null,
   team: NostrTeam | DiscoveryTeam | undefined | null
 ): boolean {
   // Early return if missing required data
@@ -23,35 +23,98 @@ export function isTeamCaptain(
   }
 
   // Extract captain ID from team (try multiple possible field names)
-  const captainId = 'captainNpub' in team ? team.captainNpub :
-                    'captainId' in team ? team.captainId : null;
+  // Priority: captain (new field with hex) > captainId > captainNpub (deprecated)
+  const captainId = 'captain' in team ? (team as any).captain :
+                    'captainId' in team ? team.captainId :
+                    'captainNpub' in team ? (team as any).captainNpub : null;
 
   if (!captainId) {
     return false;
   }
 
+  // Simple string comparison if formats match
+  if (captainId === userNpub) {
+    return true;
+  }
+
   // Handle format conversion between hex and npub
   try {
-    // If userNpub is npub format and captainId is hex, convert hex to npub
-    if (userNpub.startsWith('npub1') && !captainId.startsWith('npub1') && captainId.length === 64) {
-      const captainNpub = nip19.npubEncode(captainId);
-      return captainNpub === userNpub;
-    }
-    
-    // If both are same format, direct comparison
-    if ((userNpub.startsWith('npub1') && captainId.startsWith('npub1')) ||
-        (!userNpub.startsWith('npub1') && !captainId.startsWith('npub1'))) {
-      return captainId === userNpub;
-    }
-    
-    // If userNpub is hex and captainId is npub, convert npub to hex
-    if (!userNpub.startsWith('npub1') && captainId.startsWith('npub1')) {
-      const { data: captainHex } = nip19.decode(captainId);
-      return captainHex === userNpub;
-    }
+    // Convert both to hex for comparison (hex comparison is simpler)
+    const userHex = userNpub.startsWith('npub1')
+      ? String(nip19.decode(userNpub).data)
+      : userNpub;
+
+    const captainHex = captainId.startsWith('npub1')
+      ? String(nip19.decode(captainId).data)
+      : captainId;
+
+    return userHex === captainHex;
   } catch (error) {
     console.error('Error in captain detection format conversion:', error);
     return false;
+  }
+}
+
+/**
+ * Enhanced captain detection with both npub and hex support
+ * Uses the stored hex pubkey for faster comparisons
+ * @param userIdentifiers - Object with both npub and hex pubkey
+ * @param team - Team to check
+ * @returns Boolean indicating if user is the team captain
+ */
+export function isTeamCaptainEnhanced(
+  userIdentifiers: { npub?: string | null; hexPubkey?: string | null } | null,
+  team: NostrTeam | DiscoveryTeam | undefined | null
+): boolean {
+  // Early return if missing required data
+  if (!userIdentifiers || !team) {
+    return false;
+  }
+
+  const { npub, hexPubkey } = userIdentifiers;
+
+  // Need at least one identifier
+  if (!npub && !hexPubkey) {
+    return false;
+  }
+
+  // Extract captain ID from team (try multiple possible field names)
+  // Priority: captain (new field with hex) > captainId > captainNpub (deprecated)
+  const captainId = 'captain' in team ? (team as any).captain :
+                    'captainId' in team ? team.captainId :
+                    'captainNpub' in team ? (team as any).captainNpub : null;
+
+  if (!captainId) {
+    return false;
+  }
+
+  // Direct comparison if we have matching formats
+  if (npub && captainId === npub) return true;
+  if (hexPubkey && captainId === hexPubkey) return true;
+
+  // If captain ID is in hex format and we have hex
+  if (hexPubkey && !captainId.startsWith('npub1') && captainId.length === 64) {
+    return hexPubkey === captainId;
+  }
+
+  // If captain ID is in npub format and we have npub
+  if (npub && captainId.startsWith('npub1')) {
+    return npub === captainId;
+  }
+
+  // Try format conversion as last resort
+  try {
+    if (captainId.startsWith('npub1')) {
+      // Captain is npub, convert to hex and compare
+      const captainHex = String(nip19.decode(captainId).data);
+      return hexPubkey === captainHex;
+    } else if (captainId.length === 64) {
+      // Captain is hex, convert to npub and compare
+      const captainNpub = nip19.npubEncode(captainId);
+      return npub === captainNpub;
+    }
+  } catch (error) {
+    console.error('Error in enhanced captain detection:', error);
   }
 
   return false;

@@ -26,8 +26,9 @@ export interface NostrTeam {
   id: string;
   name: string;
   description: string;
-  captainId: string;
-  captainNpub: string;
+  captain: string; // Captain's hex pubkey from Nostr event
+  captainId: string; // Deprecated: kept for backward compatibility
+  captainNpub: string; // Deprecated: kept for backward compatibility
   memberCount: number;
   activityType?: string;
   location?: string;
@@ -159,8 +160,9 @@ export class NostrTeamService {
         id: `${captain}:${teamUUID || event.id}`, // Use captain:uuid or fallback to event.id
         name,
         description: event.content || '', // Allow empty descriptions
-        captainId: captain,
-        captainNpub: captain,
+        captain: captain, // Store hex pubkey in captain field
+        captainId: captain, // Deprecated: kept for backward compatibility
+        captainNpub: captain, // Deprecated: misleading name since it's hex, not npub
         memberCount,
         activityType: activityTypes.join(', ') || teamType,
         location,

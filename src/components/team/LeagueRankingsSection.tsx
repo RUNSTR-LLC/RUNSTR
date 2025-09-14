@@ -15,12 +15,14 @@ import {
 } from 'react-native';
 import { theme } from '../../styles/theme';
 import { MemberAvatar } from '../ui/MemberAvatar';
-import LeagueRankingService, {
+import leagueRankingService, {
   LeagueRankingEntry,
   LeagueRankingResult,
   LeagueParameters,
   LeagueParticipant,
 } from '../../services/competition/leagueRankingService';
+import { NostrListService } from '../../services/nostr/NostrListService';
+import { TeamMembershipService } from '../../services/team/teamMembershipService';
 
 export interface LeagueRankingsSectionProps {
   competitionId: string;
@@ -31,6 +33,8 @@ export interface LeagueRankingsSectionProps {
   style?: any;
   showFullList?: boolean;
   maxDisplayed?: number;
+  teamId?: string;
+  isDefaultLeague?: boolean;
 }
 
 export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
@@ -42,13 +46,73 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
   style,
   showFullList = false,
   maxDisplayed = 5,
+  teamId,
+  isDefaultLeague = false,
 }) => {
+  console.log('🏆 LeagueRankingsSection rendering with:', {
+    competitionId,
+    teamId,
+    isDefaultLeague,
+  });
   const [rankings, setRankings] = useState<LeagueRankingResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [teamParticipants, setTeamParticipants] = useState<LeagueParticipant[]>(participants);
 
-  const rankingService = new LeagueRankingService();
+  const rankingService = leagueRankingService;
+  const listService = NostrListService.getInstance();
+  const membershipService = TeamMembershipService.getInstance();
+
+  /**
+   * Fetch team members from Nostr lists if not provided
+   */
+  const fetchTeamMembers = async (): Promise<LeagueParticipant[]> => {
+    if (!teamId) return [];
+
+    try {
+      console.log(`🔍 Fetching team members for team: ${teamId}`);
+
+      // Get official members from team - simplified approach
+      // For now, we'll use a basic member list since the full Nostr list integration isn't complete
+      const officialMembers: string[] = [];
+
+      // TODO: When NostrListService.fetchTeamMemberLists is implemented, use:
+      // const memberLists = await listService.fetchTeamMemberLists(teamId);
+      // Extract members from kind 30000/30001 lists
+
+      // For RUNSTR team, add the captain (TheWildHustle) as a default member
+      if (teamId === '87d30c8b-aa18-4424-a629-d41ea7f89078') {
+        // TheWildHustle's npub
+        officialMembers.push('npub1xr8tvnnntjqqrqp9n7e7j5sdp9npqg2kv2nndxkyfzhqr5u0e9sq7w2qxa');
+      }
+
+      // Get local members (user's own view includes local members)
+      const localMembers = await membershipService.getLocalMembers(teamId);
+
+      // Combine and deduplicate
+      const allMembers = [...new Set([...officialMembers, ...localMembers])];
+
+      // Convert to LeagueParticipant format
+      return allMembers.map(npub => {
+        // Special case for known team members
+        let name = npub.slice(0, 8) + '...';
+        if (npub.includes('xr8tvnnn') || npub.includes('30ceb64e')) {
+          name = 'TheWildHustle';
+        }
+
+        return {
+          npub,
+          name,
+          isActive: true,
+        };
+      });
+
+    } catch (err) {
+      console.error('❌ Failed to fetch team members:', err);
+      return [];
+    }
+  };
 
   /**
    * Load league rankings
@@ -56,14 +120,23 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
   const loadRankings = async (force = false) => {
     try {
       console.log(`🏆 Loading league rankings: ${competitionId}`);
-      
+      console.log(`📊 Is default league: ${isDefaultLeague}`);
+
       if (force) {
         setRefreshing(true);
       }
 
+      // Use provided participants or fetch them
+      let participantsToUse = teamParticipants;
+      if (participantsToUse.length === 0 && teamId) {
+        console.log('📥 No participants provided, fetching from team lists...');
+        participantsToUse = await fetchTeamMembers();
+        setTeamParticipants(participantsToUse);
+      }
+
       const result = await rankingService.calculateLeagueRankings(
         competitionId,
-        participants,
+        participantsToUse,
         parameters
       );
 
@@ -83,12 +156,18 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
    * Initialize rankings on mount
    */
   useEffect(() => {
-    if (competitionId && participants.length > 0) {
+    console.log('🎯 LeagueRankingsSection mounted with:', {
+      competitionId,
+      teamId,
+      isDefaultLeague,
+      participantsCount: participants.length,
+    });
+    if (competitionId) {
       loadRankings();
     } else {
       setLoading(false);
     }
-  }, [competitionId, participants]);
+  }, [competitionId, teamId]);
 
   /**
    * Auto-refresh rankings periodically
@@ -160,7 +239,9 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
     return (
       <View style={[styles.rankingsSection, style]}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>League Rankings</Text>
+          <Text style={styles.sectionTitle}>
+            {isDefaultLeague ? '30-Day Streak Challenge' : 'League Rankings'}
+          </Text>
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" color={theme.colors.accent} />
@@ -174,7 +255,9 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
     return (
       <View style={[styles.rankingsSection, style]}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>League Rankings</Text>
+          <Text style={styles.sectionTitle}>
+            {isDefaultLeague ? '30-Day Streak Challenge' : 'League Rankings'}
+          </Text>
           <TouchableOpacity
             style={styles.actionBtn}
             onPress={handleRefresh}
@@ -194,11 +277,19 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
     return (
       <View style={[styles.rankingsSection, style]}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>League Rankings</Text>
+          <Text style={styles.sectionTitle}>
+            {isDefaultLeague ? '30-Day Streak Challenge' : 'League Rankings'}
+          </Text>
         </View>
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No competition data yet</Text>
-          <Text style={styles.emptySubtext}>Complete workouts to see rankings</Text>
+          <Text style={styles.emptyText}>
+            {isDefaultLeague ? 'No team activity yet' : 'No competition data yet'}
+          </Text>
+          <Text style={styles.emptySubtext}>
+            {isDefaultLeague
+              ? 'Team members will appear here when they complete workouts'
+              : 'Complete workouts to see rankings'}
+          </Text>
         </View>
       </View>
     );
@@ -211,7 +302,9 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
     <View style={[styles.rankingsSection, style]}>
       <View style={styles.sectionHeader}>
         <View style={styles.titleContainer}>
-          <Text style={styles.sectionTitle}>League Rankings</Text>
+          <Text style={styles.sectionTitle}>
+            {isDefaultLeague ? '30-Day Streak Challenge' : 'League Rankings'}
+          </Text>
           {rankings.isActive && (
             <View style={styles.liveIndicator}>
               <View style={styles.liveDot} />
@@ -330,6 +423,8 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     borderRadius: 12,
     padding: 16,
+    minHeight: 200,
+    marginVertical: 8,
   },
 
   sectionHeader: {

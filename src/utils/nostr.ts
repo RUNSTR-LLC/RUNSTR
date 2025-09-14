@@ -54,6 +54,7 @@ const atob = (str: string): string => {
 const STORAGE_KEYS = {
   NSEC: '@runstr:nsec_encrypted',
   NPUB: '@runstr:npub',
+  HEX_PUBKEY: '@runstr:hex_pubkey',
   AUTH_METHOD: '@runstr:auth_method',
 } as const;
 
@@ -244,11 +245,22 @@ export async function storeNsecLocally(
     const encryptedNsec = encryptForStorage(nsec, userId);
     await AsyncStorage.setItem(STORAGE_KEYS.NSEC, encryptedNsec);
 
+    // Get the hex pubkey from nsec
+    const decoded = nip19.decode(nsec);
+    if (decoded.type !== 'nsec') {
+      throw new Error('Not a valid nsec');
+    }
+    const publicKeyHex = getPublicKey(decoded.data as Uint8Array);
+
+    // Store the hex pubkey for easy access
+    await AsyncStorage.setItem(STORAGE_KEYS.HEX_PUBKEY, publicKeyHex);
+
     // Also store the npub for quick access
-    const npub = nsecToNpub(nsec);
+    const npub = nip19.npubEncode(publicKeyHex);
     await AsyncStorage.setItem(STORAGE_KEYS.NPUB, npub);
 
     console.log('Nostr keys stored locally for user:', userId);
+    console.log('Stored hex pubkey:', publicKeyHex.slice(0, 16) + '...');
   } catch (error) {
     console.error('Error storing nsec locally:', error);
     throw new Error('Failed to store Nostr keys locally');
@@ -297,6 +309,18 @@ export async function getNpubFromStorage(): Promise<string | null> {
 }
 
 /**
+ * Get hex pubkey from local storage
+ */
+export async function getHexPubkeyFromStorage(): Promise<string | null> {
+  try {
+    return await AsyncStorage.getItem(STORAGE_KEYS.HEX_PUBKEY);
+  } catch (error) {
+    console.error('Error retrieving hex pubkey from storage:', error);
+    return null;
+  }
+}
+
+/**
  * Store authentication method used
  */
 export async function storeAuthMethod(
@@ -329,6 +353,7 @@ export async function clearNostrStorage(): Promise<void> {
     await AsyncStorage.multiRemove([
       STORAGE_KEYS.NSEC,
       STORAGE_KEYS.NPUB,
+      STORAGE_KEYS.HEX_PUBKEY,
       STORAGE_KEYS.AUTH_METHOD,
     ]);
     console.log('Nostr storage cleared');
@@ -412,4 +437,40 @@ export function normalizeNsecInput(input: string): string {
   throw new Error(
     'Invalid nsec format. Please enter a valid nsec1... key or hex private key.'
   );
+}
+
+/**
+ * Get user's Nostr identifiers from storage
+ * Returns both npub and hex pubkey for easy use in comparisons
+ */
+export async function getUserNostrIdentifiers(): Promise<{
+  npub: string | null;
+  hexPubkey: string | null;
+} | null> {
+  try {
+    const npub = await getNpubFromStorage();
+    const hexPubkey = await getHexPubkeyFromStorage();
+
+    if (!npub && !hexPubkey) {
+      return null;
+    }
+
+    // If we have npub but missing hex, derive it
+    if (npub && !hexPubkey) {
+      try {
+        const decoded = nip19.decode(npub);
+        if (decoded.type === 'npub' && typeof decoded.data === 'string') {
+          await AsyncStorage.setItem(STORAGE_KEYS.HEX_PUBKEY, decoded.data);
+          return { npub, hexPubkey: decoded.data };
+        }
+      } catch (error) {
+        console.error('Error deriving hex from npub:', error);
+      }
+    }
+
+    return { npub, hexPubkey };
+  } catch (error) {
+    console.error('Error getting user Nostr identifiers:', error);
+    return null;
+  }
 }

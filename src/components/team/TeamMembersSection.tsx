@@ -59,6 +59,7 @@ export const TeamMembersSection: React.FC<TeamMembersSectionProps> = ({
     <View style={[styles.managementSection, style]}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Team Members</Text>
+        {/* Invite button hidden per requirements
         <TouchableOpacity
           style={styles.actionBtn}
           onPress={handleInvitePress}
@@ -67,6 +68,7 @@ export const TeamMembersSection: React.FC<TeamMembersSectionProps> = ({
           <Text style={styles.actionBtnIcon}>+</Text>
           <Text style={styles.actionBtnText}>Invite</Text>
         </TouchableOpacity>
+        */}
       </View>
 
       <ScrollView

@@ -46,7 +46,6 @@ export const TeamStatsGrid: React.FC<TeamStatsGridProps> = ({ stats }) => {
   return (
     <View style={styles.statsGrid}>
       <StatItem label="MEMBERS" value={formatMemberCount(stats.memberCount)} />
-      <StatItem label="AVG PACE" value={formatAvgPace(stats.avgPace)} />
       <StatItem
         label="ACTIVE EVENTS"
         value={formatEventCount(stats.activeEvents)}

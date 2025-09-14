@@ -302,6 +302,7 @@ export class SimpleNostrService {
         id: `${captain}:${teamUUID || event.id}`,
         name,
         description: event.content || '',
+        captain: captain, // Add captain field with hex pubkey
         captainId: captain,
         captainNpub: captain,
         memberCount,

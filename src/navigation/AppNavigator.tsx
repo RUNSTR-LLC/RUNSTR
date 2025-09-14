@@ -187,6 +187,14 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
         {({ navigation, route }) => {
           const { team, userIsMember = false, currentUserNpub, userIsCaptain = false } = route.params;
 
+          console.log('🚨 AppNavigator: Route params received:', {
+            hasTeam: !!team,
+            userIsMember,
+            currentUserNpub: currentUserNpub?.slice(0, 20) + '...',
+            userIsCaptain,
+            allParamKeys: Object.keys(route.params || {})
+          });
+
           return (
             <EnhancedTeamScreen
               data={{

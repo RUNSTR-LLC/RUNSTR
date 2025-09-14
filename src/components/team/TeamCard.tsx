@@ -99,7 +99,7 @@ export const TeamCard: React.FC<TeamCardProps> = ({
         // Check if there's a pending request
         const membershipStatus = await membershipService.getMembershipStatus(
           currentUserNpub,
-          team.teamId,
+          team.id, // Use team.id instead of non-existent team.teamId
           team.captainId
         );
         setButtonState(membershipStatus.hasRequestPending ? 'pending' : 'join');
@@ -118,7 +118,7 @@ export const TeamCard: React.FC<TeamCardProps> = ({
 
       // Join locally first for instant UX
       await membershipService.joinTeamLocally(
-        team.teamId,
+        team.id, // Use team.id instead of non-existent team.teamId
         team.name,
         team.captainId,
         currentUserNpub
