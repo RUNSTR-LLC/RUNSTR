@@ -14,6 +14,7 @@ import {
 } from '../../../utils/nostr';
 import type { AuthResult, CreateUserData, User } from '../../../types';
 import { DirectNostrProfileService, type DirectNostrUser } from '../../user/directNostrProfileService';
+import nutzapService from '../../nutzap/nutzapService';
 
 export class NostrAuthProvider {
   /**
@@ -49,6 +50,20 @@ export class NostrAuthProvider {
       // Store keys locally (no database interaction)
       await storeNsecLocally(nsec, npub);
       console.log('✅ NostrAuthProvider: Keys stored locally');
+
+      // Initialize NutZap wallet for user (auto-creates if doesn't exist)
+      try {
+        console.log('💰 NostrAuthProvider: Initializing NutZap wallet...');
+        const walletState = await nutzapService.initialize(nsec);
+        if (walletState.created) {
+          console.log('✅ NostrAuthProvider: New NutZap wallet created for user');
+        } else {
+          console.log('✅ NostrAuthProvider: Existing NutZap wallet loaded');
+        }
+      } catch (walletError) {
+        // Don't fail auth if wallet creation fails - wallet can be created later
+        console.warn('⚠️ NostrAuthProvider: NutZap wallet initialization failed (non-fatal):', walletError);
+      }
 
       // Get profile using DirectNostrProfileService (pure Nostr)
       const directUser = await DirectNostrProfileService.getCurrentUserProfile();

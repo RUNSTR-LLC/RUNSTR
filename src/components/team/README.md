@@ -7,6 +7,7 @@ Team discovery, management, and display components for RUNSTR team functionality
 - **AboutPrizeSection.tsx** - Prize information and reward details section for teams
 - **ActivityFeedSection.tsx** - Team activity feed section with recent events
 - **ActivityItem.tsx** - Individual activity item component for team feeds
+- **CaptainDashboardButton.tsx** - Button component for captain dashboard access
 - **CaptainHeader.tsx** - Header component for captain dashboard and management
 - **CaptainWalletManager.tsx** - Wallet management component for team captains
 - **ChallengesCard.tsx** - Challenge display card for team dashboard
@@ -15,6 +16,7 @@ Team discovery, management, and display components for RUNSTR team functionality
 - **JoinRequestCard.tsx** - Individual join request display component
 - **JoinRequestsSection.tsx** - Section for managing team join requests
 - **LeaderboardCard.tsx** - Team leaderboard display component
+- **LeagueRankingsSection.tsx** - League rankings display section
 - **NostrMemberManager.tsx** - Nostr-based team member management component
 - **QuickActionsSection.tsx** - Quick action buttons for team management
 - **RewardDistributionPanel.tsx** - Bitcoin reward distribution interface for captains

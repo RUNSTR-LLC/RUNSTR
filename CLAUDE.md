@@ -3,7 +3,7 @@
 ## Project Overview
 RUNSTR.APP is a React Native mobile application that transforms fitness routines into competitive, Bitcoin-earning experiences through Nostr-native team competitions. The app operates as a two-tab interface where users authenticate with Nostr, discover fitness teams, and participate in captain-created competitions with automatic scoring and Bitcoin rewards.
 
-📖 **For detailed user flow documentation, see**: [APP_USER_FLOW_AND_CAPTAIN_EXPERIENCE.md](./APP_USER_FLOW_AND_CAPTAIN_EXPERIENCE.md)
+📖 **For detailed user flow documentation, see**: [APP_USER_FLOW_AND_CAPTAIN_EXPERIENCE.md](./docs/APP_USER_FLOW_AND_CAPTAIN_EXPERIENCE.md)
 
 ## Core User & Captain Experience
 **User Flow**: Nsec login → Profile screen → Teams discovery → Team joining → Competition participation

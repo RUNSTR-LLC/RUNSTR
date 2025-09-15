@@ -17,7 +17,7 @@ import {
 import { theme } from '../styles/theme';
 import { BottomNavigation } from '../components/ui/BottomNavigation';
 import { QuickActionsSection } from '../components/team/QuickActionsSection';
-import { CaptainWalletManager } from '../components/team/CaptainWalletManager';
+import { PersonalWalletManager } from '../components/team/PersonalWalletManager';
 import { ActivityFeedSection } from '../components/team/ActivityFeedSection';
 import { JoinRequestsSection } from '../components/team/JoinRequestsSection';
 import { EventCreationWizard } from '../components/wizards/EventCreationWizard';
@@ -302,13 +302,19 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
           }}
         />
 
-        {/* Team Wallet Management */}
+        {/* Personal Wallet Management */}
         <View style={{ marginBottom: 16 }}>
-          <CaptainWalletManager
+          <PersonalWalletManager
             teamId={data.team.id}
-            captainId={captainId}
-            onDistributeRewards={onDistributeRewards}
-            onViewFullHistory={onViewWalletHistory}
+            teamMembers={data.members.map(m => ({
+              id: m.id,
+              name: m.name,
+              npub: m.id, // Assuming member ID is their npub
+            }))}
+            onRewardSent={() => {
+              // Refresh activity feed or show success
+              console.log('Reward sent successfully');
+            }}
           />
         </View>
 
