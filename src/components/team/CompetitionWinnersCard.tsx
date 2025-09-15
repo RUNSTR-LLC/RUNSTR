@@ -95,8 +95,8 @@ export const CompetitionWinnersCard: React.FC<CompetitionWinnersCardProps> = ({
             <View key={winner.id} style={styles.winnerItem}>
               <View style={styles.winnerLeft}>
                 <Avatar
-                  pubkey={winner.winnerNpub}
-                  uri={winner.winnerAvatar}
+                  name={winner.winnerName}
+                  imageUrl={winner.winnerAvatar}
                   size={32}
                 />
                 <View style={styles.winnerInfo}>

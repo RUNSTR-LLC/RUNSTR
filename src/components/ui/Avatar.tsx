@@ -24,6 +24,9 @@ export const Avatar: React.FC<AvatarProps> = ({
   showIcon = false,
 }) => {
   const getInitial = (name: string): string => {
+    if (!name || name.length === 0) {
+      return '?';
+    }
     return name.charAt(0).toUpperCase();
   };
 
@@ -56,7 +59,7 @@ export const Avatar: React.FC<AvatarProps> = ({
           color={theme.colors.text}
         />
       ) : (
-        <Text style={[styles.initial, textStyle]}>{getInitial(name)}</Text>
+        <Text style={[styles.initial, textStyle]}>{getInitial(name || '')}</Text>
       )}
     </View>
   );
