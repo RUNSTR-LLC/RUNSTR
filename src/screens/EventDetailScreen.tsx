@@ -28,10 +28,14 @@ import { EventHeader } from '../components/event/EventHeader';
 import { EventStats } from '../components/event/EventStats';
 import { EventParticipants } from '../components/event/EventParticipants';
 import { EventDetails } from '../components/event/EventDetails';
+import { LiveLeaderboard } from '../components/competition/LiveLeaderboard';
 
 // Real Data Services
 import { CompetitionService } from '../services/competition/competitionService';
 import { NostrCompetitionLeaderboardService } from '../services/competition/nostrCompetitionLeaderboardService';
+import { NostrTeamService } from '../services/nostr/NostrTeamService';
+import { CaptainCache } from '../utils/captainCache';
+import { getNpubFromStorage } from '../utils/nostr';
 import type { CompetitionLeaderboard, CompetitionParticipant } from '../services/competition/nostrCompetitionLeaderboardService';
 
 type EventDetailRouteProp = RouteProp<RootStackParamList, 'EventDetail'>;
@@ -58,11 +62,54 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
   >('not_joined');
   const [leaderboard, setLeaderboard] = useState<CompetitionLeaderboard | null>(null);
   const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(false);
+  const [userIsCaptain, setUserIsCaptain] = useState(false);
+  const [currentUserPubkey, setCurrentUserPubkey] = useState<string | null>(null);
+  const [team, setTeam] = useState<any>(null);
 
   // Load event data
   useEffect(() => {
     loadEventData();
+    checkCaptainStatus();
   }, [eventId]);
+
+  const checkCaptainStatus = async () => {
+    try {
+      // Get current user pubkey
+      const npub = await getNpubFromStorage();
+      setCurrentUserPubkey(npub);
+
+      if (!npub) return;
+
+      // Get competition and team info
+      const competitionService = CompetitionService.getInstance();
+      const competition = competitionService.getCompetitionById(eventId);
+
+      if (competition && competition.teamId) {
+        // Check captain cache first
+        const captainCache = CaptainCache.getInstance();
+        const isCaptain = await captainCache.getIsCaptain(competition.teamId);
+
+        if (isCaptain !== null) {
+          setUserIsCaptain(isCaptain);
+        } else {
+          // Fetch team data to verify captain status
+          const teamService = NostrTeamService.getInstance();
+          const teamData = await teamService.fetchTeamById(competition.teamId);
+
+          if (teamData) {
+            setTeam(teamData);
+            const captainStatus = teamData.captain === npub ||
+                                 teamData.captainHex === npub;
+            setUserIsCaptain(captainStatus);
+            // Cache the result
+            await captainCache.setIsCaptain(competition.teamId, captainStatus);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking captain status:', error);
+    }
+  };
 
   const loadEventData = async () => {
     setIsLoading(true);
@@ -88,7 +135,16 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
         );
         
         setLeaderboard(eventLeaderboard);
-        
+
+        // Also fetch and set team data if we don't have it yet
+        if (!team && competition.teamId) {
+          const teamService = NostrTeamService.getInstance();
+          const teamData = await teamService.fetchTeamById(competition.teamId);
+          if (teamData) {
+            setTeam(teamData);
+          }
+        }
+
         // Convert leaderboard participants to participant details format
         const participantDetails = eventLeaderboard.participants.map((participant: CompetitionParticipant) => ({
           id: participant.pubkey,
@@ -393,11 +449,35 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
           completedCount={eventData.stats.completedCount}
         />
 
-        {/* Participants Section */}
-        <EventParticipants
-          participants={eventData.participantDetails}
-          totalCount={eventData.stats.participantCount}
-        />
+        {/* Live Leaderboard with Distribution Panel for Captains */}
+        {team && leaderboard && (
+          <LiveLeaderboard
+            competition={{
+              id: eventData.id,
+              teamId: team.id,
+              name: eventData.name,
+              description: eventData.description,
+              type: 'event',
+              startTime: Math.floor(new Date(eventData.startDate).getTime() / 1000),
+              endTime: Math.floor(new Date(eventData.endDate).getTime() / 1000),
+              activityType: eventData.details.activityType as any,
+              goalType: 'distance' as any,
+              entryFeesSats: Math.floor(eventData.prizePool / Math.max(1, eventData.stats.participantCount)),
+            }}
+            team={team}
+            userIsCaptain={userIsCaptain}
+            currentUserPubkey={currentUserPubkey || undefined}
+            showHeader={false}
+          />
+        )}
+
+        {/* Fallback Participants Section if no leaderboard */}
+        {!leaderboard && (
+          <EventParticipants
+            participants={eventData.participantDetails}
+            totalCount={eventData.stats.participantCount}
+          />
+        )}
 
         {/* Event Details Section */}
         <EventDetails

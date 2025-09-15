@@ -16,6 +16,7 @@ import { theme } from '../../styles/theme';
 import { MemberAvatar } from '../ui/MemberAvatar';
 import { TimeRemaining } from '../ui/TimeRemaining';
 import { LeaderboardService } from '../../services/competition/leaderboardService';
+import { CompetitionDistributionPanel } from './CompetitionDistributionPanel';
 import type {
   Competition,
   CompetitionParticipant,
@@ -31,6 +32,8 @@ interface LiveLeaderboardProps {
   showHeader?: boolean;
   maxEntries?: number;
   style?: any;
+  userIsCaptain?: boolean;
+  currentUserPubkey?: string;
 }
 
 // Helper function to format time remaining
@@ -54,6 +57,8 @@ export const LiveLeaderboard: React.FC<LiveLeaderboardProps> = ({
   showHeader = true,
   maxEntries,
   style,
+  userIsCaptain = false,
+  currentUserPubkey,
 }) => {
   const [leaderboard, setLeaderboard] = useState<CompetitionLeaderboard | null>(
     null
@@ -310,6 +315,21 @@ export const LiveLeaderboard: React.FC<LiveLeaderboardProps> = ({
             </View>
           )}
       </ScrollView>
+
+      {/* Show distribution panel for captains when competition is complete */}
+      {userIsCaptain &&
+       competition.endTime < Math.floor(Date.now() / 1000) &&
+       displayEntries.length > 0 && (
+        <CompetitionDistributionPanel
+          competition={competition}
+          winners={displayEntries}
+          captainPubkey={currentUserPubkey || team.captain}
+          onDistributionComplete={() => {
+            // Refresh the leaderboard after distribution
+            handleRefresh();
+          }}
+        />
+      )}
     </View>
   );
 };
