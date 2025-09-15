@@ -22,6 +22,7 @@ interface AuthState {
 // Authentication actions interface
 interface AuthActions {
   signIn: (nsec: string) => Promise<{ success: boolean; error?: string }>;
+  signInWithApple: () => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   refreshAuthentication: () => Promise<void>;
   checkStoredCredentials: () => Promise<void>;
@@ -49,71 +50,134 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [initError, setInitError] = useState<string | null>(null);
 
   /**
-   * Check for stored credentials and load profile
-   * Similar to iOS checkAuthenticationStatus() method
+   * Check for stored credentials (FAST - no network calls)
+   * Profile loading is deferred until after app renders
    */
   const checkStoredCredentials = useCallback(async (): Promise<void> => {
     try {
-      console.log('🔍 AuthContext: Checking for stored Nostr keys...');
-      
       const storedNpub = await getNpubFromStorage();
-      
-      if (storedNpub) {
-        console.log('✅ AuthContext: Found stored Nostr keys - loading user profile...');
-        setConnectionStatus('Loading profile...');
-        
-        // Load user profile using stored keys
-        let directUser = null;
-        
-        try {
-          directUser = await DirectNostrProfileService.getCurrentUserProfile();
-        } catch (profileError) {
-          console.warn('⚠️  AuthContext: Profile load failed, using fallback:', profileError);
-          directUser = await DirectNostrProfileService.getFallbackProfile();
-        }
-        
-        if (directUser) {
-          // Convert DirectNostrUser to User for app compatibility
-          const user: User = {
-            id: directUser.id,
-            name: directUser.name,
-            email: directUser.email,
-            npub: directUser.npub,
-            role: directUser.role || 'member',
-            teamId: directUser.teamId,
-            currentTeamId: directUser.currentTeamId,
-            createdAt: directUser.createdAt,
-            lastSyncAt: directUser.lastSyncAt,
-            bio: directUser.bio,
-            website: directUser.website,
-            picture: directUser.picture,
-            banner: directUser.banner,
-            lud16: directUser.lud16,
-            displayName: directUser.displayName,
-          };
 
-          console.log('✅ AuthContext: User profile loaded - authenticated:', user.name || 'Unknown');
-          setIsAuthenticated(true);
-          setCurrentUser(user);
-          setIsConnected(true);
-          setConnectionStatus('Connected');
-        } else {
-          console.log('❌ AuthContext: Failed to load user profile');
-          setIsAuthenticated(false);
-          setCurrentUser(null);
-        }
+      if (storedNpub) {
+        // Just set authenticated state - no profile loading yet
+        setIsAuthenticated(true);
+        setConnectionStatus('Loading...');
+
+        // Defer profile loading to after initial render
+        setTimeout(() => {
+          loadUserProfile();
+        }, 100);
       } else {
-        console.log('❌ AuthContext: No stored Nostr keys found');
         setIsAuthenticated(false);
         setCurrentUser(null);
       }
     } catch (error) {
       console.error('❌ AuthContext: Error checking stored credentials:', error);
-      setInitError(error instanceof Error ? error.message : 'Failed to check credentials');
       setIsAuthenticated(false);
       setCurrentUser(null);
     }
   }, []);
+
+  /**
+   * Load user profile asynchronously (called after initial render)
+   */
+  const loadUserProfile = async (): Promise<void> => {
+    try {
+      setConnectionStatus('Loading profile...');
+
+      // Try to load from cache first
+      const { appCache } = await import('../utils/cache');
+      const cachedUser = await appCache.get<User>('current_user_profile');
+
+      if (cachedUser) {
+        setCurrentUser(cachedUser);
+        setIsConnected(true);
+        setConnectionStatus('Connected');
+
+        // Refresh in background
+        refreshProfileInBackground();
+        return;
+      }
+
+      // No cache, load from Nostr
+      let directUser = null;
+
+      try {
+        directUser = await DirectNostrProfileService.getCurrentUserProfile();
+      } catch (profileError) {
+        console.warn('⚠️  Profile load failed, using fallback');
+        directUser = await DirectNostrProfileService.getFallbackProfile();
+      }
+
+      if (directUser) {
+        const user: User = {
+          id: directUser.id,
+          name: directUser.name,
+          email: directUser.email,
+          npub: directUser.npub,
+          role: directUser.role || 'member',
+          teamId: directUser.teamId,
+          currentTeamId: directUser.currentTeamId,
+          createdAt: directUser.createdAt,
+          lastSyncAt: directUser.lastSyncAt,
+          bio: directUser.bio,
+          website: directUser.website,
+          picture: directUser.picture,
+          banner: directUser.banner,
+          lud16: directUser.lud16,
+          displayName: directUser.displayName,
+        };
+
+        setCurrentUser(user);
+        setIsConnected(true);
+        setConnectionStatus('Connected');
+
+        // Cache the profile
+        await appCache.set('current_user_profile', user, 5 * 60 * 1000);
+      } else {
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+      }
+    } catch (error) {
+      console.error('❌ Error loading profile:', error);
+      setInitError(error instanceof Error ? error.message : 'Failed to load profile');
+    }
+  };
+
+  /**
+   * Refresh profile in background without blocking
+   */
+  const refreshProfileInBackground = async (): Promise<void> => {
+    try {
+      const directUser = await DirectNostrProfileService.getCurrentUserProfile();
+      if (directUser) {
+        const user: User = {
+          id: directUser.id,
+          name: directUser.name,
+          email: directUser.email,
+          npub: directUser.npub,
+          role: directUser.role || 'member',
+          teamId: directUser.teamId,
+          currentTeamId: directUser.currentTeamId,
+          createdAt: directUser.createdAt,
+          lastSyncAt: directUser.lastSyncAt,
+          bio: directUser.bio,
+          website: directUser.website,
+          picture: directUser.picture,
+          banner: directUser.banner,
+          lud16: directUser.lud16,
+          displayName: directUser.displayName,
+        };
+
+        setCurrentUser(user);
+
+        // Update cache
+        const { appCache } = await import('../utils/cache');
+        await appCache.set('current_user_profile', user, 5 * 60 * 1000);
+      }
+    } catch (error) {
+      // Silent fail for background refresh
+    }
+  };
 
   /**
    * Sign in with nsec - directly updates authentication state
@@ -148,6 +212,48 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return { success: false, error: errorMessage };
     }
   }, []);
+
+  /**
+   * Sign in with Apple - generates deterministic Nostr keys
+   */
+  const signInWithApple = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
+    try {
+      console.log('🍎 AuthContext: Starting Apple Sign-In process...');
+      setConnectionStatus('Authenticating with Apple...');
+
+      // Use AuthService for Apple authentication
+      const result = await AuthService.signInWithApple();
+
+      if (!result.success || !result.user) {
+        console.error('❌ AuthContext: Apple authentication failed:', result.error);
+        return { success: false, error: result.error };
+      }
+
+      console.log('✅ AuthContext: Apple authentication successful - updating state');
+
+      // Direct state updates (like iOS app)
+      setIsAuthenticated(true);
+      setCurrentUser(result.user);
+      setIsConnected(true);
+      setConnectionStatus('Connected');
+      setInitError(null);
+
+      // Cache the profile
+      const { appCache } = await import('../utils/cache');
+      await appCache.set('current_user_profile', result.user, 5 * 60 * 1000);
+
+      // Trigger background profile refresh if needed
+      setTimeout(() => {
+        refreshProfileInBackground();
+      }, 1000);
+
+      return { success: true };
+    } catch (error) {
+      console.error('❌ AuthContext: Apple Sign-In error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Apple Sign-In failed';
+      return { success: false, error: errorMessage };
+    }
+  }, [refreshProfileInBackground]);
 
   /**
    * Sign out - clear all authentication state
@@ -188,45 +294,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
    * Initialize authentication on app startup
    * Similar to iOS app initialization flow
    */
+  // Fast initialization - only check stored credentials
   useEffect(() => {
     const initializeAuth = async () => {
-      console.log('🚀 AuthContext: Initializing authentication...');
-      
       try {
         await checkStoredCredentials();
-        
-        // Initialize background services if authenticated (OPTIONAL - won't block authentication)
-        if (isAuthenticated) {
-          try {
-            console.log('🏃‍♂️ AuthContext: Attempting to initialize background services...');
-            const { BackgroundSyncService } = await import(
-              '../services/fitness/backgroundSyncService'
-            );
-            const syncService = BackgroundSyncService.getInstance();
-            const result = await syncService.initialize();
-
-            if (result.success) {
-              console.log('✅ AuthContext: Background sync activated');
-            } else {
-              console.warn('⚠️  AuthContext: Background sync initialization failed (non-critical):', result.error);
-            }
-          } catch (bgError) {
-            console.warn('⚠️  AuthContext: Background services unavailable (non-critical):', bgError);
-            // This is intentionally non-blocking - app should work without background services
-          }
-        }
-        
       } catch (error) {
         console.error('❌ AuthContext: Initialization failed:', error);
         setInitError(error instanceof Error ? error.message : 'Initialization failed');
       } finally {
-        console.log('🏁 AuthContext: Initialization complete - setting isInitializing to false');
         setIsInitializing(false);
       }
     };
 
     initializeAuth();
-  }, [checkStoredCredentials]); // Removed isAuthenticated to prevent infinite loop
+  }, [checkStoredCredentials]);
+
+  // Initialize background services after app is interactive
+  useEffect(() => {
+    if (isAuthenticated && !isInitializing) {
+      // Delay background service init to avoid blocking startup
+      const timer = setTimeout(async () => {
+        try {
+          const { BackgroundSyncService } = await import(
+            '../services/fitness/backgroundSyncService'
+          );
+          const syncService = BackgroundSyncService.getInstance();
+          await syncService.initialize();
+        } catch (bgError) {
+          // Silent fail - non-critical
+        }
+      }, 2000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthenticated, isInitializing]);
 
   // Context value - all state and actions
   const contextValue: AuthContextType = {
@@ -240,6 +342,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     
     // Actions
     signIn,
+    signInWithApple,
     signOut,
     refreshAuthentication,
     checkStoredCredentials,

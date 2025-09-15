@@ -1,14 +1,14 @@
 /**
- * Navigation Data Hook
- * Centralized data fetching for all navigation screens
- * Replaces mock data with real Supabase integration
+ * Navigation Data Hook - OPTIMIZED
+ * Lazy-loads data per tab/screen for fast startup
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AuthService } from '../services/auth/authService';
 import { getNostrTeamService } from '../services/nostr/NostrTeamService';
 import { DirectNostrProfileService } from '../services/user/directNostrProfileService';
 import coinosService from '../services/coinosService';
+import { appCache } from '../utils/cache';
 import type {
   TeamScreenData,
   ProfileScreenData,
@@ -28,101 +28,38 @@ export interface NavigationData {
   isLoading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
+  // New lazy-load methods
+  loadTeams: () => Promise<void>;
+  loadWallet: () => Promise<void>;
+  loadCaptainDashboard: () => Promise<void>;
 }
 
 export const useNavigationData = (): NavigationData => {
   const [user, setUser] = useState<UserWithWallet | null>(null);
   const [teamData, setTeamData] = useState<TeamScreenData | null>(null);
-  const [profileData, setProfileData] = useState<ProfileScreenData | null>(
-    null
-  );
+  const [profileData, setProfileData] = useState<ProfileScreenData | null>(null);
   const [walletData, setWalletData] = useState<WalletData | null>(null);
-  const [captainDashboardData, setCaptainDashboardData] =
-    useState<CaptainDashboardData | null>(null);
+  const [captainDashboardData, setCaptainDashboardData] = useState<CaptainDashboardData | null>(null);
   const [availableTeams, setAvailableTeams] = useState<DiscoveryTeam[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [teamsLoaded, setTeamsLoaded] = useState(false);
+  const [walletLoaded, setWalletLoaded] = useState(false);
 
   const fetchUserData = async (): Promise<UserWithWallet | null> => {
     try {
-      console.log('🔍 useNavigationData: Starting progressive user data loading...');
-      console.log('🔍 useNavigationData: DEBUG - Current AsyncStorage state check...');
-      
-      // DEBUG: Check what's actually in AsyncStorage
-      try {
-        const { getNpubFromStorage, getNsecFromStorage, getAuthMethod } = await import('../utils/nostr');
-        const asyncStorageNpub = await getNpubFromStorage();
-        const asyncStorageAuthMethod = await getAuthMethod();
-        console.log('🔍 useNavigationData: DEBUG AsyncStorage direct check:', {
-          hasNpub: !!asyncStorageNpub,
-          npubPreview: asyncStorageNpub?.slice(0, 20) + '...' || 'null',
-          authMethod: asyncStorageAuthMethod
-        });
-      } catch (asyncError) {
-        console.log('🔍 useNavigationData: DEBUG AsyncStorage check failed:', asyncError);
+      // Try cache first for instant load
+      const cachedUser = await appCache.get<UserWithWallet>('nav_user_data');
+      if (cachedUser) {
+        setUser(cachedUser);
+        setIsLoading(false);
+        // Refresh in background
+        fetchUserDataFresh();
+        return cachedUser;
       }
-      
-      // Step 1: Try to get fallback profile immediately (instant display)
-      console.log('🔍 useNavigationData: STEP 1 - Attempting DirectNostrProfileService.getFallbackProfile()...');
-      const fallbackUser = await DirectNostrProfileService.getFallbackProfile();
-      console.log('🔍 useNavigationData: STEP 1 result:', {
-        success: !!fallbackUser,
-        hasNpub: !!fallbackUser?.npub,
-        npubPreview: fallbackUser?.npub?.slice(0, 20) + '...' || 'null',
-        displayName: fallbackUser?.displayName || 'null'
-      });
-      if (fallbackUser) {
-        console.log('🏃‍♂️ useNavigationData: Got fallback profile for immediate display');
-        setUser(fallbackUser);
-        setIsLoading(true); // Show "updating" indicator
-      }
-      
-      // Step 2: Try direct Nostr profile with caching (may be instant if cached)
-      console.log('🔍 useNavigationData: STEP 2 - Attempting DirectNostrProfileService.getCurrentUserProfile()...');
-      try {
-        const directNostrUser = await DirectNostrProfileService.getCurrentUserProfile();
-        console.log('🔍 useNavigationData: STEP 2 result:', {
-          success: !!directNostrUser,
-          hasNpub: !!directNostrUser?.npub,
-          npubPreview: directNostrUser?.npub?.slice(0, 20) + '...' || 'null',
-          displayName: directNostrUser?.displayName || 'null'
-        });
-        if (directNostrUser) {
-          console.log('✅ useNavigationData: Got user from DirectNostrProfileService');
-          setUser(directNostrUser);
-          return directNostrUser;
-        }
-      } catch (directError) {
-        console.warn('⚠️ useNavigationData: DirectNostrProfileService failed:', directError);
-      }
-      
-      // Step 3: Fallback to Supabase-based approach for Apple/Google users
-      console.log('🔍 useNavigationData: STEP 3 - Attempting AuthService.getCurrentUserWithWallet()...');
-      try {
-        const userData = await AuthService.getCurrentUserWithWallet();
-        console.log('🔍 useNavigationData: STEP 3 result:', {
-          success: !!userData,
-          hasNpub: !!userData?.npub,
-          npubPreview: userData?.npub?.slice(0, 20) + '...' || 'null',
-          displayName: userData?.displayName || 'null'
-        });
-        if (userData) {
-          console.log('✅ useNavigationData: Got user from AuthService (Supabase)');
-          setUser(userData);
-          return userData;
-        }
-      } catch (supabaseError) {
-        console.warn('⚠️ useNavigationData: AuthService failed:', supabaseError);
-      }
-      
-      // If we have fallback user, return it rather than null
-      if (fallbackUser) {
-        console.log('🔧 useNavigationData: Using fallback profile as final result');
-        return fallbackUser;
-      }
-      
-      console.log('❌ useNavigationData: No user found from any service');
-      return null;
+
+      // No cache, fetch fresh
+      return await fetchUserDataFresh();
     } catch (error) {
       console.error('Error fetching user data:', error);
       setError('Failed to load user data');
@@ -130,83 +67,58 @@ export const useNavigationData = (): NavigationData => {
     }
   };
 
-  const fetchTeamData = async (
-    userId: string,
-    teamId?: string
-  ): Promise<void> => {
-    if (!teamId) return;
-
+  const fetchUserDataFresh = async (): Promise<UserWithWallet | null> => {
     try {
-      console.log('Fetching team data for team:', teamId);
-      // TODO: Replace with Nostr team service equivalent
-      // const teamScreenData = await TeamService.getTeamScreenData(teamId);
-      console.warn('Team screen data loading disabled - needs Nostr implementation');
-      setTeamData(null);
+      // Step 1: Try fallback profile (instant)
+      const fallbackUser = await DirectNostrProfileService.getFallbackProfile();
+      if (fallbackUser) {
+        setUser(fallbackUser);
+        // Don't set loading false yet - we're still fetching
+      }
+
+      // Step 2: Try direct Nostr profile
+      try {
+        const directNostrUser = await DirectNostrProfileService.getCurrentUserProfile();
+        if (directNostrUser) {
+          setUser(directNostrUser);
+          await appCache.set('nav_user_data', directNostrUser, 5 * 60 * 1000);
+          return directNostrUser;
+        }
+      } catch (directError) {
+        // Silent fail, try next method
+      }
+
+      // Step 3: Fallback to AuthService
+      try {
+        const userData = await AuthService.getCurrentUserWithWallet();
+        if (userData) {
+          setUser(userData);
+          await appCache.set('nav_user_data', userData, 5 * 60 * 1000);
+          return userData;
+        }
+      } catch (supabaseError) {
+        // Silent fail
+      }
+
+      // Return fallback if we have it
+      if (fallbackUser) {
+        await appCache.set('nav_user_data', fallbackUser, 5 * 60 * 1000);
+        return fallbackUser;
+      }
+
+      return null;
     } catch (error) {
-      console.error('Error fetching team data:', error);
-      setError('Failed to load team data');
+      console.error('Error fetching fresh user data:', error);
+      return null;
     }
   };
 
   const fetchProfileData = async (user: UserWithWallet): Promise<void> => {
     try {
-      // Handle wallet balance based on user type
-      let realWalletBalance = 0;
+      // For members, use cached balance (no real-time fetch needed)
+      let realWalletBalance = user.walletBalance || 0;
 
-      // Regular members: use cached balance (0) since they receive payments directly to Lightning address
-      if (user.role === 'member') {
-        realWalletBalance = user.walletBalance || 0;
-        console.log(
-          `useNavigationData: Using cached balance for member: ${realWalletBalance} sats`
-        );
-      } else {
-        // Captains: fetch real-time CoinOS wallet balance if they have credentials
-        if (user.hasWalletCredentials) {
-          try {
-            const walletBalance = await coinosService.getWalletBalance();
-            realWalletBalance = walletBalance.total;
-            console.log(
-              `useNavigationData: Fetched real-time wallet balance for captain: ${realWalletBalance} sats`
-            );
-          } catch (error) {
-            console.warn(
-              'useNavigationData: Failed to fetch captain wallet balance, using cached value:',
-              error
-            );
-            realWalletBalance = user.walletBalance || 0;
-          }
-        } else {
-          realWalletBalance = user.walletBalance || 0;
-          console.log(
-            `useNavigationData: Captain has no wallet credentials, using cached balance: ${realWalletBalance} sats`
-          );
-        }
-      }
-
-      // Fetch user's current team if they have one
-      let currentTeam = null;
-      if (user.teamId) {
-        try {
-          // TODO: Replace with Nostr team service equivalent
-          // currentTeam = await TeamService.getUserTeam(user.id);
-          console.log('useNavigationData: User team loading disabled - needs Nostr implementation');
-          currentTeam = null;
-        } catch (error) {
-          console.warn('useNavigationData: Failed to fetch user team:', error);
-        }
-      }
-
-      console.log('🔍 useNavigationData: User data received:', {
-        displayName: user.displayName,
-        name: user.name,
-        picture: user.picture ? user.picture.substring(0, 50) + '...' : 'none',
-        banner: user.banner ? 'yes' : 'no', 
-        bio: user.bio ? user.bio.substring(0, 50) + '...' : 'none',
-        lud16: user.lud16 || 'none',
-        website: user.website || 'none',
-        npub: user.npub?.slice(0, 20) + '...'
-      });
-
+      // Build profile data without heavy operations
       const profileData: ProfileScreenData = {
         user: {
           id: user.id,
@@ -218,10 +130,8 @@ export const useNavigationData = (): NavigationData => {
           teamId: user.teamId,
           createdAt: user.createdAt,
           lastSyncAt: user.lastSyncAt,
-          
-          // Include Nostr profile fields from ProfileService
           bio: user.bio,
-          website: user.website, 
+          website: user.website,
           picture: user.picture,
           banner: user.banner,
           lud16: user.lud16,
@@ -230,9 +140,9 @@ export const useNavigationData = (): NavigationData => {
         wallet: {
           id: 'wallet_' + user.id,
           userId: user.id,
-          balance: realWalletBalance, // Use real-time wallet balance
+          balance: realWalletBalance,
           address: user.lightningAddress || '',
-          transactions: [], // TODO: Implement transaction history
+          transactions: [],
         },
         syncSources: [
           {
@@ -240,14 +150,9 @@ export const useNavigationData = (): NavigationData => {
             isConnected: false,
             permissions: [],
           },
-          {
-            provider: 'googlefit',
-            isConnected: false,
-            permissions: [],
-          },
         ],
-        recentWorkouts: [], // Workout data will be loaded separately via WorkoutsTab
-        currentTeam: currentTeam || undefined, // Use fetched team data
+        recentWorkouts: [], // Loaded separately by WorkoutsTab
+        currentTeam: undefined, // Loaded when needed
         subscription: {
           type: user.role,
           status: 'active',
@@ -262,114 +167,50 @@ export const useNavigationData = (): NavigationData => {
           workoutReminders: false,
         },
       };
-      
-      console.log('📋 useNavigationData: ProfileScreen will receive:', {
-        userId: profileData.user.id,
-        displayName: profileData.user.displayName,
-        picture: profileData.user.picture,
-        banner: profileData.user.banner,
-        bio: profileData.user.bio,
-        lud16: profileData.user.lud16,
-        website: profileData.user.website
-      });
-      
+
       setProfileData(profileData);
     } catch (error) {
       console.error('Error creating profile data:', error);
-      setError('Failed to load profile data');
     }
   };
 
-  const fetchWalletData = async (user: UserWithWallet): Promise<void> => {
+  const loadTeams = useCallback(async (): Promise<void> => {
+    if (teamsLoaded) return;
+
     try {
-      const walletData: WalletData = {
-        balance: {
-          sats: user.walletBalance || 0,
-          usd: (user.walletBalance || 0) / 2500, // Rough BTC conversion
-          connected: !!user.lightningAddress,
-        },
-        autoWithdraw: {
-          enabled: false,
-          threshold: 50000,
-          lightningAddress: user.lightningAddress || '',
-        },
-        earnings: {
-          thisWeek: {
-            sats: 0,
-            change: 0,
-            changeType: 'positive',
-          },
-          thisMonth: {
-            sats: user.walletBalance || 0,
-            change: 0,
-            changeType: 'positive',
-          },
-        },
-        recentActivity: [], // TODO: Implement transaction history
-      };
-      setWalletData(walletData);
+      // Check cache first
+      const cachedTeams = await appCache.get<DiscoveryTeam[]>('available_teams');
+      if (cachedTeams) {
+        setAvailableTeams(cachedTeams);
+        setTeamsLoaded(true);
+        // Refresh in background
+        fetchTeamsFresh();
+        return;
+      }
+
+      await fetchTeamsFresh();
     } catch (error) {
-      console.error('Error creating wallet data:', error);
-      setError('Failed to load wallet data');
+      console.error('Error loading teams:', error);
+      setError('Failed to load teams');
     }
-  };
+  }, [teamsLoaded]);
 
-  const fetchCaptainDashboardData = async (
-    user: UserWithWallet
-  ): Promise<void> => {
-    if (user.role !== 'captain' || !user.teamId) return;
-
+  const fetchTeamsFresh = async (): Promise<void> => {
     try {
-      // TODO: Implement captain dashboard data fetching
-      const captainData: CaptainDashboardData = {
-        team: {
-          id: user.teamId,
-          name: 'Your Team',
-          memberCount: 1,
-          activeEvents: 0,
-          activeChallenges: 0,
-          prizePool: 0,
-        },
-        members: [],
-        recentActivity: [],
-      };
-      setCaptainDashboardData(captainData);
-    } catch (error) {
-      console.error('Error fetching captain dashboard data:', error);
-      setError('Failed to load captain dashboard data');
-    }
-  };
-
-  const fetchAvailableTeams = async (): Promise<void> => {
-    try {
-      console.log('🚀 useNavigationData: BYPASSING CACHE - fetching fresh teams from Nostr...');
-      
-      // SKIP CACHE - always fetch fresh data to avoid stale team problem
       const nostrTeamService = getNostrTeamService();
-      console.log('🔥 useNavigationData: CALLING discoverFitnessTeams...');
       const nostrTeams = await nostrTeamService.discoverFitnessTeams({
-        limit: 50, // Increased limit for better discovery
-        // Removed since filter to access ALL historical teams
+        limit: 20, // Reduced from 50 for faster load
       });
-      
-      console.log(`🔥 useNavigationData: RAW NOSTR TEAMS RETURNED: ${nostrTeams.length}`);
-      console.log('🔥 useNavigationData: RAW TEAMS:', nostrTeams.map(t => ({
-        id: t.id,
-        name: t.name,
-        memberCount: t.memberCount,
-        isPublic: t.isPublic
-      })));
 
-      // Convert NostrTeam to DiscoveryTeam format
       const discoveryTeams: DiscoveryTeam[] = nostrTeams.map((team) => ({
         id: team.id,
         name: team.name,
         description: team.description,
         about: team.description,
         captainId: team.captainId,
-        prizePool: 0, // Nostr teams don't have prize pool in the discovery phase
+        prizePool: 0,
         memberCount: team.memberCount,
-        joinReward: 0, // Will be configured later
+        joinReward: 0,
         exitFee: 0,
         isActive: team.isPublic,
         avatar: '',
@@ -386,41 +227,92 @@ export const useNavigationData = (): NavigationData => {
         isFeatured: false,
       }));
 
-      console.log(
-        `🎯 useNavigationData: Found ${discoveryTeams.length} FRESH teams from Nostr (no cache)`
-      );
-      console.log('🎯 useNavigationData: CONVERTED DISCOVERY TEAMS:', discoveryTeams.map(t => ({
-        id: t.id,
-        name: t.name,
-        memberCount: t.memberCount,
-        isActive: t.isActive
-      })));
-      
-      // Skip caching for now to avoid stale data issues
-      // await NostrCacheService.setCachedTeams(discoveryTeams);
-      console.log('🔥 useNavigationData: CALLING setAvailableTeams...');
       setAvailableTeams(discoveryTeams);
-      console.log('🔥 useNavigationData: setAvailableTeams CALLED SUCCESSFULLY');
+      setTeamsLoaded(true);
+
+      // Cache for 5 minutes
+      await appCache.set('available_teams', discoveryTeams, 5 * 60 * 1000);
     } catch (error) {
       console.error('Error fetching teams:', error);
-      setError('Failed to load teams');
+      throw error;
     }
   };
+
+  const loadWallet = useCallback(async (): Promise<void> => {
+    if (walletLoaded || !user) return;
+
+    try {
+      // Only fetch real-time balance for captains
+      let realWalletBalance = user.walletBalance || 0;
+
+      if (user.role === 'captain' && user.hasWalletCredentials) {
+        try {
+          const walletBalance = await coinosService.getWalletBalance();
+          realWalletBalance = walletBalance.total;
+        } catch (error) {
+          // Use cached balance on error
+          realWalletBalance = user.walletBalance || 0;
+        }
+      }
+
+      const walletData: WalletData = {
+        balance: {
+          sats: realWalletBalance,
+          usd: realWalletBalance / 2500,
+          connected: !!user.lightningAddress,
+        },
+        autoWithdraw: {
+          enabled: false,
+          threshold: 50000,
+          lightningAddress: user.lightningAddress || '',
+        },
+        earnings: {
+          thisWeek: { sats: 0, change: 0, changeType: 'positive' as const },
+          thisMonth: { sats: 0, change: 0, changeType: 'positive' as const },
+        },
+        recentActivity: [],
+      };
+
+      setWalletData(walletData);
+      setWalletLoaded(true);
+    } catch (error) {
+      console.error('Error loading wallet data:', error);
+    }
+  }, [user, walletLoaded]);
+
+  const loadCaptainDashboard = useCallback(async (): Promise<void> => {
+    if (!user || user.role !== 'captain') return;
+
+    try {
+      const dashboardData: CaptainDashboardData = {
+        team: {
+          id: 'team_default',
+          name: 'Loading...',
+          memberCount: 0,
+          activeEvents: 0,
+          activeChallenges: 0,
+          prizePool: 0,
+        },
+        members: [],
+        recentActivity: [],
+      };
+
+      setCaptainDashboardData(dashboardData);
+    } catch (error) {
+      console.error('Error loading captain dashboard:', error);
+    }
+  }, [user]);
 
   const refresh = async (): Promise<void> => {
     setIsLoading(true);
     setError(null);
+    setTeamsLoaded(false);
+    setWalletLoaded(false);
 
     try {
-      const userData = await fetchUserData();
+      const userData = await fetchUserDataFresh();
       if (userData) {
-        await Promise.all([
-          fetchTeamData(userData.id, userData.teamId),
-          fetchProfileData(userData),
-          fetchWalletData(userData),
-          fetchCaptainDashboardData(userData),
-          fetchAvailableTeams(),
-        ]);
+        await fetchProfileData(userData);
       }
     } catch (error) {
       console.error('Error refreshing navigation data:', error);
@@ -430,9 +322,16 @@ export const useNavigationData = (): NavigationData => {
     }
   };
 
-  // Initial load
+  // Initial load - only user and profile data
   useEffect(() => {
-    refresh();
+    const init = async () => {
+      const userData = await fetchUserData();
+      if (userData) {
+        await fetchProfileData(userData);
+      }
+      setIsLoading(false);
+    };
+    init();
   }, []);
 
   return {
@@ -445,5 +344,9 @@ export const useNavigationData = (): NavigationData => {
     isLoading,
     error,
     refresh,
+    // Lazy load methods
+    loadTeams,
+    loadWallet,
+    loadCaptainDashboard,
   };
 };

@@ -10,15 +10,21 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Image,
+  ScrollView,
+  Dimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../styles/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { validateNsec } from '../utils/nostr';
+import { AppleSignInButton } from '../components/auth/AppleSignInButton';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const IS_SMALL_DEVICE = SCREEN_HEIGHT < 700;
 
 interface LoginScreenProps {
   // No callback needed - AuthContext handles everything
@@ -26,7 +32,8 @@ interface LoginScreenProps {
 
 export const LoginScreen: React.FC<LoginScreenProps> = () => {
   // Use AuthContext for direct authentication state management
-  const { signIn } = useAuth();
+  const { signIn, signInWithApple } = useAuth();
+  const insets = useSafeAreaInsets();
   
   // Local state for UI only
   const [showInput, setShowInput] = useState(false);
@@ -63,7 +70,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
 
     try {
       console.log('LoginScreen: Attempting authentication with AuthContext...');
-      
+
       // Use AuthContext signIn - this automatically updates app state
       const result = await signIn(nsecInput);
 
@@ -84,27 +91,61 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
     }
   };
 
+  const handleAppleSignIn = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      console.log('LoginScreen: Attempting Apple authentication...');
+      const result = await signInWithApple();
+
+      if (result.success) {
+        console.log('✅ LoginScreen: Apple authentication successful');
+      } else {
+        console.error('❌ LoginScreen: Apple authentication failed:', result.error);
+        setError(result.error || 'Apple Sign-In failed. Please try again.');
+      }
+    } catch (error) {
+      console.error('❌ LoginScreen: Apple authentication error:', error);
+      setError(
+        error instanceof Error ? error.message : 'An unexpected error occurred'
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleBack = () => {
     setShowInput(false);
     setNsecInput('');
     setError(null);
   };
 
+  // Calculate responsive dimensions
+  const logoSize = IS_SMALL_DEVICE ? 200 : 300;
+  const logoHeight = IS_SMALL_DEVICE ? 67 : 100;
+
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
+        keyboardVerticalOffset={insets.top}
       >
-        <View style={styles.content}>
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.content}>
           {/* Header */}
-          <View style={styles.header}>
-            <Image 
-              source={require('../../assets/images/splash-icon.png')} 
-              style={styles.logo}
+          <View style={[styles.header, IS_SMALL_DEVICE && styles.headerSmall]}>
+            <Image
+              source={require('../../assets/images/splash-icon.png')}
+              style={[styles.logo, { width: logoSize, height: logoHeight }]}
               resizeMode="contain"
             />
-            <Text style={styles.subtitle}>
+            <Text style={[styles.subtitle, IS_SMALL_DEVICE && styles.subtitleSmall]}>
               Bitcoin-powered fitness competitions
             </Text>
           </View>
@@ -112,17 +153,38 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
           {/* Login Section */}
           <View style={styles.loginSection}>
             {!showInput ? (
-              // Login Button
+              // Login Options
               <View style={styles.buttonContainer}>
+                {Platform.OS === 'ios' && (
+                  <>
+                    <AppleSignInButton
+                      onPress={handleAppleSignIn}
+                      style={styles.appleButton}
+                      disabled={isLoading}
+                    />
+                    <View style={styles.dividerContainer}>
+                      <View style={styles.divider} />
+                      <Text style={styles.dividerText}>OR</Text>
+                      <View style={styles.divider} />
+                    </View>
+                  </>
+                )}
                 <TouchableOpacity
                   style={styles.loginButton}
                   onPress={handleShowInput}
                   activeOpacity={0.8}
+                  disabled={isLoading}
                 >
-                  <Text style={styles.loginButtonText}>Login with Nostr</Text>
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color={theme.colors.accentText} />
+                  ) : (
+                    <Text style={styles.loginButtonText}>Login with Nostr</Text>
+                  )}
                 </TouchableOpacity>
                 <Text style={styles.helpText}>
-                  Use your Nostr nsec key to access your profile and join fitness competitions
+                  {Platform.OS === 'ios'
+                    ? 'Sign in with Apple or use your Nostr key'
+                    : 'Use your Nostr nsec key to access your profile'}
                 </Text>
               </View>
             ) : (
@@ -186,15 +248,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
           </View>
 
           {/* Footer */}
-          <View style={styles.footer}>
+          <View style={[styles.footer, { marginBottom: Math.max(insets.bottom, 20) }]}>
             <Text style={styles.footerText}>
               New to Nostr? Get your keys at{' '}
               <Text style={styles.footerLink}>getalby.com</Text>
             </Text>
           </View>
         </View>
+        </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -206,27 +269,36 @@ const styles = StyleSheet.create({
   keyboardView: {
     flex: 1,
   },
+  scrollContent: {
+    flexGrow: 1,
+  },
   content: {
     flex: 1,
     paddingHorizontal: 24,
     justifyContent: 'space-between',
+    minHeight: SCREEN_HEIGHT - 100,
   },
 
   // Header
   header: {
     alignItems: 'center',
-    paddingTop: 60,
+    paddingTop: 40,
     paddingBottom: 40,
   },
+  headerSmall: {
+    paddingTop: 20,
+    paddingBottom: 20,
+  },
   logo: {
-    width: 300,
-    height: 100,
     marginBottom: 20,
   },
   subtitle: {
     fontSize: 16,
     color: theme.colors.textSecondary,
     textAlign: 'center',
+  },
+  subtitleSmall: {
+    fontSize: 14,
   },
 
   // Login Section
@@ -258,6 +330,28 @@ const styles = StyleSheet.create({
     marginTop: 16,
     lineHeight: 20,
     paddingHorizontal: 20,
+  },
+
+  // Apple Sign-In
+  appleButton: {
+    marginBottom: 16,
+    height: 50,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: theme.colors.border,
+  },
+  dividerText: {
+    marginHorizontal: 10,
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    fontWeight: '500',
   },
 
   // Input Form
@@ -349,7 +443,7 @@ const styles = StyleSheet.create({
 
   // Footer
   footer: {
-    paddingBottom: 40,
+    paddingTop: 20,
     alignItems: 'center',
   },
   footerText: {

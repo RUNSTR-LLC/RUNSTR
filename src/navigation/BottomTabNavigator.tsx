@@ -36,8 +36,16 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
   onNavigateToTeamCreation,
 }) => {
   // Fetch real data for navigation screens
-  const { user, profileData, availableTeams, isLoading, error, refresh } =
-    useNavigationData();
+  const {
+    user,
+    profileData,
+    availableTeams,
+    isLoading,
+    error,
+    refresh,
+    loadTeams,
+    loadWallet
+  } = useNavigationData();
 
   // Create navigation handlers
   const handlers = createNavigationHandlers();
@@ -77,6 +85,12 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
         options={{
           title: 'Teams',
           headerShown: false,
+        }}
+        listeners={{
+          focus: () => {
+            // Lazy load teams when tab is focused
+            loadTeams();
+          },
         }}
       >
         {({ navigation }) => (

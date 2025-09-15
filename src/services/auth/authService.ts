@@ -10,6 +10,8 @@ import type {
   User,
 } from '../../types';
 import { NostrAuthProvider } from './providers/nostrAuthProvider';
+import { AppleAuthProvider } from './providers/appleAuthProvider';
+import { storeNsecLocally } from '../../utils/nostr';
 
 export class AuthService {
   /**
@@ -68,13 +70,111 @@ export class AuthService {
       }
 
       console.log('AuthService: Nostr authentication successful');
-      
+
       return result;
     } catch (error) {
       console.error('AuthService: Nostr authentication error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Authentication failed',
+      };
+    }
+  }
+
+  /**
+   * Sign in with Apple and generate deterministic Nostr keys
+   */
+  static async signInWithApple(): Promise<AuthResult> {
+    try {
+      console.log('AuthService: Starting Apple Sign-In...');
+
+      // Check if Apple Sign-In is available
+      const isAvailable = await AppleAuthProvider.isAvailable();
+      if (!isAvailable) {
+        return {
+          success: false,
+          error: 'Apple Sign-In is not available on this device',
+        };
+      }
+
+      // Use Apple provider to authenticate
+      const appleProvider = new AppleAuthProvider();
+      const result = await appleProvider.signIn();
+
+      if (!result.success) {
+        return result;
+      }
+
+      // Extract user data with generated Nostr keys
+      const userData = (result as any).userData;
+      if (!userData || !userData.nsec || !userData.npub) {
+        return {
+          success: false,
+          error: 'Failed to generate authentication keys',
+        };
+      }
+
+      // Store the generated Nostr keys locally (use npub as userId)
+      await storeNsecLocally(userData.nsec, userData.npub);
+      console.log('AuthService: Stored Apple-generated Nostr keys');
+
+      // Load the user profile using the generated Nostr identity
+      const { DirectNostrProfileService } = await import('../user/directNostrProfileService');
+      let directUser = null;
+
+      try {
+        directUser = await DirectNostrProfileService.getCurrentUserProfile();
+      } catch (profileError) {
+        console.warn('⚠️  Profile load failed, using fallback:', profileError);
+        directUser = await DirectNostrProfileService.getFallbackProfile();
+      }
+
+      if (directUser) {
+        // Convert DirectNostrUser to User for app compatibility
+        const user: User = {
+          id: directUser.id,
+          name: userData.name || directUser.name,
+          email: userData.email || directUser.email,
+          npub: directUser.npub,
+          role: directUser.role || 'member',
+          teamId: directUser.teamId,
+          currentTeamId: directUser.currentTeamId,
+          createdAt: directUser.createdAt,
+          lastSyncAt: directUser.lastSyncAt,
+          bio: directUser.bio,
+          website: directUser.website,
+          picture: directUser.picture,
+          banner: directUser.banner,
+          lud16: directUser.lud16,
+          displayName: userData.name || directUser.displayName,
+        };
+
+        console.log('AuthService: Apple authentication successful');
+        return {
+          success: true,
+          user,
+        };
+      }
+
+      // If no profile exists yet, create a basic user
+      const user: User = {
+        id: userData.npub,
+        name: userData.name || 'Apple User',
+        email: userData.email,
+        npub: userData.npub,
+        role: 'member',
+        createdAt: new Date().toISOString(),
+      };
+
+      return {
+        success: true,
+        user,
+      };
+    } catch (error) {
+      console.error('AuthService: Apple authentication error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Apple Sign-In failed',
       };
     }
   }
