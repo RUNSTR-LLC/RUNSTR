@@ -105,6 +105,15 @@ src/
 - **Achievement Recognition**: Automatic badges for PRs, distance milestones, calorie burns
 - **Motivational Content**: Inspirational quotes tailored to workout types
 
+**8. Pure Nostr Competition System**:
+- **Kind 30000 Member Lists**: Team members stored in Nostr kind 30000 lists (single source of truth)
+- **Competition Query Engine**: `Competition1301QueryService` queries kind 1301 workout events from team members
+- **Dynamic Leaderboards**: Real-time calculation based on wizard-defined parameters (no database needed)
+- **Captain Member Management**: Approve/remove members directly modifies kind 30000 Nostr lists
+- **Cached Performance**: 5-minute cache for member lists, 1-minute cache for competition queries
+- **Scoring Algorithms**: Total distance, consistency streaks, average pace, longest workouts, calorie tracking
+- **No Backend Required**: Pure client-side Nostr queries replace all database dependencies
+
 ## UI Requirements
 Simple two-tab interface with dark theme:
 - **Colors**: Black background (#000), dark cards (#0a0a0a), borders (#1a1a1a)
@@ -263,27 +272,58 @@ Simple two-tab interface with dark theme:
 
 **Note:** Folder READMEs serve as quick reference guides and help maintain codebase understanding.
 
-## Current Development Status - Hybrid Architecture Implementation
+## Current Development Status - Captain Navigation Fixed (Jan 2025)
 ✅ Project structure and architecture established
 ✅ Two-tab navigation (Teams/Profile) with bottom tab navigation
 ✅ Nostr authentication with profile/workout auto-import
 ✅ Real-time team discovery from multiple Nostr relays
-✅ Captain detection system with role-based UI
+✅ **FIXED: Captain Detection System** - Single source of truth with caching architecture
+✅ **FIXED: Captain Dashboard Navigation** - Button now correctly navigates captains to dashboard
 ✅ **Competition Wizard System** - Complete Event & League creation wizards
-✅ **Captain Dashboard** - Team management with join request approvals
+✅ **Captain Dashboard** - Team management with join request approvals and member removal
 ✅ **Dynamic Scoring System** - Automatic leaderboards based on wizard parameters
 ✅ **Bitcoin Integration** - Entry fees, prize pools, reward distribution
 ✅ Two-tier membership system (local + official Nostr lists)
 ✅ **Team-Branded Push Notifications** - Nostr-native competition event processing
 ✅ **HealthKit Workout Posting** - Transform Apple Health workouts into Nostr events and social cards
+✅ **Pure Nostr Competition System** - Kind 30000 member lists, 1301 queries, dynamic leaderboards
 ✅ All TypeScript compilation successful - Core services production-ready
 
-🔄 **Next Implementation Phase: Pure Nostr Competition System**
-- Competition events stored as custom Nostr kinds
-- Manual workout entry via kind 1301 events
-- Client-side leaderboard calculation from Nostr events
-- Captain-only competition creation and management
-- Bitcoin prize distribution via Lightning Network
+## Captain Detection Architecture (WORKING)
+**The Problem We Solved**:
+- Captain status was being detected correctly in TeamCard but lost during navigation
+- Multiple conflicting captain detection methods causing inconsistent results
+- EnhancedTeamScreen was recalculating instead of trusting navigation params
+
+**The Solution**:
+1. **Single Source of Truth**: TeamCard component detects captain from Nostr team events
+2. **Caching Layer**: `CaptainCache` utility stores status in AsyncStorage when detected
+3. **Navigation Trust**: Navigation handlers read from cache, pass in params
+4. **Component Trust**: EnhancedTeamScreen trusts params without recalculation
+5. **Clean Architecture**: Removed duplicate `TeamDashboardScreen.tsx` and navigation paths
+
+**Captain Flow**:
+- Team Discovery → TeamCard detects & caches → User clicks team
+- Navigation reads cache → Passes `userIsCaptain: true` in params
+- EnhancedTeamScreen receives params → Shows Captain Dashboard button
+- Button click → Navigate to CaptainDashboardScreen with full management features
+
+## Latest Implementation - Pure Nostr Competition System
+**Completed Architecture** (December 2024):
+- `NostrListService` - Enhanced with member add/remove methods for kind 30000 lists
+- `TeamMemberCache` - 5-minute caching layer for team member lists with real-time sync
+- `Competition1301QueryService` - Queries kind 1301 workout events using proven NDK pattern
+- `LeagueRankingService` - Refactored to use pure Nostr queries (no database dependency)
+- Captain dashboard wired to modify Nostr lists when approving/removing members
+
+**System Capabilities**:
+- Team members stored in kind 30000 Nostr lists (single source of truth)
+- Competitions are dynamic queries against members' 1301 workout events
+- Leaderboards calculated real-time based on wizard parameters
+- Captain approves join request → member added to kind 30000 list
+- Captain removes member → updated list published to Nostr
+- All scoring algorithms work: distance, streaks, consistency, pace, calories
+- Zero backend dependencies - pure client-side Nostr operations
 
 ## Recent Major Implementation - HealthKit Workout Posting & Social Cards
 **Completed Services** (All <500 lines):
