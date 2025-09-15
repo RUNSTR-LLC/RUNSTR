@@ -164,7 +164,9 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
                 }
               }}
               onEditProfile={handlers.handleEditProfile}
-              // onSend/onReceive removed - user wallets not supported
+              onSend={handlers.handleWalletSend}
+              onReceive={handlers.handleWalletReceive}
+              onWalletHistory={handlers.handleWalletHistory}
               onSyncSourcePress={handlers.handleSyncSourcePress}
               onManageSubscription={handlers.handleManageSubscription}
               onHelp={handlers.handleHelp}

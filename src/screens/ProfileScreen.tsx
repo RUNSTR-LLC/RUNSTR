@@ -14,7 +14,7 @@ import { NotificationPreferencesService } from '../services/notifications/Notifi
 
 // Profile Components
 import { ProfileHeader } from '../components/profile/ProfileHeader';
-// WalletSection removed - using team wallets only
+import { PersonalWalletSection } from '../components/profile/PersonalWalletSection';
 import { TabNavigation } from '../components/profile/TabNavigation';
 import { WorkoutsTab } from '../components/profile/WorkoutsTab';
 import { AccountTab } from '../components/profile/AccountTab';
@@ -28,7 +28,9 @@ interface ProfileScreenProps {
   onCaptainDashboard?: () => void;
   onTeamCreation?: () => void;
   onEditProfile?: () => void;
-  // onSend/onReceive removed - user wallets not supported
+  onSend?: () => void;
+  onReceive?: () => void;
+  onWalletHistory?: () => void;
   onSyncSourcePress?: (provider: string) => void;
   onManageSubscription?: () => void;
   onHelp?: () => void;
@@ -46,7 +48,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onCaptainDashboard,
   onTeamCreation,
   onEditProfile,
-  // onSend, onReceive removed - user wallets not supported
+  onSend,
+  onReceive,
+  onWalletHistory,
   onSyncSourcePress,
   onManageSubscription,
   onHelp,
@@ -85,7 +89,17 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     onEditProfile?.();
   };
 
-  // handleSend, handleReceive removed - user wallets not supported
+  const handleSend = () => {
+    onSend?.();
+  };
+
+  const handleReceive = () => {
+    onReceive?.();
+  };
+
+  const handleWalletHistory = () => {
+    onWalletHistory?.();
+  };
 
   const handleSyncSourcePress = (provider: string) => {
     onSyncSourcePress?.(provider);
@@ -211,7 +225,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         {/* Profile Header */}
         <ProfileHeader user={data.user} />
 
-        {/* Wallet Section removed - user wallets not supported, only team wallets */}
+        {/* Personal Wallet Section */}
+        <PersonalWalletSection
+          onSendPress={handleSend}
+          onReceivePress={handleReceive}
+          onHistoryPress={handleWalletHistory}
+        />
 
         {/* Tab Navigation */}
         <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />

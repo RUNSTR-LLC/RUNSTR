@@ -118,6 +118,31 @@ export const useNavigationData = (): NavigationData => {
       // For members, use cached balance (no real-time fetch needed)
       let realWalletBalance = user.walletBalance || 0;
 
+      // Fetch user's current team membership
+      let currentTeam = undefined;
+      try {
+        const teamService = getNostrTeamService();
+        // Get user's teams from Nostr
+        const userTeams = await teamService.getUserTeams(user.npub);
+
+        if (userTeams && userTeams.length > 0) {
+          // Use the first team as current team
+          const team = userTeams[0];
+          currentTeam = {
+            id: team.id,
+            name: team.name,
+            description: team.description || '',
+            prizePool: team.prizePool || 0,
+            memberCount: team.memberCount || 0,
+            isActive: true,
+            role: team.captainPubkey === user.npub ? 'captain' : 'member',
+          };
+        }
+      } catch (teamError) {
+        console.log('Could not fetch user teams:', teamError);
+        // Continue without team data
+      }
+
       // Build profile data without heavy operations
       const profileData: ProfileScreenData = {
         user: {
@@ -152,7 +177,7 @@ export const useNavigationData = (): NavigationData => {
           },
         ],
         recentWorkouts: [], // Loaded separately by WorkoutsTab
-        currentTeam: undefined, // Loaded when needed
+        currentTeam, // Now populated with real team data
         subscription: {
           type: user.role,
           status: 'active',

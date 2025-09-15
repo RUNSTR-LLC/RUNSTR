@@ -62,6 +62,9 @@ export interface NavigationHandlers {
   handleEditProfile: () => void;
   handleProfileSend: () => void;
   handleProfileReceive: () => void;
+  handleWalletSend: () => void;
+  handleWalletReceive: () => void;
+  handleWalletHistory: () => void;
   handleSyncSourcePress: (provider: string) => void;
   handleManageSubscription: () => void;
   handleHelp: () => void;
@@ -595,6 +598,33 @@ export const createNavigationHandlers = (): NavigationHandlers => {
       Alert.alert(
         'Receive Bitcoin',
         'Your Lightning address:\nuser@runstr.app\n\nShare this with others to receive payments.'
+      );
+    },
+
+    handleWalletSend: () => {
+      console.log('Wallet send pressed from PersonalWalletSection');
+      Alert.alert(
+        'Send NutZap',
+        'Select a team member to send Bitcoin to via NutZap.',
+        [{ text: 'OK' }]
+      );
+    },
+
+    handleWalletReceive: () => {
+      console.log('Wallet receive pressed from PersonalWalletSection');
+      Alert.alert(
+        'Receive NutZap',
+        'Share your Nostr npub to receive NutZaps.\n\nYour wallet auto-claims incoming payments.',
+        [{ text: 'OK' }]
+      );
+    },
+
+    handleWalletHistory: () => {
+      console.log('Wallet history pressed from PersonalWalletSection');
+      Alert.alert(
+        'Transaction History',
+        'View your NutZap transaction history coming soon!',
+        [{ text: 'OK' }]
       );
     },
 
