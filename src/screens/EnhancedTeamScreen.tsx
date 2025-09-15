@@ -11,7 +11,8 @@ import { AboutPrizeSection } from '../components/team/AboutPrizeSection';
 import { LeaderboardCard } from '../components/team/LeaderboardCard';
 import { LeagueRankingsSection } from '../components/team/LeagueRankingsSection';
 import { EventsCard } from '../components/team/EventsCard';
-import { ChallengesCard } from '../components/team/ChallengesCard';
+import { CompetitionWinnersCard, CompetitionWinner } from '../components/team/CompetitionWinnersCard';
+import competitionWinnersService from '../services/competitions/competitionWinnersService';
 import { TeamScreenData } from '../types';
 import { theme } from '../styles/theme';
 import { useLeagueRankings } from '../hooks/useLeagueRankings';
@@ -185,6 +186,31 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
     details: event.description,
   }));
 
+  // Competition winners state
+  const [competitionWinners, setCompetitionWinners] = useState<CompetitionWinner[]>([]);
+  const [winnersLoading, setWinnersLoading] = useState(false);
+
+  // Fetch competition winners
+  useEffect(() => {
+    const fetchWinners = async () => {
+      if (data.team?.id) {
+        setWinnersLoading(true);
+        try {
+          const winners = await competitionWinnersService.fetchTeamCompetitionWinners(
+            data.team.id
+          );
+          setCompetitionWinners(winners);
+        } catch (error) {
+          console.error('Failed to fetch competition winners:', error);
+        } finally {
+          setWinnersLoading(false);
+        }
+      }
+    };
+
+    fetchWinners();
+  }, [data.team?.id]);
+
   const formattedChallenges = challenges.map((challenge) => ({
     id: challenge.id,
     name: challenge.name,
@@ -270,10 +296,10 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
               isCaptain={userIsCaptain}
             />
 
-            <ChallengesCard
-              challenges={formattedChallenges}
-              onAddChallenge={onAddChallenge}
-              onChallengePress={onChallengePress}
+            <CompetitionWinnersCard
+              teamId={data.team?.id || ''}
+              winners={competitionWinners}
+              loading={winnersLoading}
             />
           </View>
         </View>

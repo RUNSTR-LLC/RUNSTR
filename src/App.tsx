@@ -60,12 +60,14 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { TeamCreationWizard } from './components/wizards/TeamCreationWizard';
 import { EventDetailScreen } from './screens/EventDetailScreen';
 import { ChallengeDetailScreen } from './screens/ChallengeDetailScreen';
+import { EnhancedTeamScreen } from './screens/EnhancedTeamScreen';
 import { User } from './types';
 
 // Types for authenticated app navigation
 type AuthenticatedStackParamList = {
   MainTabs: undefined;
   TeamCreation: undefined;
+  EnhancedTeamScreen: { team: any; userIsMember?: boolean; currentUserNpub?: string; userIsCaptain?: boolean };
   EventDetail: { eventId: string };
   ChallengeDetail: { challengeId: string };
 };
@@ -128,6 +130,47 @@ const AppContent: React.FC = () => {
           )}
         </AuthenticatedStack.Screen>
 
+        {/* Enhanced Team Screen */}
+        <AuthenticatedStack.Screen
+          name="EnhancedTeamScreen"
+          options={{
+            headerShown: false,
+          }}
+        >
+          {({ navigation, route }) => {
+            const { team, userIsMember = false, currentUserNpub, userIsCaptain = false } = route.params || {};
+
+            return (
+              <EnhancedTeamScreen
+                data={{
+                  team: team || {},
+                  leaderboard: [],
+                  events: [],
+                  challenges: [],
+                }}
+                onMenuPress={() => console.log('Menu pressed')}
+                onCaptainDashboard={() => {
+                  console.log('Captain dashboard from EnhancedTeamScreen');
+                  // navigation.navigate('CaptainDashboard');
+                }}
+                onAddChallenge={() => console.log('Add challenge')}
+                onEventPress={(eventId) => navigation.navigate('EventDetail', { eventId })}
+                onChallengePress={(challengeId) => navigation.navigate('ChallengeDetail', { challengeId })}
+                onNavigateToProfile={() => navigation.navigate('MainTabs', { screen: 'Profile' })}
+                onLeaveTeam={() => {
+                  console.log('Leave team');
+                  navigation.navigate('MainTabs', { screen: 'Teams' });
+                }}
+                onTeamDiscovery={() => navigation.navigate('MainTabs', { screen: 'Teams' })}
+                onJoinTeam={() => console.log('Join team')}
+                showJoinButton={!userIsMember}
+                userIsMemberProp={userIsMember}
+                currentUserNpub={currentUserNpub}
+                userIsCaptain={userIsCaptain}
+              />
+            );
+          }}
+        </AuthenticatedStack.Screen>
 
         {/* Event Detail Screen */}
         <AuthenticatedStack.Screen

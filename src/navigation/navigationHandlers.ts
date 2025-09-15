@@ -120,7 +120,7 @@ export const createNavigationHandlers = (): NavigationHandlers => {
                 text: 'OK',
                 onPress: () => {
                   // Navigate to team dashboard to show the joined team
-                  navigation.navigate('TeamDashboard', {
+                  navigation.navigate('EnhancedTeamScreen', {
                     team,
                     userIsMember: true,
                     currentUserNpub, // Pass the working npub to avoid component-level AsyncStorage corruption
@@ -232,7 +232,7 @@ export const createNavigationHandlers = (): NavigationHandlers => {
         finalUserIsMember: userIsMember,
       });
 
-      navigation.navigate('TeamDashboard', {
+      navigation.navigate('EnhancedTeamScreen', {
         team,
         userIsMember,
         currentUserNpub, // Pass the working npub to avoid component-level AsyncStorage corruption

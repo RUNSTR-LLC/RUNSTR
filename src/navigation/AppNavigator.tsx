@@ -35,7 +35,7 @@ import { useNavigationData } from '../hooks/useNavigationData';
 export type RootStackParamList = {
   Login: undefined;
   Team: undefined;
-  TeamDashboard: { team: any; userIsMember?: boolean; currentUserNpub?: string; userIsCaptain?: boolean }; // Individual team dashboard
+  EnhancedTeamScreen: { team: any; userIsMember?: boolean; currentUserNpub?: string; userIsCaptain?: boolean }; // Individual team dashboard
   Profile: undefined;
   Wallet: undefined;
   CaptainDashboard: { teamId?: string; teamName?: string; isCaptain?: boolean };
@@ -182,8 +182,8 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
         )}
       </Stack.Screen>
 
-      {/* Individual Team Dashboard */}
-      <Stack.Screen name="TeamDashboard" options={screenConfigurations.Team}>
+      {/* Enhanced Team Screen */}
+      <Stack.Screen name="EnhancedTeamScreen" options={screenConfigurations.Team}>
         {({ navigation, route }) => {
           // Log raw route params first
           console.log('🔍 AppNavigator: RAW route.params:', route.params);
