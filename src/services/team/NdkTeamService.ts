@@ -96,7 +96,7 @@ export class NdkTeamService {
    */
   private async connectWithTimeout(): Promise<boolean> {
     try {
-      const connectTimeoutMs = 30000; // Zap-Arena proven timeout
+      const connectTimeoutMs = 2000; // 2 second timeout for faster initial load
       console.log(`[NDK Team] Attempting NDK.connect() with timeout: ${connectTimeoutMs}ms`);
       console.log(`[NDK Team] Using relays:`, this.relayUrls);
       
@@ -124,7 +124,7 @@ export class NdkTeamService {
   /**
    * Wait for NDK to be ready with timeout racing (Zap-Arena pattern)
    */
-  private async awaitNDKReady(timeoutMs: number = 5000): Promise<boolean> {
+  private async awaitNDKReady(timeoutMs: number = 2000): Promise<boolean> {  // 2 second timeout for faster response
     try {
       const ready = await Promise.race([
         this.readyPromise,
@@ -371,7 +371,7 @@ export class NdkTeamService {
     subscriptionStats: any
   ): Promise<NDKEvent[]> {
     const events: NDKEvent[] = [];
-    const timeout = 3000; // 3 second timeout (optimized - proven to find all teams)
+    const timeout = 2000; // 2 second timeout for faster team discovery
     
     return new Promise((resolve) => {
       console.log(`📡 NDK subscription: ${strategy}`);

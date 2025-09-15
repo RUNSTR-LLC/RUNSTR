@@ -21,8 +21,8 @@ const NETWORK_CONFIG = Platform.select({
     retryDelay: 1500,
   },
   default: {
-    timeout: 5000,
-    maxRetries: 1, 
+    timeout: 2000,  // Updated to 2 seconds for faster response
+    maxRetries: 1,
     retryDelay: 1000,
   }
 });

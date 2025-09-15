@@ -157,11 +157,11 @@ export class Competition1301QueryService {
           events.push(event);
         });
 
-        // 3-second timeout (proven pattern from Nuclear1301Service)
+        // 2-second timeout for faster response
         setTimeout(() => {
           sub.stop();
           resolve();
-        }, 3000);
+        }, 2000);
       });
 
       // Parse events into NostrWorkout format
