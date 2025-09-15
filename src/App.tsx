@@ -58,7 +58,6 @@ import { BottomTabNavigator } from './navigation/BottomTabNavigator';
 import { SplashScreen as AppSplashScreen } from './components/ui/SplashScreen';
 import { createStackNavigator } from '@react-navigation/stack';
 import { TeamCreationWizard } from './components/wizards/TeamCreationWizard';
-import { TeamDashboardScreen } from './screens/TeamDashboardScreen';
 import { EventDetailScreen } from './screens/EventDetailScreen';
 import { ChallengeDetailScreen } from './screens/ChallengeDetailScreen';
 import { User } from './types';
@@ -67,7 +66,6 @@ import { User } from './types';
 type AuthenticatedStackParamList = {
   MainTabs: undefined;
   TeamCreation: undefined;
-  TeamDashboard: { team: any; userIsMember?: boolean; currentUserNpub?: string; userIsCaptain?: boolean };
   EventDetail: { eventId: string };
   ChallengeDetail: { challengeId: string };
 };
@@ -130,31 +128,6 @@ const AppContent: React.FC = () => {
           )}
         </AuthenticatedStack.Screen>
 
-        {/* Team Dashboard Screen */}
-        <AuthenticatedStack.Screen
-          name="TeamDashboard"
-          options={{
-            headerShown: false,
-          }}
-        >
-          {({ navigation, route }) => (
-            <TeamDashboardScreen
-              team={route.params.team}
-              userIsMember={route.params.userIsMember || false}
-              currentUser={user}
-              navigation={navigation}
-              onBack={() => navigation.goBack()}
-              onJoinTeam={() => {
-                console.log('Team joined from dashboard');
-                navigation.goBack(); // Return after joining
-              }}
-              onCaptainDashboard={() => {
-                console.log('Navigate to captain dashboard');
-                // TODO: Add captain dashboard navigation
-              }}
-            />
-          )}
-        </AuthenticatedStack.Screen>
 
         {/* Event Detail Screen */}
         <AuthenticatedStack.Screen

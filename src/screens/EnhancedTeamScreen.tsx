@@ -14,10 +14,9 @@ import { EventsCard } from '../components/team/EventsCard';
 import { ChallengesCard } from '../components/team/ChallengesCard';
 import { TeamScreenData } from '../types';
 import { theme } from '../styles/theme';
-import { useCaptainDetection, useTeamCaptainDetection } from '../hooks/useCaptainDetection';
 import { useLeagueRankings } from '../hooks/useLeagueRankings';
 import { useUserStore } from '../store/userStore';
-import { isTeamMember, isTeamCaptain, isTeamCaptainEnhanced } from '../utils/teamUtils';
+import { isTeamMember } from '../utils/teamUtils';
 import { getUserNostrIdentifiers } from '../utils/nostr';
 
 interface EnhancedTeamScreenProps {
@@ -54,7 +53,15 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
   userIsCaptain: passedUserIsCaptain = false, // Correctly calculated captain status from navigation
 }) => {
   const { team, leaderboard, events, challenges } = data;
-  
+
+  // Debug props received
+  console.log('🔥 EnhancedTeamScreen: Props received:', {
+    passedUserIsCaptain,
+    currentUserNpub: currentUserNpub?.slice(0, 20) + '...',
+    userIsMemberProp,
+    showJoinButton,
+  });
+
   // Debug team data received
   console.log('🔍 EnhancedTeamScreen: Team data received:', {
     id: team?.id,
@@ -65,15 +72,8 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
     fullTeamKeys: team ? Object.keys(team) : 'no team object',
   });
   
-  // Use captain detection hook for this specific team
-  const {
-    isCaptain,
-    isLoading: captainLoading,
-    error: captainError,
-    checkCaptainStatus,
-    refreshCaptainStatus,
-    isCaptainOfThisTeam,
-  } = useTeamCaptainDetection(team.id);
+  // We're not using the hook anymore - we trust the cached value
+  const captainLoading = false; // Not loading since we already have the value
 
   // Use working currentUserNpub from navigation instead of corrupted store
   const { user } = useUserStore(); // Keep for compatibility but prefer navigation parameter
@@ -103,10 +103,12 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
     userHexPubkey: userIdentifiers?.hexPubkey?.slice(0, 20) + '...',
   });
 
-  // Use the captain status passed from navigation - it's already correctly calculated
-  // The navigation handler has already determined if the user is captain
+  // TRUST the captain status passed from navigation - it comes from cache
+  // This was already determined correctly in TeamCard and cached
   const userIsCaptain = passedUserIsCaptain;
-  
+
+  console.log(`🎯 EnhancedTeamScreen: Using captain status from navigation params: ${userIsCaptain}`);
+
   // Debug logging for captain detection values
   console.log('🎖️ EnhancedTeamScreen: Captain detection values:', {
     navigationNpub: currentUserNpub ? currentUserNpub.slice(0, 12) + '...' : 'not passed',
@@ -136,9 +138,8 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
       teamCaptainNpub: 'captainNpub' in team ? team.captainNpub?.slice(0, 8) + '...' : 'N/A',
       userIsCaptain,
       calculatedUserIsMember,
-      hookIsCaptain: isCaptain,
     });
-  }, [workingUserNpub, team.id, userIsCaptain, calculatedUserIsMember, isCaptain]);
+  }, [workingUserNpub, team.id, userIsCaptain, calculatedUserIsMember]);
 
   // Use league rankings hook to check for active competitions
   const {
@@ -154,35 +155,15 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
     refreshInterval: 60000, // 1 minute
   });
 
-  // Refresh captain status when team changes
-  useEffect(() => {
-    if (team.id) {
-      console.log(`🎖️ EnhancedTeamScreen: Checking captain status for team ${team.id.slice(0, 8)}...`);
-      checkCaptainStatus();
-    }
-  }, [team.id, checkCaptainStatus]);
 
-  // Enhanced captain dashboard handler - simplified since we already know captain status
+  // Enhanced captain dashboard handler - simplified now that navigation handles auth
   const handleCaptainDashboard = () => {
-    console.log('🎖️🎖️🎖️ EnhancedTeamScreen: handleCaptainDashboard CALLED!');
-    console.log('🎖️ User is captain:', userIsCaptain);
-    console.log('🎖️ passedUserIsCaptain:', passedUserIsCaptain);
-    console.log('🎖️ Type of onCaptainDashboard:', typeof onCaptainDashboard);
+    console.log('🎖️ EnhancedTeamScreen: Captain Dashboard button pressed');
+    console.log('🎖️ Captain status:', userIsCaptain);
+    console.log('🎖️ Team:', team?.name, '(', team?.id, ')');
 
-    // Since userIsCaptain is already determined by navigation, we can trust it
-    if (userIsCaptain) {
-      console.log('✅ Captain access granted - navigating to dashboard');
-      console.log('✅ Calling onCaptainDashboard now...');
-      onCaptainDashboard();
-      console.log('✅ onCaptainDashboard called successfully');
-    } else {
-      console.log('❌ User is not captain, showing alert');
-      Alert.alert(
-        'Captain Access Only',
-        'This feature is only available to team captains. If you believe this is an error, please try logging out and back in.',
-        [{ text: 'OK' }]
-      );
-    }
+    // Just call the navigation handler - it will handle all captain verification
+    onCaptainDashboard();
   };
 
   // Format data for display components (same as original TeamScreen)
@@ -252,7 +233,7 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
             onCaptainDashboard={handleCaptainDashboard}
             onJoinTeam={onJoinTeam}
             isCaptain={userIsCaptain}
-            isMember={calculatedUserIsMember || userIsCaptain || isCaptain}
+            isMember={calculatedUserIsMember || userIsCaptain}
             captainLoading={captainLoading}
           />
 
@@ -283,10 +264,10 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
           </View>
 
           <View style={styles.bottomSection}>
-            <EventsCard 
-              events={formattedEvents} 
+            <EventsCard
+              events={formattedEvents}
               onEventPress={onEventPress}
-              isCaptain={isCaptain}
+              isCaptain={userIsCaptain}
             />
 
             <ChallengesCard

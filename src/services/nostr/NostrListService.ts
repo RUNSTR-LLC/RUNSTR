@@ -319,40 +319,106 @@ export class NostrListService {
   }
 
   /**
-   * Add a member to a list (creates new list version)
+   * Prepare adding a member to a list (creates new list version)
+   * Returns unsigned event template for external signing
    */
-  async addMemberToList(
+  prepareAddMember(
     authorPubkey: string,
     dTag: string,
-    memberPubkey: string
-  ): Promise<{ success: boolean; error?: string }> {
-    try {
-      // Get current list
-      const currentList = await this.getList(authorPubkey, dTag);
+    memberPubkey: string,
+    currentList: NostrList
+  ) {
+    console.log(`📝 Preparing to add member ${memberPubkey} to list ${dTag}`);
 
-      if (!currentList) {
-        return { success: false, error: 'List not found' };
-      }
+    // Check if member is already in list
+    if (currentList.members.includes(memberPubkey)) {
+      console.log('Member already in list');
+      return null;
+    }
 
-      // Check if member is already in list
-      if (currentList.members.includes(memberPubkey)) {
-        return { success: true }; // Already in list
-      }
+    // Add member to list
+    const updatedMembers = [...currentList.members, memberPubkey];
 
-      // Add member to list
-      const updatedMembers = [...currentList.members, memberPubkey];
+    // Prepare updated list event
+    return this.prepareListUpdate(currentList, updatedMembers, authorPubkey);
+  }
 
-      // This would need to be implemented with proper signing
-      // For now, return a placeholder response
-      console.log(`📝 Adding member ${memberPubkey} to list ${dTag}`);
+  /**
+   * Prepare removing a member from a list (creates new list version)
+   * Returns unsigned event template for external signing
+   */
+  prepareRemoveMember(
+    authorPubkey: string,
+    dTag: string,
+    memberPubkey: string,
+    currentList: NostrList
+  ) {
+    console.log(`📝 Preparing to remove member ${memberPubkey} from list ${dTag}`);
 
-      return { success: true };
-    } catch (error) {
-      console.error('Failed to add member to list:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
+    // Check if member is in list
+    if (!currentList.members.includes(memberPubkey)) {
+      console.log('Member not in list');
+      return null;
+    }
+
+    // Remove member from list
+    const updatedMembers = currentList.members.filter(m => m !== memberPubkey);
+
+    // Prepare updated list event
+    return this.prepareListUpdate(currentList, updatedMembers, authorPubkey);
+  }
+
+  /**
+   * Prepare a list update with new members
+   * Helper method for add/remove operations
+   */
+  private prepareListUpdate(
+    currentList: NostrList,
+    updatedMembers: string[],
+    authorPubkey: string
+  ) {
+    const kind = currentList.nostrEvent.kind;
+    const tags: Array<[string, string]> = [
+      ['d', currentList.dTag],
+      ['name', currentList.name],
+    ];
+
+    // Add description if it exists
+    if (currentList.description) {
+      tags.push(['description', currentList.description]);
+    }
+
+    // Add updated members
+    const memberTag = kind === 30000 ? 'p' : 't';
+    updatedMembers.forEach((memberPubkey) => {
+      tags.push([memberTag, memberPubkey]);
+    });
+
+    // Add team-related tags for discovery
+    tags.push(['t', 'team']);
+    tags.push(['t', 'fitness']);
+
+    const eventTemplate = {
+      kind,
+      created_at: Math.floor(Date.now() / 1000),
+      tags,
+      content: currentList.description || '',
+      pubkey: authorPubkey,
+    };
+
+    console.log(`✅ Prepared list update with ${updatedMembers.length} members`);
+    return eventTemplate;
+  }
+
+  /**
+   * Update cached list after successful publish
+   */
+  updateCachedList(listId: string, updatedMembers: string[]) {
+    const cachedList = this.cachedLists.get(listId);
+    if (cachedList) {
+      cachedList.members = updatedMembers;
+      cachedList.lastUpdated = Math.floor(Date.now() / 1000);
+      console.log(`✅ Updated cached list: ${listId} with ${updatedMembers.length} members`);
     }
   }
 

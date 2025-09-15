@@ -22,25 +22,25 @@ RUNSTR.APP is a React Native mobile application that transforms fitness routines
 **Authentication**:
 - **Simple Login Screen**: Show login screen unless npub/nsec found in local storage
 - **Direct Nostr Authentication**: Manual nsec input only (no platform-specific auth)
-- **Seamless Supabase Integration**: Nsec login → derive npub → automatic Supabase user creation/lookup
+- **Pure Nostr Flow**: Nsec login → derive npub → store locally in AsyncStorage
 
 ## Key Technologies
 - **Frontend**: React Native with TypeScript (Expo framework)
-- **Data Layer**: Hybrid Nostr + Supabase (Nostr for social/teams, Supabase for competition automation)
-- **Authentication**: Nostr (nsec) with npub-only Supabase integration
-- **Fitness Data**: Kind 1301 events from Nostr relays + Apple HealthKit + Supabase background sync
+- **Data Layer**: Pure Nostr - NO SUPABASE (all data from Nostr events)
+- **Authentication**: Nostr (nsec) - direct authentication only
+- **Fitness Data**: Kind 1301 events from Nostr relays + Apple HealthKit
 - **Team Data**: Custom Nostr event kinds for teams, leagues, events, challenges
 - **Bitcoin**: Lightning Network integration via CoinOS API
 - **Nostr Tools**: nostr-tools library for event handling
 - **Nostr Relays**: Damus, Primal, nos.lol for social data operations
-- **Supabase**: Npub-only backend for competition automation and HealthKit background sync
 - **Push Notifications**: Team-branded Expo notifications with Nostr event integration (kinds 1101, 1102, 1103)
+- **IMPORTANT**: This project uses NO SUPABASE - pure Nostr only
 
 ## Architecture Principles
 - **File Size Limit**: Maximum 500 lines per file for maintainability
 - **Two-Page Simplicity**: Core app is just Teams and Profile tabs
-- **Hybrid Data Model**: Nostr for social/teams, Supabase for seamless competition automation
-- **Privacy-First Supabase**: Only npub + competition metrics stored, no traditional user accounts
+- **Pure Nostr Data Model**: All team, competition, and social data from Nostr events
+- **No Backend Dependencies**: No Supabase, no traditional backend - pure Nostr
 - **Platform-Specific UX**: Different auth flows for iOS/Android
 - **Real Data Only**: No mock data - all functionality uses actual Nostr events + HealthKit data
 - **Folder Documentation**: Update folder READMEs when adding/removing/changing files
@@ -66,10 +66,9 @@ src/
 **1. Authentication & Profile Import**:
 - Show login screen unless npub/nsec found in local storage
 - Nsec login automatically imports profile from kind 0 events
-- Derived npub creates/retrieves Supabase user record (no separate account needed)
+- Derived npub stored locally in AsyncStorage for session persistence
 - Workout data synced from kind 1301 events across Nostr relays
 - Apple HealthKit workouts automatically imported and available for posting
-- HealthKit background sync enabled for competition automation
 - Direct navigation to Profile screen after authentication
 
 **2. Two-Tab Navigation**:
@@ -80,13 +79,11 @@ src/
 - **Members**: Browse teams → Join → Participate in competitions
 - **Captains**: Captain dashboard access → Wizard-driven competition creation → Member management
 
-**4. Hybrid Competition System**:
+**4. Competition System**:
 - **Wizard Creation**: 7 activity types → Dynamic competition options → Time/settings configuration
-- **Smart Auto-Entry**: HealthKit workouts automatically evaluated for competition eligibility
-- **Dual Data Sources**: Competitions pull from both Supabase auto-entries AND manual Nostr kind 1301 events
-- **Deduplication Logic**: Same workout cannot count twice, manual entries prioritized over auto-entries
+- **Nostr Event Based**: All competitions stored as Nostr events with custom kinds
+- **Manual Entry**: Participants post kind 1301 workout events to enter competitions
 - **Automatic Scoring**: Real-time leaderboards based on captain's wizard parameters
-- **Privacy Controls**: Opt-in consent for auto-sync, "ghost mode" for competition-only participation
 - **Bitcoin Integration**: Entry fees, prize pools, automatic reward distribution
 
 **5. Team Management**:
@@ -100,15 +97,11 @@ src/
 - **User Preference Integration**: Respects Profile notification settings with granular control
 - **Nostr-Native Processing**: Direct integration with existing NostrTeamService and NostrRelayManager
 
-**7. HealthKit Background Sync & Posting System**:
-- **iOS Background Delivery**: HealthKit workout updates delivered when app backgrounded
-- **Smart Auto-Processing**: New workouts automatically evaluated for active competitions
-- **Supabase Processing Pipeline**: Background service maintains competition cache and eligibility rules
+**7. HealthKit Workout Posting System**:
 - **Unified Workout Display**: Shows both HealthKit and Nostr workouts in single timeline
 - **Two-Button System**: "Save to Nostr" (kind 1301 for competitions) vs "Post to Nostr" (kind 1 social)
 - **Beautiful Social Cards**: SVG-based workout achievement graphics with RUNSTR branding
 - **Smart Status Tracking**: Prevents duplicate posting, shows completion states
-- **Privacy-First Storage**: Only competition metrics (type, duration, distance, calories) stored in Supabase
 - **Achievement Recognition**: Automatic badges for PRs, distance milestones, calorie burns
 - **Motivational Content**: Inspirational quotes tailored to workout types
 
@@ -185,46 +178,19 @@ Simple two-tab interface with dark theme:
 - **Changes not appearing**: Fast Refresh failed → Press Cmd+R or restart Metro with `--clear`
 - **App crashes on startup**: Check Metro logs for JavaScript errors, not Xcode logs
 
-## Supabase Data Model
-**Privacy-First Architecture**: No traditional user accounts, only npub-based records for competition automation.
+## Local Data Storage
+**Pure Nostr Architecture**: All data comes from Nostr events, with local caching for performance.
 
-**Core Tables**:
-```sql
--- Users table: Minimal npub-only records
-users (
-  npub TEXT PRIMARY KEY,           -- Nostr public key
-  device_token TEXT,               -- Push notifications
-  healthkit_enabled BOOLEAN,       -- Auto-sync consent
-  last_sync TIMESTAMP,             -- Background sync tracking
-  ghost_mode BOOLEAN DEFAULT FALSE -- Competition-only participation
-)
+**Local Storage (AsyncStorage)**:
+- User's nsec/npub for authentication
+- Cached team membership status
+- Workout posting status (to prevent duplicates)
+- User preferences and settings
 
--- Workouts table: Competition metrics only
-workouts (
-  id UUID PRIMARY KEY,
-  npub TEXT REFERENCES users(npub),
-  workout_id TEXT UNIQUE,          -- HealthKit UUID
-  type TEXT NOT NULL,              -- Exercise type
-  duration INTEGER,                -- Minutes
-  distance REAL,                   -- Meters
-  calories INTEGER,                -- Total burned
-  start_time TIMESTAMP,            -- Workout start
-  created_at TIMESTAMP DEFAULT NOW
-)
-
--- Competition entries: Auto-entry tracking
-competition_entries (
-  id UUID PRIMARY KEY,
-  npub TEXT REFERENCES users(npub),
-  competition_id TEXT,             -- Nostr event ID
-  workout_id UUID REFERENCES workouts(id),
-  score REAL,                      -- Calculated points
-  auto_entered BOOLEAN,            -- Auto vs manual entry
-  created_at TIMESTAMP DEFAULT NOW
-)
-```
-
-**Background Processing**: Supabase Edge Functions evaluate workout eligibility, maintain active competition cache, and calculate real-time leaderboards.
+**Captain Detection**:
+- Captain status determined from team's Nostr events
+- Team captain field checked against user's npub/hex pubkey
+- No backend verification needed - pure client-side from Nostr data
 
 ## Quality Assurance Requirements
 **MANDATORY: Before completing any development phase:**
@@ -312,13 +278,12 @@ competition_entries (
 ✅ **HealthKit Workout Posting** - Transform Apple Health workouts into Nostr events and social cards
 ✅ All TypeScript compilation successful - Core services production-ready
 
-🔄 **Next Implementation Phase: Hybrid Nostr + Supabase Architecture**
-- Npub-only Supabase user management (no traditional accounts)
-- HealthKit background sync with iOS background delivery
-- Smart competition auto-entry system with eligibility evaluation
-- Supabase Edge Functions for real-time leaderboard processing
-- Privacy controls: opt-in consent, ghost mode, minimal data storage
-- Hybrid competition data sources (Supabase auto-entries + manual Nostr events)
+🔄 **Next Implementation Phase: Pure Nostr Competition System**
+- Competition events stored as custom Nostr kinds
+- Manual workout entry via kind 1301 events
+- Client-side leaderboard calculation from Nostr events
+- Captain-only competition creation and management
+- Bitcoin prize distribution via Lightning Network
 
 ## Recent Major Implementation - HealthKit Workout Posting & Social Cards
 **Completed Services** (All <500 lines):

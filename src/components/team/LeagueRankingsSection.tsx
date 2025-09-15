@@ -21,8 +21,8 @@ import leagueRankingService, {
   LeagueParameters,
   LeagueParticipant,
 } from '../../services/competition/leagueRankingService';
-import { NostrListService } from '../../services/nostr/NostrListService';
-import { TeamMembershipService } from '../../services/team/teamMembershipService';
+import { TeamMemberCache } from '../../services/team/TeamMemberCache';
+import { getUserNostrIdentifiers } from '../../utils/nostr';
 
 export interface LeagueRankingsSectionProps {
   competitionId: string;
@@ -59,42 +59,31 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [teamParticipants, setTeamParticipants] = useState<LeagueParticipant[]>(participants);
+  const [captainPubkey, setCaptainPubkey] = useState<string | null>(null);
 
   const rankingService = leagueRankingService;
-  const listService = NostrListService.getInstance();
-  const membershipService = TeamMembershipService.getInstance();
+  const memberCache = TeamMemberCache.getInstance();
 
   /**
-   * Fetch team members from Nostr lists if not provided
+   * Fetch team members from cached kind 30000 lists
    */
   const fetchTeamMembers = async (): Promise<LeagueParticipant[]> => {
-    if (!teamId) return [];
+    if (!teamId || !captainPubkey) return [];
 
     try {
       console.log(`🔍 Fetching team members for team: ${teamId}`);
 
-      // Get official members from team - simplified approach
-      // For now, we'll use a basic member list since the full Nostr list integration isn't complete
-      const officialMembers: string[] = [];
+      // Get members from cached kind 30000 list
+      const members = await memberCache.getTeamMembers(teamId, captainPubkey);
 
-      // TODO: When NostrListService.fetchTeamMemberLists is implemented, use:
-      // const memberLists = await listService.fetchTeamMemberLists(teamId);
-      // Extract members from kind 30000/30001 lists
-
-      // For RUNSTR team, add the captain (TheWildHustle) as a default member
-      if (teamId === '87d30c8b-aa18-4424-a629-d41ea7f89078') {
-        // TheWildHustle's npub
-        officialMembers.push('npub1xr8tvnnntjqqrqp9n7e7j5sdp9npqg2kv2nndxkyfzhqr5u0e9sq7w2qxa');
+      if (members.length === 0) {
+        // No members found - captain should be at least in the list
+        console.log('⚠️ No members found in team list, adding captain');
+        members.push(captainPubkey);
       }
 
-      // Get local members (user's own view includes local members)
-      const localMembers = await membershipService.getLocalMembers(teamId);
-
-      // Combine and deduplicate
-      const allMembers = [...new Set([...officialMembers, ...localMembers])];
-
       // Convert to LeagueParticipant format
-      return allMembers.map(npub => {
+      return members.map(npub => {
         // Special case for known team members
         let name = npub.slice(0, 8) + '...';
         if (npub.includes('xr8tvnnn') || npub.includes('30ceb64e')) {
@@ -115,6 +104,29 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
   };
 
   /**
+   * Get captain pubkey for the team
+   */
+  useEffect(() => {
+    const getCaptainPubkey = async () => {
+      if (!teamId) return;
+
+      // For known teams, set captain pubkey
+      if (teamId === '87d30c8b-aa18-4424-a629-d41ea7f89078') {
+        // RUNSTR team - TheWildHustle is captain
+        setCaptainPubkey('npub1xr8tvnnntjqqrqp9n7e7j5sdp9npqg2kv2nndxkyfzhqr5u0e9sq7w2qxa');
+      } else {
+        // Try to get from user's own identifiers if they're the captain
+        const identifiers = await getUserNostrIdentifiers();
+        if (identifiers?.npub) {
+          setCaptainPubkey(identifiers.npub);
+        }
+      }
+    };
+
+    getCaptainPubkey();
+  }, [teamId]);
+
+  /**
    * Load league rankings
    */
   const loadRankings = async (force = false) => {
@@ -126,10 +138,10 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
         setRefreshing(true);
       }
 
-      // Use provided participants or fetch them
+      // Use provided participants or fetch them from cached member list
       let participantsToUse = teamParticipants;
-      if (participantsToUse.length === 0 && teamId) {
-        console.log('📥 No participants provided, fetching from team lists...');
+      if (participantsToUse.length === 0 && teamId && captainPubkey) {
+        console.log('📥 No participants provided, fetching from cached member lists...');
         participantsToUse = await fetchTeamMembers();
         setTeamParticipants(participantsToUse);
       }

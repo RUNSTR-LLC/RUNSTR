@@ -35,10 +35,10 @@ import { useNavigationData } from '../hooks/useNavigationData';
 export type RootStackParamList = {
   Login: undefined;
   Team: undefined;
-  TeamDashboard: { team: any; userIsMember?: boolean }; // Individual team dashboard
+  TeamDashboard: { team: any; userIsMember?: boolean; currentUserNpub?: string; userIsCaptain?: boolean }; // Individual team dashboard
   Profile: undefined;
   Wallet: undefined;
-  CaptainDashboard: undefined;
+  CaptainDashboard: { teamId?: string; teamName?: string; isCaptain?: boolean };
   TeamDiscovery: {
     isOnboarding?: boolean;
     currentTeamId?: string;
@@ -185,9 +185,14 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
       {/* Individual Team Dashboard */}
       <Stack.Screen name="TeamDashboard" options={screenConfigurations.Team}>
         {({ navigation, route }) => {
-          const { team, userIsMember = false, currentUserNpub, userIsCaptain = false } = route.params;
+          // Log raw route params first
+          console.log('🔍 AppNavigator: RAW route.params:', route.params);
+          console.log('🔍 AppNavigator: route.params keys:', route.params ? Object.keys(route.params) : 'undefined');
+          console.log('🔍 AppNavigator: userIsCaptain in params?', route.params?.userIsCaptain);
 
-          console.log('🚨 AppNavigator: Route params received:', {
+          const { team, userIsMember = false, currentUserNpub, userIsCaptain = false } = route.params || {};
+
+          console.log('🚨 AppNavigator: Route params AFTER destructuring:', {
             hasTeam: !!team,
             userIsMember,
             currentUserNpub: currentUserNpub?.slice(0, 20) + '...',
@@ -214,9 +219,11 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
                 challenges: [],
               }}
               onMenuPress={() => handlers.handleMenuPress(navigation)}
-              onCaptainDashboard={() =>
-                handlers.handleCaptainDashboard(navigation)
-              }
+              onCaptainDashboard={() => {
+                console.log('🎖️ AppNavigator: Captain dashboard handler called');
+                // Pass team information to the captain dashboard handler
+                handlers.handleCaptainDashboard(navigation, team?.id, team?.name);
+              }}
               onAddChallenge={() => handlers.handleAddChallenge(navigation)}
               onEventPress={(eventId) =>
                 navigation.navigate('EventDetail', { eventId })
@@ -322,11 +329,29 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
         name="CaptainDashboard"
         options={screenConfigurations.CaptainDashboard}
       >
-        {({ navigation }) =>
-          user?.role === 'captain' && captainDashboardData ? (
+        {({ navigation, route }) => {
+          // Get team and captain data from route params if passed
+          const { teamId, teamName, isCaptain } = route.params || {};
+
+          // Use captain dashboard data or create a minimal version
+          const dashboardData = captainDashboardData || {
+            team: {
+              id: teamId || 'unknown',
+              name: teamName || 'Team',
+              memberCount: 0,
+              activeEvents: 0,
+              activeChallenges: 0,
+              prizePool: 0,
+            },
+            members: [],
+            recentActivity: [],
+          };
+
+          // Always render the screen - let it handle its own authorization
+          return (
             <CaptainDashboardScreen
-              data={captainDashboardData}
-              captainId={user.id}
+              data={dashboardData}
+              captainId={user?.npub || user?.id || ''}
               onNavigateToTeam={() => navigation.navigate('Team')}
               onNavigateToProfile={() => navigation.navigate('Profile')}
               onSettingsPress={handlers.handleSettings}
@@ -337,23 +362,8 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
               onViewWalletHistory={handlers.handleViewWalletHistory}
               onViewAllActivity={handlers.handleViewAllActivity}
             />
-          ) : (
-            <View
-              style={{
-                flex: 1,
-                backgroundColor: theme.colors.background,
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ color: theme.colors.text }}>
-                {user?.role !== 'captain'
-                  ? 'Not authorized'
-                  : 'Loading Dashboard...'}
-              </Text>
-            </View>
-          )
-        }
+          );
+        }}
       </Stack.Screen>
 
       {/* Team Discovery Modal */}

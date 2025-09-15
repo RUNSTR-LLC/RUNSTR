@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
+  Alert,
 } from 'react-native';
 import { theme } from '../styles/theme';
 import { BottomNavigation } from '../components/ui/BottomNavigation';
@@ -22,6 +23,11 @@ import { JoinRequestsSection } from '../components/team/JoinRequestsSection';
 import { EventCreationWizard } from '../components/wizards/EventCreationWizard';
 import { LeagueCreationWizard } from '../components/wizards/LeagueCreationWizard';
 import { RewardDistribution } from '../types/teamWallet';
+import { NostrListService } from '../services/nostr/NostrListService';
+import { NostrProtocolHandler } from '../services/nostr/NostrProtocolHandler';
+import { NostrRelayManager } from '../services/nostr/NostrRelayManager';
+import { getNsecFromStorage, nsecToPrivateKey } from '../utils/nostr';
+import { TeamMemberCache } from '../services/team/TeamMemberCache';
 
 // Type definitions for captain dashboard data
 export interface CaptainDashboardData {
@@ -51,6 +57,7 @@ export interface CaptainDashboardData {
 interface CaptainDashboardScreenProps {
   data: CaptainDashboardData;
   captainId: string; // Added for wallet manager
+  teamId: string; // Added for member management
   onNavigateToTeam: () => void;
   onNavigateToProfile: () => void;
   onSettingsPress: () => void;
@@ -68,6 +75,7 @@ interface CaptainDashboardScreenProps {
 export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
   data,
   captainId,
+  teamId,
   onNavigateToTeam,
   onNavigateToProfile,
   onSettingsPress,
@@ -109,6 +117,80 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
 
   const handleCloseLeagueWizard = () => {
     setLeagueWizardVisible(false);
+  };
+
+  // Handle member removal
+  const handleRemoveMember = async (memberPubkey: string) => {
+    Alert.alert(
+      'Remove Member',
+      'Are you sure you want to remove this member from the team?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Get current member list
+              const listService = NostrListService.getInstance();
+              const memberListDTag = `${teamId}-members`;
+              const currentList = await listService.getList(captainId, memberListDTag);
+
+              if (!currentList) {
+                throw new Error('Team member list not found');
+              }
+
+              // Prepare the updated list event
+              const eventTemplate = listService.prepareRemoveMember(
+                captainId,
+                memberListDTag,
+                memberPubkey,
+                currentList
+              );
+
+              if (!eventTemplate) {
+                console.log('Member not in list');
+                return;
+              }
+
+              // Get captain's private key for signing
+              const nsec = await getNsecFromStorage();
+              if (!nsec) {
+                throw new Error('Captain credentials not found');
+              }
+              const privateKey = await nsecToPrivateKey(nsec);
+
+              // Sign and publish the updated list
+              const protocolHandler = new NostrProtocolHandler();
+              const relayManager = new NostrRelayManager();
+
+              const signedEvent = await protocolHandler.signEvent(eventTemplate, privateKey);
+              const publishResult = await relayManager.publishEvent(signedEvent);
+
+              if (publishResult.successful && publishResult.successful.length > 0) {
+                console.log(`✅ Removed member from team list: ${memberPubkey}`);
+
+                // Update cache
+                const listId = `${captainId}:${memberListDTag}`;
+                const updatedMembers = currentList.members.filter(m => m !== memberPubkey);
+                listService.updateCachedList(listId, updatedMembers);
+
+                // Invalidate team member cache to force refresh
+                const memberCache = TeamMemberCache.getInstance();
+                memberCache.invalidateTeam(teamId, captainId);
+
+                Alert.alert('Success', 'Member has been removed from the team');
+              } else {
+                throw new Error('Failed to publish updated member list');
+              }
+            } catch (error) {
+              console.error('Failed to remove member:', error);
+              Alert.alert('Error', 'Failed to remove member. Please try again.');
+            }
+          },
+        },
+      ]
+    );
   };
   return (
     <SafeAreaView style={styles.container}>
@@ -190,12 +272,12 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
                     onPress={() =>
                       member.status === 'active'
                         ? onEditMember(member.id)
-                        : onKickMember(member.id)
+                        : handleRemoveMember(member.id)
                     }
                     activeOpacity={0.7}
                   >
                     <Text style={styles.miniBtnText}>
-                      {member.status === 'active' ? 'Edit' : 'Kick'}
+                      {member.status === 'active' ? 'Edit' : 'Remove'}
                     </Text>
                   </TouchableOpacity>
                 </View>

@@ -16,6 +16,7 @@ import { DiscoveryTeam } from '../../types';
 import { PrizeDisplay } from '../ui/PrizeDisplay';
 import { isTeamCaptain, isTeamMember } from '../../utils/teamUtils';
 import { TeamMembershipService } from '../../services/team/teamMembershipService';
+import { CaptainCache } from '../../utils/captainCache';
 
 // Helper function to extract activity type from team content
 const extractActivityType = (team: DiscoveryTeam): string => {
@@ -71,6 +72,14 @@ export const TeamCard: React.FC<TeamCardProps> = ({
 
   const isCaptain = isTeamCaptain(currentUserNpub, team);
   const activityType = extractActivityType(team);
+
+  // Cache captain status when we detect it correctly
+  useEffect(() => {
+    if (team.id && currentUserNpub && isCaptain !== undefined) {
+      console.log(`🎯 TeamCard: Caching captain status for ${team.name}: ${isCaptain}`);
+      CaptainCache.setCaptainStatus(team.id, isCaptain);
+    }
+  }, [team.id, currentUserNpub, isCaptain]);
 
   // Check membership status on mount
   useEffect(() => {

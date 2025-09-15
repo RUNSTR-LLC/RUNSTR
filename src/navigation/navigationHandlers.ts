@@ -12,6 +12,7 @@ import { getNostrTeamService } from '../services/nostr/NostrTeamService';
 import { CaptainDetectionService } from '../services/team/captainDetectionService';
 import { isTeamMember, isTeamCaptain } from '../utils/teamUtils';
 import { DirectNostrProfileService } from '../services/user/directNostrProfileService';
+import { CaptainCache } from '../utils/captainCache';
 
 export interface NavigationHandlers {
   handleTeamJoin: (
@@ -171,18 +172,18 @@ export const createNavigationHandlers = (): NavigationHandlers => {
 
       // Use passed userNpub (from working discovery page auth) instead of AsyncStorage lookups
       let currentUserNpub: string | undefined = userNpub;
-      
+
       console.log('🔄 NavigationHandlers: User from passed parameter (same as working discovery):', {
         hasNpub: !!currentUserNpub,
         npubSlice: currentUserNpub?.slice(0, 20) + '...' || 'undefined',
       });
-      
+
       // Only try AsyncStorage fallback if no npub was passed
       if (!currentUserNpub) {
         try {
           const userData = await AuthService.getCurrentUserWithWallet();
           currentUserNpub = userData?.npub;
-          
+
           console.log('🔧 NavigationHandlers: Fallback to AuthService:', {
             hasUser: !!userData,
             hasNpub: !!currentUserNpub,
@@ -199,11 +200,26 @@ export const createNavigationHandlers = (): NavigationHandlers => {
           });
         }
       }
-      
+
       // Use the same logic as EnhancedTeamScreen to determine membership
       const calculatedUserIsMember = isTeamMember(currentUserNpub, team);
-      const userIsCaptain = isTeamCaptain(currentUserNpub, team);
-      
+
+      // Get captain status from cache (set by TeamCard where it works correctly)
+      let userIsCaptain = false;
+      if (team.id && currentUserNpub) {
+        const cachedStatus = await CaptainCache.getCaptainStatus(team.id);
+        if (cachedStatus !== null) {
+          userIsCaptain = cachedStatus;
+          console.log(`✅ NavigationHandlers: Using cached captain status for ${team.name}: ${userIsCaptain}`);
+        } else {
+          // Fallback only if not cached
+          userIsCaptain = isTeamCaptain(currentUserNpub, team);
+          console.log(`⚠️ NavigationHandlers: No cached status, calculated: ${userIsCaptain}`);
+          // Cache it for next time
+          await CaptainCache.setCaptainStatus(team.id, userIsCaptain);
+        }
+      }
+
       // Member status includes both regular members and captains
       const userIsMember = calculatedUserIsMember || userIsCaptain;
 
@@ -295,10 +311,10 @@ export const createNavigationHandlers = (): NavigationHandlers => {
     },
 
     // Profile Screen Handlers
-    handleCaptainDashboard: async (navigation: any) => {
+    handleCaptainDashboard: async (navigation: any, teamId?: string, teamName?: string) => {
       try {
         console.log('🎖️ NavigationHandlers: Captain dashboard access requested');
-        
+
         // Get current user from store
         const user = useUserStore.getState().user;
         if (!user) {
@@ -309,11 +325,38 @@ export const createNavigationHandlers = (): NavigationHandlers => {
           return;
         }
 
-        // Use CaptainDetectionService to check captain status
-        const captainService = CaptainDetectionService.getInstance();
-        const captainStatus = await captainService.getCaptainStatus(user.id);
+        // First check cached captain status
+        let isCaptain = false;
+        let captainTeamId = teamId;
+        let captainTeamName = teamName;
 
-        if (!captainStatus.isCaptain) {
+        if (teamId) {
+          // Check specific team
+          const cachedStatus = await CaptainCache.getCaptainStatus(teamId);
+          isCaptain = cachedStatus === true;
+        } else {
+          // Check if captain of any team
+          const captainTeams = await CaptainCache.getCaptainTeams();
+          if (captainTeams.length > 0) {
+            isCaptain = true;
+            captainTeamId = captainTeams[0]; // Use first team for now
+          }
+        }
+
+        // If no cached data, try captain detection service
+        if (!isCaptain) {
+          const captainService = CaptainDetectionService.getInstance();
+          const captainStatus = await captainService.getCaptainStatus(user.id);
+
+          if (captainStatus.isCaptain && captainStatus.captainOfTeams.length > 0) {
+            isCaptain = true;
+            captainTeamId = captainStatus.captainOfTeams[0];
+            // Cache for next time
+            await CaptainCache.setCaptainStatus(captainTeamId, true);
+          }
+        }
+
+        if (!isCaptain) {
           console.log('❌ NavigationHandlers: User is not a captain of any team');
           Alert.alert(
             'Access Denied',
@@ -322,11 +365,15 @@ export const createNavigationHandlers = (): NavigationHandlers => {
           return;
         }
 
-        console.log(`✅ NavigationHandlers: Captain access granted - User captains ${captainStatus.captainOfTeams.length} team(s)`);
-        
-        // Navigate to captain dashboard
-        navigation.navigate('CaptainDashboard');
-        
+        console.log(`✅ NavigationHandlers: Captain access granted for team ${captainTeamId}`);
+
+        // Navigate to captain dashboard with team information
+        navigation.navigate('CaptainDashboard', {
+          teamId: captainTeamId,
+          teamName: captainTeamName || 'Team',
+          isCaptain: true,
+        });
+
       } catch (error) {
         console.error('❌ NavigationHandlers: Error checking captain dashboard access:', error);
         Alert.alert(

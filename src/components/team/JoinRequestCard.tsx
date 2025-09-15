@@ -9,6 +9,10 @@ import { theme } from '../../styles/theme';
 import { MemberAvatar } from '../ui/MemberAvatar';
 import type { JoinRequest } from '../../services/team/teamMembershipService';
 import { NostrListService } from '../../services/nostr/NostrListService';
+import { NostrProtocolHandler } from '../../services/nostr/NostrProtocolHandler';
+import { NostrRelayManager } from '../../services/nostr/NostrRelayManager';
+import { getNsecFromStorage, nsecToPrivateKey } from '../../utils/nostr';
+import { TeamMemberCache } from '../../services/team/TeamMemberCache';
 
 interface JoinRequestCardProps {
   request: JoinRequest;
@@ -52,15 +56,59 @@ export const JoinRequestCard: React.FC<JoinRequestCardProps> = ({
           onPress: async () => {
             setIsProcessing(true);
             try {
-              // Add member to official Nostr list
+              // Get current member list
               const listService = NostrListService.getInstance();
-              await listService.addMemberToList(
+              const memberListDTag = `${teamId}-members`;
+              const currentList = await listService.getList(captainPubkey, memberListDTag);
+
+              if (!currentList) {
+                throw new Error('Team member list not found');
+              }
+
+              // Prepare the updated list event
+              const eventTemplate = listService.prepareAddMember(
                 captainPubkey,
-                teamId,
-                request.requesterPubkey
+                memberListDTag,
+                request.requesterPubkey,
+                currentList
               );
 
-              onApprove(request.id, request.requesterPubkey);
+              if (!eventTemplate) {
+                console.log('Member already in list');
+                onApprove(request.id, request.requesterPubkey);
+                return;
+              }
+
+              // Get captain's private key for signing
+              const nsec = await getNsecFromStorage();
+              if (!nsec) {
+                throw new Error('Captain credentials not found');
+              }
+              const privateKey = await nsecToPrivateKey(nsec);
+
+              // Sign and publish the updated list
+              const protocolHandler = new NostrProtocolHandler();
+              const relayManager = new NostrRelayManager();
+
+              const signedEvent = await protocolHandler.signEvent(eventTemplate, privateKey);
+              const publishResult = await relayManager.publishEvent(signedEvent);
+
+              if (publishResult.successful && publishResult.successful.length > 0) {
+                console.log(`✅ Added member to team list: ${request.requesterPubkey}`);
+
+                // Update cache
+                const listId = `${captainPubkey}:${memberListDTag}`;
+                const updatedMembers = [...currentList.members, request.requesterPubkey];
+                listService.updateCachedList(listId, updatedMembers);
+
+                // Invalidate team member cache to force refresh
+                const memberCache = TeamMemberCache.getInstance();
+                memberCache.invalidateTeam(teamId, captainPubkey);
+
+                onApprove(request.id, request.requesterPubkey);
+              } else {
+                throw new Error('Failed to publish updated member list');
+              }
             } catch (error) {
               console.error('Failed to approve join request:', error);
               Alert.alert(
