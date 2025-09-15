@@ -61,6 +61,7 @@ import { TeamCreationWizard } from './components/wizards/TeamCreationWizard';
 import { EventDetailScreen } from './screens/EventDetailScreen';
 import { ChallengeDetailScreen } from './screens/ChallengeDetailScreen';
 import { EnhancedTeamScreen } from './screens/EnhancedTeamScreen';
+import { CaptainDashboardScreen } from './screens/CaptainDashboardScreen';
 import { User } from './types';
 
 // Types for authenticated app navigation
@@ -70,6 +71,7 @@ type AuthenticatedStackParamList = {
   EnhancedTeamScreen: { team: any; userIsMember?: boolean; currentUserNpub?: string; userIsCaptain?: boolean };
   EventDetail: { eventId: string };
   ChallengeDetail: { challengeId: string };
+  CaptainDashboard: { teamId?: string; teamName?: string; isCaptain?: boolean };
 };
 
 const AuthenticatedStack = createStackNavigator<AuthenticatedStackParamList>();
@@ -151,7 +153,12 @@ const AppContent: React.FC = () => {
                 onMenuPress={() => console.log('Menu pressed')}
                 onCaptainDashboard={() => {
                   console.log('Captain dashboard from EnhancedTeamScreen');
-                  // navigation.navigate('CaptainDashboard');
+                  console.log('Navigating to CaptainDashboard with team:', team?.id);
+                  navigation.navigate('CaptainDashboard', {
+                    teamId: team?.id,
+                    teamName: team?.name,
+                    isCaptain: true
+                  });
                 }}
                 onAddChallenge={() => console.log('Add challenge')}
                 onEventPress={(eventId) => navigation.navigate('EventDetail', { eventId })}
@@ -200,6 +207,45 @@ const AppContent: React.FC = () => {
               navigation={navigation}
             />
           )}
+        </AuthenticatedStack.Screen>
+
+        {/* Captain Dashboard Screen */}
+        <AuthenticatedStack.Screen
+          name="CaptainDashboard"
+          options={{
+            headerShown: false,
+          }}
+        >
+          {({ navigation, route }) => {
+            const { teamId, teamName, isCaptain } = route.params || {};
+            return (
+              <CaptainDashboardScreen
+                data={{
+                  team: {
+                    id: teamId || '',
+                    name: teamName || 'Team',
+                    memberCount: 0,
+                    activeEvents: 0,
+                    activeChallenges: 0,
+                    prizePool: 0,
+                  },
+                  members: [],
+                  joinRequests: [],
+                  activityLog: [],
+                  walletBalance: 0,
+                }}
+                teamId={teamId || ''}
+                captainId={user.npub || user.id}
+                onNavigateToTeam={() => navigation.navigate('MainTabs', { screen: 'Teams' })}
+                onNavigateToProfile={() => navigation.navigate('MainTabs', { screen: 'Profile' })}
+                onSettingsPress={() => console.log('Settings')}
+                onInviteMember={() => console.log('Invite member')}
+                onEditMember={(memberId) => console.log('Edit member:', memberId)}
+                onKickMember={(memberId) => console.log('Kick member:', memberId)}
+                onDistributeRewards={(distributions) => console.log('Distribute rewards:', distributions)}
+              />
+            );
+          }}
         </AuthenticatedStack.Screen>
       </AuthenticatedStack.Navigator>
     );

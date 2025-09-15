@@ -173,11 +173,11 @@ export const TeamCard: React.FC<TeamCardProps> = ({
         </View>
       </View>
 
-      {/* Prize Section */}
-      <PrizeDisplay
+      {/* Prize Section - Hidden for now */}
+      {/* <PrizeDisplay
         prizePool={team.prizePool}
         recentPayout={team.recentPayout}
-      />
+      /> */}
 
       {/* Stats Grid */}
       <View style={styles.statsGrid}>

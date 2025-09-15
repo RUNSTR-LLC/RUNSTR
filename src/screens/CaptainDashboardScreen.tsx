@@ -249,12 +249,12 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
             style={styles.membersList}
             showsVerticalScrollIndicator={false}
           >
-            {data.members.slice(0, 4).map((member) => (
+            {data.members && data.members.length > 0 ? data.members.slice(0, 4).map((member) => (
               <View key={member.id} style={styles.memberItem}>
                 <View style={styles.memberInfo}>
                   <View style={styles.memberAvatar}>
                     <Text style={styles.memberAvatarText}>
-                      {member.name.charAt(0).toUpperCase()}
+                      {member.name ? member.name.charAt(0).toUpperCase() : '?'}
                     </Text>
                   </View>
                   <View style={styles.memberDetails}>
@@ -282,7 +282,11 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
                   </TouchableOpacity>
                 </View>
               </View>
-            ))}
+            )) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>No team members yet</Text>
+              </View>
+            )}
           </ScrollView>
         </View>
 
@@ -561,6 +565,16 @@ const styles = StyleSheet.create({
   miniBtnText: {
     fontSize: 9,
     color: theme.colors.text,
+  },
+
+  emptyState: {
+    padding: 20,
+    alignItems: 'center',
+  },
+
+  emptyStateText: {
+    color: theme.colors.textMuted,
+    fontSize: 14,
   },
 
   // Component styles removed - now handled by individual components

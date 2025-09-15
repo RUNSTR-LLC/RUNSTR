@@ -73,7 +73,7 @@ export class CompetitionWinnersService {
               winnerAvatar: entry.avatar,
               competitionName: activeLeague.name || 'Current Competition',
               competitionType: 'league',
-              satsWon: this.calculatePrize(100000, index + 1), // Example prize pool
+              satsWon: 0, // Prize pools hidden for now
               date: new Date().toISOString(),
               rank: index + 1,
             });

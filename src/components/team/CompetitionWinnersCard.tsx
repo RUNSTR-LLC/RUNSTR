@@ -120,12 +120,13 @@ export const CompetitionWinnersCard: React.FC<CompetitionWinnersCardProps> = ({
                 </View>
               </View>
               <View style={styles.winnerRight}>
-                <View style={styles.satsContainer}>
+                {/* Sats display - Hidden for now */}
+                {/* <View style={styles.satsContainer}>
                   <Text style={styles.satsAmount}>
                     {formatSats(winner.satsWon)}
                   </Text>
                   <Text style={styles.satsLabel}>sats</Text>
-                </View>
+                </View> */}
                 <Text style={styles.winDate}>{formatDate(winner.date)}</Text>
               </View>
             </View>

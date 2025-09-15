@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, Text, TouchableOpacity } from 'react-native';
 import { BottomNavigation } from '../components/ui/BottomNavigation';
 import { TeamHeader } from '../components/team/TeamHeader';
 import { AboutPrizeSection } from '../components/team/AboutPrizeSection';
@@ -250,7 +250,8 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.contentInner}>
-          <AboutPrizeSection
+          {/* Prize Section - Hidden for now */}
+          {/* <AboutPrizeSection
             description={team.description}
             prizePool={team.prizePool}
             onCaptainDashboard={handleCaptainDashboard}
@@ -258,7 +259,35 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
             isCaptain={userIsCaptain}
             isMember={calculatedUserIsMember || userIsCaptain}
             captainLoading={captainLoading}
-          />
+          /> */}
+
+          {/* Temporary About Section without prize pool */}
+          <View style={{ padding: 16, backgroundColor: theme.colors.cardBackground, borderRadius: 12, marginBottom: 12 }}>
+            <Text style={{ fontSize: 12, color: theme.colors.textMuted, marginBottom: 8 }}>About</Text>
+            <Text style={{ fontSize: 14, color: theme.colors.textSecondary, lineHeight: 20 }}>
+              {team.description || 'No description available'}
+            </Text>
+
+            {/* Captain Dashboard Button */}
+            {userIsCaptain && (
+              <TouchableOpacity
+                onPress={handleCaptainDashboard}
+                style={{
+                  backgroundColor: theme.colors.accent,
+                  paddingVertical: 12,
+                  paddingHorizontal: 24,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                  marginTop: 16,
+                }}
+                disabled={captainLoading}
+              >
+                <Text style={{ color: theme.colors.accentText, fontSize: 16, fontWeight: '600' }}>
+                  Captain Dashboard
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
           {/* Always show League Rankings - with default 30-day streak if no active league */}
           <View style={{ marginVertical: 12 }}>

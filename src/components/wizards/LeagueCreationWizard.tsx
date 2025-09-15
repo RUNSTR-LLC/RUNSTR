@@ -552,7 +552,8 @@ export const LeagueCreationWizard: React.FC<LeagueCreationWizardProps> = ({
                 </View>
               </View>
 
-              <View style={styles.formGroup}>
+              {/* Entry Fee - Hidden for now */}
+              {/* <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>Entry Fee (sats)</Text>
                 <TextInput
                   style={styles.textInput}
@@ -564,7 +565,7 @@ export const LeagueCreationWizard: React.FC<LeagueCreationWizardProps> = ({
                   placeholderTextColor={theme.colors.textMuted}
                   keyboardType="numeric"
                 />
-              </View>
+              </View> */}
 
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>Max Participants</Text>
