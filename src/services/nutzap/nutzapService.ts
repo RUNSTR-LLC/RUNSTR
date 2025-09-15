@@ -102,13 +102,30 @@ class NutzapService {
       });
 
       console.log('[NutZap] Connecting to relays...');
-      await this.ndk.connect();
 
-      // Initialize Cashu components
-      await this.initializeCashu();
+      // Add timeout for relay connection
+      const connectPromise = this.ndk.connect();
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Relay connection timeout')), 5000)
+      );
 
-      // Check for existing wallet or create new one
-      const wallet = await this.ensureWallet();
+      try {
+        await Promise.race([connectPromise, timeoutPromise]);
+      } catch (err) {
+        console.warn('[NutZap] Relay connection failed, continuing anyway:', err);
+        // Continue even if relay connection fails - we can work offline
+      }
+
+      // Initialize Cashu components with timeout
+      try {
+        await this.initializeCashuWithTimeout();
+      } catch (err) {
+        console.warn('[NutZap] Cashu initialization failed, using offline mode:', err);
+        // Continue in offline mode - wallet can work without mint connection
+      }
+
+      // Load wallet state from local storage (offline-first)
+      const wallet = await this.loadOfflineWallet();
 
       this.isInitialized = true;
       console.log('[NutZap] Service initialized successfully');
@@ -116,14 +133,21 @@ class NutzapService {
       return wallet;
     } catch (error) {
       console.error('[NutZap] Initialization failed:', error);
-      throw error;
+      // Return a basic wallet state even on error
+      return {
+        balance: 0,
+        mint: DEFAULT_MINTS[0],
+        proofs: [],
+        pubkey: this.userPubkey || 'unknown',
+        created: false
+      };
     }
   }
 
   /**
-   * Initialize Cashu mint and wallet
+   * Initialize Cashu mint and wallet with timeout
    */
-  private async initializeCashu(): Promise<void> {
+  private async initializeCashuWithTimeout(): Promise<void> {
     // Get mint URL from storage or use default
     let mintUrl = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_MINT);
     if (!mintUrl) {
@@ -131,13 +155,95 @@ class NutzapService {
       await AsyncStorage.setItem(STORAGE_KEYS.WALLET_MINT, mintUrl);
     }
 
-    // Connect to mint
+    // Connect to mint with timeout
     this.cashuMint = new CashuMint(mintUrl);
-    const keys = await this.cashuMint.getKeys();
+
+    const keysPromise = this.cashuMint.getKeys();
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Mint connection timeout')), 3000)
+    );
+
+    await Promise.race([keysPromise, timeoutPromise]);
     console.log('[NutZap] Connected to mint:', mintUrl);
 
     // Create wallet instance
     this.cashuWallet = new CashuWallet(this.cashuMint, { unit: 'sat' });
+  }
+
+  /**
+   * Load wallet state from local storage (offline-first)
+   */
+  private async loadOfflineWallet(): Promise<WalletState> {
+    // Load proofs from local storage
+    const proofsStr = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PROOFS);
+    const proofs = proofsStr ? JSON.parse(proofsStr) : [];
+
+    // Get mint URL from storage
+    const mintUrl = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_MINT) || DEFAULT_MINTS[0];
+
+    // Calculate balance from proofs
+    const balance = proofs.reduce((sum: number, p: Proof) => sum + p.amount, 0);
+
+    // Try to sync with Nostr later (non-blocking)
+    if (this.ndk) {
+      this.syncWithNostr().catch(err =>
+        console.warn('[NutZap] Background Nostr sync failed:', err)
+      );
+    }
+
+    return {
+      balance,
+      mint: mintUrl,
+      proofs,
+      pubkey: this.userPubkey,
+      created: proofs.length === 0 // If no proofs, wallet was just created
+    };
+  }
+
+  /**
+   * Background sync with Nostr (non-blocking)
+   */
+  private async syncWithNostr(): Promise<void> {
+    if (!this.ndk) return;
+
+    try {
+      // Query for wallet events in background
+      const walletEvents = await this.ndk.fetchEvents({
+        kinds: [EVENT_KINDS.WALLET_INFO as NDKKind],
+        authors: [this.userPubkey],
+        '#d': ['nutzap-wallet']
+      });
+
+      if (walletEvents.size === 0) {
+        // Create wallet event on Nostr if it doesn't exist
+        const walletEvent = new NDKEvent(this.ndk);
+        walletEvent.kind = EVENT_KINDS.WALLET_INFO as NDKKind;
+        walletEvent.content = JSON.stringify({
+          mints: [this.cashuMint?.mintUrl || DEFAULT_MINTS[0]],
+          name: 'RUNSTR Wallet',
+          unit: 'sat',
+          balance: 0
+        });
+        walletEvent.tags = [
+          ['d', 'nutzap-wallet'],
+          ['mint', this.cashuMint?.mintUrl || DEFAULT_MINTS[0]],
+          ['name', 'RUNSTR Wallet'],
+          ['unit', 'sat']
+        ];
+
+        await walletEvent.publish();
+        console.log('[NutZap] Published wallet event to Nostr');
+      }
+    } catch (err) {
+      console.warn('[NutZap] Nostr sync failed:', err);
+    }
+  }
+
+  /**
+   * Initialize Cashu mint and wallet (old method for compatibility)
+   */
+  private async initializeCashu(): Promise<void> {
+    await this.initializeCashuWithTimeout();
   }
 
   /**

@@ -153,9 +153,15 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
     console.log('🎖️ EnhancedTeamScreen: Captain Dashboard button pressed');
     console.log('🎖️ Captain status:', userIsCaptain);
     console.log('🎖️ Team:', team?.name, '(', team?.id, ')');
+    console.log('🎖️ About to call onCaptainDashboard prop...');
 
     // Just call the navigation handler - it will handle all captain verification
-    onCaptainDashboard();
+    try {
+      onCaptainDashboard();
+      console.log('✅ EnhancedTeamScreen: onCaptainDashboard prop called successfully');
+    } catch (error) {
+      console.error('❌ EnhancedTeamScreen: Error calling onCaptainDashboard:', error);
+    }
   };
 
   // Format data for display components (same as original TeamScreen)

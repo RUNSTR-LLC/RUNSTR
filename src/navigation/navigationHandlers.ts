@@ -32,7 +32,7 @@ export interface NavigationHandlers {
   handleAnnouncements: () => void;
   handleAddEvent: (navigation: any) => void;
   handleAddChallenge: (navigation: any) => void;
-  handleCaptainDashboard: (navigation: any) => void;
+  handleCaptainDashboard: (navigation: any, teamId?: string, teamName?: string) => void;
   handleTeamCreation: (navigation: any) => void;
   handleTeamCreationComplete: (
     teamData: TeamCreationData,
