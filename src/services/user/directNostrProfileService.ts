@@ -80,7 +80,7 @@ export class DirectNostrProfileService {
       
       // Create timeout promise (5 seconds max)
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 2000);  // 2 second timeout
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 5000);  // 5 second timeout for profile (needs more time)
       });
       
       // Create profile fetch promise

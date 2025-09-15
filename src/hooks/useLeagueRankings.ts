@@ -43,8 +43,8 @@ export function useLeagueRankings(options: UseLeagueRankingsOptions): UseLeagueR
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const rankingService = new LeagueRankingService();
-  const dataBridge = new LeagueDataBridge();
+  const rankingService = LeagueRankingService;
+  const dataBridge = LeagueDataBridge;
 
   /**
    * Load active league for team
