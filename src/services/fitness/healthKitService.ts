@@ -1,10 +1,12 @@
 /**
- * HealthKit Service - Production Implementation
+ * HealthKit Service - Fixed Implementation with Performance Optimizations
  * Real iOS HealthKit integration for automatic workout sync
  * Integrates with existing fitness architecture and competition system
+ * Includes progressive loading, timeout protection, and proper error handling
  */
 
-import { Platform } from 'react-native';
+import { Platform, InteractionManager } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../supabase';
 import type { WorkoutData, WorkoutType } from '../../types/workout';
 
@@ -64,6 +66,7 @@ const HK_WORKOUT_TYPE_MAP: Record<string, WorkoutType> = {
 
 export interface HealthKitWorkout {
   UUID: string;
+  id?: string; // Additional ID field for better deduplication
   startDate: string;
   endDate: string;
   duration: number;
@@ -71,6 +74,7 @@ export interface HealthKitWorkout {
   totalEnergyBurned?: number;
   workoutActivityType: number;
   sourceName: string;
+  activityType?: string; // Mapped activity type for easier comparison
 }
 
 export interface HealthKitSyncResult {
@@ -88,8 +92,44 @@ export class HealthKitService {
   private lastSyncAt?: Date;
   private readonly DEFAULT_TIMEOUT = 30000; // 30 seconds
   private readonly PERMISSION_TIMEOUT = 15000; // 15 seconds for permissions
+  private abortController: AbortController | null = null;
+  private isModuleAvailable: boolean = false;
 
-  private constructor() {}
+  private constructor() {
+    this.initializeModule();
+  }
+
+  /**
+   * Initialize HealthKit module with proper error handling
+   */
+  private async initializeModule() {
+    if (Platform.OS !== 'ios') {
+      console.log('HealthKit not available on Android');
+      return;
+    }
+
+    try {
+      // Lazy load with error handling
+      const healthKitModule = require('@yzlin/expo-healthkit');
+
+      // Check different export patterns
+      if (healthKitModule.default) {
+        ExpoHealthKit = healthKitModule.default;
+      } else if (healthKitModule.ExpoHealthKit) {
+        ExpoHealthKit = healthKitModule.ExpoHealthKit;
+      } else if (typeof healthKitModule === 'object' && healthKitModule.isHealthDataAvailable) {
+        ExpoHealthKit = healthKitModule;
+      } else {
+        ExpoHealthKit = healthKitModule;
+      }
+
+      this.isModuleAvailable = true;
+    } catch (error) {
+      console.error('Failed to load HealthKit module:', error);
+      this.isModuleAvailable = false;
+      ExpoHealthKit = null;
+    }
+  }
 
   static getInstance(): HealthKitService {
     if (!HealthKitService.instance) {
@@ -106,21 +146,43 @@ export class HealthKitService {
   }
 
   /**
-   * Wrap HealthKit operations with timeout protection to prevent freezing
+   * Check if module is properly loaded
    */
-  private async withTimeout<T>(
-    promise: Promise<T>, 
+  isAvailable(): boolean {
+    return this.isModuleAvailable && ExpoHealthKit !== null;
+  }
+
+  /**
+   * Safe wrapper for all HealthKit operations with proper timeout and abort handling
+   */
+  private async executeWithTimeout<T>(
+    operation: () => Promise<T>,
     timeoutMs: number = this.DEFAULT_TIMEOUT,
-    operation: string = 'HealthKit operation'
+    operationName: string = 'HealthKit operation'
   ): Promise<T> {
-    const timeout = new Promise<never>((_, reject) => 
-      setTimeout(() => reject(new Error(`${operation} timed out after ${timeoutMs}ms`)), timeoutMs)
-    );
-    
+    if (!this.isModuleAvailable || !ExpoHealthKit) {
+      throw new Error('HealthKit not available');
+    }
+
+    const timeoutId = setTimeout(() => {
+      if (this.abortController) {
+        this.abortController.abort();
+      }
+    }, timeoutMs);
+
+    const timeout = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`${operationName} timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+    });
+
     try {
-      return await Promise.race([promise, timeout]);
+      const result = await Promise.race([operation(), timeout]);
+      clearTimeout(timeoutId);
+      return result;
     } catch (error) {
-      errorLog(`${operation} failed:`, error);
+      clearTimeout(timeoutId);
+      errorLog(`${operationName} failed:`, error);
       throw error;
     }
   }
@@ -168,52 +230,56 @@ export class HealthKitService {
   }
 
   /**
-   * Request HealthKit permissions from iOS - now public for UI components
+   * Request HealthKit permissions from iOS with UI thread protection
    */
   async requestPermissions(): Promise<{
     success: boolean;
     error?: string;
   }> {
-    try {
-      debugLog('HealthKit: Requesting permissions...');
-      
-      // Check if HealthKit is available first with timeout
-      const available = await this.withTimeout(
-        ExpoHealthKit.isHealthDataAvailable(),
-        5000, // 5 second timeout for availability check
-        'HealthKit availability check'
-      );
-      
-      if (!available) {
-        return {
-          success: false,
-          error: 'HealthKit is not available on this device',
-        };
-      }
+    return this.executeWithTimeout(
+      async () => {
+        // Run after interactions to prevent UI blocking
+        return new Promise((resolve, reject) => {
+          InteractionManager.runAfterInteractions(async () => {
+            try {
+              debugLog('HealthKit: Requesting permissions...');
 
-      // Define permissions arrays - native module expects two separate arrays
-      const readPermissions = [
-        'HKQuantityTypeIdentifierActiveEnergyBurned',
-        'HKQuantityTypeIdentifierDistanceWalkingRunning', 
-        'HKQuantityTypeIdentifierDistanceCycling',
-        'HKQuantityTypeIdentifierHeartRate',
-        'HKWorkoutTypeIdentifier',
-      ];
-      const writePermissions: string[] = []; // No write permissions needed for sync-only functionality
+              // Check if HealthKit is available first
+              const available = await ExpoHealthKit.isHealthDataAvailable();
 
-      // Call with two separate array parameters (share, read) as expected by native module
-      await this.withTimeout(
-        ExpoHealthKit.requestAuthorization(writePermissions, readPermissions),
-        this.PERMISSION_TIMEOUT,
-        'HealthKit permission request'
-      );
-      
-      debugLog('HealthKit: Permissions requested successfully');
-      return { success: true };
-    } catch (error) {
-      errorLog('HealthKit: Permission request failed:', error);
-      
-      // Provide user-friendly error messages for common timeout scenarios
+              if (!available) {
+                resolve({
+                  success: false,
+                  error: 'HealthKit is not available on this device',
+                });
+                return;
+              }
+
+              // Define permissions arrays
+              const readPermissions = [
+                'HKQuantityTypeIdentifierActiveEnergyBurned',
+                'HKQuantityTypeIdentifierDistanceWalkingRunning',
+                'HKQuantityTypeIdentifierDistanceCycling',
+                'HKQuantityTypeIdentifierHeartRate',
+                'HKWorkoutTypeIdentifier',
+              ];
+              const writePermissions: string[] = [];
+
+              // Request authorization
+              await ExpoHealthKit.requestAuthorization(writePermissions, readPermissions);
+
+              debugLog('HealthKit: Permissions requested successfully');
+              resolve({ success: true });
+            } catch (error) {
+              errorLog('HealthKit: Permission request failed:', error);
+              reject(error);
+            }
+          });
+        });
+      },
+      this.PERMISSION_TIMEOUT,
+      'Permission request'
+    ).catch(error => {
       let errorMessage = 'HealthKit permissions denied';
       if (error instanceof Error) {
         if (error.message.includes('timed out')) {
@@ -222,12 +288,12 @@ export class HealthKitService {
           errorMessage = error.message;
         }
       }
-      
+
       return {
         success: false,
         error: errorMessage,
       };
-    }
+    });
   }
 
   /**
@@ -297,50 +363,146 @@ export class HealthKitService {
   }
 
   /**
-   * Fetch recent workouts from HealthKit
+   * Fetch workouts progressively with chunk loading
+   */
+  async fetchWorkoutsProgressive(
+    startDate: Date,
+    endDate: Date,
+    onProgress?: (progress: { current: number; total: number; workouts: number }) => void
+  ): Promise<HealthKitWorkout[]> {
+    if (this.syncInProgress) {
+      throw new Error('Sync already in progress');
+    }
+
+    this.syncInProgress = true;
+    this.abortController = new AbortController();
+
+    try {
+      const chunks = this.createDateChunks(startDate, endDate, 7); // 7-day chunks
+      const allWorkouts: HealthKitWorkout[] = [];
+      const processedIds = new Set<string>();
+
+      for (let i = 0; i < chunks.length; i++) {
+        // Check if aborted
+        if (this.abortController.signal.aborted) {
+          throw new Error('Sync cancelled');
+        }
+
+        const chunk = chunks[i];
+
+        try {
+          const workouts = await this.fetchWorkoutChunk(chunk.start, chunk.end);
+
+          // Deduplicate
+          const uniqueWorkouts = workouts.filter(w => {
+            const workoutId = w.id || w.UUID;
+            if (processedIds.has(workoutId)) return false;
+            processedIds.add(workoutId);
+            return true;
+          });
+
+          allWorkouts.push(...uniqueWorkouts);
+
+          // Report progress
+          onProgress?.({
+            current: i + 1,
+            total: chunks.length,
+            workouts: allWorkouts.length
+          });
+
+          // Allow UI to breathe between chunks
+          await new Promise(resolve => setTimeout(resolve, 50));
+
+        } catch (error) {
+          console.warn(`Failed to fetch chunk ${i + 1}/${chunks.length}:`, error);
+          // Continue with next chunk instead of failing entirely
+        }
+      }
+
+      // Cache the results
+      await this.cacheWorkouts(allWorkouts);
+
+      return allWorkouts;
+
+    } finally {
+      this.syncInProgress = false;
+      this.abortController = null;
+    }
+  }
+
+  /**
+   * Fetch a single chunk of workouts
+   */
+  private async fetchWorkoutChunk(startDate: Date, endDate: Date): Promise<HealthKitWorkout[]> {
+    return this.executeWithTimeout(
+      async () => {
+        const query = {
+          from: startDate,
+          to: endDate,
+          limit: 100
+        };
+
+        const results = await ExpoHealthKit.queryWorkouts(query);
+
+        // Transform and validate
+        return (results || [])
+          .filter((w: any) => w.duration >= 60 && w.uuid) // Min 1 minute
+          .map((w: any) => this.transformWorkout(w));
+      },
+      10000,
+      'Workout chunk fetch'
+    );
+  }
+
+  /**
+   * Transform HealthKit workout to our format with activity type mapping
+   */
+  private transformWorkout(hkWorkout: any): HealthKitWorkout {
+    const activityType = HK_WORKOUT_TYPE_MAP[hkWorkout.workoutActivityType] || 'other';
+
+    return {
+      UUID: hkWorkout.uuid,
+      id: `healthkit_${hkWorkout.uuid}`,
+      startDate: hkWorkout.startDate,
+      endDate: hkWorkout.endDate,
+      duration: hkWorkout.duration || 0,
+      totalDistance: hkWorkout.totalDistance || 0,
+      totalEnergyBurned: hkWorkout.totalEnergyBurned || 0,
+      workoutActivityType: hkWorkout.workoutActivityType || 0,
+      sourceName: hkWorkout.sourceName || 'Unknown',
+      activityType: activityType
+    };
+  }
+
+  /**
+   * Create date chunks for progressive loading
+   */
+  private createDateChunks(startDate: Date, endDate: Date, daysPerChunk: number) {
+    const chunks = [];
+    let current = new Date(startDate);
+
+    while (current < endDate) {
+      const chunkEnd = new Date(current);
+      chunkEnd.setDate(chunkEnd.getDate() + daysPerChunk);
+
+      chunks.push({
+        start: new Date(current),
+        end: chunkEnd > endDate ? endDate : chunkEnd
+      });
+
+      current = chunkEnd;
+    }
+
+    return chunks;
+  }
+
+  /**
+   * Fetch recent workouts from HealthKit (backward compatibility)
    */
   private async fetchRecentWorkouts(): Promise<HealthKitWorkout[]> {
-    try {
-      const options = {
-        from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
-        to: new Date(),
-        limit: 100, // Reasonable limit to avoid overwhelming the system
-      };
-
-      const results = await this.withTimeout(
-        ExpoHealthKit.queryWorkouts(options),
-        this.DEFAULT_TIMEOUT,
-        'HealthKit workout query'
-      );
-      
-      // Filter out invalid workouts and transform to our format
-      const validWorkouts = (results || []).filter(
-        (workout: any) => workout.uuid && workout.startDate && workout.endDate
-      ).map((workout: any) => ({
-        UUID: workout.uuid,
-        startDate: workout.startDate,
-        endDate: workout.endDate,
-        duration: workout.duration || 0,
-        totalDistance: workout.totalDistance || 0,
-        totalEnergyBurned: workout.totalEnergyBurned || 0,
-        workoutActivityType: workout.workoutActivityType || 0,
-        sourceName: workout.sourceName || 'Unknown',
-      }));
-
-      debugLog(
-        `HealthKit: Retrieved ${validWorkouts.length} valid workouts`
-      );
-      return validWorkouts;
-    } catch (error) {
-      errorLog('HealthKit: Failed to fetch workouts:', error);
-      
-      // Provide user-friendly error messages for timeout scenarios
-      if (error instanceof Error && error.message.includes('timed out')) {
-        throw new Error('Workout sync is taking too long. Please try syncing fewer days or check your internet connection.');
-      }
-      
-      throw error;
-    }
+    const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const endDate = new Date();
+    return this.fetchWorkoutsProgressive(startDate, endDate);
   }
 
   /**
@@ -548,6 +710,62 @@ export class HealthKitService {
   async reauthorize(): Promise<{ success: boolean; error?: string }> {
     this.isAuthorized = false;
     return await this.initialize();
+  }
+
+  /**
+   * Cache workouts to AsyncStorage
+   */
+  private async cacheWorkouts(workouts: HealthKitWorkout[]): Promise<void> {
+    try {
+      const cacheKey = 'healthkit_workouts_cache';
+      const cacheData = {
+        workouts,
+        timestamp: Date.now(),
+        version: '1.0'
+      };
+
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
+      debugLog(`HealthKit: Cached ${workouts.length} workouts`);
+    } catch (error) {
+      console.warn('Failed to cache workouts:', error);
+    }
+  }
+
+  /**
+   * Get cached workouts from AsyncStorage
+   */
+  async getCachedWorkouts(): Promise<HealthKitWorkout[] | null> {
+    try {
+      const cacheKey = 'healthkit_workouts_cache';
+      const cached = await AsyncStorage.getItem(cacheKey);
+
+      if (!cached) return null;
+
+      const cacheData = JSON.parse(cached);
+      const cacheAge = Date.now() - cacheData.timestamp;
+
+      // Cache valid for 5 minutes
+      if (cacheAge > 5 * 60 * 1000) {
+        debugLog('HealthKit: Cache expired');
+        return null;
+      }
+
+      debugLog(`HealthKit: Retrieved ${cacheData.workouts.length} cached workouts`);
+      return cacheData.workouts;
+    } catch (error) {
+      console.warn('Failed to get cached workouts:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Cancel ongoing sync operation
+   */
+  cancelSync(): void {
+    if (this.abortController) {
+      this.abortController.abort();
+      debugLog('HealthKit: Sync cancelled by user');
+    }
   }
 
   /**

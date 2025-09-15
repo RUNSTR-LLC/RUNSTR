@@ -1,14 +1,18 @@
 /**
- * Workout Merge Service - SIMPLIFIED: Pure Nostr Workout Display
+ * Workout Merge Service - Enhanced with Deduplication and Subscription Management
  * Focuses on kind 1301 events using proven nuclear approach
  * Tracks posting status for UI state management (manual "Save to Nostr" workflow)
+ * Includes proper deduplication between HealthKit and Nostr workouts
+ * Manages NDK subscriptions to prevent memory leaks
  */
 
 import { NostrWorkoutService } from './nostrWorkoutService';
 import { NostrCacheService } from '../cache/NostrCacheService';
+import { HealthKitService } from './healthKitService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Workout, WorkoutType } from '../../types/workout';
 import type { NostrWorkout } from '../../types/nostrWorkout';
+import type { HealthKitWorkout } from './healthKitService';
 
 // Extended workout interface with posting status
 export interface UnifiedWorkout extends Workout {
@@ -63,9 +67,27 @@ const STORAGE_KEYS = {
 export class WorkoutMergeService {
   private static instance: WorkoutMergeService;
   private nostrWorkoutService: NostrWorkoutService;
+  private healthKitService: HealthKitService;
+  private subscriptions: Set<any> = new Set();
+  private ndk: any = null;
 
   private constructor() {
     this.nostrWorkoutService = NostrWorkoutService.getInstance();
+    this.healthKitService = HealthKitService.getInstance();
+    this.initializeNDK();
+  }
+
+  /**
+   * Initialize NDK with global instance reuse
+   */
+  private initializeNDK() {
+    // Reuse global instance
+    const g = globalThis as any;
+    this.ndk = g.__RUNSTR_NDK_INSTANCE__;
+
+    if (!this.ndk) {
+      console.warn('NDK not initialized - will initialize on first use');
+    }
   }
 
   static getInstance(): WorkoutMergeService {
@@ -76,16 +98,14 @@ export class WorkoutMergeService {
   }
 
   /**
-   * SIMPLIFIED: Get pure Nostr workouts with nuclear approach
-   * Focuses on manual "Save to Nostr" workflow - no HealthKit hybrid complexity
+   * Enhanced: Get merged workouts with proper deduplication between HealthKit and Nostr
    */
   async getMergedWorkouts(userId: string, pubkey?: string): Promise<WorkoutMergeResult> {
     const startTime = Date.now();
-    
+
     try {
-      console.log('⚡ SIMPLIFIED: Pure Nostr workout fetching for user', userId);
-      console.log('💡 SIMPLIFIED: Manual "Save to Nostr" workflow - no hybrid complexity');
-      
+      console.log('⚡ Enhanced: Fetching and merging workouts for user', userId);
+
       if (!pubkey) {
         console.log('❌ No pubkey provided - returning empty results');
         return {
@@ -99,38 +119,67 @@ export class WorkoutMergeService {
         };
       }
 
-      // SIMPLIFIED: Pure Nostr workflow - just fetch kind 1301 events
+      // Check cache first for performance
+      const cachedWorkouts = await this.healthKitService.getCachedWorkouts();
+      let healthKitWorkouts: HealthKitWorkout[] = [];
+
+      if (cachedWorkouts && cachedWorkouts.length > 0) {
+        console.log(`📦 Using ${cachedWorkouts.length} cached HealthKit workouts`);
+        healthKitWorkouts = cachedWorkouts;
+      } else if (HealthKitService.isAvailable()) {
+        // Fetch HealthKit workouts progressively
+        console.log('🔄 Fetching HealthKit workouts progressively...');
+        const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const endDate = new Date();
+
+        try {
+          healthKitWorkouts = await this.healthKitService.fetchWorkoutsProgressive(
+            startDate,
+            endDate,
+            (progress) => {
+              console.log(`📊 Progress: ${progress.current}/${progress.total} chunks, ${progress.workouts} workouts`);
+            }
+          );
+        } catch (hkError) {
+          console.warn('⚠️ HealthKit fetch failed, continuing with Nostr only:', hkError);
+        }
+      }
+
+      // Fetch Nostr workouts
       const [nostrWorkouts, postingStatus] = await Promise.all([
         this.fetchNostrWorkouts(userId, pubkey),
         this.getWorkoutPostingStatus(userId),
       ]);
 
-      console.log(`📊 SIMPLIFIED: Found ${nostrWorkouts.length} Nostr workouts`);
+      console.log(`📊 Found ${healthKitWorkouts.length} HealthKit, ${nostrWorkouts.length} Nostr workouts`);
 
-      // Cache the Nostr workouts
+      // Deduplicate and merge
+      const mergedResult = this.mergeAndDeduplicate(
+        healthKitWorkouts,
+        nostrWorkouts,
+        postingStatus
+      );
+
+      // Cache the results
       if (nostrWorkouts.length > 0) {
         await NostrCacheService.setCachedWorkouts(pubkey, nostrWorkouts);
         await this.setCacheTimestamp(userId);
-        console.log(`💾 Cached ${nostrWorkouts.length} workouts`);
       }
 
-      // SIMPLIFIED: No merge complexity - just convert Nostr workouts to unified format
-      const unifiedWorkouts = this.convertNostrToUnified(nostrWorkouts, postingStatus);
+      console.log(`✅ Merged: ${mergedResult.allWorkouts.length} total, ${mergedResult.duplicateCount} duplicates removed`);
 
-      console.log(`✅ SIMPLIFIED: ${unifiedWorkouts.length} workouts ready for display`);
-      
       return {
-        allWorkouts: unifiedWorkouts,
-        healthKitCount: 0, // Pure Nostr approach
-        nostrCount: nostrWorkouts.length,
-        duplicateCount: 0, // No deduplication needed in pure approach
-        fromCache: false,
+        ...mergedResult,
+        fromCache: cachedWorkouts !== null,
         loadDuration: Date.now() - startTime,
         cacheAge: 0,
       };
     } catch (error) {
-      console.error('❌ SIMPLIFIED WorkoutMergeService: Error fetching workouts:', error);
+      console.error('❌ WorkoutMergeService: Error fetching workouts:', error);
       throw new Error('Failed to fetch workout data');
+    } finally {
+      // Always cleanup subscriptions
+      this.cleanupSubscriptions();
     }
   }
 
@@ -146,214 +195,165 @@ export class WorkoutMergeService {
   }
 
   /**
-   * Fetch Nostr workouts - NUCLEAR APPROACH (like successful team discovery)
-   * Remove all complex filtering and validation - just get ALL 1301 events for user
+   * Fetch Nostr workouts with proper subscription management
    */
   private async fetchNostrWorkouts(userId: string, pubkey?: string): Promise<NostrWorkout[]> {
     try {
       if (!pubkey) {
-        console.log('⚠️ No pubkey provided - returning empty array (nuclear approach)');
+        console.log('⚠️ No pubkey provided - returning empty array');
         return [];
       }
 
-      console.log('🚀🚀🚀 NUCLEAR WORKOUT APPROACH: Getting ALL 1301 events for user (no filtering)...');
-      console.log('🔍 Input pubkey analysis:', {
-        pubkey: pubkey.slice(0, 12) + '...',
-        length: pubkey.length,
-        startsWithNpub: pubkey.startsWith('npub1'),
-        isValidHex: /^[0-9a-fA-F]{64}$/.test(pubkey)
-      });
-      
-      // NUCLEAR APPROACH: Use NDK (like successful team discovery)
+      console.log('🚀 Fetching Nostr workouts with nuclear approach...');
+
       const { nip19 } = await import('nostr-tools');
       const NDK = await import('@nostr-dev-kit/ndk');
-      
-      let hexPubkey = pubkey;
-      if (pubkey.startsWith('npub1')) {
-        const decoded = nip19.decode(pubkey);
-        hexPubkey = decoded.data as string;
-        console.log(`🔧 Converted npub to hex: ${pubkey.slice(0, 20)}... → ${hexPubkey.slice(0, 20)}...`);
+
+      let hexPubkey = this.ensureHexPubkey(pubkey);
+
+      console.log(`📊 NDK Query: Getting kind 1301 events for ${hexPubkey.slice(0, 16)}...`);
+
+      // Initialize NDK if needed
+      if (!this.ndk) {
+        const g = globalThis as any;
+        this.ndk = g.__RUNSTR_NDK_INSTANCE__;
+
+        if (!this.ndk) {
+          console.log('[NDK Workout] Creating NDK instance...');
+          const relayUrls = [
+            'wss://relay.damus.io',
+            'wss://nos.lol',
+            'wss://relay.primal.net',
+            'wss://nostr.wine',
+            'wss://relay.nostr.band',
+            'wss://relay.snort.social',
+            'wss://nostr-pub.wellorder.net',
+            'wss://relay.nostrich.de',
+            'wss://nostr.oxtr.dev',
+            'wss://relay.wellorder.net',
+          ];
+
+          this.ndk = new NDK.default({
+            explicitRelayUrls: relayUrls
+          });
+
+          await this.ndk.connect();
+          g.__RUNSTR_NDK_INSTANCE__ = this.ndk; // Store globally
+          console.log('[NDK Workout] Connected to relays');
+        }
       }
 
-      console.log(`📊 NDK NUCLEAR QUERY: Getting ALL kind 1301 events for ${hexPubkey.slice(0, 16)}...`);
+      const events = new Set<any>();
 
-      // Use same NDK singleton as teams (proven reliable)
-      const g = globalThis as any;
-      let ndk = g.__RUNSTR_NDK_INSTANCE__;
-      
-      if (!ndk) {
-        console.log('[NDK Workout] Creating NDK instance...');
-        // Nuclear relay list (comprehensive coverage like successful script)
-        const relayUrls = [
-          'wss://relay.damus.io',           // Primary - most important
-          'wss://nos.lol',                  // Secondary  
-          'wss://relay.primal.net',         // Tertiary
-          'wss://nostr.wine',              // Quaternary
-          'wss://relay.nostr.band',        // Additional
-          'wss://relay.snort.social',      // Additional
-          'wss://nostr-pub.wellorder.net', // Additional
-          'wss://relay.nostrich.de',       // Extra coverage
-          'wss://nostr.oxtr.dev',          // Extra coverage
-          'wss://relay.wellorder.net',     // Extra coverage
-        ];
-
-        ndk = new NDK.default({
-          explicitRelayUrls: relayUrls
-        });
-        
-        await ndk.connect();
-        console.log('[NDK Workout] Connected to relays');
-      } else {
-        console.log('[NDK Workout] Reusing existing NDK instance from teams');
-      }
-
-      const events: any[] = [];
-
-      // NUCLEAR FILTER: Just kind 1301 + author - NO other restrictions (same as teams work)
+      // Nuclear filter - minimal restrictions
       const nuclearFilter = {
         kinds: [1301],
         authors: [hexPubkey],
         limit: 500
-        // NO time filters (since/until) - nuclear approach
-        // NO content filters - nuclear approach  
-        // NO tag validation - nuclear approach
       };
 
-      console.log('🚀 NDK NUCLEAR FILTER:', nuclearFilter);
+      console.log('🚀 NDK Filter:', nuclearFilter);
 
-      // Use NDK subscription (like teams)
-      const subscription = ndk.subscribe(nuclearFilter, {
-        cacheUsage: NDK.NDKSubscriptionCacheUsage?.ONLY_RELAY
-      });
+      // Create subscription with timeout
+      return new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          subscription.stop();
+          this.subscriptions.delete(subscription);
+          resolve(Array.from(events));
+        }, 5000); // 5 second timeout
 
-      subscription.on('event', (event: any) => {
-        console.log(`📥 NDK NUCLEAR 1301 EVENT:`, {
-          id: event.id?.slice(0, 8),
-          kind: event.kind,
-          created_at: new Date(event.created_at * 1000).toISOString(),
-          pubkey: event.pubkey?.slice(0, 8),
-          tags: event.tags?.length
+        const subscription = this.ndk.subscribe(nuclearFilter, {
+          closeOnEose: false,
+          groupable: true
         });
-        
-        // ULTRA NUCLEAR: Accept ANY kind 1301 event - ZERO validation!
-        if (event.kind === 1301) {
-          events.push(event);
-          console.log(`✅ NDK NUCLEAR ACCEPT: Event ${events.length} added - NO filtering!`);
-        }
-      });
 
-      subscription.on('eose', () => {
-        console.log('📨 NDK EOSE received - continuing to wait for complete timeout...');
-      });
+        // Track subscription for cleanup
+        this.subscriptions.add(subscription);
 
-      // Wait for ALL events (nuclear approach - ultra-fast timeout proven by script) 
-      console.log('⏰ NDK NUCLEAR TIMEOUT: Waiting 3 seconds for ALL 1301 events...');
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      subscription.stop();
-
-      console.log(`🚀🚀🚀 NUCLEAR RESULT: Found ${events.length} raw 1301 events`);
-
-      if (events.length === 0) {
-        console.log('⚠️ NO EVENTS FOUND - This suggests:');
-        console.log('   1. User has no 1301 events published to these relays');
-        console.log('   2. Pubkey conversion issue');
-        console.log('   3. Relay connectivity issue');
-        console.log(`   Expected ~113 events for target user - checking if this is the right user...`);
-      }
-
-      // ULTRA NUCLEAR PARSING: Create workouts from ALL 1301 events - ZERO validation!
-      const workouts: NostrWorkout[] = [];
-      
-      for (const event of events) {
-        try {
-          // ULTRA NUCLEAR: Accept ANY tags, ANY content, ANY structure
-          const tags = event.tags || [];
-          let workoutType = 'unknown';
-          let duration = 0;
-          let distance = 0;
-          let calories = 0;
-          
-          // Try to extract tags but accept ANYTHING - no requirements
-          for (const tag of tags) {
-            if (tag[0] === 'exercise' && tag[1]) workoutType = tag[1];
-            if (tag[0] === 'duration' && tag[1]) {
-              const timeStr = tag[1];
-              const parts = timeStr.split(':').map((p: string) => parseInt(p));
-              if (parts.length === 3) {
-                duration = parts[0] * 3600 + parts[1] * 60 + parts[2]; // H:M:S
-              } else if (parts.length === 2) {
-                duration = parts[0] * 60 + parts[1]; // M:S
-              } else {
-                duration = 0;
-              }
-            }
-            if (tag[0] === 'distance' && tag[1]) distance = parseFloat(tag[1]) || 0;
-            if (tag[0] === 'calories' && tag[1]) calories = parseInt(tag[1]) || 0;
-            // Could be other tag formats - just try them all
-            if (tag[0] === 'type' && tag[1]) workoutType = tag[1];
-            if (tag[0] === 'activity' && tag[1]) workoutType = tag[1];
+        subscription.on('event', (event: any) => {
+          if (event.kind === 1301) {
+            events.add(event);
+            console.log(`📥 Event ${events.size}: ${event.id?.slice(0, 8)}`);
           }
+        });
 
-          // ULTRA NUCLEAR: Create workout even if ALL fields are missing/zero
-          const workout: NostrWorkout = {
-            id: event.id,
-            userId: userId,
-            type: workoutType as any,
-            startTime: new Date(event.created_at * 1000).toISOString(),
-            endTime: new Date((event.created_at + Math.max(duration * 60, 60)) * 1000).toISOString(), // Min 1 minute
-            duration: duration,
-            distance: distance,
-            calories: calories,
-            source: 'nostr',
-            nostrEventId: event.id,
-            nostrPubkey: event.pubkey,
-            sourceApp: 'ultra_nuclear_discovery',
-            nostrCreatedAt: event.created_at,
-            unitSystem: 'metric' as const
-          };
+        subscription.on('eose', () => {
+          console.log('📨 EOSE received - found', events.size, 'events');
+          clearTimeout(timeout);
+          subscription.stop();
+          this.subscriptions.delete(subscription);
+          resolve(Array.from(events));
+        });
 
-          workouts.push(workout);
-          console.log(`✅ ULTRA NUCLEAR WORKOUT ${workouts.length}: ${workout.type} - ${new Date(workout.startTime).toDateString()} (dur:${workout.duration}, dist:${workout.distance})`);
-          
-        } catch (error) {
-          console.warn(`⚠️ Error in ultra nuclear parsing ${event.id}:`, error);
-          // ULTRA NUCLEAR: Even if parsing fails, create a basic workout
-          const fallbackWorkout: NostrWorkout = {
-            id: event.id,
-            userId: userId,
-            type: 'raw_1301' as any,
-            startTime: new Date(event.created_at * 1000).toISOString(),
-            endTime: new Date((event.created_at + 60) * 1000).toISOString(),
-            duration: 0,
-            distance: 0,
-            calories: 0,
-            source: 'nostr',
-            nostrEventId: event.id,
-            nostrPubkey: event.pubkey,
-            sourceApp: 'fallback_nuclear',
-            nostrCreatedAt: event.created_at,
-            unitSystem: 'metric' as const
-          };
-          workouts.push(fallbackWorkout);
-          console.log(`🆘 FALLBACK WORKOUT ${workouts.length}: raw_1301 - ${new Date(fallbackWorkout.startTime).toDateString()}`);
+        subscription.on('error', (error: any) => {
+          console.error('Nostr subscription error:', error);
+          clearTimeout(timeout);
+          subscription.stop();
+          this.subscriptions.delete(subscription);
+          resolve(Array.from(events)); // Return partial results
+        });
+      }) as Promise<any[]>;
+
+      return result.then((events: any[]) => {
+        console.log(`🚀 Found ${events.length} raw 1301 events`);
+
+        // Parse events into NostrWorkout format
+        const workouts: NostrWorkout[] = [];
+
+        for (const event of events) {
+          try {
+            const tags = event.tags || [];
+            let workoutType = 'unknown';
+            let duration = 0;
+            let distance = 0;
+            let calories = 0;
+
+            // Extract workout data from tags
+            for (const tag of tags) {
+              if (tag[0] === 'exercise' && tag[1]) workoutType = tag[1];
+              if (tag[0] === 'duration' && tag[1]) {
+                const timeStr = tag[1];
+                const parts = timeStr.split(':').map((p: string) => parseInt(p));
+                if (parts.length === 3) {
+                  duration = parts[0] * 3600 + parts[1] * 60 + parts[2];
+                } else if (parts.length === 2) {
+                  duration = parts[0] * 60 + parts[1];
+                } else {
+                  duration = parseInt(timeStr) || 0;
+                }
+              }
+              if (tag[0] === 'distance' && tag[1]) distance = parseFloat(tag[1]) || 0;
+              if (tag[0] === 'calories' && tag[1]) calories = parseInt(tag[1]) || 0;
+            }
+
+            const workout: NostrWorkout = {
+              id: event.id,
+              userId: userId,
+              type: workoutType as any,
+              startTime: new Date(event.created_at * 1000).toISOString(),
+              endTime: new Date((event.created_at + Math.max(duration, 60)) * 1000).toISOString(),
+              duration: duration,
+              distance: distance,
+              calories: calories,
+              source: 'nostr',
+              nostrEventId: event.id,
+              nostrPubkey: event.pubkey,
+              sourceApp: 'nostr_discovery',
+              nostrCreatedAt: event.created_at,
+              unitSystem: 'metric' as const,
+              syncedAt: new Date().toISOString()
+            };
+
+            workouts.push(workout);
+          } catch (error) {
+            console.warn(`⚠️ Error parsing event ${event.id}:`, error);
+          }
         }
-      }
 
-      console.log(`🎉 NUCLEAR SUCCESS: Created ${workouts.length} workout objects from ${events.length} raw events`);
-      
-      if (workouts.length > 0) {
-        // Show date range
-        const dates = workouts.map(w => new Date(w.startTime).getTime()).sort();
-        const oldest = new Date(dates[0]);
-        const newest = new Date(dates[dates.length - 1]);
-        console.log(`📅 Date range: ${oldest.toDateString()} → ${newest.toDateString()}`);
-      }
-
-      return workouts.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
-
+        return workouts.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+      });
     } catch (error) {
-      console.error('❌ Nuclear workout discovery failed:', error);
+      console.error('❌ Nostr workout discovery failed:', error);
       return [];
     }
   }
@@ -385,6 +385,147 @@ export class WorkoutMergeService {
 
     console.log(`✅ SIMPLIFIED: Converted ${unifiedWorkouts.length} Nostr workouts`);
     return unifiedWorkouts;
+  }
+
+  /**
+   * Merge and deduplicate HealthKit and Nostr workouts
+   */
+  private mergeAndDeduplicate(
+    healthKitWorkouts: HealthKitWorkout[],
+    nostrWorkouts: NostrWorkout[],
+    postingStatus: Map<string, WorkoutStatusUpdate>
+  ): WorkoutMergeResult {
+    const unified: UnifiedWorkout[] = [];
+    let duplicateCount = 0;
+
+    // Add HealthKit workouts and check for duplicates in Nostr
+    for (const hkWorkout of healthKitWorkouts) {
+      const isDupe = this.isDuplicate(hkWorkout, nostrWorkouts);
+
+      if (isDupe) {
+        duplicateCount++;
+      }
+
+      const unifiedWorkout: UnifiedWorkout = {
+        id: hkWorkout.id || `healthkit_${hkWorkout.UUID}`,
+        userId: '', // Will be set by caller
+        type: (hkWorkout.activityType || 'other') as WorkoutType,
+        startTime: hkWorkout.startDate,
+        endTime: hkWorkout.endDate,
+        duration: hkWorkout.duration,
+        distance: hkWorkout.totalDistance ? hkWorkout.totalDistance * 1000 : 0, // km to m
+        calories: hkWorkout.totalEnergyBurned || 0,
+        source: 'healthkit',
+        syncedToNostr: isDupe,
+        postedToSocial: false,
+        canSyncToNostr: !isDupe, // Can sync if not already in Nostr
+        canPostToSocial: true,
+      };
+
+      unified.push(unifiedWorkout);
+    }
+
+    // Add Nostr-only workouts (not matching any HealthKit workout)
+    for (const nostrWorkout of nostrWorkouts) {
+      const matchingHK = healthKitWorkouts.find(hk =>
+        this.isDuplicate(hk, [nostrWorkout])
+      );
+
+      if (!matchingHK) {
+        const status = postingStatus.get(nostrWorkout.id);
+        unified.push({
+          ...nostrWorkout,
+          syncedToNostr: true,
+          postedToSocial: status?.postedToSocial || false,
+          postingInProgress: false,
+          canSyncToNostr: false, // Already in Nostr
+          canPostToSocial: true,
+        });
+      }
+    }
+
+    // Sort by start time (newest first)
+    unified.sort(
+      (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+    );
+
+    return {
+      allWorkouts: unified,
+      healthKitCount: healthKitWorkouts.length,
+      nostrCount: nostrWorkouts.length,
+      duplicateCount,
+    };
+  }
+
+  /**
+   * Check if a workout is a duplicate based on time window and stats
+   */
+  private isDuplicate(
+    workout1: HealthKitWorkout | any,
+    workouts2: any[]
+  ): boolean {
+    return workouts2.some(w2 => {
+      // Time window check (within 2 minutes)
+      const time1 = new Date(workout1.startDate || workout1.startTime).getTime();
+      const time2 = new Date(w2.startTime).getTime();
+      const timeDiff = Math.abs(time1 - time2);
+
+      if (timeDiff > 120000) return false; // More than 2 minutes apart
+
+      // Activity type check
+      const type1 = workout1.activityType || workout1.type;
+      const type2 = w2.type;
+      if (type1 !== type2) return false;
+
+      // Distance check (within 5% tolerance if both have distance)
+      const dist1 = workout1.totalDistance || workout1.distance || 0;
+      const dist2 = w2.distance || 0;
+
+      if (dist1 > 0 && dist2 > 0) {
+        const distanceDiff = Math.abs(dist1 - dist2);
+        const tolerance = Math.max(dist1, dist2) * 0.05;
+        if (distanceDiff > tolerance) return false;
+      }
+
+      // Duration check (within 60 seconds tolerance)
+      const dur1 = workout1.duration || 0;
+      const dur2 = w2.duration || 0;
+      if (Math.abs(dur1 - dur2) > 60) return false;
+
+      return true; // It's a duplicate
+    });
+  }
+
+  /**
+   * Ensure pubkey is in hex format
+   */
+  private ensureHexPubkey(pubkey: string): string {
+    if (pubkey.startsWith('npub')) {
+      try {
+        const { nip19 } = require('nostr-tools');
+        const decoded = nip19.decode(pubkey);
+        return decoded.data as string;
+      } catch (error) {
+        console.error('Failed to decode npub:', error);
+        return pubkey;
+      }
+    }
+    return pubkey;
+  }
+
+  /**
+   * Cleanup all active subscriptions
+   */
+  private cleanupSubscriptions(): void {
+    this.subscriptions.forEach(sub => {
+      try {
+        sub.stop();
+      } catch (error) {
+        console.warn('Failed to stop subscription:', error);
+      }
+    });
+    this.subscriptions.clear();
+    console.log('✅ Cleaned up', this.subscriptions.size, 'subscriptions');
   }
 
   /**
