@@ -67,9 +67,7 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
   console.log('🔍 EnhancedTeamScreen: Team data received:', {
     id: team?.id,
     name: team?.name,
-    captain: team?.captain ? team.captain.slice(0, 10) + '...' : 'missing',
     captainId: team?.captainId ? team.captainId.slice(0, 10) + '...' : 'missing',
-    captainNpub: team?.captainNpub ? team.captainNpub.slice(0, 20) + '...' : 'missing',
     fullTeamKeys: team ? Object.keys(team) : 'no team object',
   });
   
@@ -96,10 +94,6 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
     teamName: team?.name,
     hasCaptainId: 'captainId' in team,
     captainId: team?.captainId,
-    hasCaptain: 'captain' in team,
-    captain: team?.captain,
-    hasCaptainNpub: 'captainNpub' in team,
-    captainNpub: team?.captainNpub,
     workingUserNpub: workingUserNpub?.slice(0, 20) + '...',
     userHexPubkey: userIdentifiers?.hexPubkey?.slice(0, 20) + '...',
   });
@@ -116,11 +110,9 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
     storeNpub: user?.npub ? user.npub.slice(0, 12) + '...' : 'corrupted/missing',
     workingUserNpub: workingUserNpub ? workingUserNpub.slice(0, 12) + '...' : 'missing',
     teamCaptainId: 'captainId' in team ? team.captainId?.slice(0, 12) + '...' : 'N/A',
-    teamCaptainNpub: 'captainNpub' in team ? team.captainNpub?.slice(0, 12) + '...' : 'N/A',
     passedUserIsCaptain,
     userIsCaptain, // This should now be the same as passedUserIsCaptain
     calculatedUserIsMember,
-    hookIsCaptain: isCaptain,
   });
 
   console.log('🔴 CRITICAL: Captain status being passed to AboutPrizeSection:', {
@@ -136,7 +128,6 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
       teamId: team.id,
       workingUserNpub: workingUserNpub?.slice(0, 8) + '...',
       teamCaptainId: 'captainId' in team ? team.captainId?.slice(0, 8) + '...' : 'N/A',
-      teamCaptainNpub: 'captainNpub' in team ? team.captainNpub?.slice(0, 8) + '...' : 'N/A',
       userIsCaptain,
       calculatedUserIsMember,
     });
@@ -227,8 +218,8 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
 
   // Debug logging for captain status
   useEffect(() => {
-    console.log(`🎖️ EnhancedTeamScreen: Captain status update - isCaptain: ${isCaptain}, isLoading: ${captainLoading}, error: ${captainError}`);
-  }, [isCaptain, captainLoading, captainError]);
+    console.log(`🎖️ EnhancedTeamScreen: Captain status update - isCaptain: ${userIsCaptain}, isLoading: ${captainLoading}`);
+  }, [userIsCaptain, captainLoading]);
 
   // Debug logging for league rankings
   useEffect(() => {

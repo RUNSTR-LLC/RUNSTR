@@ -207,9 +207,7 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
                   console.log('🔍 AppNavigator: Team data being passed to EnhancedTeamScreen:', {
                     id: team?.id,
                     name: team?.name,
-                    captain: team?.captain ? team.captain.slice(0, 10) + '...' : 'missing',
-                    captainId: team?.captainId ? team.captainId.slice(0, 10) + '...' : 'missing',  
-                    captainNpub: team?.captainNpub ? team.captainNpub.slice(0, 20) + '...' : 'missing',
+                    captainId: team?.captainId ? team.captainId.slice(0, 10) + '...' : 'missing',
                     fullTeamKeys: team ? Object.keys(team) : 'no team object',
                   });
                   return team;
