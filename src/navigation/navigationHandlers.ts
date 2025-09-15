@@ -314,16 +314,24 @@ export const createNavigationHandlers = (): NavigationHandlers => {
     handleCaptainDashboard: async (navigation: any, teamId?: string, teamName?: string) => {
       try {
         console.log('🎖️ NavigationHandlers: Captain dashboard access requested');
+        console.log('🎖️ NavigationHandlers: Parameters received:', {
+          teamId,
+          teamName,
+          hasNavigation: !!navigation
+        });
 
         // Get current user from store
         const user = useUserStore.getState().user;
         if (!user) {
+          console.error('❌ NavigationHandlers: No user in store');
           Alert.alert(
             'Access Denied',
             'Please sign in to access the captain dashboard'
           );
           return;
         }
+
+        console.log('✅ NavigationHandlers: User found:', user.npub?.slice(0, 8) + '...');
 
         // First check cached captain status
         let isCaptain = false;
@@ -368,11 +376,19 @@ export const createNavigationHandlers = (): NavigationHandlers => {
         console.log(`✅ NavigationHandlers: Captain access granted for team ${captainTeamId}`);
 
         // Navigate to captain dashboard with team information
+        console.log('🚀 NavigationHandlers: Attempting navigation with params:', {
+          teamId: captainTeamId,
+          teamName: captainTeamName || 'Team',
+          isCaptain: true,
+        });
+
         navigation.navigate('CaptainDashboard', {
           teamId: captainTeamId,
           teamName: captainTeamName || 'Team',
           isCaptain: true,
         });
+
+        console.log('✅ NavigationHandlers: Navigation call completed');
 
       } catch (error) {
         console.error('❌ NavigationHandlers: Error checking captain dashboard access:', error);

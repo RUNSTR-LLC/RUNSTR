@@ -57,24 +57,25 @@ export const CompetitionWinnersCard: React.FC<CompetitionWinnersCardProps> = ({
   };
 
   const getTrophyColor = (rank?: number): string => {
-    if (rank === 1) return '#FFD700'; // Gold
-    if (rank === 2) return '#C0C0C0'; // Silver
-    if (rank === 3) return '#CD7F32'; // Bronze
-    return theme.colors.primary;
+    // Use monochrome theme colors instead of metallic colors
+    if (rank === 1) return theme.colors.text; // White for first place
+    if (rank === 2) return theme.colors.textSecondary; // Light gray for second
+    if (rank === 3) return theme.colors.textMuted; // Darker gray for third
+    return theme.colors.textMuted;
   };
 
   return (
     <Card style={styles.card}>
       <View style={styles.header}>
         <View style={styles.titleContainer}>
-          <Ionicons name="trophy" size={18} color={theme.colors.primary} />
-          <Text style={styles.title}>Competition Winners</Text>
+          <Ionicons name="trophy" size={18} color={theme.colors.textMuted} />
+          <Text style={styles.title}>Winners</Text>
         </View>
       </View>
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={theme.colors.primary} />
+          <ActivityIndicator size="small" color={theme.colors.textMuted} />
           <Text style={styles.loadingText}>Loading winners...</Text>
         </View>
       ) : winners.length === 0 ? (
@@ -209,11 +210,11 @@ const styles = StyleSheet.create({
   satsAmount: {
     fontSize: 15,
     fontWeight: '700',
-    color: theme.colors.primary,
+    color: theme.colors.text,
   },
   satsLabel: {
     fontSize: 11,
-    color: theme.colors.primary,
+    color: theme.colors.textSecondary,
     fontWeight: '500',
   },
   winDate: {

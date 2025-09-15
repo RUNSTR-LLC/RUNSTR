@@ -219,8 +219,19 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
               onMenuPress={() => handlers.handleMenuPress(navigation)}
               onCaptainDashboard={() => {
                 console.log('🎖️ AppNavigator: Captain dashboard handler called');
+                console.log('🎖️ AppNavigator: Team data:', {
+                  hasTeam: !!team,
+                  teamId: team?.id,
+                  teamName: team?.name,
+                  userIsCaptain
+                });
                 // Pass team information to the captain dashboard handler
-                handlers.handleCaptainDashboard(navigation, team?.id, team?.name);
+                if (team && team.id) {
+                  handlers.handleCaptainDashboard(navigation, team.id, team.name);
+                } else {
+                  console.error('❌ AppNavigator: Team data missing for captain dashboard');
+                  handlers.handleCaptainDashboard(navigation);
+                }
               }}
               onAddChallenge={() => handlers.handleAddChallenge(navigation)}
               onEventPress={(eventId) =>
