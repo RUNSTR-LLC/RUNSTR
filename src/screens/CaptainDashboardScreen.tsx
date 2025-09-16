@@ -190,6 +190,13 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
 
       {/* Header */}
       <View style={styles.header}>
+        <TouchableOpacity
+          onPress={onNavigateToTeam}
+          style={styles.backButton}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.backButtonText}>← Back</Text>
+        </TouchableOpacity>
         <View style={styles.headerLeft}>
           <View style={styles.captainBadge}>
             <Text style={styles.captainBadgeText}>CAPTAIN</Text>
@@ -335,6 +342,17 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
+  },
+
+  backButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+
+  backButtonText: {
+    fontSize: 16,
+    color: theme.colors.text,
+    fontWeight: '500',
   },
 
   headerLeft: {

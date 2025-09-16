@@ -122,8 +122,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
   };
 
   // Calculate responsive dimensions
-  const logoSize = IS_SMALL_DEVICE ? 200 : 300;
-  const logoHeight = IS_SMALL_DEVICE ? 67 : 100;
+  const logoSize = IS_SMALL_DEVICE ? 800 : 1200;
+  const logoHeight = IS_SMALL_DEVICE ? 266 : 400;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -145,9 +145,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
               style={[styles.logo, { width: logoSize, height: logoHeight }]}
               resizeMode="contain"
             />
-            <Text style={[styles.subtitle, IS_SMALL_DEVICE && styles.subtitleSmall]}>
-              Bitcoin-powered fitness competitions
-            </Text>
           </View>
 
           {/* Login Section */}
@@ -162,11 +159,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
                       style={styles.appleButton}
                       disabled={isLoading}
                     />
-                    <View style={styles.dividerContainer}>
-                      <View style={styles.divider} />
-                      <Text style={styles.dividerText}>OR</Text>
-                      <View style={styles.divider} />
-                    </View>
+                    <View style={styles.spacer} />
                   </>
                 )}
                 <TouchableOpacity
@@ -176,16 +169,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
                   disabled={isLoading}
                 >
                   {isLoading ? (
-                    <ActivityIndicator size="small" color={theme.colors.accentText} />
+                    <ActivityIndicator size="small" color="#000000" />
                   ) : (
-                    <Text style={styles.loginButtonText}>Login with Nostr</Text>
+                    <Text style={styles.loginButtonText}>Sign in with Nostr</Text>
                   )}
                 </TouchableOpacity>
-                <Text style={styles.helpText}>
-                  {Platform.OS === 'ios'
-                    ? 'Sign in with Apple or use your Nostr key'
-                    : 'Use your Nostr nsec key to access your profile'}
-                </Text>
               </View>
             ) : (
               // Input Form
@@ -247,13 +235,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
             )}
           </View>
 
-          {/* Footer */}
-          <View style={[styles.footer, { marginBottom: Math.max(insets.bottom, 20) }]}>
-            <Text style={styles.footerText}>
-              New to Nostr? Get your keys at{' '}
-              <Text style={styles.footerLink}>getalby.com</Text>
-            </Text>
-          </View>
         </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -282,76 +263,53 @@ const styles = StyleSheet.create({
   // Header
   header: {
     alignItems: 'center',
-    paddingTop: 40,
+    paddingTop: 80,
     paddingBottom: 40,
   },
   headerSmall: {
-    paddingTop: 20,
+    paddingTop: 60,
     paddingBottom: 20,
   },
   logo: {
     marginBottom: 20,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-  },
-  subtitleSmall: {
-    fontSize: 14,
+    alignSelf: 'center',
   },
 
   // Login Section
   loginSection: {
     flex: 1,
-    justifyContent: 'center',
-    paddingVertical: 40,
+    justifyContent: 'flex-start',
+    paddingVertical: 10,
+    marginTop: -80,
   },
   buttonContainer: {
     alignItems: 'center',
   },
   loginButton: {
-    backgroundColor: theme.colors.accent,
-    paddingVertical: 16,
-    paddingHorizontal: 40,
+    backgroundColor: '#FFFFFF',
+    height: 50,
     borderRadius: 12,
-    minWidth: 200,
+    width: '80%',
+    maxWidth: 320,
     alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
   },
   loginButtonText: {
-    fontSize: 16,
+    fontSize: 19,
     fontWeight: '600',
-    color: theme.colors.accentText,
-  },
-  helpText: {
-    fontSize: 14,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-    marginTop: 16,
-    lineHeight: 20,
-    paddingHorizontal: 20,
+    color: '#000000',
   },
 
   // Apple Sign-In
   appleButton: {
-    marginBottom: 16,
-    height: 50,
+    marginBottom: 20,
+    width: '80%',
+    maxWidth: 320,
+    alignSelf: 'center',
   },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 20,
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: theme.colors.border,
-  },
-  dividerText: {
-    marginHorizontal: 10,
-    fontSize: 12,
-    color: theme.colors.textMuted,
-    fontWeight: '500',
+  spacer: {
+    height: 20,
   },
 
   // Input Form
@@ -439,20 +397,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-  },
-
-  // Footer
-  footer: {
-    paddingTop: 20,
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: 14,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-  },
-  footerLink: {
-    color: theme.colors.accent,
-    fontWeight: '600',
   },
 });

@@ -13,6 +13,8 @@ import type {
   NostrEventDefinition,
   CompetitionGoalType,
 } from '../../types/nostrCompetition';
+import { LocalNotificationTrigger } from '../notifications/LocalNotificationTrigger';
+import { NotificationCache } from '../../utils/notificationCache';
 
 // Updated Competition interface for Nostr compatibility
 export interface NostrCompetition {
@@ -270,10 +272,94 @@ export class NostrCompetitionContextService {
       });
 
       console.log(`✅ Fetched ${competitions.length} competitions from Nostr`);
+
+      // Check for new competitions and trigger notifications
+      await this.checkAndNotifyNewCompetitions(competitions);
+
+      // Check for competitions ending soon
+      await this.checkAndNotifyEndingSoon(competitions);
+
       return competitions;
     } catch (error) {
       console.error('Error fetching competitions from Nostr:', error);
       return [];
+    }
+  }
+
+  /**
+   * Check for new competitions and trigger notifications
+   */
+  private async checkAndNotifyNewCompetitions(competitions: NostrCompetition[]): Promise<void> {
+    const notificationTrigger = LocalNotificationTrigger.getInstance();
+
+    for (const competition of competitions) {
+      // Check if we've already notified about this competition
+      const hasNotified = await NotificationCache.hasNotifiedCompetition(competition.id);
+
+      if (!hasNotified) {
+        // This is a new competition we haven't notified about
+        const startTime = competition.type === 'league'
+          ? new Date(competition.startDate!)
+          : new Date(competition.eventDate!);
+
+        // Only notify if competition hasn't started yet or started within last 24 hours
+        const hoursSinceStart = (Date.now() - startTime.getTime()) / (1000 * 60 * 60);
+        if (hoursSinceStart < 24) {
+          await notificationTrigger.notifyNewCompetition(
+            competition.name,
+            competition.type,
+            competition.activityType,
+            startTime
+          );
+
+          // Mark as notified
+          await NotificationCache.markCompetitionNotified(competition.id, competition.name);
+        }
+      }
+    }
+  }
+
+  /**
+   * Check for competitions ending soon and trigger notifications
+   */
+  private async checkAndNotifyEndingSoon(competitions: NostrCompetition[]): Promise<void> {
+    const notificationTrigger = LocalNotificationTrigger.getInstance();
+
+    for (const competition of competitions) {
+      let endTime: Date | null = null;
+
+      if (competition.type === 'league' && competition.endDate) {
+        endTime = new Date(competition.endDate);
+      } else if (competition.type === 'event' && competition.eventDate) {
+        // Events end at the end of the event day
+        endTime = new Date(competition.eventDate);
+        endTime.setHours(23, 59, 59, 999);
+      }
+
+      if (endTime) {
+        const hoursUntilEnd = (endTime.getTime() - Date.now()) / (1000 * 60 * 60);
+
+        // Notify if ending within 24 hours
+        if (hoursUntilEnd > 0 && hoursUntilEnd <= 24) {
+          // Check if we should send this alert (based on interval)
+          const shouldSend = await NotificationCache.shouldSendEndingAlert(
+            competition.id,
+            hoursUntilEnd
+          );
+
+          if (shouldSend) {
+            // TODO: Get current position from leaderboard service when available
+            await notificationTrigger.notifyCompetitionEndingSoon(
+              competition.name,
+              competition.type,
+              endTime
+            );
+
+            // Mark alert as sent
+            await NotificationCache.markEndingAlertSent(competition.id, hoursUntilEnd);
+          }
+        }
+      }
     }
   }
 

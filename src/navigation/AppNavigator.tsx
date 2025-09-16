@@ -20,6 +20,9 @@ import { TeamCreationWizard } from '../components/wizards/TeamCreationWizard';
 import { EventDetailScreen } from '../screens/EventDetailScreen';
 import { ChallengeDetailScreen } from '../screens/ChallengeDetailScreen';
 import { LoginScreen } from '../screens/LoginScreen';
+import { HelpSupportScreen } from '../screens/HelpSupportScreen';
+import { ContactSupportScreen } from '../screens/ContactSupportScreen';
+import { PrivacyPolicyScreen } from '../screens/PrivacyPolicyScreen';
 
 // Navigation Configuration
 import {
@@ -46,6 +49,9 @@ export type RootStackParamList = {
   TeamCreation: undefined;
   EventDetail: { eventId: string };
   ChallengeDetail: { challengeId: string };
+  HelpSupport: undefined;
+  ContactSupport: undefined;
+  PrivacyPolicy: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -273,9 +279,9 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
               onEditProfile={handlers.handleEditProfile}
               onSyncSourcePress={handlers.handleSyncSourcePress}
               onManageSubscription={handlers.handleManageSubscription}
-              onHelp={handlers.handleHelp}
-              onContactSupport={handlers.handleContactSupport}
-              onPrivacyPolicy={handlers.handlePrivacyPolicy}
+              onHelp={() => handlers.handleHelp(navigation)}
+              onContactSupport={() => handlers.handleContactSupport(navigation)}
+              onPrivacyPolicy={() => handlers.handlePrivacyPolicy(navigation)}
               onSignOut={() => handlers.handleSignOut(navigation)}
             />
           ) : (
@@ -461,6 +467,27 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
         name="ChallengeDetail"
         options={screenConfigurations.ChallengeDetail}
         component={ChallengeDetailScreen}
+      />
+
+      {/* Help & Support Screen */}
+      <Stack.Screen
+        name="HelpSupport"
+        options={{ headerShown: false }}
+        component={HelpSupportScreen}
+      />
+
+      {/* Contact Support Screen */}
+      <Stack.Screen
+        name="ContactSupport"
+        options={{ headerShown: false }}
+        component={ContactSupportScreen}
+      />
+
+      {/* Privacy Policy Screen */}
+      <Stack.Screen
+        name="PrivacyPolicy"
+        options={{ headerShown: false }}
+        component={PrivacyPolicyScreen}
       />
     </Stack.Navigator>
   );

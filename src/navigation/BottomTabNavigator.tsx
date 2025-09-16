@@ -154,7 +154,25 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
               data={profileData}
               onNavigateToTeam={() => navigation.navigate('Teams')}
               onNavigateToTeamDiscovery={() => navigation.navigate('Teams')}
-              onViewCurrentTeam={() => navigation.navigate('Teams')}
+              onViewCurrentTeam={() => {
+                // Navigate to EnhancedTeamScreen with the user's current team
+                if (profileData.currentTeam) {
+                  const team = {
+                    id: profileData.currentTeam.id,
+                    name: profileData.currentTeam.name,
+                    description: profileData.currentTeam.description,
+                    memberCount: profileData.currentTeam.memberCount,
+                    prizePool: profileData.currentTeam.prizePool,
+                    isActive: profileData.currentTeam.isActive,
+                  };
+
+                  navigation.navigate('EnhancedTeamScreen', {
+                    team,
+                    userIsMember: true,
+                    userIsCaptain: profileData.currentTeam.role === 'captain',
+                  });
+                }
+              }}
               onCaptainDashboard={() =>
                 handlers.handleCaptainDashboard(navigation)
               }
@@ -169,9 +187,9 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
               onWalletHistory={handlers.handleWalletHistory}
               onSyncSourcePress={handlers.handleSyncSourcePress}
               onManageSubscription={handlers.handleManageSubscription}
-              onHelp={handlers.handleHelp}
-              onContactSupport={handlers.handleContactSupport}
-              onPrivacyPolicy={handlers.handlePrivacyPolicy}
+              onHelp={() => handlers.handleHelp(navigation)}
+              onContactSupport={() => handlers.handleContactSupport(navigation)}
+              onPrivacyPolicy={() => handlers.handlePrivacyPolicy(navigation)}
               onSignOut={() => handlers.handleSignOut(navigation)}
               onRefresh={refresh}
             />

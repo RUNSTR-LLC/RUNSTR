@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Platform, StyleSheet, ViewStyle, Alert } from 'react-native';
+import { Platform, StyleSheet, ViewStyle, Alert, View } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { theme } from '../../styles/theme';
 
@@ -64,8 +64,8 @@ export const AppleSignInButton: React.FC<AppleSignInButtonProps> = ({
   return (
     <AppleAuthentication.AppleAuthenticationButton
       buttonType={buttonType}
-      buttonStyle={buttonStyle}
-      cornerRadius={8}
+      buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+      cornerRadius={12}
       style={[styles.button, style, disabled && styles.disabled]}
       onPress={disabled ? () => {} : handlePress}
       testID={testID}
@@ -78,18 +78,8 @@ export const AppleSignInButton: React.FC<AppleSignInButtonProps> = ({
  */
 const styles = StyleSheet.create({
   button: {
-    height: 48,
+    height: 50,
     width: '100%',
-    borderRadius: 8,
-    // Ensure button is visible against dark backgrounds
-    shadowColor: theme.colors.accent,
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
   },
   disabled: {
     opacity: 0.5,

@@ -237,8 +237,8 @@ const AppContent: React.FC = () => {
                 }}
                 teamId={teamId || ''}
                 captainId={user.npub || user.id}
-                onNavigateToTeam={() => navigation.navigate('MainTabs', { screen: 'Teams' })}
-                onNavigateToProfile={() => navigation.navigate('MainTabs', { screen: 'Profile' })}
+                onNavigateToTeam={() => navigation.goBack()}
+                onNavigateToProfile={() => navigation.goBack()}
                 onSettingsPress={() => console.log('Settings')}
                 onInviteMember={() => console.log('Invite member')}
                 onEditMember={(memberId) => console.log('Edit member:', memberId)}

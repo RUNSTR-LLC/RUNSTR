@@ -7,6 +7,9 @@
 import { NostrListService } from '../nostr/NostrListService';
 import type { NostrLeagueDefinition, NostrEventDefinition } from '../../types/nostrCompetition';
 import type { NostrWorkout } from '../../types/nostrWorkout';
+import { LocalNotificationTrigger } from '../notifications/LocalNotificationTrigger';
+import { NotificationCache } from '../../utils/notificationCache';
+import { useUserStore } from '../../store/userStore';
 
 export interface SimpleParticipant {
   pubkey: string;
@@ -121,6 +124,9 @@ export class SimpleCompetitionEngine {
 
       // Cache the result
       this.cacheLeaderboard(competition.id, leaderboard);
+
+      // Check for position changes and trigger notifications
+      await this.checkAndNotifyPositionChanges(competition, leaderboard);
 
       console.log(`✅ Leaderboard computed: ${participants.length} participants, ${leaderboard.totalWorkouts} workouts`);
       return leaderboard;
@@ -449,6 +455,66 @@ export class SimpleCompetitionEngine {
       totalCalories: Math.round(totalCalories),
       lastActivity: lastActivity || undefined,
     };
+  }
+
+  /**
+   * Check for position changes and trigger notifications
+   */
+  private async checkAndNotifyPositionChanges(
+    competition: NostrLeagueDefinition | NostrEventDefinition,
+    leaderboard: SimpleLeaderboard
+  ): Promise<void> {
+    try {
+      // Get current user's pubkey (id is the hex pubkey)
+      const userState = useUserStore.getState();
+      const currentUserPubkey = userState.user?.id;
+
+      if (!currentUserPubkey) {
+        console.log('No current user pubkey, skipping position notifications');
+        return;
+      }
+
+      // Find current user in the leaderboard
+      const currentUserEntry = leaderboard.participants.find(
+        p => p.pubkey === currentUserPubkey || p.pubkey.includes(currentUserPubkey)
+      );
+
+      if (!currentUserEntry) {
+        console.log('Current user not in competition, skipping notifications');
+        return;
+      }
+
+      const competitionName = competition.name;
+      const currentPosition = currentUserEntry.position;
+      const totalParticipants = leaderboard.participants.length;
+
+      // Get previous position from cache
+      const previousPosition = await NotificationCache.getLastPosition(competition.id);
+
+      // Update position in cache
+      await NotificationCache.updatePosition(
+        competition.id,
+        competitionName,
+        currentPosition
+      );
+
+      // Only notify if position changed and we had a previous position
+      if (previousPosition !== null && previousPosition !== currentPosition) {
+        const notificationTrigger = LocalNotificationTrigger.getInstance();
+
+        await notificationTrigger.notifyLeaderboardChange(
+          competitionName,
+          previousPosition,
+          currentPosition,
+          totalParticipants
+        );
+
+        console.log(`📱 Notified position change: #${previousPosition} → #${currentPosition} in ${competitionName}`);
+      }
+    } catch (error) {
+      console.error('Failed to check position changes:', error);
+      // Don't throw - notifications are not critical
+    }
   }
 
   /**

@@ -9,21 +9,10 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { RichNotificationData } from '../../types';
 import { analytics } from '../../utils/analytics';
-import { supabase } from '../supabase';
-
-export interface DeviceToken {
-  token: string;
-  npub: string;
-  deviceId: string;
-  platform: 'ios' | 'android';
-  createdAt: string;
-  isActive: boolean;
-}
 
 export class ExpoNotificationProvider {
   private static instance: ExpoNotificationProvider;
   private deviceToken: string | null = null;
-  private npub: string | null = null;
   private isInitialized = false;
 
   private constructor() {}
@@ -36,10 +25,8 @@ export class ExpoNotificationProvider {
   }
 
   // Initialize notification system
-  async initialize(npub: string): Promise<void> {
+  async initialize(): Promise<void> {
     if (this.isInitialized) return;
-
-    this.npub = npub;
 
     // Set notification handler configuration
     Notifications.setNotificationHandler({
@@ -103,11 +90,7 @@ export class ExpoNotificationProvider {
         await Notifications.getExpoPushTokenAsync({ projectId })
       ).data;
 
-      // Store token in Supabase for backend push notifications
-      if (this.npub && this.deviceToken) {
-        await this.storeDeviceToken();
-      }
-
+      console.log('📱 Device token obtained for local notifications');
       analytics.track('notification_scheduled', { tokenRegistered: true });
     } catch (error) {
       console.error('Failed to get push token:', error);
@@ -150,57 +133,6 @@ export class ExpoNotificationProvider {
     });
   }
 
-  // Store device token in Supabase
-  private async storeDeviceToken(): Promise<void> {
-    if (!this.deviceToken || !this.npub) {
-      console.warn('📱 Cannot store device token - missing token or npub');
-      return;
-    }
-
-    try {
-      console.log('📱 Storing device token for backend push notifications:', {
-        token: this.deviceToken.substring(0, 20) + '...',
-        npub: this.npub.substring(0, 20) + '...',
-        platform: Platform.OS,
-        deviceId: Constants.installationId,
-      });
-
-      // Store device token in Supabase for backend push notification service
-      const { data, error } = await supabase.from('device_tokens').upsert(
-        {
-          token: this.deviceToken,
-          npub: this.npub,
-          device_id: Constants.installationId,
-          platform: Platform.OS as 'ios' | 'android',
-          is_active: true,
-        },
-        {
-          onConflict: 'npub,device_id', // Update if same user + device
-        }
-      );
-
-      if (error) {
-        throw error;
-      }
-
-      console.log('📱 Device token stored successfully in Supabase');
-      analytics.track('notification_scheduled', { 
-        event: 'device_token_stored',
-        platform: Platform.OS,
-        npub: this.npub 
-      });
-    } catch (error) {
-      console.error('❌ Failed to store device token in Supabase:', error);
-      
-      // Track the error but don't throw - push notifications can still work locally
-      analytics.track('notification_scheduled', { 
-        event: 'device_token_storage_failed',
-        platform: Platform.OS,
-        npub: this.npub,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  }
 
   // Setup notification event listeners
   private setupNotificationListeners(): void {
@@ -393,56 +325,12 @@ export class ExpoNotificationProvider {
     return status === 'granted';
   }
 
-  // Deactivate device token in Supabase (for sign out or opt-out)
-  async deactivateDeviceToken(): Promise<void> {
-    if (!this.deviceToken || !this.npub) {
-      console.warn('📱 Cannot deactivate device token - missing token or npub');
-      return;
-    }
-
-    try {
-      console.log('📱 Deactivating device token in Supabase');
-
-      const { error } = await supabase
-        .from('device_tokens')
-        .update({ 
-          is_active: false,
-        })
-        .eq('npub', this.npub)
-        .eq('device_id', Constants.installationId);
-
-      if (error) {
-        throw error;
-      }
-
-      console.log('📱 Device token deactivated successfully');
-      analytics.track('notification_scheduled', { 
-        event: 'device_token_deactivated',
-        platform: Platform.OS,
-        npub: this.npub 
-      });
-    } catch (error) {
-      console.error('❌ Failed to deactivate device token:', error);
-      analytics.track('notification_scheduled', { 
-        event: 'device_token_deactivation_failed',
-        platform: Platform.OS,
-        npub: this.npub,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  }
 
   // Cleanup method
   cleanup(): void {
-    // Deactivate device token when cleaning up
-    if (this.isInitialized && this.deviceToken && this.npub) {
-      this.deactivateDeviceToken().catch(console.error);
-    }
-
     // Remove notification listeners (manually tracked)
     // Note: expo-notifications doesn't have removeAllNotificationListeners in newer versions
     this.isInitialized = false;
     this.deviceToken = null;
-    this.npub = null;
   }
 }

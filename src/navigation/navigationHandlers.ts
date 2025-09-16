@@ -67,9 +67,9 @@ export interface NavigationHandlers {
   handleWalletHistory: () => void;
   handleSyncSourcePress: (provider: string) => void;
   handleManageSubscription: () => void;
-  handleHelp: () => void;
-  handleContactSupport: () => void;
-  handlePrivacyPolicy: () => void;
+  handleHelp: (navigation?: any) => void;
+  handleContactSupport: (navigation?: any) => void;
+  handlePrivacyPolicy: (navigation?: any) => void;
   handleSignOut: (navigation: any) => void;
 }
 
@@ -658,28 +658,40 @@ export const createNavigationHandlers = (): NavigationHandlers => {
       );
     },
 
-    handleHelp: () => {
+    handleHelp: (navigation?: any) => {
       console.log('Help pressed');
-      Alert.alert(
-        'Help & Support',
-        'Visit runstr.app/help for documentation and tutorials.'
-      );
+      if (navigation) {
+        navigation.navigate('HelpSupport');
+      } else {
+        Alert.alert(
+          'Help & Support',
+          'Visit runstr.app/help for documentation and tutorials.'
+        );
+      }
     },
 
-    handleContactSupport: () => {
+    handleContactSupport: (navigation?: any) => {
       console.log('Contact support pressed');
-      Alert.alert(
-        'Contact Support',
-        'Reach out to support@runstr.app for assistance.'
-      );
+      if (navigation) {
+        navigation.navigate('ContactSupport');
+      } else {
+        Alert.alert(
+          'Contact Support',
+          'Reach out to support@runstr.app for assistance.'
+        );
+      }
     },
 
-    handlePrivacyPolicy: () => {
+    handlePrivacyPolicy: (navigation?: any) => {
       console.log('Privacy policy pressed');
-      Alert.alert(
-        'Privacy Policy',
-        'View our privacy policy at runstr.app/privacy'
-      );
+      if (navigation) {
+        navigation.navigate('PrivacyPolicy');
+      } else {
+        Alert.alert(
+          'Privacy Policy',
+          'View our privacy policy at runstr.app/privacy'
+        );
+      }
     },
 
     handleSignOut: (navigation: any) => {

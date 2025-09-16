@@ -1,6 +1,6 @@
 /**
- * TeamManagementSection - Profile component for managing team membership
- * Shows current team info and provides options to change teams
+ * TeamManagementSection - Profile component showing user's current team
+ * Displays a clickable team card that navigates to the team page
  */
 
 import React from 'react';
@@ -43,75 +43,64 @@ export const TeamManagementSection: React.FC<TeamManagementSectionProps> = ({
   }
 
   return (
-    <Card style={styles.card}>
-      <View style={styles.teamContainer}>
-        {/* Team Header */}
-        <View style={styles.teamHeader}>
-          <View style={styles.teamInfo}>
+    <TouchableOpacity
+      activeOpacity={0.8}
+      onPress={onViewTeam}
+      style={styles.touchableCard}
+    >
+      <Card style={styles.card}>
+        <View style={styles.teamContainer}>
+          {/* Your Team Badge */}
+          <View style={styles.badgeContainer}>
+            <Text style={styles.badgeText}>YOUR TEAM</Text>
+          </View>
+
+          {/* Team Info */}
+          <View style={styles.teamHeader}>
             <Text style={styles.teamName}>{currentTeam.name}</Text>
             <Text style={styles.teamDescription} numberOfLines={2}>
               {currentTeam.description}
             </Text>
           </View>
-          {onViewTeam && (
-            <TouchableOpacity
-              style={styles.viewButton}
-              onPress={onViewTeam}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.viewButtonText}>View</Text>
-            </TouchableOpacity>
-          )}
-        </View>
 
-        {/* Team Stats */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>
-              {currentTeam.prizePool.toLocaleString()}
-            </Text>
-            <Text style={styles.statLabel}>Sat Prize Pool</Text>
+          {/* Team Stats - Simplified */}
+          <View style={styles.statsContainer}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{currentTeam.memberCount}</Text>
+              <Text style={styles.statLabel}>Members</Text>
+            </View>
+
+            {currentTeam.role === 'captain' && (
+              <View style={styles.captainBadge}>
+                <Text style={styles.captainBadgeText}>CAPTAIN</Text>
+              </View>
+            )}
+
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>
+                {currentTeam.isActive ? 'Active' : 'Inactive'}
+              </Text>
+              <Text style={styles.statLabel}>Status</Text>
+            </View>
           </View>
 
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{currentTeam.memberCount}</Text>
-            <Text style={styles.statLabel}>Members</Text>
-          </View>
-
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>
-              {currentTeam.isActive ? 'Active' : 'Inactive'}
-            </Text>
-            <Text style={styles.statLabel}>Status</Text>
+          {/* Tap Indicator */}
+          <View style={styles.tapIndicator}>
+            <Text style={styles.tapText}>Tap to view team →</Text>
           </View>
         </View>
-
-        {/* Team Actions */}
-        <View style={styles.actionsContainer}>
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={onChangeTeam}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.secondaryButtonText}>Change Team</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Team Management Info */}
-        <View style={styles.infoContainer}>
-          <Text style={styles.infoText}>
-            💡 You can switch teams once every 7 days. Leaving a team may
-            require paying an exit fee.
-          </Text>
-        </View>
-      </View>
-    </Card>
+      </Card>
+    </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  card: {
+  touchableCard: {
     marginBottom: 16,
+  },
+
+  card: {
+    marginBottom: 0, // Remove margin since touchableCard handles it
   },
 
   // No Team State
@@ -141,16 +130,24 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
 
-  teamHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+  badgeContainer: {
+    backgroundColor: theme.colors.accent,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+    marginBottom: 12,
   },
 
-  teamInfo: {
-    flex: 1,
-    marginRight: 12,
+  badgeText: {
+    fontSize: 10,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.accentText,
+    letterSpacing: 0.5,
+  },
+
+  teamHeader: {
+    marginBottom: 16,
   },
 
   teamName: {
@@ -166,34 +163,17 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
-  viewButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-  },
-
-  viewButtonText: {
-    fontSize: 12,
-    fontWeight: theme.typography.weights.medium,
-    color: theme.colors.text,
-  },
-
   // Team Stats
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    alignItems: 'center',
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: theme.colors.border,
+    borderTopColor: theme.colors.border,
   },
 
   statItem: {
-    flex: 1,
     alignItems: 'center',
   },
 
@@ -210,11 +190,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Actions
-  actionsContainer: {
-    marginBottom: 12,
+  captainBadge: {
+    backgroundColor: '#FFD700',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
   },
 
+  captainBadgeText: {
+    fontSize: 11,
+    fontWeight: theme.typography.weights.bold,
+    color: '#000',
+    letterSpacing: 0.5,
+  },
+
+  // Actions
   primaryButton: {
     backgroundColor: theme.colors.text,
     borderRadius: 8,
@@ -229,32 +219,15 @@ const styles = StyleSheet.create({
     color: theme.colors.background,
   },
 
-  secondaryButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+  // Tap Indicator
+  tapIndicator: {
     alignItems: 'center',
+    paddingTop: 8,
   },
 
-  secondaryButtonText: {
-    fontSize: 14,
-    fontWeight: theme.typography.weights.medium,
-    color: theme.colors.text,
-  },
-
-  // Info Section
-  infoContainer: {
-    backgroundColor: theme.colors.cardBackground,
-    borderRadius: 6,
-    padding: 12,
-  },
-
-  infoText: {
+  tapText: {
     fontSize: 12,
-    color: theme.colors.textMuted,
-    lineHeight: 16,
+    color: theme.colors.textSecondary,
+    fontStyle: 'italic',
   },
 });
