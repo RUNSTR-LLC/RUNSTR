@@ -11,7 +11,7 @@ Team discovery, management, and display components for RUNSTR team functionality
 - **CaptainHeader.tsx** - Header component for captain dashboard and management
 - **CaptainWalletManager.tsx** - Wallet management component for team captains
 - **ChallengesCard.tsx** - Challenge display card for team dashboard (deprecated)
-- **CompetitionWinnersCard.tsx** - Display card showing competition winners with prize amounts
+- **CompetitionWinnersCard.tsx** - Display card showing competition winners with Zap button for P2P payments
 - **DifficultyIndicator.tsx** - Difficulty level indicator for team activities
 - **EventsCard.tsx** - Event display card for team dashboard
 - **JoinRequestCard.tsx** - Individual join request display component

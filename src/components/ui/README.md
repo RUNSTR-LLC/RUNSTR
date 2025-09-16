@@ -21,3 +21,4 @@ Basic reusable UI components for consistent design across the RUNSTR application
 - **SplashScreen.tsx** - App loading splash screen with RUNSTR branding
 - **StatCard.tsx** - Statistics display card for workout and competition metrics
 - **TimeRemaining.tsx** - Countdown timer component for competitions and events
+- **ZapModal.tsx** - Modal for sending P2P Cashu payments (Zaps) via NIP-60 wallets

@@ -133,6 +133,22 @@ export const CompetitionWinnersCard: React.FC<CompetitionWinnersCardProps> = ({
           ))}
         </ScrollView>
       )}
+
+      {/* Zap Modal */}
+      {selectedWinner && (
+        <ZapModal
+          visible={zapModalVisible}
+          recipientNpub={selectedWinner.winnerNpub}
+          recipientName={selectedWinner.winnerName}
+          suggestedAmount={selectedWinner.satsWon || 1000}
+          competitionName={selectedWinner.competitionName}
+          onClose={() => {
+            setZapModalVisible(false);
+            setSelectedWinner(null);
+          }}
+          onSuccess={handleZapSuccess}
+        />
+      )}
     </Card>
   );
 };
@@ -250,5 +266,23 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: theme.colors.textMuted,
     marginTop: 4,
+  },
+  rightContent: {
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  zapButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: theme.colors.text,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: theme.borderRadius.small,
+  },
+  zapButtonText: {
+    fontSize: 12,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.background,
   },
 });

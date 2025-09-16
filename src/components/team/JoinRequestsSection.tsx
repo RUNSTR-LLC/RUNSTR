@@ -125,10 +125,7 @@ export const JoinRequestsSection: React.FC<JoinRequestsSectionProps> = ({
     }
   };
 
-  // Don't show section if no requests
-  if (!isLoading && requests.length === 0) {
-    return null;
-  }
+  // Show empty state when no requests
 
   return (
     <View style={[styles.requestsSection, style]}>
@@ -139,35 +136,37 @@ export const JoinRequestsSection: React.FC<JoinRequestsSectionProps> = ({
         </View>
       </View>
 
-      <ScrollView
-        style={styles.requestsList}
-        showsVerticalScrollIndicator={true}
-        indicatorStyle="white"
-        refreshControl={
-          <RefreshControl
-            refreshing={isLoading}
-            onRefresh={loadJoinRequests}
-            tintColor={theme.colors.text}
-          />
-        }
-      >
-        {requests.map((request) => (
-          <JoinRequestCard
-            key={request.id}
-            request={request}
-            teamId={teamId}
-            captainPubkey={captainPubkey}
-            onApprove={handleApproveRequest}
-            onDeny={handleDenyRequest}
-          />
-        ))}
-
-        {isLoading && requests.length === 0 && (
-          <View style={styles.loadingState}>
-            <Text style={styles.loadingText}>Loading join requests...</Text>
-          </View>
-        )}
-      </ScrollView>
+      {requests.length > 0 ? (
+        <ScrollView
+          style={styles.requestsList}
+          showsVerticalScrollIndicator={true}
+          indicatorStyle="white"
+          refreshControl={
+            <RefreshControl
+              refreshing={isLoading}
+              onRefresh={loadJoinRequests}
+              tintColor={theme.colors.text}
+            />
+          }
+        >
+          {requests.map((request) => (
+            <JoinRequestCard
+              key={request.id}
+              request={request}
+              teamId={teamId}
+              captainPubkey={captainPubkey}
+              onApprove={handleApproveRequest}
+              onDeny={handleDenyRequest}
+            />
+          ))}
+        </ScrollView>
+      ) : (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyStateText}>
+            {isLoading ? 'Loading join requests...' : 'No pending requests'}
+          </Text>
+        </View>
+      )}
     </View>
   );
 };
@@ -198,7 +197,7 @@ const styles = StyleSheet.create({
   },
 
   requestCount: {
-    backgroundColor: '#ff6b35', // Orange for notifications
+    backgroundColor: theme.colors.text, // Black/white theme
     minWidth: 20,
     height: 20,
     borderRadius: 10,
@@ -208,7 +207,7 @@ const styles = StyleSheet.create({
   },
 
   requestCountText: {
-    color: '#fff',
+    color: theme.colors.background,
     fontSize: 11,
     fontWeight: theme.typography.weights.bold,
   },
@@ -228,5 +227,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: theme.colors.textMuted,
     fontStyle: 'italic',
+  },
+
+  // Empty state
+  emptyState: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+
+  emptyStateText: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
   },
 });

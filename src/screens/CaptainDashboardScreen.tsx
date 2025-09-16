@@ -17,12 +17,10 @@ import {
 import { theme } from '../styles/theme';
 import { BottomNavigation } from '../components/ui/BottomNavigation';
 import { QuickActionsSection } from '../components/team/QuickActionsSection';
-import { PersonalWalletManager } from '../components/team/PersonalWalletManager';
 import { ActivityFeedSection } from '../components/team/ActivityFeedSection';
 import { JoinRequestsSection } from '../components/team/JoinRequestsSection';
 import { EventCreationWizard } from '../components/wizards/EventCreationWizard';
 import { LeagueCreationWizard } from '../components/wizards/LeagueCreationWizard';
-import { RewardDistribution } from '../types/teamWallet';
 import { NostrListService } from '../services/nostr/NostrListService';
 import { NostrProtocolHandler } from '../services/nostr/NostrProtocolHandler';
 import { NostrRelayManager } from '../services/nostr/NostrRelayManager';
@@ -56,16 +54,13 @@ export interface CaptainDashboardData {
 
 interface CaptainDashboardScreenProps {
   data: CaptainDashboardData;
-  captainId: string; // Added for wallet manager
-  teamId: string; // Added for member management
+  captainId: string; // For member management
+  teamId: string; // For member management
   onNavigateToTeam: () => void;
   onNavigateToProfile: () => void;
   onSettingsPress: () => void;
   onInviteMember: () => void;
-  onEditMember: (memberId: string) => void;
   onKickMember: (memberId: string) => void;
-  onDistributeRewards: (distributions: RewardDistribution[]) => void; // Updated for real distribution
-  onViewWalletHistory: () => void; // Updated for wallet transaction history
   onViewAllActivity: () => void;
   // Wizard callbacks
   onEventCreated?: (eventData: any) => void;
@@ -80,10 +75,7 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
   onNavigateToProfile,
   onSettingsPress,
   onInviteMember,
-  onEditMember,
   onKickMember,
-  onDistributeRewards,
-  onViewWalletHistory,
   onViewAllActivity,
   onEventCreated,
   onLeagueCreated,
@@ -204,13 +196,6 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
           </View>
           <Text style={styles.headerTitle}>Dashboard</Text>
         </View>
-        <TouchableOpacity
-          style={styles.settingsBtn}
-          onPress={onSettingsPress}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.settingsIcon}>⚙</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Content */}
@@ -269,16 +254,10 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
                 <View style={styles.memberActions}>
                   <TouchableOpacity
                     style={styles.miniBtn}
-                    onPress={() =>
-                      member.status === 'active'
-                        ? onEditMember(member.id)
-                        : handleRemoveMember(member.id)
-                    }
+                    onPress={() => handleRemoveMember(member.id)}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.miniBtnText}>
-                      {member.status === 'active' ? 'Edit' : 'Remove'}
-                    </Text>
+                    <Text style={styles.miniBtnText}>Remove</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -306,21 +285,6 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
           }}
         />
 
-        {/* Personal Wallet Management */}
-        <View style={{ marginBottom: 16 }}>
-          <PersonalWalletManager
-            teamId={data.team.id}
-            teamMembers={data.members.map(m => ({
-              id: m.id,
-              name: m.name,
-              npub: m.id, // Assuming member ID is their npub
-            }))}
-            onRewardSent={() => {
-              // Refresh activity feed or show success
-              console.log('Reward sent successfully');
-            }}
-          />
-        </View>
 
         {/* Recent Activity */}
         <ActivityFeedSection
@@ -380,14 +344,14 @@ const styles = StyleSheet.create({
   },
 
   captainBadge: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingVertical: 2,
     paddingHorizontal: 6,
     borderRadius: 4,
   },
 
   captainBadgeText: {
-    color: theme.colors.accentText,
+    color: theme.colors.background,
     fontSize: 10,
     fontWeight: theme.typography.weights.bold,
     textTransform: 'uppercase',
@@ -401,18 +365,6 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
   },
 
-  settingsBtn: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: theme.colors.gray,
-    padding: 6,
-    borderRadius: 6,
-  },
-
-  settingsIcon: {
-    fontSize: 16,
-    color: theme.colors.text,
-  },
 
   // Content styles
   content: {
@@ -476,7 +428,7 @@ const styles = StyleSheet.create({
   },
 
   actionBtn: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -488,13 +440,13 @@ const styles = StyleSheet.create({
   actionBtnIcon: {
     fontSize: 11,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
 
   actionBtnText: {
     fontSize: 11,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
 
   // Members list styles
