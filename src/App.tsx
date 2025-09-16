@@ -232,6 +232,7 @@ const AppContent: React.FC = () => {
                   members: [],
                   joinRequests: [],
                   activityLog: [],
+                  recentActivity: [],
                   walletBalance: 0,
                 }}
                 teamId={teamId || ''}

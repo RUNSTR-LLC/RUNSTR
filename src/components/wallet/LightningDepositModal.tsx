@@ -20,6 +20,7 @@ import { theme } from '../../styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import Clipboard from '@react-native-clipboard/clipboard';
 import QRCode from 'react-native-qrcode-svg';
+import nutzapService from '../../services/nutzap/nutzapService';
 
 interface LightningDepositModalProps {
   visible: boolean;
@@ -36,8 +37,11 @@ export const LightningDepositModal: React.FC<LightningDepositModalProps> = ({
 }) => {
   const [amount, setAmount] = useState('');
   const [invoice, setInvoice] = useState('');
+  const [quoteHash, setQuoteHash] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const [step, setStep] = useState<'amount' | 'invoice'>('amount');
+  const checkIntervalRef = React.useRef<NodeJS.Timeout>();
 
   const handleGenerateInvoice = async () => {
     const sats = parseInt(amount);
@@ -48,13 +52,38 @@ export const LightningDepositModal: React.FC<LightningDepositModalProps> = ({
 
     setIsGenerating(true);
     try {
-      // In production, this would call the mint's API to generate a Lightning invoice
-      // For now, show a mock invoice
-      const mockInvoice = `lnbc${sats}n1p...${Date.now().toString(36)}`;
-      setInvoice(mockInvoice);
+      // Generate real Lightning invoice through mint
+      const { pr, hash } = await nutzapService.createLightningInvoice(sats);
+      setInvoice(pr);
+      setQuoteHash(hash);
       setStep('invoice');
+
+      // Start polling for payment confirmation
+      setIsCheckingPayment(true);
+      checkIntervalRef.current = setInterval(async () => {
+        const paid = await nutzapService.checkInvoicePaid(hash);
+        if (paid) {
+          clearInterval(checkIntervalRef.current!);
+          setIsCheckingPayment(false);
+          await onDeposit(sats, pr);
+          Alert.alert(
+            'Payment Received!',
+            `${sats} sats have been added to your wallet`,
+            [{ text: 'OK', onPress: handleClose }]
+          );
+        }
+      }, 2000); // Check every 2 seconds
+
+      // Stop checking after 10 minutes
+      setTimeout(() => {
+        if (checkIntervalRef.current) {
+          clearInterval(checkIntervalRef.current);
+          setIsCheckingPayment(false);
+        }
+      }, 600000);
     } catch (error) {
       Alert.alert('Error', 'Failed to generate invoice. Please try again.');
+      console.error('Generate invoice error:', error);
     } finally {
       setIsGenerating(false);
     }
@@ -68,7 +97,12 @@ export const LightningDepositModal: React.FC<LightningDepositModalProps> = ({
   const handleReset = () => {
     setAmount('');
     setInvoice('');
+    setQuoteHash('');
     setStep('amount');
+    setIsCheckingPayment(false);
+    if (checkIntervalRef.current) {
+      clearInterval(checkIntervalRef.current);
+    }
   };
 
   const handleClose = () => {
@@ -206,6 +240,12 @@ export const LightningDepositModal: React.FC<LightningDepositModalProps> = ({
                   <Text style={styles.instructionText}>
                     3. Funds will appear in seconds
                   </Text>
+                  {isCheckingPayment && (
+                    <View style={styles.checkingPayment}>
+                      <ActivityIndicator size="small" color={theme.colors.accent} />
+                      <Text style={styles.checkingText}>Checking for payment...</Text>
+                    </View>
+                  )}
                 </View>
 
                 {/* Action Buttons */}
@@ -458,5 +498,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: theme.colors.textMuted,
     lineHeight: 16,
+  },
+
+  // Payment checking
+  checkingPayment: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+
+  checkingText: {
+    fontSize: 13,
+    color: theme.colors.accent,
+    fontWeight: theme.typography.weights.medium,
   },
 });

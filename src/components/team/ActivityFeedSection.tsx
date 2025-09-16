@@ -32,7 +32,7 @@ export const ActivityFeedSection: React.FC<ActivityFeedSectionProps> = ({
   onViewAllActivity,
   maxItems = 5,
 }) => {
-  const displayActivities = activities.slice(0, maxItems);
+  const displayActivities = activities ? activities.slice(0, maxItems) : [];
 
   return (
     <View style={styles.activitySection}>
@@ -51,9 +51,13 @@ export const ActivityFeedSection: React.FC<ActivityFeedSectionProps> = ({
         style={styles.activityList}
         showsVerticalScrollIndicator={false}
       >
-        {displayActivities.map((activity) => (
-          <ActivityItem key={activity.id} activity={activity} />
-        ))}
+        {displayActivities.length > 0 ? (
+          displayActivities.map((activity) => (
+            <ActivityItem key={activity.id} activity={activity} />
+          ))
+        ) : (
+          <Text style={styles.emptyText}>No recent activity</Text>
+        )}
       </ScrollView>
     </View>
   );
@@ -101,5 +105,12 @@ const styles = StyleSheet.create({
   activityList: {
     flex: 1,
     maxHeight: 150,
+  },
+
+  emptyText: {
+    color: theme.colors.textMuted,
+    fontSize: 14,
+    textAlign: 'center',
+    paddingVertical: 20,
   },
 });

@@ -15,10 +15,15 @@ import { NotificationPreferencesService } from '../services/notifications/Notifi
 // Profile Components
 import { ProfileHeader } from '../components/profile/ProfileHeader';
 import { PersonalWalletSection } from '../components/profile/PersonalWalletSection';
+import { SendModal } from '../components/wallet/SendModal';
+import { ReceiveModal } from '../components/wallet/ReceiveModal';
 import { TabNavigation } from '../components/profile/TabNavigation';
 import { WorkoutsTab } from '../components/profile/WorkoutsTab';
 import { AccountTab } from '../components/profile/AccountTab';
 import { NotificationsTab } from '../components/profile/NotificationsTab';
+import { useNutzap } from '../hooks/useNutzap';
+import { nip19 } from 'nostr-tools';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface ProfileScreenProps {
   data: ProfileScreenData;
@@ -64,8 +69,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     useState<NotificationSettings>(data.notificationSettings);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingNotificationSettings, setIsLoadingNotificationSettings] = useState(true);
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [showReceiveModal, setShowReceiveModal] = useState(false);
+  const [userNpub, setUserNpub] = useState<string>('');
 
-  // Load notification settings from persistent storage on mount
+  const { balance } = useNutzap(true);
+
+  // Load notification settings and user npub on mount
   useEffect(() => {
     const loadNotificationSettings = async () => {
       setIsLoadingNotificationSettings(true);
@@ -81,8 +91,22 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       }
     };
 
+    const loadUserNpub = async () => {
+      try {
+        // Get user's hex pubkey from storage and convert to npub
+        const userPubkey = data.user.id; // This should be the hex pubkey
+        if (userPubkey) {
+          const npub = nip19.npubEncode(userPubkey);
+          setUserNpub(npub);
+        }
+      } catch (error) {
+        console.error('Error encoding npub:', error);
+      }
+    };
+
     loadNotificationSettings();
-  }, []);
+    loadUserNpub();
+  }, [data.user.id]);
 
   // Event handlers
   const handleEditProfile = () => {
@@ -90,11 +114,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   };
 
   const handleSend = () => {
-    onSend?.();
+    setShowSendModal(true);
   };
 
   const handleReceive = () => {
-    onReceive?.();
+    setShowReceiveModal(true);
   };
 
   const handleWalletHistory = () => {
@@ -240,6 +264,21 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           {renderTabContent()}
         </View>
       </ScrollView>
+
+      {/* Send Modal */}
+      <SendModal
+        visible={showSendModal}
+        onClose={() => setShowSendModal(false)}
+        currentBalance={balance}
+      />
+
+      {/* Receive Modal */}
+      <ReceiveModal
+        visible={showReceiveModal}
+        onClose={() => setShowReceiveModal(false)}
+        currentBalance={balance}
+        userNpub={userNpub}
+      />
     </SafeAreaView>
   );
 };

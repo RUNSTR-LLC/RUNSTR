@@ -24,7 +24,8 @@ const STORAGE_KEYS = {
   USER_NSEC: '@runstr:user_nsec',
   WALLET_PROOFS: '@runstr:wallet_proofs',
   WALLET_MINT: '@runstr:wallet_mint',
-  LAST_SYNC: '@runstr:last_sync'
+  LAST_SYNC: '@runstr:last_sync',
+  TX_HISTORY: '@runstr:tx_history'
 } as const;
 
 // Default mints to use
@@ -45,6 +46,19 @@ interface WalletState {
   proofs: Proof[];
   pubkey: string;
   created: boolean;
+}
+
+interface Transaction {
+  id: string;
+  type: 'nutzap_sent' | 'nutzap_received' | 'lightning_received' | 'lightning_sent' | 'cashu_sent' | 'cashu_received';
+  amount: number;
+  timestamp: number;
+  memo?: string;
+  recipient?: string;
+  sender?: string;
+  invoice?: string;
+  token?: string;
+  fee?: number;
 }
 
 class NutzapService {
@@ -387,6 +401,15 @@ class NutzapService {
       // Update local proofs (keep change)
       await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PROOFS, JSON.stringify(keep));
 
+      // Save transaction
+      await this.saveTransaction({
+        type: 'nutzap_sent',
+        amount,
+        timestamp: Date.now(),
+        memo,
+        recipient: recipientPubkey,
+      });
+
       console.log(`[NutZap] Sent ${amount} sats to ${recipientPubkey.slice(0, 8)}...`);
       return { success: true };
 
@@ -438,6 +461,15 @@ class NutzapService {
             const newProofs = [...existingProofs, ...proofs];
             await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PROOFS, JSON.stringify(newProofs));
 
+            // Save transaction
+            await this.saveTransaction({
+              type: 'nutzap_received',
+              amount,
+              timestamp: Date.now(),
+              sender: event.pubkey,
+              memo: event.content,
+            });
+
             claimedAmount += amount;
             console.log(`[NutZap] Claimed ${amount} sats from ${event.pubkey.slice(0, 8)}...`);
           }
@@ -465,6 +497,45 @@ class NutzapService {
   }
 
   /**
+   * Save transaction to history
+   */
+  private async saveTransaction(transaction: Omit<Transaction, 'id'>): Promise<void> {
+    try {
+      const historyStr = await AsyncStorage.getItem(STORAGE_KEYS.TX_HISTORY);
+      const history: Transaction[] = historyStr ? JSON.parse(historyStr) : [];
+
+      const newTransaction: Transaction = {
+        id: Date.now().toString() + Math.random().toString(36).substring(7),
+        ...transaction
+      };
+
+      history.unshift(newTransaction);
+
+      // Keep only last 100 transactions
+      const trimmedHistory = history.slice(0, 100);
+
+      await AsyncStorage.setItem(STORAGE_KEYS.TX_HISTORY, JSON.stringify(trimmedHistory));
+      console.log(`[NutZap] Transaction saved: ${transaction.type} - ${transaction.amount} sats`);
+    } catch (error) {
+      console.error('[NutZap] Error saving transaction:', error);
+    }
+  }
+
+  /**
+   * Get transaction history
+   */
+  async getTransactionHistory(limit: number = 50): Promise<Transaction[]> {
+    try {
+      const historyStr = await AsyncStorage.getItem(STORAGE_KEYS.TX_HISTORY);
+      const history: Transaction[] = historyStr ? JSON.parse(historyStr) : [];
+      return history.slice(0, limit);
+    } catch (error) {
+      console.error('[NutZap] Error loading transaction history:', error);
+      return [];
+    }
+  }
+
+  /**
    * Get or create user nsec
    */
   private async getOrCreateNsec(): Promise<string> {
@@ -475,6 +546,289 @@ class NutzapService {
       await AsyncStorage.setItem(STORAGE_KEYS.USER_NSEC, nsec);
     }
     return nsec;
+  }
+
+  /**
+   * Create Lightning invoice for receiving funds
+   */
+  async createLightningInvoice(amount: number, memo: string = 'RUNSTR Wallet Deposit'): Promise<{ pr: string; hash: string }> {
+    try {
+      if (!this.cashuWallet) {
+        throw new Error('Wallet not initialized');
+      }
+
+      console.log(`[NutZap] Creating Lightning invoice for ${amount} sats...`);
+
+      // Create mint quote for receiving Lightning payment
+      const mintQuote = await this.cashuWallet.createMintQuote(amount);
+
+      if (!mintQuote || !mintQuote.request) {
+        throw new Error('Failed to create mint quote');
+      }
+
+      // Store quote hash for later checking
+      await AsyncStorage.setItem(`@runstr:quote:${mintQuote.quote}`, JSON.stringify({
+        amount,
+        created: Date.now(),
+        memo
+      }));
+
+      console.log('[NutZap] Lightning invoice created:', mintQuote.request.substring(0, 30) + '...');
+      return { pr: mintQuote.request, hash: mintQuote.quote };
+
+    } catch (error) {
+      console.error('[NutZap] Create invoice failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if Lightning invoice has been paid and mint tokens
+   */
+  async checkInvoicePaid(quoteHash: string): Promise<boolean> {
+    try {
+      if (!this.cashuWallet) {
+        throw new Error('Wallet not initialized');
+      }
+
+      console.log('[NutZap] Checking payment status for quote:', quoteHash);
+
+      // Get quote details from storage
+      const quoteData = await AsyncStorage.getItem(`@runstr:quote:${quoteHash}`);
+      if (!quoteData) {
+        throw new Error('Quote not found');
+      }
+
+      const { amount } = JSON.parse(quoteData);
+
+      // Try to mint tokens from the paid invoice
+      try {
+        const { proofs } = await this.cashuWallet.mintTokens(amount, quoteHash);
+
+        if (proofs && proofs.length > 0) {
+          // Add new proofs to existing ones
+          const existingProofsStr = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PROOFS);
+          const existingProofs = existingProofsStr ? JSON.parse(existingProofsStr) : [];
+          const updatedProofs = [...existingProofs, ...proofs];
+
+          await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PROOFS, JSON.stringify(updatedProofs));
+
+          // Clean up quote from storage
+          await AsyncStorage.removeItem(`@runstr:quote:${quoteHash}`);
+
+          // Save transaction
+          await this.saveTransaction({
+            type: 'lightning_received',
+            amount,
+            timestamp: Date.now(),
+            memo: 'Lightning deposit',
+          });
+
+          console.log(`[NutZap] Successfully minted ${amount} sats from Lightning payment`);
+          return true;
+        }
+      } catch (mintError: any) {
+        // Payment not yet confirmed or other mint error
+        if (mintError.message?.includes('not paid') || mintError.message?.includes('pending')) {
+          console.log('[NutZap] Invoice not yet paid');
+          return false;
+        }
+        throw mintError;
+      }
+
+      return false;
+
+    } catch (error) {
+      console.error('[NutZap] Check payment failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Pay a Lightning invoice using ecash tokens
+   */
+  async payLightningInvoice(invoice: string): Promise<{ success: boolean; fee?: number; error?: string }> {
+    try {
+      if (!this.cashuWallet) {
+        throw new Error('Wallet not initialized');
+      }
+
+      console.log('[NutZap] Preparing to pay Lightning invoice...');
+
+      // Get current proofs
+      const proofsStr = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PROOFS);
+      const proofs = proofsStr ? JSON.parse(proofsStr) : [];
+
+      // Check if we have sufficient balance
+      const balance = proofs.reduce((sum: number, p: Proof) => sum + p.amount, 0);
+
+      // Get melt quote to determine amount and fees
+      const meltQuote = await this.cashuWallet.createMeltQuote(invoice);
+
+      if (!meltQuote) {
+        throw new Error('Failed to create melt quote');
+      }
+
+      const totalNeeded = meltQuote.amount + meltQuote.fee_reserve;
+
+      if (balance < totalNeeded) {
+        return {
+          success: false,
+          error: `Insufficient balance. Need ${totalNeeded} sats, have ${balance} sats`
+        };
+      }
+
+      // Perform the melt (pay invoice)
+      const { change } = await this.cashuWallet.meltTokens(meltQuote, proofs);
+
+      // Update proofs with change
+      await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PROOFS, JSON.stringify(change || []));
+
+      // Save transaction
+      await this.saveTransaction({
+        type: 'lightning_sent',
+        amount: meltQuote.amount,
+        timestamp: Date.now(),
+        invoice,
+        fee: meltQuote.fee_reserve,
+      });
+
+      console.log(`[NutZap] Successfully paid Lightning invoice. Fee: ${meltQuote.fee_reserve} sats`);
+      return { success: true, fee: meltQuote.fee_reserve };
+
+    } catch (error) {
+      console.error('[NutZap] Lightning payment failed:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Payment failed'
+      };
+    }
+  }
+
+  /**
+   * Generate a Cashu token for direct transfer
+   */
+  async generateCashuToken(amount: number, memo: string = ''): Promise<string> {
+    try {
+      if (!this.cashuWallet) {
+        throw new Error('Wallet not initialized');
+      }
+
+      // Load current proofs
+      const proofsStr = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PROOFS);
+      const proofs = proofsStr ? JSON.parse(proofsStr) : [];
+
+      // Check balance
+      const balance = proofs.reduce((sum: number, p: Proof) => sum + p.amount, 0);
+      if (balance < amount) {
+        throw new Error(`Insufficient balance. Have ${balance} sats, need ${amount} sats`);
+      }
+
+      // Create token for the amount
+      const { send, returnChange } = await this.cashuWallet.send(amount, proofs);
+
+      // Update stored proofs with change
+      await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PROOFS, JSON.stringify(returnChange || []));
+
+      // Encode the token
+      const token = getEncodedToken({
+        token: [{
+          mint: this.cashuMint!.mintUrl,
+          proofs: send
+        }],
+        memo
+      });
+
+      // Save transaction
+      await this.saveTransaction({
+        type: 'cashu_sent',
+        amount,
+        timestamp: Date.now(),
+        memo,
+        token: token.substring(0, 50) + '...', // Store truncated token
+      });
+
+      console.log(`[NutZap] Generated Cashu token for ${amount} sats`);
+      return token;
+
+    } catch (error) {
+      console.error('[NutZap] Token generation failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Receive a Cashu token string
+   */
+  async receiveCashuToken(token: string): Promise<{ amount: number; error?: string }> {
+    try {
+      if (!this.cashuWallet) {
+        throw new Error('Wallet not initialized');
+      }
+
+      console.log('[NutZap] Attempting to receive Cashu token...');
+
+      // Decode token to check mint
+      const decoded = getDecodedToken(token);
+
+      if (!decoded || !decoded.token || decoded.token.length === 0) {
+        return { amount: 0, error: 'Invalid token format' };
+      }
+
+      // Check if token is from our mint
+      const tokenMint = decoded.token[0].mint;
+      if (tokenMint !== this.cashuMint!.mintUrl) {
+        console.warn(`[NutZap] Token from different mint: ${tokenMint}`);
+        // In future, could support multiple mints
+        return { amount: 0, error: 'Token from unsupported mint' };
+      }
+
+      try {
+        // Try to receive the token
+        const proofs = await this.cashuWallet.receive(token);
+
+        if (proofs && proofs.length > 0) {
+          // Add to our proofs
+          const existingProofsStr = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PROOFS);
+          const existingProofs = existingProofsStr ? JSON.parse(existingProofsStr) : [];
+          const newProofs = [...existingProofs, ...proofs];
+          await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PROOFS, JSON.stringify(newProofs));
+
+          // Calculate amount received
+          const amount = proofs.reduce((sum: number, p: Proof) => sum + p.amount, 0);
+
+          // Save transaction
+          await this.saveTransaction({
+            type: 'cashu_received',
+            amount,
+            timestamp: Date.now(),
+            memo: decoded.memo,
+          });
+
+          console.log(`[NutZap] Successfully received ${amount} sats from Cashu token`);
+          return { amount };
+        }
+
+        return { amount: 0, error: 'No valid proofs in token' };
+
+      } catch (receiveError: any) {
+        // Handle specific error cases
+        if (receiveError.message?.includes('already spent') ||
+            receiveError.message?.includes('already claimed')) {
+          return { amount: 0, error: 'Token has already been claimed' };
+        }
+
+        console.error('[NutZap] Token receive error:', receiveError);
+        return { amount: 0, error: receiveError.message || 'Failed to receive token' };
+      }
+
+    } catch (error) {
+      console.error('[NutZap] Receive token failed:', error);
+      return {
+        amount: 0,
+        error: error instanceof Error ? error.message : 'Failed to receive token'
+      };
+    }
   }
 
   /**

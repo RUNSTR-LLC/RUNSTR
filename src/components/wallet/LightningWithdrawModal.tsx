@@ -19,6 +19,7 @@ import {
 import { theme } from '../../styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import Clipboard from '@react-native-clipboard/clipboard';
+import nutzapService from '../../services/nutzap/nutzapService';
 
 interface LightningWithdrawModalProps {
   visible: boolean;
@@ -92,22 +93,26 @@ export const LightningWithdrawModal: React.FC<LightningWithdrawModalProps> = ({
 
     try {
       const sats = parseInt(amount);
-      const success = await onWithdraw(sats, lightningInvoice);
 
-      if (success) {
+      // Pay Lightning invoice with ecash tokens
+      const result = await nutzapService.payLightningInvoice(lightningInvoice);
+
+      if (result.success) {
+        await onWithdraw(sats, lightningInvoice);
         Alert.alert(
           'Withdrawal Successful!',
-          `${sats} sats have been sent to your Lightning wallet.`,
+          `${sats} sats have been sent to your Lightning wallet.${result.fee ? `\nNetwork fee: ${result.fee} sats` : ''}`,
           [{ text: 'OK', onPress: handleClose }]
         );
       } else {
         Alert.alert(
           'Withdrawal Failed',
-          'Unable to process withdrawal. Please try again.',
+          result.error || 'Unable to process withdrawal. Please try again.',
           [{ text: 'OK', onPress: () => setStep('details') }]
         );
       }
     } catch (error) {
+      console.error('Withdrawal error:', error);
       Alert.alert(
         'Error',
         'An error occurred during withdrawal. Please try again.',
