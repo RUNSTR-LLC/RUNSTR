@@ -5,11 +5,13 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../ui/Card';
 import { theme } from '../../styles/theme';
 import { Avatar } from '../ui/Avatar';
+import { ZapModal } from '../ui/ZapModal';
 
 export interface CompetitionWinner {
   id: string;
@@ -34,6 +36,9 @@ export const CompetitionWinnersCard: React.FC<CompetitionWinnersCardProps> = ({
   winners = [],
   loading = false,
 }) => {
+  const [selectedWinner, setSelectedWinner] = useState<CompetitionWinner | null>(null);
+  const [zapModalVisible, setZapModalVisible] = useState(false);
+
   const formatSats = (sats: number): string => {
     if (sats >= 1000000) {
       return `${(sats / 1000000).toFixed(1)}M`;
@@ -62,6 +67,16 @@ export const CompetitionWinnersCard: React.FC<CompetitionWinnersCardProps> = ({
     if (rank === 2) return theme.colors.textSecondary; // Light gray for second
     if (rank === 3) return theme.colors.textMuted; // Darker gray for third
     return theme.colors.textMuted;
+  };
+
+  const handleZapSuccess = () => {
+    console.log('Zap sent successfully!');
+    // Optional: Could refresh winners list or show a success message
+  };
+
+  const handleWinnerPress = (winner: CompetitionWinner) => {
+    setSelectedWinner(winner);
+    setZapModalVisible(true);
   };
 
   return (
@@ -93,7 +108,12 @@ export const CompetitionWinnersCard: React.FC<CompetitionWinnersCardProps> = ({
           indicatorStyle="white"
         >
           {winners.map((winner) => (
-            <View key={winner.id} style={styles.winnerItem}>
+            <TouchableOpacity
+              key={winner.id}
+              style={styles.winnerItem}
+              onPress={() => handleWinnerPress(winner)}
+              activeOpacity={0.7}
+            >
               <View style={styles.winnerLeft}>
                 <Avatar
                   name={winner.winnerName}
@@ -129,7 +149,7 @@ export const CompetitionWinnersCard: React.FC<CompetitionWinnersCardProps> = ({
                 </View> */}
                 <Text style={styles.winDate}>{formatDate(winner.date)}</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           ))}
         </ScrollView>
       )}

@@ -118,31 +118,41 @@ export const NotificationsTab: React.FC<NotificationsTabProps> = ({
   const notifications = [
     {
       key: 'eventNotifications' as keyof NotificationSettings,
-      title: 'Event Notifications',
-      subtitle: 'Competitions, deadlines, results, starting soon alerts',
+      title: 'Competition Events',
+      subtitle: 'New events created by your team captain',
     },
     {
       key: 'leagueUpdates' as keyof NotificationSettings,
-      title: 'League Updates',
-      subtitle: 'Rank changes, position moves',
+      title: 'Leaderboard Changes',
+      subtitle: 'Position changes when you move up or down',
     },
     {
       key: 'teamAnnouncements' as keyof NotificationSettings,
-      title: 'Team Announcements',
-      subtitle: 'Captain messages, join requests, updates',
+      title: 'Competition Reminders',
+      subtitle: 'Alerts when competitions are ending soon',
     },
     {
       key: 'challengeUpdates' as keyof NotificationSettings,
-      title: 'Challenge Updates',
-      subtitle: 'Challenge invitations, peer-to-peer challenges',
+      title: 'New Leagues',
+      subtitle: 'Multi-day competitions created by your captain',
     },
   ];
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {/* Info Card */}
+      <Card style={styles.card}>
+        <Text style={styles.cardTitle}>How Notifications Work</Text>
+        <Text style={styles.infoText}>
+          You'll receive notifications when your app is open or running in the background.
+          Notifications alert you to new competitions from your team captain, changes in your
+          leaderboard position, and reminders when competitions are ending soon.
+        </Text>
+      </Card>
+
       {/* Push Notifications Settings */}
       <Card style={styles.card}>
-        <Text style={styles.cardTitle}>Push Notifications</Text>
+        <Text style={styles.cardTitle}>Notification Preferences</Text>
         <View style={styles.notificationsGroup}>
           {notifications.map((notification, index) => (
             <NotificationItem
@@ -458,5 +468,11 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.accent, // #fff
     marginLeft: theme.spacing.sm, // 4px
     marginTop: theme.spacing.sm, // 4px
+  },
+
+  infoText: {
+    fontSize: 13,
+    color: theme.colors.textSecondary, // #ccc
+    lineHeight: 18,
   },
 });
