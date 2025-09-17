@@ -4,7 +4,7 @@
  * Handles active competition detection, eligibility validation, and performance caching
  */
 
-import { supabase } from '../supabase';
+// import { supabase } from '../supabase';  // REMOVED: Project now uses pure Nostr
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { WorkoutData } from '../../types/workout';
 import type { Event, Challenge, League } from '../../types/team';

@@ -3,7 +3,7 @@
  * Handles all team-related API operations for discovery and management
  */
 
-import { supabase } from './supabase';
+// import { supabase } from './supabase'; // REMOVED: Project now uses pure Nostr
 import coinosService from './coinosService';
 import type {
   DiscoveryTeam,

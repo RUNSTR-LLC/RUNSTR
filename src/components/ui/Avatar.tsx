@@ -40,6 +40,7 @@ export const Avatar: React.FC<AvatarProps> = ({
     fontSize: size * 0.44, // Scale font size with avatar size
   };
 
+  // Simple approach - just render the image if URL is provided
   if (imageUrl) {
     return (
       <Image
@@ -50,6 +51,7 @@ export const Avatar: React.FC<AvatarProps> = ({
     );
   }
 
+  // Fallback to icon or initials
   return (
     <View style={[styles.avatar, avatarStyle, style]}>
       {showIcon ? (

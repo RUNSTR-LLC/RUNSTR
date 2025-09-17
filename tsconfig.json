@@ -15,5 +15,14 @@
   "include": [
     "**/*.ts",
     "**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "reference/**/*",
+    "reference/",
+    "*.config.js",
+    "babel.config.js",
+    ".expo",
+    "dist"
   ]
 }

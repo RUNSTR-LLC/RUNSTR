@@ -110,7 +110,7 @@ export class ChallengeService {
   ): Promise<TeammateInfo[]> {
     try {
       const nostrTeamService = getNostrTeamService();
-      const cachedTeams = nostrTeamService.getCachedTeams();
+      const cachedTeams = Array.from(nostrTeamService.getDiscoveredTeams().values());
       const team = cachedTeams.find((t) => t.id === teamId);
 
       if (!team) {

@@ -125,7 +125,7 @@ export class TeamContextService {
       const nostrTeamService = getNostrTeamService();
 
       // Try to find team in cached discovered teams first
-      const cachedTeams = nostrTeamService.getCachedTeams();
+      const cachedTeams = Array.from(nostrTeamService.getDiscoveredTeams().values());
       let team = cachedTeams.find((t) => t.id === teamId);
 
       // If not found in cache, discover fresh teams

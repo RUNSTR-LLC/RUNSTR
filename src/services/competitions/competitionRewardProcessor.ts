@@ -4,7 +4,7 @@
  * Integrates with reward distribution service and tracks payout status
  */
 
-import { supabase } from '../supabase';
+// import { supabase } from '../supabase';  // REMOVED: Project now uses pure Nostr
 import rewardDistributionService from '../fitness/rewardDistributionService';
 import competitionWinnerCalculation from './competitionWinnerCalculation';
 import type { Event, Challenge, League } from '../../types/team';

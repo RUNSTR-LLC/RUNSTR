@@ -79,10 +79,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   /**
    * Load user profile asynchronously (called after initial render)
+   * Now leverages pre-initialized NDK from SplashInitScreen
    */
   const loadUserProfile = async (): Promise<void> => {
     try {
       setConnectionStatus('Loading profile...');
+
+      // Check if NDK was pre-initialized
+      const preInitializedNDK = (global as any).preInitializedNDK;
+      if (preInitializedNDK) {
+        console.log('✅ Using pre-initialized NDK from SplashInitScreen');
+      }
 
       // Try to load from cache first
       const { appCache } = await import('../utils/cache');

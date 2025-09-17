@@ -58,14 +58,18 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
   const [filteredWorkouts, setFilteredWorkouts] = useState<UnifiedWorkout[]>(
     []
   );
+  const [displayedWorkouts, setDisplayedWorkouts] = useState<UnifiedWorkout[]>([]);
   const [mergeResult, setMergeResult] = useState<WorkoutMergeResult | null>(
     null
   );
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [nsecKey, setNsecKey] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(0);
+  const WORKOUTS_PER_PAGE = 20;
 
   const mergeService = WorkoutMergeService.getInstance();
   const publishingService = WorkoutPublishingService.getInstance();
@@ -80,16 +84,55 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
     applyFiltersAndSort();
   }, [workouts, selectedFilter, sortOrder]);
 
-  const loadWorkouts = async () => {
+  useEffect(() => {
+    // Reset displayed workouts when filters change
+    const initialWorkouts = filteredWorkouts.slice(0, WORKOUTS_PER_PAGE);
+    setDisplayedWorkouts(initialWorkouts);
+    setCurrentPage(0);
+  }, [filteredWorkouts]);
+
+  const loadWorkouts = async (loadMore = false) => {
     try {
-      const result = await mergeService.getMergedWorkouts(userId);
-      setWorkouts(result.allWorkouts);
-      setMergeResult(result);
+      if (!loadMore) {
+        // Initial load - get first batch
+        const result = await mergeService.getMergedWorkouts(userId);
+        setWorkouts(result.allWorkouts);
+        setMergeResult(result);
+
+        // Display only first page initially
+        const initialWorkouts = result.allWorkouts.slice(0, WORKOUTS_PER_PAGE);
+        setDisplayedWorkouts(initialWorkouts);
+        setCurrentPage(0);
+      }
     } catch (error) {
       console.error('Failed to load workouts:', error);
       Alert.alert('Error', 'Failed to load workout history');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadMoreWorkouts = async () => {
+    if (isLoadingMore || displayedWorkouts.length >= filteredWorkouts.length) {
+      return;
+    }
+
+    setIsLoadingMore(true);
+    try {
+      const nextPage = currentPage + 1;
+      const startIdx = nextPage * WORKOUTS_PER_PAGE;
+      const endIdx = startIdx + WORKOUTS_PER_PAGE;
+      const nextBatch = filteredWorkouts.slice(startIdx, endIdx);
+
+      // Simulate network delay for smoother UX
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      setDisplayedWorkouts([...displayedWorkouts, ...nextBatch]);
+      setCurrentPage(nextPage);
+    } catch (error) {
+      console.error('Failed to load more workouts:', error);
+    } finally {
+      setIsLoadingMore(false);
     }
   };
 
@@ -431,7 +474,7 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
 
       {/* Workout List */}
       <FlatList
-        data={filteredWorkouts}
+        data={displayedWorkouts}
         renderItem={renderWorkoutItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.workoutsList}
@@ -441,6 +484,23 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
             onRefresh={handleRefresh}
             tintColor={theme.colors.text}
           />
+        }
+        onEndReached={loadMoreWorkouts}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          displayedWorkouts.length < filteredWorkouts.length ? (
+            <TouchableOpacity
+              style={styles.loadMoreButton}
+              onPress={loadMoreWorkouts}
+              disabled={isLoadingMore}
+            >
+              <Text style={styles.loadMoreText}>
+                {isLoadingMore
+                  ? 'Loading...'
+                  : `Load More (${filteredWorkouts.length - displayedWorkouts.length} remaining)`}
+              </Text>
+            </TouchableOpacity>
+          ) : null
         }
         ListEmptyComponent={
           <Card style={styles.emptyState}>
@@ -656,6 +716,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 24,
+  },
+  loadMoreButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    marginVertical: 16,
+    marginHorizontal: 20,
+    backgroundColor: theme.colors.surface,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  loadMoreText: {
+    color: theme.colors.accent,
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

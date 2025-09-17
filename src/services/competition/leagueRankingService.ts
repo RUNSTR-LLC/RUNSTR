@@ -159,6 +159,29 @@ export class LeagueRankingService {
           formattedScore = this.formatDistance(score);
           break;
 
+        case '5K Race':
+        case '10K Race':
+        case 'Half Marathon':
+        case 'Marathon':
+          // For races: fastest time (lowest duration) for the target distance wins
+          // We need to find the fastest workout that meets the distance requirement
+          const targetDistance = competitionType === '5K Race' ? 5000 :
+                                competitionType === '10K Race' ? 10000 :
+                                competitionType === 'Half Marathon' ? 21097 :
+                                42195; // Marathon
+
+          // Get fastest time for this distance (will need to be implemented in metrics)
+          if (metric.averagePace && metric.totalDistance >= targetDistance) {
+            // Use inverse of time as score (faster = higher score)
+            const estimatedTime = (targetDistance / 1000) * metric.averagePace; // time in minutes
+            score = estimatedTime > 0 ? 100000 / estimatedTime : 0; // Higher score for faster time
+            formattedScore = this.formatDuration(estimatedTime * 60); // Convert to seconds for formatting
+          } else {
+            score = 0;
+            formattedScore = 'Not completed';
+          }
+          break;
+
         case 'Average Pace':
           score = metric.averagePace ? (1 / metric.averagePace) * 1000 : 0; // Invert pace for ranking
           formattedScore = this.formatPace(metric.averagePace || 0);

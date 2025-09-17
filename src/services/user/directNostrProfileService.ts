@@ -94,8 +94,8 @@ export class DirectNostrProfileService {
         if (nostrProfile) {
           console.log('✅ DirectNostrProfileService: Loaded fresh Nostr profile:', {
             displayName: nostrProfile.display_name || nostrProfile.name,
-            picture: nostrProfile.picture ? 'yes' : 'no',
-            banner: nostrProfile.banner ? 'yes' : 'no',
+            picture: nostrProfile.picture ? nostrProfile.picture.substring(0, 100) : 'none',
+            banner: nostrProfile.banner ? nostrProfile.banner.substring(0, 100) : 'none',
             bio: nostrProfile.about?.substring(0, 50) + '...',
             lud16: nostrProfile.lud16
           });

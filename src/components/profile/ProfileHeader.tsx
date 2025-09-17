@@ -21,6 +21,18 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   // Use displayName or name, prefer displayName from Nostr profile
   const displayName = user.displayName || user.name;
 
+  // Get avatar URL with fallback chain
+  const avatarUrl = user.picture || user.avatar || undefined;
+
+  // Debug logging to verify picture data
+  console.log('🖼️ ProfileHeader avatar data:', {
+    hasPicture: !!user.picture,
+    hasAvatar: !!user.avatar,
+    pictureUrl: user.picture?.substring(0, 50),
+    avatarUrl: avatarUrl?.substring(0, 50),
+    displayName
+  });
+
   return (
     <View style={styles.container}>
       {/* Nostr Banner */}
@@ -44,7 +56,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       >
         <Avatar
           name={displayName}
-          imageUrl={user.picture} // Use Nostr profile picture if available
+          imageUrl={user.picture} // Use Nostr profile picture directly
           size={theme.layout.profileAvatarSize} // 64px
           style={styles.avatar}
           showIcon={true}

@@ -9,7 +9,7 @@ import healthKitService from './healthKitService';
 import workoutDataProcessor from './workoutDataProcessor';
 import teamLeaderboardService from './teamLeaderboardService';
 import nostrWorkoutSyncService from './nostrWorkoutSyncService';
-import { supabase } from '../supabase';
+// import { supabase } from '../supabase';  // REMOVED: Project now uses pure Nostr
 import { AuthService } from '../auth/authService';
 
 export interface SyncResult {

@@ -4,7 +4,7 @@
  * Connects competition completion triggers with captain dashboard and UI components
  */
 
-import { supabase } from '../supabase';
+// import { supabase } from '../supabase';  // REMOVED: Project now uses pure Nostr
 import competitionCompletionService from '../competitions/competitionCompletionService';
 import rewardDistributionService from '../fitness/rewardDistributionService';
 import teamWalletPermissions from '../auth/teamWalletPermissions';

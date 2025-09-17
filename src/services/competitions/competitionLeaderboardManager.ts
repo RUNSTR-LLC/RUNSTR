@@ -4,7 +4,7 @@
  * Bridges workout processing with event, challenge, and league leaderboards
  */
 
-import { supabase } from '../supabase';
+// import { supabase } from '../supabase';  // REMOVED: Project now uses pure Nostr
 import type { WorkoutData } from '../../types';
 
 export interface LeaderboardUpdateResult {

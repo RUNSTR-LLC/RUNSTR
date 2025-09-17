@@ -51,7 +51,6 @@ export interface NavigationHandlers {
   handleOnboardingSkip: (navigation: any) => void;
   // Captain Dashboard Handlers
   handleSettings: () => void;
-  handleInviteMember: () => void;
   handleEditMember: (memberId: string) => void;
   handleKickMember: (memberId: string) => void;
   handleEditLeague: () => void;
@@ -89,7 +88,7 @@ export const createNavigationHandlers = (): NavigationHandlers => {
 
         // Use NostrTeamService for pure Nostr joining (no Supabase)
         const nostrTeamService = getNostrTeamService();
-        const cachedTeams = nostrTeamService.getCachedTeams();
+        const cachedTeams = Array.from(nostrTeamService.getDiscoveredTeams().values());
         const nostrTeam = cachedTeams.find((t) => t.id === team.id);
 
         if (!nostrTeam) {
@@ -504,13 +503,6 @@ export const createNavigationHandlers = (): NavigationHandlers => {
       );
     },
 
-    handleInviteMember: () => {
-      console.log('Invite member pressed');
-      Alert.alert(
-        'Invite Member',
-        'Invite functionality coming soon!\n\nFor now, share your team code with friends.'
-      );
-    },
 
     handleEditMember: (memberId: string) => {
       console.log('Edit member:', memberId);
@@ -567,11 +559,8 @@ export const createNavigationHandlers = (): NavigationHandlers => {
 
     handleViewWalletHistory: () => {
       console.log('View wallet history pressed');
-      Alert.alert(
-        'Wallet History',
-        'Full transaction history view coming soon!',
-        [{ text: 'OK' }]
-      );
+      // Transaction history is now integrated in the wallet modals
+      navigation.navigate('Profile' as never);
     },
 
     handleViewAllActivity: () => {
@@ -621,11 +610,8 @@ export const createNavigationHandlers = (): NavigationHandlers => {
 
     handleWalletHistory: () => {
       console.log('Wallet history pressed from PersonalWalletSection');
-      Alert.alert(
-        'Transaction History',
-        'View your NutZap transaction history coming soon!',
-        [{ text: 'OK' }]
-      );
+      // Transaction history is handled in the modal, no navigation needed
+      // Could open a history modal here if you want
     },
 
     handleSyncSourcePress: (provider: string) => {

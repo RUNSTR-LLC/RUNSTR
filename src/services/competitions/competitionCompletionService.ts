@@ -4,7 +4,7 @@
  * Delegates heavy lifting to specialized services for maintainability
  */
 
-import { supabase } from '../supabase';
+// import { supabase } from '../supabase';  // REMOVED: Project now uses pure Nostr
 import competitionRewardProcessor from './competitionRewardProcessor';
 import type { Event, Challenge, League } from '../../types/team';
 

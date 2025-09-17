@@ -59,7 +59,6 @@ interface CaptainDashboardScreenProps {
   onNavigateToTeam: () => void;
   onNavigateToProfile: () => void;
   onSettingsPress: () => void;
-  onInviteMember: () => void;
   onKickMember: (memberId: string) => void;
   onViewAllActivity: () => void;
   // Wizard callbacks
@@ -74,7 +73,6 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
   onNavigateToTeam,
   onNavigateToProfile,
   onSettingsPress,
-  onInviteMember,
   onKickMember,
   onViewAllActivity,
   onEventCreated,
@@ -146,7 +144,7 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
               }
 
               // Get captain's private key for signing
-              const nsec = await getNsecFromStorage();
+              const nsec = await getNsecFromStorage(captainId);
               if (!nsec) {
                 throw new Error('Captain credentials not found');
               }
@@ -227,14 +225,6 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
         <View style={styles.managementSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Team Members</Text>
-            <TouchableOpacity
-              style={styles.actionBtn}
-              onPress={onInviteMember}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.actionBtnIcon}>+</Text>
-              <Text style={styles.actionBtnText}>Invite</Text>
-            </TouchableOpacity>
           </View>
 
           <ScrollView

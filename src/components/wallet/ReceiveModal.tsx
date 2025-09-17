@@ -29,7 +29,7 @@ interface ReceiveModalProps {
   userNpub?: string;
 }
 
-type ReceiveMethod = 'lightning' | 'cashu' | 'nutzap';
+type ReceiveMethod = 'lightning' | 'cashu';
 
 export const ReceiveModal: React.FC<ReceiveModalProps> = ({
   visible,
@@ -37,7 +37,7 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
   currentBalance,
   userNpub,
 }) => {
-  const { refreshBalance } = useNutzap(false);
+  const { refreshBalance, isInitialized, isLoading } = useNutzap(true);
   const [receiveMethod, setReceiveMethod] = useState<ReceiveMethod>('lightning');
   const [amount, setAmount] = useState('');
   const [invoice, setInvoice] = useState('');
@@ -52,6 +52,11 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
     const sats = parseInt(amount);
     if (isNaN(sats) || sats <= 0) {
       Alert.alert('Invalid Amount', 'Please enter a valid amount in sats.');
+      return;
+    }
+
+    if (!isInitialized) {
+      Alert.alert('Wallet Not Ready', 'Please wait for wallet to initialize and try again.');
       return;
     }
 
@@ -86,7 +91,22 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
       }, 600000);
     } catch (error) {
       console.error('Generate invoice error:', error);
-      Alert.alert('Error', 'Failed to generate invoice. Please try again.');
+      let errorMessage = 'Failed to generate invoice. Please try again.';
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+
+        // Provide helpful instructions for common errors
+        if (error.message.includes('initialize')) {
+          errorMessage = 'Wallet is initializing. Please wait a moment and try again.';
+        } else if (error.message.includes('network') || error.message.includes('connection')) {
+          errorMessage = 'Network error. Please check your internet connection and try again.';
+        } else if (error.message.includes('timeout')) {
+          errorMessage = 'Request timed out. Please try again.';
+        }
+      }
+
+      Alert.alert('Invoice Generation Failed', errorMessage);
     } finally {
       setIsGenerating(false);
     }
@@ -94,7 +114,7 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
 
   const handleReceiveCashuToken = async () => {
     if (!cashuToken) {
-      Alert.alert('Invalid Token', 'Please enter or paste a Cashu token.');
+      Alert.alert('Invalid Token', 'Please enter or paste an e-cash token.');
       return;
     }
 
@@ -128,7 +148,7 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
     if (text && text.startsWith('cashuA')) {
       setCashuToken(text);
     } else {
-      Alert.alert('Invalid Token', 'Please copy a valid Cashu token first.');
+      Alert.alert('Invalid Token', 'Please copy a valid e-cash token first.');
     }
   };
 
@@ -196,15 +216,7 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
               onPress={() => setReceiveMethod('cashu')}
             >
               <Text style={[styles.tabText, receiveMethod === 'cashu' && styles.tabTextActive]}>
-                Cashu Token
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, receiveMethod === 'nutzap' && styles.tabActive]}
-              onPress={() => setReceiveMethod('nutzap')}
-            >
-              <Text style={[styles.tabText, receiveMethod === 'nutzap' && styles.tabTextActive]}>
-                NutZap
+                E-cash
               </Text>
             </TouchableOpacity>
           </View>
@@ -230,16 +242,18 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
                   </View>
 
                   <TouchableOpacity
-                    style={[styles.primaryButton, (isGenerating || !amount) && styles.buttonDisabled]}
+                    style={[styles.primaryButton, (isGenerating || !amount || !isInitialized || isLoading) && styles.buttonDisabled]}
                     onPress={handleGenerateLightningInvoice}
-                    disabled={isGenerating || !amount}
+                    disabled={isGenerating || !amount || !isInitialized || isLoading}
                   >
-                    {isGenerating ? (
+                    {isGenerating || (isLoading && !isInitialized) ? (
                       <ActivityIndicator color={theme.colors.accentText} />
                     ) : (
                       <>
                         <Ionicons name="flash" size={20} color={theme.colors.accentText} />
-                        <Text style={styles.primaryButtonText}>Generate Invoice</Text>
+                        <Text style={styles.primaryButtonText}>
+                          {!isInitialized ? 'Initializing...' : 'Generate Invoice'}
+                        </Text>
                       </>
                     )}
                   </TouchableOpacity>
@@ -295,11 +309,11 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
             </>
           )}
 
-          {/* Cashu Token */}
+          {/* E-cash Token */}
           {receiveMethod === 'cashu' && (
             <>
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Paste Cashu Token</Text>
+                <Text style={styles.sectionTitle}>Paste Token</Text>
                 <View style={styles.tokenInputContainer}>
                   <TextInput
                     style={styles.tokenInput}
@@ -333,42 +347,6 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
             </>
           )}
 
-          {/* NutZap Info */}
-          {receiveMethod === 'nutzap' && (
-            <>
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Your NutZap Address</Text>
-                {userNpub && (
-                  <>
-                    <View style={styles.qrContainer}>
-                      <QRCode
-                        value={userNpub}
-                        size={200}
-                        color={theme.colors.text}
-                        backgroundColor={theme.colors.cardBackground}
-                      />
-                    </View>
-
-                    <View style={styles.npubContainer}>
-                      <Text style={styles.npubText} numberOfLines={2}>
-                        {userNpub}
-                      </Text>
-                      <TouchableOpacity style={styles.copyButton} onPress={handleCopyNpub}>
-                        <Ionicons name="copy" size={20} color={theme.colors.accent} />
-                      </TouchableOpacity>
-                    </View>
-                  </>
-                )}
-
-                <View style={styles.infoCard}>
-                  <Ionicons name="information-circle" size={16} color={theme.colors.textMuted} />
-                  <Text style={styles.infoText}>
-                    Share your npub to receive NutZaps from other Nostr users. Your wallet automatically claims incoming NutZaps every 30 seconds.
-                  </Text>
-                </View>
-              </View>
-            </>
-          )}
         </ScrollView>
       </View>
     </Modal>

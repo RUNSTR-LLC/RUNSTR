@@ -4,7 +4,7 @@
  * Handles prize distribution calculations and ranking logic
  */
 
-import { supabase } from '../supabase';
+// import { supabase } from '../supabase';  // REMOVED: Project now uses pure Nostr
 import type { Event, Challenge, League } from '../../types/team';
 
 export interface WinnerCalculation {

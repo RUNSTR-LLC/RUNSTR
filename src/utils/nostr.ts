@@ -211,7 +211,7 @@ function encryptForStorage(data: string, userId: string): string {
  * Simple decryption from local storage
  * React Native compatible version using btoa/atob polyfill
  */
-function decryptFromStorage(encryptedData: string, userId: string): string {
+export function decryptFromStorage(encryptedData: string, userId: string): string {
   try {
     const key = userId.slice(0, 16).padEnd(16, '0');
     const data = atob(encryptedData);
@@ -244,6 +244,10 @@ export async function storeNsecLocally(
 
     const encryptedNsec = encryptForStorage(nsec, userId);
     await AsyncStorage.setItem(STORAGE_KEYS.NSEC, encryptedNsec);
+
+    // ALSO store plain nsec for NutZap wallet service
+    // This is needed for wallet operations until we implement proper key derivation
+    await AsyncStorage.setItem('@runstr:user_nsec', nsec);
 
     // Get the hex pubkey from nsec
     const decoded = nip19.decode(nsec);
@@ -355,6 +359,7 @@ export async function clearNostrStorage(): Promise<void> {
       STORAGE_KEYS.NPUB,
       STORAGE_KEYS.HEX_PUBKEY,
       STORAGE_KEYS.AUTH_METHOD,
+      '@runstr:user_nsec', // Also clear wallet nsec
     ]);
     console.log('Nostr storage cleared');
   } catch (error) {

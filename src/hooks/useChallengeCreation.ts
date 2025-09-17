@@ -51,7 +51,7 @@ export const useChallengeCreation = ({
 
     try {
       const nostrTeamService = getNostrTeamService();
-      const cachedTeams = nostrTeamService.getCachedTeams();
+      const cachedTeams = Array.from(nostrTeamService.getDiscoveredTeams().values());
       const nostrTeam = cachedTeams.find((t) => t.id === teamId);
       
       if (!nostrTeam) {

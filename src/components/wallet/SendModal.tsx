@@ -27,14 +27,14 @@ interface SendModalProps {
   currentBalance: number;
 }
 
-type SendMethod = 'nutzap' | 'lightning' | 'cashu';
+type SendMethod = 'lightning' | 'cashu';
 
 export const SendModal: React.FC<SendModalProps> = ({
   visible,
   onClose,
   currentBalance,
 }) => {
-  const [sendMethod, setSendMethod] = useState<SendMethod>('nutzap');
+  const [sendMethod, setSendMethod] = useState<SendMethod>('lightning');
   const [amount, setAmount] = useState('');
   const [recipient, setRecipient] = useState('');
   const [memo, setMemo] = useState('');
@@ -56,36 +56,7 @@ export const SendModal: React.FC<SendModalProps> = ({
     setIsSending(true);
 
     try {
-      if (sendMethod === 'nutzap') {
-        // Send via NutZap to Nostr npub
-        if (!recipient || !recipient.startsWith('npub')) {
-          Alert.alert('Invalid Recipient', 'Please enter a valid Nostr npub.');
-          setIsSending(false);
-          return;
-        }
-
-        // Decode npub to hex pubkey
-        const decoded = nip19.decode(recipient);
-        if (decoded.type !== 'npub') {
-          Alert.alert('Invalid Recipient', 'Please enter a valid Nostr npub.');
-          setIsSending(false);
-          return;
-        }
-
-        const recipientPubkey = decoded.data as string;
-        const result = await nutzapService.sendNutzap(recipientPubkey, sats, memo);
-
-        if (result.success) {
-          Alert.alert(
-            'NutZap Sent!',
-            `${sats} sats sent successfully via NutZap`,
-            [{ text: 'OK', onPress: handleClose }]
-          );
-        } else {
-          Alert.alert('Send Failed', result.error || 'Failed to send NutZap');
-        }
-
-      } else if (sendMethod === 'lightning') {
+      if (sendMethod === 'lightning') {
         // Pay Lightning invoice
         if (!recipient || !recipient.toLowerCase().startsWith('lnbc')) {
           Alert.alert('Invalid Invoice', 'Please enter a valid Lightning invoice.');
@@ -106,12 +77,12 @@ export const SendModal: React.FC<SendModalProps> = ({
         }
 
       } else if (sendMethod === 'cashu') {
-        // Generate Cashu token
+        // Generate E-cash token
         const token = await nutzapService.generateCashuToken(sats, memo);
         setGeneratedToken(token);
         Alert.alert(
           'Token Generated!',
-          'Cashu token has been generated. Share it with the recipient.',
+          'E-cash token has been generated. Share it with the recipient.',
           [{ text: 'OK' }]
         );
       }
@@ -125,7 +96,7 @@ export const SendModal: React.FC<SendModalProps> = ({
 
   const handleCopyToken = () => {
     Clipboard.setString(generatedToken);
-    Alert.alert('Copied!', 'Cashu token copied to clipboard');
+    Alert.alert('Copied!', 'E-cash token copied to clipboard');
   };
 
   const handleClose = () => {
@@ -133,7 +104,7 @@ export const SendModal: React.FC<SendModalProps> = ({
     setRecipient('');
     setMemo('');
     setGeneratedToken('');
-    setSendMethod('nutzap');
+    setSendMethod('lightning');
     onClose();
   };
 
@@ -164,14 +135,6 @@ export const SendModal: React.FC<SendModalProps> = ({
           {/* Send Method Tabs */}
           <View style={styles.tabs}>
             <TouchableOpacity
-              style={[styles.tab, sendMethod === 'nutzap' && styles.tabActive]}
-              onPress={() => setSendMethod('nutzap')}
-            >
-              <Text style={[styles.tabText, sendMethod === 'nutzap' && styles.tabTextActive]}>
-                NutZap
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
               style={[styles.tab, sendMethod === 'lightning' && styles.tabActive]}
               onPress={() => setSendMethod('lightning')}
             >
@@ -184,7 +147,7 @@ export const SendModal: React.FC<SendModalProps> = ({
               onPress={() => setSendMethod('cashu')}
             >
               <Text style={[styles.tabText, sendMethod === 'cashu' && styles.tabTextActive]}>
-                Cashu Token
+                E-cash
               </Text>
             </TouchableOpacity>
           </View>
@@ -206,24 +169,22 @@ export const SendModal: React.FC<SendModalProps> = ({
           </View>
 
           {/* Recipient/Invoice Input */}
-          {sendMethod !== 'cashu' && (
+          {sendMethod === 'lightning' && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                {sendMethod === 'nutzap' ? 'Recipient (npub)' : 'Lightning Invoice'}
-              </Text>
+              <Text style={styles.sectionTitle}>Lightning Invoice</Text>
               <TextInput
                 style={styles.textInput}
                 value={recipient}
                 onChangeText={setRecipient}
-                placeholder={sendMethod === 'nutzap' ? 'npub1...' : 'lnbc...'}
+                placeholder='lnbc...'
                 placeholderTextColor={theme.colors.textMuted}
                 multiline
               />
             </View>
           )}
 
-          {/* Memo Input (for NutZap and Cashu) */}
-          {(sendMethod === 'nutzap' || sendMethod === 'cashu') && (
+          {/* Memo Input (for E-cash) */}
+          {sendMethod === 'cashu' && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Memo (optional)</Text>
               <TextInput
@@ -239,7 +200,7 @@ export const SendModal: React.FC<SendModalProps> = ({
           {/* Generated Token Display */}
           {generatedToken && sendMethod === 'cashu' && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Generated Cashu Token</Text>
+              <Text style={styles.sectionTitle}>Generated E-cash Token</Text>
               <View style={styles.tokenContainer}>
                 <Text style={styles.tokenText} numberOfLines={3}>
                   {generatedToken}

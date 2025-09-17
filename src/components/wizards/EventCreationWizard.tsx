@@ -19,6 +19,7 @@ import { WizardStepContainer, WizardStep } from './WizardStepContainer';
 import { NostrCompetitionService } from '../../services/nostr/NostrCompetitionService';
 import { useUserStore } from '../../store/userStore';
 import { getNsecFromStorage, nsecToPrivateKey } from '../../utils/nostr';
+import { DirectNostrProfileService } from '../../services/user/directNostrProfileService';
 import type {
   NostrActivityType,
   NostrEventCompetitionType,
@@ -27,6 +28,10 @@ import type {
 // Activity types and their specific competition options
 const ACTIVITY_COMPETITION_MAP = {
   Running: [
+    '5K Race',
+    '10K Race',
+    'Half Marathon',
+    'Marathon',
     'Distance Challenge',
     'Speed Challenge',
     'Duration Challenge',
@@ -164,9 +169,21 @@ export const EventCreationWizard: React.FC<EventCreationWizardProps> = ({
   };
 
   const handleComplete = async () => {
-    if (!user) {
-      Alert.alert('Error', 'User not found. Please log in again.');
-      return;
+    // Try to get user from store or DirectNostrProfileService
+    let currentUser = user;
+    if (!currentUser) {
+      console.log('⚠️ User not in store, fetching from DirectNostrProfileService...');
+      try {
+        currentUser = await DirectNostrProfileService.getCurrentUserProfile();
+        if (!currentUser) {
+          Alert.alert('Error', 'User not found. Please log in again.');
+          return;
+        }
+      } catch (error) {
+        console.error('Failed to get user from DirectNostrProfileService:', error);
+        Alert.alert('Error', 'User not found. Please log in again.');
+        return;
+      }
     }
 
     setIsCreating(true);
@@ -175,7 +192,7 @@ export const EventCreationWizard: React.FC<EventCreationWizardProps> = ({
       console.log('🎯 Creating event with Nostr Competition Service');
       
       // Get user's private key from storage
-      const nsec = await getNsecFromStorage(user.id);
+      const nsec = await getNsecFromStorage(currentUser.id);
       if (!nsec) {
         Alert.alert('Error', 'Cannot access your private key. Please log in again.');
         return;
@@ -324,28 +341,60 @@ export const EventCreationWizard: React.FC<EventCreationWizardProps> = ({
               Select the competition format for {eventData.activityType}
             </Text>
             <View style={styles.optionsList}>
-              {competitionOptions.map((competition) => (
-                <TouchableOpacity
-                  key={competition}
-                  style={[
-                    styles.competitionOption,
-                    eventData.competitionType === competition &&
-                      styles.competitionOptionSelected,
-                  ]}
-                  onPress={() => selectCompetitionType(competition)}
-                  activeOpacity={0.7}
-                >
-                  <Text
+              {competitionOptions.map((competition) => {
+                // Add descriptions for race types
+                let description = '';
+                if (competition === '5K Race') description = '5 kilometers (3.1 miles) - Fastest time wins';
+                if (competition === '10K Race') description = '10 kilometers (6.2 miles) - Fastest time wins';
+                if (competition === 'Half Marathon') description = '21.1 kilometers (13.1 miles) - Fastest time wins';
+                if (competition === 'Marathon') description = '42.2 kilometers (26.2 miles) - Fastest time wins';
+
+                return (
+                  <TouchableOpacity
+                    key={competition}
                     style={[
-                      styles.competitionOptionText,
+                      styles.competitionOption,
                       eventData.competitionType === competition &&
-                        styles.competitionOptionTextSelected,
+                        styles.competitionOptionSelected,
                     ]}
+                    onPress={() => {
+                      selectCompetitionType(competition);
+                      // Auto-set target values for standard races
+                      if (competition === '5K Race') {
+                        updateSettings('targetValue', 5);
+                        updateSettings('targetUnit', 'km');
+                      } else if (competition === '10K Race') {
+                        updateSettings('targetValue', 10);
+                        updateSettings('targetUnit', 'km');
+                      } else if (competition === 'Half Marathon') {
+                        updateSettings('targetValue', 21.1);
+                        updateSettings('targetUnit', 'km');
+                      } else if (competition === 'Marathon') {
+                        updateSettings('targetValue', 42.2);
+                        updateSettings('targetUnit', 'km');
+                      }
+                    }}
+                    activeOpacity={0.7}
                   >
-                    {competition}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <View>
+                      <Text
+                        style={[
+                          styles.competitionOptionText,
+                          eventData.competitionType === competition &&
+                            styles.competitionOptionTextSelected,
+                        ]}
+                      >
+                        {competition}
+                      </Text>
+                      {description ? (
+                        <Text style={styles.competitionOptionDescription}>
+                          {description}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </ScrollView>
         );
@@ -586,6 +635,12 @@ const styles = StyleSheet.create({
 
   competitionOptionTextSelected: {
     color: theme.colors.accent,
+  },
+
+  competitionOptionDescription: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginTop: 4,
   },
 
   // Date selection styles

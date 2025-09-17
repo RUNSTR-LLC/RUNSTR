@@ -63,6 +63,7 @@ export class NostrWorkoutService {
   /**
    * Fetch user workouts from Nostr relays with SimpleWorkoutService (113x improvement)
    * Delegates to SimpleWorkoutService while preserving existing interface
+   * Now supports pagination for progressive loading
    */
   async fetchUserWorkouts(
     pubkey: string,
@@ -70,6 +71,7 @@ export class NostrWorkoutService {
       since?: Date;
       until?: Date;
       limit?: number;
+      offset?: number; // New: For pagination
       userId: string;
       preserveRawEvents?: boolean;
       progressiveLoading?: boolean; // New option for progressive loading
@@ -156,6 +158,58 @@ export class NostrWorkoutService {
 
       return result;
     }
+  }
+
+  /**
+   * Fetch workouts with pagination for lazy loading (optimized for UI performance)
+   */
+  async fetchUserWorkoutsPaginated(
+    pubkey: string,
+    options: {
+      page?: number; // Page number (0-based)
+      pageSize?: number; // Number of workouts per page (default 20)
+      userId: string;
+    }
+  ): Promise<{
+    workouts: NostrWorkout[];
+    hasMore: boolean;
+    totalFetched: number;
+    page: number;
+  }> {
+    const page = options.page || 0;
+    const pageSize = options.pageSize || 20;
+
+    console.log(`📄 Fetching page ${page} with ${pageSize} workouts`);
+
+    // Fetch workouts with pagination
+    const result = await this.fetchUserWorkouts(pubkey, {
+      userId: options.userId,
+      limit: pageSize * (page + 2), // Fetch extra to check if more exist
+      progressiveLoading: true,
+    });
+
+    // Get stored workouts
+    const allWorkouts = await this.getStoredWorkouts(options.userId);
+
+    // Sort by date (newest first)
+    const sortedWorkouts = allWorkouts.sort((a, b) =>
+      new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+    );
+
+    // Calculate pagination
+    const startIdx = page * pageSize;
+    const endIdx = startIdx + pageSize;
+    const paginatedWorkouts = sortedWorkouts.slice(startIdx, endIdx);
+    const hasMore = sortedWorkouts.length > endIdx;
+
+    console.log(`✅ Returning ${paginatedWorkouts.length} workouts for page ${page}`);
+
+    return {
+      workouts: paginatedWorkouts,
+      hasMore,
+      totalFetched: sortedWorkouts.length,
+      page,
+    };
   }
 
   /**

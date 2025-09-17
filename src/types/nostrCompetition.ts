@@ -46,6 +46,10 @@ export type NostrLeagueCompetitionType =
   | 'Meal Logging';
 
 export type NostrEventCompetitionType =
+  | '5K Race'
+  | '10K Race'
+  | 'Half Marathon'
+  | 'Marathon'
   | 'Distance Challenge'
   | 'Speed Challenge'
   | 'Duration Challenge'
@@ -243,6 +247,10 @@ export const LEAGUE_GOAL_MAPPING: CompetitionGoalMapping = {
 };
 
 export const EVENT_GOAL_MAPPING: CompetitionGoalMapping = {
+  '5K Race': 'speed',
+  '10K Race': 'speed',
+  'Half Marathon': 'speed',
+  'Marathon': 'speed',
   'Distance Challenge': 'distance',
   'Speed Challenge': 'speed',
   'Duration Challenge': 'duration',

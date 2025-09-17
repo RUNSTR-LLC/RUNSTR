@@ -20,9 +20,6 @@ import { TeamCreationWizard } from '../components/wizards/TeamCreationWizard';
 import { EventDetailScreen } from '../screens/EventDetailScreen';
 import { ChallengeDetailScreen } from '../screens/ChallengeDetailScreen';
 import { LoginScreen } from '../screens/LoginScreen';
-import { HelpSupportScreen } from '../screens/HelpSupportScreen';
-import { ContactSupportScreen } from '../screens/ContactSupportScreen';
-import { PrivacyPolicyScreen } from '../screens/PrivacyPolicyScreen';
 
 // Navigation Configuration
 import {
@@ -36,6 +33,9 @@ import { useNavigationData } from '../hooks/useNavigationData';
 
 // Screen params for type safety
 export type RootStackParamList = {
+  SplashInit: undefined;
+  Auth: undefined;
+  Main: undefined;
   Login: undefined;
   Team: undefined;
   EnhancedTeamScreen: { team: any; userIsMember?: boolean; currentUserNpub?: string; userIsCaptain?: boolean }; // Individual team dashboard
@@ -49,9 +49,6 @@ export type RootStackParamList = {
   TeamCreation: undefined;
   EventDetail: { eventId: string };
   ChallengeDetail: { challengeId: string };
-  HelpSupport: undefined;
-  ContactSupport: undefined;
-  PrivacyPolicy: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -366,15 +363,12 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
           return (
             <CaptainDashboardScreen
               data={dashboardData}
+              teamId={dashboardData.team.id}
               captainId={user?.npub || user?.id || ''}
               onNavigateToTeam={() => navigation.navigate('Team')}
               onNavigateToProfile={() => navigation.navigate('Profile')}
               onSettingsPress={handlers.handleSettings}
-              onInviteMember={handlers.handleInviteMember}
-              onEditMember={handlers.handleEditMember}
               onKickMember={handlers.handleKickMember}
-              onDistributeRewards={handlers.handleDistributeRewards}
-              onViewWalletHistory={handlers.handleViewWalletHistory}
               onViewAllActivity={handlers.handleViewAllActivity}
             />
           );
@@ -467,27 +461,6 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
         name="ChallengeDetail"
         options={screenConfigurations.ChallengeDetail}
         component={ChallengeDetailScreen}
-      />
-
-      {/* Help & Support Screen */}
-      <Stack.Screen
-        name="HelpSupport"
-        options={{ headerShown: false }}
-        component={HelpSupportScreen}
-      />
-
-      {/* Contact Support Screen */}
-      <Stack.Screen
-        name="ContactSupport"
-        options={{ headerShown: false }}
-        component={ContactSupportScreen}
-      />
-
-      {/* Privacy Policy Screen */}
-      <Stack.Screen
-        name="PrivacyPolicy"
-        options={{ headerShown: false }}
-        component={PrivacyPolicyScreen}
       />
     </Stack.Navigator>
   );

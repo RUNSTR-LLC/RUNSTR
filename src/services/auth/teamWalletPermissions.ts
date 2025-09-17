@@ -4,7 +4,7 @@
  * Ensures only authorized users can perform wallet transactions
  */
 
-import { supabase } from '../supabase';
+// import { supabase } from '../supabase';  // REMOVED: Project now uses pure Nostr
 import coinosService from '../coinosService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 

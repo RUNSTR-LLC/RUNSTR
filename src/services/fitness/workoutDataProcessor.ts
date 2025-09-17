@@ -4,7 +4,7 @@
  * Calculates scores, leaderboard rankings, and team statistics
  */
 
-import { supabase } from '../supabase';
+// import { supabase } from '../supabase';  // REMOVED: Project now uses pure Nostr
 import competitionLeaderboardManager from '../competitions/competitionLeaderboardManager';
 import type {
   WorkoutData,

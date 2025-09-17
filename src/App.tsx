@@ -9,6 +9,8 @@ import { initializeWebSocketPolyfill } from './utils/webSocketPolyfill';
 import * as ExpoSplashScreen from 'expo-splash-screen';
 
 import React from 'react';
+import { StatusBar, View, Text, StyleSheet } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // Error Boundary Component to catch runtime errors during initialization
 class AppErrorBoundary extends React.Component<
@@ -49,29 +51,38 @@ class AppErrorBoundary extends React.Component<
   }
 }
 import { NavigationContainer } from '@react-navigation/native';
-import { StatusBar, View, Text, StyleSheet } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { NavigationDataProvider } from './contexts/NavigationDataContext';
 import { AppNavigator } from './navigation/AppNavigator';
 import { BottomTabNavigator } from './navigation/BottomTabNavigator';
 import { SplashScreen as AppSplashScreen } from './components/ui/SplashScreen';
+import { SplashInitScreen } from './screens/SplashInitScreen';
 import { createStackNavigator } from '@react-navigation/stack';
 import { TeamCreationWizard } from './components/wizards/TeamCreationWizard';
 import { EventDetailScreen } from './screens/EventDetailScreen';
 import { ChallengeDetailScreen } from './screens/ChallengeDetailScreen';
 import { EnhancedTeamScreen } from './screens/EnhancedTeamScreen';
 import { CaptainDashboardScreen } from './screens/CaptainDashboardScreen';
+import { HelpSupportScreen } from './screens/HelpSupportScreen';
+import { ContactSupportScreen } from './screens/ContactSupportScreen';
+import { PrivacyPolicyScreen } from './screens/PrivacyPolicyScreen';
 import { User } from './types';
 
 // Types for authenticated app navigation
 type AuthenticatedStackParamList = {
+  SplashInit: undefined;
+  Auth: undefined;
+  Main: undefined;
   MainTabs: undefined;
   TeamCreation: undefined;
   EnhancedTeamScreen: { team: any; userIsMember?: boolean; currentUserNpub?: string; userIsCaptain?: boolean };
   EventDetail: { eventId: string };
   ChallengeDetail: { challengeId: string };
   CaptainDashboard: { teamId?: string; teamName?: string; isCaptain?: boolean };
+  HelpSupport: undefined;
+  ContactSupport: undefined;
+  PrivacyPolicy: undefined;
 };
 
 const AuthenticatedStack = createStackNavigator<AuthenticatedStackParamList>();
@@ -86,6 +97,8 @@ const AppContent: React.FC = () => {
     isConnected,
     initError
   } = useAuth();
+
+  const [showSplashInit, setShowSplashInit] = React.useState(true);
 
   // Authenticated app with bottom tabs and team creation modal
   const AuthenticatedNavigator: React.FC<{ user: User }> = ({ user }) => {
@@ -240,14 +253,39 @@ const AppContent: React.FC = () => {
                 onNavigateToTeam={() => navigation.goBack()}
                 onNavigateToProfile={() => navigation.goBack()}
                 onSettingsPress={() => console.log('Settings')}
-                onInviteMember={() => console.log('Invite member')}
-                onEditMember={(memberId) => console.log('Edit member:', memberId)}
                 onKickMember={(memberId) => console.log('Kick member:', memberId)}
-                onDistributeRewards={(distributions) => console.log('Distribute rewards:', distributions)}
+                onViewAllActivity={() => console.log('View all activity')}
               />
             );
           }}
         </AuthenticatedStack.Screen>
+
+        {/* Help & Support Screen */}
+        <AuthenticatedStack.Screen
+          name="HelpSupport"
+          options={{
+            headerShown: false,
+          }}
+          component={HelpSupportScreen}
+        />
+
+        {/* Contact Support Screen */}
+        <AuthenticatedStack.Screen
+          name="ContactSupport"
+          options={{
+            headerShown: false,
+          }}
+          component={ContactSupportScreen}
+        />
+
+        {/* Privacy Policy Screen */}
+        <AuthenticatedStack.Screen
+          name="PrivacyPolicy"
+          options={{
+            headerShown: false,
+          }}
+          component={PrivacyPolicyScreen}
+        />
       </AuthenticatedStack.Navigator>
     );
   };
@@ -262,6 +300,31 @@ const AppContent: React.FC = () => {
           <Text style={errorStyles.error}>{initError}</Text>
           <Text style={errorStyles.instruction}>Please restart the app</Text>
         </View>
+      </SafeAreaProvider>
+    );
+  }
+
+  // Show SplashInit screen first for Nostr initialization
+  if (showSplashInit) {
+    return (
+      <SafeAreaProvider>
+        <StatusBar barStyle="light-content" backgroundColor="#000000" />
+        <NavigationContainer>
+          <AuthenticatedStack.Navigator
+            screenOptions={{ headerShown: false }}
+            initialRouteName="SplashInit"
+          >
+            <AuthenticatedStack.Screen name="SplashInit">
+              {({ navigation }) => <SplashInitScreen />}
+            </AuthenticatedStack.Screen>
+            <AuthenticatedStack.Screen name="Auth">
+              {() => <AppNavigator initialRoute="Login" isFirstTime={true} />}
+            </AuthenticatedStack.Screen>
+            <AuthenticatedStack.Screen name="Main">
+              {() => currentUser ? <AuthenticatedNavigator user={currentUser} /> : null}
+            </AuthenticatedStack.Screen>
+          </AuthenticatedStack.Navigator>
+        </NavigationContainer>
       </SafeAreaProvider>
     );
   }
@@ -354,9 +417,11 @@ export default function App() {
   return (
     <AppErrorBoundary>
       <AuthProvider>
-        <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-          <AppContent />
-        </View>
+        <NavigationDataProvider>
+          <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+            <AppContent />
+          </View>
+        </NavigationDataProvider>
       </AuthProvider>
     </AppErrorBoundary>
   );

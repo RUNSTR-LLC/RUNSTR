@@ -215,7 +215,7 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
 
       // Use NostrTeamService for joining
       const nostrTeamService = getNostrTeamService();
-      const cachedTeams = nostrTeamService.getCachedTeams();
+      const cachedTeams = Array.from(nostrTeamService.getDiscoveredTeams().values());
       const nostrTeam = cachedTeams.find((t) => t.id === team.id);
 
       if (nostrTeam) {

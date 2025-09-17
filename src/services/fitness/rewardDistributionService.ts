@@ -4,7 +4,7 @@
  * Manages Lightning payments, transaction logging, and notifications
  */
 
-import { supabase } from '../supabase';
+// import { supabase } from '../supabase';  // REMOVED: Project now uses pure Nostr
 import coinosService from '../coinosService';
 
 export interface RewardDistribution {

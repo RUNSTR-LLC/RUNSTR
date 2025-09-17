@@ -3,7 +3,7 @@
  * Handles team switching, cooldowns, and membership operations
  */
 
-import { supabase } from '../supabase';
+// import { supabase } from '../supabase'; // REMOVED: Project now uses pure Nostr
 import {
   TeamMatchingAlgorithm,
   type UserPreferences,
