@@ -4,10 +4,6 @@
  */
 
 import { create } from 'zustand';
-// Disabled Supabase import to prevent bundle failure
-// import { RealtimeChannel } from '@supabase/supabase-js';
-// Disabled TeamService import to prevent bundle failure
-// import { TeamService } from '../services/teamService';
 import type {
   TeamDiscoveryState,
   DiscoveryTeam,

@@ -27,7 +27,6 @@
     "@react-navigation/stack": "^7.4.8",
     "@scure/bip32": "^2.0.0",
     "@scure/bip39": "^2.0.0",
-    "@supabase/supabase-js": "^2.57.4",
     "@yzlin/expo-healthkit": "^0.14.0",
     "expo": "~53.0.22",
     "expo-apple-authentication": "^7.2.4",
