@@ -110,7 +110,7 @@ export const ZappableUserRow: React.FC<ZappableUserRowProps> = ({
         recipientNpub={npub}
         recipientName={displayName}
         suggestedAmount={zapAmount}
-        onZapSuccess={handleZapSuccess}
+        onSuccess={handleZapSuccess}
       />
     </View>
   );
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.cardBackground,
     borderWidth: 1,
     borderColor: theme.colors.border,
     alignItems: 'center',

@@ -15,8 +15,8 @@ import {
   RefreshControl,
 } from 'react-native';
 import { theme } from '../../styles/theme';
-import { MemberAvatar } from '../ui/MemberAvatar';
-import { useLeagueRankings, useTeamMembers, useNostrProfile } from '../../hooks/useCachedData';
+import { ZappableUserRow } from '../ui/ZappableUserRow';
+import { useLeagueRankings, useTeamMembers } from '../../hooks/useCachedData';
 import type { LeagueParameters } from '../../services/competition/leagueRankingService';
 
 export interface LeagueRankingsSectionProps {
@@ -183,49 +183,37 @@ export const LeagueRankingsSectionCached: React.FC<LeagueRankingsSectionProps> =
 };
 
 /**
- * Individual ranking row component with cached profile data
+ * Individual ranking row component using ZappableUserRow
  */
 const RankingRow: React.FC<{
   entry: any;
   rank: number;
   onPress?: () => void;
 }> = ({ entry, rank, onPress }) => {
-  // HOOK 3: Each row fetches its own cached profile
-  const { profile } = useNostrProfile(entry.npub);
-
-  const displayName = profile?.name || profile?.display_name || entry.name;
-
   return (
-    <TouchableOpacity
-      style={styles.rankingRow}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
+    <View style={styles.rankingRow}>
       {/* Rank Badge */}
       <View style={[styles.rankBadge, getRankStyle(rank)]}>
         <Text style={styles.rankText}>{rank}</Text>
       </View>
 
-      {/* Avatar */}
-      {/* Avatar - simplified for now */}
-      <View style={[styles.avatar, { backgroundColor: theme.colors.syncBackground }]} />
-
-      {/* Name and Stats */}
-      <View style={styles.memberInfo}>
-        <Text style={styles.memberName} numberOfLines={1}>
-          {displayName}
-        </Text>
-        <Text style={styles.memberStats}>
-          {formatStats(entry)}
-        </Text>
-      </View>
-
-      {/* Score */}
-      <View style={styles.scoreContainer}>
-        <Text style={styles.scoreValue}>{entry.score || 0}</Text>
-        <Text style={styles.scoreLabel}>points</Text>
-      </View>
-    </TouchableOpacity>
+      {/* Zappable User Row with Stats */}
+      <ZappableUserRow
+        npub={entry.npub}
+        fallbackName={entry.name}
+        additionalContent={
+          <View style={styles.statsContainer}>
+            <Text style={styles.memberStats}>
+              {formatStats(entry)}
+            </Text>
+            <View style={styles.scoreContainer}>
+              <Text style={styles.scoreValue}>{entry.score || 0}</Text>
+              <Text style={styles.scoreLabel}>points</Text>
+            </View>
+          </View>
+        }
+      />
+    </View>
   );
 };
 
@@ -312,7 +300,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.cardBackground,
-    padding: 12,
+    padding: 8,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -380,6 +368,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: theme.colors.primary,
+  },
+  // Stats container for ZappableUserRow
+  statsContainer: {
+    alignItems: 'flex-end',
+    gap: 4,
   },
 });
 

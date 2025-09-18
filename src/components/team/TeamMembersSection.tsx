@@ -3,7 +3,7 @@
  * Matches captain dashboard mockup exactly with scrollable member list
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,9 @@ import {
 } from 'react-native';
 import { theme } from '../../styles/theme';
 import { TeamMemberItem, TeamMember } from './TeamMemberItem';
+import { ZappableUserRow } from '../ui/ZappableUserRow';
+import { ZapModal } from '../ui/ZapModal';
+import { useNutzap } from '../../hooks/useNutzap';
 
 interface TeamMembersSectionProps {
   members?: TeamMember[];
@@ -20,6 +23,8 @@ interface TeamMembersSectionProps {
   onEditMember?: (memberId: string) => void;
   onKickMember?: (memberId: string) => void;
   style?: any;
+  showZapButtons?: boolean; // Enable zapping for non-captain users
+  userIsCaptain?: boolean; // Determines if edit/kick buttons should show
 }
 
 // Real data should be passed via props - no mock data allowed
@@ -30,13 +35,22 @@ export const TeamMembersSection: React.FC<TeamMembersSectionProps> = ({
   onEditMember,
   onKickMember,
   style,
+  showZapButtons = true,
+  userIsCaptain = false,
 }) => {
+  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
+  const [zapModalVisible, setZapModalVisible] = useState(false);
   const handleInvitePress = () => {
     if (onInvite) {
       onInvite();
     }
     // Default behavior - could open invite modal, share link, etc.
     console.log('Invite new member');
+  };
+
+  const handleZapMember = (member: TeamMember) => {
+    setSelectedMember(member);
+    setZapModalVisible(true);
   };
 
   const handleEditMember = (memberId: string) => {
@@ -76,18 +90,75 @@ export const TeamMembersSection: React.FC<TeamMembersSectionProps> = ({
         showsVerticalScrollIndicator={true}
         indicatorStyle="white"
       >
-        {members.map((member, index) => (
-          <TeamMemberItem
-            key={member.id}
-            member={member}
-            onEdit={handleEditMember}
-            onKick={handleKickMember}
-            style={
-              index === members.length - 1 ? styles.lastMemberItem : undefined
-            }
-          />
-        ))}
+        {members.map((member, index) => {
+          // If member has npub property, use ZappableUserRow for better display
+          const memberNpub = (member as any).npub;
+
+          if (showZapButtons && memberNpub && !userIsCaptain) {
+            // Non-captain view with zapping
+            return (
+              <View
+                key={member.id}
+                style={[
+                  styles.zappableMemberRow,
+                  index === members.length - 1 ? styles.lastMemberItem : undefined
+                ]}
+              >
+                <ZappableUserRow
+                  npub={memberNpub}
+                  fallbackName={member.name}
+                  additionalContent={
+                    <Text style={styles.memberStatus}>
+                      {member.status === 'active'
+                        ? `Active • ${member.activityCount || 0} events`
+                        : `Inactive • ${member.lastActivity || '7 days'}`}
+                    </Text>
+                  }
+                />
+              </View>
+            );
+          } else if (userIsCaptain) {
+            // Captain view with edit/kick actions
+            return (
+              <TeamMemberItem
+                key={member.id}
+                member={member}
+                onEdit={handleEditMember}
+                onKick={handleKickMember}
+                style={
+                  index === members.length - 1 ? styles.lastMemberItem : undefined
+                }
+              />
+            );
+          } else {
+            // Fallback to original TeamMemberItem without actions
+            return (
+              <TeamMemberItem
+                key={member.id}
+                member={member}
+                onEdit={undefined}
+                onKick={undefined}
+                style={
+                  index === members.length - 1 ? styles.lastMemberItem : undefined
+                }
+              />
+            );
+          }
+        })}
       </ScrollView>
+
+      {/* Zap Modal */}
+      {selectedMember && (
+        <ZapModal
+          visible={zapModalVisible}
+          onClose={() => {
+            setZapModalVisible(false);
+            setSelectedMember(null);
+          }}
+          recipientNpub={(selectedMember as any).npub || ''}
+          recipientName={selectedMember.name}
+        />
+      )}
     </View>
   );
 };
@@ -148,6 +219,17 @@ const styles = StyleSheet.create({
   // Remove border from last member item
   lastMemberItem: {
     borderBottomWidth: 0,
+  },
+
+  zappableMemberRow: {
+    paddingVertical: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+
+  memberStatus: {
+    fontSize: 10,
+    color: theme.colors.textMuted,
   },
 });
 

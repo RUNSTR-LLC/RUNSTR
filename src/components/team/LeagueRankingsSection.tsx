@@ -14,7 +14,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { theme } from '../../styles/theme';
-import { MemberAvatar } from '../ui/MemberAvatar';
+import { ZappableUserRow } from '../ui/ZappableUserRow';
 import leagueRankingService, {
   LeagueRankingEntry,
   LeagueRankingResult,
@@ -84,15 +84,9 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
 
       // Convert to LeagueParticipant format
       return members.map(npub => {
-        // Special case for known team members
-        let name = npub.slice(0, 8) + '...';
-        if (npub.includes('xr8tvnnn') || npub.includes('30ceb64e')) {
-          name = 'TheWildHustle';
-        }
-
         return {
           npub,
-          name,
+          name: npub.slice(0, 8) + '...', // Fallback name, ZappableUserRow will resolve actual profile
           isActive: true,
         };
       });
@@ -356,15 +350,13 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
         indicatorStyle="white"
       >
         {displayRankings.map((entry, index) => (
-          <TouchableOpacity
+          <View
             key={entry.npub}
             style={[
               styles.rankingItem,
               entry.isTopThree && styles.topThreeItem,
               index === displayRankings.length - 1 && styles.lastRankingItem,
             ]}
-            onPress={() => handleMemberPress(entry)}
-            activeOpacity={0.7}
           >
             <View style={styles.rankContainer}>
               <Text style={[
@@ -380,35 +372,25 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
               )}
             </View>
 
-            <View style={styles.memberInfo}>
-              <MemberAvatar 
-                name={entry.name} 
-                imageUrl={entry.avatar} 
-                size={entry.isTopThree ? 36 : 32}
-              />
-              <View style={styles.memberDetails}>
-                <Text style={[
-                  styles.memberName,
-                  entry.isTopThree && styles.topThreeName
-                ]}>
-                  {entry.name}
-                </Text>
-                <Text style={styles.memberStats}>
-                  {entry.workoutCount} workouts
-                  {entry.lastActivity && ` • ${entry.lastActivity}`}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.scoreContainer}>
-              <Text style={[
-                styles.scoreText,
-                entry.isTopThree && styles.topThreeScore
-              ]}>
-                {entry.formattedScore}
-              </Text>
-            </View>
-          </TouchableOpacity>
+            <ZappableUserRow
+              npub={entry.npub}
+              fallbackName={entry.name}
+              additionalContent={
+                <View style={styles.rankingStats}>
+                  <Text style={styles.memberStats}>
+                    {entry.workoutCount} workouts
+                    {entry.lastActivity && ` • ${entry.lastActivity}`}
+                  </Text>
+                  <Text style={[
+                    styles.scoreText,
+                    entry.isTopThree && styles.topThreeScore
+                  ]}>
+                    {entry.formattedScore}
+                  </Text>
+                </View>
+              }
+            />
+          </View>
         ))}
       </ScrollView>
 
@@ -531,7 +513,7 @@ const styles = StyleSheet.create({
   rankingItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 4,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
@@ -545,10 +527,11 @@ const styles = StyleSheet.create({
   },
 
   rankContainer: {
-    width: 40,
+    width: 30,
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
+    marginRight: 8,
   },
 
   rankText: {
@@ -675,6 +658,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: theme.colors.textMuted,
     textAlign: 'center',
+  },
+
+  // Stats layout for ZappableUserRow
+  rankingStats: {
+    alignItems: 'flex-end',
+    gap: 2,
   },
 });
 
