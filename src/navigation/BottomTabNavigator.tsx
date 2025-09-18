@@ -15,7 +15,7 @@ import { ProfileScreen } from '../screens/ProfileScreen';
 import { TeamDiscoveryScreen } from '../screens/TeamDiscoveryScreen';
 
 // Data Hooks
-import { useNavigationData } from '../hooks/useNavigationData';
+import { useNavigationData } from '../contexts/NavigationDataContext';
 
 // Navigation Handlers
 import { createNavigationHandlers } from './navigationHandlers';

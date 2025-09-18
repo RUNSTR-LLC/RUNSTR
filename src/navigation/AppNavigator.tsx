@@ -29,7 +29,7 @@ import {
 import { createNavigationHandlers } from './navigationHandlers';
 
 // Data Hooks
-import { useNavigationData } from '../hooks/useNavigationData';
+import { useNavigationData } from '../contexts/NavigationDataContext';
 
 // Screen params for type safety
 export type RootStackParamList = {

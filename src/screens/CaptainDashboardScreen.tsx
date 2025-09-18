@@ -26,6 +26,10 @@ import { NostrProtocolHandler } from '../services/nostr/NostrProtocolHandler';
 import { NostrRelayManager } from '../services/nostr/NostrRelayManager';
 import { getNsecFromStorage, nsecToPrivateKey } from '../utils/nostr';
 import { TeamMemberCache } from '../services/team/TeamMemberCache';
+import { getTeamListDetector } from '../utils/teamListDetector';
+import NostrTeamCreationService from '../services/nostr/NostrTeamCreationService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { nip19 } from 'nostr-tools';
 
 // Type definitions for captain dashboard data
 export interface CaptainDashboardData {
@@ -82,12 +86,51 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
   const [eventWizardVisible, setEventWizardVisible] = useState(false);
   const [leagueWizardVisible, setLeagueWizardVisible] = useState(false);
 
+  // Kind 30000 list state
+  const [hasKind30000List, setHasKind30000List] = useState<boolean | null>(null);
+  const [isCreatingList, setIsCreatingList] = useState(false);
+
+  // Check if team has kind 30000 list on mount
+  React.useEffect(() => {
+    checkForKind30000List();
+  }, [teamId, captainId]);
+
+  const checkForKind30000List = async () => {
+    try {
+      const detector = getTeamListDetector();
+      const haslist = await detector.hasKind30000List(teamId, captainId);
+      setHasKind30000List(haslist);
+      console.log(`Team ${teamId} has kind 30000 list: ${haslist}`);
+    } catch (error) {
+      console.error('Error checking for kind 30000 list:', error);
+      setHasKind30000List(false);
+    }
+  };
+
   // Wizard handlers
   const handleShowEventWizard = () => {
+    // Check if team has kind 30000 list before allowing competition creation
+    if (hasKind30000List === false) {
+      Alert.alert(
+        'Setup Required',
+        'Create a team member list before starting competitions',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
     setEventWizardVisible(true);
   };
 
   const handleShowLeagueWizard = () => {
+    // Check if team has kind 30000 list before allowing competition creation
+    if (hasKind30000List === false) {
+      Alert.alert(
+        'Setup Required',
+        'Create a team member list before starting competitions',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
     setLeagueWizardVisible(true);
   };
 
@@ -107,6 +150,57 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
 
   const handleCloseLeagueWizard = () => {
     setLeagueWizardVisible(false);
+  };
+
+  // Handle creating kind 30000 list for existing team
+  const handleCreateMemberList = async () => {
+    setIsCreatingList(true);
+
+    try {
+      // Get user's private key from storage
+      const nsec = await AsyncStorage.getItem('userNsec');
+      if (!nsec) {
+        Alert.alert('Error', 'Please log in again to create member list');
+        return;
+      }
+
+      // Decode nsec to get private key
+      let privateKey: string;
+      try {
+        const decoded = nip19.decode(nsec);
+        if (decoded.type === 'nsec') {
+          privateKey = decoded.data as string;
+        } else {
+          throw new Error('Invalid nsec');
+        }
+      } catch (e) {
+        Alert.alert('Error', 'Invalid authentication. Please log in again.');
+        return;
+      }
+
+      // Create kind 30000 list for this team
+      const result = await NostrTeamCreationService.createMemberListForExistingTeam(
+        teamId,
+        data.team.name,
+        captainId, // Captain's hex pubkey
+        privateKey
+      );
+
+      if (result.success) {
+        setHasKind30000List(true);
+        Alert.alert(
+          'Success',
+          'Team member list created! You can now run competitions and manage members.'
+        );
+      } else {
+        Alert.alert('Error', result.error || 'Failed to create member list');
+      }
+    } catch (error) {
+      console.error('Error creating member list:', error);
+      Alert.alert('Error', 'Failed to create member list. Please try again.');
+    } finally {
+      setIsCreatingList(false);
+    }
   };
 
   // Handle member removal
@@ -185,6 +279,25 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
   return (
     <SafeAreaView style={styles.container}>
       {/* Status Bar */}
+
+      {/* Show banner if team doesn't have kind 30000 list */}
+      {hasKind30000List === false && (
+        <View style={styles.listWarningBanner}>
+          <Text style={styles.listWarningTitle}>⚠️ Team Setup Required</Text>
+          <Text style={styles.listWarningText}>
+            Your team needs a member list to run competitions
+          </Text>
+          <TouchableOpacity
+            style={[styles.createListButton, isCreatingList && styles.createListButtonDisabled]}
+            onPress={handleCreateMemberList}
+            disabled={isCreatingList}
+          >
+            <Text style={styles.createListButtonText}>
+              {isCreatingList ? 'Creating...' : 'Create Member List'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Header */}
       <View style={styles.header}>
@@ -535,6 +648,49 @@ const styles = StyleSheet.create({
   emptyStateText: {
     color: theme.colors.textMuted,
     fontSize: 14,
+  },
+
+  // Kind 30000 List Warning Banner
+  listWarningBanner: {
+    backgroundColor: theme.colors.warning || '#332200',
+    borderWidth: 1,
+    borderColor: theme.colors.warningBorder || '#665500',
+    margin: 16,
+    marginBottom: 0,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+
+  listWarningTitle: {
+    fontSize: 16,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.warningText || '#FFB800',
+    marginBottom: 8,
+  },
+
+  listWarningText: {
+    fontSize: 14,
+    color: theme.colors.text,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+
+  createListButton: {
+    backgroundColor: theme.colors.warningText || '#FFB800',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+
+  createListButtonDisabled: {
+    opacity: 0.5,
+  },
+
+  createListButtonText: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.background,
   },
 
   // Component styles removed - now handled by individual components

@@ -98,7 +98,7 @@ const AppContent: React.FC = () => {
     initError
   } = useAuth();
 
-  const [showSplashInit, setShowSplashInit] = React.useState(true);
+  // Removed showSplashInit - we'll show login immediately if not authenticated
 
   // Authenticated app with bottom tabs and team creation modal
   const AuthenticatedNavigator: React.FC<{ user: User }> = ({ user }) => {
@@ -304,67 +304,45 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // Show SplashInit screen first for Nostr initialization
-  if (showSplashInit) {
-    return (
-      <SafeAreaProvider>
-        <StatusBar barStyle="light-content" backgroundColor="#000000" />
-        <NavigationContainer>
-          <AuthenticatedStack.Navigator
-            screenOptions={{ headerShown: false }}
-            initialRouteName="SplashInit"
-          >
-            <AuthenticatedStack.Screen name="SplashInit">
-              {({ navigation }) => <SplashInitScreen />}
-            </AuthenticatedStack.Screen>
-            <AuthenticatedStack.Screen name="Auth">
-              {() => <AppNavigator initialRoute="Login" isFirstTime={true} />}
-            </AuthenticatedStack.Screen>
-            <AuthenticatedStack.Screen name="Main">
-              {() => currentUser ? <AuthenticatedNavigator user={currentUser} /> : null}
-            </AuthenticatedStack.Screen>
-          </AuthenticatedStack.Navigator>
-        </NavigationContainer>
-      </SafeAreaProvider>
-    );
-  }
+  // Simplified navigation - no more SplashInit screen
+  // Show login immediately if not authenticated
 
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
 
-      {isInitializing ? (
-        <AppSplashScreen
-          onComplete={() => {
-            // AuthContext handles all initialization now
-            // Just show a simple loading screen
-            console.log('🚀 Splash screen completed - AuthContext is handling initialization');
-          }}
-          isConnected={isConnected}
-          connectionStatus={connectionStatus}
-        />
-      ) : (
-        <NavigationContainer>
-          {(() => {
-            console.log(
-              '🚀 AppContent: Navigation decision - isAuthenticated:',
-              isAuthenticated,
-              'currentUser:',
-              !!currentUser
-            );
+      <NavigationContainer>
+        {(() => {
+          console.log(
+            '🚀 AppContent: Navigation decision - isAuthenticated:',
+            isAuthenticated,
+            'currentUser:',
+            !!currentUser,
+            'isInitializing:',
+            isInitializing
+          );
 
-            if (isAuthenticated && currentUser) {
-              // Authenticated users get bottom tabs with modal team creation
-              return <AuthenticatedNavigator user={currentUser} />;
-            } else {
-              // Users without stored keys get nsec input (via Login screen)
-              return (
-                <AppNavigator initialRoute="Login" isFirstTime={true} />
-              );
-            }
-          })()}
-        </NavigationContainer>
-      )}
+          // Show login immediately if not authenticated
+          if (!isAuthenticated) {
+            return <AppNavigator initialRoute="Login" isFirstTime={true} />;
+          }
+
+          // User is authenticated but profile still loading
+          if (isAuthenticated && !currentUser) {
+            return (
+              <SplashInitScreen />
+            );
+          }
+
+          // Authenticated with loaded profile - show main app
+          if (isAuthenticated && currentUser) {
+            return <AuthenticatedNavigator user={currentUser} />;
+          }
+
+          // Fallback to login
+          return <AppNavigator initialRoute="Login" isFirstTime={true} />;
+        })()}
+      </NavigationContainer>
     </SafeAreaProvider>
   );
 };

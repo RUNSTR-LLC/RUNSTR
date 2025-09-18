@@ -5,29 +5,23 @@ import {
   StyleSheet,
   Animated,
   Dimensions,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList } from '../navigation/types';
 import { NostrInitializationService } from '../services/nostr/NostrInitializationService';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LinearGradient } from 'expo-linear-gradient';
-
-type NavigationProp = StackNavigationProp<RootStackParamList, 'SplashInit'>;
 
 const { width } = Dimensions.get('window');
 
 const INITIALIZATION_STEPS = [
   { message: 'Starting RUNSTR...', weight: 10 },
-  { message: 'Connecting to Nostr relays...', weight: 30 },
-  { message: 'Initializing Nostr services...', weight: 20 },
-  { message: 'Discovering fitness teams...', weight: 30 },
-  { message: 'Preparing your experience...', weight: 10 },
+  { message: 'Connecting to Nostr relays...', weight: 25 },
+  { message: 'Initializing services...', weight: 20 },
+  { message: 'Loading your profile...', weight: 25 },
+  { message: 'Almost ready...', weight: 20 },
 ];
 
+// This screen is now shown after login while loading user data
 export const SplashInitScreen: React.FC = () => {
-  const navigation = useNavigation<NavigationProp>();
   const [statusMessage, setStatusMessage] = useState(INITIALIZATION_STEPS[0].message);
   const [currentStep, setCurrentStep] = useState(0);
   const progressAnim = useRef(new Animated.Value(0)).current;
@@ -67,14 +61,6 @@ export const SplashInitScreen: React.FC = () => {
 
   const initializeApp = async () => {
     try {
-      // Check if user has stored credentials
-      const [storedNsec, storedNpub] = await Promise.all([
-        AsyncStorage.getItem('user_nsec'),
-        AsyncStorage.getItem('user_npub'),
-      ]);
-
-      const hasCredentials = !!(storedNsec || storedNpub);
-
       // Step 1: Initial setup
       setCurrentStep(0);
       setStatusMessage(INITIALIZATION_STEPS[0].message);
@@ -110,31 +96,14 @@ export const SplashInitScreen: React.FC = () => {
       setStatusMessage(INITIALIZATION_STEPS[4].message);
       animateProgress(1);
 
-      await new Promise(resolve => setTimeout(resolve, 400));
+      // Hold at 100% for a moment so user sees completion
+      await new Promise(resolve => setTimeout(resolve, 800));
 
-      // Navigate based on auth status
-      if (hasCredentials) {
-        // User has credentials, go directly to main app
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Main' }],
-        });
-      } else {
-        // No credentials, show auth screen
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Auth' }],
-        });
-      }
+      // No navigation here - AuthContext will handle it when profile loads
+      console.log('✅ SplashInitScreen: Initialization complete');
     } catch (error) {
       console.error('Initialization error:', error);
-      // Even on error, navigate to auth screen
-      setTimeout(() => {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Auth' }],
-        });
-      }, 1000);
+      // Continue anyway - user is already authenticated
     }
   };
 
@@ -145,14 +114,13 @@ export const SplashInitScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={['#000000', '#0a0a0a', '#000000']}
-        style={StyleSheet.absoluteFillObject}
-      />
-
       <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
         <View style={styles.logoContainer}>
-          <Text style={styles.logo}>RUNSTR</Text>
+          <Image
+            source={require('../../assets/images/splash-icon.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
           <Text style={styles.tagline}>Compete. Earn. Transform.</Text>
         </View>
 
@@ -165,14 +133,7 @@ export const SplashInitScreen: React.FC = () => {
                 styles.progressBarFill,
                 { width: progressWidth }
               ]}
-            >
-              <LinearGradient
-                colors={['#FF6B00', '#FF8E26']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={StyleSheet.absoluteFillObject}
-              />
-            </Animated.View>
+            />
           </View>
 
           <View style={styles.stepsIndicator}>
@@ -207,40 +168,41 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 80,
+    marginBottom: 60,
   },
-  logo: {
-    fontSize: 48,
-    fontWeight: '900',
-    color: '#FF6B00',
-    letterSpacing: 2,
+  logoImage: {
+    width: 120,
+    height: 120,
+    marginBottom: 20,
   },
   tagline: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#666666',
-    marginTop: 8,
     letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   progressContainer: {
     width: '100%',
     alignItems: 'center',
   },
   statusText: {
-    fontSize: 14,
-    color: '#999999',
-    marginBottom: 20,
+    fontSize: 13,
+    color: '#888888',
+    marginBottom: 24,
     textAlign: 'center',
+    minHeight: 20,
   },
   progressBarBackground: {
-    width: width - 40,
-    height: 4,
+    width: width - 80,
+    height: 2,
     backgroundColor: '#1a1a1a',
-    borderRadius: 2,
+    borderRadius: 1,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    borderRadius: 2,
+    backgroundColor: '#ffffff',
+    borderRadius: 1,
   },
   stepsIndicator: {
     flexDirection: 'row',
@@ -248,13 +210,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   stepDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#1a1a1a',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#2a2a2a',
   },
   stepDotActive: {
-    backgroundColor: '#FF6B00',
+    backgroundColor: '#ffffff',
   },
   versionText: {
     position: 'absolute',

@@ -14,7 +14,9 @@ import {
 } from 'react-native';
 import { theme } from '../../../styles/theme';
 import { TeamCreationStepProps, User } from '../../../types';
-import TeamService from '../../../services/teamService';
+import NostrTeamCreationService from '../../../services/nostr/NostrTeamCreationService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { nip19 } from 'nostr-tools';
 
 interface ReviewLaunchStepProps extends TeamCreationStepProps {
   currentUser: User; // Authenticated user with real Nostr identity
@@ -48,26 +50,66 @@ export const ReviewLaunchStep: React.FC<ReviewLaunchStepProps> = ({
     return code;
   };
 
-  // Handle team launch - REAL TEAM CREATION with Nostr Identity
+  // Handle team launch - Pure Nostr team creation with NDK
   const handleLaunchTeam = async () => {
     setIsLaunching(true);
 
     try {
       console.log(
-        'ReviewLaunchStep: Starting REAL team creation with Nostr identity'
+        'ReviewLaunchStep: Starting pure Nostr team creation with NDK'
       );
       console.log('User npub:', currentUser.npub);
       console.log('User name:', currentUser.name);
 
-      // Use REAL TeamService.createTeam with authenticated user data
-      const result = await TeamService.createTeam({
-        name: data.teamName,
-        about: data.teamAbout,
-        captainId: currentUser.id,
-        captainNpub: currentUser.npub, // REAL Nostr public key
-        captainName: currentUser.name, // REAL user name
-        prizePool: data.prizePool || 0,
-      });
+      // Get user's private key from secure storage
+      const nsec = await AsyncStorage.getItem('userNsec');
+      if (!nsec) {
+        Alert.alert(
+          'Authentication Required',
+          'Please log in again to create a team'
+        );
+        return;
+      }
+
+      // Decode nsec to get private key
+      let privateKey: string;
+      try {
+        const decoded = nip19.decode(nsec);
+        if (decoded.type === 'nsec') {
+          privateKey = decoded.data as string;
+        } else {
+          throw new Error('Invalid nsec format');
+        }
+      } catch (e) {
+        console.error('Failed to decode nsec:', e);
+        Alert.alert('Error', 'Invalid authentication data. Please log in again.');
+        return;
+      }
+
+      // Decode npub to get hex pubkey
+      let captainHexPubkey = currentUser.npub;
+      try {
+        const decoded = nip19.decode(currentUser.npub);
+        if (decoded.type === 'npub') {
+          captainHexPubkey = decoded.data as string;
+        }
+      } catch (e) {
+        // Might already be hex, use as-is
+        console.log('Using npub as-is, might already be hex');
+      }
+
+      // Create team using pure Nostr with NDK (kind 33404 + kind 30000)
+      const result = await NostrTeamCreationService.createTeam(
+        {
+          name: data.teamName,
+          about: data.teamAbout,
+          captainNpub: currentUser.npub,
+          captainHexPubkey,
+          activityType: 'Running', // Default to running
+          isPublic: true,
+        },
+        privateKey
+      );
 
       if (result.success && result.teamId) {
         const code = generateTeamCode();
@@ -76,7 +118,7 @@ export const ReviewLaunchStep: React.FC<ReviewLaunchStepProps> = ({
         setShowSuccess(true);
 
         console.log(
-          'ReviewLaunchStep: Team created successfully:',
+          'ReviewLaunchStep: Team created successfully with kind 30000 list:',
           result.teamId
         );
 

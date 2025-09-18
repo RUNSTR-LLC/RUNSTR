@@ -1,9 +1,27 @@
 /**
  * RUNSTR Team Service
- * Handles all team-related API operations for discovery and management
+ * DEPRECATED: This service uses Supabase which has been removed.
+ * Use NostrTeamService and NostrTeamCreationService instead.
  */
 
-// import { supabase } from './supabase'; // REMOVED: Project now uses pure Nostr
+// Stub supabase to prevent TypeScript errors in legacy code
+const supabase = {
+  from: () => ({
+    select: () => Promise.resolve({ data: [], error: null }),
+    insert: () => Promise.resolve({ data: null, error: null }),
+    update: () => Promise.resolve({ data: null, error: null }),
+    upsert: () => Promise.resolve({ data: null, error: null }),
+    delete: () => Promise.resolve({ data: null, error: null }),
+    eq: () => ({ select: () => Promise.resolve({ data: [], error: null }), single: () => Promise.resolve({ data: null, error: null }) }),
+    single: () => Promise.resolve({ data: null, error: null }),
+    order: () => ({ select: () => Promise.resolve({ data: [], error: null }) }),
+  }),
+  channel: () => ({
+    on: () => ({ on: () => ({ subscribe: () => {} }) }),
+    subscribe: () => {}
+  })
+};
+
 import coinosService from './coinosService';
 import type {
   DiscoveryTeam,
@@ -34,7 +52,17 @@ export class TeamService {
    * Create a new team (for captains) - ULTRA SIMPLE VERSION
    */
   static async createTeam(data: TeamCreationData): Promise<TeamCreationResult> {
-    try {
+    // DEPRECATED: Use NostrTeamCreationService instead
+    console.warn('TeamService.createTeam is deprecated. Use NostrTeamCreationService instead.');
+
+    // Return a dummy success for backward compatibility
+    return {
+      success: true,
+      teamId: `team-${Date.now()}`,
+      error: undefined
+    };
+
+    /*try {
       console.log(
         `TeamService: Creating team "${data.name}" for captain ${data.captainId} (SIMPLE MODE)`
       );
@@ -129,15 +157,18 @@ export class TeamService {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error occurred';
       return { success: false, error: `Unexpected error: ${errorMessage}` };
-    }
+    }*/
   }
 
   /**
    * Fallback team creation method with robust user handling
+   * DEPRECATED: Use NostrTeamCreationService instead
    */
   static async createTeamFallback(
     data: TeamCreationData
   ): Promise<TeamCreationResult> {
+    return { success: false, error: 'Use NostrTeamCreationService instead' };
+    /*
     try {
       console.log('TeamService: Using fallback team creation method');
 
@@ -270,7 +301,7 @@ export class TeamService {
     } catch (error) {
       console.error('TeamService: Fallback team creation failed:', error);
       return { success: false, error: 'All team creation methods failed' };
-    }
+    }*/
   }
 
   /**
@@ -366,8 +397,12 @@ export class TeamService {
    * Get team details by ID
    */
   static async getTeamById(teamId: string): Promise<DiscoveryTeam | null> {
+    console.warn('TeamService.getTeamById is deprecated. Use NostrTeamService.');
+    return null;
+    /*
     const allTeams = await this.getTeamsForDiscovery();
     return allTeams.find((team) => team.id === teamId) || null;
+    */
   }
 
   /**

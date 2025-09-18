@@ -6,6 +6,8 @@
 
 import type { NostrWorkout } from '../../types/nostrWorkout';
 import type { NostrActivityType } from '../../types/nostrCompetition';
+import { getTeamListDetector } from '../../utils/teamListDetector';
+import { TeamMemberCache } from '../../utils/cache/TeamMemberCache';
 
 export interface WorkoutMetrics {
   npub: string;
@@ -24,7 +26,9 @@ export interface WorkoutMetrics {
 }
 
 export interface CompetitionQuery {
-  memberNpubs: string[];
+  memberNpubs?: string[]; // Optional - will fetch from kind 30000 if not provided
+  teamId?: string; // For fetching members from kind 30000 list
+  captainPubkey?: string; // Captain's pubkey for fetching list
   activityType: NostrActivityType | 'Any';
   startDate: Date;
   endDate: Date;
@@ -35,6 +39,7 @@ export interface QueryResult {
   totalWorkouts: number;
   queryTime: number;
   fromCache: boolean;
+  error?: string; // For handling missing lists
 }
 
 export class Competition1301QueryService {
@@ -56,7 +61,55 @@ export class Competition1301QueryService {
    */
   async queryMemberWorkouts(query: CompetitionQuery): Promise<QueryResult> {
     const startTime = Date.now();
-    const cacheKey = this.getCacheKey(query);
+
+    // Get member list from kind 30000 if not provided
+    let memberNpubs = query.memberNpubs;
+
+    if (!memberNpubs && query.teamId && query.captainPubkey) {
+      // Try to fetch from kind 30000 list
+      const detector = getTeamListDetector();
+      const haslist = await detector.hasKind30000List(query.teamId, query.captainPubkey);
+
+      if (!haslist) {
+        console.warn(`❌ Team ${query.teamId} has no kind 30000 member list`);
+        return {
+          metrics: new Map(),
+          totalWorkouts: 0,
+          queryTime: Date.now() - startTime,
+          fromCache: false,
+          error: 'Team member list not found. Captain must create member list first.',
+        };
+      }
+
+      // Get members from cache or fetch from relays
+      const memberCache = TeamMemberCache.getInstance();
+      const members = await memberCache.getTeamMembers(query.teamId, query.captainPubkey);
+
+      if (!members || members.length === 0) {
+        console.warn(`⚠️ Team ${query.teamId} has empty member list`);
+        return {
+          metrics: new Map(),
+          totalWorkouts: 0,
+          queryTime: Date.now() - startTime,
+          fromCache: false,
+          error: 'Team has no members. Add members to the team first.',
+        };
+      }
+
+      memberNpubs = members.map(m => m.npub || m.pubkey);
+    }
+
+    if (!memberNpubs || memberNpubs.length === 0) {
+      return {
+        metrics: new Map(),
+        totalWorkouts: 0,
+        queryTime: Date.now() - startTime,
+        fromCache: false,
+        error: 'No members to query',
+      };
+    }
+
+    const cacheKey = this.getCacheKey({ ...query, memberNpubs });
 
     // Check cache
     const cached = this.queryCache.get(cacheKey);
@@ -65,7 +118,7 @@ export class Competition1301QueryService {
       return { ...cached.result, fromCache: true };
     }
 
-    console.log(`🔍 Querying workouts for ${query.memberNpubs.length} members`);
+    console.log(`🔍 Querying workouts for ${memberNpubs.length} members`);
     console.log(`📅 Date range: ${query.startDate.toISOString()} to ${query.endDate.toISOString()}`);
     console.log(`🏃 Activity type: ${query.activityType}`);
 
@@ -73,7 +126,7 @@ export class Competition1301QueryService {
     let totalWorkouts = 0;
 
     // Query each member's workouts in parallel
-    const memberPromises = query.memberNpubs.map(async (npub) => {
+    const memberPromises = memberNpubs.map(async (npub) => {
       const workouts = await this.fetchMemberWorkouts(npub, query);
       const memberMetrics = this.calculateMetrics(workouts, query);
       metrics.set(npub, memberMetrics);

@@ -44,6 +44,7 @@ interface NavigationDataProviderProps {
 }
 
 export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({ children }) => {
+  console.log('🚀 NavigationDataProvider: Initializing...');
   const [user, setUser] = useState<UserWithWallet | null>(null);
   const [teamData, setTeamData] = useState<TeamScreenData | null>(null);
   const [profileData, setProfileData] = useState<ProfileScreenData | null>(null);
@@ -422,7 +423,9 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({ 
   // Initial load
   useEffect(() => {
     const init = async () => {
+      console.log('🚀 NavigationDataProvider: Starting initial data load...');
       const userData = await fetchUserData();
+      console.log('🚀 NavigationDataProvider: User data loaded:', !!userData);
       if (userData) {
         await Promise.all([
           fetchProfileData(userData),
@@ -430,6 +433,7 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({ 
         ]);
       }
       setIsLoading(false);
+      console.log('🚀 NavigationDataProvider: Initial load complete, isLoading:', false);
     };
     init();
   }, []);
@@ -459,7 +463,9 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({ 
 export const useNavigationData = (): NavigationData => {
   const context = useContext(NavigationDataContext);
   if (context === undefined) {
+    console.error('❌ useNavigationData: Context is undefined! Make sure NavigationDataProvider is wrapping the component');
     throw new Error('useNavigationData must be used within a NavigationDataProvider');
   }
+  console.log('✅ useNavigationData: Context found, isLoading:', context.isLoading, 'profileData:', !!context.profileData);
   return context;
 };
