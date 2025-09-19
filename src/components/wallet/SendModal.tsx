@@ -227,7 +227,7 @@ export const SendModal: React.FC<SendModalProps> = ({
                 autoCorrect={false}
               />
               {recipient && paymentType === 'unknown' && (
-                <Text style={[styles.helperText, { color: theme.colors.error }]}>
+                <Text style={[styles.helperText, { color: '#999999' }]}>
                   Invalid format. Enter a Lightning invoice (lnbc...) or address (user@domain.com)
                 </Text>
               )}
@@ -237,7 +237,7 @@ export const SendModal: React.FC<SendModalProps> = ({
                 </Text>
               )}
               {paymentType === 'invoice' && (
-                <Text style={[styles.helperText, { color: '#4CAF50' }]}>
+                <Text style={[styles.helperText, { color: '#ffffff' }]}>
                   Lightning invoice detected. Amount will be taken from invoice.
                 </Text>
               )}
