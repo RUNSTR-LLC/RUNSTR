@@ -3,8 +3,7 @@
  * Phase 1: Core wallet infrastructure with auto-creation
  */
 
-// FIRST LINE - Apply crypto polyfill before everything else
-import './cryptoPolyfill';
+// Crypto polyfill is now applied in index.js
 
 // NOW import everything else
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -21,7 +20,8 @@ import {
   getEncodedToken,
   getDecodedToken
 } from '@cashu/cashu-ts';
-import { generateSecretKey, nip19 } from 'nostr-tools';
+// Using NDK exclusively - no nostr-tools
+import { nip19 } from '@nostr-dev-kit/ndk';
 import { decryptFromStorage } from '../../utils/nostr';
 
 // Storage keys
@@ -677,8 +677,12 @@ class NutzapService {
     if (!nsec) {
       // Only generate new keys if absolutely no auth exists
       console.warn('[NutZap] No existing nsec found, generating new wallet keys');
-      const privateKey = generateSecretKey();
-      nsec = nip19.nsecEncode(privateKey);
+      // Use NDK's method to generate a new key
+      const signer = NDKPrivateKeySigner.generate();
+      const privateKeyHex = signer.privateKey;
+      // Convert hex to Uint8Array for nip19 encoding
+      const privateKeyBytes = new Uint8Array(privateKeyHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+      nsec = nip19.nsecEncode(privateKeyBytes);
       // Note: We don't store plain nsec for new users - they should auth properly
     }
     return nsec;

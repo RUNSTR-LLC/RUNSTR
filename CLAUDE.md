@@ -31,7 +31,7 @@ RUNSTR.APP is a React Native mobile application that transforms fitness routines
 - **Fitness Data**: Kind 1301 events from Nostr relays + Apple HealthKit
 - **Team Data**: Custom Nostr event kinds for teams, leagues, events, challenges
 - **Bitcoin**: NIP-60 (Cashu/eCash) for P2P payments - no CoinOS, no team wallets
-- **Nostr Tools**: nostr-tools library for event handling
+- **Nostr Library**: NDK (@nostr-dev-kit/ndk) EXCLUSIVELY - NEVER use nostr-tools
 - **Nostr Relays**: Damus, Primal, nos.lol for social data operations
 - **In-App Notifications**: Nostr event-driven notifications (kinds 1101, 1102, 1103) - no push notifications
 - **IMPORTANT**: This project uses NO SUPABASE - pure Nostr only
@@ -347,6 +347,14 @@ Simple two-tab interface with dark theme:
 - `NotificationService.ts` - In-app notification display (no push)
 - Notifications only appear while app is active
 - No external push notification services used
+
+## CRITICAL WALLET ARCHITECTURE RULES
+**⚠️ NEVER use nostr-tools in wallet code - Use NDK exclusively**
+- **NDK handles ALL Nostr operations** including key generation, nip19 encoding/decoding
+- **No library mixing** - NDK has everything needed built-in for Nostr functionality
+- **Crypto polyfill**: Must use `react-native-get-random-values` imported FIRST in index.js
+- **Why this matters**: Mixing NDK with nostr-tools causes crypto errors and initialization failures
+- **Key generation**: Use `NDKPrivateKeySigner.generate()` NOT `generateSecretKey()` from nostr-tools
 
 ## Lessons Learned from Phase 1 Troubleshooting
 
