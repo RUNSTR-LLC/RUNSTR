@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { theme } from '../../styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import Clipboard from '@react-native-clipboard/clipboard';
+import * as Clipboard from 'expo-clipboard';
 import nutzapService from '../../services/nutzap/nutzapService';
 
 interface LightningWithdrawModalProps {
@@ -46,7 +46,7 @@ export const LightningWithdrawModal: React.FC<LightningWithdrawModalProps> = ({
   const [step, setStep] = useState<'details' | 'processing'>('details');
 
   const handlePasteInvoice = async () => {
-    const text = await Clipboard.getString();
+    const text = await Clipboard.getStringAsync();
     if (text && text.toLowerCase().startsWith('lnbc')) {
       setLightningInvoice(text);
     } else {

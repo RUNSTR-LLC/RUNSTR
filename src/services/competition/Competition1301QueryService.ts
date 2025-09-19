@@ -7,7 +7,7 @@
 import type { NostrWorkout } from '../../types/nostrWorkout';
 import type { NostrActivityType } from '../../types/nostrCompetition';
 import { getTeamListDetector } from '../../utils/teamListDetector';
-import { TeamMemberCache } from '../../utils/cache/TeamMemberCache';
+import { TeamMemberCache } from '../team/TeamMemberCache';
 
 export interface WorkoutMetrics {
   npub: string;

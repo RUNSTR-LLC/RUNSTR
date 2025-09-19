@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { theme } from '../../styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import Clipboard from '@react-native-clipboard/clipboard';
+import * as Clipboard from 'expo-clipboard';
 import QRCode from 'react-native-qrcode-svg';
 import nutzapService from '../../services/nutzap/nutzapService';
 
@@ -89,8 +89,8 @@ export const LightningDepositModal: React.FC<LightningDepositModalProps> = ({
     }
   };
 
-  const handleCopyInvoice = () => {
-    Clipboard.setString(invoice);
+  const handleCopyInvoice = async () => {
+    await Clipboard.setStringAsync(invoice);
     Alert.alert('Copied!', 'Lightning invoice copied to clipboard');
   };
 

@@ -16,7 +16,7 @@ RUNSTR.APP is a React Native mobile application that transforms fitness routines
 - Captain dashboard with join request management
 - Competition creation (7 activity types, cascading dropdowns)
 - Automatic leaderboard scoring based on captain-defined parameters
-- Bitcoin integration for entry fees and prize distribution
+- Bitcoin integration via NIP-60/Cashu for direct P2P payments (no team wallets, no exit fees)
 - **Beautiful Social Cards**: Instagram-worthy workout achievement graphics with RUNSTR branding
 
 **Authentication**:
@@ -30,10 +30,10 @@ RUNSTR.APP is a React Native mobile application that transforms fitness routines
 - **Authentication**: Nostr (nsec) - direct authentication only
 - **Fitness Data**: Kind 1301 events from Nostr relays + Apple HealthKit
 - **Team Data**: Custom Nostr event kinds for teams, leagues, events, challenges
-- **Bitcoin**: Lightning Network integration via CoinOS API
+- **Bitcoin**: NIP-60 (Cashu/eCash) for P2P payments - no CoinOS, no team wallets
 - **Nostr Tools**: nostr-tools library for event handling
 - **Nostr Relays**: Damus, Primal, nos.lol for social data operations
-- **Push Notifications**: Team-branded Expo notifications with Nostr event integration (kinds 1101, 1102, 1103)
+- **In-App Notifications**: Nostr event-driven notifications (kinds 1101, 1102, 1103) - no push notifications
 - **IMPORTANT**: This project uses NO SUPABASE - pure Nostr only
 
 ## Architecture Principles
@@ -55,7 +55,7 @@ src/
 │   └── fitness/      # Workout posting and display components
 ├── screens/          # Main app screens
 ├── services/         # External API integrations
-│   └── notifications/ # Team-branded push notification system
+│   └── notifications/ # In-app notification system (no push)
 ├── store/           # State management
 ├── types/           # TypeScript definitions
 ├── utils/           # Helper functions
@@ -84,18 +84,18 @@ src/
 - **Nostr Event Based**: All competitions stored as Nostr events with custom kinds
 - **Manual Entry**: Participants post kind 1301 workout events to enter competitions
 - **Automatic Scoring**: Real-time leaderboards based on captain's wizard parameters
-- **Bitcoin Integration**: Entry fees, prize pools, automatic reward distribution
+- **Bitcoin Integration**: P2P payments via NIP-60/Cashu, direct prize distribution (no team wallets, no exit fees)
 
 **5. Team Management**:
 - **Two-Tier Membership**: Local joining (instant UX) + Official Nostr lists (captain approval)
 - **Join Requests**: Real-time notifications with approval workflow
 - **Member Lists**: Nostr kind 30000/30001 lists for fast competition queries
 
-**6. Push Notification System**:
-- **Team-Branded Notifications**: All notifications include team context and branding
-- **Competition Events**: Real-time processing of kinds 1101 (announcements), 1102 (results), 1103 (starting soon)
+**6. In-App Notification System**:
+- **Nostr Event-Driven**: Real-time processing of kinds 1101 (announcements), 1102 (results), 1103 (starting soon)
+- **In-App Only**: Notifications appear while app is active (no push notifications)
 - **User Preference Integration**: Respects Profile notification settings with granular control
-- **Nostr-Native Processing**: Direct integration with existing NostrTeamService and NostrRelayManager
+- **Pure Client-Side**: No external push services, all notifications handled locally
 
 **7. HealthKit Workout Posting System**:
 - **Unified Workout Display**: Shows both HealthKit and Nostr workouts in single timeline
@@ -121,7 +121,7 @@ Simple two-tab interface with dark theme:
 - **Teams Tab**: Feed layout with "+" button for team creation
 - **Profile Tab**: Unified workout history with posting controls, notification preferences, team membership
 - **Team Dashboard**: Three sections (League, Events, Challenges) when viewing a team
-- **Push Notifications**: Team-branded notifications with rich content (leaderboards, earnings, actions)
+- **In-App Notifications**: Real-time Nostr event notifications displayed while app is active
 
 ## Development Workflow & Testing Protocol
 
@@ -282,9 +282,9 @@ Simple two-tab interface with dark theme:
 ✅ **Competition Wizard System** - Complete Event & League creation wizards
 ✅ **Captain Dashboard** - Team management with join request approvals and member removal
 ✅ **Dynamic Scoring System** - Automatic leaderboards based on wizard parameters
-✅ **Bitcoin Integration** - Entry fees, prize pools, reward distribution
+✅ **Bitcoin Integration** - NIP-60/Cashu P2P payments, direct prize distribution
 ✅ Two-tier membership system (local + official Nostr lists)
-✅ **Team-Branded Push Notifications** - Nostr-native competition event processing
+✅ **In-App Notifications** - Nostr event-driven notifications (no push)
 ✅ **HealthKit Workout Posting** - Transform Apple Health workouts into Nostr events and social cards
 ✅ **Pure Nostr Competition System** - Kind 30000 member lists, 1301 queries, dynamic leaderboards
 ✅ All TypeScript compilation successful - Core services production-ready
@@ -342,11 +342,11 @@ Simple two-tab interface with dark theme:
 - **Unified Workout Display**: Seamless merging of HealthKit and Nostr workouts with source identification
 - **Instagram-Worthy Cards**: Professional gradients, activity icons, stats displays, motivational messaging
 
-**Previous Implementation - Push Notifications**:
-- `TeamContextService.ts` - Single source of truth for team membership and context
+**In-App Notification Implementation**:
 - `NostrNotificationEventHandler.ts` - Real-time competition event processing (kinds 1101, 1102, 1103)
-- `TeamNotificationFormatter.ts` - Nostr-native team data formatting
-- Enhanced `NotificationService.ts` - Competition event monitoring integration
+- `NotificationService.ts` - In-app notification display (no push)
+- Notifications only appear while app is active
+- No external push notification services used
 
 ## Lessons Learned from Phase 1 Troubleshooting
 

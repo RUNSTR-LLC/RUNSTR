@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { theme } from '../../styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import Clipboard from '@react-native-clipboard/clipboard';
+import * as Clipboard from 'expo-clipboard';
 import QRCode from 'react-native-qrcode-svg';
 import nutzapService from '../../services/nutzap/nutzapService';
 import { useNutzap } from '../../hooks/useNutzap';
@@ -144,7 +144,7 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
   };
 
   const handlePasteToken = async () => {
-    const text = await Clipboard.getString();
+    const text = await Clipboard.getStringAsync();
     if (text && text.startsWith('cashuA')) {
       setCashuToken(text);
     } else {
@@ -152,14 +152,14 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
     }
   };
 
-  const handleCopyInvoice = () => {
-    Clipboard.setString(invoice);
+  const handleCopyInvoice = async () => {
+    await Clipboard.setStringAsync(invoice);
     Alert.alert('Copied!', 'Lightning invoice copied to clipboard');
   };
 
-  const handleCopyNpub = () => {
+  const handleCopyNpub = async () => {
     if (userNpub) {
-      Clipboard.setString(userNpub);
+      await Clipboard.setStringAsync(userNpub);
       Alert.alert('Copied!', 'Your npub has been copied to clipboard');
     }
   };

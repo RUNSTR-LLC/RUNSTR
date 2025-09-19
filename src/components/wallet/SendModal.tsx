@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { theme } from '../../styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import Clipboard from '@react-native-clipboard/clipboard';
+import * as Clipboard from 'expo-clipboard';
 import nutzapService from '../../services/nutzap/nutzapService';
 import { nip19 } from 'nostr-tools';
 
@@ -94,8 +94,8 @@ export const SendModal: React.FC<SendModalProps> = ({
     }
   };
 
-  const handleCopyToken = () => {
-    Clipboard.setString(generatedToken);
+  const handleCopyToken = async () => {
+    await Clipboard.setStringAsync(generatedToken);
     Alert.alert('Copied!', 'E-cash token copied to clipboard');
   };
 

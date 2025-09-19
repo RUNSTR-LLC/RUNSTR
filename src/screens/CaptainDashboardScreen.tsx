@@ -60,6 +60,7 @@ interface CaptainDashboardScreenProps {
   data: CaptainDashboardData;
   captainId: string; // For member management
   teamId: string; // For member management
+  userNpub?: string; // User's npub passed from navigation for fallback
   onNavigateToTeam: () => void;
   onNavigateToProfile: () => void;
   onSettingsPress: () => void;
@@ -74,6 +75,7 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
   data,
   captainId,
   teamId,
+  userNpub,
   onNavigateToTeam,
   onNavigateToProfile,
   onSettingsPress,
@@ -157,10 +159,54 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
     setIsCreatingList(true);
 
     try {
-      // Get user's private key from storage
-      const nsec = await AsyncStorage.getItem('userNsec');
+      // Get user's private key from storage with fallback mechanism
+      let nsec = await AsyncStorage.getItem('@runstr:user_nsec');
+
+      // Fallback: If plain nsec not found, try to get from encrypted storage
       if (!nsec) {
-        Alert.alert('Error', 'Please log in again to create member list');
+        console.log('Plain nsec not found, trying encrypted storage fallback...');
+
+        // Get the user's npub for decryption - try multiple sources
+        let npub = userNpub; // First try the prop
+
+        if (!npub) {
+          // Try storage
+          npub = await AsyncStorage.getItem('@runstr:npub');
+          console.log('Retrieved npub from storage:', npub?.slice(0, 20) + '...');
+        }
+
+        if (!npub) {
+          // Try getting from captain ID if it's an npub
+          if (captainId?.startsWith('npub')) {
+            npub = captainId;
+            console.log('Using captainId as npub:', npub?.slice(0, 20) + '...');
+          }
+        }
+
+        // Store the npub for future use if we have it
+        if (npub && !userNpub) {
+          await AsyncStorage.setItem('@runstr:npub', npub);
+          console.log('Stored npub for future use');
+        }
+
+        if (npub) {
+          // Try to get and decrypt the encrypted nsec
+          nsec = await getNsecFromStorage(npub);
+
+          // Store the plain nsec for future use if we retrieved it
+          if (nsec) {
+            console.log('Retrieved nsec from encrypted storage, saving plain version...');
+            await AsyncStorage.setItem('@runstr:user_nsec', nsec);
+          }
+        } else {
+          console.log('No npub available for decryption - all sources exhausted');
+        }
+      }
+
+      if (!nsec) {
+        console.error('Authentication retrieval failed - npub:', userNpub?.slice(0, 20), 'captainId:', captainId?.slice(0, 20));
+        Alert.alert('Error', 'Unable to retrieve authentication. Please log in again.');
+        setIsCreatingList(false);
         return;
       }
 
@@ -175,6 +221,7 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
         }
       } catch (e) {
         Alert.alert('Error', 'Invalid authentication. Please log in again.');
+        setIsCreatingList(false);
         return;
       }
 
@@ -237,8 +284,47 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
                 return;
               }
 
-              // Get captain's private key for signing
-              const nsec = await getNsecFromStorage(captainId);
+              // Get captain's private key for signing with fallback mechanism
+              let nsec = await AsyncStorage.getItem('@runstr:user_nsec');
+
+              // Fallback: If plain nsec not found, try to get from encrypted storage
+              if (!nsec) {
+                console.log('Plain nsec not found for member removal, trying encrypted storage...');
+
+                // Get the user's npub for decryption - try multiple sources
+                let npub = userNpub; // First try the prop
+
+                if (!npub) {
+                  // Try storage
+                  npub = await AsyncStorage.getItem('@runstr:npub');
+                  console.log('Retrieved npub from storage for member removal:', npub?.slice(0, 20) + '...');
+                }
+
+                if (!npub) {
+                  // Try getting from captain ID if it's an npub
+                  if (captainId?.startsWith('npub')) {
+                    npub = captainId;
+                    console.log('Using captainId as npub for member removal:', npub?.slice(0, 20) + '...');
+                  }
+                }
+
+                // Store the npub for future use if we have it
+                if (npub && !userNpub) {
+                  await AsyncStorage.setItem('@runstr:npub', npub);
+                  console.log('Stored npub for future use');
+                }
+
+                if (npub) {
+                  nsec = await getNsecFromStorage(npub);
+
+                  // Store the plain nsec for future use if we retrieved it
+                  if (nsec) {
+                    console.log('Retrieved nsec from encrypted storage for member removal...');
+                    await AsyncStorage.setItem('@runstr:user_nsec', nsec);
+                  }
+                }
+              }
+
               if (!nsec) {
                 throw new Error('Captain credentials not found');
               }
@@ -652,9 +738,9 @@ const styles = StyleSheet.create({
 
   // Kind 30000 List Warning Banner
   listWarningBanner: {
-    backgroundColor: theme.colors.warning || '#332200',
+    backgroundColor: theme.colors.cardBackground,
     borderWidth: 1,
-    borderColor: theme.colors.warningBorder || '#665500',
+    borderColor: theme.colors.border,
     margin: 16,
     marginBottom: 0,
     padding: 16,
@@ -665,19 +751,19 @@ const styles = StyleSheet.create({
   listWarningTitle: {
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.warningText || '#FFB800',
+    color: theme.colors.text,
     marginBottom: 8,
   },
 
   listWarningText: {
     fontSize: 14,
-    color: theme.colors.text,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
     marginBottom: 12,
   },
 
   createListButton: {
-    backgroundColor: theme.colors.warningText || '#FFB800',
+    backgroundColor: theme.colors.accent,
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
@@ -690,7 +776,7 @@ const styles = StyleSheet.create({
   createListButtonText: {
     fontSize: 14,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.background,
+    color: theme.colors.accentText,
   },
 
   // Component styles removed - now handled by individual components

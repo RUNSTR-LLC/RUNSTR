@@ -6,7 +6,7 @@
 
 import NDK, { NDKEvent, NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
 import { NostrListService } from './NostrListService';
-import { TeamMemberCache } from '../../utils/cache/TeamMemberCache';
+import { TeamMemberCache } from '../team/TeamMemberCache';
 import { getTeamListDetector } from '../../utils/teamListDetector';
 import type { NostrEvent } from '../../types/nostr';
 

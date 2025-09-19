@@ -382,12 +382,14 @@ export const createNavigationHandlers = (): NavigationHandlers => {
           teamId: captainTeamId,
           teamName: captainTeamName || 'Team',
           isCaptain: true,
+          userNpub: user.npub,
         });
 
         navigation.navigate('CaptainDashboard', {
           teamId: captainTeamId,
           teamName: captainTeamName || 'Team',
           isCaptain: true,
+          userNpub: user.npub, // Pass userNpub for authentication
         });
 
         console.log('✅ NavigationHandlers: Navigation call completed');

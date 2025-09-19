@@ -79,7 +79,7 @@ type AuthenticatedStackParamList = {
   EnhancedTeamScreen: { team: any; userIsMember?: boolean; currentUserNpub?: string; userIsCaptain?: boolean };
   EventDetail: { eventId: string };
   ChallengeDetail: { challengeId: string };
-  CaptainDashboard: { teamId?: string; teamName?: string; isCaptain?: boolean };
+  CaptainDashboard: { teamId?: string; teamName?: string; isCaptain?: boolean; userNpub?: string };
   HelpSupport: undefined;
   ContactSupport: undefined;
   PrivacyPolicy: undefined;
@@ -167,10 +167,12 @@ const AppContent: React.FC = () => {
                 onCaptainDashboard={() => {
                   console.log('Captain dashboard from EnhancedTeamScreen');
                   console.log('Navigating to CaptainDashboard with team:', team?.id);
+                  console.log('Passing userNpub:', currentUserNpub?.slice(0, 20) + '...');
                   navigation.navigate('CaptainDashboard', {
                     teamId: team?.id,
                     teamName: team?.name,
-                    isCaptain: true
+                    isCaptain: true,
+                    userNpub: currentUserNpub
                   });
                 }}
                 onAddChallenge={() => console.log('Add challenge')}
@@ -230,7 +232,7 @@ const AppContent: React.FC = () => {
           }}
         >
           {({ navigation, route }) => {
-            const { teamId, teamName, isCaptain } = route.params || {};
+            const { teamId, teamName, isCaptain, userNpub } = route.params || {};
             return (
               <CaptainDashboardScreen
                 data={{
@@ -250,6 +252,7 @@ const AppContent: React.FC = () => {
                 }}
                 teamId={teamId || ''}
                 captainId={user.npub || user.id}
+                userNpub={userNpub}
                 onNavigateToTeam={() => navigation.goBack()}
                 onNavigateToProfile={() => navigation.goBack()}
                 onSettingsPress={() => console.log('Settings')}

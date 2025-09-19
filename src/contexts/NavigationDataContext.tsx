@@ -13,6 +13,7 @@ import { CaptainCache } from '../utils/captainCache';
 import { TeamMembershipService } from '../services/team/teamMembershipService';
 import { isTeamCaptainEnhanced } from '../utils/teamUtils';
 import { getUserNostrIdentifiers } from '../utils/nostr';
+import { useAuth } from './AuthContext';
 import type {
   TeamScreenData,
   ProfileScreenData,
@@ -45,6 +46,7 @@ interface NavigationDataProviderProps {
 
 export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({ children }) => {
   console.log('🚀 NavigationDataProvider: Initializing...');
+  const { currentUser } = useAuth();
   const [user, setUser] = useState<UserWithWallet | null>(null);
   const [teamData, setTeamData] = useState<TeamScreenData | null>(null);
   const [profileData, setProfileData] = useState<ProfileScreenData | null>(null);
@@ -75,6 +77,14 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({ 
 
   const fetchUserDataFresh = async (): Promise<UserWithWallet | null> => {
     try {
+      // First check if we have a user from AuthContext
+      if (currentUser) {
+        console.log('✅ NavigationDataProvider: Using currentUser from AuthContext');
+        setUser(currentUser);
+        await appCache.set('nav_user_data', currentUser, 5 * 60 * 1000);
+        return currentUser;
+      }
+
       const fallbackUser = await DirectNostrProfileService.getFallbackProfile();
       if (fallbackUser) {
         setUser(fallbackUser);
@@ -419,6 +429,15 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({ 
       setIsLoading(false);
     }
   };
+
+  // React to changes in currentUser from AuthContext
+  useEffect(() => {
+    if (currentUser) {
+      console.log('🚀 NavigationDataProvider: currentUser changed in AuthContext, refreshing data...');
+      setUser(currentUser);
+      fetchProfileData(currentUser);
+    }
+  }, [currentUser]);
 
   // Initial load
   useEffect(() => {
