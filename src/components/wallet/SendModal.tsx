@@ -190,11 +190,11 @@ export const SendModal: React.FC<SendModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* Amount Input - Show for Cashu and Lightning Address */}
-          {(sendMethod === 'cashu' || (sendMethod === 'lightning' && paymentType === 'address')) && (
+          {/* Amount Input - Show for Cashu and Lightning (hide only for complete invoices) */}
+          {(sendMethod === 'cashu' || (sendMethod === 'lightning' && paymentType !== 'invoice')) && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>
-                Amount {sendMethod === 'lightning' && paymentType === 'address' ? '(Required)' : ''}
+                Amount {sendMethod === 'lightning' && paymentType !== 'invoice' ? '(Required for Lightning address)' : ''}
               </Text>
               <View style={styles.inputContainer}>
                 <TextInput
@@ -214,9 +214,7 @@ export const SendModal: React.FC<SendModalProps> = ({
           {sendMethod === 'lightning' && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>
-                {paymentType === 'invoice' ? 'Lightning Invoice' :
-                 paymentType === 'address' ? 'Lightning Address' :
-                 'Lightning Invoice or Address'}
+                Lightning Invoice or Address
               </Text>
               <TextInput
                 style={styles.textInput}
@@ -228,9 +226,19 @@ export const SendModal: React.FC<SendModalProps> = ({
                 autoCapitalize="none"
                 autoCorrect={false}
               />
+              {recipient && paymentType === 'unknown' && (
+                <Text style={[styles.helperText, { color: theme.colors.error }]}>
+                  Invalid format. Enter a Lightning invoice (lnbc...) or address (user@domain.com)
+                </Text>
+              )}
               {paymentType === 'address' && (
                 <Text style={styles.helperText}>
-                  Enter amount above to request invoice from this address
+                  Lightning address detected. Enter amount above to continue.
+                </Text>
+              )}
+              {paymentType === 'invoice' && (
+                <Text style={[styles.helperText, { color: theme.colors.statusConnected }]}>
+                  Lightning invoice detected. Amount will be taken from invoice.
                 </Text>
               )}
             </View>
@@ -272,13 +280,13 @@ export const SendModal: React.FC<SendModalProps> = ({
               styles.primaryButton,
               (isSending ||
                (sendMethod === 'cashu' && !amount) ||
-               (sendMethod === 'lightning' && (!recipient || (paymentType === 'address' && !amount)))
+               (sendMethod === 'lightning' && (!recipient || (paymentType === 'address' && !amount) || (recipient && paymentType === 'unknown')))
               ) && styles.buttonDisabled,
             ]}
             onPress={handleSend}
             disabled={isSending ||
                      (sendMethod === 'cashu' && !amount) ||
-                     (sendMethod === 'lightning' && (!recipient || (paymentType === 'address' && !amount)))}
+                     (sendMethod === 'lightning' && (!recipient || (paymentType === 'address' && !amount) || (recipient && paymentType === 'unknown')))}
           >
             {isSending ? (
               <ActivityIndicator color={theme.colors.accentText} />

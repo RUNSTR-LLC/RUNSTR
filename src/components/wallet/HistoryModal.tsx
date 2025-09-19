@@ -213,7 +213,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#000000', // Pure black background
   },
 
   header: {
@@ -222,13 +222,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    borderBottomColor: '#1a1a1a', // Dark border
+    backgroundColor: '#000000',
   },
 
   title: {
     fontSize: 20,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
+    color: '#ffffff', // White text
   },
 
   closeButton: {
@@ -253,12 +254,12 @@ const styles = StyleSheet.create({
   transactionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.cardBackground,
+    backgroundColor: '#0a0a0a', // Dark card background
     borderRadius: theme.borderRadius.medium,
     padding: 16,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: '#1a1a1a', // Dark border
   },
 
   transactionIcon: {
@@ -272,19 +273,19 @@ const styles = StyleSheet.create({
   transactionTitle: {
     fontSize: 14,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.text,
+    color: '#ffffff', // White text
     marginBottom: 2,
   },
 
   transactionMemo: {
     fontSize: 12,
-    color: theme.colors.textMuted,
+    color: '#666666', // Muted text
     marginBottom: 2,
   },
 
   transactionTime: {
     fontSize: 11,
-    color: theme.colors.textDark,
+    color: '#999999', // Dark text
   },
 
   transactionAmount: {
@@ -298,13 +299,13 @@ const styles = StyleSheet.create({
 
   amountUnit: {
     fontSize: 11,
-    color: theme.colors.textMuted,
+    color: '#666666', // Muted text
     marginTop: 2,
   },
 
   feeText: {
     fontSize: 10,
-    color: theme.colors.textDark,
+    color: '#999999', // Dark text
     marginTop: 2,
   },
 
@@ -318,14 +319,14 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.text,
+    color: '#ffffff', // White text
     marginTop: 16,
     marginBottom: 8,
   },
 
   emptyText: {
     fontSize: 14,
-    color: theme.colors.textMuted,
+    color: '#666666', // Muted text
     textAlign: 'center',
   },
 });

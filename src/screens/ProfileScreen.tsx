@@ -75,7 +75,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [userNpub, setUserNpub] = useState<string>('');
 
-  const { balance } = useNutzap(true);
+  const { balance, refreshBalance } = useNutzap(true);
 
   // Load notification settings and user npub on mount
   useEffect(() => {
@@ -115,7 +115,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     onEditProfile?.();
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
+    // Refresh balance before opening send modal
+    await refreshBalance();
     setShowSendModal(true);
   };
 
