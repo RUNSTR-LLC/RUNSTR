@@ -121,7 +121,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     setShowSendModal(true);
   };
 
-  const handleReceive = () => {
+  const handleReceive = async () => {
+    // Refresh balance before opening receive modal
+    await refreshBalance();
     setShowReceiveModal(true);
   };
 

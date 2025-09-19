@@ -1010,8 +1010,25 @@ class NutzapService {
    */
   async payLightningInvoice(invoiceOrAddress: string, amountSats?: number, memo?: string): Promise<{ success: boolean; fee?: number; error?: string }> {
     try {
-      if (!this.cashuWallet) {
-        throw new Error('Wallet not initialized');
+      // Check if wallet is initialized, try to initialize if not
+      if (!this.cashuWallet || !this.isInitialized) {
+        console.log('[NutZap] Wallet not initialized, attempting to initialize...');
+        try {
+          await this.initialize();
+        } catch (initError) {
+          console.error('[NutZap] Failed to initialize wallet:', initError);
+          return {
+            success: false,
+            error: 'Wallet not initialized. Please try again.'
+          };
+        }
+
+        if (!this.cashuWallet) {
+          return {
+            success: false,
+            error: 'Unable to initialize wallet. Please check your connection.'
+          };
+        }
       }
 
       let invoice = invoiceOrAddress;
@@ -1095,8 +1112,14 @@ class NutzapService {
    */
   async generateCashuToken(amount: number, memo: string = ''): Promise<string> {
     try {
-      if (!this.cashuWallet) {
-        throw new Error('Wallet not initialized');
+      // Check if wallet is initialized, try to initialize if not
+      if (!this.cashuWallet || !this.isInitialized) {
+        console.log('[NutZap] Wallet not initialized, attempting to initialize...');
+        await this.initialize();
+
+        if (!this.cashuWallet) {
+          throw new Error('Unable to initialize wallet');
+        }
       }
 
       // Load current proofs

@@ -237,7 +237,7 @@ export const SendModal: React.FC<SendModalProps> = ({
                 </Text>
               )}
               {paymentType === 'invoice' && (
-                <Text style={[styles.helperText, { color: theme.colors.statusConnected }]}>
+                <Text style={[styles.helperText, { color: '#4CAF50' }]}>
                   Lightning invoice detected. Amount will be taken from invoice.
                 </Text>
               )}

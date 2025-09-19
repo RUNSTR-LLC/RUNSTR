@@ -89,8 +89,8 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
   };
 
   const getTransactionColor = (type: string): string => {
-    if (type.includes('sent')) return theme.colors.textMuted;
-    return theme.colors.statusConnected;
+    if (type.includes('sent')) return '#999999'; // Gray for sent
+    return '#4CAF50'; // Green for received
   };
 
   const getTransactionTitle = (type: string): string => {
