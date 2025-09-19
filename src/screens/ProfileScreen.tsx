@@ -17,6 +17,7 @@ import { ProfileHeader } from '../components/profile/ProfileHeader';
 import { PersonalWalletSection } from '../components/profile/PersonalWalletSection';
 import { SendModal } from '../components/wallet/SendModal';
 import { ReceiveModal } from '../components/wallet/ReceiveModal';
+import { HistoryModal } from '../components/wallet/HistoryModal';
 import { TabNavigation } from '../components/profile/TabNavigation';
 import { WorkoutsTab } from '../components/profile/WorkoutsTab';
 import { AccountTab } from '../components/profile/AccountTab';
@@ -71,6 +72,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [isLoadingNotificationSettings, setIsLoadingNotificationSettings] = useState(true);
   const [showSendModal, setShowSendModal] = useState(false);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [userNpub, setUserNpub] = useState<string>('');
 
   const { balance } = useNutzap(true);
@@ -122,7 +124,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   };
 
   const handleWalletHistory = () => {
-    onWalletHistory?.();
+    setShowHistoryModal(true);
   };
 
   const handleSyncSourcePress = (provider: string) => {
@@ -278,6 +280,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         onClose={() => setShowReceiveModal(false)}
         currentBalance={balance}
         userNpub={userNpub}
+      />
+
+      {/* History Modal */}
+      <HistoryModal
+        visible={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
       />
     </SafeAreaView>
   );

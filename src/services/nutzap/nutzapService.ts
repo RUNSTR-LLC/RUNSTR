@@ -941,12 +941,101 @@ class NutzapService {
   }
 
   /**
-   * Pay a Lightning invoice using ecash tokens
+   * Fetch Lightning invoice from a Lightning address (LNURL)
    */
-  async payLightningInvoice(invoice: string): Promise<{ success: boolean; fee?: number; error?: string }> {
+  async fetchInvoiceFromLightningAddress(address: string, amountSats: number, memo?: string): Promise<{ invoice: string; error?: string }> {
+    try {
+      console.log(`[NutZap] Fetching invoice from Lightning address: ${address}`);
+
+      // Parse the Lightning address
+      const [username, domain] = address.split('@');
+      if (!username || !domain) {
+        return { invoice: '', error: 'Invalid Lightning address format' };
+      }
+
+      // Construct LNURL endpoint
+      const lnurlEndpoint = `https://${domain}/.well-known/lnurlp/${username}`;
+
+      // Fetch LNURL metadata
+      const response = await fetch(lnurlEndpoint);
+      if (!response.ok) {
+        return { invoice: '', error: 'Lightning address not found' };
+      }
+
+      const lnurlData = await response.json();
+
+      // Check if amount is within limits
+      const minSendable = lnurlData.minSendable ? Math.ceil(lnurlData.minSendable / 1000) : 1;
+      const maxSendable = lnurlData.maxSendable ? Math.floor(lnurlData.maxSendable / 1000) : 1000000;
+
+      if (amountSats < minSendable || amountSats > maxSendable) {
+        return {
+          invoice: '',
+          error: `Amount must be between ${minSendable} and ${maxSendable} sats`
+        };
+      }
+
+      // Request invoice from callback URL
+      const callbackUrl = new URL(lnurlData.callback);
+      callbackUrl.searchParams.set('amount', (amountSats * 1000).toString()); // Convert to millisats
+      if (memo) {
+        callbackUrl.searchParams.set('comment', memo);
+      }
+
+      const invoiceResponse = await fetch(callbackUrl.toString());
+      if (!invoiceResponse.ok) {
+        return { invoice: '', error: 'Failed to get invoice from Lightning address' };
+      }
+
+      const invoiceData = await invoiceResponse.json();
+
+      if (!invoiceData.pr) {
+        return { invoice: '', error: 'No invoice returned from Lightning address' };
+      }
+
+      console.log('[NutZap] Successfully fetched invoice from Lightning address');
+      return { invoice: invoiceData.pr };
+
+    } catch (error) {
+      console.error('[NutZap] Error fetching invoice from Lightning address:', error);
+      return {
+        invoice: '',
+        error: error instanceof Error ? error.message : 'Failed to fetch invoice'
+      };
+    }
+  }
+
+  /**
+   * Pay a Lightning invoice or Lightning address using ecash tokens
+   */
+  async payLightningInvoice(invoiceOrAddress: string, amountSats?: number, memo?: string): Promise<{ success: boolean; fee?: number; error?: string }> {
     try {
       if (!this.cashuWallet) {
         throw new Error('Wallet not initialized');
+      }
+
+      let invoice = invoiceOrAddress;
+
+      // Check if it's a Lightning address (contains @)
+      if (invoiceOrAddress.includes('@')) {
+        if (!amountSats || amountSats <= 0) {
+          return {
+            success: false,
+            error: 'Amount is required for Lightning address payments'
+          };
+        }
+
+        console.log('[NutZap] Detected Lightning address, fetching invoice...');
+        const invoiceResult = await this.fetchInvoiceFromLightningAddress(invoiceOrAddress, amountSats, memo);
+
+        if (invoiceResult.error || !invoiceResult.invoice) {
+          return {
+            success: false,
+            error: invoiceResult.error || 'Failed to fetch invoice from Lightning address'
+          };
+        }
+
+        invoice = invoiceResult.invoice;
       }
 
       console.log('[NutZap] Preparing to pay Lightning invoice...');

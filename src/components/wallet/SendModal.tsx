@@ -29,6 +29,13 @@ interface SendModalProps {
 
 type SendMethod = 'lightning' | 'cashu';
 
+// Helper function to detect payment type
+const detectPaymentType = (input: string): 'invoice' | 'address' | 'unknown' => {
+  if (input.toLowerCase().startsWith('lnbc')) return 'invoice';
+  if (input.includes('@')) return 'address';
+  return 'unknown';
+};
+
 export const SendModal: React.FC<SendModalProps> = ({
   visible,
   onClose,
@@ -37,60 +44,91 @@ export const SendModal: React.FC<SendModalProps> = ({
   const [sendMethod, setSendMethod] = useState<SendMethod>('lightning');
   const [amount, setAmount] = useState('');
   const [recipient, setRecipient] = useState('');
+  const [paymentType, setPaymentType] = useState<'invoice' | 'address' | 'unknown'>('unknown');
+  const [isLoadingInvoice, setIsLoadingInvoice] = useState(false);
   const [memo, setMemo] = useState('');
   const [generatedToken, setGeneratedToken] = useState('');
   const [isSending, setIsSending] = useState(false);
 
+  // Handle recipient input changes
+  const handleRecipientChange = (text: string) => {
+    setRecipient(text);
+    setPaymentType(detectPaymentType(text));
+  };
+
   const handleSend = async () => {
-    const sats = parseInt(amount);
-    if (isNaN(sats) || sats <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid amount in sats.');
-      return;
-    }
+    if (sendMethod === 'lightning') {
+      const type = detectPaymentType(recipient);
 
-    if (sats > currentBalance) {
-      Alert.alert('Insufficient Balance', `You only have ${currentBalance} sats available.`);
-      return;
-    }
+      if (type === 'unknown') {
+        Alert.alert('Invalid Input', 'Please enter a Lightning invoice (lnbc...) or Lightning address (user@domain.com)');
+        return;
+      }
 
-    setIsSending(true);
-
-    try {
-      if (sendMethod === 'lightning') {
-        // Pay Lightning invoice
-        if (!recipient || !recipient.toLowerCase().startsWith('lnbc')) {
-          Alert.alert('Invalid Invoice', 'Please enter a valid Lightning invoice.');
-          setIsSending(false);
+      // For Lightning address, amount is required
+      if (type === 'address') {
+        const sats = parseInt(amount);
+        if (isNaN(sats) || sats <= 0) {
+          Alert.alert('Amount Required', 'Please enter an amount for Lightning address payment.');
           return;
         }
 
-        const result = await nutzapService.payLightningInvoice(recipient);
+        if (sats > currentBalance) {
+          Alert.alert('Insufficient Balance', `You only have ${currentBalance} sats available.`);
+          return;
+        }
+      }
+
+      setIsSending(true);
+
+      try {
+        const sats = parseInt(amount) || 0;
+        const result = await nutzapService.payLightningInvoice(recipient, sats > 0 ? sats : undefined, memo);
 
         if (result.success) {
           Alert.alert(
             'Payment Sent!',
-            `Lightning invoice paid successfully${result.fee ? `\nFee: ${result.fee} sats` : ''}`,
+            `Payment successful${result.fee ? `\nFee: ${result.fee} sats` : ''}`,
             [{ text: 'OK', onPress: handleClose }]
           );
         } else {
-          Alert.alert('Payment Failed', result.error || 'Failed to pay invoice');
+          Alert.alert('Payment Failed', result.error || 'Failed to process payment');
         }
 
-      } else if (sendMethod === 'cashu') {
-        // Generate E-cash token
-        const token = await nutzapService.generateCashuToken(sats, memo);
-        setGeneratedToken(token);
-        Alert.alert(
-          'Token Generated!',
-          'E-cash token has been generated. Share it with the recipient.',
-          [{ text: 'OK' }]
-        );
+      } catch (error) {
+        console.error('Send error:', error);
+        Alert.alert('Error', 'Failed to complete transaction. Please try again.');
+      } finally {
+        setIsSending(false);
       }
-    } catch (error) {
-      console.error('Send error:', error);
-      Alert.alert('Error', 'Failed to complete transaction. Please try again.');
-    } finally {
-      setIsSending(false);
+    } else if (sendMethod === 'cashu') {
+        // Generate E-cash token
+        const sats = parseInt(amount);
+        if (isNaN(sats) || sats <= 0) {
+          Alert.alert('Invalid Amount', 'Please enter a valid amount in sats.');
+          return;
+        }
+
+        if (sats > currentBalance) {
+          Alert.alert('Insufficient Balance', `You only have ${currentBalance} sats available.`);
+          return;
+        }
+
+        setIsSending(true);
+        try {
+          const token = await nutzapService.generateCashuToken(sats, memo);
+          setGeneratedToken(token);
+          Alert.alert(
+            'Token Generated!',
+            'E-cash token has been generated. Share it with the recipient.',
+            [{ text: 'OK' }]
+          );
+        } catch (error) {
+          console.error('Send error:', error);
+          Alert.alert('Error', 'Failed to generate token. Please try again.');
+        } finally {
+          setIsSending(false);
+        }
     }
   };
 
@@ -152,34 +190,49 @@ export const SendModal: React.FC<SendModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* Amount Input */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Amount</Text>
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.amountInput}
-                value={amount}
-                onChangeText={setAmount}
-                keyboardType="numeric"
-                placeholder="0"
-                placeholderTextColor={theme.colors.textMuted}
-              />
-              <Text style={styles.unitText}>sats</Text>
+          {/* Amount Input - Show for Cashu and Lightning Address */}
+          {(sendMethod === 'cashu' || (sendMethod === 'lightning' && paymentType === 'address')) && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                Amount {sendMethod === 'lightning' && paymentType === 'address' ? '(Required)' : ''}
+              </Text>
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.amountInput}
+                  value={amount}
+                  onChangeText={setAmount}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={theme.colors.textMuted}
+                />
+                <Text style={styles.unitText}>sats</Text>
+              </View>
             </View>
-          </View>
+          )}
 
           {/* Recipient/Invoice Input */}
           {sendMethod === 'lightning' && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Lightning Invoice</Text>
+              <Text style={styles.sectionTitle}>
+                {paymentType === 'invoice' ? 'Lightning Invoice' :
+                 paymentType === 'address' ? 'Lightning Address' :
+                 'Lightning Invoice or Address'}
+              </Text>
               <TextInput
                 style={styles.textInput}
                 value={recipient}
-                onChangeText={setRecipient}
-                placeholder='lnbc...'
+                onChangeText={handleRecipientChange}
+                placeholder='lnbc... or user@domain.com'
                 placeholderTextColor={theme.colors.textMuted}
-                multiline
+                multiline={paymentType === 'invoice'}
+                autoCapitalize="none"
+                autoCorrect={false}
               />
+              {paymentType === 'address' && (
+                <Text style={styles.helperText}>
+                  Enter amount above to request invoice from this address
+                </Text>
+              )}
             </View>
           )}
 
@@ -217,10 +270,15 @@ export const SendModal: React.FC<SendModalProps> = ({
           <TouchableOpacity
             style={[
               styles.primaryButton,
-              (isSending || !amount || (sendMethod !== 'cashu' && !recipient)) && styles.buttonDisabled,
+              (isSending ||
+               (sendMethod === 'cashu' && !amount) ||
+               (sendMethod === 'lightning' && (!recipient || (paymentType === 'address' && !amount)))
+              ) && styles.buttonDisabled,
             ]}
             onPress={handleSend}
-            disabled={isSending || !amount || (sendMethod !== 'cashu' && !recipient)}
+            disabled={isSending ||
+                     (sendMethod === 'cashu' && !amount) ||
+                     (sendMethod === 'lightning' && (!recipient || (paymentType === 'address' && !amount)))}
           >
             {isSending ? (
               <ActivityIndicator color={theme.colors.accentText} />
@@ -418,5 +476,11 @@ const styles = StyleSheet.create({
 
   buttonDisabled: {
     opacity: 0.5,
+  },
+
+  helperText: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginTop: 8,
   },
 });
