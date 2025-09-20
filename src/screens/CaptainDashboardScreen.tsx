@@ -125,38 +125,54 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
 
   const checkForKind30000List = async () => {
     try {
+      console.log(`🔍 [CaptainDashboard] Checking for kind 30000 list...`);
+      console.log(`  Team ID: ${teamId}`);
+      console.log(`  Captain ID: ${captainId?.slice(0, 20)}... (${captainId?.startsWith('npub') ? 'npub' : 'hex'})`);
+
       const detector = getTeamListDetector();
       const haslist = await detector.hasKind30000List(teamId, captainId);
+      console.log(`  Detector result: ${haslist}`);
 
       if (!haslist) {
         // Also check if there's a cached list locally
+        console.log(`  No list found via detector, checking cache...`);
         const memberCache = TeamMemberCache.getInstance();
         const cachedMembers = await memberCache.getTeamMembers(teamId, captainId);
         if (cachedMembers && cachedMembers.length > 0) {
-          console.log(`Found ${cachedMembers.length} cached members for team ${teamId}`);
+          console.log(`  ✅ Found ${cachedMembers.length} cached members for team ${teamId}`);
           setHasKind30000List(true);
           setTeamMembers(cachedMembers);
           return;
         }
+        console.log(`  ❌ No cached members found`);
       }
 
       setHasKind30000List(haslist);
-      console.log(`Team ${teamId} has kind 30000 list: ${haslist}`);
+      console.log(`📊 [CaptainDashboard] Final result: Team ${teamId} has kind 30000 list: ${haslist}`);
     } catch (error) {
-      console.error('Error checking for kind 30000 list:', error);
+      console.error('❌ [CaptainDashboard] Error checking for kind 30000 list:', error);
       setHasKind30000List(false);
     }
   };
 
   const loadTeamMembers = async () => {
     try {
+      console.log(`👥 [CaptainDashboard] Loading team members...`);
+      console.log(`  Team ID: ${teamId}`);
+      console.log(`  Captain ID: ${captainId?.slice(0, 20)}... (${captainId?.startsWith('npub') ? 'npub' : 'hex'})`);
+
       setIsLoadingMembers(true);
       const memberCache = TeamMemberCache.getInstance();
       const members = await memberCache.getTeamMembers(teamId, captainId);
+
+      console.log(`  ✅ Loaded ${members.length} members for team ${teamId}`);
+      if (members.length > 0) {
+        console.log(`  First member: ${members[0].slice(0, 20)}... (${members[0].startsWith('npub') ? 'npub' : 'hex'})`);
+      }
+
       setTeamMembers(members);
-      console.log(`Loaded ${members.length} members for team ${teamId}`);
     } catch (error) {
-      console.error('Error loading team members:', error);
+      console.error('❌ [CaptainDashboard] Error loading team members:', error);
     } finally {
       setIsLoadingMembers(false);
     }
@@ -482,7 +498,8 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
       {/* Status Bar */}
 
       {/* Show banner if team doesn't have kind 30000 list */}
-      {hasKind30000List === false && (
+      {/* Only show setup banner when truly no list AND no cached members */}
+      {hasKind30000List === false && teamMembers.length === 0 && (
         <View style={styles.listWarningBanner}>
           <Text style={styles.listWarningTitle}>⚠️ Team Setup Required</Text>
           <Text style={styles.listWarningText}>
@@ -539,7 +556,8 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
         <View style={styles.managementSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Team Members</Text>
-            {hasKind30000List && (
+            {/* Show Add Member button if list exists OR if members are loaded */}
+            {(hasKind30000List === true || teamMembers.length > 0) && (
               <TouchableOpacity
                 style={styles.addMemberButton}
                 onPress={() => setShowAddMemberModal(true)}

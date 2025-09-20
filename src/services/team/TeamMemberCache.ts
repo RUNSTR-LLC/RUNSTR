@@ -82,7 +82,21 @@ export class TeamMemberCache {
    * Get team members with caching
    */
   async getTeamMembers(teamId: string, captainPubkey: string): Promise<string[]> {
-    const cacheKey = this.getCacheKey(teamId, captainPubkey);
+    // Normalize captain pubkey to hex for consistent caching
+    let hexCaptainPubkey = captainPubkey;
+    if (captainPubkey.startsWith('npub')) {
+      try {
+        const { nip19 } = await import('@nostr-dev-kit/ndk');
+        const decoded = nip19.decode(captainPubkey);
+        hexCaptainPubkey = decoded.data as string;
+        console.log(`🔄 TeamMemberCache: Converted captain npub to hex for caching`);
+      } catch (error) {
+        console.error(`❌ TeamMemberCache: Failed to convert npub to hex:`, error);
+        // Continue with original key if conversion fails
+      }
+    }
+
+    const cacheKey = this.getCacheKey(teamId, hexCaptainPubkey);
 
     // Check memory cache first
     const cached = this.memoryCache.get(cacheKey);
@@ -91,7 +105,7 @@ export class TeamMemberCache {
       return cached.members;
     }
 
-    // Fetch from Nostr
+    // Fetch from Nostr (pass original captainPubkey as NostrListService handles conversion)
     console.log(`🔄 Fetching fresh member list for team ${teamId}`);
     const members = await this.fetchAndCacheMembers(teamId, captainPubkey);
 

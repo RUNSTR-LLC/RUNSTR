@@ -114,7 +114,22 @@ export class NostrListService {
    * Get a specific list by author and dTag
    */
   async getList(authorPubkey: string, dTag: string): Promise<NostrList | null> {
-    const listId = `${authorPubkey}:${dTag}`;
+    // Convert npub to hex if needed (Nostr relays expect hex format)
+    let hexAuthorPubkey = authorPubkey;
+    if (authorPubkey.startsWith('npub')) {
+      try {
+        // Import nip19 from NDK for npub/hex conversion
+        const { nip19 } = await import('@nostr-dev-kit/ndk');
+        const decoded = nip19.decode(authorPubkey);
+        hexAuthorPubkey = decoded.data as string;
+        console.log(`🔄 Converted npub to hex: ${authorPubkey.slice(0, 20)}... → ${hexAuthorPubkey.slice(0, 20)}...`);
+      } catch (error) {
+        console.error(`❌ Failed to convert npub to hex:`, error);
+        return null;
+      }
+    }
+
+    const listId = `${hexAuthorPubkey}:${dTag}`;
 
     // Check cache first
     if (this.cachedLists.has(listId)) {
@@ -123,12 +138,13 @@ export class NostrListService {
     }
 
     console.log(`🔍 Fetching list from relays: ${listId}`);
+    console.log(`📋 Using hex pubkey: ${hexAuthorPubkey.slice(0, 20)}...`);
 
     try {
       const filters: NostrFilter[] = [
         {
           kinds: [30000, 30001],
-          authors: [authorPubkey],
+          authors: [hexAuthorPubkey], // Use hex format for query
           '#d': [dTag],
           limit: 1,
         },
@@ -185,13 +201,26 @@ export class NostrListService {
     dTag: string,
     callback: (updatedList: NostrList) => void
   ): Promise<string> {
-    const listId = `${authorPubkey}:${dTag}`;
+    // Convert npub to hex if needed
+    let hexAuthorPubkey = authorPubkey;
+    if (authorPubkey.startsWith('npub')) {
+      try {
+        const { nip19 } = await import('@nostr-dev-kit/ndk');
+        const decoded = nip19.decode(authorPubkey);
+        hexAuthorPubkey = decoded.data as string;
+      } catch (error) {
+        console.error(`❌ Failed to convert npub to hex for subscription:`, error);
+        throw error;
+      }
+    }
+
+    const listId = `${hexAuthorPubkey}:${dTag}`;
     console.log(`🔔 Subscribing to list updates: ${listId}`);
 
     const filters: NostrFilter[] = [
       {
         kinds: [30000, 30001],
-        authors: [authorPubkey],
+        authors: [hexAuthorPubkey], // Use hex format
         '#d': [dTag],
       },
     ];

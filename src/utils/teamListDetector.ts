@@ -52,7 +52,7 @@ export class TeamListDetector {
    * Extract member pubkeys from a kind 30000 list
    */
   extractMembers(list: NostrEvent): string[] {
-    if (!list || list.kind !== 30000) {
+    if (!list || list.kind !== 30000 || !list.tags) {
       return [];
     }
 
