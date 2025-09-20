@@ -11,7 +11,7 @@ import type {
 } from '../../types';
 import { NostrAuthProvider } from './providers/nostrAuthProvider';
 import { AppleAuthProvider } from './providers/appleAuthProvider';
-import { storeNsecLocally } from '../../utils/nostr';
+import { storeAuthenticationData } from '../../utils/nostrAuth';
 
 export class AuthService {
   /**
@@ -114,9 +114,15 @@ export class AuthService {
         };
       }
 
-      // Store the generated Nostr keys locally (use npub as userId)
-      await storeNsecLocally(userData.nsec, userData.npub);
-      console.log('AuthService: Stored Apple-generated Nostr keys');
+      // Store the generated Nostr keys using unified auth system with verification
+      const stored = await storeAuthenticationData(userData.nsec, userData.npub);
+      if (!stored) {
+        return {
+          success: false,
+          error: 'Failed to save authentication credentials',
+        };
+      }
+      console.log('AuthService: ✅ Stored and verified Apple-generated Nostr keys');
 
       // Load the user profile using the generated Nostr identity
       const { DirectNostrProfileService } = await import('../user/directNostrProfileService');
