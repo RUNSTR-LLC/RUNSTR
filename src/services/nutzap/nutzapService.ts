@@ -302,6 +302,54 @@ class NutzapService {
   }
 
   /**
+   * Fetch wallet from Nostr - returns null if not found
+   */
+  private async fetchWalletFromNostr(): Promise<WalletState | null> {
+    if (!this.ndk || !this.userPubkey) return null;
+
+    try {
+      console.log('[NutZap] Querying Nostr for existing wallet events...');
+
+      // Query for wallet info events (NIP-60)
+      const walletEvents = await this.ndk.fetchEvents({
+        kinds: [EVENT_KINDS.WALLET_INFO as NDKKind],
+        authors: [this.userPubkey],
+        '#d': ['nutzap-wallet']
+      });
+
+      if (walletEvents.size > 0) {
+        const walletEvent = Array.from(walletEvents)[0];
+        const content = JSON.parse(walletEvent.content);
+        console.log('[NutZap] Found wallet event:', content);
+
+        // Load any local proofs we might have cached
+        const proofsStr = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PROOFS);
+        const proofs = proofsStr ? JSON.parse(proofsStr) : [];
+        const balance = proofs.reduce((sum: number, p: Proof) => sum + p.amount, 0);
+
+        // Store mint URL from Nostr event
+        const mintUrl = content.mints?.[0] || DEFAULT_MINTS[0];
+        await AsyncStorage.setItem(STORAGE_KEYS.WALLET_MINT, mintUrl);
+
+        return {
+          balance,
+          mint: mintUrl,
+          proofs,
+          pubkey: this.userPubkey,
+          created: false
+        };
+      }
+
+      console.log('[NutZap] No wallet events found on Nostr for user');
+      return null;
+
+    } catch (error) {
+      console.error('[NutZap] Error fetching wallet from Nostr:', error);
+      return null;
+    }
+  }
+
+  /**
    * Ensure user has a wallet (check Nostr for existing or create new)
    */
   private async ensureWallet(): Promise<WalletState> {
@@ -309,17 +357,12 @@ class NutzapService {
 
     console.log('[NutZap] Checking for existing wallet...');
 
-    // Query for existing wallet info events
-    const walletEvents = await this.ndk.fetchEvents({
-      kinds: [EVENT_KINDS.WALLET_INFO as NDKKind],
-      authors: [this.userPubkey],
-      '#d': ['nutzap-wallet']
-    });
+    // Use the new fetchWalletFromNostr method
+    const existingWallet = await this.fetchWalletFromNostr();
 
-    if (walletEvents.size > 0) {
-      console.log('[NutZap] Found existing wallet event');
-      // Load existing wallet
-      return await this.loadWallet(Array.from(walletEvents)[0]);
+    if (existingWallet) {
+      console.log('[NutZap] Found existing wallet');
+      return existingWallet;
     } else {
       console.log('[NutZap] No wallet found, creating new one...');
       // Create new wallet
