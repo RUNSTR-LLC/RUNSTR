@@ -217,22 +217,15 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
       console.log('[Captain] ✅ Authentication retrieved successfully');
       console.log('[Captain] Using npub:', authData.npub.slice(0, 20) + '...');
 
-      // Create NDK signer with the nsec
-      const signer = new NDKPrivateKeySigner(authData.nsec);
-      const privateKey = await signer.privateKey();
-
-      if (!privateKey) {
-        throw new Error('Failed to extract private key from nsec');
-      }
-
-      console.log('[Captain] Successfully extracted private key using NDK');
+      console.log('[Captain] Using nsec directly for member list creation');
 
       // Create kind 30000 list for this team
+      // NostrTeamCreationService will create its own NDKPrivateKeySigner internally
       const result = await NostrTeamCreationService.createMemberListForExistingTeam(
         teamId,
         data.team.name,
         authData.hexPubkey, // Use the captain's hex pubkey from auth data
-        privateKey
+        authData.nsec // Pass nsec directly - the service will handle conversion
       );
 
       if (result.success) {
@@ -294,21 +287,21 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
                 throw new Error('Captain credentials not found. Please log in again.');
               }
 
-              // Use NDK for consistent key handling
-              const signer = new NDKPrivateKeySigner(authData.nsec);
-              const privateKey = await signer.privateKey();
+              console.log('[Captain] Using nsec directly for member removal');
 
-              if (!privateKey) {
+              // Convert nsec to hex private key for signing
+              const signer = new NDKPrivateKeySigner(authData.nsec);
+              const privateKeyHex = signer.privateKey; // Access as property, not method
+
+              if (!privateKeyHex) {
                 throw new Error('Failed to extract private key');
               }
-
-              console.log('[Captain] Successfully extracted private key for member removal');
 
               // Sign and publish the updated list
               const protocolHandler = new NostrProtocolHandler();
               const relayManager = new NostrRelayManager();
 
-              const signedEvent = await protocolHandler.signEvent(eventTemplate, privateKey);
+              const signedEvent = await protocolHandler.signEvent(eventTemplate, privateKeyHex);
               const publishResult = await relayManager.publishEvent(signedEvent);
 
               if (publishResult.successful && publishResult.successful.length > 0) {
