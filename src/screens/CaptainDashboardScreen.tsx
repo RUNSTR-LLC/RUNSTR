@@ -13,6 +13,8 @@ import {
   StyleSheet,
   SafeAreaView,
   Alert,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { theme } from '../styles/theme';
 import { BottomNavigation } from '../components/ui/BottomNavigation';
@@ -93,10 +95,19 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
   const [hasKind30000List, setHasKind30000List] = useState<boolean | null>(null);
   const [isCreatingList, setIsCreatingList] = useState(false);
 
-  // Check if team has kind 30000 list on mount
+  // Member management state
+  const [teamMembers, setTeamMembers] = useState<string[]>([]);
+  const [isLoadingMembers, setIsLoadingMembers] = useState(false);
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [newMemberNpub, setNewMemberNpub] = useState('');
+
+  // Check if team has kind 30000 list on mount and load members
   React.useEffect(() => {
     checkForKind30000List();
-  }, [teamId, captainId]);
+    if (hasKind30000List) {
+      loadTeamMembers();
+    }
+  }, [teamId, captainId, hasKind30000List]);
 
   const checkForKind30000List = async () => {
     try {
@@ -107,6 +118,20 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
     } catch (error) {
       console.error('Error checking for kind 30000 list:', error);
       setHasKind30000List(false);
+    }
+  };
+
+  const loadTeamMembers = async () => {
+    try {
+      setIsLoadingMembers(true);
+      const memberCache = TeamMemberCache.getInstance();
+      const members = await memberCache.getTeamMembers(teamId, captainId);
+      setTeamMembers(members);
+      console.log(`Loaded ${members.length} members for team ${teamId}`);
+    } catch (error) {
+      console.error('Error loading team members:', error);
+    } finally {
+      setIsLoadingMembers(false);
     }
   };
 
@@ -230,6 +255,8 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
 
       if (result.success) {
         setHasKind30000List(true);
+        // Reload members after creating the list
+        await loadTeamMembers();
         Alert.alert(
           'Success',
           'Team member list created! You can now run competitions and manage members.'
@@ -312,6 +339,9 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
                 const updatedMembers = currentList.members.filter(m => m !== memberPubkey);
                 listService.updateCachedList(listId, updatedMembers);
 
+                // Update local state
+                setTeamMembers(prevMembers => prevMembers.filter(m => m !== memberPubkey));
+
                 // Invalidate team member cache to force refresh
                 const memberCache = TeamMemberCache.getInstance();
                 memberCache.invalidateTeam(teamId, captainId);
@@ -329,6 +359,86 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
       ]
     );
   };
+
+  // Add member to team
+  const handleAddMember = async () => {
+    if (!newMemberNpub.trim()) {
+      Alert.alert('Error', 'Please enter a member npub or hex pubkey');
+      return;
+    }
+
+    try {
+      // Get authentication data
+      const authData = await getAuthenticationData();
+      if (!authData) {
+        Alert.alert('Authentication Required', 'Please re-authenticate to add members.');
+        return;
+      }
+
+      // Get current members
+      const listService = NostrListService.getInstance();
+      const memberListDTag = `${teamId}-members`;
+      const currentList = await listService.getList(captainId, memberListDTag);
+
+      if (!currentList) {
+        Alert.alert('Error', 'Member list not found. Please create a member list first.');
+        return;
+      }
+
+      // Check if member already exists
+      if (currentList.members.includes(newMemberNpub)) {
+        Alert.alert('Info', 'This member is already part of the team');
+        return;
+      }
+
+      // Prepare event template to add member
+      const eventTemplate = listService.prepareAddMember(
+        captainId,
+        memberListDTag,
+        newMemberNpub,
+        currentList
+      );
+
+      if (!eventTemplate) {
+        Alert.alert('Info', 'Failed to prepare member addition');
+        return;
+      }
+
+      // Convert nsec to hex private key for signing
+      const signer = new NDKPrivateKeySigner(authData.nsec);
+      const privateKeyHex = signer.privateKey; // Access as property, not method
+
+      if (!privateKeyHex) {
+        throw new Error('Failed to extract private key');
+      }
+
+      // Sign and publish the updated list
+      const protocolHandler = new NostrProtocolHandler();
+      const relayManager = new NostrRelayManager();
+
+      const signedEvent = await protocolHandler.signEvent(eventTemplate, privateKeyHex);
+      const publishResult = await relayManager.publishEvent(signedEvent);
+
+      if (publishResult.successful && publishResult.successful.length > 0) {
+        // Update local state
+        setTeamMembers([...teamMembers, newMemberNpub]);
+        setNewMemberNpub('');
+        setShowAddMemberModal(false);
+
+        // Invalidate cache
+        const memberCache = TeamMemberCache.getInstance();
+        memberCache.invalidateTeam(teamId, captainId);
+
+        Alert.alert('Success', 'Member added to the team successfully');
+      } else {
+        throw new Error('Failed to publish member list update');
+      }
+    } catch (error) {
+      console.error('Failed to add member:', error);
+      Alert.alert('Error', 'Failed to add member. Please try again.');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Status Bar */}
@@ -391,40 +501,86 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
         <View style={styles.managementSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Team Members</Text>
+            {hasKind30000List && (
+              <TouchableOpacity
+                style={styles.addMemberButton}
+                onPress={() => setShowAddMemberModal(true)}
+              >
+                <Text style={styles.addMemberButtonText}>+ Add Member</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           <ScrollView
             style={styles.membersList}
             showsVerticalScrollIndicator={false}
           >
-            {data.members && data.members.length > 0 ? data.members.slice(0, 4).map((member) => (
-              <View key={member.id} style={styles.memberItem}>
-                <View style={styles.memberInfo}>
-                  <View style={styles.memberAvatar}>
-                    <Text style={styles.memberAvatarText}>
-                      {member.name ? member.name.charAt(0).toUpperCase() : '?'}
-                    </Text>
-                  </View>
-                  <View style={styles.memberDetails}>
-                    <Text style={styles.memberName}>{member.name}</Text>
-                    <Text style={styles.memberStatus}>
-                      {member.status === 'active'
-                        ? `Active • ${member.eventCount} events`
-                        : `Inactive • ${member.inactiveDays} days`}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.memberActions}>
-                  <TouchableOpacity
-                    style={styles.miniBtn}
-                    onPress={() => handleRemoveMember(member.id)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.miniBtnText}>Remove</Text>
-                  </TouchableOpacity>
-                </View>
+            {isLoadingMembers ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>Loading members...</Text>
               </View>
-            )) : (
+            ) : teamMembers.length > 0 ? (
+              teamMembers.map((memberPubkey, index) => (
+                <View key={memberPubkey} style={styles.memberItem}>
+                  <View style={styles.memberInfo}>
+                    <View style={styles.memberAvatar}>
+                      <Text style={styles.memberAvatarText}>
+                        {memberPubkey.startsWith('npub') ? 'N' : 'H'}
+                      </Text>
+                    </View>
+                    <View style={styles.memberDetails}>
+                      <Text style={styles.memberName}>
+                        {memberPubkey.slice(0, 16)}...
+                      </Text>
+                      <Text style={styles.memberStatus}>
+                        {index === 0 ? 'Captain' : 'Member'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.memberActions}>
+                    {index !== 0 && ( // Don't allow removing the captain
+                      <TouchableOpacity
+                        style={styles.miniBtn}
+                        onPress={() => handleRemoveMember(memberPubkey)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.miniBtnText}>Remove</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              ))
+            ) : data.members && data.members.length > 0 ? (
+              // Fallback to data.members if teamMembers not loaded
+              data.members.slice(0, 4).map((member) => (
+                <View key={member.id} style={styles.memberItem}>
+                  <View style={styles.memberInfo}>
+                    <View style={styles.memberAvatar}>
+                      <Text style={styles.memberAvatarText}>
+                        {member.name ? member.name.charAt(0).toUpperCase() : '?'}
+                      </Text>
+                    </View>
+                    <View style={styles.memberDetails}>
+                      <Text style={styles.memberName}>{member.name}</Text>
+                      <Text style={styles.memberStatus}>
+                        {member.status === 'active'
+                          ? `Active • ${member.eventCount} events`
+                          : `Inactive • ${member.inactiveDays} days`}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.memberActions}>
+                    <TouchableOpacity
+                      style={styles.miniBtn}
+                      onPress={() => handleRemoveMember(member.id)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.miniBtnText}>Remove</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))
+            ) : (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyStateText}>No team members yet</Text>
               </View>
@@ -479,6 +635,49 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
         onClose={handleCloseLeagueWizard}
         onLeagueCreated={handleLeagueCreated}
       />
+
+      {/* Add Member Modal */}
+      <Modal
+        visible={showAddMemberModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowAddMemberModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Add Team Member</Text>
+            <Text style={styles.modalDescription}>
+              Enter the npub or hex pubkey of the member to add
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="npub1... or hex pubkey"
+              placeholderTextColor={theme.colors.secondary}
+              value={newMemberNpub}
+              onChangeText={setNewMemberNpub}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonSecondary]}
+                onPress={() => {
+                  setShowAddMemberModal(false);
+                  setNewMemberNpub('');
+                }}
+              >
+                <Text style={styles.modalButtonTextSecondary}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonPrimary]}
+                onPress={handleAddMember}
+              >
+                <Text style={styles.modalButtonText}>Add Member</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -744,6 +943,93 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: theme.typography.weights.semiBold,
     color: theme.colors.accentText,
+  },
+
+  // Add member button
+  addMemberButton: {
+    backgroundColor: theme.colors.accent,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+  },
+
+  addMemberButtonText: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.accentText,
+  },
+
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  modalContent: {
+    backgroundColor: theme.colors.card,
+    borderRadius: 12,
+    padding: 20,
+    width: '90%',
+    maxWidth: 400,
+  },
+
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+    marginBottom: 8,
+  },
+
+  modalDescription: {
+    fontSize: 14,
+    color: theme.colors.secondary,
+    marginBottom: 20,
+  },
+
+  modalInput: {
+    backgroundColor: theme.colors.background,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: theme.colors.text,
+    marginBottom: 20,
+  },
+
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+
+  modalButtonPrimary: {
+    backgroundColor: theme.colors.accent,
+  },
+
+  modalButtonSecondary: {
+    backgroundColor: theme.colors.border,
+  },
+
+  modalButtonText: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.accentText,
+  },
+
+  modalButtonTextSecondary: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.text,
   },
 
   // Component styles removed - now handled by individual components

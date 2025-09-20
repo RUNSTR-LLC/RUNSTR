@@ -11,6 +11,7 @@ import coinosService from '../services/coinosService';
 import { appCache } from '../utils/cache';
 import { CaptainCache } from '../utils/captainCache';
 import { TeamMembershipService } from '../services/team/teamMembershipService';
+import { TeamMemberCache } from '../services/team/TeamMemberCache';
 import { isTeamCaptainEnhanced } from '../utils/teamUtils';
 import { getUserNostrIdentifiers } from '../utils/nostr';
 import type {
@@ -417,16 +418,36 @@ export const useNavigationData = (): NavigationData => {
     if (!user || user.role !== 'captain') return;
 
     try {
+      // Get captain's team info from local storage or context
+      const teamId = user.currentTeamId || user.teamId || 'team_default';
+      const captainHexPubkey = user.pubkey || user.id;
+
+      // Try to load members from kind 30000 list
+      let members: string[] = [];
+      try {
+        const memberCache = TeamMemberCache.getInstance();
+        members = await memberCache.getTeamMembers(teamId, captainHexPubkey);
+        console.log(`Loaded ${members.length} members for captain dashboard`);
+      } catch (error) {
+        console.log('Could not load members from cache:', error);
+      }
+
       const dashboardData: CaptainDashboardData = {
         team: {
-          id: 'team_default',
-          name: 'Loading...',
-          memberCount: 0,
+          id: teamId,
+          name: user.teamName || 'My Team',
+          memberCount: members.length,
           activeEvents: 0,
           activeChallenges: 0,
           prizePool: 0,
         },
-        members: [],
+        members: members.map((pubkey, index) => ({
+          id: pubkey,
+          name: pubkey.slice(0, 8) + '...',
+          status: 'active' as const,
+          eventCount: 0,
+          inactiveDays: 0,
+        })),
         recentActivity: [],
       };
 
