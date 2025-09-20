@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { UnifiedCacheService } from '../services/cache/UnifiedCacheService';
 import { CacheInvalidator } from '../services/cache/CacheInvalidator';
 import { TeamMemberCache } from '../services/team/TeamMemberCache';
-import { NostrProfileService } from '../services/nostr/NostrProfileService';
+import { nostrProfileService } from '../services/nostr/NostrProfileService';
 import { NostrTeamService } from '../services/nostr/NostrTeamService';
 import leagueRankingService, {
   LeagueRankingEntry,
@@ -220,16 +220,14 @@ export function useNostrProfile(npub: string | null | undefined) {
         ? await UnifiedCacheService.forceFetch(
             cacheKey,
             async () => {
-              const service = NostrProfileService.getInstance();
-              return service.getProfile(npub);
+              return nostrProfileService.getProfile(npub);
             },
             'profiles'
           )
         : await UnifiedCacheService.fetch(
             cacheKey,
             async () => {
-              const service = NostrProfileService.getInstance();
-              return service.getProfile(npub);
+              return nostrProfileService.getProfile(npub);
             },
             'profiles'
           );

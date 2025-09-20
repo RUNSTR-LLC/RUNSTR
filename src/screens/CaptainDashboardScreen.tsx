@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { theme } from '../styles/theme';
 import { BottomNavigation } from '../components/ui/BottomNavigation';
+import { ZappableUserRow } from '../components/ui/ZappableUserRow';
 import { QuickActionsSection } from '../components/team/QuickActionsSection';
 import { ActivityFeedSection } from '../components/team/ActivityFeedSection';
 import { JoinRequestsSection } from '../components/team/JoinRequestsSection';
@@ -678,19 +679,17 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
               teamMembers.map((memberPubkey, index) => (
                 <View key={memberPubkey} style={styles.memberItem}>
                   <View style={styles.memberInfo}>
-                    <View style={styles.memberAvatar}>
-                      <Text style={styles.memberAvatarText}>
-                        {memberPubkey.startsWith('npub') ? 'N' : 'H'}
-                      </Text>
-                    </View>
-                    <View style={styles.memberDetails}>
-                      <Text style={styles.memberName}>
-                        {memberPubkey.slice(0, 16)}...
-                      </Text>
-                      <Text style={styles.memberStatus}>
-                        {index === 0 ? 'Captain' : 'Member'}
-                      </Text>
-                    </View>
+                    <ZappableUserRow
+                      npub={memberPubkey}
+                      fallbackName={index === 0 ? 'Captain' : `Member ${index}`}
+                      additionalContent={
+                        <Text style={styles.memberStatus}>
+                          {index === 0 ? 'Captain' : 'Member'}
+                        </Text>
+                      }
+                      showQuickZap={false}
+                      style={{ flex: 1 }}
+                    />
                   </View>
                   <View style={styles.memberActions}>
                     {index !== 0 && ( // Don't allow removing the captain
