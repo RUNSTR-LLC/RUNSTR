@@ -142,7 +142,7 @@ export function useLeagueRankings(
                 const membersCacheKey = `members:${parameters.teamId}:${parameters.captainPubkey}`;
                 const cachedMembers = await UnifiedCacheService.fetch(
                   membersCacheKey,
-                  async () => TeamMemberCache.getTeamMembers(
+                  async () => TeamMemberCache.getInstance().getTeamMembers(
                     parameters.teamId!,
                     parameters.captainPubkey!
                   ),

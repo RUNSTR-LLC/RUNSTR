@@ -199,6 +199,42 @@ export class TeamMemberCache {
   }
 
   /**
+   * Manually set team members in cache (used when creating new member lists)
+   */
+  async setTeamMembers(
+    teamId: string,
+    captainPubkey: string,
+    members: Array<{pubkey: string, npub: string}>
+  ): Promise<void> {
+    try {
+      // Extract just the pubkeys from the member objects
+      const memberPubkeys = members.map(m => m.pubkey);
+
+      // Create cache entry
+      const cacheEntry: CachedTeamMembers = {
+        teamId,
+        captainPubkey,
+        members: memberPubkeys,
+        lastUpdated: Date.now(),
+      };
+
+      // Store in memory cache
+      const cacheKey = this.getCacheKey(teamId, captainPubkey);
+      this.memoryCache.set(cacheKey, cacheEntry);
+
+      // Enforce cache size limit
+      this.enforceMaxCacheSize();
+
+      // Persist to storage
+      await this.persistCache();
+
+      console.log(`✅ Manually cached ${memberPubkeys.length} members for team ${teamId}`);
+    } catch (error) {
+      console.error(`Failed to set team members for ${teamId}:`, error);
+    }
+  }
+
+  /**
    * Get cache statistics
    */
   getCacheStats(): MemberCacheStats {
