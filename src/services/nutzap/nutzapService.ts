@@ -20,8 +20,6 @@ import {
   getEncodedToken,
   getDecodedToken
 } from '@cashu/cashu-ts';
-// Using NDK exclusively - no nostr-tools
-import { nip19 } from '@nostr-dev-kit/ndk';
 import { decryptFromStorage } from '../../utils/nostr';
 
 // Storage keys
@@ -98,17 +96,8 @@ class NutzapService {
         userNsec = await this.getOrCreateNsec();
       }
 
-      // Decode nsec to get private key
-      const decoded = nip19.decode(userNsec);
-      if (decoded.type !== 'nsec') {
-        throw new Error('Invalid nsec provided');
-      }
-
-      // Convert Uint8Array to hex string for NDK
-      const privateKeyHex = Buffer.from(decoded.data as Uint8Array).toString('hex');
-
-      // Initialize NDK with signer
-      const signer = new NDKPrivateKeySigner(privateKeyHex);
+      // NDKPrivateKeySigner handles nsec decoding internally
+      const signer = new NDKPrivateKeySigner(userNsec);
       this.userPubkey = await signer.user().then(u => u.pubkey);
 
       this.ndk = new NDK({
@@ -677,12 +666,9 @@ class NutzapService {
     if (!nsec) {
       // Only generate new keys if absolutely no auth exists
       console.warn('[NutZap] No existing nsec found, generating new wallet keys');
-      // Use NDK's method to generate a new key
+      // Use NDK's built-in key generation with nsec getter
       const signer = NDKPrivateKeySigner.generate();
-      const privateKeyHex = signer.privateKey;
-      // Convert hex to Uint8Array for nip19 encoding
-      const privateKeyBytes = new Uint8Array(privateKeyHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
-      nsec = nip19.nsecEncode(privateKeyBytes);
+      nsec = signer.nsec; // NDK provides the nsec getter
       // Note: We don't store plain nsec for new users - they should auth properly
     }
     return nsec;
