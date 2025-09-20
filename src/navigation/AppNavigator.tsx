@@ -365,6 +365,8 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
               data={dashboardData}
               teamId={dashboardData.team.id}
               captainId={user?.npub || user?.id || ''}
+              userNpub={user?.npub} // Pass user npub for auth fallback
+              navigation={navigation} // Pass navigation prop for re-auth flow
               onNavigateToTeam={() => navigation.navigate('Team')}
               onNavigateToProfile={() => navigation.navigate('Profile')}
               onSettingsPress={handlers.handleSettings}

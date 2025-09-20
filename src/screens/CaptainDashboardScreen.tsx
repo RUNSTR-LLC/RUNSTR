@@ -60,6 +60,7 @@ interface CaptainDashboardScreenProps {
   captainId: string; // For member management
   teamId: string; // For member management
   userNpub?: string; // User's npub passed from navigation for fallback
+  navigation?: any; // Navigation prop for re-authentication flow
   onNavigateToTeam: () => void;
   onNavigateToProfile: () => void;
   onSettingsPress: () => void;
@@ -75,6 +76,7 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
   captainId,
   teamId,
   userNpub,
+  navigation,
   onNavigateToTeam,
   onNavigateToProfile,
   onSettingsPress,
@@ -198,7 +200,11 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
               text: 'Re-authenticate',
               onPress: () => {
                 // Navigate to login
-                navigation.goBack();
+                if (navigation) {
+                  navigation.navigate('Login');
+                } else {
+                  onNavigateToProfile(); // Fallback to profile if no navigation
+                }
               },
             },
           ]

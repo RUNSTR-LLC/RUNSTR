@@ -274,29 +274,26 @@ export async function storeNsecLocally(
 
 /**
  * Retrieve nsec from local storage
+ * DEPRECATED: This function now uses the new unified auth system
+ * Components should import getAuthenticationData from utils/nostrAuth instead
  */
 export async function getNsecFromStorage(
-  userId: string
+  userId?: string // Made optional since new system doesn't need it
 ): Promise<string | null> {
   try {
-    const encryptedNsec = await AsyncStorage.getItem(STORAGE_KEYS.NSEC);
-    if (!encryptedNsec) {
-      return null;
+    // Use the new unified authentication system
+    const { getAuthenticationData } = await import('./nostrAuth');
+    const authData = await getAuthenticationData();
+
+    if (authData && authData.nsec) {
+      console.log('[Legacy] getNsecFromStorage: Using new auth system, found nsec');
+      return authData.nsec;
     }
 
-    const nsec = decryptFromStorage(encryptedNsec, userId);
-
-    // Validate decrypted nsec
-    if (!validateNsec(nsec)) {
-      console.error('Decrypted nsec is invalid, clearing storage');
-      await clearNostrStorage();
-      return null;
-    }
-
-    return nsec;
+    console.log('[Legacy] getNsecFromStorage: No auth data found');
+    return null;
   } catch (error) {
-    console.error('Error retrieving nsec from storage:', error);
-    await clearNostrStorage(); // Clear potentially corrupted data
+    console.error('[Legacy] getNsecFromStorage error:', error);
     return null;
   }
 }
