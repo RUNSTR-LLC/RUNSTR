@@ -451,7 +451,7 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
             Your team needs a member list to run competitions
           </Text>
           <TouchableOpacity
-            style={[styles.createListButton, isCreatingList && styles.createListButtonDisabled]}
+            style={[styles.createListButton, ...(isCreatingList ? [styles.createListButtonDisabled] : [])]}
             onPress={handleCreateMemberList}
             disabled={isCreatingList}
           >
