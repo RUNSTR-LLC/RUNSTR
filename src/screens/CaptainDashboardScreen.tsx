@@ -242,25 +242,43 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
       const memberCache = TeamMemberCache.getInstance();
       await memberCache.invalidateTeam(teamId, captainId);
 
+      // Debug authentication storage first
+      const { debugAuthStorage, recoverAuthentication } = await import('../utils/authDebug');
+      await debugAuthStorage();
+
       // Get authentication data using the new unified system
       let authData = await getAuthenticationData();
 
-      // If retrieval failed, try migration
-      if (!authData && (userNpub || captainId)) {
-        console.log('[Captain] Auth not found, attempting migration...');
+      // If retrieval failed, try recovery and migration
+      if (!authData) {
+        console.log('[Captain] Auth not found, attempting recovery...');
+        const recovered = await recoverAuthentication();
 
-        // Determine the userId for migration
-        const userId = captainId?.startsWith('npub') ? captainId : userNpub || captainId;
+        if (recovered.nsec && recovered.npub) {
+          // Re-store the recovered authentication properly
+          const { storeAuthenticationData } = await import('../utils/nostrAuth');
+          const stored = await storeAuthenticationData(recovered.nsec, recovered.npub);
 
-        // Try to migrate with available data
-        const migrated = await migrateAuthenticationStorage(
-          userNpub || captainId,
-          userId
-        );
+          if (stored) {
+            console.log('[Captain] Recovery successful, retrying auth retrieval...');
+            authData = await getAuthenticationData();
+          }
+        } else if (userNpub || captainId) {
+          console.log('[Captain] Recovery failed, attempting migration...');
 
-        if (migrated) {
-          console.log('[Captain] Migration successful, retrying auth retrieval...');
-          authData = await getAuthenticationData();
+          // Determine the userId for migration
+          const userId = captainId?.startsWith('npub') ? captainId : userNpub || captainId;
+
+          // Try to migrate with available data
+          const migrated = await migrateAuthenticationStorage(
+            userNpub || captainId,
+            userId
+          );
+
+          if (migrated) {
+            console.log('[Captain] Migration successful, retrying auth retrieval...');
+            authData = await getAuthenticationData();
+          }
         }
       }
 

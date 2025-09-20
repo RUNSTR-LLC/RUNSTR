@@ -52,10 +52,12 @@ const atob = (str: string): string => {
 
 // Storage keys for local encrypted storage
 const STORAGE_KEYS = {
-  NSEC: '@runstr:nsec_encrypted',
+  NSEC: '@runstr:user_nsec', // Use plain storage for consistency
+  NSEC_ENCRYPTED: '@runstr:nsec_encrypted',
   NPUB: '@runstr:npub',
   HEX_PUBKEY: '@runstr:hex_pubkey',
   AUTH_METHOD: '@runstr:auth_method',
+  ENCRYPTION_KEY: '@runstr:encryption_key',
 } as const;
 
 export interface NostrKeyPair {
