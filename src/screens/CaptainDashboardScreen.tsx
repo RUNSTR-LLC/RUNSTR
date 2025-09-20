@@ -24,11 +24,10 @@ import { LeagueCreationWizard } from '../components/wizards/LeagueCreationWizard
 import { NostrListService } from '../services/nostr/NostrListService';
 import { NostrProtocolHandler } from '../services/nostr/NostrProtocolHandler';
 import { NostrRelayManager } from '../services/nostr/NostrRelayManager';
-import { getNsecFromStorage, nsecToPrivateKey } from '../utils/nostr';
 import { TeamMemberCache } from '../services/team/TeamMemberCache';
 import { getTeamListDetector } from '../utils/teamListDetector';
 import NostrTeamCreationService from '../services/nostr/NostrTeamCreationService';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getAuthenticationData, migrateAuthenticationStorage } from '../utils/nostrAuth';
 import { NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
 
 // Type definitions for captain dashboard data
@@ -159,99 +158,74 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
     setIsCreatingList(true);
 
     try {
-      // Get user's private key from storage with fallback mechanism
-      console.log('Attempting to retrieve nsec from @runstr:user_nsec...');
-      let nsec = await AsyncStorage.getItem('@runstr:user_nsec');
-      console.log('Retrieved from @runstr:user_nsec:', nsec ? `${nsec.slice(0, 10)}...${nsec.slice(-5)}` : 'null');
+      console.log('[Captain] Starting member list creation...');
 
-      // Fallback: If plain nsec not found, try to get from encrypted storage
-      if (!nsec) {
-        console.log('Plain nsec not found, trying encrypted storage fallback...');
+      // Get authentication data using the new unified system
+      let authData = await getAuthenticationData();
 
-        // Get the user's npub for decryption - try multiple sources
-        let npub = userNpub; // First try the prop
+      // If retrieval failed, try migration
+      if (!authData && (userNpub || captainId)) {
+        console.log('[Captain] Auth not found, attempting migration...');
 
-        if (!npub) {
-          // Try storage
-          npub = await AsyncStorage.getItem('@runstr:npub');
-          console.log('Retrieved npub from storage:', npub?.slice(0, 20) + '...');
-        }
+        // Determine the userId for migration
+        const userId = captainId?.startsWith('npub') ? captainId : userNpub || captainId;
 
-        if (!npub) {
-          // Try getting from captain ID if it's an npub
-          if (captainId?.startsWith('npub')) {
-            npub = captainId;
-            console.log('Using captainId as npub:', npub?.slice(0, 20) + '...');
-          }
-        }
+        // Try to migrate with available data
+        const migrated = await migrateAuthenticationStorage(
+          userNpub || captainId,
+          userId
+        );
 
-        // Store the npub for future use if we have it
-        if (npub && !userNpub) {
-          await AsyncStorage.setItem('@runstr:npub', npub);
-          console.log('Stored npub for future use');
-        }
-
-        if (npub) {
-          // Try to get and decrypt the encrypted nsec
-          nsec = await getNsecFromStorage(npub);
-
-          // Store the plain nsec for future use if we retrieved it
-          if (nsec) {
-            console.log('Retrieved nsec from encrypted storage, saving plain version...');
-            await AsyncStorage.setItem('@runstr:user_nsec', nsec);
-          }
-        } else {
-          console.log('No npub available for decryption - all sources exhausted');
+        if (migrated) {
+          console.log('[Captain] Migration successful, retrying auth retrieval...');
+          authData = await getAuthenticationData();
         }
       }
 
-      if (!nsec) {
-        console.error('Authentication retrieval failed - npub:', userNpub?.slice(0, 20), 'captainId:', captainId?.slice(0, 20));
-        Alert.alert('Error', 'Unable to retrieve authentication. Please log in again.');
+      if (!authData) {
+        console.error('[Captain] Authentication retrieval failed completely');
+
+        // Provide helpful error with recovery options
+        Alert.alert(
+          'Authentication Required',
+          'Your authentication data could not be retrieved. This can happen if you logged in on a different device or if your session expired.',
+          [
+            {
+              text: 'Cancel',
+              style: 'cancel',
+            },
+            {
+              text: 'Re-authenticate',
+              onPress: () => {
+                // Navigate to login
+                navigation.goBack();
+              },
+            },
+          ]
+        );
+
         setIsCreatingList(false);
         return;
       }
 
-      // Log nsec format for debugging (only first/last few chars for security)
-      console.log('Retrieved nsec format check:', {
-        startsWithNsec: nsec?.startsWith('nsec1'),
-        length: nsec?.length,
-        preview: nsec ? `${nsec.slice(0, 10)}...${nsec.slice(-5)}` : 'null'
-      });
+      console.log('[Captain] ✅ Authentication retrieved successfully');
+      console.log('[Captain] Using npub:', authData.npub.slice(0, 20) + '...');
 
-      // Validate nsec format
-      if (!nsec.startsWith('nsec1')) {
-        console.error('Invalid nsec format - does not start with nsec1');
-        Alert.alert('Error', 'Invalid authentication format. Please log in again.');
-        setIsCreatingList(false);
-        return;
+      // Create NDK signer with the nsec
+      const signer = new NDKPrivateKeySigner(authData.nsec);
+      const privateKey = await signer.privateKey();
+
+      if (!privateKey) {
+        throw new Error('Failed to extract private key from nsec');
       }
 
-      // Use NDK to handle the private key (following CLAUDE.md architecture)
-      let privateKey: string;
-      try {
-        // NDK expects the nsec directly and handles decoding internally
-        const signer = new NDKPrivateKeySigner(nsec);
-        // Get the private key hex from the signer
-        privateKey = await signer.privateKey();
-
-        if (!privateKey) {
-          throw new Error('Failed to extract private key from signer');
-        }
-
-        console.log('Successfully extracted private key using NDK');
-      } catch (e) {
-        console.error('Failed to process nsec with NDK:', e);
-        Alert.alert('Error', 'Invalid authentication key. Please log in again.');
-        setIsCreatingList(false);
-        return;
-      }
+      console.log('[Captain] Successfully extracted private key using NDK');
 
       // Create kind 30000 list for this team
       const result = await NostrTeamCreationService.createMemberListForExistingTeam(
         teamId,
         data.team.name,
-        captainId, // Captain's hex pubkey
+        authData.hexPubkey, // Use the captain's hex pubkey from auth data
         privateKey
       );
 
@@ -306,63 +280,23 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
                 return;
               }
 
-              // Get captain's private key for signing with fallback mechanism
-              let nsec = await AsyncStorage.getItem('@runstr:user_nsec');
+              // Get captain's authentication using the unified system
+              const authData = await getAuthenticationData();
 
-              // Fallback: If plain nsec not found, try to get from encrypted storage
-              if (!nsec) {
-                console.log('Plain nsec not found for member removal, trying encrypted storage...');
-
-                // Get the user's npub for decryption - try multiple sources
-                let npub = userNpub; // First try the prop
-
-                if (!npub) {
-                  // Try storage
-                  npub = await AsyncStorage.getItem('@runstr:npub');
-                  console.log('Retrieved npub from storage for member removal:', npub?.slice(0, 20) + '...');
-                }
-
-                if (!npub) {
-                  // Try getting from captain ID if it's an npub
-                  if (captainId?.startsWith('npub')) {
-                    npub = captainId;
-                    console.log('Using captainId as npub for member removal:', npub?.slice(0, 20) + '...');
-                  }
-                }
-
-                // Store the npub for future use if we have it
-                if (npub && !userNpub) {
-                  await AsyncStorage.setItem('@runstr:npub', npub);
-                  console.log('Stored npub for future use');
-                }
-
-                if (npub) {
-                  nsec = await getNsecFromStorage(npub);
-
-                  // Store the plain nsec for future use if we retrieved it
-                  if (nsec) {
-                    console.log('Retrieved nsec from encrypted storage for member removal...');
-                    await AsyncStorage.setItem('@runstr:user_nsec', nsec);
-                  }
-                }
-              }
-
-              if (!nsec) {
-                throw new Error('Captain credentials not found');
+              if (!authData) {
+                console.error('[Captain] No authentication data for member removal');
+                throw new Error('Captain credentials not found. Please log in again.');
               }
 
               // Use NDK for consistent key handling
-              let privateKey: string;
-              try {
-                const signer = new NDKPrivateKeySigner(nsec);
-                privateKey = await signer.privateKey();
-                if (!privateKey) {
-                  throw new Error('Failed to extract private key');
-                }
-              } catch (e) {
-                console.error('Failed to process nsec for member removal:', e);
-                throw new Error('Invalid authentication key');
+              const signer = new NDKPrivateKeySigner(authData.nsec);
+              const privateKey = await signer.privateKey();
+
+              if (!privateKey) {
+                throw new Error('Failed to extract private key');
               }
+
+              console.log('[Captain] Successfully extracted private key for member removal');
 
               // Sign and publish the updated list
               const protocolHandler = new NostrProtocolHandler();

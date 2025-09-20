@@ -8,10 +8,10 @@ import {
   generateNostrKeyPair,
   validateNsec,
   nsecToNpub,
-  storeNsecLocally,
   generateDisplayName,
   normalizeNsecInput,
 } from '../../../utils/nostr';
+import { storeAuthenticationData } from '../../../utils/nostrAuth';
 import type { AuthResult, CreateUserData, User } from '../../../types';
 import { DirectNostrProfileService, type DirectNostrUser } from '../../user/directNostrProfileService';
 import nutzapService from '../../nutzap/nutzapService';
@@ -47,9 +47,16 @@ export class NostrAuthProvider {
 
       console.log('✅ NostrAuthProvider: Valid nsec provided, npub:', npub.slice(0, 20) + '...');
 
-      // Store keys locally (no database interaction)
-      await storeNsecLocally(nsec, npub);
-      console.log('✅ NostrAuthProvider: Keys stored locally');
+      // Store keys using unified auth system with verification
+      const stored = await storeAuthenticationData(nsec, npub);
+      if (!stored) {
+        console.error('❌ NostrAuthProvider: Failed to store authentication data');
+        return {
+          success: false,
+          error: 'Failed to save authentication. Please try again.',
+        };
+      }
+      console.log('✅ NostrAuthProvider: Authentication stored and verified');
 
       // Initialize NutZap wallet for user (auto-creates if doesn't exist)
       try {
