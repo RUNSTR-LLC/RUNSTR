@@ -7,6 +7,7 @@
 import { nostrRelayManager } from './NostrRelayManager';
 import type { NostrRelayManager } from './NostrRelayManager';
 import type { NostrFilter } from './NostrProtocolHandler';
+import { npubToHex } from '../../utils/ndkConversion';
 
 // Define Event type locally to avoid nostr-tools dependency
 export interface Event {
@@ -117,16 +118,12 @@ export class NostrListService {
     // Convert npub to hex if needed (Nostr relays expect hex format)
     let hexAuthorPubkey = authorPubkey;
     if (authorPubkey.startsWith('npub')) {
-      try {
-        // Import nip19 from NDK for npub/hex conversion
-        const { nip19 } = await import('@nostr-dev-kit/ndk');
-        const decoded = nip19.decode(authorPubkey);
-        hexAuthorPubkey = decoded.data as string;
-        console.log(`🔄 Converted npub to hex: ${authorPubkey.slice(0, 20)}... → ${hexAuthorPubkey.slice(0, 20)}...`);
-      } catch (error) {
-        console.error(`❌ Failed to convert npub to hex:`, error);
+      const converted = npubToHex(authorPubkey);
+      if (!converted) {
+        console.error(`❌ Failed to convert npub to hex for author: ${authorPubkey.slice(0, 20)}...`);
         return null;
       }
+      hexAuthorPubkey = converted;
     }
 
     const listId = `${hexAuthorPubkey}:${dTag}`;
@@ -204,14 +201,13 @@ export class NostrListService {
     // Convert npub to hex if needed
     let hexAuthorPubkey = authorPubkey;
     if (authorPubkey.startsWith('npub')) {
-      try {
-        const { nip19 } = await import('@nostr-dev-kit/ndk');
-        const decoded = nip19.decode(authorPubkey);
-        hexAuthorPubkey = decoded.data as string;
-      } catch (error) {
-        console.error(`❌ Failed to convert npub to hex for subscription:`, error);
+      const converted = npubToHex(authorPubkey);
+      if (!converted) {
+        const error = new Error(`Failed to convert npub to hex for subscription: ${authorPubkey.slice(0, 20)}...`);
+        console.error(`❌ ${error.message}`);
         throw error;
       }
+      hexAuthorPubkey = converted;
     }
 
     const listId = `${hexAuthorPubkey}:${dTag}`;

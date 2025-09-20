@@ -7,6 +7,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NostrListService } from '../nostr/NostrListService';
 import type { NostrList } from '../nostr/NostrListService';
+import { npubToHex } from '../../utils/ndkConversion';
 
 export interface CachedTeamMembers {
   teamId: string;
@@ -85,13 +86,12 @@ export class TeamMemberCache {
     // Normalize captain pubkey to hex for consistent caching
     let hexCaptainPubkey = captainPubkey;
     if (captainPubkey.startsWith('npub')) {
-      try {
-        const { nip19 } = await import('@nostr-dev-kit/ndk');
-        const decoded = nip19.decode(captainPubkey);
-        hexCaptainPubkey = decoded.data as string;
+      const converted = npubToHex(captainPubkey);
+      if (converted) {
+        hexCaptainPubkey = converted;
         console.log(`🔄 TeamMemberCache: Converted captain npub to hex for caching`);
-      } catch (error) {
-        console.error(`❌ TeamMemberCache: Failed to convert npub to hex:`, error);
+      } else {
+        console.error(`❌ TeamMemberCache: Failed to convert npub to hex, using original`);
         // Continue with original key if conversion fails
       }
     }

@@ -31,6 +31,7 @@ import { getTeamListDetector } from '../utils/teamListDetector';
 import NostrTeamCreationService from '../services/nostr/NostrTeamCreationService';
 import { getAuthenticationData, migrateAuthenticationStorage } from '../utils/nostrAuth';
 import { NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
+import { npubToHex } from '../utils/ndkConversion';
 
 // Type definitions for captain dashboard data
 export interface CaptainDashboardData {
@@ -128,6 +129,13 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
       console.log(`🔍 [CaptainDashboard] Checking for kind 30000 list...`);
       console.log(`  Team ID: ${teamId}`);
       console.log(`  Captain ID: ${captainId?.slice(0, 20)}... (${captainId?.startsWith('npub') ? 'npub' : 'hex'})`);
+
+      // Ensure we have a valid captain ID
+      if (!captainId) {
+        console.error('❌ [CaptainDashboard] No captain ID provided');
+        setHasKind30000List(false);
+        return;
+      }
 
       const detector = getTeamListDetector();
       const haslist = await detector.hasKind30000List(teamId, captainId);

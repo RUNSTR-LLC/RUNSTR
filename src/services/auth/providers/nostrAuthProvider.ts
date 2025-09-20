@@ -48,6 +48,7 @@ export class NostrAuthProvider {
       console.log('✅ NostrAuthProvider: Valid nsec provided, npub:', npub.slice(0, 20) + '...');
 
       // Store keys using unified auth system with verification
+      // Use npub as userId for consistent key generation
       const stored = await storeAuthenticationData(nsec, npub);
       if (!stored) {
         console.error('❌ NostrAuthProvider: Failed to store authentication data');
