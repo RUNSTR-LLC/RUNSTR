@@ -231,13 +231,13 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
   };
 
   /**
-   * Get rank display with medal for top 3
+   * Get rank display with ordinal for top 3
    */
   const getRankDisplay = (rank: number): string => {
     switch (rank) {
-      case 1: return '🥇';
-      case 2: return '🥈';
-      case 3: return '🥉';
+      case 1: return '1st';
+      case 2: return '2nd';
+      case 3: return '3rd';
       default: return `${rank}`;
     }
   };

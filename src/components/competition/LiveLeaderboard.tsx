@@ -191,13 +191,13 @@ export const LiveLeaderboard: React.FC<LiveLeaderboardProps> = ({
   const getPositionIcon = (position: number): string => {
     switch (position) {
       case 1:
-        return '🥇';
+        return '1st';
       case 2:
-        return '🥈';
+        return '2nd';
       case 3:
-        return '🥉';
+        return '3rd';
       default:
-        return '';
+        return `${position}`;
     }
   };
 
