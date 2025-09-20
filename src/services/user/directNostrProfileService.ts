@@ -76,11 +76,11 @@ export class DirectNostrProfileService {
    */
   private static async fetchFreshProfile(storedNpub: string): Promise<DirectNostrUser | null> {
     try {
-      console.log('📡 DirectNostrProfileService: Fetching fresh profile data...');
-      
-      // Create timeout promise (5 seconds max)
+      console.log('📡 DirectNostrProfileService: Fetching fresh profile data for:', storedNpub.slice(0, 20) + '...');
+
+      // Create timeout promise (10 seconds max for better reliability)
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 5000);  // 5 second timeout for profile (needs more time)
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000);  // 10 second timeout for profile (needs more time)
       });
       
       // Create profile fetch promise

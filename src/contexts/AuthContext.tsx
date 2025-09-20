@@ -96,12 +96,44 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const cachedUser = await appCache.get<User>('current_user_profile');
 
       if (cachedUser) {
+        // Show cached user immediately for fast startup
         setCurrentUser(cachedUser);
         setIsConnected(true);
         setConnectionStatus('Connected');
 
-        // Refresh in background
-        refreshProfileInBackground();
+        // ALWAYS fetch fresh Nostr profile data to get bio, picture, banner
+        console.log('📡 Fetching fresh Nostr profile data...');
+        try {
+          const directUser = await DirectNostrProfileService.getCurrentUserProfile();
+          if (directUser) {
+            // Merge fresh Nostr data with cached user
+            const updatedUser: User = {
+              ...cachedUser,
+              bio: directUser.bio,
+              website: directUser.website,
+              picture: directUser.picture,
+              banner: directUser.banner,
+              lud16: directUser.lud16,
+              displayName: directUser.displayName || cachedUser.displayName,
+              name: directUser.name || cachedUser.name,
+            };
+
+            console.log('✅ Updated user with fresh Nostr profile data:', {
+              hasBio: !!updatedUser.bio,
+              hasPicture: !!updatedUser.picture,
+              hasBanner: !!updatedUser.banner,
+              displayName: updatedUser.displayName
+            });
+
+            setCurrentUser(updatedUser);
+            // Update cache with fresh data
+            await appCache.set('current_user_profile', updatedUser, 5 * 60 * 1000);
+          }
+        } catch (error) {
+          console.warn('⚠️ Failed to fetch fresh profile data:', error);
+          // Continue with cached data
+        }
+
         return;
       }
 
