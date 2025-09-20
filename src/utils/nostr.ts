@@ -248,6 +248,7 @@ export async function storeNsecLocally(
     // ALSO store plain nsec for NutZap wallet service
     // This is needed for wallet operations until we implement proper key derivation
     await AsyncStorage.setItem('@runstr:user_nsec', nsec);
+    console.log('Stored plain nsec at @runstr:user_nsec for wallet operations');
 
     // Get the hex pubkey from nsec
     const decoded = nip19.decode(nsec);

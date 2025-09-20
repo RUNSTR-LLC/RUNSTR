@@ -29,7 +29,7 @@ import { TeamMemberCache } from '../services/team/TeamMemberCache';
 import { getTeamListDetector } from '../utils/teamListDetector';
 import NostrTeamCreationService from '../services/nostr/NostrTeamCreationService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { nip19 } from 'nostr-tools';
+import { NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
 
 // Type definitions for captain dashboard data
 export interface CaptainDashboardData {
@@ -160,7 +160,9 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
 
     try {
       // Get user's private key from storage with fallback mechanism
+      console.log('Attempting to retrieve nsec from @runstr:user_nsec...');
       let nsec = await AsyncStorage.getItem('@runstr:user_nsec');
+      console.log('Retrieved from @runstr:user_nsec:', nsec ? `${nsec.slice(0, 10)}...${nsec.slice(-5)}` : 'null');
 
       // Fallback: If plain nsec not found, try to get from encrypted storage
       if (!nsec) {
@@ -210,17 +212,37 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
         return;
       }
 
-      // Decode nsec to get private key
+      // Log nsec format for debugging (only first/last few chars for security)
+      console.log('Retrieved nsec format check:', {
+        startsWithNsec: nsec?.startsWith('nsec1'),
+        length: nsec?.length,
+        preview: nsec ? `${nsec.slice(0, 10)}...${nsec.slice(-5)}` : 'null'
+      });
+
+      // Validate nsec format
+      if (!nsec.startsWith('nsec1')) {
+        console.error('Invalid nsec format - does not start with nsec1');
+        Alert.alert('Error', 'Invalid authentication format. Please log in again.');
+        setIsCreatingList(false);
+        return;
+      }
+
+      // Use NDK to handle the private key (following CLAUDE.md architecture)
       let privateKey: string;
       try {
-        const decoded = nip19.decode(nsec);
-        if (decoded.type === 'nsec') {
-          privateKey = decoded.data as string;
-        } else {
-          throw new Error('Invalid nsec');
+        // NDK expects the nsec directly and handles decoding internally
+        const signer = new NDKPrivateKeySigner(nsec);
+        // Get the private key hex from the signer
+        privateKey = await signer.privateKey();
+
+        if (!privateKey) {
+          throw new Error('Failed to extract private key from signer');
         }
+
+        console.log('Successfully extracted private key using NDK');
       } catch (e) {
-        Alert.alert('Error', 'Invalid authentication. Please log in again.');
+        console.error('Failed to process nsec with NDK:', e);
+        Alert.alert('Error', 'Invalid authentication key. Please log in again.');
         setIsCreatingList(false);
         return;
       }
@@ -328,7 +350,19 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
               if (!nsec) {
                 throw new Error('Captain credentials not found');
               }
-              const privateKey = await nsecToPrivateKey(nsec);
+
+              // Use NDK for consistent key handling
+              let privateKey: string;
+              try {
+                const signer = new NDKPrivateKeySigner(nsec);
+                privateKey = await signer.privateKey();
+                if (!privateKey) {
+                  throw new Error('Failed to extract private key');
+                }
+              } catch (e) {
+                console.error('Failed to process nsec for member removal:', e);
+                throw new Error('Invalid authentication key');
+              }
 
               // Sign and publish the updated list
               const protocolHandler = new NostrProtocolHandler();
