@@ -4,9 +4,20 @@
  * Integrates with existing NostrRelayManager infrastructure
  */
 
-import type { Event } from 'nostr-tools';
-import { NostrRelayManager, nostrRelayManager } from './NostrRelayManager';
+import { nostrRelayManager } from './NostrRelayManager';
+import type { NostrRelayManager } from './NostrRelayManager';
 import type { NostrFilter } from './NostrProtocolHandler';
+
+// Define Event type locally to avoid nostr-tools dependency
+export interface Event {
+  id?: string;
+  pubkey?: string;
+  created_at?: number;
+  kind?: number;
+  tags?: string[][];
+  content?: string;
+  sig?: string;
+}
 
 export interface NostrListEvent extends Event {
   kind: 30000 | 30001; // Categorized People List or Generic List
@@ -49,9 +60,9 @@ export class NostrListService {
     this.relayManager = relayManager || nostrRelayManager;
   }
 
-  static getInstance(relayManager?: NostrRelayManager): NostrListService {
+  static getInstance(): NostrListService {
     if (!NostrListService.instance) {
-      NostrListService.instance = new NostrListService(relayManager);
+      NostrListService.instance = new NostrListService();
     }
     return NostrListService.instance;
   }

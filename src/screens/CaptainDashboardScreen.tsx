@@ -113,6 +113,19 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
     try {
       const detector = getTeamListDetector();
       const haslist = await detector.hasKind30000List(teamId, captainId);
+
+      if (!haslist) {
+        // Also check if there's a cached list locally
+        const memberCache = TeamMemberCache.getInstance();
+        const cachedMembers = await memberCache.getTeamMembers(teamId, captainId);
+        if (cachedMembers && cachedMembers.length > 0) {
+          console.log(`Found ${cachedMembers.length} cached members for team ${teamId}`);
+          setHasKind30000List(true);
+          setTeamMembers(cachedMembers);
+          return;
+        }
+      }
+
       setHasKind30000List(haslist);
       console.log(`Team ${teamId} has kind 30000 list: ${haslist}`);
     } catch (error) {
@@ -242,15 +255,22 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
       console.log('[Captain] ✅ Authentication retrieved successfully');
       console.log('[Captain] Using npub:', authData.npub.slice(0, 20) + '...');
 
-      console.log('[Captain] Using nsec directly for member list creation');
+      console.log('[Captain] Converting nsec to hex private key for member list creation');
+
+      // Convert nsec to hex private key
+      const signer = new NDKPrivateKeySigner(authData.nsec);
+      const privateKeyHex = signer.privateKey; // Access as property
+
+      if (!privateKeyHex) {
+        throw new Error('Failed to extract private key from nsec');
+      }
 
       // Create kind 30000 list for this team
-      // NostrTeamCreationService will create its own NDKPrivateKeySigner internally
       const result = await NostrTeamCreationService.createMemberListForExistingTeam(
         teamId,
         data.team.name,
         authData.hexPubkey, // Use the captain's hex pubkey from auth data
-        authData.nsec // Pass nsec directly - the service will handle conversion
+        privateKeyHex // Pass hex private key
       );
 
       if (result.success) {
