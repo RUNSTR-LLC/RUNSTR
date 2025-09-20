@@ -34,6 +34,7 @@ export interface LeagueRankingsSectionProps {
   showFullList?: boolean;
   maxDisplayed?: number;
   teamId?: string;
+  captainPubkey?: string; // Accept captain pubkey as prop
   isDefaultLeague?: boolean;
 }
 
@@ -47,11 +48,13 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
   showFullList = false,
   maxDisplayed = 5,
   teamId,
+  captainPubkey,  // Now properly destructuring the captain pubkey from props
   isDefaultLeague = false,
 }) => {
   console.log('🏆 LeagueRankingsSection rendering with:', {
     competitionId,
     teamId,
+    captainPubkey: captainPubkey?.slice(0, 12) + '...',
     isDefaultLeague,
   });
   const [rankings, setRankings] = useState<LeagueRankingResult | null>(null);
@@ -59,7 +62,7 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [teamParticipants, setTeamParticipants] = useState<LeagueParticipant[]>(participants);
-  const [captainPubkey, setCaptainPubkey] = useState<string | null>(null);
+  // captainPubkey now comes from props, no local state needed
 
   const rankingService = leagueRankingService;
   const memberCache = TeamMemberCache.getInstance();
@@ -68,10 +71,13 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
    * Fetch team members from cached kind 30000 lists
    */
   const fetchTeamMembers = async (): Promise<LeagueParticipant[]> => {
-    if (!teamId || !captainPubkey) return [];
+    if (!teamId || !captainPubkey) {
+      console.log('⚠️ Cannot fetch members: missing teamId or captainPubkey', { teamId, captainPubkey: captainPubkey?.slice(0, 12) });
+      return [];
+    }
 
     try {
-      console.log(`🔍 Fetching team members for team: ${teamId} with captain: ${captainPubkey}`);
+      console.log(`🔍 Fetching team members for team: ${teamId} with captain: ${captainPubkey.slice(0, 12)}...`);
 
       // Ensure we're using hex pubkey format for the query
       let captainHex = captainPubkey;
@@ -116,31 +122,15 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
   };
 
   /**
-   * Get captain pubkey for the team
+   * Log captain pubkey for debugging when it changes
    */
   useEffect(() => {
-    const getCaptainPubkey = async () => {
-      if (!teamId) return;
-
-      // For known teams, set captain pubkey
-      if (teamId === '87d30c8b-aa18-4424-a629-d41ea7f89078') {
-        // RUNSTR team - TheWildHustle is captain
-        // Use hex pubkey directly for consistency
-        setCaptainPubkey('30ceb64e73197a05958c8bd92ab079c815bb44fbfbb3eb5d9766c5207f08bdf5');
-      } else {
-        // Try to get from user's own identifiers if they're the captain
-        const identifiers = await getUserNostrIdentifiers();
-        if (identifiers?.hexPubkey) {
-          setCaptainPubkey(identifiers.hexPubkey);
-        } else if (identifiers?.npub) {
-          // Fallback to npub if hex not available
-          setCaptainPubkey(identifiers.npub);
-        }
-      }
-    };
-
-    getCaptainPubkey();
-  }, [teamId]);
+    if (captainPubkey) {
+      console.log(`🔑 LeagueRankingsSection: Captain pubkey received from props: ${captainPubkey.slice(0, 12)}...`);
+    } else {
+      console.log('⚠️ LeagueRankingsSection: No captain pubkey provided in props');
+    }
+  }, [captainPubkey]);
 
   /**
    * Load league rankings
@@ -181,12 +171,13 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
   };
 
   /**
-   * Initialize rankings on mount
+   * Initialize rankings on mount and when captain changes
    */
   useEffect(() => {
-    console.log('🎯 LeagueRankingsSection mounted with:', {
+    console.log('🎯 LeagueRankingsSection mounted/updated with:', {
       competitionId,
       teamId,
+      captainPubkey: captainPubkey?.slice(0, 12) + '...',
       isDefaultLeague,
       participantsCount: participants.length,
     });
@@ -195,7 +186,7 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
     } else {
       setLoading(false);
     }
-  }, [competitionId, teamId]);
+  }, [competitionId, teamId, captainPubkey]); // Added captainPubkey to dependencies
 
   /**
    * Auto-refresh rankings periodically

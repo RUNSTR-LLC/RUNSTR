@@ -1,10 +1,11 @@
 /**
  * NDK Conversion Utilities
- * Centralized utility for npub/hex conversions using NDK exclusively
+ * Centralized utility for npub/hex conversions
  * Provides consistent conversion across the entire application
+ * Using nostr-tools for nip19 as it's more reliable in React Native
  */
 
-import { nip19 } from '@nostr-dev-kit/ndk';
+import { nip19 } from 'nostr-tools';
 
 /**
  * Convert npub to hex pubkey

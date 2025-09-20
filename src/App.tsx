@@ -167,10 +167,20 @@ const AppContent: React.FC = () => {
                 onCaptainDashboard={() => {
                   console.log('Captain dashboard from EnhancedTeamScreen');
                   console.log('Navigating to CaptainDashboard with team:', team?.id);
+                  console.log('Team object has captainId field:', 'captainId' in (team || {}));
+                  console.log('Team captainId value:', team?.captainId);
+                  console.log('Team captainId length:', team?.captainId?.length);
+                  console.log('Team captainId format:', team?.captainId?.startsWith('npub') ? 'npub' : team?.captainId?.length === 64 ? 'hex' : 'other');
                   console.log('Passing userNpub:', currentUserNpub?.slice(0, 20) + '...');
+
+                  // Ensure we pass the captain ID in hex format
+                  const teamCaptainIdToPass = team?.captainId || '';
+                  console.log('Final teamCaptainId being passed:', teamCaptainIdToPass?.slice(0, 20) + '...');
+
                   navigation.navigate('CaptainDashboard', {
                     teamId: team?.id,
                     teamName: team?.name,
+                    teamCaptainId: teamCaptainIdToPass,  // Pass the team's captain ID
                     isCaptain: true,
                     userNpub: currentUserNpub
                   });
@@ -232,7 +242,7 @@ const AppContent: React.FC = () => {
           }}
         >
           {({ navigation, route }) => {
-            const { teamId, teamName, isCaptain, userNpub } = route.params || {};
+            const { teamId, teamName, teamCaptainId, isCaptain, userNpub } = route.params || {};
             return (
               <CaptainDashboardScreen
                 data={{
@@ -251,7 +261,7 @@ const AppContent: React.FC = () => {
                   walletBalance: 0,
                 }}
                 teamId={teamId || ''}
-                captainId={user.npub || user.id}
+                captainId={teamCaptainId || user.npub || user.id}
                 userNpub={userNpub}
                 onNavigateToTeam={() => navigation.goBack()}
                 onNavigateToProfile={() => navigation.goBack()}

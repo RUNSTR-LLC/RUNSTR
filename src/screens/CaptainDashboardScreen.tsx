@@ -106,9 +106,19 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
   // Initialize team data on mount
   React.useEffect(() => {
     const initializeTeam = async () => {
+      // Get the correct captain ID first
+      const authData = await getAuthenticationData();
+      let captainIdToUse = captainId;
+      if (captainId?.startsWith('npub')) {
+        const converted = npubToHex(captainId);
+        captainIdToUse = converted || authData?.hexPubkey || captainId;
+      } else if (!captainId && authData?.hexPubkey) {
+        captainIdToUse = authData.hexPubkey;
+      }
+
       // Clear stale cache on mount to ensure fresh data
       const memberCache = TeamMemberCache.getInstance();
-      await memberCache.invalidateTeam(teamId, captainId);
+      await memberCache.invalidateTeam(teamId, captainIdToUse);
 
       // Check for list
       await checkForKind30000List();
@@ -128,24 +138,49 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
     try {
       console.log(`🔍 [CaptainDashboard] Checking for kind 30000 list...`);
       console.log(`  Team ID: ${teamId}`);
-      console.log(`  Captain ID: ${captainId?.slice(0, 20)}... (${captainId?.startsWith('npub') ? 'npub' : 'hex'})`);
+      console.log(`  Captain ID (received): ${captainId?.slice(0, 20)}... (${captainId?.length} chars)`);
+      console.log(`  Captain ID format: ${captainId?.startsWith('npub') ? 'npub' : captainId?.length === 64 ? 'hex' : 'other'}`);
+
+      // Get the authenticated user's data to use as fallback
+      const authData = await getAuthenticationData();
+      console.log(`  Authenticated user's hex pubkey: ${authData?.hexPubkey?.slice(0, 20)}...`);
+
+      // Determine the correct captain ID to use
+      // If we have a hex captain ID, use it. Otherwise, fall back to authenticated user's hex pubkey
+      let captainIdToUse = captainId;
+      if (captainId?.startsWith('npub')) {
+        console.log('  Captain ID is in npub format, converting to hex...');
+        const converted = npubToHex(captainId);
+        if (converted) {
+          captainIdToUse = converted;
+          console.log(`  Converted to hex: ${captainIdToUse.slice(0, 20)}...`);
+        } else {
+          console.log('  Conversion failed, using authenticated user hex pubkey');
+          captainIdToUse = authData?.hexPubkey || captainId;
+        }
+      } else if (!captainId && authData?.hexPubkey) {
+        console.log('  No captain ID provided, using authenticated user hex pubkey');
+        captainIdToUse = authData.hexPubkey;
+      }
 
       // Ensure we have a valid captain ID
-      if (!captainId) {
-        console.error('❌ [CaptainDashboard] No captain ID provided');
+      if (!captainIdToUse) {
+        console.error('❌ [CaptainDashboard] No captain ID available');
         setHasKind30000List(false);
         return;
       }
 
+      console.log(`  Final captain ID to use: ${captainIdToUse.slice(0, 20)}... (${captainIdToUse.length === 64 ? 'hex' : 'other'})`);
+
       const detector = getTeamListDetector();
-      const haslist = await detector.hasKind30000List(teamId, captainId);
+      const haslist = await detector.hasKind30000List(teamId, captainIdToUse);
       console.log(`  Detector result: ${haslist}`);
 
       if (!haslist) {
         // Also check if there's a cached list locally
         console.log(`  No list found via detector, checking cache...`);
         const memberCache = TeamMemberCache.getInstance();
-        const cachedMembers = await memberCache.getTeamMembers(teamId, captainId);
+        const cachedMembers = await memberCache.getTeamMembers(teamId, captainIdToUse);
         if (cachedMembers && cachedMembers.length > 0) {
           console.log(`  ✅ Found ${cachedMembers.length} cached members for team ${teamId}`);
           setHasKind30000List(true);
@@ -167,11 +202,23 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
     try {
       console.log(`👥 [CaptainDashboard] Loading team members...`);
       console.log(`  Team ID: ${teamId}`);
-      console.log(`  Captain ID: ${captainId?.slice(0, 20)}... (${captainId?.startsWith('npub') ? 'npub' : 'hex'})`);
+      console.log(`  Captain ID (received): ${captainId?.slice(0, 20)}... (${captainId?.startsWith('npub') ? 'npub' : 'hex'})`);
+
+      // Get the correct captain ID (same logic as checkForKind30000List)
+      const authData = await getAuthenticationData();
+      let captainIdToUse = captainId;
+      if (captainId?.startsWith('npub')) {
+        const converted = npubToHex(captainId);
+        captainIdToUse = converted || authData?.hexPubkey || captainId;
+      } else if (!captainId && authData?.hexPubkey) {
+        captainIdToUse = authData.hexPubkey;
+      }
+
+      console.log(`  Using captain ID: ${captainIdToUse?.slice(0, 20)}... (${captainIdToUse?.length === 64 ? 'hex' : 'other'})`);
 
       setIsLoadingMembers(true);
       const memberCache = TeamMemberCache.getInstance();
-      const members = await memberCache.getTeamMembers(teamId, captainId);
+      const members = await memberCache.getTeamMembers(teamId, captainIdToUse);
 
       console.log(`  ✅ Loaded ${members.length} members for team ${teamId}`);
       if (members.length > 0) {
@@ -238,16 +285,30 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
     try {
       console.log('[Captain] Starting member list creation...');
 
+      // Get the correct captain ID first
+      const authData = await getAuthenticationData();
+      let captainIdToUse = captainId;
+      if (captainId?.startsWith('npub')) {
+        const converted = npubToHex(captainId);
+        captainIdToUse = converted || authData?.hexPubkey || captainId;
+      } else if (!captainId && authData?.hexPubkey) {
+        captainIdToUse = authData.hexPubkey;
+      }
+
+      console.log('[Captain] Using captain ID:', captainIdToUse?.slice(0, 20) + '...');
+
       // Clear any stale cache first
       const memberCache = TeamMemberCache.getInstance();
-      await memberCache.invalidateTeam(teamId, captainId);
+      await memberCache.invalidateTeam(teamId, captainIdToUse);
 
       // Debug authentication storage first
       const { debugAuthStorage, recoverAuthentication } = await import('../utils/authDebug');
       await debugAuthStorage();
 
-      // Get authentication data using the new unified system
-      let authData = await getAuthenticationData();
+      // Get authentication data using the new unified system (reuse authData from above)
+      if (!authData) {
+        authData = await getAuthenticationData();
+      }
 
       // If retrieval failed, try recovery and migration
       if (!authData) {
@@ -313,9 +374,20 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
       }
 
       console.log('[Captain] ✅ Authentication retrieved successfully');
-      console.log('[Captain] Using npub:', authData.npub.slice(0, 20) + '...');
+      console.log('[Captain] Using user npub:', authData.npub.slice(0, 20) + '...');
+      console.log('[Captain] Using user hex pubkey:', authData.hexPubkey.slice(0, 20) + '...');
 
-      console.log('[Captain] Converting nsec to hex private key for member list creation');
+      // Check if user is actually the captain
+      if (authData.hexPubkey !== captainId) {
+        console.error('[Captain] User is not the captain of this team!');
+        console.error(`  User hex: ${authData.hexPubkey}`);
+        console.error(`  Captain hex: ${captainId}`);
+        Alert.alert('Error', 'You are not the captain of this team');
+        setIsCreatingList(false);
+        return;
+      }
+
+      console.log('[Captain] User confirmed as captain, proceeding with list creation...');
 
       // Convert nsec to hex private key
       const signer = new NDKPrivateKeySigner(authData.nsec);
@@ -326,10 +398,11 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
       }
 
       // Create kind 30000 list for this team
+      // Use the user's hex pubkey (which should match captain ID)
       const result = await NostrTeamCreationService.createMemberListForExistingTeam(
         teamId,
         data.team.name,
-        authData.hexPubkey, // Use the captain's hex pubkey from auth data
+        authData.hexPubkey, // Use the user's hex pubkey for the list author
         privateKeyHex // Pass hex private key
       );
 

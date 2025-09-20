@@ -311,6 +311,7 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
               }}
               maxDisplayed={10}
               teamId={team.id}
+              captainPubkey={team.captainId} // Pass the team's captain ID
               isDefaultLeague={!hasActiveLeague}
             />
           </View>

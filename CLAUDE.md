@@ -191,7 +191,10 @@ Simple two-tab interface with dark theme:
 **Pure Nostr Architecture**: All data comes from Nostr events, with local caching for performance.
 
 **Local Storage (AsyncStorage)**:
-- User's nsec/npub for authentication
+- User's nsec/npub for authentication:
+  - `@runstr:user_nsec` - User's private key (nsec)
+  - `@runstr:npub` - User's public key (npub)
+  - `@runstr:hex_pubkey` - User's hex-encoded public key
 - Cached team membership status
 - Workout posting status (to prevent duplicates)
 - User preferences and settings
