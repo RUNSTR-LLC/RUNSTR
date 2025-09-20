@@ -102,12 +102,26 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
   const [newMemberNpub, setNewMemberNpub] = useState('');
 
   // Check if team has kind 30000 list on mount and load members
+  // Initialize team data on mount
   React.useEffect(() => {
-    checkForKind30000List();
-    if (hasKind30000List) {
+    const initializeTeam = async () => {
+      // Clear stale cache on mount to ensure fresh data
+      const memberCache = TeamMemberCache.getInstance();
+      await memberCache.invalidateTeam(teamId, captainId);
+
+      // Check for list
+      await checkForKind30000List();
+    };
+
+    initializeTeam();
+  }, [teamId, captainId]);
+
+  // Load members when list status changes to true
+  React.useEffect(() => {
+    if (hasKind30000List === true) {
       loadTeamMembers();
     }
-  }, [teamId, captainId, hasKind30000List]);
+  }, [hasKind30000List]);
 
   const checkForKind30000List = async () => {
     try {
@@ -199,6 +213,10 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
 
     try {
       console.log('[Captain] Starting member list creation...');
+
+      // Clear any stale cache first
+      const memberCache = TeamMemberCache.getInstance();
+      await memberCache.invalidateTeam(teamId, captainId);
 
       // Get authentication data using the new unified system
       let authData = await getAuthenticationData();

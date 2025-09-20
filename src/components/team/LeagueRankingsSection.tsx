@@ -71,22 +71,40 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
     if (!teamId || !captainPubkey) return [];
 
     try {
-      console.log(`🔍 Fetching team members for team: ${teamId}`);
+      console.log(`🔍 Fetching team members for team: ${teamId} with captain: ${captainPubkey}`);
+
+      // Ensure we're using hex pubkey format for the query
+      let captainHex = captainPubkey;
+      if (captainPubkey.startsWith('npub')) {
+        // Convert npub to hex if needed
+        try {
+          const { hexPubkey } = await getUserNostrIdentifiers();
+          if (hexPubkey) captainHex = hexPubkey;
+        } catch (e) {
+          console.warn('Could not convert npub to hex, using as-is');
+        }
+      }
 
       // Get members from cached kind 30000 list
-      const members = await memberCache.getTeamMembers(teamId, captainPubkey);
+      const members = await memberCache.getTeamMembers(teamId, captainHex);
 
       if (members.length === 0) {
         // No members found - captain should be at least in the list
         console.log('⚠️ No members found in team list, adding captain');
-        members.push(captainPubkey);
+        members.push(captainHex);
       }
 
       // Convert to LeagueParticipant format
-      return members.map(npub => {
+      return members.map(pubkey => {
+        // Convert hex to npub for display if needed
+        let displayKey = pubkey;
+        if (pubkey.length === 64 && !pubkey.startsWith('npub')) {
+          // This is a hex key, we'll use it as-is (ZappableUserRow handles conversion)
+          displayKey = pubkey;
+        }
         return {
-          npub,
-          name: npub.slice(0, 8) + '...', // Fallback name, ZappableUserRow will resolve actual profile
+          npub: displayKey,
+          name: displayKey.slice(0, 8) + '...', // Fallback name, ZappableUserRow will resolve actual profile
           isActive: true,
         };
       });
@@ -107,11 +125,15 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
       // For known teams, set captain pubkey
       if (teamId === '87d30c8b-aa18-4424-a629-d41ea7f89078') {
         // RUNSTR team - TheWildHustle is captain
-        setCaptainPubkey('npub1xr8tvnnntjqqrqp9n7e7j5sdp9npqg2kv2nndxkyfzhqr5u0e9sq7w2qxa');
+        // Use hex pubkey directly for consistency
+        setCaptainPubkey('30ceb64e73197a05958c8bd92ab079c815bb44fbfbb3eb5d9766c5207f08bdf5');
       } else {
         // Try to get from user's own identifiers if they're the captain
         const identifiers = await getUserNostrIdentifiers();
-        if (identifiers?.npub) {
+        if (identifiers?.hexPubkey) {
+          setCaptainPubkey(identifiers.hexPubkey);
+        } else if (identifiers?.npub) {
+          // Fallback to npub if hex not available
           setCaptainPubkey(identifiers.npub);
         }
       }
