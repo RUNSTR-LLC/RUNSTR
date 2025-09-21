@@ -157,13 +157,14 @@ export class Competition1301QueryService {
     query: CompetitionQuery
   ): Promise<NostrWorkout[]> {
     try {
-      // Import required tools
-      const { nip19 } = await import('nostr-tools');
+      // Import required NDK (no nostr-tools needed)
       const NDK = await import('@nostr-dev-kit/ndk');
 
-      // Convert npub to hex if needed
+      // Convert npub to hex if needed using NDK's built-in nip19
       let hexPubkey = npub;
       if (npub.startsWith('npub1')) {
+        // NDK has nip19 utilities built-in
+        const { nip19 } = NDK;
         const decoded = nip19.decode(npub);
         hexPubkey = decoded.data as string;
       }

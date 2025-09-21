@@ -11,6 +11,7 @@ import type {
 } from '../../types';
 import { NostrAuthProvider } from './providers/nostrAuthProvider';
 import { AppleAuthProvider } from './providers/appleAuthProvider';
+import { AmberAuthProvider } from './providers/amberAuthProvider';
 import { storeAuthenticationData } from '../../utils/nostrAuth';
 
 export class AuthService {
@@ -77,6 +78,41 @@ export class AuthService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Authentication failed',
+      };
+    }
+  }
+
+  /**
+   * Sign in with Amber - external key management
+   */
+  static async signInWithAmber(): Promise<AuthResult> {
+    try {
+      console.log('AuthService: Starting Amber Sign-In...');
+
+      // Check if Amber Sign-In is available
+      const isAvailable = await AmberAuthProvider.isAvailable();
+      if (!isAvailable) {
+        return {
+          success: false,
+          error: 'Amber is not installed. Please install Amber from the Play Store.',
+        };
+      }
+
+      // Use Amber provider to authenticate
+      const amberProvider = new AmberAuthProvider();
+      const result = await amberProvider.signIn();
+
+      if (!result.success) {
+        return result;
+      }
+
+      console.log('AuthService: Amber authentication successful');
+      return result;
+    } catch (error) {
+      console.error('AuthService: Amber authentication error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Amber Sign-In failed',
       };
     }
   }

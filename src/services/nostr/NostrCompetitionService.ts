@@ -6,7 +6,7 @@
 
 import { EventTemplate, Event, getPublicKey } from 'nostr-tools';
 import { NostrProtocolHandler } from './NostrProtocolHandler';
-import { NostrRelayManager } from './NostrRelayManager';
+import { NostrRelayManager, nostrRelayManager } from './NostrRelayManager';
 import type {
   NostrLeagueDefinition,
   NostrEventDefinition,
@@ -31,7 +31,7 @@ export class NostrCompetitionService {
 
   constructor() {
     this.protocolHandler = new NostrProtocolHandler();
-    this.relayManager = new NostrRelayManager();
+    this.relayManager = nostrRelayManager; // Use singleton instance
   }
 
   static getInstance(): NostrCompetitionService {

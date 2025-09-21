@@ -18,7 +18,8 @@ import { theme } from '../../styles/theme';
 import { WizardStepContainer, WizardStep } from './WizardStepContainer';
 import { NostrCompetitionService } from '../../services/nostr/NostrCompetitionService';
 import { useUserStore } from '../../store/userStore';
-import { getNsecFromStorage, nsecToPrivateKey } from '../../utils/nostr';
+import { getAuthenticationData } from '../../utils/nostrAuth';
+import { nsecToPrivateKey } from '../../utils/nostr';
 import type {
   NostrActivityType,
   NostrLeagueCompetitionType,
@@ -196,25 +197,27 @@ export const LeagueCreationWizard: React.FC<LeagueCreationWizardProps> = ({
   };
 
   const handleComplete = async () => {
-    if (!user) {
-      Alert.alert('Error', 'User not found. Please log in again.');
-      return;
-    }
-
     setIsCreating(true);
 
     try {
       console.log('🏁 Creating league with Nostr Competition Service');
-      
-      // Get user's private key from storage
-      const nsec = await getNsecFromStorage(user.id);
-      if (!nsec) {
-        Alert.alert('Error', 'Cannot access your private key. Please log in again.');
+
+      // Get authentication data from unified auth system
+      const authData = await getAuthenticationData();
+      if (!authData || !authData.nsec) {
+        Alert.alert(
+          'Authentication Required',
+          'Please log in again to create competitions.',
+          [{ text: 'OK' }]
+        );
+        setIsCreating(false);
         return;
       }
 
+      console.log('✅ Retrieved auth data for:', authData.npub.slice(0, 20) + '...');
+
       // Convert nsec to private key hex
-      const privateKeyHex = nsecToPrivateKey(nsec);
+      const privateKeyHex = nsecToPrivateKey(authData.nsec);
 
       // Prepare league data for Nostr
       const leagueCreationData = {

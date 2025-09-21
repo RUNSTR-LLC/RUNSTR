@@ -7,10 +7,12 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { theme } from '../../styles/theme';
 import { MemberAvatar } from '../ui/MemberAvatar';
+import { NutzapLightningButton } from '../nutzap/NutzapLightningButton';
 
 interface TeamMember {
   id: string;
   name: string;
+  npub?: string;
   status: 'active' | 'inactive';
   activityCount?: number;
   lastActivity?: string;
@@ -62,6 +64,14 @@ export const TeamMemberItem: React.FC<TeamMemberItemProps> = ({
         </View>
       </View>
       <View style={styles.memberActions}>
+        {member.npub && (
+          <NutzapLightningButton
+            recipientNpub={member.npub}
+            recipientName={member.name}
+            size="small"
+            style={styles.zapButton}
+          />
+        )}
         <TouchableOpacity
           style={styles.miniBtn}
           onPress={handleActionPress}
@@ -133,6 +143,10 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontSize: 9,
     fontWeight: theme.typography.weights.regular,
+  },
+
+  zapButton: {
+    marginRight: 4,
   },
 });
 

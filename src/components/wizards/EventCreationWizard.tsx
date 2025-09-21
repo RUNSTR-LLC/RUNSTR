@@ -18,7 +18,8 @@ import { theme } from '../../styles/theme';
 import { WizardStepContainer, WizardStep } from './WizardStepContainer';
 import { NostrCompetitionService } from '../../services/nostr/NostrCompetitionService';
 import { useUserStore } from '../../store/userStore';
-import { getNsecFromStorage, nsecToPrivateKey } from '../../utils/nostr';
+import { getAuthenticationData } from '../../utils/nostrAuth';
+import { nsecToPrivateKey } from '../../utils/nostr';
 import { DirectNostrProfileService } from '../../services/user/directNostrProfileService';
 import type {
   NostrActivityType,
@@ -190,16 +191,23 @@ export const EventCreationWizard: React.FC<EventCreationWizardProps> = ({
 
     try {
       console.log('🎯 Creating event with Nostr Competition Service');
-      
-      // Get user's private key from storage
-      const nsec = await getNsecFromStorage(currentUser.id);
-      if (!nsec) {
-        Alert.alert('Error', 'Cannot access your private key. Please log in again.');
+
+      // Get authentication data from unified auth system
+      const authData = await getAuthenticationData();
+      if (!authData || !authData.nsec) {
+        Alert.alert(
+          'Authentication Required',
+          'Please log in again to create competitions.',
+          [{ text: 'OK' }]
+        );
+        setIsCreating(false);
         return;
       }
 
+      console.log('✅ Retrieved auth data for:', authData.npub.slice(0, 20) + '...');
+
       // Convert nsec to private key hex
-      const privateKeyHex = nsecToPrivateKey(nsec);
+      const privateKeyHex = nsecToPrivateKey(authData.nsec);
 
       // Prepare event data for Nostr
       const eventCreationData = {

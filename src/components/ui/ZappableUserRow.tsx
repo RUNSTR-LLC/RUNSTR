@@ -4,12 +4,11 @@
  * Used across league rankings, team member lists, and competition displays
  */
 
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { theme } from '../../styles/theme';
 import { Avatar } from './Avatar';
-import { ZapModal } from './ZapModal';
+import { NutzapLightningButton } from '../nutzap/NutzapLightningButton';
 import { useNostrProfile } from '../../hooks/useCachedData';
 
 interface ZappableUserRowProps {
@@ -33,8 +32,7 @@ export const ZappableUserRow: React.FC<ZappableUserRowProps> = ({
   style,
   disabled = false,
 }) => {
-  const [zapModalVisible, setZapModalVisible] = useState(false);
-  const { profile, loading } = useNostrProfile(npub);
+  const { profile } = useNostrProfile(npub);
 
   // Resolve display name with fallback chain
   const displayName = profile?.name ||
@@ -43,21 +41,6 @@ export const ZappableUserRow: React.FC<ZappableUserRowProps> = ({
                      `${npub.slice(0, 8)}...`;
 
   const avatarUrl = profile?.picture;
-
-  const handleZapPress = () => {
-    if (!disabled) {
-      setZapModalVisible(true);
-    }
-  };
-
-  const handleZapModalClose = () => {
-    setZapModalVisible(false);
-  };
-
-  const handleZapSuccess = () => {
-    setZapModalVisible(false);
-    onZapSuccess?.();
-  };
 
   return (
     <View style={[styles.container, style]}>
@@ -83,35 +66,16 @@ export const ZappableUserRow: React.FC<ZappableUserRowProps> = ({
         </View>
       </View>
 
-      {/* Zap button with lightning icon */}
+      {/* Nutzap Lightning Button */}
       {showQuickZap && (
-        <TouchableOpacity
-          style={[styles.zapButton, disabled && styles.zapButtonDisabled]}
-          onPress={handleZapPress}
+        <NutzapLightningButton
+          recipientNpub={npub}
+          recipientName={displayName}
+          size="medium"
           disabled={disabled}
-          activeOpacity={0.7}
-        >
-          {loading ? (
-            <ActivityIndicator size="small" color={theme.colors.primary} />
-          ) : (
-            <Ionicons
-              name="flash"
-              size={20}
-              color={disabled ? theme.colors.textSecondary : theme.colors.primary}
-            />
-          )}
-        </TouchableOpacity>
+          onZapSuccess={onZapSuccess}
+        />
       )}
-
-      {/* Zap Modal */}
-      <ZapModal
-        visible={zapModalVisible}
-        onClose={handleZapModalClose}
-        recipientNpub={npub}
-        recipientName={displayName}
-        suggestedAmount={zapAmount}
-        onSuccess={handleZapSuccess}
-      />
     </View>
   );
 };
@@ -150,21 +114,5 @@ const styles = StyleSheet.create({
 
   additionalContent: {
     marginTop: 2,
-  },
-
-  zapButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: theme.colors.cardBackground,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 12,
-  },
-
-  zapButtonDisabled: {
-    opacity: 0.5,
   },
 });

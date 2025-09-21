@@ -22,6 +22,8 @@ import { theme } from '../styles/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { validateNsec } from '../utils/nostr';
 import { AppleSignInButton } from '../components/auth/AppleSignInButton';
+import { AmberAuthProvider } from '../services/auth/providers/amberAuthProvider';
+import * as Linking from 'expo-linking';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IS_SMALL_DEVICE = SCREEN_HEIGHT < 700;
@@ -32,14 +34,27 @@ interface LoginScreenProps {
 
 export const LoginScreen: React.FC<LoginScreenProps> = () => {
   // Use AuthContext for direct authentication state management
-  const { signIn, signInWithApple } = useAuth();
+  const { signIn, signInWithApple, signInWithAmber } = useAuth();
   const insets = useSafeAreaInsets();
-  
+
   // Local state for UI only
   const [showInput, setShowInput] = useState(false);
   const [nsecInput, setNsecInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [amberAvailable, setAmberAvailable] = useState(false);
+  const [checkingAmber, setCheckingAmber] = useState(false);
+
+  // Check if Amber is available when showing input
+  React.useEffect(() => {
+    if (showInput && Platform.OS === 'android') {
+      setCheckingAmber(true);
+      AmberAuthProvider.isAvailable().then((available) => {
+        setAmberAvailable(available);
+        setCheckingAmber(false);
+      });
+    }
+  }, [showInput]);
 
   const handleShowInput = () => {
     setShowInput(true);
@@ -115,10 +130,40 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
     }
   };
 
+  const handleAmberLogin = async () => {
+    if (!amberAvailable) {
+      setError('Amber is not installed. Please install Amber from the Play Store.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      console.log('LoginScreen: Attempting Amber authentication...');
+      const result = await signInWithAmber();
+
+      if (result.success) {
+        console.log('✅ LoginScreen: Amber authentication successful');
+      } else {
+        console.error('❌ LoginScreen: Amber authentication failed:', result.error);
+        setError(result.error || 'Amber authentication failed. Please try again.');
+      }
+    } catch (error) {
+      console.error('❌ LoginScreen: Amber authentication error:', error);
+      setError(
+        error instanceof Error ? error.message : 'An unexpected error occurred'
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleBack = () => {
     setShowInput(false);
     setNsecInput('');
     setError(null);
+    setAmberAvailable(false);
   };
 
   // Calculate responsive dimensions
@@ -231,6 +276,46 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
                     <Text style={styles.submitButtonText}>Login</Text>
                   )}
                 </TouchableOpacity>
+
+                {/* Amber Login Option - Only on Android */}
+                {Platform.OS === 'android' && (
+                  <View style={styles.amberSection}>
+                    <View style={styles.divider}>
+                      <View style={styles.dividerLine} />
+                      <Text style={styles.dividerText}>OR</Text>
+                      <View style={styles.dividerLine} />
+                    </View>
+
+                    {checkingAmber ? (
+                      <ActivityIndicator size="small" color={theme.colors.text} />
+                    ) : amberAvailable ? (
+                      <TouchableOpacity
+                        style={[styles.amberButton, isLoading && styles.amberButtonDisabled]}
+                        onPress={handleAmberLogin}
+                        disabled={isLoading}
+                        activeOpacity={0.8}
+                      >
+                        {isLoading ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <>
+                            <Text style={styles.amberButtonText}>Login with Amber</Text>
+                            <Text style={styles.amberSubtext}>Secure key management</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        style={styles.installAmberButton}
+                        onPress={() => Linking.openURL('https://play.google.com/store/apps/details?id=com.greenart7c3.nostrsigner')}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.installAmberText}>Install Amber</Text>
+                        <Text style={styles.amberSubtext}>For secure Nostr login</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
               </View>
             )}
           </View>
@@ -397,5 +482,63 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+
+  // Amber styles
+  amberSection: {
+    marginTop: 24,
+    alignItems: 'center',
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    width: '100%',
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: theme.colors.border,
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    color: theme.colors.textMuted,
+    fontSize: 14,
+  },
+  amberButton: {
+    backgroundColor: '#FFA500', // Amber color
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    width: '100%',
+  },
+  amberButtonDisabled: {
+    opacity: 0.6,
+  },
+  amberButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  amberSubtext: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 4,
+  },
+  installAmberButton: {
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: '#FFA500',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    width: '100%',
+  },
+  installAmberText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFA500',
   },
 });

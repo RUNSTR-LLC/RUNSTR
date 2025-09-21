@@ -1,49 +1,56 @@
-# ⚡ Zap Arena
+# ⚡ RUNSTR Rewards
 
-**Bitcoin-powered fitness competitions on the decentralized web**
+**Bitcoin-powered fitness competitions on Nostr protocol**
 
-Transform your workouts into competitive, Bitcoin-earning experiences through Nostr-native team competitions. Join fitness teams, participate in captain-created challenges, and earn real Bitcoin rewards while building lasting fitness habits.
+The first fitness competition platform that combines the decentralized power of Nostr with real Bitcoin rewards through the Lightning Network. Built entirely on the Nostr protocol, every workout, team membership, and competition exists as permanent, user-owned data that no company can delete or monetize without your permission.
 
-![Zap Arena Demo](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
+![RUNSTR Rewards](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
 ![React Native](https://img.shields.io/badge/React%20Native-0.79.5-blue)
 ![Nostr Protocol](https://img.shields.io/badge/Nostr-Protocol-purple)
 ![Lightning Network](https://img.shields.io/badge/Lightning-Network-orange)
 
-## 🌟 What Makes Zap Arena Different
+## 🌟 Bitcoin & Nostr: The Future of Fitness Competition
 
-**Truly Decentralized**: Built on Nostr protocol - your data, workouts, and social connections belong to you forever. No central servers, no vendor lock-in.
+**Paragraph 1: Bitcoin & Nostr Core Value Proposition**
+RUNSTR Rewards is the first fitness competition platform that combines the decentralized power of Nostr with real Bitcoin rewards through the Lightning Network. Built entirely on the Nostr protocol, every workout, team membership, and competition exists as permanent, user-owned data that no company can delete or monetize without your permission. Team captains create fitness competitions with Bitcoin entry fees that build real prize pools, automatically distributed to winners via Lightning payments. This creates the world's first truly decentralized fitness economy where your dedication to health directly translates into Bitcoin earnings, all while maintaining complete sovereignty over your fitness data.
 
-**Real Bitcoin Rewards**: Earn actual Lightning Network Bitcoin for fitness achievements. Entry fees create real prize pools distributed automatically to winners.
+**Paragraph 2: Nostr-Native Competition System**
+The platform leverages Nostr's event-driven architecture to create transparent, verifiable fitness competitions that operate without any central authority. Teams exist as Nostr lists (Kind 30000), competitions as parameterized events (Kind 31013), and workout submissions as structured fitness data (Kind 1301). This means every leaderboard position, every workout entry, and every Bitcoin payout is cryptographically signed and permanently recorded on the Nostr network. Users can authenticate directly with their Nostr keys (nsec) for full protocol access, or use Apple Sign-In which automatically generates a Nostr keypair behind the scenes, making Web3 fitness accessible to everyone regardless of technical expertise.
 
-**Invisible Complexity**: Advanced Web3 technology hidden behind a polished mobile interface. Users focus on fitness, not crypto complexity.
+**Paragraph 3: Bitcoin-Incentivized Fitness Ecosystem**
+RUNSTR Rewards transforms fitness from a personal journey into a profitable competitive sport through Bitcoin micropayments on the Lightning Network. Captains set competition entry fees in sats, creating prize pools that motivate genuine participation. Whether it's a weekend 5K challenge, a month-long consistency league, or a team-vs-team cycling event, every competition has real monetary stakes that drive accountability. Winners receive instant Lightning payments directly to their wallets - no intermediaries, no withdrawal fees, no waiting periods. This direct peer-to-peer reward system ensures that fitness achievements translate immediately into Bitcoin earnings.
 
-**Network Effects**: Leverage existing Nostr communities - import your profile, workout history, and social connections instantly.
+**Paragraph 4: Unified Fitness Data with Nostr Publishing**
+While RUNSTR Rewards aggregates workouts from any Apple HealthKit-compatible app into local storage, the real power comes from selective Nostr publishing. Users maintain complete control over their fitness data, choosing when to convert private workouts into competitive entries. Post workouts as Kind 1 events to share achievements with your Nostr social network, complete with beautiful achievement cards, or publish as Kind 1301 structured fitness events to enter competitions and climb leaderboards. This hybrid approach respects privacy while enabling participation in the Bitcoin-earning competition ecosystem when users are ready to compete.
+
+**Paragraph 5: Future of Decentralized Fitness**
+The roadmap ahead doubles down on Bitcoin and Nostr integration to create new earning opportunities and enhanced competition features. Coming soon: team monetization tools allowing captains to create sponsored competitions with larger Bitcoin prize pools, achievement bounties where users earn sats for hitting fitness milestones, and cross-team league systems with season-long Bitcoin championships. Technical enhancements include Garmin integration for broader device support, Amber wallet authentication for streamlined Nostr login, push notifications for competition updates, and performance optimizations to handle thousands of concurrent competitions. RUNSTR Rewards is building the foundation for a global, decentralized fitness economy where anyone can earn Bitcoin for staying healthy, powered entirely by Nostr's unstoppable protocol.
 
 ## ⚡ Core Features
 
-### 🏃‍♂️ **Fitness Competition System**
-- **Team-Based Competitions**: Join fitness teams led by captains who create engaging challenges
-- **7 Activity Types**: Running, walking, cycling, strength training, meditation, yoga, diet tracking
-- **Dynamic Leaderboards**: Real-time scoring based on distance, duration, consistency, or custom metrics
-- **Competition Varieties**: Single events, ongoing leagues, head-to-head challenges
+### 🏃‍♂️ **Nostr-Powered Competition System**
+- **Decentralized Competitions**: All competitions exist as Nostr events (Kind 31013) with cryptographic verification
+- **Bitcoin Prize Pools**: Entry fees in sats create real monetary incentives for participation
+- **Transparent Leaderboards**: Every workout submission (Kind 1301) is publicly verifiable on Nostr
+- **Team Management**: Teams stored as Nostr lists (Kind 30000) with captain-controlled membership
 
-### 💰 **Bitcoin Integration** 
-- **Lightning Network Payments**: Instant, low-fee Bitcoin transactions via CoinOS integration
-- **Entry Fees & Prize Pools**: Captains set Bitcoin entry fees that create real monetary incentives
-- **Automatic Payouts**: Winners receive Bitcoin rewards distributed automatically to their wallets
-- **Team Wallet Management**: Captains manage team funds and reward distribution
+### 💰 **Bitcoin Integration**
+- **Lightning Network Payments**: Instant, peer-to-peer Bitcoin transactions with no intermediaries
+- **Entry Fees & Prize Pools**: Captains set Bitcoin entry fees in sats that create real monetary incentives
+- **Automatic Payouts**: Winners receive instant Lightning payments directly to their wallets
+- **Zero Exit Fees**: No withdrawal fees, no waiting periods - immediate Bitcoin earnings
 
-### 📱 **Apple HealthKit Integration**
-- **Workout Import**: Seamlessly import Apple Health workout data
-- **Beautiful Social Cards**: Transform workouts into Instagram-worthy achievement graphics
-- **Dual Publishing**: Save workouts to Nostr for competitions or share socially with RUNSTR branding
-- **Unified Timeline**: View both HealthKit and Nostr workouts in a single, elegant interface
+### 📱 **Multi-App Fitness Aggregation**
+- **HealthKit Integration**: Aggregate workouts from any Apple HealthKit-compatible fitness app
+- **Unified Storage**: All workouts stored locally with option to publish to Nostr
+- **Dual Publishing**: Post as Kind 1 social events or Kind 1301 competition entries
+- **Beautiful Social Cards**: Transform workouts into shareable achievement graphics with RUNSTR branding
 
 ### 🔐 **Nostr-Native Authentication**
-- **Private Key Login**: Authenticate with your Nostr nsec key
+- **Dual Authentication**: Direct Nostr nsec login OR Apple Sign-In (auto-generates Nostr keypair)
 - **Automatic Profile Import**: Import existing profile data and workout history from Nostr events
 - **Data Portability**: Your fitness data remains permanently accessible across any Nostr client
-- **No Registration**: Skip traditional signup flows - use your existing Nostr identity
+- **No Registration**: Skip traditional signup flows - use your existing Nostr identity or Apple account
 
 ## 🛠 Technical Architecture
 
@@ -84,8 +91,8 @@ Lightning Network (CoinOS API)
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/yourusername/zap-arena.git
-cd zap-arena
+git clone https://github.com/RUNSTR-LLC/RUNSTR-REWARDS.git
+cd RUNSTR-REWARDS
 ```
 
 2. **Install dependencies**
@@ -107,7 +114,7 @@ npm run start
 
 ### First Run Setup
 
-1. **Launch the app** - You'll see the Zap Arena splash screen with Nostr connection status
+1. **Launch the app** - You'll see the RUNSTR Rewards splash screen with Nostr connection status
 2. **Authenticate with Nostr** - Enter your nsec private key to import your profile and workout data
 3. **Choose your role** - Select "Member" to join teams or "Captain" to create and manage teams
 4. **Explore teams** - Browse available fitness teams and join competitions
@@ -260,4 +267,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-**Zap Arena** - Where fitness meets Bitcoin on the decentralized web ⚡🏃‍♂️₿
+**RUNSTR Rewards** - Where fitness meets Bitcoin on the decentralized web ⚡🏃‍♂️₿

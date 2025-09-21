@@ -2,7 +2,7 @@
   "expo": {
     "name": "runstr.project",
     "slug": "runstr.project",
-    "version": "1.0.0",
+    "version": "0.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "runstrproject",
@@ -23,7 +23,6 @@
         ]
       },
       "infoPlist": {
-        "NSUserTrackingUsageDescription": "This identifier will be used to deliver personalized ads to you.",
         "CFBundleDisplayName": "RUNSTR",
         "NSHealthShareUsageDescription": "RUNSTR needs access to your workout data to automatically sync your fitness activities and calculate team rankings for Bitcoin rewards.",
         "NSHealthUpdateUsageDescription": "RUNSTR needs to read your workout data to track your fitness progress and team contributions.",
@@ -42,7 +41,17 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.runstr.project"
+      "package": "com.anonymous.runstr.project",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "category": ["DEFAULT", "BROWSABLE"],
+          "data": {
+            "scheme": "runstrproject",
+            "host": "amber-callback"
+          }
+        }
+      ]
     },
     "web": {
       "bundler": "metro",

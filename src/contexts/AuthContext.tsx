@@ -23,6 +23,7 @@ interface AuthState {
 interface AuthActions {
   signIn: (nsec: string) => Promise<{ success: boolean; error?: string }>;
   signInWithApple: () => Promise<{ success: boolean; error?: string }>;
+  signInWithAmber: () => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   refreshAuthentication: () => Promise<void>;
   checkStoredCredentials: () => Promise<void>;
@@ -253,6 +254,43 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   /**
+   * Sign in with Amber - uses external key management
+   */
+  const signInWithAmber = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
+    try {
+      console.log('🟠 AuthContext: Starting Amber Sign-In process...');
+      setConnectionStatus('Authenticating with Amber...');
+
+      // Use AuthService for Amber authentication
+      const result = await AuthService.signInWithAmber();
+
+      if (!result.success || !result.user) {
+        console.error('❌ AuthContext: Amber authentication failed:', result.error);
+        return { success: false, error: result.error };
+      }
+
+      console.log('✅ AuthContext: Amber authentication successful - updating state');
+
+      // Direct state updates (like iOS app)
+      setIsAuthenticated(true);
+      setCurrentUser(result.user);
+      setIsConnected(true);
+      setConnectionStatus('Connected');
+      setInitError(null);
+
+      // Cache the profile
+      const { appCache } = await import('../utils/cache');
+      await appCache.set('current_user_profile', result.user, 5 * 60 * 1000);
+
+      return { success: true };
+    } catch (error) {
+      console.error('❌ AuthContext: Amber Sign-In error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Amber Sign-In failed';
+      return { success: false, error: errorMessage };
+    }
+  }, []);
+
+  /**
    * Sign in with Apple - generates deterministic Nostr keys
    */
   const signInWithApple = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
@@ -382,6 +420,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Actions
     signIn,
     signInWithApple,
+    signInWithAmber,
     signOut,
     refreshAuthentication,
     checkStoredCredentials,

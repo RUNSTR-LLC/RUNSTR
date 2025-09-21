@@ -83,6 +83,30 @@ class NutzapService {
   }
 
   /**
+   * Initialize for receive-only mode (Amber users)
+   * Only sets up pubkey for receiving, no wallet creation
+   */
+  async initializeForReceiveOnly(hexPubkey: string): Promise<{ created: boolean; address?: string }> {
+    try {
+      console.log('[NutZap] Initializing for receive-only mode...');
+
+      this.userPubkey = hexPubkey;
+
+      // Can't create or manage wallet without nsec
+      // But can still receive zaps to the pubkey
+      console.log('[NutZap] Configured for receiving zaps to:', hexPubkey.slice(0, 16) + '...');
+
+      return {
+        created: false,
+        address: `${hexPubkey.slice(0, 8)}...@nutzap`
+      };
+    } catch (error) {
+      console.error('[NutZap] Receive-only initialization error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Initialize the service with user's nsec
    * Auto-creates wallet if none exists
    */

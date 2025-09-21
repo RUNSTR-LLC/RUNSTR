@@ -15,7 +15,7 @@ import {
 import { theme } from '../../../styles/theme';
 import { TeamCreationStepProps, User } from '../../../types';
 import NostrTeamCreationService from '../../../services/nostr/NostrTeamCreationService';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getAuthenticationData } from '../../../utils/nostrAuth';
 import { nip19 } from 'nostr-tools';
 
 interface ReviewLaunchStepProps extends TeamCreationStepProps {
@@ -61,20 +61,23 @@ export const ReviewLaunchStep: React.FC<ReviewLaunchStepProps> = ({
       console.log('User npub:', currentUser.npub);
       console.log('User name:', currentUser.name);
 
-      // Get user's private key from secure storage
-      const nsec = await AsyncStorage.getItem('userNsec');
-      if (!nsec) {
+      // Get user's authentication data from unified system
+      const authData = await getAuthenticationData();
+      if (!authData || !authData.nsec) {
         Alert.alert(
           'Authentication Required',
           'Please log in again to create a team'
         );
+        setIsLaunching(false);
         return;
       }
+
+      console.log('✅ Retrieved auth data for:', authData.npub.slice(0, 20) + '...');
 
       // Decode nsec to get private key
       let privateKey: string;
       try {
-        const decoded = nip19.decode(nsec);
+        const decoded = nip19.decode(authData.nsec);
         if (decoded.type === 'nsec') {
           privateKey = decoded.data as string;
         } else {
@@ -83,6 +86,7 @@ export const ReviewLaunchStep: React.FC<ReviewLaunchStepProps> = ({
       } catch (e) {
         console.error('Failed to decode nsec:', e);
         Alert.alert('Error', 'Invalid authentication data. Please log in again.');
+        setIsLaunching(false);
         return;
       }
 
