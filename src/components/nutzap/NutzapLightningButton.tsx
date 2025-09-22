@@ -2,6 +2,7 @@
  * NutzapLightningButton Component
  * Lightning bolt button for quick zapping with tap (21 sats) or hold (custom amount)
  * Visual feedback: black bolt turns yellow after successful zap
+ * Accepts both npub and hex pubkey formats
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -18,6 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../styles/theme';
 import { useNutzap } from '../../hooks/useNutzap';
 import { EnhancedZapModal } from './EnhancedZapModal';
+import { npubToHex } from '../../utils/ndkConversion';
 
 const DEFAULT_ZAP_AMOUNT = 21;
 const LONG_PRESS_DURATION = 500; // ms to trigger long press
@@ -52,11 +54,21 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
   // Timer for long press detection
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
+  // Normalize recipient pubkey to hex format for consistency
+  const recipientHex = React.useMemo(() => {
+    const normalized = npubToHex(recipientNpub);
+    if (!normalized) {
+      console.warn('[NutzapLightningButton] Invalid recipient pubkey:', recipientNpub.slice(0, 20));
+      return recipientNpub; // Use as-is if conversion fails
+    }
+    return normalized;
+  }, [recipientNpub]);
+
   // Load zapped state and default amount on mount
   useEffect(() => {
     loadZapState();
     loadDefaultAmount();
-  }, [recipientNpub]);
+  }, [recipientHex]);
 
   const loadZapState = async () => {
     try {
@@ -74,7 +86,7 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
               users: [],
             })
           );
-        } else if (parsed.users.includes(recipientNpub)) {
+        } else if (parsed.users.includes(recipientHex)) {
           setIsZapped(true);
           Animated.timing(colorAnimation, {
             toValue: 1,
@@ -112,8 +124,8 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
         }
       }
 
-      if (!data.users.includes(recipientNpub)) {
-        data.users.push(recipientNpub);
+      if (!data.users.includes(recipientHex)) {
+        data.users.push(recipientHex);
         await AsyncStorage.setItem(
           '@runstr:zapped_users',
           JSON.stringify(data)
@@ -184,7 +196,7 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
 
     try {
       const success = await sendNutzap(
-        recipientNpub,
+        recipientHex,
         defaultAmount,
         `⚡ Quick zap from RUNSTR!`
       );
@@ -306,7 +318,7 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
 
       <EnhancedZapModal
         visible={showModal}
-        recipientNpub={recipientNpub}
+        recipientNpub={recipientHex}
         recipientName={recipientName}
         defaultAmount={defaultAmount}
         balance={balance}

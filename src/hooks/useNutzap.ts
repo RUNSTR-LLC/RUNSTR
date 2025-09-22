@@ -1,11 +1,13 @@
 /**
  * useNutzap Hook - React Native hook for NutZap wallet functionality
  * Provides easy integration with components
+ * Accepts both npub and hex pubkey formats
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import nutzapService from '../services/nutzap/nutzapService';
+import { npubToHex } from '../utils/ndkConversion';
 
 interface UseNutzapReturn {
   // State
@@ -81,6 +83,7 @@ export const useNutzap = (autoInitialize: boolean = true): UseNutzapReturn => {
 
   /**
    * Send nutzap to another user
+   * Accepts both npub and hex pubkey formats
    */
   const sendNutzap = useCallback(async (
     recipientPubkey: string,
@@ -95,7 +98,10 @@ export const useNutzap = (autoInitialize: boolean = true): UseNutzapReturn => {
     setError(null);
 
     try {
-      const result = await nutzapService.sendNutzap(recipientPubkey, amount, memo || '');
+      // Normalize recipient pubkey to hex format
+      const recipientHex = npubToHex(recipientPubkey) || recipientPubkey;
+
+      const result = await nutzapService.sendNutzap(recipientHex, amount, memo || '');
 
       if (result.success) {
         // Update balance

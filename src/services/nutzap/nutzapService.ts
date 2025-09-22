@@ -1,6 +1,7 @@
 /**
  * NutZap Service - Simplified NIP-60/61 Implementation using NDK
  * Phase 1: Core wallet infrastructure with auto-creation
+ * Accepts both npub and hex pubkey formats for recipients
  */
 
 // Crypto polyfill is now applied in index.js
@@ -20,6 +21,7 @@ import {
   getDecodedToken
 } from '@cashu/cashu-ts';
 import { decryptFromStorage } from '../../utils/nostr';
+import { npubToHex } from '../../utils/ndkConversion';
 
 // Storage keys
 const STORAGE_KEYS = {
@@ -505,6 +507,7 @@ class NutzapService {
 
   /**
    * Send a nutzap to another user
+   * Accepts both npub and hex pubkey formats
    */
   async sendNutzap(
     recipientPubkey: string,
@@ -515,6 +518,9 @@ class NutzapService {
       if (!this.isInitialized || !this.cashuWallet || !this.ndk) {
         throw new Error('Service not initialized');
       }
+
+      // Normalize recipient pubkey to hex format for Nostr event
+      const recipientHex = npubToHex(recipientPubkey) || recipientPubkey;
 
       // Load current proofs
       const proofsStr = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PROOFS);
@@ -545,7 +551,7 @@ class NutzapService {
       nutzapEvent.kind = EVENT_KINDS.NUTZAP as NDKKind;
       nutzapEvent.content = memo;
       nutzapEvent.tags = [
-        ['p', recipientPubkey],
+        ['p', recipientHex],
         ['amount', amount.toString()],
         ['unit', 'sat'],
         ['proof', token]
@@ -564,10 +570,10 @@ class NutzapService {
         amount,
         timestamp: Date.now(),
         memo,
-        recipient: recipientPubkey,
+        recipient: recipientHex,
       });
 
-      console.log(`[NutZap] Sent ${amount} sats to ${recipientPubkey.slice(0, 8)}...`);
+      console.log(`[NutZap] Sent ${amount} sats to ${recipientHex.slice(0, 8)}...`);
       return { success: true };
 
     } catch (error) {

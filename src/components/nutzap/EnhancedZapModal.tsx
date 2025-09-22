@@ -2,6 +2,7 @@
  * EnhancedZapModal Component
  * Modal for custom zap amounts with default setting capability
  * Triggered by long-press on NutzapLightningButton
+ * Accepts both npub and hex pubkey formats
  */
 
 import React, { useState, useEffect } from 'react';
@@ -20,6 +21,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { useNutzap } from '../../hooks/useNutzap';
+import { hexToNpub, npubToHex } from '../../utils/ndkConversion';
 
 interface EnhancedZapModalProps {
   visible: boolean;
@@ -48,6 +50,26 @@ export const EnhancedZapModal: React.FC<EnhancedZapModalProps> = ({
   const [isSending, setIsSending] = useState(false);
   const [setAsDefault, setSetAsDefault] = useState(false);
   const [memo, setMemo] = useState('');
+
+  // Normalize recipient pubkey to hex for sending, and npub for display
+  const recipientHex = React.useMemo(() => {
+    const normalized = npubToHex(recipientNpub);
+    if (!normalized) {
+      console.warn('[EnhancedZapModal] Invalid recipient pubkey:', recipientNpub.slice(0, 20));
+      return recipientNpub; // Use as-is if conversion fails
+    }
+    return normalized;
+  }, [recipientNpub]);
+
+  const displayNpub = React.useMemo(() => {
+    // If it's already an npub, use it for display
+    if (recipientNpub.startsWith('npub')) {
+      return recipientNpub;
+    }
+    // If it's hex, convert to npub for display
+    const npub = hexToNpub(recipientNpub);
+    return npub || recipientNpub;
+  }, [recipientNpub]);
 
   // Preset amounts with 21 as the first option
   const presetAmounts = [21, 100, 500, 1000, 2100, 5000];
@@ -82,7 +104,7 @@ export const EnhancedZapModal: React.FC<EnhancedZapModalProps> = ({
 
     try {
       const zapMemo = memo || `⚡ Zap from RUNSTR - ${amount} sats!`;
-      const success = await sendNutzap(recipientNpub, amount, zapMemo);
+      const success = await sendNutzap(recipientHex, amount, zapMemo);
 
       if (success) {
         // Update default if requested
@@ -157,7 +179,7 @@ export const EnhancedZapModal: React.FC<EnhancedZapModalProps> = ({
               <Text style={styles.recipientLabel}>Sending to:</Text>
               <Text style={styles.recipientName}>{recipientName}</Text>
               <Text style={styles.recipientPubkey}>
-                {recipientNpub.slice(0, 16)}...
+                {displayNpub.slice(0, 16)}...
               </Text>
             </View>
 
