@@ -112,40 +112,13 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
     checkCaptainStatus();
   }, [currentUserPubkey]);
 
-  // Convert NostrTeam to DiscoveryTeam for UI compatibility
-  const convertNostrTeamToDiscoveryTeam = (
-    nostrTeam: NostrTeam
-  ): DiscoveryTeam => {
-    return {
-      id: nostrTeam.id,
-      name: nostrTeam.name,
-      description: nostrTeam.description,
-      about: nostrTeam.description,
-      captainId: nostrTeam.captainId,
-      prizePool: 0, // No prize pools yet for Nostr teams in Phase 1
-      memberCount: nostrTeam.memberCount,
-      joinReward: 0,
-      exitFee: 0, // No exit fees for Phase 1
-      avatar: undefined,
-      createdAt: new Date(nostrTeam.createdAt * 1000).toISOString(),
-      isActive: true,
-      difficulty: 'intermediate' as const, // Default difficulty for Phase 1
-      stats: {
-        memberCount: nostrTeam.memberCount,
-        avgPace: 'N/A', // Not available for Nostr teams yet
-        activeEvents: 0,
-        activeChallenges: 0,
-      },
-      recentActivities: [],
-      isFeatured: false,
-    };
-  };
+  // Note: Team conversion is now handled by TeamCacheService.convertToDiscoveryTeams()
+  // This ensures consistent conversion across the app
 
   // Mock teams removed - using only real Nostr relay data
 
   const fetchTeams = async (forceRefresh = false) => {
     try {
-      setIsLoading(true);
       setError(null);
 
       console.log('📦 TeamDiscoveryScreen: Loading teams with cache support...');
@@ -153,13 +126,21 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
       // Use TeamCacheService for cached teams
       const cacheService = TeamCacheService.getInstance();
 
+      // Check if we have cached teams first (instant check)
+      const hasCachedTeams = await cacheService.hasCachedTeams();
+
+      // Only show loading if we don't have cached teams
+      if (!hasCachedTeams || forceRefresh) {
+        setIsLoading(true);
+      }
+
       // Get teams (from cache if available, otherwise fetch)
       const discoveryTeams = forceRefresh
         ? await cacheService.refreshTeams()
         : await cacheService.getTeams();
 
       console.log(
-        `✅ TeamDiscoveryScreen: Loaded ${discoveryTeams.length} teams`
+        `✅ TeamDiscoveryScreen: Loaded ${discoveryTeams.length} teams ${hasCachedTeams && !forceRefresh ? '(from cache)' : '(fresh)'}`
       );
 
       // Set teams in state

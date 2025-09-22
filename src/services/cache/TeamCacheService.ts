@@ -35,6 +35,15 @@ export class TeamCacheService {
   }
 
   /**
+   * Check if we have cached teams without loading them
+   * Used for determining whether to show loading state
+   */
+  async hasCachedTeams(): Promise<boolean> {
+    const cachedTeams = await appCache.get<NostrTeam[]>(this.CACHE_KEY);
+    return !!(cachedTeams && cachedTeams.length > 0);
+  }
+
+  /**
    * Get teams with cache-first strategy
    * Returns cached data immediately if available, triggers background refresh if stale
    */
