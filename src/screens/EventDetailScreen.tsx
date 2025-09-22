@@ -33,7 +33,7 @@ import { LiveLeaderboard } from '../components/competition/LiveLeaderboard';
 // Real Data Services
 import { CompetitionService } from '../services/competition/competitionService';
 import { NostrCompetitionLeaderboardService } from '../services/competition/nostrCompetitionLeaderboardService';
-import { NostrTeamService } from '../services/nostr/NostrTeamService';
+import { getNostrTeamService } from '../services/nostr/NostrTeamService';
 import { CaptainCache } from '../utils/captainCache';
 import { getNpubFromStorage } from '../utils/nostr';
 import type { CompetitionLeaderboard, CompetitionParticipant } from '../services/competition/nostrCompetitionLeaderboardService';
@@ -93,7 +93,7 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
           setUserIsCaptain(isCaptain);
         } else {
           // Fetch team data to verify captain status
-          const teamService = NostrTeamService.getInstance();
+          const teamService = getNostrTeamService();
           const teamData = await teamService.fetchTeamById(competition.teamId);
 
           if (teamData) {
@@ -138,7 +138,7 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
 
         // Also fetch and set team data if we don't have it yet
         if (!team && competition.teamId) {
-          const teamService = NostrTeamService.getInstance();
+          const teamService = getNostrTeamService();
           const teamData = await teamService.fetchTeamById(competition.teamId);
           if (teamData) {
             setTeam(teamData);

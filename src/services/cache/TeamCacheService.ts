@@ -4,12 +4,12 @@
  */
 
 import { appCache } from '../../utils/cache';
-import { NostrTeamService, type NostrTeam } from '../nostr/NostrTeamService';
+import { getNostrTeamService, type NostrTeam } from '../nostr/NostrTeamService';
 import type { DiscoveryTeam } from '../../types';
 
 export class TeamCacheService {
   private static instance: TeamCacheService;
-  private teamService: NostrTeamService;
+  private teamService: ReturnType<typeof getNostrTeamService>;
   private isRefreshing = false;
   private lastRefreshTime = 0;
 
@@ -24,7 +24,7 @@ export class TeamCacheService {
   private readonly BACKGROUND_REFRESH_TIME = 5 * 60 * 1000;
 
   private constructor() {
-    this.teamService = NostrTeamService.getInstance();
+    this.teamService = getNostrTeamService();
   }
 
   static getInstance(): TeamCacheService {

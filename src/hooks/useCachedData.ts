@@ -9,7 +9,7 @@ import { UnifiedCacheService } from '../services/cache/UnifiedCacheService';
 import { CacheInvalidator } from '../services/cache/CacheInvalidator';
 import { TeamMemberCache } from '../services/team/TeamMemberCache';
 import { nostrProfileService } from '../services/nostr/NostrProfileService';
-import { NostrTeamService } from '../services/nostr/NostrTeamService';
+import { getNostrTeamService } from '../services/nostr/NostrTeamService';
 import leagueRankingService, {
   LeagueRankingEntry,
   LeagueParameters,
@@ -273,16 +273,16 @@ export function useTeams() {
         ? await UnifiedCacheService.forceFetch(
             cacheKey,
             async () => {
-              const service = NostrTeamService.getInstance();
-              return service.fetchTeams();
+              const service = getNostrTeamService();
+              return service.discoverFitnessTeams();
             },
             'teams'
           )
         : await UnifiedCacheService.fetch(
             cacheKey,
             async () => {
-              const service = NostrTeamService.getInstance();
-              return service.fetchTeams();
+              const service = getNostrTeamService();
+              return service.discoverFitnessTeams();
             },
             'teams'
           );
