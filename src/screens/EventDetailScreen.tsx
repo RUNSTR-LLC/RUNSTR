@@ -94,7 +94,7 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
         } else {
           // Fetch team data to verify captain status
           const teamService = getNostrTeamService();
-          const teamData = await teamService.fetchTeamById(competition.teamId);
+          const teamData = teamService.getTeamById(competition.teamId);
 
           if (teamData) {
             setTeam(teamData);
@@ -139,7 +139,7 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
         // Also fetch and set team data if we don't have it yet
         if (!team && competition.teamId) {
           const teamService = getNostrTeamService();
-          const teamData = await teamService.fetchTeamById(competition.teamId);
+          const teamData = teamService.getTeamById(competition.teamId);
           if (teamData) {
             setTeam(teamData);
           }

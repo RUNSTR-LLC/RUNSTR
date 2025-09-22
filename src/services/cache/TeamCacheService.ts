@@ -140,23 +140,37 @@ export class TeamCacheService {
    */
   private convertToDiscoveryTeams(nostrTeams: NostrTeam[]): DiscoveryTeam[] {
     return nostrTeams.map(team => ({
+      // Base Team properties
       id: team.id,
       name: team.name,
       description: team.description,
+      captainId: team.captainId,
+      prizePool: 0,
       memberCount: team.memberCount || 0,
-      imageUrl: undefined, // NostrTeam doesn't have imageUrl
-      skillLevel: 'intermediate' as const,
-      weeklyGoal: `${team.activityType || 'Fitness'} goals`,
-      joinedDate: undefined,
+      exitFee: 2000, // Default 2000 sats
+      avatar: undefined,
+      createdAt: new Date(team.createdAt * 1000).toISOString(),
+      isActive: true,
+
+      // DiscoveryTeam specific properties
+      about: team.description || `Join ${team.name} for fitness challenges and Bitcoin rewards!`,
+      difficulty: 'intermediate' as const,
+      stats: {
+        memberCount: team.memberCount || 0,
+        avgPace: 'N/A', // Not available from Nostr data yet
+        activeEvents: 0, // Will be populated from competition queries
+        activeChallenges: 0, // Will be populated from competition queries
+      },
+      recentActivities: [], // Will be populated from workout queries
+      isFeatured: false, // Default to false
+
+      // Additional properties from original NostrTeam
       location: team.location,
       activityType: team.activityType || 'General Fitness',
       tags: team.tags || [],
       isPublic: team.isPublic,
-      prizePool: 0,
       captain: team.captain,
-      captainId: team.captainId,
       captainNpub: team.captainNpub,
-      createdAt: team.createdAt,
       nostrEvent: team.nostrEvent,
     }));
   }
