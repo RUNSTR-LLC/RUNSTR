@@ -22,6 +22,7 @@ import {
   type NostrTeam,
 } from '../services/nostr/NostrTeamService';
 import { CaptainDetectionService } from '../services/team/captainDetectionService';
+import { TeamCacheService } from '../services/cache/TeamCacheService';
 
 interface TeamDiscoveryScreenProps {
   onClose: () => void;
@@ -71,9 +72,9 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
     // Track when team discovery opens
     analytics.trackTeamDiscoveryOpened('direct');
 
-    // ALWAYS fetch fresh teams from Nostr (bypass stale cache)
-    console.log('🚀 TeamDiscoveryScreen: ALWAYS fetching fresh teams from Nostr');
-    fetchTeams();
+    // Use cached teams for instant display
+    console.log('🚀 TeamDiscoveryScreen: Loading teams from cache first...');
+    fetchTeams(false); // Don't force refresh on initial load
 
     // Capture current session for cleanup
     const currentSession = discoverySession.current;
@@ -142,58 +143,38 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
 
   // Mock teams removed - using only real Nostr relay data
 
-  const fetchTeams = async () => {
+  const fetchTeams = async (forceRefresh = false) => {
     try {
       setIsLoading(true);
       setError(null);
 
-      console.log('🔥 TeamDiscoveryScreen: FETCHING teams from Nostr relays...');
+      console.log('📦 TeamDiscoveryScreen: Loading teams with cache support...');
 
-      // Get Nostr teams - NO ACTIVITY FILTERING to match working script
-      const nostrTeamService = getNostrTeamService();
-      console.log('🔥 TeamDiscoveryScreen: CALLING discoverFitnessTeams...');
-      const nostrTeams = await nostrTeamService.discoverFitnessTeams({
-        // Removed activity type filtering to allow all teams like BULLISH, CYCLESTR, RUNSTR
-        limit: 50,
-      });
+      // Use TeamCacheService for cached teams
+      const cacheService = TeamCacheService.getInstance();
+
+      // Get teams (from cache if available, otherwise fetch)
+      const discoveryTeams = forceRefresh
+        ? await cacheService.refreshTeams()
+        : await cacheService.getTeams();
 
       console.log(
-        `🔥 TeamDiscoveryScreen: RAW NOSTR TEAMS RETURNED: ${nostrTeams.length}`
+        `✅ TeamDiscoveryScreen: Loaded ${discoveryTeams.length} teams`
       );
-      console.log('🔥 TeamDiscoveryScreen: RAW NOSTR TEAMS:', nostrTeams.map(t => ({
-        id: t.id,
-        name: t.name,
-        memberCount: t.memberCount,
-        isPublic: t.isPublic,
-        createdAt: t.createdAt
-      })));
 
-      // Convert Nostr teams to DiscoveryTeam format
-      console.log('🔥 TeamDiscoveryScreen: CONVERTING NostrTeams to DiscoveryTeams...');
-      const discoveryTeams = nostrTeams.map(convertNostrTeamToDiscoveryTeam);
-      console.log('🔥 TeamDiscoveryScreen: CONVERTED DISCOVERY TEAMS:', discoveryTeams.map(t => ({
-        id: t.id,
-        name: t.name,
-        memberCount: t.memberCount,
-        isActive: t.isActive
-      })));
-
-      // Use only real Nostr teams - no mock data
-      console.log('🔥 TeamDiscoveryScreen: CALLING setTeams...');
+      // Set teams in state
       setTeams(discoveryTeams);
-      console.log(
-        `🔥 TeamDiscoveryScreen: setTeams CALLED - should now display ${discoveryTeams.length} teams in UI`
-      );
 
       if (discoveryTeams.length === 0) {
-        console.log('TeamDiscoveryScreen: No teams found from Nostr relays');
+        console.log('TeamDiscoveryScreen: No teams found');
+        setError('No teams found. Try again later.');
       }
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to load teams';
       console.error('TeamDiscoveryScreen: Exception loading teams:', error);
 
-      // Set error state - don't use fallback mock data
+      // Set error state
       setError(errorMessage);
       setTeams([]); // Clear any existing teams
     } finally {
@@ -310,7 +291,7 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>Failed to load teams</Text>
             <Text style={styles.errorSubtext}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={fetchTeams}>
+            <TouchableOpacity style={styles.retryButton} onPress={() => fetchTeams(true)}>
               <Text style={styles.retryButtonText}>Try Again</Text>
             </TouchableOpacity>
           </View>
@@ -344,7 +325,7 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
 
               <TouchableOpacity
                 style={styles.refreshButton}
-                onPress={fetchTeams}
+                onPress={() => fetchTeams(true)}
               >
                 <Text style={styles.refreshButtonText}>Check for Teams</Text>
               </TouchableOpacity>

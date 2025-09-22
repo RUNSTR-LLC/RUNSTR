@@ -1,9 +1,10 @@
 /**
- * SplashScreen - Initial loading screen matching iOS RUNSTR design
- * Shows RUNSTR logo with Nostr connection progress and initialization status
+ * SplashScreen - Post-login loading screen that prefetches data
+ * Shows RUNSTR logo with actual data loading progress
+ * Enforces minimum 3-second display time while loading teams/workouts
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,6 +13,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { theme } from '../../styles/theme';
+import { NostrInitializationService } from '../../services/nostr/NostrInitializationService';
 
 interface SplashScreenProps {
   onComplete: () => void;
@@ -22,31 +24,83 @@ interface SplashScreenProps {
 export const SplashScreen: React.FC<SplashScreenProps> = ({
   onComplete,
   isConnected = false,
-  connectionStatus = 'Connecting to Nostr...',
+  connectionStatus = 'Loading your fitness journey...',
 }) => {
   const [progress] = useState(new Animated.Value(0));
   const [isVisible, setIsVisible] = useState(true);
+  const [statusMessage, setStatusMessage] = useState('Loading your profile...');
+  const startTime = useRef(Date.now());
 
   useEffect(() => {
     initializeApp();
   }, []);
 
   const initializeApp = async () => {
-    console.log('🎬 SplashScreen: Starting initialization...');
+    console.log('🎬 SplashScreen: Starting post-login data prefetch...');
 
-    // Start progress animation
+    // Start progress animation (3 seconds total)
     Animated.timing(progress, {
       toValue: 1,
-      duration: 2000,
+      duration: 3000,
       useNativeDriver: false,
     }).start();
 
-    // Show splash for minimum 2.5 seconds like iOS version
-    setTimeout(() => {
-      console.log('⏰ SplashScreen: Timeout completed, calling onComplete...');
-      setIsVisible(false);
-      onComplete();
-    }, 2500);
+    // Initialize services and prefetch data
+    const initService = NostrInitializationService.getInstance();
+    const loadingSteps = [
+      {
+        action: async () => {
+          setStatusMessage('Connecting to Nostr relays...');
+          await initService.connectToRelays();
+        },
+        duration: 800
+      },
+      {
+        action: async () => {
+          setStatusMessage('Loading your teams...');
+          await initService.prefetchTeams();
+        },
+        duration: 1000
+      },
+      {
+        action: async () => {
+          setStatusMessage('Syncing your workouts...');
+          await initService.prefetchWorkouts();
+        },
+        duration: 800
+      },
+      {
+        action: async () => {
+          setStatusMessage('Almost ready...');
+          // Final preparation
+          await new Promise(resolve => setTimeout(resolve, 400));
+        },
+        duration: 400
+      }
+    ];
+
+    // Execute loading steps
+    try {
+      for (const step of loadingSteps) {
+        await step.action();
+      }
+    } catch (error) {
+      console.error('⚠️ SplashScreen: Error during loading:', error);
+      // Continue anyway - don't block the user
+    }
+
+    // Ensure minimum 3 seconds have passed
+    const elapsedTime = Date.now() - startTime.current;
+    const remainingTime = Math.max(0, 3000 - elapsedTime);
+
+    if (remainingTime > 0) {
+      console.log(`⏰ SplashScreen: Waiting ${remainingTime}ms to meet minimum display time`);
+      await new Promise(resolve => setTimeout(resolve, remainingTime));
+    }
+
+    console.log('✅ SplashScreen: Completed, transitioning to app...');
+    setIsVisible(false);
+    onComplete();
   };
 
   if (!isVisible) {
@@ -63,20 +117,15 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         <Text style={styles.logoText}>RUNSTR</Text>
       </View>
 
-      {/* Connection Status Section */}
+      {/* Status Section */}
       <View style={styles.statusSection}>
         <View style={styles.connectionStatus}>
-          <View
-            style={[
-              styles.statusDot,
-              isConnected
-                ? styles.statusDotConnected
-                : styles.statusDotConnecting,
-            ]}
+          <ActivityIndicator
+            size="small"
+            color={theme.colors.text}
+            style={{ marginRight: 12 }}
           />
-          <Text style={styles.statusText}>
-            {isConnected ? 'Connected to Nostr' : connectionStatus}
-          </Text>
+          <Text style={styles.statusText}>{statusMessage}</Text>
         </View>
 
         {/* Progress Bar */}

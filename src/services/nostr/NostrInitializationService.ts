@@ -2,6 +2,8 @@ import NDK, { NDKEvent, NDKFilter } from '@nostr-dev-kit/ndk';
 import { NostrRelayManager } from './NostrRelayManager';
 import { NostrTeamService } from './NostrTeamService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { appCache } from '../../utils/cache';
+import { getNpubFromStorage } from '../../utils/nostr';
 
 interface InitializationProgress {
   step: string;
@@ -104,53 +106,81 @@ export class NostrInitializationService {
   }
 
   async prefetchTeams(): Promise<void> {
-    console.log('🏃 Pre-fetching teams...');
+    console.log('🏃 Pre-fetching teams with caching...');
 
     try {
+      // Use NostrTeamService for proper team discovery
+      const teams = await this.teamService.discoverFitnessTeams();
+
+      if (teams && teams.length > 0) {
+        // Store in app cache with 10-minute TTL
+        await appCache.set('teams_discovery', teams, 10 * 60 * 1000);
+
+        // Also store timestamp for reference
+        await appCache.set('teams_fetch_time', Date.now(), 10 * 60 * 1000);
+
+        this.prefetchedTeams = teams;
+        console.log(`✅ Pre-fetched and cached ${teams.length} teams`);
+      } else {
+        console.log('⚠️ No teams found during prefetch');
+      }
+    } catch (error) {
+      console.error('❌ Team pre-fetch failed:', error);
+      // Don't throw - this is non-critical
+    }
+  }
+
+  async prefetchWorkouts(): Promise<void> {
+    console.log('🏋️ Pre-fetching workouts...');
+
+    try {
+      const userNpub = await getNpubFromStorage();
+      if (!userNpub) {
+        console.log('⚠️ No user npub found, skipping workout prefetch');
+        return;
+      }
+
       if (!this.ndk) {
         await this.initializeNDK();
       }
 
-      // Create filter for team discovery
+      // Create filter for user's workout events (kind 1301)
       const filter: NDKFilter = {
-        kinds: [31890],
-        '#t': ['team'],
-        limit: 50,
+        kinds: [1301],
+        authors: [userNpub],
+        limit: 100,
       };
 
-      // Fetch team events
+      // Fetch workout events
       const events = await this.ndk!.fetchEvents(filter);
 
       // Convert to array and parse
-      const teams = Array.from(events).map(event => {
+      const workouts = Array.from(events).map(event => {
         try {
           const content = JSON.parse(event.content);
           return {
             id: event.id,
-            name: content.name || 'Unknown Team',
-            description: content.description || '',
-            captain: content.captain || event.pubkey,
-            memberCount: content.memberCount || 0,
-            imageUrl: content.picture || content.image || null,
-            tags: event.tags,
-            created: event.created_at,
+            type: content.type || 'Unknown',
+            duration: content.duration || 0,
+            distance: content.distance,
+            calories: content.calories,
+            date: new Date(event.created_at! * 1000).toISOString(),
+            source: 'nostr' as const,
           };
         } catch (error) {
-          console.warn('Failed to parse team event:', error);
+          console.warn('Failed to parse workout event:', error);
           return null;
         }
       }).filter(Boolean);
 
-      this.prefetchedTeams = teams;
+      // Cache workouts with 3-minute TTL
+      await appCache.set('user_workouts', workouts, 3 * 60 * 1000);
+      await appCache.set('workouts_fetch_time', Date.now(), 3 * 60 * 1000);
 
-      // Cache teams for quick access
-      await AsyncStorage.setItem('prefetched_teams', JSON.stringify(teams));
-      await AsyncStorage.setItem('prefetch_timestamp', Date.now().toString());
-
-      console.log(`✅ Pre-fetched ${teams.length} teams`);
+      console.log(`✅ Pre-fetched and cached ${workouts.length} workouts`);
     } catch (error) {
-      console.error('❌ Team pre-fetch failed:', error);
-      // Don't throw - this is non-critical
+      console.error('❌ Failed to prefetch workouts:', error);
+      // Don't throw - continue app loading
     }
   }
 

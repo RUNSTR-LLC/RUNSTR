@@ -25,6 +25,7 @@ import {
 import { WorkoutPublishingService } from '../services/nostr/workoutPublishingService';
 import { NostrWorkoutSyncService } from '../services/fitness/nostrWorkoutSyncService';
 import { getNsecFromStorage } from '../utils/nostr';
+import { WorkoutCacheService } from '../services/cache/WorkoutCacheService';
 
 // UI Components
 import { Card } from '../components/ui/Card';
@@ -71,6 +72,7 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
   const [currentPage, setCurrentPage] = useState(0);
   const WORKOUTS_PER_PAGE = 20;
 
+  const cacheService = WorkoutCacheService.getInstance();
   const mergeService = WorkoutMergeService.getInstance();
   const publishingService = WorkoutPublishingService.getInstance();
   const syncService = NostrWorkoutSyncService.getInstance();
@@ -91,11 +93,13 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
     setCurrentPage(0);
   }, [filteredWorkouts]);
 
-  const loadWorkouts = async (loadMore = false) => {
+  const loadWorkouts = async (loadMore = false, forceRefresh = false) => {
     try {
       if (!loadMore) {
-        // Initial load - get first batch
-        const result = await mergeService.getMergedWorkouts(userId);
+        // Use cache service for initial load
+        const result = forceRefresh
+          ? await cacheService.refreshWorkouts(100)
+          : await cacheService.getMergedWorkouts(100);
         setWorkouts(result.allWorkouts);
         setMergeResult(result);
 
@@ -150,7 +154,7 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
     setIsRefreshing(true);
     try {
       await syncService.triggerManualSync(userId, pubkey);
-      await loadWorkouts();
+      await loadWorkouts(false, true); // Force refresh from network
     } catch (error) {
       console.error('Sync failed:', error);
       Alert.alert('Sync Error', 'Failed to sync workouts. Please try again.');
@@ -176,8 +180,13 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
       );
 
       if (result.success) {
+        // Update cache with new status
+        await cacheService.updateWorkoutStatus(workout.id, {
+          syncedToNostr: true,
+          nostrEventId: result.eventId,
+        });
         // Refresh workouts to show updated status
-        await loadWorkouts();
+        await loadWorkouts(false, true);
         Alert.alert('Success', 'Workout saved to Nostr successfully!');
       } else {
         throw new Error(result.error || 'Unknown error');
@@ -205,8 +214,13 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
       );
 
       if (result.success) {
+        // Update cache with new status
+        await cacheService.updateWorkoutStatus(workout.id, {
+          postedToSocial: true,
+          nostrEventId: result.eventId,
+        });
         // Refresh workouts to show updated status
-        await loadWorkouts();
+        await loadWorkouts(false, true);
         Alert.alert('Success', 'Workout posted to social feeds successfully!');
       } else {
         throw new Error(result.error || 'Unknown error');

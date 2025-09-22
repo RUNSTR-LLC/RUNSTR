@@ -17,6 +17,7 @@ interface AuthState {
   connectionStatus: string;
   isConnected: boolean;
   initError: string | null;
+  showLoadingSplash: boolean;
 }
 
 // Authentication actions interface
@@ -27,6 +28,7 @@ interface AuthActions {
   signOut: () => Promise<void>;
   refreshAuthentication: () => Promise<void>;
   checkStoredCredentials: () => Promise<void>;
+  onSplashComplete: () => void;
 }
 
 // Combined context interface
@@ -49,6 +51,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [connectionStatus, setConnectionStatus] = useState('Connecting to Nostr...');
   const [isConnected, setIsConnected] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
+  const [showLoadingSplash, setShowLoadingSplash] = useState(false);
 
   /**
    * Check for stored credentials (FAST - no network calls)
@@ -237,20 +240,34 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
       
       console.log('✅ AuthContext: Authentication successful - updating state');
-      
+
       // Direct state updates (like iOS app)
       setIsAuthenticated(true);
-      setCurrentUser(result.user);
-      setIsConnected(true);
-      setConnectionStatus('Connected');
-      setInitError(null);
-      
+      setShowLoadingSplash(true); // Show loading splash after successful login
+      setConnectionStatus('Loading your fitness journey...');
+
+      // Start loading profile in background while showing splash
+      setTimeout(() => {
+        setCurrentUser(result.user);
+        setIsConnected(true);
+        setConnectionStatus('Connected');
+        setInitError(null);
+      }, 100);
+
       return { success: true };
     } catch (error) {
       console.error('❌ AuthContext: Sign in error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
       return { success: false, error: errorMessage };
     }
+  }, []);
+
+  /**
+   * Handle splash screen completion
+   */
+  const onSplashComplete = useCallback(() => {
+    console.log('✅ AuthContext: Splash screen completed');
+    setShowLoadingSplash(false);
   }, []);
 
   /**
@@ -273,7 +290,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Direct state updates (like iOS app)
       setIsAuthenticated(true);
-      setCurrentUser(result.user);
+      setShowLoadingSplash(true); // Show loading splash after successful login
+      setConnectionStatus('Loading your fitness journey...');
+
+      // Start loading profile in background while showing splash
+      setTimeout(() => {
+        setCurrentUser(result.user);
+      }, 100);
       setIsConnected(true);
       setConnectionStatus('Connected');
       setInitError(null);
@@ -416,7 +439,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     connectionStatus,
     isConnected,
     initError,
-    
+    showLoadingSplash,
+
     // Actions
     signIn,
     signInWithApple,
@@ -424,6 +448,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signOut,
     refreshAuthentication,
     checkStoredCredentials,
+    onSplashComplete,
   };
 
   return (

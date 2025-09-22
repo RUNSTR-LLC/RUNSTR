@@ -51,13 +51,13 @@ class AppErrorBoundary extends React.Component<
   }
 }
 import { NavigationContainer } from '@react-navigation/native';
+import { ActivityIndicator } from 'react-native';
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NavigationDataProvider } from './contexts/NavigationDataContext';
 import { AppNavigator } from './navigation/AppNavigator';
 import { BottomTabNavigator } from './navigation/BottomTabNavigator';
 import { SplashScreen as AppSplashScreen } from './components/ui/SplashScreen';
-import { SplashInitScreen } from './screens/SplashInitScreen';
 import { createStackNavigator } from '@react-navigation/stack';
 import { TeamCreationWizard } from './components/wizards/TeamCreationWizard';
 import { EventDetailScreen } from './screens/EventDetailScreen';
@@ -95,10 +95,13 @@ const AppContent: React.FC = () => {
     currentUser,
     connectionStatus,
     isConnected,
-    initError
+    initError,
+    showLoadingSplash,
+    onSplashComplete
   } = useAuth();
 
-  // Removed showSplashInit - we'll show login immediately if not authenticated
+  // Show loading splash after successful authentication
+  const [splashShown, setSplashShown] = React.useState(false)
 
   // Authenticated app with bottom tabs and team creation modal
   const AuthenticatedNavigator: React.FC<{ user: User }> = ({ user }) => {
@@ -340,10 +343,27 @@ const AppContent: React.FC = () => {
             return <AppNavigator initialRoute="Login" isFirstTime={true} />;
           }
 
-          // User is authenticated but profile still loading
+          // Show loading splash after successful authentication
+          if (isAuthenticated && showLoadingSplash && !splashShown) {
+            return (
+              <AppSplashScreen
+                onComplete={() => {
+                  setSplashShown(true);
+                  onSplashComplete();
+                }}
+                isConnected={isConnected}
+                connectionStatus={connectionStatus}
+              />
+            );
+          }
+
+          // User is authenticated but profile still loading (after splash)
           if (isAuthenticated && !currentUser) {
             return (
-              <SplashInitScreen />
+              <View style={errorStyles.container}>
+                <ActivityIndicator size="large" color="#ffffff" />
+                <Text style={errorStyles.instruction}>Loading your profile...</Text>
+              </View>
             );
           }
 
