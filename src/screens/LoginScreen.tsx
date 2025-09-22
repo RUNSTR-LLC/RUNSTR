@@ -21,7 +21,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../styles/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { validateNsec } from '../utils/nostr';
-import { AppleSignInButton } from '../components/auth/AppleSignInButton';
 import { AmberAuthProvider } from '../services/auth/providers/amberAuthProvider';
 import * as Linking from 'expo-linking';
 
@@ -34,7 +33,7 @@ interface LoginScreenProps {
 
 export const LoginScreen: React.FC<LoginScreenProps> = () => {
   // Use AuthContext for direct authentication state management
-  const { signIn, signInWithApple, signInWithAmber } = useAuth();
+  const { signIn, signInWithAmber } = useAuth();
   const insets = useSafeAreaInsets();
 
   // Local state for UI only
@@ -106,29 +105,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
     }
   };
 
-  const handleAppleSignIn = async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      console.log('LoginScreen: Attempting Apple authentication...');
-      const result = await signInWithApple();
-
-      if (result.success) {
-        console.log('✅ LoginScreen: Apple authentication successful');
-      } else {
-        console.error('❌ LoginScreen: Apple authentication failed:', result.error);
-        setError(result.error || 'Apple Sign-In failed. Please try again.');
-      }
-    } catch (error) {
-      console.error('❌ LoginScreen: Apple authentication error:', error);
-      setError(
-        error instanceof Error ? error.message : 'An unexpected error occurred'
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleAmberLogin = async () => {
     if (!amberAvailable) {
@@ -197,16 +173,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
             {!showInput ? (
               // Login Options
               <View style={styles.buttonContainer}>
-                {Platform.OS === 'ios' && (
-                  <>
-                    <AppleSignInButton
-                      onPress={handleAppleSignIn}
-                      style={styles.appleButton}
-                      disabled={isLoading}
-                    />
-                    <View style={styles.spacer} />
-                  </>
-                )}
                 <TouchableOpacity
                   style={styles.loginButton}
                   onPress={handleShowInput}
@@ -384,17 +350,6 @@ const styles = StyleSheet.create({
     fontSize: 19,
     fontWeight: '600',
     color: '#000000',
-  },
-
-  // Apple Sign-In
-  appleButton: {
-    marginBottom: 20,
-    width: '80%',
-    maxWidth: 320,
-    alignSelf: 'center',
-  },
-  spacer: {
-    height: 20,
   },
 
   // Input Form
