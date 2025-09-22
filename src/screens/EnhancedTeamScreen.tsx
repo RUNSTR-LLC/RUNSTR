@@ -171,6 +171,7 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
     rank: entry.rank,
     avatar: entry.userName.charAt(0).toUpperCase(),
     isTopThree: entry.rank <= 3,
+    npub: entry.npub, // Pass through npub for zapping
   }));
 
   const formattedEvents = events.map((event) => ({

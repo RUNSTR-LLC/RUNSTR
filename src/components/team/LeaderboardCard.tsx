@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Card } from '../ui/Card';
 import { Avatar } from '../ui/Avatar';
+import { NutzapLightningButton } from '../nutzap/NutzapLightningButton';
 import { FormattedLeaderboardEntry } from '../../types';
 import { theme } from '../../styles/theme';
 
@@ -43,6 +44,15 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
           <View style={styles.info}>
             <Text style={styles.name}>{entry.name}</Text>
           </View>
+
+          {entry.npub && (
+            <NutzapLightningButton
+              recipientNpub={entry.npub}
+              recipientName={entry.name}
+              size="small"
+              style={styles.zapButton}
+            />
+          )}
         </View>
       ))}
     </Card>
@@ -102,5 +112,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: theme.colors.text,
     marginBottom: 2,
+  },
+  zapButton: {
+    marginLeft: 8,
   },
 });

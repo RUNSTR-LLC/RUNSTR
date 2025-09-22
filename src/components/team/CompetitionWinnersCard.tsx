@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../ui/Card';
 import { theme } from '../../styles/theme';
 import { Avatar } from '../ui/Avatar';
-import { ZapModal } from '../ui/ZapModal';
+import { NutzapLightningButton } from '../nutzap/NutzapLightningButton';
 
 export interface CompetitionWinner {
   id: string;
@@ -36,8 +36,6 @@ export const CompetitionWinnersCard: React.FC<CompetitionWinnersCardProps> = ({
   winners = [],
   loading = false,
 }) => {
-  const [selectedWinner, setSelectedWinner] = useState<CompetitionWinner | null>(null);
-  const [zapModalVisible, setZapModalVisible] = useState(false);
 
   const formatSats = (sats: number): string => {
     if (sats >= 1000000) {
@@ -69,16 +67,6 @@ export const CompetitionWinnersCard: React.FC<CompetitionWinnersCardProps> = ({
     return theme.colors.textMuted;
   };
 
-  const handleZapSuccess = () => {
-    console.log('Zap sent successfully!');
-    // Optional: Could refresh winners list or show a success message
-  };
-
-  const handleWinnerPress = (winner: CompetitionWinner) => {
-    setSelectedWinner(winner);
-    setZapModalVisible(true);
-  };
-
   return (
     <Card style={styles.card}>
       <View style={styles.header}>
@@ -108,11 +96,9 @@ export const CompetitionWinnersCard: React.FC<CompetitionWinnersCardProps> = ({
           indicatorStyle="white"
         >
           {winners.map((winner) => (
-            <TouchableOpacity
+            <View
               key={winner.id}
               style={styles.winnerItem}
-              onPress={() => handleWinnerPress(winner)}
-              activeOpacity={0.7}
             >
               <View style={styles.winnerLeft}>
                 <Avatar
@@ -140,34 +126,17 @@ export const CompetitionWinnersCard: React.FC<CompetitionWinnersCardProps> = ({
                 </View>
               </View>
               <View style={styles.winnerRight}>
-                {/* Sats display - Hidden for now */}
-                {/* <View style={styles.satsContainer}>
-                  <Text style={styles.satsAmount}>
-                    {formatSats(winner.satsWon)}
-                  </Text>
-                  <Text style={styles.satsLabel}>sats</Text>
-                </View> */}
+                <NutzapLightningButton
+                  recipientNpub={winner.winnerNpub}
+                  recipientName={winner.winnerName}
+                  size="small"
+                  style={styles.lightningButton}
+                />
                 <Text style={styles.winDate}>{formatDate(winner.date)}</Text>
               </View>
-            </TouchableOpacity>
+            </View>
           ))}
         </ScrollView>
-      )}
-
-      {/* Zap Modal */}
-      {selectedWinner && (
-        <ZapModal
-          visible={zapModalVisible}
-          recipientNpub={selectedWinner.winnerNpub}
-          recipientName={selectedWinner.winnerName}
-          suggestedAmount={selectedWinner.satsWon || 1000}
-          competitionName={selectedWinner.competitionName}
-          onClose={() => {
-            setZapModalVisible(false);
-            setSelectedWinner(null);
-          }}
-          onSuccess={handleZapSuccess}
-        />
       )}
     </Card>
   );
@@ -238,6 +207,10 @@ const styles = StyleSheet.create({
   },
   winnerRight: {
     alignItems: 'flex-end',
+    gap: 4,
+  },
+  lightningButton: {
+    marginBottom: 4,
   },
   satsContainer: {
     flexDirection: 'row',

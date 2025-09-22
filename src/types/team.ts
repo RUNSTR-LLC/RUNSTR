@@ -38,6 +38,7 @@ export interface LeaderboardEntry {
   rank: number;
   score: number; // Based on league metric
   avatar?: string;
+  npub?: string; // User's npub for zapping functionality
 }
 
 // Event Types
@@ -180,6 +181,7 @@ export interface FormattedLeaderboardEntry {
   rank: number;
   avatar: string; // Single letter initial
   isTopThree: boolean;
+  npub?: string; // User's npub for zapping functionality (not displayed)
 }
 
 // Team Creation Wizard Types
