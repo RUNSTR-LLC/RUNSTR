@@ -272,9 +272,8 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
     outputRange: [theme.colors.text, '#FFD700'], // black to gold
   });
 
-  if (!isInitialized) {
-    return null; // Don't show button if wallet not initialized
-  }
+  // Always show button, but disable if not initialized
+  const isDisabled = disabled || !isInitialized;
 
   return (
     <>
@@ -294,22 +293,31 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
               borderRadius: config.button / 2,
             },
             isZapped && styles.buttonZapped,
-            disabled && styles.buttonDisabled,
+            isDisabled && styles.buttonDisabled,
             style,
           ]}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
-          disabled={disabled || isZapping}
+          disabled={isDisabled || isZapping}
           activeOpacity={0.7}
+          onPress={() => {
+            if (!isInitialized) {
+              Alert.alert(
+                'Wallet Initializing',
+                'Please wait while your wallet initializes...',
+                [{ text: 'OK' }]
+              );
+            }
+          }}
         >
           {isZapping ? (
             <ActivityIndicator size="small" color={theme.colors.primary} />
           ) : (
-            <Animated.View>
+            <Animated.View style={!isInitialized && styles.uninitializedIcon}>
               <Ionicons
                 name="flash"
                 size={config.icon}
-                color={boltColor as any}
+                color={isInitialized ? (boltColor as any) : theme.colors.textMuted}
               />
             </Animated.View>
           )}
@@ -346,5 +354,9 @@ const styles = StyleSheet.create({
 
   buttonDisabled: {
     opacity: 0.5,
+  },
+
+  uninitializedIcon: {
+    opacity: 0.6,
   },
 });

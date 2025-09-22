@@ -23,6 +23,7 @@ import { WorkoutsTab } from '../components/profile/WorkoutsTab';
 import { AccountTab } from '../components/profile/AccountTab';
 import { NotificationsTab } from '../components/profile/NotificationsTab';
 import { useNutzap } from '../hooks/useNutzap';
+import { useWalletStore } from '../store/walletStore';
 import { nip19 } from 'nostr-tools';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -76,6 +77,16 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [userNpub, setUserNpub] = useState<string>('');
 
   const { balance, refreshBalance } = useNutzap(true);
+  const { initialize: initializeWallet, isInitialized } = useWalletStore();
+
+  // Initialize wallet and load notification settings on mount
+  useEffect(() => {
+    // Initialize wallet globally when profile screen loads
+    if (!isInitialized) {
+      console.log('[ProfileScreen] Initializing global wallet...');
+      initializeWallet();
+    }
+  }, [isInitialized, initializeWallet]);
 
   // Load notification settings and user npub on mount
   useEffect(() => {

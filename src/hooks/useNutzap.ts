@@ -1,13 +1,13 @@
 /**
  * useNutzap Hook - React Native hook for NutZap wallet functionality
- * Provides easy integration with components
+ * Uses global wallet store for consistent state across app
  * Accepts both npub and hex pubkey formats
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useEffect, useCallback } from 'react';
 import nutzapService from '../services/nutzap/nutzapService';
 import { npubToHex } from '../utils/ndkConversion';
+import { useWalletStore } from '../store/walletStore';
 
 interface UseNutzapReturn {
   // State
@@ -25,61 +25,27 @@ interface UseNutzapReturn {
 }
 
 export const useNutzap = (autoInitialize: boolean = true): UseNutzapReturn => {
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [balance, setBalance] = useState(0);
-  const [userPubkey, setUserPubkey] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  // Use global wallet store
+  const {
+    isInitialized,
+    isInitializing,
+    balance,
+    userPubkey,
+    error,
+    initialize: initializeStore,
+    refreshBalance: refreshStoreBalance,
+    updateBalance,
+    setError,
+    addTransaction,
+  } = useWalletStore();
 
-  // Use ref to track if we're already initializing
-  const initializingRef = useRef(false);
-  const claimIntervalRef = useRef<NodeJS.Timeout>();
-
-  /**
-   * Initialize the wallet service
-   */
-  const initialize = useCallback(async () => {
-    if (initializingRef.current || isInitialized) return;
-
-    initializingRef.current = true;
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      console.log('[useNutzap] Initializing wallet...');
-
-      // Get user's nsec from storage (set during auth)
-      const userNsec = await AsyncStorage.getItem('@runstr:user_nsec');
-
-      // Initialize service (auto-creates wallet if needed)
-      const walletState = await nutzapService.initialize(userNsec || undefined);
-
-      setUserPubkey(walletState.pubkey);
-      setBalance(walletState.balance);
-      setIsInitialized(true);
-
-      if (walletState.created) {
-        console.log('[useNutzap] New wallet created for user');
-      } else {
-        console.log('[useNutzap] Existing wallet loaded');
-      }
-
-      // Start auto-claim interval (every 30 seconds)
-      if (claimIntervalRef.current) {
-        clearInterval(claimIntervalRef.current);
-      }
-      claimIntervalRef.current = setInterval(async () => {
-        await claimNutzaps();
-      }, 30000);
-
-    } catch (err) {
-      console.error('[useNutzap] Initialization error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to initialize wallet');
-    } finally {
-      setIsLoading(false);
-      initializingRef.current = false;
+  // Initialize wallet on mount if autoInitialize is true
+  useEffect(() => {
+    if (autoInitialize && !isInitialized && !isInitializing) {
+      console.log('[useNutzap] Triggering global wallet initialization');
+      initializeStore();
     }
-  }, [isInitialized]);
+  }, [autoInitialize, isInitialized, isInitializing, initializeStore]);
 
   /**
    * Send nutzap to another user
@@ -104,9 +70,21 @@ export const useNutzap = (autoInitialize: boolean = true): UseNutzapReturn => {
       const result = await nutzapService.sendNutzap(recipientHex, amount, memo || '');
 
       if (result.success) {
-        // Update balance
+        // Update balance in global store
         const newBalance = await nutzapService.getBalance();
-        setBalance(newBalance);
+        updateBalance(newBalance);
+
+        // Add transaction to history
+        addTransaction({
+          id: Date.now().toString(),
+          type: 'nutzap_sent',
+          amount,
+          timestamp: Date.now(),
+          memo,
+          recipient: recipientHex,
+        });
+
+        console.log(`[useNutzap] Sent ${amount} sats, new balance: ${newBalance}`);
         return true;
       } else {
         setError(result.error || 'Failed to send nutzap');
@@ -117,7 +95,7 @@ export const useNutzap = (autoInitialize: boolean = true): UseNutzapReturn => {
       setError(err instanceof Error ? err.message : 'Failed to send nutzap');
       return false;
     }
-  }, [isInitialized]);
+  }, [isInitialized, updateBalance, addTransaction, setError]);
 
   /**
    * Claim incoming nutzaps
@@ -131,9 +109,9 @@ export const useNutzap = (autoInitialize: boolean = true): UseNutzapReturn => {
       const result = await nutzapService.claimNutzaps();
 
       if (result.claimed > 0) {
-        // Update balance
+        // Update balance in global store
         const newBalance = await nutzapService.getBalance();
-        setBalance(newBalance);
+        updateBalance(newBalance);
         console.log(`[useNutzap] Claimed ${result.claimed} sats`);
       }
 
@@ -142,7 +120,7 @@ export const useNutzap = (autoInitialize: boolean = true): UseNutzapReturn => {
       console.error('[useNutzap] Claim error:', err);
       return { claimed: 0, total: 0 };
     }
-  }, [isInitialized]);
+  }, [isInitialized, updateBalance]);
 
   /**
    * Refresh balance from storage
@@ -151,12 +129,11 @@ export const useNutzap = (autoInitialize: boolean = true): UseNutzapReturn => {
     if (!isInitialized) return;
 
     try {
-      const newBalance = await nutzapService.getBalance();
-      setBalance(newBalance);
+      await refreshStoreBalance();
     } catch (err) {
       console.error('[useNutzap] Balance refresh error:', err);
     }
-  }, [isInitialized]);
+  }, [isInitialized, refreshStoreBalance]);
 
   /**
    * Clear wallet (for testing/logout)
@@ -164,37 +141,17 @@ export const useNutzap = (autoInitialize: boolean = true): UseNutzapReturn => {
   const clearWallet = useCallback(async () => {
     try {
       await nutzapService.clearWallet();
-      setIsInitialized(false);
-      setBalance(0);
-      setUserPubkey('');
-      setError(null);
-
-      if (claimIntervalRef.current) {
-        clearInterval(claimIntervalRef.current);
-      }
+      useWalletStore.getState().reset();
     } catch (err) {
       console.error('[useNutzap] Clear wallet error:', err);
     }
   }, []);
 
-  // Auto-initialize on mount if requested
-  useEffect(() => {
-    if (autoInitialize && !isInitialized && !initializingRef.current) {
-      initialize();
-    }
-
-    // Cleanup on unmount
-    return () => {
-      if (claimIntervalRef.current) {
-        clearInterval(claimIntervalRef.current);
-      }
-    };
-  }, [autoInitialize, initialize, isInitialized]);
 
   return {
     // State
     isInitialized,
-    isLoading,
+    isLoading: isInitializing,
     balance,
     userPubkey,
     error,
