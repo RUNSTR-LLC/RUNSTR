@@ -10,7 +10,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NDK, {
   NDKEvent,
   NDKPrivateKeySigner,
-  NDKUser,
   NDKKind
 } from '@nostr-dev-kit/ndk';
 import {
@@ -28,7 +27,8 @@ const STORAGE_KEYS = {
   WALLET_PROOFS: '@runstr:wallet_proofs',
   WALLET_MINT: '@runstr:wallet_mint',
   LAST_SYNC: '@runstr:last_sync',
-  TX_HISTORY: '@runstr:tx_history'
+  TX_HISTORY: '@runstr:tx_history',
+  WALLET_PUBKEY: '@runstr:wallet_pubkey', // Track which pubkey owns the wallet
 } as const;
 
 // Default mints to use
@@ -114,10 +114,20 @@ class NutzapService {
     try {
       console.log('[NutZap] Initializing service...');
 
-      // Get or generate nsec
+      // Get nsec - either from parameter or from storage
       let userNsec = nsec;
       if (!userNsec) {
-        userNsec = await this.getOrCreateNsec();
+        userNsec = await this.getUserNsec();
+        if (!userNsec) {
+          console.error('[NutZap] Cannot initialize wallet without nsec');
+          return {
+            balance: 0,
+            mint: DEFAULT_MINTS[0],
+            proofs: [],
+            pubkey: 'unknown',
+            created: false
+          };
+        }
       }
 
       // NDKPrivateKeySigner handles nsec decoding internally
@@ -253,6 +263,24 @@ class NutzapService {
    * Load wallet state from local storage (offline-first)
    */
   private async loadOfflineWallet(): Promise<WalletState> {
+    // Check if stored wallet belongs to current user
+    const storedWalletPubkey = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PUBKEY);
+
+    // If wallet exists but belongs to different user, clear it
+    if (storedWalletPubkey && storedWalletPubkey !== this.userPubkey) {
+      console.log('[NutZap] Stored wallet belongs to different user, clearing...');
+      await this.clearWalletData();
+
+      // Return empty wallet state for new user
+      return {
+        balance: 0,
+        mint: DEFAULT_MINTS[0],
+        proofs: [],
+        pubkey: this.userPubkey,
+        created: false
+      };
+    }
+
     // Load proofs from local storage
     const proofsStr = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PROOFS);
     const proofs = proofsStr ? JSON.parse(proofsStr) : [];
@@ -262,6 +290,11 @@ class NutzapService {
 
     // Calculate balance from proofs
     const balance = proofs.reduce((sum: number, p: Proof) => sum + p.amount, 0);
+
+    // Store current user's pubkey as wallet owner if not already stored
+    if (!storedWalletPubkey && this.userPubkey) {
+      await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PUBKEY, this.userPubkey);
+    }
 
     // Try to sync with Nostr later (non-blocking)
     if (this.ndk) {
@@ -277,6 +310,20 @@ class NutzapService {
       pubkey: this.userPubkey,
       created: proofs.length === 0 // If no proofs, wallet was just created
     };
+  }
+
+  /**
+   * Clear wallet data (for user switching)
+   */
+  private async clearWalletData(): Promise<void> {
+    await AsyncStorage.multiRemove([
+      STORAGE_KEYS.WALLET_PROOFS,
+      STORAGE_KEYS.WALLET_MINT,
+      STORAGE_KEYS.WALLET_PUBKEY,
+      STORAGE_KEYS.TX_HISTORY,
+      STORAGE_KEYS.LAST_SYNC
+    ]);
+    console.log('[NutZap] Wallet data cleared');
   }
 
   /**
@@ -420,8 +467,9 @@ class NutzapService {
     await walletEvent.publish();
     console.log('[NutZap] Published wallet event to Nostr');
 
-    // Initialize empty proofs array
+    // Initialize empty proofs array and store wallet owner
     await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PROOFS, JSON.stringify([]));
+    await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PUBKEY, this.userPubkey);
 
     return {
       balance: 0,
@@ -506,8 +554,9 @@ class NutzapService {
       // Publish nutzap
       await nutzapEvent.publish();
 
-      // Update local proofs (keep change)
+      // Update local proofs (keep change) and ensure wallet owner is tracked
       await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PROOFS, JSON.stringify(keep));
+      await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PUBKEY, this.userPubkey);
 
       // Save transaction
       await this.saveTransaction({
@@ -604,11 +653,12 @@ class NutzapService {
               const proofs = await Promise.race([receivePromise, receiveTimeout]) as Proof[];
 
               if (proofs && proofs.length > 0) {
-                // Add to our proofs
+                // Add to our proofs and ensure wallet owner is tracked
                 const existingProofsStr = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PROOFS);
                 const existingProofs = existingProofsStr ? JSON.parse(existingProofsStr) : [];
                 const newProofs = [...existingProofs, ...proofs];
                 await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PROOFS, JSON.stringify(newProofs));
+                await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PUBKEY, this.userPubkey);
 
                 // Save transaction
                 await this.saveTransaction({
@@ -708,9 +758,10 @@ class NutzapService {
   }
 
   /**
-   * Get or create user nsec
+   * Get user nsec from storage
+   * CRITICAL: Never generate new keys here - only retrieve existing ones
    */
-  private async getOrCreateNsec(): Promise<string> {
+  private async getUserNsec(): Promise<string | null> {
     // First try to get the encrypted nsec and decrypt it
     const encryptedNsec = await AsyncStorage.getItem('@runstr:nsec_encrypted');
 
@@ -729,14 +780,11 @@ class NutzapService {
     }
 
     // Fallback to plain nsec (temporary backward compatibility)
-    let nsec = await AsyncStorage.getItem(STORAGE_KEYS.USER_NSEC);
+    const nsec = await AsyncStorage.getItem(STORAGE_KEYS.USER_NSEC);
     if (!nsec) {
-      // Only generate new keys if absolutely no auth exists
-      console.warn('[NutZap] No existing nsec found, generating new wallet keys');
-      // Use NDK's built-in key generation with nsec getter
-      const signer = NDKPrivateKeySigner.generate();
-      nsec = signer.nsec; // NDK provides the nsec getter
-      // Note: We don't store plain nsec for new users - they should auth properly
+      // CRITICAL: Do NOT generate new keys - wallet must use authenticated user's keys
+      console.log('[NutZap] No nsec found - user must authenticate first');
+      return null;
     }
     return nsec;
   }
@@ -884,6 +932,7 @@ class NutzapService {
           const updatedProofs = [...existingProofs, ...proofs];
 
           await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PROOFS, JSON.stringify(updatedProofs));
+          await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PUBKEY, this.userPubkey);
 
           // Clean up quote from storage
           await AsyncStorage.removeItem(`@runstr:quote:${quoteHash}`);
@@ -964,11 +1013,12 @@ class NutzapService {
                 id: item.id || quoteHash
               }));
 
-              // Store proofs
+              // Store proofs and track wallet owner
               const existingProofsStr = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PROOFS);
               const existingProofs = existingProofsStr ? JSON.parse(existingProofsStr) : [];
               const newProofs = [...existingProofs, ...proofs];
               await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PROOFS, JSON.stringify(newProofs));
+              await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PUBKEY, this.userPubkey);
 
               // Save transaction
               await this.saveTransaction({
@@ -1381,7 +1431,7 @@ class NutzapService {
    * Clear all wallet data (for testing)
    */
   async clearWallet(): Promise<void> {
-    await AsyncStorage.multiRemove(Object.values(STORAGE_KEYS));
+    await this.clearWalletData();
     this.isInitialized = false;
     this.ndk = null;
     this.cashuWallet = null;
