@@ -1,23 +1,28 @@
-# RUNSTR.APP - Claude Context
+# RUNSTR REWARDS - Claude Context
 
 ## Project Overview
-RUNSTR.APP is a React Native mobile application that transforms fitness routines into competitive, Bitcoin-earning experiences through Nostr-native team competitions. The app operates as a two-tab interface where users authenticate with Nostr, discover fitness teams, and participate in captain-created competitions with automatic scoring and Bitcoin rewards.
+RUNSTR REWARDS is a React Native mobile application that transforms fitness routines into Bitcoin-powered team competitions through Nostr's decentralized protocol. The app creates a complete fitness economy where every user gets an auto-created NIP-60/61 eCash wallet, enabling instant peer-to-peer Bitcoin transactions. Team members can zap satoshis to each other for motivation, captains can distribute prizes directly, and fitness teams operate as self-contained Bitcoin circular economies.
 
-📖 **For detailed user flow documentation, see**: [APP_USER_FLOW_AND_CAPTAIN_EXPERIENCE.md](./docs/APP_USER_FLOW_AND_CAPTAIN_EXPERIENCE.md)
+📖 **For detailed overview, see**: [RUNSTR_REWARDS_OVERVIEW.md](./RUNSTR_REWARDS_OVERVIEW.md)
+📖 **For user flow documentation, see**: [APP_USER_FLOW_AND_CAPTAIN_EXPERIENCE.md](./docs/APP_USER_FLOW_AND_CAPTAIN_EXPERIENCE.md)
 
 ## Core User & Captain Experience
-**User Flow**: Nsec login → Profile screen → Teams discovery → Team joining → Competition participation
-**Captain Flow**: Teams page → Captain dashboard → Competition creation → Member management → Bitcoin distribution
+**User Flow**: Nsec login → Auto-wallet creation → Profile screen → Teams discovery → Team joining → Competition participation → Earn/send zaps
+**Captain Flow**: Teams page → Captain dashboard → Competition creation → Member management → Direct Bitcoin rewards via zaps
 
 **Key Features**:
 - **Nostr-Only Authentication**: Direct nsec login with automatic profile/workout import from stored keys
+- **Auto-Wallet Creation**: Every user gets a NIP-60/61 eCash wallet automatically on login
+- **P2P Bitcoin Zaps**: Tap lightning bolt for 21 sats, long-press for custom amounts
 - **HealthKit Workout Posting**: Transform Apple Health workouts into Nostr events and social media cards
 - Real-time team discovery from multiple Nostr relays
-- Captain dashboard with join request management
+- Captain dashboard with join request management and direct member zapping
 - Competition creation (7 activity types, cascading dropdowns)
 - Automatic leaderboard scoring based on captain-defined parameters
-- Bitcoin integration via NIP-60/Cashu for direct P2P payments (no team wallets, no exit fees)
+- **NutZap Integration**: Complete NIP-60/61 implementation with Cashu mints for instant, feeless Bitcoin transfers
 - **Beautiful Social Cards**: Instagram-worthy workout achievement graphics with RUNSTR branding
+- **Auto-Receive**: Automatic claiming of incoming zaps every 30 seconds
+- **Bitcoin Circular Economy**: Teams operate as self-contained economies with entry fees, prizes, and peer support
 
 **Authentication**:
 - **Simple Login Screen**: Show login screen unless npub/nsec found in local storage
@@ -30,7 +35,7 @@ RUNSTR.APP is a React Native mobile application that transforms fitness routines
 - **Authentication**: Nostr (nsec) - direct authentication only
 - **Fitness Data**: Kind 1301 events from Nostr relays + Apple HealthKit
 - **Team Data**: Custom Nostr event kinds for teams, leagues, events, challenges
-- **Bitcoin**: NIP-60 (Cashu/eCash) for P2P payments - no CoinOS, no team wallets
+- **Bitcoin**: NIP-60/61 (Cashu/eCash) for P2P payments - complete NutZap implementation with auto-wallet creation
 - **Nostr Library**: NDK (@nostr-dev-kit/ndk) EXCLUSIVELY - NEVER use nostr-tools
 - **Nostr Relays**: Damus, Primal, nos.lol for social data operations
 - **In-App Notifications**: Nostr event-driven notifications (kinds 1101, 1102, 1103) - no push notifications
@@ -81,10 +86,10 @@ src/
 
 **4. Competition System**:
 - **Wizard Creation**: 7 activity types → Dynamic competition options → Time/settings configuration
-- **Nostr Event Based**: All competitions stored as Nostr events with custom kinds
+- **Nostr Event Based**: Competitions published as kind 30100 (leagues) and 30101 (events)
 - **Manual Entry**: Participants post kind 1301 workout events to enter competitions
 - **Automatic Scoring**: Real-time leaderboards based on captain's wizard parameters
-- **Bitcoin Integration**: P2P payments via NIP-60/Cashu, direct prize distribution (no team wallets, no exit fees)
+- **Bitcoin Rewards**: Direct P2P zaps via NutZap system - captains and members can instantly send satoshis
 
 **5. Team Management**:
 - **Two-Tier Membership**: Local joining (instant UX) + Official Nostr lists (captain approval)
@@ -351,6 +356,38 @@ Simple two-tab interface with dark theme:
 - Notifications only appear while app is active
 - No external push notification services used
 
+## Competition Architecture (Wizard-Driven Leaderboards)
+
+**How Competitions Actually Work:**
+- Competitions are **local parameter sets** created through wizards, NOT Nostr events
+- Captains use wizards to define competition parameters (activity type, dates, scoring method)
+- Team membership defined by **kind 30000 Nostr lists** (single source of truth)
+- Members publish **kind 1301 workout events** to Nostr as they complete workouts
+- App queries 1301 events from team members and applies wizard parameters locally to calculate leaderboards
+- Competition parameters cached locally using AsyncStorage for performance
+
+**Competition Data Flow:**
+1. Captain creates competition via wizard → Parameters stored locally in AsyncStorage
+2. App identifies team members from kind 30000 Nostr list
+3. Members post workouts as kind 1301 events (completely independent of competitions)
+4. App queries members' 1301 events within competition date range
+5. Local scoring engine applies wizard parameters to calculate rankings
+6. Leaderboards displayed in real-time (pure client-side calculation)
+
+**Key Architecture Principles:**
+- **No Competition Events**: Competitions are NOT published to Nostr (may change in future)
+- **No Team Wallets**: Direct P2P Bitcoin payments via NIP-60/61 (no pooled funds)
+- **No Backend Database**: Pure Nostr events + AsyncStorage caching only
+- **Ephemeral Competitions**: Competitions exist as app-side views over permanent Nostr workout data
+- **Working Cashu Mint**: Uses https://mint.coinos.io (legitimate Cashu mint, NOT CoinOS wallet service)
+
+**Why This Architecture:**
+- **Simplicity**: No complex Nostr event types needed for competitions
+- **Flexibility**: Different apps can create different competition views over same workout data
+- **Privacy**: Competition parameters stay local unless captain chooses to share
+- **Performance**: No network calls needed to create/modify competitions
+- **Compatibility**: Works with existing kind 1301 workout events standard
+
 ## CRITICAL WALLET ARCHITECTURE RULES
 **⚠️ NEVER use nostr-tools in wallet code - Use NDK exclusively**
 - **NDK handles ALL Nostr operations** including key generation, nip19 encoding/decoding
@@ -384,10 +421,25 @@ Simple two-tab interface with dark theme:
 ### 5. Expo vs React Native Relationship
 **Key Understanding**: Expo is a framework built on top of React Native that provides full App Store deployment capabilities through EAS (Expo Application Services). No need to "eject" to vanilla React Native for store deployment.
 
+## NutZap P2P Bitcoin System
+**Complete NIP-60/61 Implementation**:
+- **Auto-Wallet Creation**: Every user automatically gets an eCash wallet on login
+- **Instant Zaps**: Tap lightning bolt for 21 sats, long-press for custom amounts
+- **Auto-Receive**: Background service claims incoming zaps every 30 seconds
+- **Transaction History**: Full logging of all sent/received payments
+- **Cashu Integration**: Uses mint.coinos.io as primary Cashu mint
+- **Feeless Transfers**: eCash enables instant, private, feeless Bitcoin transfers
+
+**Zap UI Throughout App**:
+- Lightning bolt buttons on user profiles and team member lists
+- Custom amount modal with preset options (21, 100, 500, 1000, 5000 sats)
+- Visual feedback on successful sends
+- Balance display with manual refresh option
+
 ## Important Notes
 - All files must stay under 500 lines of code for maintainability
-- **Core User Journey**: Platform login → Teams feed → Team participation → Bitcoin rewards
+- **Core User Journey**: Login → Auto-wallet → Teams → Competitions → Earn/send Bitcoin
 - **Two-Page Focus**: Keep UI simple with just Teams and Profile tabs
 - **Nostr-Native Data**: All team/workout data comes from Nostr events
-- **Nostr-Only Auth**: Simple nsec input for all platforms
+- **Bitcoin Economy**: Every team operates as a circular economy with P2P zaps
 - **Real Data Only**: No mock data - all functionality uses actual Nostr events

@@ -5,7 +5,6 @@
 
 import { Alert } from 'react-native';
 import { DiscoveryTeam, TeamCreationData } from '../types';
-import { RewardDistribution } from '../types/teamWallet';
 import { useUserStore } from '../store/userStore';
 import { AuthService } from '../services/auth/authService';
 import { getNostrTeamService } from '../services/nostr/NostrTeamService';

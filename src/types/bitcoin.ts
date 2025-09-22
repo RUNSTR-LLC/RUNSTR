@@ -9,7 +9,6 @@ export interface Wallet {
   userId: string;
   balance: number; // satoshis
   address: string; // Lightning address
-  coinosId?: string; // CoinOS wallet ID
   transactions: Transaction[];
 }
 
@@ -42,7 +41,6 @@ export interface WalletCreationData {
   country: string;
   age: number;
   termsAccepted: boolean;
-  coinosId?: string;
   status: 'pending' | 'created' | 'failed';
 }
 

@@ -22,7 +22,7 @@ const supabase = {
   })
 };
 
-import coinosService from './coinosService';
+// CoinOS removed - using NIP-60/61 P2P payments
 import type {
   DiscoveryTeam,
   TeamActivity,

@@ -14,7 +14,6 @@ export * from './workout';
 
 // Re-export Bitcoin and Wallet Types
 export * from './bitcoin';
-export * from './teamWallet';
 
 // Re-export Notification Types
 export * from './notifications';

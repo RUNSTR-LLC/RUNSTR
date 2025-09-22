@@ -1,6 +1,5 @@
 import NDK, { NDKEvent, NDKFilter } from '@nostr-dev-kit/ndk';
-import { NostrRelayManager } from './NostrRelayManager';
-import { NostrTeamService } from './NostrTeamService';
+import { getNostrTeamService } from './NostrTeamService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { appCache } from '../../utils/cache';
 import { getNpubFromStorage } from '../../utils/nostr';
@@ -16,12 +15,10 @@ export class NostrInitializationService {
   private ndk: NDK | null = null;
   private isInitialized = false;
   private prefetchedTeams: any[] = [];
-  private relayManager: NostrRelayManager;
-  private teamService: NostrTeamService;
+  private teamService: ReturnType<typeof getNostrTeamService>;
 
   private constructor() {
-    this.relayManager = NostrRelayManager.getInstance();
-    this.teamService = NostrTeamService.getInstance();
+    this.teamService = getNostrTeamService();
   }
 
   static getInstance(): NostrInitializationService {

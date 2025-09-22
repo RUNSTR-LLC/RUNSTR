@@ -45,49 +45,62 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
       useNativeDriver: false,
     }).start();
 
-    // Initialize services and prefetch data
-    const initService = NostrInitializationService.getInstance();
-    const loadingSteps = [
-      {
-        action: async () => {
-          setStatusMessage('Connecting to Nostr relays...');
-          await initService.connectToRelays();
-        },
-        duration: 800
-      },
-      {
-        action: async () => {
-          setStatusMessage('Loading your teams...');
-          await initService.prefetchTeams();
-        },
-        duration: 1000
-      },
-      {
-        action: async () => {
-          setStatusMessage('Syncing your workouts...');
-          await initService.prefetchWorkouts();
-        },
-        duration: 800
-      },
-      {
-        action: async () => {
-          setStatusMessage('Almost ready...');
-          // Final preparation
-          await new Promise(resolve => setTimeout(resolve, 400));
-        },
-        duration: 400
-      }
-    ];
+    // Set a maximum timeout to prevent getting stuck
+    const timeoutPromise = new Promise<void>((resolve) => {
+      setTimeout(() => {
+        console.log('⏱️ SplashScreen: Timeout reached, completing anyway');
+        resolve();
+      }, 4000); // 4 second maximum timeout
+    });
 
-    // Execute loading steps
-    try {
-      for (const step of loadingSteps) {
-        await step.action();
+    // Initialize services and prefetch data
+    const loadDataPromise = async () => {
+      try {
+        const initService = NostrInitializationService.getInstance();
+        const loadingSteps = [
+          {
+            action: async () => {
+              setStatusMessage('Connecting to Nostr relays...');
+              await initService.connectToRelays();
+            },
+            duration: 800
+          },
+          {
+            action: async () => {
+              setStatusMessage('Loading your teams...');
+              await initService.prefetchTeams();
+            },
+            duration: 1000
+          },
+          {
+            action: async () => {
+              setStatusMessage('Syncing your workouts...');
+              await initService.prefetchWorkouts();
+            },
+            duration: 800
+          },
+          {
+            action: async () => {
+              setStatusMessage('Almost ready...');
+              // Final preparation
+              await new Promise(resolve => setTimeout(resolve, 400));
+            },
+            duration: 400
+          }
+        ];
+
+        // Execute loading steps
+        for (const step of loadingSteps) {
+          await step.action();
+        }
+      } catch (error) {
+        console.error('⚠️ SplashScreen: Error during loading:', error);
+        // Don't throw - we'll handle this gracefully
       }
-    } catch (error) {
-      console.error('⚠️ SplashScreen: Error during loading:', error);
-      // Continue anyway - don't block the user
-    }
+    };
+
+    // Race between loading data and timeout
+    await Promise.race([loadDataPromise(), timeoutPromise]);
 
     // Ensure minimum 3 seconds have passed
     const elapsedTime = Date.now() - startTime.current;

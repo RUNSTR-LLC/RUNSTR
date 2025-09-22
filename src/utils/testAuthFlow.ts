@@ -12,7 +12,7 @@ import {
   normalizeNsecInput,
 } from './nostr';
 import { AuthService } from '../services/auth/authService';
-import coinosService from '../services/coinosService';
+// CoinOS removed - team wallets deprecated
 
 export interface TestResult {
   step: string;
@@ -142,6 +142,8 @@ export class AuthFlowTester {
   async testCoinOSService(): Promise<void> {
     console.log('\n⚡ Testing CoinOS Service...');
 
+    // CoinOS tests removed - team wallets deprecated, using NIP-60/61 instead
+    /*
     try {
       // Initialize service
       const startTime = Date.now();
@@ -197,6 +199,7 @@ export class AuthFlowTester {
         error instanceof Error ? error.message : 'Unknown error'
       );
     }
+    */
   }
 
   /**

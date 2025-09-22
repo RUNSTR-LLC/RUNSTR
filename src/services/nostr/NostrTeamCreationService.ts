@@ -8,7 +8,7 @@ import NDK, { NDKEvent, NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
 import { NostrListService } from './NostrListService';
 import { TeamMemberCache } from '../team/TeamMemberCache';
 import { getTeamListDetector } from '../../utils/teamListDetector';
-import type { NostrEvent } from '../../types/nostr';
+// NostrEvent type replaced with NDKEvent from NDK library
 
 export interface TeamCreationData {
   name: string;

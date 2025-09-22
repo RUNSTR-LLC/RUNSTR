@@ -16,7 +16,7 @@ import { TeamCreationStep, TeamCreationData, User } from '../../types';
 import { TeamBasicsStep } from './steps/TeamBasicsStep';
 import { LeagueSettingsStep } from './steps/LeagueSettingsStep';
 import { FirstEventStep } from './steps/FirstEventStep';
-import { TeamWalletSetupStep } from './steps/TeamWalletSetupStep';
+// TeamWalletSetupStep removed - using P2P NIP-60/61 payments
 import { ReviewLaunchStep } from './steps/ReviewLaunchStep';
 
 interface TeamCreationWizardProps {

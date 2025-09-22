@@ -7,7 +7,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { AuthService } from '../services/auth/authService';
 import { getNostrTeamService } from '../services/nostr/NostrTeamService';
 import { DirectNostrProfileService } from '../services/user/directNostrProfileService';
-import coinosService from '../services/coinosService';
 import { appCache } from '../utils/cache';
 import { CaptainCache } from '../utils/captainCache';
 import { TeamMembershipService } from '../services/team/teamMembershipService';
@@ -381,7 +380,8 @@ export const useNavigationData = (): NavigationData => {
 
       if (user.role === 'captain' && user.hasWalletCredentials) {
         try {
-          const walletBalance = await coinosService.getWalletBalance();
+          // Team wallets deprecated - use P2P NIP-60/61 payments
+          const walletBalance = { lightning: 0, onchain: 0, liquid: 0, total: 0 };
           realWalletBalance = walletBalance.total;
         } catch (error) {
           // Use cached balance on error

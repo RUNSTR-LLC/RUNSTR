@@ -6,7 +6,7 @@
 
 import { NostrCompetitionService } from '../nostr/NostrCompetitionService';
 import { NostrTeamService } from '../nostr/NostrTeamService';
-import workoutDatabase from '../database/workoutDatabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   LeagueParameters,
   LeagueParticipant,
@@ -60,10 +60,10 @@ export interface LeagueCreationData {
 
 export class LeagueDataBridge {
   private static instance: LeagueDataBridge;
-  private database: any; // Will be lazily initialized
   private nostrCompetitionService = new NostrCompetitionService();
   private nostrTeamService = new NostrTeamService();
   private activeLeagues = new Map<string, ActiveLeague>();
+  private STORAGE_PREFIX = '@runstr:competition:';
 
   static getInstance(): LeagueDataBridge {
     if (!LeagueDataBridge.instance) {
@@ -72,10 +72,8 @@ export class LeagueDataBridge {
     return LeagueDataBridge.instance;
   }
 
-  private initDatabase() {
-    if (!this.database) {
-      this.database = workoutDatabase;
-    }
+  private getStorageKey(competitionId: string): string {
+    return `${this.STORAGE_PREFIX}${competitionId}`;
   }
 
   /**
@@ -128,7 +126,7 @@ export class LeagueDataBridge {
         description: leagueData.description,
         parameters,
         participants,
-        createdBy: creationResult.creatorPubkey || '',
+        createdBy: '', // Will be set from Nostr event when queried
         isActive: this.isLeagueActive(leagueData),
         lastUpdated: new Date().toISOString(),
       };
@@ -136,15 +134,16 @@ export class LeagueDataBridge {
       // Cache the active league
       this.activeLeagues.set(creationResult.competitionId, activeLeague);
 
-      // Store competition parameters in database cache
-      this.initDatabase(); // Ensure database is initialized
-      await this.database.cacheCompetition({
+      // Store competition parameters in AsyncStorage cache
+      const storageKey = this.getStorageKey(creationResult.competitionId);
+      const cacheData = {
         competitionId: creationResult.competitionId,
         type: 'league',
-        parameters: JSON.stringify(parameters),
-        participants: JSON.stringify(participants.map(p => p.npub)),
+        parameters,
+        participants: participants.map(p => p.npub),
         lastUpdated: new Date().toISOString(),
-      });
+      };
+      await AsyncStorage.setItem(storageKey, JSON.stringify(cacheData));
 
       console.log(`🎯 League fully processed: ${activeLeague.name}`);
 
@@ -165,6 +164,59 @@ export class LeagueDataBridge {
   }
 
   /**
+   * Get all active competitions (leagues and events) for a team
+   */
+  async getActiveCompetitionsForTeam(teamId: string): Promise<{ leagues: ActiveLeague[], events: any[] }> {
+    console.log(`🔍 Getting all active competitions for team: ${teamId.slice(0, 8)}...`);
+
+    const activeLeagues: ActiveLeague[] = [];
+    const activeEvents: any[] = [];
+
+    try {
+      // Query both leagues and events from Nostr
+      const result = await this.nostrCompetitionService.queryCompetitions({
+        kinds: [30100, 30101], // Both league and event kinds
+        '#team': [teamId],
+        limit: 100
+      });
+
+      const now = new Date();
+
+      // Process leagues
+      for (const league of result.leagues) {
+        const startDate = new Date(league.startDate);
+        const endDate = new Date(league.endDate);
+
+        if (now >= startDate && now <= endDate) {
+          const activeLeague = await this.convertNostrLeagueToActive(league, teamId);
+          if (activeLeague) {
+            activeLeagues.push(activeLeague);
+            this.activeLeagues.set(league.id, activeLeague);
+          }
+        }
+      }
+
+      // Process events
+      for (const event of result.events) {
+        const eventDate = new Date(event.eventDate);
+        const eventEndDate = new Date(eventDate);
+        eventEndDate.setHours(23, 59, 59); // Event ends at end of day
+
+        if (now >= eventDate && now <= eventEndDate) {
+          activeEvents.push(event);
+        }
+      }
+
+      console.log(`✅ Found ${activeLeagues.length} leagues and ${activeEvents.length} events`);
+      return { leagues: activeLeagues, events: activeEvents };
+
+    } catch (error) {
+      console.error('❌ Failed to get competitions from Nostr:', error);
+      return { leagues: [], events: [] };
+    }
+  }
+
+  /**
    * Get active league for a team
    */
   async getActiveLeagueForTeam(teamId: string): Promise<ActiveLeague | null> {
@@ -178,17 +230,66 @@ export class LeagueDataBridge {
       }
     }
 
-    // TODO: Query Nostr for team leagues (not implemented yet)
+    // Query Nostr for team leagues
     try {
-      console.log(`🔍 TODO: Query Nostr for team leagues: ${teamId}`);
-      
-      // For now, return null - no active leagues found
-      // This will be implemented when NostrCompetitionService.getTeamLeagues is ready
-      console.log('📭 No active league found for team (TODO: implement Nostr query)');
+      console.log(`🔍 Querying Nostr for team leagues: ${teamId}`);
+
+      // Query competitions from Nostr for this team
+      const result = await this.nostrCompetitionService.queryCompetitions({
+        kinds: [30100], // League kind
+        '#team': [teamId],
+        limit: 50
+      });
+
+      // Find active leagues from the results
+      const now = new Date();
+      for (const league of result.leagues) {
+        const startDate = new Date(league.startDate);
+        const endDate = new Date(league.endDate);
+
+        // Check if league is currently active
+        if (now >= startDate && now <= endDate) {
+          // Convert to ActiveLeague format and cache it
+          const activeLeague = await this.convertNostrLeagueToActive(league, teamId);
+          if (activeLeague) {
+            this.activeLeagues.set(league.id, activeLeague);
+
+            // Also cache in AsyncStorage for offline access
+            const storageKey = this.getStorageKey(league.id);
+            const cacheData = {
+              competitionId: league.id,
+              type: 'league',
+              parameters: activeLeague.parameters,
+              participants: activeLeague.participants.map(p => p.npub),
+              lastUpdated: new Date().toISOString(),
+            };
+            await AsyncStorage.setItem(storageKey, JSON.stringify(cacheData));
+
+            console.log(`✅ Found active league from Nostr: ${league.name}`);
+            return activeLeague;
+          }
+        }
+      }
+
+      console.log('📭 No active league found for team');
       return null;
 
     } catch (error) {
-      console.error('❌ Failed to get active league:', error);
+      console.error('❌ Failed to query leagues from Nostr:', error);
+
+      // Fall back to cached data if Nostr query fails
+      const cachedIds = await this.getCachedCompetitionIds(teamId);
+      for (const competitionId of cachedIds) {
+        const cached = await this.getLeagueParameters(competitionId);
+        if (cached) {
+          const cachedLeague = this.activeLeagues.get(competitionId);
+          if (cachedLeague && cachedLeague.isActive) {
+            console.log('📦 Using cached league data');
+            return cachedLeague;
+          }
+        }
+      }
+
       return null;
     }
   }
@@ -197,18 +298,19 @@ export class LeagueDataBridge {
    * Get league ranking parameters from competition ID
    */
   async getLeagueParameters(competitionId: string): Promise<LeagueParameters | null> {
-    this.initDatabase(); // Ensure database is initialized
-    // Check cache first
+    // Check memory cache first
     const cachedLeague = this.activeLeagues.get(competitionId);
     if (cachedLeague) {
       return cachedLeague.parameters;
     }
 
-    // Check database cache
-    const cachedCompetition = await this.database.getCachedCompetition(competitionId);
-    if (cachedCompetition) {
+    // Check AsyncStorage cache
+    const storageKey = this.getStorageKey(competitionId);
+    const cachedData = await AsyncStorage.getItem(storageKey);
+    if (cachedData) {
       try {
-        return JSON.parse(cachedCompetition.parameters);
+        const parsed = JSON.parse(cachedData);
+        return parsed.parameters;
       } catch (error) {
         console.warn('⚠️ Failed to parse cached competition parameters');
       }
@@ -225,18 +327,19 @@ export class LeagueDataBridge {
    * Get participants for a league
    */
   async getLeagueParticipants(competitionId: string): Promise<LeagueParticipant[]> {
-    this.initDatabase(); // Ensure database is initialized
-    // Check cached league first
+    // Check memory cache first
     const cachedLeague = this.activeLeagues.get(competitionId);
     if (cachedLeague) {
       return cachedLeague.participants;
     }
 
-    // Check database cache
-    const cachedCompetition = await this.database.getCachedCompetition(competitionId);
-    if (cachedCompetition) {
+    // Check AsyncStorage cache
+    const storageKey = this.getStorageKey(competitionId);
+    const cachedData = await AsyncStorage.getItem(storageKey);
+    if (cachedData) {
       try {
-        const participantNpubs = JSON.parse(cachedCompetition.participants);
+        const parsed = JSON.parse(cachedData);
+        const participantNpubs = parsed.participants || [];
         return participantNpubs.map((npub: string) => ({
           npub,
           name: this.formatNpub(npub),
@@ -259,20 +362,21 @@ export class LeagueDataBridge {
     competitionId: string,
     newParticipants: LeagueParticipant[]
   ): Promise<void> {
-    this.initDatabase(); // Ensure database is initialized
     const league = this.activeLeagues.get(competitionId);
     if (league) {
       league.participants = newParticipants;
       league.lastUpdated = new Date().toISOString();
 
-      // Update database cache
-      await this.database.cacheCompetition({
+      // Update AsyncStorage cache
+      const storageKey = this.getStorageKey(competitionId);
+      const cacheData = {
         competitionId,
         type: 'league',
-        parameters: JSON.stringify(league.parameters),
-        participants: JSON.stringify(newParticipants.map(p => p.npub)),
+        parameters: league.parameters,
+        participants: newParticipants.map(p => p.npub),
         lastUpdated: league.lastUpdated,
-      });
+      };
+      await AsyncStorage.setItem(storageKey, JSON.stringify(cacheData));
 
       console.log(`👥 Updated league participants: ${newParticipants.length} members`);
     }
@@ -337,11 +441,38 @@ export class LeagueDataBridge {
   }
 
   /**
+   * Get cached competition IDs for a team
+   */
+  private async getCachedCompetitionIds(teamId: string): Promise<string[]> {
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      const competitionKeys = keys.filter(key => key.startsWith(this.STORAGE_PREFIX));
+      const competitionIds: string[] = [];
+
+      for (const key of competitionKeys) {
+        const data = await AsyncStorage.getItem(key);
+        if (data) {
+          const parsed = JSON.parse(data);
+          if (parsed.teamId === teamId || parsed.parameters?.teamId === teamId) {
+            competitionIds.push(key.replace(this.STORAGE_PREFIX, ''));
+          }
+        }
+      }
+
+      return competitionIds;
+    } catch (error) {
+      console.error('Failed to get cached competition IDs:', error);
+      return [];
+    }
+  }
+
+  /**
    * Convert Nostr league to ActiveLeague format
    */
-  private async convertNostrLeagueToActive(nostrLeague: NostrLeague): Promise<ActiveLeague | null> {
+  private async convertNostrLeagueToActive(nostrLeague: any, teamId?: string): Promise<ActiveLeague | null> {
     try {
-      const participants = await this.getTeamParticipants(nostrLeague.teamId);
+      const actualTeamId = teamId || nostrLeague.teamId;
+      const participants = await this.getTeamParticipants(actualTeamId);
 
       const parameters: LeagueParameters = {
         activityType: nostrLeague.activityType,
@@ -353,12 +484,12 @@ export class LeagueDataBridge {
 
       return {
         competitionId: nostrLeague.id,
-        teamId: nostrLeague.teamId,
+        teamId: actualTeamId,
         name: nostrLeague.name,
         description: nostrLeague.description || '',
         parameters,
         participants,
-        createdBy: nostrLeague.captainId,
+        createdBy: nostrLeague.captainId || nostrLeague.captainPubkey,
         isActive: this.isNostrLeagueActive(nostrLeague),
         lastUpdated: new Date().toISOString(),
       };

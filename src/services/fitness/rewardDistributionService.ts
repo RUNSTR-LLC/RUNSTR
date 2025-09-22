@@ -4,8 +4,7 @@
  * Manages Lightning payments, transaction logging, and notifications
  */
 
-// import { supabase } from '../supabase';  // REMOVED: Project now uses pure Nostr
-import coinosService from '../coinosService';
+// Team wallets removed - using P2P NIP-60/61 payments
 
 export interface RewardDistribution {
   id: string;
@@ -225,13 +224,13 @@ export class RewardDistributionService {
         return { success: false, error: 'Recipient wallet not found' };
       }
 
-      // Send Lightning payment via CoinOS
-      const paymentResult = await coinosService.sendPayment(
-        recipientWalletAddress,
-        distribution.amount,
-        `RUNSTR Reward: ${distribution.reason}`,
-        distribution.captain_id // Use captain's wallet for sending
-      );
+      // TODO: Use NIP-60/61 for P2P payments
+      console.warn('Team wallets deprecated - use NIP-60/61 for P2P payments');
+      const paymentResult = {
+        success: false,
+        error: 'Team wallets deprecated - use NIP-60/61',
+        transactionId: undefined,
+      };
 
       if (!paymentResult.success || !paymentResult.transactionId) {
         await this.markDistributionFailed(
