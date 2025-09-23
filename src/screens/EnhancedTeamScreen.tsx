@@ -19,6 +19,7 @@ import { useLeagueRankings } from '../hooks/useLeagueRankings';
 import { useUserStore } from '../store/userStore';
 import { isTeamMember } from '../utils/teamUtils';
 import { getUserNostrIdentifiers } from '../utils/nostr';
+import { NostrCompetitionService } from '../services/nostr/NostrCompetitionService';
 
 interface EnhancedTeamScreenProps {
   data: TeamScreenData;
@@ -188,6 +189,59 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
   const [competitionWinners, setCompetitionWinners] = useState<CompetitionWinner[]>([]);
   const [winnersLoading, setWinnersLoading] = useState(false);
 
+  // Nostr competitions state
+  const [nostrEvents, setNostrEvents] = useState<any[]>([]);
+  const [nostrLeagues, setNostrLeagues] = useState<any[]>([]);
+  const [loadingCompetitions, setLoadingCompetitions] = useState(true);
+
+  // Fetch competitions from Nostr
+  useEffect(() => {
+    const fetchTeamCompetitions = async () => {
+      if (!team?.id) {
+        setLoadingCompetitions(false);
+        return;
+      }
+
+      try {
+        console.log('🔍 Fetching competitions for team:', team.id);
+        const service = NostrCompetitionService.getInstance();
+
+        // Query competitions for this team
+        const result = await service.queryCompetitions({
+          kinds: [30100, 30101], // Both leagues and events
+          '#team': [team.id],
+          limit: 50
+        });
+
+        console.log('📊 Fetched competitions:', {
+          leagues: result.leagues.length,
+          events: result.events.length
+        });
+
+        // Format events for display
+        const formattedNostrEvents = result.events.map(event => ({
+          id: event.id,
+          name: event.name,
+          date: new Date(event.eventDate).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+          }),
+          details: event.description || 'No description',
+          startDate: event.eventDate, // Keep original for sorting
+        }));
+
+        setNostrEvents(formattedNostrEvents);
+        setNostrLeagues(result.leagues);
+      } catch (error) {
+        console.error('❌ Failed to fetch team competitions:', error);
+      } finally {
+        setLoadingCompetitions(false);
+      }
+    };
+
+    fetchTeamCompetitions();
+  }, [team?.id]);
+
   // Fetch competition winners
   useEffect(() => {
     const fetchWinners = async () => {
@@ -319,7 +373,7 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
 
           <View style={styles.bottomSection}>
             <EventsCard
-              events={formattedEvents}
+              events={nostrEvents.length > 0 ? nostrEvents : formattedEvents}
               onEventPress={onEventPress}
               isCaptain={userIsCaptain}
             />
