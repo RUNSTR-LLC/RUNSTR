@@ -589,8 +589,10 @@ const styles = StyleSheet.create({
   },
 
   memberStats: {
-    fontSize: 10,
+    fontSize: 9,
     color: theme.colors.textMuted,
+    flexWrap: 'wrap',
+    maxWidth: 100,
   },
 
   scoreContainer: {
@@ -678,7 +680,9 @@ const styles = StyleSheet.create({
   rankingStats: {
     alignItems: 'flex-start',
     gap: 2,
-    paddingRight: 8,
+    paddingRight: 16,
+    minWidth: 80,
+    flexShrink: 1,
   },
 });
 

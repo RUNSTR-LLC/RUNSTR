@@ -117,6 +117,9 @@ const styles = StyleSheet.create({
 
   additionalContent: {
     marginTop: 2,
+    flex: 0,
+    minWidth: 90,
+    paddingRight: 12,
   },
 
   zapButton: {
