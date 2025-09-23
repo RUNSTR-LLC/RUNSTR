@@ -275,6 +275,14 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
   // Always show button, but disable if not initialized
   const isDisabled = disabled || !isInitialized;
 
+  // Debug logging
+  console.log('[NutzapLightningButton] Rendering:', {
+    recipientHex: recipientHex?.slice(0, 20) + '...',
+    isInitialized,
+    isDisabled,
+    size,
+  });
+
   return (
     <>
       <Animated.View

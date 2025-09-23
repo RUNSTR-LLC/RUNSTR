@@ -388,6 +388,7 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
             <ZappableUserRow
               npub={entry.npub}
               fallbackName={entry.name}
+              showQuickZap={true}
               additionalContent={
                 <View style={styles.rankingStats}>
                   <Text style={styles.memberStats}>

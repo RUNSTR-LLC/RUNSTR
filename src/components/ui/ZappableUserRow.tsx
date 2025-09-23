@@ -42,6 +42,14 @@ export const ZappableUserRow: React.FC<ZappableUserRowProps> = ({
 
   const avatarUrl = profile?.picture;
 
+  // Debug logging
+  console.log('[ZappableUserRow] Rendering with:', {
+    npub: npub?.slice(0, 20) + '...',
+    showQuickZap,
+    disabled,
+    displayName,
+  });
+
   return (
     <View style={[styles.container, style]}>
       <View style={styles.userSection}>
