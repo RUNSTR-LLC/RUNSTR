@@ -340,20 +340,27 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: theme.colors.cardBackground,
+    backgroundColor: '#1a1a1a', // Lighter than card background for visibility
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: '#333333', // More visible border color
     alignItems: 'center',
     justifyContent: 'center',
+    // Add subtle shadow for better visibility
+    shadowColor: '#fff',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
 
   buttonZapped: {
     borderColor: '#FFD700',
-    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    backgroundColor: 'rgba(255, 215, 0, 0.2)', // Slightly more visible when zapped
   },
 
   buttonDisabled: {
-    opacity: 0.5,
+    opacity: 0.4, // More obvious disabled state
+    backgroundColor: '#0f0f0f', // Darker when disabled
   },
 
   uninitializedIcon: {
