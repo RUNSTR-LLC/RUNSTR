@@ -202,6 +202,23 @@ export const LeagueCreationWizard: React.FC<LeagueCreationWizardProps> = ({
     try {
       console.log('🏁 Creating league with Nostr Competition Service');
 
+      // Check for existing active leagues before proceeding
+      const activeCompetitions = await NostrCompetitionService.checkActiveCompetitions(teamId);
+
+      if (activeCompetitions.activeLeagues > 0) {
+        Alert.alert(
+          'Active League Exists',
+          `Your team already has an active league: "${activeCompetitions.activeLeagueDetails?.name}"\n\nIt ends on ${activeCompetitions.activeLeagueDetails?.endDate}.\n\nOnly one league can be active at a time.`,
+          [
+            {
+              text: 'OK',
+              onPress: () => setIsCreating(false)
+            }
+          ]
+        );
+        return;
+      }
+
       // Get authentication data from unified auth system
       const authData = await getAuthenticationData();
       if (!authData || !authData.nsec) {

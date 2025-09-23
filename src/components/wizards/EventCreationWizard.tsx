@@ -192,6 +192,23 @@ export const EventCreationWizard: React.FC<EventCreationWizardProps> = ({
     try {
       console.log('🎯 Creating event with Nostr Competition Service');
 
+      // Check for existing active events before proceeding
+      const activeCompetitions = await NostrCompetitionService.checkActiveCompetitions(teamId);
+
+      if (activeCompetitions.activeEvents > 0) {
+        Alert.alert(
+          'Active Event Exists',
+          `Your team already has an active event: "${activeCompetitions.activeEventDetails?.name}"\n\nIt is scheduled for ${activeCompetitions.activeEventDetails?.eventDate}.\n\nOnly one event can be active at a time.`,
+          [
+            {
+              text: 'OK',
+              onPress: () => setIsCreating(false)
+            }
+          ]
+        );
+        return;
+      }
+
       // Get authentication data from unified auth system
       const authData = await getAuthenticationData();
       if (!authData || !authData.nsec) {

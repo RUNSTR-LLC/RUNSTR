@@ -409,6 +409,87 @@ export class NostrCompetitionService {
   }
 
   // ================================================================================
+  // VALIDATION METHODS
+  // ================================================================================
+
+  /**
+   * Check if team has active competitions
+   * Returns counts of active/upcoming leagues and events
+   */
+  static async checkActiveCompetitions(teamId: string): Promise<{
+    activeLeagues: number;
+    activeEvents: number;
+    activeLeagueDetails?: { name: string; endDate: string };
+    activeEventDetails?: { name: string; eventDate: string };
+  }> {
+    try {
+      const service = NostrCompetitionService.getInstance();
+      const now = Math.floor(Date.now() / 1000);
+      const nowDate = new Date();
+
+      // Query competitions for this team
+      const result = await service.queryCompetitions({
+        kinds: [30100, 30101],
+        '#team': [teamId],
+        since: now - (90 * 24 * 60 * 60), // Last 90 days
+        limit: 100,
+      });
+
+      // Count active/upcoming leagues
+      let activeLeagues = 0;
+      let activeLeagueDetails = undefined;
+
+      for (const league of result.leagues) {
+        const startDate = new Date(league.startDate);
+        const endDate = new Date(league.endDate);
+
+        // Check if league is active or upcoming
+        if (endDate >= nowDate && league.status !== 'completed') {
+          activeLeagues++;
+          if (!activeLeagueDetails) {
+            activeLeagueDetails = {
+              name: league.name,
+              endDate: endDate.toLocaleDateString(),
+            };
+          }
+        }
+      }
+
+      // Count active/upcoming events
+      let activeEvents = 0;
+      let activeEventDetails = undefined;
+
+      for (const event of result.events) {
+        const eventDate = new Date(event.eventDate);
+
+        // Check if event is upcoming (not past)
+        if (eventDate >= nowDate && event.status !== 'completed') {
+          activeEvents++;
+          if (!activeEventDetails) {
+            activeEventDetails = {
+              name: event.name,
+              eventDate: eventDate.toLocaleDateString(),
+            };
+          }
+        }
+      }
+
+      console.log(`📊 Team ${teamId} has ${activeLeagues} active leagues, ${activeEvents} active events`);
+
+      return {
+        activeLeagues,
+        activeEvents,
+        activeLeagueDetails,
+        activeEventDetails,
+      };
+    } catch (error) {
+      console.error('❌ Failed to check active competitions:', error);
+      // Return zeros on error to not block creation
+      return { activeLeagues: 0, activeEvents: 0 };
+    }
+  }
+
+  // ================================================================================
   // UTILITY METHODS
   // ================================================================================
 

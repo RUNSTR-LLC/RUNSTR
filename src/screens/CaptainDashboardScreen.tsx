@@ -235,7 +235,7 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
   };
 
   // Wizard handlers
-  const handleShowEventWizard = () => {
+  const handleShowEventWizard = async () => {
     // Check if team has kind 30000 list before allowing competition creation
     if (hasKind30000List === false) {
       Alert.alert(
@@ -245,10 +245,27 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
       );
       return;
     }
+
+    // Check for existing active events
+    try {
+      const { NostrCompetitionService } = await import('../services/nostr/NostrCompetitionService');
+      const activeCompetitions = await NostrCompetitionService.checkActiveCompetitions(teamId);
+      if (activeCompetitions.activeEvents > 0) {
+        Alert.alert(
+          'Active Event Exists',
+          `Your team already has an active event: "${activeCompetitions.activeEventDetails?.name}"\n\nScheduled for ${activeCompetitions.activeEventDetails?.eventDate}.\n\nOnly one event can be active at a time.`,
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+    } catch (error) {
+      console.error('Failed to check active competitions:', error);
+    }
+
     setEventWizardVisible(true);
   };
 
-  const handleShowLeagueWizard = () => {
+  const handleShowLeagueWizard = async () => {
     // Check if team has kind 30000 list before allowing competition creation
     if (hasKind30000List === false) {
       Alert.alert(
@@ -258,6 +275,23 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
       );
       return;
     }
+
+    // Check for existing active leagues
+    try {
+      const { NostrCompetitionService } = await import('../services/nostr/NostrCompetitionService');
+      const activeCompetitions = await NostrCompetitionService.checkActiveCompetitions(teamId);
+      if (activeCompetitions.activeLeagues > 0) {
+        Alert.alert(
+          'Active League Exists',
+          `Your team already has an active league: "${activeCompetitions.activeLeagueDetails?.name}"\n\nEnds on ${activeCompetitions.activeLeagueDetails?.endDate}.\n\nOnly one league can be active at a time.`,
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+    } catch (error) {
+      console.error('Failed to check active competitions:', error);
+    }
+
     setLeagueWizardVisible(true);
   };
 

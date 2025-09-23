@@ -251,48 +251,56 @@ export class NostrRelayManager {
     );
 
     // Publish to each connected relay
-    const publishPromises = connectedRelays.map(async (connection) => {
-      const wsConnection = this.wsConnections.get(connection.url);
-      if (!wsConnection || !wsConnection.isConnected()) {
-        results.failed.push(connection.url);
-        return;
-      }
-
-      try {
-        // Set up OK message listener for this event
-        const timeout = setTimeout(() => {
+    const publishPromises = connectedRelays.map((connection) => {
+      return new Promise<void>((resolve) => {
+        const wsConnection = this.wsConnections.get(connection.url);
+        if (!wsConnection || !wsConnection.isConnected()) {
           results.failed.push(connection.url);
-        }, 5000); // 5 second timeout
+          resolve();
+          return;
+        }
 
-        const okListener = wsConnection.on(
-          'ok',
-          (okMessage: {
-            eventId: string;
-            success: boolean;
-            reason?: string;
-          }) => {
-            if (okMessage.eventId === event.id) {
-              clearTimeout(timeout);
-              okListener(); // Remove listener
+        try {
+          // Set up timeout for this publish attempt
+          const timeout = setTimeout(() => {
+            results.failed.push(connection.url);
+            resolve();
+          }, 5000); // 5 second timeout
 
-              if (okMessage.success) {
-                results.successful.push(connection.url);
-              } else {
-                console.warn(
-                  `❌ Event rejected by ${connection.url}: ${okMessage.reason}`
-                );
-                results.failed.push(connection.url);
+          // Set up OK message listener for this event
+          const okListener = wsConnection.on(
+            'ok',
+            (okMessage: {
+              eventId: string;
+              success: boolean;
+              reason?: string;
+            }) => {
+              if (okMessage.eventId === event.id) {
+                clearTimeout(timeout);
+                okListener(); // Remove listener
+
+                if (okMessage.success) {
+                  results.successful.push(connection.url);
+                  console.log(`✅ Event accepted by ${connection.url}`);
+                } else {
+                  console.warn(
+                    `❌ Event rejected by ${connection.url}: ${okMessage.reason}`
+                  );
+                  results.failed.push(connection.url);
+                }
+                resolve();
               }
             }
-          }
-        );
+          );
 
-        // Publish the event
-        wsConnection.publish(event);
-      } catch (error) {
-        console.error(`❌ Failed to publish to ${connection.url}:`, error);
-        results.failed.push(connection.url);
-      }
+          // Publish the event
+          wsConnection.publish(event);
+        } catch (error) {
+          console.error(`❌ Failed to publish to ${connection.url}:`, error);
+          results.failed.push(connection.url);
+          resolve();
+        }
+      });
     });
 
     // Wait for all publish attempts to complete
