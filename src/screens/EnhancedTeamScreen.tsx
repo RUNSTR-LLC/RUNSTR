@@ -206,20 +206,28 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
         console.log('🔍 Fetching competitions for team:', team.id);
         const service = NostrCompetitionService.getInstance();
 
-        // Query competitions for this team
+        // Query all recent competitions then filter locally
+        const now = Math.floor(Date.now() / 1000);
         const result = await service.queryCompetitions({
           kinds: [30100, 30101], // Both leagues and events
-          '#team': [team.id],
-          limit: 50
+          since: now - (30 * 24 * 60 * 60), // Last 30 days
+          limit: 200 // Get more to ensure we capture team's competitions
         });
 
+        // Filter for this team's competitions locally
+        const teamLeagues = result.leagues.filter(league => league.teamId === team.id);
+        const teamEvents = result.events.filter(event => event.teamId === team.id);
+
         console.log('📊 Fetched competitions:', {
-          leagues: result.leagues.length,
-          events: result.events.length
+          totalLeagues: result.leagues.length,
+          totalEvents: result.events.length,
+          teamLeagues: teamLeagues.length,
+          teamEvents: teamEvents.length,
+          teamId: team.id
         });
 
         // Format events for display
-        const formattedNostrEvents = result.events.map(event => ({
+        const formattedNostrEvents = teamEvents.map(event => ({
           id: event.id,
           name: event.name,
           date: new Date(event.eventDate).toLocaleDateString('en-US', {
@@ -231,7 +239,7 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
         }));
 
         setNostrEvents(formattedNostrEvents);
-        setNostrLeagues(result.leagues);
+        setNostrLeagues(teamLeagues);
       } catch (error) {
         console.error('❌ Failed to fetch team competitions:', error);
       } finally {
