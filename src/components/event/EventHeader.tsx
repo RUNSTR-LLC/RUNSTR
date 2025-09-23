@@ -34,7 +34,7 @@ export const EventHeader: React.FC<EventHeaderProps> = ({
       {/* Event Meta */}
       <View style={styles.meta}>
         <Text style={styles.date}>
-          {startDate} - {endDate}
+          {startDate}
         </Text>
         <View style={styles.typeBadge}>
           <Text style={styles.typeText}>{type}</Text>

@@ -202,8 +202,8 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
           id: competition.id,
           name: competition.name,
           description: competition.description,
-          startDate: new Date(competition.startTime * 1000).toISOString(),
-          endDate: new Date(competition.endTime * 1000).toISOString(),
+          startDate: formatEventDateRange(competition.startTime, competition.endTime),
+          endDate: '',  // We'll pass the full range in startDate
           prizePool: competition.entryFeesSats * eventLeaderboard.participants.length, // Calculate from entry fees
           participants: participantDetails, // Use formatted participant details
           participantDetails, // Real participant details from leaderboard
@@ -245,8 +245,8 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
           id: competition.id,
           name: competition.name,
           description: competition.description,
-          startDate: new Date(competition.startTime * 1000).toISOString(),
-          endDate: new Date(competition.endTime * 1000).toISOString(),
+          startDate: formatEventDateRange(competition.startTime, competition.endTime),
+          endDate: '',  // We'll pass the full range in startDate
           prizePool: 0,
           participants: [],
           participantDetails: [],
@@ -292,6 +292,37 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
   };
 
   // Helper functions
+  const formatEventDateRange = (startTime: number, endTime: number): string => {
+    const startDate = new Date(startTime * 1000);
+    const endDate = new Date(endTime * 1000);
+    const currentYear = new Date().getFullYear();
+
+    const startMonth = startDate.toLocaleDateString('en-US', { month: 'long' });
+    const startDay = startDate.getDate();
+    const startYear = startDate.getFullYear();
+
+    const endMonth = endDate.toLocaleDateString('en-US', { month: 'long' });
+    const endDay = endDate.getDate();
+    const endYear = endDate.getFullYear();
+
+    // Same day event
+    if (startMonth === endMonth && startDay === endDay && startYear === endYear) {
+      const yearStr = startYear === currentYear ? '' : `, ${startYear}`;
+      return `${startMonth} ${startDay}${yearStr}`;
+    }
+
+    // Same month, different days
+    if (startMonth === endMonth && startYear === endYear) {
+      const yearStr = startYear === currentYear ? '' : `, ${startYear}`;
+      return `${startMonth} ${startDay}-${endDay}${yearStr}`;
+    }
+
+    // Different months or years
+    const startYearStr = startYear === currentYear ? '' : `, ${startYear}`;
+    const endYearStr = endYear === currentYear ? '' : `, ${endYear}`;
+    return `${startMonth} ${startDay}${startYearStr} - ${endMonth} ${endDay}${endYearStr}`;
+  };
+
   const calculateTimeRemaining = (endTime: number) => {
     const remaining = endTime - Math.floor(Date.now() / 1000);
     const hours = Math.floor(remaining / 3600);
