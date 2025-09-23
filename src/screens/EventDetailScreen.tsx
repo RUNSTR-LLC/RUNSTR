@@ -56,7 +56,7 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
   route,
   navigation,
 }) => {
-  const { eventId } = route.params;
+  const { eventId, eventData: passedEventData } = route.params;
   const [eventData, setEventData] = useState<EventDetailData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -130,8 +130,32 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
     setError(null);
 
     try {
-      const competitionService = CompetitionService.getInstance();
-      const competition = competitionService.getCompetitionById(eventId);
+      let competition = null;
+
+      // First try to use passed event data if available
+      if (passedEventData) {
+        console.log('Using passed event data:', passedEventData);
+        // Convert Nostr event to Competition format
+        competition = {
+          id: passedEventData.id,
+          teamId: passedEventData.teamId,
+          name: passedEventData.name,
+          description: passedEventData.description,
+          type: 'event',
+          activityType: passedEventData.activityType,
+          competitionType: passedEventData.competitionType,
+          startTime: Math.floor(new Date(passedEventData.eventDate).getTime() / 1000),
+          endTime: Math.floor(new Date(passedEventData.eventDate).getTime() / 1000) + 86400, // Add 1 day
+          entryFeesSats: passedEventData.entryFeesSats || 0,
+          goalValue: passedEventData.targetValue,
+          goalUnit: passedEventData.targetUnit,
+          captainPubkey: passedEventData.captainPubkey,
+        };
+      } else {
+        // Fall back to CompetitionService lookup
+        const competitionService = CompetitionService.getInstance();
+        competition = competitionService.getCompetitionById(eventId);
+      }
 
       if (!competition) {
         throw new Error(`Event not found: ${eventId}`);

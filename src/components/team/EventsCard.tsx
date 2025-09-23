@@ -13,7 +13,7 @@ import { theme } from '../../styles/theme';
 
 interface EventsCardProps {
   events: FormattedEvent[];
-  onEventPress?: (eventId: string) => void;
+  onEventPress?: (eventId: string, event?: FormattedEvent) => void;
   onAddEvent?: () => void;
   isCaptain?: boolean;
 }
@@ -44,7 +44,7 @@ export const EventsCard: React.FC<EventsCardProps> = ({
           <TouchableOpacity
             key={event.id}
             style={styles.eventItem}
-            onPress={() => onEventPress?.(event.id)}
+            onPress={() => onEventPress?.(event.id, event)}
             activeOpacity={0.7}
           >
             <View style={styles.eventHeader}>

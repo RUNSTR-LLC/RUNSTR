@@ -183,7 +183,6 @@ export class Nuclear1301Service {
             source: 'nostr',
             nostrEventId: event.id,
             nostrPubkey: event.pubkey,
-            sourceApp: 'nuclear_1301_discovery',
             syncedAt: new Date().toISOString()
           };
 
@@ -205,7 +204,6 @@ export class Nuclear1301Service {
             source: 'nostr',
             nostrEventId: event.id,
             nostrPubkey: event.pubkey,
-            sourceApp: 'fallback_nuclear',
             syncedAt: new Date().toISOString()
           };
           workouts.push(fallbackWorkout);

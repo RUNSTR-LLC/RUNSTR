@@ -111,7 +111,7 @@ export const PersonalWalletSection: React.FC<PersonalWalletSectionProps> = ({
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <Ionicons name="wallet" size={20} color={theme.colors.accent} />
-          <Text style={styles.title}>Personal Wallet</Text>
+          <Text style={styles.title}>E-Cash Wallet</Text>
           <View style={styles.badge}>
             <Text style={styles.badgeText}>NutZap</Text>
           </View>

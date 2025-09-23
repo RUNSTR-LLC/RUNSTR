@@ -237,8 +237,8 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
                 }
               }}
               onAddChallenge={() => handlers.handleAddChallenge(navigation)}
-              onEventPress={(eventId) =>
-                navigation.navigate('EventDetail', { eventId })
+              onEventPress={(eventId, eventData) =>
+                navigation.navigate('EventDetail', { eventId, eventData })
               }
               onChallengePress={(challengeId) =>
                 navigation.navigate('ChallengeDetail', { challengeId })

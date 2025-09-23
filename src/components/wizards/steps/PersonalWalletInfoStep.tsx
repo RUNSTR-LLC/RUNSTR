@@ -38,7 +38,7 @@ export const PersonalWalletInfoStep: React.FC<TeamCreationStepProps> = ({
         </View>
 
         {/* Title */}
-        <Text style={styles.title}>Personal Wallet System</Text>
+        <Text style={styles.title}>E-Cash Wallet System</Text>
         <Text style={styles.subtitle}>
           No team wallet needed - you'll use your personal NutZap wallet
         </Text>

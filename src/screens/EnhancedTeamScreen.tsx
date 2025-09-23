@@ -26,7 +26,7 @@ interface EnhancedTeamScreenProps {
   onMenuPress: () => void;
   onCaptainDashboard: () => void;
   onAddChallenge: () => void;
-  onEventPress?: (eventId: string) => void;
+  onEventPress?: (eventId: string, eventData?: any) => void;
   onChallengePress?: (challengeId: string) => void;
   onNavigateToProfile: () => void;
   onLeaveTeam: () => void;
@@ -193,6 +193,7 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
   const [nostrEvents, setNostrEvents] = useState<any[]>([]);
   const [nostrLeagues, setNostrLeagues] = useState<any[]>([]);
   const [loadingCompetitions, setLoadingCompetitions] = useState(true);
+  const [rawNostrEvents, setRawNostrEvents] = useState<any[]>([]); // Keep raw event data for navigation
 
   // Fetch competitions from Nostr
   useEffect(() => {
@@ -240,6 +241,7 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
 
         setNostrEvents(formattedNostrEvents);
         setNostrLeagues(teamLeagues);
+        setRawNostrEvents(teamEvents); // Store raw event data
       } catch (error) {
         console.error('❌ Failed to fetch team competitions:', error);
       } finally {
@@ -382,7 +384,11 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
           <View style={styles.bottomSection}>
             <EventsCard
               events={nostrEvents.length > 0 ? nostrEvents : formattedEvents}
-              onEventPress={onEventPress}
+              onEventPress={(eventId, formattedEvent) => {
+                // Find the raw Nostr event data if available
+                const rawEvent = rawNostrEvents.find(e => e.id === eventId);
+                onEventPress?.(eventId, rawEvent || formattedEvent);
+              }}
               isCaptain={userIsCaptain}
             />
 

@@ -693,22 +693,6 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
 
       {/* Content */}
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Quick Stats */}
-        <View style={styles.statsOverview}>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{data.team.memberCount}</Text>
-            <Text style={styles.statLabel}>MEMBERS</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{data.team.activeEvents}</Text>
-            <Text style={styles.statLabel}>ACTIVE EVENTS</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{data.team.activeChallenges}</Text>
-            <Text style={styles.statLabel}>CHALLENGES</Text>
-          </View>
-        </View>
-
         {/* Team Management Section */}
         <View style={styles.managementSection}>
           <View style={styles.sectionHeader}>
