@@ -44,13 +44,20 @@ if (Platform.OS === 'ios') {
   }
 }
 
-// HealthKit permissions configuration
+// Enhanced HealthKit permissions configuration (NIP-101e requirements)
 const HEALTHKIT_READ_PERMISSIONS = [
   'ActiveEnergyBurned',
   'DistanceWalkingRunning',
   'DistanceCycling',
   'HeartRate',
   'Workout',
+  // New additions for richer workout data
+  'StepCount',
+  'FlightsClimbed',
+  'VO2Max',
+  'RestingHeartRate',
+  'HeartRateVariabilitySDNN',
+  // Note: WorkoutRoute requires special handling and additional configuration
 ];
 
 // Workout type mappings (iOS HealthKit -> RUNSTR)
@@ -255,13 +262,20 @@ export class HealthKitService {
                 return;
               }
 
-              // Define permissions arrays
+              // Enhanced permissions arrays for NIP-101e compliance
               const readPermissions = [
                 'HKQuantityTypeIdentifierActiveEnergyBurned',
                 'HKQuantityTypeIdentifierDistanceWalkingRunning',
                 'HKQuantityTypeIdentifierDistanceCycling',
                 'HKQuantityTypeIdentifierHeartRate',
                 'HKWorkoutTypeIdentifier',
+                // New additions for richer data
+                'HKQuantityTypeIdentifierStepCount',
+                'HKQuantityTypeIdentifierFlightsClimbed',
+                'HKQuantityTypeIdentifierVO2Max',
+                'HKQuantityTypeIdentifierRestingHeartRate',
+                'HKQuantityTypeIdentifierHeartRateVariabilitySDNN',
+                // Note: HKWorkoutRoute requires special entitlements
               ];
               const writePermissions: string[] = [];
 
@@ -627,13 +641,19 @@ export class HealthKitService {
     }
 
     try {
-      // Define the same permissions we request
+      // Define the same enhanced permissions we request
       const readPermissions = [
         'HKQuantityTypeIdentifierActiveEnergyBurned',
         'HKQuantityTypeIdentifierDistanceWalkingRunning',
         'HKQuantityTypeIdentifierDistanceCycling',
         'HKQuantityTypeIdentifierHeartRate',
         'HKWorkoutTypeIdentifier',
+        // Enhanced data types
+        'HKQuantityTypeIdentifierStepCount',
+        'HKQuantityTypeIdentifierFlightsClimbed',
+        'HKQuantityTypeIdentifierVO2Max',
+        'HKQuantityTypeIdentifierRestingHeartRate',
+        'HKQuantityTypeIdentifierHeartRateVariabilitySDNN',
       ];
       const writePermissions: string[] = []; // No write permissions needed
 

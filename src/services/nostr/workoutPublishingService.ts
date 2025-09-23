@@ -73,7 +73,7 @@ export class WorkoutPublishingService {
   }
 
   /**
-   * Save HealthKit workout as Kind 1301 Nostr event
+   * Save HealthKit workout as Kind 1301 Nostr event (NIP-101e compliant)
    */
   async saveWorkoutToNostr(
     workout: PublishableWorkout,
@@ -81,29 +81,34 @@ export class WorkoutPublishingService {
     userId: string
   ): Promise<WorkoutPublishResult> {
     try {
-      console.log(`🔄 Publishing workout ${workout.id} as kind 1301 event...`);
+      console.log(`🔄 Publishing workout ${workout.id} as kind 1301 event (NIP-101e)...`);
 
-      // Convert workout to Nostr event data
-      const eventData = this.convertWorkoutToEventData(workout);
+      // Get public key from private key for exercise tag
+      const pubkey = await this.protocolHandler.getPubkeyFromPrivate(privateKeyHex);
 
-      // Create and sign the kind 1301 event
+      // Create and sign the kind 1301 event with NIP-101e structure
       const eventTemplate: EventTemplate = {
         kind: 1301,
-        content: JSON.stringify(eventData),
-        tags: this.createWorkoutEventTags(workout),
+        content: this.generateWorkoutDescription(workout), // Plain text description
+        tags: this.createNIP101eWorkoutTags(workout, pubkey),
         created_at: Math.floor(new Date(workout.startTime).getTime() / 1000),
       };
+
+      // Validate NIP-101e compliance before signing
+      if (!this.validateNIP101eStructure(eventTemplate)) {
+        throw new Error('Event structure does not comply with NIP-101e');
+      }
 
       const signedEvent = await this.protocolHandler.signEvent(
         eventTemplate,
         privateKeyHex
       );
 
-      // Publish to relays
-      const publishResult = await this.publishEventToRelays(signedEvent);
+      // Publish to relays with retry mechanism
+      const publishResult = await this.publishEventToRelaysWithRetry(signedEvent);
 
       if (publishResult.success) {
-        console.log(`✅ Workout saved to Nostr: ${signedEvent.id}`);
+        console.log(`✅ Workout saved to Nostr (NIP-101e): ${signedEvent.id}`);
       }
 
       return publishResult;
@@ -183,37 +188,169 @@ export class WorkoutPublishingService {
   }
 
   /**
-   * Create tags for kind 1301 workout events
+   * Create NIP-101e compliant tags for kind 1301 workout events
    */
-  private createWorkoutEventTags(workout: PublishableWorkout): string[][] {
+  private createNIP101eWorkoutTags(workout: PublishableWorkout, pubkey: string): string[][] {
     const tags: string[][] = [
       ['d', workout.id], // Unique identifier
-      ['activity', workout.type],
-      ['source', workout.source],
+      ['type', this.mapToNIP101eType(workout.type)], // NIP-101e type: cardio/strength/flexibility
+      ['start', this.toUnixSeconds(workout.startTime)], // Unix timestamp in seconds
+      ['end', this.toUnixSeconds(workout.endTime)], // Unix timestamp in seconds
+      ['exercise', ...this.createExerciseTag(workout, pubkey)], // NIP-101e exercise tag
+      ['completed', 'true'], // Workout completion status
+      ['t', workout.type], // Hashtag for activity type
     ];
 
-    // Add distance tag if available
-    if (workout.distance) {
-      tags.push(['distance', workout.distance.toString()]);
-    }
-
-    // Add duration tag
-    tags.push(['duration', workout.duration.toString()]);
-
-    // Add source app if available from metadata
+    // Add source app tag if available
     if (workout.metadata?.sourceApp || workout.sourceApp) {
       tags.push([
         'app',
         workout.metadata?.sourceApp || workout.sourceApp || 'RUNSTR',
       ]);
-    } else {
-      tags.push(['app', 'RUNSTR']);
     }
 
-    // Add unit system
-    tags.push(['unit', workout.unitSystem || 'metric']);
-
     return tags;
+  }
+
+  /**
+   * Create the NIP-101e exercise tag with all required fields
+   * Format: [exerciseId, relayUrl, sets, duration, restTime, polyline, avgHR]
+   */
+  private createExerciseTag(workout: PublishableWorkout, pubkey: string): string[] {
+    const exerciseId = `33401:${pubkey}:${workout.id}`;
+    const relayUrl = 'wss://relay.damus.io'; // Default relay, can be made configurable
+    const sets = '1'; // For cardio workouts, typically 1 set
+    const duration = workout.duration.toString(); // Duration in seconds
+    const restTime = '0'; // No rest time for continuous cardio activities
+    const polyline = ''; // Empty for now, will be populated when we add route support
+    const avgHR = workout.heartRate?.avg?.toString() || ''; // Average heart rate if available
+
+    return [exerciseId, relayUrl, sets, duration, restTime, polyline, avgHR];
+  }
+
+  /**
+   * Map workout type to NIP-101e exercise type categories
+   */
+  private mapToNIP101eType(workoutType: string): 'cardio' | 'strength' | 'flexibility' {
+    const cardioTypes = ['running', 'cycling', 'walking', 'hiking', 'swimming', 'rowing'];
+    const strengthTypes = ['gym', 'strength_training', 'weightlifting', 'crossfit'];
+    const flexibilityTypes = ['yoga', 'stretching', 'pilates'];
+
+    if (cardioTypes.includes(workoutType.toLowerCase())) return 'cardio';
+    if (strengthTypes.includes(workoutType.toLowerCase())) return 'strength';
+    if (flexibilityTypes.includes(workoutType.toLowerCase())) return 'flexibility';
+
+    return 'cardio'; // Default to cardio for unknown types
+  }
+
+  /**
+   * Convert date/time to Unix timestamp in seconds (NIP-101e requirement)
+   */
+  private toUnixSeconds(dateInput: string | Date | number): string {
+    let timestamp: number;
+
+    if (typeof dateInput === 'string') {
+      timestamp = new Date(dateInput).getTime();
+    } else if (typeof dateInput === 'number') {
+      // Check if already in seconds (Unix timestamp)
+      timestamp = dateInput < 10000000000 ? dateInput * 1000 : dateInput;
+    } else if (dateInput instanceof Date) {
+      timestamp = dateInput.getTime();
+    } else {
+      timestamp = Date.now();
+    }
+
+    return Math.floor(timestamp / 1000).toString();
+  }
+
+  /**
+   * Generate human-readable workout description for content field
+   */
+  private generateWorkoutDescription(workout: PublishableWorkout): string {
+    const workoutType = workout.type.charAt(0).toUpperCase() + workout.type.slice(1).replace('_', ' ');
+    const duration = this.formatDurationForDescription(workout.duration);
+
+    let description = `${workoutType} workout completed! ${duration}`;
+
+    if (workout.distance && workout.distance > 0) {
+      const distanceKm = (workout.distance / 1000).toFixed(2);
+      description += `, ${distanceKm}km`;
+    }
+
+    if (workout.calories && workout.calories > 0) {
+      description += `, ${Math.round(workout.calories)} calories burned`;
+    }
+
+    // Add a motivational suffix
+    const motivationalSuffixes = [
+      'Feeling strong! 💪',
+      'Another step toward my goals!',
+      'Consistency is key!',
+      'Progress over perfection!',
+      'Every workout counts!'
+    ];
+
+    const randomSuffix = motivationalSuffixes[Math.floor(Math.random() * motivationalSuffixes.length)];
+    description += `. ${randomSuffix}`;
+
+    return description;
+  }
+
+  /**
+   * Format duration for human-readable description
+   */
+  private formatDurationForDescription(seconds: number): string {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    } else {
+      return `${minutes} minutes`;
+    }
+  }
+
+  /**
+   * Validate that an event template complies with NIP-101e structure
+   */
+  private validateNIP101eStructure(eventTemplate: EventTemplate): boolean {
+    // Check that content is plain text, not JSON
+    if (typeof eventTemplate.content !== 'string') {
+      console.error('NIP-101e validation failed: content must be a string');
+      return false;
+    }
+
+    if (eventTemplate.content.includes('{') && eventTemplate.content.includes('}')) {
+      console.error('NIP-101e validation failed: content appears to contain JSON');
+      return false;
+    }
+
+    // Check for required tags
+    const requiredTags = ['d', 'type', 'start', 'end', 'exercise', 'completed'];
+    const tagKeys = eventTemplate.tags.map(tag => tag[0]);
+
+    for (const required of requiredTags) {
+      if (!tagKeys.includes(required)) {
+        console.error(`NIP-101e validation failed: missing required tag '${required}'`);
+        return false;
+      }
+    }
+
+    // Validate exercise tag has correct number of fields
+    const exerciseTag = eventTemplate.tags.find(tag => tag[0] === 'exercise');
+    if (!exerciseTag || exerciseTag.length !== 8) { // tag name + 7 fields
+      console.error('NIP-101e validation failed: exercise tag must have exactly 7 fields');
+      return false;
+    }
+
+    // Validate type tag has correct values
+    const typeTag = eventTemplate.tags.find(tag => tag[0] === 'type');
+    if (!typeTag || !['cardio', 'strength', 'flexibility'].includes(typeTag[1])) {
+      console.error('NIP-101e validation failed: type must be cardio, strength, or flexibility');
+      return false;
+    }
+
+    return true;
   }
 
   /**
@@ -415,7 +552,47 @@ export class WorkoutPublishingService {
   }
 
   /**
-   * Publish event to all connected relays
+   * Publish event to relays with retry mechanism for failures
+   */
+  private async publishEventToRelaysWithRetry(
+    event: Event,
+    maxRetries: number = 3
+  ): Promise<WorkoutPublishResult> {
+    let attempt = 0;
+    let lastError: Error | null = null;
+    let delay = 1000; // Start with 1 second delay
+
+    while (attempt < maxRetries) {
+      try {
+        const result = await this.publishEventToRelays(event);
+
+        // If at least one relay succeeded, consider it a success
+        if (result.publishedToRelays && result.publishedToRelays > 0) {
+          return result;
+        }
+
+        // If all relays failed, prepare for retry
+        throw new Error(`All relays failed: ${result.error || 'Unknown error'}`);
+      } catch (error) {
+        lastError = error as Error;
+        attempt++;
+
+        if (attempt < maxRetries) {
+          console.log(`📡 Retry attempt ${attempt}/${maxRetries} after ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          delay *= 2; // Exponential backoff: 1s, 2s, 4s
+        }
+      }
+    }
+
+    return {
+      success: false,
+      error: lastError?.message || 'Failed to publish after all retries'
+    };
+  }
+
+  /**
+   * Publish event to all connected relays (single attempt)
    */
   private async publishEventToRelays(
     event: Event

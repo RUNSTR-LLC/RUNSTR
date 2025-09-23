@@ -458,42 +458,108 @@ export class WorkoutMergeService {
   }
 
   /**
-   * Check if a workout is a duplicate based on time window and stats
+   * Enhanced: Check if a workout is a duplicate based on UUID, time window, and stats
+   * Uses multiple strategies for more accurate deduplication
    */
   private isDuplicate(
     workout1: HealthKitWorkout | any,
     workouts2: any[]
   ): boolean {
     return workouts2.some(w2 => {
-      // Time window check (within 2 minutes)
+      // Strategy 1: Exact UUID match (highest confidence)
+      if (workout1.UUID && w2.UUID && workout1.UUID === w2.UUID) {
+        console.log(`🔍 Duplicate found: Exact UUID match ${workout1.UUID}`);
+        return true;
+      }
+
+      // Strategy 2: HealthKit ID match (check both id and UUID fields)
+      const id1 = workout1.id || workout1.UUID;
+      const id2 = w2.id || w2.UUID;
+      if (id1 && id2) {
+        // Extract UUID from healthkit_UUID format
+        const uuid1 = id1.includes('healthkit_') ? id1.replace('healthkit_', '') : id1;
+        const uuid2 = id2.includes('healthkit_') ? id2.replace('healthkit_', '') : id2;
+        if (uuid1 === uuid2 && uuid1 !== '') {
+          console.log(`🔍 Duplicate found: HealthKit ID match ${uuid1}`);
+          return true;
+        }
+      }
+
+      // Strategy 3: Time window and stats matching (fuzzy matching)
+      // Must be same activity type first
+      const type1 = workout1.activityType || workout1.type || 'unknown';
+      const type2 = w2.type || w2.activityType || 'unknown';
+
+      // Map HealthKit activity types if needed
+      const normalizedType1 = this.normalizeWorkoutType(type1);
+      const normalizedType2 = this.normalizeWorkoutType(type2);
+
+      if (normalizedType1 !== normalizedType2) return false;
+
+      // Time window check (within 1 minute for better accuracy)
       const time1 = new Date(workout1.startDate || workout1.startTime).getTime();
-      const time2 = new Date(w2.startTime).getTime();
+      const time2 = new Date(w2.startTime || w2.startDate).getTime();
       const timeDiff = Math.abs(time1 - time2);
 
-      if (timeDiff > 120000) return false; // More than 2 minutes apart
+      if (timeDiff > 60000) return false; // More than 1 minute apart
 
-      // Activity type check
-      const type1 = workout1.activityType || workout1.type;
-      const type2 = w2.type;
-      if (type1 !== type2) return false;
+      // Duration check (within 10 seconds tolerance)
+      const dur1 = workout1.duration || 0;
+      const dur2 = w2.duration || 0;
+      const durationDiff = Math.abs(dur1 - dur2);
 
-      // Distance check (within 5% tolerance if both have distance)
-      const dist1 = workout1.totalDistance || workout1.distance || 0;
+      if (durationDiff > 10) return false; // More than 10 seconds difference
+
+      // Distance check (within 100 meters or 2% tolerance, whichever is larger)
+      const dist1 = (workout1.totalDistance || 0) * 1000 + (workout1.distance || 0); // Convert km to m if needed
       const dist2 = w2.distance || 0;
 
       if (dist1 > 0 && dist2 > 0) {
         const distanceDiff = Math.abs(dist1 - dist2);
-        const tolerance = Math.max(dist1, dist2) * 0.05;
+        const percentTolerance = Math.max(dist1, dist2) * 0.02; // 2% tolerance
+        const absoluteTolerance = 100; // 100 meters
+        const tolerance = Math.max(percentTolerance, absoluteTolerance);
+
         if (distanceDiff > tolerance) return false;
       }
 
-      // Duration check (within 60 seconds tolerance)
-      const dur1 = workout1.duration || 0;
-      const dur2 = w2.duration || 0;
-      if (Math.abs(dur1 - dur2) > 60) return false;
-
-      return true; // It's a duplicate
+      // If we made it here, it's very likely a duplicate
+      console.log(`🔍 Duplicate found: Fuzzy match - ${timeDiff}ms time diff, ${durationDiff}s duration diff`);
+      return true;
     });
+  }
+
+  /**
+   * Normalize workout types for consistent comparison
+   */
+  private normalizeWorkoutType(type: string | number): string {
+    if (typeof type === 'number') {
+      // Map HealthKit numeric types
+      const typeMap: Record<number, string> = {
+        16: 'running',
+        52: 'walking',
+        13: 'cycling',
+        24: 'hiking',
+        46: 'yoga',
+        35: 'strength_training',
+        3: 'gym'
+      };
+      return typeMap[type] || 'other';
+    }
+
+    // Normalize string types
+    const normalizedType = type.toLowerCase().replace(/_/g, '').replace(/-/g, '');
+
+    // Map variations to standard types
+    if (normalizedType.includes('run')) return 'running';
+    if (normalizedType.includes('walk')) return 'walking';
+    if (normalizedType.includes('cycl') || normalizedType.includes('bike')) return 'cycling';
+    if (normalizedType.includes('hik')) return 'hiking';
+    if (normalizedType.includes('yoga')) return 'yoga';
+    if (normalizedType.includes('strength') || normalizedType.includes('weight')) return 'strength_training';
+    if (normalizedType.includes('gym')) return 'gym';
+
+    return normalizedType;
   }
 
   /**

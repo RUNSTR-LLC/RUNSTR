@@ -48,6 +48,29 @@ export class NostrProtocolHandler {
   > = new Map();
 
   /**
+   * Get public key from private key hex string
+   */
+  async getPubkeyFromPrivate(privateKeyHex: string): Promise<string> {
+    try {
+      // Convert hex private key to Uint8Array
+      const privateKeyBytes = new Uint8Array(
+        privateKeyHex.match(/.{2}/g)?.map((byte) => parseInt(byte, 16)) || []
+      );
+
+      if (privateKeyBytes.length !== 32) {
+        throw new Error('Private key must be 32 bytes');
+      }
+
+      // Get public key using nostr-tools
+      const pubkey = getPublicKey(privateKeyBytes);
+      return pubkey;
+    } catch (error) {
+      console.error('Failed to get pubkey from private key:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Create a REQ message for subscribing to events
    */
   createREQMessage(subscriptionId: string, filters: NostrFilter[]): any[] {
