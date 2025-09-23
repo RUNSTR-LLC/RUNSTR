@@ -1,6 +1,6 @@
 /**
  * League Ranking Service - Real-time competition leaderboards from Nostr events
- * Queries kind 1301 workout events from team members
+ * Queries kind 1301 workout events from competition participants
  * Supports all league types from wizard competition parameters
  */
 
@@ -13,6 +13,7 @@ import type {
   NostrActivityType,
   NostrLeagueCompetitionType,
 } from '../../types/nostrCompetition';
+import NostrCompetitionParticipantService from '../nostr/NostrCompetitionParticipantService';
 
 export interface LeagueParticipant {
   npub: string;
@@ -58,7 +59,10 @@ export class LeagueRankingService {
 
   constructor() {
     this.queryService = Competition1301QueryService;
+    this.participantService = NostrCompetitionParticipantService.getInstance();
   }
+
+  private participantService: NostrCompetitionParticipantService;
 
   static getInstance(): LeagueRankingService {
     if (!LeagueRankingService.instance) {
@@ -86,9 +90,24 @@ export class LeagueRankingService {
     }
 
     try {
-      const participantNpubs = participants
-        .filter(p => p.isActive)
-        .map(p => p.npub);
+      // Get participant list from competition if it exists
+      const competitionParticipantList = await this.participantService.getParticipantList(competitionId);
+
+      let participantNpubs: string[];
+
+      if (competitionParticipantList && competitionParticipantList.participants.length > 0) {
+        // Use approved participants from competition list
+        console.log('📋 Using competition participant list');
+        participantNpubs = competitionParticipantList.participants
+          .filter(p => p.status === 'approved')
+          .map(p => p.npub || p.hexPubkey); // Use npub if available, fallback to hex
+      } else {
+        // Fall back to team members (for backward compatibility)
+        console.log('📋 Falling back to team member list');
+        participantNpubs = participants
+          .filter(p => p.isActive)
+          .map(p => p.npub);
+      }
 
       // Query workout data from Nostr
       const query: CompetitionQuery = {

@@ -17,6 +17,7 @@ import {
 import { theme } from '../../styles/theme';
 import { WizardStepContainer, WizardStep } from './WizardStepContainer';
 import { NostrCompetitionService } from '../../services/nostr/NostrCompetitionService';
+import NostrCompetitionParticipantService from '../../services/nostr/NostrCompetitionParticipantService';
 import { useUserStore } from '../../store/userStore';
 import { getAuthenticationData } from '../../utils/nostrAuth';
 import { nsecToPrivateKey } from '../../utils/nostr';
@@ -263,8 +264,21 @@ export const LeagueCreationWizard: React.FC<LeagueCreationWizardProps> = ({
 
       if (result.success) {
         console.log('✅ League created successfully:', result.competitionId);
+
+        // Create participant list if approval is required
+        if (leagueData.requireApproval && result.competitionId) {
+          console.log('📋 Creating participant list for approval-required league');
+          const participantService = NostrCompetitionParticipantService.getInstance();
+          await participantService.createParticipantList(
+            result.competitionId,
+            teamId,
+            privateKeyHex,
+            true // requireApproval
+          );
+        }
+
         Alert.alert(
-          'Success!', 
+          'Success!',
           `League "${leagueData.leagueName}" has been created and published to Nostr relays.`,
           [{ text: 'OK', onPress: () => {
             onLeagueCreated(leagueData);

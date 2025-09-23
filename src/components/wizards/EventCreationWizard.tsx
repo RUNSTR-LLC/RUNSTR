@@ -17,6 +17,7 @@ import {
 import { theme } from '../../styles/theme';
 import { WizardStepContainer, WizardStep } from './WizardStepContainer';
 import { NostrCompetitionService } from '../../services/nostr/NostrCompetitionService';
+import NostrCompetitionParticipantService from '../../services/nostr/NostrCompetitionParticipantService';
 import { useUserStore } from '../../store/userStore';
 import { getAuthenticationData } from '../../utils/nostrAuth';
 import { nsecToPrivateKey } from '../../utils/nostr';
@@ -251,8 +252,21 @@ export const EventCreationWizard: React.FC<EventCreationWizardProps> = ({
 
       if (result.success) {
         console.log('✅ Event created successfully:', result.competitionId);
+
+        // Create participant list if approval is required
+        if (eventData.requireApproval && result.competitionId) {
+          console.log('📋 Creating participant list for approval-required event');
+          const participantService = NostrCompetitionParticipantService.getInstance();
+          await participantService.createParticipantList(
+            result.competitionId,
+            teamId,
+            privateKeyHex,
+            true // requireApproval
+          );
+        }
+
         Alert.alert(
-          'Success!', 
+          'Success!',
           `Event "${eventData.eventName}" has been created and published to Nostr relays.`,
           [{ text: 'OK', onPress: () => {
             onEventCreated(eventData);

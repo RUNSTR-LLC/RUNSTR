@@ -5,6 +5,7 @@
  */
 
 import { NostrListService } from '../nostr/NostrListService';
+import NostrCompetitionParticipantService from '../nostr/NostrCompetitionParticipantService';
 import type { NostrLeagueDefinition, NostrEventDefinition } from '../../types/nostrCompetition';
 import type { NostrWorkout } from '../../types/nostrWorkout';
 import { LocalNotificationTrigger } from '../notifications/LocalNotificationTrigger';
@@ -57,7 +58,10 @@ export class SimpleCompetitionEngine {
 
   private constructor() {
     this.nostrListService = NostrListService.getInstance();
+    this.participantService = NostrCompetitionParticipantService.getInstance();
   }
+
+  private participantService: NostrCompetitionParticipantService;
 
   static getInstance(): SimpleCompetitionEngine {
     if (!SimpleCompetitionEngine.instance) {
@@ -83,12 +87,12 @@ export class SimpleCompetitionEngine {
     }
 
     try {
-      // Step 1: Get team members using proven NostrListService
-      const memberIds = await this.getTeamMembers(teamId, competition.captainPubkey);
-      console.log(`👥 Found ${memberIds.length} team members`);
+      // Step 1: Get competition participants (or fall back to team members)
+      const memberIds = await this.getCompetitionParticipants(competition.id, teamId, competition.captainPubkey);
+      console.log(`👥 Found ${memberIds.length} participants`);
 
       if (memberIds.length === 0) {
-        return this.createEmptyLeaderboard(competition, 'No team members found');
+        return this.createEmptyLeaderboard(competition, 'No participants found');
       }
 
       // Step 2: Get competition date range
@@ -138,7 +142,37 @@ export class SimpleCompetitionEngine {
   }
 
   /**
-   * Get team members using proven NostrListService
+   * Get competition participants (or fall back to team members)
+   */
+  private async getCompetitionParticipants(
+    competitionId: string,
+    teamId: string,
+    captainPubkey: string
+  ): Promise<string[]> {
+    try {
+      // First check for competition-specific participant list
+      const participantList = await this.participantService.getParticipantList(competitionId);
+
+      if (participantList && participantList.participants.length > 0) {
+        console.log('📋 Using competition participant list');
+        // Return only approved participants
+        return participantList.participants
+          .filter(p => p.status === 'approved')
+          .map(p => p.hexPubkey);
+      }
+
+      // Fall back to team members if no participant list exists
+      console.log('📋 Falling back to team member list');
+      return this.getTeamMembers(teamId, captainPubkey);
+    } catch (error) {
+      console.error('Error getting competition participants:', error);
+      // Fall back to team members on error
+      return this.getTeamMembers(teamId, captainPubkey);
+    }
+  }
+
+  /**
+   * Get team members using proven NostrListService (fallback method)
    */
   private async getTeamMembers(teamId: string, captainPubkey: string): Promise<string[]> {
     try {

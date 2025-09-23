@@ -36,6 +36,9 @@ import { NostrCompetitionLeaderboardService } from '../services/competition/nost
 import { getNostrTeamService } from '../services/nostr/NostrTeamService';
 import { CaptainCache } from '../utils/captainCache';
 import { getNpubFromStorage } from '../utils/nostr';
+import NostrCompetitionParticipantService from '../services/nostr/NostrCompetitionParticipantService';
+import { getAuthenticationData } from '../utils/nostrAuth';
+import { nsecToPrivateKey } from '../utils/nostr';
 import type { CompetitionLeaderboard, CompetitionParticipant } from '../services/competition/nostrCompetitionLeaderboardService';
 
 type EventDetailRouteProp = RouteProp<RootStackParamList, 'EventDetail'>;
@@ -58,18 +61,22 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [joinStatus, setJoinStatus] = useState<
-    'not_joined' | 'joined' | 'completed'
+    'not_joined' | 'pending' | 'joined' | 'completed'
   >('not_joined');
   const [leaderboard, setLeaderboard] = useState<CompetitionLeaderboard | null>(null);
   const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(false);
   const [userIsCaptain, setUserIsCaptain] = useState(false);
   const [currentUserPubkey, setCurrentUserPubkey] = useState<string | null>(null);
+  const [currentUserHexPubkey, setCurrentUserHexPubkey] = useState<string | null>(null);
   const [team, setTeam] = useState<any>(null);
+  const [competition, setCompetition] = useState<any>(null);
+  const participantService = NostrCompetitionParticipantService.getInstance();
 
   // Load event data
   useEffect(() => {
     loadEventData();
     checkCaptainStatus();
+    checkJoinStatus();
   }, [eventId]);
 
   const checkCaptainStatus = async () => {
@@ -78,23 +85,30 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
       const npub = await getNpubFromStorage();
       setCurrentUserPubkey(npub);
 
+      // Get auth data for hex pubkey
+      const authData = await getAuthenticationData();
+      if (authData && authData.hexPubkey) {
+        setCurrentUserHexPubkey(authData.hexPubkey);
+      }
+
       if (!npub) return;
 
       // Get competition and team info
       const competitionService = CompetitionService.getInstance();
-      const competition = competitionService.getCompetitionById(eventId);
+      const comp = competitionService.getCompetitionById(eventId);
+      setCompetition(comp);
 
-      if (competition && competition.teamId) {
+      if (comp && comp.teamId) {
         // Check captain cache first
         const captainCache = CaptainCache.getInstance();
-        const isCaptain = await captainCache.getIsCaptain(competition.teamId);
+        const isCaptain = await captainCache.getIsCaptain(comp.teamId);
 
         if (isCaptain !== null) {
           setUserIsCaptain(isCaptain);
         } else {
           // Fetch team data to verify captain status
           const teamService = getNostrTeamService();
-          const teamData = teamService.getTeamById(competition.teamId);
+          const teamData = teamService.getTeamById(comp.teamId);
 
           if (teamData) {
             setTeam(teamData);
@@ -323,40 +337,122 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
   };
 
   // Handle join/leave event
+  const checkJoinStatus = async () => {
+    try {
+      if (!currentUserHexPubkey || !eventId) return;
+
+      // Check if user is already an approved participant
+      const isParticipant = await participantService.isApprovedParticipant(
+        eventId,
+        currentUserHexPubkey
+      );
+
+      if (isParticipant) {
+        setJoinStatus('joined');
+      } else {
+        // Check if there's a pending request
+        const pendingRequests = await participantService.getPendingJoinRequests(eventId);
+        const userRequest = pendingRequests.find(
+          r => r.userHexPubkey === currentUserHexPubkey
+        );
+
+        if (userRequest) {
+          setJoinStatus('pending');
+        }
+      }
+    } catch (error) {
+      console.error('Error checking join status:', error);
+    }
+  };
+
   const handleJoinToggle = async () => {
     if (isLoading) return;
 
     setIsLoading(true);
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Get authentication data
+      const authData = await getAuthenticationData();
+      if (!authData || !authData.nsec) {
+        Alert.alert(
+          'Authentication Required',
+          'Please log in again to join competitions.',
+          [{ text: 'OK' }]
+        );
+        setIsLoading(false);
+        return;
+      }
 
-      // Toggle join status
-      const newJoinStatus = joinStatus === 'joined' ? 'not_joined' : 'joined';
+      const privateKeyHex = nsecToPrivateKey(authData.nsec);
 
-      setJoinStatus(newJoinStatus);
+      if (joinStatus === 'not_joined') {
+        // Check if competition requires approval
+        const requiresApproval = competition?.requireApproval || false;
 
-      setEventData((prevData) => {
-        if (!prevData) return null;
-        return {
-          ...prevData,
-          stats: {
-            ...prevData.stats,
-            participantCount:
-              newJoinStatus === 'joined'
-                ? prevData.stats.participantCount + 1
-                : prevData.stats.participantCount - 1,
-          },
-        };
-      });
+        if (requiresApproval) {
+          // Send join request
+          const result = await participantService.requestToJoin(
+            eventId,
+            privateKeyHex,
+            'I would like to join this competition!'
+          );
 
-      const message =
-        newJoinStatus === 'joined'
-          ? 'Successfully joined the event!'
-          : 'Left the event successfully';
+          if (result.success) {
+            setJoinStatus('pending');
+            Alert.alert(
+              'Request Sent',
+              'Your join request has been sent to the team captain for approval.'
+            );
+          } else {
+            throw new Error(result.error || 'Failed to send join request');
+          }
+        } else {
+          // Direct join without approval
+          // First create participant list if it doesn't exist
+          let participantList = await participantService.getParticipantList(eventId);
 
-      Alert.alert('Success', message);
+          if (!participantList && userIsCaptain && competition) {
+            // Captain needs to create the participant list first
+            await participantService.createParticipantList(
+              eventId,
+              competition.teamId,
+              privateKeyHex,
+              false
+            );
+          }
+
+          // Now add user as approved participant
+          const result = await participantService.approveParticipant(
+            eventId,
+            currentUserHexPubkey!,
+            privateKeyHex
+          );
+
+          if (result.success) {
+            setJoinStatus('joined');
+            Alert.alert('Success', 'Successfully joined the event!');
+          } else {
+            throw new Error(result.error || 'Failed to join event');
+          }
+        }
+      } else if (joinStatus === 'joined') {
+        // Leave competition
+        const result = await participantService.removeParticipant(
+          eventId,
+          currentUserHexPubkey!,
+          privateKeyHex
+        );
+
+        if (result.success) {
+          setJoinStatus('not_joined');
+          Alert.alert('Success', 'Left the event successfully');
+        } else {
+          throw new Error(result.error || 'Failed to leave event');
+        }
+      }
+
+      // Refresh participant count
+      await checkJoinStatus();
     } catch (error) {
       Alert.alert('Error', 'Something went wrong. Please try again.');
       console.error('Error toggling event join:', error);
@@ -376,10 +472,16 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
     if (joinStatus === 'joined') {
       return 'Joined ✓';
     }
+    if (joinStatus === 'pending') {
+      return 'Pending Approval';
+    }
     return 'Join Event';
   };
 
   const getActionButtonVariant = () => {
+    if (joinStatus === 'pending') {
+      return 'secondary';
+    }
     if (
       !eventData ||
       eventData.status === 'completed' ||

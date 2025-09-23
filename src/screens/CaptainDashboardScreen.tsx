@@ -24,6 +24,8 @@ import { ActivityFeedSection } from '../components/team/ActivityFeedSection';
 import { JoinRequestsSection } from '../components/team/JoinRequestsSection';
 import { EventCreationWizard } from '../components/wizards/EventCreationWizard';
 import { LeagueCreationWizard } from '../components/wizards/LeagueCreationWizard';
+import { CompetitionParticipantsSection } from '../components/captain/CompetitionParticipantsSection';
+import { CompetitionService } from '../services/competition/competitionService';
 import { NostrListService } from '../services/nostr/NostrListService';
 import { NostrProtocolHandler } from '../services/nostr/NostrProtocolHandler';
 import { NostrRelayManager } from '../services/nostr/NostrRelayManager';
@@ -103,10 +105,14 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [newMemberNpub, setNewMemberNpub] = useState('');
 
+  // Competition state
+  const [activeCompetitions, setActiveCompetitions] = useState<any[]>([]);
+
   // Check if team has kind 30000 list on mount and load members
   // Initialize team data on mount
   React.useEffect(() => {
     const initializeTeam = async () => {
+      await loadActiveCompetitions();
       // Get the correct captain ID first
       const authData = await getAuthenticationData();
       let captainIdToUse = captainId;
@@ -127,6 +133,23 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
 
     initializeTeam();
   }, [teamId, captainId]);
+
+  const loadActiveCompetitions = async () => {
+    try {
+      const competitionService = CompetitionService.getInstance();
+      const allCompetitions = competitionService.getAllCompetitions();
+
+      // Filter for this team's active competitions
+      const teamCompetitions = allCompetitions.filter(comp => {
+        const now = Date.now() / 1000;
+        return comp.teamId === teamId && comp.endTime > now;
+      });
+
+      setActiveCompetitions(teamCompetitions);
+    } catch (error) {
+      console.error('Error loading competitions:', error);
+    }
+  };
 
   // Load members when list status changes to true
   React.useEffect(() => {
@@ -792,6 +815,16 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
           }}
         />
 
+        {/* Competition Participants Management */}
+        {activeCompetitions.filter(comp => comp.requireApproval).map(competition => (
+          <CompetitionParticipantsSection
+            key={competition.id}
+            competitionId={competition.id}
+            competitionName={competition.name}
+            requireApproval={competition.requireApproval}
+            onParticipantUpdate={loadActiveCompetitions}
+          />
+        ))}
 
         {/* Recent Activity */}
         <ActivityFeedSection
