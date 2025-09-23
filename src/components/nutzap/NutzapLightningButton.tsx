@@ -51,7 +51,6 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
 
   // Animation for the zap effect
   const scaleAnimation = useRef(new Animated.Value(1)).current;
-  const colorAnimation = useRef(new Animated.Value(0)).current;
 
   // Timer for long press detection
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
@@ -90,11 +89,6 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
           );
         } else if (parsed.users.includes(recipientHex)) {
           setIsZapped(true);
-          Animated.timing(colorAnimation, {
-            toValue: 1,
-            duration: 0,
-            useNativeDriver: false,
-          }).start();
         }
       }
     } catch (error) {
@@ -204,13 +198,7 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
       );
 
       if (success) {
-        // Animate color change to yellow - must use false for color animations
-        Animated.timing(colorAnimation, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: false,
-        }).start();
-
+        // Set zapped state for color change
         setIsZapped(true);
         await saveZapState();
         onZapSuccess?.();
@@ -234,13 +222,7 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
   };
 
   const handleModalSuccess = async () => {
-    // Animate color change - must use false for color animations
-    Animated.timing(colorAnimation, {
-      toValue: 1,
-      duration: 300,
-      useNativeDriver: false,
-    }).start();
-
+    // Set zapped state for color change
     setIsZapped(true);
     await saveZapState();
     setShowModal(false);
@@ -269,12 +251,6 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
 
   const config = sizeConfig[size];
   const isRectangular = size === 'rectangular';
-
-  // Interpolate color from white to yellow
-  const boltColor = colorAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['#ffffff', '#FFD700'], // white to gold
-  });
 
   // Always show button, but disable if not initialized
   const isDisabled = disabled || !isInitialized;
@@ -328,7 +304,13 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
                 <Ionicons
                   name="flash"
                   size={config.icon}
-                  color={isInitialized ? (boltColor as any) : theme.colors.textMuted}
+                  color={
+                    !isInitialized
+                      ? theme.colors.textMuted
+                      : isZapped
+                        ? '#FFD700'
+                        : '#ffffff'
+                  }
                 />
               </Animated.View>
               {isRectangular && (
