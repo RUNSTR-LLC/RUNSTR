@@ -336,11 +336,14 @@ export const LeagueCreationWizard: React.FC<LeagueCreationWizardProps> = ({
   // Generate quick start date options
   const getStartDateOptions = () => {
     const today = new Date();
+
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
 
+    // Fix Monday calculation - if today is Monday, use next Monday
     const nextMonday = new Date(today);
-    const daysUntilMonday = (8 - today.getDay()) % 7;
+    const currentDay = today.getDay();
+    const daysUntilMonday = currentDay === 1 ? 7 : (8 - currentDay) % 7;
     nextMonday.setDate(today.getDate() + daysUntilMonday);
 
     const firstOfNextMonth = new Date(
@@ -350,8 +353,9 @@ export const LeagueCreationWizard: React.FC<LeagueCreationWizardProps> = ({
     );
 
     return [
+      { label: 'Today', date: today },
       { label: 'Tomorrow', date: tomorrow },
-      { label: 'Next Monday', date: nextMonday },
+      { label: currentDay === 1 ? 'Next Monday' : 'This Monday', date: nextMonday },
       { label: 'First of Next Month', date: firstOfNextMonth },
     ];
   };

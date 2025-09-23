@@ -311,19 +311,29 @@ export const EventCreationWizard: React.FC<EventCreationWizardProps> = ({
   // Generate quick date options
   const getQuickDateOptions = () => {
     const today = new Date();
+
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
 
+    // Fix weekend calculation - if today is weekend, use today
     const thisWeekend = new Date(today);
-    const daysUntilSaturday = (6 - today.getDay()) % 7;
-    thisWeekend.setDate(today.getDate() + daysUntilSaturday);
+    const currentDay = today.getDay();
+    if (currentDay === 0 || currentDay === 6) {
+      // Today is Sunday (0) or Saturday (6)
+      // Keep it as today
+    } else {
+      // Calculate days until Saturday
+      const daysUntilSaturday = 6 - currentDay;
+      thisWeekend.setDate(today.getDate() + daysUntilSaturday);
+    }
 
     const nextWeek = new Date(today);
     nextWeek.setDate(today.getDate() + 7);
 
     return [
+      { label: 'Today', date: today },
       { label: 'Tomorrow', date: tomorrow },
-      { label: 'This Weekend', date: thisWeekend },
+      { label: currentDay === 0 || currentDay === 6 ? 'This Weekend (Today)' : 'This Weekend', date: thisWeekend },
       { label: 'Next Week', date: nextWeek },
     ];
   };

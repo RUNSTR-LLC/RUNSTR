@@ -408,13 +408,14 @@ export class CompetitionService {
   }
 
   /**
-   * Get upcoming competitions
+   * Get upcoming competitions (includes events starting today)
    */
   async getUpcomingCompetitions(team: NostrTeam): Promise<Competition[]> {
     const allCompetitions = await this.getTeamCompetitions(team);
     const now = Math.floor(Date.now() / 1000);
 
-    return allCompetitions.filter((comp) => comp.startTime > now);
+    // Include competitions that haven't ended yet (startTime can be today)
+    return allCompetitions.filter((comp) => comp.endTime >= now);
   }
 
   /**

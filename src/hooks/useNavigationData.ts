@@ -13,6 +13,7 @@ import { TeamMembershipService } from '../services/team/teamMembershipService';
 import { TeamMemberCache } from '../services/team/TeamMemberCache';
 import { isTeamCaptainEnhanced } from '../utils/teamUtils';
 import { getUserNostrIdentifiers } from '../utils/nostr';
+import { CompetitionService } from '../services/competition/competitionService';
 import type {
   TeamScreenData,
   ProfileScreenData,
@@ -49,6 +50,80 @@ export const useNavigationData = (): NavigationData => {
   const [error, setError] = useState<string | null>(null);
   const [teamsLoaded, setTeamsLoaded] = useState(false);
   const [walletLoaded, setWalletLoaded] = useState(false);
+
+  const fetchTeamData = async (teamId: string): Promise<void> => {
+    try {
+      console.log(`📊 Loading team data for: ${teamId}`);
+
+      // Get team from NostrTeamService
+      const teamService = getNostrTeamService();
+      let discoveredTeams = teamService.getDiscoveredTeams();
+      let team = discoveredTeams.get(teamId);
+
+      // If team not found, try to discover teams first
+      if (!team) {
+        console.log('⚠️ Team not found in cache, discovering teams...');
+        await loadTeams();
+        discoveredTeams = teamService.getDiscoveredTeams();
+        team = discoveredTeams.get(teamId);
+      }
+
+      if (!team) {
+        console.log('⚠️ Team not found even after discovery');
+        return;
+      }
+
+      // Get competitions for this team
+      const competitionService = CompetitionService.getInstance();
+      const allCompetitions = competitionService.getAllCompetitions();
+
+      // Filter for this team's competitions that haven't ended
+      const now = Date.now() / 1000;
+      const teamCompetitions = allCompetitions.filter(comp => {
+        return comp.teamId === teamId && comp.endTime >= now;
+      });
+
+      console.log(`📊 Found ${teamCompetitions.length} active/upcoming competitions for team`);
+
+      // Convert competitions to events format
+      const events = teamCompetitions.map(comp => ({
+        id: comp.id,
+        name: comp.name,
+        startDate: new Date(comp.startTime * 1000).toISOString(),
+        endDate: new Date(comp.endTime * 1000).toISOString(),
+        type: comp.type as 'event' | 'challenge',
+        description: comp.description,
+        prizePool: 0,
+        participantCount: 0,
+        status: comp.startTime > now ? 'upcoming' : 'active',
+      }));
+
+      // Create team data structure
+      const teamData: TeamScreenData = {
+        team: {
+          id: team.id,
+          name: team.name,
+          description: team.description || '',
+          memberCount: team.memberCount || 0,
+          captainId: team.captainId,
+          createdAt: new Date(team.createdAt * 1000).toISOString(),
+          activityType: team.activityType || 'Running',
+          stats: {
+            totalEvents: events.length,
+            totalPrizePool: 0,
+            averagePace: 'N/A',
+          },
+        },
+        leaderboard: [],
+        events,
+        challenges: [],
+      };
+
+      setTeamData(teamData);
+    } catch (error) {
+      console.error('Error fetching team data:', error);
+    }
+  };
 
   const fetchUserData = async (): Promise<UserWithWallet | null> => {
     try {
@@ -467,6 +542,11 @@ export const useNavigationData = (): NavigationData => {
       const userData = await fetchUserDataFresh();
       if (userData) {
         await fetchProfileData(userData);
+
+        // Refresh team data if user has a team
+        if (userData.currentTeamId || userData.teamId) {
+          await fetchTeamData(userData.currentTeamId || userData.teamId || '');
+        }
       }
     } catch (error) {
       console.error('Error refreshing navigation data:', error);
@@ -486,6 +566,11 @@ export const useNavigationData = (): NavigationData => {
           fetchProfileData(userData),
           loadTeams() // Ensure teams are discovered for captain detection
         ]);
+
+        // Load team data if user has a team
+        if (userData.currentTeamId || userData.teamId) {
+          await fetchTeamData(userData.currentTeamId || userData.teamId || '');
+        }
       }
       setIsLoading(false);
     };
