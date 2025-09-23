@@ -47,7 +47,7 @@ export type RootStackParamList = {
     currentTeamId?: string;
   };
   TeamCreation: undefined;
-  EventDetail: { eventId: string };
+  EventDetail: { eventId: string; eventData?: any };
   ChallengeDetail: { challengeId: string };
 };
 

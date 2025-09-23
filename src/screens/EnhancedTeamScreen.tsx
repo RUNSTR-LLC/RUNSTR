@@ -20,6 +20,8 @@ import { useUserStore } from '../store/userStore';
 import { isTeamMember } from '../utils/teamUtils';
 import { getUserNostrIdentifiers } from '../utils/nostr';
 import { NostrCompetitionService } from '../services/nostr/NostrCompetitionService';
+import { CompetitionService } from '../services/competition/competitionService';
+import type { Competition } from '../services/competition/competitionService';
 
 interface EnhancedTeamScreenProps {
   data: TeamScreenData;
@@ -225,6 +227,66 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
           teamLeagues: teamLeagues.length,
           teamEvents: teamEvents.length,
           teamId: team.id
+        });
+
+        // Cache competitions in CompetitionService for navigation
+        const competitionService = CompetitionService.getInstance();
+
+        // Cache events
+        teamEvents.forEach(event => {
+          // Convert NostrEventDefinition to Competition format
+          const competition: Competition = {
+            id: event.id,
+            name: event.name,
+            description: event.description || '',
+            type: 'event',
+            teamId: event.teamId,
+            captainPubkey: event.captainPubkey,
+            startTime: Math.floor(new Date(event.eventDate).getTime() / 1000),
+            endTime: Math.floor(new Date(event.eventDate).getTime() / 1000) + 86400, // Add 1 day
+            activityType: event.activityType,
+            competitionType: event.competitionType,
+            goalType: 'distance', // Default, could be derived from competitionType
+            goalValue: event.targetValue,
+            goalUnit: event.targetUnit,
+            entryFeesSats: event.entryFeesSats || 0,
+            maxParticipants: event.maxParticipants || 100,
+            requireApproval: event.requireApproval || false,
+            createdAt: Math.floor(Date.now() / 1000),
+            isActive: true,
+            participantCount: 0,
+            nostrEvent: {} as any, // We don't have the full Nostr event here
+          };
+          competitionService.addCompetitionToCache(competition);
+        });
+
+        // Cache leagues
+        teamLeagues.forEach(league => {
+          const competition: Competition = {
+            id: league.id,
+            name: league.name,
+            description: league.description || '',
+            type: 'league',
+            teamId: league.teamId,
+            captainPubkey: league.captainPubkey,
+            startTime: Math.floor(new Date(league.startDate).getTime() / 1000),
+            endTime: Math.floor(new Date(league.endDate).getTime() / 1000),
+            activityType: league.activityType,
+            competitionType: league.competitionType,
+            goalType: 'consistency', // Default for leagues
+            goalValue: undefined,
+            goalUnit: undefined,
+            entryFeesSats: league.entryFeesSats || 0,
+            maxParticipants: league.maxParticipants || 100,
+            requireApproval: league.requireApproval || false,
+            scoringFrequency: league.scoringFrequency,
+            allowLateJoining: league.allowLateJoining,
+            createdAt: Math.floor(Date.now() / 1000),
+            isActive: true,
+            participantCount: 0,
+            nostrEvent: {} as any,
+          };
+          competitionService.addCompetitionToCache(competition);
         });
 
         // Format events for display

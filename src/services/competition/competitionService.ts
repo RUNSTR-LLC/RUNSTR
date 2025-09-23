@@ -473,6 +473,15 @@ export class CompetitionService {
   }
 
   /**
+   * Add competition to cache
+   * Used to manually cache competitions created via NostrCompetitionService
+   */
+  addCompetitionToCache(competition: Competition): void {
+    this.activeCompetitions.set(competition.id, competition);
+    console.log(`✅ Cached competition: ${competition.name} (${competition.id})`);
+  }
+
+  /**
    * Check if competition is active
    */
   isCompetitionActive(competition: Competition): boolean {
