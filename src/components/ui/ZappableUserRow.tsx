@@ -42,14 +42,6 @@ export const ZappableUserRow: React.FC<ZappableUserRowProps> = ({
 
   const avatarUrl = profile?.picture;
 
-  // Debug logging
-  console.log('[ZappableUserRow] Rendering with:', {
-    npub: npub?.slice(0, 20) + '...',
-    showQuickZap,
-    disabled,
-    displayName,
-  });
-
   return (
     <View style={[styles.container, style]}>
       <View style={styles.userSection}>
@@ -61,28 +53,31 @@ export const ZappableUserRow: React.FC<ZappableUserRowProps> = ({
           style={styles.avatar}
         />
 
-        {/* User name and any additional content */}
+        {/* User name and zap button */}
         <View style={styles.contentSection}>
           <Text style={styles.userName} numberOfLines={1}>
             {displayName}
           </Text>
-          {additionalContent && (
-            <View style={styles.additionalContent}>
-              {additionalContent}
-            </View>
+
+          {/* Nutzap Lightning Button - Now below username */}
+          {showQuickZap && (
+            <NutzapLightningButton
+              recipientNpub={npub}
+              recipientName={displayName}
+              size="rectangular"
+              disabled={disabled}
+              onZapSuccess={onZapSuccess}
+              style={styles.zapButton}
+            />
           )}
         </View>
       </View>
 
-      {/* Nutzap Lightning Button */}
-      {showQuickZap && (
-        <NutzapLightningButton
-          recipientNpub={npub}
-          recipientName={displayName}
-          size="medium"
-          disabled={disabled}
-          onZapSuccess={onZapSuccess}
-        />
+      {/* Additional content (stats, etc) on the right */}
+      {additionalContent && (
+        <View style={styles.additionalContent}>
+          {additionalContent}
+        </View>
       )}
     </View>
   );
@@ -122,5 +117,9 @@ const styles = StyleSheet.create({
 
   additionalContent: {
     marginTop: 2,
+  },
+
+  zapButton: {
+    marginTop: 4,
   },
 });

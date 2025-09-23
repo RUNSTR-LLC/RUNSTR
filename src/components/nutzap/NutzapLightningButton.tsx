@@ -13,6 +13,8 @@ import {
   Alert,
   Animated,
   GestureResponderEvent,
+  View,
+  Text,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -27,7 +29,7 @@ const LONG_PRESS_DURATION = 500; // ms to trigger long press
 interface NutzapLightningButtonProps {
   recipientNpub: string;
   recipientName?: string;
-  size?: 'small' | 'medium' | 'large';
+  size?: 'small' | 'medium' | 'large' | 'rectangular';
   style?: any;
   onZapSuccess?: () => void;
   disabled?: boolean;
@@ -262,9 +264,11 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
     small: { icon: 16, button: 28 },
     medium: { icon: 20, button: 36 },
     large: { icon: 24, button: 44 },
+    rectangular: { icon: 16, button: 26, width: 70 }, // Rectangular variant
   };
 
   const config = sizeConfig[size];
+  const isRectangular = size === 'rectangular';
 
   // Interpolate color from black to yellow
   const boltColor = colorAnimation.interpolate({
@@ -274,14 +278,6 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
 
   // Always show button, but disable if not initialized
   const isDisabled = disabled || !isInitialized;
-
-  // Debug logging
-  console.log('[NutzapLightningButton] Rendering:', {
-    recipientHex: recipientHex?.slice(0, 20) + '...',
-    isInitialized,
-    isDisabled,
-    size,
-  });
 
   return (
     <>
@@ -295,7 +291,13 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
         <TouchableOpacity
           style={[
             styles.button,
-            {
+            isRectangular ? {
+              width: config.width,
+              height: config.button,
+              borderRadius: 4,
+              flexDirection: 'row',
+              paddingHorizontal: 8,
+            } : {
               width: config.button,
               height: config.button,
               borderRadius: config.button / 2,
@@ -321,13 +323,20 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
           {isZapping ? (
             <ActivityIndicator size="small" color={theme.colors.primary} />
           ) : (
-            <Animated.View style={!isInitialized && styles.uninitializedIcon}>
-              <Ionicons
-                name="flash"
-                size={config.icon}
-                color={isInitialized ? (boltColor as any) : theme.colors.textMuted}
-              />
-            </Animated.View>
+            <View style={[styles.buttonContent, isRectangular && styles.rectangularContent]}>
+              <Animated.View style={!isInitialized && styles.uninitializedIcon}>
+                <Ionicons
+                  name="flash"
+                  size={config.icon}
+                  color={isInitialized ? (boltColor as any) : theme.colors.textMuted}
+                />
+              </Animated.View>
+              {isRectangular && (
+                <Text style={[styles.zapText, isDisabled && styles.zapTextDisabled]}>
+                  Zap
+                </Text>
+              )}
+            </View>
           )}
         </TouchableOpacity>
       </Animated.View>
@@ -373,5 +382,25 @@ const styles = StyleSheet.create({
 
   uninitializedIcon: {
     opacity: 0.6,
+  },
+
+  buttonContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  rectangularContent: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+
+  zapText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+
+  zapTextDisabled: {
+    color: theme.colors.textMuted,
   },
 });
