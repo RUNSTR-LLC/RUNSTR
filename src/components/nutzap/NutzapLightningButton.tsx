@@ -204,7 +204,7 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
       );
 
       if (success) {
-        // Animate color change to yellow
+        // Animate color change to yellow - must use false for color animations
         Animated.timing(colorAnimation, {
           toValue: 1,
           duration: 300,
@@ -234,7 +234,7 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
   };
 
   const handleModalSuccess = async () => {
-    // Animate color change
+    // Animate color change - must use false for color animations
     Animated.timing(colorAnimation, {
       toValue: 1,
       duration: 300,
@@ -270,10 +270,10 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
   const config = sizeConfig[size];
   const isRectangular = size === 'rectangular';
 
-  // Interpolate color from black to yellow
+  // Interpolate color from white to yellow
   const boltColor = colorAnimation.interpolate({
     inputRange: [0, 1],
-    outputRange: [theme.colors.text, '#FFD700'], // black to gold
+    outputRange: ['#ffffff', '#FFD700'], // white to gold
   });
 
   // Always show button, but disable if not initialized

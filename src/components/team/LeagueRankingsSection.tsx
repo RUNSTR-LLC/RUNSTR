@@ -676,8 +676,9 @@ const styles = StyleSheet.create({
 
   // Stats layout for ZappableUserRow
   rankingStats: {
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
     gap: 2,
+    paddingRight: 8,
   },
 });
 
