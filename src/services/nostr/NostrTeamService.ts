@@ -39,6 +39,7 @@ export interface NostrTeam {
   // Enhanced with list support
   hasListSupport?: boolean;
   memberListId?: string; // For teams using Nostr lists
+  charityId?: string; // ID of the charity this team supports
 }
 
 export interface TeamDiscoveryFilters {

@@ -17,6 +17,7 @@ export interface Team {
   avatar?: string;
   createdAt: string;
   isActive: boolean;
+  charityId?: string; // ID of the charity this team supports (e.g., 'opensats', 'hrf')
 }
 
 // League/Leaderboard Types
@@ -196,6 +197,7 @@ export interface TeamCreationData {
   // Team Basics (Step 1)
   teamName: string;
   teamAbout: string;
+  charityId?: string; // Selected charity ID (e.g., 'opensats', 'hrf')
 
   // League Settings (Step 2)
   competitionType?: 'streaks' | 'distance' | 'speed';

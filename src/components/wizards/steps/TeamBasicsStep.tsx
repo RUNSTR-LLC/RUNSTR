@@ -7,6 +7,8 @@ import React from 'react';
 import { View, Text, TextInput, StyleSheet, ScrollView } from 'react-native';
 import { theme } from '../../../styles/theme';
 import { TeamCreationData } from '../../../types';
+import { Picker } from '@react-native-picker/picker';
+import { CHARITIES, getCharityById } from '../../../constants/charities';
 
 interface TeamBasicsStepProps {
   data: TeamCreationData;
@@ -25,6 +27,10 @@ export const TeamBasicsStep: React.FC<TeamBasicsStepProps> = ({
 
   const handleTeamAboutChange = (text: string) => {
     onUpdate({ teamAbout: text });
+  };
+
+  const handleCharityChange = (charityId: string) => {
+    onUpdate({ charityId: charityId === 'none' ? undefined : charityId });
   };
 
   // Character count helpers
@@ -67,6 +73,36 @@ export const TeamBasicsStep: React.FC<TeamBasicsStepProps> = ({
         <Text style={getCharacterCountStyle(data.teamName.length, 50)}>
           {data.teamName.length}/50
         </Text>
+      </View>
+
+      {/* Charity Selection */}
+      <View style={styles.formGroup}>
+        <Text style={styles.formLabel}>Support a Charity (Optional)</Text>
+        <Text style={styles.formHelperText}>
+          Select a charity that your team will support. Members can zap the charity directly from your team page.
+        </Text>
+        <View style={styles.pickerContainer}>
+          <Picker
+            selectedValue={data.charityId || 'none'}
+            onValueChange={handleCharityChange}
+            style={styles.picker}
+            itemStyle={styles.pickerItem}
+          >
+            <Picker.Item label="No charity selected" value="none" />
+            {CHARITIES.map(charity => (
+              <Picker.Item
+                key={charity.id}
+                label={charity.name}
+                value={charity.id}
+              />
+            ))}
+          </Picker>
+        </View>
+        {data.charityId && (
+          <Text style={styles.charityDescription}>
+            {getCharityById(data.charityId)?.description}
+          </Text>
+        )}
       </View>
 
       {/* Team Description Input */}
@@ -207,5 +243,38 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: theme.colors.text,
     lineHeight: 18,
+  },
+
+  // Charity Picker
+  pickerContainer: {
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+
+  picker: {
+    height: 50,
+    color: theme.colors.text,
+  },
+
+  pickerItem: {
+    fontSize: 16,
+    color: theme.colors.text,
+  },
+
+  formHelperText: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+
+  charityDescription: {
+    fontSize: 13,
+    color: theme.colors.textTertiary,
+    marginTop: 8,
+    fontStyle: 'italic',
   },
 });

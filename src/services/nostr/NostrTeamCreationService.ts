@@ -276,6 +276,10 @@ export class NostrTeamCreationService {
       tags.push(['public', data.isPublic ? 'true' : 'false']);
     }
 
+    if (data.charityId) {
+      tags.push(['charity', data.charityId]);
+    }
+
     return tags;
   }
 

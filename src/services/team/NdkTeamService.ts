@@ -249,6 +249,10 @@ export class NdkTeamService {
           const dTag = ndkEvent.tags?.find((tag: any) => tag[0] === 'd');
           const teamId = dTag?.[1] || ndkEvent.id || 'unknown';
 
+          // Extract charity ID from tags
+          const charityTag = ndkEvent.tags?.find((tag: any) => tag[0] === 'charity');
+          const charityId = charityTag?.[1] || undefined;
+
           // Create minimal team object
           const simpleTeam: NostrTeam = {
             id: teamId,
@@ -260,6 +264,7 @@ export class NdkTeamService {
             memberCount: 1, // Default
             isPublic: true, // Default - show everything else
             activityType: 'general',
+            charityId: charityId, // Include charity ID if present
             tags: [],
             createdAt: ndkEvent.created_at || Math.floor(Date.now() / 1000),
             nostrEvent: this.convertNdkEventToStandard(ndkEvent), // Add nostrEvent using correct method name

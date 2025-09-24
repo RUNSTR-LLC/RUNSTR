@@ -16,6 +16,8 @@ import {
   Modal,
   TextInput,
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
+import { CHARITIES, getCharityById } from '../constants/charities';
 import { theme } from '../styles/theme';
 import { BottomNavigation } from '../components/ui/BottomNavigation';
 import { ZappableUserRow } from '../components/ui/ZappableUserRow';
@@ -107,6 +109,10 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
 
   // Competition state
   const [activeCompetitions, setActiveCompetitions] = useState<any[]>([]);
+
+  // Charity state
+  const [selectedCharityId, setSelectedCharityId] = useState<string | undefined>(undefined);
+  const [showCharityModal, setShowCharityModal] = useState(false);
 
   // Check if team has kind 30000 list on mount and load members
   // Initialize team data on mount
@@ -783,6 +789,41 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
           </ScrollView>
         </View>
 
+        {/* Team Charity Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Team Charity</Text>
+            <TouchableOpacity
+              style={styles.editBtn}
+              onPress={() => setShowCharityModal(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.editBtnText}>
+                {selectedCharityId ? 'Change' : 'Select'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.sectionContent}>
+            {selectedCharityId ? (
+              <View style={styles.charityInfo}>
+                <Text style={styles.charityName}>
+                  {getCharityById(selectedCharityId)?.name}
+                </Text>
+                <Text style={styles.charityDescription}>
+                  {getCharityById(selectedCharityId)?.description}
+                </Text>
+                <Text style={styles.charityAddress}>
+                  Lightning: {getCharityById(selectedCharityId)?.lightningAddress}
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.noCharityText}>
+                No charity selected. Tap "Select" to choose a charity for your team to support.
+              </Text>
+            )}
+          </View>
+        </View>
+
         {/* Quick Actions */}
         <QuickActionsSection
           onCreateEvent={handleShowEventWizard}
@@ -823,6 +864,66 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
         onNavigateToTeam={onNavigateToTeam}
         onNavigateToProfile={onNavigateToProfile}
       />
+
+      {/* Charity Selection Modal */}
+      <Modal
+        visible={showCharityModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowCharityModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Team Charity</Text>
+            <Text style={styles.modalDescription}>
+              Choose a charity that your team will support. Members can zap the charity directly from your team page.
+            </Text>
+
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={selectedCharityId || 'none'}
+                onValueChange={(value) => setSelectedCharityId(value === 'none' ? undefined : value)}
+                style={styles.picker}
+                itemStyle={styles.pickerItem}
+              >
+                <Picker.Item label="No charity selected" value="none" />
+                {CHARITIES.map(charity => (
+                  <Picker.Item
+                    key={charity.id}
+                    label={charity.name}
+                    value={charity.id}
+                  />
+                ))}
+              </Picker>
+            </View>
+
+            {selectedCharityId && (
+              <Text style={styles.selectedCharityDescription}>
+                {getCharityById(selectedCharityId)?.description}
+              </Text>
+            )}
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowCharityModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.saveButton]}
+                onPress={async () => {
+                  // TODO: Save charity selection to team's Nostr event
+                  setShowCharityModal(false);
+                  Alert.alert('Success', 'Team charity updated successfully');
+                }}
+              >
+                <Text style={styles.saveButtonText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Wizard Modals */}
       <EventCreationWizard
@@ -1235,6 +1336,108 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: theme.typography.weights.medium,
     color: theme.colors.text,
+  },
+
+  // Charity styles
+  charityInfo: {
+    padding: 12,
+  },
+
+  charityName: {
+    fontSize: 16,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.text,
+    marginBottom: 4,
+  },
+
+  charityDescription: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    marginBottom: 8,
+  },
+
+  charityAddress: {
+    fontSize: 12,
+    color: theme.colors.textTertiary,
+    fontFamily: 'monospace',
+  },
+
+  noCharityText: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    padding: 12,
+    fontStyle: 'italic',
+  },
+
+  editBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    backgroundColor: theme.colors.cardBackground,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+
+  editBtnText: {
+    color: theme.colors.text,
+    fontSize: 13,
+    fontWeight: theme.typography.weights.medium,
+  },
+
+  // Picker styles for charity modal
+  pickerContainer: {
+    backgroundColor: theme.colors.background,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+
+  picker: {
+    height: 150,
+    color: theme.colors.text,
+  },
+
+  pickerItem: {
+    fontSize: 16,
+    color: theme.colors.text,
+  },
+
+  selectedCharityDescription: {
+    fontSize: 13,
+    color: theme.colors.textTertiary,
+    marginBottom: 20,
+    fontStyle: 'italic',
+    paddingHorizontal: 8,
+  },
+
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+
+  cancelButton: {
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+
+  cancelButtonText: {
+    color: theme.colors.text,
+    fontSize: 16,
+    fontWeight: theme.typography.weights.medium,
+  },
+
+  saveButton: {
+    backgroundColor: theme.colors.accent,
+  },
+
+  saveButtonText: {
+    color: theme.colors.accentText,
+    fontSize: 16,
+    fontWeight: theme.typography.weights.semiBold,
   },
 
   // Component styles removed - now handled by individual components

@@ -160,6 +160,7 @@ export class TeamCacheService {
       avatar: undefined,
       createdAt: new Date(team.createdAt * 1000).toISOString(),
       isActive: true,
+      charityId: team.charityId, // Include charity ID from NostrTeam
 
       // DiscoveryTeam specific properties
       about: team.description || `Join ${team.name} for fitness challenges and Bitcoin rewards!`,

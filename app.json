@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "runstr.project",
+    "name": "REWARDS",
     "slug": "runstr.project",
     "version": "0.0.1",
     "orientation": "portrait",
@@ -23,7 +23,7 @@
         ]
       },
       "infoPlist": {
-        "CFBundleDisplayName": "RUNSTR",
+        "CFBundleDisplayName": "REWARDS",
         "NSHealthShareUsageDescription": "RUNSTR needs access to your workout data to automatically sync your fitness activities and calculate team rankings for Bitcoin rewards.",
         "NSHealthUpdateUsageDescription": "RUNSTR needs to read your workout data to track your fitness progress and team contributions.",
         "UIUserInterfaceStyle": "Dark"

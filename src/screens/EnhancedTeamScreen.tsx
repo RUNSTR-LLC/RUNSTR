@@ -5,6 +5,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert, Text, TouchableOpacity } from 'react-native';
+import { getCharityById } from '../constants/charities';
+import { NutzapLightningButton } from '../components/nutzap/NutzapLightningButton';
 import { BottomNavigation } from '../components/ui/BottomNavigation';
 import { TeamHeader } from '../components/team/TeamHeader';
 import { AboutPrizeSection } from '../components/team/AboutPrizeSection';
@@ -388,12 +390,36 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
             captainLoading={captainLoading}
           /> */}
 
-          {/* Temporary About Section without prize pool */}
+          {/* About Section with Charity Support */}
           <View style={{ padding: 16, backgroundColor: theme.colors.cardBackground, borderRadius: 12, marginBottom: 12 }}>
             <Text style={{ fontSize: 12, color: theme.colors.textMuted, marginBottom: 8 }}>About</Text>
             <Text style={{ fontSize: 14, color: theme.colors.textSecondary, lineHeight: 20 }}>
               {team.description || 'No description available'}
             </Text>
+
+            {/* Charity Zap Button */}
+            {team.charityId && getCharityById(team.charityId) && (
+              <View style={{ marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: theme.colors.border }}>
+                <Text style={{ fontSize: 12, color: theme.colors.textMuted, marginBottom: 8 }}>Supporting</Text>
+                <Text style={{ fontSize: 14, color: theme.colors.text, fontWeight: '600', marginBottom: 4 }}>
+                  {getCharityById(team.charityId)?.name}
+                </Text>
+                <Text style={{ fontSize: 12, color: theme.colors.textTertiary, marginBottom: 12, fontStyle: 'italic' }}>
+                  {getCharityById(team.charityId)?.description}
+                </Text>
+                <NutzapLightningButton
+                  recipientNpub={getCharityById(team.charityId)?.lightningAddress || ''}
+                  recipientName={getCharityById(team.charityId)?.displayName || ''}
+                  size="full"
+                  customLabel={`Zap ${getCharityById(team.charityId)?.displayName}`}
+                  style={{
+                    backgroundColor: theme.colors.accent,
+                    paddingVertical: 12,
+                    borderRadius: 8,
+                  }}
+                />
+              </View>
+            )}
 
             {/* Captain Dashboard Button */}
             {userIsCaptain && (
