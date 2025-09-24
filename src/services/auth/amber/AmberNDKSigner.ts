@@ -50,7 +50,11 @@ export class AmberNDKSigner implements NDKSigner {
       await AsyncStorage.setItem('@runstr:amber_pubkey', pubkey);
       return new NDKUser({ pubkey: pubkey });
     } catch (error) {
-      throw new Error(`Failed to initialize Amber signer: ${error}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes('Could not open Amber')) {
+        throw new Error(errorMessage);
+      }
+      throw new Error(`Failed to connect to Amber: ${errorMessage}`);
     }
   }
 
@@ -128,10 +132,13 @@ export class AmberNDKSigner implements NDKSigner {
     if (Platform.OS !== 'android') return false;
 
     try {
+      // With Android manifest queries fixed, this should work
       const canOpen = await Linking.canOpenURL('nostrsigner:');
       return canOpen;
     } catch (error) {
-      return false;
+      // Optimistically return true - actual launch will fail if not installed
+      console.log('[AmberSigner] Detection check failed, will try launch anyway');
+      return true;
     }
   }
 
@@ -308,16 +315,12 @@ export class AmberNDKSigner implements NDKSigner {
 
   private async launchAmber(uri: string): Promise<void> {
     try {
-      const canOpen = await Linking.canOpenURL(uri);
-      if (!canOpen) {
-        throw new Error('Amber is not installed');
-      }
-
+      // Try primary launch method
       await Linking.openURL(uri);
     } catch (error) {
-      console.error('[AmberSigner] Failed to launch Amber:', error);
+      console.error('[AmberSigner] Primary launch failed, trying alternative method:', error);
 
-      // Try alternative launch method
+      // Try alternative launch method using IntentLauncher
       try {
         await IntentLauncher.startActivityAsync(
           'android.intent.action.VIEW',
@@ -327,7 +330,8 @@ export class AmberNDKSigner implements NDKSigner {
           }
         );
       } catch (fallbackError) {
-        throw new Error('Could not open Amber. Please make sure it is installed.');
+        console.error('[AmberSigner] Both launch methods failed');
+        throw new Error('Could not open Amber. Please ensure Amber is installed.');
       }
     }
   }

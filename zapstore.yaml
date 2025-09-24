@@ -55,6 +55,6 @@ blossom_servers:
   - https://cdn.zapstore.dev
   - https://blossom.primal.net
 
-# APK assets - pointing to our debug build for now
+# APK assets - pointing to the release build for Zapstore distribution
 assets:
-  - android/app/build/outputs/apk/debug/app-debug.apk
+  - android/app/build/outputs/apk/release/app-release.apk

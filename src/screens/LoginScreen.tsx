@@ -22,7 +22,6 @@ import { theme } from '../styles/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { validateNsec } from '../utils/nostr';
 import { AmberAuthProvider } from '../services/auth/providers/amberAuthProvider';
-import * as Linking from 'expo-linking';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IS_SMALL_DEVICE = SCREEN_HEIGHT < 700;
@@ -41,19 +40,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
   const [nsecInput, setNsecInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [amberAvailable, setAmberAvailable] = useState(false);
-  const [checkingAmber, setCheckingAmber] = useState(false);
-
-  // Check if Amber is available when showing input
-  React.useEffect(() => {
-    if (showInput && Platform.OS === 'android') {
-      setCheckingAmber(true);
-      AmberAuthProvider.isAvailable().then((available) => {
-        setAmberAvailable(available);
-        setCheckingAmber(false);
-      });
-    }
-  }, [showInput]);
+  // No longer checking for Amber availability - always show button on Android
 
   const handleShowInput = () => {
     setShowInput(true);
@@ -107,10 +94,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
 
 
   const handleAmberLogin = async () => {
-    if (!amberAvailable) {
-      setError('Amber is not installed. Please install Amber from the Play Store.');
-      return;
-    }
 
     setIsLoading(true);
     setError(null);
@@ -139,7 +122,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
     setShowInput(false);
     setNsecInput('');
     setError(null);
-    setAmberAvailable(false);
   };
 
   // Calculate responsive dimensions
@@ -252,34 +234,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
                       <View style={styles.dividerLine} />
                     </View>
 
-                    {checkingAmber ? (
-                      <ActivityIndicator size="small" color={theme.colors.text} />
-                    ) : amberAvailable ? (
-                      <TouchableOpacity
-                        style={[styles.amberButton, isLoading && styles.amberButtonDisabled]}
-                        onPress={handleAmberLogin}
-                        disabled={isLoading}
-                        activeOpacity={0.8}
-                      >
-                        {isLoading ? (
-                          <ActivityIndicator size="small" color="#FFFFFF" />
-                        ) : (
-                          <>
-                            <Text style={styles.amberButtonText}>Login with Amber</Text>
-                            <Text style={styles.amberSubtext}>Secure key management</Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-                    ) : (
-                      <TouchableOpacity
-                        style={styles.installAmberButton}
-                        onPress={() => Linking.openURL('https://play.google.com/store/apps/details?id=com.greenart7c3.nostrsigner')}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.installAmberText}>Install Amber</Text>
-                        <Text style={styles.amberSubtext}>For secure Nostr login</Text>
-                      </TouchableOpacity>
-                    )}
+                    <TouchableOpacity
+                      style={[styles.amberButton, isLoading && styles.amberButtonDisabled]}
+                      onPress={handleAmberLogin}
+                      disabled={isLoading}
+                      activeOpacity={0.8}
+                    >
+                      {isLoading ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <>
+                          <Text style={styles.amberButtonText}>Login with Amber</Text>
+                          <Text style={styles.amberSubtext}>Secure key management</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
                   </View>
                 )}
               </View>
@@ -480,20 +449,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgba(255, 255, 255, 0.8)',
     marginTop: 4,
-  },
-  installAmberButton: {
-    backgroundColor: theme.colors.cardBackground,
-    borderWidth: 1,
-    borderColor: '#FFA500',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    width: '100%',
-  },
-  installAmberText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFA500',
   },
 });
