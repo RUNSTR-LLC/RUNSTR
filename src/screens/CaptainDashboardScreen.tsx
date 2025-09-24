@@ -115,6 +115,15 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
   const [showCharityModal, setShowCharityModal] = useState(false);
   const [isSavingCharity, setIsSavingCharity] = useState(false);
 
+  // Team editing state
+  const [showEditTeamModal, setShowEditTeamModal] = useState(false);
+  const [isSavingTeam, setIsSavingTeam] = useState(false);
+  const [currentTeamData, setCurrentTeamData] = useState<any>(null);
+  const [editedTeamName, setEditedTeamName] = useState('');
+  const [editedTeamDescription, setEditedTeamDescription] = useState('');
+  const [editedTeamLocation, setEditedTeamLocation] = useState('');
+  const [editedActivityTypes, setEditedActivityTypes] = useState('');
+
   // Check if team has kind 30000 list on mount and load members
   // Initialize team data on mount
   React.useEffect(() => {
@@ -338,7 +347,7 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
     onLeagueCreated?.(leagueData);
   };
 
-  // Load team's current charity selection
+  // Load team's current data including charity selection
   const loadTeamCharity = async () => {
     try {
       // Get team data from Nostr
@@ -347,12 +356,24 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
       const teams = await teamService.discoverFitnessTeams();
       const currentTeam = teams.find(t => t.id === teamId);
 
-      if (currentTeam?.charityId) {
-        console.log('📖 Loaded team charity:', currentTeam.charityId);
-        setSelectedCharityId(currentTeam.charityId);
+      if (currentTeam) {
+        // Store full team data for editing
+        setCurrentTeamData(currentTeam);
+
+        // Set charity if exists
+        if (currentTeam.charityId) {
+          console.log('📖 Loaded team charity:', currentTeam.charityId);
+          setSelectedCharityId(currentTeam.charityId);
+        }
+
+        // Pre-populate edit form fields
+        setEditedTeamName(currentTeam.name || '');
+        setEditedTeamDescription(currentTeam.description || '');
+        setEditedTeamLocation(currentTeam.location || '');
+        setEditedActivityTypes(currentTeam.tags?.join(', ') || '');
       }
     } catch (error) {
-      console.error('Error loading team charity:', error);
+      console.error('Error loading team data:', error);
     }
   };
 
@@ -383,23 +404,49 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
       // Create updated team event
       const teamEvent = new NDKEvent(ndk);
       teamEvent.kind = 33404;
-      teamEvent.tags = [
+
+      // Build tags preserving existing team data
+      const tags: string[][] = [
         ['d', teamId],
-        ['name', data.team.name],
-        ['about', data.team.name], // Using team name as about for now
+        ['name', currentTeamData?.name || data.team.name],
+        ['about', currentTeamData?.name || data.team.name],
         ['captain', authData.hexPubkey],
-        ['t', 'team'],
-        ['t', 'fitness'],
-        ['t', 'runstr'],
       ];
 
-      // Add charity tag if selected
-      if (selectedCharityId && selectedCharityId !== 'none') {
-        teamEvent.tags.push(['charity', selectedCharityId]);
+      // Preserve location if exists
+      if (currentTeamData?.location) {
+        tags.push(['location', currentTeamData.location]);
       }
 
-      // Keep original content if it exists (team description)
-      teamEvent.content = data.team.description || '';
+      // Preserve activity tags
+      if (currentTeamData?.tags && currentTeamData.tags.length > 0) {
+        currentTeamData.tags.forEach((tag: string) => {
+          tags.push(['t', tag]);
+        });
+      }
+
+      // Always add base tags
+      tags.push(['t', 'team']);
+      tags.push(['t', 'fitness']);
+      tags.push(['t', 'runstr']);
+
+      // Add/update charity tag
+      if (selectedCharityId && selectedCharityId !== 'none') {
+        tags.push(['charity', selectedCharityId]);
+      }
+
+      // Preserve member tags
+      if (currentTeamData?.nostrEvent?.tags) {
+        const memberTags = currentTeamData.nostrEvent.tags.filter(
+          (tag: string[]) => tag[0] === 'member'
+        );
+        memberTags.forEach((tag: string[]) => tags.push(tag));
+      }
+
+      teamEvent.tags = tags;
+
+      // Use actual team description from current team data, NEVER JSON
+      teamEvent.content = currentTeamData?.description || '';
 
       teamEvent.created_at = Math.floor(Date.now() / 1000);
 
@@ -921,6 +968,8 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
         <QuickActionsSection
           onCreateEvent={handleShowEventWizard}
           onCreateLeague={handleShowLeagueWizard}
+          onEditTeam={() => setShowEditTeamModal(true)}
+          onChangeCharity={() => setShowCharityModal(true)}
         />
 
         {/* Join Requests */}
@@ -957,6 +1006,91 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
         onNavigateToTeam={onNavigateToTeam}
         onNavigateToProfile={onNavigateToProfile}
       />
+
+      {/* Team Edit Modal */}
+      <Modal
+        visible={showEditTeamModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowEditTeamModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Edit Team Information</Text>
+
+            <Text style={styles.inputLabel}>Team Name</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Enter team name"
+              placeholderTextColor={theme.colors.secondary}
+              value={editedTeamName}
+              onChangeText={setEditedTeamName}
+              autoCapitalize="words"
+            />
+
+            <Text style={styles.inputLabel}>Description</Text>
+            <TextInput
+              style={[styles.modalInput, styles.textAreaInput]}
+              placeholder="Enter team description"
+              placeholderTextColor={theme.colors.secondary}
+              value={editedTeamDescription}
+              onChangeText={setEditedTeamDescription}
+              multiline={true}
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+
+            <Text style={styles.inputLabel}>Location (Optional)</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="e.g., San Francisco, CA"
+              placeholderTextColor={theme.colors.secondary}
+              value={editedTeamLocation}
+              onChangeText={setEditedTeamLocation}
+            />
+
+            <Text style={styles.inputLabel}>Activity Types (Optional)</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="e.g., running, cycling, swimming"
+              placeholderTextColor={theme.colors.secondary}
+              value={editedActivityTypes}
+              onChangeText={setEditedActivityTypes}
+              autoCapitalize="none"
+            />
+            <Text style={styles.helperText}>Separate multiple activities with commas</Text>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setShowEditTeamModal(false);
+                  // Reset to original values
+                  if (currentTeamData) {
+                    setEditedTeamName(currentTeamData.name || '');
+                    setEditedTeamDescription(currentTeamData.description || '');
+                    setEditedTeamLocation(currentTeamData.location || '');
+                    setEditedActivityTypes(currentTeamData.tags?.join(', ') || '');
+                  }
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.saveButton]}
+                onPress={async () => {
+                  await updateTeamInformation();
+                }}
+                disabled={isSavingTeam || !editedTeamName.trim()}
+              >
+                <Text style={styles.saveButtonText}>
+                  {isSavingTeam ? 'Saving...' : 'Save Changes'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Charity Selection Modal */}
       <Modal
@@ -1395,6 +1529,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: theme.colors.text,
     marginBottom: 20,
+  },
+
+  textAreaInput: {
+    minHeight: 100,
+    textAlignVertical: 'top',
+  },
+
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.text,
+    marginBottom: 8,
+  },
+
+  helperText: {
+    fontSize: 12,
+    color: theme.colors.secondary,
+    marginTop: -12,
+    marginBottom: 16,
   },
 
   modalActions: {

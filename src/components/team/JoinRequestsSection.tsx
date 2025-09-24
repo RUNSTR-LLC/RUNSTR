@@ -40,8 +40,7 @@ export const JoinRequestsSection: React.FC<JoinRequestsSectionProps> = ({
     try {
       setIsLoading(true);
       const joinRequests = await membershipService.getTeamJoinRequests(
-        teamId,
-        captainPubkey
+        teamId
       );
       setRequests(joinRequests);
     } catch (error) {
@@ -60,7 +59,6 @@ export const JoinRequestsSection: React.FC<JoinRequestsSectionProps> = ({
 
         // Subscribe to new requests
         const subId = await membershipService.subscribeToJoinRequests(
-          teamId,
           captainPubkey,
           (newRequest: JoinRequest) => {
             setRequests((prev) => {

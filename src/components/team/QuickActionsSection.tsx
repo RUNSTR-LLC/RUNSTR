@@ -19,11 +19,15 @@ interface QuickActionItem {
 interface QuickActionsSectionProps {
   onCreateEvent: () => void;
   onCreateLeague: () => void;
+  onEditTeam?: () => void;
+  onChangeCharity?: () => void;
 }
 
 export const QuickActionsSection: React.FC<QuickActionsSectionProps> = ({
   onCreateEvent,
   onCreateLeague,
+  onEditTeam,
+  onChangeCharity,
 }) => {
   const quickActions: QuickActionItem[] = [
     {
@@ -41,6 +45,27 @@ export const QuickActionsSection: React.FC<QuickActionsSectionProps> = ({
       onPress: onCreateLeague,
     },
   ];
+
+  // Add optional actions
+  if (onEditTeam) {
+    quickActions.push({
+      id: 'edit-team',
+      icon: '✏️',
+      title: 'Edit Team',
+      description: 'Update team information',
+      onPress: onEditTeam,
+    });
+  }
+
+  if (onChangeCharity) {
+    quickActions.push({
+      id: 'change-charity',
+      icon: '❤️',
+      title: 'Team Charity',
+      description: 'Manage charity partnership',
+      onPress: onChangeCharity,
+    });
+  }
 
   return (
     <View style={styles.container}>
@@ -63,20 +88,22 @@ export const QuickActionsSection: React.FC<QuickActionsSectionProps> = ({
 };
 
 const styles = StyleSheet.create({
-  // Quick actions grid - exact CSS: display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  // Quick actions grid - flexible layout for 2-4 items
   container: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
   },
 
   // Action card - exact CSS: background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 12px; padding: 16px;
   actionCard: {
-    flex: 1,
+    width: '48%', // For 2 columns with gap
     backgroundColor: theme.colors.cardBackground,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.borderRadius.large,
     padding: theme.spacing.xxl,
+    marginBottom: 12,
     // Hover effect will be handled by TouchableOpacity activeOpacity
   },
 

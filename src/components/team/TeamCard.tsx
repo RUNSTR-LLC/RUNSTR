@@ -17,6 +17,7 @@ import { PrizeDisplay } from '../ui/PrizeDisplay';
 import { isTeamCaptain, isTeamMember } from '../../utils/teamUtils';
 import { TeamMembershipService } from '../../services/team/teamMembershipService';
 import { CaptainCache } from '../../utils/captainCache';
+import { publishJoinRequest } from '../../utils/joinRequestPublisher';
 
 // Helper function to extract activity type from team content
 const extractActivityType = (team: DiscoveryTeam): string => {
@@ -133,13 +134,33 @@ export const TeamCard: React.FC<TeamCardProps> = ({
         currentUserNpub
       );
 
-      // Call external join request handler if provided
+      // Publish join request to Nostr so captain can see it
+      const publishResult = await publishJoinRequest(
+        team.id,
+        team.name,
+        team.captainId,
+        currentUserNpub,
+        `I would like to join ${team.name}`
+      );
+
+      if (publishResult.success) {
+        console.log(`✅ Join request sent for team: ${team.name}`);
+        setButtonState('pending');
+      } else {
+        // Still keep local membership but notify user request didn't send
+        Alert.alert(
+          'Join Request Not Sent',
+          'You have joined locally but the request to the captain could not be sent. Please try again later.',
+          [{ text: 'OK' }]
+        );
+        // Keep as pending since they're locally joined
+        setButtonState('pending');
+      }
+
+      // Call external join request handler if provided (for backward compatibility)
       if (onJoinRequest) {
         await onJoinRequest(team);
       }
-
-      // Update button state
-      setButtonState('pending');
     } catch (error) {
       console.error('Failed to join team:', error);
       Alert.alert('Error', 'Failed to join team. Please try again.');

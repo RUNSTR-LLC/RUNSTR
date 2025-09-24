@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, Text, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, Text, TouchableOpacity, Linking } from 'react-native';
 import { getCharityById } from '../constants/charities';
 import { NutzapLightningButton } from '../components/nutzap/NutzapLightningButton';
 import { BottomNavigation } from '../components/ui/BottomNavigation';
@@ -441,25 +441,58 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
               }
             })()}
 
-            {/* Captain Dashboard Button */}
-            {userIsCaptain && (
+            {/* Action Buttons Row */}
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+              {/* Team Shop Button - Always visible but disabled if no shop URL */}
               <TouchableOpacity
-                onPress={handleCaptainDashboard}
+                onPress={() => {
+                  if (team.shopUrl) {
+                    Linking.openURL(team.shopUrl).catch(err => {
+                      console.error('Failed to open shop URL:', err);
+                      Alert.alert('Error', 'Unable to open shop. Please try again.');
+                    });
+                  }
+                }}
                 style={{
-                  backgroundColor: theme.colors.accent,
+                  flex: 1,
+                  backgroundColor: team.shopUrl ? theme.colors.primary : theme.colors.border,
                   paddingVertical: 12,
-                  paddingHorizontal: 24,
+                  paddingHorizontal: 16,
                   borderRadius: 8,
                   alignItems: 'center',
-                  marginTop: 16,
+                  opacity: team.shopUrl ? 1 : 0.5,
                 }}
-                disabled={captainLoading}
+                disabled={!team.shopUrl}
               >
-                <Text style={{ color: theme.colors.accentText, fontSize: 16, fontWeight: '600' }}>
-                  Captain Dashboard
+                <Text style={{
+                  color: team.shopUrl ? theme.colors.primaryText : theme.colors.textTertiary,
+                  fontSize: 16,
+                  fontWeight: '600'
+                }}>
+                  Team Shop
                 </Text>
               </TouchableOpacity>
-            )}
+
+              {/* Captain Dashboard Button */}
+              {userIsCaptain && (
+                <TouchableOpacity
+                  onPress={handleCaptainDashboard}
+                  style={{
+                    flex: 1,
+                    backgroundColor: theme.colors.accent,
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    borderRadius: 8,
+                    alignItems: 'center',
+                  }}
+                  disabled={captainLoading}
+                >
+                  <Text style={{ color: theme.colors.accentText, fontSize: 16, fontWeight: '600' }}>
+                    Captain Dashboard
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
           {/* Always show League Rankings - with default 30-day streak if no active league */}

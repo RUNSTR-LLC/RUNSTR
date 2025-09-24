@@ -18,6 +18,7 @@ export interface Team {
   createdAt: string;
   isActive: boolean;
   charityId?: string; // ID of the charity this team supports (e.g., 'opensats', 'hrf')
+  shopUrl?: string; // Validated marketplace URL (Shopstr or Plebeian Market)
 }
 
 // League/Leaderboard Types
