@@ -399,6 +399,123 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
     }
   };
 
+  // Update team information (name, description, location, activity types)
+  const updateTeamInformation = async () => {
+    try {
+      setIsSavingTeam(true);
+
+      // Get auth data for signing
+      const authData = await getAuthenticationData();
+      if (!authData?.nsec) {
+        Alert.alert('Error', 'Authentication required to update team');
+        return;
+      }
+
+      // Get global NDK instance
+      const g = globalThis as any;
+      const ndk = g.__RUNSTR_NDK_INSTANCE__;
+
+      if (!ndk) {
+        Alert.alert('Error', 'Unable to connect to Nostr network');
+        return;
+      }
+
+      // Create signer
+      const signer = new NDKPrivateKeySigner(authData.nsec);
+
+      // Create updated team event
+      const teamEvent = new NDKEvent(ndk);
+      teamEvent.kind = 33404;
+
+      // Build tags with updated team information
+      const tags: string[][] = [
+        ['d', teamId],
+        ['name', editedTeamName.trim()],
+        ['about', editedTeamName.trim()], // Using name for about tag as per existing pattern
+        ['captain', authData.hexPubkey],
+      ];
+
+      // Add location if provided
+      if (editedTeamLocation.trim()) {
+        tags.push(['location', editedTeamLocation.trim()]);
+      }
+
+      // Parse and add activity type tags
+      if (editedActivityTypes.trim()) {
+        const activities = editedActivityTypes.split(',').map(a => a.trim()).filter(a => a);
+        activities.forEach((activity) => {
+          tags.push(['t', activity.toLowerCase()]);
+        });
+      }
+
+      // Always add base tags
+      tags.push(['t', 'team']);
+      tags.push(['t', 'fitness']);
+      tags.push(['t', 'runstr']);
+
+      // Preserve charity if exists
+      if (currentTeamData?.charityId || selectedCharityId) {
+        const charity = selectedCharityId || currentTeamData?.charityId;
+        if (charity && charity !== 'none') {
+          tags.push(['charity', charity]);
+        }
+      }
+
+      // Preserve shop URL if exists
+      if (currentTeamData?.shopUrl || shopUrl) {
+        const shop = shopUrl || currentTeamData?.shopUrl;
+        if (shop) {
+          tags.push(['shop', shop]);
+        }
+      }
+
+      // Preserve Flash URL if exists
+      if (currentTeamData?.flashUrl || flashUrl) {
+        const flash = flashUrl || currentTeamData?.flashUrl;
+        if (flash) {
+          tags.push(['flash', flash]);
+        }
+      }
+
+      // Preserve member tags
+      if (currentTeamData?.nostrEvent?.tags) {
+        const memberTags = currentTeamData.nostrEvent.tags.filter(
+          (tag: string[]) => tag[0] === 'member'
+        );
+        memberTags.forEach((tag: string[]) => tags.push(tag));
+      }
+
+      teamEvent.tags = tags;
+
+      // Use the edited description for content
+      teamEvent.content = editedTeamDescription.trim();
+
+      teamEvent.created_at = Math.floor(Date.now() / 1000);
+
+      // Sign and publish
+      await teamEvent.sign(signer);
+      const publishResult = await teamEvent.publish();
+
+      if (publishResult) {
+        setShowEditTeamModal(false);
+        Alert.alert('Success', 'Team information updated successfully! It may take a moment to appear.');
+
+        // Reload team data after a delay
+        setTimeout(() => {
+          loadTeamCharity();
+        }, 2000);
+      } else {
+        throw new Error('Failed to publish update');
+      }
+
+    } catch (error) {
+      console.error('Error updating team information:', error);
+      Alert.alert('Error', 'Failed to update team information. Please try again.');
+    } finally {
+      setIsSavingTeam(false);
+    }
+  };
+
   // Save charity selection to team's Nostr event
   const saveCharitySelection = async () => {
     try {
