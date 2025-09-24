@@ -157,6 +157,9 @@ export class NostrTeamService {
       const hasListSupport = tags.get('list_support')?.[0] === 'true';
       const memberListId = tags.get('member_list')?.[0] || teamUUID; // Use teamUUID as fallback
 
+      // Get charity ID from tags
+      const charityId = tags.get('charity')?.[0];
+
       return {
         id: `${captain}:${teamUUID || event.id}`, // Use captain:uuid or fallback to event.id
         name,
@@ -173,6 +176,7 @@ export class NostrTeamService {
         nostrEvent: event,
         hasListSupport,
         memberListId,
+        charityId,
       };
     } catch (error) {
       console.warn('Error parsing team event:', error);

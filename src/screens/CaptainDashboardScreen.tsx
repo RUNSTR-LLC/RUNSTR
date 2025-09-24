@@ -35,7 +35,7 @@ import { TeamMemberCache } from '../services/team/TeamMemberCache';
 import { getTeamListDetector } from '../utils/teamListDetector';
 import NostrTeamCreationService from '../services/nostr/NostrTeamCreationService';
 import { getAuthenticationData, migrateAuthenticationStorage } from '../utils/nostrAuth';
-import { NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
+import { NDKPrivateKeySigner, NDKEvent } from '@nostr-dev-kit/ndk';
 import { npubToHex } from '../utils/ndkConversion';
 
 // Type definitions for captain dashboard data
@@ -110,9 +110,10 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
   // Competition state
   const [activeCompetitions, setActiveCompetitions] = useState<any[]>([]);
 
-  // Charity state
+  // Charity state - Initialize from team data
   const [selectedCharityId, setSelectedCharityId] = useState<string | undefined>(undefined);
   const [showCharityModal, setShowCharityModal] = useState(false);
+  const [isSavingCharity, setIsSavingCharity] = useState(false);
 
   // Check if team has kind 30000 list on mount and load members
   // Initialize team data on mount
@@ -135,6 +136,9 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
 
       // Check for list
       await checkForKind30000List();
+
+      // Load current charity from team data if available
+      await loadTeamCharity();
     };
 
     initializeTeam();
@@ -332,6 +336,95 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
   const handleLeagueCreated = (leagueData: any) => {
     setLeagueWizardVisible(false);
     onLeagueCreated?.(leagueData);
+  };
+
+  // Load team's current charity selection
+  const loadTeamCharity = async () => {
+    try {
+      // Get team data from Nostr
+      const { getNostrTeamService } = await import('../services/nostr/NostrTeamService');
+      const teamService = getNostrTeamService();
+      const teams = await teamService.discoverFitnessTeams();
+      const currentTeam = teams.find(t => t.id === teamId);
+
+      if (currentTeam?.charityId) {
+        console.log('📖 Loaded team charity:', currentTeam.charityId);
+        setSelectedCharityId(currentTeam.charityId);
+      }
+    } catch (error) {
+      console.error('Error loading team charity:', error);
+    }
+  };
+
+  // Save charity selection to team's Nostr event
+  const saveCharitySelection = async () => {
+    try {
+      setIsSavingCharity(true);
+
+      // Get auth data for signing
+      const authData = await getAuthenticationData();
+      if (!authData?.nsec) {
+        Alert.alert('Error', 'Authentication required to update team');
+        return;
+      }
+
+      // Get global NDK instance
+      const g = globalThis as any;
+      const ndk = g.__RUNSTR_NDK_INSTANCE__;
+
+      if (!ndk) {
+        Alert.alert('Error', 'Unable to connect to Nostr network');
+        return;
+      }
+
+      // Create signer
+      const signer = new NDKPrivateKeySigner(authData.nsec);
+
+      // Create updated team event
+      const teamEvent = new NDKEvent(ndk);
+      teamEvent.kind = 33404;
+      teamEvent.tags = [
+        ['d', teamId],
+        ['name', data.team.name],
+        ['about', data.team.name], // Using team name as about for now
+        ['captain', authData.hexPubkey],
+        ['t', 'team'],
+        ['t', 'fitness'],
+        ['t', 'runstr'],
+      ];
+
+      // Add charity tag if selected
+      if (selectedCharityId && selectedCharityId !== 'none') {
+        teamEvent.tags.push(['charity', selectedCharityId]);
+      }
+
+      // Keep original content if it exists (team description)
+      teamEvent.content = data.team.description || '';
+
+      teamEvent.created_at = Math.floor(Date.now() / 1000);
+
+      // Sign and publish
+      await teamEvent.sign(signer);
+      const publishResult = await teamEvent.publish();
+
+      if (publishResult) {
+        setShowCharityModal(false);
+        Alert.alert('Success', 'Team charity updated successfully! It may take a moment to appear.');
+
+        // Reload team data after a delay
+        setTimeout(() => {
+          loadTeamCharity();
+        }, 2000);
+      } else {
+        throw new Error('Failed to publish update');
+      }
+
+    } catch (error) {
+      console.error('Error saving charity selection:', error);
+      Alert.alert('Error', 'Failed to update team charity. Please try again.');
+    } finally {
+      setIsSavingCharity(false);
+    }
   };
 
   const handleCloseEventWizard = () => {
@@ -913,12 +1006,11 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
               <TouchableOpacity
                 style={[styles.modalButton, styles.saveButton]}
                 onPress={async () => {
-                  // TODO: Save charity selection to team's Nostr event
-                  setShowCharityModal(false);
-                  Alert.alert('Success', 'Team charity updated successfully');
+                  await saveCharitySelection();
                 }}
+                disabled={isSavingCharity}
               >
-                <Text style={styles.saveButtonText}>Save</Text>
+                <Text style={styles.saveButtonText}>{isSavingCharity ? 'Saving...' : 'Save'}</Text>
               </TouchableOpacity>
             </View>
           </View>

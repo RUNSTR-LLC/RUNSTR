@@ -33,6 +33,7 @@ interface NutzapLightningButtonProps {
   style?: any;
   onZapSuccess?: () => void;
   disabled?: boolean;
+  customLabel?: string;
 }
 
 export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
@@ -42,6 +43,7 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
   style,
   onZapSuccess,
   disabled = false,
+  customLabel,
 }) => {
   const { balance, sendNutzap, isInitialized } = useNutzap();
   const [isZapped, setIsZapped] = useState(false);
@@ -246,10 +248,10 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
     small: { icon: 16, button: 28 },
     medium: { icon: 20, button: 36 },
     large: { icon: 24, button: 44 },
-    rectangular: { icon: 16, button: 26, width: 70 }, // Rectangular variant
+    rectangular: { icon: 16, button: 26, width: customLabel ? 120 : 70 }, // Wider if custom label
   };
 
-  const config = sizeConfig[size];
+  const config = sizeConfig[size] || sizeConfig.medium; // Fallback to medium if undefined
   const isRectangular = size === 'rectangular';
 
   // Always show button, but disable if not initialized
@@ -315,7 +317,7 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
               </Animated.View>
               {isRectangular && (
                 <Text style={[styles.zapText, isDisabled && styles.zapTextDisabled]}>
-                  Zap
+                  {customLabel || 'Zap'}
                 </Text>
               )}
             </View>

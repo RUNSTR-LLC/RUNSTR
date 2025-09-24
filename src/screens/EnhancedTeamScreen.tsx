@@ -397,29 +397,49 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
               {team.description || 'No description available'}
             </Text>
 
-            {/* Charity Zap Button */}
-            {team.charityId && getCharityById(team.charityId) && (
-              <View style={{ marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: theme.colors.border }}>
-                <Text style={{ fontSize: 12, color: theme.colors.textMuted, marginBottom: 8 }}>Supporting</Text>
-                <Text style={{ fontSize: 14, color: theme.colors.text, fontWeight: '600', marginBottom: 4 }}>
-                  {getCharityById(team.charityId)?.name}
-                </Text>
-                <Text style={{ fontSize: 12, color: theme.colors.textTertiary, marginBottom: 12, fontStyle: 'italic' }}>
-                  {getCharityById(team.charityId)?.description}
-                </Text>
-                <NutzapLightningButton
-                  recipientNpub={getCharityById(team.charityId)?.lightningAddress || ''}
-                  recipientName={getCharityById(team.charityId)?.displayName || ''}
-                  size="full"
-                  customLabel={`Zap ${getCharityById(team.charityId)?.displayName}`}
-                  style={{
-                    backgroundColor: theme.colors.accent,
-                    paddingVertical: 12,
-                    borderRadius: 8,
-                  }}
-                />
-              </View>
-            )}
+            {/* Charity Section - Shows button or message */}
+            {(() => {
+              if (team.charityId && getCharityById(team.charityId)) {
+                // Team has a charity selected - show zap button
+                return (
+                  <View style={{ marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: theme.colors.border }}>
+                    <Text style={{ fontSize: 12, color: theme.colors.textMuted, marginBottom: 8 }}>Supporting</Text>
+                    <Text style={{ fontSize: 14, color: theme.colors.text, fontWeight: '600', marginBottom: 4 }}>
+                      {getCharityById(team.charityId)?.name}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: theme.colors.textTertiary, marginBottom: 12, fontStyle: 'italic' }}>
+                      {getCharityById(team.charityId)?.description}
+                    </Text>
+                    <NutzapLightningButton
+                      recipientNpub={getCharityById(team.charityId)?.lightningAddress || ''}
+                      recipientName={getCharityById(team.charityId)?.displayName || ''}
+                      size="rectangular"
+                      customLabel={`Zap ${getCharityById(team.charityId)?.displayName}`}
+                    />
+                  </View>
+                );
+              } else if (userIsCaptain) {
+                // Captain viewing team without charity - show prompt
+                return (
+                  <View style={{ marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: theme.colors.border }}>
+                    <Text style={{ fontSize: 12, color: theme.colors.textMuted, marginBottom: 8 }}>Supporting</Text>
+                    <Text style={{ fontSize: 14, color: theme.colors.textTertiary, fontStyle: 'italic' }}>
+                      No charity selected yet. Add one in Captain Dashboard to enable charity zaps.
+                    </Text>
+                  </View>
+                );
+              } else {
+                // Regular member viewing team without charity
+                return (
+                  <View style={{ marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: theme.colors.border }}>
+                    <Text style={{ fontSize: 12, color: theme.colors.textMuted, marginBottom: 8 }}>Supporting</Text>
+                    <Text style={{ fontSize: 14, color: theme.colors.textTertiary, fontStyle: 'italic' }}>
+                      This team hasn't selected a charity to support yet.
+                    </Text>
+                  </View>
+                );
+              }
+            })()}
 
             {/* Captain Dashboard Button */}
             {userIsCaptain && (

@@ -478,6 +478,9 @@ export class NdkTeamService {
       const activityTags = event.tags.filter((tag) => tag[0] === 't');
       const activityTypes = activityTags.map((tag) => tag[1]).filter(Boolean);
 
+      // Get charity ID from tags
+      const charityId = tags.get('charity')?.[0];
+
       return {
         id: `${captain}:${teamUUID || event.id}`,
         name,
@@ -494,6 +497,7 @@ export class NdkTeamService {
         nostrEvent: event,
         hasListSupport: tags.get('list_support')?.[0] === 'true',
         memberListId: tags.get('member_list')?.[0] || teamUUID,
+        charityId: charityId,
       };
     } catch (error) {
       console.warn('Error parsing team event:', error);
