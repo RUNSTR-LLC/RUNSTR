@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { CHARITIES, getCharityById } from '../constants/charities';
+import { validateShopUrl, getShopDisplayName } from '../utils/validation';
 import { theme } from '../styles/theme';
 import { BottomNavigation } from '../components/ui/BottomNavigation';
 import { ZappableUserRow } from '../components/ui/ZappableUserRow';
@@ -47,6 +48,7 @@ export interface CaptainDashboardData {
     activeEvents: number;
     activeChallenges: number;
     prizePool: number;
+    shopUrl?: string;
   };
   members: {
     id: string;
@@ -113,6 +115,10 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
   // Charity state - Initialize from team data
   const [selectedCharityId, setSelectedCharityId] = useState<string | undefined>(undefined);
   const [showCharityModal, setShowCharityModal] = useState(false);
+  const [showShopModal, setShowShopModal] = useState(false);
+  const [shopUrl, setShopUrl] = useState<string>(data.team.shopUrl || '');
+  const [shopUrlInput, setShopUrlInput] = useState<string>('');
+  const [shopUrlError, setShopUrlError] = useState<string>('');
   const [isSavingCharity, setIsSavingCharity] = useState(false);
 
   // Team editing state
@@ -366,6 +372,12 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
           setSelectedCharityId(currentTeam.charityId);
         }
 
+        // Set shop URL if exists
+        if (currentTeam.shopUrl) {
+          console.log('🛍️ Loaded team shop URL:', currentTeam.shopUrl);
+          setShopUrl(currentTeam.shopUrl);
+        }
+
         // Pre-populate edit form fields
         setEditedTeamName(currentTeam.name || '');
         setEditedTeamDescription(currentTeam.description || '');
@@ -435,6 +447,11 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
         tags.push(['charity', selectedCharityId]);
       }
 
+      // Add/update shop URL tag
+      if (shopUrl) {
+        tags.push(['shop', shopUrl]);
+      }
+
       // Preserve member tags
       if (currentTeamData?.nostrEvent?.tags) {
         const memberTags = currentTeamData.nostrEvent.tags.filter(
@@ -471,6 +488,84 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
       Alert.alert('Error', 'Failed to update team charity. Please try again.');
     } finally {
       setIsSavingCharity(false);
+    }
+  };
+
+  // Save shop URL to team's Nostr event
+  const handleUpdateTeamShopUrl = async (newShopUrl: string) => {
+    try {
+      // Get auth data for signing
+      const authData = await getAuthenticationData();
+      if (!authData?.nsec) {
+        Alert.alert('Error', 'Authentication required to update team');
+        return;
+      }
+
+      // Get global NDK instance
+      const g = globalThis as any;
+      const ndk = g.__RUNSTR_NDK_INSTANCE__;
+
+      if (!ndk) {
+        Alert.alert('Error', 'Unable to connect to Nostr network');
+        return;
+      }
+
+      // Create signer
+      const signer = new NDKPrivateKeySigner(authData.nsec);
+
+      // Create updated team event
+      const teamEvent = new NDKEvent(ndk);
+      teamEvent.kind = 33404;
+
+      // Build tags preserving existing team data
+      const tags: string[][] = [
+        ['d', teamId],
+        ['name', currentTeamData?.name || data.team.name],
+        ['about', currentTeamData?.description || data.team.name],
+        ['captain', authData.hexPubkey],
+      ];
+
+      // Preserve existing tags
+      if (currentTeamData?.location) {
+        tags.push(['location', currentTeamData.location]);
+      }
+
+      if (currentTeamData?.tags && currentTeamData.tags.length > 0) {
+        currentTeamData.tags.forEach((tag: string) => {
+          tags.push(['t', tag]);
+        });
+      }
+
+      tags.push(['t', 'team']);
+      tags.push(['t', 'fitness']);
+      tags.push(['t', 'runstr']);
+
+      // Add charity if exists
+      if (selectedCharityId && selectedCharityId !== 'none') {
+        tags.push(['charity', selectedCharityId]);
+      }
+
+      // Add shop URL if provided
+      if (newShopUrl) {
+        tags.push(['shop', newShopUrl]);
+      }
+
+      // Preserve member tags
+      if (currentTeamData?.nostrEvent?.tags) {
+        const memberTags = currentTeamData.nostrEvent.tags.filter(
+          (tag: string[]) => tag[0] === 'member'
+        );
+        memberTags.forEach((tag: string[]) => tags.push(tag));
+      }
+
+      teamEvent.tags = tags;
+      await teamEvent.sign(signer);
+      await teamEvent.publish();
+
+      console.log('✅ Team shop URL updated successfully');
+    } catch (error) {
+      console.error('Error updating team shop URL:', error);
+      Alert.alert('Error', 'Failed to update team shop URL');
     }
   };
 
@@ -1612,6 +1707,61 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     padding: 12,
     fontStyle: 'italic',
+  },
+  shopInfo: {
+    flex: 1,
+  },
+  shopName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.text,
+    marginBottom: 4,
+  },
+  shopUrl: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    marginBottom: 8,
+  },
+  shopDescription: {
+    fontSize: 14,
+    color: theme.colors.textTertiary,
+    lineHeight: 20,
+  },
+  noShopText: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    padding: 12,
+    fontStyle: 'italic',
+  },
+  modalInput: {
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: theme.colors.text,
+    marginTop: 12,
+  },
+  modalInputError: {
+    borderColor: theme.colors.error,
+  },
+  modalErrorText: {
+    fontSize: 12,
+    color: theme.colors.error,
+    marginTop: 4,
+  },
+  modalHelpText: {
+    fontSize: 12,
+    color: theme.colors.textTertiary,
+    marginTop: 8,
+    lineHeight: 18,
+  },
+  modalBtnDanger: {
+    backgroundColor: theme.colors.error,
+  },
+  modalBtnDisabled: {
+    opacity: 0.5,
   },
 
   editBtn: {

@@ -40,6 +40,7 @@ export interface NostrTeam {
   hasListSupport?: boolean;
   memberListId?: string; // For teams using Nostr lists
   charityId?: string; // ID of the charity this team supports
+  shopUrl?: string; // Team shop URL (Shopstr or Plebeian Market)
 }
 
 export interface TeamDiscoveryFilters {
@@ -160,6 +161,9 @@ export class NostrTeamService {
       // Get charity ID from tags
       const charityId = tags.get('charity')?.[0];
 
+      // Get shop URL from tags
+      const shopUrl = tags.get('shop')?.[0];
+
       return {
         id: `${captain}:${teamUUID || event.id}`, // Use captain:uuid or fallback to event.id
         name,
@@ -177,6 +181,7 @@ export class NostrTeamService {
         hasListSupport,
         memberListId,
         charityId,
+        shopUrl,
       };
     } catch (error) {
       console.warn('Error parsing team event:', error);
