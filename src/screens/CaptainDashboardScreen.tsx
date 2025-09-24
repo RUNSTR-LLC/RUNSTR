@@ -1280,7 +1280,6 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
           onCreateEvent={handleShowEventWizard}
           onCreateLeague={handleShowLeagueWizard}
           onEditTeam={() => setShowEditTeamModal(true)}
-          onChangeCharity={() => setShowCharityModal(true)}
           onManageFlash={() => setShowFlashModal(true)}
         />
 

@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 
 interface QuickActionItem {
@@ -20,7 +21,6 @@ interface QuickActionsSectionProps {
   onCreateEvent: () => void;
   onCreateLeague: () => void;
   onEditTeam?: () => void;
-  onChangeCharity?: () => void;
   onManageFlash?: () => void;
 }
 
@@ -28,20 +28,19 @@ export const QuickActionsSection: React.FC<QuickActionsSectionProps> = ({
   onCreateEvent,
   onCreateLeague,
   onEditTeam,
-  onChangeCharity,
   onManageFlash,
 }) => {
   const quickActions: QuickActionItem[] = [
     {
       id: 'create-event',
-      icon: '⚡',
+      icon: 'flash-outline',
       title: 'Create Event',
       description: 'Set up a single-day competition',
       onPress: onCreateEvent,
     },
     {
       id: 'create-league',
-      icon: '🏆',
+      icon: 'trophy-outline',
       title: 'Create League',
       description: 'Start a multi-day league challenge',
       onPress: onCreateLeague,
@@ -52,27 +51,20 @@ export const QuickActionsSection: React.FC<QuickActionsSectionProps> = ({
   if (onEditTeam) {
     quickActions.push({
       id: 'edit-team',
-      icon: '✏️',
+      icon: 'create-outline',
       title: 'Edit Team',
       description: 'Update team information',
       onPress: onEditTeam,
     });
   }
 
-  if (onChangeCharity) {
-    quickActions.push({
-      id: 'change-charity',
-      icon: '❤️',
-      title: 'Team Charity',
-      description: 'Manage charity partnership',
-      onPress: onChangeCharity,
-    });
-  }
+  // Remove Team Charity quick action to avoid duplication with dedicated section
+  // Charity management is handled in the dedicated Team Charity section
 
   if (onManageFlash) {
     quickActions.push({
       id: 'manage-flash',
-      icon: '⚡',
+      icon: 'flash-outline',
       title: 'Subscriptions',
       description: 'Flash Bitcoin subscriptions',
       onPress: onManageFlash,
@@ -89,7 +81,7 @@ export const QuickActionsSection: React.FC<QuickActionsSectionProps> = ({
           activeOpacity={0.8}
         >
           <View style={styles.actionIcon}>
-            <Text style={styles.iconText}>{action.icon}</Text>
+            <Ionicons name={action.icon as any} size={20} color={theme.colors.text} />
           </View>
           <Text style={styles.actionTitle}>{action.title}</Text>
           <Text style={styles.actionDescription}>{action.description}</Text>
