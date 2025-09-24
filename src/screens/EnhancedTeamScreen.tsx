@@ -442,87 +442,117 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
               }
             })()}
 
-            {/* Action Buttons Row */}
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
-              {/* Team Shop Button - Always visible but disabled if no shop URL */}
-              <TouchableOpacity
-                onPress={() => {
-                  if (team.shopUrl) {
-                    Linking.openURL(team.shopUrl).catch(err => {
-                      console.error('Failed to open shop URL:', err);
-                      Alert.alert('Error', 'Unable to open shop. Please try again.');
-                    });
-                  }
-                }}
-                style={{
-                  flex: 1,
-                  backgroundColor: team.shopUrl ? theme.colors.primary : theme.colors.border,
-                  paddingVertical: 12,
-                  paddingHorizontal: 16,
-                  borderRadius: 8,
-                  alignItems: 'center',
-                  opacity: team.shopUrl ? 1 : 0.5,
-                }}
-                disabled={!team.shopUrl}
-              >
-                <Text style={{
-                  color: team.shopUrl ? theme.colors.primaryText : theme.colors.textTertiary,
-                  fontSize: 16,
-                  fontWeight: '600'
-                }}>
-                  Team Shop
-                </Text>
-              </TouchableOpacity>
-
-              {/* Flash Subscription Button */}
-              <TouchableOpacity
-                onPress={() => {
-                  if (team.flashUrl) {
-                    Linking.openURL(team.flashUrl).catch(err => {
-                      console.error('Failed to open Flash URL:', err);
-                      Alert.alert('Error', 'Unable to open subscription page. Please try again.');
-                    });
-                  }
-                }}
-                style={{
-                  flex: 1,
-                  backgroundColor: team.flashUrl ? '#FF9500' : theme.colors.border,
-                  paddingVertical: 12,
-                  paddingHorizontal: 16,
-                  borderRadius: 8,
-                  alignItems: 'center',
-                  opacity: team.flashUrl ? 1 : 0.5,
-                }}
-                disabled={!team.flashUrl}
-              >
-                <Text style={{
-                  color: team.flashUrl ? '#FFFFFF' : theme.colors.textTertiary,
-                  fontSize: 16,
-                  fontWeight: '600'
-                }}>
-                  Subscribe
-                </Text>
-              </TouchableOpacity>
-
-              {/* Captain Dashboard Button */}
+            {/* Action Buttons - Responsive Layout */}
+            <View style={{ flexDirection: 'column', gap: 8, marginTop: 16 }}>
+              {/* Captain Dashboard Button - Full width when present */}
               {userIsCaptain && (
                 <TouchableOpacity
                   onPress={handleCaptainDashboard}
                   style={{
-                    flex: 1,
+                    width: '100%',
                     backgroundColor: theme.colors.accent,
-                    paddingVertical: 12,
-                    paddingHorizontal: 16,
+                    paddingVertical: 14,
+                    paddingHorizontal: 12,
                     borderRadius: 8,
                     alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: 48,
                   }}
                   disabled={captainLoading}
                 >
-                  <Text style={{ color: theme.colors.accentText, fontSize: 16, fontWeight: '600' }}>
+                  <Text
+                    style={{
+                      color: theme.colors.accentText,
+                      fontSize: 16,
+                      fontWeight: '600',
+                    }}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit={true}
+                    minimumFontScale={0.85}
+                  >
                     Captain Dashboard
                   </Text>
                 </TouchableOpacity>
               )}
+
+              {/* Team Shop and Subscribe Buttons Row */}
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {/* Team Shop Button */}
+                <TouchableOpacity
+                  onPress={() => {
+                    if (team.shopUrl) {
+                      Linking.openURL(team.shopUrl).catch(err => {
+                        console.error('Failed to open shop URL:', err);
+                        Alert.alert('Error', 'Unable to open shop. Please try again.');
+                      });
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    minWidth: 100,
+                    backgroundColor: team.shopUrl ? theme.colors.primary : theme.colors.border,
+                    paddingVertical: 14,
+                    paddingHorizontal: 12,
+                    borderRadius: 8,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: team.shopUrl ? 1 : 0.5,
+                    minHeight: 48,
+                  }}
+                  disabled={!team.shopUrl}
+                >
+                  <Text
+                    style={{
+                      color: team.shopUrl ? theme.colors.primaryText : theme.colors.textTertiary,
+                      fontSize: 16,
+                      fontWeight: '600',
+                    }}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit={true}
+                    minimumFontScale={0.85}
+                  >
+                    Team Shop
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Flash Subscription Button */}
+                <TouchableOpacity
+                  onPress={() => {
+                    if (team.flashUrl) {
+                      Linking.openURL(team.flashUrl).catch(err => {
+                        console.error('Failed to open Flash URL:', err);
+                        Alert.alert('Error', 'Unable to open subscription page. Please try again.');
+                      });
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    minWidth: 100,
+                    backgroundColor: team.flashUrl ? '#FF9500' : theme.colors.border,
+                    paddingVertical: 14,
+                    paddingHorizontal: 12,
+                    borderRadius: 8,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: team.flashUrl ? 1 : 0.5,
+                    minHeight: 48,
+                  }}
+                  disabled={!team.flashUrl}
+                >
+                  <Text
+                    style={{
+                      color: team.flashUrl ? '#FFFFFF' : theme.colors.textTertiary,
+                      fontSize: 16,
+                      fontWeight: '600',
+                    }}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit={true}
+                    minimumFontScale={0.85}
+                  >
+                    Subscribe
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
 
