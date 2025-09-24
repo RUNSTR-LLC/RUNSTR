@@ -36,6 +36,7 @@ export interface LeagueRankingsSectionProps {
   teamId?: string;
   captainPubkey?: string; // Accept captain pubkey as prop
   isDefaultLeague?: boolean;
+  prizePoolSats?: number; // Optional prize pool amount
 }
 
 export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({

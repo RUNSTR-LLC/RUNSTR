@@ -164,6 +164,7 @@ export interface FormattedEvent {
   name: string;
   date: string; // Formatted date string like "Dec 15"
   details: string;
+  prizePoolSats?: number; // Optional prize pool amount in sats
 }
 
 export interface FormattedChallenge {

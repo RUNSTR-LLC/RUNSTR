@@ -301,6 +301,7 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
           }),
           details: event.description || 'No description',
           startDate: event.eventDate, // Keep original for sorting
+          prizePoolSats: event.prizePoolSats, // Include prize pool if available
         }));
 
         setNostrEvents(formattedNostrEvents);

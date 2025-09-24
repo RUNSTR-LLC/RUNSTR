@@ -40,6 +40,7 @@ export interface ActiveLeague {
   createdBy: string;
   isActive: boolean;
   lastUpdated: string;
+  prizePoolSats?: number; // Optional prize pool amount in sats
 }
 
 export interface LeagueCreationData {
@@ -56,6 +57,7 @@ export interface LeagueCreationData {
   requireApproval: boolean;
   allowLateJoining: boolean;
   scoringFrequency: 'daily' | 'weekly' | 'total';
+  prizePoolSats?: number; // Optional prize pool amount in sats
 }
 
 export class LeagueDataBridge {
@@ -129,6 +131,7 @@ export class LeagueDataBridge {
         createdBy: '', // Will be set from Nostr event when queried
         isActive: this.isLeagueActive(leagueData),
         lastUpdated: new Date().toISOString(),
+        prizePoolSats: leagueData.prizePoolSats,
       };
 
       // Cache the active league
@@ -492,6 +495,7 @@ export class LeagueDataBridge {
         createdBy: nostrLeague.captainId || nostrLeague.captainPubkey,
         isActive: this.isNostrLeagueActive(nostrLeague),
         lastUpdated: new Date().toISOString(),
+        prizePoolSats: nostrLeague.prizePoolSats,
       };
 
     } catch (error) {

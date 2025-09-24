@@ -52,6 +52,11 @@ export const EventsCard: React.FC<EventsCardProps> = ({
               <Text style={styles.eventDate}>{event.date}</Text>
             </View>
             <Text style={styles.eventDetails}>{event.details}</Text>
+            {event.prizePoolSats !== undefined && (
+              <Text style={styles.prizePool}>
+                Prize Pool: {event.prizePoolSats === 0 ? 'N/A' : `${event.prizePoolSats.toLocaleString()} sats`}
+              </Text>
+            )}
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -116,5 +121,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: theme.colors.textMuted,
     lineHeight: 14,
+  },
+  prizePool: {
+    fontSize: 12,
+    color: theme.colors.accent,
+    fontWeight: '600',
+    marginTop: 4,
   },
 });

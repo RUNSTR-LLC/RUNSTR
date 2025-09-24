@@ -92,7 +92,8 @@ export interface NostrLeagueDefinition {
   requireApproval: boolean;
   allowLateJoining: boolean;
   scoringFrequency: NostrScoringFrequency;
-  
+  prizePoolSats?: number; // Optional prize pool amount in sats
+
   // Status
   status: 'upcoming' | 'active' | 'completed' | 'cancelled';
   createdAt: number; // Unix timestamp
@@ -121,7 +122,8 @@ export interface NostrEventDefinition {
   requireApproval: boolean;
   targetValue?: number;
   targetUnit?: string;
-  
+  prizePoolSats?: number; // Optional prize pool amount in sats
+
   // Status
   status: 'upcoming' | 'active' | 'completed' | 'cancelled';
   createdAt: number; // Unix timestamp
@@ -154,6 +156,7 @@ export interface NostrLeagueEventTemplate extends EventTemplate {
     | ['status', string]
     | ['name', string]
     | ['description', string]
+    | ['prize_pool', string] // Prize pool amount as string
   >;
 }
 
@@ -175,6 +178,7 @@ export interface NostrEventEventTemplate extends EventTemplate {
     | ['description', string]
     | ['target_value', string]
     | ['target_unit', string]
+    | ['prize_pool', string] // Prize pool amount as string
   >;
 }
 

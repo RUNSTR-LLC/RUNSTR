@@ -97,6 +97,11 @@ export class NostrCompetitionService {
         tags.push(['description', leagueData.description]);
       }
 
+      // Add prize pool tag if defined
+      if (leagueData.prizePoolSats !== undefined && leagueData.prizePoolSats !== null) {
+        tags.push(['prize_pool', leagueData.prizePoolSats.toString()]);
+      }
+
       const eventTemplate: EventTemplate = {
         kind: 30100,
         content: JSON.stringify(leagueDefinition),
@@ -186,6 +191,11 @@ export class NostrCompetitionService {
       }
       if (eventData.targetUnit) {
         tags.push(['target_unit', eventData.targetUnit]);
+      }
+
+      // Add prize pool tag if defined
+      if (eventData.prizePoolSats !== undefined && eventData.prizePoolSats !== null) {
+        tags.push(['prize_pool', eventData.prizePoolSats.toString()]);
       }
 
       const eventTemplate: EventTemplate = {

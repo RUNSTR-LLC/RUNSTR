@@ -86,6 +86,7 @@ interface EventData {
   description: string;
   targetValue?: number;
   targetUnit?: string;
+  prizePoolSats: number | undefined; // Prize pool amount in sats
 }
 
 interface EventCreationWizardProps {
@@ -115,6 +116,7 @@ export const EventCreationWizard: React.FC<EventCreationWizardProps> = ({
     requireApproval: true,
     eventName: '',
     description: '',
+    prizePoolSats: undefined,
   });
 
   // Reset wizard when opened
@@ -130,6 +132,7 @@ export const EventCreationWizard: React.FC<EventCreationWizardProps> = ({
         requireApproval: true,
         eventName: '',
         description: '',
+        prizePoolSats: undefined,
       });
     }
   }, [visible]);
@@ -240,6 +243,7 @@ export const EventCreationWizard: React.FC<EventCreationWizardProps> = ({
         requireApproval: eventData.requireApproval,
         targetValue: eventData.targetValue,
         targetUnit: eventData.targetUnit,
+        prizePoolSats: eventData.prizePoolSats,
       };
 
       console.log('🎯 Creating event:', eventCreationData);
@@ -556,6 +560,87 @@ export const EventCreationWizard: React.FC<EventCreationWizardProps> = ({
               </View> */}
 
               <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Prize Pool (sats)</Text>
+                <View style={styles.prizePoolOptions}>
+                  {[
+                    { label: 'None', value: 0 },
+                    { label: '10k', value: 10000 },
+                    { label: '20k', value: 20000 },
+                    { label: '30k', value: 30000 },
+                  ].map((option) => (
+                    <TouchableOpacity
+                      key={option.label}
+                      style={[
+                        styles.prizeOption,
+                        eventData.prizePoolSats === option.value &&
+                          styles.prizeOptionSelected,
+                      ]}
+                      onPress={() => updateSettings('prizePoolSats', option.value)}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.prizeOptionText,
+                          eventData.prizePoolSats === option.value &&
+                            styles.prizeOptionTextSelected,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                  <TouchableOpacity
+                    style={[
+                      styles.prizeOption,
+                      eventData.prizePoolSats !== undefined &&
+                        eventData.prizePoolSats !== 0 &&
+                        eventData.prizePoolSats !== 10000 &&
+                        eventData.prizePoolSats !== 20000 &&
+                        eventData.prizePoolSats !== 30000 &&
+                        styles.prizeOptionSelected,
+                    ]}
+                    onPress={() => updateSettings('prizePoolSats', -1)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.prizeOptionText,
+                        eventData.prizePoolSats !== undefined &&
+                          eventData.prizePoolSats !== 0 &&
+                          eventData.prizePoolSats !== 10000 &&
+                          eventData.prizePoolSats !== 20000 &&
+                          eventData.prizePoolSats !== 30000 &&
+                          styles.prizeOptionTextSelected,
+                      ]}
+                    >
+                      Custom
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                {eventData.prizePoolSats !== undefined &&
+                  eventData.prizePoolSats !== 0 &&
+                  eventData.prizePoolSats !== 10000 &&
+                  eventData.prizePoolSats !== 20000 &&
+                  eventData.prizePoolSats !== 30000 && (
+                    <TextInput
+                      style={[styles.textInput, { marginTop: 12 }]}
+                      value={
+                        eventData.prizePoolSats === -1
+                          ? ''
+                          : eventData.prizePoolSats.toString()
+                      }
+                      onChangeText={(text) => {
+                        const value = parseInt(text) || 0;
+                        updateSettings('prizePoolSats', value);
+                      }}
+                      placeholder="Enter custom amount"
+                      placeholderTextColor={theme.colors.textMuted}
+                      keyboardType="numeric"
+                    />
+                  )}
+              </View>
+
+              <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>Max Participants</Text>
                 <TextInput
                   style={styles.textInput}
@@ -784,6 +869,36 @@ const styles = StyleSheet.create({
   textArea: {
     height: 80,
     textAlignVertical: 'top',
+  },
+
+  prizePoolOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+
+  prizeOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+  },
+
+  prizeOptionSelected: {
+    borderColor: theme.colors.accent,
+    backgroundColor: theme.colors.accent + '20',
+  },
+
+  prizeOptionText: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.text,
+  },
+
+  prizeOptionTextSelected: {
+    color: theme.colors.accent,
   },
 
   switchRow: {
