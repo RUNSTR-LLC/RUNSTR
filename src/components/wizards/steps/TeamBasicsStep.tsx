@@ -9,6 +9,7 @@ import { theme } from '../../../styles/theme';
 import { TeamCreationData } from '../../../types';
 import { Picker } from '@react-native-picker/picker';
 import { CHARITIES, getCharityById } from '../../../constants/charities';
+import { validateFlashUrl } from '../../../utils/validation';
 
 interface TeamBasicsStepProps {
   data: TeamCreationData;
@@ -31,6 +32,10 @@ export const TeamBasicsStep: React.FC<TeamBasicsStepProps> = ({
 
   const handleCharityChange = (charityId: string) => {
     onUpdate({ charityId: charityId === 'none' ? undefined : charityId });
+  };
+
+  const handleFlashUrlChange = (url: string) => {
+    onUpdate({ flashUrl: url });
   };
 
   // Character count helpers
@@ -101,6 +106,32 @@ export const TeamBasicsStep: React.FC<TeamBasicsStepProps> = ({
         {data.charityId && (
           <Text style={styles.charityDescription}>
             {getCharityById(data.charityId)?.description}
+          </Text>
+        )}
+      </View>
+
+      {/* Flash Subscription URL */}
+      <View style={styles.formGroup}>
+        <Text style={styles.formLabel}>Flash Subscription URL (Optional)</Text>
+        <Text style={styles.formHelperText}>
+          Add a Flash subscription URL to enable recurring Bitcoin payments from supporters.
+        </Text>
+        <TextInput
+          style={[
+            styles.formInput,
+            data.flashUrl && !validateFlashUrl(data.flashUrl) && styles.formInputError
+          ]}
+          placeholder="https://app.paywithflash.com/subscription-page?flashId=1872"
+          placeholderTextColor={theme.colors.textMuted}
+          value={data.flashUrl || ''}
+          onChangeText={handleFlashUrlChange}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="url"
+        />
+        {data.flashUrl && !validateFlashUrl(data.flashUrl) && (
+          <Text style={styles.formErrorText}>
+            Please enter a valid Flash subscription URL
           </Text>
         )}
       </View>
@@ -276,5 +307,15 @@ const styles = StyleSheet.create({
     color: theme.colors.textTertiary,
     marginTop: 8,
     fontStyle: 'italic',
+  },
+
+  formInputError: {
+    borderColor: theme.colors.error,
+  },
+
+  formErrorText: {
+    fontSize: 12,
+    color: theme.colors.error,
+    marginTop: 4,
   },
 });

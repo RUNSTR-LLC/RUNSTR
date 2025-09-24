@@ -199,6 +199,7 @@ export interface TeamCreationData {
   teamName: string;
   teamAbout: string;
   charityId?: string; // Selected charity ID (e.g., 'opensats', 'hrf')
+  flashUrl?: string; // Flash subscription URL for recurring Bitcoin payments
 
   // League Settings (Step 2)
   competitionType?: 'streaks' | 'distance' | 'speed';

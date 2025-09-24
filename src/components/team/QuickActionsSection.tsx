@@ -21,6 +21,7 @@ interface QuickActionsSectionProps {
   onCreateLeague: () => void;
   onEditTeam?: () => void;
   onChangeCharity?: () => void;
+  onManageFlash?: () => void;
 }
 
 export const QuickActionsSection: React.FC<QuickActionsSectionProps> = ({
@@ -28,6 +29,7 @@ export const QuickActionsSection: React.FC<QuickActionsSectionProps> = ({
   onCreateLeague,
   onEditTeam,
   onChangeCharity,
+  onManageFlash,
 }) => {
   const quickActions: QuickActionItem[] = [
     {
@@ -64,6 +66,16 @@ export const QuickActionsSection: React.FC<QuickActionsSectionProps> = ({
       title: 'Team Charity',
       description: 'Manage charity partnership',
       onPress: onChangeCharity,
+    });
+  }
+
+  if (onManageFlash) {
+    quickActions.push({
+      id: 'manage-flash',
+      icon: '⚡',
+      title: 'Subscriptions',
+      description: 'Flash Bitcoin subscriptions',
+      onPress: onManageFlash,
     });
   }
 

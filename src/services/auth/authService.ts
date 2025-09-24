@@ -16,14 +16,37 @@ import { storeAuthenticationData } from '../../utils/nostrAuth';
 
 export class AuthService {
   /**
-   * Sign out with Nostr cleanup
+   * Sign out with Nostr and wallet cleanup
    */
   static async signOut(): Promise<ApiResponse> {
     try {
       // Clear Nostr keys and data
       await clearNostrStorage();
 
-      console.log('AuthService: Nostr sign out successful');
+      // Import AsyncStorage for wallet cleanup
+      const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+
+      // Clear wallet-related data to prevent cross-user contamination
+      await AsyncStorage.multiRemove([
+        '@runstr:wallet_proofs',
+        '@runstr:wallet_pubkey',
+        '@runstr:wallet_mint',
+        '@runstr:current_user_pubkey',
+        '@runstr:tx_history',
+        '@runstr:last_sync'
+      ]);
+
+      // Reset nutzap service if initialized
+      try {
+        const nutzapService = (await import('../nutzap/nutzapService')).default;
+        if (nutzapService) {
+          nutzapService.reset();
+        }
+      } catch (err) {
+        console.log('AuthService: NutZap service reset skipped:', err);
+      }
+
+      console.log('AuthService: Sign out successful with wallet cleanup');
 
       return {
         success: true,

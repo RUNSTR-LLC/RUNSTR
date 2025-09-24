@@ -110,7 +110,7 @@ class NutzapService {
 
   /**
    * Initialize the service with user's nsec
-   * Auto-creates wallet if none exists
+   * ALWAYS checks Nostr first for existing wallet
    */
   async initialize(nsec?: string): Promise<WalletState> {
     try {
@@ -135,6 +135,9 @@ class NutzapService {
       // NDKPrivateKeySigner handles nsec decoding internally
       const signer = new NDKPrivateKeySigner(userNsec);
       this.userPubkey = await signer.user().then(u => u.pubkey);
+
+      // Store current user for verification
+      await AsyncStorage.setItem('@runstr:current_user_pubkey', this.userPubkey);
 
       this.ndk = new NDK({
         explicitRelayUrls: [
@@ -168,13 +171,36 @@ class NutzapService {
         // Continue in offline mode - wallet can work without mint connection
       }
 
-      // Load wallet state from local storage (offline-first)
-      const wallet = await this.loadOfflineWallet();
+      // IMPORTANT: Check Nostr FIRST for existing wallet
+      console.log('[NutZap] Checking Nostr for existing wallet...');
+      const nostrWallet = await this.fetchWalletFromNostr();
+
+      if (nostrWallet) {
+        console.log('[NutZap] Found wallet on Nostr, using it');
+        // Save to local storage for offline access
+        await this.saveWalletLocally(nostrWallet);
+        this.isInitialized = true;
+        return nostrWallet;
+      }
+
+      // Only check local storage as fallback (offline mode)
+      console.log('[NutZap] No wallet on Nostr, checking local cache...');
+      const localWallet = await this.loadOfflineWallet();
+
+      if (localWallet && localWallet.pubkey === this.userPubkey) {
+        console.log('[NutZap] Using cached wallet (offline mode)');
+        this.isInitialized = true;
+        return localWallet;
+      }
+
+      // Create new wallet only if nothing found
+      console.log('[NutZap] No existing wallet found, creating new one...');
+      const newWallet = await this.createWallet();
 
       this.isInitialized = true;
       console.log('[NutZap] Service initialized successfully');
 
-      return wallet;
+      return newWallet;
     } catch (error) {
       console.error('[NutZap] Initialization failed:', error);
       // Return a basic wallet state even on error
@@ -263,24 +289,24 @@ class NutzapService {
 
   /**
    * Load wallet state from local storage (offline-first)
+   * Now includes user verification
    */
-  private async loadOfflineWallet(): Promise<WalletState> {
-    // Check if stored wallet belongs to current user
+  private async loadOfflineWallet(): Promise<WalletState | null> {
+    // Verify current user matches wallet owner
+    const currentUser = await AsyncStorage.getItem('@runstr:current_user_pubkey');
     const storedWalletPubkey = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PUBKEY);
 
     // If wallet exists but belongs to different user, clear it
-    if (storedWalletPubkey && storedWalletPubkey !== this.userPubkey) {
-      console.log('[NutZap] Stored wallet belongs to different user, clearing...');
+    if (storedWalletPubkey && currentUser && storedWalletPubkey !== currentUser) {
+      console.log('[NutZap] User switched, clearing old wallet');
       await this.clearWalletData();
+      return null;
+    }
 
-      // Return empty wallet state for new user
-      return {
-        balance: 0,
-        mint: DEFAULT_MINTS[0],
-        proofs: [],
-        pubkey: this.userPubkey,
-        created: false
-      };
+    // If no wallet owner stored, this is a fresh start
+    if (!storedWalletPubkey) {
+      console.log('[NutZap] No local wallet found');
+      return null;
     }
 
     // Load proofs from local storage
@@ -293,24 +319,12 @@ class NutzapService {
     // Calculate balance from proofs
     const balance = proofs.reduce((sum: number, p: Proof) => sum + p.amount, 0);
 
-    // Store current user's pubkey as wallet owner if not already stored
-    if (!storedWalletPubkey && this.userPubkey) {
-      await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PUBKEY, this.userPubkey);
-    }
-
-    // Try to sync with Nostr later (non-blocking)
-    if (this.ndk) {
-      this.syncWithNostr().catch(err =>
-        console.warn('[NutZap] Background Nostr sync failed:', err)
-      );
-    }
-
     return {
       balance,
       mint: mintUrl,
       proofs,
       pubkey: this.userPubkey,
-      created: proofs.length === 0 // If no proofs, wallet was just created
+      created: false
     };
   }
 
@@ -323,9 +337,36 @@ class NutzapService {
       STORAGE_KEYS.WALLET_MINT,
       STORAGE_KEYS.WALLET_PUBKEY,
       STORAGE_KEYS.TX_HISTORY,
-      STORAGE_KEYS.LAST_SYNC
+      STORAGE_KEYS.LAST_SYNC,
+      '@runstr:current_user_pubkey'
     ]);
     console.log('[NutZap] Wallet data cleared');
+  }
+
+  /**
+   * Save wallet state to local storage for offline access
+   */
+  private async saveWalletLocally(wallet: WalletState): Promise<void> {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PROOFS, JSON.stringify(wallet.proofs));
+      await AsyncStorage.setItem(STORAGE_KEYS.WALLET_MINT, wallet.mint);
+      await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PUBKEY, wallet.pubkey);
+      console.log('[NutZap] Wallet saved to local storage');
+    } catch (error) {
+      console.error('[NutZap] Failed to save wallet locally:', error);
+    }
+  }
+
+  /**
+   * Reset service state (for logout)
+   */
+  reset(): void {
+    this.ndk = null;
+    this.cashuWallet = null;
+    this.cashuMint = null;
+    this.userPubkey = '';
+    this.isInitialized = false;
+    console.log('[NutZap] Service reset');
   }
 
   /**
@@ -375,7 +416,7 @@ class NutzapService {
   }
 
   /**
-   * Fetch wallet from Nostr - returns null if not found
+   * Fetch wallet from Nostr with improved reliability
    */
   private async fetchWalletFromNostr(): Promise<WalletState | null> {
     if (!this.ndk || !this.userPubkey) return null;
@@ -383,17 +424,24 @@ class NutzapService {
     try {
       console.log('[NutZap] Querying Nostr for existing wallet events...');
 
-      // Query for wallet info events (NIP-60)
+      // Query for wallet info events (NIP-60) with timeout and options
       const walletEvents = await this.ndk.fetchEvents({
         kinds: [EVENT_KINDS.WALLET_INFO as NDKKind],
         authors: [this.userPubkey],
         '#d': ['nutzap-wallet']
+      }, {
+        closeOnEose: true,
+        timeout: 10000 // 10 second timeout
       });
 
       if (walletEvents.size > 0) {
-        const walletEvent = Array.from(walletEvents)[0];
-        const content = JSON.parse(walletEvent.content);
-        console.log('[NutZap] Found wallet event:', content);
+        // Sort events by created_at and use most recent
+        const sortedEvents = Array.from(walletEvents)
+          .sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+
+        const latestEvent = sortedEvents[0];
+        const content = JSON.parse(latestEvent.content);
+        console.log('[NutZap] Found wallet event (using most recent):', content);
 
         // Load any local proofs we might have cached
         const proofsStr = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PROOFS);
@@ -402,7 +450,6 @@ class NutzapService {
 
         // Store mint URL from Nostr event
         const mintUrl = content.mints?.[0] || DEFAULT_MINTS[0];
-        await AsyncStorage.setItem(STORAGE_KEYS.WALLET_MINT, mintUrl);
 
         return {
           balance,
@@ -418,6 +465,10 @@ class NutzapService {
 
     } catch (error) {
       console.error('[NutZap] Error fetching wallet from Nostr:', error);
+      // Log more details for debugging
+      if (error instanceof Error) {
+        console.error('[NutZap] Error details:', error.message, error.stack);
+      }
       return null;
     }
   }

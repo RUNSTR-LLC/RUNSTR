@@ -44,6 +44,36 @@ export const getShopPlatform = (url: string): 'shopstr' | 'plebeian' | null => {
 };
 
 /**
+ * Validates if a URL is a valid Flash subscription URL
+ * @param url - The URL to validate
+ * @returns true if the URL is a valid Flash subscription URL, false otherwise
+ */
+export const validateFlashUrl = (url: string): boolean => {
+  if (!url || typeof url !== 'string') {
+    return false;
+  }
+
+  // Check Flash subscription format (https://app.paywithflash.com/subscription-page?flashId=XXXX)
+  const flashPattern = /^https:\/\/app\.paywithflash\.com\/subscription-page\?flashId=\d+$/i;
+
+  return flashPattern.test(url);
+};
+
+/**
+ * Extracts the Flash ID from a Flash subscription URL
+ * @param url - The Flash subscription URL
+ * @returns The Flash ID or null if invalid
+ */
+export const getFlashIdFromUrl = (url: string): string | null => {
+  if (!validateFlashUrl(url)) {
+    return null;
+  }
+
+  const match = url.match(/flashId=(\d+)/);
+  return match ? match[1] : null;
+};
+
+/**
  * Formats a shop URL for display (extracts shop name if possible)
  * @param url - The shop URL
  * @returns A display-friendly shop name or the platform name

@@ -280,6 +280,10 @@ export class NostrTeamCreationService {
       tags.push(['charity', data.charityId]);
     }
 
+    if (data.flashUrl) {
+      tags.push(['flash', data.flashUrl]);
+    }
+
     return tags;
   }
 

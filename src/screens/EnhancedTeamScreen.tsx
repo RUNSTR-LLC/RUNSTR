@@ -442,7 +442,7 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
             })()}
 
             {/* Action Buttons Row */}
-            <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
               {/* Team Shop Button - Always visible but disabled if no shop URL */}
               <TouchableOpacity
                 onPress={() => {
@@ -470,6 +470,36 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
                   fontWeight: '600'
                 }}>
                   Team Shop
+                </Text>
+              </TouchableOpacity>
+
+              {/* Flash Subscription Button */}
+              <TouchableOpacity
+                onPress={() => {
+                  if (team.flashUrl) {
+                    Linking.openURL(team.flashUrl).catch(err => {
+                      console.error('Failed to open Flash URL:', err);
+                      Alert.alert('Error', 'Unable to open subscription page. Please try again.');
+                    });
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  backgroundColor: team.flashUrl ? '#FF9500' : theme.colors.border,
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                  opacity: team.flashUrl ? 1 : 0.5,
+                }}
+                disabled={!team.flashUrl}
+              >
+                <Text style={{
+                  color: team.flashUrl ? '#FFFFFF' : theme.colors.textTertiary,
+                  fontSize: 16,
+                  fontWeight: '600'
+                }}>
+                  Subscribe
                 </Text>
               </TouchableOpacity>
 

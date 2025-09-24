@@ -41,6 +41,7 @@ export interface NostrTeam {
   memberListId?: string; // For teams using Nostr lists
   charityId?: string; // ID of the charity this team supports
   shopUrl?: string; // Team shop URL (Shopstr or Plebeian Market)
+  flashUrl?: string; // Flash subscription URL for recurring Bitcoin payments
 }
 
 export interface TeamDiscoveryFilters {
@@ -164,6 +165,9 @@ export class NostrTeamService {
       // Get shop URL from tags
       const shopUrl = tags.get('shop')?.[0];
 
+      // Get Flash subscription URL from tags
+      const flashUrl = tags.get('flash')?.[0];
+
       return {
         id: `${captain}:${teamUUID || event.id}`, // Use captain:uuid or fallback to event.id
         name,
@@ -182,6 +186,7 @@ export class NostrTeamService {
         memberListId,
         charityId,
         shopUrl,
+        flashUrl,
       };
     } catch (error) {
       console.warn('Error parsing team event:', error);

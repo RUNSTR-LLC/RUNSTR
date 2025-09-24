@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { CHARITIES, getCharityById } from '../constants/charities';
-import { validateShopUrl, getShopDisplayName } from '../utils/validation';
+import { validateShopUrl, getShopDisplayName, validateFlashUrl } from '../utils/validation';
 import { theme } from '../styles/theme';
 import { BottomNavigation } from '../components/ui/BottomNavigation';
 import { ZappableUserRow } from '../components/ui/ZappableUserRow';
@@ -119,6 +119,10 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
   const [shopUrl, setShopUrl] = useState<string>(data.team.shopUrl || '');
   const [shopUrlInput, setShopUrlInput] = useState<string>('');
   const [shopUrlError, setShopUrlError] = useState<string>('');
+  const [showFlashModal, setShowFlashModal] = useState(false);
+  const [flashUrl, setFlashUrl] = useState<string>('');
+  const [flashUrlInput, setFlashUrlInput] = useState<string>('');
+  const [flashUrlError, setFlashUrlError] = useState<string>('');
   const [isSavingCharity, setIsSavingCharity] = useState(false);
 
   // Team editing state
@@ -378,6 +382,12 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
           setShopUrl(currentTeam.shopUrl);
         }
 
+        // Set Flash URL if exists
+        if (currentTeam.flashUrl) {
+          console.log('⚡ Loaded team Flash URL:', currentTeam.flashUrl);
+          setFlashUrl(currentTeam.flashUrl);
+        }
+
         // Pre-populate edit form fields
         setEditedTeamName(currentTeam.name || '');
         setEditedTeamDescription(currentTeam.description || '');
@@ -450,6 +460,11 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
       // Add/update shop URL tag
       if (shopUrl) {
         tags.push(['shop', shopUrl]);
+      }
+
+      // Add/update Flash URL tag
+      if (flashUrl) {
+        tags.push(['flash', flashUrl]);
       }
 
       // Preserve member tags
@@ -566,6 +581,90 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
     } catch (error) {
       console.error('Error updating team shop URL:', error);
       Alert.alert('Error', 'Failed to update team shop URL');
+    }
+  };
+
+  // Save Flash URL to team's Nostr event
+  const handleUpdateTeamFlashUrl = async (newFlashUrl: string) => {
+    try {
+      // Get auth data for signing
+      const authData = await getAuthenticationData();
+      if (!authData?.nsec) {
+        Alert.alert('Error', 'Authentication required to update team');
+        return;
+      }
+
+      // Get global NDK instance
+      const g = globalThis as any;
+      const ndk = g.__RUNSTR_NDK_INSTANCE__;
+
+      if (!ndk) {
+        Alert.alert('Error', 'Unable to connect to Nostr network');
+        return;
+      }
+
+      // Create signer
+      const signer = new NDKPrivateKeySigner(authData.nsec);
+
+      // Create updated team event
+      const teamEvent = new NDKEvent(ndk);
+      teamEvent.kind = 33404;
+
+      // Build tags preserving existing team data
+      const tags: string[][] = [
+        ['d', teamId],
+        ['name', currentTeamData?.name || data.team.name],
+        ['about', currentTeamData?.description || data.team.name],
+        ['captain', authData.hexPubkey],
+      ];
+
+      // Preserve existing tags
+      if (currentTeamData?.location) {
+        tags.push(['location', currentTeamData.location]);
+      }
+
+      if (currentTeamData?.tags && currentTeamData.tags.length > 0) {
+        currentTeamData.tags.forEach((tag: string) => {
+          tags.push(['t', tag]);
+        });
+      }
+
+      tags.push(['t', 'team']);
+      tags.push(['t', 'fitness']);
+      tags.push(['t', 'runstr']);
+
+      // Add charity if exists
+      if (selectedCharityId && selectedCharityId !== 'none') {
+        tags.push(['charity', selectedCharityId]);
+      }
+
+      // Add shop URL if exists
+      if (shopUrl) {
+        tags.push(['shop', shopUrl]);
+      }
+
+      // Add Flash URL if provided
+      if (newFlashUrl) {
+        tags.push(['flash', newFlashUrl]);
+      }
+
+      // Preserve member tags
+      if (currentTeamData?.nostrEvent?.tags) {
+        const memberTags = currentTeamData.nostrEvent.tags.filter(
+          (tag: string[]) => tag[0] === 'member'
+        );
+        memberTags.forEach((tag: string[]) => tags.push(tag));
+      }
+
+      teamEvent.tags = tags;
+      teamEvent.content = currentTeamData?.description || '';
+      await teamEvent.sign(signer);
+      await teamEvent.publish();
+
+      console.log('✅ Team Flash URL updated successfully');
+    } catch (error) {
+      console.error('Error updating team Flash URL:', error);
+      Alert.alert('Error', 'Failed to update team Flash URL');
     }
   };
 
@@ -1065,6 +1164,7 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
           onCreateLeague={handleShowLeagueWizard}
           onEditTeam={() => setShowEditTeamModal(true)}
           onChangeCharity={() => setShowCharityModal(true)}
+          onManageFlash={() => setShowFlashModal(true)}
         />
 
         {/* Join Requests */}
@@ -1240,6 +1340,95 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
                 disabled={isSavingCharity}
               >
                 <Text style={styles.saveButtonText}>{isSavingCharity ? 'Saving...' : 'Save'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Flash Subscription Modal */}
+      <Modal
+        visible={showFlashModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowFlashModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Flash Subscription URL</Text>
+            <Text style={styles.modalDescription}>
+              Add a Flash subscription URL to enable recurring Bitcoin payments from your supporters.
+            </Text>
+
+            <TextInput
+              style={[
+                styles.modalInput,
+                flashUrlError && styles.modalInputError
+              ]}
+              placeholder="https://app.paywithflash.com/subscription-page?flashId=1872"
+              placeholderTextColor={theme.colors.secondary}
+              value={flashUrlInput}
+              onChangeText={(text) => {
+                setFlashUrlInput(text);
+                if (text && !validateFlashUrl(text)) {
+                  setFlashUrlError('Please enter a valid Flash subscription URL');
+                } else {
+                  setFlashUrlError('');
+                }
+              }}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+            />
+            {flashUrlError && (
+              <Text style={styles.modalErrorText}>{flashUrlError}</Text>
+            )}
+            <Text style={styles.modalHelpText}>
+              Get your Flash subscription URL from app.paywithflash.com
+            </Text>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setShowFlashModal(false);
+                  setFlashUrlInput(flashUrl || '');
+                  setFlashUrlError('');
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              {flashUrl && (
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalBtnDanger]}
+                  onPress={async () => {
+                    await handleUpdateTeamFlashUrl('');
+                    setFlashUrl('');
+                    setFlashUrlInput('');
+                    setShowFlashModal(false);
+                    Alert.alert('Success', 'Flash subscription URL removed');
+                  }}
+                >
+                  <Text style={styles.saveButtonText}>Remove</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.saveButton,
+                  (!flashUrlInput || flashUrlError) && styles.modalBtnDisabled
+                ]}
+                onPress={async () => {
+                  if (flashUrlInput && !flashUrlError) {
+                    await handleUpdateTeamFlashUrl(flashUrlInput);
+                    setFlashUrl(flashUrlInput);
+                    setShowFlashModal(false);
+                    Alert.alert('Success', 'Flash subscription URL saved');
+                  }
+                }}
+                disabled={!flashUrlInput || !!flashUrlError}
+              >
+                <Text style={styles.saveButtonText}>Save</Text>
               </TouchableOpacity>
             </View>
           </View>

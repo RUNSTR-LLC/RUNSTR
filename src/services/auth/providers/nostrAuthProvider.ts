@@ -59,6 +59,15 @@ export class NostrAuthProvider {
       }
       console.log('✅ NostrAuthProvider: Authentication stored and verified');
 
+      // Import AsyncStorage and store current user pubkey for wallet verification
+      const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+      const { npubToHex } = await import('../../../utils/ndkConversion');
+      const hexPubkey = npubToHex(npub);
+      if (hexPubkey) {
+        await AsyncStorage.setItem('@runstr:current_user_pubkey', hexPubkey);
+        console.log('✅ NostrAuthProvider: Current user pubkey stored for wallet verification');
+      }
+
       // Initialize NutZap wallet for user (auto-creates if doesn't exist)
       try {
         console.log('💰 NostrAuthProvider: Initializing NutZap wallet...');
