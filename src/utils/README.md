@@ -13,3 +13,4 @@ Utility functions and helper methods for common operations across the RUNSTR app
 - **storage.ts** - Local storage utilities for persisting user data and settings
 - **teamMatching.ts** - Team discovery and matching algorithms
 - **testAuthFlow.ts** - Development utilities for testing authentication flows
+- **workoutGrouping.ts** - Groups workouts by time periods and calculates aggregated statistics

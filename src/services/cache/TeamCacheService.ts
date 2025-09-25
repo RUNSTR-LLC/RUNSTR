@@ -195,7 +195,8 @@ export class TeamCacheService {
       captain: team.captain,
       captainNpub: team.captainNpub,
       nostrEvent: team.nostrEvent,
-    }));
+    };
+    });
   }
 
   /**

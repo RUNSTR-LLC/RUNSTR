@@ -11,7 +11,6 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
-  FlatList,
   TouchableOpacity,
   SafeAreaView,
   Alert,
@@ -26,6 +25,7 @@ import { WorkoutPublishingService } from '../services/nostr/workoutPublishingSer
 import { NostrWorkoutSyncService } from '../services/fitness/nostrWorkoutSyncService';
 import { getNsecFromStorage } from '../utils/nostr';
 import { WorkoutCacheService } from '../services/cache/WorkoutCacheService';
+import { WorkoutGroupingService, type WorkoutGroup } from '../utils/workoutGrouping';
 
 // UI Components
 import { Card } from '../components/ui/Card';
@@ -36,6 +36,9 @@ import { BottomNavigation } from '../components/ui/BottomNavigation';
 // Fitness Components
 import { WorkoutSyncStatus } from '../components/fitness/WorkoutSyncStatus';
 import { WorkoutActionButtons } from '../components/fitness/WorkoutActionButtons';
+import { WorkoutTimeGroup } from '../components/fitness/WorkoutTimeGroup';
+import { WorkoutStatsOverview, type StatsPeriod } from '../components/fitness/WorkoutStatsOverview';
+import { WorkoutCalendarHeatmap } from '../components/fitness/WorkoutCalendarHeatmap';
 
 import type { WorkoutType } from '../types/workout';
 
@@ -59,18 +62,17 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
   const [filteredWorkouts, setFilteredWorkouts] = useState<UnifiedWorkout[]>(
     []
   );
-  const [displayedWorkouts, setDisplayedWorkouts] = useState<UnifiedWorkout[]>([]);
+  const [workoutGroups, setWorkoutGroups] = useState<WorkoutGroup[]>([]);
   const [mergeResult, setMergeResult] = useState<WorkoutMergeResult | null>(
     null
   );
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [nsecKey, setNsecKey] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(0);
-  const WORKOUTS_PER_PAGE = 20;
+  const [selectedPeriod, setSelectedPeriod] = useState<StatsPeriod>('week');
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['thisWeek']));
 
   const cacheService = WorkoutCacheService.getInstance();
   const mergeService = WorkoutMergeService.getInstance();
@@ -87,27 +89,24 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
   }, [workouts, selectedFilter, sortOrder]);
 
   useEffect(() => {
-    // Reset displayed workouts when filters change
-    const initialWorkouts = filteredWorkouts.slice(0, WORKOUTS_PER_PAGE);
-    setDisplayedWorkouts(initialWorkouts);
-    setCurrentPage(0);
-  }, [filteredWorkouts]);
+    // Group filtered workouts
+    const groups = WorkoutGroupingService.groupWorkoutsByTime(filteredWorkouts);
+    // Apply expanded state
+    const groupsWithExpanded = groups.map(group => ({
+      ...group,
+      isExpanded: expandedGroups.has(group.key)
+    }));
+    setWorkoutGroups(groupsWithExpanded);
+  }, [filteredWorkouts, expandedGroups]);
 
-  const loadWorkouts = async (loadMore = false, forceRefresh = false) => {
+  const loadWorkouts = async (forceRefresh = false) => {
     try {
-      if (!loadMore) {
-        // Use cache service for initial load
-        const result = forceRefresh
-          ? await cacheService.refreshWorkouts(100)
-          : await cacheService.getMergedWorkouts(100);
-        setWorkouts(result.allWorkouts);
-        setMergeResult(result);
-
-        // Display only first page initially
-        const initialWorkouts = result.allWorkouts.slice(0, WORKOUTS_PER_PAGE);
-        setDisplayedWorkouts(initialWorkouts);
-        setCurrentPage(0);
-      }
+      // Use cache service for initial load
+      const result = forceRefresh
+        ? await cacheService.refreshWorkouts(500) // Load more for better grouping
+        : await cacheService.getMergedWorkouts(500);
+      setWorkouts(result.allWorkouts);
+      setMergeResult(result);
     } catch (error) {
       console.error('Failed to load workouts:', error);
       Alert.alert('Error', 'Failed to load workout history');
@@ -116,28 +115,16 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
     }
   };
 
-  const loadMoreWorkouts = async () => {
-    if (isLoadingMore || displayedWorkouts.length >= filteredWorkouts.length) {
-      return;
-    }
-
-    setIsLoadingMore(true);
-    try {
-      const nextPage = currentPage + 1;
-      const startIdx = nextPage * WORKOUTS_PER_PAGE;
-      const endIdx = startIdx + WORKOUTS_PER_PAGE;
-      const nextBatch = filteredWorkouts.slice(startIdx, endIdx);
-
-      // Simulate network delay for smoother UX
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      setDisplayedWorkouts([...displayedWorkouts, ...nextBatch]);
-      setCurrentPage(nextPage);
-    } catch (error) {
-      console.error('Failed to load more workouts:', error);
-    } finally {
-      setIsLoadingMore(false);
-    }
+  const toggleGroup = (groupKey: string) => {
+    setExpandedGroups(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(groupKey)) {
+        newSet.delete(groupKey);
+      } else {
+        newSet.add(groupKey);
+      }
+      return newSet;
+    });
   };
 
   const loadNsecKey = async () => {
@@ -154,7 +141,7 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
     setIsRefreshing(true);
     try {
       await syncService.triggerManualSync(userId, pubkey);
-      await loadWorkouts(false, true); // Force refresh from network
+      await loadWorkouts(true); // Force refresh from network
     } catch (error) {
       console.error('Sync failed:', error);
       Alert.alert('Sync Error', 'Failed to sync workouts. Please try again.');
@@ -186,7 +173,7 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
           nostrEventId: result.eventId,
         });
         // Refresh workouts to show updated status
-        await loadWorkouts(false, true);
+        await loadWorkouts(true);
         Alert.alert('Success', 'Workout saved to Nostr successfully!');
       } else {
         throw new Error(result.error || 'Unknown error');
@@ -220,7 +207,7 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
           nostrEventId: result.eventId,
         });
         // Refresh workouts to show updated status
-        await loadWorkouts(false, true);
+        await loadWorkouts(true);
         Alert.alert('Success', 'Workout posted to social feeds successfully!');
       } else {
         throw new Error(result.error || 'Unknown error');
@@ -421,26 +408,19 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
         style={styles.syncStatus}
       />
 
-      {/* Stats Summary */}
-      {mergeResult && (
-        <Card style={styles.statsCard}>
-          <Text style={styles.statsTitle}>Total Workouts</Text>
-          <Text style={styles.statsValue}>
-            {mergeResult.allWorkouts.length} workouts
-          </Text>
-          <View style={styles.statsBreakdown}>
-            <Text style={styles.statsSubtext}>
-              HealthKit: {mergeResult.healthKitCount} • Nostr:{' '}
-              {mergeResult.nostrCount}
-            </Text>
-            {mergeResult.duplicateCount > 0 && (
-              <Text style={styles.statsSubtext}>
-                ({mergeResult.duplicateCount} duplicates removed)
-              </Text>
-            )}
-          </View>
-        </Card>
-      )}
+      {/* Stats Overview */}
+      <WorkoutStatsOverview
+        workouts={filteredWorkouts}
+        onPeriodChange={setSelectedPeriod}
+      />
+
+      {/* Calendar Heatmap */}
+      <WorkoutCalendarHeatmap
+        workouts={filteredWorkouts}
+        onDayPress={(date, dayWorkouts) => {
+          console.log(`Day pressed: ${date.toDateString()}, ${dayWorkouts.length} workouts`);
+        }}
+      />
 
       {/* Filters & Sort */}
       <View style={styles.controlsContainer}>
@@ -486,12 +466,9 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
         </ScrollView>
       </View>
 
-      {/* Workout List */}
-      <FlatList
-        data={displayedWorkouts}
-        renderItem={renderWorkoutItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.workoutsList}
+      {/* Grouped Workout List */}
+      <ScrollView
+        style={styles.workoutsContainer}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -499,24 +476,18 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
             tintColor={theme.colors.text}
           />
         }
-        onEndReached={loadMoreWorkouts}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={
-          displayedWorkouts.length < filteredWorkouts.length ? (
-            <TouchableOpacity
-              style={styles.loadMoreButton}
-              onPress={loadMoreWorkouts}
-              disabled={isLoadingMore}
-            >
-              <Text style={styles.loadMoreText}>
-                {isLoadingMore
-                  ? 'Loading...'
-                  : `Load More (${filteredWorkouts.length - displayedWorkouts.length} remaining)`}
-              </Text>
-            </TouchableOpacity>
-          ) : null
-        }
-        ListEmptyComponent={
+        contentContainerStyle={styles.workoutsList}
+      >
+        {workoutGroups.length > 0 ? (
+          workoutGroups.map(group => (
+            <WorkoutTimeGroup
+              key={group.key}
+              group={group}
+              onToggle={toggleGroup}
+              renderWorkout={(workout) => renderWorkoutItem({ item: workout })}
+            />
+          ))
+        ) : (
           <Card style={styles.emptyState}>
             <Text style={styles.emptyStateTitle}>No workouts found</Text>
             <Text style={styles.emptyStateText}>
@@ -526,8 +497,8 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
             </Text>
             <Button title="Sync Now" onPress={handleRefresh} />
           </Card>
-        }
-      />
+        )}
+      </ScrollView>
 
       <BottomNavigation
         activeScreen="profile"
@@ -570,30 +541,6 @@ const styles = StyleSheet.create({
   },
   syncStatus: {
     margin: 16,
-  },
-  statsCard: {
-    margin: 16,
-    padding: 16,
-    alignItems: 'center',
-  },
-  statsTitle: {
-    color: theme.colors.textMuted,
-    fontSize: 14,
-    marginBottom: 4,
-  },
-  statsValue: {
-    color: theme.colors.text,
-    fontSize: 24,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  statsSubtext: {
-    color: theme.colors.textSecondary,
-    fontSize: 12,
-  },
-  statsBreakdown: {
-    alignItems: 'center',
-    gap: 4,
   },
   controlsContainer: {
     paddingHorizontal: 16,
@@ -643,6 +590,9 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 12,
     fontWeight: '500',
+  },
+  workoutsContainer: {
+    flex: 1,
   },
   workoutsList: {
     paddingHorizontal: 16,
@@ -730,23 +680,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 24,
-  },
-  loadMoreButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    marginVertical: 16,
-    marginHorizontal: 20,
-    backgroundColor: theme.colors.surface,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  loadMoreText: {
-    color: theme.colors.accent,
-    fontSize: 14,
-    fontWeight: '600',
   },
 });
 
