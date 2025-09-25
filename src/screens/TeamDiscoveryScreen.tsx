@@ -368,17 +368,21 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header with Teams title and Create Button */}
+      {/* Header with Teams title and Create Button - matching Profile style */}
       <View style={styles.header}>
+        <View style={styles.headerSpacer} />
         <Text style={styles.headerTitle}>Teams</Text>
-        {onCreateTeam && (
+        {onCreateTeam ? (
           <TouchableOpacity
             style={styles.createBtn}
             onPress={onCreateTeam}
             activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Text style={styles.createBtnText}>+</Text>
           </TouchableOpacity>
+        ) : (
+          <View style={styles.headerSpacer} />
         )}
       </View>
 
@@ -596,13 +600,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 12,
-    paddingBottom: 16,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+
+  headerSpacer: {
+    width: 32,
   },
 
   headerTitle: {
-    fontSize: 32,
+    fontSize: 18,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
   },
@@ -614,17 +623,12 @@ const styles = StyleSheet.create({
   },
 
   createBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: theme.colors.text,
-    alignItems: 'center',
-    justifyContent: 'center',
+    padding: 4,
   },
 
   createBtnText: {
-    color: theme.colors.background,
-    fontSize: 28,
+    color: theme.colors.text,
+    fontSize: 24,
     fontWeight: theme.typography.weights.medium,
   },
 
