@@ -3,33 +3,7 @@
 name: RUNSTR TEAMS
 identifier: com.anonymous.runstr.project
 summary: Bitcoin-powered fitness competitions on Nostr
-description: |
-  RUNSTR transforms your fitness routine into competitive, Bitcoin-earning experiences through Nostr-native team competitions.
-
-  ## 🏃 Key Features
-  - **Nostr-Native Fitness**: All workout data stored as Nostr events (NIP-1301)
-  - **Bitcoin Rewards**: Earn real sats for your fitness achievements via Lightning
-  - **Team Competitions**: Join teams, compete in challenges, win Bitcoin prizes
-  - **Captain Dashboard**: Create and manage teams, events, and member lists
-  - **HealthKit Integration**: Seamlessly import Apple Health workouts
-  - **Beautiful Social Cards**: Share Instagram-worthy workout achievements
-  - **Auto-Withdrawal**: Bitcoin rewards sent directly to your Lightning address
-
-  ## 🎯 Competition Types
-  - Distance challenges (running, cycling, walking)
-  - Consistency streaks
-  - Average pace competitions
-  - Calorie burn challenges
-  - Custom team events with captain-defined parameters
-
-  ## 💎 Why RUNSTR?
-  - **Data Sovereignty**: Your workout data is stored on Nostr - you own it forever
-  - **No Exit Fees**: Direct P2P Bitcoin payments via NIP-60/Cashu
-  - **Privacy First**: No tracking, no ads, just pure fitness motivation
-  - **Open Protocol**: Built on open standards (Nostr, Lightning, NIP-1301)
-
-  ## 🔐 Authentication
-  Simple Nostr login with automatic profile import. No email, no passwords, just your nsec.
+description: Fitness teams and competitions powered by Nostr and eCash.
 
 repository: https://github.com/dakotabrown/runstr.project
 homepage: https://runstr.app

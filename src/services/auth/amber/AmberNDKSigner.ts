@@ -318,7 +318,8 @@ export class AmberNDKSigner implements NDKSigner {
       // Try primary launch method
       await Linking.openURL(uri);
     } catch (error) {
-      console.error('[AmberSigner] Primary launch failed, trying alternative method:', error);
+      // Don't immediately assume not installed - could be other issues
+      console.error('[AmberSigner] Primary launch failed:', error);
 
       // Try alternative launch method using IntentLauncher
       try {
@@ -330,8 +331,16 @@ export class AmberNDKSigner implements NDKSigner {
           }
         );
       } catch (fallbackError) {
-        console.error('[AmberSigner] Both launch methods failed');
-        throw new Error('Could not open Amber. Please ensure Amber is installed.');
+        // Both methods failed - NOW we can assume Amber isn't installed or accessible
+        console.error('[AmberSigner] Both launch methods failed:', fallbackError);
+
+        // Check if this is likely an installation issue vs other error
+        const errorMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+        if (errorMessage.includes('No Activity found') || errorMessage.includes('ActivityNotFoundException')) {
+          throw new Error('Amber app not found. Please install Amber from the Play Store to use this login method.');
+        } else {
+          throw new Error('Could not open Amber. Please ensure Amber is installed and try again.');
+        }
       }
     }
   }
