@@ -87,6 +87,7 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['Running'])); // Start with Running expanded
   const [captainStatus, setCaptainStatus] = useState<{
     showCaptainDashboard: boolean;
     primaryTeam: NostrTeam | null;
@@ -237,15 +238,21 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
     onClose();
   };
 
-  // Enhanced filter categories
-  const filterCategories = [
-    { id: 'all', label: 'All', filter: () => true },
-    { id: 'near', label: 'Near Me', filter: (team: DiscoveryTeam) => false }, // Mock for now
-    { id: 'running', label: 'Running', filter: (team: DiscoveryTeam) => categorizeTeam(team) === 'Running' },
-    { id: 'cycling', label: 'Cycling', filter: (team: DiscoveryTeam) => categorizeTeam(team) === 'Cycling' },
-    { id: 'active', label: 'Active Now', filter: (team: DiscoveryTeam) => team.stats.memberCount > 10 },
-    { id: 'prizes', label: 'Has Prizes', filter: (team: DiscoveryTeam) => (team.prizePool || 0) > 0 },
-  ];
+  // Enhanced filter categories with team counts
+  const filterCategories = useMemo(() => {
+    const getCategoryCount = (filter: (team: DiscoveryTeam) => boolean) => {
+      return teams.filter(filter).length;
+    };
+
+    return [
+      { id: 'all', label: `All (${teams.length})`, filter: () => true },
+      { id: 'running', label: `Running (${getCategoryCount((team) => categorizeTeam(team) === 'Running')})`, filter: (team: DiscoveryTeam) => categorizeTeam(team) === 'Running' },
+      { id: 'cycling', label: `Cycling (${getCategoryCount((team) => categorizeTeam(team) === 'Cycling')})`, filter: (team: DiscoveryTeam) => categorizeTeam(team) === 'Cycling' },
+      { id: 'gym', label: `Gym (${getCategoryCount((team) => categorizeTeam(team) === 'Gym & Fitness')})`, filter: (team: DiscoveryTeam) => categorizeTeam(team) === 'Gym & Fitness' },
+      { id: 'active', label: `Active (${getCategoryCount((team) => team.stats.memberCount > 10)})`, filter: (team: DiscoveryTeam) => team.stats.memberCount > 10 },
+      { id: 'prizes', label: `Prizes (${getCategoryCount((team) => (team.prizePool || 0) > 0)})`, filter: (team: DiscoveryTeam) => (team.prizePool || 0) > 0 },
+    ];
+  }, [teams]);
 
   // Organize teams by category and filter by search
   const { categorizedTeams, categories } = useMemo(() => {
@@ -309,17 +316,40 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
     return result;
   }, [teams, searchQuery, selectedCategory]);
 
+  const toggleCategoryExpansion = (category: string) => {
+    setExpandedCategories((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(category)) {
+        newSet.delete(category);
+      } else {
+        newSet.add(category);
+      }
+      return newSet;
+    });
+  };
+
   const renderCategorySection = ({ item: category }: { item: string }) => {
     const categoryTeams = categorizedTeams[category] || [];
     if (categoryTeams.length === 0) return null;
 
+    const isExpanded = expandedCategories.has(category);
+    const teamCount = categoryTeams.length;
+
     return (
       <View style={styles.categorySection} key={category}>
-        <View style={styles.categoryHeaderContainer}>
-          <Text style={styles.categoryTitle}>{category}</Text>
-          <View style={styles.categoryDivider} />
-        </View>
-        {categoryTeams.map((team) => {
+        <TouchableOpacity
+          style={styles.categoryHeaderContainer}
+          onPress={() => toggleCategoryExpansion(category)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.categoryHeaderLeft}>
+            <Text style={styles.categoryTitle}>{category}</Text>
+            <Text style={styles.categoryCount}>({teamCount})</Text>
+          </View>
+          <Text style={styles.expandIcon}>{isExpanded ? '−' : '+'}</Text>
+        </TouchableOpacity>
+
+        {isExpanded && categoryTeams.map((team) => {
           discoverySession.current.trackTeamViewed(team.id);
           analytics.trackTeamCardViewed(team);
 
@@ -899,22 +929,44 @@ const styles = StyleSheet.create({
 
   // Category Section Styles
   categorySection: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
 
   categoryHeaderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
     paddingHorizontal: 20,
-    marginBottom: 12,
-    marginTop: 20,
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    marginHorizontal: 20,
+    marginBottom: 8,
+  },
+
+  categoryHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
 
   categoryTitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.text,
+  },
+
+  categoryCount: {
+    fontSize: 14,
     color: theme.colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 8,
+  },
+
+  expandIcon: {
+    fontSize: 20,
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.bold,
   },
 
   categoryDivider: {
