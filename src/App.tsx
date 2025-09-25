@@ -67,6 +67,7 @@ import { CaptainDashboardScreen } from './screens/CaptainDashboardScreen';
 import { HelpSupportScreen } from './screens/HelpSupportScreen';
 import { ContactSupportScreen } from './screens/ContactSupportScreen';
 import { PrivacyPolicyScreen } from './screens/PrivacyPolicyScreen';
+import { SettingsScreen } from './screens/SettingsScreen';
 import { User } from './types';
 
 // Types for authenticated app navigation
@@ -80,6 +81,7 @@ type AuthenticatedStackParamList = {
   EventDetail: { eventId: string };
   ChallengeDetail: { challengeId: string };
   CaptainDashboard: { teamId?: string; teamName?: string; isCaptain?: boolean; userNpub?: string };
+  Settings: any;
   HelpSupport: undefined;
   ContactSupport: undefined;
   PrivacyPolicy: undefined;
@@ -274,6 +276,27 @@ const AppContent: React.FC = () => {
               />
             );
           }}
+        </AuthenticatedStack.Screen>
+
+        {/* Settings Screen */}
+        <AuthenticatedStack.Screen
+          name="Settings"
+          options={{
+            headerShown: false,
+          }}
+        >
+          {({ navigation, route }) => (
+            <SettingsScreen
+              currentTeam={route.params?.currentTeam}
+              onNavigateToTeamDiscovery={route.params?.onNavigateToTeamDiscovery}
+              onViewCurrentTeam={route.params?.onViewCurrentTeam}
+              onCaptainDashboard={route.params?.onCaptainDashboard}
+              onHelp={() => navigation.navigate('HelpSupport')}
+              onContactSupport={() => navigation.navigate('ContactSupport')}
+              onPrivacyPolicy={() => navigation.navigate('PrivacyPolicy')}
+              onSignOut={route.params?.onSignOut}
+            />
+          )}
         </AuthenticatedStack.Screen>
 
         {/* Help & Support Screen */}

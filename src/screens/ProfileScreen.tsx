@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, RefreshControl, TouchableOpacity } from 'react-native';
 import { theme } from '../styles/theme';
 import { ProfileTab, ProfileScreenData, NotificationSettings } from '../types';
 import { NotificationPreferencesService } from '../services/notifications/NotificationPreferencesService';
@@ -14,14 +14,15 @@ import { NotificationPreferencesService } from '../services/notifications/Notifi
 
 // Profile Components
 import { ProfileHeader } from '../components/profile/ProfileHeader';
-import { PersonalWalletSection } from '../components/profile/PersonalWalletSection';
+import { CompactWallet } from '../components/profile/CompactWallet';
 import { SendModal } from '../components/wallet/SendModal';
 import { ReceiveModal } from '../components/wallet/ReceiveModal';
 import { HistoryModal } from '../components/wallet/HistoryModal';
-import { TabNavigation } from '../components/profile/TabNavigation';
+import { TeamManagementSection } from '../components/profile/TeamManagementSection';
 import { WorkoutsTab } from '../components/profile/WorkoutsTab';
-import { AccountTab } from '../components/profile/AccountTab';
-import { NotificationsTab } from '../components/profile/NotificationsTab';
+import { WorkoutCalendarHeatmap } from '../components/fitness/WorkoutCalendarHeatmap';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { useNutzap } from '../hooks/useNutzap';
 import { useWalletStore } from '../store/walletStore';
 import { nip19 } from 'nostr-tools';
@@ -66,11 +67,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onSignOut,
   onRefresh,
 }) => {
-  const [activeTab, setActiveTab] = useState<ProfileTab>('workouts');
-  const [notificationSettings, setNotificationSettings] =
-    useState<NotificationSettings>(data.notificationSettings);
+  const navigation = useNavigation<any>();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isLoadingNotificationSettings, setIsLoadingNotificationSettings] = useState(true);
   const [showSendModal, setShowSendModal] = useState(false);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -88,22 +86,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     }
   }, [isInitialized, initializeWallet]);
 
-  // Load notification settings and user npub on mount
+  // Load user npub on mount
   useEffect(() => {
-    const loadNotificationSettings = async () => {
-      setIsLoadingNotificationSettings(true);
-      try {
-        const settings = await NotificationPreferencesService.getNotificationSettings();
-        setNotificationSettings(settings);
-        console.log('📱 Loaded notification settings:', settings);
-      } catch (error) {
-        console.error('Error loading notification settings:', error);
-        // Keep existing settings from props as fallback
-      } finally {
-        setIsLoadingNotificationSettings(false);
-      }
-    };
-
     const loadUserNpub = async () => {
       try {
         // Get user's hex pubkey from storage and convert to npub
@@ -117,7 +101,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       }
     };
 
-    loadNotificationSettings();
     loadUserNpub();
   }, [data.user.id]);
 
@@ -172,84 +155,36 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     setIsRefreshing(false);
   };
 
-  const handleNotificationSettingChange = async (
-    key: keyof NotificationSettings,
-    value: boolean
-  ) => {
-    try {
-      // Update local state immediately for responsive UI
-      setNotificationSettings((prev) => ({
-        ...prev,
-        [key]: value,
-      }));
-
-      // Persist the change to storage
-      const updatedSettings = await NotificationPreferencesService.updateNotificationSetting(key, value);
-      console.log(`📱 Updated notification setting ${key}: ${value}`);
-      
-      // Ensure local state matches persisted state
-      setNotificationSettings(updatedSettings);
-    } catch (error) {
-      console.error(`Error updating notification setting ${key}:`, error);
-      
-      // Revert local state on error
-      setNotificationSettings((prev) => ({
-        ...prev,
-        [key]: !value, // Revert to previous value
-      }));
-      
-      // TODO: Could show error toast to user here
-    }
+  const handleSettingsPress = () => {
+    navigation.navigate('Settings', {
+      currentTeam: data.currentTeam,
+      onNavigateToTeamDiscovery,
+      onViewCurrentTeam,
+      onCaptainDashboard,
+      onHelp,
+      onContactSupport,
+      onPrivacyPolicy,
+      onSignOut,
+    });
   };
 
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 'workouts':
-        return (
-          <WorkoutsTab
-            syncSources={data.syncSources}
-            recentWorkouts={data.recentWorkouts}
-            currentUserId={data.user.id}
-            currentUserPubkey={data.user.npub}
-            currentUserTeamId={data.currentTeam?.id}
-            onSyncSourcePress={handleSyncSourcePress}
-            onWorkoutsSynced={() => {
-              // Could trigger a refresh of workout data here
-              console.log('Workouts synced, profile could refresh data');
-            }}
-          />
-        );
-      case 'account':
-        return (
-          <AccountTab
-            subscription={data.subscription}
-            currentTeam={data.currentTeam}
-            onManageSubscription={handleManageSubscription}
-            onHelp={handleHelp}
-            onContact={handleContactSupport}
-            onPrivacy={handlePrivacyPolicy}
-            onChangeTeam={() => onNavigateToTeamDiscovery?.()}
-            onJoinTeam={() => onNavigateToTeamDiscovery?.()}
-            onViewTeam={onViewCurrentTeam}
-            onCaptainDashboard={onCaptainDashboard}
-            onSignOut={handleSignOut}
-          />
-        );
-      case 'notifications':
-        return (
-          <NotificationsTab
-            settings={notificationSettings}
-            onSettingChange={handleNotificationSettingChange}
-          />
-        );
-      default:
-        return null;
-    }
-  };
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
+      {/* Header with Settings Button */}
+      <View style={styles.header}>
+        <View style={styles.headerSpacer} />
+        <Text style={styles.headerTitle}>Profile</Text>
+        <TouchableOpacity
+          style={styles.settingsButton}
+          onPress={handleSettingsPress}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="settings-outline" size={24} color={theme.colors.text} />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
@@ -262,23 +197,50 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         }
         showsVerticalScrollIndicator={false}
       >
-
         {/* Profile Header */}
         <ProfileHeader user={data.user} />
 
-        {/* Personal Wallet Section */}
-        <PersonalWalletSection
+        {/* Compact Wallet */}
+        <CompactWallet
           onSendPress={handleSend}
           onReceivePress={handleReceive}
           onHistoryPress={handleWalletHistory}
         />
 
-        {/* Tab Navigation */}
-        <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+        {/* User's Team */}
+        <View style={styles.sectionContainer}>
+          <TeamManagementSection
+            currentTeam={data.currentTeam}
+            onChangeTeam={() => onNavigateToTeamDiscovery?.()}
+            onJoinTeam={() => onNavigateToTeamDiscovery?.()}
+            onViewTeam={onViewCurrentTeam}
+          />
+        </View>
 
-        {/* Tab Content */}
-        <View style={styles.tabContent}>
-          {renderTabContent()}
+        {/* Workouts Section */}
+        <View style={styles.sectionContainer}>
+          <WorkoutsTab
+            syncSources={data.syncSources}
+            recentWorkouts={data.recentWorkouts}
+            currentUserId={data.user.id}
+            currentUserPubkey={data.user.npub}
+            currentUserTeamId={data.currentTeam?.id}
+            onSyncSourcePress={handleSyncSourcePress}
+            onWorkoutsSynced={() => {
+              console.log('Workouts synced, profile could refresh data');
+            }}
+          />
+        </View>
+
+        {/* Activity Heatmap */}
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>Activity Heatmap</Text>
+          <WorkoutCalendarHeatmap
+            workouts={data.recentWorkouts || []}
+            onDayPress={(date, workouts) => {
+              console.log('Day pressed:', date, 'Workouts:', workouts.length);
+            }}
+          />
         </View>
       </ScrollView>
 
@@ -312,22 +274,29 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background, // #000
   },
 
-  // CSS: display: flex; align-items: center; justify-content: center; padding: 16px 20px; border-bottom: 1px solid #1a1a1a;
+  // Header with settings
   header: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: theme.spacing.xxl, // 16px
-    paddingHorizontal: theme.spacing.xxxl, // 20px
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border, // #1a1a1a
+    borderBottomColor: theme.colors.border,
   },
 
-  // CSS: font-size: 20px; font-weight: 700; letter-spacing: -0.5px;
+  headerSpacer: {
+    width: 32,
+  },
+
   headerTitle: {
-    fontSize: theme.typography.teamName, // 20px
-    fontWeight: theme.typography.weights.bold, // 700
+    fontSize: 18,
+    fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
-    letterSpacing: -0.5,
+  },
+
+  settingsButton: {
+    padding: 4,
   },
 
   scrollContainer: {
@@ -339,13 +308,16 @@ const styles = StyleSheet.create({
     paddingBottom: 20, // Add some bottom padding for better UX
   },
 
-  // CSS: flex: 1; overflow-y: auto; padding: 0 20px; min-height: 0;
-  tabContent: {
-    flex: 1,
-    paddingHorizontal: theme.spacing.xxxl, // 20px
+  // Section styling
+  sectionContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 16,
   },
 
-  tabContentContainer: {
-    paddingBottom: theme.spacing.xxxl, // 20px for bottom spacing
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+    marginBottom: 12,
   },
 });
