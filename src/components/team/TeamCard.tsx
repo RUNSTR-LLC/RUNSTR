@@ -19,11 +19,9 @@ import { TeamMembershipService } from '../../services/team/teamMembershipService
 import { CaptainCache } from '../../utils/captainCache';
 import { publishJoinRequest } from '../../utils/joinRequestPublisher';
 
-// Helper function to generate avatar color based on team name
-const getAvatarColor = (teamName: string): string => {
-  const colors = ['#4CAF50', '#2196F3', '#FF9800', '#E91E63', '#9C27B0', '#00BCD4', '#FFC107', '#795548'];
-  const hash = teamName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return colors[hash % colors.length];
+// Avatar will use dark gray background for all teams
+const getAvatarColor = (): string => {
+  return '#333333'; // Dark gray for all avatars
 };
 
 // Helper to get team initials for avatar
@@ -48,17 +46,17 @@ const categorizeTeam = (team: DiscoveryTeam): string => {
   return 'Fitness';
 };
 
-// Mock function to determine activity level
-const getActivityLevel = (team: DiscoveryTeam): { level: 'very-active' | 'active' | 'moderate'; text: string; color: string } => {
+// Determine activity level without colors
+const getActivityLevel = (team: DiscoveryTeam): { level: 'very-active' | 'active' | 'moderate'; text: string } => {
   const memberCount = team.stats?.memberCount || 1;
   const activeEvents = team.stats?.activeEvents || 0;
 
   if (memberCount > 100 || activeEvents > 2) {
-    return { level: 'very-active', text: 'Very active', color: '#4CAF50' };
+    return { level: 'very-active', text: 'Very active' };
   } else if (memberCount > 20 || activeEvents > 0) {
-    return { level: 'active', text: 'Active', color: '#FFC107' };
+    return { level: 'active', text: 'Active' };
   }
-  return { level: 'moderate', text: 'Moderate', color: '#9E9E9E' };
+  return { level: 'moderate', text: 'Moderate' };
 };
 
 // Mock function to get last activity
@@ -106,7 +104,7 @@ export const TeamCard: React.FC<TeamCardProps> = ({
   const activityInfo = getActivityLevel(team);
   const lastActivity = getLastActivity(team);
   const teamInitials = getTeamInitials(team.name);
-  const avatarColor = getAvatarColor(team.name);
+  const avatarColor = getAvatarColor();
   const teamCategory = categorizeTeam(team);
 
   // Cache captain status when we detect it correctly
@@ -253,13 +251,9 @@ export const TeamCard: React.FC<TeamCardProps> = ({
 
             {/* Activity Status */}
             <View style={styles.activityRow}>
-              <View style={styles.activityIndicator}>
-                <View style={[styles.activityDot, { backgroundColor: activityInfo.color }]} />
-                <Text style={[styles.activityText, { color: activityInfo.color }]}>
-                  {activityInfo.text}
-                </Text>
-              </View>
-              <Text style={styles.lastActivityText}>{'\u2022'} {lastActivity}</Text>
+              <Text style={styles.activityText}>
+                {activityInfo.text} {'\u2022'} {lastActivity}
+              </Text>
             </View>
 
             {/* Prize Pool Badge if exists */}
@@ -386,27 +380,9 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
 
-  activityIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  activityDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 6,
-  },
-
   activityText: {
     fontSize: 13,
-    fontWeight: theme.typography.weights.medium,
-  },
-
-  lastActivityText: {
-    fontSize: 13,
     color: theme.colors.textMuted,
-    marginLeft: 4,
   },
 
   prizeRow: {
@@ -450,42 +426,38 @@ const styles = StyleSheet.create({
   },
 
   joinButton: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    paddingHorizontal: 16,
+    backgroundColor: theme.colors.text, // White background
+    paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 8,
-    minWidth: 70,
+    minWidth: 80,
     alignItems: 'center',
   },
 
   memberButton: {
-    backgroundColor: theme.colors.cardBackground,
-    borderColor: theme.colors.success || '#22c55e',
+    backgroundColor: '#333333', // Dark gray for member state
   },
 
   pendingButton: {
-    backgroundColor: theme.colors.cardBackground,
-    borderColor: theme.colors.textMuted,
+    backgroundColor: '#666666', // Medium gray for pending
   },
 
   loadingButton: {
-    backgroundColor: theme.colors.cardBackground,
+    backgroundColor: '#666666',
     opacity: 0.6,
   },
 
   joinButtonText: {
     fontSize: 13,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.text,
+    color: theme.colors.background, // Black text on white button
   },
 
   memberButtonText: {
-    color: theme.colors.success || '#22c55e',
+    color: theme.colors.text, // White text on dark button
   },
 
   pendingButtonText: {
-    color: theme.colors.textMuted,
+    color: theme.colors.text, // White text on gray button
   },
 });

@@ -181,6 +181,9 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
             onCreateTeam={() => {
               navigation.navigate('TeamCreation');
             }}
+            showHeader={true}
+            showCloseButton={false}
+            currentUserPubkey={currentUserNpub}
           />
         )}
       </Stack.Screen>
