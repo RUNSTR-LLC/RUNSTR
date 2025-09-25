@@ -95,27 +95,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
       >
         {({ navigation }) => (
           <SafeAreaView style={styles.tabContent} edges={['top']}>
-            {/* Header with plus button for team creation */}
-            <View style={styles.teamsHeader}>
-              <TouchableOpacity
-                style={styles.createButton}
-                onPress={() => {
-                  console.log('+ button pressed, onNavigateToTeamCreation:', !!onNavigateToTeamCreation);
-                  if (onNavigateToTeamCreation) {
-                    onNavigateToTeamCreation();
-                  } else {
-                    // Fallback: Navigate to team creation directly
-                    console.log('No onNavigateToTeamCreation prop, attempting direct navigation');
-                    // For now, show alert to debug
-                    alert('Team creation navigation not connected');
-                  }
-                }}
-              >
-                <Text style={styles.createButtonText}>+</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Team Discovery Content */}
+            {/* Team Discovery Content with integrated header */}
             <TeamDiscoveryScreen
               teams={availableTeams}
               isLoading={isLoading}
@@ -130,11 +110,11 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
               }}
               onTeamSelect={(team) => handlers.handleTeamView(team, navigation, user?.npub)}
               onRefresh={refresh}
-              showHeader={false} // Don't show header - we provide our own
+              showHeader={true} // Show integrated header with + button
               showCloseButton={false} // No close button needed in tabs
               currentUserPubkey={user?.npub} // Pass current user's npub for captain detection
               onCaptainDashboard={() => handlers.handleCaptainDashboard(navigation)}
-              // No onCreateTeam prop - handled by header plus button
+              onCreateTeam={onNavigateToTeamCreation} // Pass team creation handler
             />
           </SafeAreaView>
         )}

@@ -371,13 +371,15 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
       {/* Header with Teams title and Create Button */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Teams</Text>
-        <TouchableOpacity
-          style={styles.createBtn}
-          onPress={onCreateTeam}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.createBtnText}>+</Text>
-        </TouchableOpacity>
+        {onCreateTeam && (
+          <TouchableOpacity
+            style={styles.createBtn}
+            onPress={onCreateTeam}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.createBtnText}>+</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Search bar */}
