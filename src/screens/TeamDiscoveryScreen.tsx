@@ -338,46 +338,24 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Status Bar */}
-
-      {/* Header */}
-      {showHeader && (
-        <View style={styles.header}>
-          <View style={styles.headerActions}>
-            {captainStatus.showCaptainDashboard && onCaptainDashboard && (
-              <TouchableOpacity
-                style={styles.captainDashboardBtn}
-                onPress={onCaptainDashboard}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.captainDashboardLabel}>Captain</Text>
-              </TouchableOpacity>
-            )}
-            {onCreateTeam && (
-              <TouchableOpacity
-                style={styles.createBtn}
-                onPress={onCreateTeam}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.createBtnText}>+</Text>
-              </TouchableOpacity>
-            )}
-            {showCloseButton && (
-              <TouchableOpacity
-                style={styles.closeBtn}
-                onPress={handleClose}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.closeBtnText}>×</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+      {/* Header with Create Button */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Teams</Text>
+        <View style={styles.headerActions}>
+          {onCreateTeam && (
+            <TouchableOpacity
+              style={styles.createBtn}
+              onPress={onCreateTeam}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.createBtnText}>+</Text>
+            </TouchableOpacity>
+          )}
         </View>
-      )}
+      </View>
 
-      {/* Search Bar */}
-      {showHeader && (
-        <View style={styles.searchSection}>
+      {/* Always show search bar */}
+      <View style={styles.searchSection}>
           <View style={styles.searchContainer}>
             <Text style={styles.searchIcon}>🔍</Text>
             <TextInput
@@ -427,7 +405,6 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
             ))}
           </ScrollView>
         </View>
-      )}
 
       {/* Team Display */}
       {isLoading ? (
