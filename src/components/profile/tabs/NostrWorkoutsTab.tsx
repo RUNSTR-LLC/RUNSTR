@@ -12,7 +12,6 @@ import { WorkoutCard } from '../shared/WorkoutCard';
 import { Nuclear1301Service } from '../../../services/fitness/Nuclear1301Service';
 import { WorkoutGroupingService, type WorkoutGroup } from '../../../utils/workoutGrouping';
 import { WorkoutTimeGroup } from '../../fitness/WorkoutTimeGroup';
-import { WorkoutStatsOverview } from '../../fitness/WorkoutStatsOverview';
 import { WorkoutCalendarHeatmap } from '../../fitness/WorkoutCalendarHeatmap';
 import type { NostrWorkout } from '../../../types/nostrWorkout';
 import type { UnifiedWorkout } from '../../../services/fitness/workoutMergeService';
@@ -138,11 +137,6 @@ export const NostrWorkoutsTab: React.FC<NostrWorkoutsTabProps> = ({
     >
       {workouts.length > 0 && (
         <>
-          {/* Stats Overview */}
-          <WorkoutStatsOverview
-            workouts={unifiedWorkouts}
-          />
-
           {/* Calendar Heatmap */}
           <WorkoutCalendarHeatmap
             workouts={unifiedWorkouts}
