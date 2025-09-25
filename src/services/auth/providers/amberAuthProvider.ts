@@ -18,21 +18,13 @@ export class AmberAuthProvider {
 
   /**
    * Check if Amber is available on the device
-   * Now more permissive - relies on actual launch attempts
+   * Amber cannot be reliably detected - just check platform
    */
   static async isAvailable(): Promise<boolean> {
-    if (Platform.OS !== 'android') return false;
-
-    try {
-      // With Android manifest queries fixed, this should work properly
-      const canOpen = await Linking.canOpenURL('nostrsigner:');
-      return canOpen;
-    } catch (error) {
-      // If detection fails, optimistically return true on Android
-      // The actual launch attempt will fail if Amber isn't installed
-      console.log('🟠 AmberAuthProvider: Detection check failed, assuming available on Android');
-      return true;
-    }
+    // Amber is Android-only, but we can't reliably detect if it's installed
+    // The security model prevents detection by design
+    // Just return true for Android and handle launch failures gracefully
+    return Platform.OS === 'android';
   }
 
   /**
@@ -50,8 +42,9 @@ export class AmberAuthProvider {
         };
       }
 
-      // Skip pre-checking - let the actual launch attempt handle errors
-      // This is more reliable than pre-detection
+      // Don't check if Amber is installed - just try to use it
+      // Amber's security model prevents reliable detection by design
+      console.log('🟠 AmberAuthProvider: Attempting Amber connection...');
 
       // Create and initialize Amber signer
       this.signer = new AmberNDKSigner();

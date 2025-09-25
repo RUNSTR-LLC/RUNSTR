@@ -40,7 +40,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
   const [nsecInput, setNsecInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // No longer checking for Amber availability - always show button on Android
+  const [amberStage, setAmberStage] = useState<string>('');
+  // Always show Amber button on Android - detection not reliable by design
 
   const handleShowInput = () => {
     setShowInput(true);
@@ -94,9 +95,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
 
 
   const handleAmberLogin = async () => {
-
     setIsLoading(true);
     setError(null);
+    setAmberStage('Opening Amber...');
 
     try {
       console.log('LoginScreen: Attempting Amber authentication...');
@@ -104,17 +105,53 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
 
       if (result.success) {
         console.log('✅ LoginScreen: Amber authentication successful');
+        setAmberStage('Success! Loading profile...');
       } else {
         console.error('❌ LoginScreen: Amber authentication failed:', result.error);
-        setError(result.error || 'Amber authentication failed. Please try again.');
+        setAmberStage('');
+
+        // Provide specific error guidance based on the error type
+        if (result.error?.includes('timeout')) {
+          setError(
+            'Amber request timed out.\n\n' +
+            'Please make sure to:\n' +
+            '1. Approve the request when Amber opens\n' +
+            '2. Grant all requested permissions\n' +
+            '3. Try again if you accidentally closed Amber'
+          );
+        } else if (result.error?.includes('not installed') || result.error?.includes('not found')) {
+          setError(
+            'Amber not found. Install it from:\n\n' +
+            'F-Droid or GitHub (search "Amber Nostr")'
+          );
+        } else if (result.error?.includes('permission')) {
+          setError(
+            'Please grant all requested permissions in Amber to use RUNSTR.\n\n' +
+            'RUNSTR needs permissions to sign workouts, manage teams, and sync your profile.'
+          );
+        } else {
+          setError(result.error || 'Amber authentication failed. Please try again.');
+        }
       }
     } catch (error) {
       console.error('❌ LoginScreen: Amber authentication error:', error);
-      setError(
-        error instanceof Error ? error.message : 'An unexpected error occurred'
-      );
+      setAmberStage('');
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+
+      if (errorMessage.includes('Could not open Amber')) {
+        setError(
+          'Could not open Amber. Make sure:\n' +
+          '1. Amber is installed\n' +
+          '2. You have created or imported a key in Amber\n' +
+          '3. Amber is not restricted by device policies'
+        );
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setIsLoading(false);
+      // Clear stage after a delay
+      setTimeout(() => setAmberStage(''), 2000);
     }
   };
 
@@ -241,7 +278,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
                       activeOpacity={0.8}
                     >
                       {isLoading ? (
-                        <ActivityIndicator size="small" color="#FFFFFF" />
+                        <View style={styles.amberLoadingContainer}>
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                          {amberStage && (
+                            <Text style={styles.amberStageText}>{amberStage}</Text>
+                          )}
+                        </View>
                       ) : (
                         <>
                           <Text style={styles.amberButtonText}>Login with Amber</Text>
@@ -249,6 +291,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
                         </>
                       )}
                     </TouchableOpacity>
+
+                    {!isLoading && (
+                      <Text style={styles.amberHelp}>
+                        Amber will open to approve login.\n
+                        Grant all permissions when asked.
+                      </Text>
+                    )}
                   </View>
                 )}
               </View>
@@ -449,5 +498,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgba(255, 255, 255, 0.8)',
     marginTop: 4,
+  },
+  amberLoadingContainer: {
+    alignItems: 'center',
+  },
+  amberStageText: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    marginTop: 8,
+  },
+  amberHelp: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+    marginTop: 12,
+    paddingHorizontal: 20,
+    lineHeight: 16,
   },
 });

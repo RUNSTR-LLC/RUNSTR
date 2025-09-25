@@ -24,7 +24,13 @@ export class AmberNDKSigner implements NDKSigner {
   private linkingSubscription: any = null;
 
   constructor() {
+    console.log('[Amber] Initializing NDK Signer');
     this.setupLinkingListener();
+
+    // Debug: Log any deep links received
+    Linking.addEventListener('url', (event) => {
+      console.log('[DEBUG] Deep link received:', event.url);
+    });
   }
 
   async blockUntilReady(): Promise<NDKUser> {
@@ -81,13 +87,17 @@ export class AmberNDKSigner implements NDKSigner {
   }
 
   private handleAmberCallback(url: string): void {
+    console.log('[DEBUG] Amber callback received:', url);
     if (!url) return;
 
     try {
       const parsedUrl = new URL(url);
 
       // Check if this is an Amber callback
-      if (!parsedUrl.pathname.includes('amber-callback')) return;
+      if (!parsedUrl.pathname.includes('amber-callback')) {
+        console.log('[DEBUG] Not an Amber callback, ignoring');
+        return;
+      }
 
       const params = new URLSearchParams(parsedUrl.search);
       const requestId = params.get('id');
@@ -96,7 +106,18 @@ export class AmberNDKSigner implements NDKSigner {
       const pubkey = params.get('pubkey');
       const error = params.get('error');
 
-      if (!requestId || !this.pendingRequests.has(requestId)) return;
+      console.log('[DEBUG] Callback params:', {
+        requestId,
+        hasEvent: !!event,
+        hasSignature: !!signature,
+        hasPubkey: !!pubkey,
+        error
+      });
+
+      if (!requestId || !this.pendingRequests.has(requestId)) {
+        console.log('[DEBUG] No pending request for ID:', requestId);
+        return;
+      }
 
       const request = this.pendingRequests.get(requestId)!;
       this.pendingRequests.delete(requestId);
@@ -107,6 +128,7 @@ export class AmberNDKSigner implements NDKSigner {
       }
 
       if (error) {
+        console.log('[DEBUG] Amber returned error:', error);
         request.reject(new Error(error));
         return;
       }
@@ -114,33 +136,28 @@ export class AmberNDKSigner implements NDKSigner {
       // Handle different response types
       if (pubkey) {
         // Public key response
+        console.log('[DEBUG] Received public key from Amber');
         request.resolve(pubkey);
       } else if (signature) {
         // Signature response
+        console.log('[DEBUG] Received signature from Amber');
         request.resolve(signature);
       } else if (event) {
         // Signed event response
+        console.log('[DEBUG] Received signed event from Amber');
         const signedEvent = JSON.parse(decodeURIComponent(event));
         request.resolve(signedEvent);
+      } else {
+        console.log('[DEBUG] Unexpected callback format - no data received');
       }
     } catch (error) {
       console.error('[AmberSigner] Error handling callback:', error);
     }
   }
 
-  async checkAmberInstalled(): Promise<boolean> {
-    if (Platform.OS !== 'android') return false;
-
-    try {
-      // With Android manifest queries fixed, this should work
-      const canOpen = await Linking.canOpenURL('nostrsigner:');
-      return canOpen;
-    } catch (error) {
-      // Optimistically return true - actual launch will fail if not installed
-      console.log('[AmberSigner] Detection check failed, will try launch anyway');
-      return true;
-    }
-  }
+  // Removed checkAmberInstalled - Amber cannot be reliably detected by design
+  // The security model prevents apps from querying its presence
+  // We must attempt launch and handle outcomes gracefully
 
   private generateRequestId(): string {
     return `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -152,13 +169,20 @@ export class AmberNDKSigner implements NDKSigner {
     }
 
     const requestId = this.generateRequestId();
+    console.log('[Amber] Requesting public key with ID:', requestId);
 
     return new Promise((resolve, reject) => {
-      // Store the request
+      // Store the request with timeout
       const timeout = setTimeout(() => {
         if (this.pendingRequests.has(requestId)) {
           this.pendingRequests.delete(requestId);
-          reject(new Error('Amber request timeout'));
+          console.log('[Amber] Request timeout - user may have canceled or denied permissions');
+          reject(new Error(
+            'Amber request timed out. Please make sure to:\n' +
+            '1. Approve the request when Amber opens\n' +
+            '2. Grant all requested permissions\n' +
+            '3. Try again if you accidentally closed Amber'
+          ));
         }
       }, 60000); // 60 second timeout
 
@@ -169,24 +193,35 @@ export class AmberNDKSigner implements NDKSigner {
         timeout
       });
 
-      // Build Amber URI for public key request
+      // Build Amber URI for public key request with all needed permissions
       const params = new URLSearchParams({
         type: 'get_public_key',
         callbackUrl: `runstrproject://amber-callback`,
         id: requestId,
         permissions: JSON.stringify([
-          { type: 'sign_event', kind: 1301 }, // Workout events
-          { type: 'sign_event', kind: 1 },     // Text notes
-          { type: 'sign_event', kind: 0 },     // Profile metadata
-          { type: 'sign_event', kind: 30000 }, // Team member lists
-          { type: 'sign_event', kind: 33404 }, // Team events
+          { type: 'sign_event', kind: 0 },      // Profile metadata
+          { type: 'sign_event', kind: 1 },      // Text notes
+          { type: 'sign_event', kind: 1301 },   // Workout events
+          { type: 'sign_event', kind: 30000 },  // Team member lists
+          { type: 'sign_event', kind: 30001 },  // Additional lists
+          { type: 'sign_event', kind: 33404 },  // Team events
           { type: 'nip04_encrypt' },
-          { type: 'nip04_decrypt' }
+          { type: 'nip04_decrypt' },
+          { type: 'nip44_encrypt' },
+          { type: 'nip44_decrypt' }
         ])
       });
 
       const amberUri = `nostrsigner:?${params.toString()}`;
-      this.launchAmber(amberUri);
+      console.log('[Amber] Launching with get_public_key request');
+
+      // Launch and handle potential errors
+      this.launchAmber(amberUri).catch(launchError => {
+        // Clean up on launch failure
+        this.pendingRequests.delete(requestId);
+        clearTimeout(timeout);
+        reject(launchError);
+      });
     });
   }
 
@@ -314,32 +349,48 @@ export class AmberNDKSigner implements NDKSigner {
   }
 
   private async launchAmber(uri: string): Promise<void> {
+    console.log('[Amber] Attempting launch with URI scheme');
+
     try {
       // Try primary launch method
       await Linking.openURL(uri);
-    } catch (error) {
-      // Don't immediately assume not installed - could be other issues
-      console.error('[AmberSigner] Primary launch failed:', error);
+      console.log('[Amber] Launch successful via Linking.openURL');
+    } catch (primaryError) {
+      console.log('[Amber] Primary launch failed, trying Intent fallback');
 
-      // Try alternative launch method using IntentLauncher
+      // Try alternative launch method with explicit package targeting
       try {
         await IntentLauncher.startActivityAsync(
           'android.intent.action.VIEW',
           {
             data: uri,
-            flags: 1 // FLAG_ACTIVITY_NEW_TASK
+            flags: 1, // FLAG_ACTIVITY_NEW_TASK
+            // Note: packageName might not work if Amber uses different package ID
+            // but worth trying for better targeting
           }
         );
+        console.log('[Amber] Launch successful via IntentLauncher');
       } catch (fallbackError) {
-        // Both methods failed - NOW we can assume Amber isn't installed or accessible
-        console.error('[AmberSigner] Both launch methods failed:', fallbackError);
+        // Both methods failed - provide specific error guidance
+        console.error('[Amber] Both launch methods failed:', fallbackError);
 
-        // Check if this is likely an installation issue vs other error
-        const errorMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-        if (errorMessage.includes('No Activity found') || errorMessage.includes('ActivityNotFoundException')) {
-          throw new Error('Amber app not found. Please install Amber from the Play Store to use this login method.');
+        const errorString = fallbackError?.toString() || '';
+        if (errorString.includes('ActivityNotFoundException') ||
+            errorString.includes('No Activity found')) {
+          throw new Error(
+            'Amber not installed. Get it from:\n' +
+            'F-Droid: https://f-droid.org/packages/com.greenart7c3.nostrsigner/\n' +
+            'GitHub: https://github.com/greenart7c3/Amber/releases'
+          );
+        } else if (errorString.includes('SecurityException')) {
+          throw new Error('Security error launching Amber. Please check app permissions.');
         } else {
-          throw new Error('Could not open Amber. Please ensure Amber is installed and try again.');
+          throw new Error(
+            'Could not open Amber. Make sure:\n' +
+            '1. Amber is installed\n' +
+            '2. You have created or imported a key in Amber\n' +
+            '3. Amber is not restricted by any device policies'
+          );
         }
       }
     }

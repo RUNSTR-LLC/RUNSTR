@@ -7,12 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		010BD9BC2A922F34CC556A66 /* libPods-Teams.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FAC98EC69603A0B7E40EFD9F /* libPods-Teams.a */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		2EDB91645C217FDDF85E4C3C /* libPods-Teams.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 964AA374A05B7D65180358B3 /* libPods-Teams.a */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
+		76AB161E1E5F2ABE82B05C1E /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 743AFD60D4A75E2654B1B63A /* ExpoModulesProvider.swift */; };
+		BAA58AE4EADDD57E6C60C641 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 714EDA2AFBBD0DC03FE2B973 /* PrivacyInfo.xcprivacy */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		C38F19A6A1D6FE0501B4B750 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91FEFCCABCA254608A04E873 /* ExpoModulesProvider.swift */; };
-		EB1DFDDF76ECE6063E63471F /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 340CE7D3CB6A7D8F81F18755 /* PrivacyInfo.xcprivacy */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
@@ -20,16 +20,16 @@
 		13B07F961A680F5B00A75B9A /* Teams.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Teams.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Teams/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Teams/Info.plist; sourceTree = "<group>"; };
-		19E4E0D70E928AEAD66A7893 /* Pods-Teams.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Teams.release.xcconfig"; path = "Target Support Files/Pods-Teams/Pods-Teams.release.xcconfig"; sourceTree = "<group>"; };
-		340CE7D3CB6A7D8F81F18755 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Teams/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		51DB3B64BA2F88ED7D0D58AA /* Pods-Teams.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Teams.debug.xcconfig"; path = "Target Support Files/Pods-Teams/Pods-Teams.debug.xcconfig"; sourceTree = "<group>"; };
-		91FEFCCABCA254608A04E873 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Teams/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		964AA374A05B7D65180358B3 /* libPods-Teams.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Teams.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		714EDA2AFBBD0DC03FE2B973 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Teams/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		743AFD60D4A75E2654B1B63A /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Teams/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		9C418448BA8BD304A3EB8823 /* Pods-Teams.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Teams.release.xcconfig"; path = "Target Support Files/Pods-Teams/Pods-Teams.release.xcconfig"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Teams/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
+		E6DFC628E6F16DB3F5738EB4 /* Pods-Teams.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Teams.debug.xcconfig"; path = "Target Support Files/Pods-Teams/Pods-Teams.debug.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Teams/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* Teams-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Teams-Bridging-Header.h"; path = "Teams/Teams-Bridging-Header.h"; sourceTree = "<group>"; };
+		FAC98EC69603A0B7E40EFD9F /* libPods-Teams.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Teams.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -37,7 +37,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2EDB91645C217FDDF85E4C3C /* libPods-Teams.a in Frameworks */,
+				010BD9BC2A922F34CC556A66 /* libPods-Teams.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -53,7 +53,7 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				340CE7D3CB6A7D8F81F18755 /* PrivacyInfo.xcprivacy */,
+				714EDA2AFBBD0DC03FE2B973 /* PrivacyInfo.xcprivacy */,
 			);
 			name = Teams;
 			sourceTree = "<group>";
@@ -62,25 +62,33 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				964AA374A05B7D65180358B3 /* libPods-Teams.a */,
+				FAC98EC69603A0B7E40EFD9F /* libPods-Teams.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		3AE5F1260FA45434D6827056 /* Pods */ = {
+		319209780F99F05EA0E6CA8A /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				51DB3B64BA2F88ED7D0D58AA /* Pods-Teams.debug.xcconfig */,
-				19E4E0D70E928AEAD66A7893 /* Pods-Teams.release.xcconfig */,
+				E6DFC628E6F16DB3F5738EB4 /* Pods-Teams.debug.xcconfig */,
+				9C418448BA8BD304A3EB8823 /* Pods-Teams.release.xcconfig */,
 			);
 			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};
-		74D02F7C01C055E4B37C1CFA /* Teams */ = {
+		573007A6CB4C31891ABB09AF /* ExpoModulesProviders */ = {
 			isa = PBXGroup;
 			children = (
-				91FEFCCABCA254608A04E873 /* ExpoModulesProvider.swift */,
+				76F0C0E2C15EA0667B4F8702 /* Teams */,
+			);
+			name = ExpoModulesProviders;
+			sourceTree = "<group>";
+		};
+		76F0C0E2C15EA0667B4F8702 /* Teams */ = {
+			isa = PBXGroup;
+			children = (
+				743AFD60D4A75E2654B1B63A /* ExpoModulesProvider.swift */,
 			);
 			name = Teams;
 			sourceTree = "<group>";
@@ -99,8 +107,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				3AE5F1260FA45434D6827056 /* Pods */,
-				9F168EA6299037EE7D0027C5 /* ExpoModulesProviders */,
+				319209780F99F05EA0E6CA8A /* Pods */,
+				573007A6CB4C31891ABB09AF /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -113,14 +121,6 @@
 				13B07F961A680F5B00A75B9A /* Teams.app */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		9F168EA6299037EE7D0027C5 /* ExpoModulesProviders */ = {
-			isa = PBXGroup;
-			children = (
-				74D02F7C01C055E4B37C1CFA /* Teams */,
-			);
-			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
@@ -140,13 +140,13 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "Teams" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				8B4A096AA154EA678DEADB16 /* [Expo] Configure project */,
+				C9A6870F9B3F84FCEE606BBD /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				265491CEED119FDD3C40D2DC /* [CP] Embed Pods Frameworks */,
+				2CC83A7650877FBE48EC71E3 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -196,7 +196,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				EB1DFDDF76ECE6063E63471F /* PrivacyInfo.xcprivacy in Resources */,
+				BAA58AE4EADDD57E6C60C641 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -240,7 +240,7 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		265491CEED119FDD3C40D2DC /* [CP] Embed Pods Frameworks */ = {
+		2CC83A7650877FBE48EC71E3 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -304,7 +304,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Teams/Pods-Teams-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		8B4A096AA154EA678DEADB16 /* [Expo] Configure project */ = {
+		C9A6870F9B3F84FCEE606BBD /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -331,7 +331,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				C38F19A6A1D6FE0501B4B750 /* ExpoModulesProvider.swift in Sources */,
+				76AB161E1E5F2ABE82B05C1E /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -340,7 +340,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 51DB3B64BA2F88ED7D0D58AA /* Pods-Teams.debug.xcconfig */;
+			baseConfigurationReference = E6DFC628E6F16DB3F5738EB4 /* Pods-Teams.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -376,7 +376,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 19E4E0D70E928AEAD66A7893 /* Pods-Teams.release.xcconfig */;
+			baseConfigurationReference = 9C418448BA8BD304A3EB8823 /* Pods-Teams.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
