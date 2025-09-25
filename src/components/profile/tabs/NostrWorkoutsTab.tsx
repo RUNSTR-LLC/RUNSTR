@@ -1,16 +1,21 @@
 /**
- * NostrWorkoutsTab - Simple Nostr workout display
- * Shows only Nostr kind 1301 workout events - no merging or complexity
+ * NostrWorkoutsTab - Enhanced Nostr workout display with time-based grouping
+ * Shows Nostr kind 1301 workout events organized by time periods
  */
 
-import React, { useState, useEffect } from 'react';
-import { View, FlatList, RefreshControl, Text, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, FlatList, RefreshControl, Text, StyleSheet, ScrollView } from 'react-native';
 import { theme } from '../../../styles/theme';
 import { Card } from '../../ui/Card';
 import { LoadingOverlay } from '../../ui/LoadingStates';
 import { WorkoutCard } from '../shared/WorkoutCard';
 import { Nuclear1301Service } from '../../../services/fitness/Nuclear1301Service';
+import { WorkoutGroupingService, type WorkoutGroup } from '../../../utils/workoutGrouping';
+import { WorkoutTimeGroup } from '../../fitness/WorkoutTimeGroup';
+import { WorkoutStatsOverview, type StatsPeriod } from '../../fitness/WorkoutStatsOverview';
+import { WorkoutCalendarHeatmap } from '../../fitness/WorkoutCalendarHeatmap';
 import type { NostrWorkout } from '../../../types/nostrWorkout';
+import type { UnifiedWorkout } from '../../../services/fitness/workoutMergeService';
 
 interface NostrWorkoutsTabProps {
   userId: string;
@@ -26,8 +31,31 @@ export const NostrWorkoutsTab: React.FC<NostrWorkoutsTabProps> = ({
   const [workouts, setWorkouts] = useState<NostrWorkout[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState<StatsPeriod>('week');
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['thisWeek']));
 
   const nuclear1301Service = Nuclear1301Service.getInstance();
+
+  // Convert NostrWorkout to UnifiedWorkout for compatibility
+  const unifiedWorkouts = useMemo((): UnifiedWorkout[] => {
+    return workouts.map(w => ({
+      ...w,
+      syncedToNostr: true,
+      postedToSocial: false,
+      canSyncToNostr: false,
+      canPostToSocial: false,
+    }));
+  }, [workouts]);
+
+  // Group workouts by time periods
+  const workoutGroups = useMemo((): WorkoutGroup[] => {
+    const groups = WorkoutGroupingService.groupWorkoutsByTime(unifiedWorkouts);
+    // Apply expanded state
+    return groups.map(group => ({
+      ...group,
+      isExpanded: expandedGroups.has(group.key)
+    }));
+  }, [unifiedWorkouts, expandedGroups]);
 
   useEffect(() => {
     loadNostrWorkouts();
@@ -68,6 +96,18 @@ export const NostrWorkoutsTab: React.FC<NostrWorkoutsTabProps> = ({
     }
   };
 
+  const toggleGroup = (groupKey: string) => {
+    setExpandedGroups(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(groupKey)) {
+        newSet.delete(groupKey);
+      } else {
+        newSet.add(groupKey);
+      }
+      return newSet;
+    });
+  };
+
   const renderWorkout = ({ item }: { item: NostrWorkout }) => (
     <WorkoutCard workout={item}>
       {/* Nostr workouts are already published - no action needed */}
@@ -86,11 +126,8 @@ export const NostrWorkoutsTab: React.FC<NostrWorkoutsTabProps> = ({
   }
 
   return (
-    <FlatList
-      data={workouts}
-      renderItem={renderWorkout}
-      keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.list}
+    <ScrollView
+      style={styles.container}
       refreshControl={
         <RefreshControl
           refreshing={isRefreshing}
@@ -98,16 +135,48 @@ export const NostrWorkoutsTab: React.FC<NostrWorkoutsTabProps> = ({
           tintColor={theme.colors.text}
         />
       }
-      ListEmptyComponent={
-        <Card style={styles.emptyState}>
-          <Text style={styles.emptyStateTitle}>No Nostr workouts found</Text>
-          <Text style={styles.emptyStateText}>
-            Workouts you publish to Nostr will appear here.
-            {!pubkey && ' Please log in to view your workouts.'}
-          </Text>
-        </Card>
-      }
-    />
+      contentContainerStyle={styles.scrollContent}
+    >
+      {workouts.length > 0 && (
+        <>
+          {/* Stats Overview */}
+          <WorkoutStatsOverview
+            workouts={unifiedWorkouts}
+            onPeriodChange={setSelectedPeriod}
+          />
+
+          {/* Calendar Heatmap */}
+          <WorkoutCalendarHeatmap
+            workouts={unifiedWorkouts}
+            onDayPress={(date, dayWorkouts) => {
+              console.log(`Day pressed: ${date.toDateString()}, ${dayWorkouts.length} workouts`);
+            }}
+          />
+        </>
+      )}
+
+      {/* Grouped Workout List */}
+      <View style={styles.list}>
+        {workoutGroups.length > 0 ? (
+          workoutGroups.map(group => (
+            <WorkoutTimeGroup
+              key={group.key}
+              group={group}
+              onToggle={toggleGroup}
+              renderWorkout={(workout) => renderWorkout({ item: workout as NostrWorkout })}
+            />
+          ))
+        ) : (
+          <Card style={styles.emptyState}>
+            <Text style={styles.emptyStateTitle}>No Nostr workouts found</Text>
+            <Text style={styles.emptyStateText}>
+              Workouts you publish to Nostr will appear here.
+              {!pubkey && ' Please log in to view your workouts.'}
+            </Text>
+          </Card>
+        )}
+      </View>
+    </ScrollView>
   );
 };
 
@@ -116,9 +185,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
+  scrollContent: {
+    paddingBottom: 100,
+  },
   list: {
     padding: 16,
-    paddingBottom: 100,
   },
   publishedBadge: {
     marginTop: 8,
