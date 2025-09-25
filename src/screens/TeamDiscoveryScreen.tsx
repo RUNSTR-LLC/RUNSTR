@@ -368,22 +368,16 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header with Teams title and Create Button - matching Profile style */}
+      {/* Header with Teams title and Create Button */}
       <View style={styles.header}>
-        <View style={styles.headerSpacer} />
         <Text style={styles.headerTitle}>Teams</Text>
-        {onCreateTeam ? (
-          <TouchableOpacity
-            style={styles.createBtn}
-            onPress={onCreateTeam}
-            activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text style={styles.createBtnText}>+</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.headerSpacer} />
-        )}
+        <TouchableOpacity
+          style={styles.createBtn}
+          onPress={onCreateTeam}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.createBtnText}>+</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Search bar */}
@@ -599,11 +593,10 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    position: 'relative',
   },
 
   headerSpacer: {
@@ -611,9 +604,10 @@ const styles = StyleSheet.create({
   },
 
   headerTitle: {
-    fontSize: 18,
+    fontSize: 28,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
+    textAlign: 'center',
   },
 
   headerActions: {
@@ -623,12 +617,21 @@ const styles = StyleSheet.create({
   },
 
   createBtn: {
-    padding: 4,
+    position: 'absolute',
+    right: 20,
+    top: '50%',
+    transform: [{ translateY: -22 }],
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: theme.colors.text,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   createBtnText: {
-    color: theme.colors.text,
-    fontSize: 24,
+    color: theme.colors.background,
+    fontSize: 28,
     fontWeight: theme.typography.weights.medium,
   },
 
