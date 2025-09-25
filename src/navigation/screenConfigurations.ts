@@ -47,6 +47,7 @@ export const screenConfigurations = {
   // Main Team Screen - no animation for instant load
   Team: {
     animationEnabled: false,
+    headerShown: false,
   } as StackNavigationOptions,
 
   // Profile Screen - slide from right
