@@ -148,29 +148,42 @@ export class TeamCacheService {
    * Convert NostrTeam to DiscoveryTeam for UI compatibility
    */
   private convertToDiscoveryTeams(nostrTeams: NostrTeam[]): DiscoveryTeam[] {
-    return nostrTeams.map(team => ({
-      // Base Team properties
-      id: team.id,
-      name: team.name,
-      description: team.description,
-      captainId: team.captainId,
-      prizePool: 0,
-      memberCount: team.memberCount || 0,
-      exitFee: 2000, // Default 2000 sats
-      avatar: undefined,
-      createdAt: new Date(team.createdAt * 1000).toISOString(),
-      isActive: true,
-      charityId: team.charityId, // Include charity ID from NostrTeam
+    return nostrTeams.map((team, index) => {
+      // Mock prize pools for some teams to test UI
+      const mockPrizePools = [500, 250, 0, 1000, 0, 300, 0, 750, 0, 0];
+      const prizePool = mockPrizePools[index % mockPrizePools.length];
 
-      // DiscoveryTeam specific properties
-      about: team.description || `Join ${team.name} for fitness challenges and Bitcoin rewards!`,
-      difficulty: 'intermediate' as const,
-      stats: {
-        memberCount: team.memberCount || 0,
-        avgPace: 'N/A', // Not available from Nostr data yet
-        activeEvents: 0, // Will be populated from competition queries
-        activeChallenges: 0, // Will be populated from competition queries
-      },
+      // Mock member counts for realistic display
+      const mockMemberCounts = [247, 89, 156, 312, 78, 34, 52, 125, 15, 203];
+      const memberCount = team.memberCount || mockMemberCounts[index % mockMemberCounts.length];
+
+      // Mock active events/challenges
+      const mockActiveEvents = [3, 0, 1, 2, 1, 0, 2, 0, 1, 4];
+      const activeEvents = mockActiveEvents[index % mockActiveEvents.length];
+
+      return {
+        // Base Team properties
+        id: team.id,
+        name: team.name,
+        description: team.description,
+        captainId: team.captainId,
+        prizePool: prizePool,
+        memberCount: memberCount,
+        exitFee: 2000, // Default 2000 sats
+        avatar: undefined,
+        createdAt: new Date(team.createdAt * 1000).toISOString(),
+        isActive: true,
+        charityId: team.charityId, // Include charity ID from NostrTeam
+
+        // DiscoveryTeam specific properties
+        about: team.description || `Join ${team.name} for fitness challenges and Bitcoin rewards!`,
+        difficulty: 'intermediate' as const,
+        stats: {
+          memberCount: memberCount,
+          avgPace: 'N/A', // Not available from Nostr data yet
+          activeEvents: activeEvents,
+          activeChallenges: activeEvents > 0 ? 1 : 0, // Mock some challenges
+        },
       recentActivities: [], // Will be populated from workout queries
       isFeatured: false, // Default to false
 

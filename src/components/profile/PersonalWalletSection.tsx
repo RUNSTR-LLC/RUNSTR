@@ -111,7 +111,7 @@ export const PersonalWalletSection: React.FC<PersonalWalletSectionProps> = ({
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <Ionicons name="wallet" size={20} color={theme.colors.accent} />
-          <Text style={styles.title}>Lightning Wallet</Text>
+          <Text style={styles.title}>Wallet</Text>
         </View>
         {error && (
           <Text style={styles.errorText}>{error}</Text>
@@ -177,12 +177,6 @@ export const PersonalWalletSection: React.FC<PersonalWalletSectionProps> = ({
 
       {/* Info Section */}
       <View style={styles.infoCard}>
-        <View style={styles.infoRow}>
-          <Ionicons name="flash" size={16} color={theme.colors.textMuted} />
-          <Text style={styles.infoText}>
-            Lightning payments via Nostr
-          </Text>
-        </View>
         {lastClaimTime && (
           <View style={styles.infoRow}>
             <Ionicons name="checkmark-circle" size={16} color={theme.colors.statusConnected} />

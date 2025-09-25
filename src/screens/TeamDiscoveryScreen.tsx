@@ -86,7 +86,7 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
   const [isLoading, setIsLoading] = useState(propIsLoading);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [captainStatus, setCaptainStatus] = useState<{
     showCaptainDashboard: boolean;
     primaryTeam: NostrTeam | null;
@@ -237,14 +237,34 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
     onClose();
   };
 
+  // Enhanced filter categories
+  const filterCategories = [
+    { id: 'all', label: 'All', filter: () => true },
+    { id: 'near', label: 'Near Me', filter: (team: DiscoveryTeam) => false }, // Mock for now
+    { id: 'running', label: 'Running', filter: (team: DiscoveryTeam) => categorizeTeam(team) === 'Running' },
+    { id: 'cycling', label: 'Cycling', filter: (team: DiscoveryTeam) => categorizeTeam(team) === 'Cycling' },
+    { id: 'active', label: 'Active Now', filter: (team: DiscoveryTeam) => team.stats.memberCount > 10 },
+    { id: 'prizes', label: 'Has Prizes', filter: (team: DiscoveryTeam) => (team.prizePool || 0) > 0 },
+  ];
+
   // Organize teams by category and filter by search
   const { categorizedTeams, categories } = useMemo(() => {
-    const filtered = teams.filter(team => {
-      if (searchQuery) {
-        return team.name.toLowerCase().includes(searchQuery.toLowerCase());
+    let filtered = teams;
+
+    // Apply search filter
+    if (searchQuery) {
+      filtered = filtered.filter(team =>
+        team.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Apply selected filter
+    if (selectedCategory && selectedCategory !== 'all') {
+      const filterDef = filterCategories.find(f => f.id === selectedCategory);
+      if (filterDef) {
+        filtered = filtered.filter(filterDef.filter);
       }
-      return true;
-    });
+    }
 
     const categorized: Record<string, DiscoveryTeam[]> = {};
     const categorySet = new Set<string>();
@@ -265,21 +285,29 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
     });
 
     return { categorizedTeams: categorized, categories: sortedCategories };
-  }, [teams, searchQuery]);
+  }, [teams, searchQuery, selectedCategory]);
 
-  // Get teams for display (filtered by category if selected)
+  // Get teams for display
   const displayTeams = useMemo(() => {
+    let result = teams;
+
+    // Apply search filter
     if (searchQuery) {
-      // When searching, show all matching teams regardless of category
-      return teams.filter(team =>
+      result = result.filter(team =>
         team.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-    if (selectedCategory) {
-      return categorizedTeams[selectedCategory] || [];
+
+    // Apply category filter
+    if (selectedCategory && selectedCategory !== 'all') {
+      const filterDef = filterCategories.find(f => f.id === selectedCategory);
+      if (filterDef) {
+        result = result.filter(filterDef.filter);
+      }
     }
-    return teams;
-  }, [teams, searchQuery, selectedCategory, categorizedTeams]);
+
+    return result;
+  }, [teams, searchQuery, selectedCategory]);
 
   const renderCategorySection = ({ item: category }: { item: string }) => {
     const categoryTeams = categorizedTeams[category] || [];
@@ -287,24 +315,23 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
 
     return (
       <View style={styles.categorySection} key={category}>
-        <Text style={styles.categoryTitle}>{category}</Text>
-        <FlatList
-          horizontal
-          data={categoryTeams}
-          renderItem={({ item }) => (
-            <View style={styles.horizontalCard}>
-              <TeamCard
-                key={item.id}
-                team={item}
-                onPress={handleTeamSelect}
-                currentUserNpub={currentUserPubkey}
-              />
-            </View>
-          )}
-          keyExtractor={(item) => item.id}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.horizontalList}
-        />
+        <View style={styles.categoryHeaderContainer}>
+          <Text style={styles.categoryTitle}>{category}</Text>
+          <View style={styles.categoryDivider} />
+        </View>
+        {categoryTeams.map((team) => {
+          discoverySession.current.trackTeamViewed(team.id);
+          analytics.trackTeamCardViewed(team);
+
+          return (
+            <TeamCard
+              key={team.id}
+              team={team}
+              onPress={handleTeamSelect}
+              currentUserNpub={currentUserPubkey}
+            />
+          );
+        })}
       </View>
     );
   };
@@ -372,51 +399,33 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
             )}
           </View>
 
-          {/* Category Filter Pills */}
-          {!searchQuery && categories.length > 0 && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.filterContainer}
-              contentContainerStyle={styles.filterContent}
-            >
+          {/* Enhanced Category Filter Pills */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filterContainer}
+            contentContainerStyle={styles.filterContent}
+          >
+            {filterCategories.map((filter) => (
               <TouchableOpacity
+                key={filter.id}
                 style={[
                   styles.filterPill,
-                  !selectedCategory && styles.filterPillActive,
+                  selectedCategory === filter.id && styles.filterPillActive,
                 ]}
-                onPress={() => setSelectedCategory(null)}
+                onPress={() => setSelectedCategory(filter.id === selectedCategory ? 'all' : filter.id)}
               >
                 <Text
                   style={[
                     styles.filterPillText,
-                    !selectedCategory && styles.filterPillTextActive,
+                    selectedCategory === filter.id && styles.filterPillTextActive,
                   ]}
                 >
-                  All Teams
+                  {filter.label}
                 </Text>
               </TouchableOpacity>
-              {categories.map((category) => (
-                <TouchableOpacity
-                  key={category}
-                  style={[
-                    styles.filterPill,
-                    selectedCategory === category && styles.filterPillActive,
-                  ]}
-                  onPress={() => setSelectedCategory(category)}
-                >
-                  <Text
-                    style={[
-                      styles.filterPillText,
-                      selectedCategory === category && styles.filterPillTextActive,
-                    ]}
-                  >
-                    {category}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          )}
+            ))}
+          </ScrollView>
         </View>
       )}
 
@@ -519,20 +528,22 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
           </View>
       ) : (
         <>
-          {/* Display based on current view mode */}
-          {searchQuery || selectedCategory ? (
-            // List view for search results or single category
-            <ScrollView
-              style={styles.scrollView}
-              contentContainerStyle={styles.content}
-              showsVerticalScrollIndicator={false}
-            >
-              {searchQuery && (
-                <Text style={styles.searchResultsText}>
-                  {displayTeams.length} team{displayTeams.length !== 1 ? 's' : ''} found
-                </Text>
-              )}
-              {displayTeams.map((team) => {
+          {/* Display teams */}
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
+          >
+            {searchQuery && (
+              <Text style={styles.searchResultsText}>
+                {displayTeams.length} team{displayTeams.length !== 1 ? 's' : ''} found
+              </Text>
+            )}
+
+            {/* Show filtered teams or categorized teams */}
+            {selectedCategory !== 'all' || searchQuery ? (
+              // Filtered or searched view - show flat list
+              displayTeams.map((team) => {
                 discoverySession.current.trackTeamViewed(team.id);
                 analytics.trackTeamCardViewed(team);
 
@@ -544,30 +555,26 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
                     currentUserNpub={currentUserPubkey}
                   />
                 );
-              })}
-              {displayTeams.length === 0 && (
-                <View style={styles.noResultsContainer}>
-                  <Text style={styles.noResultsText}>
-                    No teams found matching "{searchQuery}"
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.clearSearchButton}
-                    onPress={() => setSearchQuery('')}
-                  >
-                    <Text style={styles.clearSearchButtonText}>Clear Search</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </ScrollView>
-          ) : (
-            // Category sections view
-            <ScrollView
-              style={styles.scrollView}
-              showsVerticalScrollIndicator={false}
-            >
-              {categories.map((category) => renderCategorySection({ item: category }))}
-            </ScrollView>
-          )}
+              })
+            ) : (
+              // All teams view - show by category
+              categories.map((category) => renderCategorySection({ item: category }))
+            )}
+
+            {displayTeams.length === 0 && searchQuery && (
+              <View style={styles.noResultsContainer}>
+                <Text style={styles.noResultsText}>
+                  No teams found matching "{searchQuery}"
+                </Text>
+                <TouchableOpacity
+                  style={styles.clearSearchButton}
+                  onPress={() => setSearchQuery('')}
+                >
+                  <Text style={styles.clearSearchButtonText}>Clear Search</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </ScrollView>
         </>
       )}
     </SafeAreaView>
@@ -918,12 +925,25 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
 
-  categoryTitle: {
-    fontSize: 18,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
-    marginBottom: 12,
+  categoryHeaderContainer: {
     paddingHorizontal: 20,
+    marginBottom: 12,
+    marginTop: 20,
+  },
+
+  categoryTitle: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+
+  categoryDivider: {
+    height: 1,
+    backgroundColor: theme.colors.border,
+    opacity: 0.5,
   },
 
   horizontalList: {

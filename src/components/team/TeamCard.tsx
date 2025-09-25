@@ -1,6 +1,6 @@
 /**
- * TeamCard Component - Team discovery with join workflow
- * Shows team info, stats, activities, and join button for membership management
+ * TeamCard Component - Rich team discovery card with avatar and detailed info
+ * Shows team avatar, stats, activity status, prizes, and membership management
  */
 
 import React, { useState, useEffect } from 'react';
@@ -19,13 +19,68 @@ import { TeamMembershipService } from '../../services/team/teamMembershipService
 import { CaptainCache } from '../../utils/captainCache';
 import { publishJoinRequest } from '../../utils/joinRequestPublisher';
 
+// Helper function to generate avatar color based on team name
+const getAvatarColor = (teamName: string): string => {
+  const colors = ['#4CAF50', '#2196F3', '#FF9800', '#E91E63', '#9C27B0', '#00BCD4', '#FFC107', '#795548'];
+  const hash = teamName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return colors[hash % colors.length];
+};
+
+// Helper to get team initials for avatar
+const getTeamInitials = (teamName: string): string => {
+  const words = teamName.split(' ');
+  if (words.length >= 2) {
+    return words[0][0] + words[1][0];
+  }
+  return teamName.substring(0, 2).toUpperCase();
+};
+
+// Helper to categorize team activity
+const categorizeTeam = (team: DiscoveryTeam): string => {
+  const content = `${team.name} ${team.about}`.toLowerCase();
+
+  if (content.includes('running') || content.includes('run')) return 'Running';
+  if (content.includes('cycling') || content.includes('bike')) return 'Cycling';
+  if (content.includes('gym') || content.includes('workout') || content.includes('fitness')) return 'Gym';
+  if (content.includes('walking') || content.includes('walk')) return 'Walking';
+  if (content.includes('swimming')) return 'Swimming';
+  if (content.includes('ruck')) return 'Rucking';
+  return 'Fitness';
+};
+
+// Mock function to determine activity level
+const getActivityLevel = (team: DiscoveryTeam): { level: 'very-active' | 'active' | 'moderate'; text: string; color: string } => {
+  const memberCount = team.stats?.memberCount || 1;
+  const activeEvents = team.stats?.activeEvents || 0;
+
+  if (memberCount > 100 || activeEvents > 2) {
+    return { level: 'very-active', text: 'Very active', color: '#4CAF50' };
+  } else if (memberCount > 20 || activeEvents > 0) {
+    return { level: 'active', text: 'Active', color: '#FFC107' };
+  }
+  return { level: 'moderate', text: 'Moderate', color: '#9E9E9E' };
+};
+
+// Mock function to get last activity
+const getLastActivity = (team: DiscoveryTeam): string => {
+  const category = categorizeTeam(team);
+  const random = Math.random();
+
+  if (random < 0.2) return `${category === 'Running' ? 'Last run' : 'Last workout'} 2h ago`;
+  if (random < 0.4) return `${category === 'Cycling' ? 'Riding now' : 'Active now'}`;
+  if (random < 0.6) return `Last active 5h ago`;
+  if (random < 0.8) return `${category === 'Running' ? 'Morning runs daily' : 'Daily workouts'}`;
+  return 'Last active 1d ago';
+};
+
 
 interface TeamCardProps {
   team: DiscoveryTeam;
   onPress?: (team: DiscoveryTeam) => void;
   onJoinRequest?: (team: DiscoveryTeam) => Promise<void>;
   style?: any;
-  currentUserNpub?: string; // For captain detection and membership
+  currentUserNpub?: string;
+  showCategory?: boolean; // Show category label above card
 }
 
 type MembershipButtonState = 'join' | 'pending' | 'member' | 'captain' | 'loading';
@@ -36,6 +91,7 @@ export const TeamCard: React.FC<TeamCardProps> = ({
   onJoinRequest,
   style,
   currentUserNpub,
+  showCategory = false,
 }) => {
   const [buttonState, setButtonState] = useState<MembershipButtonState>('loading');
   const membershipService = TeamMembershipService.getInstance();
@@ -47,6 +103,11 @@ export const TeamCard: React.FC<TeamCardProps> = ({
   };
 
   const isCaptain = isTeamCaptain(currentUserNpub, team);
+  const activityInfo = getActivityLevel(team);
+  const lastActivity = getLastActivity(team);
+  const teamInitials = getTeamInitials(team.name);
+  const avatarColor = getAvatarColor(team.name);
+  const teamCategory = categorizeTeam(team);
 
   // Cache captain status when we detect it correctly
   useEffect(() => {
@@ -143,132 +204,288 @@ export const TeamCard: React.FC<TeamCardProps> = ({
   };
 
   return (
-    <Pressable
-      style={[styles.card, style]}
-      onPress={handleCardPress}
-      android_ripple={{ color: theme.colors.buttonHover }}
-    >
-      <View style={styles.cardContent}>
-        {/* Team Name */}
-        <Text style={styles.teamName} numberOfLines={1}>{team.name}</Text>
+    <View>
+      {showCategory && (
+        <Text style={styles.categoryHeader}>{teamCategory}</Text>
+      )}
+      <Pressable
+        style={[styles.card, style]}
+        onPress={handleCardPress}
+        android_ripple={{ color: theme.colors.buttonHover }}
+      >
+        <View style={styles.cardContent}>
+          {/* Team Avatar */}
+          <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
+            <Text style={styles.avatarText}>{teamInitials}</Text>
+          </View>
 
-        {/* Badges and Button Container */}
-        <View style={styles.rightSection}>
-          {/* Captain Badge */}
-          {isCaptain && (
-            <View style={styles.captainBadge}>
-              <Text style={styles.captainBadgeText}>CAPTAIN</Text>
+          {/* Team Info */}
+          <View style={styles.teamInfo}>
+            <View style={styles.teamHeader}>
+              <Text style={styles.teamName} numberOfLines={1}>{team.name}</Text>
+              {isCaptain && (
+                <View style={styles.captainBadge}>
+                  <Text style={styles.captainBadgeText}>CAPTAIN</Text>
+                </View>
+              )}
             </View>
-          )}
 
-          {/* Join/Member Status */}
-          {currentUserNpub && buttonState !== 'captain' && (
-            <Pressable
-              style={[
-                styles.joinButton,
-                buttonState === 'member' && styles.memberButton,
-                buttonState === 'pending' && styles.pendingButton,
-                buttonState === 'loading' && styles.loadingButton,
-              ]}
-              onPress={handleJoinPress}
-              disabled={buttonState === 'loading' || buttonState === 'pending' || buttonState === 'member'}
-            >
-              <Text style={[
-                styles.joinButtonText,
-                buttonState === 'member' && styles.memberButtonText,
-                buttonState === 'pending' && styles.pendingButtonText,
-              ]}>
-                {buttonState === 'loading' ? '...' :
-                 buttonState === 'pending' ? 'PENDING' :
-                 buttonState === 'member' ? 'MEMBER' : 'JOIN'}
+            <Text style={styles.teamDescription} numberOfLines={1}>
+              {team.about || `${teamCategory} team`}
+            </Text>
+
+            {/* Stats Row */}
+            <View style={styles.statsRow}>
+              <Text style={styles.statItem}>
+                {team.stats.memberCount} members
               </Text>
-            </Pressable>
-          )}
+              {team.stats.activeEvents > 0 && (
+                <Text style={styles.statItem}>
+                  {'\u2022'} {team.stats.activeEvents} active {team.stats.activeEvents === 1 ? 'challenge' : 'challenges'}
+                </Text>
+              )}
+              {team.stats.activeChallenges > 0 && (
+                <Text style={styles.statItem}>
+                  {'\u2022'} {team.stats.activeChallenges} {team.stats.activeChallenges === 1 ? 'competition' : 'competitions'}
+                </Text>
+              )}
+            </View>
+
+            {/* Activity Status */}
+            <View style={styles.activityRow}>
+              <View style={styles.activityIndicator}>
+                <View style={[styles.activityDot, { backgroundColor: activityInfo.color }]} />
+                <Text style={[styles.activityText, { color: activityInfo.color }]}>
+                  {activityInfo.text}
+                </Text>
+              </View>
+              <Text style={styles.lastActivityText}>{'\u2022'} {lastActivity}</Text>
+            </View>
+
+            {/* Prize Pool Badge if exists */}
+            {team.prizePool && team.prizePool > 0 && (
+              <View style={styles.prizeRow}>
+                <Text style={styles.prizeIcon}>🏆</Text>
+                <Text style={styles.prizeText}>
+                  ${team.prizePool.toLocaleString()} Prize Pool This Week
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Join Button */}
+          <View style={styles.buttonContainer}>
+            {currentUserNpub && buttonState !== 'captain' && (
+              <Pressable
+                style={[
+                  styles.joinButton,
+                  buttonState === 'member' && styles.memberButton,
+                  buttonState === 'pending' && styles.pendingButton,
+                  buttonState === 'loading' && styles.loadingButton,
+                ]}
+                onPress={handleJoinPress}
+                disabled={buttonState === 'loading' || buttonState === 'pending' || buttonState === 'member'}
+              >
+                <Text style={[
+                  styles.joinButtonText,
+                  buttonState === 'member' && styles.memberButtonText,
+                  buttonState === 'pending' && styles.pendingButtonText,
+                ]}>
+                  {buttonState === 'loading' ? '...' :
+                   buttonState === 'pending' ? 'Pending' :
+                   buttonState === 'member' ? 'Member' : 'Join'}
+                </Text>
+              </Pressable>
+            )}
+          </View>
         </View>
-      </View>
-    </Pressable>
+      </Pressable>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  categoryHeader: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.textMuted,
+    marginBottom: 8,
+    marginTop: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
   card: {
     backgroundColor: theme.colors.cardBackground,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: 12,
-    marginBottom: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    marginBottom: 16,
+    padding: 16,
   },
 
   cardContent: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
 
-  teamName: {
-    fontSize: 16,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.text,
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+
+  avatarText: {
+    fontSize: 18,
+    fontWeight: theme.typography.weights.bold,
+    color: '#FFFFFF',
+  },
+
+  teamInfo: {
     flex: 1,
     marginRight: 12,
   },
 
-  rightSection: {
+  teamHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    marginBottom: 4,
+  },
+
+  teamName: {
+    fontSize: 17,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+    marginRight: 8,
+  },
+
+  teamDescription: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    marginBottom: 8,
+  },
+
+  statsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 6,
+  },
+
+  statItem: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    marginRight: 8,
+  },
+
+  activityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+
+  activityIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  activityDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+
+  activityText: {
+    fontSize: 13,
+    fontWeight: theme.typography.weights.medium,
+  },
+
+  lastActivityText: {
+    fontSize: 13,
+    color: theme.colors.textMuted,
+    marginLeft: 4,
+  },
+
+  prizeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    backgroundColor: theme.colors.accent + '15',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
+  },
+
+  prizeIcon: {
+    fontSize: 14,
+    marginRight: 6,
+  },
+
+  prizeText: {
+    fontSize: 13,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.accent,
+  },
+
+  buttonContainer: {
+    justifyContent: 'center',
   },
 
   captainBadge: {
     backgroundColor: theme.colors.accent,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: 4,
   },
 
   captainBadgeText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.accentText,
     letterSpacing: 0.5,
   },
 
   joinButton: {
-    backgroundColor: theme.colors.accent,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    minWidth: 60,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    minWidth: 70,
     alignItems: 'center',
   },
 
   memberButton: {
-    backgroundColor: theme.colors.success || '#22c55e',
+    backgroundColor: theme.colors.cardBackground,
+    borderColor: theme.colors.success || '#22c55e',
   },
 
   pendingButton: {
-    backgroundColor: theme.colors.textMuted,
+    backgroundColor: theme.colors.cardBackground,
+    borderColor: theme.colors.textMuted,
   },
 
   loadingButton: {
-    backgroundColor: theme.colors.textMuted,
+    backgroundColor: theme.colors.cardBackground,
     opacity: 0.6,
   },
 
   joinButtonText: {
-    fontSize: 11,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.accentText,
-    letterSpacing: 0.5,
+    fontSize: 13,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.text,
   },
 
   memberButtonText: {
-    color: theme.colors.text,
+    color: theme.colors.success || '#22c55e',
   },
 
   pendingButtonText: {
-    color: theme.colors.text,
+    color: theme.colors.textMuted,
   },
 });
