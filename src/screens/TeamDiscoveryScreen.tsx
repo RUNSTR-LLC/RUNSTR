@@ -3,7 +3,7 @@
  * New users pick teams to join based on skill level, prize pools, and activity
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,8 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ActivityIndicator,
+  TextInput,
+  FlatList,
 } from 'react-native';
 import { theme } from '../styles/theme';
 import { DiscoveryTeam } from '../types';
@@ -42,6 +44,32 @@ interface TeamDiscoveryScreenProps {
   onCaptainDashboard?: () => void; // Navigate to captain dashboard
 }
 
+// Helper function to categorize teams
+const categorizeTeam = (team: DiscoveryTeam): string => {
+  const content = `${team.name} ${team.about}`.toLowerCase();
+
+  if (content.includes('running') || content.includes('run') || content.includes('marathon') || content.includes('5k') || content.includes('10k')) {
+    return 'Running';
+  }
+  if (content.includes('cycling') || content.includes('bike') || content.includes('bicycle') || content.includes('ride')) {
+    return 'Cycling';
+  }
+  if (content.includes('gym') || content.includes('workout') || content.includes('fitness') || content.includes('strength')) {
+    return 'Gym & Fitness';
+  }
+  if (content.includes('swimming') || content.includes('swim') || content.includes('pool')) {
+    return 'Swimming';
+  }
+  if (content.includes('walking') || content.includes('walk') || content.includes('hike') || content.includes('hiking')) {
+    return 'Walking & Hiking';
+  }
+  if (content.includes('yoga') || content.includes('pilates') || content.includes('meditation')) {
+    return 'Yoga & Wellness';
+  }
+
+  return 'Other';
+};
+
 export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
   onClose,
   onTeamJoin,
@@ -49,14 +77,16 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
   teams: propTeams,
   isLoading: propIsLoading = false,
   onCreateTeam,
-  showCloseButton = true, // Default to showing close button for backward compatibility
-  showHeader = true, // Default to showing header for backward compatibility
+  showCloseButton = true,
+  showHeader = true,
   currentUserPubkey,
   onCaptainDashboard,
 }) => {
   const [teams, setTeams] = useState<DiscoveryTeam[]>(propTeams || []);
   const [isLoading, setIsLoading] = useState(propIsLoading);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [captainStatus, setCaptainStatus] = useState<{
     showCaptainDashboard: boolean;
     primaryTeam: NostrTeam | null;
@@ -207,6 +237,78 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
     onClose();
   };
 
+  // Organize teams by category and filter by search
+  const { categorizedTeams, categories } = useMemo(() => {
+    const filtered = teams.filter(team => {
+      if (searchQuery) {
+        return team.name.toLowerCase().includes(searchQuery.toLowerCase());
+      }
+      return true;
+    });
+
+    const categorized: Record<string, DiscoveryTeam[]> = {};
+    const categorySet = new Set<string>();
+
+    filtered.forEach(team => {
+      const category = categorizeTeam(team);
+      categorySet.add(category);
+      if (!categorized[category]) {
+        categorized[category] = [];
+      }
+      categorized[category].push(team);
+    });
+
+    // Sort categories by priority
+    const sortedCategories = Array.from(categorySet).sort((a, b) => {
+      const priority = ['Running', 'Cycling', 'Gym & Fitness', 'Swimming', 'Walking & Hiking', 'Yoga & Wellness', 'Other'];
+      return priority.indexOf(a) - priority.indexOf(b);
+    });
+
+    return { categorizedTeams: categorized, categories: sortedCategories };
+  }, [teams, searchQuery]);
+
+  // Get teams for display (filtered by category if selected)
+  const displayTeams = useMemo(() => {
+    if (searchQuery) {
+      // When searching, show all matching teams regardless of category
+      return teams.filter(team =>
+        team.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    if (selectedCategory) {
+      return categorizedTeams[selectedCategory] || [];
+    }
+    return teams;
+  }, [teams, searchQuery, selectedCategory, categorizedTeams]);
+
+  const renderCategorySection = ({ item: category }: { item: string }) => {
+    const categoryTeams = categorizedTeams[category] || [];
+    if (categoryTeams.length === 0) return null;
+
+    return (
+      <View style={styles.categorySection} key={category}>
+        <Text style={styles.categoryTitle}>{category}</Text>
+        <FlatList
+          horizontal
+          data={categoryTeams}
+          renderItem={({ item }) => (
+            <View style={styles.horizontalCard}>
+              <TeamCard
+                key={item.id}
+                team={item}
+                onPress={handleTeamSelect}
+                currentUserNpub={currentUserPubkey}
+              />
+            </View>
+          )}
+          keyExtractor={(item) => item.id}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.horizontalList}
+        />
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Status Bar */}
@@ -246,24 +348,93 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
         </View>
       )}
 
-      {/* Welcome Section */}
+      {/* Search Bar */}
       {showHeader && (
-        <View style={styles.welcomeSection}>
-          <Text style={styles.welcomeTitle}>Join the Competition</Text>
-          <Text style={styles.welcomeSubtitle}>
-            Select a team that matches your skill level and goals. Earn bitcoin
-            rewards by competing in challenges and events.
-          </Text>
+        <View style={styles.searchSection}>
+          <View style={styles.searchContainer}>
+            <Text style={styles.searchIcon}>🔍</Text>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search teams by name..."
+              placeholderTextColor={theme.colors.textMuted}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity
+                onPress={() => setSearchQuery('')}
+                style={styles.clearButton}
+              >
+                <Text style={styles.clearButtonText}>×</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Category Filter Pills */}
+          {!searchQuery && categories.length > 0 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.filterContainer}
+              contentContainerStyle={styles.filterContent}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.filterPill,
+                  !selectedCategory && styles.filterPillActive,
+                ]}
+                onPress={() => setSelectedCategory(null)}
+              >
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    !selectedCategory && styles.filterPillTextActive,
+                  ]}
+                >
+                  All Teams
+                </Text>
+              </TouchableOpacity>
+              {categories.map((category) => (
+                <TouchableOpacity
+                  key={category}
+                  style={[
+                    styles.filterPill,
+                    selectedCategory === category && styles.filterPillActive,
+                  ]}
+                  onPress={() => setSelectedCategory(category)}
+                >
+                  <Text
+                    style={[
+                      styles.filterPillText,
+                      selectedCategory === category && styles.filterPillTextActive,
+                    ]}
+                  >
+                    {category}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
         </View>
       )}
 
-      {/* Team Cards */}
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        {isLoading ? (
+      {/* Team Display */}
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.text} />
+          <Text style={styles.loadingText}>Loading teams...</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Failed to load teams</Text>
+          <Text style={styles.errorSubtext}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => fetchTeams(true)}>
+            <Text style={styles.retryButtonText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      ) : teams.length === 0 ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={theme.colors.text} />
             <Text style={styles.loadingText}>Loading teams...</Text>
@@ -346,28 +517,59 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
               )}
             </View>
           </View>
-        ) : (
-          <>
-            {console.log(`🔥 RENDER: About to render ${teams.length} teams in UI:`, teams.map(t => ({ id: t.id, name: t.name })))}
-            {teams.map((team) => {
-              // Track team card view
-              discoverySession.current.trackTeamViewed(team.id);
-              analytics.trackTeamCardViewed(team);
+      ) : (
+        <>
+          {/* Display based on current view mode */}
+          {searchQuery || selectedCategory ? (
+            // List view for search results or single category
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={styles.content}
+              showsVerticalScrollIndicator={false}
+            >
+              {searchQuery && (
+                <Text style={styles.searchResultsText}>
+                  {displayTeams.length} team{displayTeams.length !== 1 ? 's' : ''} found
+                </Text>
+              )}
+              {displayTeams.map((team) => {
+                discoverySession.current.trackTeamViewed(team.id);
+                analytics.trackTeamCardViewed(team);
 
-              console.log(`🔥 RENDERING TEAM CARD: ${team.name} with key: ${team.id}`);
-              
-              return (
-                <TeamCard
-                  key={team.id}
-                  team={team}
-                  onPress={handleTeamSelect}
-                  currentUserNpub={currentUserPubkey}
-                />
-              );
-            })}
-          </>
-        )}
-      </ScrollView>
+                return (
+                  <TeamCard
+                    key={team.id}
+                    team={team}
+                    onPress={handleTeamSelect}
+                    currentUserNpub={currentUserPubkey}
+                  />
+                );
+              })}
+              {displayTeams.length === 0 && (
+                <View style={styles.noResultsContainer}>
+                  <Text style={styles.noResultsText}>
+                    No teams found matching "{searchQuery}"
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.clearSearchButton}
+                    onPress={() => setSearchQuery('')}
+                  >
+                    <Text style={styles.clearSearchButtonText}>Clear Search</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </ScrollView>
+          ) : (
+            // Category sections view
+            <ScrollView
+              style={styles.scrollView}
+              showsVerticalScrollIndicator={false}
+            >
+              {categories.map((category) => renderCategorySection({ item: category }))}
+            </ScrollView>
+          )}
+        </>
+      )}
     </SafeAreaView>
   );
 };
@@ -635,5 +837,134 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     lineHeight: 20,
     marginBottom: 4,
+  },
+
+  // Search and Filter Styles
+  searchSection: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 44,
+  },
+
+  searchIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: theme.colors.text,
+    paddingVertical: 8,
+  },
+
+  clearButton: {
+    padding: 4,
+  },
+
+  clearButtonText: {
+    fontSize: 20,
+    color: theme.colors.textMuted,
+  },
+
+  filterContainer: {
+    marginTop: 12,
+  },
+
+  filterContent: {
+    paddingRight: 20,
+  },
+
+  filterPill: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginRight: 8,
+  },
+
+  filterPillActive: {
+    backgroundColor: theme.colors.accent,
+    borderColor: theme.colors.accent,
+  },
+
+  filterPillText: {
+    fontSize: 13,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.text,
+  },
+
+  filterPillTextActive: {
+    color: theme.colors.accentText,
+  },
+
+  // Category Section Styles
+  categorySection: {
+    marginBottom: 24,
+  },
+
+  categoryTitle: {
+    fontSize: 18,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+    marginBottom: 12,
+    paddingHorizontal: 20,
+  },
+
+  horizontalList: {
+    paddingHorizontal: 20,
+  },
+
+  horizontalCard: {
+    width: 280,
+    marginRight: 12,
+  },
+
+  // Search Results
+  searchResultsText: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    marginBottom: 12,
+  },
+
+  noResultsContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+
+  noResultsText: {
+    fontSize: 16,
+    color: theme.colors.textMuted,
+    marginBottom: 16,
+  },
+
+  clearSearchButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+
+  clearSearchButtonText: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.text,
   },
 });

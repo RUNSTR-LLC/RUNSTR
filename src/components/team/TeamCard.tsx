@@ -19,31 +19,6 @@ import { TeamMembershipService } from '../../services/team/teamMembershipService
 import { CaptainCache } from '../../utils/captainCache';
 import { publishJoinRequest } from '../../utils/joinRequestPublisher';
 
-// Helper function to extract activity type from team content
-const extractActivityType = (team: DiscoveryTeam): string => {
-  const content = `${team.name} ${team.about}`.toLowerCase();
-  
-  if (content.includes('running') || content.includes('run') || content.includes('marathon') || content.includes('5k') || content.includes('10k')) {
-    return 'Running';
-  }
-  if (content.includes('cycling') || content.includes('bike') || content.includes('bicycle') || content.includes('ride')) {
-    return 'Cycling';
-  }
-  if (content.includes('swimming') || content.includes('swim') || content.includes('pool')) {
-    return 'Swimming';
-  }
-  if (content.includes('walking') || content.includes('walk') || content.includes('hike') || content.includes('hiking')) {
-    return 'Walking';
-  }
-  if (content.includes('gym') || content.includes('workout') || content.includes('fitness') || content.includes('strength')) {
-    return 'Gym';
-  }
-  if (content.includes('yoga') || content.includes('pilates') || content.includes('meditation')) {
-    return 'Yoga';
-  }
-  
-  return 'Fitness';
-};
 
 interface TeamCardProps {
   team: DiscoveryTeam;
@@ -72,7 +47,6 @@ export const TeamCard: React.FC<TeamCardProps> = ({
   };
 
   const isCaptain = isTeamCaptain(currentUserNpub, team);
-  const activityType = extractActivityType(team);
 
   // Cache captain status when we detect it correctly
   useEffect(() => {
@@ -170,212 +144,112 @@ export const TeamCard: React.FC<TeamCardProps> = ({
 
   return (
     <Pressable
-      style={[styles.card, team.isFeatured && styles.featuredCard, style]}
+      style={[styles.card, style]}
       onPress={handleCardPress}
       android_ripple={{ color: theme.colors.buttonHover }}
     >
-      {/* Team Header */}
-      <View style={styles.teamHeader}>
-        <View style={styles.teamInfo}>
-          <Text style={styles.teamName}>{team.name}</Text>
-          <Text style={styles.teamAbout}>{team.about}</Text>
-        </View>
-        <View style={styles.badgeContainer}>
-          {team.isFeatured && (
-            <View style={styles.featuredBadge}>
-              <Text style={styles.featuredBadgeText}>Featured</Text>
-            </View>
-          )}
+      <View style={styles.cardContent}>
+        {/* Team Name */}
+        <Text style={styles.teamName} numberOfLines={1}>{team.name}</Text>
+
+        {/* Badges and Button Container */}
+        <View style={styles.rightSection}>
+          {/* Captain Badge */}
           {isCaptain && (
             <View style={styles.captainBadge}>
-              <Text style={styles.captainBadgeText}>Captain</Text>
+              <Text style={styles.captainBadgeText}>CAPTAIN</Text>
             </View>
+          )}
+
+          {/* Join/Member Status */}
+          {currentUserNpub && buttonState !== 'captain' && (
+            <Pressable
+              style={[
+                styles.joinButton,
+                buttonState === 'member' && styles.memberButton,
+                buttonState === 'pending' && styles.pendingButton,
+                buttonState === 'loading' && styles.loadingButton,
+              ]}
+              onPress={handleJoinPress}
+              disabled={buttonState === 'loading' || buttonState === 'pending' || buttonState === 'member'}
+            >
+              <Text style={[
+                styles.joinButtonText,
+                buttonState === 'member' && styles.memberButtonText,
+                buttonState === 'pending' && styles.pendingButtonText,
+              ]}>
+                {buttonState === 'loading' ? '...' :
+                 buttonState === 'pending' ? 'PENDING' :
+                 buttonState === 'member' ? 'MEMBER' : 'JOIN'}
+              </Text>
+            </Pressable>
           )}
         </View>
       </View>
-
-      {/* Prize Section - Hidden for now */}
-      {/* <PrizeDisplay
-        prizePool={team.prizePool}
-        recentPayout={team.recentPayout}
-      /> */}
-
-      {/* Stats Grid */}
-      <View style={styles.statsGrid}>
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Members</Text>
-          <Text style={styles.statValue}>{team.stats.memberCount}</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Activity</Text>
-          <Text style={styles.statValue}>{activityType}</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Active Events</Text>
-          <Text style={styles.statValue}>{team.stats.activeEvents}</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Challenges</Text>
-          <Text style={styles.statValue}>{team.stats.activeChallenges}</Text>
-        </View>
-      </View>
-
-      {/* Membership Button */}
-      {currentUserNpub && buttonState !== 'captain' && (
-        <Pressable
-          style={[
-            styles.membershipButton,
-            buttonState === 'member' && styles.memberButton,
-            buttonState === 'pending' && styles.pendingButton,
-            buttonState === 'loading' && styles.loadingButton,
-          ]}
-          onPress={handleJoinPress}
-          disabled={buttonState === 'loading' || buttonState === 'pending' || buttonState === 'member'}
-        >
-          <Text style={[
-            styles.membershipButtonText,
-            buttonState === 'member' && styles.memberButtonText,
-            buttonState === 'pending' && styles.pendingButtonText,
-          ]}>
-            {buttonState === 'loading' ? 'Loading...' :
-             buttonState === 'pending' ? 'Request Sent' :
-             buttonState === 'member' ? 'Member' : 'Join Team'}
-          </Text>
-        </Pressable>
-      )}
-
     </Pressable>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
-    // Exact CSS: background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 16px; padding: 20px;
-    backgroundColor: theme.colors.cardBackground, // #0a0a0a
+    backgroundColor: theme.colors.cardBackground,
     borderWidth: 1,
-    borderColor: theme.colors.border, // #1a1a1a
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-  },
-
-  featuredCard: {
-    // Exact CSS: border-color: #fff; background: #0f0f0f;
-    borderColor: theme.colors.text, // #fff
-    backgroundColor: '#0f0f0f', // Slightly lighter than cardBackground
-  },
-
-  teamHeader: {
-    // Exact CSS: display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    borderColor: theme.colors.border,
+    borderRadius: 12,
     marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
 
-  teamInfo: {
-    // Exact CSS: flex: 1;
-    flex: 1,
+  cardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
 
   teamName: {
-    // Exact CSS: font-size: 18px; font-weight: 700; margin-bottom: 4px;
-    fontSize: 18,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
-    marginBottom: 4,
-  },
-
-  teamAbout: {
-    // Exact CSS: font-size: 13px; color: #999; line-height: 1.3;
-    fontSize: 13,
-    color: theme.colors.textTertiary, // #999
-    lineHeight: 16.9, // 13 * 1.3
-  },
-
-  featuredBadge: {
-    // Exact CSS: background: #fff; color: #000; padding: 2px 8px; border-radius: 8px;
-    backgroundColor: theme.colors.text, // #fff
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-  },
-
-  featuredBadgeText: {
-    // Exact CSS: font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
-    fontSize: 10,
-    fontWeight: theme.typography.weights.bold,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    color: theme.colors.accentText, // #000
-  },
-
-  statsGrid: {
-    // Exact CSS: display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-
-  statItem: {
-    // Each stat takes roughly half width with some gap
-    width: '48%',
-    marginBottom: 8,
-  },
-
-  statLabel: {
-    // Exact CSS: font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.5px;
-    fontSize: 11,
-    color: theme.colors.textMuted, // #666
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-
-  statValue: {
-    // Exact CSS: font-size: 15px; font-weight: 600; color: #fff;
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: theme.typography.weights.semiBold,
     color: theme.colors.text,
+    flex: 1,
+    marginRight: 12,
   },
 
-  badgeContainer: {
-    flexDirection: 'column',
-    alignItems: 'flex-end',
-    gap: 4,
+  rightSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
 
   captainBadge: {
-    backgroundColor: theme.colors.accent, // Gold/yellow for captain
+    backgroundColor: theme.colors.accent,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: 4,
   },
 
   captainBadgeText: {
     fontSize: 10,
-    fontWeight: theme.typography.weights.semiBold,
+    fontWeight: theme.typography.weights.bold,
     color: theme.colors.accentText,
-    textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
 
-  membershipButton: {
-    backgroundColor: theme.colors.accent, // Gold/yellow
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+  joinButton: {
+    backgroundColor: theme.colors.accent,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    minWidth: 60,
     alignItems: 'center',
-    marginTop: 12,
   },
 
   memberButton: {
-    backgroundColor: theme.colors.success || '#22c55e', // Green for members
+    backgroundColor: theme.colors.success || '#22c55e',
   },
 
   pendingButton: {
-    backgroundColor: theme.colors.textMuted, // Gray for pending
+    backgroundColor: theme.colors.textMuted,
   },
 
   loadingButton: {
@@ -383,11 +257,10 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
 
-  membershipButtonText: {
-    fontSize: 14,
-    fontWeight: theme.typography.weights.semiBold,
+  joinButtonText: {
+    fontSize: 11,
+    fontWeight: theme.typography.weights.bold,
     color: theme.colors.accentText,
-    textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
 
@@ -398,5 +271,4 @@ const styles = StyleSheet.create({
   pendingButtonText: {
     color: theme.colors.text,
   },
-
 });
