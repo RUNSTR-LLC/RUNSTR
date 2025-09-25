@@ -1,26 +1,21 @@
 /**
  * WorkoutStatsOverview Component
- * Displays aggregated workout statistics with period selection
+ * Displays aggregated workout statistics
  */
 
 import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView
+  StyleSheet
 } from 'react-native';
 import { theme } from '../../styles/theme';
 import { Card } from '../ui/Card';
 import type { UnifiedWorkout } from '../../services/fitness/workoutMergeService';
 import { WorkoutGroupingService } from '../../utils/workoutGrouping';
 
-export type StatsPeriod = 'week' | 'month' | 'year' | 'all';
-
 interface WorkoutStatsOverviewProps {
   workouts: UnifiedWorkout[];
-  onPeriodChange?: (period: StatsPeriod) => void;
 }
 
 interface PeriodStats {
@@ -34,10 +29,8 @@ interface PeriodStats {
 }
 
 export const WorkoutStatsOverview: React.FC<WorkoutStatsOverviewProps> = ({
-  workouts,
-  onPeriodChange
+  workouts
 }) => {
-  const [selectedPeriod, setSelectedPeriod] = useState<StatsPeriod>('week');
   const [stats, setStats] = useState<PeriodStats>({
     totalWorkouts: 0,
     totalDistance: 0,
@@ -49,45 +42,12 @@ export const WorkoutStatsOverview: React.FC<WorkoutStatsOverviewProps> = ({
 
   useEffect(() => {
     calculateStats();
-  }, [workouts, selectedPeriod]);
+  }, [workouts]);
 
   const calculateStats = () => {
-    const now = new Date();
-    let filteredWorkouts: UnifiedWorkout[] = [];
-    let previousPeriodWorkouts: UnifiedWorkout[] = [];
-
-    switch (selectedPeriod) {
-      case 'week':
-        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
-        filteredWorkouts = workouts.filter(w => new Date(w.startTime) >= weekAgo);
-        previousPeriodWorkouts = workouts.filter(
-          w => new Date(w.startTime) >= twoWeeksAgo && new Date(w.startTime) < weekAgo
-        );
-        break;
-
-      case 'month':
-        const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-        const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, now.getDate());
-        filteredWorkouts = workouts.filter(w => new Date(w.startTime) >= monthAgo);
-        previousPeriodWorkouts = workouts.filter(
-          w => new Date(w.startTime) >= twoMonthsAgo && new Date(w.startTime) < monthAgo
-        );
-        break;
-
-      case 'year':
-        const yearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
-        const twoYearsAgo = new Date(now.getFullYear() - 2, now.getMonth(), now.getDate());
-        filteredWorkouts = workouts.filter(w => new Date(w.startTime) >= yearAgo);
-        previousPeriodWorkouts = workouts.filter(
-          w => new Date(w.startTime) >= twoYearsAgo && new Date(w.startTime) < yearAgo
-        );
-        break;
-
-      case 'all':
-        filteredWorkouts = workouts;
-        break;
-    }
+    // Use all workouts for stats
+    const filteredWorkouts = workouts;
+    const previousPeriodWorkouts: UnifiedWorkout[] = [];
 
     const currentStats = WorkoutGroupingService.calculateGroupStats(filteredWorkouts);
     const previousStats = previousPeriodWorkouts.length > 0
@@ -101,12 +61,11 @@ export const WorkoutStatsOverview: React.FC<WorkoutStatsOverviewProps> = ({
         previousStats.totalWorkouts) * 100;
     }
 
-    // Calculate average per week
-    const weeksInPeriod = selectedPeriod === 'week' ? 1 :
-      selectedPeriod === 'month' ? 4 :
-      selectedPeriod === 'year' ? 52 :
-      Math.ceil((new Date().getTime() - new Date(workouts[workouts.length - 1]?.startTime || new Date()).getTime()) /
-        (7 * 24 * 60 * 60 * 1000));
+    // Calculate average per week based on all data
+    const weeksInPeriod = workouts.length > 0
+      ? Math.max(1, Math.ceil((new Date().getTime() - new Date(workouts[workouts.length - 1].startTime).getTime()) /
+        (7 * 24 * 60 * 60 * 1000)))
+      : 1;
 
     // Calculate streak (consecutive days with workouts)
     const streak = calculateStreak(workouts);
@@ -163,11 +122,6 @@ export const WorkoutStatsOverview: React.FC<WorkoutStatsOverviewProps> = ({
     return `${Math.floor(seconds / 60)}m`;
   };
 
-  const handlePeriodChange = (period: StatsPeriod) => {
-    setSelectedPeriod(period);
-    onPeriodChange?.(period);
-  };
-
   const getComparisonArrow = (percent?: number) => {
     if (!percent) return '';
     return percent > 0 ? '↑' : percent < 0 ? '↓' : '→';
@@ -180,32 +134,6 @@ export const WorkoutStatsOverview: React.FC<WorkoutStatsOverviewProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Period Selector */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.periodSelector}
-      >
-        {(['week', 'month', 'year', 'all'] as StatsPeriod[]).map(period => (
-          <TouchableOpacity
-            key={period}
-            onPress={() => handlePeriodChange(period)}
-            style={[
-              styles.periodButton,
-              selectedPeriod === period && styles.periodButtonActive
-            ]}
-          >
-            <Text style={[
-              styles.periodButtonText,
-              selectedPeriod === period && styles.periodButtonTextActive
-            ]}>
-              {period === 'all' ? 'All Time' :
-               period.charAt(0).toUpperCase() + period.slice(1)}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
       {/* Main Stats Card */}
       <Card style={styles.statsCard}>
         <View style={styles.mainStats}>
@@ -221,7 +149,6 @@ export const WorkoutStatsOverview: React.FC<WorkoutStatsOverviewProps> = ({
 
           {stats.streak > 0 && (
             <View style={styles.streakContainer}>
-              <Text style={styles.streakEmoji}>🔥</Text>
               <Text style={styles.streakValue}>{stats.streak}</Text>
               <Text style={styles.streakLabel}>day streak</Text>
             </View>
@@ -231,25 +158,21 @@ export const WorkoutStatsOverview: React.FC<WorkoutStatsOverviewProps> = ({
         <View style={styles.secondaryStats}>
           {stats.totalDistance > 0 && (
             <View style={styles.statItem}>
-              <Text style={styles.statIcon}>📍</Text>
               <Text style={styles.statValue}>{formatDistance(stats.totalDistance)}</Text>
             </View>
           )}
 
           <View style={styles.statItem}>
-            <Text style={styles.statIcon}>⏱</Text>
             <Text style={styles.statValue}>{formatDuration(stats.totalDuration)}</Text>
           </View>
 
           {stats.totalCalories > 0 && (
             <View style={styles.statItem}>
-              <Text style={styles.statIcon}>🔥</Text>
               <Text style={styles.statValue}>{stats.totalCalories.toFixed(0)} cal</Text>
             </View>
           )}
 
           <View style={styles.statItem}>
-            <Text style={styles.statIcon}>📊</Text>
             <Text style={styles.statValue}>{stats.averagePerWeek.toFixed(1)}/wk</Text>
           </View>
         </View>
@@ -261,32 +184,6 @@ export const WorkoutStatsOverview: React.FC<WorkoutStatsOverviewProps> = ({
 const styles = StyleSheet.create({
   container: {
     marginVertical: 16
-  },
-  periodSelector: {
-    marginBottom: 12,
-    paddingHorizontal: 16
-  },
-  periodButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginRight: 8,
-    borderRadius: 20,
-    backgroundColor: theme.colors.cardBackground,
-    borderWidth: 1,
-    borderColor: theme.colors.border
-  },
-  periodButtonActive: {
-    backgroundColor: theme.colors.accent,
-    borderColor: theme.colors.accent
-  },
-  periodButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: theme.colors.textSecondary
-  },
-  periodButtonTextActive: {
-    color: theme.colors.accentText,
-    fontWeight: '600'
   },
   statsCard: {
     marginHorizontal: 16,
@@ -323,10 +220,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8
   },
-  streakEmoji: {
-    fontSize: 24,
-    marginBottom: 4
-  },
   streakValue: {
     fontSize: 20,
     fontWeight: '700',
@@ -345,10 +238,6 @@ const styles = StyleSheet.create({
   },
   statItem: {
     alignItems: 'center'
-  },
-  statIcon: {
-    fontSize: 20,
-    marginBottom: 4
   },
   statValue: {
     fontSize: 14,

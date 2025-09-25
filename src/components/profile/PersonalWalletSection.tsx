@@ -107,16 +107,12 @@ export const PersonalWalletSection: React.FC<PersonalWalletSectionProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Wallet Header */}
-      <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <Ionicons name="wallet" size={20} color={theme.colors.accent} />
-          <Text style={styles.title}>Wallet</Text>
-        </View>
-        {error && (
+      {/* Error display if needed */}
+      {error && (
+        <View style={styles.header}>
           <Text style={styles.errorText}>{error}</Text>
-        )}
-      </View>
+        </View>
+      )}
 
       {/* Balance Card */}
       <View style={styles.balanceCard}>
@@ -134,17 +130,6 @@ export const PersonalWalletSection: React.FC<PersonalWalletSectionProps> = ({
             </Text>
           </View>
 
-          <TouchableOpacity
-            style={styles.refreshButton}
-            onPress={handleRefresh}
-            disabled={isRefreshing}
-          >
-            {isRefreshing ? (
-              <ActivityIndicator size="small" color={theme.colors.accent} />
-            ) : (
-              <Ionicons name="refresh" size={24} color={theme.colors.accent} />
-            )}
-          </TouchableOpacity>
         </View>
 
         {/* Action Buttons */}
@@ -218,19 +203,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-
-  title: {
-    fontSize: 18,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.text,
-    flex: 1,
-  },
-
 
   errorText: {
     marginTop: 8,
@@ -289,10 +261,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 14,
     color: theme.colors.textMuted,
-  },
-
-  refreshButton: {
-    padding: 8,
   },
 
   // Actions
