@@ -232,16 +232,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           />
         </View>
 
-        {/* Activity Heatmap */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Activity Heatmap</Text>
-          <WorkoutCalendarHeatmap
-            workouts={data.recentWorkouts || []}
-            onDayPress={(date, workouts) => {
-              console.log('Day pressed:', date, 'Workouts:', workouts.length);
-            }}
-          />
-        </View>
       </ScrollView>
 
       {/* Send Modal */}
