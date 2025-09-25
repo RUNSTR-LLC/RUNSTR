@@ -1,6 +1,6 @@
 /**
- * PersonalWalletSection - NutZap Personal Wallet Display
- * Shows user's personal ecash wallet balance and actions
+ * PersonalWalletSection - Lightning Personal Wallet Display
+ * Shows user's personal Lightning wallet balance and actions
  * Integrated into Profile screen for all users
  */
 
@@ -60,7 +60,7 @@ export const PersonalWalletSection: React.FC<PersonalWalletSectionProps> = ({
     if (result.claimed > 0) {
       setLastClaimTime(new Date());
       Alert.alert(
-        'NutZaps Claimed!',
+        'Payment Received!',
         `Received ${result.claimed} sats`,
         [{ text: 'OK' }]
       );
@@ -111,10 +111,7 @@ export const PersonalWalletSection: React.FC<PersonalWalletSectionProps> = ({
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <Ionicons name="wallet" size={20} color={theme.colors.accent} />
-          <Text style={styles.title}>E-Cash Wallet</Text>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>NutZap</Text>
-          </View>
+          <Text style={styles.title}>Lightning Wallet</Text>
         </View>
         {error && (
           <Text style={styles.errorText}>{error}</Text>
@@ -183,7 +180,7 @@ export const PersonalWalletSection: React.FC<PersonalWalletSectionProps> = ({
         <View style={styles.infoRow}>
           <Ionicons name="flash" size={16} color={theme.colors.textMuted} />
           <Text style={styles.infoText}>
-            Instant P2P Bitcoin payments via Nostr
+            Lightning payments via Nostr
           </Text>
         </View>
         {lastClaimTime && (
@@ -240,18 +237,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  badge: {
-    backgroundColor: theme.colors.accent + '20',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: theme.borderRadius.small,
-  },
-
-  badgeText: {
-    fontSize: 12,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.accent,
-  },
 
   errorText: {
     marginTop: 8,

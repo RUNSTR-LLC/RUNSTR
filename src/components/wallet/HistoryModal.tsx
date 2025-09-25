@@ -1,5 +1,5 @@
 /**
- * HistoryModal - Transaction history modal for NutZap wallet
+ * HistoryModal - Transaction history modal for Lightning wallet
  * Displays sent and received transactions in a modal interface
  */
 
@@ -100,13 +100,13 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
       case 'lightning_received':
         return 'Lightning Invoice Paid';
       case 'nutzap_sent':
-        return 'NutZap Sent';
+        return 'Lightning Zap Sent';
       case 'nutzap_received':
-        return 'NutZap Received';
+        return 'Lightning Zap Received';
       case 'cashu_sent':
-        return 'E-cash Token Created';
+        return 'Lightning Payment Sent';
       case 'cashu_received':
-        return 'E-cash Token Claimed';
+        return 'Lightning Payment Received';
       default:
         return type.includes('sent') ? 'Sent' : 'Received';
     }

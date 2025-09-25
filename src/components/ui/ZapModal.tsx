@@ -1,6 +1,6 @@
 /**
- * ZapModal - P2P Cashu payment modal for competition winners
- * Uses NIP-60 wallets to send Cashu tokens directly between users
+ * ZapModal - P2P Lightning payment modal for competition winners
+ * Sends Lightning payments directly between users
  * Simple amount selection and one-tap sending
  */
 

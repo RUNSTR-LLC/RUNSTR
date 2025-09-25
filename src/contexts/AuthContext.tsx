@@ -23,6 +23,7 @@ interface AuthState {
 // Authentication actions interface
 interface AuthActions {
   signIn: (nsec: string) => Promise<{ success: boolean; error?: string }>;
+  signUp: () => Promise<{ success: boolean; error?: string }>;
   signInWithApple: () => Promise<{ success: boolean; error?: string }>;
   signInWithAmber: () => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
@@ -263,6 +264,46 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   /**
+   * Sign up with new Nostr identity - generates fresh keypair
+   * One-click signup that creates a new Nostr identity
+   */
+  const signUp = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
+    try {
+      console.log('🚀 AuthContext: Starting sign up process (generating new identity)...');
+      setConnectionStatus('Generating identity...');
+
+      // Use AuthService to generate new Nostr identity
+      const result = await AuthService.signUpWithNostr();
+
+      if (!result.success || !result.user) {
+        console.error('❌ AuthContext: Signup failed:', result.error);
+        return { success: false, error: result.error };
+      }
+
+      console.log('✅ AuthContext: Signup successful - new identity created');
+
+      // Direct state updates (like iOS app)
+      setIsAuthenticated(true);
+      setShowLoadingSplash(true); // Show loading splash after successful signup
+      setConnectionStatus('Setting up your fitness journey...');
+
+      // Start loading profile in background while showing splash
+      setTimeout(() => {
+        setCurrentUser(result.user);
+        setIsConnected(true);
+        setConnectionStatus('Connected');
+        setInitError(null);
+      }, 100);
+
+      return { success: true };
+    } catch (error) {
+      console.error('❌ AuthContext: Sign up error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create identity';
+      return { success: false, error: errorMessage };
+    }
+  }, []);
+
+  /**
    * Handle splash screen completion
    */
   const onSplashComplete = useCallback(() => {
@@ -443,6 +484,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // Actions
     signIn,
+    signUp,
     signInWithApple,
     signInWithAmber,
     signOut,

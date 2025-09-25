@@ -141,6 +141,32 @@ export class AuthService {
   }
 
   /**
+   * Sign up with new Nostr identity - generates fresh keypair
+   */
+  static async signUpWithNostr(): Promise<AuthResult> {
+    try {
+      console.log('AuthService: Starting Nostr signup (generating new identity)...');
+
+      const nostrProvider = new NostrAuthProvider();
+      const result = await nostrProvider.signUpPureNostr();
+
+      if (!result.success || !result.user) {
+        return result;
+      }
+
+      console.log('AuthService: Nostr signup successful - new identity created');
+
+      return result;
+    } catch (error) {
+      console.error('AuthService: Nostr signup error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create Nostr identity',
+      };
+    }
+  }
+
+  /**
    * Sign in with Apple and generate deterministic Nostr keys
    */
   static async signInWithApple(): Promise<AuthResult> {

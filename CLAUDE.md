@@ -1,7 +1,7 @@
 # RUNSTR REWARDS - Claude Context
 
 ## Project Overview
-RUNSTR REWARDS is a React Native mobile application that transforms fitness routines into Bitcoin-powered team competitions through Nostr's decentralized protocol. The app creates a complete fitness economy where every user gets an auto-created NIP-60/61 eCash wallet, enabling instant peer-to-peer Bitcoin transactions. Team members can zap satoshis to each other for motivation, captains can distribute prizes directly, and fitness teams operate as self-contained Bitcoin circular economies.
+RUNSTR REWARDS is a React Native mobile application that transforms fitness routines into Bitcoin-powered team competitions through Nostr's decentralized protocol. The app creates a complete fitness economy where every user gets an auto-created Lightning wallet (implemented via NIP-60/61 protocol), enabling instant peer-to-peer Bitcoin transactions. Team members can zap satoshis to each other for motivation, captains can distribute prizes directly, and fitness teams operate as self-contained Bitcoin circular economies.
 
 📖 **For detailed overview, see**: [RUNSTR_REWARDS_OVERVIEW.md](./RUNSTR_REWARDS_OVERVIEW.md)
 📖 **For user flow documentation, see**: [APP_USER_FLOW_AND_CAPTAIN_EXPERIENCE.md](./docs/APP_USER_FLOW_AND_CAPTAIN_EXPERIENCE.md)
@@ -12,14 +12,14 @@ RUNSTR REWARDS is a React Native mobile application that transforms fitness rout
 
 **Key Features**:
 - **Nostr-Only Authentication**: Direct nsec login with automatic profile/workout import from stored keys
-- **Auto-Wallet Creation**: Every user gets a NIP-60/61 eCash wallet automatically on login
+- **Auto-Wallet Creation**: Every user gets a Lightning wallet automatically on login (NIP-60/61 implementation)
 - **P2P Bitcoin Zaps**: Tap lightning bolt for 21 sats, long-press for custom amounts
 - **HealthKit Workout Posting**: Transform Apple Health workouts into Nostr events and social media cards
 - Real-time team discovery from multiple Nostr relays
 - Captain dashboard with join request management and direct member zapping
 - Competition creation (7 activity types, cascading dropdowns)
 - Automatic leaderboard scoring based on captain-defined parameters
-- **NutZap Integration**: Complete NIP-60/61 implementation with Cashu mints for instant, feeless Bitcoin transfers
+- **Lightning Integration**: Complete NIP-60/61 implementation for instant, low-fee Bitcoin transfers
 - **Beautiful Social Cards**: Instagram-worthy workout achievement graphics with RUNSTR branding
 - **Auto-Receive**: Automatic claiming of incoming zaps every 30 seconds
 - **Bitcoin Circular Economy**: Teams operate as self-contained economies with entry fees, prizes, and peer support
@@ -35,7 +35,7 @@ RUNSTR REWARDS is a React Native mobile application that transforms fitness rout
 - **Authentication**: Nostr (nsec) - direct authentication only
 - **Fitness Data**: Kind 1301 events from Nostr relays + Apple HealthKit
 - **Team Data**: Custom Nostr event kinds for teams, leagues, events, challenges
-- **Bitcoin**: NIP-60/61 (Cashu/eCash) for P2P payments - complete NutZap implementation with auto-wallet creation
+- **Bitcoin**: Lightning payments via NIP-60/61 protocol for P2P transactions with auto-wallet creation
 - **Nostr Library**: NDK (@nostr-dev-kit/ndk) EXCLUSIVELY - NEVER use nostr-tools
 - **Nostr Relays**: Damus, Primal, nos.lol for social data operations
 - **In-App Notifications**: Nostr event-driven notifications (kinds 1101, 1102, 1103) - no push notifications
@@ -89,7 +89,7 @@ src/
 - **Nostr Event Based**: Competitions published as kind 30100 (leagues) and 30101 (events)
 - **Manual Entry**: Participants post kind 1301 workout events to enter competitions
 - **Automatic Scoring**: Real-time leaderboards based on captain's wizard parameters
-- **Bitcoin Rewards**: Direct P2P zaps via NutZap system - captains and members can instantly send satoshis
+- **Bitcoin Rewards**: Direct P2P zaps via Lightning - captains and members can instantly send satoshis
 
 **5. Team Management**:
 - **Two-Tier Membership**: Local joining (instant UX) + Official Nostr lists (captain approval)
@@ -290,7 +290,7 @@ Simple two-tab interface with dark theme:
 ✅ **Competition Wizard System** - Complete Event & League creation wizards
 ✅ **Captain Dashboard** - Team management with join request approvals and member removal
 ✅ **Dynamic Scoring System** - Automatic leaderboards based on wizard parameters
-✅ **Bitcoin Integration** - NIP-60/Cashu P2P payments, direct prize distribution
+✅ **Bitcoin Integration** - NIP-60/61 Lightning P2P payments, direct prize distribution
 ✅ Two-tier membership system (local + official Nostr lists)
 ✅ **In-App Notifications** - Nostr event-driven notifications (no push)
 ✅ **HealthKit Workout Posting** - Transform Apple Health workouts into Nostr events and social cards
@@ -379,7 +379,7 @@ Simple two-tab interface with dark theme:
 - **No Team Wallets**: Direct P2P Bitcoin payments via NIP-60/61 (no pooled funds)
 - **No Backend Database**: Pure Nostr events + AsyncStorage caching only
 - **Ephemeral Competitions**: Competitions exist as app-side views over permanent Nostr workout data
-- **Working Cashu Mint**: Uses https://mint.coinos.io (legitimate Cashu mint, NOT CoinOS wallet service)
+- **Working Backend**: Uses NIP-60/61 protocol with mint.coinos.io infrastructure
 
 **Why This Architecture:**
 - **Simplicity**: No complex Nostr event types needed for competitions
@@ -421,14 +421,14 @@ Simple two-tab interface with dark theme:
 ### 5. Expo vs React Native Relationship
 **Key Understanding**: Expo is a framework built on top of React Native that provides full App Store deployment capabilities through EAS (Expo Application Services). No need to "eject" to vanilla React Native for store deployment.
 
-## NutZap P2P Bitcoin System
-**Complete NIP-60/61 Implementation**:
-- **Auto-Wallet Creation**: Every user automatically gets an eCash wallet on login
+## Lightning P2P Bitcoin System
+**Complete NIP-60/61 Protocol Implementation**:
+- **Auto-Wallet Creation**: Every user automatically gets a Lightning wallet on login
 - **Instant Zaps**: Tap lightning bolt for 21 sats, long-press for custom amounts
 - **Auto-Receive**: Background service claims incoming zaps every 30 seconds
 - **Transaction History**: Full logging of all sent/received payments
-- **Cashu Integration**: Uses mint.coinos.io as primary Cashu mint
-- **Feeless Transfers**: eCash enables instant, private, feeless Bitcoin transfers
+- **Technical Infrastructure**: Uses NIP-60/61 protocol with mint.coinos.io backend
+- **Instant Transfers**: Lightning enables instant, private Bitcoin transfers
 
 **Zap UI Throughout App**:
 - Lightning bolt buttons on user profiles and team member lists

@@ -1,6 +1,6 @@
 /**
- * SendModal - Unified send interface for Lightning and Cashu
- * Allows sending via NutZap, Lightning invoice, or Cashu token
+ * SendModal - Lightning payment send interface
+ * Allows sending via Lightning invoice or Lightning address
  */
 
 import React, { useState } from 'react';
@@ -17,7 +17,6 @@ import {
 } from 'react-native';
 import { theme } from '../../styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';
 import nutzapService from '../../services/nutzap/nutzapService';
 import { nip19 } from 'nostr-tools';
 
@@ -27,7 +26,7 @@ interface SendModalProps {
   currentBalance: number;
 }
 
-type SendMethod = 'lightning' | 'cashu';
+type SendMethod = 'lightning';
 
 // Helper function to detect payment type
 const detectPaymentType = (input: string): 'invoice' | 'address' | 'unknown' => {
@@ -41,13 +40,11 @@ export const SendModal: React.FC<SendModalProps> = ({
   onClose,
   currentBalance,
 }) => {
-  const [sendMethod, setSendMethod] = useState<SendMethod>('lightning');
+  const [sendMethod] = useState<SendMethod>('lightning');
   const [amount, setAmount] = useState('');
   const [recipient, setRecipient] = useState('');
   const [paymentType, setPaymentType] = useState<'invoice' | 'address' | 'unknown'>('unknown');
   const [isLoadingInvoice, setIsLoadingInvoice] = useState(false);
-  const [memo, setMemo] = useState('');
-  const [generatedToken, setGeneratedToken] = useState('');
   const [isSending, setIsSending] = useState(false);
 
   // Handle recipient input changes
@@ -83,7 +80,7 @@ export const SendModal: React.FC<SendModalProps> = ({
 
       try {
         const sats = parseInt(amount) || 0;
-        const result = await nutzapService.payLightningInvoice(recipient, sats > 0 ? sats : undefined, memo);
+        const result = await nutzapService.payLightningInvoice(recipient, sats > 0 ? sats : undefined);
 
         if (result.success) {
           Alert.alert(
@@ -101,48 +98,12 @@ export const SendModal: React.FC<SendModalProps> = ({
       } finally {
         setIsSending(false);
       }
-    } else if (sendMethod === 'cashu') {
-        // Generate E-cash token
-        const sats = parseInt(amount);
-        if (isNaN(sats) || sats <= 0) {
-          Alert.alert('Invalid Amount', 'Please enter a valid amount in sats.');
-          return;
-        }
-
-        if (sats > currentBalance) {
-          Alert.alert('Insufficient Balance', `You only have ${currentBalance} sats available.`);
-          return;
-        }
-
-        setIsSending(true);
-        try {
-          const token = await nutzapService.generateCashuToken(sats, memo);
-          setGeneratedToken(token);
-          Alert.alert(
-            'Token Generated!',
-            'E-cash token has been generated. Share it with the recipient.',
-            [{ text: 'OK' }]
-          );
-        } catch (error) {
-          console.error('Send error:', error);
-          Alert.alert('Error', 'Failed to generate token. Please try again.');
-        } finally {
-          setIsSending(false);
-        }
     }
-  };
-
-  const handleCopyToken = async () => {
-    await Clipboard.setStringAsync(generatedToken);
-    Alert.alert('Copied!', 'E-cash token copied to clipboard');
   };
 
   const handleClose = () => {
     setAmount('');
     setRecipient('');
-    setMemo('');
-    setGeneratedToken('');
-    setSendMethod('lightning');
     onClose();
   };
 
@@ -170,28 +131,8 @@ export const SendModal: React.FC<SendModalProps> = ({
             </Text>
           </View>
 
-          {/* Send Method Tabs */}
-          <View style={styles.tabs}>
-            <TouchableOpacity
-              style={[styles.tab, sendMethod === 'lightning' && styles.tabActive]}
-              onPress={() => setSendMethod('lightning')}
-            >
-              <Text style={[styles.tabText, sendMethod === 'lightning' && styles.tabTextActive]}>
-                Lightning
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, sendMethod === 'cashu' && styles.tabActive]}
-              onPress={() => setSendMethod('cashu')}
-            >
-              <Text style={[styles.tabText, sendMethod === 'cashu' && styles.tabTextActive]}>
-                E-cash
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Amount Input - Show for Cashu and Lightning (hide only for complete invoices) */}
-          {(sendMethod === 'cashu' || (sendMethod === 'lightning' && paymentType !== 'invoice')) && (
+          {/* Amount Input - Show for Lightning address (hide for complete invoices) */}
+          {paymentType !== 'invoice' && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>
                 Amount {sendMethod === 'lightning' && paymentType !== 'invoice' ? '(Required for Lightning address)' : ''}
@@ -244,58 +185,25 @@ export const SendModal: React.FC<SendModalProps> = ({
             </View>
           )}
 
-          {/* Memo Input (for E-cash) */}
-          {sendMethod === 'cashu' && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Memo (optional)</Text>
-              <TextInput
-                style={styles.textInput}
-                value={memo}
-                onChangeText={setMemo}
-                placeholder="Add a message..."
-                placeholderTextColor={theme.colors.textMuted}
-              />
-            </View>
-          )}
-
-          {/* Generated Token Display */}
-          {generatedToken && sendMethod === 'cashu' && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Generated E-cash Token</Text>
-              <View style={styles.tokenContainer}>
-                <Text style={styles.tokenText} numberOfLines={3}>
-                  {generatedToken}
-                </Text>
-                <TouchableOpacity style={styles.copyButton} onPress={handleCopyToken}>
-                  <Ionicons name="copy" size={20} color={theme.colors.accent} />
-                  <Text style={styles.copyButtonText}>Copy</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
 
           {/* Send Button */}
           <TouchableOpacity
             style={[
               styles.primaryButton,
               (isSending ||
-               (sendMethod === 'cashu' && !amount) ||
-               (sendMethod === 'lightning' && (!recipient || (paymentType === 'address' && !amount) || (recipient && paymentType === 'unknown')))
+               (!recipient || (paymentType === 'address' && !amount) || (recipient && paymentType === 'unknown'))
               ) && styles.buttonDisabled,
             ]}
             onPress={handleSend}
             disabled={isSending ||
-                     (sendMethod === 'cashu' && !amount) ||
-                     (sendMethod === 'lightning' && (!recipient || (paymentType === 'address' && !amount) || (recipient && paymentType === 'unknown')))}
+                     (!recipient || (paymentType === 'address' && !amount) || (recipient && paymentType === 'unknown'))}
           >
             {isSending ? (
               <ActivityIndicator color={theme.colors.accentText} />
             ) : (
               <>
                 <Ionicons name="send" size={20} color={theme.colors.accentText} />
-                <Text style={styles.primaryButtonText}>
-                  {sendMethod === 'cashu' ? 'Generate Token' : 'Send'}
-                </Text>
+                <Text style={styles.primaryButtonText}>Send</Text>
               </>
             )}
           </TouchableOpacity>
@@ -357,35 +265,6 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
   },
 
-  // Tabs
-  tabs: {
-    flexDirection: 'row',
-    backgroundColor: theme.colors.cardBackground,
-    borderRadius: theme.borderRadius.medium,
-    padding: 4,
-    marginBottom: 20,
-  },
-
-  tab: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: theme.borderRadius.medium - 2,
-  },
-
-  tabActive: {
-    backgroundColor: theme.colors.accent,
-  },
-
-  tabText: {
-    fontSize: 14,
-    fontWeight: theme.typography.weights.medium,
-    color: theme.colors.textMuted,
-  },
-
-  tabTextActive: {
-    color: theme.colors.accentText,
-  },
 
   // Inputs
   section: {
@@ -435,34 +314,6 @@ const styles = StyleSheet.create({
     minHeight: 50,
   },
 
-  // Token display
-  tokenContainer: {
-    backgroundColor: theme.colors.cardBackground,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.borderRadius.medium,
-    padding: 12,
-  },
-
-  tokenText: {
-    fontSize: 12,
-    color: theme.colors.textMuted,
-    fontFamily: 'monospace',
-    marginBottom: 12,
-  },
-
-  copyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    alignSelf: 'flex-end',
-  },
-
-  copyButtonText: {
-    fontSize: 14,
-    fontWeight: theme.typography.weights.medium,
-    color: theme.colors.accent,
-  },
 
   // Button
   primaryButton: {

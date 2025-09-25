@@ -32,7 +32,7 @@ interface LoginScreenProps {
 
 export const LoginScreen: React.FC<LoginScreenProps> = () => {
   // Use AuthContext for direct authentication state management
-  const { signIn, signInWithAmber } = useAuth();
+  const { signIn, signUp, signInWithAmber } = useAuth();
   const insets = useSafeAreaInsets();
 
   // Local state for UI only
@@ -85,6 +85,33 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
       }
     } catch (error) {
       console.error('❌ LoginScreen: Authentication error:', error);
+      setError(
+        error instanceof Error ? error.message : 'An unexpected error occurred'
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSignUp = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      console.log('LoginScreen: Starting Nostr signup (generating new identity)...');
+
+      // Use AuthContext signUp - this generates a new identity and stores it
+      const result = await signUp();
+
+      if (result.success) {
+        console.log('✅ LoginScreen: Signup successful - new identity created');
+        // AuthContext will handle navigation automatically
+      } else {
+        console.error('❌ LoginScreen: Signup failed:', result.error);
+        setError(result.error || 'Failed to create identity. Please try again.');
+      }
+    } catch (error) {
+      console.error('❌ LoginScreen: Signup error:', error);
       setError(
         error instanceof Error ? error.message : 'An unexpected error occurred'
       );
@@ -204,6 +231,31 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
                     <Text style={styles.loginButtonText}>Sign in with Nostr</Text>
                   )}
                 </TouchableOpacity>
+
+                <View style={styles.dividerContainer}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>OR</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+
+                <TouchableOpacity
+                  style={styles.signupButton}
+                  onPress={handleSignUp}
+                  activeOpacity={0.8}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.signupButtonText}>Sign up</Text>
+                  )}
+                </TouchableOpacity>
+
+                {error && (
+                  <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>{error}</Text>
+                  </View>
+                )}
               </View>
             ) : (
               // Input Form
@@ -514,5 +566,30 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingHorizontal: 20,
     lineHeight: 16,
+  },
+
+  // Signup button styles
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+    width: '80%',
+    maxWidth: 320,
+    alignSelf: 'center',
+  },
+  signupButton: {
+    backgroundColor: theme.colors.accent,
+    height: 50,
+    borderRadius: 12,
+    width: '80%',
+    maxWidth: 320,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+  },
+  signupButtonText: {
+    fontSize: 19,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });

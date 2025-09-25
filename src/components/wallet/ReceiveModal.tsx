@@ -1,6 +1,6 @@
 /**
- * ReceiveModal - Unified receive interface for Lightning and Cashu
- * Allows receiving via Lightning invoice or Cashu token
+ * ReceiveModal - Lightning payment receive interface
+ * Allows receiving via Lightning invoice generation
  */
 
 import React, { useState } from 'react';
@@ -29,7 +29,7 @@ interface ReceiveModalProps {
   userNpub?: string;
 }
 
-type ReceiveMethod = 'lightning' | 'cashu';
+type ReceiveMethod = 'lightning';
 
 export const ReceiveModal: React.FC<ReceiveModalProps> = ({
   visible,
@@ -38,13 +38,11 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
   userNpub,
 }) => {
   const { refreshBalance, isInitialized, isLoading } = useNutzap(true);
-  const [receiveMethod, setReceiveMethod] = useState<ReceiveMethod>('lightning');
+  const [receiveMethod] = useState<ReceiveMethod>('lightning');
   const [amount, setAmount] = useState('');
   const [invoice, setInvoice] = useState('');
   const [quoteHash, setQuoteHash] = useState('');
-  const [cashuToken, setCashuToken] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isReceiving, setIsReceiving] = useState(false);
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const checkIntervalRef = React.useRef<NodeJS.Timeout>();
 
@@ -112,45 +110,6 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
     }
   };
 
-  const handleReceiveCashuToken = async () => {
-    if (!cashuToken) {
-      Alert.alert('Invalid Token', 'Please enter or paste an e-cash token.');
-      return;
-    }
-
-    setIsReceiving(true);
-    try {
-      const result = await nutzapService.receiveCashuToken(cashuToken);
-
-      if (result.amount > 0) {
-        await refreshBalance();
-        Alert.alert(
-          'Token Received!',
-          `${result.amount} sats have been added to your wallet`,
-          [{ text: 'OK', onPress: handleClose }]
-        );
-      } else {
-        Alert.alert(
-          'Receive Failed',
-          result.error || 'Failed to receive token. It may have already been claimed.',
-        );
-      }
-    } catch (error) {
-      console.error('Receive token error:', error);
-      Alert.alert('Error', 'Failed to receive token. Please try again.');
-    } finally {
-      setIsReceiving(false);
-    }
-  };
-
-  const handlePasteToken = async () => {
-    const text = await Clipboard.getStringAsync();
-    if (text && text.startsWith('cashuA')) {
-      setCashuToken(text);
-    } else {
-      Alert.alert('Invalid Token', 'Please copy a valid e-cash token first.');
-    }
-  };
 
   const handleCopyInvoice = async () => {
     await Clipboard.setStringAsync(invoice);
@@ -168,8 +127,6 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
     setAmount('');
     setInvoice('');
     setQuoteHash('');
-    setCashuToken('');
-    setReceiveMethod('lightning');
     setIsCheckingPayment(false);
     if (checkIntervalRef.current) {
       clearInterval(checkIntervalRef.current);
@@ -201,31 +158,10 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
             </Text>
           </View>
 
-          {/* Receive Method Tabs */}
-          <View style={styles.tabs}>
-            <TouchableOpacity
-              style={[styles.tab, receiveMethod === 'lightning' && styles.tabActive]}
-              onPress={() => setReceiveMethod('lightning')}
-            >
-              <Text style={[styles.tabText, receiveMethod === 'lightning' && styles.tabTextActive]}>
-                Lightning
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, receiveMethod === 'cashu' && styles.tabActive]}
-              onPress={() => setReceiveMethod('cashu')}
-            >
-              <Text style={[styles.tabText, receiveMethod === 'cashu' && styles.tabTextActive]}>
-                E-cash
-              </Text>
-            </TouchableOpacity>
-          </View>
 
           {/* Lightning Invoice */}
-          {receiveMethod === 'lightning' && (
+          {!invoice ? (
             <>
-              {!invoice ? (
-                <>
                   <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Amount to Receive</Text>
                     <View style={styles.inputContainer}>
@@ -306,46 +242,6 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
                   </TouchableOpacity>
                 </>
               )}
-            </>
-          )}
-
-          {/* E-cash Token */}
-          {receiveMethod === 'cashu' && (
-            <>
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Paste Token</Text>
-                <View style={styles.tokenInputContainer}>
-                  <TextInput
-                    style={styles.tokenInput}
-                    value={cashuToken}
-                    onChangeText={setCashuToken}
-                    placeholder="cashuA..."
-                    placeholderTextColor={theme.colors.textMuted}
-                    multiline
-                  />
-                  <TouchableOpacity style={styles.pasteButton} onPress={handlePasteToken}>
-                    <Ionicons name="clipboard" size={20} color={theme.colors.accent} />
-                    <Text style={styles.pasteButtonText}>Paste</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <TouchableOpacity
-                style={[styles.primaryButton, (isReceiving || !cashuToken) && styles.buttonDisabled]}
-                onPress={handleReceiveCashuToken}
-                disabled={isReceiving || !cashuToken}
-              >
-                {isReceiving ? (
-                  <ActivityIndicator color={theme.colors.accentText} />
-                ) : (
-                  <>
-                    <Ionicons name="download" size={20} color={theme.colors.accentText} />
-                    <Text style={styles.primaryButtonText}>Receive Token</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </>
-          )}
 
         </ScrollView>
       </View>
@@ -405,35 +301,6 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
   },
 
-  // Tabs
-  tabs: {
-    flexDirection: 'row',
-    backgroundColor: theme.colors.cardBackground,
-    borderRadius: theme.borderRadius.medium,
-    padding: 4,
-    marginBottom: 20,
-  },
-
-  tab: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: theme.borderRadius.medium - 2,
-  },
-
-  tabActive: {
-    backgroundColor: theme.colors.accent,
-  },
-
-  tabText: {
-    fontSize: 14,
-    fontWeight: theme.typography.weights.medium,
-    color: theme.colors.textMuted,
-  },
-
-  tabTextActive: {
-    color: theme.colors.accentText,
-  },
 
   // Inputs
   section: {
@@ -522,35 +389,6 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
   },
 
-  // Token input
-  tokenInputContainer: {
-    backgroundColor: theme.colors.cardBackground,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.borderRadius.medium,
-    padding: 12,
-  },
-
-  tokenInput: {
-    fontSize: 13,
-    color: theme.colors.text,
-    fontFamily: 'monospace',
-    minHeight: 60,
-  },
-
-  pasteButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    alignSelf: 'flex-end',
-    marginTop: 8,
-  },
-
-  pasteButtonText: {
-    fontSize: 14,
-    fontWeight: theme.typography.weights.medium,
-    color: theme.colors.accent,
-  },
 
   copyButton: {
     padding: 8,
