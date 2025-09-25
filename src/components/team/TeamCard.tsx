@@ -46,30 +46,6 @@ const categorizeTeam = (team: DiscoveryTeam): string => {
   return 'Fitness';
 };
 
-// Determine activity level without colors
-const getActivityLevel = (team: DiscoveryTeam): { level: 'very-active' | 'active' | 'moderate'; text: string } => {
-  const memberCount = team.stats?.memberCount || 1;
-  const activeEvents = team.stats?.activeEvents || 0;
-
-  if (memberCount > 100 || activeEvents > 2) {
-    return { level: 'very-active', text: 'Very active' };
-  } else if (memberCount > 20 || activeEvents > 0) {
-    return { level: 'active', text: 'Active' };
-  }
-  return { level: 'moderate', text: 'Moderate' };
-};
-
-// Mock function to get last activity
-const getLastActivity = (team: DiscoveryTeam): string => {
-  const category = categorizeTeam(team);
-  const random = Math.random();
-
-  if (random < 0.2) return `${category === 'Running' ? 'Last run' : 'Last workout'} 2h ago`;
-  if (random < 0.4) return `${category === 'Cycling' ? 'Riding now' : 'Active now'}`;
-  if (random < 0.6) return `Last active 5h ago`;
-  if (random < 0.8) return `${category === 'Running' ? 'Morning runs daily' : 'Daily workouts'}`;
-  return 'Last active 1d ago';
-};
 
 
 interface TeamCardProps {
@@ -101,8 +77,6 @@ export const TeamCard: React.FC<TeamCardProps> = ({
   };
 
   const isCaptain = isTeamCaptain(currentUserNpub, team);
-  const activityInfo = getActivityLevel(team);
-  const lastActivity = getLastActivity(team);
   const teamInitials = getTeamInitials(team.name);
   const avatarColor = getAvatarColor();
   const teamCategory = categorizeTeam(team);
@@ -232,36 +206,18 @@ export const TeamCard: React.FC<TeamCardProps> = ({
               {team.about || `${teamCategory} team`}
             </Text>
 
-            {/* Stats Row */}
-            <View style={styles.statsRow}>
-              <Text style={styles.statItem}>
-                {team.stats.memberCount} members
-              </Text>
-              {team.stats.activeEvents > 0 && (
-                <Text style={styles.statItem}>
-                  {'\u2022'} {team.stats.activeEvents} active {team.stats.activeEvents === 1 ? 'challenge' : 'challenges'}
-                </Text>
-              )}
-              {team.stats.activeChallenges > 0 && (
-                <Text style={styles.statItem}>
-                  {'\u2022'} {team.stats.activeChallenges} {team.stats.activeChallenges === 1 ? 'competition' : 'competitions'}
-                </Text>
-              )}
-            </View>
-
-            {/* Activity Status */}
-            <View style={styles.activityRow}>
-              <Text style={styles.activityText}>
-                {activityInfo.text} {'\u2022'} {lastActivity}
-              </Text>
-            </View>
-
-            {/* Prize Pool Badge if exists */}
-            {team.prizePool && team.prizePool > 0 && (
+            {/* Prize Pool Display */}
+            {team.prizePool && team.prizePool > 0 ? (
               <View style={styles.prizeRow}>
-                <Text style={styles.prizeIcon}>🏆</Text>
+                <Text style={styles.prizeIcon}>⚡</Text>
                 <Text style={styles.prizeText}>
-                  ${team.prizePool.toLocaleString()} Prize Pool This Week
+                  {team.prizePool.toLocaleString()} sats prize pool
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.noPrizeRow}>
+                <Text style={styles.noPrizeText}>
+                  No active prizes
                 </Text>
               </View>
             )}
@@ -362,49 +318,30 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 
-  statsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 6,
-  },
-
-  statItem: {
-    fontSize: 13,
-    color: theme.colors.textSecondary,
-    marginRight: 8,
-  },
-
-  activityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-
-  activityText: {
-    fontSize: 13,
-    color: theme.colors.textMuted,
-  },
 
   prizeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
-    backgroundColor: theme.colors.accent + '15',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    alignSelf: 'flex-start',
+    marginTop: 8,
   },
 
   prizeIcon: {
     fontSize: 14,
-    marginRight: 6,
+    marginRight: 4,
   },
 
   prizeText: {
     fontSize: 13,
-    fontWeight: theme.typography.weights.semiBold,
     color: theme.colors.accent,
+  },
+
+  noPrizeRow: {
+    marginTop: 8,
+  },
+
+  noPrizeText: {
+    fontSize: 13,
+    color: theme.colors.textMuted,
   },
 
   buttonContainer: {

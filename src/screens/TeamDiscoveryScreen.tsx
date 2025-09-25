@@ -368,23 +368,21 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header with Create Button */}
+      {/* Header with Teams title and Create Button */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Teams</Text>
-        <View style={styles.headerActions}>
-          {onCreateTeam && (
-            <TouchableOpacity
-              style={styles.createBtn}
-              onPress={onCreateTeam}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.createBtnText}>+</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+        {onCreateTeam && (
+          <TouchableOpacity
+            style={styles.createBtn}
+            onPress={onCreateTeam}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.createBtnText}>+</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
-      {/* Always show search bar */}
+      {/* Search bar */}
       <View style={styles.searchSection}>
           <View style={styles.searchContainer}>
             <Text style={styles.searchIcon}>🔍</Text>
@@ -594,22 +592,18 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
 
-  // Exact CSS: display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #1a1a1a;
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
     paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
   },
 
   headerTitle: {
-    // Exact CSS: font-size: 20px; font-weight: 700; letter-spacing: -0.5px;
-    fontSize: 20,
+    fontSize: 32,
     fontWeight: theme.typography.weights.bold,
-    letterSpacing: -0.5,
     color: theme.colors.text,
   },
 
@@ -620,21 +614,18 @@ const styles = StyleSheet.create({
   },
 
   createBtn: {
-    width: 28,
-    height: 28,
-    borderWidth: 1,
-    borderColor: theme.colors.text,
-    borderRadius: 6,
-    backgroundColor: 'transparent',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: theme.colors.text,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   createBtnText: {
-    color: theme.colors.text,
-    fontSize: 18,
-    fontWeight: '500',
-    lineHeight: 20,
+    color: theme.colors.background,
+    fontSize: 28,
+    fontWeight: theme.typography.weights.medium,
   },
 
   captainDashboardBtn: {
