@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
   },
 
   captainBadge: {
-    backgroundColor: '#FFD700',
+    backgroundColor: theme.colors.text,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
   captainBadgeText: {
     fontSize: 11,
     fontWeight: theme.typography.weights.bold,
-    color: '#000',
+    color: theme.colors.background,
     letterSpacing: 0.5,
   },
 
