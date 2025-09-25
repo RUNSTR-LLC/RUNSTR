@@ -4,6 +4,23 @@ All notable changes to RUNSTR will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.2] - 2025-01-24
+
+### Added
+- Rebranded app to RUNSTR TEAMS - displays as "Teams" on device
+- Team shop linking capability - teams can link their merchandise store
+- Flash Bitcoin subscription support - teams can offer Bitcoin-based subscriptions
+- Charity showcase and zapping - support and zap charities directly from the app
+- Prize pool display for leagues and events - transparent competition rewards
+
+### Fixed
+- NIP-60 wallet permanence issue - wallets now persist correctly across sessions
+- Team information editing functionality - captains can now properly edit team details
+
+### Changed
+- App name from "RUNSTR REWARDS" to "RUNSTR TEAMS"
+- Updated all branding assets with new RUNSTR TEAMS logo
+
 ## [0.0.1] - 2025-01-20
 
 ### Added
