@@ -13,8 +13,9 @@ import { AboutPrizeSection } from '../components/team/AboutPrizeSection';
 import { LeaderboardCard } from '../components/team/LeaderboardCard';
 import { LeagueRankingsSection } from '../components/team/LeagueRankingsSection';
 import { EventsCard } from '../components/team/EventsCard';
-import { CompetitionWinnersCard, CompetitionWinner } from '../components/team/CompetitionWinnersCard';
-import competitionWinnersService from '../services/competitions/competitionWinnersService';
+// import { CompetitionWinnersCard, CompetitionWinner } from '../components/team/CompetitionWinnersCard';
+// import competitionWinnersService from '../services/competitions/competitionWinnersService';
+import { CompetitionTabs } from '../components/team/CompetitionTabs';
 import { TeamScreenData } from '../types';
 import { theme } from '../styles/theme';
 import { useLeagueRankings } from '../hooks/useLeagueRankings';
@@ -189,9 +190,9 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
     details: event.description,
   }));
 
-  // Competition winners state
-  const [competitionWinners, setCompetitionWinners] = useState<CompetitionWinner[]>([]);
-  const [winnersLoading, setWinnersLoading] = useState(false);
+  // Competition winners state - commented out for now
+  // const [competitionWinners, setCompetitionWinners] = useState<CompetitionWinner[]>([]);
+  // const [winnersLoading, setWinnersLoading] = useState(false);
 
   // Nostr competitions state
   const [nostrEvents, setNostrEvents] = useState<any[]>([]);
@@ -317,26 +318,26 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
     fetchTeamCompetitions();
   }, [team?.id]);
 
-  // Fetch competition winners
-  useEffect(() => {
-    const fetchWinners = async () => {
-      if (data.team?.id) {
-        setWinnersLoading(true);
-        try {
-          const winners = await competitionWinnersService.fetchTeamCompetitionWinners(
-            data.team.id
-          );
-          setCompetitionWinners(winners);
-        } catch (error) {
-          console.error('Failed to fetch competition winners:', error);
-        } finally {
-          setWinnersLoading(false);
-        }
-      }
-    };
+  // Fetch competition winners - commented out for now
+  // useEffect(() => {
+  //   const fetchWinners = async () => {
+  //     if (data.team?.id) {
+  //       setWinnersLoading(true);
+  //       try {
+  //         const winners = await competitionWinnersService.fetchTeamCompetitionWinners(
+  //           data.team.id
+  //         );
+  //         setCompetitionWinners(winners);
+  //       } catch (error) {
+  //         console.error('Failed to fetch competition winners:', error);
+  //       } finally {
+  //         setWinnersLoading(false);
+  //       }
+  //     }
+  //   };
 
-    fetchWinners();
-  }, [data.team?.id]);
+  //   fetchWinners();
+  // }, [data.team?.id]);
 
   const formattedChallenges = challenges.map((challenge) => ({
     id: challenge.id,
@@ -371,6 +372,7 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
     <View style={styles.container}>
       <TeamHeader
         teamName={team.name}
+        bannerImage={team.bannerImage}
         onMenuPress={onMenuPress}
         onLeaveTeam={calculatedUserIsMember ? onLeaveTeam : undefined}
         onJoinTeam={showJoinButton ? onJoinTeam : undefined}
@@ -556,50 +558,58 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
             </View>
           </View>
 
-          {/* Always show League Rankings - with default 30-day streak if no active league */}
-          <View style={{ marginVertical: 12 }}>
-            <LeagueRankingsSection
-              competitionId={activeLeague?.competitionId || `${team.id}-default-streak`}
-              participants={activeLeague?.participants || []}
-              parameters={activeLeague?.parameters || {
-                activityType: 'Any' as any,
-                competitionType: 'Most Consistent' as any,
-                startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-                endDate: new Date().toISOString(),
-                scoringFrequency: 'daily' as const,
-              }}
-              onMemberPress={(npub) => {
-                console.log(`👤 Member pressed: ${npub.slice(0, 8)}...`);
-                // Could navigate to member profile
-              }}
-              onViewFullLeaderboard={() => {
-                console.log('📊 View full leaderboard pressed');
-                // Could navigate to full leaderboard screen
-              }}
-              maxDisplayed={10}
-              teamId={team.id}
-              captainPubkey={team.captainId} // Pass the team's captain ID
-              isDefaultLeague={!hasActiveLeague}
+          {/* Competition Tabs - Tournament and Events */}
+          <View style={{ flex: 1, marginTop: 16 }}>
+            <CompetitionTabs
+              tournamentContent={
+                <View style={{ flex: 1 }}>
+                  <LeagueRankingsSection
+                    competitionId={activeLeague?.competitionId || `${team.id}-default-streak`}
+                    participants={activeLeague?.participants || []}
+                    parameters={activeLeague?.parameters || {
+                      activityType: 'Any' as any,
+                      competitionType: 'Most Consistent' as any,
+                      startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+                      endDate: new Date().toISOString(),
+                      scoringFrequency: 'daily' as const,
+                    }}
+                    onMemberPress={(npub) => {
+                      console.log(`👤 Member pressed: ${npub.slice(0, 8)}...`);
+                      // Could navigate to member profile
+                    }}
+                    onViewFullLeaderboard={() => {
+                      console.log('📊 View full leaderboard pressed');
+                      // Could navigate to full leaderboard screen
+                    }}
+                    maxDisplayed={10}
+                    teamId={team.id}
+                    captainPubkey={team.captainId} // Pass the team's captain ID
+                    isDefaultLeague={!hasActiveLeague}
+                  />
+                </View>
+              }
+              eventsContent={
+                <View style={{ flex: 1 }}>
+                  <EventsCard
+                    events={nostrEvents.length > 0 ? nostrEvents : formattedEvents}
+                    onEventPress={(eventId, formattedEvent) => {
+                      // Find the raw Nostr event data if available
+                      const rawEvent = rawNostrEvents.find(e => e.id === eventId);
+                      onEventPress?.(eventId, rawEvent || formattedEvent);
+                    }}
+                    isCaptain={userIsCaptain}
+                  />
+                </View>
+              }
             />
           </View>
 
-          <View style={styles.bottomSection}>
-            <EventsCard
-              events={nostrEvents.length > 0 ? nostrEvents : formattedEvents}
-              onEventPress={(eventId, formattedEvent) => {
-                // Find the raw Nostr event data if available
-                const rawEvent = rawNostrEvents.find(e => e.id === eventId);
-                onEventPress?.(eventId, rawEvent || formattedEvent);
-              }}
-              isCaptain={userIsCaptain}
-            />
-
-            <CompetitionWinnersCard
-              teamId={data.team?.id || ''}
-              winners={competitionWinners}
-              loading={winnersLoading}
-            />
-          </View>
+          {/* Competition Winners - Hidden for now */}
+          {/* <CompetitionWinnersCard
+            teamId={data.team?.id || ''}
+            winners={competitionWinners}
+            loading={winnersLoading}
+          /> */}
         </View>
       </ScrollView>
 
@@ -625,12 +635,7 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
     gap: 12,
   },
-  bottomSection: {
-    flexDirection: 'row',
-    gap: 12,
-    flex: 1,
-    minHeight: 300,
-  },
+  // bottomSection removed - no longer needed with tabs
 });
 
 export default EnhancedTeamScreen;

@@ -17,8 +17,8 @@ export class TeamCacheService {
   private readonly CACHE_KEY = 'teams_discovery';
   private readonly TIMESTAMP_KEY = 'teams_fetch_time';
 
-  // Cache TTL: 10 minutes
-  private readonly CACHE_TTL = 10 * 60 * 1000;
+  // Cache TTL: 30 minutes (increased from 10 minutes)
+  private readonly CACHE_TTL = 30 * 60 * 1000;
 
   // Background refresh after 5 minutes
   private readonly BACKGROUND_REFRESH_TIME = 5 * 60 * 1000;

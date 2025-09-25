@@ -24,9 +24,9 @@ export class WorkoutCacheService {
   // Cache versioning - bump this when cache structure changes
   private readonly CACHE_VERSION = '2.0.0'; // Updated for NIP-101e compliance
 
-  // Cache TTL: 24 hours for long-term cache, 3 minutes for quick refresh
+  // Cache TTL: 24 hours for long-term cache, 30 minutes for quick refresh
   private readonly CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
-  private readonly QUICK_REFRESH_TTL = 3 * 60 * 1000; // 3 minutes
+  private readonly QUICK_REFRESH_TTL = 30 * 60 * 1000; // 30 minutes (increased from 3 minutes)
 
   // Background refresh after 2 minutes
   private readonly BACKGROUND_REFRESH_TIME = 2 * 60 * 1000;

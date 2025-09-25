@@ -10,7 +10,9 @@ import {
   StyleSheet,
   Pressable,
   Alert,
+  ImageBackground,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../../styles/theme';
 import { DiscoveryTeam } from '../../types';
 import { PrizeDisplay } from '../ui/PrizeDisplay';
@@ -175,17 +177,8 @@ export const TeamCard: React.FC<TeamCardProps> = ({
     }
   };
 
-  return (
-    <View>
-      {showCategory && (
-        <Text style={styles.categoryHeader}>{teamCategory}</Text>
-      )}
-      <Pressable
-        style={[styles.card, style]}
-        onPress={handleCardPress}
-        android_ripple={{ color: theme.colors.buttonHover }}
-      >
-        <View style={styles.cardContent}>
+  const cardContent = (
+    <View style={styles.cardContent}>
           {/* Team Avatar */}
           <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
             <Text style={styles.avatarText}>{teamInitials}</Text>
@@ -249,6 +242,34 @@ export const TeamCard: React.FC<TeamCardProps> = ({
             )}
           </View>
         </View>
+  );
+
+  return (
+    <View>
+      {showCategory && (
+        <Text style={styles.categoryHeader}>{teamCategory}</Text>
+      )}
+      <Pressable
+        style={[styles.card, style, team.bannerImage && styles.cardWithBanner]}
+        onPress={handleCardPress}
+        android_ripple={{ color: theme.colors.buttonHover }}
+      >
+        {team.bannerImage ? (
+          <ImageBackground
+            source={{ uri: team.bannerImage }}
+            style={styles.bannerBackground}
+            imageStyle={styles.bannerImage}
+          >
+            <LinearGradient
+              colors={['transparent', 'rgba(0,0,0,0.8)', 'rgba(0,0,0,0.95)']}
+              style={styles.bannerGradient}
+            >
+              {cardContent}
+            </LinearGradient>
+          </ImageBackground>
+        ) : (
+          cardContent
+        )}
       </Pressable>
     </View>
   );
@@ -272,6 +293,26 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 16,
     padding: 16,
+    overflow: 'hidden',
+  },
+
+  cardWithBanner: {
+    padding: 0,
+  },
+
+  bannerBackground: {
+    width: '100%',
+    minHeight: 120,
+  },
+
+  bannerImage: {
+    borderRadius: 12,
+  },
+
+  bannerGradient: {
+    flex: 1,
+    padding: 16,
+    justifyContent: 'flex-end',
   },
 
   cardContent: {

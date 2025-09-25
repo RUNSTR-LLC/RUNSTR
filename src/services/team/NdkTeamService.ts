@@ -253,6 +253,17 @@ export class NdkTeamService {
           const charityTag = ndkEvent.tags?.find((tag: any) => tag[0] === 'charity');
           const charityId = charityTag?.[1] || undefined;
 
+          // Extract banner image from tags
+          const bannerTag = ndkEvent.tags?.find((tag: any) => tag[0] === 'banner' || tag[0] === 'image');
+          const bannerImage = bannerTag?.[1] || undefined;
+
+          // Extract shop and flash URLs from tags
+          const shopTag = ndkEvent.tags?.find((tag: any) => tag[0] === 'shop');
+          const shopUrl = shopTag?.[1] || undefined;
+
+          const flashTag = ndkEvent.tags?.find((tag: any) => tag[0] === 'flash');
+          const flashUrl = flashTag?.[1] || undefined;
+
           // Create minimal team object
           const simpleTeam: NostrTeam = {
             id: teamId,
@@ -265,6 +276,9 @@ export class NdkTeamService {
             isPublic: true, // Default - show everything else
             activityType: 'general',
             charityId: charityId, // Include charity ID if present
+            bannerImage: bannerImage, // Include banner image if present
+            shopUrl: shopUrl, // Include shop URL if present
+            flashUrl: flashUrl, // Include Flash URL if present
             tags: [],
             createdAt: ndkEvent.created_at || Math.floor(Date.now() / 1000),
             nostrEvent: this.convertNdkEventToStandard(ndkEvent), // Add nostrEvent using correct method name

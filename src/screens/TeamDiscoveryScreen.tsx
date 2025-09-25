@@ -606,7 +606,7 @@ const styles = StyleSheet.create({
   },
 
   headerTitle: {
-    fontSize: 28,
+    fontSize: 18,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
     textAlign: 'center',
@@ -622,10 +622,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 20,
     top: '50%',
-    transform: [{ translateY: -22 }],
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    transform: [{ translateY: -16 }],
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: theme.colors.text,
     alignItems: 'center',
     justifyContent: 'center',
@@ -633,7 +633,7 @@ const styles = StyleSheet.create({
 
   createBtnText: {
     color: theme.colors.background,
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: theme.typography.weights.medium,
   },
 

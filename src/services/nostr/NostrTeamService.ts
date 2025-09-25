@@ -42,6 +42,7 @@ export interface NostrTeam {
   charityId?: string; // ID of the charity this team supports
   shopUrl?: string; // Team shop URL (Shopstr or Plebeian Market)
   flashUrl?: string; // Flash subscription URL for recurring Bitcoin payments
+  bannerImage?: string; // Team banner image URL for visual display
 }
 
 export interface TeamDiscoveryFilters {

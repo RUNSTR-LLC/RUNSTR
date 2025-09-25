@@ -15,10 +15,12 @@ export interface Team {
   exitFee: number; // default 2000 sats
   sponsoredBy?: string; // "Sponsored by Blockstream"
   avatar?: string;
+  bannerImage?: string; // Team banner image URL for visual display
   createdAt: string;
   isActive: boolean;
   charityId?: string; // ID of the charity this team supports (e.g., 'opensats', 'hrf')
   shopUrl?: string; // Validated marketplace URL (Shopstr or Plebeian Market)
+  flashUrl?: string; // Flash subscription URL for team content
 }
 
 // League/Leaderboard Types

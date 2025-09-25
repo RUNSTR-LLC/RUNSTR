@@ -28,13 +28,13 @@ export class NostrCacheService {
   private static readonly TTL = {
     MEMORY: {
       PROFILE: 30 * 60 * 1000,      // 30 minutes
-      WORKOUTS: 5 * 60 * 1000,      // 5 minutes  
-      TEAMS: 10 * 60 * 1000,        // 10 minutes
+      WORKOUTS: 30 * 60 * 1000,     // 30 minutes (increased from 5 minutes)
+      TEAMS: 30 * 60 * 1000,        // 30 minutes (increased from 10 minutes)
     },
     PERSISTENT: {
       PROFILE: 2 * 60 * 60 * 1000,  // 2 hours
-      WORKOUTS: 30 * 60 * 1000,     // 30 minutes
-      TEAMS: 60 * 60 * 1000,        // 1 hour
+      WORKOUTS: 2 * 60 * 60 * 1000, // 2 hours (increased from 30 minutes)
+      TEAMS: 2 * 60 * 60 * 1000,    // 2 hours (increased from 1 hour)
     }
   } as const;
 
