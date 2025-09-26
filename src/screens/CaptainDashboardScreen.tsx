@@ -605,14 +605,18 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
         tags.push(['location', currentTeamData.location]);
       }
 
-      // Preserve activity tags
+      // Preserve activity tags (filter out base tags to avoid duplication)
+      const baseTags = ['team', 'fitness', 'runstr'];
       if (currentTeamData?.tags && currentTeamData.tags.length > 0) {
-        currentTeamData.tags.forEach((tag: string) => {
-          tags.push(['t', tag]);
+        const activityTags = currentTeamData.tags.filter((tag: string) =>
+          !baseTags.includes(tag.toLowerCase())
+        );
+        activityTags.forEach((tag: string) => {
+          tags.push(['t', tag.toLowerCase()]);
         });
       }
 
-      // Always add base tags
+      // Always add base tags (only once)
       tags.push(['t', 'team']);
       tags.push(['t', 'fitness']);
       tags.push(['t', 'runstr']);
@@ -715,12 +719,18 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
         tags.push(['location', currentTeamData.location]);
       }
 
+      // Preserve activity tags (filter out base tags to avoid duplication)
+      const baseTagsShop = ['team', 'fitness', 'runstr'];
       if (currentTeamData?.tags && currentTeamData.tags.length > 0) {
-        currentTeamData.tags.forEach((tag: string) => {
-          tags.push(['t', tag]);
+        const activityTags = currentTeamData.tags.filter((tag: string) =>
+          !baseTagsShop.includes(tag.toLowerCase())
+        );
+        activityTags.forEach((tag: string) => {
+          tags.push(['t', tag.toLowerCase()]);
         });
       }
 
+      // Always add base tags (only once)
       tags.push(['t', 'team']);
       tags.push(['t', 'fitness']);
       tags.push(['t', 'runstr']);
@@ -793,12 +803,18 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
         tags.push(['location', currentTeamData.location]);
       }
 
+      // Preserve activity tags (filter out base tags to avoid duplication)
+      const baseTagsFlash = ['team', 'fitness', 'runstr'];
       if (currentTeamData?.tags && currentTeamData.tags.length > 0) {
-        currentTeamData.tags.forEach((tag: string) => {
-          tags.push(['t', tag]);
+        const activityTags = currentTeamData.tags.filter((tag: string) =>
+          !baseTagsFlash.includes(tag.toLowerCase())
+        );
+        activityTags.forEach((tag: string) => {
+          tags.push(['t', tag.toLowerCase()]);
         });
       }
 
+      // Always add base tags (only once)
       tags.push(['t', 'team']);
       tags.push(['t', 'fitness']);
       tags.push(['t', 'runstr']);
