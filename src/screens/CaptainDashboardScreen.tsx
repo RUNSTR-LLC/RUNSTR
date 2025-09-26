@@ -15,6 +15,8 @@ import {
   Alert,
   Modal,
   TextInput,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { CHARITIES, getCharityById } from '../constants/charities';
@@ -133,6 +135,9 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
   const [editedTeamDescription, setEditedTeamDescription] = useState('');
   const [editedTeamLocation, setEditedTeamLocation] = useState('');
   const [editedActivityTypes, setEditedActivityTypes] = useState('');
+  const [editedBannerUrl, setEditedBannerUrl] = useState('');
+  const [bannerUrlError, setBannerUrlError] = useState('');
+  const [bannerPreviewLoading, setBannerPreviewLoading] = useState(false);
 
   // Check if team has kind 30000 list on mount and load members
   // Initialize team data on mount
@@ -393,6 +398,7 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
         setEditedTeamDescription(currentTeam.description || '');
         setEditedTeamLocation(currentTeam.location || '');
         setEditedActivityTypes(currentTeam.tags?.join(', ') || '');
+        setEditedBannerUrl(currentTeam.bannerImage || '');
       }
     } catch (error) {
       console.error('Error loading team data:', error);
@@ -475,6 +481,14 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
         if (flash) {
           tags.push(['flash', flash]);
         }
+      }
+
+      // Add banner URL if provided
+      if (editedBannerUrl.trim()) {
+        tags.push(['banner', editedBannerUrl.trim()]);
+      } else if (currentTeamData?.bannerImage) {
+        // Preserve existing banner if not edited
+        tags.push(['banner', currentTeamData.bannerImage]);
       }
 
       // Preserve member tags
@@ -1371,6 +1385,45 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
             />
             <Text style={styles.helperText}>Separate multiple activities with commas</Text>
 
+            <Text style={styles.inputLabel}>Banner Image URL (Optional)</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="https://example.com/team-banner.jpg"
+              placeholderTextColor={theme.colors.secondary}
+              value={editedBannerUrl}
+              onChangeText={(text) => {
+                setEditedBannerUrl(text);
+                setBannerUrlError('');
+              }}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {bannerUrlError ? (
+              <Text style={styles.errorText}>{bannerUrlError}</Text>
+            ) : editedBannerUrl ? (
+              <Text style={styles.helperText}>Enter image URL (JPEG, PNG, WebP)</Text>
+            ) : null}
+
+            {/* Banner Image Preview */}
+            {editedBannerUrl && !bannerUrlError && (
+              <View style={styles.imagePreviewContainer}>
+                {bannerPreviewLoading && (
+                  <ActivityIndicator size="small" color={theme.colors.primary} />
+                )}
+                <Image
+                  source={{ uri: editedBannerUrl }}
+                  style={styles.imagePreview}
+                  onLoadStart={() => setBannerPreviewLoading(true)}
+                  onLoadEnd={() => setBannerPreviewLoading(false)}
+                  onError={() => {
+                    setBannerPreviewLoading(false);
+                    setBannerUrlError('Unable to load image from URL');
+                  }}
+                  resizeMode="cover"
+                />
+              </View>
+            )}
+
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
@@ -1382,6 +1435,8 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
                     setEditedTeamDescription(currentTeamData.description || '');
                     setEditedTeamLocation(currentTeamData.location || '');
                     setEditedActivityTypes(currentTeamData.tags?.join(', ') || '');
+                    setEditedBannerUrl(currentTeamData.bannerImage || '');
+                    setBannerUrlError('');
                   }
                 }}
               >
@@ -1948,6 +2003,27 @@ const styles = StyleSheet.create({
     color: theme.colors.secondary,
     marginTop: -12,
     marginBottom: 16,
+  },
+
+  errorText: {
+    fontSize: 12,
+    color: '#ff4444',
+    marginTop: -12,
+    marginBottom: 16,
+  },
+
+  imagePreviewContainer: {
+    marginBottom: 20,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+
+  imagePreview: {
+    width: '100%',
+    height: 120,
   },
 
   modalActions: {
