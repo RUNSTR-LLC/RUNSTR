@@ -79,6 +79,16 @@ export class TeamCacheService {
   }
 
   /**
+   * Clear the team cache (used after team updates)
+   */
+  async clearCache(): Promise<void> {
+    console.log('🧹 TeamCacheService: Clearing team cache...');
+    await appCache.delete(this.CACHE_KEY);
+    await appCache.delete(this.TIMESTAMP_KEY);
+    console.log('✅ TeamCacheService: Cache cleared successfully');
+  }
+
+  /**
    * Fetch teams from Nostr and update cache
    */
   private async fetchAndCacheTeams(): Promise<DiscoveryTeam[]> {

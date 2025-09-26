@@ -35,6 +35,7 @@ import { NostrListService } from '../services/nostr/NostrListService';
 import { NostrProtocolHandler } from '../services/nostr/NostrProtocolHandler';
 import { NostrRelayManager } from '../services/nostr/NostrRelayManager';
 import { TeamMemberCache } from '../services/team/TeamMemberCache';
+import { TeamCacheService } from '../services/cache/TeamCacheService';
 import { getTeamListDetector } from '../utils/teamListDetector';
 import NostrTeamCreationService from '../services/nostr/NostrTeamCreationService';
 import { getAuthenticationData, migrateAuthenticationStorage } from '../utils/nostrAuth';
@@ -512,9 +513,42 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
 
       if (publishResult) {
         setShowEditTeamModal(false);
-        Alert.alert('Success', 'Team information updated successfully! It may take a moment to appear.');
 
-        // Reload team data after a delay
+        // Clear team cache to ensure fresh data
+        const teamCache = TeamCacheService.getInstance();
+        await teamCache.clearCache();
+
+        Alert.alert(
+          'Success',
+          'Team information updated successfully!',
+          [
+            {
+              text: 'View Team',
+              onPress: async () => {
+                // Reload team data
+                await loadTeamCharity();
+
+                // Navigate to the team page with updated data
+                if (currentTeamData && navigation) {
+                  navigation.navigate('EnhancedTeamScreen', {
+                    team: {
+                      ...currentTeamData,
+                      name: editedTeamName.trim(),
+                      description: editedTeamDescription.trim(),
+                      location: editedTeamLocation.trim(),
+                      bannerImage: editedBannerUrl.trim() || currentTeamData.bannerImage,
+                    },
+                    userIsMember: true,
+                    userIsCaptain: true,
+                    currentUserNpub: userNpub,
+                  });
+                }
+              }
+            }
+          ]
+        );
+
+        // Also reload team data in background
         setTimeout(() => {
           loadTeamCharity();
         }, 2000);
@@ -619,6 +653,11 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
 
       if (publishResult) {
         setShowCharityModal(false);
+
+        // Clear team cache to ensure fresh data
+        const teamCache = TeamCacheService.getInstance();
+        await teamCache.clearCache();
+
         Alert.alert('Success', 'Team charity updated successfully! It may take a moment to appear.');
 
         // Reload team data after a delay
