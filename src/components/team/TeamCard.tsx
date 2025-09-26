@@ -20,6 +20,9 @@ import { isTeamCaptain, isTeamMember } from '../../utils/teamUtils';
 import { TeamMembershipService } from '../../services/team/teamMembershipService';
 import { CaptainCache } from '../../utils/captainCache';
 import { publishJoinRequest } from '../../utils/joinRequestPublisher';
+import leagueRankingService from '../../services/competition/leagueRankingService';
+import { TeamMemberCache } from '../../services/team/TeamMemberCache';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Avatar will use dark gray background for all teams
 const getAvatarColor = (): string => {
@@ -70,6 +73,7 @@ export const TeamCard: React.FC<TeamCardProps> = ({
   showCategory = false,
 }) => {
   const [buttonState, setButtonState] = useState<MembershipButtonState>('loading');
+  const [userRank, setUserRank] = useState<number | null>(null);
   const membershipService = TeamMembershipService.getInstance();
 
   const handleCardPress = () => {
@@ -95,6 +99,53 @@ export const TeamCard: React.FC<TeamCardProps> = ({
   useEffect(() => {
     checkMembershipStatus();
   }, [currentUserNpub, team]);
+
+  // Fetch user's rank in this team
+  useEffect(() => {
+    const fetchUserRank = async () => {
+      if (!team?.id || !currentUserNpub || buttonState !== 'member') return;
+
+      try {
+        // Only fetch if user is a member
+        const competitionId = `${team.id}-default-streak`;
+        const parameters = {
+          activityType: 'Any' as any,
+          competitionType: 'Most Consistent' as any,
+          startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+          endDate: new Date().toISOString(),
+          scoringFrequency: 'daily' as const,
+        };
+
+        // Get team members
+        const memberCache = TeamMemberCache.getInstance();
+        const members = await memberCache.getTeamMembers(team.id, team.captainId);
+        const participants = members.map(pubkey => ({
+          npub: pubkey,
+          name: pubkey.slice(0, 8) + '...',
+          isActive: true,
+        }));
+
+        if (participants.length > 0) {
+          const result = await leagueRankingService.calculateLeagueRankings(
+            competitionId,
+            participants,
+            parameters
+          );
+
+          if (result.rankings && result.rankings.length > 0) {
+            const userEntry = result.rankings.find(r => r.npub === currentUserNpub);
+            if (userEntry && userEntry.rank <= 10) {
+              setUserRank(userEntry.rank);
+            }
+          }
+        }
+      } catch (error) {
+        console.log('Could not fetch user rank for team:', error);
+      }
+    };
+
+    fetchUserRank();
+  }, [team?.id, currentUserNpub, buttonState]);
 
   const checkMembershipStatus = async () => {
     if (!currentUserNpub) {
@@ -188,6 +239,11 @@ export const TeamCard: React.FC<TeamCardProps> = ({
           <View style={styles.teamInfo}>
             <View style={styles.teamHeader}>
               <Text style={styles.teamName} numberOfLines={1}>{team.name}</Text>
+              {userRank && userRank <= 10 && (
+                <View style={styles.rankBadge}>
+                  <Text style={styles.rankText}>#{userRank}</Text>
+                </View>
+              )}
               {isCaptain && (
                 <View style={styles.captainBadge}>
                   <Text style={styles.captainBadgeText}>CAPTAIN</Text>
@@ -344,6 +400,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 4,
+    gap: 8,
+  },
+
+  rankBadge: {
+    borderWidth: 1,
+    borderColor: theme.colors.text + '60',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+
+  rankText: {
+    fontSize: 11,
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.semiBold,
   },
 
   teamName: {

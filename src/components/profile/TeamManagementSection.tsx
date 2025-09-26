@@ -3,11 +3,14 @@
  * Displays a clickable team card that navigates to the team page
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { theme } from '../../styles/theme';
 import { Team } from '../../types';
 import { Card } from '../ui/Card';
+import leagueRankingService from '../../services/competition/leagueRankingService';
+import { TeamMemberCache } from '../../services/team/TeamMemberCache';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface TeamManagementSectionProps {
   currentTeam?: Team;
@@ -22,6 +25,66 @@ export const TeamManagementSection: React.FC<TeamManagementSectionProps> = ({
   onJoinTeam,
   onViewTeam,
 }) => {
+  const [userRank, setUserRank] = useState<number | null>(null);
+  const [competitionName, setCompetitionName] = useState<string | null>(null);
+  const [loadingRank, setLoadingRank] = useState(false);
+
+  useEffect(() => {
+    const fetchUserRank = async () => {
+      if (!currentTeam?.id) return;
+
+      try {
+        setLoadingRank(true);
+        // Get current user's npub
+        const userNpub = await AsyncStorage.getItem('@runstr:npub');
+        if (!userNpub) return;
+
+        // Get team captain info
+        const teamService = (await import('../../services/nostr/NostrTeamService')).getNostrTeamService();
+        const fullTeam = teamService.getTeamById(currentTeam.id);
+        if (!fullTeam?.captainId) return;
+
+        // Query current rankings
+        const competitionId = `${currentTeam.id}-default-streak`;
+        const parameters = {
+          activityType: 'Any' as any,
+          competitionType: 'Most Consistent' as any,
+          startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+          endDate: new Date().toISOString(),
+          scoringFrequency: 'daily' as const,
+        };
+
+        // Get team members
+        const memberCache = TeamMemberCache.getInstance();
+        const members = await memberCache.getTeamMembers(currentTeam.id, fullTeam.captainId);
+        const participants = members.map(pubkey => ({
+          npub: pubkey,
+          name: pubkey.slice(0, 8) + '...',
+          isActive: true,
+        }));
+
+        const result = await leagueRankingService.calculateLeagueRankings(
+          competitionId,
+          participants,
+          parameters
+        );
+
+        if (result.rankings && result.rankings.length > 0) {
+          const userEntry = result.rankings.find(r => r.npub === userNpub);
+          if (userEntry) {
+            setUserRank(userEntry.rank);
+            setCompetitionName('30-Day Streak');
+          }
+        }
+      } catch (error) {
+        console.log('Could not fetch user rank:', error);
+      } finally {
+        setLoadingRank(false);
+      }
+    };
+
+    fetchUserRank();
+  }, [currentTeam?.id]);
   if (!currentTeam) {
     return (
       <Card style={styles.card}>
@@ -61,6 +124,12 @@ export const TeamManagementSection: React.FC<TeamManagementSectionProps> = ({
             <Text style={styles.teamDescription} numberOfLines={2}>
               {currentTeam.description}
             </Text>
+            {/* Competition Status Line */}
+            {userRank && competitionName && (
+              <Text style={styles.competitionStatus}>
+                Rank #{userRank} in {competitionName}
+              </Text>
+            )}
           </View>
 
           {/* Team Stats - Simplified */}
@@ -70,11 +139,7 @@ export const TeamManagementSection: React.FC<TeamManagementSectionProps> = ({
               <Text style={styles.statLabel}>Members</Text>
             </View>
 
-            {currentTeam.role === 'captain' && (
-              <View style={styles.captainBadge}>
-                <Text style={styles.captainBadgeText}>CAPTAIN</Text>
-              </View>
-            )}
+            {/* Captain badge removed - captain status shown in team screen */}
 
             <View style={styles.statItem}>
               <Text style={styles.statValue}>
@@ -229,5 +294,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: theme.colors.textSecondary,
     fontStyle: 'italic',
+  },
+
+  competitionStatus: {
+    fontSize: 12,
+    color: theme.colors.text,
+    marginTop: 6,
+    fontWeight: theme.typography.weights.medium,
   },
 });

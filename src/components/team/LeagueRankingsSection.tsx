@@ -23,6 +23,7 @@ import leagueRankingService, {
 } from '../../services/competition/leagueRankingService';
 import { TeamMemberCache } from '../../services/team/TeamMemberCache';
 import { getUserNostrIdentifiers } from '../../utils/nostr';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface LeagueRankingsSectionProps {
   competitionId: string;
@@ -63,6 +64,8 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [teamParticipants, setTeamParticipants] = useState<LeagueParticipant[]>(participants);
+  const [currentUserNpub, setCurrentUserNpub] = useState<string | null>(null);
+  const [currentUserRank, setCurrentUserRank] = useState<number | null>(null);
   // captainPubkey now comes from props, no local state needed
 
   const rankingService = leagueRankingService;
@@ -123,6 +126,23 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
   };
 
   /**
+   * Get current user's npub on mount
+   */
+  useEffect(() => {
+    const loadCurrentUser = async () => {
+      try {
+        const npub = await AsyncStorage.getItem('@runstr:npub');
+        if (npub) {
+          setCurrentUserNpub(npub);
+        }
+      } catch (error) {
+        console.log('Could not load current user npub');
+      }
+    };
+    loadCurrentUser();
+  }, []);
+
+  /**
    * Log captain pubkey for debugging when it changes
    */
   useEffect(() => {
@@ -161,6 +181,14 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
 
       setRankings(result);
       setError(null);
+
+      // Find current user's rank
+      if (currentUserNpub && result.rankings) {
+        const userEntry = result.rankings.find(r => r.npub === currentUserNpub);
+        if (userEntry) {
+          setCurrentUserRank(userEntry.rank);
+        }
+      }
 
     } catch (err) {
       console.error('❌ Failed to load league rankings:', err);
@@ -363,22 +391,29 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
         showsVerticalScrollIndicator={true}
         indicatorStyle="white"
       >
-        {displayRankings.map((entry, index) => (
+        {displayRankings.map((entry, index) => {
+          const isCurrentUser = currentUserNpub && entry.npub === currentUserNpub;
+          return (
           <View
             key={entry.npub}
             style={[
               styles.rankingItem,
               entry.isTopThree && styles.topThreeItem,
               index === displayRankings.length - 1 && styles.lastRankingItem,
+              isCurrentUser && styles.currentUserItem,
             ]}
           >
             <View style={styles.rankContainer}>
               <Text style={[
                 styles.rankText,
-                entry.isTopThree && styles.topThreeRank
+                entry.isTopThree && styles.topThreeRank,
+                isCurrentUser && styles.currentUserRank
               ]}>
                 {getRankDisplay(entry.rank)}
               </Text>
+              {isCurrentUser && (
+                <Text style={styles.youIndicator}>YOU</Text>
+              )}
               {entry.trend && (
                 <Text style={styles.trendIndicator}>
                   {getTrendDisplay(entry.trend)}
@@ -406,7 +441,8 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
               }
             />
           </View>
-        ))}
+        );
+        })}
       </ScrollView>
 
       {hasMoreResults && (
@@ -537,6 +573,13 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.accent + '10', // Very subtle highlight
   },
 
+  currentUserItem: {
+    borderWidth: 1,
+    borderColor: theme.colors.text + '40', // Subtle white border
+    borderRadius: 4,
+    marginVertical: 2,
+  },
+
   lastRankingItem: {
     borderBottomWidth: 0,
   },
@@ -558,6 +601,19 @@ const styles = StyleSheet.create({
   topThreeRank: {
     fontSize: 16,
     color: theme.colors.text,
+  },
+
+  currentUserRank: {
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.bold,
+  },
+
+  youIndicator: {
+    fontSize: 8,
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.bold,
+    marginLeft: 4,
+    letterSpacing: 0.5,
   },
 
   trendIndicator: {
