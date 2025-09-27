@@ -169,7 +169,7 @@ export class WorkoutGroupingService {
       thisWeek: 'Week',
       lastWeek: 'Last Week',
       earlierThisMonth: 'Month',
-      lastMonth: 'Last Month',
+      lastMonth: 'Month',
       earlierThisYear: 'Year'
     };
 
