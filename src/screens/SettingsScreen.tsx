@@ -19,7 +19,6 @@ import { NotificationPreferencesService } from '../services/notifications/Notifi
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { NotificationsTab } from '../components/profile/NotificationsTab';
-import { TeamManagementSection } from '../components/profile/TeamManagementSection';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
@@ -190,27 +189,18 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Team Management Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>TEAM</Text>
-          <TeamManagementSection
-            currentTeam={currentTeam}
-            onChangeTeam={onNavigateToTeamDiscovery || (() => {})}
-            onJoinTeam={onNavigateToTeamDiscovery || (() => {})}
-            onViewTeam={onViewCurrentTeam}
-          />
-        </View>
-
         {/* Captain Dashboard Access */}
         {userRole === 'captain' && onCaptainDashboard && (
-          <Card style={styles.card}>
-            <Text style={styles.cardTitle}>Team Management</Text>
-            <SettingItem
-              title="Captain Dashboard"
-              subtitle="Manage your team, events, and members"
-              onPress={onCaptainDashboard}
-            />
-          </Card>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>TEAM MANAGEMENT</Text>
+            <Card style={styles.card}>
+              <SettingItem
+                title="Captain Dashboard"
+                subtitle="Manage your team, events, and members"
+                onPress={onCaptainDashboard}
+              />
+            </Card>
+          </View>
         )}
 
         {/* Notifications Section */}
