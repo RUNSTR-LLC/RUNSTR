@@ -119,7 +119,7 @@ class NutzapService {
       // Get nsec - either from parameter or from storage
       let userNsec = nsec;
       if (!userNsec) {
-        userNsec = await this.getUserNsec();
+        userNsec = (await this.getUserNsec()) || undefined;
         if (!userNsec) {
           console.error('[NutZap] Cannot initialize wallet without nsec');
           return {
@@ -139,101 +139,33 @@ class NutzapService {
       // Store current user for verification
       await AsyncStorage.setItem('@runstr:current_user_pubkey', this.userPubkey);
 
-      // Reuse global NDK instance if available, or create new one
-      const g = global as any;
-      if (g.__RUNSTR_NDK_INSTANCE__) {
-        console.log('[NutZap] Reusing existing global NDK instance with connected relays');
-        this.ndk = g.__RUNSTR_NDK_INSTANCE__;
+      // Create DEDICATED NDK instance for wallet operations
+      // Do NOT reuse global instance - wallet needs its own authenticated instance
+      this.ndk = new NDK({
+        explicitRelayUrls: [
+          'wss://relay.damus.io',
+          'wss://relay.primal.net',
+          'wss://nos.lol'
+        ],
+        signer  // Use the wallet's own signer
+      });
 
-        // Set the signer on the existing NDK instance
-        this.ndk.signer = signer;
+      console.log('[NutZap] Connecting to relays...');
 
-        // Wait for the global ready promise if it exists
-        if (g.__RUNSTR_NDK_READY_PROMISE__) {
-          console.log('[NutZap] Waiting for global NDK connection...');
-          try {
-            await g.__RUNSTR_NDK_READY_PROMISE__;
-            console.log('[NutZap] Global NDK ready');
-          } catch (err) {
-            console.warn('[NutZap] Global NDK connection wait failed:', err);
-          }
-        }
+      // Simple connection with 5 second timeout
+      try {
+        await Promise.race([
+          this.ndk.connect(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Connection timeout')), 5000)
+          )
+        ]);
 
-        // Verify connection status
         const connectedRelays = (this.ndk as any).pool?.connectedRelays?.size || 0;
-        console.log(`[NutZap] Using NDK with ${connectedRelays} connected relay(s)`);
-      } else {
-        console.log('[NutZap] Creating new NDK instance (no global instance found)');
-        this.ndk = new NDK({
-          explicitRelayUrls: [
-            'wss://relay.damus.io',
-            'wss://relay.primal.net',
-            'wss://nos.lol'
-          ],
-          signer
-        });
-
-        // Store as global for reuse
-        g.__RUNSTR_NDK_INSTANCE__ = this.ndk;
-      }
-
-      console.log('[NutZap] Ensuring relay connections...');
-
-      // Check if we already have connected relays
-      let currentConnectedRelays = (this.ndk as any).pool?.connectedRelays?.size || 0;
-
-      if (currentConnectedRelays > 0) {
-        console.log(`[NutZap] Already connected to ${currentConnectedRelays} relay(s), skipping connection`);
-      } else {
-        // Only connect if we don't have any connected relays
-        console.log('[NutZap] No relays connected, initiating connection...');
-
-        // Add timeout for relay connection
-        const connectPromise = this.ndk.connect();
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Relay connection timeout')), 5000)
-        );
-
-        try {
-          await Promise.race([connectPromise, timeoutPromise]);
-
-          // Verify we have at least one connected relay
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Give relays time to connect
-          currentConnectedRelays = (this.ndk as any).pool?.connectedRelays?.size || 0;
-
-          if (currentConnectedRelays === 0) {
-            console.warn('[NutZap] No relays connected after initial attempt, will retry...');
-            // Try connecting one more time
-            await this.ndk.connect();
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            const retriedConnectedRelays = (this.ndk as any).pool?.connectedRelays?.size || 0;
-            if (retriedConnectedRelays === 0) {
-              console.error('[NutZap] Failed to connect to any relays after retry');
-              // Don't throw - we'll handle this in wallet fetch with retries
-            } else {
-              console.log(`[NutZap] Connected to ${retriedConnectedRelays} relay(s) after retry`);
-            }
-          } else {
-            console.log(`[NutZap] Connected to ${currentConnectedRelays} relay(s)`);
-          }
-        } catch (err) {
-          console.error('[NutZap] Relay connection failed:', err);
-          // Don't continue without trying to recover
-          // Try one more time with a different approach
-          try {
-            await this.ndk.connect();
-            await new Promise(resolve => setTimeout(resolve, 3000));
-            const emergencyConnected = (this.ndk as any).pool?.connectedRelays?.size || 0;
-            if (emergencyConnected > 0) {
-              console.log(`[NutZap] Emergency reconnect successful: ${emergencyConnected} relay(s)`);
-            } else {
-              console.error('[NutZap] Emergency reconnect failed - no relays available');
-            }
-          } catch (emergencyErr) {
-            console.error('[NutZap] Emergency reconnect failed:', emergencyErr);
-          }
-        }
+        console.log(`[NutZap] Connected to ${connectedRelays} relay(s)`);
+      } catch (err) {
+        console.warn('[NutZap] Relay connection failed:', err);
+        // Continue anyway - may have cached wallet
       }
 
       // Initialize Cashu components with timeout
@@ -281,45 +213,16 @@ class NutzapService {
 
         // If we didn't find a wallet and we have more attempts, wait and retry
         if (attempt < maxAttempts) {
-          const waitTime = attempt * 2000; // Exponential backoff: 2s, 4s
+          const waitTime = 2000; // Fixed 2 second wait between retries
           console.log(`[NutZap] No wallet found, retrying in ${waitTime}ms...`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
-
-          // Check relay connection status before retry
-          const connectedRelays = (this.ndk as any).pool?.connectedRelays?.size || 0;
-          if (connectedRelays === 0) {
-            console.log('[NutZap] No relays connected, attempting reconnect...');
-            try {
-              await this.ndk.connect();
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            } catch (reconnectErr) {
-              console.warn('[NutZap] Reconnect attempt failed:', reconnectErr);
-            }
-          }
         }
       }
 
       console.log('[NutZap] No wallet found on Nostr after retries');
 
-      // Before creating a new wallet, do a final extended check ONLY if relays are connected
-      const connectedRelays = (this.ndk as any).pool?.connectedRelays?.size || 0;
-
-      if (connectedRelays > 0) {
-        console.log('[NutZap] Performing final extended check before wallet creation...');
-        const finalCheck = await this.fetchWalletFromNostrExtended();
-
-        if (finalCheck) {
-          console.log('[NutZap] Found wallet on final extended check!');
-          await this.saveWalletLocally(finalCheck);
-          this.isInitialized = true;
-          return finalCheck;
-        }
-      } else {
-        console.log('[NutZap] Skipping extended check - no relay connection');
-      }
-
       // Check if we have relay connectivity before creating
-      // (reusing connectedRelays variable from above)
+      const connectedRelays = (this.ndk as any).pool?.connectedRelays?.size || 0;
       if (connectedRelays === 0) {
         console.error('[NutZap] Cannot create wallet without relay connection');
         throw new Error('Unable to create wallet: No connection to Nostr network. Please check your internet connection and try again.');
@@ -566,14 +469,13 @@ class NutzapService {
     try {
       console.log(`[NutZap] Querying ${connectedRelays} relay(s) for wallet events...`);
 
-      // Query for wallet info events (NIP-60) with timeout and options
+      // Query for wallet info events (NIP-60)
       const walletEvents = await this.ndk.fetchEvents({
         kinds: [EVENT_KINDS.WALLET_INFO as NDKKind],
         authors: [this.userPubkey],
         '#d': ['nutzap-wallet']
       }, {
-        closeOnEose: true,
-        timeout: 10000 // 10 second timeout
+        closeOnEose: true
       });
 
       if (walletEvents.size > 0) {
@@ -636,14 +538,13 @@ class NutzapService {
     try {
       console.log('[NutZap] Extended search: Querying ALL relays with extended timeout...');
 
-      // Try with much longer timeout and query all possible event types
+      // Query all possible event types for wallet
       const walletEvents = await this.ndk.fetchEvents({
         kinds: [EVENT_KINDS.WALLET_INFO as NDKKind],
         authors: [this.userPubkey],
         '#d': ['nutzap-wallet']
       }, {
-        closeOnEose: true,
-        timeout: 10000 // Reduced from 30 seconds for better UX
+        closeOnEose: true
       });
 
       if (walletEvents.size > 0) {
