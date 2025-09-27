@@ -25,7 +25,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useNutzap } from '../hooks/useNutzap';
 import { useWalletStore } from '../store/walletStore';
-import { nip19 } from 'nostr-tools';
+// Using NDK for nip19 encoding per project requirements (NEVER use nostr-tools)
+import { nip19 } from '@nostr-dev-kit/ndk';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface ProfileScreenProps {
@@ -90,14 +91,35 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   useEffect(() => {
     const loadUserNpub = async () => {
       try {
-        // Get user's hex pubkey from storage and convert to npub
-        const userPubkey = data.user.id; // This should be the hex pubkey
+        // Get user's ID which could be npub or hex pubkey
+        const userPubkey = data.user.id;
         if (userPubkey) {
-          const npub = nip19.npubEncode(userPubkey);
-          setUserNpub(npub);
+          // Check if it's already an npub
+          if (userPubkey.startsWith('npub')) {
+            setUserNpub(userPubkey);
+          } else if (userPubkey.length === 64) {
+            // It's a hex pubkey, encode it using NDK's nip19
+            const npub = nip19.npubEncode(userPubkey);
+            setUserNpub(npub);
+          } else {
+            // Fallback: try to use it as-is or get from storage
+            const storedNpub = await AsyncStorage.getItem('@runstr:npub');
+            if (storedNpub) {
+              setUserNpub(storedNpub);
+            }
+          }
         }
       } catch (error) {
-        console.error('Error encoding npub:', error);
+        console.error('Error handling user npub:', error);
+        // Try to get npub from storage as fallback
+        try {
+          const storedNpub = await AsyncStorage.getItem('@runstr:npub');
+          if (storedNpub) {
+            setUserNpub(storedNpub);
+          }
+        } catch (storageError) {
+          console.error('Error retrieving npub from storage:', storageError);
+        }
       }
     };
 
