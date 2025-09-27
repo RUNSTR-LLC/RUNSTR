@@ -166,11 +166,11 @@ export class WorkoutGroupingService {
    */
   private static getGroupTitle(key: TimeGroupKey): string {
     const titles: Record<string, string> = {
-      thisWeek: 'This Week',
+      thisWeek: 'Week',
       lastWeek: 'Last Week',
-      earlierThisMonth: 'Earlier This Month',
+      earlierThisMonth: 'Month',
       lastMonth: 'Last Month',
-      earlierThisYear: 'Earlier This Year'
+      earlierThisYear: 'Year'
     };
 
     return titles[key] || key; // Year groups use the year as title
