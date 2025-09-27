@@ -145,8 +145,9 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
                     memberCount: profileData.currentTeam.memberCount || 0,
                     prizePool: profileData.currentTeam.prizePool || 0,
                     isActive: profileData.currentTeam.isActive !== undefined ? profileData.currentTeam.isActive : true,
-                    // Add any additional fields that might be needed
+                    // Include all team metadata fields
                     captainId: profileData.currentTeam.captainId, // Include if available
+                    bannerImage: profileData.currentTeam.bannerImage, // Include banner for display
                   };
 
                   // Get the current user's npub to pass to navigation

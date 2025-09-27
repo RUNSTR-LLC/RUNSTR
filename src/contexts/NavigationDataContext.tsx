@@ -146,6 +146,8 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({ 
               memberCount: team.memberCount || 0,
               isActive: true,
               role: 'captain',
+              bannerImage: team.bannerImage,
+              captainId: team.captainId,
             };
           }
         }
@@ -174,6 +176,8 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({ 
             memberCount: team.memberCount || 0,
             isActive: true,
             role: isCaptain ? 'captain' : 'member',
+            bannerImage: team.bannerImage,
+            captainId: team.captainId,
           };
         }
 
@@ -204,6 +208,8 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({ 
             memberCount: team.memberCount || 0,
             isActive: true,
             role: 'captain',
+            bannerImage: team.bannerImage,
+            captainId: team.captainId,
           };
         }
       }
