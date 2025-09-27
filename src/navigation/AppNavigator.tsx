@@ -13,6 +13,7 @@ import { theme } from '../styles/theme';
 // Screens
 import { EnhancedTeamScreen } from '../screens/EnhancedTeamScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { ProfileEditScreen } from '../screens/ProfileEditScreen';
 import { WalletScreen } from '../screens/WalletScreen';
 import { TeamDiscoveryScreen } from '../screens/TeamDiscoveryScreen';
 import { CaptainDashboardScreen } from '../screens/CaptainDashboardScreen';
@@ -40,6 +41,7 @@ export type RootStackParamList = {
   Team: undefined;
   EnhancedTeamScreen: { team: any; userIsMember?: boolean; currentUserNpub?: string; userIsCaptain?: boolean }; // Individual team dashboard
   Profile: undefined;
+  ProfileEdit: undefined;
   Wallet: undefined;
   CaptainDashboard: { teamId?: string; teamName?: string; isCaptain?: boolean };
   TeamDiscovery: {
@@ -276,7 +278,7 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
                 handlers.handleCaptainDashboard(navigation)
               }
               onTeamCreation={() => handlers.handleTeamCreation(navigation)}
-              onEditProfile={handlers.handleEditProfile}
+              onEditProfile={() => navigation.navigate('ProfileEdit')}
               onSyncSourcePress={handlers.handleSyncSourcePress}
               onManageSubscription={handlers.handleManageSubscription}
               onHelp={() => handlers.handleHelp(navigation)}
@@ -300,6 +302,17 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
           )
         }
       </Stack.Screen>
+
+      {/* Profile Edit Screen */}
+      <Stack.Screen
+        name="ProfileEdit"
+        component={ProfileEditScreen}
+        options={{
+          headerShown: false,
+          presentation: 'modal',
+          gestureEnabled: true,
+        }}
+      />
 
       {/* Wallet Screen */}
       <Stack.Screen name="Wallet" options={screenConfigurations.Wallet}>

@@ -383,6 +383,10 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.contentInner}>
+          {/* Team Name Section */}
+          <View style={styles.teamNameSection}>
+            <Text style={styles.teamNameText}>{team.name}</Text>
+          </View>
           {/* Prize Section - Hidden for now */}
           {/* <AboutPrizeSection
             description={team.description}
@@ -635,6 +639,19 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 0,
     gap: 12,
+  },
+  teamNameSection: {
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  teamNameText: {
+    fontSize: 28,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+    color: theme.colors.text,
+    textAlign: 'center',
   },
   // bottomSection removed - no longer needed with tabs
 });

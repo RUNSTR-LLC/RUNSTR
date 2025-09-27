@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { theme } from '../../styles/theme';
 import { ProfileScreenData, Team } from '../../types';
 import { Card } from '../ui/Card';
@@ -68,8 +69,20 @@ export const AccountTab: React.FC<AccountTabProps> = ({
   onCaptainDashboard,
   onSignOut,
 }) => {
+  const navigation = useNavigation<any>();
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {/* Profile Settings */}
+      <Card style={styles.card}>
+        <Text style={styles.cardTitle}>Profile</Text>
+        <SettingItem
+          title="Edit Profile"
+          subtitle="Update your display name, bio, and more"
+          onPress={() => navigation.navigate('ProfileEdit')}
+        />
+      </Card>
+
       {/* Team Management Section */}
       {onChangeTeam && onJoinTeam && (
         <TeamManagementSection

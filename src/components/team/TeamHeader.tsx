@@ -99,9 +99,11 @@ export const TeamHeader: React.FC<TeamHeaderProps> = ({
 
   const headerContent = (
     <>
-      <Text style={effectiveBannerImage ? styles.teamNameWithBanner : styles.teamName}>
-        {teamName}
-      </Text>
+      {!effectiveBannerImage && (
+        <Text style={styles.teamName}>
+          {teamName}
+        </Text>
+      )}
       <TouchableOpacity
         style={styles.menuBtn}
         onPress={handleMenuPress}
@@ -158,7 +160,7 @@ const styles = StyleSheet.create({
   },
   bannerContainer: {
     width: screenWidth,
-    height: 140,
+    height: 160,
     backgroundColor: theme.colors.cardBackground,
   },
   bannerImage: {
@@ -182,15 +184,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: -0.5,
     color: theme.colors.text,
-  },
-  teamNameWithBanner: {
-    fontSize: 24,
-    fontWeight: '700',
-    letterSpacing: -0.5,
-    color: '#FFFFFF',
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
   },
   menuBtn: {
     position: 'absolute',
