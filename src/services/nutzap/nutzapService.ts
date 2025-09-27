@@ -139,61 +139,100 @@ class NutzapService {
       // Store current user for verification
       await AsyncStorage.setItem('@runstr:current_user_pubkey', this.userPubkey);
 
-      this.ndk = new NDK({
-        explicitRelayUrls: [
-          'wss://relay.damus.io',
-          'wss://relay.primal.net',
-          'wss://nos.lol'
-        ],
-        signer
-      });
+      // Reuse global NDK instance if available, or create new one
+      const g = global as any;
+      if (g.__RUNSTR_NDK_INSTANCE__) {
+        console.log('[NutZap] Reusing existing global NDK instance with connected relays');
+        this.ndk = g.__RUNSTR_NDK_INSTANCE__;
 
-      console.log('[NutZap] Connecting to relays...');
+        // Set the signer on the existing NDK instance
+        this.ndk.signer = signer;
 
-      // Add timeout for relay connection
-      const connectPromise = this.ndk.connect();
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Relay connection timeout')), 5000)
-      );
-
-      try {
-        await Promise.race([connectPromise, timeoutPromise]);
-
-        // Verify we have at least one connected relay
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Give relays time to connect
-        const connectedRelays = (this.ndk as any).pool?.connectedRelays?.size || 0;
-
-        if (connectedRelays === 0) {
-          console.warn('[NutZap] No relays connected, will retry...');
-          // Try connecting one more time
-          await this.ndk.connect();
-          await new Promise(resolve => setTimeout(resolve, 2000));
-
-          const retriedConnectedRelays = (this.ndk as any).pool?.connectedRelays?.size || 0;
-          if (retriedConnectedRelays === 0) {
-            console.error('[NutZap] Failed to connect to any relays after retry');
-            // Don't throw - we'll handle this in wallet fetch with retries
-          } else {
-            console.log(`[NutZap] Connected to ${retriedConnectedRelays} relay(s) after retry`);
+        // Wait for the global ready promise if it exists
+        if (g.__RUNSTR_NDK_READY_PROMISE__) {
+          console.log('[NutZap] Waiting for global NDK connection...');
+          try {
+            await g.__RUNSTR_NDK_READY_PROMISE__;
+            console.log('[NutZap] Global NDK ready');
+          } catch (err) {
+            console.warn('[NutZap] Global NDK connection wait failed:', err);
           }
-        } else {
-          console.log(`[NutZap] Connected to ${connectedRelays} relay(s)`);
         }
-      } catch (err) {
-        console.error('[NutZap] Relay connection failed:', err);
-        // Don't continue without trying to recover
-        // Try one more time with a different approach
+
+        // Verify connection status
+        const connectedRelays = (this.ndk as any).pool?.connectedRelays?.size || 0;
+        console.log(`[NutZap] Using NDK with ${connectedRelays} connected relay(s)`);
+      } else {
+        console.log('[NutZap] Creating new NDK instance (no global instance found)');
+        this.ndk = new NDK({
+          explicitRelayUrls: [
+            'wss://relay.damus.io',
+            'wss://relay.primal.net',
+            'wss://nos.lol'
+          ],
+          signer
+        });
+
+        // Store as global for reuse
+        g.__RUNSTR_NDK_INSTANCE__ = this.ndk;
+      }
+
+      console.log('[NutZap] Ensuring relay connections...');
+
+      // Check if we already have connected relays
+      let currentConnectedRelays = (this.ndk as any).pool?.connectedRelays?.size || 0;
+
+      if (currentConnectedRelays > 0) {
+        console.log(`[NutZap] Already connected to ${currentConnectedRelays} relay(s), skipping connection`);
+      } else {
+        // Only connect if we don't have any connected relays
+        console.log('[NutZap] No relays connected, initiating connection...');
+
+        // Add timeout for relay connection
+        const connectPromise = this.ndk.connect();
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Relay connection timeout')), 5000)
+        );
+
         try {
-          await this.ndk.connect();
-          await new Promise(resolve => setTimeout(resolve, 3000));
-          const emergencyConnected = (this.ndk as any).pool?.connectedRelays?.size || 0;
-          if (emergencyConnected > 0) {
-            console.log(`[NutZap] Emergency reconnect successful: ${emergencyConnected} relay(s)`);
+          await Promise.race([connectPromise, timeoutPromise]);
+
+          // Verify we have at least one connected relay
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Give relays time to connect
+          currentConnectedRelays = (this.ndk as any).pool?.connectedRelays?.size || 0;
+
+          if (currentConnectedRelays === 0) {
+            console.warn('[NutZap] No relays connected after initial attempt, will retry...');
+            // Try connecting one more time
+            await this.ndk.connect();
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+            const retriedConnectedRelays = (this.ndk as any).pool?.connectedRelays?.size || 0;
+            if (retriedConnectedRelays === 0) {
+              console.error('[NutZap] Failed to connect to any relays after retry');
+              // Don't throw - we'll handle this in wallet fetch with retries
+            } else {
+              console.log(`[NutZap] Connected to ${retriedConnectedRelays} relay(s) after retry`);
+            }
           } else {
-            console.error('[NutZap] Emergency reconnect failed - no relays available');
+            console.log(`[NutZap] Connected to ${currentConnectedRelays} relay(s)`);
           }
-        } catch (emergencyErr) {
-          console.error('[NutZap] Emergency reconnect failed:', emergencyErr);
+        } catch (err) {
+          console.error('[NutZap] Relay connection failed:', err);
+          // Don't continue without trying to recover
+          // Try one more time with a different approach
+          try {
+            await this.ndk.connect();
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            const emergencyConnected = (this.ndk as any).pool?.connectedRelays?.size || 0;
+            if (emergencyConnected > 0) {
+              console.log(`[NutZap] Emergency reconnect successful: ${emergencyConnected} relay(s)`);
+            } else {
+              console.error('[NutZap] Emergency reconnect failed - no relays available');
+            }
+          } catch (emergencyErr) {
+            console.error('[NutZap] Emergency reconnect failed:', emergencyErr);
+          }
         }
       }
 
