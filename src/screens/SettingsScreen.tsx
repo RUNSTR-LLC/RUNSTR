@@ -12,16 +12,18 @@ import {
   SafeAreaView,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { theme } from '../styles/theme';
 import { NotificationSettings, Team } from '../types';
 import { NotificationPreferencesService } from '../services/notifications/NotificationPreferencesService';
+import { DeleteAccountService } from '../services/auth/DeleteAccountService';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { NotificationsTab } from '../components/profile/NotificationsTab';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 
 interface SettingsScreenProps {
   currentTeam?: Team;
@@ -86,6 +88,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   });
   const [isLoadingNotificationSettings, setIsLoadingNotificationSettings] = useState(true);
   const [userRole, setUserRole] = useState<'captain' | 'member' | null>(null);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -169,6 +172,86 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     );
   };
 
+  const handleDeleteAccount = async () => {
+    // Get data summary first
+    const deleteService = DeleteAccountService.getInstance();
+    const dataSummary = await deleteService.getDataSummary();
+
+    // Build warning message with actual data
+    let warningDetails = 'This action will:\n\n';
+    warningDetails += '• Permanently remove your nsec from this device\n';
+    if (dataSummary.hasWallet) {
+      warningDetails += '• Delete your Lightning wallet and any remaining balance\n';
+    }
+    if (dataSummary.teamCount > 0) {
+      warningDetails += `• Remove you from ${dataSummary.teamCount} team${dataSummary.teamCount > 1 ? 's' : ''}\n`;
+    }
+    if (dataSummary.workoutCount > 0) {
+      warningDetails += `• Delete ${dataSummary.workoutCount} cached workout${dataSummary.workoutCount > 1 ? 's' : ''}\n`;
+    }
+    warningDetails += '• Request deletion from Nostr relays (cannot be guaranteed)\n';
+    warningDetails += '\nThis action CANNOT be undone!';
+
+    // First warning dialog
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to permanently delete your account?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Continue',
+          style: 'destructive',
+          onPress: () => {
+            // Second warning with detailed information
+            Alert.alert(
+              '⚠️ Final Warning',
+              warningDetails,
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'I Understand, Delete My Account',
+                  style: 'destructive',
+                  onPress: () => performAccountDeletion(),
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
+
+  const performAccountDeletion = async () => {
+    setIsDeletingAccount(true);
+
+    try {
+      const deleteService = DeleteAccountService.getInstance();
+      await deleteService.deleteAccount();
+
+      // Navigate to login screen and reset navigation stack
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: 'Login' }],
+        })
+      );
+
+      // Show success message after navigation
+      setTimeout(() => {
+        Alert.alert('Account Deleted', 'Your account has been successfully deleted.');
+      }, 100);
+    } catch (error) {
+      console.error('Account deletion failed:', error);
+      Alert.alert(
+        'Deletion Failed',
+        'Failed to delete your account. Please try again or contact support.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -245,6 +328,29 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               activeOpacity={0.8}
             >
               <Text style={styles.signOutButtonText}>Sign Out</Text>
+            </TouchableOpacity>
+          </Card>
+        </View>
+
+        {/* Delete Account - Destructive Action */}
+        <View style={styles.section}>
+          <Card style={styles.card}>
+            <TouchableOpacity
+              style={[styles.deleteAccountButton, isDeletingAccount && styles.buttonDisabled]}
+              onPress={handleDeleteAccount}
+              activeOpacity={0.8}
+              disabled={isDeletingAccount}
+            >
+              {isDeletingAccount ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color="#fca5a5" />
+                  <Text style={[styles.deleteAccountButtonText, { marginLeft: 8 }]}>
+                    Deleting Account...
+                  </Text>
+                </View>
+              ) : (
+                <Text style={styles.deleteAccountButtonText}>Delete Account</Text>
+              )}
             </TouchableOpacity>
           </Card>
         </View>
@@ -364,5 +470,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: theme.typography.weights.semiBold,
     color: theme.colors.text,
+  },
+
+  // Delete Account Button - More destructive styling
+  deleteAccountButton: {
+    backgroundColor: '#7f1d1d', // Darker red for more serious action
+    borderRadius: theme.borderRadius.medium,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#dc2626',
+  },
+
+  deleteAccountButtonText: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
+    color: '#fca5a5', // Lighter text for contrast
+  },
+
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
