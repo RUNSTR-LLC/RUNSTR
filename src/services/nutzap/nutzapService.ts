@@ -280,7 +280,7 @@ class NutzapService {
       }
 
       // Check if we have relay connectivity before creating
-      const connectedRelays = (this.ndk as any).pool?.connectedRelays?.size || 0;
+      // (reusing connectedRelays variable from above)
       if (connectedRelays === 0) {
         console.error('[NutZap] Cannot create wallet without relay connection');
         throw new Error('Unable to create wallet: No connection to Nostr network. Please check your internet connection and try again.');
