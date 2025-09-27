@@ -373,6 +373,15 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
       const currentTeam = teams.find(t => t.id === teamId);
 
       if (currentTeam) {
+        // Debug logging to trace banner data
+        console.log('📦 Loaded team data:', {
+          id: currentTeam.id,
+          name: currentTeam.name,
+          bannerFromTeam: currentTeam.bannerImage,
+          hasNostrEvent: !!currentTeam.nostrEvent,
+          tags: currentTeam.nostrEvent?.tags?.filter((tag: any) => tag[0] === 'banner' || tag[0] === 'image')
+        });
+
         // Store full team data for editing
         setCurrentTeamData(currentTeam);
 
@@ -394,12 +403,22 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
           setFlashUrl(currentTeam.flashUrl);
         }
 
+        // Extract banner URL with fallback to Nostr event tags
+        let bannerUrl = currentTeam.bannerImage;
+        if (!bannerUrl && currentTeam.nostrEvent?.tags) {
+          const bannerTag = currentTeam.nostrEvent.tags.find((tag: any) => tag[0] === 'banner' || tag[0] === 'image');
+          bannerUrl = bannerTag?.[1] || '';
+          console.log('🖼️ Banner extracted from tags:', bannerUrl);
+        }
+
         // Pre-populate edit form fields
         setEditedTeamName(currentTeam.name || '');
         setEditedTeamDescription(currentTeam.description || '');
         setEditedTeamLocation(currentTeam.location || '');
         setEditedActivityTypes(currentTeam.tags?.join(', ') || '');
-        setEditedBannerUrl(currentTeam.bannerImage || '');
+        setEditedBannerUrl(bannerUrl || '');
+
+        console.log('🖼️ Banner URL set to:', bannerUrl || 'none');
       }
     } catch (error) {
       console.error('Error loading team data:', error);
@@ -514,9 +533,16 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
       if (publishResult) {
         setShowEditTeamModal(false);
 
-        // Clear team cache to ensure fresh data
-        const teamCache = TeamCacheService.getInstance();
-        await teamCache.clearCache();
+        // Clear cache after a delay to allow relay propagation
+        setTimeout(async () => {
+          console.log('🔄 Clearing cache after 3-second relay propagation delay...');
+          const teamCache = TeamCacheService.getInstance();
+          await teamCache.clearCache();
+
+          // Reload team data with fresh cache
+          await loadTeamCharity();
+          console.log('✅ Team data reloaded with fresh cache');
+        }, 3000);
 
         Alert.alert(
           'Success',
@@ -530,13 +556,19 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
 
                 // Navigate to the team page with updated data
                 if (currentTeamData && navigation) {
+                  // Ensure we have the latest banner URL
+                  const updatedBannerUrl = editedBannerUrl.trim();
+                  console.log('🎯 Navigating with banner URL:', updatedBannerUrl || 'none');
+
                   navigation.navigate('EnhancedTeamScreen', {
                     team: {
                       ...currentTeamData,
                       name: editedTeamName.trim(),
                       description: editedTeamDescription.trim(),
                       location: editedTeamLocation.trim(),
-                      bannerImage: editedBannerUrl.trim() || currentTeamData.bannerImage,
+                      bannerImage: updatedBannerUrl,
+                      // Include nostrEvent for fallback banner extraction
+                      nostrEvent: currentTeamData.nostrEvent,
                     },
                     userIsMember: true,
                     userIsCaptain: true,
@@ -658,9 +690,16 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
       if (publishResult) {
         setShowCharityModal(false);
 
-        // Clear team cache to ensure fresh data
-        const teamCache = TeamCacheService.getInstance();
-        await teamCache.clearCache();
+        // Clear cache after a delay to allow relay propagation
+        setTimeout(async () => {
+          console.log('🔄 Clearing cache after 3-second relay propagation delay...');
+          const teamCache = TeamCacheService.getInstance();
+          await teamCache.clearCache();
+
+          // Reload team data with fresh cache
+          await loadTeamCharity();
+          console.log('✅ Team data reloaded with fresh cache');
+        }, 3000);
 
         Alert.alert('Success', 'Team charity updated successfully! It may take a moment to appear.');
 

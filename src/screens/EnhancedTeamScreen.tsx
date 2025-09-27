@@ -373,6 +373,7 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
       <TeamHeader
         teamName={team.name}
         bannerImage={team.bannerImage}
+        team={team} // Pass full team object for fallback extraction
         onMenuPress={onMenuPress}
         onLeaveTeam={calculatedUserIsMember ? onLeaveTeam : undefined}
         onJoinTeam={showJoinButton ? onJoinTeam : undefined}

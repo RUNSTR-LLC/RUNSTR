@@ -16,6 +16,7 @@ const { width: screenWidth } = Dimensions.get('window');
 interface TeamHeaderProps {
   teamName: string;
   bannerImage?: string;
+  team?: any; // Full team object for fallback banner extraction
   onMenuPress: () => void;
   onLeaveTeam?: () => void;
   onJoinTeam?: () => void;
@@ -26,6 +27,7 @@ interface TeamHeaderProps {
 export const TeamHeader: React.FC<TeamHeaderProps> = ({
   teamName,
   bannerImage,
+  team,
   onMenuPress,
   onLeaveTeam,
   onJoinTeam,
@@ -33,6 +35,35 @@ export const TeamHeader: React.FC<TeamHeaderProps> = ({
   userIsMember = true,
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
+
+  // Helper function to extract banner URL with fallback
+  const getBannerUrl = (): string | null => {
+    // Primary source: directly passed bannerImage prop
+    if (bannerImage) {
+      console.log('🖼️ TeamHeader: Using banner from prop:', bannerImage);
+      return bannerImage;
+    }
+
+    // Fallback 1: check team.bannerImage
+    if (team?.bannerImage) {
+      console.log('🖼️ TeamHeader: Using banner from team.bannerImage:', team.bannerImage);
+      return team.bannerImage;
+    }
+
+    // Fallback 2: check Nostr event tags
+    if (team?.nostrEvent?.tags) {
+      const bannerTag = team.nostrEvent.tags.find((tag: any) => tag[0] === 'banner' || tag[0] === 'image');
+      if (bannerTag?.[1]) {
+        console.log('🖼️ TeamHeader: Banner extracted from tags:', bannerTag[1]);
+        return bannerTag[1];
+      }
+    }
+
+    console.log('🖼️ TeamHeader: No banner found in any source');
+    return null;
+  };
+
+  const effectiveBannerImage = getBannerUrl();
 
   const handleMenuPress = () => {
     setShowDropdown(true);
@@ -68,7 +99,7 @@ export const TeamHeader: React.FC<TeamHeaderProps> = ({
 
   const headerContent = (
     <>
-      <Text style={bannerImage ? styles.teamNameWithBanner : styles.teamName}>
+      <Text style={effectiveBannerImage ? styles.teamNameWithBanner : styles.teamName}>
         {teamName}
       </Text>
       <TouchableOpacity
@@ -83,15 +114,15 @@ export const TeamHeader: React.FC<TeamHeaderProps> = ({
         visible={showDropdown}
         onClose={() => setShowDropdown(false)}
         items={menuItems}
-        anchorPosition={{ top: bannerImage ? 120 : 60, right: 20 }}
+        anchorPosition={{ top: effectiveBannerImage ? 120 : 60, right: 20 }}
       />
     </>
   );
 
-  if (bannerImage) {
+  if (effectiveBannerImage) {
     return (
       <ImageBackground
-        source={{ uri: bannerImage }}
+        source={{ uri: effectiveBannerImage }}
         style={styles.bannerContainer}
         imageStyle={styles.bannerImage}
       >

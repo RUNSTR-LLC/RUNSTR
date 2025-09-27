@@ -153,14 +153,48 @@ class NutzapService {
       // Add timeout for relay connection
       const connectPromise = this.ndk.connect();
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Relay connection timeout')), 5000)
+        setTimeout(() => reject(new Error('Relay connection timeout')), 10000)
       );
 
       try {
         await Promise.race([connectPromise, timeoutPromise]);
+
+        // Verify we have at least one connected relay
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Give relays time to connect
+        const connectedRelays = (this.ndk as any).pool?.connectedRelays?.size || 0;
+
+        if (connectedRelays === 0) {
+          console.warn('[NutZap] No relays connected, will retry...');
+          // Try connecting one more time
+          await this.ndk.connect();
+          await new Promise(resolve => setTimeout(resolve, 2000));
+
+          const retriedConnectedRelays = (this.ndk as any).pool?.connectedRelays?.size || 0;
+          if (retriedConnectedRelays === 0) {
+            console.error('[NutZap] Failed to connect to any relays after retry');
+            // Don't throw - we'll handle this in wallet fetch with retries
+          } else {
+            console.log(`[NutZap] Connected to ${retriedConnectedRelays} relay(s) after retry`);
+          }
+        } else {
+          console.log(`[NutZap] Connected to ${connectedRelays} relay(s)`);
+        }
       } catch (err) {
-        console.warn('[NutZap] Relay connection failed, continuing anyway:', err);
-        // Continue even if relay connection fails - we can work offline
+        console.error('[NutZap] Relay connection failed:', err);
+        // Don't continue without trying to recover
+        // Try one more time with a different approach
+        try {
+          await this.ndk.connect();
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          const emergencyConnected = (this.ndk as any).pool?.connectedRelays?.size || 0;
+          if (emergencyConnected > 0) {
+            console.log(`[NutZap] Emergency reconnect successful: ${emergencyConnected} relay(s)`);
+          } else {
+            console.error('[NutZap] Emergency reconnect failed - no relays available');
+          }
+        } catch (emergencyErr) {
+          console.error('[NutZap] Emergency reconnect failed:', emergencyErr);
+        }
       }
 
       // Initialize Cashu components with timeout
@@ -171,17 +205,46 @@ class NutzapService {
         // Continue in offline mode - wallet can work without mint connection
       }
 
-      // IMPORTANT: Check Nostr FIRST for existing wallet
+      // IMPORTANT: Check Nostr FIRST for existing wallet with retries
       console.log('[NutZap] Checking Nostr for existing wallet...');
-      const nostrWallet = await this.fetchWalletFromNostr();
 
-      if (nostrWallet) {
-        console.log('[NutZap] Found wallet on Nostr, using it');
-        // Save to local storage for offline access
-        await this.saveWalletLocally(nostrWallet);
-        this.isInitialized = true;
-        return nostrWallet;
+      // Try to fetch wallet with retry logic
+      let nostrWallet = null;
+      const maxAttempts = 3;
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        console.log(`[NutZap] Attempt ${attempt}/${maxAttempts} to fetch wallet from Nostr...`);
+        nostrWallet = await this.fetchWalletFromNostr();
+
+        if (nostrWallet) {
+          console.log('[NutZap] Found wallet on Nostr, using it');
+          // Save to local storage for offline access
+          await this.saveWalletLocally(nostrWallet);
+          this.isInitialized = true;
+          return nostrWallet;
+        }
+
+        // If we didn't find a wallet and we have more attempts, wait and retry
+        if (attempt < maxAttempts) {
+          const waitTime = attempt * 2000; // Exponential backoff: 2s, 4s
+          console.log(`[NutZap] No wallet found, retrying in ${waitTime}ms...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+
+          // Check relay connection status before retry
+          const connectedRelays = (this.ndk as any).pool?.connectedRelays?.size || 0;
+          if (connectedRelays === 0) {
+            console.log('[NutZap] No relays connected, attempting reconnect...');
+            try {
+              await this.ndk.connect();
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            } catch (reconnectErr) {
+              console.warn('[NutZap] Reconnect attempt failed:', reconnectErr);
+            }
+          }
+        }
       }
+
+      console.log('[NutZap] No wallet found on Nostr after retries');
 
       // Only check local storage as fallback (offline mode)
       console.log('[NutZap] No wallet on Nostr, checking local cache...');
@@ -193,8 +256,26 @@ class NutzapService {
         return localWallet;
       }
 
-      // Create new wallet only if nothing found
-      console.log('[NutZap] No existing wallet found, creating new one...');
+      // Before creating a new wallet, do a final extended check
+      console.log('[NutZap] Performing final extended check before wallet creation...');
+      const finalCheck = await this.fetchWalletFromNostrExtended();
+
+      if (finalCheck) {
+        console.log('[NutZap] Found wallet on final extended check!');
+        await this.saveWalletLocally(finalCheck);
+        this.isInitialized = true;
+        return finalCheck;
+      }
+
+      // Check if we have relay connectivity before creating
+      const connectedRelays = (this.ndk as any).pool?.connectedRelays?.size || 0;
+      if (connectedRelays === 0) {
+        console.error('[NutZap] Cannot create wallet without relay connection');
+        throw new Error('Unable to create wallet: No connection to Nostr network. Please check your internet connection and try again.');
+      }
+
+      // Create new wallet only if we're absolutely sure none exists
+      console.log('[NutZap] Creating new wallet after exhaustive checks...');
       const newWallet = await this.createWallet();
 
       this.isInitialized = true;
@@ -419,10 +500,20 @@ class NutzapService {
    * Fetch wallet from Nostr with improved reliability
    */
   private async fetchWalletFromNostr(): Promise<WalletState | null> {
-    if (!this.ndk || !this.userPubkey) return null;
+    if (!this.ndk || !this.userPubkey) {
+      console.warn('[NutZap] Cannot fetch wallet - NDK or pubkey not initialized');
+      return null;
+    }
+
+    // Check relay connectivity
+    const connectedRelays = (this.ndk as any).pool?.connectedRelays?.size || 0;
+    if (connectedRelays === 0) {
+      console.warn('[NutZap] No relays connected, cannot fetch wallet');
+      return null;
+    }
 
     try {
-      console.log('[NutZap] Querying Nostr for existing wallet events...');
+      console.log(`[NutZap] Querying ${connectedRelays} relay(s) for wallet events...`);
 
       // Query for wallet info events (NIP-60) with timeout and options
       const walletEvents = await this.ndk.fetchEvents({
@@ -442,6 +533,11 @@ class NutzapService {
         const latestEvent = sortedEvents[0];
         const content = JSON.parse(latestEvent.content);
         console.log('[NutZap] Found wallet event (using most recent):', content);
+
+        // Check for duplicate wallets
+        if (walletEvents.size > 1) {
+          console.warn(`[NutZap] WARNING: Found ${walletEvents.size} wallet events for user. Using most recent.`);
+        }
 
         // Load any local proofs we might have cached
         const proofsStr = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PROOFS);
@@ -464,11 +560,84 @@ class NutzapService {
       return null;
 
     } catch (error) {
+      // Distinguish between network errors and actual "no wallet" scenarios
       console.error('[NutZap] Error fetching wallet from Nostr:', error);
-      // Log more details for debugging
       if (error instanceof Error) {
-        console.error('[NutZap] Error details:', error.message, error.stack);
+        console.error('[NutZap] Error details:', error.message);
+
+        // Check if it's a network/timeout error
+        if (error.message.includes('timeout') || error.message.includes('network')) {
+          console.error('[NutZap] Network error - wallet might exist but cannot verify');
+          throw error; // Re-throw network errors so caller knows it's not "wallet doesn't exist"
+        }
       }
+      return null;
+    }
+  }
+
+  /**
+   * Extended wallet fetch with longer timeout and all relays
+   * Used as final check before creating new wallet
+   */
+  private async fetchWalletFromNostrExtended(): Promise<WalletState | null> {
+    if (!this.ndk || !this.userPubkey) return null;
+
+    try {
+      console.log('[NutZap] Extended search: Querying ALL relays with extended timeout...');
+
+      // Try with much longer timeout and query all possible event types
+      const walletEvents = await this.ndk.fetchEvents({
+        kinds: [EVENT_KINDS.WALLET_INFO as NDKKind],
+        authors: [this.userPubkey],
+        '#d': ['nutzap-wallet']
+      }, {
+        closeOnEose: true,
+        timeout: 30000 // 30 second timeout for final check
+      });
+
+      if (walletEvents.size > 0) {
+        console.log('[NutZap] Extended search found wallet!');
+        const latestEvent = Array.from(walletEvents)
+          .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))[0];
+
+        const content = JSON.parse(latestEvent.content);
+        const mintUrl = content.mints?.[0] || DEFAULT_MINTS[0];
+
+        // Load any local proofs
+        const proofsStr = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PROOFS);
+        const proofs = proofsStr ? JSON.parse(proofsStr) : [];
+        const balance = proofs.reduce((sum: number, p: Proof) => sum + p.amount, 0);
+
+        return {
+          balance,
+          mint: mintUrl,
+          proofs,
+          pubkey: this.userPubkey,
+          created: false
+        };
+      }
+
+      // Also check for ANY wallet events without d-tag filter (broader search)
+      console.log('[NutZap] Extended search: Checking for any wallet events from user...');
+      const anyWalletEvents = await this.ndk.fetchEvents({
+        kinds: [EVENT_KINDS.WALLET_INFO as NDKKind],
+        authors: [this.userPubkey]
+      }, {
+        closeOnEose: true,
+        timeout: 15000
+      });
+
+      if (anyWalletEvents.size > 0) {
+        console.warn(`[NutZap] Found ${anyWalletEvents.size} wallet event(s) without standard d-tag`);
+        // Log the tags for debugging
+        anyWalletEvents.forEach(event => {
+          console.log('[NutZap] Wallet event tags:', event.tags);
+        });
+      }
+
+      return null;
+    } catch (error) {
+      console.error('[NutZap] Extended search error:', error);
       return null;
     }
   }

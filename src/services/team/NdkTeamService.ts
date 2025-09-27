@@ -257,6 +257,10 @@ export class NdkTeamService {
           const bannerTag = ndkEvent.tags?.find((tag: any) => tag[0] === 'banner' || tag[0] === 'image');
           const bannerImage = bannerTag?.[1] || undefined;
 
+          if (bannerImage) {
+            console.log(`🖼️ NdkTeamService: Banner found for team ${teamName}:`, bannerImage);
+          }
+
           // Extract shop and flash URLs from tags
           const shopTag = ndkEvent.tags?.find((tag: any) => tag[0] === 'shop');
           const shopUrl = shopTag?.[1] || undefined;
