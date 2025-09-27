@@ -153,7 +153,7 @@ class NutzapService {
       // Add timeout for relay connection
       const connectPromise = this.ndk.connect();
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Relay connection timeout')), 10000)
+        setTimeout(() => reject(new Error('Relay connection timeout')), 5000)
       );
 
       try {
@@ -205,12 +205,28 @@ class NutzapService {
         // Continue in offline mode - wallet can work without mint connection
       }
 
-      // IMPORTANT: Check Nostr FIRST for existing wallet with retries
+      // Check local cache FIRST for quick load
+      console.log('[NutZap] Checking local cache for quick load...');
+      const cachedWallet = await this.loadOfflineWallet();
+
+      if (cachedWallet && cachedWallet.pubkey === this.userPubkey) {
+        console.log('[NutZap] Using cached wallet for quick load');
+        this.isInitialized = true;
+
+        // Sync with Nostr in background (non-blocking)
+        this.syncWithNostr().catch(err =>
+          console.warn('[NutZap] Background sync failed:', err)
+        );
+
+        return cachedWallet;
+      }
+
+      // Now check Nostr for existing wallet with reduced retries
       console.log('[NutZap] Checking Nostr for existing wallet...');
 
       // Try to fetch wallet with retry logic
       let nostrWallet = null;
-      const maxAttempts = 3;
+      const maxAttempts = 2; // Reduced from 3
 
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         console.log(`[NutZap] Attempt ${attempt}/${maxAttempts} to fetch wallet from Nostr...`);
@@ -246,25 +262,21 @@ class NutzapService {
 
       console.log('[NutZap] No wallet found on Nostr after retries');
 
-      // Only check local storage as fallback (offline mode)
-      console.log('[NutZap] No wallet on Nostr, checking local cache...');
-      const localWallet = await this.loadOfflineWallet();
+      // Before creating a new wallet, do a final extended check ONLY if relays are connected
+      const connectedRelays = (this.ndk as any).pool?.connectedRelays?.size || 0;
 
-      if (localWallet && localWallet.pubkey === this.userPubkey) {
-        console.log('[NutZap] Using cached wallet (offline mode)');
-        this.isInitialized = true;
-        return localWallet;
-      }
+      if (connectedRelays > 0) {
+        console.log('[NutZap] Performing final extended check before wallet creation...');
+        const finalCheck = await this.fetchWalletFromNostrExtended();
 
-      // Before creating a new wallet, do a final extended check
-      console.log('[NutZap] Performing final extended check before wallet creation...');
-      const finalCheck = await this.fetchWalletFromNostrExtended();
-
-      if (finalCheck) {
-        console.log('[NutZap] Found wallet on final extended check!');
-        await this.saveWalletLocally(finalCheck);
-        this.isInitialized = true;
-        return finalCheck;
+        if (finalCheck) {
+          console.log('[NutZap] Found wallet on final extended check!');
+          await this.saveWalletLocally(finalCheck);
+          this.isInitialized = true;
+          return finalCheck;
+        }
+      } else {
+        console.log('[NutZap] Skipping extended check - no relay connection');
       }
 
       // Check if we have relay connectivity before creating
@@ -592,7 +604,7 @@ class NutzapService {
         '#d': ['nutzap-wallet']
       }, {
         closeOnEose: true,
-        timeout: 30000 // 30 second timeout for final check
+        timeout: 10000 // Reduced from 30 seconds for better UX
       });
 
       if (walletEvents.size > 0) {
@@ -617,24 +629,8 @@ class NutzapService {
         };
       }
 
-      // Also check for ANY wallet events without d-tag filter (broader search)
-      console.log('[NutZap] Extended search: Checking for any wallet events from user...');
-      const anyWalletEvents = await this.ndk.fetchEvents({
-        kinds: [EVENT_KINDS.WALLET_INFO as NDKKind],
-        authors: [this.userPubkey]
-      }, {
-        closeOnEose: true,
-        timeout: 15000
-      });
-
-      if (anyWalletEvents.size > 0) {
-        console.warn(`[NutZap] Found ${anyWalletEvents.size} wallet event(s) without standard d-tag`);
-        // Log the tags for debugging
-        anyWalletEvents.forEach(event => {
-          console.log('[NutZap] Wallet event tags:', event.tags);
-        });
-      }
-
+      // Skip the secondary check to reduce loading time
+      // If the standard query didn't find it, we can assume it doesn't exist
       return null;
     } catch (error) {
       console.error('[NutZap] Extended search error:', error);
