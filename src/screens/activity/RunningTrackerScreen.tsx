@@ -7,10 +7,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
-import { locationTrackingService } from '../../services/activity/LocationTrackingService';
+import { enhancedLocationTrackingService } from '../../services/activity/EnhancedLocationTrackingService';
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
-import type { TrackingSession } from '../../services/activity/LocationTrackingService';
+import type { EnhancedTrackingSession } from '../../services/activity/EnhancedLocationTrackingService';
 import type { FormattedMetrics } from '../../services/activity/ActivityMetricsService';
+import { GPSStatusIndicator, type GPSSignalStrength } from '../../components/activity/GPSStatusIndicator';
 
 interface MetricCardProps {
   label: string;
@@ -38,6 +39,9 @@ export const RunningTrackerScreen: React.FC = () => {
     elevation: '0 m',
   });
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [gpsSignal, setGpsSignal] = useState<GPSSignalStrength>('none');
+  const [gpsAccuracy, setGpsAccuracy] = useState<number | undefined>();
+  const [isBackgroundTracking, setIsBackgroundTracking] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const metricsUpdateRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
@@ -52,7 +56,7 @@ export const RunningTrackerScreen: React.FC = () => {
   }, []);
 
   const startTracking = async () => {
-    const started = await locationTrackingService.startTracking('running');
+    const started = await enhancedLocationTrackingService.startTracking('running');
     if (!started) {
       Alert.alert(
         'Permission Required',
@@ -81,7 +85,7 @@ export const RunningTrackerScreen: React.FC = () => {
   };
 
   const updateMetrics = () => {
-    const session = locationTrackingService.getCurrentSession();
+    const session = enhancedLocationTrackingService.getCurrentSession();
     if (session) {
       const currentMetrics = {
         distance: session.totalDistance,
@@ -92,22 +96,27 @@ export const RunningTrackerScreen: React.FC = () => {
 
       const formatted = activityMetricsService.getFormattedMetrics(currentMetrics, 'running');
       setMetrics(formatted);
+
+      // Update GPS status
+      setGpsSignal(session.gpsSignalStrength as GPSSignalStrength);
+      setGpsAccuracy(session.statistics?.averageAccuracy);
+      setIsBackgroundTracking(session.isBackgroundTracking);
     }
   };
 
-  const pauseTracking = () => {
+  const pauseTracking = async () => {
     if (!isPaused) {
-      locationTrackingService.pauseTracking();
+      await enhancedLocationTrackingService.pauseTracking();
       setIsPaused(true);
       pausedDurationRef.current = Date.now();
     }
   };
 
-  const resumeTracking = () => {
+  const resumeTracking = async () => {
     if (isPaused) {
       const pauseDuration = Date.now() - pausedDurationRef.current;
       pausedDurationRef.current += pauseDuration;
-      locationTrackingService.resumeTracking();
+      await enhancedLocationTrackingService.resumeTracking();
       setIsPaused(false);
     }
   };
@@ -123,7 +132,7 @@ export const RunningTrackerScreen: React.FC = () => {
       metricsUpdateRef.current = null;
     }
 
-    const session = await locationTrackingService.stopTracking();
+    const session = await enhancedLocationTrackingService.stopTracking();
     setIsTracking(false);
     setIsPaused(false);
 
@@ -141,7 +150,7 @@ export const RunningTrackerScreen: React.FC = () => {
     }
   };
 
-  const showWorkoutSummary = (session: TrackingSession) => {
+  const showWorkoutSummary = (session: EnhancedTrackingSession) => {
     const finalMetrics = {
       distance: session.totalDistance,
       duration: elapsedTime,
@@ -175,7 +184,7 @@ export const RunningTrackerScreen: React.FC = () => {
     setElapsedTime(0);
   };
 
-  const saveWorkout = async (session: TrackingSession) => {
+  const saveWorkout = async (session: EnhancedTrackingSession) => {
     // TODO: Integrate with WorkoutPublishingService
     console.log('Saving workout:', session);
     Alert.alert('Success', 'Your run has been saved!');
@@ -190,6 +199,16 @@ export const RunningTrackerScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
+      {/* GPS Status Indicator */}
+      {isTracking && (
+        <View style={styles.gpsContainer}>
+          <GPSStatusIndicator
+            signalStrength={gpsSignal}
+            accuracy={gpsAccuracy}
+            isBackgroundTracking={isBackgroundTracking}
+          />
+        </View>
+      )}
       {/* Metrics Display */}
       <View style={styles.metricsContainer}>
         <View style={styles.metricsRow}>
@@ -245,6 +264,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
     padding: 20,
+  },
+  gpsContainer: {
+    marginBottom: 16,
   },
   metricsContainer: {
     flex: 1,

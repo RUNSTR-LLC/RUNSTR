@@ -256,12 +256,12 @@ export class StreamingLocationStorage {
       const dist = this.calculateDistance(points[i - 1], points[i]);
       totalDistance += dist;
 
-      if (points[i].speed) {
+      if (points[i].speed !== undefined) {
         maxSpeed = Math.max(maxSpeed, points[i].speed);
       }
 
-      if (points[i].altitude && points[i - 1].altitude) {
-        const gain = points[i].altitude! - points[i - 1].altitude!;
+      if (points[i].altitude !== undefined && points[i - 1].altitude !== undefined) {
+        const gain = points[i].altitude - points[i - 1].altitude;
         if (gain > 0) elevationGain += gain;
       }
     }

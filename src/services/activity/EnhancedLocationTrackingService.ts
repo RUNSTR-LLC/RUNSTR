@@ -215,7 +215,7 @@ export class EnhancedLocationTrackingService {
       return true;
     } catch (error) {
       console.error('Failed to start tracking:', error);
-      this.stateMachine.send({ type: 'INITIALIZATION_FAILED', error: error.message });
+      this.stateMachine.send({ type: 'INITIALIZATION_FAILED', error: String(error) });
       return false;
     }
   }
@@ -239,13 +239,40 @@ export class EnhancedLocationTrackingService {
       batteryLevel: this.batteryService.getBatteryLevel(),
     };
 
-    // Validate point
-    const validationResult = this.validator.validatePoint(newPoint, this.lastValidLocation || undefined);
+    // Validate point (validator expects basic LocationPoint interface)
+    const pointForValidation = {
+      latitude: newPoint.latitude,
+      longitude: newPoint.longitude,
+      altitude: newPoint.altitude,
+      timestamp: newPoint.timestamp,
+      accuracy: newPoint.accuracy,
+      speed: newPoint.speed,
+    };
+    const validationResult = this.validator.validatePoint(pointForValidation, this.lastValidLocation ? {
+      latitude: this.lastValidLocation.latitude,
+      longitude: this.lastValidLocation.longitude,
+      altitude: this.lastValidLocation.altitude,
+      timestamp: this.lastValidLocation.timestamp,
+      accuracy: this.lastValidLocation.accuracy,
+      speed: this.lastValidLocation.speed,
+    } : undefined);
 
     if (validationResult.isValid) {
-      // Use corrected point if available
-      const pointToStore = validationResult.correctedPoint || newPoint;
-      pointToStore.confidence = validationResult.confidence;
+      // Use corrected point if available, or original point
+      let pointToStore: EnhancedLocationPoint;
+      if (validationResult.correctedPoint) {
+        pointToStore = {
+          ...validationResult.correctedPoint,
+          confidence: validationResult.confidence,
+          source: 'gps',
+          batteryLevel: this.batteryService.getBatteryLevel(),
+        };
+      } else {
+        pointToStore = {
+          ...newPoint,
+          confidence: validationResult.confidence,
+        };
+      }
 
       // Update metrics
       if (this.lastValidLocation) {
@@ -260,8 +287,15 @@ export class EnhancedLocationTrackingService {
         }
       }
 
-      // Store point
-      await this.storage.addPoint(pointToStore);
+      // Store point (storage expects basic LocationPoint)
+      await this.storage.addPoint({
+        latitude: pointToStore.latitude,
+        longitude: pointToStore.longitude,
+        altitude: pointToStore.altitude,
+        timestamp: pointToStore.timestamp,
+        accuracy: pointToStore.accuracy,
+        speed: pointToStore.speed,
+      });
       this.lastValidLocation = pointToStore;
       this.totalValidPoints++;
 

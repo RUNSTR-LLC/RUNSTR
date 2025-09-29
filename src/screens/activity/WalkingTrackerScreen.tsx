@@ -6,9 +6,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Alert } from 'react-native';
 import { BaseTrackerComponent } from '../../components/activity/BaseTrackerComponent';
-import { locationTrackingService } from '../../services/activity/LocationTrackingService';
+import { enhancedLocationTrackingService } from '../../services/activity/EnhancedLocationTrackingService';
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
-import type { TrackingSession } from '../../services/activity/LocationTrackingService';
+import type { EnhancedTrackingSession } from '../../services/activity/EnhancedLocationTrackingService';
 
 export const WalkingTrackerScreen: React.FC = () => {
   const [isTracking, setIsTracking] = useState(false);
@@ -33,7 +33,7 @@ export const WalkingTrackerScreen: React.FC = () => {
   }, []);
 
   const startTracking = async () => {
-    const started = await locationTrackingService.startTracking('walking');
+    const started = await enhancedLocationTrackingService.startTracking('walking');
     if (!started) {
       Alert.alert(
         'Permission Required',
@@ -60,7 +60,7 @@ export const WalkingTrackerScreen: React.FC = () => {
   };
 
   const updateMetrics = () => {
-    const session = locationTrackingService.getCurrentSession();
+    const session = enhancedLocationTrackingService.getCurrentSession();
     if (session) {
       const steps = activityMetricsService.estimateSteps(session.totalDistance);
 
@@ -73,19 +73,19 @@ export const WalkingTrackerScreen: React.FC = () => {
     }
   };
 
-  const pauseTracking = () => {
+  const pauseTracking = async () => {
     if (!isPaused) {
-      locationTrackingService.pauseTracking();
+      await enhancedLocationTrackingService.pauseTracking();
       setIsPaused(true);
       pausedDurationRef.current = Date.now();
     }
   };
 
-  const resumeTracking = () => {
+  const resumeTracking = async () => {
     if (isPaused) {
       const pauseDuration = Date.now() - pausedDurationRef.current;
       pausedDurationRef.current += pauseDuration;
-      locationTrackingService.resumeTracking();
+      await enhancedLocationTrackingService.resumeTracking();
       setIsPaused(false);
     }
   };
@@ -100,7 +100,7 @@ export const WalkingTrackerScreen: React.FC = () => {
       metricsUpdateRef.current = null;
     }
 
-    const session = await locationTrackingService.stopTracking();
+    const session = await enhancedLocationTrackingService.stopTracking();
     setIsTracking(false);
     setIsPaused(false);
 
@@ -111,7 +111,7 @@ export const WalkingTrackerScreen: React.FC = () => {
     }
   };
 
-  const showWorkoutSummary = (session: TrackingSession) => {
+  const showWorkoutSummary = (session: EnhancedTrackingSession) => {
     const steps = activityMetricsService.estimateSteps(session.totalDistance);
     const calories = activityMetricsService.estimateCalories('walking', session.totalDistance, elapsedTime);
 
@@ -131,7 +131,7 @@ export const WalkingTrackerScreen: React.FC = () => {
     resetMetrics();
   };
 
-  const saveWorkout = async (session: TrackingSession) => {
+  const saveWorkout = async (session: EnhancedTrackingSession) => {
     // TODO: Integrate with WorkoutPublishingService
     console.log('Saving walk:', session);
     Alert.alert('Success', 'Your walk has been saved!');

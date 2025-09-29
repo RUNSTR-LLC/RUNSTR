@@ -6,9 +6,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Alert } from 'react-native';
 import { BaseTrackerComponent } from '../../components/activity/BaseTrackerComponent';
-import { locationTrackingService } from '../../services/activity/LocationTrackingService';
+import { enhancedLocationTrackingService } from '../../services/activity/EnhancedLocationTrackingService';
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
-import type { TrackingSession } from '../../services/activity/LocationTrackingService';
+import type { EnhancedTrackingSession } from '../../services/activity/EnhancedLocationTrackingService';
 
 export const CyclingTrackerScreen: React.FC = () => {
   const [isTracking, setIsTracking] = useState(false);
@@ -34,7 +34,7 @@ export const CyclingTrackerScreen: React.FC = () => {
   }, []);
 
   const startTracking = async () => {
-    const started = await locationTrackingService.startTracking('cycling');
+    const started = await enhancedLocationTrackingService.startTracking('cycling');
     if (!started) {
       Alert.alert(
         'Permission Required',
@@ -61,20 +61,10 @@ export const CyclingTrackerScreen: React.FC = () => {
   };
 
   const updateMetrics = () => {
-    const session = locationTrackingService.getCurrentSession();
+    const session = enhancedLocationTrackingService.getCurrentSession();
     if (session) {
-      // Calculate current speed based on recent location updates
-      let speed = 0;
-      if (session.locations.length > 1) {
-        const recent = session.locations[session.locations.length - 1];
-        if (recent.speed !== undefined) {
-          // Use GPS-provided speed if available (m/s to km/h)
-          speed = recent.speed * 3.6;
-        } else {
-          // Calculate speed from distance and time
-          speed = activityMetricsService.calculateSpeed(session.totalDistance, elapsedTime);
-        }
-      }
+      // Calculate current speed based on distance and time
+      let speed = activityMetricsService.calculateSpeed(session.totalDistance, elapsedTime);
 
       setCurrentSpeed(speed);
       setMetrics({
@@ -86,19 +76,19 @@ export const CyclingTrackerScreen: React.FC = () => {
     }
   };
 
-  const pauseTracking = () => {
+  const pauseTracking = async () => {
     if (!isPaused) {
-      locationTrackingService.pauseTracking();
+      await enhancedLocationTrackingService.pauseTracking();
       setIsPaused(true);
       pausedDurationRef.current = Date.now();
     }
   };
 
-  const resumeTracking = () => {
+  const resumeTracking = async () => {
     if (isPaused) {
       const pauseDuration = Date.now() - pausedDurationRef.current;
       pausedDurationRef.current += pauseDuration;
-      locationTrackingService.resumeTracking();
+      await enhancedLocationTrackingService.resumeTracking();
       setIsPaused(false);
     }
   };
@@ -113,7 +103,7 @@ export const CyclingTrackerScreen: React.FC = () => {
       metricsUpdateRef.current = null;
     }
 
-    const session = await locationTrackingService.stopTracking();
+    const session = await enhancedLocationTrackingService.stopTracking();
     setIsTracking(false);
     setIsPaused(false);
 
@@ -124,7 +114,7 @@ export const CyclingTrackerScreen: React.FC = () => {
     }
   };
 
-  const showWorkoutSummary = (session: TrackingSession) => {
+  const showWorkoutSummary = (session: EnhancedTrackingSession) => {
     const avgSpeed = activityMetricsService.calculateSpeed(session.totalDistance, elapsedTime);
     const calories = activityMetricsService.estimateCalories('cycling', session.totalDistance, elapsedTime);
 
@@ -144,7 +134,7 @@ export const CyclingTrackerScreen: React.FC = () => {
     resetMetrics();
   };
 
-  const saveWorkout = async (session: TrackingSession) => {
+  const saveWorkout = async (session: EnhancedTrackingSession) => {
     // TODO: Integrate with WorkoutPublishingService
     console.log('Saving ride:', session);
     Alert.alert('Success', 'Your ride has been saved!');

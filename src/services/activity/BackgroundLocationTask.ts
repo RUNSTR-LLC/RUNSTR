@@ -225,12 +225,6 @@ export async function isBackgroundTaskRegistered(): Promise<boolean> {
 function getBackgroundLocationOptions(activityType: string): Location.LocationOptions {
   const baseOptions: Location.LocationOptions = {
     accuracy: Location.Accuracy.BestForNavigation,
-    showsBackgroundLocationIndicator: true,
-    foregroundService: {
-      notificationTitle: 'RUNSTR Activity Tracking',
-      notificationBody: `Tracking your ${activityType} in progress...`,
-      notificationColor: '#4ade80',
-    },
   };
 
   switch (activityType) {
