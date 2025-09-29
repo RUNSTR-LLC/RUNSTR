@@ -131,28 +131,6 @@ export const TeamManagementSection: React.FC<TeamManagementSectionProps> = ({
               </Text>
             )}
           </View>
-
-          {/* Team Stats - Simplified */}
-          <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{currentTeam.memberCount}</Text>
-              <Text style={styles.statLabel}>Members</Text>
-            </View>
-
-            {/* Captain badge removed - captain status shown in team screen */}
-
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>
-                {currentTeam.isActive ? 'Active' : 'Inactive'}
-              </Text>
-              <Text style={styles.statLabel}>Status</Text>
-            </View>
-          </View>
-
-          {/* Tap Indicator */}
-          <View style={styles.tapIndicator}>
-            <Text style={styles.tapText}>Tap to view team →</Text>
-          </View>
         </View>
       </Card>
     </TouchableOpacity>

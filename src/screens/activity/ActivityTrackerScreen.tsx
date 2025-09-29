@@ -65,7 +65,7 @@ export const ActivityTrackerScreen: React.FC = () => {
           label="Run"
           isActive={activeTab === 'run'}
           onPress={() => setActiveTab('run')}
-          icon="fitness"
+          icon="body"
         />
         <TabButton
           label="Walk"

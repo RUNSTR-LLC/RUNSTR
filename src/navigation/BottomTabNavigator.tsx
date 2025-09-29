@@ -128,11 +128,11 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
         )}
       </Tab.Screen>
 
-      {/* Events Tab - RUNSTR Season 1 */}
+      {/* Season Tab - RUNSTR Season 1 */}
       <Tab.Screen
         name="Events"
         options={{
-          title: 'Events',
+          title: 'Season',
           headerShown: false,
         }}
         component={EventsScreen}

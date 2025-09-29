@@ -154,23 +154,72 @@ export class NostrAuthProvider {
       // Get the user from signer to extract keys
       const ndkUser = await signer.user();
 
-      // Extract the nsec from the signer's private key
-      const nsec = signer.privateKey; // This is already in nsec format from NDK
+      // Extract and properly format the nsec from the signer
+      // Use NDK's built-in methods to get the properly formatted nsec
+      const privateKeyHex = signer.privateKey;
+      console.log('🔑 Generated private key (hex):', privateKeyHex ? privateKeyHex.slice(0, 16) + '...' : 'null');
+
+      if (!privateKeyHex) {
+        throw new Error('Failed to generate private key');
+      }
+
+      // Create new signer from hex to get properly formatted nsec
+      const newSigner = new NDKPrivateKeySigner(privateKeyHex);
+
+      // Get the nsec in proper format - NDK should handle the encoding
+      let nsec: string;
+      try {
+        // Try to get nsec directly from the signer
+        const privateKey = newSigner.privateKey;
+        if (privateKey?.startsWith('nsec1')) {
+          nsec = privateKey;
+        } else {
+          // If it's still hex, we need to manually convert using existing utils
+          const { hexToNsec } = await import('../../../utils/ndkConversion');
+          nsec = hexToNsec(privateKeyHex) || '';
+        }
+      } catch (error) {
+        console.error('🔑 Error getting nsec format:', error);
+        // Fallback: use the existing utility
+        const { hexToNsec } = await import('../../../utils/ndkConversion');
+        nsec = hexToNsec(privateKeyHex) || '';
+      }
+
       const npub = ndkUser.npub;
       const hexPubkey = ndkUser.pubkey;
 
+      // Validate all generated values
+      if (!nsec || !nsec.startsWith('nsec1')) {
+        console.error('❌ NostrAuthProvider: Invalid nsec generated:', nsec?.slice(0, 10) || 'null');
+        throw new Error('Failed to generate valid nsec format');
+      }
+
+      if (!npub || !npub.startsWith('npub1')) {
+        console.error('❌ NostrAuthProvider: Invalid npub generated:', npub?.slice(0, 10) || 'null');
+        throw new Error('Failed to generate valid npub format');
+      }
+
+      if (!hexPubkey || hexPubkey.length !== 64) {
+        console.error('❌ NostrAuthProvider: Invalid hex pubkey generated:', hexPubkey?.slice(0, 16) || 'null');
+        throw new Error('Failed to generate valid hex pubkey');
+      }
+
       console.log('✅ NostrAuthProvider: Generated new Nostr identity:', {
+        nsec: nsec.slice(0, 10) + '...',
         npub: npub.slice(0, 20) + '...',
         hexPubkey: hexPubkey.slice(0, 16) + '...'
       });
 
       // Store keys using unified auth system with verification
+      console.log('💾 NostrAuthProvider: Storing generated identity...');
       const stored = await storeAuthenticationData(nsec, npub);
       if (!stored) {
         console.error('❌ NostrAuthProvider: Failed to store generated authentication data');
+        console.error('❌ NostrAuthProvider: Storage failed for nsec:', nsec.slice(0, 10) + '...');
+        console.error('❌ NostrAuthProvider: Storage failed for npub:', npub.slice(0, 20) + '...');
         return {
           success: false,
-          error: 'Failed to save generated identity. Please try again.',
+          error: 'Failed to save generated identity. Please check device storage and try again.',
         };
       }
       console.log('✅ NostrAuthProvider: Generated identity stored and verified');
@@ -186,15 +235,21 @@ export class NostrAuthProvider {
         const walletState = await nutzapService.initialize(nsec);
         if (walletState.created) {
           console.log('✅ NostrAuthProvider: NutZap wallet created for new user');
+        } else {
+          console.log('✅ NostrAuthProvider: NutZap wallet already exists for user');
         }
+        console.log('💰 NostrAuthProvider: Wallet initialization completed successfully');
       } catch (walletError) {
         // Don't fail signup if wallet creation fails - wallet can be created later
         console.warn('⚠️ NostrAuthProvider: NutZap wallet initialization failed (non-fatal):', walletError);
+        console.warn('⚠️ NostrAuthProvider: User can still proceed without wallet - wallet creation will be retried later');
       }
 
       // Create a basic user profile for the new identity
+      console.log('👤 NostrAuthProvider: Creating user profile...');
       const displayName = generateDisplayName(npub);
       const now = new Date().toISOString();
+      console.log('👤 NostrAuthProvider: Generated display name:', displayName);
 
       const user: User = {
         id: npub,
@@ -220,7 +275,10 @@ export class NostrAuthProvider {
       console.log('✅ NostrAuthProvider: Nostr signup successful - new identity created:', {
         id: user.id,
         name: user.name,
+        displayName: user.displayName,
         npub: user.npub.slice(0, 20) + '...',
+        role: user.role,
+        createdAt: user.createdAt,
       });
 
       return {
@@ -231,9 +289,29 @@ export class NostrAuthProvider {
       };
     } catch (error) {
       console.error('❌ NostrAuthProvider: Nostr signup failed:', error);
+      console.error('❌ NostrAuthProvider: Signup failure details:', {
+        errorType: error?.constructor?.name || 'Unknown',
+        errorMessage: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack?.slice(0, 500) : undefined,
+      });
+
+      // Provide specific error messages based on error type
+      let errorMessage = 'Failed to generate Nostr identity';
+      if (error instanceof Error) {
+        if (error.message.includes('nsec format')) {
+          errorMessage = 'Failed to generate valid private key. Please try again.';
+        } else if (error.message.includes('npub format')) {
+          errorMessage = 'Failed to generate valid public key. Please try again.';
+        } else if (error.message.includes('storage')) {
+          errorMessage = 'Failed to save identity to device storage. Please check available storage space.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to generate Nostr identity',
+        error: errorMessage,
       };
     }
   }
