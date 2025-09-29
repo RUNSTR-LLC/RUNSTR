@@ -26,6 +26,10 @@
         "CFBundleDisplayName": "Teams",
         "NSHealthShareUsageDescription": "RUNSTR needs access to your workout data to automatically sync your fitness activities and calculate team rankings for Bitcoin rewards.",
         "NSHealthUpdateUsageDescription": "RUNSTR needs to read your workout data to track your fitness progress and team contributions.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "RUNSTR needs location access to track your running, walking, and cycling activities accurately, even when the app is in the background.",
+        "NSLocationWhenInUseUsageDescription": "RUNSTR needs location access to track your running, walking, and cycling activities.",
+        "NSLocationAlwaysUsageDescription": "RUNSTR needs location access to continue tracking your workout when the app is in the background.",
+        "UIBackgroundModes": ["location", "fetch", "processing"],
         "UIUserInterfaceStyle": "Dark"
       },
       "bundleIdentifier": "com.anonymous.runstr.project",
@@ -40,6 +44,12 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "permissions": [
+        "ACCESS_BACKGROUND_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "FOREGROUND_SERVICE"
+      ],
       "edgeToEdgeEnabled": true,
       "package": "com.anonymous.runstr.project",
       "intentFilters": [
@@ -60,6 +70,17 @@
     },
     "plugins": [
       "expo-apple-authentication",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "RUNSTR needs location access to track your running, walking, and cycling activities accurately.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      [
+        "expo-task-manager"
+      ],
       [
         "@yzlin/expo-healthkit",
         {
