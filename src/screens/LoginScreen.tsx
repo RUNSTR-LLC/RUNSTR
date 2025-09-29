@@ -247,7 +247,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
                   {isLoading ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
-                    <Text style={styles.signupButtonText}>Sign up</Text>
+                    <Text style={styles.signupButtonText}>Start</Text>
                   )}
                 </TouchableOpacity>
 

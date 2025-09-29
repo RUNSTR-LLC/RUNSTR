@@ -154,8 +154,7 @@ export class NostrAuthProvider {
       // Get the user from signer to extract keys
       const ndkUser = await signer.user();
 
-      // Extract and properly format the nsec from the signer
-      // Use NDK's built-in methods to get the properly formatted nsec
+      // Extract the private key in hex format from NDK
       const privateKeyHex = signer.privateKey;
       console.log('🔑 Generated private key (hex):', privateKeyHex ? privateKeyHex.slice(0, 16) + '...' : 'null');
 
@@ -163,26 +162,14 @@ export class NostrAuthProvider {
         throw new Error('Failed to generate private key');
       }
 
-      // Create new signer from hex to get properly formatted nsec
-      const newSigner = new NDKPrivateKeySigner(privateKeyHex);
+      // Convert hex private key to nsec format using the utility
+      // This is the proper way since NDK.privateKey returns hex, not nsec
+      const { hexToNsec } = await import('../../../utils/ndkConversion');
+      const nsec = hexToNsec(privateKeyHex);
 
-      // Get the nsec in proper format - NDK should handle the encoding
-      let nsec: string;
-      try {
-        // Try to get nsec directly from the signer
-        const privateKey = newSigner.privateKey;
-        if (privateKey?.startsWith('nsec1')) {
-          nsec = privateKey;
-        } else {
-          // If it's still hex, we need to manually convert using existing utils
-          const { hexToNsec } = await import('../../../utils/ndkConversion');
-          nsec = hexToNsec(privateKeyHex) || '';
-        }
-      } catch (error) {
-        console.error('🔑 Error getting nsec format:', error);
-        // Fallback: use the existing utility
-        const { hexToNsec } = await import('../../../utils/ndkConversion');
-        nsec = hexToNsec(privateKeyHex) || '';
+      if (!nsec) {
+        console.error('❌ NostrAuthProvider: Failed to convert hex to nsec');
+        throw new Error('Failed to encode private key in nsec format');
       }
 
       const npub = ndkUser.npub;
@@ -191,6 +178,7 @@ export class NostrAuthProvider {
       // Validate all generated values
       if (!nsec || !nsec.startsWith('nsec1')) {
         console.error('❌ NostrAuthProvider: Invalid nsec generated:', nsec?.slice(0, 10) || 'null');
+        console.error('❌ NostrAuthProvider: hex private key was:', privateKeyHex?.slice(0, 16) || 'null');
         throw new Error('Failed to generate valid nsec format');
       }
 

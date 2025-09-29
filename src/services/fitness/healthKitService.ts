@@ -279,8 +279,15 @@ export class HealthKitService {
               ];
               const writePermissions: string[] = [];
 
-              // Request authorization
-              await ExpoHealthKit.requestAuthorization(writePermissions, readPermissions);
+              // Request authorization with detailed logging
+              console.log('📱 Requesting HealthKit authorization...');
+              console.log('📋 Read permissions:', readPermissions.slice(0, 5)); // Log first 5 for brevity
+              console.log('📝 Write permissions:', writePermissions);
+
+              const authResult = await ExpoHealthKit.requestAuthorization(writePermissions, readPermissions);
+
+              console.log('✅ HealthKit authorization completed');
+              console.log('📊 Authorization result:', authResult);
 
               debugLog('HealthKit: Permissions requested successfully');
               resolve({ success: true });
@@ -456,12 +463,29 @@ export class HealthKitService {
           limit: 100
         };
 
+        console.log(`📱 Querying HealthKit workouts from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`);
+
         const results = await ExpoHealthKit.queryWorkouts(query);
 
+        console.log(`📱 HealthKit returned ${results?.length || 0} raw workouts`);
+
         // Transform and validate
-        return (results || [])
-          .filter((w: any) => w.duration >= 60 && w.uuid) // Min 1 minute
+        const validWorkouts = (results || [])
+          .filter((w: any) => {
+            if (!w.uuid) {
+              console.warn('⚠️  Workout missing UUID, skipping:', w);
+              return false;
+            }
+            if (!w.duration || w.duration < 60) {
+              console.log(`⏱️  Workout too short (${w.duration}s), skipping:`, w.uuid);
+              return false;
+            }
+            return true;
+          })
           .map((w: any) => this.transformWorkout(w));
+
+        console.log(`✅ Returning ${validWorkouts.length} valid workouts`);
+        return validWorkouts;
       },
       10000,
       'Workout chunk fetch'
@@ -579,55 +603,33 @@ export class HealthKitService {
   }
 
   /**
-   * Save workout to database (returns 'saved', 'skipped', or 'error')
+   * Save workout to AsyncStorage cache (returns 'saved', 'skipped', or 'error')
+   * Pure Nostr architecture - workouts are cached locally, published via other services
    */
   private async saveWorkout(
     workout: WorkoutData
   ): Promise<'saved' | 'skipped' | 'error'> {
     try {
-      // Check if workout already exists
-      const { data: existing, error: checkError } = await supabase
-        .from('workouts')
-        .select('id')
-        .eq('id', workout.id)
-        .single();
-
-      if (checkError && checkError.code !== 'PGRST116') {
-        // PGRST116 = "no rows returned", which means workout doesn't exist
-        throw checkError;
-      }
+      // Check if workout already exists in cache
+      const cacheKey = `healthkit_workout_${workout.id}`;
+      const existing = await AsyncStorage.getItem(cacheKey);
 
       if (existing) {
         return 'skipped'; // Already exists
       }
 
-      // Insert new workout
-      const { error: insertError } = await supabase.from('workouts').insert({
-        id: workout.id,
-        user_id: workout.userId,
-        team_id: workout.teamId,
-        type: workout.type,
-        source: workout.source,
-        distance_meters: workout.distance,
-        duration_seconds: workout.duration,
-        calories: workout.calories,
-        start_time: workout.startTime,
-        end_time: workout.endTime,
-        synced_at: workout.syncedAt,
-        metadata: workout.metadata,
-      });
-
-      if (insertError) {
-        errorLog('HealthKit: Error inserting workout:', insertError);
-        return 'error';
-      }
+      // Save to local cache (AsyncStorage)
+      await AsyncStorage.setItem(cacheKey, JSON.stringify({
+        ...workout,
+        cachedAt: new Date().toISOString()
+      }));
 
       debugLog(
-        `HealthKit: Saved workout - ${workout.type}, ${workout.duration}s`
+        `HealthKit: Cached workout - ${workout.type}, ${workout.duration}s`
       );
       return 'saved';
     } catch (error) {
-      errorLog('HealthKit: Error saving workout:', error);
+      errorLog('HealthKit: Error caching workout:', error);
       return 'error';
     }
   }
@@ -659,26 +661,34 @@ export class HealthKitService {
 
       // Check actual iOS authorization status using native method
       // Try object format first (like the original broken requestAuthorization call)
-      const authStatus = await this.withTimeout(
-        ExpoHealthKit.getRequestStatusForAuthorization({
-          read: readPermissions,
-          write: writePermissions
-        }),
-        5000,
-        'Authorization status check'
-      );
+      // Check authorization status for each permission type individually
+      let hasRequiredPermissions = true;
 
-      // DEBUG: Log what iOS actually returns so we can fix our logic
-      console.log('🔍 DEBUG: iOS authStatus actual value:', authStatus);
-      console.log('🔍 DEBUG: authStatus type:', typeof authStatus);
-      console.log('🔍 DEBUG: authStatus JSON:', JSON.stringify(authStatus));
+      for (const permission of readPermissions.slice(0, 3)) { // Check first 3 core permissions
+        try {
+          const status = await this.executeWithTimeout(
+            async () => ExpoHealthKit.getAuthorizationStatusForType(permission),
+            3000,
+            `Authorization check for ${permission}`
+          );
 
-      // For now, let's be more permissive while we debug
-      // Consider authorized if we get any truthy response that's not explicitly denied
-      const isAuthorized = authStatus && authStatus !== 'denied' && authStatus !== 'notDetermined';
-      console.log('🔍 DEBUG: isAuthorized result:', isAuthorized);
-      
-      return isAuthorized;
+          if (status === 'denied' || status === 'notDetermined') {
+            hasRequiredPermissions = false;
+            break;
+          }
+        } catch (permError) {
+          console.warn(`Failed to check permission ${permission}:`, permError);
+          // Continue checking other permissions
+        }
+      }
+
+      const authStatus = hasRequiredPermissions;
+
+      // DEBUG: Log what iOS actually returns
+      console.log('🔍 DEBUG: iOS authStatus result:', authStatus);
+      console.log('🔍 DEBUG: Has required permissions:', hasRequiredPermissions);
+
+      return hasRequiredPermissions;
     } catch (error) {
       debugLog('HealthKit: Error checking authorization status:', error);
       return false;
@@ -789,7 +799,7 @@ export class HealthKitService {
   }
 
   /**
-   * Get sync statistics
+   * Get sync statistics from local cache
    */
   async getSyncStats(userId: string): Promise<{
     totalHealthKitWorkouts: number;
@@ -797,17 +807,35 @@ export class HealthKitService {
     lastSyncDate?: string;
   }> {
     try {
-      const { count, error } = await supabase
-        .from('workouts')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .eq('source', 'healthkit');
+      // Get all cached HealthKit workouts for this user
+      const keys = await AsyncStorage.getAllKeys();
+      const healthKitKeys = keys.filter(key => key.startsWith('healthkit_workout_'));
 
-      if (error) throw error;
+      let totalCount = 0;
+      let recentCount = 0;
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+      for (const key of healthKitKeys) {
+        try {
+          const workoutData = await AsyncStorage.getItem(key);
+          if (workoutData) {
+            const workout = JSON.parse(workoutData);
+            if (workout.userId === userId) {
+              totalCount++;
+              if (workout.cachedAt && new Date(workout.cachedAt) > sevenDaysAgo) {
+                recentCount++;
+              }
+            }
+          }
+        } catch (parseError) {
+          // Skip corrupted entries
+          continue;
+        }
+      }
 
       return {
-        totalHealthKitWorkouts: count || 0,
-        recentSyncs: 0, // Could be calculated from last 7 days
+        totalHealthKitWorkouts: totalCount,
+        recentSyncs: recentCount,
         lastSyncDate: this.lastSyncAt?.toISOString(),
       };
     } catch (error) {
@@ -840,25 +868,41 @@ export class HealthKitService {
     try {
       debugLog(`HealthKit: Fetching recent workouts (${days} days) for user ${userId}`);
 
-      // Use the existing fetchRecentWorkouts method but with custom date range
-      const daysAgo = new Date();
-      daysAgo.setDate(daysAgo.getDate() - days);
+      // Create proper date range for HealthKit query
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+
+      console.log(`📅 Querying workouts from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`);
 
       const options = {
-        from: daysAgo,
-        to: new Date(),
+        from: startDate,
+        to: endDate,
         limit: 100, // Reasonable limit
+        ascending: false // Get newest workouts first
       };
 
-      const healthKitWorkouts = await this.withTimeout(
-        ExpoHealthKit.queryWorkouts(options),
+      const healthKitWorkouts = await this.executeWithTimeout(
+        async () => ExpoHealthKit.queryWorkouts(options),
         this.DEFAULT_TIMEOUT,
         `HealthKit workout query for ${days} days`
       );
 
+      console.log(`📊 Processing ${healthKitWorkouts?.length || 0} HealthKit workouts for UI display`);
+
       // Filter and transform to match expected format
       const validWorkouts = (healthKitWorkouts || []).filter(
-        (workout: any) => workout.uuid && workout.startDate && workout.endDate
+        (workout: any) => {
+          if (!workout.uuid) {
+            console.warn('⚠️  Workout missing UUID for UI, skipping');
+            return false;
+          }
+          if (!workout.startDate || !workout.endDate) {
+            console.warn('⚠️  Workout missing date info for UI, skipping:', workout.uuid);
+            return false;
+          }
+          return true;
+        }
       ).map((workout: any) => {
         const workoutData = this.normalizeWorkout(
           {
@@ -888,16 +932,24 @@ export class HealthKitService {
         };
       }).filter(Boolean); // Remove any null results
 
-      debugLog(`HealthKit: Retrieved ${validWorkouts.length} valid workouts for UI`);
+      console.log(`✅ HealthKit: Returning ${validWorkouts.length} valid workouts for UI display`);
       return validWorkouts;
     } catch (error) {
       errorLog('HealthKit: Error in getRecentWorkouts:', error);
       
+      console.error('❌ HealthKit getRecentWorkouts failed:', {
+        error: error.message,
+        userId,
+        days,
+        authorized: this.isAuthorized,
+        available: HealthKitService.isAvailable()
+      });
+
       // Provide user-friendly error messages for timeout scenarios
       if (error instanceof Error && error.message.includes('timed out')) {
         throw new Error('Workout sync is taking too long. Please try again or check your internet connection.');
       }
-      
+
       // Return empty array instead of throwing for UI components
       return [];
     }
