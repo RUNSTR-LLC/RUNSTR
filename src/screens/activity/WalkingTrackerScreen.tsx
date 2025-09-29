@@ -9,6 +9,9 @@ import { BaseTrackerComponent } from '../../components/activity/BaseTrackerCompo
 import { enhancedLocationTrackingService } from '../../services/activity/EnhancedLocationTrackingService';
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
 import type { EnhancedTrackingSession } from '../../services/activity/EnhancedLocationTrackingService';
+import workoutPublishingService from '../../services/nostr/workoutPublishingService';
+import type { PublishableWorkout } from '../../services/nostr/workoutPublishingService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const WalkingTrackerScreen: React.FC = () => {
   const [isTracking, setIsTracking] = useState(false);
@@ -132,9 +135,80 @@ export const WalkingTrackerScreen: React.FC = () => {
   };
 
   const saveWorkout = async (session: EnhancedTrackingSession) => {
-    // TODO: Integrate with WorkoutPublishingService
-    console.log('Saving walk:', session);
-    Alert.alert('Success', 'Your walk has been saved!');
+    try {
+      const hexPrivKey = await AsyncStorage.getItem('@runstr:user_privkey_hex');
+      const npub = await AsyncStorage.getItem('@runstr:npub');
+
+      if (!hexPrivKey) {
+        Alert.alert('Error', 'No user key found. Please login first.');
+        return;
+      }
+
+      const workoutId = `workout_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const publishableWorkout: PublishableWorkout = {
+        id: workoutId,
+        userId: npub || 'unknown',
+        type: 'walking',
+        startTime: new Date(Date.now() - (elapsedTime * 1000)).toISOString(),
+        endTime: new Date().toISOString(),
+        duration: elapsedTime,
+        distance: session.totalDistance,
+        calories: activityMetricsService.estimateCalories('walking', session.totalDistance, elapsedTime),
+        source: 'activity_tracker',
+        sourceApp: 'RUNSTR',
+        elevationGain: session.totalElevationGain,
+        unitSystem: 'metric',
+        canSyncToNostr: true,
+        metadata: {
+          title: 'Walking Workout',
+          sourceApp: 'RUNSTR',
+          notes: `Tracked ${(session.totalDistance / 1000).toFixed(2)}km walk`,
+        },
+        pace: activityMetricsService.calculatePace(session.totalDistance, elapsedTime),
+      };
+
+      console.log('🔄 Publishing walking workout to Nostr...');
+
+      const result = await workoutPublishingService.saveWorkoutToNostr(
+        publishableWorkout,
+        hexPrivKey,
+        npub || 'unknown'
+      );
+
+      if (result.success) {
+        console.log('✅ Walk saved to Nostr:', result.eventId);
+        Alert.alert(
+          'Success! 🎉',
+          `Your walk has been saved to Nostr!\n\nEvent ID: ${result.eventId?.slice(0, 8)}...`,
+          [
+            { text: 'OK' },
+            {
+              text: 'Share',
+              onPress: async () => {
+                const socialResult = await workoutPublishingService.postWorkoutToSocial(
+                  publishableWorkout,
+                  hexPrivKey,
+                  npub || 'unknown',
+                  {
+                    includeStats: true,
+                    includeMotivation: true,
+                    cardTemplate: 'achievement',
+                  }
+                );
+                if (socialResult.success) {
+                  Alert.alert('Shared!', 'Your walk has been posted to your Nostr feed!');
+                }
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Error', `Failed to save walk: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('❌ Error saving walk:', error);
+      Alert.alert('Error', 'Failed to save walk to Nostr');
+    }
   };
 
   const resetMetrics = () => {

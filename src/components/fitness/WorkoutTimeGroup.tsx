@@ -79,10 +79,9 @@ export const WorkoutTimeGroup: React.FC<WorkoutTimeGroupProps> = ({
       hiking: '🥾',
       gym: '💪',
       strength_training: '🏋️',
-      yoga: '🧘',
-      other: '⚡'
+      yoga: '🧘'
     };
-    return icons[type] || '⚡';
+    return icons[type] || '';
   };
 
   const spin = rotation.interpolate({
@@ -103,44 +102,11 @@ export const WorkoutTimeGroup: React.FC<WorkoutTimeGroupProps> = ({
               <Text style={styles.workoutCount}>{group.stats.totalWorkouts} workouts</Text>
             </View>
           </View>
-
-          <View style={styles.statsContainer}>
-            {group.stats.totalDistance > 0 && (
-              <View style={styles.stat}>
-                <Text style={styles.statValue}>{formatDistance(group.stats.totalDistance)}</Text>
-                <Text style={styles.statLabel}>distance</Text>
-              </View>
-            )}
-
-            <View style={styles.stat}>
-              <Text style={styles.statValue}>{formatDuration(group.stats.totalDuration)}</Text>
-              <Text style={styles.statLabel}>time</Text>
-            </View>
-
-            {group.stats.totalCalories > 0 && (
-              <View style={styles.stat}>
-                <Text style={styles.statValue}>{group.stats.totalCalories.toFixed(0)}</Text>
-                <Text style={styles.statLabel}>cal</Text>
-              </View>
-            )}
-          </View>
         </Card>
       </TouchableOpacity>
 
       {group.isExpanded && (
         <View style={styles.content}>
-          {/* Activity breakdown */}
-          {Object.keys(group.stats.activityBreakdown).length > 1 && (
-            <View style={styles.activityBreakdown}>
-              {Object.entries(group.stats.activityBreakdown).map(([type, count]) => (
-                <View key={type} style={styles.activityTag}>
-                  <Text style={styles.activityIcon}>{getActivityIcon(type)}</Text>
-                  <Text style={styles.activityCount}>{count}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-
           {/* Average pace if available */}
           {group.stats.averagePace && (
             <View style={styles.paceContainer}>
@@ -218,32 +184,6 @@ const styles = StyleSheet.create({
   content: {
     marginTop: 8,
     paddingHorizontal: 4
-  },
-  activityBreakdown: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 12,
-    paddingHorizontal: 12
-  },
-  activityTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.cardBackground,
-    borderRadius: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: theme.colors.border
-  },
-  activityIcon: {
-    fontSize: 14,
-    marginRight: 4
-  },
-  activityCount: {
-    fontSize: 12,
-    color: theme.colors.textSecondary,
-    fontWeight: '500'
   },
   paceContainer: {
     flexDirection: 'row',

@@ -12,7 +12,6 @@ import { WorkoutCard } from '../shared/WorkoutCard';
 import { Nuclear1301Service } from '../../../services/fitness/Nuclear1301Service';
 import { WorkoutGroupingService, type WorkoutGroup } from '../../../utils/workoutGrouping';
 import { WorkoutTimeGroup } from '../../fitness/WorkoutTimeGroup';
-import { WorkoutCalendarHeatmap } from '../../fitness/WorkoutCalendarHeatmap';
 import type { NostrWorkout } from '../../../types/nostrWorkout';
 import type { UnifiedWorkout } from '../../../services/fitness/workoutMergeService';
 
@@ -36,13 +35,15 @@ export const NostrWorkoutsTab: React.FC<NostrWorkoutsTabProps> = ({
 
   // Convert NostrWorkout to UnifiedWorkout for compatibility
   const unifiedWorkouts = useMemo((): UnifiedWorkout[] => {
-    return workouts.map(w => ({
-      ...w,
-      syncedToNostr: true,
-      postedToSocial: false,
-      canSyncToNostr: false,
-      canPostToSocial: false,
-    }));
+    return workouts
+      .filter(w => w.type && w.type !== 'unknown' && w.type !== 'other')
+      .map(w => ({
+        ...w,
+        syncedToNostr: true,
+        postedToSocial: false,
+        canSyncToNostr: false,
+        canPostToSocial: false,
+      }));
   }, [workouts]);
 
   // Group workouts by time periods
@@ -107,12 +108,7 @@ export const NostrWorkoutsTab: React.FC<NostrWorkoutsTabProps> = ({
   };
 
   const renderWorkout = ({ item }: { item: NostrWorkout }) => (
-    <WorkoutCard workout={item}>
-      {/* Nostr workouts are already published - no action needed */}
-      <View style={styles.publishedBadge}>
-        <Text style={styles.publishedText}>✓ Published to Nostr</Text>
-      </View>
-    </WorkoutCard>
+    <WorkoutCard workout={item} />
   );
 
   if (isLoading) {
@@ -135,18 +131,6 @@ export const NostrWorkoutsTab: React.FC<NostrWorkoutsTabProps> = ({
       }
       contentContainerStyle={styles.scrollContent}
     >
-      {workouts.length > 0 && (
-        <>
-          {/* Calendar Heatmap */}
-          <WorkoutCalendarHeatmap
-            workouts={unifiedWorkouts}
-            onDayPress={(date, dayWorkouts) => {
-              console.log(`Day pressed: ${date.toDateString()}, ${dayWorkouts.length} workouts`);
-            }}
-          />
-        </>
-      )}
-
       {/* Grouped Workout List */}
       <View style={styles.list}>
         {workoutGroups.length > 0 ? (
@@ -182,19 +166,6 @@ const styles = StyleSheet.create({
   },
   list: {
     padding: 16,
-  },
-  publishedBadge: {
-    marginTop: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: theme.colors.success + '20',
-    borderRadius: 16,
-    alignSelf: 'flex-start',
-  },
-  publishedText: {
-    color: theme.colors.success,
-    fontSize: 12,
-    fontWeight: '500',
   },
   emptyState: {
     padding: 32,

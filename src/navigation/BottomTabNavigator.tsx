@@ -14,6 +14,7 @@ import { theme } from '../styles/theme';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { TeamDiscoveryScreen } from '../screens/TeamDiscoveryScreen';
 import { ActivityTrackerScreen } from '../screens/activity/ActivityTrackerScreen';
+import { EventsScreen } from '../screens/EventsScreen';
 
 // Data Hooks
 import { useNavigationData } from '../contexts/NavigationDataContext';
@@ -24,6 +25,7 @@ import { createNavigationHandlers } from './navigationHandlers';
 // Types
 export type BottomTabParamList = {
   Teams: undefined;
+  Events: undefined;
   Activity: undefined;
   Profile: undefined;
 };
@@ -65,6 +67,8 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
 
           if (route.name === 'Teams') {
             iconName = focused ? 'people' : 'people-outline';
+          } else if (route.name === 'Events') {
+            iconName = focused ? 'ticket' : 'ticket-outline';
           } else if (route.name === 'Activity') {
             iconName = focused ? 'fitness' : 'fitness-outline';
           } else if (route.name === 'Profile') {
@@ -123,6 +127,16 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
           </SafeAreaView>
         )}
       </Tab.Screen>
+
+      {/* Events Tab - RUNSTR Season 1 */}
+      <Tab.Screen
+        name="Events"
+        options={{
+          title: 'Events',
+          headerShown: false,
+        }}
+        component={EventsScreen}
+      />
 
       {/* Activity Tab - Tracking + Manual Entry */}
       <Tab.Screen

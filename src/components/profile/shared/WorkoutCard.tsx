@@ -71,9 +71,8 @@ export const WorkoutCard: React.FC<WorkoutCardProps> = ({
       gym: '💪',
       strength_training: '🏋️',
       yoga: '🧘',
-      other: '⚡',
     };
-    return icons[type] || '⚡';
+    return icons[type] || '';
   };
 
   return (

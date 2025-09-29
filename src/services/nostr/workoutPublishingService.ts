@@ -81,7 +81,7 @@ export class WorkoutPublishingService {
     userId: string
   ): Promise<WorkoutPublishResult> {
     try {
-      console.log(`🔄 Publishing workout ${workout.id} as kind 1301 event (NIP-101e)...`);
+      console.log(`🔄 Publishing workout ${workout.id} as kind 1301 event (runstr format)...`);
 
       // Get public key from private key for exercise tag
       const pubkey = await this.protocolHandler.getPubkeyFromPrivate(privateKeyHex);
@@ -94,9 +94,9 @@ export class WorkoutPublishingService {
         created_at: Math.floor(new Date(workout.startTime).getTime() / 1000),
       };
 
-      // Validate NIP-101e compliance before signing
+      // Validate runstr format compliance before signing
       if (!this.validateNIP101eStructure(eventTemplate)) {
-        throw new Error('Event structure does not comply with NIP-101e');
+        throw new Error('Event structure does not comply with runstr format');
       }
 
       const signedEvent = await this.protocolHandler.signEvent(
@@ -108,7 +108,7 @@ export class WorkoutPublishingService {
       const publishResult = await this.publishEventToRelaysWithRetry(signedEvent);
 
       if (publishResult.success) {
-        console.log(`✅ Workout saved to Nostr (NIP-101e): ${signedEvent.id}`);
+        console.log(`✅ Workout saved to Nostr (runstr format): ${signedEvent.id}`);
       }
 
       return publishResult;
@@ -188,60 +188,95 @@ export class WorkoutPublishingService {
   }
 
   /**
-   * Create NIP-101e compliant tags for kind 1301 workout events
+   * Create runstr-compatible tags for kind 1301 workout events
+   * Matches the exact format used by runstr GitHub implementation
    */
   private createNIP101eWorkoutTags(workout: PublishableWorkout, pubkey: string): string[][] {
+    // Map workout type to simple exercise verb (run, walk, cycle)
+    const exerciseVerb = this.getExerciseVerb(workout.type);
+
+    // Format duration as HH:MM:SS string
+    const durationFormatted = this.formatDurationHHMMSS(workout.duration);
+
+    // Calculate distance in km or miles
+    const distanceKm = workout.distance ? (workout.distance / 1000).toFixed(2) : '0';
+    const distanceUnit = workout.unitSystem === 'imperial' ? 'mi' : 'km';
+    const distanceValue = workout.unitSystem === 'imperial'
+      ? (parseFloat(distanceKm) * 0.621371).toFixed(2)
+      : distanceKm;
+
     const tags: string[][] = [
-      ['d', workout.id], // Unique identifier
-      ['type', this.mapToNIP101eType(workout.type)], // NIP-101e type: cardio/strength/flexibility
-      ['start', this.toUnixSeconds(workout.startTime)], // Unix timestamp in seconds
-      ['end', this.toUnixSeconds(workout.endTime)], // Unix timestamp in seconds
-      ['exercise', ...this.createExerciseTag(workout, pubkey)], // NIP-101e exercise tag
-      ['completed', 'true'], // Workout completion status
-      ['t', workout.type], // Hashtag for activity type
+      ['d', workout.id], // Unique workout ID
+      ['title', workout.metadata?.title || `${exerciseVerb.charAt(0).toUpperCase() + exerciseVerb.slice(1)} Workout`],
+      ['exercise', exerciseVerb], // Simple activity type: run, walk, cycle
+      ['distance', distanceValue, distanceUnit], // Distance with value and unit
+      ['duration', durationFormatted], // HH:MM:SS format
+      ['source', 'RUNSTR'], // App identification
+      ['client', 'RUNSTR', '1.0.15'], // Client info with version
+      ['t', this.getActivityHashtag(workout.type)], // Primary hashtag
     ];
 
-    // Add source app tag if available
-    if (workout.metadata?.sourceApp || workout.sourceApp) {
-      tags.push([
-        'app',
-        workout.metadata?.sourceApp || workout.sourceApp || 'RUNSTR',
-      ]);
+    // Add elevation if available
+    if (workout.elevationGain && workout.elevationGain > 0) {
+      const elevationUnit = workout.unitSystem === 'imperial' ? 'ft' : 'm';
+      const elevationValue = workout.unitSystem === 'imperial'
+        ? Math.round(workout.elevationGain * 3.28084).toString()
+        : Math.round(workout.elevationGain).toString();
+      tags.push(['elevation_gain', elevationValue, elevationUnit]);
     }
+
+    // Add calories if available
+    if (workout.calories && workout.calories > 0) {
+      tags.push(['calories', Math.round(workout.calories).toString()]);
+    }
+
+    // TODO: Add team and challenge associations when available
+    // ['team', '33404:pubkey:uuid', 'relay', 'teamName']
+    // ['challenge_uuid', 'uuid']
 
     return tags;
   }
 
   /**
-   * Create the NIP-101e exercise tag with all required fields
-   * Format: [exerciseId, relayUrl, sets, duration, restTime, polyline, avgHR]
+   * Get simple exercise verb for runstr compatibility
    */
-  private createExerciseTag(workout: PublishableWorkout, pubkey: string): string[] {
-    const exerciseId = `33401:${pubkey}:${workout.id}`;
-    const relayUrl = 'wss://relay.damus.io'; // Default relay, can be made configurable
-    const sets = '1'; // For cardio workouts, typically 1 set
-    const duration = workout.duration.toString(); // Duration in seconds
-    const restTime = '0'; // No rest time for continuous cardio activities
-    const polyline = ''; // Empty for now, will be populated when we add route support
-    const avgHR = workout.heartRate?.avg?.toString() || ''; // Average heart rate if available
-
-    return [exerciseId, relayUrl, sets, duration, restTime, polyline, avgHR];
+  private getExerciseVerb(workoutType: string): string {
+    const type = workoutType.toLowerCase();
+    if (type.includes('run') || type === 'running') return 'run';
+    if (type.includes('walk') || type === 'walking') return 'walk';
+    if (type.includes('cycl') || type === 'cycling' || type.includes('bike')) return 'cycle';
+    if (type.includes('hik')) return 'hike';
+    if (type.includes('swim')) return 'swim';
+    if (type.includes('row')) return 'row';
+    // Default to run for unknown types
+    return 'run';
   }
 
   /**
-   * Map workout type to NIP-101e exercise type categories
+   * Format duration as HH:MM:SS string for runstr compatibility
    */
-  private mapToNIP101eType(workoutType: string): 'cardio' | 'strength' | 'flexibility' {
-    const cardioTypes = ['running', 'cycling', 'walking', 'hiking', 'swimming', 'rowing'];
-    const strengthTypes = ['gym', 'strength_training', 'weightlifting', 'crossfit'];
-    const flexibilityTypes = ['yoga', 'stretching', 'pilates'];
-
-    if (cardioTypes.includes(workoutType.toLowerCase())) return 'cardio';
-    if (strengthTypes.includes(workoutType.toLowerCase())) return 'strength';
-    if (flexibilityTypes.includes(workoutType.toLowerCase())) return 'flexibility';
-
-    return 'cardio'; // Default to cardio for unknown types
+  private formatDurationHHMMSS(seconds: number): string {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
+
+  /**
+   * Get activity hashtag for runstr compatibility
+   */
+  private getActivityHashtag(workoutType: string): string {
+    const type = workoutType.toLowerCase();
+    if (type.includes('run') || type === 'running') return 'Running';
+    if (type.includes('walk') || type === 'walking') return 'Walking';
+    if (type.includes('cycl') || type === 'cycling' || type.includes('bike')) return 'Cycling';
+    if (type.includes('hik')) return 'Hiking';
+    if (type.includes('swim')) return 'Swimming';
+    if (type.includes('row')) return 'Rowing';
+    if (type.includes('gym') || type.includes('strength')) return 'Gym';
+    return 'Fitness';
+  }
+
 
   /**
    * Convert date/time to Unix timestamp in seconds (NIP-101e requirement)
@@ -265,35 +300,43 @@ export class WorkoutPublishingService {
 
   /**
    * Generate human-readable workout description for content field
+   * Matches runstr GitHub format
    */
   private generateWorkoutDescription(workout: PublishableWorkout): string {
-    const workoutType = workout.type.charAt(0).toUpperCase() + workout.type.slice(1).replace('_', ' ');
-    const duration = this.formatDurationForDescription(workout.duration);
+    const exerciseVerb = this.getExerciseVerb(workout.type);
+    const activityEmoji = this.getActivityEmoji(exerciseVerb);
 
-    let description = `${workoutType} workout completed! ${duration}`;
+    // Calculate distance
+    const distanceKm = workout.distance ? (workout.distance / 1000).toFixed(2) : '0';
+    const distanceUnit = workout.unitSystem === 'imperial' ? 'mi' : 'km';
+    const distanceValue = workout.unitSystem === 'imperial'
+      ? (parseFloat(distanceKm) * 0.621371).toFixed(2)
+      : distanceKm;
 
-    if (workout.distance && workout.distance > 0) {
-      const distanceKm = (workout.distance / 1000).toFixed(2);
-      description += `, ${distanceKm}km`;
+    // Simple format matching runstr: "Completed a 5.2km run. 🏃‍♂️"
+    let description = `Completed a ${distanceValue}${distanceUnit} ${exerciseVerb}. ${activityEmoji}`;
+
+    // Optionally add notes if available
+    if (workout.metadata?.notes) {
+      description = workout.metadata.notes;
     }
-
-    if (workout.calories && workout.calories > 0) {
-      description += `, ${Math.round(workout.calories)} calories burned`;
-    }
-
-    // Add a motivational suffix
-    const motivationalSuffixes = [
-      'Feeling strong! 💪',
-      'Another step toward my goals!',
-      'Consistency is key!',
-      'Progress over perfection!',
-      'Every workout counts!'
-    ];
-
-    const randomSuffix = motivationalSuffixes[Math.floor(Math.random() * motivationalSuffixes.length)];
-    description += `. ${randomSuffix}`;
 
     return description;
+  }
+
+  /**
+   * Get activity emoji for runstr compatibility
+   */
+  private getActivityEmoji(exerciseVerb: string): string {
+    switch (exerciseVerb) {
+      case 'run': return '🏃‍♂️';
+      case 'walk': return '🚶‍♀️';
+      case 'cycle': return '🚴';
+      case 'hike': return '🥾';
+      case 'swim': return '🏊‍♂️';
+      case 'row': return '🚣';
+      default: return '💪';
+    }
   }
 
   /**
@@ -311,42 +354,44 @@ export class WorkoutPublishingService {
   }
 
   /**
-   * Validate that an event template complies with NIP-101e structure
+   * Validate that an event template complies with runstr format
    */
   private validateNIP101eStructure(eventTemplate: EventTemplate): boolean {
     // Check that content is plain text, not JSON
     if (typeof eventTemplate.content !== 'string') {
-      console.error('NIP-101e validation failed: content must be a string');
+      console.error('Validation failed: content must be a string');
       return false;
     }
 
-    if (eventTemplate.content.includes('{') && eventTemplate.content.includes('}')) {
-      console.error('NIP-101e validation failed: content appears to contain JSON');
-      return false;
-    }
-
-    // Check for required tags
-    const requiredTags = ['d', 'type', 'start', 'end', 'exercise', 'completed'];
+    // Check for required runstr-compatible tags
+    const requiredTags = ['d', 'exercise', 'distance', 'duration', 'source'];
     const tagKeys = eventTemplate.tags.map(tag => tag[0]);
 
     for (const required of requiredTags) {
       if (!tagKeys.includes(required)) {
-        console.error(`NIP-101e validation failed: missing required tag '${required}'`);
+        console.error(`Validation failed: missing required tag '${required}'`);
         return false;
       }
     }
 
-    // Validate exercise tag has correct number of fields
+    // Validate exercise tag is simple (just activity type)
     const exerciseTag = eventTemplate.tags.find(tag => tag[0] === 'exercise');
-    if (!exerciseTag || exerciseTag.length !== 8) { // tag name + 7 fields
-      console.error('NIP-101e validation failed: exercise tag must have exactly 7 fields');
+    if (!exerciseTag || exerciseTag.length !== 2) {
+      console.error('Validation failed: exercise tag must be simple ["exercise", activityType]');
       return false;
     }
 
-    // Validate type tag has correct values
-    const typeTag = eventTemplate.tags.find(tag => tag[0] === 'type');
-    if (!typeTag || !['cardio', 'strength', 'flexibility'].includes(typeTag[1])) {
-      console.error('NIP-101e validation failed: type must be cardio, strength, or flexibility');
+    // Validate distance tag has value and unit
+    const distanceTag = eventTemplate.tags.find(tag => tag[0] === 'distance');
+    if (!distanceTag || distanceTag.length !== 3) {
+      console.error('Validation failed: distance tag must have value and unit');
+      return false;
+    }
+
+    // Validate duration is HH:MM:SS format
+    const durationTag = eventTemplate.tags.find(tag => tag[0] === 'duration');
+    if (!durationTag || !/^\d{2}:\d{2}:\d{2}$/.test(durationTag[1])) {
+      console.error('Validation failed: duration must be in HH:MM:SS format');
       return false;
     }
 

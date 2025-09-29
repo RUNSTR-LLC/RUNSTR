@@ -149,25 +149,55 @@ export class Nuclear1301Service {
           let distance = 0;
           let calories = 0;
           
-          // Try to extract tags but accept ANYTHING - no requirements
+          // Parse tags with support for both runstr and other formats
           for (const tag of tags) {
+            // Exercise/activity type - support multiple tag names
             if (tag[0] === 'exercise' && tag[1]) workoutType = tag[1];
-            if (tag[0] === 'duration' && tag[1]) {
-              const timeStr = tag[1];
-              const parts = timeStr.split(':').map((p: string) => parseInt(p));
-              if (parts.length === 3) {
-                duration = parts[0] * 3600 + parts[1] * 60 + parts[2]; // H:M:S
-              } else if (parts.length === 2) {
-                duration = parts[0] * 60 + parts[1]; // M:S
-              } else {
-                duration = 0;
-              }
-            }
-            if (tag[0] === 'distance' && tag[1]) distance = parseFloat(tag[1]) || 0;
-            if (tag[0] === 'calories' && tag[1]) calories = parseInt(tag[1]) || 0;
-            // Could be other tag formats - just try them all
             if (tag[0] === 'type' && tag[1]) workoutType = tag[1];
             if (tag[0] === 'activity' && tag[1]) workoutType = tag[1];
+
+            // Duration - support both HH:MM:SS string and raw seconds
+            if (tag[0] === 'duration' && tag[1]) {
+              const timeStr = tag[1];
+              // Check if it's HH:MM:SS format (runstr style)
+              if (timeStr.includes(':')) {
+                const parts = timeStr.split(':').map((p: string) => parseInt(p) || 0);
+                if (parts.length === 3) {
+                  duration = parts[0] * 3600 + parts[1] * 60 + parts[2]; // HH:MM:SS to seconds
+                } else if (parts.length === 2) {
+                  duration = parts[0] * 60 + parts[1]; // MM:SS to seconds
+                }
+              } else {
+                // Raw seconds value
+                duration = parseInt(timeStr) || 0;
+              }
+            }
+
+            // Distance - support with or without unit (tag[2])
+            if (tag[0] === 'distance' && tag[1]) {
+              const distValue = parseFloat(tag[1]) || 0;
+              const unit = tag[2] || 'km';
+              // Convert to meters for internal storage
+              if (unit === 'km') {
+                distance = distValue * 1000;
+              } else if (unit === 'mi' || unit === 'miles') {
+                distance = distValue * 1609.344;
+              } else if (unit === 'm') {
+                distance = distValue;
+              } else {
+                // Assume km if no unit specified
+                distance = distValue * 1000;
+              }
+            }
+
+            // Calories
+            if (tag[0] === 'calories' && tag[1]) calories = parseInt(tag[1]) || 0;
+
+            // Source identification (to identify RUNSTR posts)
+            if (tag[0] === 'source' && tag[1] === 'RUNSTR') {
+              // This is a RUNSTR-generated workout
+              console.log('📱 Detected RUNSTR workout');
+            }
           }
 
           // ULTRA NUCLEAR: Create workout even if ALL fields are missing/zero
@@ -176,9 +206,9 @@ export class Nuclear1301Service {
             userId: 'nostr_user', // Generic for tab display
             type: workoutType as any,
             startTime: new Date(event.created_at * 1000).toISOString(),
-            endTime: new Date((event.created_at + Math.max(duration * 60, 60)) * 1000).toISOString(), // Min 1 minute
-            duration: duration,
-            distance: distance,
+            endTime: new Date((event.created_at + Math.max(duration, 60)) * 1000).toISOString(), // duration is already in seconds
+            duration: duration, // Duration in seconds
+            distance: distance, // Distance in meters
             calories: calories,
             source: 'nostr',
             nostrEventId: event.id,

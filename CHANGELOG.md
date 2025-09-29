@@ -13,7 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Team banner support - teams can now display custom banner images
 - Team banner editing - captains can upload and modify team banners
 - Tournament/Events structure - new 2-tab organization for competitions
-- Activity heatmap - visual representation of workout frequency and intensity
 - Organized workout history - workouts now grouped into time-based folders for better navigation
 
 ### Changed

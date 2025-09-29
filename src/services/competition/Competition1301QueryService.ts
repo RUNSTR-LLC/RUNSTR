@@ -296,25 +296,76 @@ export class Competition1301QueryService {
 
   /**
    * Parse workout event into NostrWorkout format
+   * Supports both runstr format and other 1301 formats
    */
   private parseWorkoutEvent(event: any): NostrWorkout {
     const tags = event.tags || [];
+
+    // Parse exercise/activity type
+    let workoutType = this.extractTag(tags, 'exercise') || // runstr format
+                     this.extractTag(tags, 'type') || // NIP-101e format
+                     this.extractTag(tags, 'activity') || // Alternative
+                     'unknown';
+
+    // Parse duration - support both HH:MM:SS and seconds
+    let duration = 0;
+    const durationTag = this.extractTag(tags, 'duration');
+    if (durationTag) {
+      if (durationTag.includes(':')) {
+        // HH:MM:SS format (runstr style)
+        const parts = durationTag.split(':').map(p => parseInt(p) || 0);
+        if (parts.length === 3) {
+          duration = parts[0] * 3600 + parts[1] * 60 + parts[2]; // Convert to seconds
+        } else if (parts.length === 2) {
+          duration = parts[0] * 60 + parts[1]; // MM:SS
+        }
+      } else {
+        // Raw seconds
+        duration = parseInt(durationTag) || 0;
+      }
+    }
+
+    // Parse distance - look for tag with unit
+    let distance = 0; // in meters
+    const distanceTagIndex = tags.findIndex(t => t[0] === 'distance');
+    if (distanceTagIndex !== -1) {
+      const distanceTag = tags[distanceTagIndex];
+      const distValue = parseFloat(distanceTag[1]) || 0;
+      const unit = distanceTag[2] || 'km'; // Default to km
+
+      // Convert to meters for internal storage
+      if (unit === 'km') {
+        distance = distValue * 1000;
+      } else if (unit === 'mi' || unit === 'miles') {
+        distance = distValue * 1609.344;
+      } else if (unit === 'm') {
+        distance = distValue;
+      } else {
+        // Assume km if unrecognized
+        distance = distValue * 1000;
+      }
+    }
+
+    // Calculate end time based on duration
+    const startTimestamp = event.created_at * 1000;
+    const endTimestamp = startTimestamp + (duration * 1000); // duration is in seconds
+
     const workout: NostrWorkout = {
       id: event.id,
       source: 'nostr',
-      type: (this.extractTag(tags, 't') || 'Unknown') as any,
-      activityType: this.extractTag(tags, 't') || 'Unknown',
-      startTime: new Date(event.created_at * 1000).toISOString(),
-      endTime: new Date(event.created_at * 1000).toISOString(),
-      duration: parseInt(this.extractTag(tags, 'duration') || '0'),
-      distance: parseFloat(this.extractTag(tags, 'distance') || '0'),
+      type: workoutType as any,
+      activityType: workoutType,
+      startTime: new Date(startTimestamp).toISOString(),
+      endTime: new Date(endTimestamp).toISOString(),
+      duration: duration, // in seconds
+      distance: distance, // in meters
       calories: parseInt(this.extractTag(tags, 'calories') || '0'),
       averageHeartRate: parseInt(this.extractTag(tags, 'avg_hr') || '0'),
       maxHeartRate: parseInt(this.extractTag(tags, 'max_hr') || '0'),
       nostrEventId: event.id,
       nostrPubkey: event.pubkey,
       nostrCreatedAt: event.created_at,
-      unitSystem: (this.extractTag(tags, 'unit') === 'mi' ? 'imperial' : 'metric') as any,
+      unitSystem: 'metric' as any, // Default to metric since we store in meters
     };
 
     return workout;
@@ -334,18 +385,18 @@ export class Competition1301QueryService {
   private parseDistance(workout: NostrWorkout): number {
     if (!workout.distance) return 0;
 
-    // Convert to km if needed
-    if (workout.unitSystem === 'imperial') {
-      return workout.distance * 1.60934;
-    }
-    return workout.distance;
+    // Distance is stored in meters, convert to km
+    return workout.distance / 1000;
   }
 
   /**
    * Parse duration in minutes
    */
   private parseDuration(workout: NostrWorkout): number {
-    return workout.duration || 0;
+    if (!workout.duration) return 0;
+
+    // Duration is stored in seconds, convert to minutes
+    return workout.duration / 60;
   }
 
   /**

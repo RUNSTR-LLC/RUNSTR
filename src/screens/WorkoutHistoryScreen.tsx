@@ -221,6 +221,11 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
   const applyFiltersAndSort = () => {
     let filtered = [...workouts];
 
+    // Filter out unknown and other workout types
+    filtered = filtered.filter((workout) =>
+      workout.type && workout.type !== 'unknown' && workout.type !== 'other'
+    );
+
     // Apply activity type filter
     if (selectedFilter !== 'all') {
       filtered = filtered.filter((workout) => workout.type === selectedFilter);
@@ -287,9 +292,8 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
       gym: '💪',
       strength_training: '🏋️',
       yoga: '🧘',
-      other: '⚡',
     };
-    return icons[type] || '⚡';
+    return icons[type] || '';
   };
 
   const renderWorkoutItem = ({ item: workout }: { item: UnifiedWorkout }) => (

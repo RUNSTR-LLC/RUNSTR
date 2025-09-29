@@ -12,6 +12,9 @@ import { activityMetricsService } from '../../services/activity/ActivityMetricsS
 import type { EnhancedTrackingSession } from '../../services/activity/EnhancedLocationTrackingService';
 import type { FormattedMetrics } from '../../services/activity/ActivityMetricsService';
 import { GPSStatusIndicator, type GPSSignalStrength } from '../../components/activity/GPSStatusIndicator';
+import workoutPublishingService from '../../services/nostr/workoutPublishingService';
+import type { PublishableWorkout } from '../../services/nostr/workoutPublishingService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface MetricCardProps {
   label: string;
@@ -185,9 +188,86 @@ export const RunningTrackerScreen: React.FC = () => {
   };
 
   const saveWorkout = async (session: EnhancedTrackingSession) => {
-    // TODO: Integrate with WorkoutPublishingService
-    console.log('Saving workout:', session);
-    Alert.alert('Success', 'Your run has been saved!');
+    try {
+      // Get user's private key from storage
+      const nsec = await AsyncStorage.getItem('@runstr:user_nsec');
+      const hexPrivKey = await AsyncStorage.getItem('@runstr:user_privkey_hex');
+      const npub = await AsyncStorage.getItem('@runstr:npub');
+
+      if (!hexPrivKey) {
+        Alert.alert('Error', 'No user key found. Please login first.');
+        return;
+      }
+
+      // Convert session to PublishableWorkout format
+      const workoutId = `workout_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const publishableWorkout: PublishableWorkout = {
+        id: workoutId, // Generate unique ID
+        userId: npub || 'unknown',
+        type: 'running',
+        startTime: new Date(Date.now() - (elapsedTime * 1000)).toISOString(),
+        endTime: new Date().toISOString(),
+        duration: elapsedTime, // Already in seconds
+        distance: session.totalDistance, // Already in meters
+        calories: activityMetricsService.estimateCalories('running', session.totalDistance, elapsedTime),
+        source: 'activity_tracker',
+        sourceApp: 'RUNSTR',
+        elevationGain: session.totalElevationGain,
+        unitSystem: 'metric',
+        canSyncToNostr: true,
+        metadata: {
+          title: 'Running Workout',
+          sourceApp: 'RUNSTR',
+          notes: `Tracked ${(session.totalDistance / 1000).toFixed(2)}km run`,
+        },
+        pace: activityMetricsService.calculatePace(session.totalDistance, elapsedTime),
+      };
+
+      console.log('🔄 Publishing workout to Nostr...');
+
+      // Publish as kind 1301 event
+      const result = await workoutPublishingService.saveWorkoutToNostr(
+        publishableWorkout,
+        hexPrivKey,
+        npub || 'unknown'
+      );
+
+      if (result.success) {
+        console.log('✅ Workout saved to Nostr:', result.eventId);
+        Alert.alert(
+          'Success! 🎉',
+          `Your run has been saved to Nostr!\n\nEvent ID: ${result.eventId?.slice(0, 8)}...`,
+          [
+            { text: 'OK' },
+            {
+              text: 'Share',
+              onPress: async () => {
+                // Optionally post to social feed
+                const socialResult = await workoutPublishingService.postWorkoutToSocial(
+                  publishableWorkout,
+                  hexPrivKey,
+                  npub || 'unknown',
+                  {
+                    includeStats: true,
+                    includeMotivation: true,
+                    cardTemplate: 'achievement',
+                  }
+                );
+                if (socialResult.success) {
+                  Alert.alert('Shared!', 'Your workout has been posted to your Nostr feed!');
+                }
+              },
+            },
+          ]
+        );
+      } else {
+        console.error('❌ Failed to save workout:', result.error);
+        Alert.alert('Error', `Failed to save workout: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('❌ Error saving workout:', error);
+      Alert.alert('Error', 'Failed to save workout to Nostr');
+    }
   };
 
   // Update metrics in real-time
