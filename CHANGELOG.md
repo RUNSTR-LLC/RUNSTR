@@ -4,6 +4,28 @@ All notable changes to RUNSTR will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.5] - 2025-01-29
+
+### Added
+- **Activity Tab**: New dedicated tab for viewing and participating in RUNSTR Season 1 competitions
+- **RUNSTR Season 1 Integration**: Full support for official RUNSTR leaderboards and competitions
+- **Profile Tab Enhancements**: Improved profile screen with better stats display and user information management
+- **Team Discovery Enhancements**: Refined team browsing experience with better filtering and search capabilities
+- **Location Tracking**: GPS tracking for outdoor activities (running, walking, cycling) with background support
+- **Live Workout Recording**: Real-time workout tracking with distance, pace, and route mapping
+- **Battery Monitoring**: Smart battery level tracking for long workouts
+- **Amber Signer Support**: Enhanced Nostr authentication with Amber signer integration
+
+### Changed
+- Navigation structure updated to include Activity tab for Season 1
+- Profile screen layout optimized for better information hierarchy
+- Team discovery page improved with faster loading and better categorization
+
+### Fixed
+- Various performance optimizations for smoother scrolling
+- Improved relay connection stability
+- Better handling of large team lists
+
 ## [0.0.3] - 2025-01-27
 
 ### Added

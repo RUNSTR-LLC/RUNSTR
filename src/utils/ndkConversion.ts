@@ -2,10 +2,10 @@
  * NDK Conversion Utilities
  * Centralized utility for npub/hex conversions
  * Provides consistent conversion across the entire application
- * Using nostr-tools for nip19 as it's more reliable in React Native
+ * Using NDK exclusively as per project requirements - NO nostr-tools
  */
 
-import { nip19 } from 'nostr-tools';
+import { NDKPrivateKeySigner, NDKUser } from '@nostr-dev-kit/ndk';
 
 /**
  * Convert npub to hex pubkey
@@ -23,13 +23,15 @@ export function npubToHex(npubKey: string): string | null {
       return null;
     }
 
-    const decoded = nip19.decode(npubKey);
-    if (decoded.type !== 'npub') {
-      console.error('[NDK Conversion] Decoded type is not npub:', decoded.type);
+    // Create an NDKUser with the npub and extract the hex pubkey
+    const user = new NDKUser({ npub: npubKey });
+    const hexPubkey = user.pubkey;
+
+    if (!hexPubkey || hexPubkey.length !== 64) {
+      console.error('[NDK Conversion] Failed to extract hex pubkey from npub');
       return null;
     }
 
-    const hexPubkey = decoded.data as string;
     console.log(`[NDK Conversion] Converted npub to hex: ${npubKey.slice(0, 20)}... → ${hexPubkey.slice(0, 20)}...`);
     return hexPubkey;
   } catch (error) {
@@ -54,7 +56,15 @@ export function hexToNpub(hexPubkey: string): string | null {
       return null;
     }
 
-    const npub = nip19.npubEncode(hexPubkey);
+    // Create an NDKUser with the hex pubkey and extract the npub
+    const user = new NDKUser({ pubkey: hexPubkey });
+    const npub = user.npub;
+
+    if (!npub || !npub.startsWith('npub')) {
+      console.error('[NDK Conversion] Failed to generate npub from hex');
+      return null;
+    }
+
     console.log(`[NDK Conversion] Converted hex to npub: ${hexPubkey.slice(0, 20)}... → ${npub.slice(0, 20)}...`);
     return npub;
   } catch (error) {
@@ -75,13 +85,15 @@ export function nsecToHex(nsecKey: string): string | null {
       return null;
     }
 
-    const decoded = nip19.decode(nsecKey);
-    if (decoded.type !== 'nsec') {
-      console.error('[NDK Conversion] Decoded type is not nsec:', decoded.type);
+    // Create an NDKPrivateKeySigner with the nsec and extract the hex private key
+    const signer = new NDKPrivateKeySigner(nsecKey);
+    const hexPrivateKey = signer.privateKey;
+
+    if (!hexPrivateKey || hexPrivateKey.length !== 64) {
+      console.error('[NDK Conversion] Failed to extract hex private key from nsec');
       return null;
     }
 
-    const hexPrivateKey = decoded.data as string;
     console.log('[NDK Conversion] Successfully converted nsec to hex private key');
     return hexPrivateKey;
   } catch (error) {
@@ -102,15 +114,24 @@ export function hexToNsec(hexPrivateKey: string): string | null {
     }
 
     if (hexPrivateKey.length !== 64 || !/^[0-9a-f]+$/i.test(hexPrivateKey)) {
-      console.error('[NDK Conversion] Invalid hex private key format');
+      console.error('[NDK Conversion] Invalid hex private key format, length:', hexPrivateKey.length);
       return null;
     }
 
-    const nsec = nip19.nsecEncode(hexPrivateKey);
+    // Create an NDKPrivateKeySigner with the hex key and extract the nsec
+    const signer = new NDKPrivateKeySigner(hexPrivateKey);
+    const nsec = signer.nsec;
+
+    if (!nsec || !nsec.startsWith('nsec')) {
+      console.error('[NDK Conversion] Failed to generate nsec from hex');
+      return null;
+    }
+
     console.log('[NDK Conversion] Successfully converted hex to nsec');
     return nsec;
   } catch (error) {
     console.error('[NDK Conversion] Failed to convert hex to nsec:', error);
+    console.error('[NDK Conversion] Error stack:', error instanceof Error ? error.stack : 'No stack');
     return null;
   }
 }
@@ -169,8 +190,9 @@ export function isValidNpub(str: string): boolean {
   }
 
   try {
-    const decoded = nip19.decode(str);
-    return decoded.type === 'npub';
+    // Try to create an NDKUser with it - will throw if invalid
+    const user = new NDKUser({ npub: str });
+    return user.pubkey?.length === 64 || false;
   } catch {
     return false;
   }
@@ -196,8 +218,9 @@ export function isValidNsec(str: string): boolean {
   }
 
   try {
-    const decoded = nip19.decode(str);
-    return decoded.type === 'nsec';
+    // Try to create an NDKPrivateKeySigner with it - will throw if invalid
+    const signer = new NDKPrivateKeySigner(str);
+    return signer.privateKey?.length === 64;
   } catch {
     return false;
   }

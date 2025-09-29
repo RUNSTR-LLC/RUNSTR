@@ -193,9 +193,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header with Settings Button */}
+      {/* Header with Edit and Settings Buttons */}
       <View style={styles.header}>
-        <View style={styles.headerSpacer} />
+        <TouchableOpacity
+          style={styles.editButton}
+          onPress={() => navigation.navigate('ProfileEdit')}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="pencil-outline" size={24} color={theme.colors.text} />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Profile</Text>
         <TouchableOpacity
           style={styles.settingsButton}
@@ -297,14 +303,14 @@ const styles = StyleSheet.create({
     borderBottomColor: theme.colors.border,
   },
 
-  headerSpacer: {
-    width: 32,
-  },
-
   headerTitle: {
     fontSize: 18,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
+  },
+
+  editButton: {
+    padding: 4,
   },
 
   settingsButton: {

@@ -149,31 +149,82 @@ export class NostrAuthProvider {
 
       // Generate new Nostr keypair using NDK (per CLAUDE.md requirements)
       console.log('🔑 Generating new Nostr keypair with NDK...');
-      const signer = NDKPrivateKeySigner.generate();
 
-      // Get the user from signer to extract keys
-      const ndkUser = await signer.user();
+      let signer;
+      let privateKeyHex: string | undefined;
+      let ndkUser;
 
-      // Extract the private key in hex format from NDK
-      const privateKeyHex = signer.privateKey;
+      try {
+        // Try the standard NDK generation method
+        signer = NDKPrivateKeySigner.generate();
+
+        // Get the user from signer to extract keys
+        ndkUser = await signer.user();
+
+        // Extract the private key in hex format from NDK
+        privateKeyHex = signer.privateKey;
+
+        // If privateKey is undefined, try alternate method
+        if (!privateKeyHex) {
+          console.log('🔑 Standard generation returned no key, trying alternate method...');
+          // Import the global crypto that was polyfilled in index.js
+          // @ts-ignore - crypto is polyfilled globally
+          if (typeof global.crypto !== 'undefined' && global.crypto.getRandomValues) {
+            const randomBytes = global.crypto.getRandomValues(new Uint8Array(32));
+            privateKeyHex = Array.from(randomBytes)
+              .map(b => b.toString(16).padStart(2, '0'))
+              .join('');
+          } else {
+            // Final fallback: use NDK's internal utilities
+            const { randomBytes } = await import('@noble/hashes/utils');
+            const privateKeyBytes = randomBytes(32);
+            privateKeyHex = Array.from(privateKeyBytes)
+              .map(b => b.toString(16).padStart(2, '0'))
+              .join('');
+          }
+
+          // Create signer from the hex private key
+          signer = new NDKPrivateKeySigner(privateKeyHex);
+          ndkUser = await signer.user();
+        }
+      } catch (genError) {
+        console.error('🔑 NDK generation failed, using fallback:', genError);
+
+        // Fallback: Try multiple methods to generate random bytes
+        // @ts-ignore - crypto might be polyfilled globally
+        if (typeof global.crypto !== 'undefined' && global.crypto.getRandomValues) {
+          const randomBytes = global.crypto.getRandomValues(new Uint8Array(32));
+          privateKeyHex = Array.from(randomBytes)
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
+        } else {
+          // Use noble/hashes as final fallback
+          const { randomBytes } = await import('@noble/hashes/utils');
+          const privateKeyBytes = randomBytes(32);
+          privateKeyHex = Array.from(privateKeyBytes)
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
+        }
+
+        // Create signer from the hex private key
+        signer = new NDKPrivateKeySigner(privateKeyHex);
+        ndkUser = await signer.user();
+      }
+
       console.log('🔑 Generated private key (hex):', privateKeyHex ? privateKeyHex.slice(0, 16) + '...' : 'null');
 
-      if (!privateKeyHex) {
-        throw new Error('Failed to generate private key');
+      if (!privateKeyHex || privateKeyHex.length !== 64) {
+        throw new Error('Failed to generate valid 32-byte private key');
       }
 
-      // Convert hex private key to nsec format using the utility
-      // This is the proper way since NDK.privateKey returns hex, not nsec
-      const { hexToNsec } = await import('../../../utils/ndkConversion');
-      const nsec = hexToNsec(privateKeyHex);
-
-      if (!nsec) {
-        console.error('❌ NostrAuthProvider: Failed to convert hex to nsec');
-        throw new Error('Failed to encode private key in nsec format');
-      }
-
+      // Use our custom bech32 encoding that works in React Native
+      const { nsecEncode } = await import('../../../utils/nostrEncoding');
+      const nsec = nsecEncode(privateKeyHex);
       const npub = ndkUser.npub;
       const hexPubkey = ndkUser.pubkey;
+
+      console.log('🔑 Generated nsec using custom encoder:', nsec ? nsec.slice(0, 10) + '...' : 'null');
+      console.log('🔑 NDK provided npub:', npub ? npub.slice(0, 20) + '...' : 'null');
 
       // Validate all generated values
       if (!nsec || !nsec.startsWith('nsec1')) {
