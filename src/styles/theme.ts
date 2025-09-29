@@ -7,6 +7,7 @@ export const colors = {
   // Core backgrounds - exact from CSS
   background: '#000000', // body background
   cardBackground: '#0a0a0a', // all cards (.main-leaderboard, .events-card, etc.)
+  card: '#0a0a0a', // alias for cardBackground for compatibility
   border: '#1a1a1a', // card borders, separators
 
   // Text colors - exact from CSS
@@ -40,6 +41,7 @@ export const colors = {
   gray: '#333333', // For borders and backgrounds
   error: '#ff4444', // Error messages and validation
   warning: '#fbbf24', // Warning/security indicators (amber)
+  success: '#4ade80', // Success states and active tracking
 } as const;
 
 export const typography = {
