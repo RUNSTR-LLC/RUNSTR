@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   resumeButton: {
-    backgroundColor: theme.colors.success,
+    backgroundColor: theme.colors.text,
     borderRadius: 35,
     width: 70,
     height: 70,
@@ -181,12 +181,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stopButton: {
-    backgroundColor: theme.colors.error,
+    backgroundColor: theme.colors.card,
     borderRadius: 35,
     width: 70,
     height: 70,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: theme.colors.text,
   },
   statusContainer: {
     position: 'absolute',
@@ -205,11 +207,11 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: theme.colors.success,
+    backgroundColor: theme.colors.text,
     marginRight: 8,
   },
   statusDotPaused: {
-    backgroundColor: theme.colors.warning,
+    backgroundColor: theme.colors.textMuted,
   },
   statusText: {
     color: theme.colors.text,

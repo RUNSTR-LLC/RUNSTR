@@ -1,0 +1,435 @@
+/**
+ * WorkoutSummaryModal - Post-workout summary with save/post options
+ * Shows workout stats and provides buttons for kind 1 (post) and kind 1301 (save)
+ */
+
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  Modal,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { theme } from '../../styles/theme';
+import workoutPublishingService from '../../services/nostr/workoutPublishingService';
+import type { PublishableWorkout } from '../../services/nostr/workoutPublishingService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+interface WorkoutSummaryProps {
+  visible: boolean;
+  onClose: () => void;
+  workout: {
+    type: 'running' | 'walking' | 'cycling';
+    distance: number; // in meters
+    duration: number; // in seconds
+    calories: number;
+    elevation?: number; // in meters
+    pace?: number; // minutes per km
+    speed?: number; // km/h for cycling
+    steps?: number; // for walking
+  };
+}
+
+export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
+  visible,
+  onClose,
+  workout,
+}) => {
+  const [isPosting, setIsPosting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [posted, setPosted] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const formatDistance = (meters: number): string => {
+    const km = meters / 1000;
+    return `${km.toFixed(2)} km`;
+  };
+
+  const formatDuration = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const formatPace = (pace?: number): string => {
+    if (!pace) return '--:--';
+    const minutes = Math.floor(pace);
+    const seconds = Math.round((pace - minutes) * 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')} /km`;
+  };
+
+  const formatSpeed = (speed?: number): string => {
+    if (!speed) return '0.0 km/h';
+    return `${speed.toFixed(1)} km/h`;
+  };
+
+  const createPublishableWorkout = async (): Promise<PublishableWorkout | null> => {
+    const npub = await AsyncStorage.getItem('@runstr:npub');
+    const workoutId = `workout_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    return {
+      id: workoutId,
+      userId: npub || 'unknown',
+      type: workout.type,
+      startTime: new Date(Date.now() - (workout.duration * 1000)).toISOString(),
+      endTime: new Date().toISOString(),
+      duration: workout.duration,
+      distance: workout.distance,
+      calories: workout.calories,
+      source: 'activity_tracker',
+      sourceApp: 'RUNSTR',
+      elevationGain: workout.elevation,
+      unitSystem: 'metric',
+      canSyncToNostr: true,
+      metadata: {
+        title: `${workout.type.charAt(0).toUpperCase() + workout.type.slice(1)} Workout`,
+        sourceApp: 'RUNSTR',
+        notes: `Tracked ${formatDistance(workout.distance)} ${workout.type}`,
+      },
+      pace: workout.pace,
+    };
+  };
+
+  const handlePostToFeed = async () => {
+    setIsPosting(true);
+    try {
+      const hexPrivKey = await AsyncStorage.getItem('@runstr:user_privkey_hex');
+      const npub = await AsyncStorage.getItem('@runstr:npub');
+
+      if (!hexPrivKey) {
+        Alert.alert('Error', 'No user key found. Please login first.');
+        return;
+      }
+
+      const publishableWorkout = await createPublishableWorkout();
+      if (!publishableWorkout) return;
+
+      // Post as kind 1 social event
+      const result = await workoutPublishingService.postWorkoutToSocial(
+        publishableWorkout,
+        hexPrivKey,
+        npub || 'unknown',
+        {
+          includeStats: true,
+          includeMotivation: true,
+          cardTemplate: 'achievement',
+        }
+      );
+
+      if (result.success) {
+        setPosted(true);
+        Alert.alert(
+          'Posted! 🎉',
+          'Your workout has been shared to your Nostr feed!',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Error', `Failed to post: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error posting workout:', error);
+      Alert.alert('Error', 'Failed to post workout to feed');
+    } finally {
+      setIsPosting(false);
+    }
+  };
+
+  const handleSaveForCompetition = async () => {
+    setIsSaving(true);
+    try {
+      const hexPrivKey = await AsyncStorage.getItem('@runstr:user_privkey_hex');
+      const npub = await AsyncStorage.getItem('@runstr:npub');
+
+      if (!hexPrivKey) {
+        Alert.alert('Error', 'No user key found. Please login first.');
+        return;
+      }
+
+      const publishableWorkout = await createPublishableWorkout();
+      if (!publishableWorkout) return;
+
+      // Save as kind 1301 workout event
+      const result = await workoutPublishingService.saveWorkoutToNostr(
+        publishableWorkout,
+        hexPrivKey,
+        npub || 'unknown'
+      );
+
+      if (result.success) {
+        setSaved(true);
+        Alert.alert(
+          'Saved! ✅',
+          'Your workout has been saved for competition tracking!',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Error', `Failed to save: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error saving workout:', error);
+      Alert.alert('Error', 'Failed to save workout');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const getActivityIcon = (): keyof typeof Ionicons.glyphMap => {
+    switch (workout.type) {
+      case 'running': return 'fitness';
+      case 'walking': return 'walk';
+      case 'cycling': return 'bicycle';
+      default: return 'fitness';
+    }
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Ionicons name={getActivityIcon()} size={40} color={theme.colors.text} />
+            <Text style={styles.title}>
+              {workout.type.charAt(0).toUpperCase() + workout.type.slice(1)} Complete!
+            </Text>
+            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+              <Ionicons name="close" size={24} color={theme.colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Stats Grid */}
+          <View style={styles.statsGrid}>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{formatDistance(workout.distance)}</Text>
+              <Text style={styles.statLabel}>Distance</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{formatDuration(workout.duration)}</Text>
+              <Text style={styles.statLabel}>Duration</Text>
+            </View>
+            {workout.type === 'running' && (
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>{formatPace(workout.pace)}</Text>
+                <Text style={styles.statLabel}>Pace</Text>
+              </View>
+            )}
+            {workout.type === 'cycling' && (
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>{formatSpeed(workout.speed)}</Text>
+                <Text style={styles.statLabel}>Speed</Text>
+              </View>
+            )}
+            {workout.type === 'walking' && workout.steps && (
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>{workout.steps.toLocaleString()}</Text>
+                <Text style={styles.statLabel}>Steps</Text>
+              </View>
+            )}
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{workout.calories}</Text>
+              <Text style={styles.statLabel}>Calories</Text>
+            </View>
+            {workout.elevation !== undefined && workout.elevation > 0 && (
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>{workout.elevation.toFixed(0)}m</Text>
+                <Text style={styles.statLabel}>Elevation</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Action Buttons */}
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.postButton, posted && styles.disabledButton]}
+              onPress={handlePostToFeed}
+              disabled={isPosting || posted}
+            >
+              {isPosting ? (
+                <ActivityIndicator size="small" color={theme.colors.background} />
+              ) : (
+                <>
+                  <Ionicons
+                    name={posted ? "checkmark-circle" : "megaphone"}
+                    size={20}
+                    color={theme.colors.background}
+                  />
+                  <Text style={styles.postButtonText}>
+                    {posted ? 'Posted' : 'Post to Feed'}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.actionButton, styles.saveButton, saved && styles.disabledButton]}
+              onPress={handleSaveForCompetition}
+              disabled={isSaving || saved}
+            >
+              {isSaving ? (
+                <ActivityIndicator size="small" color={theme.colors.text} />
+              ) : (
+                <>
+                  <Ionicons
+                    name={saved ? "checkmark-circle" : "save"}
+                    size={20}
+                    color={theme.colors.text}
+                  />
+                  <Text style={styles.saveButtonText}>
+                    {saved ? 'Saved' : 'Save Workout'}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Info Text */}
+          <View style={styles.infoContainer}>
+            <Text style={styles.infoText}>
+              <Text style={styles.infoBold}>Post to Feed:</Text> Share with your followers (kind 1)
+            </Text>
+            <Text style={styles.infoText}>
+              <Text style={styles.infoBold}>Save Workout:</Text> Count for competitions (kind 1301)
+            </Text>
+          </View>
+
+          {/* Dismiss Button */}
+          <TouchableOpacity style={styles.dismissButton} onPress={onClose}>
+            <Text style={styles.dismissButtonText}>Dismiss</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.borderRadius.large,
+    padding: 24,
+    width: '90%',
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  closeButton: {
+    position: 'absolute',
+    right: -8,
+    top: -8,
+    padding: 8,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+    marginTop: 12,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 24,
+    gap: 12,
+  },
+  statCard: {
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.borderRadius.medium,
+    padding: 12,
+    flex: 1,
+    minWidth: '30%',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    textTransform: 'uppercase',
+  },
+  actionButtons: {
+    gap: 12,
+    marginBottom: 20,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: theme.borderRadius.medium,
+    gap: 8,
+  },
+  postButton: {
+    backgroundColor: theme.colors.text,
+  },
+  saveButton: {
+    backgroundColor: theme.colors.background,
+    borderWidth: 2,
+    borderColor: theme.colors.text,
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  postButtonText: {
+    color: theme.colors.background,
+    fontSize: 16,
+    fontWeight: theme.typography.weights.bold,
+  },
+  saveButtonText: {
+    color: theme.colors.text,
+    fontSize: 16,
+    fontWeight: theme.typography.weights.bold,
+  },
+  infoContainer: {
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.borderRadius.small,
+    padding: 12,
+    marginBottom: 16,
+  },
+  infoText: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginBottom: 4,
+  },
+  infoBold: {
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+  },
+  dismissButton: {
+    alignItems: 'center',
+    padding: 12,
+  },
+  dismissButtonText: {
+    color: theme.colors.textMuted,
+    fontSize: 14,
+    fontWeight: theme.typography.weights.medium,
+  },
+});

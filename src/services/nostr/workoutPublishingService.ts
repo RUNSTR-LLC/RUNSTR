@@ -242,14 +242,14 @@ export class WorkoutPublishingService {
    */
   private getExerciseVerb(workoutType: string): string {
     const type = workoutType.toLowerCase();
-    if (type.includes('run') || type === 'running') return 'run';
-    if (type.includes('walk') || type === 'walking') return 'walk';
-    if (type.includes('cycl') || type === 'cycling' || type.includes('bike')) return 'cycle';
-    if (type.includes('hik')) return 'hike';
-    if (type.includes('swim')) return 'swim';
-    if (type.includes('row')) return 'row';
-    // Default to run for unknown types
-    return 'run';
+    if (type.includes('run') || type === 'running') return 'running';
+    if (type.includes('walk') || type === 'walking') return 'walking';
+    if (type.includes('cycl') || type === 'cycling' || type.includes('bike')) return 'cycling';
+    if (type.includes('hik')) return 'hiking';
+    if (type.includes('swim')) return 'swimming';
+    if (type.includes('row')) return 'rowing';
+    // Default to running for unknown types
+    return 'running';
   }
 
   /**
@@ -306,18 +306,12 @@ export class WorkoutPublishingService {
     const exerciseVerb = this.getExerciseVerb(workout.type);
     const activityEmoji = this.getActivityEmoji(exerciseVerb);
 
-    // Calculate distance
-    const distanceKm = workout.distance ? (workout.distance / 1000).toFixed(2) : '0';
-    const distanceUnit = workout.unitSystem === 'imperial' ? 'mi' : 'km';
-    const distanceValue = workout.unitSystem === 'imperial'
-      ? (parseFloat(distanceKm) * 0.621371).toFixed(2)
-      : distanceKm;
-
-    // Simple format matching runstr: "Completed a 5.2km run. 🏃‍♂️"
-    let description = `Completed a ${distanceValue}${distanceUnit} ${exerciseVerb}. ${activityEmoji}`;
+    // Simple format matching runstr: "Completed a run with RUNSTR!"
+    // Use the activity type directly for consistency
+    let description = `Completed a ${exerciseVerb.toLowerCase()} with RUNSTR!`;
 
     // Optionally add notes if available
-    if (workout.metadata?.notes) {
+    if (workout.metadata?.notes && workout.metadata.notes.length > 0) {
       description = workout.metadata.notes;
     }
 
@@ -329,12 +323,12 @@ export class WorkoutPublishingService {
    */
   private getActivityEmoji(exerciseVerb: string): string {
     switch (exerciseVerb) {
-      case 'run': return '🏃‍♂️';
-      case 'walk': return '🚶‍♀️';
-      case 'cycle': return '🚴';
-      case 'hike': return '🥾';
-      case 'swim': return '🏊‍♂️';
-      case 'row': return '🚣';
+      case 'running': return '🏃‍♂️';
+      case 'walking': return '🚶‍♀️';
+      case 'cycling': return '🚴';
+      case 'hiking': return '🥾';
+      case 'swimming': return '🏊‍♂️';
+      case 'rowing': return '🚣';
       default: return '💪';
     }
   }
@@ -379,6 +373,12 @@ export class WorkoutPublishingService {
     if (!exerciseTag || exerciseTag.length !== 2) {
       console.error('Validation failed: exercise tag must be simple ["exercise", activityType]');
       return false;
+    }
+
+    // Validate exercise type is one of the expected values
+    const validExerciseTypes = ['running', 'walking', 'cycling', 'hiking', 'swimming', 'rowing'];
+    if (!validExerciseTypes.includes(exerciseTag[1])) {
+      console.warn(`Exercise type '${exerciseTag[1]}' may not be recognized by leaderboard`);
     }
 
     // Validate distance tag has value and unit

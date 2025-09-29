@@ -41,6 +41,32 @@ RUNSTR REWARDS is a React Native mobile application that transforms fitness rout
 - **In-App Notifications**: Nostr event-driven notifications (kinds 1101, 1102, 1103) - no push notifications
 - **IMPORTANT**: This project uses NO SUPABASE - pure Nostr only
 
+## Kind 1301 Workout Event Format (RUNSTR Leaderboard Compatible)
+
+Our app publishes kind 1301 events in the standard RUNSTR format that is compatible with Season 1 leaderboards:
+
+**Event Structure**:
+- **Kind**: 1301 (fitness tracking event)
+- **Content**: Plain text description (e.g., "Completed a running with RUNSTR!")
+- **Tags** (REQUIRED for leaderboard compatibility):
+  - `['d', 'unique_workout_id']` - Unique identifier for the workout
+  - `['title', 'Morning Run']` - Human-readable title
+  - `['exercise', 'running']` - Activity type: running, walking, cycling, hiking, swimming, rowing
+  - `['distance', '5.2', 'km']` - Distance value and unit (separate array elements)
+  - `['duration', '00:30:45']` - Duration in HH:MM:SS format
+  - `['source', 'RUNSTR']` - App identification
+  - `['client', 'RUNSTR', '1.0.15']` - Client info with version
+  - `['t', 'Running']` - Hashtag for activity type
+  - `['calories', '312']` - Optional: Calorie count
+  - `['elevation_gain', '50', 'm']` - Optional: Elevation gain with unit
+
+**Important Notes**:
+- Content field must be plain text, NOT JSON
+- Exercise type must be lowercase full words (running, not run)
+- Distance must include both value and unit as separate array elements
+- Duration must be in HH:MM:SS format, not seconds
+- This format is required for RUNSTR Season 1 leaderboard compatibility
+
 ## Architecture Principles
 - **File Size Limit**: Maximum 500 lines per file for maintainability
 - **Two-Page Simplicity**: Core app is just Teams and Profile tabs

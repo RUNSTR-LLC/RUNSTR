@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Image } from 'react-native';
 import { theme } from '../../styles/theme';
 import type { Season1Leaderboard, SeasonActivityType } from '../../types/season';
 import { calculatePrize } from '../../types/season';
@@ -91,6 +91,22 @@ export const Season1LeaderboardComponent: React.FC<Season1LeaderboardProps> = ({
           return (
             <View key={participant.pubkey} style={styles.entry}>
               <Text style={styles.rank}>{getMedal(rank)}</Text>
+
+              {/* Avatar */}
+              <View style={styles.avatarContainer}>
+                {participant.picture ? (
+                  <Image
+                    source={{ uri: participant.picture }}
+                    style={styles.avatar}
+                  />
+                ) : (
+                  <View style={[styles.avatar, styles.avatarFallback]}>
+                    <Text style={styles.avatarFallbackText}>
+                      {(participant.name || participant.pubkey).charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+              </View>
 
               <View style={styles.nameContainer}>
                 <Text style={styles.name} numberOfLines={1}>
@@ -185,6 +201,31 @@ const styles = StyleSheet.create({
     width: 40,
     fontSize: 16,
     color: theme.colors.text,
+  },
+
+  avatarContainer: {
+    marginRight: 12,
+  },
+
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: theme.colors.surface,
+  },
+
+  avatarFallback: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+
+  avatarFallbackText: {
+    fontSize: 16,
+    color: theme.colors.textSecondary,
+    fontWeight: '600',
   },
 
   nameContainer: {

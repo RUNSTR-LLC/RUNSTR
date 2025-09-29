@@ -4,7 +4,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import NDK, { NDKEvent, NDKFilter } from '@nostr-dev-kit/ndk';
+import NDK, { NDKEvent, NDKFilter, NDKUser } from '@nostr-dev-kit/ndk';
 import { NostrInitializationService } from '../nostr/NostrInitializationService';
 import { SEASON_1_CONFIG } from '../../types/season';
 import type {
@@ -237,14 +237,27 @@ class Season1Service {
         try {
           processedCount++;
 
-          // Parse workout content
-          const content = JSON.parse(event.content);
+          // Parse workout data from tags (NIP-101e format)
+          // Example tags:
+          // ["exercise", "running"]
+          // ["distance", "5.2", "km"]
+          // ["duration", "00:30:00"]
+
+          const exerciseTag = event.tags?.find(tag => tag[0] === 'exercise');
+          const distanceTag = event.tags?.find(tag => tag[0] === 'distance');
+
+          if (!exerciseTag || !exerciseTag[1]) {
+            if (processedCount <= 5) {
+              console.log(`[Season1] Skipping event - no exercise tag found`);
+            }
+            continue;
+          }
 
           // Check if workout type matches
-          const workoutType = this.normalizeActivityType(content.type);
+          const workoutType = this.normalizeActivityType(exerciseTag[1]);
           if (workoutType !== activityType) {
             if (processedCount <= 5) {
-              console.log(`[Season1] Skipping workout: type="${content.type}" normalized="${workoutType}" wanted="${activityType}"`);
+              console.log(`[Season1] Skipping workout: type="${exerciseTag[1]}" normalized="${workoutType}" wanted="${activityType}"`);
             }
             continue;
           }
@@ -264,15 +277,43 @@ class Season1Service {
             participantMap.set(pubkey, participant);
           }
 
+          // Parse distance from tag and convert to meters
+          let distanceInMeters = 0;
+          if (distanceTag && distanceTag[1]) {
+            const distanceValue = parseFloat(distanceTag[1]);
+            const distanceUnit = distanceTag[2] || 'km';
+
+            if (!isNaN(distanceValue)) {
+              // Convert to meters based on unit
+              if (distanceUnit.toLowerCase() === 'km') {
+                distanceInMeters = distanceValue * 1000;
+              } else if (distanceUnit.toLowerCase() === 'mi' || distanceUnit.toLowerCase() === 'miles') {
+                distanceInMeters = distanceValue * 1609.344;
+              } else if (distanceUnit.toLowerCase() === 'm' || distanceUnit.toLowerCase() === 'meters') {
+                distanceInMeters = distanceValue;
+              } else {
+                // Default to km if unit is unknown
+                distanceInMeters = distanceValue * 1000;
+              }
+            }
+          }
+
           // Add distance if available
-          const distance = content.distance || 0;
-          participant.totalDistance += distance;
+          participant.totalDistance += distanceInMeters;
           participant.workoutCount += 1;
 
           // Track last activity date
           const eventDate = new Date((event.created_at || 0) * 1000).toISOString();
           if (!participant.lastActivityDate || eventDate > participant.lastActivityDate) {
             participant.lastActivityDate = eventDate;
+          }
+
+          if (processedCount <= 10 && matchedCount <= 3) {
+            console.log(`[Season1] Processed ${exerciseTag[1]} workout:`, {
+              pubkey: pubkey.slice(0, 8),
+              distance: `${distanceInMeters}m`,
+              date: eventDate
+            });
           }
         } catch (error) {
           console.error('[Season1] Error processing workout event:', error);
@@ -286,8 +327,9 @@ class Season1Service {
       console.log(`[Season1] Processed ${processedCount} events, ${matchedCount} matched activity type`);
       console.log(`[Season1] Final leaderboard has ${leaderboard.length} participants`);
 
-      // Fetch profiles for top participants (optional enhancement)
-      // TODO: Add profile fetching for names and pictures
+      // Fetch profiles for all participants
+      console.log(`[Season1] Fetching profiles for ${leaderboard.length} participants...`);
+      await this.fetchProfilesForParticipants(leaderboard);
 
       const result: Season1Leaderboard = {
         activityType,
@@ -320,14 +362,78 @@ class Season1Service {
   }
 
   /**
+   * Fetch profiles for participants
+   */
+  private async fetchProfilesForParticipants(participants: Season1Participant[]): Promise<void> {
+    try {
+      if (participants.length === 0) return;
+
+      const ndk = await this.getNDK();
+
+      // Query for kind 0 profile events
+      const profileFilter: NDKFilter = {
+        kinds: [0],
+        authors: participants.map(p => p.pubkey),
+      };
+
+      console.log(`[Season1] Fetching profiles for ${participants.length} pubkeys...`);
+      const profileEvents = await ndk.fetchEvents(profileFilter);
+
+      // Create a map of profiles
+      const profileMap = new Map<string, any>();
+      for (const event of profileEvents) {
+        try {
+          const metadata = JSON.parse(event.content);
+          profileMap.set(event.pubkey, metadata);
+        } catch (error) {
+          console.error('[Season1] Error parsing profile metadata:', error);
+        }
+      }
+
+      // Update participants with profile data
+      for (const participant of participants) {
+        const profile = profileMap.get(participant.pubkey);
+        if (profile) {
+          participant.name = profile.displayName || profile.display_name || profile.name || participant.name;
+          participant.picture = profile.picture || profile.avatar;
+
+          // Also set npub for display
+          try {
+            const user = new NDKUser({ pubkey: participant.pubkey });
+            user.ndk = ndk;
+            participant.npub = user.npub;
+          } catch (error) {
+            console.error('[Season1] Error converting pubkey to npub:', error);
+          }
+        }
+      }
+
+      console.log(`[Season1] Successfully fetched ${profileMap.size} profiles`);
+    } catch (error) {
+      console.error('[Season1] Error fetching profiles:', error);
+      // Continue without profiles - they'll show hex names
+    }
+  }
+
+  /**
    * Normalize activity type from various formats
    */
   private normalizeActivityType(type: string): SeasonActivityType | null {
+    if (!type) return null;
+
     const normalized = type.toLowerCase().trim();
 
-    if (normalized.includes('run')) return 'running';
-    if (normalized.includes('walk')) return 'walking';
-    if (normalized.includes('cycl') || normalized.includes('bike')) return 'cycling';
+    // Check for running variations
+    if (normalized.includes('run') || normalized.includes('jog')) return 'running';
+
+    // Check for walking variations
+    if (normalized.includes('walk') || normalized.includes('hike')) return 'walking';
+
+    // Check for cycling variations
+    if (normalized.includes('cycl') || normalized.includes('bike') || normalized.includes('ride')) return 'cycling';
+
+    // Additional cardio types that might map to running
+    if (normalized === 'cardio' || normalized === 'treadmill') return 'running';
 
     // Direct matches
     if (normalized === 'running') return 'running';
