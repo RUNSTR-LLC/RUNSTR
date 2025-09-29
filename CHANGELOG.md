@@ -4,6 +4,50 @@ All notable changes to RUNSTR will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.3] - 2025-01-27
+
+### Added
+- User sign-up flow - streamlined onboarding experience for new users
+- Edit Nostr profile - users can now update their profile details directly in the app
+- Delete account option - complete account deletion with NIP-09 deletion requests
+- Team banner support - teams can now display custom banner images
+- Team banner editing - captains can upload and modify team banners
+- Tournament/Events structure - new 2-tab organization for competitions
+- Activity heatmap - visual representation of workout frequency and intensity
+- Organized workout history - workouts now grouped into time-based folders for better navigation
+
+### Changed
+- **Profile Screen Redesign**: Streamlined UI with compact wallet display, removed tabs, integrated settings
+- **Teams Discovery Page**: New expandable category sections for better team organization
+- **Time Period Labels**: Simplified from "This Week/Earlier This Month" to "Week/Month/Year"
+- **Theme Consistency**: Full grayscale theme implementation, removed colorful elements
+- **NIP-60 Wallet**: Simplified to show only Lightning options, removed unnecessary complexity
+- **Captain Badge**: Updated from yellow to black/white for theme consistency
+- **Header Alignment**: Teams and Profile headers now use consistent centered styling
+
+### Fixed
+- Wallet infinite loading issue - resolved with dedicated NDK instance management
+- Wallet relay connection problems - improved connection stability
+- Duplicate NIP-60 wallet creation prevention
+- Team navigation missing currentUserNpub parameter
+- Banner display issues after team updates
+- Activity types now properly persist when updating team URLs
+- Team information from Profile tab navigation
+
+### Improved
+- **Performance**: Enhanced caching throughout the app for faster load times
+- **Wallet Stability**: More reliable wallet initialization and connection handling
+- **UI Consistency**: Unified header styles across all screens
+- **Code Organization**: Cleaner component structure with removed duplications
+- **Workout History**: Organized into collapsible time-based sections (Week/Month/Year)
+- **Minor Bug Fixes**: Various small improvements and stability enhancements
+
+### Removed
+- Duplicate team section from Settings screen (already displayed on Profile)
+- Redundant Activity Heatmap from Profile screen
+- Stats overview box for cleaner interface
+- Unnecessary UI clutter throughout the app
+
 ## [0.0.2] - 2025-01-24
 
 ### Added

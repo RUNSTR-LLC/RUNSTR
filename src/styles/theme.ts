@@ -39,6 +39,7 @@ export const colors = {
   textTertiary: '#999999', // For darker text
   gray: '#333333', // For borders and backgrounds
   error: '#ff4444', // Error messages and validation
+  warning: '#fbbf24', // Warning/security indicators (amber)
 } as const;
 
 export const typography = {

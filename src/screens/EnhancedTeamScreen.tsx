@@ -385,6 +385,7 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
         <View style={styles.contentInner}>
           {/* Team Name Section */}
           <View style={styles.teamNameSection}>
+            <Text style={styles.sectionLabel}>Team</Text>
             <Text style={styles.teamNameText}>{team.name}</Text>
           </View>
           {/* Prize Section - Hidden for now */}
@@ -641,17 +642,20 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   teamNameSection: {
+    padding: 16,
+    backgroundColor: theme.colors.cardBackground,
+    borderRadius: 12,
     marginBottom: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginBottom: 8,
   },
   teamNameText: {
-    fontSize: 28,
-    fontWeight: '700',
-    letterSpacing: -0.5,
+    fontSize: 16,
+    fontWeight: '600',
     color: theme.colors.text,
-    textAlign: 'center',
   },
   // bottomSection removed - no longer needed with tabs
 });

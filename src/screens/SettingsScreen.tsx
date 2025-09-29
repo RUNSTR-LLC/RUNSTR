@@ -24,6 +24,7 @@ import { NotificationsTab } from '../components/profile/NotificationsTab';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, CommonActions } from '@react-navigation/native';
+import * as Clipboard from 'expo-clipboard';
 
 interface SettingsScreenProps {
   currentTeam?: Team;
@@ -89,6 +90,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [isLoadingNotificationSettings, setIsLoadingNotificationSettings] = useState(true);
   const [userRole, setUserRole] = useState<'captain' | 'member' | null>(null);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [userNsec, setUserNsec] = useState<string | null>(null);
 
   useEffect(() => {
     loadSettings();
@@ -104,6 +106,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       // Check if user is captain
       const storedRole = await AsyncStorage.getItem('@runstr:user_role');
       setUserRole(storedRole as 'captain' | 'member' | null);
+
+      // Load user's nsec for backup feature
+      const nsec = await AsyncStorage.getItem('@runstr:user_nsec');
+      setUserNsec(nsec);
     } catch (error) {
       console.error('Error loading settings:', error);
     } finally {
@@ -252,6 +258,57 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     }
   };
 
+  const handleBackupPassword = () => {
+    if (!userNsec) {
+      Alert.alert('Error', 'No account key found. Please sign in again.');
+      return;
+    }
+
+    // First warning dialog with education
+    Alert.alert(
+      '🔐 Backup Your Nostr Password',
+      'Your Nostr password (nsec) is the master key to your account.\n\n' +
+      '⚠️ IMPORTANT:\n' +
+      '• This is the ONLY way to recover your account\n' +
+      '• Anyone with this password can control your account\n' +
+      '• Store it in a password manager or write it down\n' +
+      '• NEVER share it with anyone\n' +
+      '• NEVER enter it on untrusted websites\n\n' +
+      'Would you like to copy your password?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Yes, Copy Password',
+          onPress: async () => {
+            try {
+              await Clipboard.setStringAsync(userNsec);
+
+              // Show success with security reminder
+              Alert.alert(
+                '✅ Password Copied',
+                'Your Nostr password has been copied to your clipboard.\n\n' +
+                '🔒 Security Tips:\n' +
+                '1. Paste it in a secure password manager NOW\n' +
+                '2. Clear your clipboard after saving it\n' +
+                '3. Never paste it in untrusted apps\n' +
+                '4. This is your only backup - losing it means losing your account forever',
+                [{ text: 'I Understand', style: 'default' }]
+              );
+            } catch (error) {
+              console.error('Failed to copy nsec:', error);
+              Alert.alert('Error', 'Failed to copy password. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const getObscuredNsec = (nsec: string): string => {
+    if (!nsec || nsec.length < 20) return 'nsec1...';
+    return `${nsec.substring(0, 8)}...${nsec.substring(nsec.length - 4)}`;
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -285,6 +342,23 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             </Card>
           </View>
         )}
+
+        {/* Account Security Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>ACCOUNT SECURITY</Text>
+          <Card style={styles.card}>
+            <SettingItem
+              title="Backup Password"
+              subtitle={userNsec ? `Tap to copy • ${getObscuredNsec(userNsec)}` : 'Not available'}
+              onPress={handleBackupPassword}
+              rightElement={
+                <View style={styles.securityIcon}>
+                  <Ionicons name="lock-closed" size={20} color={theme.colors.warning} />
+                </View>
+              }
+            />
+          </Card>
+        </View>
 
         {/* Notifications Section */}
         <View style={styles.section}>
@@ -497,5 +571,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  securityIcon: {
+    marginLeft: 8,
   },
 });
