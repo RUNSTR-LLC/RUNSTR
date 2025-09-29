@@ -6,11 +6,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NDK, { NDKEvent, NDKFilter } from '@nostr-dev-kit/ndk';
 import { NostrInitializationService } from '../nostr/NostrInitializationService';
+import { SEASON_1_CONFIG } from '../../types/season';
 import type {
   Season1Participant,
   Season1Leaderboard,
-  SeasonActivityType,
-  SEASON_1_CONFIG
+  SeasonActivityType
 } from '../../types/season';
 
 // Cache keys
@@ -59,6 +59,8 @@ class Season1Service {
    */
   async fetchParticipantList(): Promise<string[]> {
     console.log('[Season1] Fetching participant list from Nostr...');
+    console.log('[Season1] Admin pubkey:', SEASON_1_CONFIG.adminPubkey);
+    console.log('[Season1] D-tag:', SEASON_1_CONFIG.participantListDTag);
 
     // Check memory cache first
     const now = Date.now();
@@ -71,9 +73,6 @@ class Season1Service {
     }
 
     try {
-      // Import config (avoiding circular dependency)
-      const { SEASON_1_CONFIG } = await import('../../types/season');
-
       // Get NDK instance
       const ndk = await this.getNDK();
 
@@ -84,10 +83,29 @@ class Season1Service {
         '#d': [SEASON_1_CONFIG.participantListDTag],
       };
 
+      console.log('[Season1] Querying with filter:', JSON.stringify(filter));
       const events = await ndk.fetchEvents(filter);
 
       if (!events || events.size === 0) {
         console.log('[Season1] No participant list found on Nostr');
+        console.log('[Season1] Attempting fallback query without d-tag...');
+
+        // Try without d-tag to see if we get any lists
+        const fallbackFilter: NDKFilter = {
+          kinds: [30000],
+          authors: [SEASON_1_CONFIG.adminPubkey],
+        };
+
+        const fallbackEvents = await ndk.fetchEvents(fallbackFilter);
+        console.log('[Season1] Fallback query found', fallbackEvents.size, 'events');
+
+        if (fallbackEvents.size > 0) {
+          Array.from(fallbackEvents).forEach(event => {
+            console.log('[Season1] Found list with d-tag:',
+              event.tags?.find(tag => tag[0] === 'd')?.[1] || 'no d-tag');
+          });
+        }
+
         return [];
       }
 
@@ -99,16 +117,27 @@ class Season1Service {
 
       console.log('[Season1] Found participant list event:', {
         id: latestEvent.id,
-        created_at: latestEvent.created_at,
+        created_at: new Date((latestEvent.created_at || 0) * 1000).toISOString(),
         tagCount: latestEvent.tags?.length || 0,
       });
+
+      // Log all tags for debugging
+      console.log('[Season1] Event tags:', latestEvent.tags?.map(tag =>
+        `${tag[0]}: ${tag[1]?.substring(0, 16)}...`
+      ).join(', '));
 
       // Extract participant pubkeys from 'p' tags
       const participants = latestEvent.tags
         ?.filter(tag => tag[0] === 'p' && tag[1])
         ?.map(tag => tag[1]) || [];
 
-      console.log(`[Season1] Extracted ${participants.length} participants`);
+      console.log(`[Season1] Extracted ${participants.length} participants from 'p' tags`);
+
+      // Log first few participants for verification
+      if (participants.length > 0) {
+        console.log('[Season1] First 3 participants:',
+          participants.slice(0, 3).map(p => p.substring(0, 16) + '...').join(', '));
+      }
 
       // Update cache
       this.participantsCache = {
@@ -151,9 +180,9 @@ class Season1Service {
     console.log(`[Season1] Fetching ${activityType} leaderboard...`);
 
     // Check cache first
-    const cacheKey = `@season1:leaderboard:${activityType}` as keyof typeof CACHE_KEYS;
+    const cacheKey = `@season1:leaderboard:${activityType}`;
     try {
-      const cached = await AsyncStorage.getItem(CACHE_KEYS[cacheKey]);
+      const cached = await AsyncStorage.getItem(cacheKey);
       if (cached) {
         const { data, timestamp } = JSON.parse(cached);
         if (Date.now() - timestamp < CACHE_DURATION.LEADERBOARD) {
@@ -178,9 +207,6 @@ class Season1Service {
         };
       }
 
-      // Import config
-      const { SEASON_1_CONFIG } = await import('../../types/season');
-
       // Query for kind 1301 workout events from participants
       const startTimestamp = Math.floor(new Date(SEASON_1_CONFIG.startDate).getTime() / 1000);
       const endTimestamp = Math.floor(new Date(SEASON_1_CONFIG.endDate).getTime() / 1000);
@@ -196,19 +222,33 @@ class Season1Service {
       const ndk = await this.getNDK();
 
       console.log(`[Season1] Querying workouts from ${participants.length} participants...`);
+      console.log(`[Season1] Date range: ${new Date(startTimestamp * 1000).toISOString()} to ${new Date(endTimestamp * 1000).toISOString()}`);
+      console.log(`[Season1] Activity type filter: ${activityType}`);
+
       const workoutEvents = await ndk.fetchEvents(filter);
+      console.log(`[Season1] Found ${workoutEvents.size} total workout events`);
 
       // Process workout events
       const participantMap = new Map<string, Season1Participant>();
+      let processedCount = 0;
+      let matchedCount = 0;
 
       for (const event of workoutEvents) {
         try {
+          processedCount++;
+
           // Parse workout content
           const content = JSON.parse(event.content);
 
           // Check if workout type matches
           const workoutType = this.normalizeActivityType(content.type);
-          if (workoutType !== activityType) continue;
+          if (workoutType !== activityType) {
+            if (processedCount <= 5) {
+              console.log(`[Season1] Skipping workout: type="${content.type}" normalized="${workoutType}" wanted="${activityType}"`);
+            }
+            continue;
+          }
+          matchedCount++;
 
           const pubkey = event.pubkey;
 
@@ -243,6 +283,9 @@ class Season1Service {
       const leaderboard = Array.from(participantMap.values())
         .sort((a, b) => b.totalDistance - a.totalDistance);
 
+      console.log(`[Season1] Processed ${processedCount} events, ${matchedCount} matched activity type`);
+      console.log(`[Season1] Final leaderboard has ${leaderboard.length} participants`);
+
       // Fetch profiles for top participants (optional enhancement)
       // TODO: Add profile fetching for names and pictures
 
@@ -255,7 +298,7 @@ class Season1Service {
 
       // Cache the result
       await AsyncStorage.setItem(
-        CACHE_KEYS[cacheKey],
+        cacheKey,
         JSON.stringify({
           data: result,
           timestamp: Date.now(),
@@ -304,9 +347,9 @@ class Season1Service {
 
     await Promise.all([
       AsyncStorage.removeItem(CACHE_KEYS.PARTICIPANTS),
-      AsyncStorage.removeItem(CACHE_KEYS.LEADERBOARD_RUNNING),
-      AsyncStorage.removeItem(CACHE_KEYS.LEADERBOARD_WALKING),
-      AsyncStorage.removeItem(CACHE_KEYS.LEADERBOARD_CYCLING),
+      AsyncStorage.removeItem('@season1:leaderboard:running'),
+      AsyncStorage.removeItem('@season1:leaderboard:walking'),
+      AsyncStorage.removeItem('@season1:leaderboard:cycling'),
     ]);
   }
 }

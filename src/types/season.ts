@@ -37,8 +37,8 @@ export interface Season1Config {
 
 // Constants
 export const SEASON_1_CONFIG: Season1Config = {
-  startDate: '2025-08-01T00:00:00Z',
-  endDate: '2025-10-11T23:59:59Z',
+  startDate: '2025-07-11T00:00:00Z',  // Official RUNSTR Season 1 start
+  endDate: '2025-10-09T23:59:59Z',    // Official RUNSTR Season 1 end
   prizePool: 200000,
   adminPubkey: 'f241654d23b2aede8275dedd1eba1791e292d9ee0d887752e68a404debc888cc',
   participantListDTag: 'runstr-season-1-participants',
