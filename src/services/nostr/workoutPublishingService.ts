@@ -323,7 +323,7 @@ export class WorkoutPublishingService {
    */
   private getActivityEmoji(exerciseVerb: string): string {
     switch (exerciseVerb) {
-      case 'running': return '🏃‍♂️';
+      case 'running': return '🏃‍♂️💨';
       case 'walking': return '🚶‍♀️';
       case 'cycling': return '🚴';
       case 'hiking': return '🥾';
@@ -331,6 +331,56 @@ export class WorkoutPublishingService {
       case 'rowing': return '🚣';
       default: return '💪';
     }
+  }
+
+  /**
+   * Get readable workout type for social posts
+   */
+  private getReadableWorkoutType(workoutType: string): string {
+    const type = workoutType.toLowerCase();
+    if (type.includes('run') || type === 'running') return 'run';
+    if (type.includes('walk') || type === 'walking') return 'walk';
+    if (type.includes('cycl') || type === 'cycling' || type.includes('bike')) return 'bike ride';
+    if (type.includes('hik')) return 'hike';
+    if (type.includes('swim')) return 'swim';
+    if (type.includes('row')) return 'rowing session';
+    if (type.includes('gym') || type.includes('strength')) return 'gym workout';
+    return 'workout';
+  }
+
+  /**
+   * Format duration for social posts (MM:SS or HH:MM:SS)
+   */
+  private formatDurationForPost(seconds: number): string {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    } else {
+      return `${minutes}:${secs.toString().padStart(2, '0')}`;
+    }
+  }
+
+  /**
+   * Calculate pace (min:sec per km or mi)
+   */
+  private calculatePace(distanceMeters: number, durationSeconds: number, unitSystem?: 'metric' | 'imperial'): string {
+    if (distanceMeters <= 0 || durationSeconds <= 0) return 'N/A';
+
+    const distanceKm = distanceMeters / 1000;
+    const distanceMiles = distanceKm * 0.621371;
+
+    const minutesPerUnit = unitSystem === 'imperial'
+      ? durationSeconds / 60 / distanceMiles
+      : durationSeconds / 60 / distanceKm;
+
+    const paceMinutes = Math.floor(minutesPerUnit);
+    const paceSeconds = Math.round((minutesPerUnit - paceMinutes) * 60);
+
+    const unit = unitSystem === 'imperial' ? '/mi' : '/km';
+    return `${paceMinutes}:${paceSeconds.toString().padStart(2, '0')} ${unit}`;
   }
 
   /**
@@ -434,7 +484,7 @@ export class WorkoutPublishingService {
   }
 
   /**
-   * Generate social post content with RUNSTR branding and optional workout card
+   * Generate social post content with clean format
    */
   private async generateSocialPostContent(
     workout: PublishableWorkout,
@@ -442,57 +492,22 @@ export class WorkoutPublishingService {
   ): Promise<string> {
     let content = '';
 
-    // Generate workout card if requested
-    if (options.includeCard !== false) {
-      try {
-        const cardOptions: WorkoutCardOptions = {
-          template: options.cardTemplate || 'achievement',
-          ...options.cardOptions,
-        };
-
-        const cardData = await this.cardGenerator.generateWorkoutCard(
-          workout,
-          cardOptions
-        );
-        console.log(
-          `✅ Generated workout card for social post: ${cardData.metadata.workoutId}`
-        );
-
-        // Add card reference to content (for now, just mention it - in a full implementation,
-        // this would be uploaded to a media server and referenced)
-        content += `🎨 Beautiful workout card generated!\n\n`;
-      } catch (error) {
-        console.warn(
-          '⚠️ Failed to generate workout card, proceeding without it:',
-          error
-        );
-      }
-    }
-
     // Custom message takes priority
     if (options.customMessage) {
-      content += options.customMessage + '\n\n';
+      content = options.customMessage + '\n\n';
     } else {
-      // Generate motivational opening
-      if (options.includeMotivation !== false) {
-        content += this.generateMotivationalMessage(workout) + '\n\n';
-      }
+      // Generate clean header
+      const workoutType = this.getReadableWorkoutType(workout.type);
+      const activityEmoji = this.getActivityEmoji(this.getExerciseVerb(workout.type));
+      content = `Just completed a ${workoutType} with RUNSTR TEAMS! ${activityEmoji}\n\n`;
     }
 
-    // Add workout stats
-    if (options.includeStats !== false) {
-      content += this.formatWorkoutStats(workout) + '\n\n';
-    }
+    // Add workout stats in vertical format
+    content += this.formatWorkoutStats(workout) + '\n\n';
 
-    // Add achievement callouts
-    const achievements = this.generateAchievements(workout);
-    if (achievements) {
-      content += achievements + '\n\n';
-    }
-
-    // Add RUNSTR branding
-    content += '💪 Tracked with RUNSTR\n';
-    content += '#fitness #' + workout.type + ' #RUNSTR';
+    // Add hashtags
+    const activityHashtag = this.getActivityHashtag(workout.type);
+    content += `#RUNSTR #${activityHashtag}`;
 
     return content.trim();
   }
@@ -534,37 +549,44 @@ export class WorkoutPublishingService {
   }
 
   /**
-   * Format workout stats for social post
+   * Format workout stats for social post in vertical list format
    */
   private formatWorkoutStats(workout: PublishableWorkout): string {
     const stats = [];
 
-    // Duration
-    const hours = Math.floor(workout.duration / 3600);
-    const minutes = Math.floor((workout.duration % 3600) / 60);
-    if (hours > 0) {
-      stats.push(`⏱️ ${hours}h ${minutes}m`);
-    } else {
-      stats.push(`⏱️ ${minutes}m`);
-    }
+    // Duration - format as HH:MM:SS or MM:SS
+    const durationFormatted = this.formatDurationForPost(workout.duration);
+    stats.push(`⏱️ Duration: ${durationFormatted}`);
 
     // Distance
-    if (workout.distance) {
-      const km = (workout.distance / 1000).toFixed(2);
-      stats.push(`📏 ${km} km`);
+    if (workout.distance && workout.distance > 0) {
+      const distanceKm = (workout.distance / 1000).toFixed(2);
+      const distanceDisplay = workout.unitSystem === 'imperial'
+        ? `${(parseFloat(distanceKm) * 0.621371).toFixed(2)} mi`
+        : `${distanceKm} km`;
+      stats.push(`📏 Distance: ${distanceDisplay}`);
+
+      // Pace - only if we have both distance and duration
+      if (workout.duration > 0) {
+        const paceStr = this.calculatePace(workout.distance, workout.duration, workout.unitSystem);
+        stats.push(`⚡ Pace: ${paceStr}`);
+      }
     }
 
     // Calories
-    if (workout.calories) {
-      stats.push(`🔥 ${Math.round(workout.calories)} cal`);
+    if (workout.calories && workout.calories > 0) {
+      stats.push(`🔥 Calories: ${Math.round(workout.calories)} kcal`);
     }
 
-    // Heart rate
-    if (workout.heartRate?.avg) {
-      stats.push(`❤️ ${Math.round(workout.heartRate.avg)} bpm avg`);
+    // Elevation gain
+    if (workout.elevationGain && workout.elevationGain > 0) {
+      const elevationDisplay = workout.unitSystem === 'imperial'
+        ? `${Math.round(workout.elevationGain * 3.28084)} ft`
+        : `${Math.round(workout.elevationGain)} m`;
+      stats.push(`🏔️ Elevation Gain: ${elevationDisplay}`);
     }
 
-    return stats.join(' • ');
+    return stats.join('\n');
   }
 
   /**

@@ -34,12 +34,18 @@ export async function storeAuthenticationData(
 ): Promise<boolean> {
   try {
     console.log('[Auth] Starting authentication storage...');
+    console.log('[Auth] nsec format check:', {
+      startsWithNsec: nsec?.startsWith('nsec1'),
+      length: nsec?.length,
+      sample: nsec ? nsec.slice(0, 10) + '...' : 'null'
+    });
 
     // Validate nsec format first
-    if (!nsec.startsWith('nsec1') || nsec.length < 63) {
+    if (!nsec || !nsec.startsWith('nsec1') || nsec.length < 63) {
       console.error('[Auth] Invalid nsec format:', {
-        startsWithNsec: nsec.startsWith('nsec1'),
-        length: nsec.length
+        startsWithNsec: nsec?.startsWith('nsec1'),
+        length: nsec?.length,
+        sample: nsec ? nsec.slice(0, 10) + '...' : 'null'
       });
       return false;
     }
