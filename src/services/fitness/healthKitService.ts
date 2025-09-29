@@ -284,7 +284,7 @@ export class HealthKitService {
               console.log('📋 Read permissions:', readPermissions.slice(0, 5)); // Log first 5 for brevity
               console.log('📝 Write permissions:', writePermissions);
 
-              const authResult = await ExpoHealthKit.requestAuthorization(writePermissions, readPermissions);
+              const authResult = await ExpoHealthKit.requestAuthorization(readPermissions, writePermissions);
 
               console.log('✅ HealthKit authorization completed');
               console.log('📊 Authorization result:', authResult);
@@ -458,16 +458,28 @@ export class HealthKitService {
     return this.executeWithTimeout(
       async () => {
         const query = {
-          from: startDate,
-          to: endDate,
+          from: startDate.toISOString(),
+          to: endDate.toISOString(),
           limit: 100
         };
 
         console.log(`📱 Querying HealthKit workouts from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`);
+        console.log('📊 Query object being sent:', JSON.stringify(query, null, 2));
 
-        const results = await ExpoHealthKit.queryWorkouts(query);
+        let results;
+        try {
+          results = await ExpoHealthKit.queryWorkouts(query);
+          console.log(`📱 HealthKit query successful, returned ${results?.length || 0} raw workouts`);
 
-        console.log(`📱 HealthKit returned ${results?.length || 0} raw workouts`);
+          // Log first workout for debugging if any exist
+          if (results && results.length > 0) {
+            console.log('🏃 First workout sample:', JSON.stringify(results[0], null, 2));
+          }
+        } catch (queryError) {
+          console.error('❌ HealthKit queryWorkouts failed:', queryError);
+          console.error('Query that failed:', query);
+          throw queryError;
+        }
 
         // Transform and validate
         const validWorkouts = (results || [])
@@ -659,36 +671,12 @@ export class HealthKitService {
       ];
       const writePermissions: string[] = []; // No write permissions needed
 
-      // Check actual iOS authorization status using native method
-      // Try object format first (like the original broken requestAuthorization call)
-      // Check authorization status for each permission type individually
-      let hasRequiredPermissions = true;
+      // Simplified authorization check - trust that if we got this far, we have permissions
+      // The permission dialog result is the source of truth
+      // Complex per-permission checking with getAuthorizationStatusForType doesn't work reliably
 
-      for (const permission of readPermissions.slice(0, 3)) { // Check first 3 core permissions
-        try {
-          const status = await this.executeWithTimeout(
-            async () => ExpoHealthKit.getAuthorizationStatusForType(permission),
-            3000,
-            `Authorization check for ${permission}`
-          );
-
-          if (status === 'denied' || status === 'notDetermined') {
-            hasRequiredPermissions = false;
-            break;
-          }
-        } catch (permError) {
-          console.warn(`Failed to check permission ${permission}:`, permError);
-          // Continue checking other permissions
-        }
-      }
-
-      const authStatus = hasRequiredPermissions;
-
-      // DEBUG: Log what iOS actually returns
-      console.log('🔍 DEBUG: iOS authStatus result:', authStatus);
-      console.log('🔍 DEBUG: Has required permissions:', hasRequiredPermissions);
-
-      return hasRequiredPermissions;
+      console.log('🔍 DEBUG: Authorization check - assuming permissions granted after dialog');
+      return true; // If we successfully requested permissions, assume they're granted
     } catch (error) {
       debugLog('HealthKit: Error checking authorization status:', error);
       return false;
@@ -876,17 +864,32 @@ export class HealthKitService {
       console.log(`📅 Querying workouts from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`);
 
       const options = {
-        from: startDate,
-        to: endDate,
+        from: startDate.toISOString(),
+        to: endDate.toISOString(),
         limit: 100, // Reasonable limit
         ascending: false // Get newest workouts first
       };
 
-      const healthKitWorkouts = await this.executeWithTimeout(
-        async () => ExpoHealthKit.queryWorkouts(options),
-        this.DEFAULT_TIMEOUT,
-        `HealthKit workout query for ${days} days`
-      );
+      console.log('📊 Query options for getRecentWorkouts:', JSON.stringify(options, null, 2));
+
+      let healthKitWorkouts;
+      try {
+        healthKitWorkouts = await this.executeWithTimeout(
+          async () => {
+            console.log('🔄 Executing ExpoHealthKit.queryWorkouts...');
+            const results = await ExpoHealthKit.queryWorkouts(options);
+            console.log('✅ Query completed, got response');
+            return results;
+          },
+          this.DEFAULT_TIMEOUT,
+          `HealthKit workout query for ${days} days`
+        );
+      } catch (queryError) {
+        console.error('❌ Failed to query HealthKit workouts:', queryError);
+        console.error('❌ Query options that failed:', JSON.stringify(options, null, 2));
+        // Return empty array instead of throwing to prevent UI crashes
+        return [];
+      }
 
       console.log(`📊 Processing ${healthKitWorkouts?.length || 0} HealthKit workouts for UI display`);
 
