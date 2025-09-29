@@ -12,6 +12,7 @@ import { activityMetricsService } from '../../services/activity/ActivityMetricsS
 import type { EnhancedTrackingSession } from '../../services/activity/EnhancedLocationTrackingService';
 import type { FormattedMetrics } from '../../services/activity/ActivityMetricsService';
 import { GPSStatusIndicator, type GPSSignalStrength } from '../../components/activity/GPSStatusIndicator';
+import { BatteryWarning } from '../../components/activity/BatteryWarning';
 import workoutPublishingService from '../../services/nostr/workoutPublishingService';
 import type { PublishableWorkout } from '../../services/nostr/workoutPublishingService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -289,6 +290,9 @@ export const RunningTrackerScreen: React.FC = () => {
           />
         </View>
       )}
+
+      {/* Battery Warning */}
+      {isTracking && <BatteryWarning />}
       {/* Metrics Display */}
       <View style={styles.metricsContainer}>
         <View style={styles.metricsRow}>

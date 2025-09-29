@@ -78,6 +78,9 @@ export class EnhancedLocationTrackingService {
   private totalInvalidPoints = 0;
   private gpsOutageStart: number | null = null;
 
+  // Transport detection
+  private justResumedFromPause = false;
+
   private constructor() {
     this.stateMachine = new ActivityStateMachine();
     this.recoveryService = SessionRecoveryService.getInstance();
@@ -255,9 +258,15 @@ export class EnhancedLocationTrackingService {
       timestamp: this.lastValidLocation.timestamp,
       accuracy: this.lastValidLocation.accuracy,
       speed: this.lastValidLocation.speed,
-    } : undefined);
+    } : undefined, this.justResumedFromPause);
 
     if (validationResult.isValid) {
+      // Reset pause flag after first valid point
+      if (this.justResumedFromPause) {
+        console.log('First valid point after resume accepted');
+        this.justResumedFromPause = false;
+      }
+
       // Use corrected point if available, or original point
       let pointToStore: EnhancedLocationPoint;
       if (validationResult.correctedPoint) {
@@ -409,6 +418,7 @@ export class EnhancedLocationTrackingService {
     if (!this.stateMachine.canResume()) return;
 
     this.stateMachine.send({ type: 'RESUME' });
+    this.justResumedFromPause = true; // Flag for transport detection
     await resumeBackgroundTracking();
     const pauseDuration = Date.now(); // Calculate actual pause duration
     this.recoveryService.resumeSession(pauseDuration);

@@ -58,10 +58,14 @@ export class LocationValidator {
 
   /**
    * Validate a new location point
+   * @param point - The new location point to validate
+   * @param previousPoint - The previous point for comparison
+   * @param wasPausedResume - Whether this is the first point after resuming from pause
    */
   validatePoint(
     point: LocationPoint,
-    previousPoint?: LocationPoint
+    previousPoint?: LocationPoint,
+    wasPausedResume: boolean = false
   ): ValidationResult {
     // Basic accuracy check
     if (!this.isAccuracyAcceptable(point)) {
@@ -88,6 +92,25 @@ export class LocationValidator {
         isValid: true,
         confidence: this.calculateConfidence(point),
       };
+    }
+
+    // Transport detection: Check if user likely took transport during pause
+    if (wasPausedResume) {
+      const distance = this.calculateDistance(referencePoint, point);
+      const timeDeltaMs = point.timestamp - referencePoint.timestamp;
+
+      // If moved more than 200m during pause, likely transported
+      // Allow up to 500m if pause was very long (>10 minutes) as user might have walked
+      const maxAllowedDistance = timeDeltaMs > 600000 ? 500 : 200;
+
+      if (distance > maxAllowedDistance) {
+        console.log(`Transport detected: ${distance.toFixed(0)}m jump after pause (max allowed: ${maxAllowedDistance}m)`);
+        return {
+          isValid: false,
+          confidence: 0,
+          reason: `Transport detected - ${distance.toFixed(0)}m jump after pause`,
+        };
+      }
     }
 
     // Check time consistency

@@ -48,6 +48,11 @@ export class BatteryOptimizationService {
   private listeners: Set<(mode: BatteryMode, level: number) => void> = new Set();
   private batterySubscription: Battery.PowerState | null = null;
 
+  // Battery warning thresholds
+  private readonly CRITICAL_BATTERY = 10;
+  private readonly LOW_BATTERY = 20;
+  private readonly MEDIUM_BATTERY = 30;
+
   private constructor() {
     this.initializeBatteryMonitoring();
   }
@@ -154,6 +159,45 @@ export class BatteryOptimizationService {
    */
   getBatteryLevel(): number {
     return this.batteryLevel;
+  }
+
+  /**
+   * Get battery warning if applicable
+   */
+  getBatteryWarning(): { level: 'critical' | 'low' | 'medium' | null; message: string | null } {
+    if (this.isCharging) {
+      return { level: null, message: null };
+    }
+
+    if (this.batteryLevel <= this.CRITICAL_BATTERY) {
+      return {
+        level: 'critical',
+        message: `Critical battery (${this.batteryLevel}%) - Tracking may stop soon`,
+      };
+    }
+
+    if (this.batteryLevel <= this.LOW_BATTERY) {
+      return {
+        level: 'low',
+        message: `Low battery (${this.batteryLevel}%) - Tracking accuracy reduced`,
+      };
+    }
+
+    if (this.batteryLevel <= this.MEDIUM_BATTERY) {
+      return {
+        level: 'medium',
+        message: `Battery at ${this.batteryLevel}% - Consider charging for best tracking`,
+      };
+    }
+
+    return { level: null, message: null };
+  }
+
+  /**
+   * Check if battery is low enough to show warning
+   */
+  shouldShowBatteryWarning(): boolean {
+    return !this.isCharging && this.batteryLevel <= this.LOW_BATTERY;
   }
 
   /**
