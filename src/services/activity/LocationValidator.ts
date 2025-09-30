@@ -50,6 +50,8 @@ export class LocationValidator {
   private lastValidPoint: LocationPoint | null = null;
   private velocityHistory: number[] = [];
   private readonly VELOCITY_HISTORY_SIZE = 5;
+  private lastValidTimestamp: number = Date.now();
+  private consecutiveInvalidPoints: number = 0;
 
   constructor(activityType: 'running' | 'walking' | 'cycling') {
     this.activityType = activityType;
@@ -79,6 +81,8 @@ export class LocationValidator {
     // First point is always valid if accuracy is good
     if (!previousPoint && !this.lastValidPoint) {
       this.lastValidPoint = point;
+      this.lastValidTimestamp = Date.now();
+      this.consecutiveInvalidPoints = 0;
       return {
         isValid: true,
         confidence: this.calculateConfidence(point),
@@ -198,14 +202,46 @@ export class LocationValidator {
   }
 
   /**
+   * Get dynamic accuracy threshold based on conditions
+   */
+  private getAccuracyThreshold(): number {
+    // Base thresholds: more lenient than before based on senior dev feedback
+    const baseThreshold = this.activityType === 'cycling' ? 75 : 50;
+
+    // Check if we've had no valid points recently (signal degradation)
+    const timeSinceLastValid = Date.now() - this.lastValidTimestamp;
+
+    // Progressive relaxation based on time without valid points
+    if (timeSinceLastValid > 60000) { // 60 seconds - very degraded signal
+      return Math.min(baseThreshold * 2, 100); // Double threshold, cap at 100m
+    } else if (timeSinceLastValid > 30000) { // 30 seconds - degraded signal
+      return Math.min(baseThreshold * 1.5, 85); // 1.5x threshold, cap at 85m
+    } else if (this.consecutiveInvalidPoints > 5) { // Multiple rejections
+      return Math.min(baseThreshold * 1.3, 75); // 1.3x threshold for urban canyons
+    }
+
+    return baseThreshold;
+  }
+
+  /**
    * Check if accuracy is acceptable
    */
   private isAccuracyAcceptable(point: LocationPoint): boolean {
     if (!point.accuracy) return false;
 
-    // Different thresholds based on activity
-    const maxAccuracy = this.activityType === 'cycling' ? 30 : 20;
-    return point.accuracy <= maxAccuracy;
+    const threshold = this.getAccuracyThreshold();
+    const isAcceptable = point.accuracy <= threshold;
+
+    // Track consecutive invalid points for threshold adjustment
+    if (!isAcceptable) {
+      this.consecutiveInvalidPoints++;
+      console.log(`GPS accuracy ${point.accuracy.toFixed(1)}m exceeds threshold ${threshold}m (consecutive invalid: ${this.consecutiveInvalidPoints})`);
+    } else {
+      this.consecutiveInvalidPoints = 0;
+      this.lastValidTimestamp = Date.now();
+    }
+
+    return isAcceptable;
   }
 
   /**
@@ -338,5 +374,7 @@ export class LocationValidator {
   reset() {
     this.lastValidPoint = null;
     this.velocityHistory = [];
+    this.lastValidTimestamp = Date.now();
+    this.consecutiveInvalidPoints = 0;
   }
 }

@@ -326,6 +326,21 @@ export class ActivityStateMachine {
   }
 
   /**
+   * Get state history (states only)
+   */
+  getStateHistory(): ActivityState[] {
+    return this.stateHistory.map(h => h.state);
+  }
+
+  /**
+   * Get previous state
+   */
+  getPreviousState(): ActivityState | null {
+    if (this.stateHistory.length < 2) return null;
+    return this.stateHistory[this.stateHistory.length - 2].state;
+  }
+
+  /**
    * Check if in active tracking state
    */
   isTracking(): boolean {

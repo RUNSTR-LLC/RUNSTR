@@ -82,6 +82,10 @@ export class EnhancedLocationTrackingService {
   // Transport detection
   private justResumedFromPause = false;
 
+  // GPS recovery tracking
+  private pointsAfterRecovery: number = 0;
+  private wasInGpsLostState: boolean = false;
+
   private constructor() {
     this.stateMachine = new ActivityStateMachine();
     this.recoveryService = SessionRecoveryService.getInstance();
@@ -296,7 +300,45 @@ export class EnhancedLocationTrackingService {
         };
       }
 
-      // Update metrics
+      // Check if we're recovering from GPS loss
+      // Skip distance accumulation for first few points after recovery
+      // Alternative check: use state machine's previous state
+      const previousState = this.stateMachine.getPreviousState();
+      const isRecoveringFromGpsLoss = this.wasInGpsLostState || previousState === 'gps_lost';
+
+      if (isRecoveringFromGpsLoss) {
+        this.pointsAfterRecovery++;
+
+        if (this.pointsAfterRecovery <= 3) {
+          console.log(`📍 GPS Recovery: Skipping distance for point ${this.pointsAfterRecovery}/3 to avoid straight line through obstacles`);
+
+          // Store the point but don't accumulate distance
+          this.lastValidLocation = pointToStore;
+          await this.storage.addPoint({
+            latitude: pointToStore.latitude,
+            longitude: pointToStore.longitude,
+            altitude: pointToStore.altitude,
+            timestamp: pointToStore.timestamp,
+            accuracy: pointToStore.accuracy,
+            speed: pointToStore.speed,
+          });
+
+          // Still update GPS signal and recovery service
+          this.updateGPSSignalStrength(pointToStore.accuracy || 20);
+          this.currentSession.lastGPSUpdate = Date.now();
+
+          // After 3 points, we're fully recovered
+          if (this.pointsAfterRecovery >= 3) {
+            this.wasInGpsLostState = false;
+            this.pointsAfterRecovery = 0;
+            console.log('✅ GPS fully recovered, resuming normal distance tracking');
+          }
+
+          return; // Skip the rest of the distance calculation
+        }
+      }
+
+      // Update metrics (normal flow when not recovering)
       if (this.lastValidLocation) {
         const distance = this.calculateDistance(this.lastValidLocation, pointToStore);
         this.currentSession.totalDistance += distance;
@@ -363,6 +405,11 @@ export class EnhancedLocationTrackingService {
     // Update state machine if signal changed significantly
     if (previousStrength === 'none' && strength !== 'none') {
       this.stateMachine.send({ type: 'GPS_RECOVERED' });
+      console.log('🔄 GPS signal recovered, starting recovery buffer');
+      // Mark that we were in GPS lost state for recovery handling
+      this.wasInGpsLostState = true;
+      this.pointsAfterRecovery = 0;
+
       if (this.gpsOutageStart) {
         this.currentSession.statistics.gpsOutages++;
         this.gpsOutageStart = null;
@@ -370,6 +417,8 @@ export class EnhancedLocationTrackingService {
     } else if (previousStrength !== 'none' && strength === 'none') {
       this.stateMachine.send({ type: 'GPS_LOST' });
       this.gpsOutageStart = Date.now();
+      // We'll track recovery when signal comes back
+      this.wasInGpsLostState = true;
     } else if (strength === 'weak') {
       this.stateMachine.send({ type: 'GPS_WEAK' });
     }
@@ -388,6 +437,8 @@ export class EnhancedLocationTrackingService {
       if (timeSinceLastUpdate > GPS_SIGNAL_TIMEOUT) {
         this.currentSession.gpsSignalStrength = 'none';
         this.stateMachine.send({ type: 'GPS_LOST' });
+        // Mark for recovery tracking when signal returns
+        this.wasInGpsLostState = true;
       }
     }, 5000);
   }
@@ -521,10 +572,12 @@ export class EnhancedLocationTrackingService {
   }
 
   /**
-   * Calculate distance between two points
+   * Calculate distance between two points with 3D consideration
+   * Uses Haversine formula for horizontal distance, then applies Pythagorean theorem for altitude
    */
   private calculateDistance(p1: EnhancedLocationPoint, p2: EnhancedLocationPoint): number {
-    const R = 6371000;
+    // Calculate 2D horizontal distance using Haversine formula
+    const R = 6371000; // Earth's radius in meters
     const φ1 = (p1.latitude * Math.PI) / 180;
     const φ2 = (p2.latitude * Math.PI) / 180;
     const Δφ = ((p2.latitude - p1.latitude) * Math.PI) / 180;
@@ -534,7 +587,26 @@ export class EnhancedLocationTrackingService {
       Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-    return R * c;
+    const flatDistance = R * c;
+
+    // Add altitude component if both points have altitude data
+    if (p1.altitude !== undefined && p2.altitude !== undefined) {
+      const altitudeDiff = p2.altitude - p1.altitude;
+
+      // Apply Pythagorean theorem for 3D distance
+      // This is especially important for trail running and mountain biking
+      const distance3D = Math.sqrt(flatDistance * flatDistance + altitudeDiff * altitudeDiff);
+
+      // Log significant altitude changes for debugging
+      if (Math.abs(altitudeDiff) > 10) {
+        console.log(`\ud83c\udfde️ 3D distance calculation: horizontal=${flatDistance.toFixed(1)}m, altitude∆=${altitudeDiff.toFixed(1)}m, 3D=${distance3D.toFixed(1)}m`);
+      }
+
+      return distance3D;
+    }
+
+    // Return 2D distance if altitude data is unavailable
+    return flatDistance;
   }
 
   /**
@@ -569,6 +641,8 @@ export class EnhancedLocationTrackingService {
     this.totalValidPoints = 0;
     this.totalInvalidPoints = 0;
     this.gpsOutageStart = null;
+    this.pointsAfterRecovery = 0;
+    this.wasInGpsLostState = false;
   }
 
   /**
