@@ -4,11 +4,12 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, AppState, AppStateStatus } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { enhancedLocationTrackingService } from '../../services/activity/EnhancedLocationTrackingService';
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
+import { locationPermissionService, type PermissionResult } from '../../services/activity/LocationPermissionService';
 import type { EnhancedTrackingSession } from '../../services/activity/EnhancedLocationTrackingService';
 import type { FormattedMetrics } from '../../services/activity/ActivityMetricsService';
 import { GPSStatusIndicator, type GPSSignalStrength } from '../../components/activity/GPSStatusIndicator';
@@ -46,25 +47,72 @@ export const RunningTrackerScreen: React.FC = () => {
   const [gpsSignal, setGpsSignal] = useState<GPSSignalStrength>('none');
   const [gpsAccuracy, setGpsAccuracy] = useState<number | undefined>();
   const [isBackgroundTracking, setIsBackgroundTracking] = useState(false);
+  const [permissionStatus, setPermissionStatus] = useState<PermissionResult | null>(null);
+  const [isCheckingPermission, setIsCheckingPermission] = useState(true);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const metricsUpdateRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
   const pausedDurationRef = useRef<number>(0);
+  const appStateRef = useRef(AppState.currentState);
 
   useEffect(() => {
+    // Check permission status on mount
+    checkPermissions();
+
+    // Listen for app state changes to re-check permissions when returning from settings
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
     return () => {
       // Cleanup timers on unmount
       if (timerRef.current) clearInterval(timerRef.current);
       if (metricsUpdateRef.current) clearInterval(metricsUpdateRef.current);
+      subscription.remove();
     };
   }, []);
 
+  const handleAppStateChange = (nextAppState: AppStateStatus) => {
+    if (
+      appStateRef.current.match(/inactive|background/) &&
+      nextAppState === 'active'
+    ) {
+      // App has come to the foreground, re-check permissions
+      console.log('App returned to foreground, checking permissions...');
+      checkPermissions();
+    }
+    appStateRef.current = nextAppState;
+  };
+
+  const checkPermissions = async () => {
+    setIsCheckingPermission(true);
+    const status = await locationPermissionService.checkPermissionStatus();
+    setPermissionStatus(status);
+    setIsCheckingPermission(false);
+  };
+
+  const requestPermissions = async () => {
+    setIsCheckingPermission(true);
+    const result = await locationPermissionService.requestActivityTrackingPermissions();
+
+    // Re-check status after requesting
+    await checkPermissions();
+
+    return result.foreground;
+  };
+
   const startTracking = async () => {
+    // First check if we have permissions
+    if (!permissionStatus || permissionStatus.foreground !== 'granted') {
+      const granted = await requestPermissions();
+      if (!granted) {
+        return;
+      }
+    }
+
     const started = await enhancedLocationTrackingService.startTracking('running');
     if (!started) {
       Alert.alert(
-        'Permission Required',
-        'Location permission is required to track your run. Please enable it in settings.',
+        'Unable to Start Tracking',
+        'There was an issue starting the activity tracker. Please try again.',
         [{ text: 'OK' }]
       );
       return;
@@ -278,8 +326,78 @@ export const RunningTrackerScreen: React.FC = () => {
     }
   }, [elapsedTime]);
 
+  // Show loading while checking permissions
+  if (isCheckingPermission) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Checking permissions...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Show permission request UI if needed
+  if (permissionStatus && permissionStatus.foreground !== 'granted') {
+    return (
+      <View style={styles.container}>
+        <View style={styles.permissionContainer}>
+          <Ionicons name="location-outline" size={64} color={theme.colors.textMuted} />
+          <Text style={styles.permissionTitle}>Location Access Required</Text>
+          <Text style={styles.permissionDescription}>
+            RUNSTR needs location access to track your running activities accurately.
+          </Text>
+
+          {permissionStatus.shouldShowSettings ? (
+            <>
+              <TouchableOpacity
+                style={styles.permissionButton}
+                onPress={() => locationPermissionService.openLocationSettings()}
+              >
+                <Text style={styles.permissionButtonText}>Open Settings</Text>
+              </TouchableOpacity>
+              <Text style={styles.permissionHint}>
+                Enable location access in Settings, then return to the app
+              </Text>
+            </>
+          ) : (
+            <TouchableOpacity
+              style={styles.permissionButton}
+              onPress={requestPermissions}
+            >
+              <Text style={styles.permissionButtonText}>Enable Location Access</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
+      {/* Permission Status Badge */}
+      {permissionStatus && permissionStatus.foreground === 'granted' && permissionStatus.background !== 'granted' && (
+        <TouchableOpacity
+          style={styles.permissionBadge}
+          onPress={() => {
+            Alert.alert(
+              'Background Tracking',
+              'For best results, enable "Always Allow" location access in Settings to continue tracking when the app is in the background.',
+              [
+                { text: 'Not Now', style: 'cancel' },
+                {
+                  text: 'Open Settings',
+                  onPress: () => locationPermissionService.openLocationSettings(),
+                },
+              ]
+            );
+          }}
+        >
+          <Ionicons name="information-circle-outline" size={16} color={theme.colors.warning} />
+          <Text style={styles.permissionBadgeText}>Background tracking limited</Text>
+        </TouchableOpacity>
+      )}
+
       {/* GPS Status Indicator */}
       {isTracking && (
         <View style={styles.gpsContainer}>
@@ -459,5 +577,73 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontSize: 14,
     fontWeight: theme.typography.weights.medium,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: theme.colors.textMuted,
+    fontSize: 16,
+    fontWeight: theme.typography.weights.medium,
+  },
+  permissionContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  permissionTitle: {
+    fontSize: 24,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+    marginTop: 20,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  permissionDescription: {
+    fontSize: 16,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+    marginBottom: 32,
+    lineHeight: 22,
+  },
+  permissionButton: {
+    backgroundColor: theme.colors.text,
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  permissionButtonText: {
+    color: theme.colors.background,
+    fontSize: 16,
+    fontWeight: theme.typography.weights.semiBold,
+  },
+  permissionHint: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  permissionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.card,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 16,
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.warning,
+  },
+  permissionBadgeText: {
+    color: theme.colors.warning,
+    fontSize: 12,
+    fontWeight: theme.typography.weights.medium,
+    marginLeft: 6,
   },
 });

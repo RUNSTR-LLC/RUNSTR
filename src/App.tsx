@@ -68,6 +68,7 @@ import { HelpSupportScreen } from './screens/HelpSupportScreen';
 import { ContactSupportScreen } from './screens/ContactSupportScreen';
 import { PrivacyPolicyScreen } from './screens/PrivacyPolicyScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
+import { OnboardingScreen } from './screens/OnboardingScreen';
 import { User } from './types';
 
 // Types for authenticated app navigation
@@ -76,6 +77,7 @@ type AuthenticatedStackParamList = {
   Auth: undefined;
   Main: undefined;
   MainTabs: undefined;
+  Onboarding: { nsec?: string };
   TeamCreation: undefined;
   EnhancedTeamScreen: { team: any; userIsMember?: boolean; currentUserNpub?: string; userIsCaptain?: boolean };
   EventDetail: { eventId: string };
@@ -127,6 +129,13 @@ const AppContent: React.FC = () => {
             />
           )}
         </AuthenticatedStack.Screen>
+
+        {/* Onboarding Screen */}
+        <AuthenticatedStack.Screen
+          name="Onboarding"
+          component={OnboardingScreen}
+          options={{ headerShown: false }}
+        />
 
         {/* Team Creation Modal */}
         <AuthenticatedStack.Screen

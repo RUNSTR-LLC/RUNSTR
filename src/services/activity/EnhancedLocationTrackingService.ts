@@ -11,6 +11,7 @@ import { LocationValidator } from './LocationValidator';
 import { StreamingLocationStorage } from './StreamingLocationStorage';
 import { SessionRecoveryService } from './SessionRecoveryService';
 import { BatteryOptimizationService } from './BatteryOptimizationService';
+import { locationPermissionService } from './LocationPermissionService';
 import {
   startBackgroundLocationTracking,
   stopBackgroundLocationTracking,
@@ -126,24 +127,31 @@ export class EnhancedLocationTrackingService {
   }
 
   /**
-   * Request location permissions
+   * Request location permissions using the centralized service
    */
   async requestPermissions(): Promise<boolean> {
-    this.stateMachine.send({ type: 'START_TRACKING', activityType: 'running' });
-
     try {
-      const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
-      if (foregroundStatus !== 'granted') {
+      console.log('📍 Requesting activity tracking permissions...');
+
+      // Use the centralized permission service
+      const result = await locationPermissionService.requestActivityTrackingPermissions();
+
+      if (result.foreground) {
+        this.stateMachine.send({ type: 'PERMISSIONS_GRANTED' });
+
+        // Log background permission status
+        if (result.background) {
+          console.log('✅ Full location permissions granted (foreground + background)');
+        } else {
+          console.log('⚠️ Foreground permission granted, background permission not available');
+          console.log('   Tracking will pause when app goes to background');
+        }
+
+        return true;
+      } else {
         this.stateMachine.send({ type: 'PERMISSIONS_DENIED' });
         return false;
       }
-
-      // Request background permissions
-      const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
-      console.log('Background permission status:', backgroundStatus);
-
-      this.stateMachine.send({ type: 'PERMISSIONS_GRANTED' });
-      return true;
     } catch (error) {
       console.error('Error requesting permissions:', error);
       this.stateMachine.send({ type: 'PERMISSIONS_DENIED' });
@@ -162,9 +170,14 @@ export class EnhancedLocationTrackingService {
         return false;
       }
 
+      // Send start tracking event to state machine
+      this.stateMachine.send({ type: 'START_TRACKING', activityType });
+
       // Request permissions
       const hasPermission = await this.requestPermissions();
       if (!hasPermission) {
+        // Reset state machine if permissions denied
+        this.stateMachine.send({ type: 'RESET' });
         return false;
       }
 

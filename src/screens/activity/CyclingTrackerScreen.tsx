@@ -4,10 +4,13 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Alert } from 'react-native';
+import { Alert, View, Text, StyleSheet, TouchableOpacity, AppState, AppStateStatus } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { theme } from '../../styles/theme';
 import { BaseTrackerComponent } from '../../components/activity/BaseTrackerComponent';
 import { enhancedLocationTrackingService } from '../../services/activity/EnhancedLocationTrackingService';
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
+import { locationPermissionService, type PermissionResult } from '../../services/activity/LocationPermissionService';
 import type { EnhancedTrackingSession } from '../../services/activity/EnhancedLocationTrackingService';
 import workoutPublishingService from '../../services/nostr/workoutPublishingService';
 import type { PublishableWorkout } from '../../services/nostr/workoutPublishingService';
@@ -24,24 +27,66 @@ export const CyclingTrackerScreen: React.FC = () => {
   });
   const [elapsedTime, setElapsedTime] = useState(0);
   const [currentSpeed, setCurrentSpeed] = useState(0);
+  const [permissionStatus, setPermissionStatus] = useState<PermissionResult | null>(null);
+  const [isCheckingPermission, setIsCheckingPermission] = useState(true);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const metricsUpdateRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
   const pausedDurationRef = useRef<number>(0);
+  const appStateRef = useRef(AppState.currentState);
 
   useEffect(() => {
+    // Check permission status on mount
+    checkPermissions();
+
+    // Listen for app state changes
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       if (metricsUpdateRef.current) clearInterval(metricsUpdateRef.current);
+      subscription.remove();
     };
   }, []);
 
+  const handleAppStateChange = (nextAppState: AppStateStatus) => {
+    if (
+      appStateRef.current.match(/inactive|background/) &&
+      nextAppState === 'active'
+    ) {
+      checkPermissions();
+    }
+    appStateRef.current = nextAppState;
+  };
+
+  const checkPermissions = async () => {
+    setIsCheckingPermission(true);
+    const status = await locationPermissionService.checkPermissionStatus();
+    setPermissionStatus(status);
+    setIsCheckingPermission(false);
+  };
+
+  const requestPermissions = async () => {
+    setIsCheckingPermission(true);
+    const result = await locationPermissionService.requestActivityTrackingPermissions();
+    await checkPermissions();
+    return result.foreground;
+  };
+
   const startTracking = async () => {
+    // Check permissions first
+    if (!permissionStatus || permissionStatus.foreground !== 'granted') {
+      const granted = await requestPermissions();
+      if (!granted) {
+        return;
+      }
+    }
+
     const started = await enhancedLocationTrackingService.startTracking('cycling');
     if (!started) {
       Alert.alert(
-        'Permission Required',
-        'Location permission is required to track your ride. Please enable it in settings.',
+        'Unable to Start Tracking',
+        'There was an issue starting the activity tracker. Please try again.',
         [{ text: 'OK' }]
       );
       return;
@@ -231,6 +276,53 @@ export const CyclingTrackerScreen: React.FC = () => {
     }
   }, [elapsedTime]);
 
+  // Show loading while checking permissions
+  if (isCheckingPermission) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Checking permissions...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Show permission request UI if needed
+  if (permissionStatus && permissionStatus.foreground !== 'granted') {
+    return (
+      <View style={styles.container}>
+        <View style={styles.permissionContainer}>
+          <Ionicons name="location-outline" size={64} color={theme.colors.textMuted} />
+          <Text style={styles.permissionTitle}>Location Access Required</Text>
+          <Text style={styles.permissionDescription}>
+            RUNSTR needs location access to track your cycling activities accurately.
+          </Text>
+
+          {permissionStatus.shouldShowSettings ? (
+            <>
+              <TouchableOpacity
+                style={styles.permissionButton}
+                onPress={() => locationPermissionService.openLocationSettings()}
+              >
+                <Text style={styles.permissionButtonText}>Open Settings</Text>
+              </TouchableOpacity>
+              <Text style={styles.permissionHint}>
+                Enable location access in Settings, then return to the app
+              </Text>
+            </>
+          ) : (
+            <TouchableOpacity
+              style={styles.permissionButton}
+              onPress={requestPermissions}
+            >
+              <Text style={styles.permissionButtonText}>Enable Location Access</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    );
+  }
+
   return (
     <BaseTrackerComponent
       metrics={{
@@ -249,3 +341,60 @@ export const CyclingTrackerScreen: React.FC = () => {
     />
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: theme.colors.textMuted,
+    fontSize: 16,
+    fontWeight: theme.typography.weights.medium,
+  },
+  permissionContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  permissionTitle: {
+    fontSize: 24,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+    marginTop: 20,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  permissionDescription: {
+    fontSize: 16,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+    marginBottom: 32,
+    lineHeight: 22,
+  },
+  permissionButton: {
+    backgroundColor: theme.colors.text,
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  permissionButtonText: {
+    color: theme.colors.background,
+    fontSize: 16,
+    fontWeight: theme.typography.weights.semiBold,
+  },
+  permissionHint: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+});

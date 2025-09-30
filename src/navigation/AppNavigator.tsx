@@ -21,6 +21,7 @@ import { TeamCreationWizard } from '../components/wizards/TeamCreationWizard';
 import { EventDetailScreen } from '../screens/EventDetailScreen';
 import { ChallengeDetailScreen } from '../screens/ChallengeDetailScreen';
 import { LoginScreen } from '../screens/LoginScreen';
+import { OnboardingScreen } from '../screens/OnboardingScreen';
 
 // Navigation Configuration
 import {
@@ -38,6 +39,7 @@ export type RootStackParamList = {
   Auth: undefined;
   Main: undefined;
   Login: undefined;
+  Onboarding: { nsec?: string };
   Team: undefined;
   EnhancedTeamScreen: { team: any; userIsMember?: boolean; currentUserNpub?: string; userIsCaptain?: boolean }; // Individual team dashboard
   Profile: undefined;
@@ -162,9 +164,16 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
       screenOptions={defaultScreenOptions}
     >
       {/* Login Screen - No callback needed, AuthContext handles everything */}
-      <Stack.Screen 
-        name="Login" 
+      <Stack.Screen
+        name="Login"
         component={LoginScreen}
+        options={{ headerShown: false }}
+      />
+
+      {/* Onboarding Screen - Shows after new user signup */}
+      <Stack.Screen
+        name="Onboarding"
+        component={OnboardingScreen}
         options={{ headerShown: false }}
       />
 

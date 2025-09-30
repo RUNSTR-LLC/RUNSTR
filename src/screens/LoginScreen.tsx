@@ -18,6 +18,8 @@ import {
   Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../styles/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { validateNsec } from '../utils/nostr';
@@ -33,6 +35,7 @@ interface LoginScreenProps {
 export const LoginScreen: React.FC<LoginScreenProps> = () => {
   // Use AuthContext for direct authentication state management
   const { signIn, signUp, signInWithAmber } = useAuth();
+  const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
 
   // Local state for UI only
@@ -57,13 +60,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
 
   const handleLogin = async () => {
     if (!nsecInput) {
-      setError('Please enter your nsec key');
+      setError('Please enter your password');
       return;
     }
 
     // Validate nsec format
     if (!validateNsec(nsecInput)) {
-      setError('Invalid nsec format. Please check your key and try again.');
+      setError('Invalid password format. Please check and try again.');
       return;
     }
 
@@ -105,7 +108,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
 
       if (result.success) {
         console.log('✅ LoginScreen: Signup successful - new identity created');
-        // AuthContext will handle navigation automatically
+
+        // Get the nsec from storage for the onboarding password screen
+        const nsec = await AsyncStorage.getItem('@runstr:user_nsec');
+
+        // Navigate to onboarding for new users
+        navigation.navigate('Onboarding', { nsec });
       } else {
         console.error('❌ LoginScreen: Signup failed:', result.error);
         setError(result.error || 'Failed to create identity. Please try again.');
@@ -228,7 +236,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
                   {isLoading ? (
                     <ActivityIndicator size="small" color="#000000" />
                   ) : (
-                    <Text style={styles.loginButtonText}>Sign in with Nostr</Text>
+                    <Text style={styles.loginButtonText}>Login</Text>
                   )}
                 </TouchableOpacity>
 
@@ -267,16 +275,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
                   >
                     <Text style={styles.backButtonText}>← Back</Text>
                   </TouchableOpacity>
-                  <Text style={styles.inputTitle}>Enter your nsec key</Text>
+                  <Text style={styles.inputTitle}>Enter your password</Text>
                 </View>
 
                 <View style={styles.inputField}>
-                  <Text style={styles.inputLabel}>Private Key (nsec)</Text>
+                  <Text style={styles.inputLabel}>Password</Text>
                   <TextInput
                     style={[styles.textInput, error && styles.textInputError]}
                     value={nsecInput}
                     onChangeText={handleNsecChange}
-                    placeholder="nsec1..."
+                    placeholder="Your secure password"
                     placeholderTextColor={theme.colors.textMuted}
                     secureTextEntry={true}
                     autoCapitalize="none"
@@ -285,7 +293,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
                     editable={!isLoading}
                   />
                   <Text style={styles.inputHelper}>
-                    Your nsec is stored locally and never shared
+                    Your password is stored locally and never shared
                   </Text>
                 </View>
 

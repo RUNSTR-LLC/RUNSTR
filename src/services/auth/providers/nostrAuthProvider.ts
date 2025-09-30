@@ -323,8 +323,9 @@ export class NostrAuthProvider {
       return {
         success: true,
         user,
-        needsOnboarding: false, // New Nostr users can edit profile later
+        needsOnboarding: true, // New users should see onboarding
         needsRoleSelection: false, // Default to member role
+        nsec, // Pass the nsec for the password notice screen
       };
     } catch (error) {
       console.error('❌ NostrAuthProvider: Nostr signup failed:', error);

@@ -75,6 +75,7 @@ export interface AuthResult {
   needsRoleSelection?: boolean;
   needsWalletCreation?: boolean;
   error?: string;
+  nsec?: string; // Password for onboarding display
 }
 
 export interface CreateUserData {
