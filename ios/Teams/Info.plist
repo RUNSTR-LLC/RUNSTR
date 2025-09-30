@@ -51,6 +51,18 @@
     <string>RUNSTR needs access to your workout data to automatically sync your fitness activities and calculate team rankings for Bitcoin rewards.</string>
     <key>NSHealthUpdateUsageDescription</key>
     <string>RUNSTR needs to read your workout data to track your fitness progress and team contributions.</string>
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>RUNSTR needs location access to track your running, walking, and cycling activities accurately, even when the app is in the background.</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>RUNSTR needs location access to track your running, walking, and cycling activities.</string>
+    <key>NSLocationAlwaysUsageDescription</key>
+    <string>RUNSTR needs location access to continue tracking your workout when the app is in the background.</string>
+    <key>UIBackgroundModes</key>
+    <array>
+      <string>location</string>
+      <string>fetch</string>
+      <string>processing</string>
+    </array>
     <key>UILaunchStoryboardName</key>
     <string>SplashScreen</string>
     <key>UIRequiredDeviceCapabilities</key>
