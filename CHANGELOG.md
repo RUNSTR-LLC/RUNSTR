@@ -4,6 +4,25 @@ All notable changes to RUNSTR will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2025-01-29
+
+### Added
+- **Onboarding Wizard**: New user onboarding experience with step-by-step setup guide
+- **Profile Editing**: Enhanced profile editing capabilities with more customizable fields
+- **Activity Tracker Updates**: Improved activity tracking with better accuracy and performance
+- **UI Polish**: Multiple small UI fixes and visual improvements throughout the app
+
+### Fixed
+- **Npub/Nsec Generation**: Fixed key generation issues for new user accounts
+- **Profile Editing Bugs**: Resolved various issues with profile updates not saving correctly
+- **Activity Tracker**: Fixed tracking inconsistencies and improved reliability
+- **Small Bug Fixes**: Multiple minor bug fixes for improved stability
+
+### Improved
+- Overall app performance and responsiveness
+- User onboarding flow for better first-time experience
+- Profile management functionality
+
 ## [0.0.5] - 2025-01-29
 
 ### Added

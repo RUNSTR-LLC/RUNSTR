@@ -2,7 +2,7 @@
   "expo": {
     "name": "Teams",
     "slug": "runstr.project",
-    "version": "0.0.5",
+    "version": "0.6.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "runstrproject",
@@ -29,6 +29,7 @@
         "NSLocationAlwaysAndWhenInUseUsageDescription": "RUNSTR needs location access to track your running, walking, and cycling activities accurately, even when the app is in the background.",
         "NSLocationWhenInUseUsageDescription": "RUNSTR needs location access to track your running, walking, and cycling activities.",
         "NSLocationAlwaysUsageDescription": "RUNSTR needs location access to continue tracking your workout when the app is in the background.",
+        "BGTaskSchedulerPermittedIdentifiers": ["runstr-background-location"],
         "UIBackgroundModes": ["location", "fetch", "processing"],
         "UIUserInterfaceStyle": "Dark"
       },

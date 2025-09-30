@@ -21,7 +21,7 @@
     <key>CFBundlePackageType</key>
     <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.0.5</string>
+    <string>0.6.0</string>
     <key>CFBundleSignature</key>
     <string>????</string>
     <key>CFBundleURLTypes</key>
@@ -35,7 +35,7 @@
       </dict>
     </array>
     <key>CFBundleVersion</key>
-    <string>5</string>
+    <string>6</string>
     <key>LSMinimumSystemVersion</key>
     <string>12.0</string>
     <key>LSRequiresIPhoneOS</key>
@@ -57,6 +57,10 @@
     <string>RUNSTR needs location access to track your running, walking, and cycling activities.</string>
     <key>NSLocationAlwaysUsageDescription</key>
     <string>RUNSTR needs location access to continue tracking your workout when the app is in the background.</string>
+    <key>BGTaskSchedulerPermittedIdentifiers</key>
+    <array>
+      <string>runstr-background-location</string>
+    </array>
     <key>UIBackgroundModes</key>
     <array>
       <string>location</string>
