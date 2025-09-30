@@ -304,10 +304,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     );
   };
 
-  const getObscuredNsec = (nsec: string): string => {
-    if (!nsec || nsec.length < 20) return 'nsec1...';
-    return `${nsec.substring(0, 8)}...${nsec.substring(nsec.length - 4)}`;
-  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -349,11 +345,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <Card style={styles.card}>
             <SettingItem
               title="Backup Password"
-              subtitle={userNsec ? `Tap to copy • ${getObscuredNsec(userNsec)}` : 'Not available'}
+              subtitle={userNsec ? 'Tap to backup your account key' : 'Not available'}
               onPress={handleBackupPassword}
               rightElement={
                 <View style={styles.securityIcon}>
-                  <Ionicons name="lock-closed" size={20} color={theme.colors.warning} />
+                  <Ionicons name="lock-closed" size={20} color={theme.colors.textMuted} />
                 </View>
               }
             />
