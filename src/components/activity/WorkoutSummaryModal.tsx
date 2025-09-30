@@ -1,6 +1,6 @@
 /**
- * WorkoutSummaryModal - Post-workout summary with save/post options
- * Shows workout stats and provides buttons for kind 1 (post) and kind 1301 (save)
+ * WorkoutSummaryModal - Post-workout summary with compete/share options
+ * Shows workout stats and provides buttons for competition entry and social sharing
  */
 
 import React, { useState } from 'react';
@@ -18,6 +18,7 @@ import { theme } from '../../styles/theme';
 import workoutPublishingService from '../../services/nostr/workoutPublishingService';
 import type { PublishableWorkout } from '../../services/nostr/workoutPublishingService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SocialShareModal } from '../fitness/SocialShareModal';
 
 interface WorkoutSummaryProps {
   visible: boolean;
@@ -43,6 +44,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [posted, setPosted] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showSocialModal, setShowSocialModal] = useState(false);
 
   const formatDistance = (meters: number): string => {
     const km = meters / 1000;
@@ -99,7 +101,16 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
     };
   };
 
-  const handlePostToFeed = async () => {
+  const handleShowSocialModal = () => {
+    setShowSocialModal(true);
+  };
+
+  const handlePostToFeed = async (platform: 'nostr' | 'twitter' | 'instagram') => {
+    if (platform !== 'nostr') {
+      // Only Nostr is implemented for now
+      return;
+    }
+
     setIsPosting(true);
     try {
       const hexPrivKey = await AsyncStorage.getItem('@runstr:user_privkey_hex');
@@ -128,8 +139,8 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
       if (result.success) {
         setPosted(true);
         Alert.alert(
-          'Posted! 🎉',
-          'Your workout has been shared to your Nostr feed!',
+          'Shared! 🎉',
+          'Your workout has been shared to your feed!',
           [{ text: 'OK' }]
         );
       } else {
@@ -167,8 +178,8 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
       if (result.success) {
         setSaved(true);
         Alert.alert(
-          'Saved! ✅',
-          'Your workout has been saved for competition tracking!',
+          'Competing! ✅',
+          'Your workout has been entered into competitions!',
           [{ text: 'OK' }]
         );
       } else {
@@ -255,7 +266,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
           <View style={styles.actionButtons}>
             <TouchableOpacity
               style={[styles.actionButton, styles.postButton, posted && styles.disabledButton]}
-              onPress={handlePostToFeed}
+              onPress={handleShowSocialModal}
               disabled={isPosting || posted}
             >
               {isPosting ? (
@@ -268,7 +279,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
                     color={theme.colors.background}
                   />
                   <Text style={styles.postButtonText}>
-                    {posted ? 'Posted' : 'Post to Feed'}
+                    {posted ? 'Shared' : 'Post'}
                   </Text>
                 </>
               )}
@@ -289,7 +300,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
                     color={theme.colors.text}
                   />
                   <Text style={styles.saveButtonText}>
-                    {saved ? 'Saved' : 'Save Workout'}
+                    {saved ? 'Competing' : 'Compete'}
                   </Text>
                 </>
               )}
@@ -299,10 +310,10 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
           {/* Info Text */}
           <View style={styles.infoContainer}>
             <Text style={styles.infoText}>
-              <Text style={styles.infoBold}>Post to Feed:</Text> Share with your followers (kind 1)
+              <Text style={styles.infoBold}>Post:</Text> Share with your followers on social media
             </Text>
             <Text style={styles.infoText}>
-              <Text style={styles.infoBold}>Save Workout:</Text> Count for competitions (kind 1301)
+              <Text style={styles.infoBold}>Compete:</Text> Enter into active competitions and leaderboards
             </Text>
           </View>
 
@@ -312,6 +323,12 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
           </TouchableOpacity>
         </View>
       </View>
+
+      <SocialShareModal
+        visible={showSocialModal}
+        onClose={() => setShowSocialModal(false)}
+        onSelectPlatform={handlePostToFeed}
+      />
     </Modal>
   );
 };

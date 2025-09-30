@@ -1,7 +1,7 @@
 /**
- * WorkoutActionButtons - Post & Save Controls for HealthKit Workouts
- * Provides "Save to Nostr" and "Post to Nostr" buttons for HealthKit workouts
- * Integrates with WorkoutPublishingService and shows appropriate loading states
+ * WorkoutActionButtons - Competition & Sharing Controls for HealthKit Workouts
+ * Provides "Compete" and "Post" buttons for HealthKit workouts
+ * Integrates with WorkoutPublishingService and social sharing modal
  */
 
 import React, { useState } from 'react';
@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { theme } from '../../styles/theme';
 import type { UnifiedWorkout } from '../../services/fitness/workoutMergeService';
+import { SocialShareModal } from './SocialShareModal';
 
 interface WorkoutActionButtonsProps {
   workout: UnifiedWorkout;
@@ -30,6 +31,10 @@ interface ButtonState {
   postSuccess: boolean;
 }
 
+interface ModalState {
+  showSocialShare: boolean;
+}
+
 export const WorkoutActionButtons: React.FC<WorkoutActionButtonsProps> = ({
   workout,
   onSaveToNostr,
@@ -41,6 +46,10 @@ export const WorkoutActionButtons: React.FC<WorkoutActionButtonsProps> = ({
     posting: false,
     saveSuccess: false,
     postSuccess: false,
+  });
+
+  const [modalState, setModalState] = useState<ModalState>({
+    showSocialShare: false,
   });
 
   const handleSaveToNostr = async () => {
@@ -59,35 +68,46 @@ export const WorkoutActionButtons: React.FC<WorkoutActionButtonsProps> = ({
     } catch (error) {
       setState((prev) => ({ ...prev, saving: false }));
       Alert.alert(
-        'Sync Failed',
-        'Could not save workout to Nostr. Please check your connection and try again.',
+        'Competition Entry Failed',
+        'Could not enter workout into competition. Please check your connection and try again.',
         [{ text: 'OK' }]
       );
     }
   };
 
-  const handlePostToNostr = async () => {
-    if (!workout.canPostToSocial || state.posting) return;
+  const handleShowSocialModal = () => {
+    if (!workout.canPostToSocial) return;
 
     // If workout not synced to Nostr yet, ask user to save first
     if (!workout.syncedToNostr && workout.source === 'healthkit') {
       Alert.alert(
-        'Sync Required',
-        'You need to save this workout to Nostr before posting to social feeds.',
+        'Competition Entry Required',
+        'You need to enter this workout into competitions before sharing to social feeds.',
         [
           { text: 'Cancel', style: 'cancel' },
           {
-            text: 'Save & Post',
+            text: 'Compete & Share',
             onPress: async () => {
               await handleSaveToNostr();
-              // Wait for save to complete, then post
-              setTimeout(() => handlePostToNostr(), 1000);
+              // Wait for save to complete, then show modal
+              setTimeout(() => setModalState({ showSocialShare: true }), 1000);
             },
           },
         ]
       );
       return;
     }
+
+    setModalState({ showSocialShare: true });
+  };
+
+  const handlePostToNostr = async (platform: 'nostr' | 'twitter' | 'instagram') => {
+    if (platform !== 'nostr') {
+      // For now, only Nostr is implemented
+      return;
+    }
+
+    if (!workout.canPostToSocial || state.posting) return;
 
     setState((prev) => ({ ...prev, posting: true, postSuccess: false }));
 
@@ -150,7 +170,7 @@ export const WorkoutActionButtons: React.FC<WorkoutActionButtonsProps> = ({
             />
           ) : (
             <Text style={textStyle}>
-              {success ? (variant === 'save' ? 'Saved!' : 'Posted!') : text}
+              {success ? (variant === 'save' ? 'Competing!' : 'Shared!') : text}
             </Text>
           )}
         </View>
@@ -167,7 +187,7 @@ export const WorkoutActionButtons: React.FC<WorkoutActionButtonsProps> = ({
     <View style={compact ? styles.compactContainer : styles.container}>
       {workout.canSyncToNostr &&
         renderButton(
-          'Save to Nostr',
+          'Compete',
           handleSaveToNostr,
           workout.canSyncToNostr,
           state.saving,
@@ -177,8 +197,8 @@ export const WorkoutActionButtons: React.FC<WorkoutActionButtonsProps> = ({
 
       {workout.canPostToSocial &&
         renderButton(
-          'Post to Nostr',
-          handlePostToNostr,
+          'Post',
+          handleShowSocialModal,
           workout.canPostToSocial,
           state.posting,
           state.postSuccess,
@@ -188,15 +208,21 @@ export const WorkoutActionButtons: React.FC<WorkoutActionButtonsProps> = ({
       {/* Status indicators for already completed actions */}
       {workout.syncedToNostr && !workout.canSyncToNostr && (
         <View style={[styles.statusIndicator, styles.syncedIndicator]}>
-          <Text style={styles.statusText}>✓ Synced</Text>
+          <Text style={styles.statusText}>✓ Competing</Text>
         </View>
       )}
 
       {workout.postedToSocial && (
         <View style={[styles.statusIndicator, styles.postedIndicator]}>
-          <Text style={styles.statusText}>✓ Posted</Text>
+          <Text style={styles.statusText}>✓ Shared</Text>
         </View>
       )}
+
+      <SocialShareModal
+        visible={modalState.showSocialShare}
+        onClose={() => setModalState({ showSocialShare: false })}
+        onSelectPlatform={handlePostToNostr}
+      />
     </View>
   );
 };

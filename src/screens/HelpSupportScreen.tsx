@@ -88,8 +88,8 @@ export const HelpSupportScreen: React.FC<{ navigation: any }> = ({ navigation })
 
 • HealthKit Import: iOS users can automatically sync Apple Health workouts.
 • Posting Workouts: Two options:
-  - "Save to Nostr" creates a kind 1301 event for competition scoring
-  - "Post to Nostr" creates a beautiful social card (kind 1) for sharing
+  - "Compete" enters your workout into active competitions and leaderboards
+  - "Post" creates beautiful social cards for sharing on various platforms
 • Entering Competitions: Join a team event or league, then post qualifying workouts during the competition period.
 • Leaderboards: View real-time rankings based on the competition's scoring method (distance, duration, consistency, etc.)
 • Workout History: Profile > Workouts tab shows your unified timeline.`,

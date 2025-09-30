@@ -5,7 +5,8 @@ Workout and fitness data display components for HealthKit integration and workou
 ## Files
 
 - **HealthKitPermissionCard.tsx** - Component for requesting HealthKit permissions and setup
-- **WorkoutActionButtons.tsx** - Action buttons for workout posting ("Save to Nostr" and "Post to Nostr")
+- **WorkoutActionButtons.tsx** - Action buttons for workout posting ("Compete" and "Post")
+- **SocialShareModal.tsx** - Platform selection modal for sharing workouts on social media
 - **WorkoutSyncStatus.tsx** - Status indicator for workout synchronization between HealthKit and Nostr
 - **WorkoutTimeGroup.tsx** - Collapsible section component for grouped workouts with aggregated statistics
 - **WorkoutStatsOverview.tsx** - Overview component displaying workout statistics by period (week/month/year)
