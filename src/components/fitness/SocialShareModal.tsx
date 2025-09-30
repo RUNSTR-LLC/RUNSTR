@@ -25,7 +25,6 @@ interface PlatformOption {
   id: 'nostr' | 'twitter' | 'instagram';
   name: string;
   icon: keyof typeof Ionicons.glyphMap;
-  color: string;
   available: boolean;
 }
 
@@ -39,21 +38,18 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
       id: 'nostr',
       name: 'Nostr',
       icon: 'flash',
-      color: '#9333ea',
       available: true,
     },
     {
       id: 'twitter',
       name: 'Twitter',
       icon: 'logo-twitter',
-      color: '#1DA1F2',
       available: false,
     },
     {
       id: 'instagram',
       name: 'Instagram',
       icon: 'logo-instagram',
-      color: '#E4405F',
       available: false,
     },
   ];
@@ -101,13 +97,13 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
                     <View
                       style={[
                         styles.iconContainer,
-                        { backgroundColor: platform.available ? platform.color : '#333' },
+                        !platform.available && styles.iconContainerDisabled,
                       ]}
                     >
                       <Ionicons
                         name={platform.icon}
                         size={28}
-                        color="#fff"
+                        color={platform.available ? theme.colors.text : theme.colors.textMuted}
                       />
                     </View>
                     <Text style={styles.platformName}>{platform.name}</Text>
@@ -184,6 +180,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  iconContainerDisabled: {
+    backgroundColor: theme.colors.cardBackground,
+    borderColor: theme.colors.border,
+    opacity: 0.5,
   },
   platformName: {
     fontSize: 14,
@@ -194,7 +198,9 @@ const styles = StyleSheet.create({
   comingSoonBadge: {
     fontSize: 10,
     color: theme.colors.textMuted,
-    backgroundColor: theme.colors.border,
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
