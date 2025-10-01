@@ -20,15 +20,13 @@ import { ReceiveModal } from '../components/wallet/ReceiveModal';
 import { HistoryModal } from '../components/wallet/HistoryModal';
 import { TeamManagementSection } from '../components/profile/TeamManagementSection';
 import { YourCompetitionsBox } from '../components/profile/YourCompetitionsBox';
-import { WorkoutsTab } from '../components/profile/WorkoutsTab';
-import { WorkoutCalendarHeatmap } from '../components/fitness/WorkoutCalendarHeatmap';
+import { YourWorkoutsBox } from '../components/profile/YourWorkoutsBox';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useNutzap } from '../hooks/useNutzap';
 import { useWalletStore } from '../store/walletStore';
-// Using NDK for nip19 encoding per project requirements (NEVER use nostr-tools)
-import { nip19 } from '@nostr-dev-kit/ndk';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { npubEncode } from '../utils/nostrEncoding';
 
 interface ProfileScreenProps {
   data: ProfileScreenData;
@@ -99,8 +97,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           if (userPubkey.startsWith('npub')) {
             setUserNpub(userPubkey);
           } else if (userPubkey.length === 64) {
-            // It's a hex pubkey, encode it using NDK's nip19
-            const npub = nip19.npubEncode(userPubkey);
+            // It's a hex pubkey, encode it
+            const npub = npubEncode(userPubkey);
             setUserNpub(npub);
           } else {
             // Fallback: try to use it as-is or get from storage
@@ -198,7 +196,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.editButton}
-          onPress={() => navigation.navigate('ProfileEdit')}
+          onPress={() => {
+            const parentNav = navigation.getParent();
+            if (parentNav) {
+              parentNav.navigate('ProfileEdit' as any);
+            } else {
+              navigation.navigate('ProfileEdit' as any);
+            }
+          }}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Ionicons name="pencil-outline" size={24} color={theme.colors.text} />
@@ -226,46 +231,40 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Profile Header */}
-        <ProfileHeader user={data.user} />
+        {/* Profile Header Box */}
+        <View style={styles.boxContainer}>
+          <ProfileHeader user={data.user} />
+        </View>
 
         {/* Compact Wallet */}
-        <CompactWallet
-          onSendPress={handleSend}
-          onReceivePress={handleReceive}
-          onHistoryPress={handleWalletHistory}
-        />
+        <View style={styles.boxContainer}>
+          <CompactWallet
+            onSendPress={handleSend}
+            onReceivePress={handleReceive}
+            onHistoryPress={handleWalletHistory}
+          />
+        </View>
 
         {/* User's Team */}
-        <View style={styles.sectionContainer}>
+        <View style={styles.boxContainer}>
           <TeamManagementSection
             currentTeam={data.currentTeam}
             onChangeTeam={() => onNavigateToTeamDiscovery?.()}
             onJoinTeam={() => onNavigateToTeamDiscovery?.()}
             onViewTeam={onViewCurrentTeam}
+            onRefresh={onRefresh}
           />
         </View>
 
         {/* User's Competitions */}
-        <View style={styles.sectionContainer}>
+        <View style={styles.boxContainer}>
           <YourCompetitionsBox />
         </View>
 
-        {/* Workouts Section */}
-        <View style={styles.sectionContainer}>
-          <WorkoutsTab
-            syncSources={data.syncSources}
-            recentWorkouts={data.recentWorkouts}
-            currentUserId={data.user.id}
-            currentUserPubkey={data.user.npub}
-            currentUserTeamId={data.currentTeam?.id}
-            onSyncSourcePress={handleSyncSourcePress}
-            onWorkoutsSynced={() => {
-              console.log('Workouts synced, profile could refresh data');
-            }}
-          />
+        {/* User's Workouts */}
+        <View style={styles.boxContainer}>
+          <YourWorkoutsBox />
         </View>
-
       </ScrollView>
 
       {/* Send Modal */}
@@ -328,14 +327,14 @@ const styles = StyleSheet.create({
   },
 
   scrollContent: {
-    flexGrow: 1,
-    paddingBottom: 20, // Add some bottom padding for better UX
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 20,
   },
 
-  // Section styling
-  sectionContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 16,
+  // Box styling with uniform spacing
+  boxContainer: {
+    marginBottom: 10,
   },
 
   sectionTitle: {

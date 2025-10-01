@@ -70,6 +70,8 @@ import { PrivacyPolicyScreen } from './screens/PrivacyPolicyScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { OnboardingScreen } from './screens/OnboardingScreen';
 import { CompetitionsListScreen } from './screens/CompetitionsListScreen';
+import { WorkoutHistoryScreen } from './screens/WorkoutHistoryScreen';
+import { ProfileEditScreen } from './screens/ProfileEditScreen';
 import { User } from './types';
 
 // Types for authenticated app navigation
@@ -91,6 +93,8 @@ type AuthenticatedStackParamList = {
   CompetitionsList: undefined;
   ChallengeWizard: undefined;
   ChallengeLeaderboard: { challengeId: string };
+  WorkoutHistory: { userId: string; pubkey: string };
+  ProfileEdit: undefined;
 };
 
 const AuthenticatedStack = createStackNavigator<AuthenticatedStackParamList>();
@@ -346,6 +350,25 @@ const AppContent: React.FC = () => {
             headerShown: false,
           }}
           component={CompetitionsListScreen}
+        />
+
+        {/* Workout History Screen */}
+        <AuthenticatedStack.Screen
+          name="WorkoutHistory"
+          options={{
+            headerShown: false,
+          }}
+          component={WorkoutHistoryScreen}
+        />
+
+        {/* Profile Edit Screen */}
+        <AuthenticatedStack.Screen
+          name="ProfileEdit"
+          options={{
+            headerShown: false,
+            presentation: 'modal',
+          }}
+          component={ProfileEditScreen}
         />
 
         {/* Challenge Wizard Screen (placeholder) */}
