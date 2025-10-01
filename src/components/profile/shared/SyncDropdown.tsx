@@ -121,12 +121,9 @@ export const SyncDropdown: React.FC<SyncDropdownProps> = ({
         disabled={syncing !== null}
       >
         {syncing ? (
-          <ActivityIndicator size="small" color={theme.colors.text} />
+          <ActivityIndicator size="small" color={theme.colors.background} />
         ) : (
-          <>
-            <Text style={styles.importIcon}>📥</Text>
-            <Text style={styles.importText}>Import Workouts</Text>
-          </>
+          <Text style={styles.importText}>Import Workouts</Text>
         )}
       </TouchableOpacity>
 
@@ -181,18 +178,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.cardBackground,
+    backgroundColor: '#ffffff',
     paddingVertical: 14,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  importIcon: {
-    fontSize: 20,
-    marginRight: 8,
-  },
   importText: {
-    color: theme.colors.text,
+    color: '#000000',
     fontSize: 16,
     fontWeight: '600',
   },

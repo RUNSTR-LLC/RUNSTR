@@ -137,7 +137,7 @@ export const EnhancedWorkoutCard: React.FC<EnhancedWorkoutCardProps> = ({
     return icons[source.toLowerCase()] || '📱';
   };
 
-  const isFromNostr = workout.source.toLowerCase() === 'nostr';
+  const isFromNostr = workout.source?.toLowerCase() === 'nostr';
 
   return (
     <View style={styles.container}>

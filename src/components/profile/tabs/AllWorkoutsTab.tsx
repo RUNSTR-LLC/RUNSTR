@@ -149,7 +149,7 @@ export const AllWorkoutsTab: React.FC<AllWorkoutsTabProps> = ({
       workout={workout}
       onCompete={handleCompete}
       onSocialShare={handleSocialShare}
-      hideActions={workout.source.toLowerCase() === 'nostr'}
+      hideActions={workout.source?.toLowerCase() === 'nostr'}
     />
   ), [nsecKey]);
 
