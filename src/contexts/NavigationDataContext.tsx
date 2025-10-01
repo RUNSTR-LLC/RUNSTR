@@ -10,6 +10,7 @@ import { DirectNostrProfileService } from '../services/user/directNostrProfileSe
 import { appCache } from '../utils/cache';
 import { CaptainCache } from '../utils/captainCache';
 import { TeamMembershipService } from '../services/team/teamMembershipService';
+import { TeamCacheService } from '../services/cache/TeamCacheService';
 import { isTeamCaptainEnhanced } from '../utils/teamUtils';
 import { getUserNostrIdentifiers } from '../utils/nostr';
 import { useAuth } from './AuthContext';
@@ -297,15 +298,13 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({ 
     if (teamsLoaded) return;
 
     try {
-      const cachedTeams = await appCache.get<DiscoveryTeam[]>('available_teams');
-      if (cachedTeams) {
-        setAvailableTeams(cachedTeams);
-        setTeamsLoaded(true);
-        fetchTeamsFresh();
-        return;
-      }
+      // Use TeamCacheService as single source of truth (30-min TTL)
+      const cacheService = TeamCacheService.getInstance();
+      const teams = await cacheService.getTeams();
 
-      await fetchTeamsFresh();
+      console.log(`✅ NavigationDataContext: Loaded ${teams.length} teams from TeamCacheService`);
+      setAvailableTeams(teams);
+      setTeamsLoaded(true);
     } catch (error) {
       console.error('Error loading teams:', error);
       setError('Failed to load teams');
@@ -314,39 +313,13 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({ 
 
   const fetchTeamsFresh = async (): Promise<void> => {
     try {
-      const nostrTeamService = getNostrTeamService();
-      const nostrTeams = await nostrTeamService.discoverFitnessTeams({
-        limit: 20,
-      });
+      // Use TeamCacheService with force refresh
+      const cacheService = TeamCacheService.getInstance();
+      const teams = await cacheService.refreshTeams();
 
-      const discoveryTeams: DiscoveryTeam[] = nostrTeams.map((team) => ({
-        id: team.id,
-        name: team.name,
-        description: team.description,
-        about: team.description,
-        captainId: team.captainId,
-        prizePool: 0,
-        memberCount: team.memberCount,
-        joinReward: 0,
-        exitFee: 0,
-        isActive: team.isPublic,
-        avatar: '',
-        createdAt: new Date(team.createdAt * 1000).toISOString(),
-        difficulty: 'intermediate' as const,
-        stats: {
-          memberCount: team.memberCount,
-          avgPace: 'N/A',
-          activeEvents: 0,
-          activeChallenges: 0,
-        },
-        recentActivities: [],
-        recentPayout: undefined,
-        isFeatured: false,
-      }));
-
-      setAvailableTeams(discoveryTeams);
+      console.log(`✅ NavigationDataContext: Refreshed ${teams.length} teams from TeamCacheService`);
+      setAvailableTeams(teams);
       setTeamsLoaded(true);
-      await appCache.set('available_teams', discoveryTeams, 5 * 60 * 1000);
     } catch (error) {
       console.error('Error fetching teams:', error);
       throw error;

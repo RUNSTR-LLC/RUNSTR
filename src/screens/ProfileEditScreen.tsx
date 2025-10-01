@@ -255,7 +255,7 @@ export const ProfileEditScreen: React.FC = () => {
           <TouchableOpacity style={styles.headerButton} onPress={handleCancel}>
             <Text style={styles.headerButtonText}>Cancel</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Edit Profile</Text>
+          <View style={styles.headerSpacer} />
           <TouchableOpacity
             style={[styles.headerButton, !hasChanges && styles.headerButtonDisabled]}
             onPress={handleSave}
@@ -426,6 +426,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: theme.colors.text,
+  },
+  headerSpacer: {
+    flex: 1,
   },
 
   // Content

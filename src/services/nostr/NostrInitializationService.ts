@@ -3,6 +3,7 @@ import { getNostrTeamService } from './NostrTeamService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { appCache } from '../../utils/cache';
 import { getNpubFromStorage } from '../../utils/nostr';
+import { TeamCacheService } from '../cache/TeamCacheService';
 
 interface InitializationProgress {
   step: string;
@@ -103,21 +104,16 @@ export class NostrInitializationService {
   }
 
   async prefetchTeams(): Promise<void> {
-    console.log('🏃 Pre-fetching teams with caching...');
+    console.log('🏃 Pre-fetching teams using TeamCacheService (30-min cache)...');
 
     try {
-      // Use NostrTeamService for proper team discovery
-      const teams = await this.teamService.discoverFitnessTeams();
+      // Use TeamCacheService as single source of truth (30-min TTL + 5-min background refresh)
+      const cacheService = TeamCacheService.getInstance();
+      const teams = await cacheService.getTeams();
 
       if (teams && teams.length > 0) {
-        // Store in app cache with 10-minute TTL
-        await appCache.set('teams_discovery', teams, 10 * 60 * 1000);
-
-        // Also store timestamp for reference
-        await appCache.set('teams_fetch_time', Date.now(), 10 * 60 * 1000);
-
         this.prefetchedTeams = teams;
-        console.log(`✅ Pre-fetched and cached ${teams.length} teams`);
+        console.log(`✅ Pre-fetched and cached ${teams.length} teams via TeamCacheService`);
       } else {
         console.log('⚠️ No teams found during prefetch');
       }

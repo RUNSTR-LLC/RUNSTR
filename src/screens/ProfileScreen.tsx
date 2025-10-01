@@ -192,29 +192,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header with Edit and Settings Buttons */}
+      {/* Header with Settings Button */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.editButton}
-          onPress={() => {
-            const parentNav = navigation.getParent();
-            if (parentNav) {
-              parentNav.navigate('ProfileEdit' as any);
-            } else {
-              navigation.navigate('ProfileEdit' as any);
-            }
-          }}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="pencil-outline" size={24} color={theme.colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Profile</Text>
+        <View style={styles.headerSpacer} />
         <TouchableOpacity
           style={styles.settingsButton}
           onPress={handleSettingsPress}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="settings-outline" size={24} color={theme.colors.text} />
+          <Ionicons name="menu-outline" size={24} color={theme.colors.text} />
         </TouchableOpacity>
       </View>
 
@@ -231,19 +217,34 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Profile Header Box */}
-        <View style={styles.boxContainer}>
+        {/* Profile Header Box - Tappable to Edit Profile */}
+        <TouchableOpacity
+          style={styles.boxContainer}
+          onPress={() => {
+            const parentNav = navigation.getParent();
+            if (parentNav) {
+              parentNav.navigate('ProfileEdit' as any);
+            } else {
+              navigation.navigate('ProfileEdit' as any);
+            }
+          }}
+          activeOpacity={0.7}
+        >
           <ProfileHeader user={data.user} />
-        </View>
+        </TouchableOpacity>
 
-        {/* Compact Wallet */}
-        <View style={styles.boxContainer}>
+        {/* Compact Wallet - Tappable to Transaction History */}
+        <TouchableOpacity
+          style={styles.boxContainer}
+          onPress={handleWalletHistory}
+          activeOpacity={0.7}
+        >
           <CompactWallet
             onSendPress={handleSend}
             onReceivePress={handleReceive}
             onHistoryPress={handleWalletHistory}
           />
-        </View>
+        </TouchableOpacity>
 
         {/* User's Team */}
         <View style={styles.boxContainer}>
@@ -312,6 +313,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
+  },
+
+  headerSpacer: {
+    flex: 1,
   },
 
   editButton: {

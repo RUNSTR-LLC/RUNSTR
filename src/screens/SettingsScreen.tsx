@@ -317,7 +317,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         >
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Settings</Text>
+        <View style={styles.headerSpacer} />
         <View style={styles.headerSpacer} />
       </View>
 

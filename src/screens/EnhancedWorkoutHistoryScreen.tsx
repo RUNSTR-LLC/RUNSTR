@@ -418,7 +418,7 @@ export const EnhancedWorkoutHistoryScreen: React.FC<EnhancedWorkoutHistoryScreen
         <TouchableOpacity onPress={onNavigateBack} style={styles.backButton}>
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Workout History</Text>
+        <View style={styles.headerSpacer} />
         <View style={styles.headerSpacer} />
       </View>
 

@@ -57,7 +57,7 @@ export const ActivityTrackerScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Activity</Text>
+        <View style={styles.headerSpacer} />
       </View>
 
       <View style={styles.tabContainer}>
@@ -107,6 +107,9 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
+  },
+  headerSpacer: {
+    flex: 1,
   },
   tabContainer: {
     flexDirection: 'row',

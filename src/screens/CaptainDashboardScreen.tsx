@@ -1253,7 +1253,6 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
           <View style={styles.captainBadge}>
             <Text style={styles.captainBadgeText}>CAPTAIN</Text>
           </View>
-          <Text style={styles.headerTitle}>Dashboard</Text>
         </View>
       </View>
 

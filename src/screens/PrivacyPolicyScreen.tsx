@@ -171,7 +171,7 @@ export const PrivacyPolicyScreen: React.FC<{ navigation: any }> = ({ navigation 
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Privacy Policy</Text>
+        <View style={styles.headerSpacer} />
         <View style={styles.backButton} />
       </View>
 
@@ -233,6 +233,9 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
+  },
+  headerSpacer: {
+    flex: 1,
   },
   content: {
     flex: 1,

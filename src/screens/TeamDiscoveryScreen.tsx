@@ -468,9 +468,9 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header with Discovery title and Create Button */}
+      {/* Header with Create Button */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Discover</Text>
+        <View style={styles.headerSpacer} />
         {onCreateTeam && discoveryMode === 'teams' && (
           <TouchableOpacity
             style={styles.createBtn}

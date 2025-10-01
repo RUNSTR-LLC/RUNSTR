@@ -181,22 +181,8 @@ export const WalletScreen: React.FC<WalletScreenProps> = ({
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>Bitcoin Rewards</Text>
-
-        <TouchableOpacity
-          onPress={onSettings}
-          style={styles.settingsButton}
-          disabled={mode !== 'overview'}
-        >
-          <Text
-            style={[
-              styles.settingsText,
-              mode !== 'overview' && styles.settingsDisabled,
-            ]}
-          >
-            ⚙
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.headerSpacer} />
+        <View style={styles.headerSpacer} />
       </View>
 
       {/* Content */}
@@ -230,6 +216,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: theme.colors.text,
+  },
+  headerSpacer: {
+    flex: 1,
   },
   settingsButton: {
     padding: 6,

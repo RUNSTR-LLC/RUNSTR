@@ -6,8 +6,10 @@
 
 import { getNostrTeamService } from './nostr/NostrTeamService';
 import { NostrCompetitionLeaderboardService } from './competition/nostrCompetitionLeaderboardService';
+import { challengeRequestService } from './challenge/ChallengeRequestService';
 import type { Challenge, ChallengeCreationData, TeammateInfo } from '../types';
 import type { NostrTeam } from './nostr/NostrTeamService';
+import type { ChallengeRequestData } from './challenge/ChallengeRequestService';
 
 interface CreateChallengeResponse {
   success: boolean;
@@ -42,6 +44,7 @@ export class ChallengeService {
 
   /**
    * Create a new peer-to-peer challenge as a Nostr event
+   * Now uses ChallengeRequestService for kind 1105 publishing
    */
   static async createChallenge(
     challengeData: ChallengeCreationData,
@@ -56,42 +59,51 @@ export class ChallengeService {
         };
       }
 
-      const challengeId = this.generateChallengeId();
-      const now = Math.floor(Date.now() / 1000);
-      const startTime = now;
-      const endTime = now + (challengeData.duration * 24 * 60 * 60); // Convert days to seconds
-
-      // Create Nostr-native challenge object
-      const challenge: NostrChallenge = {
-        id: challengeId,
-        name: `${challengeData.challengeType.name} Challenge`,
-        description: challengeData.challengeType.description,
-        challengerId: currentUserId,
-        challengedId: challengeData.opponentId || challengeData.opponentInfo.id,
-        challengeType: challengeData.challengeType.name,
-        activityType: challengeData.challengeType.metric || 'running',
-        goalType: this.mapChallengeTypeToGoalType(challengeData.challengeType.name),
-        goalValue: (challengeData.challengeType as any).targetValue || 10,
-        goalUnit: (challengeData.challengeType as any).targetUnit || 'km',
-        duration: challengeData.duration,
-        startTime,
-        endTime,
-        status: 'pending',
-        prizeAmount: challengeData.wagerAmount || 0,
-        createdAt: now,
-        teamId,
+      // Map ChallengeCreationData to ChallengeRequestData for Nostr protocol
+      const requestData: ChallengeRequestData = {
+        challengedPubkey: challengeData.opponentId || challengeData.opponentInfo.id,
+        activityType: (challengeData.challengeType.category === 'race' ? 'running' :
+                      challengeData.challengeType.metric) as any,
+        metric: (challengeData.challengeType.metric || 'distance') as any,
+        duration: (challengeData.duration || 7) as any,
+        wagerAmount: challengeData.wagerAmount || 0,
       };
 
-      // TODO: In full implementation, publish challenge as Nostr event (Kind 31014 - Challenge Event)
-      // For now, store in local cache
-      this.cachedChallenges.set(challengeId, challenge);
+      // Use ChallengeRequestService to publish kind 1105 event
+      const result = await challengeRequestService.createChallengeRequest(
+        requestData,
+        '' // TODO: Pass nsec from user auth
+      );
 
-      console.log(`🏁 Created Nostr challenge: ${challenge.name} (${challengeId})`);
+      if (result.success && result.challengeId) {
+        // Cache challenge locally for backward compatibility
+        const now = Math.floor(Date.now() / 1000);
+        const challenge: NostrChallenge = {
+          id: result.challengeId,
+          name: `${challengeData.challengeType.name} Challenge`,
+          description: challengeData.challengeType.description,
+          challengerId: currentUserId,
+          challengedId: challengeData.opponentId || challengeData.opponentInfo.id,
+          challengeType: challengeData.challengeType.name,
+          activityType: requestData.activityType,
+          goalType: this.mapChallengeTypeToGoalType(challengeData.challengeType.name),
+          goalValue: (challengeData.challengeType as any).targetValue || 10,
+          goalUnit: (challengeData.challengeType as any).targetUnit || 'km',
+          duration: requestData.duration,
+          startTime: now,
+          endTime: now + (requestData.duration * 24 * 60 * 60),
+          status: 'pending',
+          prizeAmount: requestData.wagerAmount,
+          createdAt: now,
+          teamId,
+          nostrEventId: result.challengeId,
+        };
 
-      return {
-        success: true,
-        challengeId,
-      };
+        this.cachedChallenges.set(result.challengeId, challenge);
+        console.log(`Challenge created via Nostr protocol: ${result.challengeId}`);
+      }
+
+      return result;
     } catch (error) {
       console.error('Challenge creation error:', error);
       return {
@@ -211,23 +223,25 @@ export class ChallengeService {
 
   /**
    * Accept a pending challenge
+   * Now uses ChallengeRequestService for kind 1106 publishing
    */
   static async acceptChallenge(challengeId: string): Promise<boolean> {
     try {
-      const challenge = this.cachedChallenges.get(challengeId);
-      if (!challenge) {
-        console.error(`Challenge not found: ${challengeId}`);
-        return false;
+      // Use ChallengeRequestService to publish kind 1106 and create kind 30000 list
+      const result = await challengeRequestService.acceptChallenge(challengeId);
+
+      if (result.success) {
+        const challenge = this.cachedChallenges.get(challengeId);
+        if (challenge) {
+          challenge.status = 'accepted';
+          this.cachedChallenges.set(challengeId, challenge);
+        }
+        console.log(`Challenge accepted via Nostr protocol: ${challengeId}`);
+        return true;
       }
 
-      // Update challenge status
-      challenge.status = 'accepted';
-      this.cachedChallenges.set(challengeId, challenge);
-
-      // TODO: In full implementation, publish challenge acceptance as Nostr event
-      console.log(`✅ Accepted challenge: ${challengeId}`);
-
-      return true;
+      console.error(`Failed to accept challenge: ${result.error}`);
+      return false;
     } catch (error) {
       console.error('Failed to accept challenge:', error);
       return false;
@@ -236,23 +250,25 @@ export class ChallengeService {
 
   /**
    * Decline a pending challenge
+   * Now uses ChallengeRequestService for kind 1107 publishing
    */
-  static async declineChallenge(challengeId: string): Promise<boolean> {
+  static async declineChallenge(challengeId: string, reason?: string): Promise<boolean> {
     try {
-      const challenge = this.cachedChallenges.get(challengeId);
-      if (!challenge) {
-        console.error(`Challenge not found: ${challengeId}`);
-        return false;
+      // Use ChallengeRequestService to publish kind 1107 decline event
+      const result = await challengeRequestService.declineChallenge(challengeId, reason);
+
+      if (result.success) {
+        const challenge = this.cachedChallenges.get(challengeId);
+        if (challenge) {
+          challenge.status = 'declined';
+          this.cachedChallenges.set(challengeId, challenge);
+        }
+        console.log(`Challenge declined via Nostr protocol: ${challengeId}`);
+        return true;
       }
 
-      // Update challenge status
-      challenge.status = 'declined';
-      this.cachedChallenges.set(challengeId, challenge);
-
-      // TODO: In full implementation, publish challenge decline as Nostr event
-      console.log(`❌ Declined challenge: ${challengeId}`);
-
-      return true;
+      console.error(`Failed to decline challenge: ${result.error}`);
+      return false;
     } catch (error) {
       console.error('Failed to decline challenge:', error);
       return false;
@@ -261,47 +277,41 @@ export class ChallengeService {
 
   /**
    * Get user's pending challenges (both sent and received)
+   * Now uses ChallengeRequestService to fetch from Nostr
    */
   static async getUserPendingChallenges(userId: string): Promise<Challenge[]> {
     try {
-      // Get challenges from cache (in full implementation, query from Nostr events)
-      const allChallenges = Array.from(this.cachedChallenges.values());
-      
-      // Filter challenges involving this user with pending status
-      const pendingChallenges = allChallenges.filter(
-        (challenge) => 
-          (challenge.challengerId === userId || challenge.challengedId === userId) &&
-          challenge.status === 'pending'
-      );
+      // Get pending challenges from ChallengeRequestService
+      const pendingChallenges = await challengeRequestService.getPendingChallenges();
 
-      // Convert NostrChallenge to Challenge format
+      // Convert PendingChallenge to Challenge format
       const challenges: Challenge[] = pendingChallenges.map((challenge) => ({
-        id: challenge.id,
-        name: challenge.name,
-        description: challenge.description,
+        id: challenge.challengeId,
+        name: `${challenge.activityType} Challenge`,
+        description: `${challenge.metric} challenge for ${challenge.duration} days`,
         status: challenge.status,
-        prizePool: challenge.prizeAmount,
-        createdAt: new Date(challenge.createdAt * 1000).toISOString(),
+        prizePool: challenge.wagerAmount,
+        createdAt: new Date(challenge.requestedAt * 1000).toISOString(),
         challenger: {
-          id: challenge.challengerId,
-          name: `User ${challenge.challengerId.substring(0, 8)}`,
+          id: challenge.challengerPubkey,
+          name: challenge.challengerName || `User ${challenge.challengerPubkey.substring(0, 8)}`,
         },
         challenged: {
-          id: challenge.challengedId,
-          name: `User ${challenge.challengedId.substring(0, 8)}`,
+          id: challenge.challengedPubkey,
+          name: `User ${challenge.challengedPubkey.substring(0, 8)}`,
         },
         // Required Challenge properties
-        teamId: challenge.teamId || '',
-        challengerId: challenge.challengerId,
-        challengedId: challenge.challengedId,
+        teamId: '',
+        challengerId: challenge.challengerPubkey,
+        challengedId: challenge.challengedPubkey,
         type: 'peer_to_peer',
         // Additional challenge data
-        challenge_type: challenge.challengeType,
-        metric: challenge.activityType,
-        deadline: new Date(challenge.endTime * 1000).toISOString(),
+        challenge_type: challenge.activityType,
+        metric: challenge.metric,
+        deadline: new Date(challenge.endDate * 1000).toISOString(),
       }));
 
-      console.log(`📋 Found ${challenges.length} pending challenges for user`);
+      console.log(`Found ${challenges.length} pending challenges via Nostr`);
       return challenges;
     } catch (error) {
       console.error('Failed to fetch pending challenges:', error);

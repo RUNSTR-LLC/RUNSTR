@@ -226,7 +226,7 @@ export const CompetitionsListScreen: React.FC = () => {
         >
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Your Competitions</Text>
+        <View style={styles.headerSpacer} />
         <TouchableOpacity
           style={styles.addButton}
           onPress={handleCreateChallenge}
@@ -296,6 +296,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#fff',
+  },
+  headerSpacer: {
+    flex: 1,
   },
   addButton: {
     padding: 4,

@@ -8,6 +8,9 @@
 import { initializeWebSocketPolyfill } from './utils/webSocketPolyfill';
 import * as ExpoSplashScreen from 'expo-splash-screen';
 
+// Initialize background location task (must be imported early for TaskManager.defineTask to execute)
+import './services/activity/BackgroundLocationTask';
+
 import React from 'react';
 import { StatusBar, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
