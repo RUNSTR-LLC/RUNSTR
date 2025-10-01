@@ -186,7 +186,8 @@ export class WorkoutMergeService {
       const mergedResult = this.mergeAndDeduplicate(
         healthKitWorkouts,
         nostrWorkouts,
-        postingStatus
+        postingStatus,
+        pubkey
       );
 
       // Cache the results (non-blocking - don't fail if caching fails)
@@ -433,7 +434,8 @@ export class WorkoutMergeService {
   private mergeAndDeduplicate(
     healthKitWorkouts: HealthKitWorkout[],
     nostrWorkouts: NostrWorkout[],
-    postingStatus: Map<string, WorkoutStatusUpdate>
+    postingStatus: Map<string, WorkoutStatusUpdate>,
+    pubkey: string
   ): WorkoutMergeResult {
     const unified: UnifiedWorkout[] = [];
     let duplicateCount = 0;
@@ -446,19 +448,22 @@ export class WorkoutMergeService {
         duplicateCount++;
       }
 
+      const workoutId = hkWorkout.id || `healthkit_${hkWorkout.UUID}`;
+      const status = postingStatus.get(workoutId);
+
       const unifiedWorkout: UnifiedWorkout = {
-        id: hkWorkout.id || `healthkit_${hkWorkout.UUID}`,
-        userId: '', // Will be set by caller
+        id: workoutId,
+        userId: pubkey, // Set to user's pubkey
         type: (hkWorkout.activityType || 'other') as WorkoutType,
         startTime: hkWorkout.startDate,
         endTime: hkWorkout.endDate,
         duration: hkWorkout.duration,
-        distance: hkWorkout.totalDistance ? hkWorkout.totalDistance * 1000 : 0, // km to m
+        distance: hkWorkout.totalDistance || 0, // HealthKit returns meters (not km)
         calories: hkWorkout.totalEnergyBurned || 0,
         source: 'healthkit',
         syncedAt: new Date().toISOString(),
         syncedToNostr: isDupe,
-        postedToSocial: false,
+        postedToSocial: status?.postedToSocial || false,
         canSyncToNostr: !isDupe, // Can sync if not already in Nostr
         canPostToSocial: true,
       };
@@ -559,7 +564,8 @@ export class WorkoutMergeService {
       if (durationDiff > 10) return false; // More than 10 seconds difference
 
       // Distance check (within 100 meters or 2% tolerance, whichever is larger)
-      const dist1 = (workout1.totalDistance || 0) * 1000 + (workout1.distance || 0); // Convert km to m if needed
+      // Both HealthKit (totalDistance) and Nostr (distance) use meters
+      const dist1 = (workout1.totalDistance || workout1.distance || 0);
       const dist2 = w2.distance || 0;
 
       if (dist1 > 0 && dist2 > 0) {
