@@ -22,12 +22,17 @@ import { TeamManagementSection } from '../components/profile/TeamManagementSecti
 import { ChallengeNotificationsBox } from '../components/profile/ChallengeNotificationsBox';
 import { YourCompetitionsBox } from '../components/profile/YourCompetitionsBox';
 import { YourWorkoutsBox } from '../components/profile/YourWorkoutsBox';
+import { NotificationBadge } from '../components/profile/NotificationBadge';
+import { NotificationModal } from '../components/profile/NotificationModal';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useNutzap } from '../hooks/useNutzap';
 import { useWalletStore } from '../store/walletStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { npubEncode } from '../utils/nostrEncoding';
+import { unifiedNotificationStore } from '../services/notifications/UnifiedNotificationStore';
+import { challengeNotificationHandler } from '../services/notifications/ChallengeNotificationHandler';
+import { getUserNostrIdentifiers } from '../utils/nostr';
 
 interface ProfileScreenProps {
   data: ProfileScreenData;
@@ -73,6 +78,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [showSendModal, setShowSendModal] = useState(false);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [userNpub, setUserNpub] = useState<string>('');
 
   const { balance, refreshBalance } = useNutzap(true);
@@ -86,6 +92,35 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       initializeWallet();
     }
   }, [isInitialized, initializeWallet]);
+
+  // Initialize unified notification system
+  useEffect(() => {
+    const initializeNotifications = async () => {
+      try {
+        const userIdentifiers = await getUserNostrIdentifiers();
+        if (userIdentifiers?.hexPubkey) {
+          console.log('[ProfileScreen] Initializing unified notification system...');
+
+          // Initialize the unified notification store
+          await unifiedNotificationStore.initialize(userIdentifiers.hexPubkey);
+
+          // Start challenge notification listener
+          await challengeNotificationHandler.startListening();
+
+          console.log('[ProfileScreen] Unified notification system initialized');
+        }
+      } catch (error) {
+        console.error('[ProfileScreen] Failed to initialize notification system:', error);
+      }
+    };
+
+    initializeNotifications();
+
+    // Cleanup on unmount
+    return () => {
+      challengeNotificationHandler.stopListening();
+    };
+  }, []);
 
   // Load user npub on mount
   useEffect(() => {
@@ -219,20 +254,24 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         showsVerticalScrollIndicator={false}
       >
         {/* Profile Header Box - Tappable to Edit Profile */}
-        <TouchableOpacity
-          style={styles.boxContainer}
-          onPress={() => {
-            const parentNav = navigation.getParent();
-            if (parentNav) {
-              parentNav.navigate('ProfileEdit' as any);
-            } else {
-              navigation.navigate('ProfileEdit' as any);
-            }
-          }}
-          activeOpacity={0.7}
-        >
-          <ProfileHeader user={data.user} />
-        </TouchableOpacity>
+        <View style={styles.profileHeaderContainer}>
+          <TouchableOpacity
+            onPress={() => {
+              const parentNav = navigation.getParent();
+              if (parentNav) {
+                parentNav.navigate('ProfileEdit' as any);
+              } else {
+                navigation.navigate('ProfileEdit' as any);
+              }
+            }}
+            activeOpacity={0.7}
+          >
+            <ProfileHeader user={data.user} />
+          </TouchableOpacity>
+
+          {/* Notification Badge - positioned in bottom-right of profile header */}
+          <NotificationBadge onPress={() => setShowNotificationModal(true)} />
+        </View>
 
         {/* Compact Wallet - Tappable to Transaction History */}
         <TouchableOpacity
@@ -272,6 +311,22 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         <View style={styles.boxContainer}>
           <YourWorkoutsBox />
         </View>
+
+        {/* Create Challenge Button */}
+        <TouchableOpacity
+          style={styles.createChallengeButton}
+          onPress={() => {
+            const parentNav = navigation.getParent();
+            if (parentNav) {
+              parentNav.navigate('ChallengeWizard' as any);
+            } else {
+              navigation.navigate('ChallengeWizard' as any);
+            }
+          }}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.createChallengeButtonText}>Create Challenge</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Send Modal */}
@@ -293,6 +348,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       <HistoryModal
         visible={showHistoryModal}
         onClose={() => setShowHistoryModal(false)}
+      />
+
+      {/* Notification Modal */}
+      <NotificationModal
+        visible={showNotificationModal}
+        onClose={() => setShowNotificationModal(false)}
       />
     </SafeAreaView>
   );
@@ -340,7 +401,13 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 20,
+    paddingBottom: 100, // Extra space for bottom tab bar
+  },
+
+  // Profile header container for badge positioning
+  profileHeaderContainer: {
+    position: 'relative',
+    marginBottom: 10,
   },
 
   // Box styling with uniform spacing
@@ -353,5 +420,22 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
     marginBottom: 12,
+  },
+
+  // Create Challenge Button
+  createChallengeButton: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+
+  createChallengeButtonText: {
+    fontSize: 16,
+    fontWeight: theme.typography.weights.bold,
+    color: '#000000',
+    letterSpacing: 0.5,
   },
 });

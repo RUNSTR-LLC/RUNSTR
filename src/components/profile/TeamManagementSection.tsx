@@ -36,7 +36,7 @@ export const TeamManagementSection: React.FC<TeamManagementSectionProps> = ({
       console.log('[TeamManagementSection] No team detected, triggering refresh...');
       onRefresh();
     }
-  }, []);
+  }, [onRefresh, currentTeam]);
 
   useEffect(() => {
     const fetchUserRank = async () => {
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     borderColor: '#1a1a1a',
     borderRadius: 12,
     padding: 12,
-    height: 100, // Fixed height for consistent layout
+    minHeight: 100, // Minimum height for consistent layout, allows expansion
   },
 
   // No Team State
