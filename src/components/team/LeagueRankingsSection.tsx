@@ -466,10 +466,11 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.cardBackground,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    borderRadius: 12,
-    padding: 16,
-    minHeight: 200,
+    borderRadius: 16,
+    padding: 20,
+    minHeight: 450,
     marginVertical: 8,
+    flex: 1,
   },
 
   sectionHeader: {
@@ -486,8 +487,8 @@ const styles = StyleSheet.create({
   },
 
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: theme.typography.weights.semiBold,
+    fontSize: 18,
+    fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
   },
 
@@ -539,38 +540,43 @@ const styles = StyleSheet.create({
   },
 
   competitionInfo: {
-    marginBottom: 12,
-    paddingBottom: 8,
+    marginBottom: 16,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
 
   competitionText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: theme.typography.weights.medium,
     color: theme.colors.text,
-    marginBottom: 2,
+    marginBottom: 4,
   },
 
   participantCount: {
-    fontSize: 11,
+    fontSize: 12,
     color: theme.colors.textMuted,
   },
 
   rankingsList: {
-    maxHeight: 200, // Scrollable list
+    maxHeight: 320, // Much taller scrollable list
+    minHeight: 280,
   },
 
   rankingItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
 
   topThreeItem: {
-    backgroundColor: theme.colors.accent + '10', // Very subtle highlight
+    backgroundColor: theme.colors.accent + '15', // More visible highlight
+    borderRadius: 8,
+    marginVertical: 2,
+    paddingHorizontal: 8,
   },
 
   currentUserItem: {
@@ -593,14 +599,15 @@ const styles = StyleSheet.create({
   },
 
   rankText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: theme.typography.weights.semiBold,
     color: theme.colors.textMuted,
   },
 
   topThreeRank: {
-    fontSize: 16,
+    fontSize: 18,
     color: theme.colors.text,
+    fontWeight: theme.typography.weights.bold,
   },
 
   currentUserRank: {
@@ -634,7 +641,7 @@ const styles = StyleSheet.create({
   },
 
   memberName: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: theme.typography.weights.medium,
     color: theme.colors.text,
     marginBottom: 2,

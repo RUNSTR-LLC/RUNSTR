@@ -459,19 +459,19 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
                   style={{
                     width: '100%',
                     backgroundColor: theme.colors.accent,
-                    paddingVertical: 14,
+                    paddingVertical: 12,
                     paddingHorizontal: 12,
                     borderRadius: 8,
                     alignItems: 'center',
                     justifyContent: 'center',
-                    minHeight: 48,
+                    minHeight: 44,
                   }}
                   disabled={captainLoading}
                 >
                   <Text
                     style={{
                       color: theme.colors.accentText,
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: '600',
                     }}
                     numberOfLines={1}
@@ -499,20 +499,20 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
                     flex: 1,
                     minWidth: 100,
                     backgroundColor: team.shopUrl ? theme.colors.primary : theme.colors.border,
-                    paddingVertical: 14,
-                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                    paddingHorizontal: 10,
                     borderRadius: 8,
                     alignItems: 'center',
                     justifyContent: 'center',
                     opacity: team.shopUrl ? 1 : 0.5,
-                    minHeight: 48,
+                    minHeight: 36,
                   }}
                   disabled={!team.shopUrl}
                 >
                   <Text
                     style={{
                       color: team.shopUrl ? theme.colors.primaryText : theme.colors.textTertiary,
-                      fontSize: 16,
+                      fontSize: 14,
                       fontWeight: '600',
                     }}
                     numberOfLines={1}
@@ -537,20 +537,20 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
                     flex: 1,
                     minWidth: 100,
                     backgroundColor: team.flashUrl ? '#FF9500' : theme.colors.border,
-                    paddingVertical: 14,
-                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                    paddingHorizontal: 10,
                     borderRadius: 8,
                     alignItems: 'center',
                     justifyContent: 'center',
                     opacity: team.flashUrl ? 1 : 0.5,
-                    minHeight: 48,
+                    minHeight: 36,
                   }}
                   disabled={!team.flashUrl}
                 >
                   <Text
                     style={{
                       color: team.flashUrl ? '#FFFFFF' : theme.colors.textTertiary,
-                      fontSize: 16,
+                      fontSize: 14,
                       fontWeight: '600',
                     }}
                     numberOfLines={1}
@@ -564,11 +564,11 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
             </View>
           </View>
 
-          {/* Competition Tabs - Tournament and Events */}
-          <View style={{ flex: 1, marginTop: 16 }}>
+          {/* Competition Tabs - League and Events */}
+          <View style={{ flex: 1, marginTop: 16, minHeight: 500 }}>
             <CompetitionTabs
-              tournamentContent={
-                <View style={{ flex: 1 }}>
+              leagueContent={
+                <View style={{ flex: 1, minHeight: 450 }}>
                   <LeagueRankingsSection
                     competitionId={activeLeague?.competitionId || `${team.id}-default-streak`}
                     participants={activeLeague?.participants || []}
@@ -587,7 +587,7 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
                       console.log('📊 View full leaderboard pressed');
                       // Could navigate to full leaderboard screen
                     }}
-                    maxDisplayed={10}
+                    maxDisplayed={15}
                     teamId={team.id}
                     captainPubkey={team.captainId} // Pass the team's captain ID
                     isDefaultLeague={!hasActiveLeague}
@@ -595,7 +595,7 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
                 </View>
               }
               eventsContent={
-                <View style={{ flex: 1 }}>
+                <View style={{ flex: 1, minHeight: 450 }}>
                   <EventsCard
                     events={nostrEvents.length > 0 ? nostrEvents : formattedEvents}
                     onEventPress={(eventId, formattedEvent) => {

@@ -266,14 +266,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
     // First warning dialog with education
     Alert.alert(
-      '🔐 Backup Your Nostr Password',
-      'Your Nostr password (nsec) is the master key to your account.\n\n' +
+      '🔐 Backup Your Password',
+      'Your password is the master key to your account.\n\n' +
       '⚠️ IMPORTANT:\n' +
-      '• This is the ONLY way to recover your account\n' +
-      '• Anyone with this password can control your account\n' +
-      '• Store it in a password manager or write it down\n' +
+      '• We do not keep backups of passwords\n' +
+      '• Your password is only stored locally on your phone\n' +
+      '• If you lose your password, you lose access to your account\n' +
+      '• Keep your password safe - write it down or use a password manager\n' +
       '• NEVER share it with anyone\n' +
-      '• NEVER enter it on untrusted websites\n\n' +
+      '• This is the ONLY way to recover your account\n\n' +
       'Would you like to copy your password?',
       [
         { text: 'Cancel', style: 'cancel' },
@@ -286,12 +287,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               // Show success with security reminder
               Alert.alert(
                 '✅ Password Copied',
-                'Your Nostr password has been copied to your clipboard.\n\n' +
+                'Your password has been copied to your clipboard.\n\n' +
                 '🔒 Security Tips:\n' +
                 '1. Paste it in a secure password manager NOW\n' +
                 '2. Clear your clipboard after saving it\n' +
                 '3. Never paste it in untrusted apps\n' +
-                '4. This is your only backup - losing it means losing your account forever',
+                '4. Remember: We do not keep backups - if you lose it, your account is gone forever',
                 [{ text: 'I Understand', style: 'default' }]
               );
             } catch (error) {

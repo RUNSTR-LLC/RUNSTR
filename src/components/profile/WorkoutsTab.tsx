@@ -145,7 +145,7 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.tabScroll}
         >
-          {renderTabButton('nostr', 'Nostr')}
+          {renderTabButton('nostr', 'Public')}
           {renderTabButton('apple', 'Apple')}
           {renderTabButton('garmin', 'Garmin')}
           {renderTabButton('google', 'Google')}

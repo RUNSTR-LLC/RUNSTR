@@ -1,6 +1,6 @@
 /**
- * CompetitionTabs - Tab navigation component for Tournament and Events
- * Provides a clean 2-tab interface for team competitions
+ * CompetitionTabs - Tab navigation component for League and Events
+ * Provides a clean 2-tab interface for team competitions with enhanced styling
  */
 
 import React, { useState } from 'react';
@@ -14,19 +14,19 @@ import {
 } from 'react-native';
 import { theme } from '../../styles/theme';
 
-export type CompetitionTab = 'tournament' | 'events';
+export type CompetitionTab = 'league' | 'events';
 
 interface CompetitionTabsProps {
-  tournamentContent: React.ReactNode;
+  leagueContent: React.ReactNode;
   eventsContent: React.ReactNode;
   defaultTab?: CompetitionTab;
   onTabChange?: (tab: CompetitionTab) => void;
 }
 
 export const CompetitionTabs: React.FC<CompetitionTabsProps> = ({
-  tournamentContent,
+  leagueContent,
   eventsContent,
-  defaultTab = 'tournament',
+  defaultTab = 'league',
   onTabChange,
 }) => {
   const [activeTab, setActiveTab] = useState<CompetitionTab>(defaultTab);
@@ -43,20 +43,20 @@ export const CompetitionTabs: React.FC<CompetitionTabsProps> = ({
         <TouchableOpacity
           style={[
             styles.tab,
-            activeTab === 'tournament' && styles.activeTab,
+            activeTab === 'league' && styles.activeTab,
           ]}
-          onPress={() => handleTabPress('tournament')}
+          onPress={() => handleTabPress('league')}
           activeOpacity={0.7}
         >
           <Text
             style={[
               styles.tabText,
-              activeTab === 'tournament' && styles.activeTabText,
+              activeTab === 'league' && styles.activeTabText,
             ]}
           >
-            Tournament
+            League
           </Text>
-          {activeTab === 'tournament' && <View style={styles.activeIndicator} />}
+          {activeTab === 'league' && <View style={styles.activeIndicator} />}
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -81,7 +81,7 @@ export const CompetitionTabs: React.FC<CompetitionTabsProps> = ({
 
       {/* Tab Content */}
       <View style={styles.tabContent}>
-        {activeTab === 'tournament' ? tournamentContent : eventsContent}
+        {activeTab === 'league' ? leagueContent : eventsContent}
       </View>
     </View>
   );
@@ -94,36 +94,47 @@ const styles = StyleSheet.create({
   tabHeader: {
     flexDirection: 'row',
     backgroundColor: theme.colors.cardBackground,
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 16,
+    borderRadius: 16,
+    padding: 6,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   tab: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 8,
+    borderRadius: 12,
     position: 'relative',
   },
   activeTab: {
     backgroundColor: theme.colors.background,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   tabText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
     color: theme.colors.textMuted,
+    letterSpacing: 0.5,
   },
   activeTabText: {
     color: theme.colors.text,
   },
   activeIndicator: {
     position: 'absolute',
-    bottom: 4,
-    width: 30,
-    height: 2,
+    bottom: 6,
+    width: 40,
+    height: 3,
     backgroundColor: theme.colors.accent,
-    borderRadius: 1,
+    borderRadius: 2,
   },
   tabContent: {
     flex: 1,
