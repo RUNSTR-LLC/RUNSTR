@@ -108,34 +108,9 @@ export const EnhancedWorkoutCard: React.FC<EnhancedWorkoutCardProps> = ({
       : new Date(dateString).toLocaleDateString();
   };
 
-  const getActivityIcon = (type: string | undefined): string => {
-    if (!type) return '🏃';
-    const icons: Record<string, string> = {
-      running: '🏃',
-      cycling: '🚴',
-      walking: '🚶',
-      hiking: '🥾',
-      gym: '💪',
-      strength_training: '🏋️',
-      yoga: '🧘',
-      swimming: '🏊',
-      rowing: '🚣',
-    };
-    return icons[type] || '🏃';
-  };
+  // Activity icons removed - no longer using emojis
 
-  const getSourceIcon = (source: string): string => {
-    const icons: Record<string, string> = {
-      healthkit: '🍎',
-      apple: '🍎',
-      garmin: '⌚',
-      google: '🤖',
-      googlefit: '🤖',
-      nostr: '⚡',
-      manual: '✏️',
-    };
-    return icons[source.toLowerCase()] || '📱';
-  };
+  // Source icons removed - no longer using emojis
 
   const isFromNostr = workout.source?.toLowerCase() === 'nostr';
 
@@ -144,7 +119,7 @@ export const EnhancedWorkoutCard: React.FC<EnhancedWorkoutCardProps> = ({
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.activityIcon}>{getActivityIcon(workout.type as string)}</Text>
+          {/* Activity icon removed */}
           <View style={styles.headerInfo}>
             <Text style={styles.activityType}>
               {workout.type ? (workout.type as string).charAt(0).toUpperCase() + (workout.type as string).slice(1) : 'Workout'}
@@ -154,8 +129,7 @@ export const EnhancedWorkoutCard: React.FC<EnhancedWorkoutCardProps> = ({
         </View>
         <View style={styles.headerRight}>
           <View style={styles.sourceBadge}>
-            <Text style={styles.sourceIcon}>{getSourceIcon(workout.source)}</Text>
-            <Text style={styles.sourceText}>{workout.source}</Text>
+            <Text style={styles.sourceText}>{workout.source?.toUpperCase() || 'UNKNOWN'}</Text>
           </View>
         </View>
       </View>
@@ -214,7 +188,7 @@ export const EnhancedWorkoutCard: React.FC<EnhancedWorkoutCardProps> = ({
               <ActivityIndicator size="small" color={theme.colors.accentText} />
             ) : (
               <Text style={styles.actionButtonText}>
-                {status.posted ? '✓ Posted' : '📱 Post'}
+                {status.posted ? '✓ Posted' : 'Post'}
               </Text>
             )}
           </TouchableOpacity>
@@ -228,7 +202,7 @@ export const EnhancedWorkoutCard: React.FC<EnhancedWorkoutCardProps> = ({
               <ActivityIndicator size="small" color={theme.colors.accentText} />
             ) : (
               <Text style={styles.actionButtonText}>
-                {status.competed ? '🏆 Competed' : '🏃 Compete'}
+                {status.competed ? 'Competed' : 'Compete'}
               </Text>
             )}
           </TouchableOpacity>

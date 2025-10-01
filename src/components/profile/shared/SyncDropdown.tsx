@@ -29,9 +29,9 @@ interface SyncSource {
 }
 
 const syncSources: SyncSource[] = [
-  { id: 'apple', name: 'Apple Health', icon: '🍎', available: true },
-  { id: 'garmin', name: 'Garmin Connect', icon: '⌚', available: false },
-  { id: 'google', name: 'Google Fit', icon: '🤖', available: false },
+  { id: 'apple', name: 'Apple Health', icon: '', available: true },
+  { id: 'garmin', name: 'Garmin Connect', icon: '', available: false },
+  { id: 'google', name: 'Google Fit', icon: '', available: false },
 ];
 
 export const SyncDropdown: React.FC<SyncDropdownProps> = ({
@@ -151,7 +151,7 @@ export const SyncDropdown: React.FC<SyncDropdownProps> = ({
                 onPress={() => handleSync(source)}
                 disabled={!source.available}
               >
-                <Text style={styles.sourceIcon}>{source.icon}</Text>
+                {/* Icon removed */}
                 <Text style={[
                   styles.sourceName,
                   !source.available && styles.sourceNameDisabled,

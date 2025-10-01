@@ -18,11 +18,11 @@ import { LoadingOverlay } from '../../ui/LoadingStates';
 import { EnhancedWorkoutCard } from '../shared/EnhancedWorkoutCard';
 import { SocialShareModal } from '../shared/SocialShareModal';
 import { MonthlyWorkoutGroup, groupWorkoutsByMonth } from '../shared/MonthlyWorkoutGroup';
-import { WorkoutMergeService } from '../../../services/fitness/workoutMergeService';
+import { Nuclear1301Service } from '../../../services/fitness/Nuclear1301Service';
 import { WorkoutPublishingService } from '../../../services/nostr/workoutPublishingService';
 import { WorkoutStatusTracker } from '../../../services/fitness/WorkoutStatusTracker';
 import { getNsecFromStorage } from '../../../utils/nostr';
-import type { UnifiedWorkout } from '../../../services/fitness/workoutMergeService';
+import type { NostrWorkout } from '../../../types/nostrWorkout';
 import type { Workout } from '../../../types/workout';
 
 interface AllWorkoutsTabProps {
@@ -36,14 +36,14 @@ export const AllWorkoutsTab: React.FC<AllWorkoutsTabProps> = ({
   pubkey,
   onRefresh,
 }) => {
-  const [workouts, setWorkouts] = useState<UnifiedWorkout[]>([]);
+  const [workouts, setWorkouts] = useState<NostrWorkout[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [shareModalVisible, setShareModalVisible] = useState(false);
   const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null);
   const [nsecKey, setNsecKey] = useState<string | null>(null);
 
-  const mergeService = WorkoutMergeService.getInstance();
+  const nuclear1301Service = Nuclear1301Service.getInstance();
   const publishingService = WorkoutPublishingService.getInstance();
   const statusTracker = WorkoutStatusTracker.getInstance();
 
@@ -64,24 +64,35 @@ export const AllWorkoutsTab: React.FC<AllWorkoutsTabProps> = ({
   const loadAllWorkouts = async () => {
     try {
       setIsLoading(true);
-      console.log('📊 Loading all workouts from all sources...');
+      console.log('⚡ Loading all workouts from Nostr...');
 
-      // Fetch merged workouts from all sources
-      const mergeResult = await mergeService.getMergedWorkouts(
-        userId,
-        pubkey || ''
-      );
+      if (!pubkey) {
+        console.log('No pubkey available, skipping workout load');
+        setWorkouts([]);
+        return;
+      }
 
-      // Sort by date (newest first)
-      const sortedWorkouts = mergeResult.allWorkouts.sort((a, b) =>
-        new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
-      );
+      // Use the same approach as PublicWorkoutsTab - direct Nuclear1301Service
+      const nostrWorkouts = await nuclear1301Service.getUserWorkouts(pubkey);
+      console.log(`📊 Received ${nostrWorkouts?.length || 0} workouts from Nostr`);
 
-      setWorkouts(sortedWorkouts);
-      console.log(`✅ Loaded ${sortedWorkouts.length} total workouts`);
-      console.log(`   - HealthKit: ${mergeResult.healthKitCount}`);
-      console.log(`   - Nostr: ${mergeResult.nostrCount}`);
-      console.log(`   - Duplicates removed: ${mergeResult.duplicateCount}`);
+      if (!nostrWorkouts || nostrWorkouts.length === 0) {
+        setWorkouts([]);
+        return;
+      }
+
+      // Filter and sort just like PublicWorkoutsTab
+      const validWorkouts = nostrWorkouts
+        .filter((w: NostrWorkout) => {
+          const isValid = w.type && w.type !== 'other';
+          return isValid;
+        })
+        .sort((a: NostrWorkout, b: NostrWorkout) =>
+          new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+        );
+
+      setWorkouts(validWorkouts);
+      console.log(`✅ Loaded ${validWorkouts.length} valid workouts`);
     } catch (error) {
       console.error('❌ Failed to load workouts:', error);
       setWorkouts([]);
