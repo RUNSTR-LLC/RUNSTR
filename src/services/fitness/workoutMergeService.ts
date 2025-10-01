@@ -99,12 +99,13 @@ export class WorkoutMergeService {
 
   /**
    * Enhanced: Get merged workouts with proper deduplication between HealthKit and Nostr
+   * Pure Nostr implementation - uses pubkey as single source of truth
    */
-  async getMergedWorkouts(userId: string, pubkey?: string): Promise<WorkoutMergeResult> {
+  async getMergedWorkouts(pubkey: string): Promise<WorkoutMergeResult> {
     const startTime = Date.now();
 
     try {
-      console.log('⚡ Enhanced: Fetching and merging workouts for user', userId);
+      console.log('⚡ Enhanced: Fetching and merging workouts for pubkey:', pubkey.slice(0, 20) + '...');
 
       if (!pubkey) {
         console.log('❌ No pubkey provided - returning empty results');
@@ -161,8 +162,8 @@ export class WorkoutMergeService {
 
       // Fetch Nostr workouts
       const [nostrWorkouts, postingStatus] = await Promise.all([
-        this.fetchNostrWorkouts(userId, pubkey),
-        this.getWorkoutPostingStatus(userId),
+        this.fetchNostrWorkouts(pubkey),
+        this.getWorkoutPostingStatus(pubkey),
       ]);
 
       console.log(`📊 Found ${healthKitWorkouts.length} HealthKit, ${nostrWorkouts.length} Nostr workouts`);
@@ -178,7 +179,7 @@ export class WorkoutMergeService {
       if (nostrWorkouts.length > 0) {
         try {
           await NostrCacheService.setCachedWorkouts(pubkey, nostrWorkouts);
-          await this.setCacheTimestamp(userId);
+          await this.setCacheTimestamp(pubkey);
         } catch (cacheError) {
           console.warn('⚠️ WorkoutMergeService: Caching failed, but continuing with workout data:', cacheError);
           // Continue execution - we still have the workout data to return
@@ -215,15 +216,16 @@ export class WorkoutMergeService {
 
   /**
    * Fetch Nostr workouts with proper subscription management
+   * Pure Nostr implementation - uses pubkey as identifier
    */
-  private async fetchNostrWorkouts(userId: string, pubkey?: string): Promise<NostrWorkout[]> {
+  private async fetchNostrWorkouts(pubkey: string): Promise<NostrWorkout[]> {
     try {
       if (!pubkey) {
         console.log('⚠️ No pubkey provided - returning empty array');
         return [];
       }
 
-      console.log('🚀 Fetching Nostr workouts with nuclear approach...');
+      console.log('🚀 Fetching Nostr workouts for pubkey:', pubkey.slice(0, 20) + '...');
 
       const { nip19 } = await import('nostr-tools');
       const NDK = await import('@nostr-dev-kit/ndk');

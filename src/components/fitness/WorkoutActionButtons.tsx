@@ -203,14 +203,14 @@ export const WorkoutActionButtons: React.FC<WorkoutActionButtonsProps> = ({
 
       {/* Status indicators for already completed actions */}
       {workout.syncedToNostr && !workout.canSyncToNostr && (
-        <View style={[styles.statusIndicator, styles.syncedIndicator]}>
-          <Text style={styles.statusText}>✓ Competing</Text>
+        <View style={styles.competingButton}>
+          <Text style={styles.competingButtonText}>✓ Competing</Text>
         </View>
       )}
 
       {workout.postedToSocial && (
-        <View style={[styles.statusIndicator, styles.postedIndicator]}>
-          <Text style={styles.statusText}>✓ Shared</Text>
+        <View style={styles.postedButton}>
+          <Text style={styles.postedButtonText}>✓ Posted</Text>
         </View>
       )}
 
@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.text,
   },
   postButton: {
-    backgroundColor: 'transparent',
+    backgroundColor: theme.colors.text, // White background
     borderColor: theme.colors.text, // White border
   },
   disabledButton: {
@@ -289,22 +289,43 @@ const styles = StyleSheet.create({
   successButtonText: {
     color: theme.colors.background, // Black text for success state
   },
-  statusIndicator: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    marginLeft: 4,
+  competingButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    minWidth: 100,
+    backgroundColor: theme.colors.text, // White background
+    borderColor: theme.colors.text,
+    opacity: 0.6, // Inactive state
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  syncedIndicator: {
-    backgroundColor: theme.colors.statusConnected + '20', // 20% opacity
+  competingButtonText: {
+    color: theme.colors.background, // Black text
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
-  postedIndicator: {
-    backgroundColor: theme.colors.syncBackground,
+  postedButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    minWidth: 100,
+    backgroundColor: theme.colors.text, // White background
+    borderColor: theme.colors.text,
+    opacity: 0.6, // Inactive state
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  statusText: {
-    color: theme.colors.textSecondary,
-    fontSize: 10,
-    fontWeight: '500',
+  postedButtonText: {
+    color: theme.colors.background, // Black text
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
 

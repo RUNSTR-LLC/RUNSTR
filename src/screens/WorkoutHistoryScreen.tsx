@@ -375,13 +375,6 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
           </View>
         </View>
         <View style={styles.workoutMeta}>
-          {(workout.sourceApp || workout.metadata?.sourceApp) && (
-            <Text style={styles.sourceApp}>
-              {workout.sourceApp ||
-                workout.metadata?.sourceApp ||
-                workout.source}
-            </Text>
-          )}
           <Text style={styles.sourceType}>{workout.source}</Text>
         </View>
       </View>
@@ -526,30 +519,6 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
           ].map(([filter, label]) =>
             renderFilterButton(filter as FilterType, label)
           )}
-        </ScrollView>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.sortScroll}
-        >
-          {[
-            ['newest', 'Newest'],
-            ['oldest', 'Oldest'],
-            ['distance', 'Distance'],
-            ['duration', 'Duration'],
-          ].map(([sort, label]) => (
-            <TouchableOpacity
-              key={sort}
-              style={[
-                styles.sortButton,
-                sortOrder === sort && styles.sortButtonActive,
-              ]}
-              onPress={() => setSortOrder(sort as SortOrder)}
-            >
-              <Text style={styles.sortButtonText}>{label}</Text>
-            </TouchableOpacity>
-          ))}
         </ScrollView>
       </View>
 
