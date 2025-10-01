@@ -63,6 +63,7 @@ import { BottomTabNavigator } from './navigation/BottomTabNavigator';
 import { SplashScreen as AppSplashScreen } from './components/ui/SplashScreen';
 import { createStackNavigator } from '@react-navigation/stack';
 import { TeamCreationWizard } from './components/wizards/TeamCreationWizard';
+import { GlobalChallengeWizard } from './components/wizards/GlobalChallengeWizard';
 import { EventDetailScreen } from './screens/EventDetailScreen';
 import { ChallengeDetailScreen } from './screens/ChallengeDetailScreen';
 import { EnhancedTeamScreen } from './screens/EnhancedTeamScreen';
@@ -213,7 +214,6 @@ const AppContent: React.FC = () => {
                 onAddChallenge={() => console.log('Add challenge')}
                 onEventPress={(eventId) => navigation.navigate('EventDetail', { eventId })}
                 onChallengePress={(challengeId) => navigation.navigate('ChallengeDetail', { challengeId })}
-                onNavigateToProfile={() => navigation.navigate('MainTabs', { screen: 'Profile' })}
                 onLeaveTeam={() => {
                   console.log('Leave team');
                   navigation.navigate('MainTabs', { screen: 'Teams' });
@@ -374,24 +374,22 @@ const AppContent: React.FC = () => {
           component={ProfileEditScreen}
         />
 
-        {/* Challenge Wizard Screen (placeholder) */}
+        {/* Challenge Wizard Screen */}
         <AuthenticatedStack.Screen
           name="ChallengeWizard"
           options={{
             headerShown: false,
+            presentation: 'modal',
           }}
         >
           {({ navigation }) => (
-            <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
-              <Text style={{ color: '#fff', fontSize: 18, marginBottom: 20 }}>Challenge Creation Wizard</Text>
-              <Text style={{ color: '#666', fontSize: 14 }}>Coming Soon</Text>
-              <TouchableOpacity
-                style={{ marginTop: 30, padding: 12, backgroundColor: '#fff', borderRadius: 8 }}
-                onPress={() => navigation.goBack()}
-              >
-                <Text style={{ color: '#000' }}>Go Back</Text>
-              </TouchableOpacity>
-            </View>
+            <GlobalChallengeWizard
+              onComplete={() => {
+                console.log('Challenge created successfully');
+                navigation.goBack();
+              }}
+              onCancel={() => navigation.goBack()}
+            />
           )}
         </AuthenticatedStack.Screen>
 
