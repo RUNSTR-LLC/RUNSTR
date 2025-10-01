@@ -85,23 +85,51 @@ export const RunningTrackerScreen: React.FC = () => {
     metricsUpdateRef.current = setInterval(updateMetrics, 2000);
   };
 
+  const formatElapsedTime = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const updateMetrics = () => {
     const session = enhancedLocationTrackingService.getCurrentSession();
+
+    // Always update duration using local timer (works even without GPS/session)
+    const formattedDuration = formatElapsedTime(elapsedTime);
+
     if (session) {
+      // Use session's actual duration instead of state to avoid stale closure
+      const sessionDuration = session.duration;
+
       const currentMetrics = {
         distance: session.totalDistance,
-        duration: elapsedTime,
-        pace: activityMetricsService.calculatePace(session.totalDistance, elapsedTime),
+        duration: sessionDuration,
+        pace: activityMetricsService.calculatePace(session.totalDistance, sessionDuration),
         elevationGain: session.totalElevationGain,
       };
 
       const formatted = activityMetricsService.getFormattedMetrics(currentMetrics, 'running');
+
+      // Override with local elapsedTime for duration display (handles pause correctly)
+      formatted.duration = formattedDuration;
+
       setMetrics(formatted);
 
       // Update GPS status
       setGpsSignal(session.gpsSignalStrength as GPSSignalStrength);
       setGpsAccuracy(session.statistics?.averageAccuracy);
       setIsBackgroundTracking(session.isBackgroundTracking);
+    } else if (isTracking) {
+      // No session yet, but tracking started - show timer-based duration
+      setMetrics(prev => ({
+        ...prev,
+        duration: formattedDuration,
+      }));
     }
   };
 
@@ -298,8 +326,8 @@ export const RunningTrackerScreen: React.FC = () => {
           <MetricCard label="Duration" value={metrics.duration} icon="time" />
         </View>
         <View style={styles.metricsRow}>
-          <MetricCard label="Pace" value={metrics.pace || '--:--'} icon="speedometer" />
-          <MetricCard label="Elevation" value={metrics.elevation || '0 m'} icon="trending-up" />
+          <MetricCard label="Pace" value={metrics.pace ?? '--:--'} icon="speedometer" />
+          <MetricCard label="Elevation" value={metrics.elevation ?? '0 m'} icon="trending-up" />
         </View>
       </View>
 
@@ -415,7 +443,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   resumeButton: {
-    backgroundColor: theme.colors.success,
+    backgroundColor: theme.colors.text, // White for resume
     borderRadius: 35,
     width: 70,
     height: 70,
@@ -423,12 +451,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stopButton: {
-    backgroundColor: theme.colors.error,
+    backgroundColor: theme.colors.card, // Dark gray for stop
     borderRadius: 35,
     width: 70,
     height: 70,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: theme.colors.border,
   },
   statusContainer: {
     position: 'absolute',
@@ -447,11 +477,11 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: theme.colors.success,
+    backgroundColor: theme.colors.text, // White when recording
     marginRight: 8,
   },
   statusDotPaused: {
-    backgroundColor: theme.colors.warning,
+    backgroundColor: theme.colors.textMuted, // Gray when paused
   },
   statusText: {
     color: theme.colors.text,
