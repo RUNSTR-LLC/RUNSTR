@@ -84,16 +84,20 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Header with Tabs and Sync Button */}
-      <View style={styles.header}>
-        <View style={styles.tabContainer}>
-          {renderTabButton('public', 'Public')}
-          {renderTabButton('all', 'All')}
-        </View>
+      {/* Import Workouts Button */}
+      <View style={styles.importSection}>
         <SyncDropdown
           userId={currentUserId}
           onSyncComplete={onWorkoutsSynced}
         />
+      </View>
+
+      {/* Tab Toggle */}
+      <View style={styles.tabToggleContainer}>
+        <View style={styles.tabToggle}>
+          {renderTabButton('public', 'Public')}
+          {renderTabButton('all', 'All')}
+        </View>
       </View>
 
       {/* Active Tab Content */}
@@ -109,36 +113,39 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  importSection: {
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
-  tabContainer: {
-    flexDirection: 'row',
-    flex: 1,
+  tabToggleContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
-  tabButton: {
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    marginRight: 12,
-    borderRadius: 20,
+  tabToggle: {
+    flexDirection: 'row',
     backgroundColor: theme.colors.cardBackground,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: theme.colors.border,
+    overflow: 'hidden',
+  },
+  tabButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    backgroundColor: 'transparent',
   },
   tabButtonActive: {
     backgroundColor: theme.colors.accent,
-    borderColor: theme.colors.accent,
   },
   tabButtonText: {
     color: theme.colors.textSecondary,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '500',
   },
   tabButtonTextActive: {

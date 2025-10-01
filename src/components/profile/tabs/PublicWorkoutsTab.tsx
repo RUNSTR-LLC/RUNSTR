@@ -45,7 +45,7 @@ export const PublicWorkoutsTab: React.FC<PublicWorkoutsTabProps> = ({
   const loadNostrWorkouts = async () => {
     try {
       setIsLoading(true);
-      console.log('⚡ Loading public Nostr workouts...');
+      console.log('⚡ Loading public Nostr workouts for pubkey:', pubkey);
 
       if (!pubkey) {
         console.log('No pubkey available, skipping Nostr workout load');
@@ -54,15 +54,29 @@ export const PublicWorkoutsTab: React.FC<PublicWorkoutsTabProps> = ({
       }
 
       // Fetch kind 1301 events from Nostr
+      console.log('📡 Calling getUserWorkouts with pubkey:', pubkey);
       const nostrWorkouts = await nuclear1301Service.getUserWorkouts(pubkey);
+      console.log(`📊 Received ${nostrWorkouts?.length || 0} workouts from Nostr`);
+
+      if (!nostrWorkouts || nostrWorkouts.length === 0) {
+        console.log('⚠️ No workouts returned from Nuclear1301Service');
+        setWorkouts([]);
+        return;
+      }
 
       // Filter out invalid workouts and sort by date
       const validWorkouts = nostrWorkouts
-        .filter((w: NostrWorkout) => w.type && w.type !== 'other')
+        .filter((w: NostrWorkout) => {
+          const isValid = w.type && w.type !== 'other';
+          if (!isValid) {
+            console.log(`Filtering out workout with type: ${w.type}`);
+          }
+          return isValid;
+        })
         .sort((a: NostrWorkout, b: NostrWorkout) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
 
       setWorkouts(validWorkouts);
-      console.log(`✅ Loaded ${validWorkouts.length} public Nostr workouts`);
+      console.log(`✅ Loaded ${validWorkouts.length} valid public Nostr workouts`);
     } catch (error) {
       console.error('❌ Failed to load Nostr workouts:', error);
       setWorkouts([]);

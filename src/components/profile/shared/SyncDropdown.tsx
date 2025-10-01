@@ -113,10 +113,10 @@ export const SyncDropdown: React.FC<SyncDropdownProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Sync Button */}
+      {/* Import Workouts Button */}
       <TouchableOpacity
         ref={buttonRef}
-        style={styles.syncButton}
+        style={styles.importButton}
         onPress={toggleDropdown}
         disabled={syncing !== null}
       >
@@ -124,8 +124,8 @@ export const SyncDropdown: React.FC<SyncDropdownProps> = ({
           <ActivityIndicator size="small" color={theme.colors.text} />
         ) : (
           <>
-            <Text style={styles.syncIcon}>🔄</Text>
-            <Text style={styles.syncText}>Sync</Text>
+            <Text style={styles.importIcon}>📥</Text>
+            <Text style={styles.importText}>Import Workouts</Text>
           </>
         )}
       </TouchableOpacity>
@@ -175,26 +175,26 @@ export const SyncDropdown: React.FC<SyncDropdownProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    position: 'relative',
+    width: '100%',
   },
-  syncButton: {
+  importButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: theme.colors.cardBackground,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingVertical: 14,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  syncIcon: {
-    fontSize: 16,
-    marginRight: 6,
+  importIcon: {
+    fontSize: 20,
+    marginRight: 8,
   },
-  syncText: {
+  importText: {
     color: theme.colors.text,
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 16,
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
