@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { theme } from '../../styles/theme';
 import { NostrInitializationService } from '../../services/nostr/NostrInitializationService';
+import { checkAuthStorageStatus } from '../../utils/authDebugHelper';
 
 interface SplashScreenProps {
   onComplete: () => void;
@@ -56,6 +57,10 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
     // Initialize services and prefetch data
     const loadDataPromise = async () => {
       try {
+        // Debug: Check auth storage before starting prefetch
+        console.log('🔍 [SplashScreen] Checking auth storage before prefetch...');
+        await checkAuthStorageStatus();
+
         const initService = NostrInitializationService.getInstance();
         const loadingSteps = [
           {

@@ -128,35 +128,88 @@ export class NostrInitializationService {
   }
 
   async prefetchWorkouts(): Promise<void> {
-    console.log('🏋️ Pre-fetching workouts with centralized caching...');
+    console.log('🏋️ ================================');
+    console.log('🏋️ WORKOUT PREFETCH STARTING');
+    console.log('🏋️ ================================');
+    console.log('🔍 Checking AsyncStorage for user credentials...');
 
     try {
       const userNpub = await getNpubFromStorage();
+      const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+
+      // DEBUG: Log what we found (safely)
+      console.log('📝 Storage Check:');
+      console.log(`   - userNpub: ${userNpub ? userNpub.slice(0, 20) + '...' : '❌ NULL'}`);
+      console.log(`   - hexPubkey: ${hexPubkey ? hexPubkey.slice(0, 20) + '...' : '❌ NULL'}`);
+
       if (!userNpub) {
-        console.log('⚠️ No user npub found, skipping workout prefetch');
+        console.error('❌ ================================');
+        console.error('❌ CRITICAL: No user npub found in storage!');
+        console.error('❌ This means user authentication is incomplete');
+        console.error('❌ Expected key: @runstr:npub');
+        console.error('❌ WORKOUTS WILL NOT LOAD');
+        console.error('❌ ================================');
+        // Don't throw - continue app loading but make error visible
         return;
       }
 
-      // Get hex pubkey for WorkoutCacheService
-      const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
       if (!hexPubkey) {
-        console.log('⚠️ No hex pubkey found, skipping workout prefetch');
+        console.error('❌ ================================');
+        console.error('❌ CRITICAL: No hex pubkey found in storage!');
+        console.error('❌ This means user authentication is incomplete');
+        console.error('❌ Expected key: @runstr:hex_pubkey');
+        console.error('❌ WORKOUTS WILL NOT LOAD');
+        console.error('❌ ================================');
+        // Don't throw - continue app loading but make error visible
         return;
       }
+
+      console.log('✅ User credentials found, starting workout prefetch...');
 
       // Use WorkoutCacheService for centralized caching strategy
       // This ensures cache key alignment and proper data format
       const { WorkoutCacheService } = await import('../cache/WorkoutCacheService');
       const cacheService = WorkoutCacheService.getInstance();
 
+      console.log('📞 Calling WorkoutCacheService.getMergedWorkouts()...');
+      console.log(`   Parameters: userId=${hexPubkey.slice(0, 10)}..., pubkey=${userNpub.slice(0, 10)}..., limit=500`);
+
       // Fetch workouts using centralized service (limit: 500 for safety)
       // This will cache in 'user_workouts_merged' key that all screens expect
       const result = await cacheService.getMergedWorkouts(hexPubkey, userNpub, 500);
 
-      console.log(`✅ Pre-fetched and cached ${result.allWorkouts.length} workouts via WorkoutCacheService`);
-      console.log(`   📊 HealthKit: ${result.healthKitCount}, Nostr: ${result.nostrCount}, Duplicates removed: ${result.duplicateCount}`);
+      console.log('📊 ================================');
+      console.log('📊 PREFETCH COMPLETE');
+      console.log('📊 ================================');
+
+      if (result.allWorkouts.length === 0) {
+        console.log('⚠️ Prefetch completed but found 0 workouts');
+        console.log('   This could mean:');
+        console.log('   1. User has no kind 1301 workout events on Nostr');
+        console.log('   2. Nostr relay query failed (check logs above)');
+        console.log('   3. Network/relay connection issue');
+        console.log('   4. Incorrect npub/hex_pubkey format');
+      } else {
+        console.log(`✅ Successfully cached ${result.allWorkouts.length} workouts`);
+        console.log(`   📊 HealthKit: ${result.healthKitCount}`);
+        console.log(`   📊 Nostr: ${result.nostrCount}`);
+        console.log(`   📊 Duplicates removed: ${result.duplicateCount}`);
+        console.log(`   📊 From cache: ${result.fromCache}`);
+        console.log(`   ⏱️  Load duration: ${result.loadDuration}ms`);
+      }
+
+      console.log('📊 ================================');
     } catch (error) {
-      console.error('❌ Failed to prefetch workouts:', error);
+      console.error('❌ ================================');
+      console.error('❌ WORKOUT PREFETCH FAILED');
+      console.error('❌ ================================');
+      console.error('❌ Error:', error);
+      console.error('❌ Error type:', error instanceof Error ? error.constructor.name : typeof error);
+      console.error('❌ Error message:', error instanceof Error ? error.message : 'Unknown error');
+      if (error instanceof Error && error.stack) {
+        console.error('❌ Stack trace:', error.stack);
+      }
+      console.error('❌ ================================');
       // Don't throw - continue app loading
     }
   }
