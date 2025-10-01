@@ -1,26 +1,20 @@
 /**
- * WorkoutsTab Component - Tab-Based Workout Display
- * Shows separate tabs for different workout sources (Nostr, Apple Health, Garmin, Google)
- * Eliminates complex merge logic for simplicity and scalability
+ * WorkoutsTab Component - Public/All Tab Workout Display
+ * Shows Public (Nostr) and All (merged sources) tabs with sync dropdown
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
-  Alert,
 } from 'react-native';
 import { theme } from '../../styles/theme';
 import { SyncSource, Workout } from '../../types';
-import { NostrWorkoutsTab } from './tabs/NostrWorkoutsTab';
-import { AppleHealthTab } from './tabs/AppleHealthTab';
-import { GarminTab } from './tabs/GarminTab';
-import { GoogleFitTab } from './tabs/GoogleFitTab';
-import { WorkoutPublishingService } from '../../services/nostr/workoutPublishingService';
-import { getNsecFromStorage } from '../../utils/nostr';
+import { PublicWorkoutsTab } from './tabs/PublicWorkoutsTab';
+import { AllWorkoutsTab } from './tabs/AllWorkoutsTab';
+import { SyncDropdown } from './shared/SyncDropdown';
 
 interface WorkoutsTabProps {
   syncSources: SyncSource[];
@@ -32,7 +26,7 @@ interface WorkoutsTabProps {
   onWorkoutsSynced?: () => void;
 }
 
-type SourceTab = 'nostr' | 'apple' | 'garmin' | 'google';
+type TabType = 'public' | 'all';
 
 export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
   syncSources,
@@ -43,54 +37,9 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
   onSyncSourcePress,
   onWorkoutsSynced,
 }) => {
-  const [activeTab, setActiveTab] = useState<SourceTab>('nostr');
-  const [nsecKey, setNsecKey] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabType>('all');
 
-  const publishingService = WorkoutPublishingService.getInstance();
-
-  useEffect(() => {
-    loadNsecKey();
-  }, []);
-
-  const loadNsecKey = async () => {
-    try {
-      const nsec = await getNsecFromStorage(currentUserId);
-      setNsecKey(nsec);
-    } catch (error) {
-      console.error('Failed to load nsec key:', error);
-    }
-  };
-
-  const handlePostToNostr = async (workout: Workout) => {
-    if (!nsecKey) {
-      Alert.alert(
-        'Authentication Required',
-        'Please log in with your Nostr key to post workouts.'
-      );
-      return;
-    }
-
-    try {
-      console.log('📤 Posting workout to Nostr...');
-      const result = await publishingService.saveWorkoutToNostr(
-        workout,
-        nsecKey,
-        currentUserId
-      );
-
-      if (result.success) {
-        Alert.alert('Success', 'Workout posted to Nostr successfully!');
-        onWorkoutsSynced?.();
-      } else {
-        throw new Error(result.error || 'Failed to post workout');
-      }
-    } catch (error) {
-      console.error('❌ Post to Nostr failed:', error);
-      Alert.alert('Error', 'Failed to post workout to Nostr');
-    }
-  };
-
-  const renderTabButton = (tab: SourceTab, label: string) => (
+  const renderTabButton = (tab: TabType, label: string) => (
     <TouchableOpacity
       key={tab}
       style={[
@@ -112,25 +61,22 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
 
   const renderActiveTab = () => {
     switch (activeTab) {
-      case 'nostr':
+      case 'public':
         return (
-          <NostrWorkoutsTab
+          <PublicWorkoutsTab
             userId={currentUserId}
             pubkey={currentUserPubkey}
             onRefresh={onWorkoutsSynced}
           />
         );
-      case 'apple':
+      case 'all':
         return (
-          <AppleHealthTab
+          <AllWorkoutsTab
             userId={currentUserId}
-            onPostToNostr={handlePostToNostr}
+            pubkey={currentUserPubkey}
+            onRefresh={onWorkoutsSynced}
           />
         );
-      case 'garmin':
-        return <GarminTab />;
-      case 'google':
-        return <GoogleFitTab />;
       default:
         return null;
     }
@@ -138,18 +84,16 @@ export const WorkoutsTab: React.FC<WorkoutsTabProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Tab Navigation */}
-      <View style={styles.tabContainer}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tabScroll}
-        >
-          {renderTabButton('nostr', 'Public')}
-          {renderTabButton('apple', 'Apple')}
-          {renderTabButton('garmin', 'Garmin')}
-          {renderTabButton('google', 'Google')}
-        </ScrollView>
+      {/* Header with Tabs and Sync Button */}
+      <View style={styles.header}>
+        <View style={styles.tabContainer}>
+          {renderTabButton('public', 'Public')}
+          {renderTabButton('all', 'All')}
+        </View>
+        <SyncDropdown
+          userId={currentUserId}
+          onSyncComplete={onWorkoutsSynced}
+        />
       </View>
 
       {/* Active Tab Content */}
@@ -165,19 +109,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
-  tabContainer: {
-    paddingVertical: 8,
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
-  tabScroll: {
-    paddingHorizontal: 16,
+  tabContainer: {
+    flexDirection: 'row',
+    flex: 1,
   },
   tabButton: {
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 12,
-    marginRight: 8,
+    paddingVertical: 10,
+    marginRight: 12,
     borderRadius: 20,
     backgroundColor: theme.colors.cardBackground,
     borderWidth: 1,
