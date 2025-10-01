@@ -107,10 +107,15 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
 
   const loadWorkouts = async (forceRefresh = false) => {
     try {
-      // Use cache service for initial load
+      console.log('📱 WorkoutHistoryScreen: Loading workouts for user:', userId?.slice(0, 20) + '...');
+      console.log('📱 WorkoutHistoryScreen: Using pubkey:', pubkey?.slice(0, 20) + '...');
+
+      // Use cache service for initial load with proper userId and pubkey
       const result = forceRefresh
-        ? await cacheService.refreshWorkouts(500) // Load more for better grouping
-        : await cacheService.getMergedWorkouts(500);
+        ? await cacheService.refreshWorkouts(userId, pubkey, 500) // Load more for better grouping
+        : await cacheService.getMergedWorkouts(userId, pubkey, 500);
+
+      console.log('📱 WorkoutHistoryScreen: Loaded', result.allWorkouts.length, 'workouts');
       setWorkouts(result.allWorkouts);
       setMergeResult(result);
     } catch (error) {

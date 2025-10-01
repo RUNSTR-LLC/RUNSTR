@@ -46,8 +46,8 @@ export class WorkoutCacheService {
    * Get merged workouts with cache-first strategy and version checking
    * Returns cached data immediately if available and valid, triggers background refresh if stale
    */
-  async getMergedWorkouts(limit = 100): Promise<WorkoutMergeResult> {
-    console.log('📦 WorkoutCacheService: Fetching merged workouts...');
+  async getMergedWorkouts(userId: string, pubkey?: string, limit = 500): Promise<WorkoutMergeResult> {
+    console.log('📦 WorkoutCacheService: Fetching merged workouts for user:', userId?.slice(0, 20) + '...');
 
     // Check cache version first
     const cacheVersion = await appCache.get<string>(this.VERSION_KEY);
@@ -55,7 +55,7 @@ export class WorkoutCacheService {
     if (cacheVersion !== this.CACHE_VERSION) {
       console.log(`🔄 Cache version mismatch (${cacheVersion} vs ${this.CACHE_VERSION}), clearing cache...`);
       await this.clearCache();
-      return this.fetchAndCacheWorkouts(limit);
+      return this.fetchAndCacheWorkouts(userId, pubkey, limit);
     }
 
     // Check cache with TTL validation
@@ -68,7 +68,7 @@ export class WorkoutCacheService {
       // Check if cache is expired (24 hours)
       if (cacheAge > this.CACHE_TTL) {
         console.log('⏰ WorkoutCacheService: Cache expired (>24h), fetching fresh data...');
-        return this.fetchAndCacheWorkouts(limit);
+        return this.fetchAndCacheWorkouts(userId, pubkey, limit);
       }
 
       console.log(
@@ -81,7 +81,7 @@ export class WorkoutCacheService {
 
       // Check if background refresh is needed (after 2 minutes)
       if (cacheAge > this.BACKGROUND_REFRESH_TIME) {
-        this.refreshInBackground(limit);
+        this.refreshInBackground(userId, pubkey, limit);
       }
 
       return cachedResult;
@@ -89,26 +89,26 @@ export class WorkoutCacheService {
 
     // No cache or invalid cache, fetch fresh data
     console.log('🔄 WorkoutCacheService: Cache miss, fetching fresh workouts...');
-    return this.fetchAndCacheWorkouts(limit);
+    return this.fetchAndCacheWorkouts(userId, pubkey, limit);
   }
 
   /**
    * Force refresh workouts (used for pull-to-refresh)
    */
-  async refreshWorkouts(limit = 100): Promise<WorkoutMergeResult> {
-    console.log('🔄 WorkoutCacheService: Force refreshing workouts...');
-    return this.fetchAndCacheWorkouts(limit);
+  async refreshWorkouts(userId: string, pubkey?: string, limit = 500): Promise<WorkoutMergeResult> {
+    console.log('🔄 WorkoutCacheService: Force refreshing workouts for user:', userId?.slice(0, 20) + '...');
+    return this.fetchAndCacheWorkouts(userId, pubkey, limit);
   }
 
   /**
    * Fetch workouts from services and update cache with versioning
    */
-  private async fetchAndCacheWorkouts(limit: number): Promise<WorkoutMergeResult> {
+  private async fetchAndCacheWorkouts(userId: string, pubkey?: string, limit: number = 500): Promise<WorkoutMergeResult> {
     const startTime = Date.now();
 
     try {
       // Fetch merged workouts from both HealthKit and Nostr
-      const result = await this.mergeService.getMergedWorkouts(limit);
+      const result = await this.mergeService.getMergedWorkouts(userId, pubkey);
 
       if (result && result.allWorkouts.length > 0) {
         // Cache the result with version and timestamp
@@ -152,7 +152,7 @@ export class WorkoutCacheService {
   /**
    * Background refresh without blocking UI
    */
-  private async refreshInBackground(limit: number): Promise<void> {
+  private async refreshInBackground(userId: string, pubkey?: string, limit: number = 500): Promise<void> {
     // Prevent multiple simultaneous refreshes
     if (this.isRefreshing) {
       return;
@@ -166,10 +166,10 @@ export class WorkoutCacheService {
     this.isRefreshing = true;
     this.lastRefreshTime = Date.now();
 
-    console.log('🔄 WorkoutCacheService: Starting background refresh...');
+    console.log('🔄 WorkoutCacheService: Starting background refresh for user:', userId?.slice(0, 20) + '...');
 
     try {
-      const result = await this.mergeService.getMergedWorkouts(limit);
+      const result = await this.mergeService.getMergedWorkouts(userId, pubkey);
 
       if (result && result.allWorkouts.length > 0) {
         await appCache.set(this.CACHE_KEY, result, this.CACHE_TTL);
