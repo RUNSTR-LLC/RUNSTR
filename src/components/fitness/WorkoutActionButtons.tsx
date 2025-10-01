@@ -78,26 +78,9 @@ export const WorkoutActionButtons: React.FC<WorkoutActionButtonsProps> = ({
   const handleShowSocialModal = () => {
     if (!workout.canPostToSocial) return;
 
-    // If workout not synced to Nostr yet, ask user to save first
-    if (!workout.syncedToNostr && workout.source === 'healthkit') {
-      Alert.alert(
-        'Competition Entry Required',
-        'You need to enter this workout into competitions before sharing to social feeds.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Compete & Share',
-            onPress: async () => {
-              await handleSaveToNostr();
-              // Wait for save to complete, then show modal
-              setTimeout(() => setModalState({ showSocialShare: true }), 1000);
-            },
-          },
-        ]
-      );
-      return;
-    }
-
+    // Allow posting to social without requiring competition entry first
+    // Users can post HealthKit workouts directly to social feeds (kind 1)
+    // without creating competition entries (kind 1301)
     setModalState({ showSocialShare: true });
   };
 

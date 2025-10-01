@@ -342,9 +342,11 @@ export class WorkoutMergeService {
             let duration = 0;
             let distance = 0;
             let calories = 0;
+            let dTagValue = ''; // Extract 'd' tag for deduplication
 
             // Extract workout data from tags
             for (const tag of tags) {
+              if (tag[0] === 'd' && tag[1]) dTagValue = tag[1]; // Extract 'd' tag
               if (tag[0] === 'exercise' && tag[1]) workoutType = tag[1];
               if (tag[0] === 'duration' && tag[1]) {
                 const timeStr = tag[1];
@@ -363,8 +365,9 @@ export class WorkoutMergeService {
 
             // Extract plain primitive values from NDK event to avoid circular references
             // Use pubkey as userId for backwards compatibility with Workout interface
+            // CRITICAL FIX: Use 'd' tag as workout ID for proper deduplication with HealthKit workouts
             const workout: NostrWorkout = {
-              id: String(event.id || ''),
+              id: dTagValue || String(event.id || ''), // Use 'd' tag if available, fallback to event ID
               userId: String(hexPubkey || ''), // Use pubkey as userId (pure Nostr)
               type: String(workoutType) as any,
               startTime: new Date(event.created_at * 1000).toISOString(),
@@ -453,6 +456,7 @@ export class WorkoutMergeService {
         distance: hkWorkout.totalDistance ? hkWorkout.totalDistance * 1000 : 0, // km to m
         calories: hkWorkout.totalEnergyBurned || 0,
         source: 'healthkit',
+        syncedAt: new Date().toISOString(),
         syncedToNostr: isDupe,
         postedToSocial: false,
         canSyncToNostr: !isDupe, // Can sync if not already in Nostr
@@ -502,10 +506,15 @@ export class WorkoutMergeService {
     workout1: HealthKitWorkout | any,
     workouts2: any[]
   ): boolean {
+    const workout1Id = workout1.id || workout1.UUID || 'unknown';
+
     return workouts2.some(w2 => {
+      const w2Id = w2.id || w2.UUID || 'unknown';
+
       // Strategy 1: Exact UUID match (highest confidence)
       if (workout1.UUID && w2.UUID && workout1.UUID === w2.UUID) {
-        console.log(`🔍 Duplicate found: Exact UUID match ${workout1.UUID}`);
+        console.log(`🔍 [Strategy 1] Duplicate found via exact UUID match`);
+        console.log(`   HealthKit: ${workout1Id} | Nostr: ${w2Id}`);
         return true;
       }
 
@@ -517,7 +526,9 @@ export class WorkoutMergeService {
         const uuid1 = id1.includes('healthkit_') ? id1.replace('healthkit_', '') : id1;
         const uuid2 = id2.includes('healthkit_') ? id2.replace('healthkit_', '') : id2;
         if (uuid1 === uuid2 && uuid1 !== '') {
-          console.log(`🔍 Duplicate found: HealthKit ID match ${uuid1}`);
+          console.log(`🔍 [Strategy 2] Duplicate found via HealthKit ID match`);
+          console.log(`   Matched ID: ${uuid1}`);
+          console.log(`   HealthKit: ${workout1Id} | Nostr: ${w2Id}`);
           return true;
         }
       }
@@ -561,7 +572,10 @@ export class WorkoutMergeService {
       }
 
       // If we made it here, it's very likely a duplicate
-      console.log(`🔍 Duplicate found: Fuzzy match - ${timeDiff}ms time diff, ${durationDiff}s duration diff`);
+      console.log(`🔍 [Strategy 3] Duplicate found via fuzzy match (time/stats)`);
+      console.log(`   Time diff: ${timeDiff}ms | Duration diff: ${durationDiff}s`);
+      console.log(`   Type: ${normalizedType1}`);
+      console.log(`   HealthKit: ${workout1Id} | Nostr: ${w2Id}`);
       return true;
     });
   }
