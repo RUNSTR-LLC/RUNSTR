@@ -22,6 +22,7 @@ import { EventDetailScreen } from '../screens/EventDetailScreen';
 import { ChallengeDetailScreen } from '../screens/ChallengeDetailScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
+import { CompetitionsListScreen } from '../screens/CompetitionsListScreen';
 
 // Navigation Configuration
 import {
@@ -53,6 +54,9 @@ export type RootStackParamList = {
   TeamCreation: undefined;
   EventDetail: { eventId: string; eventData?: any };
   ChallengeDetail: { challengeId: string };
+  CompetitionsList: undefined;
+  ChallengeLeaderboard: { challengeId: string };
+  ChallengeWizard: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -491,6 +495,47 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
         options={screenConfigurations.ChallengeDetail}
         component={ChallengeDetailScreen}
       />
+
+      {/* Competitions List Screen */}
+      <Stack.Screen
+        name="CompetitionsList"
+        options={{
+          ...defaultScreenOptions,
+          headerShown: false,
+        }}
+        component={CompetitionsListScreen}
+      />
+
+      {/* Challenge Leaderboard Screen (placeholder for now) */}
+      <Stack.Screen
+        name="ChallengeLeaderboard"
+        options={{
+          ...defaultScreenOptions,
+          headerTitle: 'Challenge',
+        }}
+      >
+        {({ navigation, route }) => (
+          <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={{ color: '#fff' }}>Challenge Leaderboard - Coming Soon</Text>
+            <Text style={{ color: '#666', marginTop: 8 }}>Challenge ID: {route.params?.challengeId}</Text>
+          </View>
+        )}
+      </Stack.Screen>
+
+      {/* Challenge Wizard Screen (placeholder for now) */}
+      <Stack.Screen
+        name="ChallengeWizard"
+        options={{
+          ...defaultScreenOptions,
+          headerTitle: 'Create Challenge',
+        }}
+      >
+        {({ navigation }) => (
+          <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={{ color: '#fff' }}>Challenge Creation Wizard - Coming Soon</Text>
+          </View>
+        )}
+      </Stack.Screen>
     </Stack.Navigator>
   );
 };

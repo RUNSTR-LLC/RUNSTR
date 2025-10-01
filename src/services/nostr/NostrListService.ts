@@ -459,6 +459,96 @@ export class NostrListService {
   }
 
   /**
+   * Get all lists containing a specific user's pubkey
+   * Used for discovering competitions, teams, etc.
+   */
+  async getListsContainingUser(userPubkey: string, filters?: {
+    kinds?: number[];
+    tags?: string[];
+    limit?: number;
+  }): Promise<NostrList[]> {
+    // Convert npub to hex if needed
+    let hexUserPubkey = userPubkey;
+    if (userPubkey.startsWith('npub')) {
+      const converted = npubToHex(userPubkey);
+      if (!converted) {
+        console.error(`❌ Failed to convert npub to hex: ${userPubkey.slice(0, 20)}...`);
+        return [];
+      }
+      hexUserPubkey = converted;
+    }
+
+    console.log(`🔍 Finding all lists containing user: ${hexUserPubkey.slice(0, 20)}...`);
+
+    try {
+      const nostrFilters: NostrFilter[] = [
+        {
+          kinds: filters?.kinds || [30000, 30001],
+          '#p': [hexUserPubkey], // Find lists where user is in 'p' tags
+          limit: filters?.limit || 500,
+        },
+      ];
+
+      const foundLists: NostrList[] = [];
+      const processedIds = new Set<string>();
+
+      const subscriptionId = await this.relayManager.subscribeToEvents(
+        nostrFilters,
+        (event: Event, relayUrl: string) => {
+          console.log(`📥 List with user received from ${relayUrl}:`, event.id);
+
+          try {
+            const parsedList = this.parseListEvent(event as NostrListEvent);
+            if (parsedList && !processedIds.has(parsedList.id)) {
+              processedIds.add(parsedList.id);
+
+              // Apply additional tag filters if specified
+              if (filters?.tags) {
+                const listTags = event.tags
+                  .filter(t => t[0] === 't')
+                  .map(t => t[1]);
+
+                const hasRequiredTags = filters.tags.some(tag => listTags.includes(tag));
+                if (!hasRequiredTags) {
+                  return; // Skip lists without required tags
+                }
+              }
+
+              foundLists.push(parsedList);
+              console.log(
+                `✅ Found list: ${parsedList.name} (${parsedList.members.length} members)`
+              );
+            }
+          } catch (error) {
+            console.warn(`⚠️ Failed to parse list event ${event.id}:`, error);
+          }
+        }
+      );
+
+      // Wait for results
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Clean up subscription
+      this.relayManager.unsubscribe(subscriptionId);
+
+      console.log(`📊 Found ${foundLists.length} lists containing user`);
+      return foundLists;
+    } catch (error) {
+      console.error(`❌ Failed to fetch lists containing user:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Get user's lists by type (using t-tags)
+   */
+  async getUserListsByType(userPubkey: string, type: string): Promise<NostrList[]> {
+    return this.getListsContainingUser(userPubkey, {
+      tags: [type]
+    });
+  }
+
+  /**
    * Cleanup all subscriptions (call on app shutdown)
    */
   cleanup(): void {

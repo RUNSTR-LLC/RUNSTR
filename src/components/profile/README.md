@@ -17,6 +17,7 @@ This architecture provides a clear distinction between public (shared) and priva
 ## Files
 
 - **AccountTab.tsx** - Account settings and profile management tab content
+- **CompactWallet.tsx** - Compact wallet display with balance and action buttons
 - **NotificationsTab.tsx** - Notification preferences and settings tab
 - **PerformanceDashboard.tsx** - Workout analytics and performance metrics display
 - **ProfileHeader.tsx** - Profile screen header with user information and avatar
@@ -24,6 +25,7 @@ This architecture provides a clear distinction between public (shared) and priva
 - **TeamManagementSection.tsx** - Team membership and management section in profile
 - **WalletSection.tsx** - Bitcoin wallet section for profile screen
 - **WorkoutsTab.tsx** - Public/All tab navigation with sync dropdown (151 lines)
+- **YourCompetitionsBox.tsx** - Shows user's active competitions with counts and navigation (175 lines)
 
 ## Subdirectories
 

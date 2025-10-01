@@ -19,6 +19,7 @@ import { SendModal } from '../components/wallet/SendModal';
 import { ReceiveModal } from '../components/wallet/ReceiveModal';
 import { HistoryModal } from '../components/wallet/HistoryModal';
 import { TeamManagementSection } from '../components/profile/TeamManagementSection';
+import { YourCompetitionsBox } from '../components/profile/YourCompetitionsBox';
 import { WorkoutsTab } from '../components/profile/WorkoutsTab';
 import { WorkoutCalendarHeatmap } from '../components/fitness/WorkoutCalendarHeatmap';
 import { Ionicons } from '@expo/vector-icons';
@@ -243,6 +244,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             onJoinTeam={() => onNavigateToTeamDiscovery?.()}
             onViewTeam={onViewCurrentTeam}
           />
+        </View>
+
+        {/* User's Competitions */}
+        <View style={styles.sectionContainer}>
+          <YourCompetitionsBox />
         </View>
 
         {/* Workouts Section */}
