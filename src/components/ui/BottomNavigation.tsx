@@ -23,7 +23,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
 }) => {
   return (
     <View style={styles.bottomNav}>
-      {/* Team Navigation Item */}
+      {/* Discover Navigation Item */}
       <TouchableOpacity
         style={[
           styles.navItem,
@@ -33,7 +33,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
         activeOpacity={0.7}
       >
         <Ionicons
-          name="people-outline"
+          name="search-outline"
           size={16}
           color={
             activeScreen === 'team' ? theme.colors.text : theme.colors.textMuted
@@ -45,7 +45,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             activeScreen === 'team' && styles.navLabelActive,
           ]}
         >
-          Team
+          Discover
         </Text>
       </TouchableOpacity>
 

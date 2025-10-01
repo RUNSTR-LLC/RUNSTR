@@ -195,6 +195,7 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
             showHeader={true}
             showCloseButton={false}
             currentUserPubkey={currentUserNpub}
+            navigation={navigation}
           />
         )}
       </Stack.Screen>
@@ -428,6 +429,7 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
                   }
                 : undefined
             }
+            navigation={navigation}
           />
         )}
       </Stack.Screen>
