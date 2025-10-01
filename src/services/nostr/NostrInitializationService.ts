@@ -128,7 +128,7 @@ export class NostrInitializationService {
   }
 
   async prefetchWorkouts(): Promise<void> {
-    console.log('🏋️ Pre-fetching workouts...');
+    console.log('🏋️ Pre-fetching workouts with centralized caching...');
 
     try {
       const userNpub = await getNpubFromStorage();
@@ -137,44 +137,24 @@ export class NostrInitializationService {
         return;
       }
 
-      if (!this.ndk) {
-        await this.initializeNDK();
+      // Get hex pubkey for WorkoutCacheService
+      const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+      if (!hexPubkey) {
+        console.log('⚠️ No hex pubkey found, skipping workout prefetch');
+        return;
       }
 
-      // Create filter for user's workout events (kind 1301)
-      const filter: NDKFilter = {
-        kinds: [1301],
-        authors: [userNpub],
-        limit: 100,
-      };
+      // Use WorkoutCacheService for centralized caching strategy
+      // This ensures cache key alignment and proper data format
+      const { WorkoutCacheService } = await import('../cache/WorkoutCacheService');
+      const cacheService = WorkoutCacheService.getInstance();
 
-      // Fetch workout events
-      const events = await this.ndk!.fetchEvents(filter);
+      // Fetch workouts using centralized service (limit: 500 for safety)
+      // This will cache in 'user_workouts_merged' key that all screens expect
+      const result = await cacheService.getMergedWorkouts(hexPubkey, userNpub, 500);
 
-      // Convert to array and parse
-      const workouts = Array.from(events).map(event => {
-        try {
-          const content = JSON.parse(event.content);
-          return {
-            id: event.id,
-            type: content.type || 'Unknown',
-            duration: content.duration || 0,
-            distance: content.distance,
-            calories: content.calories,
-            date: new Date(event.created_at! * 1000).toISOString(),
-            source: 'nostr' as const,
-          };
-        } catch (error) {
-          console.warn('Failed to parse workout event:', error);
-          return null;
-        }
-      }).filter(Boolean);
-
-      // Cache workouts with 3-minute TTL
-      await appCache.set('user_workouts', workouts, 3 * 60 * 1000);
-      await appCache.set('workouts_fetch_time', Date.now(), 3 * 60 * 1000);
-
-      console.log(`✅ Pre-fetched and cached ${workouts.length} workouts`);
+      console.log(`✅ Pre-fetched and cached ${result.allWorkouts.length} workouts via WorkoutCacheService`);
+      console.log(`   📊 HealthKit: ${result.healthKitCount}, Nostr: ${result.nostrCount}, Duplicates removed: ${result.duplicateCount}`);
     } catch (error) {
       console.error('❌ Failed to prefetch workouts:', error);
       // Don't throw - continue app loading

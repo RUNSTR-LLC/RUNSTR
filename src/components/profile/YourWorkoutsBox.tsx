@@ -13,7 +13,8 @@ import {
   StyleSheet
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { WorkoutMergeService, type UnifiedWorkout } from '../../services/fitness/workoutMergeService';
+import { WorkoutCacheService } from '../../services/cache/WorkoutCacheService';
+import type { UnifiedWorkout } from '../../services/fitness/workoutMergeService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const YourWorkoutsBox: React.FC = () => {
@@ -38,10 +39,13 @@ export const YourWorkoutsBox: React.FC = () => {
         return;
       }
 
-      // Get merged workouts from the service
-      const mergeService = WorkoutMergeService.getInstance();
-      const mergedResult = await mergeService.getMergedWorkouts(hexPubkey, userPubkey);
+      // Use WorkoutCacheService to read from startup prefetch cache
+      // This reads from cache (instant) instead of querying Nostr again
+      const cacheService = WorkoutCacheService.getInstance();
+      const mergedResult = await cacheService.getMergedWorkouts(hexPubkey, userPubkey);
       const uniqueWorkouts = mergedResult.allWorkouts || [];
+
+      console.log(`📊 YourWorkoutsBox: Loaded ${uniqueWorkouts.length} workouts from cache (fromCache: ${mergedResult.fromCache})`);
 
       setWorkoutCount(uniqueWorkouts.length);
 
