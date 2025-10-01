@@ -14,7 +14,7 @@ import {
 import { theme } from '../../../styles/theme';
 import { Card } from '../../ui/Card';
 import { LoadingOverlay } from '../../ui/LoadingStates';
-import { EnhancedWorkoutCard, type EnhancedWorkout } from '../shared/EnhancedWorkoutCard';
+import { EnhancedWorkoutCard } from '../shared/EnhancedWorkoutCard';
 import { MonthlyWorkoutGroup, groupWorkoutsByMonth } from '../shared/MonthlyWorkoutGroup';
 import { Nuclear1301Service } from '../../../services/fitness/Nuclear1301Service';
 import type { NostrWorkout } from '../../../types/nostrWorkout';
@@ -95,9 +95,9 @@ export const PublicWorkoutsTab: React.FC<PublicWorkoutsTabProps> = ({
   // Group workouts by month
   const monthlyGroups = groupWorkoutsByMonth(unifiedWorkouts);
 
-  const renderWorkout = useCallback((workout: UnifiedWorkout) => (
+  const renderWorkout = useCallback((workout: Workout) => (
     <EnhancedWorkoutCard
-      workout={workout as EnhancedWorkout}
+      workout={workout}
       hideActions={true} // No actions for already published workouts
     />
   ), []);
@@ -105,7 +105,7 @@ export const PublicWorkoutsTab: React.FC<PublicWorkoutsTabProps> = ({
   const renderMonthlyGroup = ({ item }: { item: any }) => (
     <MonthlyWorkoutGroup
       group={item}
-      renderWorkout={(workout: Workout) => renderWorkout(workout as any)}
+      renderWorkout={renderWorkout}
       defaultExpanded={item === monthlyGroups[0]}
     />
   );

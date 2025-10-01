@@ -15,7 +15,7 @@ import {
 import { theme } from '../../../styles/theme';
 import { Card } from '../../ui/Card';
 import { LoadingOverlay } from '../../ui/LoadingStates';
-import { EnhancedWorkoutCard, type EnhancedWorkout } from '../shared/EnhancedWorkoutCard';
+import { EnhancedWorkoutCard } from '../shared/EnhancedWorkoutCard';
 import { SocialShareModal } from '../shared/SocialShareModal';
 import { MonthlyWorkoutGroup, groupWorkoutsByMonth } from '../shared/MonthlyWorkoutGroup';
 import { WorkoutMergeService } from '../../../services/fitness/workoutMergeService';
@@ -144,11 +144,11 @@ export const AllWorkoutsTab: React.FC<AllWorkoutsTabProps> = ({
   // Group workouts by month
   const monthlyGroups = groupWorkoutsByMonth(workouts);
 
-  const renderWorkout = useCallback((workout: UnifiedWorkout) => (
+  const renderWorkout = useCallback((workout: Workout) => (
     <EnhancedWorkoutCard
-      workout={workout as EnhancedWorkout}
-      onCompete={(w) => handleCompete(w as Workout)}
-      onSocialShare={(w) => handleSocialShare(w as Workout)}
+      workout={workout}
+      onCompete={handleCompete}
+      onSocialShare={handleSocialShare}
       hideActions={workout.source.toLowerCase() === 'nostr'}
     />
   ), [nsecKey]);
@@ -156,7 +156,7 @@ export const AllWorkoutsTab: React.FC<AllWorkoutsTabProps> = ({
   const renderMonthlyGroup = ({ item }: { item: any }) => (
     <MonthlyWorkoutGroup
       group={item}
-      renderWorkout={(workout: Workout) => renderWorkout(workout as any)}
+      renderWorkout={renderWorkout}
       defaultExpanded={item === monthlyGroups[0]}
     />
   );

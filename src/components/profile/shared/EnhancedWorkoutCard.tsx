@@ -7,26 +7,13 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { theme } from '../../../styles/theme';
 import { WorkoutStatusTracker } from '../../../services/fitness/WorkoutStatusTracker';
-import type { WorkoutType } from '../../../types/workout';
-
-export interface EnhancedWorkout {
-  id: string;
-  type: WorkoutType | string;
-  startTime: string;
-  duration: number;
-  distance?: number;
-  calories?: number;
-  heartRate?: { avg: number };
-  source: string;
-  sourceApp?: string;
-  nostrEventId?: string;
-}
+import type { Workout } from '../../../types/workout';
 
 interface EnhancedWorkoutCardProps {
-  workout: EnhancedWorkout;
-  onPost?: (workout: EnhancedWorkout) => Promise<void>;
-  onCompete?: (workout: EnhancedWorkout) => Promise<void>;
-  onSocialShare?: (workout: EnhancedWorkout) => void;
+  workout: Workout;
+  onPost?: (workout: Workout) => Promise<void>;
+  onCompete?: (workout: Workout) => Promise<void>;
+  onSocialShare?: (workout: Workout) => void;
   hideActions?: boolean;
 }
 
@@ -121,7 +108,8 @@ export const EnhancedWorkoutCard: React.FC<EnhancedWorkoutCardProps> = ({
       : new Date(dateString).toLocaleDateString();
   };
 
-  const getActivityIcon = (type: string): string => {
+  const getActivityIcon = (type: string | undefined): string => {
+    if (!type) return '🏃';
     const icons: Record<string, string> = {
       running: '🏃',
       cycling: '🚴',
@@ -149,17 +137,17 @@ export const EnhancedWorkoutCard: React.FC<EnhancedWorkoutCardProps> = ({
     return icons[source.toLowerCase()] || '📱';
   };
 
-  const isFromNostr = workout.source.toLowerCase() === 'nostr' || !!workout.nostrEventId;
+  const isFromNostr = workout.source.toLowerCase() === 'nostr';
 
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.activityIcon}>{getActivityIcon(workout.type)}</Text>
+          <Text style={styles.activityIcon}>{getActivityIcon(workout.type as string)}</Text>
           <View style={styles.headerInfo}>
             <Text style={styles.activityType}>
-              {workout.type.charAt(0).toUpperCase() + workout.type.slice(1)}
+              {workout.type ? (workout.type as string).charAt(0).toUpperCase() + (workout.type as string).slice(1) : 'Workout'}
             </Text>
             <Text style={styles.date}>{formatDate(workout.startTime)}</Text>
           </View>
