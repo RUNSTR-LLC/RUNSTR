@@ -284,7 +284,7 @@ export const ActivityConfigurationStep: React.FC<ActivityConfigurationStepProps>
               {metricOptions.find((m) => m.value === selectedMetric)?.label || selectedMetric}
             </Text>
             <Text style={styles.previewSubtext}>
-              {selectedDuration} day{selectedDuration !== 1 ? 's' : ''}
+              {selectedDuration} days
             </Text>
             <View style={styles.previewDivider} />
             <Text style={styles.previewWager}>

@@ -80,19 +80,6 @@ export const CompactWallet: React.FC<CompactWalletProps> = ({
 
   return (
     <View style={styles.walletBox}>
-        {/* Menu button in top right */}
-        <TouchableOpacity
-          style={styles.menuButton}
-          onPress={onHistoryPress}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <View style={styles.menuIcon}>
-            <View style={styles.menuLine} />
-            <View style={styles.menuLine} />
-            <View style={styles.menuLine} />
-          </View>
-        </TouchableOpacity>
-
         {/* Centered balance */}
         <View style={styles.balanceContainer}>
           <Text style={styles.balanceAmount}>
@@ -134,27 +121,6 @@ const styles = StyleSheet.create({
     padding: 12,
     height: 90, // Compact height
     position: 'relative',
-  },
-
-  // Menu button (3 horizontal lines)
-  menuButton: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    zIndex: 1,
-  },
-
-  menuIcon: {
-    width: 20,
-    height: 16,
-    justifyContent: 'space-between',
-  },
-
-  menuLine: {
-    height: 2,
-    width: 20,
-    backgroundColor: theme.colors.textMuted,
-    borderRadius: 1,
   },
 
   // Centered balance

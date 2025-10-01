@@ -6,6 +6,7 @@ Multi-step wizard components for competition creation and team setup workflows.
 
 - **ChallengeCreationWizard.tsx** - Multi-step wizard for creating individual challenges
 - **EventCreationWizard.tsx** - Multi-step wizard for creating team events
+- **GlobalChallengeWizard.tsx** - Multi-step wizard for creating 1v1 challenges with any Nostr user globally
 - **LeagueCreationWizard.tsx** - Multi-step wizard for creating team leagues
 - **TeamCreationWizard.tsx** - Multi-step wizard for team creation and setup
 - **WizardStepContainer.tsx** - Container component providing consistent wizard UI and navigation

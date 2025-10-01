@@ -118,7 +118,7 @@ export const ChallengeReviewStep: React.FC<ChallengeReviewStepProps> = ({
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Duration</Text>
             <Text style={styles.detailValue}>
-              {configuration.duration} day{configuration.duration !== 1 ? 's' : ''}
+              {configuration.duration} days
             </Text>
           </View>
 

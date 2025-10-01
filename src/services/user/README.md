@@ -9,3 +9,4 @@ User profile and account management services for RUNSTR users.
 - **profileService.hybrid.backup.ts** - Backup of hybrid version created during migration
 - **simpleTeamJoining.ts** - Simplified team joining workflow and user experience
 - **teamMembershipService.ts** - User-specific team membership operations and status management
+- **UserDiscoveryService.ts** - Global Nostr user search across all relays for challenge creation

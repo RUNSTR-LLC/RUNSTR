@@ -18,6 +18,7 @@ import { WalletScreen } from '../screens/WalletScreen';
 import { TeamDiscoveryScreen } from '../screens/TeamDiscoveryScreen';
 import { CaptainDashboardScreen } from '../screens/CaptainDashboardScreen';
 import { TeamCreationWizard } from '../components/wizards/TeamCreationWizard';
+import { GlobalChallengeWizard } from '../components/wizards/GlobalChallengeWizard';
 import { EventDetailScreen } from '../screens/EventDetailScreen';
 import { ChallengeDetailScreen } from '../screens/ChallengeDetailScreen';
 import { LoginScreen } from '../screens/LoginScreen';
@@ -534,18 +535,23 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
         )}
       </Stack.Screen>
 
-      {/* Challenge Wizard Screen (placeholder for now) */}
+      {/* Global Challenge Wizard Screen */}
       <Stack.Screen
         name="ChallengeWizard"
         options={{
           ...defaultScreenOptions,
-          headerTitle: 'Create Challenge',
+          headerShown: false,
+          presentation: 'modal',
         }}
       >
         {({ navigation }) => (
-          <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
-            <Text style={{ color: '#fff' }}>Challenge Creation Wizard - Coming Soon</Text>
-          </View>
+          <GlobalChallengeWizard
+            onComplete={() => {
+              navigation.goBack();
+              refresh(); // Refresh competitions list
+            }}
+            onCancel={() => navigation.goBack()}
+          />
         )}
       </Stack.Screen>
     </Stack.Navigator>

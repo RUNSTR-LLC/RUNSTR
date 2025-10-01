@@ -9,7 +9,7 @@ import { NostrListService } from '../nostr/NostrListService';
 import { ChallengeService } from './ChallengeService';
 import type { NostrRelayManager } from '../nostr/NostrRelayManager';
 import type { NostrFilter } from '../nostr/NostrProtocolHandler';
-import type { Event } from '../nostr/NostrListService';
+import type { Event } from 'nostr-tools';
 import type { ChallengeRequest, ChallengeMetadata, ChallengeStatus } from '../../types/challenge';
 import {
   CHALLENGE_REQUEST_KIND,
@@ -19,6 +19,8 @@ import {
 } from '../../types/challenge';
 import { getUserNostrIdentifiers } from '../../utils/nostr';
 import { npubToHex } from '../../utils/ndkConversion';
+import { getNsec } from '../../utils/nostrAuth';
+import { NDKEvent, NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export class ChallengeRequestService {
@@ -42,6 +44,65 @@ export class ChallengeRequestService {
       ChallengeRequestService.instance = new ChallengeRequestService();
     }
     return ChallengeRequestService.instance;
+  }
+
+  /**
+   * Helper method to create, sign, and publish a Nostr event
+   */
+  private async createAndPublishEvent(
+    kind: number,
+    content: string,
+    tags: string[][]
+  ): Promise<void> {
+    const nsec = await getNsec();
+    if (!nsec) {
+      throw new Error('No authentication found');
+    }
+
+    try {
+      // Create signer from nsec
+      const signer = new NDKPrivateKeySigner(nsec);
+
+      // Get user identifiers
+      const userIdentifiers = await getUserNostrIdentifiers();
+      if (!userIdentifiers?.hexPubkey) {
+        throw new Error('Failed to get user pubkey');
+      }
+
+      // Create NDK event
+      const ndkEvent = new NDKEvent();
+      ndkEvent.kind = kind;
+      ndkEvent.content = content;
+      ndkEvent.tags = tags;
+      ndkEvent.pubkey = userIdentifiers.hexPubkey;
+      ndkEvent.created_at = Math.floor(Date.now() / 1000);
+
+      // Sign the event
+      await ndkEvent.sign(signer);
+
+      // Convert to nostr-tools Event format for relay manager
+      const signedEvent: Event = {
+        id: ndkEvent.id || '',
+        pubkey: ndkEvent.pubkey,
+        created_at: ndkEvent.created_at || Math.floor(Date.now() / 1000),
+        kind: ndkEvent.kind || kind,
+        tags: ndkEvent.tags,
+        content: ndkEvent.content,
+        sig: ndkEvent.sig || '',
+      };
+
+      // Publish to relays
+      const result = await this.relayManager.publishEvent(signedEvent);
+
+      if (result.successful.length === 0) {
+        throw new Error('Failed to publish event to any relay');
+      }
+
+      console.log(`✅ Published kind ${kind} event to ${result.successful.length} relays`);
+    } catch (error) {
+      console.error('Failed to create and publish event:', error);
+      throw error;
+    }
   }
 
   /**
@@ -89,7 +150,7 @@ export class ChallengeRequestService {
     }
 
     // Publish the request
-    await this.simpleNostrService.publishEvent(
+    await this.createAndPublishEvent(
       CHALLENGE_REQUEST_KIND,
       content,
       tags
@@ -128,7 +189,7 @@ export class ChallengeRequestService {
       ['challenge-id', challengeId]
     ];
 
-    await this.simpleNostrService.publishEvent(
+    await this.createAndPublishEvent(
       CHALLENGE_ACCEPT_KIND,
       acceptContent,
       acceptTags
@@ -176,7 +237,7 @@ export class ChallengeRequestService {
       ['challenge-id', challengeId]
     ];
 
-    await this.simpleNostrService.publishEvent(
+    await this.createAndPublishEvent(
       CHALLENGE_DECLINE_KIND,
       declineContent,
       declineTags
@@ -399,7 +460,7 @@ export class ChallengeRequestService {
     // Tag all participants
     participants.forEach(p => tags.push(['p', p]));
 
-    await this.simpleNostrService.publishEvent(
+    await this.createAndPublishEvent(
       CHALLENGE_COMPLETE_KIND,
       content,
       tags

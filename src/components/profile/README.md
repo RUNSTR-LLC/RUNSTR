@@ -17,6 +17,7 @@ This architecture provides a clear distinction between public (shared) and priva
 ## Files
 
 - **AccountTab.tsx** - Account settings and profile management tab content
+- **ChallengeNotificationsBox.tsx** - Displays incoming challenge requests with accept/decline buttons
 - **CompactWallet.tsx** - Compact wallet display with balance and action buttons
 - **NotificationsTab.tsx** - Notification preferences and settings tab
 - **PerformanceDashboard.tsx** - Workout analytics and performance metrics display

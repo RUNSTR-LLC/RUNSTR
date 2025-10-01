@@ -19,6 +19,7 @@ import { SendModal } from '../components/wallet/SendModal';
 import { ReceiveModal } from '../components/wallet/ReceiveModal';
 import { HistoryModal } from '../components/wallet/HistoryModal';
 import { TeamManagementSection } from '../components/profile/TeamManagementSection';
+import { ChallengeNotificationsBox } from '../components/profile/ChallengeNotificationsBox';
 import { YourCompetitionsBox } from '../components/profile/YourCompetitionsBox';
 import { YourWorkoutsBox } from '../components/profile/YourWorkoutsBox';
 import { Ionicons } from '@expo/vector-icons';
@@ -255,6 +256,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             onViewTeam={onViewCurrentTeam}
             onRefresh={onRefresh}
           />
+        </View>
+
+        {/* Challenge Notifications - Only shows when there are pending challenges */}
+        <View style={styles.boxContainer}>
+          <ChallengeNotificationsBox />
         </View>
 
         {/* User's Competitions */}

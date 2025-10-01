@@ -4,6 +4,7 @@ Team-branded push notification system with Nostr event integration for RUNSTR.
 
 ## Files
 
+- **ChallengeNotificationHandler.ts** - Challenge request notification processing (kinds 1105/1106/1107)
 - **ExpoNotificationProvider.ts** - Expo push notification provider and device token management
 - **index.ts** - Central export file for notification services
 - **NotificationPreferencesService.ts** - User notification preference management and granular controls

@@ -208,7 +208,8 @@ export const RunningTrackerScreen: React.FC = () => {
         duration: elapsedTime, // Already in seconds
         distance: session.totalDistance, // Already in meters
         calories: activityMetricsService.estimateCalories('running', session.totalDistance, elapsedTime),
-        source: 'activity_tracker',
+        source: 'manual',
+        syncedAt: new Date().toISOString(),
         sourceApp: 'RUNSTR',
         elevationGain: session.totalElevationGain,
         unitSystem: 'metric',
