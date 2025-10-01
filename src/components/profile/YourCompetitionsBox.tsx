@@ -62,6 +62,7 @@ export const YourCompetitionsBox: React.FC = () => {
   };
 
   const handlePress = () => {
+    // @ts-ignore - CompetitionsList is in the navigation stack
     navigation.navigate('CompetitionsList');
   };
 
@@ -92,58 +93,17 @@ export const YourCompetitionsBox: React.FC = () => {
       activeOpacity={0.7}
     >
       <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <Ionicons name="trophy" size={20} color="#ffa500" />
-          <Text style={styles.title}>Your Competitions</Text>
-        </View>
-        {loading ? (
+        <Text style={styles.title}>YOUR COMPETITIONS</Text>
+        {loading && (
           <ActivityIndicator size="small" color="#999" />
-        ) : (
-          <Ionicons name="chevron-forward" size={20} color="#999" />
         )}
       </View>
 
       {!loading && (
         <>
-          <View style={styles.mainContent}>
-            <Text style={styles.activeCount}>
-              {activeCount} Active
-            </Text>
-            {activeCount > 0 && (
-              <Text style={styles.subtitle}>
-                Tap to view leaderboards
-              </Text>
-            )}
-          </View>
-
-          {activeCount > 0 && (
-            <View style={styles.breakdown}>
-              {breakdown.teams > 0 && (
-                <View style={styles.breakdownItem}>
-                  <Text style={styles.breakdownCount}>{breakdown.teams}</Text>
-                  <Text style={styles.breakdownLabel}>Team{breakdown.teams > 1 ? 's' : ''}</Text>
-                </View>
-              )}
-              {breakdown.leagues > 0 && (
-                <View style={styles.breakdownItem}>
-                  <Text style={styles.breakdownCount}>{breakdown.leagues}</Text>
-                  <Text style={styles.breakdownLabel}>League{breakdown.leagues > 1 ? 's' : ''}</Text>
-                </View>
-              )}
-              {breakdown.events > 0 && (
-                <View style={styles.breakdownItem}>
-                  <Text style={styles.breakdownCount}>{breakdown.events}</Text>
-                  <Text style={styles.breakdownLabel}>Event{breakdown.events > 1 ? 's' : ''}</Text>
-                </View>
-              )}
-              {breakdown.challenges > 0 && (
-                <View style={styles.breakdownItem}>
-                  <Text style={styles.breakdownCount}>{breakdown.challenges}</Text>
-                  <Text style={styles.breakdownLabel}>Challenge{breakdown.challenges > 1 ? 's' : ''}</Text>
-                </View>
-              )}
-            </View>
-          )}
+          <Text style={styles.activeCount}>
+            {activeCount} Active
+          </Text>
 
           {activeCount === 0 && (
             <View style={styles.emptyState}>
@@ -174,51 +134,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
   title: {
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#fff',
-  },
-  mainContent: {
-    marginBottom: 12,
+    backgroundColor: '#fff',
+    color: '#000',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   activeCount: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#ffa500',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#999',
-  },
-  breakdown: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#1a1a1a',
-  },
-  breakdownItem: {
-    alignItems: 'center',
-  },
-  breakdownCount: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#fff',
-    marginBottom: 2,
-  },
-  breakdownLabel: {
-    fontSize: 12,
-    color: '#666',
+    marginBottom: 8,
   },
   emptyState: {
-    paddingVertical: 8,
+    paddingVertical: 4,
   },
   emptyText: {
     fontSize: 14,
