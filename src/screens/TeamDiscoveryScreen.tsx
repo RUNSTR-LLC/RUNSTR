@@ -215,7 +215,7 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
 
       console.log('🎯 Fetching competition events from Nostr...');
 
-      const competitionService = NostrCompetitionService.getInstance();
+      const competitionService = NostrCompetitionService;
       const result = await competitionService.queryCompetitions({
         kinds: [30100, 30101], // Both leagues and events
         limit: 100,
@@ -1242,5 +1242,77 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: theme.typography.weights.medium,
     color: theme.colors.text,
+  },
+
+  // Toggle styles
+  toggleContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    gap: 12,
+  },
+
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+  },
+
+  toggleButtonActive: {
+    backgroundColor: theme.colors.text,
+    borderColor: theme.colors.text,
+  },
+
+  toggleButtonText: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.text,
+  },
+
+  toggleButtonTextActive: {
+    color: theme.colors.background,
+  },
+
+  // Event tabs styles
+  eventTabsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    gap: 8,
+  },
+
+  eventTab: {
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+
+  eventTabActive: {
+    backgroundColor: theme.colors.accent,
+    borderColor: theme.colors.accent,
+  },
+
+  eventTabText: {
+    fontSize: 13,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.text,
+  },
+
+  eventTabTextActive: {
+    color: theme.colors.accentText,
+  },
+
+  noResultsSubtext: {
+    fontSize: 13,
+    color: theme.colors.textMuted,
+    marginTop: 4,
   },
 });

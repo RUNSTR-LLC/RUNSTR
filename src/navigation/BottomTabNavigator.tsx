@@ -66,7 +66,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
           let iconName: keyof typeof Ionicons.glyphMap = 'help-outline';
 
           if (route.name === 'Teams') {
-            iconName = focused ? 'people' : 'people-outline';
+            iconName = focused ? 'search' : 'search-outline';
           } else if (route.name === 'Events') {
             iconName = focused ? 'ticket' : 'ticket-outline';
           } else if (route.name === 'Activity') {
@@ -87,11 +87,11 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
       })}
       initialRouteName="Profile"
     >
-      {/* Teams Tab - Discovery + Team Creation */}
+      {/* Discover Tab - Discovery + Team Creation */}
       <Tab.Screen
         name="Teams"
         options={{
-          title: 'Teams',
+          title: 'Discover',
           headerShown: false,
         }}
         listeners={{
@@ -122,6 +122,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
               showCloseButton={false} // No close button needed in tabs
               currentUserPubkey={user?.npub} // Pass current user's npub for captain detection
               onCaptainDashboard={() => handlers.handleCaptainDashboard(navigation)}
+              navigation={navigation} // Pass navigation for EventDetailScreen
               onCreateTeam={onNavigateToTeamCreation} // Pass team creation handler
             />
           </SafeAreaView>
