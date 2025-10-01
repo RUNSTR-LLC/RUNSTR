@@ -9,7 +9,7 @@ import { initializeWebSocketPolyfill } from './utils/webSocketPolyfill';
 import * as ExpoSplashScreen from 'expo-splash-screen';
 
 import React from 'react';
-import { StatusBar, View, Text, StyleSheet } from 'react-native';
+import { StatusBar, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // Error Boundary Component to catch runtime errors during initialization
@@ -89,6 +89,8 @@ type AuthenticatedStackParamList = {
   ContactSupport: undefined;
   PrivacyPolicy: undefined;
   CompetitionsList: undefined;
+  ChallengeWizard: undefined;
+  ChallengeLeaderboard: { challengeId: string };
 };
 
 const AuthenticatedStack = createStackNavigator<AuthenticatedStackParamList>();
@@ -345,6 +347,49 @@ const AppContent: React.FC = () => {
           }}
           component={CompetitionsListScreen}
         />
+
+        {/* Challenge Wizard Screen (placeholder) */}
+        <AuthenticatedStack.Screen
+          name="ChallengeWizard"
+          options={{
+            headerShown: false,
+          }}
+        >
+          {({ navigation }) => (
+            <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{ color: '#fff', fontSize: 18, marginBottom: 20 }}>Challenge Creation Wizard</Text>
+              <Text style={{ color: '#666', fontSize: 14 }}>Coming Soon</Text>
+              <TouchableOpacity
+                style={{ marginTop: 30, padding: 12, backgroundColor: '#fff', borderRadius: 8 }}
+                onPress={() => navigation.goBack()}
+              >
+                <Text style={{ color: '#000' }}>Go Back</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </AuthenticatedStack.Screen>
+
+        {/* Challenge Leaderboard Screen (placeholder) */}
+        <AuthenticatedStack.Screen
+          name="ChallengeLeaderboard"
+          options={{
+            headerShown: false,
+          }}
+        >
+          {({ navigation, route }) => (
+            <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{ color: '#fff', fontSize: 18, marginBottom: 20 }}>Challenge Leaderboard</Text>
+              <Text style={{ color: '#666', fontSize: 14 }}>Challenge ID: {route.params?.challengeId}</Text>
+              <Text style={{ color: '#666', fontSize: 14, marginTop: 10 }}>Coming Soon</Text>
+              <TouchableOpacity
+                style={{ marginTop: 30, padding: 12, backgroundColor: '#fff', borderRadius: 8 }}
+                onPress={() => navigation.goBack()}
+              >
+                <Text style={{ color: '#000' }}>Go Back</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </AuthenticatedStack.Screen>
       </AuthenticatedStack.Navigator>
     );
   };

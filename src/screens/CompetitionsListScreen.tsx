@@ -34,7 +34,7 @@ type RootStackParamList = {
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-type TabType = 'all' | 'teams' | 'leagues' | 'events' | 'challenges';
+type TabType = 'all' | 'leagues' | 'events' | 'challenges';
 
 export const CompetitionsListScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
@@ -85,7 +85,17 @@ export const CompetitionsListScreen: React.FC = () => {
     if (activeTab === 'all') {
       setFilteredCompetitions(competitions);
     } else {
-      const type = activeTab.slice(0, -1) as UserCompetition['type']; // Remove 's' from plural
+      // Map tab to competition type (remove 's' from plural)
+      let type: UserCompetition['type'];
+      if (activeTab === 'leagues') {
+        type = 'league';
+      } else if (activeTab === 'events') {
+        type = 'event';
+      } else if (activeTab === 'challenges') {
+        type = 'challenge';
+      } else {
+        type = activeTab.slice(0, -1) as UserCompetition['type'];
+      }
       setFilteredCompetitions(competitions.filter(c => c.type === type));
     }
   };
@@ -162,7 +172,7 @@ export const CompetitionsListScreen: React.FC = () => {
         onPress={() => handleCompetitionPress(item)}
       >
         <View style={styles.competitionIcon}>
-          <Ionicons name={getTypeIcon() as any} size={24} color="#ffa500" />
+          <Ionicons name={getTypeIcon() as any} size={24} color="#fff" />
         </View>
 
         <View style={styles.competitionInfo}>
@@ -178,7 +188,7 @@ export const CompetitionsListScreen: React.FC = () => {
             </Text>
             {item.wager && (
               <Text style={styles.wager}>
-                <Ionicons name="flash" size={12} color="#ffa500" /> {item.wager} sats
+                <Ionicons name="flash" size={12} color="#fff" /> {item.wager} sats
               </Text>
             )}
           </View>
@@ -233,7 +243,6 @@ export const CompetitionsListScreen: React.FC = () => {
         contentContainerStyle={styles.tabContent}
       >
         {renderTab('all', 'All')}
-        {renderTab('teams', 'Teams')}
         {renderTab('leagues', 'Leagues')}
         {renderTab('events', 'Events')}
         {renderTab('challenges', 'Challenges')}
@@ -242,7 +251,7 @@ export const CompetitionsListScreen: React.FC = () => {
       {/* Content */}
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#ffa500" />
+          <ActivityIndicator size="large" color="#fff" />
           <Text style={styles.loadingText}>Loading competitions...</Text>
         </View>
       ) : (
@@ -255,8 +264,8 @@ export const CompetitionsListScreen: React.FC = () => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => loadCompetitions(true)}
-              tintColor="#ffa500"
-              colors={['#ffa500']}
+              tintColor="#fff"
+              colors={['#fff']}
             />
           }
           contentContainerStyle={filteredCompetitions.length === 0 ? styles.emptyListContainer : styles.listContent}
@@ -307,7 +316,7 @@ const styles = StyleSheet.create({
   },
   activeTab: {
     borderBottomWidth: 2,
-    borderBottomColor: '#ffa500',
+    borderBottomColor: '#fff',
   },
   tabText: {
     fontSize: 14,
@@ -378,7 +387,7 @@ const styles = StyleSheet.create({
   },
   wager: {
     fontSize: 12,
-    color: '#ffa500',
+    color: '#fff',
   },
   emptyListContainer: {
     flex: 1,
@@ -403,7 +412,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   createButton: {
-    backgroundColor: '#ffa500',
+    backgroundColor: '#fff',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 24,
