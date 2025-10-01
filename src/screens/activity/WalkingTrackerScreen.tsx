@@ -26,7 +26,8 @@ export const WalkingTrackerScreen: React.FC = () => {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const metricsUpdateRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
-  const pausedDurationRef = useRef<number>(0);
+  const pauseStartTimeRef = useRef<number>(0);  // When pause started
+  const totalPausedTimeRef = useRef<number>(0);  // Cumulative pause duration in ms
 
   useEffect(() => {
     return () => {
@@ -45,12 +46,13 @@ export const WalkingTrackerScreen: React.FC = () => {
     setIsTracking(true);
     setIsPaused(false);
     startTimeRef.current = Date.now();
-    pausedDurationRef.current = 0;
+    pauseStartTimeRef.current = 0;
+    totalPausedTimeRef.current = 0;
 
     timerRef.current = setInterval(() => {
       if (!isPaused) {
         const now = Date.now();
-        const totalElapsed = Math.floor((now - startTimeRef.current - pausedDurationRef.current) / 1000);
+        const totalElapsed = Math.floor((now - startTimeRef.current - totalPausedTimeRef.current) / 1000);
         setElapsedTime(totalElapsed);
       }
     }, 1000);
@@ -76,14 +78,14 @@ export const WalkingTrackerScreen: React.FC = () => {
     if (!isPaused) {
       await enhancedLocationTrackingService.pauseTracking();
       setIsPaused(true);
-      pausedDurationRef.current = Date.now();
+      pauseStartTimeRef.current = Date.now();  // Store when pause started
     }
   };
 
   const resumeTracking = async () => {
     if (isPaused) {
-      const pauseDuration = Date.now() - pausedDurationRef.current;
-      pausedDurationRef.current += pauseDuration;
+      const pauseDuration = Date.now() - pauseStartTimeRef.current;  // Calculate how long we were paused
+      totalPausedTimeRef.current += pauseDuration;  // Add to cumulative total
       await enhancedLocationTrackingService.resumeTracking();
       setIsPaused(false);
     }
