@@ -13,10 +13,10 @@ import { theme } from '../../styles/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NostrListService } from '../../services/nostr/NostrListService';
 import { EventJoinRequestService } from '../../services/events/EventJoinRequestService';
-import { getAuthenticationData } from '../../utils/authUtils';
-import { nsecToPrivateKey, npubToHex } from '../../utils/ndkConversion';
+import { getAuthenticationData } from '../../utils/nostrAuth';
+import { nsecToPrivateKey } from '../../utils/nostr';
+import { npubToHex } from '../../utils/ndkConversion';
 import { NDKPrivateKeySigner, NDKEvent } from '@nostr-dev-kit/ndk';
-import { getNDKInstance } from '../../services/nostr/ndkInstance';
 import { Alert } from 'react-native';
 
 interface EventsCardProps {
@@ -228,7 +228,8 @@ export const EventsCard: React.FC<EventsCardProps> = ({
       );
 
       // Sign and publish
-      const ndk = await getNDKInstance();
+      const g = globalThis as any;
+      const ndk = g.__RUNSTR_NDK_INSTANCE__;
       const privateKeyHex = nsecToPrivateKey(authData.nsec);
       const signer = new NDKPrivateKeySigner(privateKeyHex);
       const ndkEvent = new NDKEvent(ndk, eventTemplate);

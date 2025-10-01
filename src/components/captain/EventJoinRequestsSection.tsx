@@ -19,11 +19,10 @@ import { JoinRequestCard } from '../team/JoinRequestCard';
 import { EventJoinRequestService } from '../../services/events/EventJoinRequestService';
 import type { EventJoinRequest } from '../../services/events/EventJoinRequestService';
 import { NostrListService } from '../../services/nostr/NostrListService';
-import { getAuthenticationData } from '../../utils/authUtils';
-import { nsecToPrivateKey } from '../../utils/ndkConversion';
+import { getAuthenticationData } from '../../utils/nostrAuth';
+import { nsecToPrivateKey } from '../../utils/nostr';
 import { npubToHex } from '../../utils/ndkConversion';
 import { NDKPrivateKeySigner, NDKEvent } from '@nostr-dev-kit/ndk';
-import { getNDKInstance } from '../../services/nostr/ndkInstance';
 
 interface EventJoinRequestsSectionProps {
   captainPubkey: string;
@@ -177,7 +176,8 @@ export const EventJoinRequestsSection: React.FC<EventJoinRequestsSectionProps> =
         const eventTemplate = listService.prepareListCreation(listData, captainHexPubkey);
 
         // Sign and publish
-        const ndk = await getNDKInstance();
+        const g = globalThis as any;
+        const ndk = g.__RUNSTR_NDK_INSTANCE__;
         const signer = new NDKPrivateKeySigner(privateKeyHex);
         const ndkEvent = new NDKEvent(ndk, eventTemplate);
         await ndkEvent.sign(signer);
@@ -193,7 +193,8 @@ export const EventJoinRequestsSection: React.FC<EventJoinRequestsSectionProps> =
 
         if (eventTemplate) {
           // Sign and publish updated list
-          const ndk = await getNDKInstance();
+          const g = globalThis as any;
+          const ndk = g.__RUNSTR_NDK_INSTANCE__;
           const signer = new NDKPrivateKeySigner(privateKeyHex);
           const ndkEvent = new NDKEvent(ndk, eventTemplate);
           await ndkEvent.sign(signer);
