@@ -29,7 +29,8 @@ export interface TrackingSession {
   totalDistance: number; // meters
   totalElevationGain: number; // meters
   isPaused: boolean;
-  pausedDuration: number; // milliseconds
+  pausedDuration: number; // milliseconds - cumulative total paused time
+  pauseStartTime?: number; // timestamp when pause started (for calculating pause duration)
 }
 
 class LocationTrackingService {
@@ -99,6 +100,7 @@ class LocationTrackingService {
         totalElevationGain: 0,
         isPaused: false,
         pausedDuration: 0,
+        pauseStartTime: undefined,
       };
 
       // Configure location tracking options based on activity
@@ -150,7 +152,7 @@ class LocationTrackingService {
   pauseTracking() {
     if (this.currentSession && !this.currentSession.isPaused) {
       this.currentSession.isPaused = true;
-      this.currentSession.pausedDuration = Date.now();
+      this.currentSession.pauseStartTime = Date.now(); // Store when pause started
       console.log('Tracking paused');
     }
   }
@@ -160,8 +162,12 @@ class LocationTrackingService {
    */
   resumeTracking() {
     if (this.currentSession && this.currentSession.isPaused) {
-      const pauseDuration = Date.now() - this.currentSession.pausedDuration;
-      this.currentSession.pausedDuration += pauseDuration;
+      // Calculate actual pause duration
+      const pauseDuration = this.currentSession.pauseStartTime
+        ? Date.now() - this.currentSession.pauseStartTime
+        : 0;
+      this.currentSession.pausedDuration += pauseDuration; // Add to cumulative total
+      this.currentSession.pauseStartTime = undefined; // Clear after calculating
       this.currentSession.isPaused = false;
       console.log('Tracking resumed');
     }

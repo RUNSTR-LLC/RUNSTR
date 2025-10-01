@@ -44,6 +44,7 @@ export interface EnhancedTrackingSession {
   totalElevationGain: number;
   duration: number; // Active duration excluding pauses
   pausedDuration: number;
+  pauseStartTime?: number; // Timestamp when pause started (for calculating pause duration)
   gpsSignalStrength: 'strong' | 'medium' | 'weak' | 'none';
   lastGPSUpdate: number;
   isBackgroundTracking: boolean;
@@ -195,6 +196,7 @@ export class EnhancedLocationTrackingService {
         totalElevationGain: 0,
         duration: 0,
         pausedDuration: 0,
+        pauseStartTime: undefined,
         gpsSignalStrength: 'searching' as any,
         lastGPSUpdate: Date.now(),
         isBackgroundTracking: AppState.currentState !== 'active',
@@ -470,6 +472,11 @@ export class EnhancedLocationTrackingService {
   async pauseTracking(): Promise<void> {
     if (!this.stateMachine.canPause()) return;
 
+    // Store when pause started
+    if (this.currentSession) {
+      this.currentSession.pauseStartTime = Date.now();
+    }
+
     this.stateMachine.send({ type: 'PAUSE' });
     await pauseBackgroundTracking();
     this.recoveryService.pauseSession();
@@ -481,10 +488,16 @@ export class EnhancedLocationTrackingService {
   async resumeTracking(): Promise<void> {
     if (!this.stateMachine.canResume()) return;
 
+    // Calculate actual pause duration
+    let pauseDuration = 0;
+    if (this.currentSession?.pauseStartTime) {
+      pauseDuration = Date.now() - this.currentSession.pauseStartTime;
+      this.currentSession.pauseStartTime = undefined; // Clear after calculating
+    }
+
     this.stateMachine.send({ type: 'RESUME' });
     this.justResumedFromPause = true; // Flag for transport detection
     await resumeBackgroundTracking();
-    const pauseDuration = Date.now(); // Calculate actual pause duration
     this.recoveryService.resumeSession(pauseDuration);
   }
 
@@ -548,6 +561,7 @@ export class EnhancedLocationTrackingService {
         totalElevationGain: result.session.totalElevationGain,
         duration: result.session.duration,
         pausedDuration: result.session.pausedDuration,
+        pauseStartTime: undefined,
         gpsSignalStrength: 'searching' as any,
         lastGPSUpdate: Date.now(),
         isBackgroundTracking: false,

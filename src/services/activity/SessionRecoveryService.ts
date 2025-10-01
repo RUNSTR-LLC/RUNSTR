@@ -20,6 +20,7 @@ export interface RecoverableSession {
   totalElevationGain: number;
   duration: number; // Total active time excluding pauses
   pausedDuration: number;
+  pauseStartTime?: number; // Timestamp when pause started (for calculating pause duration)
   isPaused: boolean;
   lastKnownLocation?: LocationPoint;
   checkpoints: SessionCheckpoint[];
@@ -123,6 +124,7 @@ export class SessionRecoveryService {
   pauseSession(): void {
     if (this.currentSession && !this.currentSession.isPaused) {
       this.currentSession.isPaused = true;
+      this.currentSession.pauseStartTime = Date.now(); // Store when pause started
       this.currentSession.lastUpdateTime = Date.now();
       this.saveActiveSession();
     }
@@ -135,6 +137,7 @@ export class SessionRecoveryService {
     if (this.currentSession && this.currentSession.isPaused) {
       this.currentSession.isPaused = false;
       this.currentSession.pausedDuration += pauseDuration;
+      this.currentSession.pauseStartTime = undefined; // Clear after calculating pause duration
       this.currentSession.lastUpdateTime = Date.now();
       this.saveActiveSession();
     }
