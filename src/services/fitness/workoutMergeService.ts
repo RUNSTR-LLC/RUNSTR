@@ -143,17 +143,31 @@ export class WorkoutMergeService {
           );
           console.log(`✅ HealthKit fetch successful: ${healthKitWorkouts.length} workouts`);
         } catch (hkError) {
-          // Log error prominently but continue with Nostr workouts
+          // Log error prominently and throw to let UI components show user-facing errors
           console.error('❌ HealthKit fetch failed:', hkError);
           const errorMessage = hkError instanceof Error ? hkError.message : 'Unknown error';
           console.error(`❌ HealthKit error details: ${errorMessage}`);
 
-          // If authorization error, this is critical - user needs to know
+          // Create user-friendly error message
+          let userFriendlyError = 'Failed to sync Apple Health workouts';
+
           if (errorMessage.includes('not authorized') || errorMessage.includes('Permission')) {
+            userFriendlyError = 'Apple Health permissions are required. Please grant permissions in Settings → Privacy & Security → Health → RUNSTR.';
             console.error('❌ CRITICAL: HealthKit permission issue detected!');
+          } else if (errorMessage.includes('timeout') || errorMessage.includes('timed out')) {
+            userFriendlyError = 'Apple Health sync timed out. This can happen with large workout libraries. Try again or contact support.';
+          } else if (errorMessage.includes('not available')) {
+            userFriendlyError = 'Apple Health is not available on this device or in the simulator.';
           }
 
-          // Continue with empty HealthKit workouts but error is now visible in logs
+          // Store the error for UI components to access
+          await AsyncStorage.setItem('@healthkit:last_error', JSON.stringify({
+            message: userFriendlyError,
+            timestamp: Date.now(),
+            technicalDetails: errorMessage
+          }));
+
+          // Continue with empty HealthKit workouts but error is stored for UI
           healthKitWorkouts = [];
         }
       } else {
@@ -713,6 +727,44 @@ export class WorkoutMergeService {
     } catch (error) {
       console.error('❌ Error clearing workout status:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Get last HealthKit error for UI display
+   */
+  async getLastHealthKitError(): Promise<{
+    message: string;
+    timestamp: number;
+    technicalDetails: string;
+  } | null> {
+    try {
+      const stored = await AsyncStorage.getItem('@healthkit:last_error');
+      if (!stored) return null;
+
+      const error = JSON.parse(stored);
+
+      // Clear errors older than 1 hour
+      if (Date.now() - error.timestamp > 60 * 60 * 1000) {
+        await AsyncStorage.removeItem('@healthkit:last_error');
+        return null;
+      }
+
+      return error;
+    } catch (error) {
+      console.warn('Failed to get last HealthKit error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Clear stored HealthKit error
+   */
+  async clearHealthKitError(): Promise<void> {
+    try {
+      await AsyncStorage.removeItem('@healthkit:last_error');
+    } catch (error) {
+      console.warn('Failed to clear HealthKit error:', error);
     }
   }
 

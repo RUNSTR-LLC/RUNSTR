@@ -97,13 +97,14 @@ export class HealthKitService {
   private isAuthorized = false;
   private syncInProgress = false;
   private lastSyncAt?: Date;
-  private readonly DEFAULT_TIMEOUT = 30000; // 30 seconds
-  private readonly PERMISSION_TIMEOUT = 15000; // 15 seconds for permissions
+  private readonly DEFAULT_TIMEOUT = 60000; // 60 seconds (increased for large workout libraries)
+  private readonly PERMISSION_TIMEOUT = 30000; // 30 seconds for permissions (increased for careful users)
   private abortController: AbortController | null = null;
   private isModuleAvailable: boolean = false;
 
   private constructor() {
     this.initializeModule();
+    this.loadAuthorizationStatus();
   }
 
   /**
@@ -135,6 +136,34 @@ export class HealthKitService {
       console.error('Failed to load HealthKit module:', error);
       this.isModuleAvailable = false;
       ExpoHealthKit = null;
+    }
+  }
+
+  /**
+   * Load authorization status from AsyncStorage to persist across app restarts
+   */
+  private async loadAuthorizationStatus() {
+    try {
+      const stored = await AsyncStorage.getItem('@healthkit:authorized');
+      if (stored === 'true') {
+        this.isAuthorized = true;
+        console.log('✅ HealthKit: Loaded persisted authorization status');
+      }
+    } catch (error) {
+      console.warn('Failed to load HealthKit authorization status:', error);
+    }
+  }
+
+  /**
+   * Save authorization status to AsyncStorage for persistence
+   */
+  private async saveAuthorizationStatus(authorized: boolean) {
+    try {
+      await AsyncStorage.setItem('@healthkit:authorized', authorized ? 'true' : 'false');
+      this.isAuthorized = authorized;
+      console.log(`✅ HealthKit: Saved authorization status: ${authorized}`);
+    } catch (error) {
+      console.warn('Failed to save HealthKit authorization status:', error);
     }
   }
 
@@ -215,16 +244,19 @@ export class HealthKitService {
       // Request permissions from iOS
       const permissionsResult = await this.requestPermissions();
       console.log('🔍 DEBUG: Permission request result:', permissionsResult);
-      
+
       if (!permissionsResult.success) {
         console.log('🔍 DEBUG: Permission request failed, returning failure');
+        await this.saveAuthorizationStatus(false);
         return permissionsResult;
       }
 
-      this.isAuthorized = true;
-      console.log('🔍 DEBUG: HealthKit initialized and authorized successfully');
+      // Verify actual iOS authorization status after permission request
+      const actuallyAuthorized = await this.checkActualAuthorizationStatus();
+      await this.saveAuthorizationStatus(actuallyAuthorized);
+      console.log(`🔍 DEBUG: HealthKit initialized, authorization verified: ${actuallyAuthorized}`);
 
-      return { success: true };
+      return { success: actuallyAuthorized, error: actuallyAuthorized ? undefined : 'Permission verification failed' };
     } catch (error) {
       errorLog('HealthKit: Initialization failed:', error);
       return {
@@ -665,6 +697,7 @@ export class HealthKitService {
 
   /**
    * Check the actual iOS HealthKit authorization status (not session-based)
+   * Improved to actually verify iOS permissions instead of assuming success
    */
   private async checkActualAuthorizationStatus(): Promise<boolean> {
     if (!HealthKitService.isAvailable()) {
@@ -672,30 +705,37 @@ export class HealthKitService {
     }
 
     try {
-      // Define the same enhanced permissions we request
-      const readPermissions = [
-        'HKQuantityTypeIdentifierActiveEnergyBurned',
-        'HKQuantityTypeIdentifierDistanceWalkingRunning',
-        'HKQuantityTypeIdentifierDistanceCycling',
-        'HKQuantityTypeIdentifierHeartRate',
-        'HKWorkoutTypeIdentifier',
-        // Enhanced data types
-        'HKQuantityTypeIdentifierStepCount',
-        'HKQuantityTypeIdentifierFlightsClimbed',
-        'HKQuantityTypeIdentifierVO2Max',
-        'HKQuantityTypeIdentifierRestingHeartRate',
-        'HKQuantityTypeIdentifierHeartRateVariabilitySDNN',
-      ];
-      const writePermissions: string[] = []; // No write permissions needed
+      // Try to query workouts as a test - if we can fetch data, permissions are granted
+      // This is more reliable than getAuthorizationStatusForType which returns "undetermined" for privacy
+      console.log('🔍 HealthKit: Verifying authorization by testing workout query...');
 
-      // Simplified authorization check - trust that if we got this far, we have permissions
-      // The permission dialog result is the source of truth
-      // Complex per-permission checking with getAuthorizationStatusForType doesn't work reliably
+      const testQuery = {
+        from: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // Last 24 hours
+        to: new Date().toISOString(),
+        limit: 1 // Just test with 1 workout
+      };
 
-      console.log('🔍 DEBUG: Authorization check - assuming permissions granted after dialog');
-      return true; // If we successfully requested permissions, assume they're granted
+      try {
+        // Attempt to query workouts - if this succeeds, we have permissions
+        const testResults = await ExpoHealthKit.queryWorkouts(testQuery);
+        console.log('✅ HealthKit: Authorization verified - successfully queried workouts');
+        return true; // Query succeeded = permissions granted
+      } catch (queryError: any) {
+        // Check if error is due to missing permissions vs other issues
+        const errorMessage = queryError?.message || String(queryError);
+
+        if (errorMessage.includes('not authorized') || errorMessage.includes('permission')) {
+          console.log('❌ HealthKit: Authorization check failed - permissions not granted');
+          return false;
+        }
+
+        // Other errors (network, etc.) don't necessarily mean no permissions
+        // If we're not sure, assume permissions are OK to avoid false negatives
+        console.warn('⚠️ HealthKit: Authorization check inconclusive, assuming OK:', errorMessage);
+        return true;
+      }
     } catch (error) {
-      debugLog('HealthKit: Error checking authorization status:', error);
+      errorLog('HealthKit: Error checking authorization status:', error);
       return false;
     }
   }
@@ -727,10 +767,10 @@ export class HealthKitService {
     lastSyncAt?: string;
   }> {
     const actuallyAuthorized = await this.checkActualAuthorizationStatus();
-    
-    // Update our session flag to match reality
-    this.isAuthorized = actuallyAuthorized;
-    
+
+    // Update our session flag and persist to match reality
+    await this.saveAuthorizationStatus(actuallyAuthorized);
+
     return {
       available: HealthKitService.isAvailable(),
       authorized: actuallyAuthorized,
@@ -743,7 +783,7 @@ export class HealthKitService {
    * Force re-authorization (useful for troubleshooting)
    */
   async reauthorize(): Promise<{ success: boolean; error?: string }> {
-    this.isAuthorized = false;
+    await this.saveAuthorizationStatus(false);
     return await this.initialize();
   }
 

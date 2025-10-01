@@ -9,6 +9,7 @@ import { AntDesign } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { Card } from '../ui/Card';
 import healthKitService from '../../services/fitness/healthKitService';
+import { WorkoutMergeService } from '../../services/fitness/workoutMergeService';
 
 interface HealthKitPermissionCardProps {
   userId: string;
@@ -38,9 +39,11 @@ export const HealthKitPermissionCard: React.FC<
     totalHealthKitWorkouts: number;
     lastSyncDate?: string;
   }>({ totalHealthKitWorkouts: 0 });
+  const [lastError, setLastError] = useState<string | null>(null);
 
   // AbortController for cancelling long-running operations
   const abortControllerRef = useRef<AbortController | null>(null);
+  const mergeService = WorkoutMergeService.getInstance();
 
   useEffect(() => {
     checkCurrentStatus();
@@ -71,6 +74,9 @@ export const HealthKitPermissionCard: React.FC<
       } else {
         setStatus('unknown');
       }
+
+      // Check for recent errors
+      await checkForErrors();
     } catch (error) {
       console.error('Error checking HealthKit status:', error);
       setStatus('unknown');
@@ -83,6 +89,17 @@ export const HealthKitPermissionCard: React.FC<
       setStats(syncStats);
     } catch (error) {
       console.error('Error loading HealthKit stats:', error);
+    }
+  };
+
+  const checkForErrors = async () => {
+    try {
+      const error = await mergeService.getLastHealthKitError();
+      if (error) {
+        setLastError(error.message);
+      }
+    } catch (error) {
+      console.error('Error checking for HealthKit errors:', error);
     }
   };
 
@@ -380,6 +397,27 @@ export const HealthKitPermissionCard: React.FC<
 
         <Text style={styles.description}>{getDescription()}</Text>
 
+        {lastError && (
+          <View style={styles.errorContainer}>
+            <AntDesign
+              name="exclamationcircle"
+              size={14}
+              color={theme.colors.textSecondary}
+              style={styles.errorIcon}
+            />
+            <Text style={styles.errorText}>{lastError}</Text>
+            <TouchableOpacity
+              onPress={async () => {
+                setLastError(null);
+                await mergeService.clearHealthKitError();
+              }}
+              style={styles.dismissButton}
+            >
+              <AntDesign name="close" size={14} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        )}
+
         {status === 'granted' && showStats && stats.lastSyncDate && (
           <Text style={styles.lastSync}>
             Last synced: {new Date(stats.lastSyncDate).toLocaleString()}
@@ -437,5 +475,29 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     marginTop: 8,
     opacity: 0.7,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: 'rgba(255, 59, 48, 0.1)',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 59, 48, 0.3)',
+  },
+  errorIcon: {
+    marginRight: 6,
+    marginTop: 1,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 11,
+    color: theme.colors.textSecondary,
+    lineHeight: 16,
+  },
+  dismissButton: {
+    padding: 4,
+    marginLeft: 4,
   },
 });
