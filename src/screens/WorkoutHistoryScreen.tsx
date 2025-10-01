@@ -27,6 +27,7 @@ import { getNsecFromStorage } from '../utils/nostr';
 import { WorkoutCacheService } from '../services/cache/WorkoutCacheService';
 import { WorkoutGroupingService, type WorkoutGroup } from '../utils/workoutGrouping';
 import healthKitService from '../services/fitness/healthKitService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // UI Components
 import { Card } from '../components/ui/Card';
@@ -48,8 +49,7 @@ import type { WorkoutType } from '../types/workout';
 interface WorkoutHistoryScreenProps {
   route?: {
     params?: {
-      userId?: string;
-      pubkey?: string;
+      // Legacy params - we get pubkey from AsyncStorage now
     };
   };
 }
@@ -62,8 +62,8 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
   route,
 }) => {
   const navigation = useNavigation();
-  const userId = route?.params?.userId || '';
-  const pubkey = route?.params?.pubkey || '';
+  // Pure Nostr implementation - get pubkey from AsyncStorage
+  const [pubkey, setPubkey] = useState<string>('');
   const [workouts, setWorkouts] = useState<UnifiedWorkout[]>([]);
   const [filteredWorkouts, setFilteredWorkouts] = useState<UnifiedWorkout[]>(
     []
@@ -86,12 +86,45 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
   const publishingService = WorkoutPublishingService.getInstance();
   const syncService = NostrWorkoutSyncService.getInstance();
 
+  // Load pubkey from AsyncStorage on mount
   useEffect(() => {
-    initializeHealthKitAndLoadWorkouts();
-    loadNsecKey();
+    loadPubkeyAndInitialize();
   }, []);
 
-  const initializeHealthKitAndLoadWorkouts = async () => {
+  const loadPubkeyAndInitialize = async () => {
+    try {
+      // Try to get hex pubkey first, fallback to npub
+      const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+      const npub = await AsyncStorage.getItem('@runstr:npub');
+
+      const userPubkey = hexPubkey || npub || '';
+
+      if (!userPubkey) {
+        console.error('❌ No pubkey found in AsyncStorage - user needs to login');
+        Alert.alert(
+          'Not Logged In',
+          'Please log in with your Nostr key to view workouts.',
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('✅ Loaded pubkey from AsyncStorage:', userPubkey.slice(0, 20) + '...');
+      setPubkey(userPubkey);
+
+      // Load nsec for posting
+      await loadNsecKey(userPubkey);
+
+      // Initialize HealthKit and load workouts (pass pubkey directly)
+      await initializeHealthKitAndLoadWorkouts(userPubkey);
+    } catch (error) {
+      console.error('❌ Failed to load pubkey:', error);
+      setIsLoading(false);
+    }
+  };
+
+  const initializeHealthKitAndLoadWorkouts = async (userPubkey: string) => {
     // Initialize HealthKit if available
     if (healthKitService.getStatus().available) {
       console.log('🍎 Initializing HealthKit on WorkoutHistoryScreen mount...');
@@ -109,8 +142,8 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
       console.log('ℹ️ HealthKit not available on this device');
     }
 
-    // Load workouts after initialization attempt
-    await loadWorkouts();
+    // Load workouts after initialization attempt (pass pubkey directly)
+    await loadWorkouts(false, userPubkey);
   };
 
   useEffect(() => {
@@ -128,17 +161,24 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
     setWorkoutGroups(groupsWithExpanded);
   }, [filteredWorkouts, expandedGroups]);
 
-  const loadWorkouts = async (forceRefresh = false) => {
+  const loadWorkouts = async (forceRefresh = false, userPubkey?: string) => {
+    // Use passed pubkey or fall back to state
+    const activePubkey = userPubkey || pubkey;
+
+    if (!activePubkey) {
+      console.error('❌ Cannot load workouts: no pubkey available');
+      return;
+    }
+
     try {
       console.log('📱 WorkoutHistoryScreen: Loading workouts...');
-      console.log('📱 User ID:', userId?.slice(0, 20) + '...');
-      console.log('📱 Pubkey:', pubkey?.slice(0, 20) + '...');
+      console.log('📱 Pubkey:', activePubkey.slice(0, 20) + '...');
       console.log('📱 HealthKit Status:', healthKitService.getStatus());
 
-      // Use cache service for initial load with proper userId and pubkey
+      // Pure Nostr implementation - use only pubkey
       const result = forceRefresh
-        ? await cacheService.refreshWorkouts(userId, pubkey, 500)
-        : await cacheService.getMergedWorkouts(userId, pubkey, 500);
+        ? await cacheService.refreshWorkouts(activePubkey, 500)
+        : await cacheService.getMergedWorkouts(activePubkey, 500);
 
       console.log('📱 WorkoutHistoryScreen: Load complete');
       console.log(`  - Total workouts: ${result.allWorkouts.length}`);
@@ -184,9 +224,10 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
     });
   };
 
-  const loadNsecKey = async () => {
+  const loadNsecKey = async (userPubkey: string) => {
     try {
-      const nsec = await getNsecFromStorage(userId);
+      // Get nsec from AsyncStorage directly (no userId needed)
+      const nsec = await AsyncStorage.getItem('@runstr:user_nsec');
       setNsecKey(nsec);
     } catch (error) {
       console.error('Failed to load nsec key:', error);
@@ -195,9 +236,11 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
   };
 
   const handleRefresh = useCallback(async () => {
+    if (!pubkey) return;
+
     setIsRefreshing(true);
     try {
-      await syncService.triggerManualSync(userId, pubkey);
+      // Manual sync no longer needs userId
       await loadWorkouts(true); // Force refresh from network
     } catch (error) {
       console.error('Sync failed:', error);
@@ -205,7 +248,7 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
     } finally {
       setIsRefreshing(false);
     }
-  }, [userId, pubkey]);
+  }, [pubkey]);
 
   const handleSaveToNostr = async (workout: UnifiedWorkout) => {
     if (!nsecKey) {
@@ -216,11 +259,17 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
       return;
     }
 
+    if (!pubkey) {
+      Alert.alert('Error', 'User pubkey not available');
+      return;
+    }
+
     try {
+      // Pure Nostr implementation - use pubkey as identifier
       const result = await publishingService.saveWorkoutToNostr(
         workout,
         nsecKey,
-        userId
+        pubkey // Use pubkey instead of userId
       );
 
       if (result.success) {
@@ -250,11 +299,17 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
       return;
     }
 
+    if (!pubkey) {
+      Alert.alert('Error', 'User pubkey not available');
+      return;
+    }
+
     try {
+      // Pure Nostr implementation - use pubkey as identifier
       const result = await publishingService.postWorkoutToSocial(
         workout,
         nsecKey,
-        userId
+        pubkey // Use pubkey instead of userId
       );
 
       if (result.success) {
@@ -462,7 +517,7 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
       {/* Import Button and View Toggle */}
       <View style={styles.topControls}>
         <SyncDropdown
-          userId={userId}
+          userId={pubkey} // SyncDropdown will be updated later, use pubkey for now
           onSyncComplete={() => loadWorkouts(true)}
         />
         <View style={styles.viewToggle}>
