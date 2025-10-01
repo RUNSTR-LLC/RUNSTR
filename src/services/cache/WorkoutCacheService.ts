@@ -45,9 +45,22 @@ export class WorkoutCacheService {
   /**
    * Get merged workouts with cache-first strategy and version checking
    * Returns cached data immediately if available and valid, triggers background refresh if stale
+   * Pure Nostr implementation - uses pubkey as single identifier
    */
-  async getMergedWorkouts(userId: string, pubkey?: string, limit = 500): Promise<WorkoutMergeResult> {
-    console.log('📦 WorkoutCacheService: Fetching merged workouts for user:', userId?.slice(0, 20) + '...');
+  async getMergedWorkouts(pubkey: string, limit = 500): Promise<WorkoutMergeResult> {
+    console.log('📦 WorkoutCacheService: Fetching merged workouts for pubkey:', pubkey?.slice(0, 20) + '...');
+
+    if (!pubkey) {
+      console.error('❌ WorkoutCacheService: No pubkey provided');
+      return {
+        allWorkouts: [],
+        healthKitCount: 0,
+        nostrCount: 0,
+        duplicateCount: 0,
+        fromCache: false,
+        loadDuration: 0,
+      };
+    }
 
     // Check cache version first
     const cacheVersion = await appCache.get<string>(this.VERSION_KEY);
@@ -55,7 +68,7 @@ export class WorkoutCacheService {
     if (cacheVersion !== this.CACHE_VERSION) {
       console.log(`🔄 Cache version mismatch (${cacheVersion} vs ${this.CACHE_VERSION}), clearing cache...`);
       await this.clearCache();
-      return this.fetchAndCacheWorkouts(userId, pubkey, limit);
+      return this.fetchAndCacheWorkouts(pubkey, limit);
     }
 
     // Check cache with TTL validation
@@ -81,7 +94,7 @@ export class WorkoutCacheService {
 
       // Check if background refresh is needed (after 2 minutes)
       if (cacheAge > this.BACKGROUND_REFRESH_TIME) {
-        this.refreshInBackground(userId, pubkey, limit);
+        this.refreshInBackground(pubkey, limit);
       }
 
       return cachedResult;
@@ -89,26 +102,28 @@ export class WorkoutCacheService {
 
     // No cache or invalid cache, fetch fresh data
     console.log('🔄 WorkoutCacheService: Cache miss, fetching fresh workouts...');
-    return this.fetchAndCacheWorkouts(userId, pubkey, limit);
+    return this.fetchAndCacheWorkouts(pubkey, limit);
   }
 
   /**
    * Force refresh workouts (used for pull-to-refresh)
+   * Pure Nostr implementation - uses pubkey only
    */
-  async refreshWorkouts(userId: string, pubkey?: string, limit = 500): Promise<WorkoutMergeResult> {
-    console.log('🔄 WorkoutCacheService: Force refreshing workouts for user:', userId?.slice(0, 20) + '...');
-    return this.fetchAndCacheWorkouts(userId, pubkey, limit);
+  async refreshWorkouts(pubkey: string, limit = 500): Promise<WorkoutMergeResult> {
+    console.log('🔄 WorkoutCacheService: Force refreshing workouts for pubkey:', pubkey?.slice(0, 20) + '...');
+    return this.fetchAndCacheWorkouts(pubkey, limit);
   }
 
   /**
    * Fetch workouts from services and update cache with versioning
+   * Pure Nostr implementation - uses pubkey only
    */
-  private async fetchAndCacheWorkouts(userId: string, pubkey?: string, limit: number = 500): Promise<WorkoutMergeResult> {
+  private async fetchAndCacheWorkouts(pubkey: string, limit: number = 500): Promise<WorkoutMergeResult> {
     const startTime = Date.now();
 
     try {
       // Fetch merged workouts from both HealthKit and Nostr
-      const result = await this.mergeService.getMergedWorkouts(userId, pubkey);
+      const result = await this.mergeService.getMergedWorkouts(pubkey);
 
       if (result && result.allWorkouts.length > 0) {
         // Cache the result with version and timestamp
@@ -151,8 +166,9 @@ export class WorkoutCacheService {
 
   /**
    * Background refresh without blocking UI
+   * Pure Nostr implementation - uses pubkey only
    */
-  private async refreshInBackground(userId: string, pubkey?: string, limit: number = 500): Promise<void> {
+  private async refreshInBackground(pubkey: string, limit: number = 500): Promise<void> {
     // Prevent multiple simultaneous refreshes
     if (this.isRefreshing) {
       return;
@@ -166,10 +182,10 @@ export class WorkoutCacheService {
     this.isRefreshing = true;
     this.lastRefreshTime = Date.now();
 
-    console.log('🔄 WorkoutCacheService: Starting background refresh for user:', userId?.slice(0, 20) + '...');
+    console.log('🔄 WorkoutCacheService: Starting background refresh for pubkey:', pubkey?.slice(0, 20) + '...');
 
     try {
-      const result = await this.mergeService.getMergedWorkouts(userId, pubkey);
+      const result = await this.mergeService.getMergedWorkouts(pubkey);
 
       if (result && result.allWorkouts.length > 0) {
         try {
@@ -192,6 +208,7 @@ export class WorkoutCacheService {
   /**
    * Update posting status for a specific workout
    * This updates the cache without requiring a full refresh
+   * Pure Nostr implementation - merge service handles pubkey internally
    */
   async updateWorkoutStatus(
     workoutId: string,
@@ -215,7 +232,7 @@ export class WorkoutCacheService {
       }
     }
 
-    // Also update in the merge service for persistence
+    // Also update in the merge service for persistence (it gets pubkey internally)
     await this.mergeService.updateWorkoutStatus({
       workoutId,
       ...updates,

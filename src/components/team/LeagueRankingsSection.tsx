@@ -155,6 +155,8 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
 
   /**
    * Load league rankings
+   * Now uses cache-first strategy with stale-while-revalidate pattern
+   * Returns cached data instantly (even if stale) while fetching fresh data in background
    */
   const loadRankings = async (force = false) => {
     try {
@@ -218,14 +220,19 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
   }, [competitionId, teamId, captainPubkey]); // Added captainPubkey to dependencies
 
   /**
-   * Auto-refresh rankings periodically
+   * Auto-refresh rankings periodically (reduced frequency for performance)
+   * The ranking service now uses a 5-minute cache with stale-while-revalidate
+   * so this refresh mainly serves to update stale data in the background
    */
   useEffect(() => {
+    // Only auto-refresh for active competitions, and only every 5 minutes
+    // The cache layer will handle showing cached data instantly
+    if (!rankings?.isActive) return;
+
     const interval = setInterval(() => {
-      if (rankings?.isActive) {
-        loadRankings();
-      }
-    }, 60000); // Refresh every minute for active competitions
+      console.log('🔄 Auto-refresh triggered (5 min interval)');
+      loadRankings();
+    }, 5 * 60 * 1000); // Refresh every 5 minutes (increased from 1 min for performance)
 
     return () => clearInterval(interval);
   }, [rankings?.isActive]);

@@ -22,7 +22,7 @@ import { useLeagueRankings } from '../hooks/useLeagueRankings';
 import { useUserStore } from '../store/userStore';
 import { isTeamMember } from '../utils/teamUtils';
 import { getUserNostrIdentifiers } from '../utils/nostr';
-import { NostrCompetitionService } from '../services/nostr/NostrCompetitionService';
+import { CompetitionCacheService } from '../services/cache/CompetitionCacheService';
 import { CompetitionService } from '../services/competition/competitionService';
 import type { Competition } from '../services/competition/competitionService';
 
@@ -200,7 +200,7 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
   const [loadingCompetitions, setLoadingCompetitions] = useState(true);
   const [rawNostrEvents, setRawNostrEvents] = useState<any[]>([]); // Keep raw event data for navigation
 
-  // Fetch competitions from Nostr
+  // Fetch competitions from Nostr with caching (30-min cache + 5-min background refresh)
   useEffect(() => {
     const fetchTeamCompetitions = async () => {
       if (!team?.id) {
@@ -210,26 +210,21 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
 
       try {
         console.log('🔍 Fetching competitions for team:', team.id);
-        const service = NostrCompetitionService.getInstance();
+        const cacheService = CompetitionCacheService.getInstance();
 
-        // Query all recent competitions then filter locally
-        const now = Math.floor(Date.now() / 1000);
-        const result = await service.queryCompetitions({
-          kinds: [30100, 30101], // Both leagues and events
-          since: now - (30 * 24 * 60 * 60), // Last 30 days
-          limit: 200 // Get more to ensure we capture team's competitions
-        });
+        // Use cache service - returns cached data immediately if available (30-min TTL)
+        // Automatically triggers background refresh if cache is >5 minutes old
+        const cachedData = await cacheService.getCompetitionsForTeam(team.id);
 
-        // Filter for this team's competitions locally
-        const teamLeagues = result.leagues.filter(league => league.teamId === team.id);
-        const teamEvents = result.events.filter(event => event.teamId === team.id);
+        // Extract leagues and events for this team
+        const teamLeagues = cachedData.leagues;
+        const teamEvents = cachedData.events;
 
-        console.log('📊 Fetched competitions:', {
-          totalLeagues: result.leagues.length,
-          totalEvents: result.events.length,
+        console.log('📊 Fetched competitions from cache:', {
           teamLeagues: teamLeagues.length,
           teamEvents: teamEvents.length,
-          teamId: team.id
+          teamId: team.id,
+          cacheAge: cachedData.timestamp ? `${Math.round((Date.now() - cachedData.timestamp) / 1000)}s` : 'unknown'
         });
 
         // Cache competitions in CompetitionService for navigation

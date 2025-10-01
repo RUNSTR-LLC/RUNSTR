@@ -348,9 +348,10 @@ export class WorkoutMergeService {
             }
 
             // Extract plain primitive values from NDK event to avoid circular references
+            // Use pubkey as userId for backwards compatibility with Workout interface
             const workout: NostrWorkout = {
               id: String(event.id || ''),
-              userId: String(userId || ''),
+              userId: String(hexPubkey || ''), // Use pubkey as userId (pure Nostr)
               type: String(workoutType) as any,
               startTime: new Date(event.created_at * 1000).toISOString(),
               endTime: new Date((event.created_at + Math.max(duration, 60)) * 1000).toISOString(),
@@ -629,32 +630,37 @@ export class WorkoutMergeService {
   }
 
   /**
-   * Update workout posting status
+   * Update workout posting status (uses pubkey as identifier - pure Nostr)
    */
   async updateWorkoutStatus(
-    userId: string,
-    workoutId: string,
-    updates: Partial<WorkoutStatusUpdate>
+    updates: Partial<WorkoutStatusUpdate> & { workoutId: string }
   ): Promise<void> {
     try {
-      const statusMap = await this.getWorkoutPostingStatus(userId);
-      const currentStatus = statusMap.get(workoutId) || { workoutId };
+      // Get pubkey from global auth context or stored nsec
+      const pubkey = await this.getCurrentPubkey();
+      if (!pubkey) {
+        console.warn('⚠️ No pubkey available for updating workout status');
+        return;
+      }
+
+      const statusMap = await this.getWorkoutPostingStatus(pubkey);
+      const currentStatus = statusMap.get(updates.workoutId) || { workoutId: updates.workoutId };
 
       const updatedStatus: WorkoutStatusUpdate = {
         ...currentStatus,
         ...updates,
       };
 
-      statusMap.set(workoutId, updatedStatus);
+      statusMap.set(updates.workoutId, updatedStatus);
 
-      // Save back to storage
+      // Save back to storage using pubkey as key
       const statusArray = Array.from(statusMap.values());
       await AsyncStorage.setItem(
-        `${STORAGE_KEYS.WORKOUT_STATUS}_${userId}`,
+        `${STORAGE_KEYS.WORKOUT_STATUS}_${pubkey}`,
         JSON.stringify(statusArray)
       );
 
-      console.log(`✅ Updated workout status for ${workoutId}:`, updates);
+      console.log(`✅ Updated workout status for ${updates.workoutId}:`, updates);
     } catch (error) {
       console.error('❌ Error updating workout status:', error);
       throw error;
@@ -662,13 +668,13 @@ export class WorkoutMergeService {
   }
 
   /**
-   * Get workout posting status from storage
+   * Get workout posting status from storage (uses pubkey as key - pure Nostr)
    */
   private async getWorkoutPostingStatus(
-    userId: string
+    pubkey: string
   ): Promise<Map<string, WorkoutStatusUpdate>> {
     try {
-      const key = `${STORAGE_KEYS.WORKOUT_STATUS}_${userId}`;
+      const key = `${STORAGE_KEYS.WORKOUT_STATUS}_${pubkey}`;
       const data = await AsyncStorage.getItem(key);
 
       if (!data) {
@@ -684,26 +690,26 @@ export class WorkoutMergeService {
   }
 
   /**
-   * Mark workout as being posted (to show loading state)
+   * Get current user's pubkey from AsyncStorage
    */
-  async setWorkoutPostingInProgress(
-    userId: string,
-    workoutId: string,
-    inProgress: boolean
-  ): Promise<void> {
-    await this.updateWorkoutStatus(userId, workoutId, {
-      workoutId,
-      // Note: postingInProgress is handled in memory, not persisted
-    });
+  private async getCurrentPubkey(): Promise<string | null> {
+    try {
+      const npub = await AsyncStorage.getItem('@runstr:npub');
+      const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+      return hexPubkey || this.ensureHexPubkey(npub || '');
+    } catch (error) {
+      console.error('❌ Error getting current pubkey:', error);
+      return null;
+    }
   }
 
   /**
    * Clear all posting status for user (useful for debugging)
    */
-  async clearWorkoutStatus(userId: string): Promise<void> {
+  async clearWorkoutStatus(pubkey: string): Promise<void> {
     try {
-      await AsyncStorage.removeItem(`${STORAGE_KEYS.WORKOUT_STATUS}_${userId}`);
-      console.log('✅ Cleared workout posting status for user');
+      await AsyncStorage.removeItem(`${STORAGE_KEYS.WORKOUT_STATUS}_${pubkey}`);
+      console.log('✅ Cleared workout posting status for pubkey');
     } catch (error) {
       console.error('❌ Error clearing workout status:', error);
       throw error;
@@ -711,9 +717,9 @@ export class WorkoutMergeService {
   }
 
   /**
-   * Get merge statistics for UI display
+   * Get merge statistics for UI display (uses pubkey - pure Nostr)
    */
-  async getMergeStats(userId: string): Promise<{
+  async getMergeStats(pubkey: string): Promise<{
     totalWorkouts: number;
     healthKitWorkouts: number;
     nostrWorkouts: number;
@@ -722,9 +728,9 @@ export class WorkoutMergeService {
     lastMergeAt?: string;
   }> {
     try {
-      const result = await this.getMergedWorkouts(userId);
+      const result = await this.getMergedWorkouts(pubkey);
       const lastMergeData = await AsyncStorage.getItem(
-        `${STORAGE_KEYS.LAST_MERGE}_${userId}`
+        `${STORAGE_KEYS.LAST_MERGE}_${pubkey}`
       );
 
       const syncedCount = result.allWorkouts.filter(
@@ -755,18 +761,19 @@ export class WorkoutMergeService {
   }
 
   // OPTIMIZATION: Cache management methods
-  private async getCacheTimestamp(userId: string): Promise<number> {
+  // Uses pubkey as identifier (pure Nostr)
+  private async getCacheTimestamp(pubkey: string): Promise<number> {
     try {
-      const timestamp = await AsyncStorage.getItem(`cache_timestamp_${userId}`);
+      const timestamp = await AsyncStorage.getItem(`cache_timestamp_${pubkey}`);
       return timestamp ? parseInt(timestamp, 10) : 0;
     } catch {
       return 0;
     }
   }
 
-  private async setCacheTimestamp(userId: string): Promise<void> {
+  private async setCacheTimestamp(pubkey: string): Promise<void> {
     try {
-      await AsyncStorage.setItem(`cache_timestamp_${userId}`, Date.now().toString());
+      await AsyncStorage.setItem(`cache_timestamp_${pubkey}`, Date.now().toString());
     } catch (error) {
       console.warn('Failed to set cache timestamp:', error);
     }
@@ -774,17 +781,18 @@ export class WorkoutMergeService {
 
   /**
    * OPTIMIZATION: Background refresh to keep cache fresh without blocking UI
+   * Pure Nostr implementation - uses only pubkey
    */
-  private backgroundRefreshWorkouts(userId: string, pubkey: string): void {
+  private backgroundRefreshWorkouts(pubkey: string): void {
     console.log('🔄 Starting background refresh to keep cache fresh...');
-    
-    // Non-blocking background refresh (3s delay to avoid conflicts)
+
+    // Non-blocking background refresh (1s delay to avoid conflicts)
     setTimeout(async () => {
       try {
-        const freshWorkouts = await this.fetchNostrWorkouts(userId, pubkey);
+        const freshWorkouts = await this.fetchNostrWorkouts(pubkey);
         if (freshWorkouts.length > 0) {
           await NostrCacheService.setCachedWorkouts(pubkey, freshWorkouts);
-          await this.setCacheTimestamp(userId);
+          await this.setCacheTimestamp(pubkey);
           console.log(`✅ Background refresh completed: ${freshWorkouts.length} workouts cached`);
         }
       } catch (error) {
@@ -795,29 +803,28 @@ export class WorkoutMergeService {
 
   /**
    * OPTIMIZATION: Force refresh for pull-to-refresh scenarios
+   * Pure Nostr implementation - uses only pubkey
    */
-  async forceRefreshWorkouts(userId: string, pubkey?: string): Promise<WorkoutMergeResult> {
+  async forceRefreshWorkouts(pubkey: string): Promise<WorkoutMergeResult> {
     console.log('🔄 Force refresh requested - clearing cache first');
-    
-    if (pubkey) {
-      await NostrCacheService.forceRefreshWorkouts(pubkey);
-    }
-    
-    return this.getMergedWorkouts(userId, pubkey);
+
+    await NostrCacheService.forceRefreshWorkouts(pubkey);
+
+    return this.getMergedWorkouts(pubkey);
   }
 
   /**
    * Get older workouts for Load More functionality
    * Fetches workouts older than the specified timestamp
+   * Pure Nostr implementation - uses only pubkey
    */
   async getMergedWorkoutsWithPagination(
-    userId: string, 
-    pubkey: string, 
+    pubkey: string,
     untilTimestamp: number
   ): Promise<WorkoutMergeResult> {
     try {
       console.log(`📖 WorkoutMergeService: Loading older workouts before ${new Date(untilTimestamp * 1000).toISOString()}`);
-      
+
       const startTime = Date.now();
 
       // CRITICAL BUG FIX: Convert npub to hex if needed
@@ -829,23 +836,17 @@ export class WorkoutMergeService {
         console.log(`🔧 Converted npub to hex for pagination: ${pubkey.slice(0, 20)}... → ${hexPubkey.slice(0, 20)}...`);
       }
 
-      // Get HealthKit workouts older than timestamp (these are already local)
-      const healthKitWorkouts = await this.fetchHealthKitWorkouts(userId);
-      const olderHealthKitWorkouts = healthKitWorkouts.filter(w => 
-        new Date(w.startTime).getTime() / 1000 < untilTimestamp
-      );
-
       // Get older Nostr workouts using pagination
       console.log(`🔍 Fetching older Nostr workouts before timestamp: ${untilTimestamp}`);
       const olderNostrWorkouts = await NostrWorkoutService.getWorkoutsWithPagination(hexPubkey, untilTimestamp);
-      
-      console.log(`📊 Pagination results: ${olderHealthKitWorkouts.length} HealthKit, ${olderNostrWorkouts.length} Nostr`);
+
+      console.log(`📊 Pagination results: ${olderNostrWorkouts.length} Nostr workouts`);
 
       // SIMPLIFIED: Convert older Nostr workouts to unified format
-      const postingStatus = await this.getWorkoutPostingStatus(userId);
+      const postingStatus = await this.getWorkoutPostingStatus(hexPubkey);
       const unifiedWorkouts = this.convertNostrToUnified(olderNostrWorkouts, postingStatus);
-      
-      // Create simplified result (no HealthKit in pure Nostr approach)
+
+      // Create simplified result (pure Nostr approach)
       const mergedResult = {
         allWorkouts: unifiedWorkouts,
         healthKitCount: 0, // Pure Nostr approach

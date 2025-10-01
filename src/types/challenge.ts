@@ -73,6 +73,89 @@ export interface UserCompetition {
   prizePool?: number; // For leagues/events
 }
 
+// Global User Discovery Types
+export interface GlobalUserSearch {
+  query: string;
+  results: DiscoveredNostrUser[];
+  isSearching: boolean;
+  searchTime?: number;
+}
+
+export interface DiscoveredNostrUser {
+  pubkey: string;
+  npub: string;
+  name?: string;
+  displayName?: string;
+  nip05?: string;
+  picture?: string;
+  about?: string;
+  lastActivity?: Date;
+  activityStatus: UserActivityStatus;
+}
+
+export enum UserActivityStatus {
+  ACTIVE = 'active',     // Active within 30 days
+  INACTIVE = 'inactive', // No activity in 30+ days
+  NEW = 'new'           // No recorded activity
+}
+
+// Activity Configuration Types
+export interface ActivityConfiguration {
+  activityType: ActivityType;
+  metric: MetricType;
+  duration: DurationOption;
+  wagerAmount: number;
+}
+
+export type ActivityType = 'running' | 'walking' | 'cycling' | 'hiking' | 'swimming' | 'rowing' | 'workout';
+
+export type MetricType = 'distance' | 'duration' | 'count' | 'calories' | 'pace';
+
+export type DurationOption = 3 | 7 | 14 | 30; // Days
+
+export interface MetricOption {
+  value: MetricType;
+  label: string;
+  unit: string;
+}
+
+// Metric options per activity type
+export const ACTIVITY_METRICS: Record<ActivityType, MetricOption[]> = {
+  running: [
+    { value: 'distance', label: 'Distance', unit: 'km' },
+    { value: 'duration', label: 'Duration', unit: 'min' },
+    { value: 'pace', label: 'Pace', unit: 'min/km' },
+    { value: 'calories', label: 'Calories', unit: 'kcal' },
+  ],
+  walking: [
+    { value: 'distance', label: 'Distance', unit: 'km' },
+    { value: 'duration', label: 'Duration', unit: 'min' },
+    { value: 'count', label: 'Steps', unit: 'steps' },
+  ],
+  cycling: [
+    { value: 'distance', label: 'Distance', unit: 'km' },
+    { value: 'duration', label: 'Duration', unit: 'min' },
+    { value: 'pace', label: 'Speed', unit: 'km/h' },
+  ],
+  hiking: [
+    { value: 'distance', label: 'Distance', unit: 'km' },
+    { value: 'duration', label: 'Duration', unit: 'min' },
+  ],
+  swimming: [
+    { value: 'distance', label: 'Distance', unit: 'm' },
+    { value: 'duration', label: 'Duration', unit: 'min' },
+  ],
+  rowing: [
+    { value: 'distance', label: 'Distance', unit: 'm' },
+    { value: 'duration', label: 'Duration', unit: 'min' },
+  ],
+  workout: [
+    { value: 'duration', label: 'Duration', unit: 'min' },
+    { value: 'count', label: 'Reps', unit: 'reps' },
+    { value: 'calories', label: 'Calories', unit: 'kcal' },
+  ],
+};
+
 // Nostr event kinds for challenges
 export const CHALLENGE_REQUEST_KIND = 1105;
 export const CHALLENGE_ACCEPT_KIND = 1106;

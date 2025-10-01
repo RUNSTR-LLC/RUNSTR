@@ -54,8 +54,9 @@ export interface LeagueRankingResult {
 export class LeagueRankingService {
   private static instance: LeagueRankingService;
   private queryService: typeof Competition1301QueryService;
-  private rankingCache = new Map<string, LeagueRankingResult>();
-  private cacheExpiry = 60000; // 1 minute cache
+  private rankingCache = new Map<string, { result: LeagueRankingResult; timestamp: number }>();
+  private cacheExpiry = 5 * 60 * 1000; // 5 minute cache (increased from 1 min for performance)
+  private staleExpiry = 2 * 60 * 1000; // 2 minutes - show stale data while fetching fresh
 
   constructor() {
     this.queryService = Competition1301QueryService;
@@ -73,6 +74,7 @@ export class LeagueRankingService {
 
   /**
    * Calculate live league rankings for team display
+   * Uses cache-first strategy with stale-while-revalidate pattern
    */
   async calculateLeagueRankings(
     competitionId: string,
@@ -82,11 +84,20 @@ export class LeagueRankingService {
     console.log(`🏆 Calculating league rankings for: ${competitionId}`);
     console.log(`📊 Competition: ${parameters.activityType} - ${parameters.competitionType}`);
 
-    // Check cache first
-    const cached = this.getCachedRankings(competitionId);
-    if (cached) {
-      console.log('✅ Returning cached rankings');
-      return cached;
+    // Check cache first - return fresh cache immediately
+    const freshCache = this.getCachedRankings(competitionId, false);
+    if (freshCache) {
+      console.log('✅ Returning fresh cached rankings');
+      return freshCache;
+    }
+
+    // Check for stale cache - return it immediately while we fetch fresh data
+    const staleCache = this.getCachedRankings(competitionId, true);
+    if (staleCache) {
+      console.log('⚡ Returning stale cache, will refresh in background');
+      // Trigger background refresh without blocking
+      this.refreshRankingsInBackground(competitionId, participants, parameters);
+      return staleCache;
     }
 
     try {
@@ -151,6 +162,75 @@ export class LeagueRankingService {
     } catch (error) {
       console.error('❌ Failed to calculate league rankings:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Refresh rankings in background without blocking UI
+   * Used when returning stale cache for instant display
+   */
+  private async refreshRankingsInBackground(
+    competitionId: string,
+    participants: LeagueParticipant[],
+    parameters: LeagueParameters
+  ): Promise<void> {
+    try {
+      console.log('🔄 Background refresh started for:', competitionId);
+
+      // Get participant list from competition if it exists
+      const competitionParticipantList = await this.participantService.getParticipantList(competitionId);
+
+      let participantNpubs: string[];
+
+      if (competitionParticipantList && competitionParticipantList.participants.length > 0) {
+        participantNpubs = competitionParticipantList.participants
+          .filter(p => p.status === 'approved')
+          .map(p => p.npub || p.hexPubkey);
+      } else {
+        participantNpubs = participants
+          .filter(p => p.isActive)
+          .map(p => p.npub);
+      }
+
+      // Query workout data from Nostr
+      const query: CompetitionQuery = {
+        memberNpubs: participantNpubs,
+        activityType: parameters.activityType as NostrActivityType | 'Any',
+        startDate: new Date(parameters.startDate),
+        endDate: new Date(parameters.endDate),
+      };
+
+      const queryResult = await this.queryService.queryMemberWorkouts(query);
+
+      // Calculate scores
+      const rankings = await this.calculateScores(
+        queryResult.metrics,
+        parameters,
+        participants
+      );
+
+      // Sort and assign ranks
+      rankings.sort((a, b) => b.score - a.score);
+      rankings.forEach((entry, index) => {
+        entry.rank = index + 1;
+        entry.isTopThree = index < 3;
+      });
+
+      const result: LeagueRankingResult = {
+        rankings,
+        totalParticipants: participantNpubs.length,
+        lastUpdated: new Date().toISOString(),
+        competitionId,
+        isActive: this.isCompetitionActive(parameters),
+      };
+
+      // Update cache with fresh data
+      this.cacheRankings(competitionId, result);
+
+      console.log(`✅ Background refresh complete for ${competitionId}`);
+    } catch (error) {
+      console.error('❌ Background refresh failed:', error);
+      // Don't throw - this is a background operation
     }
   }
 
@@ -382,26 +462,41 @@ export class LeagueRankingService {
   }
 
   /**
-   * Get cached rankings if valid
+   * Get cached rankings if valid (with stale-while-revalidate support)
+   * Returns cached data even if stale (for instant display while fetching fresh data)
    */
-  private getCachedRankings(competitionId: string): LeagueRankingResult | null {
+  private getCachedRankings(competitionId: string, allowStale = false): LeagueRankingResult | null {
     const cached = this.rankingCache.get(competitionId);
     if (!cached) return null;
 
-    const cacheAge = Date.now() - new Date(cached.lastUpdated).getTime();
-    if (cacheAge > this.cacheExpiry) {
-      this.rankingCache.delete(competitionId);
-      return null;
+    const cacheAge = Date.now() - cached.timestamp;
+
+    // If cache is fresh (< 5 minutes), return immediately
+    if (cacheAge < this.cacheExpiry) {
+      console.log(`✅ Cache hit for ${competitionId} (age: ${Math.round(cacheAge / 1000)}s)`);
+      return cached.result;
     }
 
-    return cached;
+    // If allowStale is true and cache is stale but not too old (< 10 minutes)
+    // Return stale data while caller refreshes in background
+    if (allowStale && cacheAge < this.cacheExpiry * 2) {
+      console.log(`⚠️ Returning stale cache for ${competitionId} (age: ${Math.round(cacheAge / 1000)}s)`);
+      return cached.result;
+    }
+
+    // Cache expired, delete and return null
+    this.rankingCache.delete(competitionId);
+    return null;
   }
 
   /**
-   * Cache rankings result
+   * Cache rankings result with timestamp
    */
   private cacheRankings(competitionId: string, result: LeagueRankingResult): void {
-    this.rankingCache.set(competitionId, result);
+    this.rankingCache.set(competitionId, {
+      result,
+      timestamp: Date.now()
+    });
     console.log(`💾 Cached rankings for competition: ${competitionId}`);
   }
 
