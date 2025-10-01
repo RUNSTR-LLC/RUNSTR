@@ -172,11 +172,15 @@ export class WorkoutCacheService {
       const result = await this.mergeService.getMergedWorkouts(userId, pubkey);
 
       if (result && result.allWorkouts.length > 0) {
-        await appCache.set(this.CACHE_KEY, result, this.CACHE_TTL);
-        await appCache.set(this.TIMESTAMP_KEY, Date.now(), this.CACHE_TTL);
-        console.log(
-          `✅ WorkoutCacheService: Background refresh complete, ${result.allWorkouts.length} workouts updated`
-        );
+        try {
+          await appCache.set(this.CACHE_KEY, result, this.CACHE_TTL);
+          await appCache.set(this.TIMESTAMP_KEY, Date.now(), this.CACHE_TTL);
+          console.log(
+            `✅ WorkoutCacheService: Background refresh complete, ${result.allWorkouts.length} workouts updated`
+          );
+        } catch (cacheError) {
+          console.warn('⚠️ WorkoutCacheService: Background cache update failed:', cacheError);
+        }
       }
     } catch (error) {
       console.error('❌ WorkoutCacheService: Background refresh failed:', error);

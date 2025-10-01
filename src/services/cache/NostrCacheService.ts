@@ -150,32 +150,39 @@ export class NostrCacheService {
    */
   static async setCachedWorkouts<T>(npub: string, data: T[]): Promise<void> {
     console.log('💾 NostrCache: Caching', data.length, 'workouts for', npub.slice(0, 20) + '...');
-    
+
     const now = Date.now();
     const memoryEntry: CacheEntry<T[]> = {
       data,
       timestamp: now,
       expiresAt: now + this.TTL.MEMORY.WORKOUTS
     };
-    
+
     const persistentEntry: CacheEntry<T[]> = {
       data,
       timestamp: now,
       expiresAt: now + this.TTL.PERSISTENT.WORKOUTS
     };
 
-    // Set memory cache
+    // Set memory cache (always succeeds)
     this.memoryCache.set(`workouts:${npub}`, memoryEntry);
+    console.log('✅ NostrCache: Workouts cached in memory');
 
-    // Set persistent cache
+    // Set persistent cache with circular reference detection
     try {
+      const jsonString = JSON.stringify(persistentEntry);
       await AsyncStorage.setItem(
         this.CACHE_KEYS.WORKOUTS + npub,
-        JSON.stringify(persistentEntry)
+        jsonString
       );
-      console.log('✅ NostrCache: Workouts cached successfully');
+      console.log('✅ NostrCache: Workouts cached persistently');
     } catch (error) {
-      console.warn('NostrCache: Error setting persistent workout cache:', error);
+      if (error instanceof TypeError && error.message.includes('circular')) {
+        console.error('❌ NostrCache: Circular reference detected in workout data - persistent cache skipped');
+        console.error('   Memory cache is still available. Check workout objects for NDK event references.');
+      } else {
+        console.warn('⚠️ NostrCache: Error setting persistent workout cache:', error);
+      }
     }
   }
 

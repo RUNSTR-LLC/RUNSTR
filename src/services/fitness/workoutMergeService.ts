@@ -160,10 +160,15 @@ export class WorkoutMergeService {
         postingStatus
       );
 
-      // Cache the results
+      // Cache the results (non-blocking - don't fail if caching fails)
       if (nostrWorkouts.length > 0) {
-        await NostrCacheService.setCachedWorkouts(pubkey, nostrWorkouts);
-        await this.setCacheTimestamp(userId);
+        try {
+          await NostrCacheService.setCachedWorkouts(pubkey, nostrWorkouts);
+          await this.setCacheTimestamp(userId);
+        } catch (cacheError) {
+          console.warn('⚠️ WorkoutMergeService: Caching failed, but continuing with workout data:', cacheError);
+          // Continue execution - we still have the workout data to return
+        }
       }
 
       console.log(`✅ Merged: ${mergedResult.allWorkouts.length} total, ${mergedResult.duplicateCount} duplicates removed`);
@@ -326,20 +331,21 @@ export class WorkoutMergeService {
               if (tag[0] === 'calories' && tag[1]) calories = parseInt(tag[1]) || 0;
             }
 
+            // Extract plain primitive values from NDK event to avoid circular references
             const workout: NostrWorkout = {
-              id: event.id,
-              userId: userId,
-              type: workoutType as any,
+              id: String(event.id || ''),
+              userId: String(userId || ''),
+              type: String(workoutType) as any,
               startTime: new Date(event.created_at * 1000).toISOString(),
               endTime: new Date((event.created_at + Math.max(duration, 60)) * 1000).toISOString(),
-              duration: duration,
-              distance: distance,
-              calories: calories,
+              duration: Number(duration),
+              distance: Number(distance),
+              calories: Number(calories),
               source: 'nostr',
-              nostrEventId: event.id,
-              nostrPubkey: event.pubkey,
+              nostrEventId: String(event.id || ''),
+              nostrPubkey: String(event.pubkey || ''),
               sourceApp: 'nostr_discovery',
-              nostrCreatedAt: event.created_at,
+              nostrCreatedAt: Number(event.created_at),
               unitSystem: 'metric' as const,
               syncedAt: new Date().toISOString()
             };
