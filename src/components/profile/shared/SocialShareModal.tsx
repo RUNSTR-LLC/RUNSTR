@@ -32,14 +32,13 @@ interface Platform {
   name: string;
   icon: string;
   available: boolean;
-  color: string;
 }
 
 const platforms: Platform[] = [
-  { id: 'nostr', name: 'Nostr', icon: '⚡', available: true, color: '#8B5CF6' },
-  { id: 'twitter', name: 'Twitter', icon: '🐦', available: false, color: '#1DA1F2' },
-  { id: 'instagram', name: 'Instagram', icon: '📸', available: false, color: '#E4405F' },
-  { id: 'facebook', name: 'Facebook', icon: '👤', available: false, color: '#1877F2' },
+  { id: 'nostr', name: 'Nostr', icon: '⚡', available: true },
+  { id: 'twitter', name: 'Twitter', icon: '🐦', available: false },
+  { id: 'instagram', name: 'Instagram', icon: '📸', available: false },
+  { id: 'facebook', name: 'Facebook', icon: '👤', available: false },
 ];
 
 export const SocialShareModal: React.FC<SocialShareModalProps> = ({

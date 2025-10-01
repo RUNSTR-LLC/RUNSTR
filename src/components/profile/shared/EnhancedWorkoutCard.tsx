@@ -332,14 +332,16 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   statusBadge: {
-    backgroundColor: theme.colors.success + '20',
+    backgroundColor: theme.colors.cardBackground,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
     marginRight: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   statusText: {
-    color: theme.colors.success,
+    color: theme.colors.text,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -360,7 +362,9 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.accent,
   },
   competeButton: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.accent,
   },
   disabledButton: {
     opacity: 0.6,
