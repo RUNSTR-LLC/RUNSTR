@@ -69,6 +69,7 @@ import { ContactSupportScreen } from './screens/ContactSupportScreen';
 import { PrivacyPolicyScreen } from './screens/PrivacyPolicyScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { OnboardingScreen } from './screens/OnboardingScreen';
+import { CompetitionsListScreen } from './screens/CompetitionsListScreen';
 import { User } from './types';
 
 // Types for authenticated app navigation
@@ -87,6 +88,7 @@ type AuthenticatedStackParamList = {
   HelpSupport: undefined;
   ContactSupport: undefined;
   PrivacyPolicy: undefined;
+  CompetitionsList: undefined;
 };
 
 const AuthenticatedStack = createStackNavigator<AuthenticatedStackParamList>();
@@ -333,6 +335,15 @@ const AppContent: React.FC = () => {
             headerShown: false,
           }}
           component={PrivacyPolicyScreen}
+        />
+
+        {/* Competitions List Screen */}
+        <AuthenticatedStack.Screen
+          name="CompetitionsList"
+          options={{
+            headerShown: false,
+          }}
+          component={CompetitionsListScreen}
         />
       </AuthenticatedStack.Navigator>
     );
