@@ -25,6 +25,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../styles/theme';
 import { nostrProfilePublisher, type EditableProfile } from '../services/nostr/NostrProfilePublisher';
 import { useAuth } from '../contexts/AuthContext';
+import { validateProfile } from '../utils/profileValidation';
 
 export const ProfileEditScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -134,41 +135,7 @@ export const ProfileEditScreen: React.FC = () => {
   };
 
   const validateForm = (): boolean => {
-    const newErrors: { [key: string]: string } = {};
-
-    // Name validation
-    if (profile.name && profile.name.length > 50) {
-      newErrors.name = 'Name must be 50 characters or less';
-    }
-
-    // Bio validation
-    if (profile.about && profile.about.length > 500) {
-      newErrors.about = 'Bio must be 500 characters or less';
-    }
-
-    // Lightning address validation
-    if (profile.lud16) {
-      const lud16Pattern = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-      if (!lud16Pattern.test(profile.lud16)) {
-        newErrors.lud16 = 'Invalid Lightning address format';
-      }
-    }
-
-    // URL validations
-    const urlPattern = /^https?:\/\/.+/i;
-
-    if (profile.picture && !urlPattern.test(profile.picture)) {
-      newErrors.picture = 'Must be a valid URL (http:// or https://)';
-    }
-
-    if (profile.banner && !urlPattern.test(profile.banner)) {
-      newErrors.banner = 'Must be a valid URL (http:// or https://)';
-    }
-
-    if (profile.website && !urlPattern.test(profile.website)) {
-      newErrors.website = 'Must be a valid URL (http:// or https://)';
-    }
-
+    const newErrors = validateProfile(profile);
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };

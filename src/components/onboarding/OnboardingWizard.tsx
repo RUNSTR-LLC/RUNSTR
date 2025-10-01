@@ -34,45 +34,43 @@ const slides: SlideData[] = [
     icon: 'person-circle',
     description: 'Your fitness dashboard',
     features: [
-      'Track workouts from Apple Health & other apps',
-      'View team memberships',
-      'Manage your Bitcoin wallet',
-      'Access account settings',
+      'View workout history from Apple Health',
+      'Post workouts to Nostr with social cards',
+      'Manage your Bitcoin Lightning wallet',
+      'Track team memberships and activity',
+    ],
+  },
+  {
+    title: 'Discover',
+    icon: 'search',
+    description: 'Find your fitness community',
+    features: [
+      'Browse teams from Nostr relays',
+      'Join competitions and challenges',
+      'Explore global fitness events',
+      'Create your own team as Captain',
     ],
   },
   {
     title: 'Activity',
     icon: 'fitness',
-    description: 'Track workouts directly',
+    description: 'Track your workouts',
     features: [
-      'Log runs, cycles, and walks',
-      'Manual entry for strength training',
-      'Track yoga and meditation',
-      'Sync across all devices',
+      'Import workouts from Apple Health',
+      'Post achievements to social feeds',
+      'Compete in team challenges',
+      'Earn Bitcoin rewards for activity',
     ],
-    locked: true,
   },
   {
-    title: 'Season',
+    title: 'League',
     icon: 'trophy',
-    description: 'Championship tournaments',
+    description: 'Compete in tournaments',
     features: [
-      'Compete globally for cash prizes',
-      'Seasonal fitness challenges',
-      'Real-time leaderboards',
-      'Bitcoin rewards for winners',
-    ],
-    locked: true,
-  },
-  {
-    title: 'Teams',
-    icon: 'people',
-    description: 'Fitness communities',
-    features: [
-      'Discover and join teams',
-      'Participate in exclusive events',
-      'Compete in team leagues',
-      'Unlock Captain Mode to create teams',
+      'Join seasonal fitness championships',
+      'Compete for Bitcoin prize pools',
+      'Track real-time leaderboards',
+      'Earn rewards from team captains',
     ],
   },
 ];
@@ -114,24 +112,15 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   const renderSlide = (slide: SlideData, index: number) => (
     <View key={index} style={styles.slide}>
       <View style={styles.slideContent}>
-        <View style={[styles.iconContainer, slide.locked && styles.iconContainerLocked]}>
+        <View style={styles.iconContainer}>
           <Ionicons
             name={slide.icon}
             size={60}
-            color={slide.locked ? theme.colors.textMuted : theme.colors.primary}
+            color={theme.colors.primary}
           />
-          {slide.locked && (
-            <View style={styles.lockBadge}>
-              <Ionicons name="lock-closed" size={16} color="#FFFFFF" />
-            </View>
-          )}
         </View>
 
         <Text style={styles.slideTitle}>{slide.title}</Text>
-        {slide.locked && (
-          <Text style={styles.unlockedText}>UNLOCKABLE</Text>
-        )}
-
         <Text style={styles.slideDescription}>{slide.description}</Text>
 
         <View style={styles.featuresContainer}>
@@ -140,9 +129,9 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
               <Ionicons
                 name="checkmark-circle"
                 size={20}
-                color={slide.locked ? theme.colors.textMuted : theme.colors.success}
+                color={theme.colors.success}
               />
-              <Text style={[styles.featureText, slide.locked && styles.featureTextLocked]}>
+              <Text style={styles.featureText}>
                 {feature}
               </Text>
             </View>
