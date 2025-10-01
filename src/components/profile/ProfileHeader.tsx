@@ -34,7 +34,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   });
 
   return (
-    <View style={styles.container}>
+    <View style={styles.boxContainer}>
       {/* Nostr Banner */}
       {user.banner && (
         <View style={styles.bannerContainer}>
@@ -57,18 +57,15 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         <Avatar
           name={displayName}
           imageUrl={user.picture} // Use Nostr profile picture directly
-          size={theme.layout.profileAvatarSize} // 64px
+          size={60} // Increased for better visibility
           style={styles.avatar}
           showIcon={true}
         />
         <View style={styles.info}>
           <Text style={styles.name}>{displayName}</Text>
-          {user.bio && <Text style={styles.bio}>{user.bio}</Text>}
+          {user.bio && <Text style={styles.bio} numberOfLines={2}>{user.bio}</Text>}
           {user.lud16 && (
-            <Text style={styles.lightningAddress}>⚡ {user.lud16}</Text>
-          )}
-          {user.website && (
-            <Text style={styles.website}>🌐 {user.website}</Text>
+            <Text style={styles.lightningAddress} numberOfLines={1}>⚡ {user.lud16}</Text>
           )}
         </View>
         {/* Edit button removed for pure Nostr users - use external Nostr clients */}
@@ -78,20 +75,19 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 };
 
 const styles = StyleSheet.create({
-  // CSS: margin: 16px 20px; background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 16px; padding: 20px; display: flex; align-items: center; gap: 16px;
-  container: {
-    marginVertical: theme.spacing.xxl, // 16px
-    marginHorizontal: theme.spacing.xxxl, // 20px
-    backgroundColor: theme.colors.cardBackground, // #0a0a0a
+  // Compact box container matching other boxes
+  boxContainer: {
+    backgroundColor: '#0a0a0a',
     borderWidth: 1,
-    borderColor: theme.colors.border, // #1a1a1a
-    borderRadius: theme.spacing.xxl, // 16px
+    borderColor: '#1a1a1a',
+    borderRadius: 12,
     overflow: 'hidden', // To clip banner image
+    height: 180, // Increased height to show avatar and username
   },
 
   // Banner styles
   bannerContainer: {
-    height: 120,
+    height: 60, // Reduced height
     position: 'relative',
     marginHorizontal: -1, // Offset border width
     marginTop: -1, // Offset border width
@@ -113,14 +109,15 @@ const styles = StyleSheet.create({
 
   // Profile content that sits below banner or replaces container content
   profileContent: {
-    padding: theme.spacing.xxxl, // 20px
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.xxl, // 16px
+    gap: 12,
+    flex: 1,
   },
 
   profileContentWithBanner: {
-    paddingTop: theme.spacing.xl, // Reduced top padding when banner present
+    paddingTop: 12, // Reduced top padding when banner present
   },
 
   avatar: {
@@ -135,27 +132,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  // CSS: font-size: 20px; font-weight: 700; margin-bottom: 4px;
+  // Compact text styles
   name: {
-    fontSize: theme.typography.teamName, // 20px
-    fontWeight: theme.typography.weights.bold, // 700
+    fontSize: 18,
+    fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
-    marginBottom: theme.spacing.sm, // 4px
+    marginBottom: 4,
   },
 
   // Nostr profile bio
   bio: {
-    fontSize: 14,
+    fontSize: 12,
     color: theme.colors.textMuted,
-    marginBottom: theme.spacing.xs, // 2px
-    lineHeight: 18,
+    marginBottom: 2,
+    lineHeight: 16,
   },
 
   // Lightning address
   lightningAddress: {
-    fontSize: 12,
+    fontSize: 11,
     color: theme.colors.accent,
-    marginBottom: theme.spacing.xs, // 2px
+    marginBottom: 2,
     fontFamily: 'monospace',
   },
 

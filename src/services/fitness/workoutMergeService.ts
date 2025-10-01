@@ -140,9 +140,23 @@ export class WorkoutMergeService {
               console.log(`📊 Progress: ${progress.current}/${progress.total} chunks, ${progress.workouts} workouts`);
             }
           );
+          console.log(`✅ HealthKit fetch successful: ${healthKitWorkouts.length} workouts`);
         } catch (hkError) {
-          console.warn('⚠️ HealthKit fetch failed, continuing with Nostr only:', hkError);
+          // Log error prominently but continue with Nostr workouts
+          console.error('❌ HealthKit fetch failed:', hkError);
+          const errorMessage = hkError instanceof Error ? hkError.message : 'Unknown error';
+          console.error(`❌ HealthKit error details: ${errorMessage}`);
+
+          // If authorization error, this is critical - user needs to know
+          if (errorMessage.includes('not authorized') || errorMessage.includes('Permission')) {
+            console.error('❌ CRITICAL: HealthKit permission issue detected!');
+          }
+
+          // Continue with empty HealthKit workouts but error is now visible in logs
+          healthKitWorkouts = [];
         }
+      } else {
+        console.log('ℹ️ HealthKit not available on this device');
       }
 
       // Fetch Nostr workouts
@@ -259,8 +273,8 @@ export class WorkoutMergeService {
 
       console.log('🚀 NDK Filter:', nuclearFilter);
 
-      // Create subscription with timeout
-      return new Promise((resolve) => {
+      // Create subscription with timeout and convert to clean workout objects
+      const rawEventsPromise = new Promise<any[]>((resolve) => {
         const timeout = setTimeout(() => {
           subscription.stop();
           this.subscriptions.delete(subscription);
@@ -297,9 +311,9 @@ export class WorkoutMergeService {
           this.subscriptions.delete(subscription);
           resolve(Array.from(events)); // Return partial results
         });
-      }) as Promise<any[]>;
+      });
 
-      return result.then((events: any[]) => {
+      return rawEventsPromise.then((events: any[]) => {
         console.log(`🚀 Found ${events.length} raw 1301 events`);
 
         // Parse events into NostrWorkout format

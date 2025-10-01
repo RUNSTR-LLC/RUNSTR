@@ -23,6 +23,7 @@ import { ChallengeDetailScreen } from '../screens/ChallengeDetailScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { CompetitionsListScreen } from '../screens/CompetitionsListScreen';
+import { WorkoutHistoryScreen } from '../screens/WorkoutHistoryScreen';
 
 // Navigation Configuration
 import {
@@ -57,6 +58,7 @@ export type RootStackParamList = {
   CompetitionsList: undefined;
   ChallengeLeaderboard: { challengeId: string };
   ChallengeWizard: undefined;
+  WorkoutHistory: { userId: string; pubkey: string };
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -504,6 +506,16 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
           headerShown: false,
         }}
         component={CompetitionsListScreen}
+      />
+
+      {/* Workout History Screen */}
+      <Stack.Screen
+        name="WorkoutHistory"
+        options={{
+          ...defaultScreenOptions,
+          headerShown: false,
+        }}
+        component={WorkoutHistoryScreen}
       />
 
       {/* Challenge Leaderboard Screen (placeholder for now) */}

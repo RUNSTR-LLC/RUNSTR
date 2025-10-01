@@ -72,17 +72,14 @@ export const CompactWallet: React.FC<CompactWalletProps> = ({
 
   if (!isInitialized) {
     return (
-      <View style={styles.container}>
-        <View style={styles.walletBox}>
-          <ActivityIndicator size="small" color={theme.colors.accent} />
-        </View>
+      <View style={styles.walletBox}>
+        <ActivityIndicator size="small" color={theme.colors.accent} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.walletBox}>
+    <View style={styles.walletBox}>
         {/* Menu button in top right */}
         <TouchableOpacity
           style={styles.menuButton}
@@ -125,23 +122,17 @@ export const CompactWallet: React.FC<CompactWalletProps> = ({
           </TouchableOpacity>
         </View>
       </View>
-    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-
   walletBox: {
-    backgroundColor: theme.colors.cardBackground,
+    backgroundColor: '#0a0a0a',
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.borderRadius.large,
+    borderColor: '#1a1a1a',
+    borderRadius: 12,
     padding: 12,
-    height: 100, // 50% smaller than original
+    height: 90, // Compact height
     position: 'relative',
   },
 
@@ -173,7 +164,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    marginTop: -8, // Adjust for visual centering
+    marginTop: -20, // Move balance up to avoid overlap with buttons
   },
 
   balanceAmount: {

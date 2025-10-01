@@ -108,9 +108,6 @@ export const YourCompetitionsBox: React.FC = () => {
           {activeCount === 0 && (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>No active competitions</Text>
-              <Text style={styles.emptySubtext}>
-                Join a team or create a challenge to get started
-              </Text>
             </View>
           )}
         </>
@@ -123,43 +120,45 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: '#0a0a0a',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    padding: 12,
     borderWidth: 1,
     borderColor: '#1a1a1a',
+    height: 90, // Compact height
+    justifyContent: 'flex-start',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   title: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
     backgroundColor: '#fff',
     color: '#000',
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 4,
     overflow: 'hidden',
   },
   activeCount: {
     fontSize: 18,
     fontWeight: '600',
     color: '#fff',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   emptyState: {
     paddingVertical: 4,
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#999',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   emptySubtext: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#666',
   },
 });

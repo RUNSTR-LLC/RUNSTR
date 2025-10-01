@@ -391,6 +391,15 @@ export class HealthKitService {
     endDate: Date,
     onProgress?: (progress: { current: number; total: number; workouts: number }) => void
   ): Promise<HealthKitWorkout[]> {
+    // Check authorization FIRST before attempting to fetch
+    if (!this.isAuthorized) {
+      console.log('🔍 HealthKit: Not authorized, attempting to initialize...');
+      const initResult = await this.initialize();
+      if (!initResult.success) {
+        throw new Error(`HealthKit not authorized: ${initResult.error || 'Permission denied'}`);
+      }
+    }
+
     if (this.syncInProgress) {
       throw new Error('Sync already in progress');
     }
@@ -398,10 +407,14 @@ export class HealthKitService {
     this.syncInProgress = true;
     this.abortController = new AbortController();
 
+    console.log(`📱 HealthKit: Starting progressive fetch from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`);
+
     try {
       const chunks = this.createDateChunks(startDate, endDate, 7); // 7-day chunks
       const allWorkouts: HealthKitWorkout[] = [];
       const processedIds = new Set<string>();
+
+      console.log(`📊 HealthKit: Created ${chunks.length} date chunks for fetching`);
 
       for (let i = 0; i < chunks.length; i++) {
         // Check if aborted
@@ -431,17 +444,21 @@ export class HealthKitService {
             workouts: allWorkouts.length
           });
 
+          console.log(`📊 HealthKit: Chunk ${i + 1}/${chunks.length} complete, total workouts: ${allWorkouts.length}`);
+
           // Allow UI to breathe between chunks
           await new Promise(resolve => setTimeout(resolve, 50));
 
         } catch (error) {
-          console.warn(`Failed to fetch chunk ${i + 1}/${chunks.length}:`, error);
+          console.warn(`⚠️ HealthKit: Failed to fetch chunk ${i + 1}/${chunks.length}:`, error);
           // Continue with next chunk instead of failing entirely
         }
       }
 
       // Cache the results
       await this.cacheWorkouts(allWorkouts);
+
+      console.log(`✅ HealthKit: Progressive fetch complete, found ${allWorkouts.length} workouts`);
 
       return allWorkouts;
 

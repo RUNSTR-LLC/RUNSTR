@@ -26,6 +26,7 @@ import { NostrWorkoutSyncService } from '../services/fitness/nostrWorkoutSyncSer
 import { getNsecFromStorage } from '../utils/nostr';
 import { WorkoutCacheService } from '../services/cache/WorkoutCacheService';
 import { WorkoutGroupingService, type WorkoutGroup } from '../utils/workoutGrouping';
+import healthKitService from '../services/fitness/healthKitService';
 
 // UI Components
 import { Card } from '../components/ui/Card';
@@ -86,9 +87,31 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
   const syncService = NostrWorkoutSyncService.getInstance();
 
   useEffect(() => {
-    loadWorkouts();
+    initializeHealthKitAndLoadWorkouts();
     loadNsecKey();
   }, []);
+
+  const initializeHealthKitAndLoadWorkouts = async () => {
+    // Initialize HealthKit if available
+    if (healthKitService.getStatus().available) {
+      console.log('🍎 Initializing HealthKit on WorkoutHistoryScreen mount...');
+      try {
+        const initResult = await healthKitService.initialize();
+        if (initResult.success) {
+          console.log('✅ HealthKit initialized successfully');
+        } else {
+          console.log('⚠️ HealthKit initialization failed:', initResult.error);
+        }
+      } catch (error) {
+        console.error('❌ HealthKit initialization error:', error);
+      }
+    } else {
+      console.log('ℹ️ HealthKit not available on this device');
+    }
+
+    // Load workouts after initialization attempt
+    await loadWorkouts();
+  };
 
   useEffect(() => {
     applyFiltersAndSort();
@@ -107,20 +130,43 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
 
   const loadWorkouts = async (forceRefresh = false) => {
     try {
-      console.log('📱 WorkoutHistoryScreen: Loading workouts for user:', userId?.slice(0, 20) + '...');
-      console.log('📱 WorkoutHistoryScreen: Using pubkey:', pubkey?.slice(0, 20) + '...');
+      console.log('📱 WorkoutHistoryScreen: Loading workouts...');
+      console.log('📱 User ID:', userId?.slice(0, 20) + '...');
+      console.log('📱 Pubkey:', pubkey?.slice(0, 20) + '...');
+      console.log('📱 HealthKit Status:', healthKitService.getStatus());
 
       // Use cache service for initial load with proper userId and pubkey
       const result = forceRefresh
-        ? await cacheService.refreshWorkouts(userId, pubkey, 500) // Load more for better grouping
+        ? await cacheService.refreshWorkouts(userId, pubkey, 500)
         : await cacheService.getMergedWorkouts(userId, pubkey, 500);
 
-      console.log('📱 WorkoutHistoryScreen: Loaded', result.allWorkouts.length, 'workouts');
+      console.log('📱 WorkoutHistoryScreen: Load complete');
+      console.log(`  - Total workouts: ${result.allWorkouts.length}`);
+      console.log(`  - HealthKit: ${result.healthKitCount}`);
+      console.log(`  - Nostr: ${result.nostrCount}`);
+      console.log(`  - Duplicates removed: ${result.duplicateCount}`);
+      console.log(`  - From cache: ${result.fromCache}`);
+
+      // Show warning if HealthKit available but no workouts found
+      if (healthKitService.getStatus().available && result.healthKitCount === 0 && !forceRefresh) {
+        console.log('⚠️ HealthKit is available but no workouts found. This could mean:');
+        console.log('  1. No workouts in Apple Health for last 30 days');
+        console.log('  2. HealthKit permissions not granted');
+        console.log('  3. HealthKit query failed (check logs above for errors)');
+      }
+
       setWorkouts(result.allWorkouts);
       setMergeResult(result);
     } catch (error) {
-      console.error('Failed to load workouts:', error);
-      Alert.alert('Error', 'Failed to load workout history');
+      console.error('❌ WorkoutHistoryScreen: Failed to load workouts:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('❌ Error details:', errorMessage);
+
+      Alert.alert(
+        'Workout Load Failed',
+        `Could not load workout history: ${errorMessage}\n\nCheck Metro logs for details.`,
+        [{ text: 'OK' }]
+      );
     } finally {
       setIsLoading(false);
     }

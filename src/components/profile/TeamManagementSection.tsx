@@ -7,7 +7,6 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { theme } from '../../styles/theme';
 import { Team } from '../../types';
-import { Card } from '../ui/Card';
 import leagueRankingService from '../../services/competition/leagueRankingService';
 import { TeamMemberCache } from '../../services/team/TeamMemberCache';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -17,6 +16,7 @@ interface TeamManagementSectionProps {
   onChangeTeam: () => void;
   onJoinTeam: () => void;
   onViewTeam?: () => void;
+  onRefresh?: () => void;
 }
 
 export const TeamManagementSection: React.FC<TeamManagementSectionProps> = ({
@@ -24,10 +24,19 @@ export const TeamManagementSection: React.FC<TeamManagementSectionProps> = ({
   onChangeTeam,
   onJoinTeam,
   onViewTeam,
+  onRefresh,
 }) => {
   const [userRank, setUserRank] = useState<number | null>(null);
   const [competitionName, setCompetitionName] = useState<string | null>(null);
   const [loadingRank, setLoadingRank] = useState(false);
+
+  // Trigger refresh on mount to load team data
+  useEffect(() => {
+    if (onRefresh && !currentTeam) {
+      console.log('[TeamManagementSection] No team detected, triggering refresh...');
+      onRefresh();
+    }
+  }, []);
 
   useEffect(() => {
     const fetchUserRank = async () => {
@@ -87,7 +96,7 @@ export const TeamManagementSection: React.FC<TeamManagementSectionProps> = ({
   }, [currentTeam?.id]);
   if (!currentTeam) {
     return (
-      <Card style={styles.card}>
+      <View style={styles.card}>
         <View style={styles.noTeamContainer}>
           <Text style={styles.noTeamTitle}>No Team Joined</Text>
           <Text style={styles.noTeamDescription}>
@@ -101,7 +110,7 @@ export const TeamManagementSection: React.FC<TeamManagementSectionProps> = ({
             <Text style={styles.primaryButtonText}>Find Teams</Text>
           </TouchableOpacity>
         </View>
-      </Card>
+      </View>
     );
   }
 
@@ -109,9 +118,8 @@ export const TeamManagementSection: React.FC<TeamManagementSectionProps> = ({
     <TouchableOpacity
       activeOpacity={0.8}
       onPress={onViewTeam}
-      style={styles.touchableCard}
     >
-      <Card style={styles.card}>
+      <View style={styles.card}>
         <View style={styles.teamContainer}>
           {/* Your Team Badge */}
           <View style={styles.badgeContainer}>
@@ -132,18 +140,19 @@ export const TeamManagementSection: React.FC<TeamManagementSectionProps> = ({
             )}
           </View>
         </View>
-      </Card>
+      </View>
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  touchableCard: {
-    marginBottom: 16,
-  },
-
   card: {
-    marginBottom: 0, // Remove margin since touchableCard handles it
+    backgroundColor: '#0a0a0a',
+    borderWidth: 1,
+    borderColor: '#1a1a1a',
+    borderRadius: 12,
+    padding: 12,
+    height: 100, // Fixed height for consistent layout
   },
 
   // No Team State
@@ -170,7 +179,7 @@ const styles = StyleSheet.create({
 
   // Team Present State
   teamContainer: {
-    paddingVertical: 4,
+    paddingVertical: 0,
   },
 
   badgeContainer: {
@@ -179,7 +188,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 4,
     alignSelf: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 8,
   },
 
   badgeText: {
@@ -190,7 +199,7 @@ const styles = StyleSheet.create({
   },
 
   teamHeader: {
-    marginBottom: 16,
+    marginBottom: 8,
   },
 
   teamName: {

@@ -247,9 +247,9 @@ export class BatteryOptimizationService {
   }
 
   /**
-   * Get battery warning message
+   * Get battery warning message (simple string version)
    */
-  getBatteryWarning(): string | null {
+  getBatteryWarningMessage(): string | null {
     if (this.batteryLevel <= 5) {
       return 'Battery critical! Tracking will stop soon.';
     } else if (this.batteryLevel <= 10) {

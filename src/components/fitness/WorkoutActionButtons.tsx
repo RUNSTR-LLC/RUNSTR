@@ -162,11 +162,7 @@ export const WorkoutActionButtons: React.FC<WorkoutActionButtonsProps> = ({
           {loading ? (
             <ActivityIndicator
               size="small"
-              color={
-                variant === 'save'
-                  ? theme.colors.accent
-                  : theme.colors.textMuted
-              }
+              color={variant === 'save' ? theme.colors.background : theme.colors.text}
             />
           ) : (
             <Text style={textStyle}>
@@ -254,12 +250,12 @@ const styles = StyleSheet.create({
     minWidth: 80,
   },
   saveButton: {
-    backgroundColor: theme.colors.accent,
-    borderColor: theme.colors.accent,
+    backgroundColor: theme.colors.text, // White background
+    borderColor: theme.colors.text,
   },
   postButton: {
     backgroundColor: 'transparent',
-    borderColor: theme.colors.buttonBorder,
+    borderColor: theme.colors.text, // White border
   },
   disabledButton: {
     backgroundColor: theme.colors.cardBackground,
@@ -267,8 +263,8 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   successButton: {
-    backgroundColor: theme.colors.statusConnected,
-    borderColor: theme.colors.statusConnected,
+    backgroundColor: theme.colors.text, // White background for success
+    borderColor: theme.colors.text,
   },
   buttonContent: {
     flexDirection: 'row',
@@ -276,13 +272,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionButtonText: {
-    color: theme.colors.accentText,
+    color: theme.colors.background, // Black text (for white button)
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
   },
   compactButtonText: {
-    color: theme.colors.accentText,
+    color: theme.colors.background, // Black text (for white button)
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',
@@ -291,7 +287,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
   },
   successButtonText: {
-    color: theme.colors.text,
+    color: theme.colors.background, // Black text for success state
   },
   statusIndicator: {
     paddingHorizontal: 8,

@@ -28,7 +28,7 @@ export const BatteryWarning: React.FC = () => {
     checkBattery();
 
     // Subscribe to battery changes
-    const unsubscribe = batteryService.addListener((mode, level) => {
+    const unsubscribe = batteryService.subscribe((mode, level) => {
       checkBattery();
     });
 
