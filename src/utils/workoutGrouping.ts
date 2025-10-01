@@ -13,7 +13,7 @@ export type TimeGroupKey =
   | 'lastMonth'
   | 'earlierThisMonth'
   | 'earlierThisYear'
-  | string; // For year groups like '2024', '2023'
+  | string; // For year groups like '2024', '2023' or month keys like '2025-01'
 
 export interface WorkoutGroup {
   key: TimeGroupKey;
@@ -38,6 +38,83 @@ export interface GroupStats {
 }
 
 export class WorkoutGroupingService {
+  /**
+   * Groups workouts by month (for folder-style UI)
+   * Returns groups sorted newest-first with month name + workout count
+   */
+  static groupWorkoutsByMonth(
+    workouts: UnifiedWorkout[],
+    referenceDate = new Date()
+  ): WorkoutGroup[] {
+    const monthGroups: Map<string, UnifiedWorkout[]> = new Map();
+
+    // Group workouts by year-month
+    workouts.forEach(workout => {
+      const workoutDate = new Date(workout.startTime);
+      const monthKey = `${workoutDate.getFullYear()}-${String(workoutDate.getMonth() + 1).padStart(2, '0')}`;
+
+      if (!monthGroups.has(monthKey)) {
+        monthGroups.set(monthKey, []);
+      }
+      monthGroups.get(monthKey)!.push(workout);
+    });
+
+    // Convert to WorkoutGroup objects
+    const result: WorkoutGroup[] = [];
+
+    // Sort month keys newest-first
+    const sortedMonthKeys = Array.from(monthGroups.keys()).sort((a, b) => {
+      return b.localeCompare(a); // Descending order (newest first)
+    });
+
+    sortedMonthKeys.forEach(monthKey => {
+      const groupWorkouts = monthGroups.get(monthKey) || [];
+      if (groupWorkouts.length > 0) {
+        // Sort workouts within month by date (newest first)
+        const sortedWorkouts = groupWorkouts.sort((a, b) =>
+          new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+        );
+
+        const monthDate = this.parseMonthKey(monthKey);
+        const monthTitle = this.getMonthTitle(monthKey);
+
+        result.push({
+          key: monthKey,
+          title: monthTitle,
+          workouts: sortedWorkouts,
+          stats: this.calculateGroupStats(sortedWorkouts),
+          dateRange: {
+            start: new Date(monthDate.getFullYear(), monthDate.getMonth(), 1),
+            end: new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 23, 59, 59, 999)
+          },
+          isExpanded: false // All folders collapsed by default
+        });
+      }
+    });
+
+    return result;
+  }
+
+  /**
+   * Parse month key (YYYY-MM) into Date object
+   */
+  private static parseMonthKey(monthKey: string): Date {
+    const [year, month] = monthKey.split('-').map(Number);
+    return new Date(year, month - 1, 1);
+  }
+
+  /**
+   * Get human-readable month title (e.g., "January 2025")
+   */
+  private static getMonthTitle(monthKey: string): string {
+    const date = this.parseMonthKey(monthKey);
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+  }
+
   /**
    * Groups workouts by time periods
    */

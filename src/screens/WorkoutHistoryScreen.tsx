@@ -31,33 +31,38 @@ import { WorkoutGroupingService, type WorkoutGroup } from '../utils/workoutGroup
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { LoadingOverlay } from '../components/ui/LoadingStates';
-import { BottomNavigation } from '../components/ui/BottomNavigation';
+import { SyncDropdown } from '../components/profile/shared/SyncDropdown';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 
 // Fitness Components
 import { WorkoutSyncStatus } from '../components/fitness/WorkoutSyncStatus';
 import { WorkoutActionButtons } from '../components/fitness/WorkoutActionButtons';
-import { WorkoutTimeGroup } from '../components/fitness/WorkoutTimeGroup';
-import { WorkoutStatsOverview, type StatsPeriod } from '../components/fitness/WorkoutStatsOverview';
+import { MonthlyWorkoutFolder } from '../components/fitness/MonthlyWorkoutFolder';
+import { WorkoutStatsOverview } from '../components/fitness/WorkoutStatsOverview';
 import { WorkoutCalendarHeatmap } from '../components/fitness/WorkoutCalendarHeatmap';
 
 import type { WorkoutType } from '../types/workout';
 
 interface WorkoutHistoryScreenProps {
-  userId: string;
-  pubkey: string;
-  onNavigateBack: () => void;
-  onNavigateToTeam: () => void;
+  route?: {
+    params?: {
+      userId?: string;
+      pubkey?: string;
+    };
+  };
 }
 
 type FilterType = 'all' | WorkoutType;
 type SortOrder = 'newest' | 'oldest' | 'distance' | 'duration';
+type ViewType = 'public' | 'all';
 
 export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
-  userId,
-  pubkey,
-  onNavigateBack,
-  onNavigateToTeam,
+  route,
 }) => {
+  const navigation = useNavigation();
+  const userId = route?.params?.userId || '';
+  const pubkey = route?.params?.pubkey || '';
   const [workouts, setWorkouts] = useState<UnifiedWorkout[]>([]);
   const [filteredWorkouts, setFilteredWorkouts] = useState<UnifiedWorkout[]>(
     []
@@ -71,8 +76,9 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [nsecKey, setNsecKey] = useState<string | null>(null);
-  const [selectedPeriod, setSelectedPeriod] = useState<StatsPeriod>('week');
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['thisWeek']));
+  const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'year'>('month');
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [viewType, setViewType] = useState<ViewType>('all');
 
   const cacheService = WorkoutCacheService.getInstance();
   const mergeService = WorkoutMergeService.getInstance();
@@ -89,8 +95,8 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
   }, [workouts, selectedFilter, sortOrder]);
 
   useEffect(() => {
-    // Group filtered workouts
-    const groups = WorkoutGroupingService.groupWorkoutsByTime(filteredWorkouts);
+    // Group filtered workouts by month for folder UI
+    const groups = WorkoutGroupingService.groupWorkoutsByMonth(filteredWorkouts);
     // Apply expanded state
     const groupsWithExpanded = groups.map(group => ({
       ...group,
@@ -221,10 +227,15 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
   const applyFiltersAndSort = () => {
     let filtered = [...workouts];
 
-    // Filter out unknown and other workout types
+    // Filter out invalid workout types
     filtered = filtered.filter((workout) =>
-      workout.type && workout.type !== 'unknown' && workout.type !== 'other'
+      workout.type && workout.type !== 'other'
     );
+
+    // Apply view type filter (public vs all)
+    if (viewType === 'public') {
+      filtered = filtered.filter((workout) => workout.source === 'nostr');
+    }
 
     // Apply activity type filter
     if (selectedFilter !== 'all') {
@@ -284,7 +295,7 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
   };
 
   const getActivityIcon = (type: WorkoutType): string => {
-    const icons = {
+    const icons: Record<string, string> = {
       running: '🏃',
       cycling: '🚴',
       walking: '🚶',
@@ -397,34 +408,55 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={onNavigateBack} style={styles.backButton}>
-          <Text style={styles.backButtonText}>←</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
-        <Text style={styles.title}>Workout History</Text>
+        <Text style={styles.title}>Your Workouts</Text>
         <View style={styles.placeholder} />
       </View>
 
-      {/* Sync Status */}
-      <WorkoutSyncStatus
-        userId={userId}
-        pubkey={pubkey}
-        onManualSync={handleRefresh}
-        style={styles.syncStatus}
-      />
+      {/* Import Button and View Toggle */}
+      <View style={styles.topControls}>
+        <SyncDropdown
+          userId={userId}
+          onSyncComplete={() => loadWorkouts(true)}
+        />
+        <View style={styles.viewToggle}>
+          <TouchableOpacity
+            style={[
+              styles.toggleButton,
+              viewType === 'public' && styles.toggleButtonActive,
+            ]}
+            onPress={() => setViewType('public')}
+          >
+            <Text
+              style={[
+                styles.toggleButtonText,
+                viewType === 'public' && styles.toggleButtonTextActive,
+              ]}
+            >
+              Public
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.toggleButton,
+              viewType === 'all' && styles.toggleButtonActive,
+            ]}
+            onPress={() => setViewType('all')}
+          >
+            <Text
+              style={[
+                styles.toggleButtonText,
+                viewType === 'all' && styles.toggleButtonTextActive,
+              ]}
+            >
+              All
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
-      {/* Stats Overview */}
-      <WorkoutStatsOverview
-        workouts={filteredWorkouts}
-        onPeriodChange={setSelectedPeriod}
-      />
-
-      {/* Calendar Heatmap */}
-      <WorkoutCalendarHeatmap
-        workouts={filteredWorkouts}
-        onDayPress={(date, dayWorkouts) => {
-          console.log(`Day pressed: ${date.toDateString()}, ${dayWorkouts.length} workouts`);
-        }}
-      />
 
       {/* Filters & Sort */}
       <View style={styles.controlsContainer}>
@@ -484,9 +516,10 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
       >
         {workoutGroups.length > 0 ? (
           workoutGroups.map(group => (
-            <WorkoutTimeGroup
+            <MonthlyWorkoutFolder
               key={group.key}
               group={group}
+              isExpanded={expandedGroups.has(group.key)}
               onToggle={toggleGroup}
               renderWorkout={(workout) => renderWorkoutItem({ item: workout })}
             />
@@ -496,19 +529,15 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
             <Text style={styles.emptyStateTitle}>No workouts found</Text>
             <Text style={styles.emptyStateText}>
               {selectedFilter === 'all'
-                ? 'Pull down to sync your Nostr workouts'
+                ? 'Your workout history will appear here once synced'
                 : `No ${selectedFilter} workouts found`}
             </Text>
-            <Button title="Sync Now" onPress={handleRefresh} />
+            {selectedFilter === 'all' && (
+              <Button title="Sync Now" onPress={handleRefresh} />
+            )}
           </Card>
         )}
       </ScrollView>
-
-      <BottomNavigation
-        activeScreen="profile"
-        onNavigateToTeam={onNavigateToTeam}
-        onNavigateToProfile={() => {}}
-      />
     </SafeAreaView>
   );
 };
@@ -542,6 +571,39 @@ const styles = StyleSheet.create({
   },
   placeholder: {
     width: 40,
+  },
+  topControls: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  viewToggle: {
+    flexDirection: 'row',
+    backgroundColor: theme.colors.cardBackground,
+    borderRadius: 8,
+    padding: 2,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  toggleButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  toggleButtonActive: {
+    backgroundColor: theme.colors.text,
+  },
+  toggleButtonText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: theme.colors.textSecondary,
+  },
+  toggleButtonTextActive: {
+    color: theme.colors.background,
   },
   syncStatus: {
     margin: 16,
