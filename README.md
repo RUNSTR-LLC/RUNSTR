@@ -1,30 +1,30 @@
-# ⚡ RUNSTR Rewards
+# ⚡ RUNSTR
 
 **Bitcoin-powered fitness competitions on Nostr protocol**
 
 The first fitness competition platform that combines the decentralized power of Nostr with real Bitcoin rewards through the Lightning Network. Built entirely on the Nostr protocol, every workout, team membership, and competition exists as permanent, user-owned data that no company can delete or monetize without your permission.
 
-![RUNSTR Rewards](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
+![RUNSTR](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
 ![React Native](https://img.shields.io/badge/React%20Native-0.79.5-blue)
 ![Nostr Protocol](https://img.shields.io/badge/Nostr-Protocol-purple)
 ![Lightning Network](https://img.shields.io/badge/Lightning-Network-orange)
 
-## 🌟 Bitcoin & Nostr: The Future of Fitness Competition
+## 🌟 Breaking Free from Digital Fitness Silos
 
-**Paragraph 1: Bitcoin & Nostr Core Value Proposition**
-RUNSTR Rewards is the first fitness competition platform that combines the decentralized power of Nostr with real Bitcoin rewards through the Lightning Network. Built entirely on the Nostr protocol, every workout, team membership, and competition exists as permanent, user-owned data that no company can delete or monetize without your permission. Team captains create fitness competitions with Bitcoin entry fees that build real prize pools, automatically distributed to winners via Lightning payments. This creates the world's first truly decentralized fitness economy where your dedication to health directly translates into Bitcoin earnings, all while maintaining complete sovereignty over your fitness data.
+**The Problem: Digital Silos at War**
+The current fitness app landscape is fragmented into digital silos - Nike Run Club, Strava, Apple Fitness, Garmin Connect - each fighting for user retention through proprietary ecosystems. These platforms offer in-app challenges, events, levels, friends lists, and workout histories, but they're black boxes for your data with little to no monetary incentive to participate. Users are forced to choose between platforms, losing their community, history, and progress if they switch. RUNSTR breaks down these walls by creating an interoperable fitness layer on top of existing apps - you can run with Nike Run Club and still participate in Bitcoin-earning competitions, eliminating switching costs while adding real financial rewards to your existing fitness routine.
 
-**Paragraph 2: Nostr-Native Competition System**
-The platform leverages Nostr's event-driven architecture to create transparent, verifiable fitness competitions that operate without any central authority. Teams exist as Nostr lists (Kind 30000), competitions as parameterized events (Kind 31013), and workout submissions as structured fitness data (Kind 1301). This means every leaderboard position, every workout entry, and every Bitcoin payout is cryptographically signed and permanently recorded on the Nostr network. Users can authenticate directly with their Nostr keys (nsec) for full protocol access, or use Apple Sign-In which automatically generates a Nostr keypair behind the scenes, making Web3 fitness accessible to everyone regardless of technical expertise.
+**The Solution: Nostr-Native Fitness Protocol**
+RUNSTR is pioneering a new category of Nostr client - the fitness client - that transforms isolated workout data into a unified, portable, and monetizable fitness identity. By leveraging Nostr's decentralized protocol, RUNSTR enables users to login with their Nostr identity (nsec), save all workouts locally, and selectively publish to Nostr's social feeds (Kind 1 events) or competitive workout records (Kind 1301). This approach won first place in the NosFabrica challenge, validating the concept of bringing health and fitness to the decentralized web. Users maintain complete ownership of their data while gaining the ability to earn Bitcoin from any workout, regardless of which app they use to track it.
 
-**Paragraph 3: Bitcoin-Incentivized Fitness Ecosystem**
-RUNSTR Rewards transforms fitness from a personal journey into a profitable competitive sport through Bitcoin micropayments on the Lightning Network. Captains set competition entry fees in sats, creating prize pools that motivate genuine participation. Whether it's a weekend 5K challenge, a month-long consistency league, or a team-vs-team cycling event, every competition has real monetary stakes that drive accountability. Winners receive instant Lightning payments directly to their wallets - no intermediaries, no withdrawal fees, no waiting periods. This direct peer-to-peer reward system ensures that fitness achievements translate immediately into Bitcoin earnings.
+**P2P Bitcoin Fitness Economy**
+RUNSTR TEAMS empowers peer-to-peer fitness communities where every member has an auto-created Lightning wallet (via NIP-60/61 protocol), enabling instant Bitcoin transactions within teams. Captains create teams and host competitions with entry fees that build prize pools, automatically distributed to winners via Lightning payments. Team pages feature integrated commerce through shop buttons linking to Shopstr, charity zap buttons for captain-selected causes, and subscription models for exclusive competitions. This creates circular Bitcoin economies within fitness teams - members support each other with zaps, pay entry fees for competitions, win prizes, and reinvest in team merchandise and events.
 
-**Paragraph 4: Unified Fitness Data with Nostr Publishing**
-While RUNSTR Rewards aggregates workouts from any Apple HealthKit-compatible app into local storage, the real power comes from selective Nostr publishing. Users maintain complete control over their fitness data, choosing when to convert private workouts into competitive entries. Post workouts as Kind 1 events to share achievements with your Nostr social network, complete with beautiful achievement cards, or publish as Kind 1301 structured fitness events to enter competitions and climb leaderboards. This hybrid approach respects privacy while enabling participation in the Bitcoin-earning competition ecosystem when users are ready to compete.
+**Captain-Led Community Empowerment**
+Team captains become fitness entrepreneurs with tools to build and monetize their communities. Through wizard-driven competition creation, captains set parameters for leagues, events, and challenges across seven activity types (running, walking, cycling, hiking, swimming, rowing, strength training). The system aggregates workouts from Apple Health, Garmin, and Google Fit, allowing members to cross-post from their preferred apps while participating in Nostr-based competitions. Captains can distribute prizes directly via Lightning zaps, manage team memberships through Nostr lists (Kind 30000), and build their brand through team-specific merchandise and subscription tiers.
 
-**Paragraph 5: Future of Decentralized Fitness**
-The roadmap ahead doubles down on Bitcoin and Nostr integration to create new earning opportunities and enhanced competition features. Coming soon: team monetization tools allowing captains to create sponsored competitions with larger Bitcoin prize pools, achievement bounties where users earn sats for hitting fitness milestones, and cross-team league systems with season-long Bitcoin championships. Technical enhancements include Garmin integration for broader device support, Amber wallet authentication for streamlined Nostr login, push notifications for competition updates, and performance optimizations to handle thousands of concurrent competitions. RUNSTR Rewards is building the foundation for a global, decentralized fitness economy where anyone can earn Bitcoin for staying healthy, powered entirely by Nostr's unstoppable protocol.
+**Vision & Monetization Strategy**
+RUNSTR targets fitness enthusiasts within the Bitcoin ecosystem - a demographic that spends significant amounts on fitness annually and values data sovereignty. As an additive experience sitting on top of existing fitness stacks, RUNSTR provides earning potential without disrupting current routines. RUNSTR LLC monetizes by operating as a team within the platform, competing on equal footing with users by selling subscriptions, event tickets, and merchandise through the app. The company focuses on implementing gamification strategies to promote high sats flow within the ecosystem, taking small transaction fees while fostering a sustainable P2P fitness economy. Available on iOS and ZapStore, RUNSTR is building the foundation for a global, interoperable fitness ecosystem where dedication to health translates directly into Bitcoin earnings.
 
 ## ⚡ Core Features
 
@@ -91,8 +91,8 @@ Lightning Network (CoinOS API)
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/RUNSTR-LLC/RUNSTR-REWARDS.git
-cd RUNSTR-REWARDS
+git clone https://github.com/RUNSTR-LLC/RUNSTR.git
+cd RUNSTR
 ```
 
 2. **Install dependencies**
@@ -267,4 +267,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-**RUNSTR Rewards** - Where fitness meets Bitcoin on the decentralized web ⚡🏃‍♂️₿
+**RUNSTR** - Where fitness meets Bitcoin on the decentralized web ⚡🏃‍♂️₿
