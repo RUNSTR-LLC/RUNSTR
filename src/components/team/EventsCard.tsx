@@ -11,7 +11,13 @@ import { Card } from '../ui/Card';
 import { FormattedEvent } from '../../types';
 import { theme } from '../../styles/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import NostrCompetitionParticipantService from '../../services/nostr/NostrCompetitionParticipantService';
+import { NostrListService } from '../../services/nostr/NostrListService';
+import { EventJoinRequestService } from '../../services/events/EventJoinRequestService';
+import { getAuthenticationData } from '../../utils/authUtils';
+import { nsecToPrivateKey, npubToHex } from '../../utils/ndkConversion';
+import { NDKPrivateKeySigner, NDKEvent } from '@nostr-dev-kit/ndk';
+import { getNDKInstance } from '../../services/nostr/ndkInstance';
+import { Alert } from 'react-native';
 
 interface EventsCardProps {
   events: FormattedEvent[];
@@ -24,6 +30,8 @@ interface EventStatus {
   isJoined: boolean;
   isActive: boolean;
   isCompleted: boolean;
+  hasRequestedJoin: boolean;
+  participantCount: number;
 }
 
 export const EventsCard: React.FC<EventsCardProps> = ({
@@ -34,17 +42,21 @@ export const EventsCard: React.FC<EventsCardProps> = ({
 }) => {
   const [eventStatuses, setEventStatuses] = useState<Record<string, EventStatus>>({});
   const [currentUserNpub, setCurrentUserNpub] = useState<string | null>(null);
-  const participantService = NostrCompetitionParticipantService.getInstance();
+  const [currentUserHex, setCurrentUserHex] = useState<string | null>(null);
+  const [requestingJoin, setRequestingJoin] = useState<string | null>(null);
+  const listService = NostrListService.getInstance();
+  const joinRequestService = EventJoinRequestService.getInstance();
 
   useEffect(() => {
     const loadCurrentUser = async () => {
       try {
-        const npub = await AsyncStorage.getItem('@runstr:npub');
-        if (npub) {
-          setCurrentUserNpub(npub);
+        const authData = await getAuthenticationData();
+        if (authData) {
+          setCurrentUserNpub(authData.npub);
+          setCurrentUserHex(authData.hexPubkey);
         }
       } catch (error) {
-        console.log('Could not load current user npub');
+        console.log('Could not load current user data');
       }
     };
     loadCurrentUser();
@@ -64,23 +76,33 @@ export const EventsCard: React.FC<EventsCardProps> = ({
           const isActive = eventDate.toDateString() === now.toDateString();
           const isCompleted = eventDate < now;
 
-          // Check if user has joined this event
-          const participantList = await participantService.getParticipantList(event.id);
-          const isJoined = participantList?.participants.some(
-            p => p.npub === currentUserNpub || p.hexPubkey === currentUserNpub
-          ) || false;
+          // Get event captain's hex pubkey (from event data or team captain)
+          const captainHex = event.captainPubkey || event.authorPubkey || '';
+
+          // Check if user has joined this event (using kind 30000 list)
+          const eventDTag = `event-${event.id}-participants`;
+          const participants = await listService.getListMembers(captainHex, eventDTag);
+          const isJoined = participants.includes(currentUserHex || '');
+
+          // Check if user has pending join request
+          const joinRequests = await joinRequestService.getEventJoinRequests(captainHex, event.id);
+          const hasRequestedJoin = joinRequests.some(r => r.requesterId === currentUserHex);
 
           statuses[event.id] = {
             isJoined,
             isActive,
-            isCompleted
+            isCompleted,
+            hasRequestedJoin,
+            participantCount: participants.length
           };
         } catch (error) {
           console.log(`Could not check status for event ${event.id}`);
           statuses[event.id] = {
             isJoined: false,
             isActive: false,
-            isCompleted: false
+            isCompleted: false,
+            hasRequestedJoin: false,
+            participantCount: 0
           };
         }
       }
@@ -144,11 +166,92 @@ export const EventsCard: React.FC<EventsCardProps> = ({
                 Prize Pool: {event.prizePoolSats === 0 ? 'N/A' : `${event.prizePoolSats.toLocaleString()} sats`}
               </Text>
             )}
+
+            {/* Show participant count and join button */}
+            <View style={styles.eventFooter}>
+              <Text style={styles.participantCount}>
+                {eventStatuses[event.id]?.participantCount || 0} participants
+              </Text>
+
+              {!isCaptain && !eventStatuses[event.id]?.isJoined && !eventStatuses[event.id]?.isCompleted && (
+                <TouchableOpacity
+                  style={[
+                    styles.joinButton,
+                    eventStatuses[event.id]?.hasRequestedJoin && styles.pendingButton,
+                    requestingJoin === event.id && styles.disabledButton
+                  ]}
+                  onPress={() => handleRequestJoin(event)}
+                  disabled={eventStatuses[event.id]?.hasRequestedJoin || requestingJoin === event.id}
+                >
+                  <Text style={styles.joinButtonText}>
+                    {requestingJoin === event.id
+                      ? 'Requesting...'
+                      : eventStatuses[event.id]?.hasRequestedJoin
+                      ? 'Request Pending'
+                      : 'Request to Join'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </TouchableOpacity>
         ))}
       </ScrollView>
     </Card>
   );
+
+  async function handleRequestJoin(event: FormattedEvent) {
+    try {
+      setRequestingJoin(event.id);
+
+      // Get auth data
+      const authData = await getAuthenticationData();
+      if (!authData?.nsec) {
+        Alert.alert('Error', 'Please log in to join events');
+        return;
+      }
+
+      // Get captain's hex pubkey
+      const captainHex = event.captainPubkey || event.authorPubkey || '';
+
+      // Prepare join request
+      const requestData = {
+        eventId: event.id,
+        eventName: event.name,
+        teamId: event.teamId || '',
+        captainPubkey: captainHex,
+        message: `Request to join ${event.name}`,
+      };
+
+      const eventTemplate = joinRequestService.prepareEventJoinRequest(
+        requestData,
+        authData.hexPubkey
+      );
+
+      // Sign and publish
+      const ndk = await getNDKInstance();
+      const privateKeyHex = nsecToPrivateKey(authData.nsec);
+      const signer = new NDKPrivateKeySigner(privateKeyHex);
+      const ndkEvent = new NDKEvent(ndk, eventTemplate);
+      await ndkEvent.sign(signer);
+      await ndkEvent.publish();
+
+      Alert.alert('Success', 'Your join request has been sent to the captain');
+
+      // Update status to show pending
+      setEventStatuses(prev => ({
+        ...prev,
+        [event.id]: {
+          ...prev[event.id],
+          hasRequestedJoin: true,
+        },
+      }));
+    } catch (error) {
+      console.error('Failed to send join request:', error);
+      Alert.alert('Error', 'Failed to send join request');
+    } finally {
+      setRequestingJoin(null);
+    }
+  }
 };
 
 const styles = StyleSheet.create({
@@ -256,5 +359,32 @@ const styles = StyleSheet.create({
     color: theme.colors.accent,
     fontWeight: '600',
     marginTop: 4,
+  },
+  eventFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  participantCount: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+  },
+  joinButton: {
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  pendingButton: {
+    backgroundColor: theme.colors.secondary,
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  joinButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.colors.background,
   },
 });

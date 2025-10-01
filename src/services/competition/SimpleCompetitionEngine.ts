@@ -150,19 +150,17 @@ export class SimpleCompetitionEngine {
     captainPubkey: string
   ): Promise<string[]> {
     try {
-      // First check for competition-specific participant list
-      const participantList = await this.participantService.getParticipantList(competitionId);
+      // For events, use the event-specific participant list (kind 30000)
+      const eventDTag = `event-${competitionId}-participants`;
+      const eventParticipants = await this.nostrListService.getListMembers(captainPubkey, eventDTag);
 
-      if (participantList && participantList.participants.length > 0) {
-        console.log('📋 Using competition participant list');
-        // Return only approved participants
-        return participantList.participants
-          .filter(p => p.status === 'approved')
-          .map(p => p.hexPubkey);
+      if (eventParticipants && eventParticipants.length > 0) {
+        console.log(`📋 Using event participant list: ${eventParticipants.length} participants`);
+        return eventParticipants;
       }
 
-      // Fall back to team members if no participant list exists
-      console.log('📋 Falling back to team member list');
+      // For leagues or events without participant lists, use team members
+      console.log('📋 Using team member list (league or empty event)');
       return this.getTeamMembers(teamId, captainPubkey);
     } catch (error) {
       console.error('Error getting competition participants:', error);

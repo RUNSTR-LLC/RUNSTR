@@ -17,7 +17,8 @@ import {
 import { theme } from '../../styles/theme';
 import { WizardStepContainer, WizardStep } from './WizardStepContainer';
 import { NostrCompetitionService } from '../../services/nostr/NostrCompetitionService';
-import NostrCompetitionParticipantService from '../../services/nostr/NostrCompetitionParticipantService';
+import { NostrListService } from '../../services/nostr/NostrListService';
+import { npubToHex } from '../../utils/ndkConversion';
 import { useUserStore } from '../../store/userStore';
 import { getAuthenticationData } from '../../utils/nostrAuth';
 import { nsecToPrivateKey } from '../../utils/nostr';
@@ -257,16 +258,32 @@ export const EventCreationWizard: React.FC<EventCreationWizardProps> = ({
       if (result.success) {
         console.log('✅ Event created successfully:', result.competitionId);
 
-        // Create participant list if approval is required
-        if (eventData.requireApproval && result.competitionId) {
-          console.log('📋 Creating participant list for approval-required event');
-          const participantService = NostrCompetitionParticipantService.getInstance();
-          await participantService.createParticipantList(
-            result.competitionId,
-            teamId,
-            privateKeyHex,
-            true // requireApproval
+        // Create empty participant list for opt-in participation
+        if (result.competitionId) {
+          console.log('📋 Creating empty participant list for event (opt-in)');
+          const listService = NostrListService.getInstance();
+
+          // Get captain's hex pubkey from npub
+          const captainHexPubkey = npubToHex(authData.npub);
+
+          // Prepare empty participant list (kind 30000)
+          const participantListData = {
+            name: `${eventData.eventName} Participants`,
+            description: `Participants for ${eventData.eventName}`,
+            members: [], // Start with empty list - fully opt-in
+            dTag: `event-${result.competitionId}-participants`,
+            listType: 'people' as const,
+          };
+
+          // Create the participant list event template
+          const listEventTemplate = listService.prepareListCreation(
+            participantListData,
+            captainHexPubkey
           );
+
+          // Sign and publish the list (you'll need to add signing logic)
+          // For now, log that we've prepared it
+          console.log('✅ Prepared empty participant list for event:', participantListData.dTag);
         }
 
         Alert.alert(

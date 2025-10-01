@@ -27,6 +27,7 @@ import { ZappableUserRow } from '../components/ui/ZappableUserRow';
 import { QuickActionsSection } from '../components/team/QuickActionsSection';
 import { ActivityFeedSection } from '../components/team/ActivityFeedSection';
 import { JoinRequestsSection } from '../components/team/JoinRequestsSection';
+import { EventJoinRequestsSection } from '../components/captain/EventJoinRequestsSection';
 import { EventCreationWizard } from '../components/wizards/EventCreationWizard';
 import { LeagueCreationWizard } from '../components/wizards/LeagueCreationWizard';
 import { CompetitionParticipantsSection } from '../components/captain/CompetitionParticipantsSection';
@@ -1391,13 +1392,24 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
           onManageFlash={() => setShowFlashModal(true)}
         />
 
-        {/* Join Requests */}
+        {/* Team Join Requests */}
         <JoinRequestsSection
           teamId={data.team.id}
           captainPubkey={captainId}
           onMemberApproved={(requesterPubkey) => {
             // Handle member approval - could refresh member list
-            console.log('Member approved:', requesterPubkey);
+            console.log('Team member approved:', requesterPubkey);
+            loadTeamMembers(); // Refresh member list
+          }}
+        />
+
+        {/* Event Join Requests */}
+        <EventJoinRequestsSection
+          captainPubkey={captainId}
+          teamId={data.team.id}
+          onMemberApproved={(eventId, requesterPubkey) => {
+            console.log('Event participant approved:', eventId, requesterPubkey);
+            // Could refresh event participants if needed
           }}
         />
 
