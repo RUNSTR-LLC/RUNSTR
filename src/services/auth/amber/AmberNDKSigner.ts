@@ -101,14 +101,9 @@ export class AmberNDKSigner implements NDKSigner {
 
       const params = new URLSearchParams(parsedUrl.search);
       const requestId = params.get('id');
-      const response = params.get('response');
       const error = params.get('error');
 
-      console.log('[DEBUG] Callback params:', {
-        requestId,
-        hasResponse: !!response,
-        error
-      });
+      console.log('[DEBUG] Callback params - ID:', requestId, 'Error:', error);
 
       if (!requestId || !this.pendingRequests.has(requestId)) {
         console.log('[DEBUG] No pending request for ID:', requestId);
@@ -129,20 +124,31 @@ export class AmberNDKSigner implements NDKSigner {
         return;
       }
 
-      // Parse the response JSON
-      if (response) {
+      // Try to find the response data in ANY of these possible formats
+      const responseData =
+        params.get('response') ||  // Format 1: single response param with JSON
+        params.get('result') ||    // Format 2: result param
+        params.get('event') ||     // Format 3: event param (signed event JSON)
+        params.get('signature') || // Format 4: signature param
+        params.get('pubkey');      // Format 5: pubkey param
+
+      console.log('[DEBUG] Response data found:', responseData ? responseData.substring(0, 100) + '...' : 'NONE');
+
+      if (responseData) {
         console.log('[DEBUG] Received response from Amber');
         try {
-          const decoded = decodeURIComponent(response);
+          // Try to parse as JSON first
+          const decoded = decodeURIComponent(responseData);
           const parsed = JSON.parse(decoded);
-          console.log('[DEBUG] Parsed response:', parsed);
+          console.log('[DEBUG] Parsed as JSON:', parsed);
           request.resolve(parsed);
         } catch (parseError) {
-          console.error('[DEBUG] Failed to parse response:', parseError);
-          request.reject(new Error('Failed to parse Amber response'));
+          // If not JSON, use raw value (e.g., for simple strings like pubkey or signature)
+          console.log('[DEBUG] Using raw value (not JSON):', responseData.substring(0, 50));
+          request.resolve(responseData);
         }
       } else {
-        console.log('[DEBUG] Unexpected callback format - no response data received');
+        console.log('[DEBUG] No response data found in any known format');
         request.reject(new Error('No response data from Amber'));
       }
     } catch (error) {
@@ -184,8 +190,13 @@ export class AmberNDKSigner implements NDKSigner {
       this.pendingRequests.set(requestId, {
         id: requestId,
         resolve: (response: any) => {
-          // Extract pubkey from the signed auth event response
-          if (response && response.pubkey) {
+          // Handle different response formats
+          // Response could be: JSON object, plain pubkey string, or signed event
+          if (typeof response === 'string') {
+            // Plain string response (pubkey)
+            resolve(response);
+          } else if (response && response.pubkey) {
+            // JSON object with pubkey field
             resolve(response.pubkey);
           } else {
             reject(new Error('No pubkey in Amber response'));
@@ -277,9 +288,17 @@ export class AmberNDKSigner implements NDKSigner {
       this.pendingRequests.set(requestId, {
         id: requestId,
         resolve: (response: any) => {
-          // Extract signature from the signed event response
-          if (response && response.sig) {
+          // Handle different response formats
+          // Response could be: plain signature string, signed event object, or signature field
+          if (typeof response === 'string') {
+            // Plain string response (signature)
+            resolve(response);
+          } else if (response && response.sig) {
+            // JSON object with sig field (signed event)
             resolve(response.sig);
+          } else if (response && response.signature) {
+            // JSON object with signature field
+            resolve(response.signature);
           } else {
             reject(new Error('No signature in Amber response'));
           }
@@ -348,8 +367,13 @@ export class AmberNDKSigner implements NDKSigner {
       this.pendingRequests.set(requestId, {
         id: requestId,
         resolve: (response: any) => {
-          // Extract encrypted content from response
-          if (response && response.result) {
+          // Handle different response formats
+          // Response could be: plain encrypted string or JSON object with result field
+          if (typeof response === 'string') {
+            // Plain string response (encrypted content)
+            resolve(response);
+          } else if (response && response.result) {
+            // JSON object with result field
             resolve(response.result);
           } else {
             reject(new Error('No encrypted content in Amber response'));
@@ -413,8 +437,13 @@ export class AmberNDKSigner implements NDKSigner {
       this.pendingRequests.set(requestId, {
         id: requestId,
         resolve: (response: any) => {
-          // Extract decrypted content from response
-          if (response && response.result) {
+          // Handle different response formats
+          // Response could be: plain decrypted string or JSON object with result field
+          if (typeof response === 'string') {
+            // Plain string response (decrypted content)
+            resolve(response);
+          } else if (response && response.result) {
+            // JSON object with result field
             resolve(response.result);
           } else {
             reject(new Error('No decrypted content in Amber response'));
