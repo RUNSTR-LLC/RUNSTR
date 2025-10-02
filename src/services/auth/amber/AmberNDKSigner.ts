@@ -6,6 +6,7 @@
 
 import { NDKSigner, NDKUser, NostrEvent } from '@nostr-dev-kit/ndk';
 import * as Linking from 'expo-linking';
+import * as IntentLauncher from 'expo-intent-launcher';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -194,47 +195,51 @@ export class AmberNDKSigner implements NDKSigner {
         timeout
       });
 
-      // Create auth event for Amber to sign (kind 22242)
-      const authEvent = {
-        kind: 22242,
-        created_at: Math.floor(Date.now() / 1000),
-        content: 'Login to RUNSTR',
-        tags: [
-          ['relay', 'wss://relay.damus.io'],
-          ['relay', 'wss://nos.lol'],
-          ['relay', 'wss://relay.nostr.band']
-        ]
+      // Prepare permissions for Amber
+      const permissions = [
+        { type: 'sign_event', kind: 0 },      // Profile metadata
+        { type: 'sign_event', kind: 1 },      // Text notes
+        { type: 'sign_event', kind: 1301 },   // Workout events
+        { type: 'sign_event', kind: 30000 },  // Team member lists
+        { type: 'sign_event', kind: 30001 },  // Additional lists
+        { type: 'sign_event', kind: 33404 },  // Team events
+        { type: 'nip04_encrypt' },
+        { type: 'nip04_decrypt' },
+        { type: 'nip44_encrypt' },
+        { type: 'nip44_decrypt' }
+      ];
+
+      const callbackUrl = `runstrproject://amber-callback?id=${requestId}`;
+
+      const intentExtras = {
+        'type': 'get_public_key',
+        'callbackUrl': callbackUrl,
+        'id': requestId,
+        'permissions': JSON.stringify(permissions)
       };
 
-      // Build callback URL with request ID
-      const callbackUrl = `runstrproject://amber-callback?id=${requestId}`;
-      const encodedEvent = encodeURIComponent(JSON.stringify(authEvent));
-      const encodedCallback = encodeURIComponent(callbackUrl);
+      console.log('[Amber DEBUG] Launching with Intent extras:', intentExtras);
 
-      // Build Amber URL with parameters
-      const amberUri = `nostrsigner:${encodedEvent}?compression=none&type=sign_event&callbackUrl=${encodedCallback}`;
-
-      console.log('[Amber DEBUG] Launching with URL:', amberUri.substring(0, 100) + '...');
-
-      // Use Linking.openURL to launch Amber
+      // Use IntentLauncher with proper extras for native Android communication
       try {
-        Linking.openURL(amberUri)
-          .then(() => {
-            console.log('[Amber] URL opened successfully for request:', requestId);
-          })
-          .catch(launchError => {
-            // Clean up on launch failure
-            this.pendingRequests.delete(requestId);
-            clearTimeout(timeout);
-            console.error('[Amber] Failed to open URL:', launchError);
-            reject(new Error('Could not launch Amber: ' + launchError.message));
-          });
+        IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+          data: 'nostrsigner:',  // Just the scheme, no parameters
+          extra: intentExtras
+        }).then(() => {
+          console.log('[Amber] Intent launched successfully for request:', requestId);
+        }).catch(launchError => {
+          // Clean up on launch failure
+          this.pendingRequests.delete(requestId);
+          clearTimeout(timeout);
+          console.error('[Amber] Failed to launch Intent:', launchError);
+          reject(new Error('Could not launch Amber: ' + launchError.message));
+        });
       } catch (error) {
         // Clean up on immediate error
         this.pendingRequests.delete(requestId);
         clearTimeout(timeout);
-        console.error('[Amber] Failed to create URL:', error);
-        reject(new Error('Could not create Amber URL: ' + error));
+        console.error('[Amber] Failed to create Intent:', error);
+        reject(new Error('Could not create Amber Intent: ' + error));
       }
     });
   }
@@ -283,33 +288,40 @@ export class AmberNDKSigner implements NDKSigner {
         timeout
       });
 
-      // Build callback URL with request ID
       const callbackUrl = `runstrproject://amber-callback?id=${requestId}`;
-      const encodedEvent = encodeURIComponent(JSON.stringify(unsignedEvent));
-      const encodedCallback = encodeURIComponent(callbackUrl);
 
-      // Build Amber URL for signing
-      const amberUri = `nostrsigner:${encodedEvent}?compression=none&type=sign_event&callbackUrl=${encodedCallback}`;
+      const intentExtras = {
+        'type': 'sign_event',
+        'event': JSON.stringify(unsignedEvent),
+        'callbackUrl': callbackUrl,
+        'id': requestId
+      };
 
-      console.log('[Amber DEBUG] Sign event URL kind:', unsignedEvent.kind, 'ID:', requestId);
+      console.log('[Amber DEBUG] Sign event Intent extras:', {
+        type: 'sign_event',
+        eventKind: unsignedEvent.kind,
+        id: requestId,
+        callbackUrl: callbackUrl
+      });
 
-      // Use Linking.openURL to launch Amber
+      // Use IntentLauncher with proper extras
       try {
-        Linking.openURL(amberUri)
-          .then(() => {
-            console.log('[Amber] Sign event URL opened successfully for kind', unsignedEvent.kind);
-          })
-          .catch(launchError => {
-            this.pendingRequests.delete(requestId);
-            clearTimeout(timeout);
-            console.error('[Amber] Failed to open sign URL:', launchError);
-            reject(new Error('Could not launch Amber for signing: ' + launchError.message));
-          });
+        IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+          data: 'nostrsigner:',  // Just the scheme
+          extra: intentExtras
+        }).then(() => {
+          console.log('[Amber] Sign event Intent launched successfully for kind', unsignedEvent.kind);
+        }).catch(launchError => {
+          this.pendingRequests.delete(requestId);
+          clearTimeout(timeout);
+          console.error('[Amber] Failed to launch sign Intent:', launchError);
+          reject(new Error('Could not launch Amber for signing: ' + launchError.message));
+        });
       } catch (error) {
         this.pendingRequests.delete(requestId);
         clearTimeout(timeout);
-        console.error('[Amber] Failed to create sign URL:', error);
-        reject(new Error('Could not create Amber sign URL: ' + error));
+        console.error('[Amber] Failed to create sign Intent:', error);
+        reject(new Error('Could not create Amber sign Intent: ' + error));
       }
     });
   }
@@ -347,34 +359,34 @@ export class AmberNDKSigner implements NDKSigner {
         timeout
       });
 
-      // Build callback URL with request ID
       const callbackUrl = `runstrproject://amber-callback?id=${requestId}`;
-      const encodedPubkey = encodeURIComponent(recipientPubkey);
-      const encodedPlaintext = encodeURIComponent(value);
-      const encodedCallback = encodeURIComponent(callbackUrl);
 
-      // Build Amber URL for encryption
-      const amberUri = `nostrsigner:?compression=none&type=nip04_encrypt&pubkey=${encodedPubkey}&plaintext=${encodedPlaintext}&callbackUrl=${encodedCallback}`;
+      console.log('[Amber] Launching nip04_encrypt request via Intent extras');
 
-      console.log('[Amber DEBUG] Encrypt URL created with ID:', requestId);
-
-      // Use Linking.openURL to launch Amber
+      // Use IntentLauncher with proper extras
       try {
-        Linking.openURL(amberUri)
-          .then(() => {
-            console.log('[Amber] Encrypt URL opened successfully');
-          })
-          .catch(launchError => {
-            this.pendingRequests.delete(requestId);
-            clearTimeout(timeout);
-            console.error('[Amber] Failed to open encrypt URL:', launchError);
-            reject(new Error('Could not launch Amber for encryption: ' + launchError.message));
-          });
+        IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+          data: 'nostrsigner:',  // Just the scheme
+          extra: {
+            'type': 'nip04_encrypt',
+            'pubkey': recipientPubkey,
+            'plaintext': value,
+            'callbackUrl': callbackUrl,
+            'id': requestId
+          }
+        }).then(() => {
+          console.log('[Amber] Encrypt Intent launched successfully');
+        }).catch(launchError => {
+          this.pendingRequests.delete(requestId);
+          clearTimeout(timeout);
+          console.error('[Amber] Failed to launch encrypt Intent:', launchError);
+          reject(new Error('Could not launch Amber for encryption: ' + launchError.message));
+        });
       } catch (error) {
         this.pendingRequests.delete(requestId);
         clearTimeout(timeout);
-        console.error('[Amber] Failed to create encrypt URL:', error);
-        reject(new Error('Could not create Amber encrypt URL: ' + error));
+        console.error('[Amber] Failed to create encrypt Intent:', error);
+        reject(new Error('Could not create Amber encrypt Intent: ' + error));
       }
     });
   }
@@ -412,34 +424,34 @@ export class AmberNDKSigner implements NDKSigner {
         timeout
       });
 
-      // Build callback URL with request ID
       const callbackUrl = `runstrproject://amber-callback?id=${requestId}`;
-      const encodedPubkey = encodeURIComponent(senderPubkey);
-      const encodedCiphertext = encodeURIComponent(value);
-      const encodedCallback = encodeURIComponent(callbackUrl);
 
-      // Build Amber URL for decryption
-      const amberUri = `nostrsigner:?compression=none&type=nip04_decrypt&pubkey=${encodedPubkey}&ciphertext=${encodedCiphertext}&callbackUrl=${encodedCallback}`;
+      console.log('[Amber] Launching nip04_decrypt request via Intent extras');
 
-      console.log('[Amber DEBUG] Decrypt URL created with ID:', requestId);
-
-      // Use Linking.openURL to launch Amber
+      // Use IntentLauncher with proper extras
       try {
-        Linking.openURL(amberUri)
-          .then(() => {
-            console.log('[Amber] Decrypt URL opened successfully');
-          })
-          .catch(launchError => {
-            this.pendingRequests.delete(requestId);
-            clearTimeout(timeout);
-            console.error('[Amber] Failed to open decrypt URL:', launchError);
-            reject(new Error('Could not launch Amber for decryption: ' + launchError.message));
-          });
+        IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+          data: 'nostrsigner:',  // Just the scheme
+          extra: {
+            'type': 'nip04_decrypt',
+            'pubkey': senderPubkey,
+            'ciphertext': value,
+            'callbackUrl': callbackUrl,
+            'id': requestId
+          }
+        }).then(() => {
+          console.log('[Amber] Decrypt Intent launched successfully');
+        }).catch(launchError => {
+          this.pendingRequests.delete(requestId);
+          clearTimeout(timeout);
+          console.error('[Amber] Failed to launch decrypt Intent:', launchError);
+          reject(new Error('Could not launch Amber for decryption: ' + launchError.message));
+        });
       } catch (error) {
         this.pendingRequests.delete(requestId);
         clearTimeout(timeout);
-        console.error('[Amber] Failed to create decrypt URL:', error);
-        reject(new Error('Could not create Amber decrypt URL: ' + error));
+        console.error('[Amber] Failed to create decrypt Intent:', error);
+        reject(new Error('Could not create Amber decrypt Intent: ' + error));
       }
     });
   }
