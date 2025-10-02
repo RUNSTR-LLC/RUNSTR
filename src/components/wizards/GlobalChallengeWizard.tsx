@@ -20,6 +20,7 @@ import { challengeRequestService } from '../../services/challenge/ChallengeReque
 import { userDiscoveryService, type DiscoveredNostrUser } from '../../services/user/UserDiscoveryService';
 import { getUserNostrIdentifiers } from '../../utils/nostr';
 import type { ActivityConfiguration } from '../../types/challenge';
+import QRCodeService, { type ChallengeQRData } from '../../services/qr/QRCodeService';
 
 // Step components
 import { UserSearchStep } from './steps/UserSearchStep';
@@ -66,6 +67,7 @@ export const GlobalChallengeWizard: React.FC<GlobalChallengeWizardProps> = ({
   const [selectedUser, setSelectedUser] = useState<DiscoveredNostrUser | undefined>();
   const [configuration, setConfiguration] = useState<Partial<ActivityConfiguration>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [challengeQRData, setChallengeQRData] = useState<ChallengeQRData | null>(null);
 
   // Step validation
   const validateCurrentStep = useCallback((): boolean => {
@@ -150,6 +152,22 @@ export const GlobalChallengeWizard: React.FC<GlobalChallengeWizardProps> = ({
 
       // Add to recent challengers
       await userDiscoveryService.addRecentChallenger(selectedUser.pubkey);
+
+      // Generate QR code data
+      const now = Math.floor(Date.now() / 1000);
+      const qrData: ChallengeQRData = {
+        type: 'challenge',
+        id: result.challengeId || '',
+        creator_npub: userIdentifiers.hexPubkey,
+        name: `${configuration.activityType} Challenge`,
+        activity: configuration.activityType,
+        metric: configuration.metric,
+        duration: configuration.duration,
+        wager: configuration.wagerAmount,
+        startsAt: now,
+        expiresAt: now + (configuration.duration * 24 * 60 * 60),
+      };
+      setChallengeQRData(qrData);
 
       // Move to success screen
       setCurrentStep('success');
@@ -296,6 +314,7 @@ export const GlobalChallengeWizard: React.FC<GlobalChallengeWizardProps> = ({
               duration: configuration.duration || 7,
               wagerAmount: configuration.wagerAmount || 0,
             }}
+            qrData={challengeQRData}
             onDone={handleSuccessDone}
           />
         )}

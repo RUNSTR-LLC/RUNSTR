@@ -25,6 +25,8 @@ import { YourCompetitionsBox } from '../components/profile/YourCompetitionsBox';
 import { YourWorkoutsBox } from '../components/profile/YourWorkoutsBox';
 import { NotificationBadge } from '../components/profile/NotificationBadge';
 import { NotificationModal } from '../components/profile/NotificationModal';
+import { QRScannerModal } from '../components/qr/QRScannerModal';
+import { JoinPreviewModal } from '../components/qr/JoinPreviewModal';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useNutzap } from '../hooks/useNutzap';
@@ -34,6 +36,9 @@ import { npubEncode } from '../utils/nostrEncoding';
 import { unifiedNotificationStore } from '../services/notifications/UnifiedNotificationStore';
 import { challengeNotificationHandler } from '../services/notifications/ChallengeNotificationHandler';
 import { getUserNostrIdentifiers } from '../utils/nostr';
+import type { QRData } from '../services/qr/QRCodeService';
+import JoinRequestService from '../services/competition/JoinRequestService';
+import { Alert } from 'react-native';
 
 interface ProfileScreenProps {
   data: ProfileScreenData;
@@ -82,6 +87,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
+  const [showJoinPreview, setShowJoinPreview] = useState(false);
+  const [scannedQRData, setScannedQRData] = useState<QRData | null>(null);
   const [userNpub, setUserNpub] = useState<string>('');
 
   const { balance, refreshBalance } = useNutzap(true);
@@ -229,11 +237,45 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     });
   };
 
+  const handleQRScanned = (qrData: QRData) => {
+    setScannedQRData(qrData);
+    setShowJoinPreview(true);
+  };
+
+  const handleJoinCompetition = async (qrData: QRData) => {
+    try {
+      if (qrData.type === 'challenge') {
+        await JoinRequestService.publishChallengeAcceptance(
+          qrData.id,
+          qrData.creator_npub
+        );
+        Alert.alert('Success', 'Challenge acceptance request sent!');
+      } else {
+        await JoinRequestService.publishEventJoinRequest(
+          qrData.id,
+          qrData.captain_npub,
+          qrData.name
+        );
+        Alert.alert('Success', 'Event join request sent to captain!');
+      }
+    } catch (error) {
+      console.error('Failed to join competition:', error);
+      Alert.alert('Error', 'Failed to send join request. Please try again.');
+    }
+  };
+
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header with Settings Button */}
+      {/* Header with QR Scanner and Settings Button */}
       <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.qrButton}
+          onPress={() => setShowQRScanner(true)}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="qr-code-outline" size={24} color={theme.colors.text} />
+        </TouchableOpacity>
         <View style={styles.headerSpacer} />
         <TouchableOpacity
           style={styles.settingsButton}
@@ -360,6 +402,21 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         visible={showNotificationModal}
         onClose={() => setShowNotificationModal(false)}
       />
+
+      {/* QR Scanner Modal */}
+      <QRScannerModal
+        visible={showQRScanner}
+        onClose={() => setShowQRScanner(false)}
+        onScanned={handleQRScanned}
+      />
+
+      {/* Join Preview Modal */}
+      <JoinPreviewModal
+        visible={showJoinPreview}
+        onClose={() => setShowJoinPreview(false)}
+        data={scannedQRData}
+        onJoin={handleJoinCompetition}
+      />
     </SafeAreaView>
   );
 };
@@ -392,6 +449,10 @@ const styles = StyleSheet.create({
   },
 
   editButton: {
+    padding: 4,
+  },
+
+  qrButton: {
     padding: 4,
   },
 

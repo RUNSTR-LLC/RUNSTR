@@ -10,19 +10,24 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
+  ScrollView,
 } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import { theme } from '../../../styles/theme';
 import { ChallengeCreationData } from '../../../types';
+import type { ChallengeQRData } from '../../../services/qr/QRCodeService';
 
 interface SuccessScreenProps {
   challengeData: ChallengeCreationData;
   currentUserName?: string;
+  qrData?: ChallengeQRData | null;
   onDone: () => void;
 }
 
 export const SuccessScreen: React.FC<SuccessScreenProps> = ({
   challengeData,
   currentUserName = 'Alex',
+  qrData,
   onDone,
 }) => {
   const scaleAnim = useRef(new Animated.Value(0)).current;
@@ -57,7 +62,11 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
       {/* Success Icon */}
       <Animated.View
         style={[
@@ -73,8 +82,19 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({
       {/* Success Text */}
       <Text style={styles.successTitle}>Challenge Created!</Text>
       <Text style={styles.successSubtitle}>
-        Your challenge has been sent to your opponent
+        Show this QR code to your opponent
       </Text>
+
+      {/* QR Code */}
+      {qrData && (
+        <View style={styles.qrContainer}>
+          <QRCode
+            value={JSON.stringify(qrData)}
+            size={220}
+            backgroundColor="#000"
+          />
+        </View>
+      )}
 
       {/* Challenge Details */}
       <View style={styles.successDetails}>
@@ -90,13 +110,15 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({
       >
         <Text style={styles.doneButtonText}>Done</Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollContent: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,
@@ -150,6 +172,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: theme.colors.textSecondary,
     textAlign: 'center',
+  },
+  qrContainer: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 24,
   },
   doneButton: {
     backgroundColor: theme.colors.accent,
