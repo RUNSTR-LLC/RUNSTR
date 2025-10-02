@@ -19,6 +19,7 @@ import { theme } from '../styles/theme';
 import { DiscoveryTeam } from '../types';
 import { TeamCard } from '../components/team/TeamCard';
 import { EventCard } from '../components/discovery/EventCard';
+import { PrimaryButton } from '../components/ui/PrimaryButton';
 import { analytics } from '../utils/analytics';
 import {
   getNostrTeamService,
@@ -483,19 +484,15 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header with Create Button */}
-      <View style={styles.header}>
-        <View style={styles.headerSpacer} />
-        {onCreateTeam && discoveryMode === 'teams' && (
-          <TouchableOpacity
-            style={styles.createBtn}
+      {/* Create Team Button - Only show in teams mode */}
+      {onCreateTeam && discoveryMode === 'teams' && (
+        <View style={styles.createTeamContainer}>
+          <PrimaryButton
+            text="Create Team"
             onPress={onCreateTeam}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.createBtnText}>+</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+          />
+        </View>
+      )}
 
       {/* Toggle between Teams and Events */}
       <View style={styles.toggleContainer}>
@@ -822,13 +819,10 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
 
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+  createTeamContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    position: 'relative',
+    paddingTop: 16,
+    paddingBottom: 8,
   },
 
   headerSpacer: {
@@ -846,25 +840,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-  },
-
-  createBtn: {
-    position: 'absolute',
-    right: 20,
-    top: '50%',
-    transform: [{ translateY: -16 }],
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: theme.colors.text,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  createBtnText: {
-    color: theme.colors.background,
-    fontSize: 24,
-    fontWeight: theme.typography.weights.medium,
   },
 
   captainDashboardBtn: {

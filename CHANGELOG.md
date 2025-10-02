@@ -4,6 +4,43 @@ All notable changes to RUNSTR will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0] - 2025-10-02
+
+### Added
+- **Enhanced Splash Screen**: New circular logo design with RUNSTR branding
+  - Clean white border around app icon for better visual presentation
+  - Improved logo sizing and positioning
+  - Better image loading with proper resize modes
+
+### Improved
+- **App Icons**: Significantly optimized Android app icon file sizes (reduced by 60-80%)
+  - All mipmap densities now use smaller, optimized PNG files
+  - Better compression without quality loss
+  - Faster app installation and reduced storage footprint
+- **Splash Screen Assets**: Updated splash screen logos with optimized file sizes
+- **Visual Consistency**: Unified branding across splash screen and app icons
+
+## [0.0.9] - 2025-10-02
+
+### Added
+- **Quick Resume Mode**: Wallet now uses cached data for instant load when returning to app within 2 minutes
+- **Background Network Initialization**: Network connections initialize in background when using cached wallet data
+- **Current User Tracking**: Added pubkey verification to prevent wallet data conflicts between accounts
+
+### Improved
+- **Wallet Load Performance**:
+  - Cache-first strategy for instant wallet initialization on app resume
+  - Background Nostr sync after loading cached data (non-blocking)
+  - 2-minute fresh threshold for cache validity
+  - Automatic fallback to full sync when cache is stale
+- **Splash Screen Assets**: Updated splash screen logos across all Android drawable densities for better visual quality
+- **Wallet Reliability**: Enhanced initialization flow with better error handling and retry logic
+
+### Fixed
+- **Wallet Cache Freshness**: Fixed issue where stale cached wallet data could be used incorrectly
+- **User Account Isolation**: Ensured each user's wallet cache is properly isolated by pubkey
+- **Background Sync Errors**: Improved error handling for background wallet sync operations
+
 ## [0.0.8] - 2025-10-01
 
 ### Added

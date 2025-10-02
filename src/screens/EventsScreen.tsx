@@ -19,6 +19,8 @@ import { theme } from '../styles/theme';
 import { Season1Header } from '../components/events/Season1Header';
 import { ActivityTypeSelector } from '../components/events/ActivityTypeSelector';
 import { Season1LeaderboardComponent } from '../components/events/Season1Leaderboard';
+import { PrimaryButton } from '../components/ui/PrimaryButton';
+import { ComingSoonModal } from '../components/modals/ComingSoonModal';
 
 // Services and types
 import { season1Service } from '../services/season/Season1Service';
@@ -29,6 +31,7 @@ export const EventsScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [leaderboard, setLeaderboard] = useState<Season1Leaderboard | null>(null);
+  const [showComingSoonModal, setShowComingSoonModal] = useState(false);
 
   // Load leaderboard data
   const loadLeaderboard = async (activityType: SeasonActivityType) => {
@@ -88,6 +91,19 @@ export const EventsScreen: React.FC = () => {
           onTypeSelect={setSelectedActivity}
         />
 
+        {/* Purchase Season Pass Button */}
+        <View style={styles.seasonPassContainer}>
+          <PrimaryButton
+            text="Purchase Season Pass"
+            onPress={() => setShowComingSoonModal(true)}
+          />
+        </View>
+
+        {/* Top 3 Label */}
+        <View style={styles.topThreeContainer}>
+          <Text style={styles.topThreeText}>Top 3 in each category</Text>
+        </View>
+
         {/* Leaderboard */}
         <Season1LeaderboardComponent
           leaderboard={leaderboard}
@@ -95,6 +111,14 @@ export const EventsScreen: React.FC = () => {
           isLoading={isLoading}
         />
       </ScrollView>
+
+      {/* Coming Soon Modal */}
+      <ComingSoonModal
+        visible={showComingSoonModal}
+        onClose={() => setShowComingSoonModal(false)}
+        title="Season Pass"
+        message="Season Pass feature is coming soon! Get ready for exclusive benefits and rewards."
+      />
     </SafeAreaView>
   );
 };
@@ -119,5 +143,22 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontSize: 16,
     marginTop: 12,
+  },
+
+  seasonPassContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+
+  topThreeContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+
+  topThreeText: {
+    fontSize: 16,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.text,
   },
 });

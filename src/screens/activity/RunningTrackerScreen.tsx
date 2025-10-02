@@ -4,13 +4,14 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { enhancedLocationTrackingService } from '../../services/activity/EnhancedLocationTrackingService';
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
 import type { EnhancedTrackingSession } from '../../services/activity/EnhancedLocationTrackingService';
 import type { FormattedMetrics } from '../../services/activity/ActivityMetricsService';
+import type { Split } from '../../services/activity/SplitTrackingService';
 import { GPSStatusIndicator, type GPSSignalStrength } from '../../components/activity/GPSStatusIndicator';
 import { BatteryWarning } from '../../components/activity/BatteryWarning';
 import { WorkoutSummaryModal } from '../../components/activity/WorkoutSummaryModal';
@@ -41,6 +42,7 @@ export const RunningTrackerScreen: React.FC = () => {
     elevation: '0 m',
   });
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [splits, setSplits] = useState<Split[]>([]);
   const [gpsSignal, setGpsSignal] = useState<GPSSignalStrength>('none');
   const [gpsAccuracy, setGpsAccuracy] = useState<number | undefined>();
   const [isBackgroundTracking, setIsBackgroundTracking] = useState(false);
@@ -52,6 +54,7 @@ export const RunningTrackerScreen: React.FC = () => {
     calories: number;
     elevation?: number;
     pace?: number;
+    splits?: Split[];
   } | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const metricsUpdateRef = useRef<NodeJS.Timeout | null>(null);
@@ -130,6 +133,9 @@ export const RunningTrackerScreen: React.FC = () => {
 
       setMetrics(formatted);
 
+      // Update splits
+      setSplits(session.splits || []);
+
       // Update GPS status
       setGpsSignal(session.gpsSignalStrength as GPSSignalStrength);
       setGpsAccuracy(session.statistics?.averageAccuracy);
@@ -202,6 +208,7 @@ export const RunningTrackerScreen: React.FC = () => {
       calories,
       elevation: session.totalElevationGain,
       pace,
+      splits: session.splits,
     });
     setSummaryModalVisible(true);
 
@@ -213,6 +220,7 @@ export const RunningTrackerScreen: React.FC = () => {
       elevation: '0 m',
     });
     setElapsedTime(0);
+    setSplits([]);
   };
 
   return (
@@ -230,6 +238,7 @@ export const RunningTrackerScreen: React.FC = () => {
 
       {/* Battery Warning */}
       {isTracking && <BatteryWarning />}
+
       {/* Metrics Display */}
       <View style={styles.metricsContainer}>
         <View style={styles.metricsRow}>
@@ -240,13 +249,47 @@ export const RunningTrackerScreen: React.FC = () => {
           <MetricCard label="Pace" value={metrics.pace ?? '--:--'} icon="speedometer" />
           <MetricCard label="Elevation" value={metrics.elevation ?? '0 m'} icon="trending-up" />
         </View>
+
+        {/* Splits Display */}
+        {isTracking && splits.length > 0 && (
+          <View style={styles.splitsContainer}>
+            <Text style={styles.splitsTitle}>Kilometer Splits</Text>
+            <ScrollView
+              style={styles.splitsScrollView}
+              contentContainerStyle={styles.splitsScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {splits.map((split, index) => (
+                <View key={split.number} style={styles.splitRow}>
+                  <View style={styles.splitNumberContainer}>
+                    <Text style={styles.splitNumber}>{split.number}K</Text>
+                  </View>
+                  <View style={styles.splitTimeContainer}>
+                    <Text style={styles.splitTime}>
+                      {formatElapsedTime(split.splitTime)}
+                    </Text>
+                    <Text style={styles.splitPace}>
+                      {formatElapsedTime(split.pace)}/km
+                    </Text>
+                  </View>
+                  <View style={styles.splitIconContainer}>
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={20}
+                      color="#ffffff"
+                    />
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        )}
       </View>
 
       {/* Control Buttons */}
       <View style={styles.controlsContainer}>
         {!isTracking ? (
           <TouchableOpacity style={styles.startButton} onPress={startTracking}>
-            <Ionicons name="play" size={40} color={theme.colors.background} />
             <Text style={styles.startButtonText}>Start Run</Text>
           </TouchableOpacity>
         ) : (
@@ -303,7 +346,8 @@ const styles = StyleSheet.create({
   },
   metricsContainer: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 20,
   },
   metricsRow: {
     flexDirection: 'row',
@@ -341,19 +385,18 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   startButton: {
-    backgroundColor: theme.colors.text,
-    borderRadius: 40,
-    width: 160,
-    height: 80,
-    flexDirection: 'row',
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
   },
   startButtonText: {
-    color: theme.colors.background,
-    fontSize: 20,
+    color: '#000000',
+    fontSize: 16,
     fontWeight: theme.typography.weights.bold,
+    letterSpacing: 0.5,
   },
   pauseButton: {
     backgroundColor: theme.colors.card,
@@ -410,5 +453,61 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontSize: 14,
     fontWeight: theme.typography.weights.medium,
+  },
+  splitsContainer: {
+    marginTop: 20,
+    backgroundColor: theme.colors.card,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    maxHeight: 200,
+  },
+  splitsTitle: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+    marginBottom: 12,
+    letterSpacing: 0.5,
+  },
+  splitsScrollView: {
+    flex: 1,
+  },
+  splitsScrollContent: {
+    gap: 8,
+  },
+  splitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.background,
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  splitNumberContainer: {
+    width: 40,
+    marginRight: 12,
+  },
+  splitNumber: {
+    fontSize: 16,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+  },
+  splitTimeContainer: {
+    flex: 1,
+  },
+  splitTime: {
+    fontSize: 18,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+    marginBottom: 2,
+  },
+  splitPace: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+  },
+  splitIconContainer: {
+    marginLeft: 8,
   },
 });

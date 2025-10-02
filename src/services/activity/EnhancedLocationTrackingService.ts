@@ -12,6 +12,7 @@ import { StreamingLocationStorage } from './StreamingLocationStorage';
 import { SessionRecoveryService } from './SessionRecoveryService';
 import { BatteryOptimizationService } from './BatteryOptimizationService';
 import { locationPermissionService } from './LocationPermissionService';
+import { SplitTrackingService, type Split } from './SplitTrackingService';
 import {
   startBackgroundLocationTracking,
   stopBackgroundLocationTracking,
@@ -49,6 +50,7 @@ export interface EnhancedTrackingSession {
   lastGPSUpdate: number;
   isBackgroundTracking: boolean;
   batteryMode: 'high_accuracy' | 'balanced' | 'battery_saver';
+  splits: Split[]; // Kilometer splits for running activities
   statistics: {
     averageSpeed: number;
     maxSpeed: number;
@@ -67,6 +69,7 @@ export class EnhancedLocationTrackingService {
   private storage: StreamingLocationStorage | null = null;
   private recoveryService: SessionRecoveryService;
   private batteryService: BatteryOptimizationService;
+  private splitTracker: SplitTrackingService;
 
   // Tracking state
   private currentSession: EnhancedTrackingSession | null = null;
@@ -91,6 +94,7 @@ export class EnhancedLocationTrackingService {
     this.stateMachine = new ActivityStateMachine();
     this.recoveryService = SessionRecoveryService.getInstance();
     this.batteryService = BatteryOptimizationService.getInstance();
+    this.splitTracker = new SplitTrackingService();
     this.initializeAppStateHandling();
     this.checkForRecoverableSessions();
   }
@@ -193,9 +197,10 @@ export class EnhancedLocationTrackingService {
 
       // Create session
       const sessionId = `session_${Date.now()}`;
+      const startTime = Date.now();
       this.currentSession = {
         id: sessionId,
-        startTime: Date.now(),
+        startTime,
         activityType,
         totalDistance: 0,
         totalElevationGain: 0,
@@ -206,6 +211,7 @@ export class EnhancedLocationTrackingService {
         lastGPSUpdate: Date.now(),
         isBackgroundTracking: AppState.currentState !== 'active',
         batteryMode: this.batteryService.getCurrentMode(),
+        splits: [],
         statistics: {
           averageSpeed: 0,
           maxSpeed: 0,
@@ -214,6 +220,11 @@ export class EnhancedLocationTrackingService {
           interpolatedPoints: 0,
         },
       };
+
+      // Start split tracking for running activities
+      if (activityType === 'running') {
+        this.splitTracker.start(startTime);
+      }
 
       // Initialize services
       this.validator = new LocationValidator(activityType);
@@ -374,6 +385,22 @@ export class EnhancedLocationTrackingService {
           const elevationDiff = pointToStore.altitude - this.lastValidLocation.altitude;
           if (elevationDiff > 0) {
             this.currentSession.totalElevationGain += elevationDiff;
+          }
+        }
+
+        // Update split tracking for running activities
+        if (this.currentSession.activityType === 'running') {
+          const now = Date.now();
+          const totalElapsed = Math.floor((now - this.currentSession.startTime - this.currentSession.pausedDuration) / 1000);
+          const newSplit = this.splitTracker.update(
+            this.currentSession.totalDistance,
+            totalElapsed,
+            this.currentSession.pausedDuration
+          );
+
+          // If a new split was recorded, add it to session
+          if (newSplit) {
+            this.currentSession.splits.push(newSplit);
           }
         }
       }
@@ -688,6 +715,7 @@ export class EnhancedLocationTrackingService {
     this.gpsOutageStart = null;
     this.pointsAfterRecovery = 0;
     this.wasInGpsLostState = false;
+    this.splitTracker.reset();
   }
 
   /**

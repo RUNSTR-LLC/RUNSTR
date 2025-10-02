@@ -68,7 +68,6 @@ export const BaseTrackerComponent: React.FC<BaseTrackerProps> = ({
       <View style={styles.controlsContainer}>
         {!isTracking ? (
           <TouchableOpacity style={styles.startButton} onPress={onStart}>
-            <Ionicons name="play" size={40} color={theme.colors.background} />
             <Text style={styles.startButtonText}>{startButtonText}</Text>
           </TouchableOpacity>
         ) : (
@@ -148,19 +147,18 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   startButton: {
-    backgroundColor: theme.colors.text,
-    borderRadius: 40,
-    width: 160,
-    height: 80,
-    flexDirection: 'row',
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
   },
   startButtonText: {
-    color: theme.colors.background,
-    fontSize: 20,
+    color: '#000000',
+    fontSize: 16,
     fontWeight: theme.typography.weights.bold,
+    letterSpacing: 0.5,
   },
   pauseButton: {
     backgroundColor: theme.colors.card,

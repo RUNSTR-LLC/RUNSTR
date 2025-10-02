@@ -99,6 +99,18 @@ class NutzapService {
   }
 
   /**
+   * Get deterministic wallet d-tag for this user
+   * Uses first 16 chars of pubkey for global uniqueness
+   * This prevents any possibility of wallet mixing between users
+   */
+  private getWalletDTag(): string {
+    if (!this.userPubkey) {
+      throw new Error('Cannot generate wallet d-tag without user pubkey');
+    }
+    return `wallet-${this.userPubkey.slice(0, 16)}`;
+  }
+
+  /**
    * Encrypt proofs for backup to Nostr
    * Uses NIP-44 encryption to encrypt proofs to self
    */
@@ -207,12 +219,32 @@ class NutzapService {
         const cachedWallet = await this.loadOfflineWallet();
         const cacheTime = await AsyncStorage.getItem(this.getStorageKey(STORAGE_KEYS.LAST_SYNC));
 
-        if (cachedWallet && cachedWallet.pubkey === this.userPubkey && cacheTime) {
+        if (cachedWallet && cacheTime) {
+          // TRIPLE VERIFICATION: Ensure cached wallet belongs to current user
+          const currentUserPubkey = await AsyncStorage.getItem('@runstr:current_user_pubkey');
+          const walletOwner = await AsyncStorage.getItem(this.getStorageKey(STORAGE_KEYS.WALLET_PUBKEY));
+
+          const ownershipVerified =
+            cachedWallet.pubkey === this.userPubkey &&
+            currentUserPubkey === this.userPubkey &&
+            (walletOwner === this.userPubkey || !walletOwner);  // Allow null for legacy wallets
+
+          if (!ownershipVerified) {
+            console.error('[NutZap] SECURITY: Cache ownership verification failed!');
+            console.error(`[NutZap] Cache pubkey: ${cachedWallet.pubkey.slice(0, 8)}`);
+            console.error(`[NutZap] Current user: ${this.userPubkey.slice(0, 8)}`);
+            console.error(`[NutZap] Stored user: ${currentUserPubkey?.slice(0, 8)}`);
+            // Clear potentially corrupted cache
+            await this.clearWalletData();
+            // Force full sync from Nostr
+            return await this.initialize(userNsec, false);
+          }
+
           const cacheAge = Date.now() - parseInt(cacheTime, 10);
           const FRESH_THRESHOLD = 2 * 60 * 1000; // 2 minutes
 
           if (cacheAge < FRESH_THRESHOLD) {
-            console.log(`[NutZap] Cache fresh (${Math.round(cacheAge / 1000)}s old), using cached wallet`);
+            console.log(`[NutZap] Cache fresh (${Math.round(cacheAge / 1000)}s old) and ownership verified, using cached wallet`);
             this.isInitialized = true;
 
             // Initialize NDK and Cashu in background for future operations
@@ -290,9 +322,9 @@ class NutzapService {
       // Now check Nostr for existing wallet with improved retry logic
       console.log('[NutZap] Checking Nostr for existing wallet...');
 
-      // Try to fetch wallet with enhanced retry logic
+      // Try to fetch wallet with ENHANCED exponential backoff retry logic
       let nostrWallet = null;
-      const maxAttempts = 3; // Increased for better reliability
+      const maxAttempts = 5; // Increased from 3 to 5 for better reliability
 
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         console.log(`[NutZap] Attempt ${attempt}/${maxAttempts} to fetch wallet from Nostr...`);
@@ -306,10 +338,11 @@ class NutzapService {
           return nostrWallet;
         }
 
-        // If we didn't find a wallet and we have more attempts, wait and retry
+        // If we didn't find a wallet and we have more attempts, wait and retry with exponential backoff
         if (attempt < maxAttempts) {
-          const waitTime = 3000; // Increased to 3 seconds for better relay sync
-          console.log(`[NutZap] No wallet found, retrying in ${waitTime}ms...`);
+          // Exponential backoff: 2s, 4s, 8s, 16s (total ~30s)
+          const waitTime = Math.pow(2, attempt) * 1000;
+          console.log(`[NutZap] No wallet found, retrying in ${waitTime}ms... (exponential backoff)`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
         }
       }
@@ -571,7 +604,7 @@ class NutzapService {
       const walletEvents = await this.ndk.fetchEvents({
         kinds: [EVENT_KINDS.WALLET_INFO as NDKKind],
         authors: [this.userPubkey],
-        '#d': ['nutzap-wallet']
+        '#d': [this.getWalletDTag()]
       });
 
       if (walletEvents.size === 0) {
@@ -579,13 +612,14 @@ class NutzapService {
         const walletEvent = new NDKEvent(this.ndk);
         walletEvent.kind = EVENT_KINDS.WALLET_INFO as NDKKind;
         walletEvent.content = JSON.stringify({
+          owner: this.userPubkey,  // Explicit ownership verification
           mints: [this.cashuMint?.mintUrl || DEFAULT_MINTS[0]],
           name: 'RUNSTR Wallet',
           unit: 'sat',
           balance: 0
         });
         walletEvent.tags = [
-          ['d', 'nutzap-wallet'],
+          ['d', this.getWalletDTag()],  // Deterministic d-tag
           ['mint', this.cashuMint?.mintUrl || DEFAULT_MINTS[0]],
           ['name', 'RUNSTR Wallet'],
           ['unit', 'sat']
@@ -604,6 +638,98 @@ class NutzapService {
    */
   private async initializeCashu(): Promise<void> {
     await this.initializeCashuWithTimeout();
+  }
+
+  /**
+   * Consolidate multiple wallets into a single wallet
+   * Merges proofs from all wallet events and creates new consolidated wallet
+   */
+  private async consolidateWallets(walletEvents: NDKEvent[]): Promise<WalletState> {
+    console.log(`[NutZap] Consolidating ${walletEvents.length} wallet events...`);
+
+    const allProofs: Proof[] = [];
+    let consolidatedMint = DEFAULT_MINTS[0];
+
+    // Extract proofs from all wallet events
+    for (const event of walletEvents) {
+      try {
+        const content = JSON.parse(event.content);
+
+        // Verify ownership
+        if (content.owner && content.owner !== this.userPubkey) {
+          console.warn(`[NutZap] Skipping wallet with mismatched owner: ${content.owner?.slice(0, 8)}...`);
+          continue;
+        }
+
+        // Try to decrypt proofs from this wallet
+        if (content.encrypted_proofs) {
+          try {
+            const proofs = await this.decryptProofs(content.encrypted_proofs);
+            allProofs.push(...proofs);
+            console.log(`[NutZap] Recovered ${proofs.length} proofs from event ${event.id.slice(0, 8)}...`);
+          } catch (error) {
+            console.warn(`[NutZap] Could not decrypt proofs from event ${event.id.slice(0, 8)}:`, error);
+          }
+        }
+
+        // Use the mint from the most recent event
+        if (content.mints?.[0]) {
+          consolidatedMint = content.mints[0];
+        }
+      } catch (error) {
+        console.warn(`[NutZap] Error processing wallet event ${event.id.slice(0, 8)}:`, error);
+      }
+    }
+
+    // Calculate consolidated balance
+    const consolidatedBalance = allProofs.reduce((sum, p) => sum + p.amount, 0);
+    console.log(`[NutZap] Consolidated balance: ${consolidatedBalance} sats from ${allProofs.length} proofs`);
+
+    // Save consolidated proofs locally
+    await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS), JSON.stringify(allProofs));
+    await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_PUBKEY), this.userPubkey);
+
+    // Create new consolidated wallet event to replace old ones
+    if (this.ndk) {
+      try {
+        const encryptedProofs = await this.encryptProofs(allProofs);
+        const consolidatedEvent = new NDKEvent(this.ndk);
+        consolidatedEvent.kind = EVENT_KINDS.WALLET_INFO as NDKKind;
+        consolidatedEvent.content = JSON.stringify({
+          owner: this.userPubkey,
+          mints: [consolidatedMint],
+          name: 'RUNSTR Wallet (Consolidated)',
+          unit: 'sat',
+          balance: consolidatedBalance,
+          encrypted_proofs: encryptedProofs || undefined,
+          last_updated: Date.now(),
+          consolidated: true
+        });
+        consolidatedEvent.tags = [
+          ['d', this.getWalletDTag()],
+          ['mint', consolidatedMint],
+          ['name', 'RUNSTR Wallet (Consolidated)'],
+          ['unit', 'sat']
+        ];
+
+        // Store event ID atomically
+        await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_EVENT_ID), consolidatedEvent.id);
+
+        // Publish consolidated wallet
+        await consolidatedEvent.publish();
+        console.log('[NutZap] Published consolidated wallet to Nostr');
+      } catch (error) {
+        console.error('[NutZap] Failed to publish consolidated wallet:', error);
+      }
+    }
+
+    return {
+      balance: consolidatedBalance,
+      mint: consolidatedMint,
+      proofs: allProofs,
+      pubkey: this.userPubkey,
+      created: false
+    };
   }
 
   /**
@@ -629,7 +755,7 @@ class NutzapService {
       const walletEvents = await this.ndk.fetchEvents({
         kinds: [EVENT_KINDS.WALLET_INFO as NDKKind],
         authors: [this.userPubkey],
-        '#d': ['nutzap-wallet']
+        '#d': [this.getWalletDTag()]  // Deterministic d-tag
       }, {
         closeOnEose: true,      // Wait for End Of Stored Events from relays
         groupable: false         // Don't group events, we want all of them
@@ -644,10 +770,21 @@ class NutzapService {
         const content = JSON.parse(latestEvent.content);
         console.log('[NutZap] Found wallet event (using most recent):', content);
 
-        // Check for duplicate wallets
-        if (walletEvents.size > 1) {
-          console.warn(`[NutZap] WARNING: Found ${walletEvents.size} wallet events for user. Using most recent.`);
+        // CRITICAL: Verify wallet ownership
+        if (content.owner && content.owner !== this.userPubkey) {
+          console.error(`[NutZap] SECURITY: Wallet owner mismatch! Expected ${this.userPubkey.slice(0, 8)}..., got ${content.owner?.slice(0, 8)}...`);
+          return null;
         }
+
+        // Check for duplicate wallets and consolidate if found
+        if (walletEvents.size > 1) {
+          console.warn(`[NutZap] WARNING: Found ${walletEvents.size} wallet events for user. Consolidating balances...`);
+          // Trigger wallet consolidation to merge all proofs
+          return await this.consolidateWallets(sortedEvents);
+        }
+
+        // Store the wallet event ID for duplicate prevention
+        await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_EVENT_ID), latestEvent.id);
 
         // Try to decrypt proofs from Nostr backup first
         let proofs: Proof[] = [];
@@ -724,7 +861,7 @@ class NutzapService {
       const walletEvents = await this.ndk.fetchEvents({
         kinds: [EVENT_KINDS.WALLET_INFO as NDKKind],
         authors: [this.userPubkey],
-        '#d': ['nutzap-wallet']
+        '#d': [this.getWalletDTag()]  // Deterministic d-tag
       }, {
         closeOnEose: true
       });
@@ -815,6 +952,7 @@ class NutzapService {
     const walletEvent = new NDKEvent(this.ndk);
     walletEvent.kind = EVENT_KINDS.WALLET_INFO as NDKKind;
     walletEvent.content = JSON.stringify({
+      owner: this.userPubkey,  // Explicit ownership for verification
       mints: [this.cashuMint.mintUrl],
       name: 'RUNSTR Wallet',
       unit: 'sat',
@@ -823,11 +961,16 @@ class NutzapService {
       last_updated: Date.now()
     });
     walletEvent.tags = [
-      ['d', 'nutzap-wallet'],
+      ['d', this.getWalletDTag()],  // Deterministic d-tag
       ['mint', this.cashuMint.mintUrl],
       ['name', 'RUNSTR Wallet'],
       ['unit', 'sat']
     ];
+
+    // ATOMIC: Store event ID BEFORE publishing to prevent crash-induced duplicates
+    // This ensures even if app crashes during publish, we won't create another wallet
+    await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_EVENT_ID), walletEvent.id);
+    console.log('[NutZap] Stored wallet event ID atomically before publish');
 
     // Publish wallet event to Nostr
     await walletEvent.publish();
@@ -836,9 +979,6 @@ class NutzapService {
     // Initialize empty proofs array with pubkey-specific storage
     await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS), JSON.stringify([]));
     await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_PUBKEY), this.userPubkey);
-
-    // Store wallet event ID to prevent duplicate creation
-    await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_EVENT_ID), walletEvent.id);
 
     return {
       balance: 0,

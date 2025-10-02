@@ -12,11 +12,13 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import workoutPublishingService from '../../services/nostr/workoutPublishingService';
 import type { PublishableWorkout } from '../../services/nostr/workoutPublishingService';
+import type { Split } from '../../services/activity/SplitTrackingService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SocialShareModal } from '../fitness/SocialShareModal';
 import { nsecToPrivateKey } from '../../utils/nostr';
@@ -33,6 +35,7 @@ interface WorkoutSummaryProps {
     pace?: number; // minutes per km
     speed?: number; // km/h for cycling
     steps?: number; // for walking
+    splits?: Split[]; // kilometer splits for running
   };
 }
 
@@ -73,6 +76,30 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
   const formatSpeed = (speed?: number): string => {
     if (!speed) return '0.0 km/h';
     return `${speed.toFixed(1)} km/h`;
+  };
+
+  const formatSplitTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getAverageSplitPace = (): number | null => {
+    if (!workout.splits || workout.splits.length === 0) return null;
+    const totalPace = workout.splits.reduce((sum, split) => sum + split.pace, 0);
+    return totalPace / workout.splits.length;
+  };
+
+  const getSplitComparison = (split: Split): 'faster' | 'slower' | 'average' => {
+    const avgPace = getAverageSplitPace();
+    if (!avgPace) return 'average';
+
+    const diff = split.pace - avgPace;
+    const threshold = 5; // 5 seconds per km difference
+
+    if (diff < -threshold) return 'faster';
+    if (diff > threshold) return 'slower';
+    return 'average';
   };
 
   const createPublishableWorkout = async (): Promise<PublishableWorkout | null> => {
@@ -270,6 +297,50 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
             )}
           </View>
 
+          {/* Splits Section */}
+          {workout.type === 'running' && workout.splits && workout.splits.length > 0 && (
+            <View style={styles.splitsSection}>
+              <Text style={styles.splitsHeader}>Kilometer Splits</Text>
+              <ScrollView
+                style={styles.splitsScrollView}
+                showsVerticalScrollIndicator={false}
+              >
+                {workout.splits.map((split) => {
+                  const comparison = getSplitComparison(split);
+                  return (
+                    <View key={split.number} style={styles.splitRow}>
+                      <View style={styles.splitLeft}>
+                        <Text style={styles.splitNumber}>{split.number}K</Text>
+                      </View>
+                      <View style={styles.splitMiddle}>
+                        <Text style={styles.splitTime}>
+                          {formatSplitTime(split.splitTime)}
+                        </Text>
+                        <Text style={styles.splitPaceText}>
+                          {formatSplitTime(split.pace)}/km
+                        </Text>
+                      </View>
+                      <View style={styles.splitRight}>
+                        {comparison === 'faster' && (
+                          <Ionicons name="trending-up" size={16} color="#ffffff" />
+                        )}
+                        {comparison === 'slower' && (
+                          <Ionicons name="trending-down" size={16} color="#888888" />
+                        )}
+                        {comparison === 'average' && (
+                          <Ionicons name="remove" size={16} color="#888888" />
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+              <Text style={styles.splitsFooter}>
+                Average Pace: {formatSplitTime(getAverageSplitPace() || 0)}/km
+              </Text>
+            </View>
+          )}
+
           {/* Action Buttons */}
           <View style={styles.actionButtons}>
             <TouchableOpacity
@@ -454,5 +525,68 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 14,
     fontWeight: theme.typography.weights.medium,
+  },
+  splitsSection: {
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.borderRadius.medium,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  splitsHeader: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+    marginBottom: 12,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  splitsScrollView: {
+    maxHeight: 160,
+  },
+  splitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: theme.colors.card,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  splitLeft: {
+    width: 40,
+    marginRight: 12,
+  },
+  splitNumber: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+  },
+  splitMiddle: {
+    flex: 1,
+  },
+  splitTime: {
+    fontSize: 16,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+    marginBottom: 2,
+  },
+  splitPaceText: {
+    fontSize: 11,
+    color: theme.colors.textMuted,
+  },
+  splitRight: {
+    marginLeft: 8,
+    width: 24,
+    alignItems: 'center',
+  },
+  splitsFooter: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginTop: 8,
+    textAlign: 'center',
   },
 });
