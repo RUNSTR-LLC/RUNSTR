@@ -89,6 +89,8 @@ export class EnhancedLocationTrackingService {
   // GPS recovery tracking
   private pointsAfterRecovery: number = 0;
   private wasInGpsLostState: boolean = false;
+  private recoveryStartTime: number | null = null;
+  private readonly GPS_RECOVERY_TIMEOUT_MS = 30000; // 30 seconds max recovery time
 
   private constructor() {
     this.stateMachine = new ActivityStateMachine();
@@ -340,10 +342,26 @@ export class EnhancedLocationTrackingService {
       const isRecoveringFromGpsLoss = this.wasInGpsLostState || previousState === 'gps_lost';
 
       if (isRecoveringFromGpsLoss) {
-        this.pointsAfterRecovery++;
+        // Start recovery timer if not already started
+        if (this.recoveryStartTime === null) {
+          this.recoveryStartTime = Date.now();
+          this.pointsAfterRecovery = 0;
+          console.log('🔄 GPS Recovery: Starting recovery mode, will skip distance for up to 3 clean points');
+        }
 
-        if (this.pointsAfterRecovery <= 3) {
-          console.log(`📍 GPS Recovery: Skipping distance for point ${this.pointsAfterRecovery}/3 to avoid straight line through obstacles`);
+        // Check if recovery has timed out (30 seconds max)
+        const recoveryDuration = Date.now() - this.recoveryStartTime;
+        const hasTimedOut = recoveryDuration > this.GPS_RECOVERY_TIMEOUT_MS;
+
+        if (hasTimedOut) {
+          console.log(`⏰ GPS Recovery: Timeout after ${(recoveryDuration / 1000).toFixed(1)}s, forcing exit from recovery mode`);
+          this.wasInGpsLostState = false;
+          this.pointsAfterRecovery = 0;
+          this.recoveryStartTime = null;
+          // Continue to normal distance tracking below
+        } else if (this.pointsAfterRecovery < 3) {
+          this.pointsAfterRecovery++;
+          console.log(`📍 GPS Recovery: Skipping distance for point ${this.pointsAfterRecovery}/3 to avoid straight line through obstacles (${(recoveryDuration / 1000).toFixed(1)}s elapsed)`);
 
           // Store the point but don't accumulate distance
           this.lastValidLocation = pointToStore;
@@ -364,6 +382,7 @@ export class EnhancedLocationTrackingService {
           if (this.pointsAfterRecovery >= 3) {
             this.wasInGpsLostState = false;
             this.pointsAfterRecovery = 0;
+            this.recoveryStartTime = null;
             console.log('✅ GPS fully recovered, resuming normal distance tracking');
           }
 
@@ -465,19 +484,23 @@ export class EnhancedLocationTrackingService {
     // Update state machine if signal changed significantly
     if (previousStrength === 'none' && strength !== 'none') {
       this.stateMachine.send({ type: 'GPS_RECOVERED' });
-      console.log('🔄 GPS signal recovered, starting recovery buffer');
+      console.log('🔄 GPS signal recovered, will enter recovery buffer on next point');
       // Mark that we were in GPS lost state for recovery handling
       this.wasInGpsLostState = true;
       this.pointsAfterRecovery = 0;
+      this.recoveryStartTime = null; // Will be set on first point after recovery
 
       if (this.gpsOutageStart) {
+        const outageDuration = Date.now() - this.gpsOutageStart;
+        console.log(`📡 GPS outage lasted ${(outageDuration / 1000).toFixed(1)}s`);
         this.currentSession.statistics.gpsOutages++;
         this.gpsOutageStart = null;
       }
     } else if (previousStrength !== 'none' && strength === 'none') {
       this.stateMachine.send({ type: 'GPS_LOST' });
       this.gpsOutageStart = Date.now();
-      // We'll track recovery when signal comes back
+      console.log('📡 GPS signal lost, distance tracking paused');
+      // Mark for recovery tracking when signal returns
       this.wasInGpsLostState = true;
     } else if (strength === 'weak') {
       this.stateMachine.send({ type: 'GPS_WEAK' });
@@ -497,6 +520,7 @@ export class EnhancedLocationTrackingService {
       if (timeSinceLastUpdate > GPS_SIGNAL_TIMEOUT) {
         this.currentSession.gpsSignalStrength = 'none';
         this.stateMachine.send({ type: 'GPS_LOST' });
+        console.log(`⚠️ GPS timeout: No updates for ${(timeSinceLastUpdate / 1000).toFixed(1)}s`);
         // Mark for recovery tracking when signal returns
         this.wasInGpsLostState = true;
       }
@@ -715,6 +739,7 @@ export class EnhancedLocationTrackingService {
     this.gpsOutageStart = null;
     this.pointsAfterRecovery = 0;
     this.wasInGpsLostState = false;
+    this.recoveryStartTime = null;
     this.splitTracker.reset();
   }
 
