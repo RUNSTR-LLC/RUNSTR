@@ -102,15 +102,27 @@ export class AmberNDKSigner implements NDKSigner {
 
       console.log('[Amber DEBUG] Activity result received:', {
         resultCode: result.resultCode,
-        hasData: !!result.data
+        hasData: !!result.data,
+        hasExtra: !!result.extra,
+        dataType: typeof result.data,
+        extraKeys: result.extra ? Object.keys(result.extra) : []
       });
 
       // Check if user approved the request
-      if (result.resultCode === IntentLauncher.ResultCode.Success && result.data) {
-        // Extract public key from Activity Result extras
-        const pubkey = result.data.result || result.data.pubkey;
+      if (result.resultCode === IntentLauncher.ResultCode.Success) {
+        // Extract public key from Activity Result
+        // result.data is a STRING (URI), result.extra is an OBJECT with additional data
+        const pubkey =
+          result.extra?.result ||      // Most likely location in extras object
+          result.extra?.pubkey ||      // Alternative field name
+          result.data;                 // Fallback: data as plain string
 
-        console.log('[Amber DEBUG] Extracted pubkey:', pubkey ? pubkey.substring(0, 20) + '...' : 'NONE');
+        console.log('[Amber DEBUG] Extracted pubkey from:',
+          result.extra?.result ? 'extra.result' :
+          result.extra?.pubkey ? 'extra.pubkey' :
+          result.data ? 'data string' : 'NONE'
+        );
+        console.log('[Amber DEBUG] Pubkey value:', pubkey ? pubkey.substring(0, 20) + '...' : 'NONE');
 
         if (pubkey) {
           // Store for future sessions
@@ -169,18 +181,39 @@ export class AmberNDKSigner implements NDKSigner {
 
       console.log('[Amber DEBUG] Sign result received:', {
         resultCode: result.resultCode,
-        hasData: !!result.data
+        hasData: !!result.data,
+        hasExtra: !!result.extra,
+        extraKeys: result.extra ? Object.keys(result.extra) : []
       });
 
-      if (result.resultCode === IntentLauncher.ResultCode.Success && result.data) {
+      if (result.resultCode === IntentLauncher.ResultCode.Success) {
         // Extract signature from Activity Result
-        // Result could be: 'signature' field or 'result' field, or signed 'event' with 'sig'
-        const signature = result.data.signature || result.data.result;
-        const signedEvent = result.data.event ? JSON.parse(result.data.event) : null;
+        // result.extra contains the object with response data
+        const signature =
+          result.extra?.signature ||   // Direct signature field
+          result.extra?.result ||      // Result field
+          result.data;                 // Fallback: data as plain string
+
+        // If result.extra.event exists, try to parse it
+        let signedEvent = null;
+        if (result.extra?.event) {
+          try {
+            signedEvent = typeof result.extra.event === 'string' ?
+              JSON.parse(result.extra.event) : result.extra.event;
+          } catch (e) {
+            console.warn('[Amber] Failed to parse event:', e);
+          }
+        }
 
         const sig = signature || signedEvent?.sig;
 
-        console.log('[Amber DEBUG] Extracted signature:', sig ? sig.substring(0, 20) + '...' : 'NONE');
+        console.log('[Amber DEBUG] Extracted signature from:',
+          result.extra?.signature ? 'extra.signature' :
+          result.extra?.result ? 'extra.result' :
+          signedEvent?.sig ? 'extra.event.sig' :
+          result.data ? 'data string' : 'NONE'
+        );
+        console.log('[Amber DEBUG] Signature value:', sig ? sig.substring(0, 20) + '...' : 'NONE');
 
         if (sig) {
           return sig;
@@ -218,11 +251,21 @@ export class AmberNDKSigner implements NDKSigner {
 
       console.log('[Amber DEBUG] Encrypt result received:', {
         resultCode: result.resultCode,
-        hasData: !!result.data
+        hasData: !!result.data,
+        hasExtra: !!result.extra,
+        extraKeys: result.extra ? Object.keys(result.extra) : []
       });
 
-      if (result.resultCode === IntentLauncher.ResultCode.Success && result.data) {
-        const encrypted = result.data.result;
+      if (result.resultCode === IntentLauncher.ResultCode.Success) {
+        const encrypted =
+          result.extra?.result ||   // Result in extras object
+          result.data;              // Fallback: data as plain string
+
+        console.log('[Amber DEBUG] Encrypted content from:',
+          result.extra?.result ? 'extra.result' :
+          result.data ? 'data string' : 'NONE'
+        );
+
         if (encrypted) {
           return encrypted;
         } else {
@@ -259,11 +302,21 @@ export class AmberNDKSigner implements NDKSigner {
 
       console.log('[Amber DEBUG] Decrypt result received:', {
         resultCode: result.resultCode,
-        hasData: !!result.data
+        hasData: !!result.data,
+        hasExtra: !!result.extra,
+        extraKeys: result.extra ? Object.keys(result.extra) : []
       });
 
-      if (result.resultCode === IntentLauncher.ResultCode.Success && result.data) {
-        const decrypted = result.data.result;
+      if (result.resultCode === IntentLauncher.ResultCode.Success) {
+        const decrypted =
+          result.extra?.result ||   // Result in extras object
+          result.data;              // Fallback: data as plain string
+
+        console.log('[Amber DEBUG] Decrypted content from:',
+          result.extra?.result ? 'extra.result' :
+          result.data ? 'data string' : 'NONE'
+        );
+
         if (decrypted) {
           return decrypted;
         } else {
