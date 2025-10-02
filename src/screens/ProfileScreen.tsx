@@ -37,6 +37,7 @@ import { getUserNostrIdentifiers } from '../utils/nostr';
 
 interface ProfileScreenProps {
   data: ProfileScreenData;
+  isLoadingTeam?: boolean;
   onNavigateToTeam: () => void;
   onNavigateToTeamDiscovery?: () => void;
   onViewCurrentTeam?: () => void;
@@ -57,6 +58,7 @@ interface ProfileScreenProps {
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   data,
+  isLoadingTeam = false,
   onNavigateToTeam,
   onNavigateToTeamDiscovery,
   onViewCurrentTeam,
@@ -88,9 +90,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   // Initialize wallet and load notification settings on mount
   useEffect(() => {
     // Initialize wallet globally when profile screen loads
+    // Use quick resume mode for instant loading on Android
     if (!isInitialized) {
-      console.log('[ProfileScreen] Initializing global wallet...');
-      initializeWallet();
+      console.log('[ProfileScreen] Initializing global wallet with quick resume...');
+      initializeWallet(undefined, true); // Pass quickResume: true
     }
   }, [isInitialized, initializeWallet]);
 
@@ -291,6 +294,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         <View style={styles.boxContainer}>
           <TeamManagementSection
             currentTeam={data.currentTeam}
+            isLoading={isLoadingTeam || (isRefreshing && !data.currentTeam)}
             onChangeTeam={() => onNavigateToTeamDiscovery?.()}
             onJoinTeam={() => onNavigateToTeamDiscovery?.()}
             onViewTeam={onViewCurrentTeam}

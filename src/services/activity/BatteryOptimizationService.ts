@@ -73,15 +73,21 @@ export class BatteryOptimizationService {
       const batteryState = await Battery.getBatteryLevelAsync();
       const powerState = await Battery.getPowerStateAsync();
 
-      this.batteryLevel = Math.round((batteryState || 1) * 100);
+      // Validate and clamp battery level to 0-100 range
+      const rawLevel = Math.round((batteryState || 1) * 100);
+      this.batteryLevel = Math.max(0, Math.min(100, rawLevel));
       this.isCharging = powerState.batteryState === Battery.BatteryState.CHARGING;
+
+      console.log(`🔋 Battery initialized: ${this.batteryLevel}% (charging: ${this.isCharging})`);
 
       // Determine initial mode
       this.updateModeBasedOnBattery();
 
       // Subscribe to battery changes
       Battery.addBatteryLevelListener(({ batteryLevel }) => {
-        this.batteryLevel = Math.round(batteryLevel * 100);
+        // Validate and clamp battery level to 0-100 range
+        const rawLevel = Math.round(batteryLevel * 100);
+        this.batteryLevel = Math.max(0, Math.min(100, rawLevel));
         this.updateModeBasedOnBattery();
       });
 
@@ -91,6 +97,9 @@ export class BatteryOptimizationService {
       });
     } catch (error) {
       console.error('Failed to initialize battery monitoring:', error);
+      // Set safe default values on error
+      this.batteryLevel = 100;
+      this.isCharging = false;
     }
   }
 
@@ -120,7 +129,7 @@ export class BatteryOptimizationService {
   /**
    * Get location options for current battery mode
    */
-  getLocationOptions(activityType: 'running' | 'walking' | 'cycling'): Location.LocationOptions {
+  getLocationOptions(activityType: 'running' | 'walking' | 'cycling'): Location.LocationTaskOptions {
     const config = BATTERY_CONFIGS[this.currentMode];
 
     // Adjust based on activity type
@@ -144,6 +153,12 @@ export class BatteryOptimizationService {
       timeInterval,
       distanceInterval,
       mayShowUserSettingsDialog: false,
+      // iOS-specific: Use fitness-optimized GPS algorithms
+      activityType: Location.ActivityType.Fitness,
+      // iOS-specific: Don't auto-pause during workouts
+      pausesUpdatesAutomatically: false,
+      // iOS-specific: Show blue bar when tracking in background (user transparency)
+      showsBackgroundLocationIndicator: true,
     };
   }
 

@@ -4,14 +4,11 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Alert } from 'react-native';
 import { BaseTrackerComponent } from '../../components/activity/BaseTrackerComponent';
 import { enhancedLocationTrackingService } from '../../services/activity/EnhancedLocationTrackingService';
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
 import type { EnhancedTrackingSession } from '../../services/activity/EnhancedLocationTrackingService';
-import workoutPublishingService from '../../services/nostr/workoutPublishingService';
-import type { PublishableWorkout } from '../../services/nostr/workoutPublishingService';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { WorkoutSummaryModal } from '../../components/activity/WorkoutSummaryModal';
 
 export const WalkingTrackerScreen: React.FC = () => {
   const [isTracking, setIsTracking] = useState(false);
@@ -23,6 +20,15 @@ export const WalkingTrackerScreen: React.FC = () => {
     elevation: '0 m',
   });
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [summaryModalVisible, setSummaryModalVisible] = useState(false);
+  const [workoutData, setWorkoutData] = useState<{
+    type: 'running' | 'walking' | 'cycling';
+    distance: number;
+    duration: number;
+    calories: number;
+    elevation?: number;
+    steps?: number;
+  } | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const metricsUpdateRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
@@ -116,99 +122,19 @@ export const WalkingTrackerScreen: React.FC = () => {
     const steps = activityMetricsService.estimateSteps(session.totalDistance);
     const calories = activityMetricsService.estimateCalories('walking', session.totalDistance, elapsedTime);
 
-    Alert.alert(
-      'Walk Complete! 🚶',
-      `Distance: ${activityMetricsService.formatDistance(session.totalDistance)}\n` +
-      `Duration: ${activityMetricsService.formatDuration(elapsedTime)}\n` +
-      `Steps: ${activityMetricsService.formatSteps(steps)}\n` +
-      `Elevation: ${activityMetricsService.formatElevation(session.totalElevationGain)}\n` +
-      `Calories: ${calories} cal`,
-      [
-        { text: 'Discard', style: 'cancel' },
-        { text: 'Save', onPress: () => saveWorkout(session) },
-      ]
-    );
+    setWorkoutData({
+      type: 'walking',
+      distance: session.totalDistance,
+      duration: elapsedTime,
+      calories,
+      elevation: session.totalElevationGain,
+      steps,
+    });
+    setSummaryModalVisible(true);
 
     resetMetrics();
   };
 
-  const saveWorkout = async (session: EnhancedTrackingSession) => {
-    try {
-      const hexPrivKey = await AsyncStorage.getItem('@runstr:user_privkey_hex');
-      const npub = await AsyncStorage.getItem('@runstr:npub');
-
-      if (!hexPrivKey) {
-        Alert.alert('Error', 'No user key found. Please login first.');
-        return;
-      }
-
-      const workoutId = `workout_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const publishableWorkout: PublishableWorkout = {
-        id: workoutId,
-        userId: npub || 'unknown',
-        type: 'walking',
-        startTime: new Date(Date.now() - (elapsedTime * 1000)).toISOString(),
-        endTime: new Date().toISOString(),
-        duration: elapsedTime,
-        distance: session.totalDistance,
-        calories: activityMetricsService.estimateCalories('walking', session.totalDistance, elapsedTime),
-        source: 'manual',
-        syncedAt: new Date().toISOString(),
-        sourceApp: 'RUNSTR',
-        elevationGain: session.totalElevationGain,
-        unitSystem: 'metric',
-        canSyncToNostr: true,
-        metadata: {
-          title: 'Walking Workout',
-          sourceApp: 'RUNSTR',
-          notes: `Tracked ${(session.totalDistance / 1000).toFixed(2)}km walk`,
-        },
-        pace: activityMetricsService.calculatePace(session.totalDistance, elapsedTime),
-      };
-
-      console.log('🔄 Publishing walking workout to Nostr...');
-
-      const result = await workoutPublishingService.saveWorkoutToNostr(
-        publishableWorkout,
-        hexPrivKey,
-        npub || 'unknown'
-      );
-
-      if (result.success) {
-        console.log('✅ Walk saved to Nostr:', result.eventId);
-        Alert.alert(
-          'Success! 🎉',
-          `Your walk has been saved to Nostr!\n\nEvent ID: ${result.eventId?.slice(0, 8)}...`,
-          [
-            { text: 'OK' },
-            {
-              text: 'Share',
-              onPress: async () => {
-                const socialResult = await workoutPublishingService.postWorkoutToSocial(
-                  publishableWorkout,
-                  hexPrivKey,
-                  npub || 'unknown',
-                  {
-                    includeStats: true,
-                    includeMotivation: true,
-                    cardTemplate: 'achievement',
-                  }
-                );
-                if (socialResult.success) {
-                  Alert.alert('Shared!', 'Your walk has been posted to your Nostr feed!');
-                }
-              },
-            },
-          ]
-        );
-      } else {
-        Alert.alert('Error', `Failed to save walk: ${result.error}`);
-      }
-    } catch (error) {
-      console.error('❌ Error saving walk:', error);
-      Alert.alert('Error', 'Failed to save walk to Nostr');
-    }
-  };
 
   const resetMetrics = () => {
     setMetrics({
@@ -227,20 +153,34 @@ export const WalkingTrackerScreen: React.FC = () => {
   }, [elapsedTime]);
 
   return (
-    <BaseTrackerComponent
-      metrics={{
-        primary: { label: 'Distance', value: metrics.distance, icon: 'navigate' },
-        secondary: { label: 'Duration', value: metrics.duration, icon: 'time' },
-        tertiary: { label: 'Steps', value: metrics.steps, icon: 'walk' },
-        quaternary: { label: 'Elevation', value: metrics.elevation, icon: 'trending-up' },
-      }}
-      isTracking={isTracking}
-      isPaused={isPaused}
-      onStart={startTracking}
-      onPause={pauseTracking}
-      onResume={resumeTracking}
-      onStop={stopTracking}
-      startButtonText="Start Walk"
-    />
+    <>
+      <BaseTrackerComponent
+        metrics={{
+          primary: { label: 'Distance', value: metrics.distance, icon: 'navigate' },
+          secondary: { label: 'Duration', value: metrics.duration, icon: 'time' },
+          tertiary: { label: 'Steps', value: metrics.steps, icon: 'walk' },
+          quaternary: { label: 'Elevation', value: metrics.elevation, icon: 'trending-up' },
+        }}
+        isTracking={isTracking}
+        isPaused={isPaused}
+        onStart={startTracking}
+        onPause={pauseTracking}
+        onResume={resumeTracking}
+        onStop={stopTracking}
+        startButtonText="Start Walk"
+      />
+
+      {/* Workout Summary Modal */}
+      {workoutData && (
+        <WorkoutSummaryModal
+          visible={summaryModalVisible}
+          onClose={() => {
+            setSummaryModalVisible(false);
+            setWorkoutData(null);
+          }}
+          workout={workoutData}
+        />
+      )}
+    </>
   );
 };

@@ -110,8 +110,8 @@ export const TeamBasicsStep: React.FC<TeamBasicsStepProps> = ({
         )}
       </View>
 
-      {/* Flash Subscription URL */}
-      <View style={styles.formGroup}>
+      {/* Flash Subscription URL - HIDDEN FOR NOW */}
+      {/* <View style={styles.formGroup}>
         <Text style={styles.formLabel}>Flash Subscription URL (Optional)</Text>
         <Text style={styles.formHelperText}>
           Add a Flash subscription URL to enable recurring Bitcoin payments from supporters.
@@ -134,7 +134,7 @@ export const TeamBasicsStep: React.FC<TeamBasicsStepProps> = ({
             Please enter a valid Flash subscription URL
           </Text>
         )}
-      </View>
+      </View> */}
 
       {/* Team Description Input */}
       <View style={styles.formGroup}>

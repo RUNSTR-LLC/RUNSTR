@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../styles/theme';
 import { useNutzap } from '../../hooks/useNutzap';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,6 +38,35 @@ export const CompactWallet: React.FC<CompactWalletProps> = ({
   } = useNutzap(true);
 
   const [lastClaimTime, setLastClaimTime] = useState<Date | null>(null);
+  const [displayBalance, setDisplayBalance] = useState<number>(0);
+
+  // Load cached balance immediately on mount for instant display
+  useEffect(() => {
+    const loadCachedBalance = async () => {
+      try {
+        const cachedBalance = await AsyncStorage.getItem('@runstr:cached_wallet_balance');
+        if (cachedBalance) {
+          const parsedBalance = parseInt(cachedBalance, 10);
+          setDisplayBalance(parsedBalance);
+          console.log('[CompactWallet] Showing cached balance:', parsedBalance);
+        }
+      } catch (error) {
+        console.error('[CompactWallet] Failed to load cached balance:', error);
+      }
+    };
+    loadCachedBalance();
+  }, []);
+
+  // Update display balance when wallet balance changes
+  useEffect(() => {
+    if (isInitialized && balance >= 0) {
+      setDisplayBalance(balance);
+      // Cache the balance for next session
+      AsyncStorage.setItem('@runstr:cached_wallet_balance', balance.toString()).catch(err =>
+        console.error('[CompactWallet] Failed to cache balance:', err)
+      );
+    }
+  }, [balance, isInitialized]);
 
   // Auto-claim on mount and periodically
   useEffect(() => {
@@ -70,22 +100,23 @@ export const CompactWallet: React.FC<CompactWalletProps> = ({
     return sats.toString();
   };
 
-  if (!isInitialized) {
-    return (
-      <View style={styles.walletBox}>
-        <ActivityIndicator size="small" color={theme.colors.accent} />
-      </View>
-    );
-  }
-
+  // Always show wallet UI with current balance (cached or synced)
+  // No blocking loading spinner for better Android UX
   return (
     <View style={styles.walletBox}>
-        {/* Centered balance */}
+        {/* Centered balance with sync indicator */}
         <View style={styles.balanceContainer}>
           <Text style={styles.balanceAmount}>
-            {formatBalance(balance)}
+            {formatBalance(displayBalance)}
           </Text>
           <Text style={styles.balanceUnit}>sats</Text>
+          {isLoading && (
+            <ActivityIndicator
+              size="small"
+              color={theme.colors.textMuted}
+              style={styles.syncIndicator}
+            />
+          )}
         </View>
 
         {/* Compact action buttons */}
@@ -143,6 +174,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: theme.colors.textMuted,
     fontWeight: theme.typography.weights.medium,
+  },
+
+  syncIndicator: {
+    marginLeft: 8,
   },
 
   // Actions

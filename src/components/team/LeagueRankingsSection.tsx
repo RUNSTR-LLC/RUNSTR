@@ -436,7 +436,6 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
                 <View style={styles.rankingStats}>
                   <Text style={styles.memberStats}>
                     {entry.workoutCount} workouts
-                    {entry.lastActivity && ` • ${entry.lastActivity}`}
                   </Text>
                   <Text style={[
                     styles.scoreText,

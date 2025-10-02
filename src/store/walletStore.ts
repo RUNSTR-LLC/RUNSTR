@@ -28,7 +28,7 @@ interface WalletState {
   lastSync: number;
 
   // Actions
-  initialize: (nsec?: string) => Promise<void>;
+  initialize: (nsec?: string, quickResume?: boolean) => Promise<void>;
   refreshBalance: () => Promise<void>;
   updateBalance: (newBalance: number) => void;
   addTransaction: (transaction: Transaction) => void;
@@ -47,7 +47,8 @@ export const useWalletStore = create<WalletState>((set, get) => ({
   lastSync: 0,
 
   // Initialize wallet (called once at app startup)
-  initialize: async (nsec?: string) => {
+  // PERFORMANCE: Uses quick resume for instant load when returning to app
+  initialize: async (nsec?: string, quickResume: boolean = false) => {
     const state = get();
 
     // Prevent multiple initializations
@@ -59,16 +60,18 @@ export const useWalletStore = create<WalletState>((set, get) => ({
     set({ isInitializing: true, error: null });
 
     try {
-      console.log('[WalletStore] Initializing global wallet...');
+      console.log(`[WalletStore] Initializing global wallet... (quick resume: ${quickResume})`);
 
       // Get user's nsec from storage if not provided
       let userNsec = nsec;
       if (!userNsec) {
-        userNsec = await AsyncStorage.getItem('@runstr:user_nsec');
+        const storedNsec = await AsyncStorage.getItem('@runstr:user_nsec');
+        userNsec = storedNsec || undefined;
       }
 
-      // Initialize service (auto-creates wallet if needed)
-      const walletState = await nutzapService.initialize(userNsec || undefined);
+      // Initialize service with quick resume flag
+      // Quick resume skips Nostr queries if cache is fresh (<2 minutes)
+      const walletState = await nutzapService.initialize(userNsec || undefined, quickResume);
 
       set({
         isInitialized: true,

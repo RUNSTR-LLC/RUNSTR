@@ -45,6 +45,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
     profileData,
     availableTeams,
     isLoading,
+    isLoadingTeam,
     error,
     refresh,
     loadTeams,
@@ -161,6 +162,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
           profileData ? (
             <ProfileScreen
               data={profileData}
+              isLoadingTeam={isLoadingTeam}
               onNavigateToTeam={() => navigation.navigate('Teams')}
               onNavigateToTeamDiscovery={() => navigation.navigate('Teams')}
               onViewCurrentTeam={() => {
@@ -177,6 +179,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
                     // Include all team metadata fields
                     captainId: profileData.currentTeam.captainId, // Include if available
                     bannerImage: profileData.currentTeam.bannerImage, // Include banner for display
+                    charityId: profileData.currentTeam.charityId, // Include charity for charity section display
                   };
 
                   // Get the current user's npub to pass to navigation

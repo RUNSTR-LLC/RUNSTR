@@ -12,7 +12,7 @@ import * as ExpoSplashScreen from 'expo-splash-screen';
 import './services/activity/BackgroundLocationTask';
 
 import React from 'react';
-import { StatusBar, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { StatusBar, View, Text, StyleSheet, TouchableOpacity, AppState, AppStateStatus } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // Error Boundary Component to catch runtime errors during initialization
@@ -77,6 +77,7 @@ import { CompetitionsListScreen } from './screens/CompetitionsListScreen';
 import { WorkoutHistoryScreen } from './screens/WorkoutHistoryScreen';
 import { ProfileEditScreen } from './screens/ProfileEditScreen';
 import { User } from './types';
+import { useWalletStore } from './store/walletStore';
 
 // Types for authenticated app navigation
 type AuthenticatedStackParamList = {
@@ -117,7 +118,54 @@ const AppContent: React.FC = () => {
   } = useAuth();
 
   // Show loading splash after successful authentication
-  const [splashShown, setSplashShown] = React.useState(false)
+  const [splashShown, setSplashShown] = React.useState(false);
+
+  // PERFORMANCE OPTIMIZATION: App state detection for smart resume
+  const walletStore = useWalletStore();
+  const appState = React.useRef(AppState.currentState);
+  const backgroundTime = React.useRef<number>(0);
+
+  React.useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      const previousState = appState.current;
+
+      // App going to background
+      if (previousState === 'active' && nextAppState.match(/inactive|background/)) {
+        backgroundTime.current = Date.now();
+        console.log('[AppState] App going to background');
+      }
+
+      // App returning to foreground
+      if (previousState.match(/inactive|background/) && nextAppState === 'active') {
+        const timeInBackground = Date.now() - backgroundTime.current;
+        const secondsInBackground = Math.round(timeInBackground / 1000);
+
+        console.log(`[AppState] App returning to foreground (${secondsInBackground}s in background)`);
+
+        // Smart refresh strategy based on time in background
+        if (isAuthenticated && walletStore.isInitialized) {
+          if (timeInBackground < 60 * 1000) {
+            // < 1 minute: No refresh needed
+            console.log('[AppState] Quick return - no refresh needed');
+          } else if (timeInBackground < 5 * 60 * 1000) {
+            // 1-5 minutes: Quick resume with background sync
+            console.log('[AppState] Medium return - using quick resume');
+            walletStore.initialize(undefined, true); // Quick resume mode
+          } else {
+            // > 5 minutes: Full refresh
+            console.log('[AppState] Long return - triggering full refresh');
+            walletStore.refreshBalance();
+          }
+        }
+      }
+
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isAuthenticated, walletStore.isInitialized]);
 
   // Authenticated app with bottom tabs and team creation modal
   const AuthenticatedNavigator: React.FC<{ user: User }> = ({ user }) => {
@@ -189,7 +237,7 @@ const AppContent: React.FC = () => {
                   events: [],
                   challenges: [],
                 }}
-                onMenuPress={() => console.log('Menu pressed')}
+                onBack={() => navigation.goBack()}
                 onCaptainDashboard={() => {
                   console.log('Captain dashboard from EnhancedTeamScreen');
                   console.log('Navigating to CaptainDashboard with team:', team?.id);
@@ -214,12 +262,6 @@ const AppContent: React.FC = () => {
                 onAddChallenge={() => console.log('Add challenge')}
                 onEventPress={(eventId) => navigation.navigate('EventDetail', { eventId })}
                 onChallengePress={(challengeId) => navigation.navigate('ChallengeDetail', { challengeId })}
-                onLeaveTeam={() => {
-                  console.log('Leave team');
-                  navigation.navigate('MainTabs', { screen: 'Teams' });
-                }}
-                onTeamDiscovery={() => navigation.navigate('MainTabs', { screen: 'Teams' })}
-                onJoinTeam={() => console.log('Join team')}
                 showJoinButton={!userIsMember}
                 userIsMemberProp={userIsMember}
                 currentUserNpub={currentUserNpub}

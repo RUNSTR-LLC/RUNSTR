@@ -273,9 +273,10 @@ class ActivityMetricsService {
       formatted.calories = `${metrics.calories} cal`;
     }
 
-    if (metrics.elevationGain !== undefined) {
-      formatted.elevation = this.formatElevation(metrics.elevationGain);
-    }
+    // Always set elevation with fallback to 0
+    formatted.elevation = metrics.elevationGain !== undefined
+      ? this.formatElevation(metrics.elevationGain)
+      : '0 m';
 
     return formatted;
   }

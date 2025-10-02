@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { enhancedLocationTrackingService } from '../../services/activity/EnhancedLocationTrackingService';
@@ -13,9 +13,7 @@ import type { EnhancedTrackingSession } from '../../services/activity/EnhancedLo
 import type { FormattedMetrics } from '../../services/activity/ActivityMetricsService';
 import { GPSStatusIndicator, type GPSSignalStrength } from '../../components/activity/GPSStatusIndicator';
 import { BatteryWarning } from '../../components/activity/BatteryWarning';
-import workoutPublishingService from '../../services/nostr/workoutPublishingService';
-import type { PublishableWorkout } from '../../services/nostr/workoutPublishingService';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { WorkoutSummaryModal } from '../../components/activity/WorkoutSummaryModal';
 
 interface MetricCardProps {
   label: string;
@@ -46,11 +44,21 @@ export const RunningTrackerScreen: React.FC = () => {
   const [gpsSignal, setGpsSignal] = useState<GPSSignalStrength>('none');
   const [gpsAccuracy, setGpsAccuracy] = useState<number | undefined>();
   const [isBackgroundTracking, setIsBackgroundTracking] = useState(false);
+  const [summaryModalVisible, setSummaryModalVisible] = useState(false);
+  const [workoutData, setWorkoutData] = useState<{
+    type: 'running' | 'walking' | 'cycling';
+    distance: number;
+    duration: number;
+    calories: number;
+    elevation?: number;
+    pace?: number;
+  } | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const metricsUpdateRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
   const pauseStartTimeRef = useRef<number>(0);  // When pause started
   const totalPausedTimeRef = useRef<number>(0);  // Cumulative pause duration in ms
+  const isPausedRef = useRef<boolean>(false);  // Ref to avoid stale closure in timer
 
   useEffect(() => {
     return () => {
@@ -70,13 +78,14 @@ export const RunningTrackerScreen: React.FC = () => {
 
     setIsTracking(true);
     setIsPaused(false);
+    isPausedRef.current = false;
     startTimeRef.current = Date.now();
     pauseStartTimeRef.current = 0;
     totalPausedTimeRef.current = 0;
 
     // Start timer for duration
     timerRef.current = setInterval(() => {
-      if (!isPaused) {
+      if (!isPausedRef.current) {
         const now = Date.now();
         const totalElapsed = Math.floor((now - startTimeRef.current - totalPausedTimeRef.current) / 1000);
         setElapsedTime(totalElapsed);
@@ -101,23 +110,22 @@ export const RunningTrackerScreen: React.FC = () => {
   const updateMetrics = () => {
     const session = enhancedLocationTrackingService.getCurrentSession();
 
-    // Always update duration using local timer (works even without GPS/session)
-    const formattedDuration = formatElapsedTime(elapsedTime);
+    // Calculate current elapsed time from refs (not state) to avoid stale closures
+    const now = Date.now();
+    const currentElapsed = Math.floor((now - startTimeRef.current - totalPausedTimeRef.current) / 1000);
+    const formattedDuration = formatElapsedTime(currentElapsed);
 
     if (session) {
-      // Use session's actual duration instead of state to avoid stale closure
-      const sessionDuration = session.duration;
-
       const currentMetrics = {
         distance: session.totalDistance,
-        duration: sessionDuration,
-        pace: activityMetricsService.calculatePace(session.totalDistance, sessionDuration),
+        duration: currentElapsed,
+        pace: activityMetricsService.calculatePace(session.totalDistance, currentElapsed),
         elevationGain: session.totalElevationGain,
       };
 
       const formatted = activityMetricsService.getFormattedMetrics(currentMetrics, 'running');
 
-      // Override with local elapsedTime for duration display (handles pause correctly)
+      // Override with calculated duration for display (handles pause correctly)
       formatted.duration = formattedDuration;
 
       setMetrics(formatted);
@@ -139,6 +147,7 @@ export const RunningTrackerScreen: React.FC = () => {
     if (!isPaused) {
       await enhancedLocationTrackingService.pauseTracking();
       setIsPaused(true);
+      isPausedRef.current = true;
       pauseStartTimeRef.current = Date.now();  // Store when pause started
     }
   };
@@ -149,6 +158,7 @@ export const RunningTrackerScreen: React.FC = () => {
       totalPausedTimeRef.current += pauseDuration;  // Add to cumulative total
       await enhancedLocationTrackingService.resumeTracking();
       setIsPaused(false);
+      isPausedRef.current = false;
     }
   };
 
@@ -182,28 +192,18 @@ export const RunningTrackerScreen: React.FC = () => {
   };
 
   const showWorkoutSummary = (session: EnhancedTrackingSession) => {
-    const finalMetrics = {
+    const calories = activityMetricsService.estimateCalories('running', session.totalDistance, elapsedTime);
+    const pace = activityMetricsService.calculatePace(session.totalDistance, elapsedTime);
+
+    setWorkoutData({
+      type: 'running',
       distance: session.totalDistance,
       duration: elapsedTime,
-      pace: activityMetricsService.calculatePace(session.totalDistance, elapsedTime),
-      elevationGain: session.totalElevationGain,
-      calories: activityMetricsService.estimateCalories('running', session.totalDistance, elapsedTime),
-    };
-
-    const formatted = activityMetricsService.getFormattedMetrics(finalMetrics, 'running');
-
-    Alert.alert(
-      'Run Complete! 🏃',
-      `Distance: ${formatted.distance}\n` +
-      `Duration: ${formatted.duration}\n` +
-      `Pace: ${formatted.pace}\n` +
-      `Elevation: ${formatted.elevation}\n` +
-      `Calories: ${formatted.calories || '0 cal'}`,
-      [
-        { text: 'Discard', style: 'cancel' },
-        { text: 'Save', onPress: () => saveWorkout(session) },
-      ]
-    );
+      calories,
+      elevation: session.totalElevationGain,
+      pace,
+    });
+    setSummaryModalVisible(true);
 
     // Reset metrics after showing summary
     setMetrics({
@@ -214,97 +214,6 @@ export const RunningTrackerScreen: React.FC = () => {
     });
     setElapsedTime(0);
   };
-
-  const saveWorkout = async (session: EnhancedTrackingSession) => {
-    try {
-      // Get user's private key from storage
-      const nsec = await AsyncStorage.getItem('@runstr:user_nsec');
-      const hexPrivKey = await AsyncStorage.getItem('@runstr:user_privkey_hex');
-      const npub = await AsyncStorage.getItem('@runstr:npub');
-
-      if (!hexPrivKey) {
-        Alert.alert('Error', 'No user key found. Please login first.');
-        return;
-      }
-
-      // Convert session to PublishableWorkout format
-      const workoutId = `workout_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const publishableWorkout: PublishableWorkout = {
-        id: workoutId, // Generate unique ID
-        userId: npub || 'unknown',
-        type: 'running',
-        startTime: new Date(Date.now() - (elapsedTime * 1000)).toISOString(),
-        endTime: new Date().toISOString(),
-        duration: elapsedTime, // Already in seconds
-        distance: session.totalDistance, // Already in meters
-        calories: activityMetricsService.estimateCalories('running', session.totalDistance, elapsedTime),
-        source: 'manual',
-        syncedAt: new Date().toISOString(),
-        sourceApp: 'RUNSTR',
-        elevationGain: session.totalElevationGain,
-        unitSystem: 'metric',
-        canSyncToNostr: true,
-        metadata: {
-          title: 'Running Workout',
-          sourceApp: 'RUNSTR',
-          notes: `Tracked ${(session.totalDistance / 1000).toFixed(2)}km run`,
-        },
-        pace: activityMetricsService.calculatePace(session.totalDistance, elapsedTime),
-      };
-
-      console.log('🔄 Publishing workout to Nostr...');
-
-      // Publish as kind 1301 event
-      const result = await workoutPublishingService.saveWorkoutToNostr(
-        publishableWorkout,
-        hexPrivKey,
-        npub || 'unknown'
-      );
-
-      if (result.success) {
-        console.log('✅ Workout saved to Nostr:', result.eventId);
-        Alert.alert(
-          'Success! 🎉',
-          `Your run has been saved to Nostr!\n\nEvent ID: ${result.eventId?.slice(0, 8)}...`,
-          [
-            { text: 'OK' },
-            {
-              text: 'Share',
-              onPress: async () => {
-                // Optionally post to social feed
-                const socialResult = await workoutPublishingService.postWorkoutToSocial(
-                  publishableWorkout,
-                  hexPrivKey,
-                  npub || 'unknown',
-                  {
-                    includeStats: true,
-                    includeMotivation: true,
-                    cardTemplate: 'achievement',
-                  }
-                );
-                if (socialResult.success) {
-                  Alert.alert('Shared!', 'Your workout has been posted to your Nostr feed!');
-                }
-              },
-            },
-          ]
-        );
-      } else {
-        console.error('❌ Failed to save workout:', result.error);
-        Alert.alert('Error', `Failed to save workout: ${result.error}`);
-      }
-    } catch (error) {
-      console.error('❌ Error saving workout:', error);
-      Alert.alert('Error', 'Failed to save workout to Nostr');
-    }
-  };
-
-  // Update metrics in real-time
-  useEffect(() => {
-    if (isTracking && !isPaused) {
-      updateMetrics();
-    }
-  }, [elapsedTime]);
 
   return (
     <View style={styles.container}>
@@ -325,7 +234,7 @@ export const RunningTrackerScreen: React.FC = () => {
       <View style={styles.metricsContainer}>
         <View style={styles.metricsRow}>
           <MetricCard label="Distance" value={metrics.distance} icon="navigate" />
-          <MetricCard label="Duration" value={metrics.duration} icon="time" />
+          <MetricCard label="Duration" value={formatElapsedTime(elapsedTime)} icon="time" />
         </View>
         <View style={styles.metricsRow}>
           <MetricCard label="Pace" value={metrics.pace ?? '--:--'} icon="speedometer" />
@@ -366,6 +275,18 @@ export const RunningTrackerScreen: React.FC = () => {
             {isPaused ? 'Paused' : 'Recording'}
           </Text>
         </View>
+      )}
+
+      {/* Workout Summary Modal */}
+      {workoutData && (
+        <WorkoutSummaryModal
+          visible={summaryModalVisible}
+          onClose={() => {
+            setSummaryModalVisible(false);
+            setWorkoutData(null);
+          }}
+          workout={workoutData}
+        />
       )}
     </View>
   );

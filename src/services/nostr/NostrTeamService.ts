@@ -169,6 +169,9 @@ export class NostrTeamService {
       // Get Flash subscription URL from tags
       const flashUrl = tags.get('flash')?.[0];
 
+      // Get banner image URL from tags
+      const bannerImage = tags.get('banner')?.[0];
+
       return {
         id: `${captain}:${teamUUID || event.id}`, // Use captain:uuid or fallback to event.id
         name,
@@ -188,6 +191,7 @@ export class NostrTeamService {
         charityId,
         shopUrl,
         flashUrl,
+        bannerImage,
       };
     } catch (error) {
       console.warn('Error parsing team event:', error);

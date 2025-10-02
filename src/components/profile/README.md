@@ -19,6 +19,9 @@ This architecture provides a clear distinction between public (shared) and priva
 - **AccountTab.tsx** - Account settings and profile management tab content
 - **ChallengeNotificationsBox.tsx** - Displays incoming challenge requests with accept/decline buttons
 - **CompactWallet.tsx** - Compact wallet display with balance and action buttons
+- **NotificationBadge.tsx** - Red notification badge with unread count, positioned in bottom-right of profile header
+- **NotificationItem.tsx** - Individual notification card component with icon, title, body, actions, and unread indicator
+- **NotificationModal.tsx** - Full-screen notification feed modal with date grouping, pull-to-refresh, and action handling
 - **NotificationsTab.tsx** - Notification preferences and settings tab
 - **PerformanceDashboard.tsx** - Workout analytics and performance metrics display
 - **ProfileHeader.tsx** - Profile screen header with user information and avatar
@@ -27,6 +30,7 @@ This architecture provides a clear distinction between public (shared) and priva
 - **WalletSection.tsx** - Bitcoin wallet section for profile screen
 - **WorkoutsTab.tsx** - Public/All tab navigation with sync dropdown (151 lines)
 - **YourCompetitionsBox.tsx** - Shows user's active competitions with counts and navigation (175 lines)
+- **YourWorkoutsBox.tsx** - Displays user's recent workouts with quick access to workout history
 
 ## Subdirectories
 

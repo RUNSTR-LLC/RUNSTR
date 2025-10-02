@@ -210,6 +210,31 @@ export class NostrInitializationService {
     }
   }
 
+  async prefetchSeason1(): Promise<void> {
+    console.log('🏆 ================================');
+    console.log('🏆 SEASON 1 PREFETCH STARTING');
+    console.log('🏆 ================================');
+
+    try {
+      const { season1Service } = await import('../season/Season1Service');
+
+      console.log('📞 Calling Season1Service.prefetchAll()...');
+      await season1Service.prefetchAll();
+
+      console.log('📊 ================================');
+      console.log('📊 SEASON 1 PREFETCH COMPLETE');
+      console.log('📊 ================================');
+      console.log('✅ All Season 1 data cached and ready');
+    } catch (error) {
+      console.error('❌ ================================');
+      console.error('❌ SEASON 1 PREFETCH FAILED');
+      console.error('❌ ================================');
+      console.error('❌ Error:', error);
+      console.error('❌ ================================');
+      // Don't throw - continue app loading
+    }
+  }
+
   getPrefetchedTeams(): any[] {
     return this.prefetchedTeams;
   }

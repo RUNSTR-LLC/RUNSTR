@@ -222,9 +222,15 @@ export async function isBackgroundTaskRegistered(): Promise<boolean> {
 /**
  * Get location options based on activity type
  */
-function getBackgroundLocationOptions(activityType: string): Location.LocationOptions {
-  const baseOptions: Location.LocationOptions = {
+function getBackgroundLocationOptions(activityType: string): Location.LocationTaskOptions {
+  const baseOptions: Location.LocationTaskOptions = {
     accuracy: Location.Accuracy.BestForNavigation,
+    // iOS-specific: Use fitness-optimized GPS algorithms
+    activityType: Location.ActivityType.Fitness,
+    // iOS-specific: Don't auto-pause during workouts
+    pausesUpdatesAutomatically: false,
+    // iOS-specific: Show blue bar when tracking in background (user transparency)
+    showsBackgroundLocationIndicator: true,
   };
 
   switch (activityType) {

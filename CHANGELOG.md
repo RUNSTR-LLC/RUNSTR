@@ -4,6 +4,73 @@ All notable changes to RUNSTR will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.8] - 2025-10-01
+
+### Added
+- **Season 1 Data Prefetching**: Season 1 leaderboard data now loads during splash screen for faster app experience
+- **New App Icons**: Refreshed app icon design across all platforms (Android mipmap densities + iOS assets)
+- **Wallet Proof Encryption**: NIP-44 encryption for backing up wallet proofs to Nostr
+- **Pubkey-Specific Wallet Storage**: Each user's wallet data is now properly isolated by pubkey
+
+### Improved
+- **Wallet Service Reliability**:
+  - Increased relay connection timeout from 5s to 10s for better relay discovery
+  - Pubkey-specific storage keys prevent wallet data conflicts between accounts
+  - Enhanced proof encryption/decryption with NIP-44 standard
+  - Wallet event ID tracking to prevent duplicate wallet creation
+- **Season 1 Service Performance**: Major refactoring of Season 1 service for better reliability and performance
+- **Activity Tracker Screens**: Simplified and streamlined Running, Walking, and Cycling tracker UI
+- **GPS Status Indicator**: Improved GPS accuracy feedback and status display
+- **Notification System**: Enhanced challenge notifications with better event handling
+- **UI Polish**:
+  - Team header visual improvements
+  - Bottom navigation refinements
+  - Workout summary modal enhancements
+  - Challenges card UI updates
+
+### Fixed
+- **Android SafeAreaView**: Proper status bar spacing configuration in AndroidManifest
+- **Amber Authentication**: Fixed callback handling for Amber signer integration
+- **Background Location**: Improved background location task reliability
+- **Battery Optimization**: Better battery status monitoring during workouts
+
+## [0.0.7] - 2025-10-01
+
+### Added
+- **Unified Notification System**: Complete in-app notification infrastructure with badge support
+  - NotificationBadge component for visual notification indicators
+  - NotificationItem component for individual notification display
+  - NotificationModal for full notification management
+  - UnifiedNotificationStore for centralized notification state management
+- **Global Challenge Wizard**: Create 1v1 challenges with intelligent user discovery
+  - Direct user-to-user competition creation
+  - Smart user search and discovery system
+  - Challenge configuration with custom parameters
+- **Profile Photo Uploads**: Users can now upload and customize profile pictures
+  - Integration with expo-image-picker for seamless photo selection
+  - Profile image management and display
+- **Enhanced Onboarding Wizard**: Improved first-time user experience with comprehensive profile setup
+
+### Improved
+- **Performance Optimizations**:
+  - Team caching consolidated to single source of truth (TeamCacheService)
+  - League loading dramatically improved with cache-first strategy
+  - Reduced redundant API calls across the app
+- **Activity Tracking**: Major improvements to workout tracking reliability
+  - Fixed critical pause/resume timer bugs across all tracking services
+  - Improved duration display using local timer instead of GPS session
+  - Enhanced HealthKit workout integration and data accuracy
+- **Workout History**: Better UI for workout display and button styling
+- **Profile Screen**: Enhanced layout and improved user interface
+
+### Fixed
+- Critical HealthKit workout bugs (distance calculation, status tracking, deduplication)
+- Race condition causing 'no pubkey available' error on startup
+- Pause/resume timer issues in all activity tracker screens
+- HealthKit workout deduplication and social posting workflow
+- Activity Tracker duration display accuracy
+- Workout History button styling and cleanup
+
 ## [0.0.6] - 2025-01-29
 
 ### Added

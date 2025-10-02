@@ -2,6 +2,8 @@
  * League Ranking Service - Real-time competition leaderboards from Nostr events
  * Queries kind 1301 workout events from competition participants
  * Supports all league types from wizard competition parameters
+ *
+ * PERFORMANCE OPTIMIZATION: Uses persistent cache for instant app resume
  */
 
 import Competition1301QueryService, {
@@ -14,6 +16,7 @@ import type {
   NostrLeagueCompetitionType,
 } from '../../types/nostrCompetition';
 import NostrCompetitionParticipantService from '../nostr/NostrCompetitionParticipantService';
+import { UnifiedCacheService } from '../cache/UnifiedCacheService';
 
 export interface LeagueParticipant {
   npub: string;
@@ -54,16 +57,17 @@ export interface LeagueRankingResult {
 export class LeagueRankingService {
   private static instance: LeagueRankingService;
   private queryService: typeof Competition1301QueryService;
-  private rankingCache = new Map<string, { result: LeagueRankingResult; timestamp: number }>();
-  private cacheExpiry = 5 * 60 * 1000; // 5 minute cache (increased from 1 min for performance)
-  private staleExpiry = 2 * 60 * 1000; // 2 minutes - show stale data while fetching fresh
+  private participantService: NostrCompetitionParticipantService;
+
+  // Cache configuration
+  private readonly CACHE_PREFIX = 'league_rankings:';
+  private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes fresh
+  private readonly STALE_TTL_MS = 10 * 60 * 1000; // 10 minutes max (including stale)
 
   constructor() {
     this.queryService = Competition1301QueryService;
     this.participantService = NostrCompetitionParticipantService.getInstance();
   }
-
-  private participantService: NostrCompetitionParticipantService;
 
   static getInstance(): LeagueRankingService {
     if (!LeagueRankingService.instance) {
@@ -73,8 +77,16 @@ export class LeagueRankingService {
   }
 
   /**
+   * Get cache key for a competition
+   */
+  private getCacheKey(competitionId: string): string {
+    return `${this.CACHE_PREFIX}${competitionId}`;
+  }
+
+  /**
    * Calculate live league rankings for team display
-   * Uses cache-first strategy with stale-while-revalidate pattern
+   * Uses persistent cache-first strategy with stale-while-revalidate pattern
+   * PERFORMANCE: Returns cached data instantly on app resume (<100ms)
    */
   async calculateLeagueRankings(
     competitionId: string,
@@ -84,20 +96,29 @@ export class LeagueRankingService {
     console.log(`🏆 Calculating league rankings for: ${competitionId}`);
     console.log(`📊 Competition: ${parameters.activityType} - ${parameters.competitionType}`);
 
-    // Check cache first - return fresh cache immediately
-    const freshCache = this.getCachedRankings(competitionId, false);
-    if (freshCache) {
-      console.log('✅ Returning fresh cached rankings');
-      return freshCache;
-    }
+    const cacheKey = this.getCacheKey(competitionId);
 
-    // Check for stale cache - return it immediately while we fetch fresh data
-    const staleCache = this.getCachedRankings(competitionId, true);
-    if (staleCache) {
-      console.log('⚡ Returning stale cache, will refresh in background');
-      // Trigger background refresh without blocking
-      this.refreshRankingsInBackground(competitionId, participants, parameters);
-      return staleCache;
+    // Check persistent cache first - return fresh cache immediately
+    const cachedData = await UnifiedCacheService.get<{ result: LeagueRankingResult; timestamp: number }>(cacheKey);
+
+    if (cachedData) {
+      const cacheAge = Date.now() - cachedData.timestamp;
+
+      // Fresh cache (< 5 minutes) - return immediately
+      if (cacheAge < this.CACHE_TTL_MS) {
+        console.log(`✅ Returning fresh cached rankings (age: ${Math.round(cacheAge / 1000)}s)`);
+        return cachedData.result;
+      }
+
+      // Stale cache (5-10 minutes) - return immediately, refresh in background
+      if (cacheAge < this.STALE_TTL_MS) {
+        console.log(`⚡ Returning stale cache (age: ${Math.round(cacheAge / 1000)}s), refreshing in background`);
+        // Trigger background refresh without blocking
+        this.refreshRankingsInBackground(competitionId, participants, parameters);
+        return cachedData.result;
+      }
+
+      console.log(`🗑️ Cache too old (age: ${Math.round(cacheAge / 1000)}s), fetching fresh`);
     }
 
     try {
@@ -153,8 +174,8 @@ export class LeagueRankingService {
         isActive: this.isCompetitionActive(parameters),
       };
 
-      // Cache the result
-      this.cacheRankings(competitionId, result);
+      // Cache the result with persistent storage
+      await this.cacheRankings(competitionId, result);
 
       console.log(`✅ Rankings calculated: ${rankings.length} entries`);
       return result;
@@ -224,8 +245,8 @@ export class LeagueRankingService {
         isActive: this.isCompetitionActive(parameters),
       };
 
-      // Update cache with fresh data
-      this.cacheRankings(competitionId, result);
+      // Update persistent cache with fresh data
+      await this.cacheRankings(competitionId, result);
 
       console.log(`✅ Background refresh complete for ${competitionId}`);
     } catch (error) {
@@ -360,16 +381,17 @@ export class LeagueRankingService {
   }
 
   /**
-   * Get current rankings for a competition (cached or fresh)
+   * Get current rankings for a competition (from persistent cache only)
    */
   async getCurrentRankings(competitionId: string): Promise<LeagueRankingResult | null> {
-    // Try cache first
-    const cached = this.getCachedRankings(competitionId);
-    if (cached) {
-      return cached;
+    const cacheKey = this.getCacheKey(competitionId);
+    const cachedData = await UnifiedCacheService.get<{ result: LeagueRankingResult; timestamp: number }>(cacheKey);
+
+    if (cachedData) {
+      return cachedData.result;
     }
 
-    // No database fallback anymore - pure Nostr
+    // No database fallback - pure Nostr + cache
     return null;
   }
 
@@ -382,8 +404,9 @@ export class LeagueRankingService {
   ): Promise<void> {
     console.log(`🔄 Updating rankings for new workout: ${userNpub.slice(0, 8)}...`);
 
-    // Invalidate cache for this competition
-    this.rankingCache.delete(competitionId);
+    // Invalidate persistent cache for this competition
+    const cacheKey = this.getCacheKey(competitionId);
+    await UnifiedCacheService.invalidate(cacheKey);
 
     // Also clear query cache to force fresh data
     this.queryService.clearCache();
@@ -442,12 +465,13 @@ export class LeagueRankingService {
   // ================================================================================
 
   /**
-   * Clear all caches
+   * Clear all ranking caches (persistent + query cache)
    */
-  clearCache() {
-    this.rankingCache.clear();
+  async clearCache(): Promise<void> {
+    // Clear all persistent ranking caches using pattern matching
+    await UnifiedCacheService.invalidate(`${this.CACHE_PREFIX}*`);
     this.queryService.clearCache();
-    console.log('🧹 Cleared all ranking caches');
+    console.log('🧹 Cleared all ranking caches (persistent + query)');
   }
 
   /**
@@ -462,42 +486,19 @@ export class LeagueRankingService {
   }
 
   /**
-   * Get cached rankings if valid (with stale-while-revalidate support)
-   * Returns cached data even if stale (for instant display while fetching fresh data)
+   * Cache rankings result with timestamp in persistent storage
+   * Survives app backgrounding for instant resume
    */
-  private getCachedRankings(competitionId: string, allowStale = false): LeagueRankingResult | null {
-    const cached = this.rankingCache.get(competitionId);
-    if (!cached) return null;
-
-    const cacheAge = Date.now() - cached.timestamp;
-
-    // If cache is fresh (< 5 minutes), return immediately
-    if (cacheAge < this.cacheExpiry) {
-      console.log(`✅ Cache hit for ${competitionId} (age: ${Math.round(cacheAge / 1000)}s)`);
-      return cached.result;
-    }
-
-    // If allowStale is true and cache is stale but not too old (< 10 minutes)
-    // Return stale data while caller refreshes in background
-    if (allowStale && cacheAge < this.cacheExpiry * 2) {
-      console.log(`⚠️ Returning stale cache for ${competitionId} (age: ${Math.round(cacheAge / 1000)}s)`);
-      return cached.result;
-    }
-
-    // Cache expired, delete and return null
-    this.rankingCache.delete(competitionId);
-    return null;
-  }
-
-  /**
-   * Cache rankings result with timestamp
-   */
-  private cacheRankings(competitionId: string, result: LeagueRankingResult): void {
-    this.rankingCache.set(competitionId, {
+  private async cacheRankings(competitionId: string, result: LeagueRankingResult): Promise<void> {
+    const cacheKey = this.getCacheKey(competitionId);
+    const cacheData = {
       result,
       timestamp: Date.now()
-    });
-    console.log(`💾 Cached rankings for competition: ${competitionId}`);
+    };
+
+    // Store with 10-minute TTL (covers fresh + stale periods)
+    await UnifiedCacheService.set(cacheKey, cacheData, 'leaderboards');
+    console.log(`💾 Cached rankings to persistent storage: ${competitionId}`);
   }
 
   /**

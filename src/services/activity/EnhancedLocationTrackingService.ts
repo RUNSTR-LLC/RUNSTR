@@ -169,6 +169,8 @@ export class EnhancedLocationTrackingService {
    */
   async startTracking(activityType: 'running' | 'walking' | 'cycling'): Promise<boolean> {
     try {
+      console.log(`🚀 [${Platform.OS.toUpperCase()}] Starting ${activityType} tracking...`);
+
       // Check state machine
       if (!this.stateMachine.canStart()) {
         console.warn('Cannot start tracking in current state:', this.stateMachine.getState());
@@ -179,12 +181,15 @@ export class EnhancedLocationTrackingService {
       this.stateMachine.send({ type: 'START_TRACKING', activityType });
 
       // Request permissions
+      console.log(`🔐 [${Platform.OS.toUpperCase()}] Requesting location permissions...`);
       const hasPermission = await this.requestPermissions();
       if (!hasPermission) {
+        console.error(`❌ [${Platform.OS.toUpperCase()}] Location permissions denied`);
         // Reset state machine if permissions denied
         this.stateMachine.send({ type: 'RESET' });
         return false;
       }
+      console.log(`✅ [${Platform.OS.toUpperCase()}] Location permissions granted`);
 
       // Create session
       const sessionId = `session_${Date.now()}`;
@@ -221,19 +226,24 @@ export class EnhancedLocationTrackingService {
       // Get location options from battery service
       const locationOptions = this.batteryService.getLocationOptions(activityType);
 
+      console.log(`📍 [${Platform.OS.toUpperCase()}] Location options:`, JSON.stringify(locationOptions, null, 2));
+
       // Start foreground tracking
+      console.log(`📡 [${Platform.OS.toUpperCase()}] Starting foreground location tracking...`);
       this.locationSubscription = await Location.watchPositionAsync(
         locationOptions,
         (location) => this.handleLocationUpdate(location)
       );
+      console.log(`✅ [${Platform.OS.toUpperCase()}] Foreground location tracking started`);
 
       // Start background tracking
+      console.log(`🌙 [${Platform.OS.toUpperCase()}] Starting background location tracking...`);
       await startBackgroundLocationTracking(activityType, sessionId);
 
       // Update state machine
       this.stateMachine.send({ type: 'INITIALIZATION_COMPLETE', sessionId });
 
-      console.log(`Started enhanced tracking for ${activityType}`);
+      console.log(`🎉 [${Platform.OS.toUpperCase()}] Enhanced tracking fully initialized for ${activityType}`);
       return true;
     } catch (error) {
       console.error('Failed to start tracking:', error);
@@ -261,6 +271,11 @@ export class EnhancedLocationTrackingService {
       batteryLevel: this.batteryService.getBatteryLevel(),
     };
 
+    // Android debugging: Log location updates
+    if (Platform.OS === 'android') {
+      console.log(`📍 [ANDROID] Location received: lat=${newPoint.latitude.toFixed(6)}, lon=${newPoint.longitude.toFixed(6)}, accuracy=${newPoint.accuracy?.toFixed(1)}m`);
+    }
+
     // Validate point (validator expects basic LocationPoint interface)
     const pointForValidation = {
       latitude: newPoint.latitude,
@@ -280,6 +295,11 @@ export class EnhancedLocationTrackingService {
     } : undefined, this.justResumedFromPause);
 
     if (validationResult.isValid) {
+      // Android debugging: Log validation success
+      if (Platform.OS === 'android') {
+        console.log(`✅ [ANDROID] Point validated (confidence: ${validationResult.confidence.toFixed(2)})`);
+      }
+
       // Reset pause flag after first valid point
       if (this.justResumedFromPause) {
         console.log('First valid point after resume accepted');
@@ -345,6 +365,11 @@ export class EnhancedLocationTrackingService {
         const distance = this.calculateDistance(this.lastValidLocation, pointToStore);
         this.currentSession.totalDistance += distance;
 
+        // Android debugging: Log distance accumulation
+        if (Platform.OS === 'android') {
+          console.log(`📏 [ANDROID] Distance added: +${distance.toFixed(1)}m, Total: ${this.currentSession.totalDistance.toFixed(1)}m (${(this.currentSession.totalDistance / 1000).toFixed(2)}km)`);
+        }
+
         if (pointToStore.altitude && this.lastValidLocation.altitude) {
           const elevationDiff = pointToStore.altitude - this.lastValidLocation.altitude;
           if (elevationDiff > 0) {
@@ -379,7 +404,13 @@ export class EnhancedLocationTrackingService {
       );
     } else {
       this.totalInvalidPoints++;
-      console.log(`Invalid point rejected: ${validationResult.reason}`);
+
+      // Enhanced logging for Android to help diagnose rejection issues
+      if (Platform.OS === 'android') {
+        console.log(`❌ [ANDROID] Point rejected: ${validationResult.reason} (accuracy: ${newPoint.accuracy?.toFixed(1)}m, total rejected: ${this.totalInvalidPoints})`);
+      } else {
+        console.log(`Invalid point rejected: ${validationResult.reason}`);
+      }
     }
   }
 

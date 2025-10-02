@@ -16,6 +16,8 @@ import type {
   NotificationType,
   NotificationSettings,
 } from '../../types';
+import { unifiedNotificationStore } from './UnifiedNotificationStore';
+import type { CompetitionNotificationMetadata } from '../../types/unifiedNotifications';
 
 // Competition event interfaces based on NIP-101e
 interface CompetitionAnnouncement {
@@ -200,8 +202,8 @@ export class NostrNotificationEventHandler {
   /**
    * Handle competition announcement (kind 1101)
    */
-  private async handleCompetitionAnnouncement(event: Event): Promise<void> {
-    const competitionEvent = this.parseCompetitionAnnouncement(event);
+  private async handleCompetitionAnnouncement(nostrEvent: Event): Promise<void> {
+    const competitionEvent = this.parseCompetitionAnnouncement(nostrEvent);
     if (!competitionEvent) return;
 
     console.log(
@@ -255,6 +257,44 @@ export class NostrNotificationEventHandler {
         userId,
         membership.teamId!
       );
+
+      // Publish to unified store for current user only
+      const userStore = useUserStore.getState();
+      const isCurrentUser = userStore.user && (
+        userStore.user.id === userId ||
+        userStore.user.npub === userId
+      );
+
+      if (isCurrentUser) {
+        const metadata: CompetitionNotificationMetadata = {
+          competitionId: competitionEvent.competitionId,
+          competitionName: competitionEvent.content,
+          competitionType: 'event',
+          activityType: competitionEvent.eventType,
+          startDate: competitionEvent.startTime,
+          teamId: membership.teamId,
+          prizeAmount: competitionEvent.prizeAmount,
+        };
+
+        await unifiedNotificationStore.addNotification(
+          'competition_announcement',
+          'New Competition! 🏃‍♂️',
+          competitionEvent.content,
+          metadata,
+          {
+            icon: 'megaphone',
+            actions: [
+              {
+                id: 'view_competition',
+                type: 'view_competition',
+                label: 'View Details',
+                isPrimary: true,
+              },
+            ],
+            nostrEventId: nostrEvent.id,
+          }
+        );
+      }
     }
 
     analytics.track('notification_scheduled', {
@@ -267,8 +307,8 @@ export class NostrNotificationEventHandler {
   /**
    * Handle competition results (kind 1102)
    */
-  private async handleCompetitionResults(event: Event): Promise<void> {
-    const competitionEvent = this.parseCompetitionResults(event);
+  private async handleCompetitionResults(nostrEvent: Event): Promise<void> {
+    const competitionEvent = this.parseCompetitionResults(nostrEvent);
     if (!competitionEvent) return;
 
     console.log(
@@ -322,6 +362,43 @@ export class NostrNotificationEventHandler {
         result.npub,
         membership.teamId!
       );
+
+      // Publish to unified store for current user only
+      const userStore = useUserStore.getState();
+      const isCurrentUser = userStore.user && (
+        userStore.user.id === result.npub ||
+        userStore.user.npub === result.npub
+      );
+
+      if (isCurrentUser) {
+        const metadata: CompetitionNotificationMetadata = {
+          competitionId: competitionEvent.competitionId,
+          competitionName: competitionEvent.content,
+          competitionType: 'event',
+          teamId: membership.teamId,
+          userPosition: result.place,
+          prizeAmount: result.satsWon,
+        };
+
+        await unifiedNotificationStore.addNotification(
+          'competition_results',
+          `🏆 You placed ${this.getOrdinal(result.place)}!`,
+          competitionEvent.content,
+          metadata,
+          {
+            icon: 'podium',
+            actions: [
+              {
+                id: 'view_wallet',
+                type: 'view_wallet',
+                label: 'View Wallet',
+                isPrimary: true,
+              },
+            ],
+            nostrEventId: nostrEvent.id,
+          }
+        );
+      }
     }
 
     analytics.track('notification_scheduled', {
@@ -334,8 +411,8 @@ export class NostrNotificationEventHandler {
   /**
    * Handle competition starting soon (kind 1103)
    */
-  private async handleCompetitionStartingSoon(event: Event): Promise<void> {
-    const competitionEvent = this.parseCompetitionStartingSoon(event);
+  private async handleCompetitionStartingSoon(nostrEvent: Event): Promise<void> {
+    const competitionEvent = this.parseCompetitionStartingSoon(nostrEvent);
     if (!competitionEvent) return;
 
     console.log(
@@ -394,6 +471,42 @@ export class NostrNotificationEventHandler {
         userId,
         membership.teamId!
       );
+
+      // Publish to unified store for current user only
+      const userStore = useUserStore.getState();
+      const isCurrentUser = userStore.user && (
+        userStore.user.id === userId ||
+        userStore.user.npub === userId
+      );
+
+      if (isCurrentUser) {
+        const metadata: CompetitionNotificationMetadata = {
+          competitionId: competitionEvent.competitionId,
+          competitionName: competitionEvent.content,
+          competitionType: 'event',
+          startDate: competitionEvent.startTime,
+          teamId: membership.teamId,
+        };
+
+        await unifiedNotificationStore.addNotification(
+          'competition_reminder',
+          '⏰ Competition starts soon!',
+          competitionEvent.content,
+          metadata,
+          {
+            icon: 'time',
+            actions: [
+              {
+                id: 'start_run',
+                type: 'view_competition',
+                label: 'Start Activity',
+                isPrimary: true,
+              },
+            ],
+            nostrEventId: nostrEvent.id,
+          }
+        );
+      }
     }
 
     analytics.track('notification_scheduled', {

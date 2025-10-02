@@ -23,7 +23,7 @@ import {
 import { decryptFromStorage } from '../../utils/nostr';
 import { npubToHex } from '../../utils/ndkConversion';
 
-// Storage keys
+// Storage keys (base keys - will be made pubkey-specific)
 const STORAGE_KEYS = {
   USER_NSEC: '@runstr:user_nsec',
   WALLET_PROOFS: '@runstr:wallet_proofs',
@@ -31,6 +31,7 @@ const STORAGE_KEYS = {
   LAST_SYNC: '@runstr:last_sync',
   TX_HISTORY: '@runstr:tx_history',
   WALLET_PUBKEY: '@runstr:wallet_pubkey', // Track which pubkey owns the wallet
+  WALLET_EVENT_ID: '@runstr:wallet_event_id', // Track created wallet event ID (for duplicate prevention)
 } as const;
 
 // Default mints to use
@@ -85,6 +86,67 @@ class NutzapService {
   }
 
   /**
+   * Get pubkey-specific storage key
+   * This ensures each user's wallet data is isolated
+   */
+  private getStorageKey(baseKey: string, pubkey?: string): string {
+    const targetPubkey = pubkey || this.userPubkey;
+    if (!targetPubkey || baseKey === STORAGE_KEYS.USER_NSEC) {
+      // USER_NSEC is always global (not pubkey-specific)
+      return baseKey;
+    }
+    return `${baseKey}:${targetPubkey}`;
+  }
+
+  /**
+   * Encrypt proofs for backup to Nostr
+   * Uses NIP-44 encryption to encrypt proofs to self
+   */
+  private async encryptProofs(proofs: Proof[]): Promise<string | null> {
+    try {
+      if (!this.ndk || !this.ndk.signer) {
+        console.warn('[NutZap] Cannot encrypt proofs without signer');
+        return null;
+      }
+
+      const user = await this.ndk.signer.user();
+      const plaintext = JSON.stringify(proofs);
+
+      // Encrypt to self (NIP-44)
+      const encrypted = await user.encrypt(this.userPubkey, plaintext);
+      console.log('[NutZap] Proofs encrypted successfully');
+      return encrypted;
+    } catch (error) {
+      console.error('[NutZap] Failed to encrypt proofs:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Decrypt proofs from Nostr backup
+   * Uses NIP-44 decryption to restore proofs
+   */
+  private async decryptProofs(encryptedProofs: string): Promise<Proof[]> {
+    try {
+      if (!this.ndk || !this.ndk.signer) {
+        console.warn('[NutZap] Cannot decrypt proofs without signer');
+        return [];
+      }
+
+      const user = await this.ndk.signer.user();
+
+      // Decrypt from self (NIP-44)
+      const decrypted = await user.decrypt(this.userPubkey, encryptedProofs);
+      const proofs = JSON.parse(decrypted);
+      console.log(`[NutZap] Proofs decrypted successfully: ${proofs.length} proofs`);
+      return proofs;
+    } catch (error) {
+      console.error('[NutZap] Failed to decrypt proofs:', error);
+      return [];
+    }
+  }
+
+  /**
    * Initialize for receive-only mode (Amber users)
    * Only sets up pubkey for receiving, no wallet creation
    */
@@ -110,11 +172,11 @@ class NutzapService {
 
   /**
    * Initialize the service with user's nsec
-   * ALWAYS checks Nostr first for existing wallet
+   * PERFORMANCE OPTIMIZATION: Uses quick resume for instant load on app return
    */
-  async initialize(nsec?: string): Promise<WalletState> {
+  async initialize(nsec?: string, quickResume: boolean = false): Promise<WalletState> {
     try {
-      console.log('[NutZap] Initializing service...');
+      console.log(`[NutZap] Initializing service... (quick resume: ${quickResume})`);
 
       // Get nsec - either from parameter or from storage
       let userNsec = nsec;
@@ -139,30 +201,60 @@ class NutzapService {
       // Store current user for verification
       await AsyncStorage.setItem('@runstr:current_user_pubkey', this.userPubkey);
 
+      // QUICK RESUME MODE: Check if cached wallet is fresh enough to skip Nostr queries
+      if (quickResume) {
+        console.log('[NutZap] Quick resume mode: Checking cache freshness...');
+        const cachedWallet = await this.loadOfflineWallet();
+        const cacheTime = await AsyncStorage.getItem(this.getStorageKey(STORAGE_KEYS.LAST_SYNC));
+
+        if (cachedWallet && cachedWallet.pubkey === this.userPubkey && cacheTime) {
+          const cacheAge = Date.now() - parseInt(cacheTime, 10);
+          const FRESH_THRESHOLD = 2 * 60 * 1000; // 2 minutes
+
+          if (cacheAge < FRESH_THRESHOLD) {
+            console.log(`[NutZap] Cache fresh (${Math.round(cacheAge / 1000)}s old), using cached wallet`);
+            this.isInitialized = true;
+
+            // Initialize NDK and Cashu in background for future operations
+            this.initializeNetworkInBackground(userNsec);
+
+            return cachedWallet;
+          } else {
+            console.log(`[NutZap] Cache stale (${Math.round(cacheAge / 1000)}s old), will sync with Nostr`);
+          }
+        }
+      }
+
       // Create DEDICATED NDK instance for wallet operations
       // Do NOT reuse global instance - wallet needs its own authenticated instance
+      const signer2 = new NDKPrivateKeySigner(userNsec);
       this.ndk = new NDK({
         explicitRelayUrls: [
           'wss://relay.damus.io',
           'wss://relay.primal.net',
           'wss://nos.lol'
         ],
-        signer  // Use the wallet's own signer
+        signer: signer2  // Use the wallet's own signer
       });
 
       console.log('[NutZap] Connecting to relays...');
 
-      // Simple connection with 5 second timeout
+      // Increased timeout to 10 seconds for better relay discovery
       try {
         await Promise.race([
           this.ndk.connect(),
           new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Connection timeout')), 5000)
+            setTimeout(() => reject(new Error('Connection timeout')), 10000)
           )
         ]);
 
         const connectedRelays = (this.ndk as any).pool?.connectedRelays?.size || 0;
         console.log(`[NutZap] Connected to ${connectedRelays} relay(s)`);
+
+        // Wait a bit for all relays to fully connect
+        if (connectedRelays > 0) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
       } catch (err) {
         console.warn('[NutZap] Relay connection failed:', err);
         // Continue anyway - may have cached wallet
@@ -184,6 +276,9 @@ class NutzapService {
         console.log('[NutZap] Using cached wallet for quick load');
         this.isInitialized = true;
 
+        // Update last sync time
+        await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.LAST_SYNC), Date.now().toString());
+
         // Sync with Nostr in background (non-blocking)
         this.syncWithNostr().catch(err =>
           console.warn('[NutZap] Background sync failed:', err)
@@ -192,12 +287,12 @@ class NutzapService {
         return cachedWallet;
       }
 
-      // Now check Nostr for existing wallet with reduced retries
+      // Now check Nostr for existing wallet with improved retry logic
       console.log('[NutZap] Checking Nostr for existing wallet...');
 
-      // Try to fetch wallet with retry logic
+      // Try to fetch wallet with enhanced retry logic
       let nostrWallet = null;
-      const maxAttempts = 2; // Reduced from 3
+      const maxAttempts = 3; // Increased for better reliability
 
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         console.log(`[NutZap] Attempt ${attempt}/${maxAttempts} to fetch wallet from Nostr...`);
@@ -213,13 +308,35 @@ class NutzapService {
 
         // If we didn't find a wallet and we have more attempts, wait and retry
         if (attempt < maxAttempts) {
-          const waitTime = 2000; // Fixed 2 second wait between retries
+          const waitTime = 3000; // Increased to 3 seconds for better relay sync
           console.log(`[NutZap] No wallet found, retrying in ${waitTime}ms...`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
         }
       }
 
-      console.log('[NutZap] No wallet found on Nostr after retries');
+      console.log('[NutZap] No wallet found on Nostr after ${maxAttempts} attempts');
+
+      // Check if we already created a wallet in this session (duplicate prevention)
+      const existingWalletEventId = await AsyncStorage.getItem(
+        this.getStorageKey(STORAGE_KEYS.WALLET_EVENT_ID)
+      );
+      if (existingWalletEventId) {
+        console.warn('[NutZap] Wallet event ID found in storage, but wallet not found on Nostr');
+        console.warn('[NutZap] This may indicate a relay sync issue. Waiting before creating new wallet...');
+
+        // One final check with extended timeout
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        const finalCheck = await this.fetchWalletFromNostr();
+        if (finalCheck) {
+          console.log('[NutZap] Found wallet on final check!');
+          await this.saveWalletLocally(finalCheck);
+          this.isInitialized = true;
+          return finalCheck;
+        }
+
+        console.log('[NutZap] Clearing stale wallet event ID and proceeding with creation');
+        await AsyncStorage.removeItem(this.getStorageKey(STORAGE_KEYS.WALLET_EVENT_ID));
+      }
 
       // Check if we have relay connectivity before creating
       const connectedRelays = (this.ndk as any).pool?.connectedRelays?.size || 0;
@@ -250,6 +367,41 @@ class NutzapService {
   }
 
   /**
+   * Initialize network connections in background (for quick resume)
+   * This allows wallet operations to work even when using cached data
+   */
+  private async initializeNetworkInBackground(userNsec: string): Promise<void> {
+    setTimeout(async () => {
+      try {
+        console.log('[NutZap] Background network initialization started...');
+
+        // Create NDK instance
+        const signer = new NDKPrivateKeySigner(userNsec);
+        this.ndk = new NDK({
+          explicitRelayUrls: [
+            'wss://relay.damus.io',
+            'wss://relay.primal.net',
+            'wss://nos.lol'
+          ],
+          signer
+        });
+
+        await this.ndk.connect();
+
+        // Initialize Cashu
+        await this.initializeCashuWithTimeout();
+
+        console.log('[NutZap] Background network initialization complete');
+
+        // Sync with Nostr to check for updates
+        await this.syncWithNostr();
+      } catch (error) {
+        console.warn('[NutZap] Background network initialization failed:', error);
+      }
+    }, 100); // Minimal delay to avoid blocking
+  }
+
+  /**
    * Helper function to retry operations with exponential backoff
    */
   private async withRetry<T>(
@@ -274,10 +426,10 @@ class NutzapService {
    */
   private async initializeCashuWithTimeout(): Promise<void> {
     // Get mint URL from storage or use default
-    let mintUrl = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_MINT);
+    let mintUrl = await AsyncStorage.getItem(this.getStorageKey(STORAGE_KEYS.WALLET_MINT));
     if (!mintUrl) {
       mintUrl = DEFAULT_MINTS[0];
-      await AsyncStorage.setItem(STORAGE_KEYS.WALLET_MINT, mintUrl);
+      await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_MINT), mintUrl);
     }
 
     // Try to connect to mints in order until one works
@@ -303,7 +455,7 @@ class NutzapService {
 
         // Save the working mint
         if (tryMintUrl !== mintUrl) {
-          await AsyncStorage.setItem(STORAGE_KEYS.WALLET_MINT, tryMintUrl);
+          await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_MINT), tryMintUrl);
         }
 
         // Create wallet instance
@@ -324,35 +476,31 @@ class NutzapService {
 
   /**
    * Load wallet state from local storage (offline-first)
-   * Now includes user verification
+   * Now uses pubkey-specific storage keys
    */
   private async loadOfflineWallet(): Promise<WalletState | null> {
-    // Verify current user matches wallet owner
-    const currentUser = await AsyncStorage.getItem('@runstr:current_user_pubkey');
-    const storedWalletPubkey = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PUBKEY);
-
-    // If wallet exists but belongs to different user, clear it
-    if (storedWalletPubkey && currentUser && storedWalletPubkey !== currentUser) {
-      console.log('[NutZap] User switched, clearing old wallet');
-      await this.clearWalletData();
+    if (!this.userPubkey) {
+      console.log('[NutZap] No user pubkey available for wallet load');
       return null;
     }
 
-    // If no wallet owner stored, this is a fresh start
-    if (!storedWalletPubkey) {
-      console.log('[NutZap] No local wallet found');
+    // Load proofs from pubkey-specific storage
+    const proofsStr = await AsyncStorage.getItem(this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS));
+
+    if (!proofsStr) {
+      console.log('[NutZap] No local wallet found for user');
       return null;
     }
 
-    // Load proofs from local storage
-    const proofsStr = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PROOFS);
-    const proofs = proofsStr ? JSON.parse(proofsStr) : [];
+    const proofs = JSON.parse(proofsStr);
 
-    // Get mint URL from storage
-    const mintUrl = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_MINT) || DEFAULT_MINTS[0];
+    // Get mint URL from pubkey-specific storage
+    const mintUrl = await AsyncStorage.getItem(this.getStorageKey(STORAGE_KEYS.WALLET_MINT)) || DEFAULT_MINTS[0];
 
     // Calculate balance from proofs
     const balance = proofs.reduce((sum: number, p: Proof) => sum + p.amount, 0);
+
+    console.log(`[NutZap] Loaded wallet from local storage: ${balance} sats`);
 
     return {
       balance,
@@ -367,26 +515,34 @@ class NutzapService {
    * Clear wallet data (for user switching)
    */
   private async clearWalletData(): Promise<void> {
+    if (!this.userPubkey) {
+      console.warn('[NutZap] Cannot clear wallet data without pubkey');
+      return;
+    }
+
     await AsyncStorage.multiRemove([
-      STORAGE_KEYS.WALLET_PROOFS,
-      STORAGE_KEYS.WALLET_MINT,
-      STORAGE_KEYS.WALLET_PUBKEY,
-      STORAGE_KEYS.TX_HISTORY,
-      STORAGE_KEYS.LAST_SYNC,
-      '@runstr:current_user_pubkey'
+      this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS),
+      this.getStorageKey(STORAGE_KEYS.WALLET_MINT),
+      this.getStorageKey(STORAGE_KEYS.WALLET_PUBKEY),
+      this.getStorageKey(STORAGE_KEYS.TX_HISTORY),
+      this.getStorageKey(STORAGE_KEYS.LAST_SYNC),
+      this.getStorageKey(STORAGE_KEYS.WALLET_EVENT_ID),
     ]);
-    console.log('[NutZap] Wallet data cleared');
+    console.log('[NutZap] Wallet data cleared for user');
   }
 
   /**
    * Save wallet state to local storage for offline access
+   * Uses pubkey-specific keys for isolation
+   * PERFORMANCE: Also saves last sync time for quick resume optimization
    */
   private async saveWalletLocally(wallet: WalletState): Promise<void> {
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PROOFS, JSON.stringify(wallet.proofs));
-      await AsyncStorage.setItem(STORAGE_KEYS.WALLET_MINT, wallet.mint);
-      await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PUBKEY, wallet.pubkey);
-      console.log('[NutZap] Wallet saved to local storage');
+      await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS), JSON.stringify(wallet.proofs));
+      await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_MINT), wallet.mint);
+      await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_PUBKEY), wallet.pubkey);
+      await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.LAST_SYNC), Date.now().toString());
+      console.log('[NutZap] Wallet saved to local storage for user');
     } catch (error) {
       console.error('[NutZap] Failed to save wallet locally:', error);
     }
@@ -469,13 +625,14 @@ class NutzapService {
     try {
       console.log(`[NutZap] Querying ${connectedRelays} relay(s) for wallet events...`);
 
-      // Query for wallet info events (NIP-60)
+      // Query for wallet info events (NIP-60) with proper EOSE handling
       const walletEvents = await this.ndk.fetchEvents({
         kinds: [EVENT_KINDS.WALLET_INFO as NDKKind],
         authors: [this.userPubkey],
         '#d': ['nutzap-wallet']
       }, {
-        closeOnEose: true
+        closeOnEose: true,      // Wait for End Of Stored Events from relays
+        groupable: false         // Don't group events, we want all of them
       });
 
       if (walletEvents.size > 0) {
@@ -492,13 +649,38 @@ class NutzapService {
           console.warn(`[NutZap] WARNING: Found ${walletEvents.size} wallet events for user. Using most recent.`);
         }
 
-        // Load any local proofs we might have cached
-        const proofsStr = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PROOFS);
-        const proofs = proofsStr ? JSON.parse(proofsStr) : [];
+        // Try to decrypt proofs from Nostr backup first
+        let proofs: Proof[] = [];
+
+        if (content.encrypted_proofs) {
+          console.log('[NutZap] Found encrypted proofs in wallet event, attempting to decrypt...');
+          try {
+            proofs = await this.decryptProofs(content.encrypted_proofs);
+            if (proofs.length > 0) {
+              console.log(`[NutZap] Successfully restored ${proofs.length} proofs from Nostr backup`);
+              // Save decrypted proofs to local storage for offline access
+              await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS), JSON.stringify(proofs));
+            }
+          } catch (error) {
+            console.warn('[NutZap] Failed to decrypt proofs from Nostr, trying local cache:', error);
+          }
+        }
+
+        // If no proofs from Nostr, try local cache as fallback
+        if (proofs.length === 0) {
+          const proofsStr = await AsyncStorage.getItem(this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS));
+          proofs = proofsStr ? JSON.parse(proofsStr) : [];
+          if (proofs.length > 0) {
+            console.log(`[NutZap] Using ${proofs.length} proofs from local cache`);
+          }
+        }
+
         const balance = proofs.reduce((sum: number, p: Proof) => sum + p.amount, 0);
 
         // Store mint URL from Nostr event
         const mintUrl = content.mints?.[0] || DEFAULT_MINTS[0];
+
+        console.log(`[NutZap] Wallet restored with balance: ${balance} sats`);
 
         return {
           balance,
@@ -555,9 +737,28 @@ class NutzapService {
         const content = JSON.parse(latestEvent.content);
         const mintUrl = content.mints?.[0] || DEFAULT_MINTS[0];
 
-        // Load any local proofs
-        const proofsStr = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PROOFS);
-        const proofs = proofsStr ? JSON.parse(proofsStr) : [];
+        // Try to decrypt proofs from Nostr backup first
+        let proofs: Proof[] = [];
+
+        if (content.encrypted_proofs) {
+          try {
+            proofs = await this.decryptProofs(content.encrypted_proofs);
+            console.log(`[NutZap] Extended search: Restored ${proofs.length} proofs from Nostr`);
+            // Save to local storage
+            if (proofs.length > 0) {
+              await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS), JSON.stringify(proofs));
+            }
+          } catch (error) {
+            console.warn('[NutZap] Extended search: Failed to decrypt proofs, using local cache');
+          }
+        }
+
+        // Fallback to local cache if needed
+        if (proofs.length === 0) {
+          const proofsStr = await AsyncStorage.getItem(this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS));
+          proofs = proofsStr ? JSON.parse(proofsStr) : [];
+        }
+
         const balance = proofs.reduce((sum: number, p: Proof) => sum + p.amount, 0);
 
         return {
@@ -605,6 +806,11 @@ class NutzapService {
   private async createWallet(): Promise<WalletState> {
     if (!this.ndk || !this.cashuMint) throw new Error('Service not initialized');
 
+    console.log('[NutZap] Creating new wallet with encrypted backup...');
+
+    // Encrypt empty proofs array for initial wallet
+    const encryptedProofs = await this.encryptProofs([]);
+
     // Create wallet info event (NIP-60)
     const walletEvent = new NDKEvent(this.ndk);
     walletEvent.kind = EVENT_KINDS.WALLET_INFO as NDKKind;
@@ -612,7 +818,9 @@ class NutzapService {
       mints: [this.cashuMint.mintUrl],
       name: 'RUNSTR Wallet',
       unit: 'sat',
-      balance: 0
+      balance: 0,
+      encrypted_proofs: encryptedProofs || undefined, // Only include if encryption succeeded
+      last_updated: Date.now()
     });
     walletEvent.tags = [
       ['d', 'nutzap-wallet'],
@@ -623,11 +831,14 @@ class NutzapService {
 
     // Publish wallet event to Nostr
     await walletEvent.publish();
-    console.log('[NutZap] Published wallet event to Nostr');
+    console.log('[NutZap] Published wallet event to Nostr with encrypted backup');
 
-    // Initialize empty proofs array and store wallet owner
-    await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PROOFS, JSON.stringify([]));
-    await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PUBKEY, this.userPubkey);
+    // Initialize empty proofs array with pubkey-specific storage
+    await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS), JSON.stringify([]));
+    await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_PUBKEY), this.userPubkey);
+
+    // Store wallet event ID to prevent duplicate creation
+    await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_EVENT_ID), walletEvent.id);
 
     return {
       balance: 0,
@@ -645,8 +856,8 @@ class NutzapService {
     const content = JSON.parse(event.content);
     const mintUrl = content.mints?.[0] || DEFAULT_MINTS[0];
 
-    // Load proofs from local storage
-    const proofsStr = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PROOFS);
+    // Load proofs from pubkey-specific local storage
+    const proofsStr = await AsyncStorage.getItem(this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS));
     const proofs = proofsStr ? JSON.parse(proofsStr) : [];
 
     // Calculate balance from proofs
@@ -678,8 +889,8 @@ class NutzapService {
       // Normalize recipient pubkey to hex format for Nostr event
       const recipientHex = npubToHex(recipientPubkey) || recipientPubkey;
 
-      // Load current proofs
-      const proofsStr = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PROOFS);
+      // Load current proofs (pubkey-specific)
+      const proofsStr = await AsyncStorage.getItem(this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS));
       const proofs = proofsStr ? JSON.parse(proofsStr) : [];
 
       // Check balance
@@ -716,9 +927,9 @@ class NutzapService {
       // Publish nutzap
       await nutzapEvent.publish();
 
-      // Update local proofs (keep change) and ensure wallet owner is tracked
-      await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PROOFS, JSON.stringify(keep));
-      await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PUBKEY, this.userPubkey);
+      // Update local proofs (keep change) with pubkey-specific storage
+      await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS), JSON.stringify(keep));
+      await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_PUBKEY), this.userPubkey);
 
       // Save transaction
       await this.saveTransaction({
@@ -815,12 +1026,12 @@ class NutzapService {
               const proofs = await Promise.race([receivePromise, receiveTimeout]) as Proof[];
 
               if (proofs && proofs.length > 0) {
-                // Add to our proofs and ensure wallet owner is tracked
-                const existingProofsStr = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PROOFS);
+                // Add to our proofs with pubkey-specific storage
+                const existingProofsStr = await AsyncStorage.getItem(this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS));
                 const existingProofs = existingProofsStr ? JSON.parse(existingProofsStr) : [];
                 const newProofs = [...existingProofs, ...proofs];
-                await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PROOFS, JSON.stringify(newProofs));
-                await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PUBKEY, this.userPubkey);
+                await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS), JSON.stringify(newProofs));
+                await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_PUBKEY), this.userPubkey);
 
                 // Save transaction
                 await this.saveTransaction({
@@ -875,17 +1086,17 @@ class NutzapService {
    * Get current balance
    */
   async getBalance(): Promise<number> {
-    const proofsStr = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PROOFS);
+    const proofsStr = await AsyncStorage.getItem(this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS));
     const proofs = proofsStr ? JSON.parse(proofsStr) : [];
     return proofs.reduce((sum: number, p: Proof) => sum + p.amount, 0);
   }
 
   /**
-   * Save transaction to history
+   * Save transaction to history (pubkey-specific)
    */
   private async saveTransaction(transaction: Omit<Transaction, 'id'>): Promise<void> {
     try {
-      const historyStr = await AsyncStorage.getItem(STORAGE_KEYS.TX_HISTORY);
+      const historyStr = await AsyncStorage.getItem(this.getStorageKey(STORAGE_KEYS.TX_HISTORY));
       const history: Transaction[] = historyStr ? JSON.parse(historyStr) : [];
 
       const newTransaction: Transaction = {
@@ -898,7 +1109,7 @@ class NutzapService {
       // Keep only last 100 transactions
       const trimmedHistory = history.slice(0, 100);
 
-      await AsyncStorage.setItem(STORAGE_KEYS.TX_HISTORY, JSON.stringify(trimmedHistory));
+      await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.TX_HISTORY), JSON.stringify(trimmedHistory));
       console.log(`[NutZap] Transaction saved: ${transaction.type} - ${transaction.amount} sats`);
     } catch (error) {
       console.error('[NutZap] Error saving transaction:', error);
@@ -906,11 +1117,11 @@ class NutzapService {
   }
 
   /**
-   * Get transaction history
+   * Get transaction history (pubkey-specific)
    */
   async getTransactionHistory(limit: number = 50): Promise<Transaction[]> {
     try {
-      const historyStr = await AsyncStorage.getItem(STORAGE_KEYS.TX_HISTORY);
+      const historyStr = await AsyncStorage.getItem(this.getStorageKey(STORAGE_KEYS.TX_HISTORY));
       const history: Transaction[] = historyStr ? JSON.parse(historyStr) : [];
       return history.slice(0, limit);
     } catch (error) {
@@ -1088,13 +1299,13 @@ class NutzapService {
         const { proofs } = await this.cashuWallet.mintTokens(amount, quoteHash);
 
         if (proofs && proofs.length > 0) {
-          // Add new proofs to existing ones
-          const existingProofsStr = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PROOFS);
+          // Add new proofs to existing ones (pubkey-specific)
+          const existingProofsStr = await AsyncStorage.getItem(this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS));
           const existingProofs = existingProofsStr ? JSON.parse(existingProofsStr) : [];
           const updatedProofs = [...existingProofs, ...proofs];
 
-          await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PROOFS, JSON.stringify(updatedProofs));
-          await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PUBKEY, this.userPubkey);
+          await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS), JSON.stringify(updatedProofs));
+          await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_PUBKEY), this.userPubkey);
 
           // Clean up quote from storage
           await AsyncStorage.removeItem(`@runstr:quote:${quoteHash}`);
@@ -1175,12 +1386,12 @@ class NutzapService {
                 id: item.id || quoteHash
               }));
 
-              // Store proofs and track wallet owner
-              const existingProofsStr = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PROOFS);
+              // Store proofs with pubkey-specific storage
+              const existingProofsStr = await AsyncStorage.getItem(this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS));
               const existingProofs = existingProofsStr ? JSON.parse(existingProofsStr) : [];
               const newProofs = [...existingProofs, ...proofs];
-              await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PROOFS, JSON.stringify(newProofs));
-              await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PUBKEY, this.userPubkey);
+              await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS), JSON.stringify(newProofs));
+              await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_PUBKEY), this.userPubkey);
 
               // Save transaction
               await this.saveTransaction({
@@ -1326,8 +1537,8 @@ class NutzapService {
 
       console.log('[NutZap] Preparing to pay Lightning invoice...');
 
-      // Get current proofs
-      const proofsStr = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PROOFS);
+      // Get current proofs (pubkey-specific)
+      const proofsStr = await AsyncStorage.getItem(this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS));
       const proofs = proofsStr ? JSON.parse(proofsStr) : [];
 
       // Check if we have sufficient balance
@@ -1352,8 +1563,8 @@ class NutzapService {
       // Perform the melt (pay invoice)
       const { change } = await this.cashuWallet.meltTokens(meltQuote, proofs);
 
-      // Update proofs with change
-      await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PROOFS, JSON.stringify(change || []));
+      // Update proofs with change (pubkey-specific)
+      await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS), JSON.stringify(change || []));
 
       // Save transaction
       await this.saveTransaction({
@@ -1391,8 +1602,8 @@ class NutzapService {
         }
       }
 
-      // Load current proofs
-      const proofsStr = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PROOFS);
+      // Load current proofs (pubkey-specific)
+      const proofsStr = await AsyncStorage.getItem(this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS));
       const proofs = proofsStr ? JSON.parse(proofsStr) : [];
 
       // Check balance
@@ -1404,8 +1615,8 @@ class NutzapService {
       // Create token for the amount
       const { send, returnChange } = await this.cashuWallet.send(amount, proofs);
 
-      // Update stored proofs with change
-      await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PROOFS, JSON.stringify(returnChange || []));
+      // Update stored proofs with change (pubkey-specific)
+      await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS), JSON.stringify(returnChange || []));
 
       // Encode the token
       const token = getEncodedToken({
@@ -1449,11 +1660,11 @@ class NutzapService {
         id: quoteHash
       };
 
-      // Store the proof
-      const existingProofsStr = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PROOFS);
+      // Store the proof (pubkey-specific)
+      const existingProofsStr = await AsyncStorage.getItem(this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS));
       const existingProofs = existingProofsStr ? JSON.parse(existingProofsStr) : [];
       const newProofs = [...existingProofs, proof];
-      await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PROOFS, JSON.stringify(newProofs));
+      await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS), JSON.stringify(newProofs));
 
       // Save transaction history
       await this.saveTransaction({
@@ -1546,11 +1757,11 @@ class NutzapService {
         const proofs = await this.cashuWallet.receive(token);
 
         if (proofs && proofs.length > 0) {
-          // Add to our proofs
-          const existingProofsStr = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_PROOFS);
+          // Add to our proofs (pubkey-specific)
+          const existingProofsStr = await AsyncStorage.getItem(this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS));
           const existingProofs = existingProofsStr ? JSON.parse(existingProofsStr) : [];
           const newProofs = [...existingProofs, ...proofs];
-          await AsyncStorage.setItem(STORAGE_KEYS.WALLET_PROOFS, JSON.stringify(newProofs));
+          await AsyncStorage.setItem(this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS), JSON.stringify(newProofs));
 
           // Calculate amount received
           const amount = proofs.reduce((sum: number, p: Proof) => sum + p.amount, 0);

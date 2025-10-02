@@ -31,6 +31,7 @@ export interface NavigationData {
   captainDashboardData: CaptainDashboardData | null;
   availableTeams: DiscoveryTeam[];
   isLoading: boolean;
+  isLoadingTeam: boolean;
   error: string | null;
   refresh: () => Promise<void>;
   loadTeams: () => Promise<void>;
@@ -57,6 +58,7 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({ 
   const [error, setError] = useState<string | null>(null);
   const [teamsLoaded, setTeamsLoaded] = useState(false);
   const [walletLoaded, setWalletLoaded] = useState(false);
+  const [isLoadingTeam, setIsLoadingTeam] = useState(false);
 
   const fetchUserData = async (): Promise<UserWithWallet | null> => {
     try {
@@ -121,10 +123,12 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({ 
   };
 
   const getUserTeamFromCache = async (user: UserWithWallet): Promise<any> => {
+    setIsLoadingTeam(true);
     try {
       const userIdentifiers = await getUserNostrIdentifiers();
       if (!userIdentifiers) {
         console.log('No user identifiers found for team detection');
+        setIsLoadingTeam(false);
         return null;
       }
 
@@ -216,10 +220,14 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({ 
       }
 
       console.log('No team found for user in any data source');
+      setIsLoadingTeam(false);
       return null;
     } catch (error) {
       console.error('Error getting user team from cache:', error);
+      setIsLoadingTeam(false);
       return null;
+    } finally {
+      setIsLoadingTeam(false);
     }
   };
 
@@ -418,18 +426,24 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({ 
     }
   }, [currentUser]);
 
-  // Initial load
+  // Initial load - Load user and profile data in parallel with teams
   useEffect(() => {
     const init = async () => {
       console.log('🚀 NavigationDataProvider: Starting initial data load...');
-      const userData = await fetchUserData();
+
+      // Load user data and teams in parallel for faster initial load
+      const [userData] = await Promise.all([
+        fetchUserData(),
+        loadTeams() // Load teams early
+      ]);
+
       console.log('🚀 NavigationDataProvider: User data loaded:', !!userData);
+
       if (userData) {
-        await Promise.all([
-          fetchProfileData(userData),
-          loadTeams()
-        ]);
+        // Profile data loading includes team lookup
+        await fetchProfileData(userData);
       }
+
       setIsLoading(false);
       console.log('🚀 NavigationDataProvider: Initial load complete, isLoading:', false);
     };
@@ -444,6 +458,7 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({ 
     captainDashboardData,
     availableTeams,
     isLoading,
+    isLoadingTeam,
     error,
     refresh,
     loadTeams,

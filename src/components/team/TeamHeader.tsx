@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../../styles/theme';
-import { DropdownMenu } from '../ui/DropdownMenu';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -17,24 +16,15 @@ interface TeamHeaderProps {
   teamName: string;
   bannerImage?: string;
   team?: any; // Full team object for fallback banner extraction
-  onMenuPress: () => void;
-  onLeaveTeam?: () => void;
-  onJoinTeam?: () => void;
-  onTeamDiscovery: () => void;
-  userIsMember?: boolean;
+  onBack: () => void;
 }
 
 export const TeamHeader: React.FC<TeamHeaderProps> = ({
   teamName,
   bannerImage,
   team,
-  onMenuPress,
-  onLeaveTeam,
-  onJoinTeam,
-  onTeamDiscovery,
-  userIsMember = true,
+  onBack,
 }) => {
-  const [showDropdown, setShowDropdown] = useState(false);
 
   // Helper function to extract banner URL with fallback
   const getBannerUrl = (): string | null => {
@@ -65,59 +55,20 @@ export const TeamHeader: React.FC<TeamHeaderProps> = ({
 
   const effectiveBannerImage = getBannerUrl();
 
-  const handleMenuPress = () => {
-    setShowDropdown(true);
-    onMenuPress();
-  };
-
-  const menuItems = [
-    {
-      id: 'team-discovery',
-      label: 'Team Discovery',
-      onPress: onTeamDiscovery,
-    },
-    ...(userIsMember && onLeaveTeam
-      ? [
-          {
-            id: 'leave-team',
-            label: 'Leave Team',
-            onPress: onLeaveTeam,
-            destructive: true,
-          },
-        ]
-      : []),
-    ...(!userIsMember && onJoinTeam
-      ? [
-          {
-            id: 'join-team',
-            label: 'Join Team',
-            onPress: onJoinTeam,
-          },
-        ]
-      : []),
-  ];
-
   const headerContent = (
     <>
+      <TouchableOpacity
+        style={styles.backBtn}
+        onPress={onBack}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.backIcon}>←</Text>
+      </TouchableOpacity>
       {!effectiveBannerImage && (
         <Text style={styles.teamName}>
           {teamName}
         </Text>
       )}
-      <TouchableOpacity
-        style={styles.menuBtn}
-        onPress={handleMenuPress}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.menuIcon}>⋯</Text>
-      </TouchableOpacity>
-
-      <DropdownMenu
-        visible={showDropdown}
-        onClose={() => setShowDropdown(false)}
-        items={menuItems}
-        anchorPosition={{ top: effectiveBannerImage ? 120 : 60, right: 20 }}
-      />
     </>
   );
 
@@ -185,20 +136,21 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     color: theme.colors.text,
   },
-  menuBtn: {
+  backBtn: {
     position: 'absolute',
-    right: 20,
-    width: 28,
-    height: 28,
+    left: 20,
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: theme.colors.gray,
-    borderRadius: 6,
-    backgroundColor: 'transparent',
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    backgroundColor: theme.colors.cardBackground,
   },
-  menuIcon: {
-    fontSize: 16,
+  backIcon: {
+    fontSize: 20,
     color: theme.colors.text,
+    fontWeight: '600',
   },
 });

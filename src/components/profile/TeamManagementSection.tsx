@@ -13,6 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface TeamManagementSectionProps {
   currentTeam?: Team;
+  isLoading?: boolean;
   onChangeTeam: () => void;
   onJoinTeam: () => void;
   onViewTeam?: () => void;
@@ -21,6 +22,7 @@ interface TeamManagementSectionProps {
 
 export const TeamManagementSection: React.FC<TeamManagementSectionProps> = ({
   currentTeam,
+  isLoading = false,
   onChangeTeam,
   onJoinTeam,
   onViewTeam,
@@ -29,14 +31,6 @@ export const TeamManagementSection: React.FC<TeamManagementSectionProps> = ({
   const [userRank, setUserRank] = useState<number | null>(null);
   const [competitionName, setCompetitionName] = useState<string | null>(null);
   const [loadingRank, setLoadingRank] = useState(false);
-
-  // Trigger refresh on mount to load team data
-  useEffect(() => {
-    if (onRefresh && !currentTeam) {
-      console.log('[TeamManagementSection] No team detected, triggering refresh...');
-      onRefresh();
-    }
-  }, [onRefresh, currentTeam]);
 
   useEffect(() => {
     const fetchUserRank = async () => {
@@ -94,6 +88,19 @@ export const TeamManagementSection: React.FC<TeamManagementSectionProps> = ({
 
     fetchUserRank();
   }, [currentTeam?.id]);
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <View style={styles.card}>
+        <View style={styles.loadingContainer}>
+          <View style={styles.loadingSkeleton} />
+          <View style={styles.loadingSkeletonSmall} />
+        </View>
+      </View>
+    );
+  }
+
   if (!currentTeam) {
     return (
       <View style={styles.card}>
@@ -288,5 +295,25 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     marginTop: 6,
     fontWeight: theme.typography.weights.medium,
+  },
+
+  // Loading state
+  loadingContainer: {
+    paddingVertical: 12,
+  },
+
+  loadingSkeleton: {
+    height: 20,
+    backgroundColor: theme.colors.border,
+    borderRadius: 4,
+    marginBottom: 8,
+    width: '60%',
+  },
+
+  loadingSkeletonSmall: {
+    height: 14,
+    backgroundColor: theme.colors.border,
+    borderRadius: 4,
+    width: '80%',
   },
 });

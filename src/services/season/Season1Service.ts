@@ -16,22 +16,36 @@ import type {
 // Cache keys
 const CACHE_KEYS = {
   PARTICIPANTS: '@season1:participants',
-  LEADERBOARD_RUNNING: '@season1:leaderboard:running',
-  LEADERBOARD_WALKING: '@season1:leaderboard:walking',
-  LEADERBOARD_CYCLING: '@season1:leaderboard:cycling',
+  ALL_WORKOUTS: '@season1:all_workouts',
+  PROFILES: '@season1:profiles',
 };
 
 // Cache duration in milliseconds
 const CACHE_DURATION = {
   PARTICIPANTS: 5 * 60 * 1000, // 5 minutes
-  LEADERBOARD: 60 * 1000, // 1 minute
+  WORKOUTS: 5 * 60 * 1000, // 5 minutes (increased from 1 min)
+  PROFILES: 10 * 60 * 1000, // 10 minutes
 };
+
+// Query timeout in milliseconds
+const QUERY_TIMEOUT = 15000; // 15 seconds
 
 class Season1Service {
   private participantsCache: {
     data: string[] | null;
     timestamp: number;
   } = { data: null, timestamp: 0 };
+
+  private workoutsCache: {
+    data: NDKEvent[] | null;
+    timestamp: number;
+  } = { data: null, timestamp: 0 };
+
+  private profilesCache: {
+    data: Map<string, any> | null;
+    timestamp: number;
+  } = { data: null, timestamp: 0 };
+
   private ndk: NDK | null = null;
 
   /**
@@ -52,6 +66,22 @@ class Season1Service {
     const initService = NostrInitializationService.getInstance();
     this.ndk = await initService.initializeNDK();
     return this.ndk;
+  }
+
+  /**
+   * Fetch events with timeout to prevent hanging on slow connections
+   */
+  private async fetchEventsWithTimeout(
+    ndk: NDK,
+    filter: NDKFilter,
+    timeoutMs: number = QUERY_TIMEOUT
+  ): Promise<Set<NDKEvent>> {
+    return Promise.race([
+      ndk.fetchEvents(filter),
+      new Promise<Set<NDKEvent>>((_, reject) =>
+        setTimeout(() => reject(new Error(`Query timeout after ${timeoutMs}ms`)), timeoutMs)
+      ),
+    ]);
   }
 
   /**
@@ -84,7 +114,7 @@ class Season1Service {
       };
 
       console.log('[Season1] Querying with filter:', JSON.stringify(filter));
-      const events = await ndk.fetchEvents(filter);
+      const events = await this.fetchEventsWithTimeout(ndk, filter);
 
       if (!events || events.size === 0) {
         console.log('[Season1] No participant list found on Nostr');
@@ -96,7 +126,7 @@ class Season1Service {
           authors: [SEASON_1_CONFIG.adminPubkey],
         };
 
-        const fallbackEvents = await ndk.fetchEvents(fallbackFilter);
+        const fallbackEvents = await this.fetchEventsWithTimeout(ndk, fallbackFilter);
         console.log('[Season1] Fallback query found', fallbackEvents.size, 'events');
 
         if (fallbackEvents.size > 0) {
@@ -174,25 +204,118 @@ class Season1Service {
   }
 
   /**
+   * Fetch all workouts and profiles for all participants (unified cache)
+   */
+  private async fetchAllWorkoutsAndProfiles(participants: string[]): Promise<{
+    workouts: NDKEvent[];
+    profiles: Map<string, any>;
+  }> {
+    const now = Date.now();
+
+    // Check workout cache
+    if (
+      this.workoutsCache.data &&
+      this.profilesCache.data &&
+      now - this.workoutsCache.timestamp < CACHE_DURATION.WORKOUTS &&
+      now - this.profilesCache.timestamp < CACHE_DURATION.PROFILES
+    ) {
+      console.log('[Season1] Using cached workouts and profiles');
+      return {
+        workouts: this.workoutsCache.data,
+        profiles: this.profilesCache.data,
+      };
+    }
+
+    try {
+      const ndk = await this.getNDK();
+      const startTimestamp = Math.floor(new Date(SEASON_1_CONFIG.startDate).getTime() / 1000);
+      const endTimestamp = Math.floor(new Date(SEASON_1_CONFIG.endDate).getTime() / 1000);
+
+      // Fetch ALL workout events (all activity types) in parallel with profiles
+      const [workoutEvents, profileEvents] = await Promise.all([
+        // Fetch workouts
+        (async () => {
+          const filter: NDKFilter = {
+            kinds: [1301],
+            authors: participants,
+            since: startTimestamp,
+            until: endTimestamp,
+          };
+          console.log(`[Season1] Querying ALL workouts from ${participants.length} participants...`);
+          return this.fetchEventsWithTimeout(ndk, filter);
+        })(),
+        // Fetch profiles
+        (async () => {
+          const profileFilter: NDKFilter = {
+            kinds: [0],
+            authors: participants,
+          };
+          console.log(`[Season1] Fetching profiles for ${participants.length} participants...`);
+          return this.fetchEventsWithTimeout(ndk, profileFilter);
+        })(),
+      ]);
+
+      console.log(`[Season1] Found ${workoutEvents.size} total workout events`);
+
+      // Convert workout events to array
+      const workouts = Array.from(workoutEvents);
+
+      // Create profile map
+      const profiles = new Map<string, any>();
+      for (const event of profileEvents) {
+        try {
+          const metadata = JSON.parse(event.content);
+          profiles.set(event.pubkey, metadata);
+        } catch (error) {
+          console.error('[Season1] Error parsing profile metadata:', error);
+        }
+      }
+
+      console.log(`[Season1] Successfully fetched ${profiles.size} profiles`);
+
+      // Update caches
+      this.workoutsCache = { data: workouts, timestamp: now };
+      this.profilesCache = { data: profiles, timestamp: now };
+
+      // Store in AsyncStorage
+      await Promise.all([
+        AsyncStorage.setItem(
+          CACHE_KEYS.ALL_WORKOUTS,
+          JSON.stringify({ workouts: workouts.map(e => e.rawEvent()), timestamp: now })
+        ),
+        AsyncStorage.setItem(
+          CACHE_KEYS.PROFILES,
+          JSON.stringify({ profiles: Array.from(profiles.entries()), timestamp: now })
+        ),
+      ]);
+
+      return { workouts, profiles };
+    } catch (error) {
+      console.error('[Season1] Error fetching workouts and profiles:', error);
+
+      // Try to load from AsyncStorage
+      try {
+        const [cachedWorkouts, cachedProfiles] = await Promise.all([
+          AsyncStorage.getItem(CACHE_KEYS.ALL_WORKOUTS),
+          AsyncStorage.getItem(CACHE_KEYS.PROFILES),
+        ]);
+
+        const workouts = cachedWorkouts ? JSON.parse(cachedWorkouts).workouts.map((e: any) => new NDKEvent(undefined, e)) : [];
+        const profiles = new Map(cachedProfiles ? JSON.parse(cachedProfiles).profiles : []);
+
+        return { workouts, profiles };
+      } catch (cacheError) {
+        console.error('[Season1] Error loading cached data:', cacheError);
+        return { workouts: [], profiles: new Map() };
+      }
+    }
+  }
+
+  /**
    * Fetch workout events for participants and calculate leaderboard
    */
   async fetchLeaderboard(activityType: SeasonActivityType): Promise<Season1Leaderboard> {
     console.log(`[Season1] Fetching ${activityType} leaderboard...`);
-
-    // Check cache first
-    const cacheKey = `@season1:leaderboard:${activityType}`;
-    try {
-      const cached = await AsyncStorage.getItem(cacheKey);
-      if (cached) {
-        const { data, timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp < CACHE_DURATION.LEADERBOARD) {
-          console.log(`[Season1] Using cached ${activityType} leaderboard`);
-          return data;
-        }
-      }
-    } catch (error) {
-      console.error('[Season1] Error loading cached leaderboard:', error);
-    }
 
     try {
       // Get participants
@@ -207,58 +330,29 @@ class Season1Service {
         };
       }
 
-      // Query for kind 1301 workout events from participants
-      const startTimestamp = Math.floor(new Date(SEASON_1_CONFIG.startDate).getTime() / 1000);
-      const endTimestamp = Math.floor(new Date(SEASON_1_CONFIG.endDate).getTime() / 1000);
+      // Fetch all workouts and profiles (uses unified cache)
+      const { workouts, profiles } = await this.fetchAllWorkoutsAndProfiles(participants);
 
-      const filter: NDKFilter = {
-        kinds: [1301],
-        authors: participants,
-        since: startTimestamp,
-        until: endTimestamp,
-      };
-
-      // Get NDK instance
-      const ndk = await this.getNDK();
-
-      console.log(`[Season1] Querying workouts from ${participants.length} participants...`);
-      console.log(`[Season1] Date range: ${new Date(startTimestamp * 1000).toISOString()} to ${new Date(endTimestamp * 1000).toISOString()}`);
-      console.log(`[Season1] Activity type filter: ${activityType}`);
-
-      const workoutEvents = await ndk.fetchEvents(filter);
-      console.log(`[Season1] Found ${workoutEvents.size} total workout events`);
-
-      // Process workout events
+      // Process workout events and filter for activity type
       const participantMap = new Map<string, Season1Participant>();
       let processedCount = 0;
       let matchedCount = 0;
 
-      for (const event of workoutEvents) {
+      for (const event of workouts) {
         try {
           processedCount++;
 
-          // Parse workout data from tags (NIP-101e format)
-          // Example tags:
-          // ["exercise", "running"]
-          // ["distance", "5.2", "km"]
-          // ["duration", "00:30:00"]
-
+          // Parse workout data from tags
           const exerciseTag = event.tags?.find(tag => tag[0] === 'exercise');
           const distanceTag = event.tags?.find(tag => tag[0] === 'distance');
 
           if (!exerciseTag || !exerciseTag[1]) {
-            if (processedCount <= 5) {
-              console.log(`[Season1] Skipping event - no exercise tag found`);
-            }
             continue;
           }
 
-          // Check if workout type matches
+          // Check if workout type matches requested activity
           const workoutType = this.normalizeActivityType(exerciseTag[1]);
           if (workoutType !== activityType) {
-            if (processedCount <= 5) {
-              console.log(`[Season1] Skipping workout: type="${exerciseTag[1]}" normalized="${workoutType}" wanted="${activityType}"`);
-            }
             continue;
           }
           matchedCount++;
@@ -307,14 +401,6 @@ class Season1Service {
           if (!participant.lastActivityDate || eventDate > participant.lastActivityDate) {
             participant.lastActivityDate = eventDate;
           }
-
-          if (processedCount <= 10 && matchedCount <= 3) {
-            console.log(`[Season1] Processed ${exerciseTag[1]} workout:`, {
-              pubkey: pubkey.slice(0, 8),
-              distance: `${distanceInMeters}m`,
-              date: eventDate
-            });
-          }
         } catch (error) {
           console.error('[Season1] Error processing workout event:', error);
         }
@@ -324,80 +410,18 @@ class Season1Service {
       const leaderboard = Array.from(participantMap.values())
         .sort((a, b) => b.totalDistance - a.totalDistance);
 
-      console.log(`[Season1] Processed ${processedCount} events, ${matchedCount} matched activity type`);
-      console.log(`[Season1] Final leaderboard has ${leaderboard.length} participants`);
+      console.log(`[Season1] Processed ${processedCount} events, ${matchedCount} matched ${activityType}`);
+      console.log(`[Season1] Final ${activityType} leaderboard: ${leaderboard.length} participants`);
 
-      // Fetch profiles for all participants
-      console.log(`[Season1] Fetching profiles for ${leaderboard.length} participants...`);
-      await this.fetchProfilesForParticipants(leaderboard);
-
-      const result: Season1Leaderboard = {
-        activityType,
-        participants: leaderboard,
-        lastUpdated: Date.now(),
-        totalParticipants: leaderboard.length,
-      };
-
-      // Cache the result
-      await AsyncStorage.setItem(
-        cacheKey,
-        JSON.stringify({
-          data: result,
-          timestamp: Date.now(),
-        })
-      );
-
-      console.log(`[Season1] ${activityType} leaderboard: ${leaderboard.length} participants`);
-      return result;
-
-    } catch (error) {
-      console.error('[Season1] Error fetching leaderboard:', error);
-      return {
-        activityType,
-        participants: [],
-        lastUpdated: Date.now(),
-        totalParticipants: 0,
-      };
-    }
-  }
-
-  /**
-   * Fetch profiles for participants
-   */
-  private async fetchProfilesForParticipants(participants: Season1Participant[]): Promise<void> {
-    try {
-      if (participants.length === 0) return;
-
+      // Add profile data to participants
       const ndk = await this.getNDK();
-
-      // Query for kind 0 profile events
-      const profileFilter: NDKFilter = {
-        kinds: [0],
-        authors: participants.map(p => p.pubkey),
-      };
-
-      console.log(`[Season1] Fetching profiles for ${participants.length} pubkeys...`);
-      const profileEvents = await ndk.fetchEvents(profileFilter);
-
-      // Create a map of profiles
-      const profileMap = new Map<string, any>();
-      for (const event of profileEvents) {
-        try {
-          const metadata = JSON.parse(event.content);
-          profileMap.set(event.pubkey, metadata);
-        } catch (error) {
-          console.error('[Season1] Error parsing profile metadata:', error);
-        }
-      }
-
-      // Update participants with profile data
-      for (const participant of participants) {
-        const profile = profileMap.get(participant.pubkey);
+      for (const participant of leaderboard) {
+        const profile = profiles.get(participant.pubkey);
         if (profile) {
           participant.name = profile.displayName || profile.display_name || profile.name || participant.name;
           participant.picture = profile.picture || profile.avatar;
 
-          // Also set npub for display
+          // Set npub for display
           try {
             const user = new NDKUser({ pubkey: participant.pubkey });
             user.ndk = ndk;
@@ -408,10 +432,24 @@ class Season1Service {
         }
       }
 
-      console.log(`[Season1] Successfully fetched ${profileMap.size} profiles`);
+      const result: Season1Leaderboard = {
+        activityType,
+        participants: leaderboard,
+        lastUpdated: Date.now(),
+        totalParticipants: leaderboard.length,
+      };
+
+      console.log(`[Season1] ${activityType} leaderboard ready with ${leaderboard.length} participants`);
+      return result;
+
     } catch (error) {
-      console.error('[Season1] Error fetching profiles:', error);
-      // Continue without profiles - they'll show hex names
+      console.error('[Season1] Error fetching leaderboard:', error);
+      return {
+        activityType,
+        participants: [],
+        lastUpdated: Date.now(),
+        totalParticipants: 0,
+      };
     }
   }
 
@@ -450,13 +488,30 @@ class Season1Service {
     console.log('[Season1] Clearing all caches...');
 
     this.participantsCache = { data: null, timestamp: 0 };
+    this.workoutsCache = { data: null, timestamp: 0 };
+    this.profilesCache = { data: null, timestamp: 0 };
 
     await Promise.all([
       AsyncStorage.removeItem(CACHE_KEYS.PARTICIPANTS),
-      AsyncStorage.removeItem('@season1:leaderboard:running'),
-      AsyncStorage.removeItem('@season1:leaderboard:walking'),
-      AsyncStorage.removeItem('@season1:leaderboard:cycling'),
+      AsyncStorage.removeItem(CACHE_KEYS.ALL_WORKOUTS),
+      AsyncStorage.removeItem(CACHE_KEYS.PROFILES),
     ]);
+  }
+
+  /**
+   * Prefetch all Season 1 data (for app initialization)
+   */
+  async prefetchAll(): Promise<void> {
+    console.log('[Season1] Prefetching all Season 1 data...');
+    try {
+      const participants = await this.fetchParticipantList();
+      if (participants.length > 0) {
+        await this.fetchAllWorkoutsAndProfiles(participants);
+        console.log('[Season1] Prefetch complete - all data cached');
+      }
+    } catch (error) {
+      console.error('[Season1] Prefetch error:', error);
+    }
   }
 }
 

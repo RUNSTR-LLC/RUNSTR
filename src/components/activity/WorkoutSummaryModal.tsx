@@ -409,9 +409,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.text,
   },
   saveButton: {
-    backgroundColor: theme.colors.background,
-    borderWidth: 2,
-    borderColor: theme.colors.text,
+    backgroundColor: theme.colors.text,
   },
   disabledButton: {
     opacity: 0.5,
@@ -422,7 +420,7 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.bold,
   },
   saveButtonText: {
-    color: theme.colors.text,
+    color: theme.colors.background,
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
   },

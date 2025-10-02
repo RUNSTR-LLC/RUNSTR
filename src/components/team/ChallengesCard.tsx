@@ -13,7 +13,7 @@ import { theme } from '../../styles/theme';
 
 interface ChallengesCardProps {
   challenges: FormattedChallenge[];
-  onAddChallenge: () => void;
+  onAddChallenge?: () => void;
   onChallengePress?: (challengeId: string) => void;
 }
 
@@ -26,9 +26,6 @@ export const ChallengesCard: React.FC<ChallengesCardProps> = ({
     <Card style={styles.card}>
       <View style={styles.header}>
         <Text style={styles.title}>Challenges</Text>
-        <TouchableOpacity onPress={onAddChallenge} style={styles.addButton}>
-          <Ionicons name="add" size={16} color={theme.colors.background} />
-        </TouchableOpacity>
       </View>
 
       <ScrollView

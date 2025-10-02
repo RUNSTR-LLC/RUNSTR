@@ -13,6 +13,8 @@ import {
   CHALLENGE_ACCEPT_KIND,
   CHALLENGE_DECLINE_KIND,
 } from '../../types/challenge';
+import { unifiedNotificationStore } from './UnifiedNotificationStore';
+import type { ChallengeNotificationMetadata } from '../../types/unifiedNotifications';
 
 export interface ChallengeNotification {
   id: string;
@@ -131,6 +133,10 @@ export class ChallengeNotificationHandler {
           if (notification) {
             this.notifications.set(notification.id, notification);
             this.notifyCallbacks(notification);
+
+            // Publish to unified notification store
+            await this.publishToUnifiedStore(notification);
+
             console.log(
               `New challenge request from ${notification.challengerName}: ${notification.activityType}`
             );
@@ -246,6 +252,9 @@ export class ChallengeNotificationHandler {
         notification.read = true;
         this.notifications.set(notificationId, notification);
 
+        // Mark as read in unified store
+        await unifiedNotificationStore.markAsRead(notificationId);
+
         console.log(`Challenge accepted: ${notificationId}`);
       }
 
@@ -283,6 +292,9 @@ export class ChallengeNotificationHandler {
         notification.read = true;
         this.notifications.set(notificationId, notification);
 
+        // Mark as read in unified store
+        await unifiedNotificationStore.markAsRead(notificationId);
+
         console.log(`Challenge declined: ${notificationId}`);
       }
 
@@ -316,6 +328,83 @@ export class ChallengeNotificationHandler {
    */
   async refresh(): Promise<void> {
     await this.loadNotifications();
+  }
+
+  /**
+   * Publish challenge notification to unified store
+   */
+  private async publishToUnifiedStore(notification: ChallengeNotification): Promise<void> {
+    try {
+      const metadata: ChallengeNotificationMetadata = {
+        challengeId: notification.challengeId,
+        challengerPubkey: notification.challengerPubkey,
+        challengerName: notification.challengerName,
+        challengerPicture: notification.challengerPicture,
+        activityType: notification.activityType,
+        metric: notification.metric,
+        duration: notification.duration,
+        wagerAmount: notification.wagerAmount,
+      };
+
+      if (notification.type === 'request') {
+        await unifiedNotificationStore.addNotification(
+          'challenge_request',
+          `${notification.challengerName || 'Someone'} challenged you!`,
+          `${notification.activityType} • ${notification.metric} • ${notification.duration} days • ${notification.wagerAmount} sats`,
+          metadata,
+          {
+            icon: 'trophy',
+            actions: [
+              {
+                id: 'decline',
+                type: 'decline_challenge',
+                label: 'Decline',
+                isPrimary: false,
+              },
+              {
+                id: 'accept',
+                type: 'accept_challenge',
+                label: 'Accept',
+                isPrimary: true,
+              },
+            ],
+            nostrEventId: notification.challengeId,
+          }
+        );
+      } else if (notification.type === 'accepted') {
+        await unifiedNotificationStore.addNotification(
+          'challenge_accepted',
+          'Challenge Accepted!',
+          `${notification.challengerName || 'Your opponent'} accepted your challenge`,
+          metadata,
+          {
+            icon: 'checkmark-circle',
+            actions: [
+              {
+                id: 'view',
+                type: 'view_challenge',
+                label: 'View Challenge',
+                isPrimary: true,
+              },
+            ],
+            nostrEventId: notification.challengeId,
+          }
+        );
+      } else if (notification.type === 'declined') {
+        await unifiedNotificationStore.addNotification(
+          'challenge_declined',
+          'Challenge Declined',
+          `${notification.challengerName || 'Your opponent'} declined your challenge`,
+          metadata,
+          {
+            icon: 'close-circle',
+            nostrEventId: notification.challengeId,
+          }
+        );
+      }
+    } catch (error) {
+      console.error('[ChallengeNotificationHandler] Failed to publish to unified store:', error);
+    }
   }
 }
 

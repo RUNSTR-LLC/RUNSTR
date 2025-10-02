@@ -84,16 +84,16 @@ export const GPSStatusIndicator: React.FC<GPSStatusIndicatorProps> = ({
   const getSignalColor = (): string => {
     switch (signalStrength) {
       case 'strong':
-        return theme.colors.success;
+        return theme.colors.text; // White for strong signal
       case 'medium':
-        return theme.colors.warning;
+        return theme.colors.text; // White for medium signal
       case 'weak':
-        return '#ff9500'; // Orange
+        return theme.colors.textMuted; // Gray for weak signal
       case 'none':
-        return theme.colors.error;
+        return theme.colors.textMuted; // Gray for no signal
       case 'searching':
       default:
-        return theme.colors.textMuted;
+        return theme.colors.textMuted; // Gray for searching
     }
   };
 
@@ -259,6 +259,6 @@ const styles = StyleSheet.create({
     height: 16,
   },
   signalBarActive: {
-    backgroundColor: theme.colors.success,
+    backgroundColor: theme.colors.text, // White for active signal bars
   },
 });

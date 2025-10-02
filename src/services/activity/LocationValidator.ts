@@ -3,6 +3,7 @@
  * Filters out invalid data, detects anomalies, and ensures data quality
  */
 
+import { Platform } from 'react-native';
 import { LocationPoint } from './LocationTrackingService';
 
 export interface ValidationResult {
@@ -142,6 +143,53 @@ export class LocationValidator {
     const distance = this.calculateDistance(referencePoint, point);
     const speed = distance / (timeDelta / 1000); // m/s
 
+    // Android: Use simplified validation (similar to reference implementation)
+    if (Platform.OS === 'android') {
+      // Reference implementation uses: distance >= 1m && accuracy < 15m
+      // We use similar approach: distance >= 1m to filter GPS jitter
+
+      // Filter out GPS jitter (< 1m movements)
+      if (distance < 1) {
+        console.log(`⚠️ [ANDROID] GPS jitter filtered: distance=${distance.toFixed(2)}m < 1m`);
+        return {
+          isValid: false,
+          confidence: 0,
+          reason: 'GPS jitter (< 1m)',
+        };
+      }
+
+      // Only check for extreme teleportation (2x more lenient than iOS)
+      const androidMaxJump = this.config.maxJumpDistance * 2;
+      if (distance > androidMaxJump) {
+        console.log(`❌ [ANDROID] Extreme teleportation: ${distance.toFixed(0)}m > ${androidMaxJump}m`);
+        return {
+          isValid: false,
+          confidence: 0,
+          reason: `Extreme teleportation: ${distance.toFixed(0)}m jump`,
+        };
+      }
+
+      // Only check for extreme speeds (2x more lenient than iOS)
+      const androidMaxSpeed = this.config.maxSpeedMps * 2;
+      if (speed > androidMaxSpeed) {
+        console.log(`❌ [ANDROID] Extreme speed: ${(speed * 3.6).toFixed(1)} km/h > ${(androidMaxSpeed * 3.6).toFixed(1)} km/h`);
+        return {
+          isValid: false,
+          confidence: 0,
+          reason: `Extreme speed: ${(speed * 3.6).toFixed(1)} km/h`,
+        };
+      }
+
+      // Skip acceleration checks on Android - GPS is too noisy
+      console.log(`✅ [ANDROID] Point passed validation: distance=${distance.toFixed(1)}m, speed=${(speed * 3.6).toFixed(1)}km/h`);
+      this.lastValidPoint = point;
+      return {
+        isValid: true,
+        confidence: this.calculateConfidence(point, speed),
+      };
+    }
+
+    // iOS: Use strict validation
     // Check for teleportation
     if (distance > this.config.maxJumpDistance) {
       return {
@@ -205,19 +253,31 @@ export class LocationValidator {
    * Get dynamic accuracy threshold based on conditions
    */
   private getAccuracyThreshold(): number {
-    // Base thresholds: more lenient than before based on senior dev feedback
-    const baseThreshold = this.activityType === 'cycling' ? 75 : 50;
+    // Base thresholds: Platform-aware (Android GPS typically less accurate than iOS)
+    // iOS: 50m for running/walking, 75m for cycling
+    // Android: 100m for running/walking, 150m for cycling (2x more lenient)
+    const iosBaseThreshold = this.activityType === 'cycling' ? 75 : 50;
+    const androidBaseThreshold = this.activityType === 'cycling' ? 150 : 100;
+    const baseThreshold = Platform.OS === 'android' ? androidBaseThreshold : iosBaseThreshold;
+
+    console.log(`📍 [${Platform.OS.toUpperCase()}] Base accuracy threshold: ${baseThreshold}m for ${this.activityType}`);
 
     // Check if we've had no valid points recently (signal degradation)
     const timeSinceLastValid = Date.now() - this.lastValidTimestamp;
 
     // Progressive relaxation based on time without valid points
     if (timeSinceLastValid > 60000) { // 60 seconds - very degraded signal
-      return Math.min(baseThreshold * 2, 100); // Double threshold, cap at 100m
+      const relaxedThreshold = Math.min(baseThreshold * 2, Platform.OS === 'android' ? 200 : 100);
+      console.log(`📍 Signal degraded (60s+), relaxing threshold to ${relaxedThreshold}m`);
+      return relaxedThreshold;
     } else if (timeSinceLastValid > 30000) { // 30 seconds - degraded signal
-      return Math.min(baseThreshold * 1.5, 85); // 1.5x threshold, cap at 85m
+      const relaxedThreshold = Math.min(baseThreshold * 1.5, Platform.OS === 'android' ? 150 : 85);
+      console.log(`📍 Signal degraded (30s+), relaxing threshold to ${relaxedThreshold}m`);
+      return relaxedThreshold;
     } else if (this.consecutiveInvalidPoints > 5) { // Multiple rejections
-      return Math.min(baseThreshold * 1.3, 75); // 1.3x threshold for urban canyons
+      const relaxedThreshold = Math.min(baseThreshold * 1.3, Platform.OS === 'android' ? 130 : 75);
+      console.log(`📍 Multiple rejections (${this.consecutiveInvalidPoints}), relaxing threshold to ${relaxedThreshold}m`);
+      return relaxedThreshold;
     }
 
     return baseThreshold;
@@ -235,10 +295,17 @@ export class LocationValidator {
     // Track consecutive invalid points for threshold adjustment
     if (!isAcceptable) {
       this.consecutiveInvalidPoints++;
-      console.log(`GPS accuracy ${point.accuracy.toFixed(1)}m exceeds threshold ${threshold}m (consecutive invalid: ${this.consecutiveInvalidPoints})`);
+      if (Platform.OS === 'android') {
+        console.log(`📍 [ANDROID] GPS accuracy ${point.accuracy.toFixed(1)}m exceeds threshold ${threshold}m (consecutive invalid: ${this.consecutiveInvalidPoints})`);
+      } else {
+        console.log(`GPS accuracy ${point.accuracy.toFixed(1)}m exceeds threshold ${threshold}m (consecutive invalid: ${this.consecutiveInvalidPoints})`);
+      }
     } else {
       this.consecutiveInvalidPoints = 0;
       this.lastValidTimestamp = Date.now();
+      if (Platform.OS === 'android') {
+        console.log(`✅ [ANDROID] GPS accuracy acceptable: ${point.accuracy.toFixed(1)}m <= ${threshold}m`);
+      }
     }
 
     return isAcceptable;

@@ -86,6 +86,13 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           },
           {
             action: async () => {
+              setStatusMessage('Loading Season 1 data...');
+              await initService.prefetchSeason1();
+            },
+            duration: 1000
+          },
+          {
+            action: async () => {
               setStatusMessage('Almost ready...');
               // Final preparation
               await new Promise(resolve => setTimeout(resolve, 400));
