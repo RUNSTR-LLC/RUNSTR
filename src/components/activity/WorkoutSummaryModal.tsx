@@ -19,6 +19,7 @@ import workoutPublishingService from '../../services/nostr/workoutPublishingServ
 import type { PublishableWorkout } from '../../services/nostr/workoutPublishingService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SocialShareModal } from '../fitness/SocialShareModal';
+import { nsecToPrivateKey } from '../../utils/nostr';
 
 interface WorkoutSummaryProps {
   visible: boolean;
@@ -114,13 +115,16 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
 
     setIsPosting(true);
     try {
-      const hexPrivKey = await AsyncStorage.getItem('@runstr:user_privkey_hex');
+      const nsec = await AsyncStorage.getItem('@runstr:user_nsec');
       const npub = await AsyncStorage.getItem('@runstr:npub');
 
-      if (!hexPrivKey) {
+      if (!nsec) {
         Alert.alert('Error', 'No user key found. Please login first.');
         return;
       }
+
+      // Convert nsec to hex private key for signing
+      const hexPrivKey = nsecToPrivateKey(nsec);
 
       const publishableWorkout = await createPublishableWorkout();
       if (!publishableWorkout) return;
@@ -158,13 +162,16 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
   const handleSaveForCompetition = async () => {
     setIsSaving(true);
     try {
-      const hexPrivKey = await AsyncStorage.getItem('@runstr:user_privkey_hex');
+      const nsec = await AsyncStorage.getItem('@runstr:user_nsec');
       const npub = await AsyncStorage.getItem('@runstr:npub');
 
-      if (!hexPrivKey) {
+      if (!nsec) {
         Alert.alert('Error', 'No user key found. Please login first.');
         return;
       }
+
+      // Convert nsec to hex private key for signing
+      const hexPrivKey = nsecToPrivateKey(nsec);
 
       const publishableWorkout = await createPublishableWorkout();
       if (!publishableWorkout) return;
