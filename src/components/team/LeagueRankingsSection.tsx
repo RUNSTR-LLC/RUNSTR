@@ -12,6 +12,7 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { theme } from '../../styles/theme';
 import { ZappableUserRow } from '../ui/ZappableUserRow';
@@ -155,12 +156,13 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
 
   /**
    * Load league rankings
-   * Now uses cache-first strategy with stale-while-revalidate pattern
-   * Returns cached data instantly (even if stale) while fetching fresh data in background
+   * Now uses cache-first strategy with stale-while-revalidate pattern (24-hour cache)
+   * Returns cached data instantly (even if hours old) while fetching fresh data in background
+   * With 24-hour cache, you'll NEVER see the 30-second loading screen after initial load!
    */
   const loadRankings = async (force = false) => {
     try {
-      console.log(`🏆 Loading league rankings: ${competitionId}`);
+      console.log(`🏆 Loading league rankings: ${competitionId}${force ? ' (FORCE REFRESH)' : ''}`);
       console.log(`📊 Is default league: ${isDefaultLeague}`);
 
       if (force) {
@@ -175,10 +177,12 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
         setTeamParticipants(participantsToUse);
       }
 
+      // Pass forceRefresh flag to bypass cache (for pull-to-refresh)
       const result = await rankingService.calculateLeagueRankings(
         competitionId,
         participantsToUse,
-        parameters
+        parameters,
+        force // This bypasses cache and forces fresh fetch
       );
 
       setRankings(result);
@@ -221,18 +225,23 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
 
   /**
    * Auto-refresh rankings periodically (reduced frequency for performance)
-   * The ranking service now uses a 5-minute cache with stale-while-revalidate
-   * so this refresh mainly serves to update stale data in the background
+   * The ranking service now uses a 24-hour cache with stale-while-revalidate
+   * Cache behavior:
+   * - 0-5 min: Returns cache instantly (fresh)
+   * - 5 min - 24 hours: Returns cache instantly + background refresh (stale but usable)
+   * - > 24 hours: Fetches fresh (only if not opened in a day)
+   *
+   * This interval triggers background refreshes every 5 minutes for active competitions
    */
   useEffect(() => {
     // Only auto-refresh for active competitions, and only every 5 minutes
-    // The cache layer will handle showing cached data instantly
+    // The 24-hour cache means cached data is ALWAYS shown first, then background refreshed
     if (!rankings?.isActive) return;
 
     const interval = setInterval(() => {
-      console.log('🔄 Auto-refresh triggered (5 min interval)');
-      loadRankings();
-    }, 5 * 60 * 1000); // Refresh every 5 minutes (increased from 1 min for performance)
+      console.log('🔄 Auto-refresh triggered (5 min interval) - cache will serve instantly, then background refresh');
+      loadRankings(); // Will use cache if < 24h old, refresh in background if > 5min old
+    }, 5 * 60 * 1000); // Refresh every 5 minutes
 
     return () => clearInterval(interval);
   }, [rankings?.isActive]);
@@ -397,6 +406,16 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
         style={styles.rankingsList}
         showsVerticalScrollIndicator={true}
         indicatorStyle="white"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => loadRankings(true)} // Force refresh when pulling down
+            tintColor={theme.colors.accent}
+            colors={[theme.colors.accent]}
+            title="Pull to refresh rankings"
+            titleColor={theme.colors.textMuted}
+          />
+        }
       >
         {displayRankings.map((entry, index) => {
           const isCurrentUser = currentUserNpub && entry.npub === currentUserNpub;

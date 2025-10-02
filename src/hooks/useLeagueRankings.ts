@@ -64,24 +64,27 @@ export function useLeagueRankings(options: UseLeagueRankingsOptions): UseLeagueR
 
   /**
    * Load rankings for competition
+   * Now supports force refresh to bypass 24-hour cache
    */
   const loadRankings = useCallback(async (
     targetCompetitionId: string,
     participants: LeagueParticipant[],
     parameters: LeagueParameters,
-    isRefresh = false
+    isRefresh = false,
+    forceRefresh = false // New parameter for pull-to-refresh
   ): Promise<void> => {
     try {
       if (isRefresh) {
         setRefreshing(true);
       }
 
-      console.log(`🏆 Loading rankings for: ${targetCompetitionId}`);
+      console.log(`🏆 Loading rankings for: ${targetCompetitionId}${forceRefresh ? ' (FORCE)' : ''}`);
 
       const result = await rankingService.calculateLeagueRankings(
         targetCompetitionId,
         participants,
-        parameters
+        parameters,
+        forceRefresh // Pass force flag to bypass cache
       );
 
       setRankings(result);
@@ -99,9 +102,10 @@ export function useLeagueRankings(options: UseLeagueRankingsOptions): UseLeagueR
 
   /**
    * Refresh rankings manually
+   * Forces a fresh fetch bypassing the 24-hour cache
    */
   const refresh = useCallback(async (): Promise<void> => {
-    console.log('🔄 Manual refresh triggered');
+    console.log('🔄 Manual refresh triggered (force bypass cache)');
 
     let targetLeague = activeLeague;
 
@@ -115,7 +119,8 @@ export function useLeagueRankings(options: UseLeagueRankingsOptions): UseLeagueR
         targetLeague.competitionId,
         targetLeague.participants,
         targetLeague.parameters,
-        true // isRefresh
+        true, // isRefresh (show loading state)
+        true  // forceRefresh (bypass cache)
       );
     }
   }, [activeLeague, teamId, competitionId, loadActiveLeague, loadRankings]);

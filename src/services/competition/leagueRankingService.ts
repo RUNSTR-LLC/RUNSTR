@@ -61,8 +61,8 @@ export class LeagueRankingService {
 
   // Cache configuration
   private readonly CACHE_PREFIX = 'league_rankings:';
-  private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes fresh
-  private readonly STALE_TTL_MS = 10 * 60 * 1000; // 10 minutes max (including stale)
+  private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes fresh (for active competitions)
+  private readonly STALE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours max (instant load for long-lived leagues)
 
   constructor() {
     this.queryService = Competition1301QueryService;
@@ -87,38 +87,48 @@ export class LeagueRankingService {
    * Calculate live league rankings for team display
    * Uses persistent cache-first strategy with stale-while-revalidate pattern
    * PERFORMANCE: Returns cached data instantly on app resume (<100ms)
+   * EXTENDED CACHE: 24-hour stale period means you'll NEVER see a loading screen
+   * after the first load - perfect for long-lived league data
    */
   async calculateLeagueRankings(
     competitionId: string,
     participants: LeagueParticipant[],
-    parameters: LeagueParameters
+    parameters: LeagueParameters,
+    forceRefresh = false // Add option to force fresh data (for pull-to-refresh)
   ): Promise<LeagueRankingResult> {
     console.log(`🏆 Calculating league rankings for: ${competitionId}`);
     console.log(`📊 Competition: ${parameters.activityType} - ${parameters.competitionType}`);
 
     const cacheKey = this.getCacheKey(competitionId);
 
-    // Check persistent cache first - return fresh cache immediately
-    const cachedData = await UnifiedCacheService.get<{ result: LeagueRankingResult; timestamp: number }>(cacheKey);
+    // Check persistent cache first - return fresh cache immediately (unless force refresh)
+    if (!forceRefresh) {
+      const cachedData = await UnifiedCacheService.get<{ result: LeagueRankingResult; timestamp: number }>(cacheKey);
 
-    if (cachedData) {
-      const cacheAge = Date.now() - cachedData.timestamp;
+      if (cachedData) {
+        const cacheAge = Date.now() - cachedData.timestamp;
 
-      // Fresh cache (< 5 minutes) - return immediately
-      if (cacheAge < this.CACHE_TTL_MS) {
-        console.log(`✅ Returning fresh cached rankings (age: ${Math.round(cacheAge / 1000)}s)`);
-        return cachedData.result;
+        // Fresh cache (< 5 minutes) - return immediately
+        if (cacheAge < this.CACHE_TTL_MS) {
+          console.log(`✅ Returning fresh cached rankings (age: ${Math.round(cacheAge / 1000)}s)`);
+          return cachedData.result;
+        }
+
+        // Stale cache (5 min - 24 hours) - return immediately, refresh in background
+        // This means after first load, you'll NEVER see a 30-second loading screen!
+        if (cacheAge < this.STALE_TTL_MS) {
+          const ageHours = Math.round(cacheAge / (1000 * 60 * 60));
+          const ageMinutes = Math.round(cacheAge / (1000 * 60));
+          console.log(`⚡ Returning stale cache (age: ${ageHours > 0 ? ageHours + 'h' : ageMinutes + 'm'}), refreshing in background`);
+          // Trigger background refresh without blocking
+          this.refreshRankingsInBackground(competitionId, participants, parameters);
+          return cachedData.result;
+        }
+
+        console.log(`🗑️ Cache expired (age: ${Math.round(cacheAge / (1000 * 60 * 60))}h), fetching fresh`);
       }
-
-      // Stale cache (5-10 minutes) - return immediately, refresh in background
-      if (cacheAge < this.STALE_TTL_MS) {
-        console.log(`⚡ Returning stale cache (age: ${Math.round(cacheAge / 1000)}s), refreshing in background`);
-        // Trigger background refresh without blocking
-        this.refreshRankingsInBackground(competitionId, participants, parameters);
-        return cachedData.result;
-      }
-
-      console.log(`🗑️ Cache too old (age: ${Math.round(cacheAge / 1000)}s), fetching fresh`);
+    } else {
+      console.log('🔄 Force refresh requested, bypassing cache');
     }
 
     try {
@@ -496,9 +506,10 @@ export class LeagueRankingService {
       timestamp: Date.now()
     };
 
-    // Store with 10-minute TTL (covers fresh + stale periods)
+    // Store with 24-hour TTL (covers fresh + stale periods)
+    // This ensures league data persists for a full day without expiring
     await UnifiedCacheService.set(cacheKey, cacheData, 'leaderboards');
-    console.log(`💾 Cached rankings to persistent storage: ${competitionId}`);
+    console.log(`💾 Cached rankings to persistent storage (24h TTL): ${competitionId}`);
   }
 
   /**
