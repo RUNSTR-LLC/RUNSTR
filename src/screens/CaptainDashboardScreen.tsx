@@ -11,13 +11,13 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   Alert,
   Modal,
   TextInput,
   Image,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import { CHARITIES, getCharityById } from '../constants/charities';
 import { validateShopUrl, getShopDisplayName, validateFlashUrl } from '../utils/validation';
@@ -1217,7 +1217,7 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Status Bar */}
 
       {/* Show banner if team doesn't have kind 30000 list */}

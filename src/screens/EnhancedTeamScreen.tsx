@@ -5,9 +5,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert, Text, TouchableOpacity, Linking } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { getCharityById } from '../constants/charities';
 import { NutzapLightningButton } from '../components/nutzap/NutzapLightningButton';
-import { BottomNavigation } from '../components/ui/BottomNavigation';
 import { TeamHeader } from '../components/team/TeamHeader';
 import { AboutPrizeSection } from '../components/team/AboutPrizeSection';
 import { LeaderboardCard } from '../components/team/LeaderboardCard';
@@ -28,15 +28,11 @@ import type { Competition } from '../services/competition/competitionService';
 
 interface EnhancedTeamScreenProps {
   data: TeamScreenData;
-  onMenuPress: () => void;
+  onBack: () => void;
   onCaptainDashboard: () => void;
   onAddChallenge: () => void;
   onEventPress?: (eventId: string, eventData?: any) => void;
   onChallengePress?: (challengeId: string) => void;
-  onNavigateToProfile: () => void;
-  onLeaveTeam: () => void;
-  onTeamDiscovery: () => void;
-  onJoinTeam?: () => void;
   showJoinButton?: boolean;
   userIsMemberProp?: boolean;
   currentUserNpub?: string; // Passed from navigation to avoid AsyncStorage corruption
@@ -45,15 +41,11 @@ interface EnhancedTeamScreenProps {
 
 export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
   data,
-  onMenuPress,
+  onBack,
   onCaptainDashboard,
   onAddChallenge,
   onEventPress,
   onChallengePress,
-  onNavigateToProfile,
-  onLeaveTeam,
-  onTeamDiscovery,
-  onJoinTeam,
   showJoinButton = false,
   userIsMemberProp = true,
   currentUserNpub, // Working npub from navigation to avoid AsyncStorage corruption
@@ -364,16 +356,12 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
   }, [hasActiveLeague, rankingsLoading, rankingsError, activeLeague]);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <TeamHeader
         teamName={team.name}
         bannerImage={team.bannerImage}
         team={team} // Pass full team object for fallback extraction
-        onMenuPress={onMenuPress}
-        onLeaveTeam={calculatedUserIsMember ? onLeaveTeam : undefined}
-        onJoinTeam={showJoinButton ? onJoinTeam : undefined}
-        onTeamDiscovery={onTeamDiscovery}
-        userIsMember={calculatedUserIsMember}
+        onBack={onBack}
       />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -478,9 +466,8 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
                 </TouchableOpacity>
               )}
 
-              {/* Team Shop and Subscribe Buttons Row */}
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                {/* Team Shop Button */}
+              {/* Team Shop and Subscribe Buttons Row - HIDDEN FOR NOW */}
+              {/* <View style={{ flexDirection: 'row', gap: 8 }}>
                 <TouchableOpacity
                   onPress={() => {
                     if (team.shopUrl) {
@@ -518,7 +505,6 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
                   </Text>
                 </TouchableOpacity>
 
-                {/* Flash Subscription Button */}
                 <TouchableOpacity
                   onPress={() => {
                     if (team.flashUrl) {
@@ -555,7 +541,7 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
                     Subscribe
                   </Text>
                 </TouchableOpacity>
-              </View>
+              </View> */}
             </View>
           </View>
 
@@ -613,13 +599,7 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
           /> */}
         </View>
       </ScrollView>
-
-      <BottomNavigation
-        activeScreen="team"
-        onNavigateToTeam={() => {}}
-        onNavigateToProfile={onNavigateToProfile}
-      />
-    </View>
+    </SafeAreaView>
   );
 };
 

@@ -13,6 +13,7 @@ import {
   Alert,
   Share,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList, EventDetailData } from '../types';
@@ -558,7 +559,7 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Status Bar */}
 
       {/* Header */}
@@ -671,7 +672,7 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
           }
         />
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 

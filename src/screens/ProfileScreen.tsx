@@ -4,7 +4,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../styles/theme';
 import { ProfileTab, ProfileScreenData, NotificationSettings } from '../types';
 import { NotificationPreferencesService } from '../services/notifications/NotificationPreferencesService';
@@ -227,7 +228,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header with Settings Button */}
       <View style={styles.header}>
         <View style={styles.headerSpacer} />

@@ -12,9 +12,9 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
-  SafeAreaView,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../styles/theme';
 import {
   WorkoutMergeService,
@@ -497,14 +497,14 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <LoadingOverlay message="Loading workouts..." visible={true} />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>

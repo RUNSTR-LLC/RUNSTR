@@ -13,6 +13,7 @@ import {
   Alert,
   Share,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList, ChallengeDetailData } from '../types';
@@ -451,7 +452,7 @@ export const ChallengeDetailScreen: React.FC<ChallengeDetailScreenProps> = ({
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Status Bar */}
 
       {/* Header */}
@@ -517,7 +518,7 @@ export const ChallengeDetailScreen: React.FC<ChallengeDetailScreenProps> = ({
           accessibilityHint={getAccessibilityHint()}
         />
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
