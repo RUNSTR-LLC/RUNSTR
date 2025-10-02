@@ -11,6 +11,7 @@ import {
   StyleSheet,
   Animated,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { theme } from '../../styles/theme';
 import { NostrInitializationService } from '../../services/nostr/NostrInitializationService';
@@ -137,7 +138,11 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
       {/* RUNSTR Logo Section */}
       <View style={styles.logoSection}>
         <View style={styles.logoContainer}>
-          <Text style={styles.logoIcon}>R</Text>
+          <Image
+            source={require('../../../assets/images/icon.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
         </View>
         <Text style={styles.logoText}>RUNSTR</Text>
       </View>
@@ -187,19 +192,21 @@ const styles = StyleSheet.create({
   },
 
   logoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
-    backgroundColor: theme.colors.text,
+    width: 100,
+    height: 100,
+    borderRadius: 50, // Perfectly circular
+    backgroundColor: '#000000',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    overflow: 'hidden',
   },
 
-  logoIcon: {
-    fontSize: 36,
-    fontWeight: theme.typography.weights.bold,
-    color: '#000000',
+  logoImage: {
+    width: 80,
+    height: 80,
   },
 
   logoText: {

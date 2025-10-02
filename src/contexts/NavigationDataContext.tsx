@@ -57,6 +57,7 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({ 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [teamsLoaded, setTeamsLoaded] = useState(false);
+  const [teamsLastLoaded, setTeamsLastLoaded] = useState<number>(0);
   const [walletLoaded, setWalletLoaded] = useState(false);
   const [isLoadingTeam, setIsLoadingTeam] = useState(false);
 
@@ -303,7 +304,16 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({ 
   };
 
   const loadTeams = useCallback(async (): Promise<void> => {
-    if (teamsLoaded) return;
+    // PERFORMANCE FIX: Allow refresh if cache is stale (> 1 minute since last load)
+    // This prevents redundant calls while allowing background cache refresh
+    const now = Date.now();
+    const timeSinceLastLoad = now - teamsLastLoaded;
+    const MIN_RELOAD_INTERVAL = 60 * 1000; // 1 minute
+
+    if (teamsLoaded && timeSinceLastLoad < MIN_RELOAD_INTERVAL) {
+      console.log('📦 Teams recently loaded, skipping reload');
+      return;
+    }
 
     try {
       // Use TeamCacheService as single source of truth (30-min TTL)
@@ -313,11 +323,12 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({ 
       console.log(`✅ NavigationDataContext: Loaded ${teams.length} teams from TeamCacheService`);
       setAvailableTeams(teams);
       setTeamsLoaded(true);
+      setTeamsLastLoaded(now);
     } catch (error) {
       console.error('Error loading teams:', error);
       setError('Failed to load teams');
     }
-  }, [teamsLoaded]);
+  }, [teamsLoaded, teamsLastLoaded]);
 
   const fetchTeamsFresh = async (): Promise<void> => {
     try {
@@ -328,6 +339,7 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({ 
       console.log(`✅ NavigationDataContext: Refreshed ${teams.length} teams from TeamCacheService`);
       setAvailableTeams(teams);
       setTeamsLoaded(true);
+      setTeamsLastLoaded(Date.now());
     } catch (error) {
       console.error('Error fetching teams:', error);
       throw error;

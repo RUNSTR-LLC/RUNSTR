@@ -114,8 +114,14 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
 
     // Load data based on discovery mode
     if (discoveryMode === 'teams') {
-      console.log('🚀 TeamDiscoveryScreen: Loading teams from cache first...');
-      fetchTeams(false); // Don't force refresh on initial load
+      // PERFORMANCE FIX: Only fetch if no teams provided via props
+      // This prevents double-fetching when NavigationDataContext already loaded teams
+      if (!propTeams || propTeams.length === 0) {
+        console.log('🚀 TeamDiscoveryScreen: No prop teams, loading from cache...');
+        fetchTeams(false); // Don't force refresh on initial load
+      } else {
+        console.log('✅ TeamDiscoveryScreen: Using teams from props, skipping fetch');
+      }
     } else {
       console.log('🎯 TeamDiscoveryScreen: Loading events...');
       fetchEvents();
@@ -129,6 +135,15 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
       currentSession.complete();
     };
   }, [discoveryMode]);
+
+  // Update local teams state when prop teams change
+  useEffect(() => {
+    if (propTeams && propTeams.length > 0 && discoveryMode === 'teams') {
+      console.log(`📦 TeamDiscoveryScreen: Updating from prop teams (${propTeams.length})`);
+      setTeams(propTeams);
+      setIsLoading(false);
+    }
+  }, [propTeams, discoveryMode]);
 
   // Captain detection effect
   useEffect(() => {
@@ -615,12 +630,13 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
         </View>
 
       {/* Team Display */}
-      {isLoading ? (
+      {/* PERFORMANCE FIX: Only show loading if actively loading AND no cached teams */}
+      {isLoading && teams.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.text} />
           <Text style={styles.loadingText}>Loading {discoveryMode}...</Text>
         </View>
-      ) : error ? (
+      ) : error && teams.length === 0 ? (
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Failed to load teams</Text>
           <Text style={styles.errorSubtext}>{error}</Text>
@@ -629,19 +645,6 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
           </TouchableOpacity>
         </View>
       ) : teams.length === 0 ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={theme.colors.text} />
-            <Text style={styles.loadingText}>Loading {discoveryMode}...</Text>
-          </View>
-        ) : error ? (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>Failed to load teams</Text>
-            <Text style={styles.errorSubtext}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={() => fetchTeams(true)}>
-              <Text style={styles.retryButtonText}>Try Again</Text>
-            </TouchableOpacity>
-          </View>
-        ) : teams.length === 0 ? (
           <View style={styles.emptyContainer}>
             {/* Empty State Icon */}
             <View style={styles.emptyIcon}>
