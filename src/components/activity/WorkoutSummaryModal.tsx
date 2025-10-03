@@ -3,7 +3,7 @@
  * Shows workout stats and provides buttons for competition entry and social sharing
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,8 @@ import type { Split } from '../../services/activity/SplitTrackingService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SocialShareModal } from '../fitness/SocialShareModal';
 import { nsecToPrivateKey } from '../../utils/nostr';
+import TTSAnnouncementService from '../../services/activity/TTSAnnouncementService';
+import LocalWorkoutStorageService from '../../services/fitness/LocalWorkoutStorageService';
 
 interface WorkoutSummaryProps {
   visible: boolean;
@@ -36,6 +38,7 @@ interface WorkoutSummaryProps {
     speed?: number; // km/h for cycling
     steps?: number; // for walking
     splits?: Split[]; // kilometer splits for running
+    localWorkoutId?: string; // For marking as synced after posting
   };
 }
 
@@ -49,6 +52,26 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
   const [posted, setPosted] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showSocialModal, setShowSocialModal] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  // TTS Announcement when modal opens
+  useEffect(() => {
+    if (visible && workout) {
+      // Announce summary after a brief delay to let modal animation complete
+      const timer = setTimeout(async () => {
+        setIsSpeaking(true);
+        await TTSAnnouncementService.announceSummary(workout);
+        setIsSpeaking(false);
+      }, 500);
+
+      return () => {
+        clearTimeout(timer);
+        // Stop speech when modal closes
+        TTSAnnouncementService.stopSpeaking();
+        setIsSpeaking(false);
+      };
+    }
+  }, [visible, workout]);
 
   const formatDistance = (meters: number): string => {
     const km = meters / 1000;
@@ -61,7 +84,9 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
     const secs = seconds % 60;
 
     if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs
+        .toString()
+        .padStart(2, '0')}`;
     }
     return `${minutes}:${secs.toString().padStart(2, '0')}`;
   };
@@ -86,11 +111,16 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
 
   const getAverageSplitPace = (): number | null => {
     if (!workout.splits || workout.splits.length === 0) return null;
-    const totalPace = workout.splits.reduce((sum, split) => sum + split.pace, 0);
+    const totalPace = workout.splits.reduce(
+      (sum, split) => sum + split.pace,
+      0
+    );
     return totalPace / workout.splits.length;
   };
 
-  const getSplitComparison = (split: Split): 'faster' | 'slower' | 'average' => {
+  const getSplitComparison = (
+    split: Split
+  ): 'faster' | 'slower' | 'average' => {
     const avgPace = getAverageSplitPace();
     if (!avgPace) return 'average';
 
@@ -102,39 +132,46 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
     return 'average';
   };
 
-  const createPublishableWorkout = async (): Promise<PublishableWorkout | null> => {
-    const npub = await AsyncStorage.getItem('@runstr:npub');
-    const workoutId = `workout_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const createPublishableWorkout =
+    async (): Promise<PublishableWorkout | null> => {
+      const npub = await AsyncStorage.getItem('@runstr:npub');
+      const workoutId = `workout_${Date.now()}_${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
 
-    return {
-      id: workoutId,
-      userId: npub || 'unknown',
-      type: workout.type,
-      startTime: new Date(Date.now() - (workout.duration * 1000)).toISOString(),
-      endTime: new Date().toISOString(),
-      duration: workout.duration,
-      distance: workout.distance,
-      calories: workout.calories,
-      source: 'manual',
-      syncedAt: new Date().toISOString(),
-      sourceApp: 'RUNSTR',
-      elevationGain: workout.elevation,
-      unitSystem: 'metric',
-      canSyncToNostr: true,
-      metadata: {
-        title: `${workout.type.charAt(0).toUpperCase() + workout.type.slice(1)} Workout`,
+      return {
+        id: workoutId,
+        userId: npub || 'unknown',
+        type: workout.type,
+        startTime: new Date(Date.now() - workout.duration * 1000).toISOString(),
+        endTime: new Date().toISOString(),
+        duration: workout.duration,
+        distance: workout.distance,
+        calories: workout.calories,
+        source: 'manual',
+        syncedAt: new Date().toISOString(),
         sourceApp: 'RUNSTR',
-        notes: `Tracked ${formatDistance(workout.distance)} ${workout.type}`,
-      },
-      pace: workout.pace,
+        elevationGain: workout.elevation,
+        unitSystem: 'metric',
+        canSyncToNostr: true,
+        metadata: {
+          title: `${
+            workout.type.charAt(0).toUpperCase() + workout.type.slice(1)
+          } Workout`,
+          sourceApp: 'RUNSTR',
+          notes: `Tracked ${formatDistance(workout.distance)} ${workout.type}`,
+        },
+        pace: workout.pace,
+      };
     };
-  };
 
   const handleShowSocialModal = () => {
     setShowSocialModal(true);
   };
 
-  const handlePostToFeed = async (platform: 'nostr' | 'twitter' | 'instagram') => {
+  const handlePostToFeed = async (
+    platform: 'nostr' | 'twitter' | 'instagram'
+  ) => {
     if (platform !== 'nostr') {
       // Only Nostr is implemented for now
       return;
@@ -170,6 +207,21 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
 
       if (result.success) {
         setPosted(true);
+
+        // Mark as synced in local storage if this was a local workout
+        if (workout.localWorkoutId && result.eventId) {
+          try {
+            await LocalWorkoutStorageService.markAsSynced(
+              workout.localWorkoutId,
+              result.eventId
+            );
+            console.log(`✅ Marked local workout ${workout.localWorkoutId} as synced`);
+          } catch (syncError) {
+            console.warn('⚠️ Failed to mark workout as synced:', syncError);
+            // Non-critical - workout is still on Nostr
+          }
+        }
+
         Alert.alert(
           'Shared! 🎉',
           'Your workout has been shared to your feed!',
@@ -212,6 +264,21 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
 
       if (result.success) {
         setSaved(true);
+
+        // Mark as synced in local storage if this was a local workout
+        if (workout.localWorkoutId && result.eventId) {
+          try {
+            await LocalWorkoutStorageService.markAsSynced(
+              workout.localWorkoutId,
+              result.eventId
+            );
+            console.log(`✅ Marked local workout ${workout.localWorkoutId} as synced`);
+          } catch (syncError) {
+            console.warn('⚠️ Failed to mark workout as synced:', syncError);
+            // Non-critical - workout is still on Nostr
+          }
+        }
+
         Alert.alert(
           'Competing! ✅',
           'Your workout has been entered into competitions!',
@@ -230,10 +297,14 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
 
   const getActivityIcon = (): keyof typeof Ionicons.glyphMap => {
     switch (workout.type) {
-      case 'running': return 'fitness';
-      case 'walking': return 'walk';
-      case 'cycling': return 'bicycle';
-      default: return 'fitness';
+      case 'running':
+        return 'fitness';
+      case 'walking':
+        return 'walk';
+      case 'cycling':
+        return 'bicycle';
+      default:
+        return 'fitness';
     }
   };
 
@@ -248,10 +319,27 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
         <View style={styles.modalContent}>
           {/* Header */}
           <View style={styles.header}>
-            <Ionicons name={getActivityIcon()} size={40} color={theme.colors.text} />
-            <Text style={styles.title}>
-              {workout.type.charAt(0).toUpperCase() + workout.type.slice(1)} Complete!
-            </Text>
+            <Ionicons
+              name={getActivityIcon()}
+              size={40}
+              color={theme.colors.text}
+            />
+            <View style={styles.titleContainer}>
+              <Text style={styles.title}>
+                {workout.type.charAt(0).toUpperCase() + workout.type.slice(1)}{' '}
+                Complete!
+              </Text>
+              {isSpeaking && (
+                <View style={styles.speakingIndicator}>
+                  <Ionicons
+                    name="volume-medium"
+                    size={16}
+                    color={theme.colors.accent}
+                  />
+                  <Text style={styles.speakingText}>Speaking...</Text>
+                </View>
+              )}
+            </View>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <Ionicons name="close" size={24} color={theme.colors.textMuted} />
             </TouchableOpacity>
@@ -260,11 +348,15 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
           {/* Stats Grid */}
           <View style={styles.statsGrid}>
             <View style={styles.statCard}>
-              <Text style={styles.statValue}>{formatDistance(workout.distance)}</Text>
+              <Text style={styles.statValue}>
+                {formatDistance(workout.distance)}
+              </Text>
               <Text style={styles.statLabel}>Distance</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statValue}>{formatDuration(workout.duration)}</Text>
+              <Text style={styles.statValue}>
+                {formatDuration(workout.duration)}
+              </Text>
               <Text style={styles.statLabel}>Duration</Text>
             </View>
             {workout.type === 'running' && (
@@ -275,13 +367,17 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
             )}
             {workout.type === 'cycling' && (
               <View style={styles.statCard}>
-                <Text style={styles.statValue}>{formatSpeed(workout.speed)}</Text>
+                <Text style={styles.statValue}>
+                  {formatSpeed(workout.speed)}
+                </Text>
                 <Text style={styles.statLabel}>Speed</Text>
               </View>
             )}
             {workout.type === 'walking' && workout.steps && (
               <View style={styles.statCard}>
-                <Text style={styles.statValue}>{workout.steps.toLocaleString()}</Text>
+                <Text style={styles.statValue}>
+                  {workout.steps.toLocaleString()}
+                </Text>
                 <Text style={styles.statLabel}>Steps</Text>
               </View>
             )}
@@ -291,69 +387,90 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
             </View>
             {workout.elevation !== undefined && workout.elevation > 0 && (
               <View style={styles.statCard}>
-                <Text style={styles.statValue}>{workout.elevation.toFixed(0)}m</Text>
+                <Text style={styles.statValue}>
+                  {workout.elevation.toFixed(0)}m
+                </Text>
                 <Text style={styles.statLabel}>Elevation</Text>
               </View>
             )}
           </View>
 
           {/* Splits Section */}
-          {workout.type === 'running' && workout.splits && workout.splits.length > 0 && (
-            <View style={styles.splitsSection}>
-              <Text style={styles.splitsHeader}>Kilometer Splits</Text>
-              <ScrollView
-                style={styles.splitsScrollView}
-                showsVerticalScrollIndicator={false}
-              >
-                {workout.splits.map((split) => {
-                  const comparison = getSplitComparison(split);
-                  return (
-                    <View key={split.number} style={styles.splitRow}>
-                      <View style={styles.splitLeft}>
-                        <Text style={styles.splitNumber}>{split.number}K</Text>
+          {workout.type === 'running' &&
+            workout.splits &&
+            workout.splits.length > 0 && (
+              <View style={styles.splitsSection}>
+                <Text style={styles.splitsHeader}>Kilometer Splits</Text>
+                <ScrollView
+                  style={styles.splitsScrollView}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {workout.splits.map((split) => {
+                    const comparison = getSplitComparison(split);
+                    return (
+                      <View key={split.number} style={styles.splitRow}>
+                        <View style={styles.splitLeft}>
+                          <Text style={styles.splitNumber}>
+                            {split.number}K
+                          </Text>
+                        </View>
+                        <View style={styles.splitMiddle}>
+                          <Text style={styles.splitTime}>
+                            {formatSplitTime(split.splitTime)}
+                          </Text>
+                          <Text style={styles.splitPaceText}>
+                            {formatSplitTime(split.pace)}/km
+                          </Text>
+                        </View>
+                        <View style={styles.splitRight}>
+                          {comparison === 'faster' && (
+                            <Ionicons
+                              name="trending-up"
+                              size={16}
+                              color="#ffffff"
+                            />
+                          )}
+                          {comparison === 'slower' && (
+                            <Ionicons
+                              name="trending-down"
+                              size={16}
+                              color="#888888"
+                            />
+                          )}
+                          {comparison === 'average' && (
+                            <Ionicons name="remove" size={16} color="#888888" />
+                          )}
+                        </View>
                       </View>
-                      <View style={styles.splitMiddle}>
-                        <Text style={styles.splitTime}>
-                          {formatSplitTime(split.splitTime)}
-                        </Text>
-                        <Text style={styles.splitPaceText}>
-                          {formatSplitTime(split.pace)}/km
-                        </Text>
-                      </View>
-                      <View style={styles.splitRight}>
-                        {comparison === 'faster' && (
-                          <Ionicons name="trending-up" size={16} color="#ffffff" />
-                        )}
-                        {comparison === 'slower' && (
-                          <Ionicons name="trending-down" size={16} color="#888888" />
-                        )}
-                        {comparison === 'average' && (
-                          <Ionicons name="remove" size={16} color="#888888" />
-                        )}
-                      </View>
-                    </View>
-                  );
-                })}
-              </ScrollView>
-              <Text style={styles.splitsFooter}>
-                Average Pace: {formatSplitTime(getAverageSplitPace() || 0)}/km
-              </Text>
-            </View>
-          )}
+                    );
+                  })}
+                </ScrollView>
+                <Text style={styles.splitsFooter}>
+                  Average Pace: {formatSplitTime(getAverageSplitPace() || 0)}/km
+                </Text>
+              </View>
+            )}
 
           {/* Action Buttons */}
           <View style={styles.actionButtons}>
             <TouchableOpacity
-              style={[styles.actionButton, styles.postButton, posted && styles.disabledButton]}
+              style={[
+                styles.actionButton,
+                styles.postButton,
+                posted && styles.disabledButton,
+              ]}
               onPress={handleShowSocialModal}
               disabled={isPosting || posted}
             >
               {isPosting ? (
-                <ActivityIndicator size="small" color={theme.colors.background} />
+                <ActivityIndicator
+                  size="small"
+                  color={theme.colors.background}
+                />
               ) : (
                 <>
                   <Ionicons
-                    name={posted ? "checkmark-circle" : "megaphone"}
+                    name={posted ? 'checkmark-circle' : 'megaphone'}
                     size={20}
                     color={theme.colors.background}
                   />
@@ -365,7 +482,11 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.actionButton, styles.saveButton, saved && styles.disabledButton]}
+              style={[
+                styles.actionButton,
+                styles.saveButton,
+                saved && styles.disabledButton,
+              ]}
               onPress={handleSaveForCompetition}
               disabled={isSaving || saved}
             >
@@ -374,7 +495,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
               ) : (
                 <>
                   <Ionicons
-                    name={saved ? "checkmark-circle" : "save"}
+                    name={saved ? 'checkmark-circle' : 'save'}
                     size={20}
                     color={theme.colors.text}
                   />
@@ -389,10 +510,12 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
           {/* Info Text */}
           <View style={styles.infoContainer}>
             <Text style={styles.infoText}>
-              <Text style={styles.infoBold}>Post:</Text> Share with your followers on social media
+              <Text style={styles.infoBold}>Post:</Text> Share with your
+              followers on social media
             </Text>
             <Text style={styles.infoText}>
-              <Text style={styles.infoBold}>Compete:</Text> Enter into active competitions and leaderboards
+              <Text style={styles.infoBold}>Compete:</Text> Enter into active
+              competitions and leaderboards
             </Text>
           </View>
 
@@ -438,11 +561,25 @@ const styles = StyleSheet.create({
     top: -8,
     padding: 8,
   },
+  titleContainer: {
+    alignItems: 'center',
+  },
   title: {
     fontSize: 24,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
     marginTop: 12,
+  },
+  speakingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 6,
+  },
+  speakingText: {
+    fontSize: 12,
+    color: theme.colors.accent,
+    fontWeight: theme.typography.weights.medium,
   },
   statsGrid: {
     flexDirection: 'row',

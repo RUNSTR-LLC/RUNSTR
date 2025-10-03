@@ -9,6 +9,7 @@ import { enhancedLocationTrackingService } from '../../services/activity/Enhance
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
 import type { EnhancedTrackingSession } from '../../services/activity/EnhancedLocationTrackingService';
 import { WorkoutSummaryModal } from '../../components/activity/WorkoutSummaryModal';
+import LocalWorkoutStorageService from '../../services/fitness/LocalWorkoutStorageService';
 
 export const CyclingTrackerScreen: React.FC = () => {
   const [isTracking, setIsTracking] = useState(false);
@@ -29,6 +30,7 @@ export const CyclingTrackerScreen: React.FC = () => {
     calories: number;
     elevation?: number;
     speed?: number;
+    localWorkoutId?: string; // For marking as synced later
   } | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const metricsUpdateRef = useRef<NodeJS.Timeout | null>(null);
@@ -121,19 +123,46 @@ export const CyclingTrackerScreen: React.FC = () => {
     }
   };
 
-  const showWorkoutSummary = (session: EnhancedTrackingSession) => {
+  const showWorkoutSummary = async (session: EnhancedTrackingSession) => {
     const avgSpeed = activityMetricsService.calculateSpeed(session.totalDistance, elapsedTime);
     const calories = activityMetricsService.estimateCalories('cycling', session.totalDistance, elapsedTime);
 
-    setWorkoutData({
-      type: 'cycling',
-      distance: session.totalDistance,
-      duration: elapsedTime,
-      calories,
-      elevation: session.totalElevationGain,
-      speed: avgSpeed,
-    });
-    setSummaryModalVisible(true);
+    // Save workout to local storage BEFORE showing modal
+    try {
+      const workoutId = await LocalWorkoutStorageService.saveGPSWorkout({
+        type: 'cycling',
+        distance: session.totalDistance,
+        duration: elapsedTime,
+        calories,
+        elevation: session.totalElevationGain,
+        speed: avgSpeed,
+      });
+
+      console.log(`✅ Cycling workout saved locally: ${workoutId}`);
+
+      setWorkoutData({
+        type: 'cycling',
+        distance: session.totalDistance,
+        duration: elapsedTime,
+        calories,
+        elevation: session.totalElevationGain,
+        speed: avgSpeed,
+        localWorkoutId: workoutId,
+      });
+      setSummaryModalVisible(true);
+    } catch (error) {
+      console.error('❌ Failed to save cycling workout locally:', error);
+      // Still show modal even if save failed
+      setWorkoutData({
+        type: 'cycling',
+        distance: session.totalDistance,
+        duration: elapsedTime,
+        calories,
+        elevation: session.totalElevationGain,
+        speed: avgSpeed,
+      });
+      setSummaryModalVisible(true);
+    }
 
     resetMetrics();
   };

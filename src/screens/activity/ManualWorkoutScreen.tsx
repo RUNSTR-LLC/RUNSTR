@@ -15,6 +15,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
+import LocalWorkoutStorageService from '../../services/fitness/LocalWorkoutStorageService';
+import type { WorkoutType } from '../../types/workout';
 
 interface WorkoutPreset {
   id: string;
@@ -48,7 +50,7 @@ export const ManualWorkoutScreen: React.FC = () => {
     setCustomType(''); // Clear custom type when preset is selected
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const workoutType = selectedPreset
       ? WORKOUT_PRESETS.find(p => p.id === selectedPreset)?.name
       : customType;
@@ -58,24 +60,46 @@ export const ManualWorkoutScreen: React.FC = () => {
       return;
     }
 
-    const workoutData = {
-      type: workoutType,
-      duration: duration ? parseInt(duration) : undefined,
-      reps: reps ? parseInt(reps) : undefined,
-      sets: sets ? parseInt(sets) : undefined,
-      distance: distance ? parseFloat(distance) : undefined,
-      notes,
-      timestamp: new Date().toISOString(),
+    // Map preset names to WorkoutType
+    const workoutTypeMapping: Record<string, WorkoutType> = {
+      'Pushups': 'strength_training',
+      'Pullups': 'strength_training',
+      'Situps': 'strength_training',
+      'Yoga': 'yoga',
+      'Meditation': 'other',
+      'Treadmill': 'running',
+      'Weight Training': 'strength_training',
+      'Stretching': 'other',
     };
 
-    // TODO: Integrate with WorkoutPublishingService
-    console.log('Saving manual workout:', workoutData);
+    const mappedType = workoutTypeMapping[workoutType] || 'other';
 
-    Alert.alert(
-      'Workout Saved!',
-      `${workoutType} has been logged successfully`,
-      [{ text: 'OK', onPress: resetForm }]
-    );
+    try {
+      // Save workout to local storage
+      const workoutId = await LocalWorkoutStorageService.saveManualWorkout({
+        type: mappedType,
+        duration: duration ? parseInt(duration) : undefined,
+        distance: distance ? parseFloat(distance) : undefined,
+        reps: reps ? parseInt(reps) : undefined,
+        sets: sets ? parseInt(sets) : undefined,
+        notes,
+      });
+
+      console.log(`✅ Manual workout saved locally: ${workoutId} (${workoutType})`);
+
+      Alert.alert(
+        'Workout Saved!',
+        `${workoutType} has been logged successfully. Visit Workout History to post or compete.`,
+        [{ text: 'OK', onPress: resetForm }]
+      );
+    } catch (error) {
+      console.error('❌ Failed to save manual workout:', error);
+      Alert.alert(
+        'Save Failed',
+        'Failed to save workout. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   const resetForm = () => {

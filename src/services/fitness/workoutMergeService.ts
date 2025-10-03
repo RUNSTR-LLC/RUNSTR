@@ -9,6 +9,7 @@
 import { NostrWorkoutService } from './nostrWorkoutService';
 import { NostrCacheService } from '../cache/NostrCacheService';
 import { HealthKitService } from './healthKitService';
+import LocalWorkoutStorageService from './LocalWorkoutStorageService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Workout, WorkoutType } from '../../types/workout';
 import type { NostrWorkout } from '../../types/nostrWorkout';
@@ -44,6 +45,7 @@ export interface WorkoutMergeResult {
   allWorkouts: UnifiedWorkout[];
   healthKitCount: number;
   nostrCount: number;
+  localCount: number; // NEW: Count of local Activity Tracker workouts
   duplicateCount: number;
   lastSyncAt?: string;
   // OPTIMIZATION: Performance tracking
@@ -113,6 +115,7 @@ export class WorkoutMergeService {
           allWorkouts: [],
           healthKitCount: 0,
           nostrCount: 0,
+          localCount: 0,
           duplicateCount: 0,
           fromCache: false,
           loadDuration: Date.now() - startTime,
@@ -174,18 +177,20 @@ export class WorkoutMergeService {
         console.log('ℹ️ HealthKit not available on this device');
       }
 
-      // Fetch Nostr workouts
-      const [nostrWorkouts, postingStatus] = await Promise.all([
+      // Fetch Nostr workouts AND local workouts
+      const [nostrWorkouts, localWorkouts, postingStatus] = await Promise.all([
         this.fetchNostrWorkouts(pubkey),
+        LocalWorkoutStorageService.getAllWorkouts(),
         this.getWorkoutPostingStatus(pubkey),
       ]);
 
-      console.log(`📊 Found ${healthKitWorkouts.length} HealthKit, ${nostrWorkouts.length} Nostr workouts`);
+      console.log(`📊 Found ${healthKitWorkouts.length} HealthKit, ${nostrWorkouts.length} Nostr, ${localWorkouts.length} local workouts`);
 
-      // Deduplicate and merge
+      // Deduplicate and merge (now includes local workouts)
       const mergedResult = this.mergeAndDeduplicate(
         healthKitWorkouts,
         nostrWorkouts,
+        localWorkouts,
         postingStatus,
         pubkey
       );
@@ -429,11 +434,12 @@ export class WorkoutMergeService {
   }
 
   /**
-   * Merge and deduplicate HealthKit and Nostr workouts
+   * Merge and deduplicate HealthKit, Nostr, and Local workouts
    */
   private mergeAndDeduplicate(
     healthKitWorkouts: HealthKitWorkout[],
     nostrWorkouts: NostrWorkout[],
+    localWorkouts: any[], // LocalWorkout[] from LocalWorkoutStorageService
     postingStatus: Map<string, WorkoutStatusUpdate>,
     pubkey: string
   ): WorkoutMergeResult {
@@ -490,6 +496,40 @@ export class WorkoutMergeService {
       }
     }
 
+    // Add Local workouts (from Activity Tracker - GPS + Manual)
+    for (const localWorkout of localWorkouts) {
+      // Check if already synced to Nostr (to avoid duplicates)
+      const matchingNostr = nostrWorkouts.find(nw =>
+        localWorkout.nostrEventId && nw.nostrEventId === localWorkout.nostrEventId
+      );
+
+      if (!matchingNostr) {
+        const status = postingStatus.get(localWorkout.id);
+        unified.push({
+          id: localWorkout.id,
+          userId: pubkey,
+          type: localWorkout.type,
+          startTime: localWorkout.startTime,
+          endTime: localWorkout.endTime,
+          duration: localWorkout.duration,
+          distance: localWorkout.distance,
+          calories: localWorkout.calories,
+          source: localWorkout.source, // 'gps_tracker' or 'manual_entry'
+          syncedAt: localWorkout.createdAt,
+          syncedToNostr: localWorkout.syncedToNostr,
+          postedToSocial: status?.postedToSocial || false,
+          postingInProgress: false,
+          canSyncToNostr: !localWorkout.syncedToNostr, // Can sync if not already synced
+          canPostToSocial: true,
+          nostrEventId: localWorkout.nostrEventId,
+          elevationGain: localWorkout.elevation,
+          sourceApp: localWorkout.source === 'gps_tracker' ? 'RUNSTR GPS Tracker' : 'RUNSTR Manual Entry',
+        });
+      } else {
+        duplicateCount++;
+      }
+    }
+
     // Sort by start time (newest first)
     unified.sort(
       (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
@@ -499,6 +539,7 @@ export class WorkoutMergeService {
       allWorkouts: unified,
       healthKitCount: healthKitWorkouts.length,
       nostrCount: nostrWorkouts.length,
+      localCount: localWorkouts.length,
       duplicateCount,
     };
   }
@@ -795,6 +836,7 @@ export class WorkoutMergeService {
     totalWorkouts: number;
     healthKitWorkouts: number;
     nostrWorkouts: number;
+    localWorkouts: number;
     syncedToNostr: number;
     postedToSocial: number;
     lastMergeAt?: string;
@@ -816,6 +858,7 @@ export class WorkoutMergeService {
         totalWorkouts: result.allWorkouts.length,
         healthKitWorkouts: result.healthKitCount,
         nostrWorkouts: result.nostrCount,
+        localWorkouts: result.localCount,
         syncedToNostr: syncedCount,
         postedToSocial: postedCount,
         lastMergeAt: lastMergeData || undefined,
@@ -826,6 +869,7 @@ export class WorkoutMergeService {
         totalWorkouts: 0,
         healthKitWorkouts: 0,
         nostrWorkouts: 0,
+        localWorkouts: 0,
         syncedToNostr: 0,
         postedToSocial: 0,
       };
@@ -932,6 +976,7 @@ export class WorkoutMergeService {
         allWorkouts: mergedResult.allWorkouts,
         healthKitCount: mergedResult.healthKitCount,
         nostrCount: mergedResult.nostrCount,
+        localCount: 0, // Pagination doesn't include local workouts
         duplicateCount: mergedResult.duplicateCount,
         lastSyncAt: new Date().toISOString(),
         fromCache: false,
@@ -948,6 +993,7 @@ export class WorkoutMergeService {
         allWorkouts: [],
         healthKitCount: 0,
         nostrCount: 0,
+        localCount: 0,
         duplicateCount: 0,
         lastSyncAt: new Date().toISOString(),
         fromCache: false,

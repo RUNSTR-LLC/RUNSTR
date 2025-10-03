@@ -9,6 +9,7 @@ import { enhancedLocationTrackingService } from '../../services/activity/Enhance
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
 import type { EnhancedTrackingSession } from '../../services/activity/EnhancedLocationTrackingService';
 import { WorkoutSummaryModal } from '../../components/activity/WorkoutSummaryModal';
+import LocalWorkoutStorageService from '../../services/fitness/LocalWorkoutStorageService';
 
 export const WalkingTrackerScreen: React.FC = () => {
   const [isTracking, setIsTracking] = useState(false);
@@ -28,6 +29,7 @@ export const WalkingTrackerScreen: React.FC = () => {
     calories: number;
     elevation?: number;
     steps?: number;
+    localWorkoutId?: string; // For marking as synced later
   } | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const metricsUpdateRef = useRef<NodeJS.Timeout | null>(null);
@@ -118,19 +120,45 @@ export const WalkingTrackerScreen: React.FC = () => {
     }
   };
 
-  const showWorkoutSummary = (session: EnhancedTrackingSession) => {
+  const showWorkoutSummary = async (session: EnhancedTrackingSession) => {
     const steps = activityMetricsService.estimateSteps(session.totalDistance);
     const calories = activityMetricsService.estimateCalories('walking', session.totalDistance, elapsedTime);
 
-    setWorkoutData({
-      type: 'walking',
-      distance: session.totalDistance,
-      duration: elapsedTime,
-      calories,
-      elevation: session.totalElevationGain,
-      steps,
-    });
-    setSummaryModalVisible(true);
+    // Save workout to local storage BEFORE showing modal
+    try {
+      const workoutId = await LocalWorkoutStorageService.saveGPSWorkout({
+        type: 'walking',
+        distance: session.totalDistance,
+        duration: elapsedTime,
+        calories,
+        elevation: session.totalElevationGain,
+      });
+
+      console.log(`✅ Walking workout saved locally: ${workoutId}`);
+
+      setWorkoutData({
+        type: 'walking',
+        distance: session.totalDistance,
+        duration: elapsedTime,
+        calories,
+        elevation: session.totalElevationGain,
+        steps,
+        localWorkoutId: workoutId,
+      });
+      setSummaryModalVisible(true);
+    } catch (error) {
+      console.error('❌ Failed to save walking workout locally:', error);
+      // Still show modal even if save failed
+      setWorkoutData({
+        type: 'walking',
+        distance: session.totalDistance,
+        duration: elapsedTime,
+        calories,
+        elevation: session.totalElevationGain,
+        steps,
+      });
+      setSummaryModalVisible(true);
+    }
 
     resetMetrics();
   };

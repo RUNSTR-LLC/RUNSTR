@@ -15,6 +15,7 @@ import type { Split } from '../../services/activity/SplitTrackingService';
 import { GPSStatusIndicator, type GPSSignalStrength } from '../../components/activity/GPSStatusIndicator';
 import { BatteryWarning } from '../../components/activity/BatteryWarning';
 import { WorkoutSummaryModal } from '../../components/activity/WorkoutSummaryModal';
+import LocalWorkoutStorageService from '../../services/fitness/LocalWorkoutStorageService';
 
 interface MetricCardProps {
   label: string;
@@ -55,6 +56,7 @@ export const RunningTrackerScreen: React.FC = () => {
     elevation?: number;
     pace?: number;
     splits?: Split[];
+    localWorkoutId?: string; // For marking as synced later
   } | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const metricsUpdateRef = useRef<NodeJS.Timeout | null>(null);
@@ -197,20 +199,50 @@ export const RunningTrackerScreen: React.FC = () => {
     }
   };
 
-  const showWorkoutSummary = (session: EnhancedTrackingSession) => {
+  const showWorkoutSummary = async (session: EnhancedTrackingSession) => {
     const calories = activityMetricsService.estimateCalories('running', session.totalDistance, elapsedTime);
     const pace = activityMetricsService.calculatePace(session.totalDistance, elapsedTime);
 
-    setWorkoutData({
-      type: 'running',
-      distance: session.totalDistance,
-      duration: elapsedTime,
-      calories,
-      elevation: session.totalElevationGain,
-      pace,
-      splits: session.splits,
-    });
-    setSummaryModalVisible(true);
+    // Save workout to local storage BEFORE showing modal
+    // This ensures data persists even if user dismisses modal
+    try {
+      const workoutId = await LocalWorkoutStorageService.saveGPSWorkout({
+        type: 'running',
+        distance: session.totalDistance,
+        duration: elapsedTime,
+        calories,
+        elevation: session.totalElevationGain,
+        pace,
+        splits: session.splits,
+      });
+
+      console.log(`✅ GPS workout saved locally: ${workoutId}`);
+
+      setWorkoutData({
+        type: 'running',
+        distance: session.totalDistance,
+        duration: elapsedTime,
+        calories,
+        elevation: session.totalElevationGain,
+        pace,
+        splits: session.splits,
+        localWorkoutId: workoutId, // Pass to modal for sync tracking
+      });
+      setSummaryModalVisible(true);
+    } catch (error) {
+      console.error('❌ Failed to save workout locally:', error);
+      // Still show modal even if save failed
+      setWorkoutData({
+        type: 'running',
+        distance: session.totalDistance,
+        duration: elapsedTime,
+        calories,
+        elevation: session.totalElevationGain,
+        pace,
+        splits: session.splits,
+      });
+      setSummaryModalVisible(true);
+    }
 
     // Reset metrics after showing summary
     setMetrics({
