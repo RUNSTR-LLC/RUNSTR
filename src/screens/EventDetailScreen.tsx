@@ -42,6 +42,11 @@ import { getAuthenticationData } from '../utils/nostrAuth';
 import { nsecToPrivateKey } from '../utils/nostr';
 import type { CompetitionLeaderboard, CompetitionParticipant } from '../services/competition/nostrCompetitionLeaderboardService';
 
+// QR Code Components
+import { QRDisplayModal } from '../components/qr/QRDisplayModal';
+import QRCodeService from '../services/qr/QRCodeService';
+import type { EventQRData } from '../services/qr/QRCodeService';
+
 type EventDetailRouteProp = RouteProp<RootStackParamList, 'EventDetail'>;
 type EventDetailNavigationProp = StackNavigationProp<
   RootStackParamList,
@@ -72,6 +77,10 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
   const [team, setTeam] = useState<any>(null);
   const [competition, setCompetition] = useState<any>(null);
   const participantService = NostrCompetitionParticipantService.getInstance();
+
+  // QR Code state
+  const [qrModalVisible, setQrModalVisible] = useState(false);
+  const [eventQRData, setEventQRData] = useState<EventQRData | null>(null);
 
   // Load event data
   useEffect(() => {
@@ -392,6 +401,27 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
     }
   };
 
+  // Handle QR code display (captain only)
+  const handleShowQRCode = () => {
+    if (!eventData || !competition || !currentUserPubkey) return;
+
+    // Generate QR data for this event
+    const qrData = QRCodeService.generateEventQR(
+      eventData.id,
+      competition.teamId,
+      currentUserPubkey,
+      eventData.name,
+      competition.startTime,
+      competition.endTime,
+      eventData.description
+    );
+
+    // Parse the JSON string back to object for the modal
+    const parsedQRData = JSON.parse(qrData) as EventQRData;
+    setEventQRData(parsedQRData);
+    setQrModalVisible(true);
+  };
+
   // Handle join/leave event
   const checkJoinStatus = async () => {
     try {
@@ -653,6 +683,17 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
 
       {/* Action Button */}
       <View style={styles.actionSection}>
+        {/* Show QR button for captains */}
+        {userIsCaptain && (
+          <TouchableOpacity
+            style={styles.qrButton}
+            onPress={handleShowQRCode}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.qrButtonText}>📱 Show QR Code</Text>
+          </TouchableOpacity>
+        )}
+
         <ActionButton
           title={getActionButtonTitle()}
           onPress={handleJoinToggle}
@@ -672,6 +713,15 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
           }
         />
       </View>
+
+      {/* QR Code Modal */}
+      {eventQRData && (
+        <QRDisplayModal
+          visible={qrModalVisible}
+          onClose={() => setQrModalVisible(false)}
+          data={eventQRData}
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -703,6 +753,20 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
+  },
+  qrButton: {
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  qrButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.text,
   },
   bottomPadding: {
     height: 20, // Extra space before action button

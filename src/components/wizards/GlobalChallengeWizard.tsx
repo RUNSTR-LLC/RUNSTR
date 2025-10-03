@@ -328,6 +328,7 @@ export const GlobalChallengeWizard: React.FC<GlobalChallengeWizardProps> = ({
             }}
             qrData={challengeQRData}
             onDone={handleSuccessDone}
+            isInAppChallenge={!!preselectedOpponent}
           />
         )}
       </View>

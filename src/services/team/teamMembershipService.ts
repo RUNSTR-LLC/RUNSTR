@@ -7,7 +7,10 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Event } from 'nostr-tools';
-import { NostrRelayManager, nostrRelayManager } from '../nostr/NostrRelayManager';
+import {
+  NostrRelayManager,
+  nostrRelayManager,
+} from '../nostr/NostrRelayManager';
 import { NostrListService } from '../nostr/NostrListService';
 import { TeamJoinRequestService } from './TeamJoinRequestService';
 import type { NostrFilter } from '../nostr/NostrProtocolHandler';
@@ -52,7 +55,9 @@ export class TeamMembershipService {
   constructor(relayManager?: NostrRelayManager) {
     this.relayManager = relayManager || nostrRelayManager;
     this.listService = NostrListService.getInstance(this.relayManager);
-    this.joinRequestService = TeamJoinRequestService.getInstance(this.relayManager);
+    this.joinRequestService = TeamJoinRequestService.getInstance(
+      this.relayManager
+    );
   }
 
   static getInstance(relayManager?: NostrRelayManager): TeamMembershipService {
@@ -203,10 +208,12 @@ export class TeamMembershipService {
     console.log(`🔍 Fetching join requests for team: ${teamId}`);
 
     try {
-      const requests = await this.joinRequestService.getTeamJoinRequests(teamId);
-      
+      const requests = await this.joinRequestService.getTeamJoinRequests(
+        teamId
+      );
+
       // Convert TeamJoinRequest to JoinRequest format
-      return requests.map(req => ({
+      return requests.map((req) => ({
         id: req.id,
         teamId: req.teamId,
         teamName: req.teamName,
@@ -217,7 +224,10 @@ export class TeamMembershipService {
         nostrEvent: req.nostrEvent,
       }));
     } catch (error) {
-      console.error(`❌ Failed to fetch join requests for team ${teamId}:`, error);
+      console.error(
+        `❌ Failed to fetch join requests for team ${teamId}:`,
+        error
+      );
       return [];
     }
   }
@@ -230,7 +240,9 @@ export class TeamMembershipService {
     captainPubkey: string,
     callback: (joinRequest: JoinRequest) => void
   ): Promise<string> {
-    console.log(`🔔 Subscribing to join requests for captain: ${captainPubkey}`);
+    console.log(
+      `🔔 Subscribing to join requests for captain: ${captainPubkey}`
+    );
 
     return this.joinRequestService.subscribeToJoinRequests(
       captainPubkey,
@@ -294,7 +306,11 @@ export class TeamMembershipService {
     captainPubkey: string
   ): Promise<boolean> {
     const memberListDTag = `${teamId}-members`;
-    return await this.listService.isInList(captainPubkey, memberListDTag, userPubkey);
+    return await this.listService.isInList(
+      captainPubkey,
+      memberListDTag,
+      userPubkey
+    );
   }
 
   // ================================================================================
@@ -314,7 +330,7 @@ export class TeamMembershipService {
     console.log(`📝 Preparing member list creation for team: ${teamName}`);
 
     const memberListDTag = `${teamId}-members`;
-    
+
     return this.listService.prepareListCreation(
       {
         name: `${teamName} Members`,
@@ -330,7 +346,10 @@ export class TeamMembershipService {
   /**
    * Get team members from official kind 30000 list
    */
-  async getTeamMembers(teamId: string, captainPubkey: string): Promise<string[]> {
+  async getTeamMembers(
+    teamId: string,
+    captainPubkey: string
+  ): Promise<string[]> {
     const memberListDTag = `${teamId}-members`;
     return await this.listService.getListMembers(captainPubkey, memberListDTag);
   }
@@ -366,10 +385,67 @@ export class TeamMembershipService {
 
   /**
    * Get user's current team (first local membership)
+   * @deprecated Use getPrimaryTeam() for multi-team support
    */
   async getCurrentTeam(userPubkey: string): Promise<LocalMembership | null> {
     const memberships = await this.getLocalMemberships(userPubkey);
     return memberships[0] || null; // For now, support single team membership
+  }
+
+  /**
+   * Get all teams user is a member of
+   */
+  async getAllTeams(userPubkey: string): Promise<LocalMembership[]> {
+    return await this.getLocalMemberships(userPubkey);
+  }
+
+  /**
+   * Get user's primary team (designated favorite or first team)
+   */
+  async getPrimaryTeam(userPubkey: string): Promise<LocalMembership | null> {
+    const memberships = await this.getLocalMemberships(userPubkey);
+    if (memberships.length === 0) return null;
+
+    // Check if user has set a primary team preference
+    try {
+      const primaryTeamId = await AsyncStorage.getItem(
+        `runstr:primaryTeamId:${userPubkey}`
+      );
+
+      if (primaryTeamId) {
+        const primaryTeam = memberships.find((m) => m.teamId === primaryTeamId);
+        if (primaryTeam) return primaryTeam;
+      }
+    } catch (error) {
+      console.error('Failed to get primary team preference:', error);
+    }
+
+    // Fallback to first team
+    return memberships[0];
+  }
+
+  /**
+   * Set user's primary team (designated favorite)
+   */
+  async setPrimaryTeam(userPubkey: string, teamId: string): Promise<boolean> {
+    try {
+      // Verify user is actually a member of this team
+      const memberships = await this.getLocalMemberships(userPubkey);
+      const isMember = memberships.some((m) => m.teamId === teamId);
+
+      if (!isMember) {
+        console.error('Cannot set primary team: User is not a member');
+        return false;
+      }
+
+      await AsyncStorage.setItem(`runstr:primaryTeamId:${userPubkey}`, teamId);
+
+      console.log(`⭐ Set primary team: ${teamId}`);
+      return true;
+    } catch (error) {
+      console.error('Failed to set primary team:', error);
+      return false;
+    }
   }
 
   /**

@@ -11,7 +11,10 @@ import {
   TouchableOpacity,
   Animated,
   ScrollView,
+  Share,
+  Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
 import { theme } from '../../../styles/theme';
 import { ChallengeCreationData } from '../../../types';
@@ -22,6 +25,7 @@ interface SuccessScreenProps {
   currentUserName?: string;
   qrData?: ChallengeQRData | null;
   onDone: () => void;
+  isInAppChallenge?: boolean; // True if challenge sent via in-app button, false if QR
 }
 
 export const SuccessScreen: React.FC<SuccessScreenProps> = ({
@@ -29,8 +33,26 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({
   currentUserName = 'Alex',
   qrData,
   onDone,
+  isInAppChallenge = false,
 }) => {
   const scaleAnim = useRef(new Animated.Value(0)).current;
+
+  const handleShare = async () => {
+    if (!qrData) return;
+
+    try {
+      const challengeUrl = `runstr://challenge/${qrData.id}`;
+      const message = `I challenge you to a ${qrData.activity} competition! ${qrData.metric} for ${qrData.duration} days. Wager: ${qrData.wager} sats. Accept the challenge: ${challengeUrl}`;
+
+      await Share.share({
+        message,
+        title: 'RUNSTR Challenge',
+        ...(Platform.OS === 'ios' && { url: challengeUrl }),
+      });
+    } catch (error) {
+      console.error('Failed to share challenge:', error);
+    }
+  };
 
   useEffect(() => {
     // Animate the success icon with a pop effect
@@ -80,13 +102,17 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({
       </Animated.View>
 
       {/* Success Text */}
-      <Text style={styles.successTitle}>Challenge Created!</Text>
+      <Text style={styles.successTitle}>
+        {isInAppChallenge ? 'Challenge Sent!' : 'Challenge Created!'}
+      </Text>
       <Text style={styles.successSubtitle}>
-        Show this QR code to your opponent
+        {isInAppChallenge
+          ? 'Waiting for opponent to accept...'
+          : 'Share this QR code with your opponent'}
       </Text>
 
-      {/* QR Code */}
-      {qrData && (
+      {/* QR Code (only for QR challenges) */}
+      {qrData && !isInAppChallenge && (
         <View style={styles.qrContainer}>
           <QRCode
             value={JSON.stringify(qrData)}
@@ -96,20 +122,45 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({
         </View>
       )}
 
+      {/* Status indicator for in-app challenges */}
+      {isInAppChallenge && (
+        <View style={styles.statusContainer}>
+          <Ionicons name="time-outline" size={48} color={theme.colors.textSecondary} />
+          <Text style={styles.statusText}>
+            Your opponent will receive a notification
+          </Text>
+          <Text style={styles.statusSubtext}>
+            You'll be notified when they accept or decline
+          </Text>
+        </View>
+      )}
+
       {/* Challenge Details */}
       <View style={styles.successDetails}>
         <Text style={styles.challengeName}>{getChallengeName()}</Text>
         <Text style={styles.challengeSummary}>{getChallengeSummary()}</Text>
       </View>
 
-      {/* Done Button */}
-      <TouchableOpacity
-        style={styles.doneButton}
-        onPress={onDone}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.doneButtonText}>Done</Text>
-      </TouchableOpacity>
+      {/* Action Buttons */}
+      <View style={styles.actionButtons}>
+        {qrData && !isInAppChallenge && (
+          <TouchableOpacity
+            style={styles.shareButton}
+            onPress={handleShare}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="share-outline" size={20} color={theme.colors.text} />
+            <Text style={styles.shareButtonText}>Share</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          style={[styles.doneButton, qrData && !isInAppChallenge && styles.doneButtonSecondary]}
+          onPress={onDone}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.doneButtonText}>Done</Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 };
@@ -179,13 +230,59 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 24,
   },
+  statusContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  statusText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.text,
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  statusSubtext: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  shareButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+  },
+  shareButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
   doneButton: {
+    flex: 1,
     backgroundColor: theme.colors.accent,
     paddingVertical: 16,
     paddingHorizontal: 40,
     borderRadius: 12,
-    width: '100%',
     alignItems: 'center',
+  },
+  doneButtonSecondary: {
+    flex: 1,
   },
   doneButtonText: {
     fontSize: 16,

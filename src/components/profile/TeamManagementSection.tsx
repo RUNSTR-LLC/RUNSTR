@@ -1,27 +1,41 @@
 /**
- * TeamManagementSection - Profile component showing user's current team
- * Displays a clickable team card that navigates to the team page
+ * TeamManagementSection - Profile component showing user's team(s)
+ * Displays:
+ * - 0 teams: "No Team Joined" state with "Find Teams" button
+ * - 1 team: Expanded team card (current design)
+ * - 2+ teams: Scrollable list of compact team cards
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+} from 'react-native';
 import { theme } from '../../styles/theme';
 import { Team } from '../../types';
 import leagueRankingService from '../../services/competition/leagueRankingService';
 import { TeamMemberCache } from '../../services/team/TeamMemberCache';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CompactTeamCard } from './CompactTeamCard';
 
 interface TeamManagementSectionProps {
-  currentTeam?: Team;
+  currentTeam?: Team; // Deprecated - use teams array
+  teams?: Team[]; // All teams user is a member of
+  primaryTeamId?: string; // User's designated primary team
   isLoading?: boolean;
   onChangeTeam: () => void;
   onJoinTeam: () => void;
-  onViewTeam?: () => void;
+  onViewTeam?: (team?: Team) => void;
   onRefresh?: () => void;
 }
 
 export const TeamManagementSection: React.FC<TeamManagementSectionProps> = ({
   currentTeam,
+  teams,
+  primaryTeamId,
   isLoading = false,
   onChangeTeam,
   onJoinTeam,
@@ -31,19 +45,43 @@ export const TeamManagementSection: React.FC<TeamManagementSectionProps> = ({
   const [userRank, setUserRank] = useState<number | null>(null);
   const [competitionName, setCompetitionName] = useState<string | null>(null);
   const [loadingRank, setLoadingRank] = useState(false);
+  const [userNpub, setUserNpub] = useState<string>('');
+
+  // Determine which teams to display (prefer teams array, fallback to currentTeam)
+  const displayTeams = teams || (currentTeam ? [currentTeam] : []);
+  const teamCount = displayTeams.length;
+
+  // Load user npub on mount
+  useEffect(() => {
+    const loadUserNpub = async () => {
+      try {
+        const npub = await AsyncStorage.getItem('@runstr:npub');
+        if (npub) {
+          setUserNpub(npub);
+        }
+      } catch (error) {
+        console.error('Error loading user npub:', error);
+      }
+    };
+
+    loadUserNpub();
+  }, []);
 
   useEffect(() => {
     const fetchUserRank = async () => {
-      if (!currentTeam?.id) return;
+      // Only fetch rank for single team view (expanded card)
+      if (!currentTeam?.id || teamCount !== 1) return;
 
       try {
         setLoadingRank(true);
         // Get current user's npub
-        const userNpub = await AsyncStorage.getItem('@runstr:npub');
-        if (!userNpub) return;
+        const storedNpub = await AsyncStorage.getItem('@runstr:npub');
+        if (!storedNpub) return;
 
         // Get team captain info
-        const teamService = (await import('../../services/nostr/NostrTeamService')).getNostrTeamService();
+        const teamService = (
+          await import('../../services/nostr/NostrTeamService')
+        ).getNostrTeamService();
         const fullTeam = teamService.getTeamById(currentTeam.id);
         if (!fullTeam?.captainId) return;
 
@@ -52,15 +90,20 @@ export const TeamManagementSection: React.FC<TeamManagementSectionProps> = ({
         const parameters = {
           activityType: 'Any' as any,
           competitionType: 'Most Consistent' as any,
-          startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+          startDate: new Date(
+            Date.now() - 30 * 24 * 60 * 60 * 1000
+          ).toISOString(),
           endDate: new Date().toISOString(),
           scoringFrequency: 'daily' as const,
         };
 
         // Get team members
         const memberCache = TeamMemberCache.getInstance();
-        const members = await memberCache.getTeamMembers(currentTeam.id, fullTeam.captainId);
-        const participants = members.map(pubkey => ({
+        const members = await memberCache.getTeamMembers(
+          currentTeam.id,
+          fullTeam.captainId
+        );
+        const participants = members.map((pubkey) => ({
           npub: pubkey,
           name: pubkey.slice(0, 8) + '...',
           isActive: true,
@@ -73,7 +116,7 @@ export const TeamManagementSection: React.FC<TeamManagementSectionProps> = ({
         );
 
         if (result.rankings && result.rankings.length > 0) {
-          const userEntry = result.rankings.find(r => r.npub === userNpub);
+          const userEntry = result.rankings.find((r) => r.npub === storedNpub);
           if (userEntry) {
             setUserRank(userEntry.rank);
             setCompetitionName('30-Day Streak');
@@ -87,7 +130,7 @@ export const TeamManagementSection: React.FC<TeamManagementSectionProps> = ({
     };
 
     fetchUserRank();
-  }, [currentTeam?.id]);
+  }, [currentTeam?.id, teamCount]);
 
   // Show loading state
   if (isLoading) {
@@ -101,7 +144,8 @@ export const TeamManagementSection: React.FC<TeamManagementSectionProps> = ({
     );
   }
 
-  if (!currentTeam) {
+  // CASE 1: No teams - Show "No Team Joined" state
+  if (teamCount === 0) {
     return (
       <View style={styles.card}>
         <View style={styles.noTeamContainer}>
@@ -121,34 +165,62 @@ export const TeamManagementSection: React.FC<TeamManagementSectionProps> = ({
     );
   }
 
-  return (
-    <TouchableOpacity
-      activeOpacity={0.8}
-      onPress={onViewTeam}
-    >
-      <View style={styles.card}>
-        <View style={styles.teamContainer}>
-          {/* Your Team Badge */}
-          <View style={styles.badgeContainer}>
-            <Text style={styles.badgeText}>YOUR TEAM</Text>
-          </View>
+  // CASE 2: Single team - Show expanded card (current design)
+  if (teamCount === 1) {
+    const singleTeam = displayTeams[0];
+    return (
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={() => onViewTeam?.(singleTeam)}
+      >
+        <View style={styles.card}>
+          <View style={styles.teamContainer}>
+            {/* Your Team Badge */}
+            <View style={styles.badgeContainer}>
+              <Text style={styles.badgeText}>YOUR TEAM</Text>
+            </View>
 
-          {/* Team Info */}
-          <View style={styles.teamHeader}>
-            <Text style={styles.teamName}>{currentTeam.name}</Text>
-            <Text style={styles.teamDescription} numberOfLines={2}>
-              {currentTeam.description}
-            </Text>
-            {/* Competition Status Line */}
-            {userRank && competitionName && (
-              <Text style={styles.competitionStatus}>
-                Rank #{userRank} in {competitionName}
+            {/* Team Info */}
+            <View style={styles.teamHeader}>
+              <Text style={styles.teamName}>{singleTeam.name}</Text>
+              <Text style={styles.teamDescription} numberOfLines={2}>
+                {singleTeam.description}
               </Text>
-            )}
+              {/* Competition Status Line */}
+              {userRank && competitionName && (
+                <Text style={styles.competitionStatus}>
+                  Rank #{userRank} in {competitionName}
+                </Text>
+              )}
+            </View>
           </View>
         </View>
+      </TouchableOpacity>
+    );
+  }
+
+  // CASE 3: Multiple teams - Show scrollable compact cards
+  return (
+    <View style={styles.card}>
+      <View style={styles.multiTeamContainer}>
+        <Text style={styles.sectionHeader}>YOUR TEAMS</Text>
+        <ScrollView
+          style={styles.multiTeamScroll}
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
+        >
+          {displayTeams.map((team) => (
+            <CompactTeamCard
+              key={team.id}
+              team={team}
+              isPrimary={team.id === primaryTeamId}
+              currentUserNpub={userNpub}
+              onPress={(selectedTeam) => onViewTeam?.(selectedTeam)}
+            />
+          ))}
+        </ScrollView>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 };
 
@@ -315,5 +387,23 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.border,
     borderRadius: 4,
     width: '80%',
+  },
+
+  // Multi-team styles
+  multiTeamContainer: {
+    paddingVertical: 8,
+  },
+
+  sectionHeader: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.textMuted, // #666666
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  multiTeamScroll: {
+    maxHeight: 280, // ~3.5 cards visible (hints at scrollability)
   },
 });

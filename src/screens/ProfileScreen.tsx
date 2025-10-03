@@ -332,11 +332,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           />
         </TouchableOpacity>
 
-        {/* User's Team */}
+        {/* User's Team(s) - Multi-team support */}
         <View style={styles.boxContainer}>
           <TeamManagementSection
             currentTeam={data.currentTeam}
-            isLoading={isLoadingTeam || (isRefreshing && !data.currentTeam)}
+            teams={data.teams}
+            primaryTeamId={data.primaryTeamId}
+            isLoading={isLoadingTeam || (isRefreshing && !data.currentTeam && !data.teams)}
             onChangeTeam={() => onNavigateToTeamDiscovery?.()}
             onJoinTeam={() => onNavigateToTeamDiscovery?.()}
             onViewTeam={onViewCurrentTeam}

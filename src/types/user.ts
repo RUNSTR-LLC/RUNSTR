@@ -46,7 +46,9 @@ export interface ProfileScreenData {
   syncSources: SyncSource[];
   recentWorkouts: any[]; // Reference workout types from workout.ts
   notificationSettings: NotificationSettings;
-  currentTeam?: any; // User's current team data
+  currentTeam?: any; // User's current team data (deprecated - use teams/primaryTeamId)
+  teams?: any[]; // All teams user is a member of (multi-team support)
+  primaryTeamId?: string; // User's designated primary/favorite team
   subscription?: {
     type: 'captain' | 'member';
     status: 'active' | 'expired' | 'cancelled';

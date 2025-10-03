@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Card } from '../ui/Card';
 import { Avatar } from '../ui/Avatar';
 import { NutzapLightningButton } from '../nutzap/NutzapLightningButton';
+import { ChallengeButton } from '../profile/ChallengeButton';
 import { FormattedLeaderboardEntry } from '../../types';
 import { theme } from '../../styles/theme';
 
@@ -46,12 +47,23 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
           </View>
 
           {entry.npub && (
-            <NutzapLightningButton
-              recipientNpub={entry.npub}
-              recipientName={entry.name}
-              size="small"
-              style={styles.zapButton}
-            />
+            <View style={styles.actions}>
+              <ChallengeButton
+                targetUser={{
+                  pubkey: entry.npub,
+                  npub: entry.npub,
+                  name: entry.name,
+                }}
+                size="small"
+                variant="icon"
+              />
+              <NutzapLightningButton
+                recipientNpub={entry.npub}
+                recipientName={entry.name}
+                size="small"
+                style={styles.zapButton}
+              />
+            </View>
           )}
         </View>
       ))}
@@ -81,6 +93,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   rank: {
     width: 24,
