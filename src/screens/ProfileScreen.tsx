@@ -182,15 +182,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     onEditProfile?.();
   };
 
-  const handleSend = async () => {
-    // Refresh balance before opening send modal
-    await refreshBalance();
+  const handleSend = () => {
+    // Refresh balance in background (non-blocking)
+    refreshBalance().catch(err => console.warn('[ProfileScreen] Balance refresh failed:', err));
     setShowSendModal(true);
   };
 
-  const handleReceive = async () => {
-    // Refresh balance before opening receive modal
-    await refreshBalance();
+  const handleReceive = () => {
+    // Refresh balance in background (non-blocking)
+    refreshBalance().catch(err => console.warn('[ProfileScreen] Balance refresh failed:', err));
     setShowReceiveModal(true);
   };
 
