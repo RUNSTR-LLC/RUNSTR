@@ -113,6 +113,8 @@ export const QRDisplayModal: React.FC<QRDisplayModalProps> = ({
               <QRCode value={qrString} size={250} backgroundColor="#000" />
             </View>
 
+            <Text style={styles.runstrBranding}>RUNSTR</Text>
+
             <Text style={styles.instruction}>
               Show this QR code to invite others
             </Text>
@@ -193,7 +195,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     padding: 20,
     borderRadius: 12,
-    marginBottom: 16,
+    marginBottom: 12,
+  },
+  runstrBranding: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: theme.colors.text,
+    textAlign: 'center',
+    letterSpacing: 2,
+    marginBottom: 8,
   },
   instruction: {
     fontSize: 13,

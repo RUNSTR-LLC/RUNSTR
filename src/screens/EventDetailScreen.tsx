@@ -47,6 +47,9 @@ import { QRDisplayModal } from '../components/qr/QRDisplayModal';
 import QRCodeService from '../services/qr/QRCodeService';
 import type { EventQRData } from '../services/qr/QRCodeService';
 
+// Captain Management
+import { EventParticipantManagementSection } from '../components/captain/EventParticipantManagementSection';
+
 type EventDetailRouteProp = RouteProp<RootStackParamList, 'EventDetail'>;
 type EventDetailNavigationProp = StackNavigationProp<
   RootStackParamList,
@@ -616,6 +619,35 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
           progressPercentage={eventData.progress.percentage}
         />
 
+        {/* Status Badges */}
+        <View style={styles.statusBadgesContainer}>
+          {joinStatus === 'joined' && (
+            <View style={styles.joinedBadge}>
+              <Text style={styles.badgeText}>✓ Joined</Text>
+            </View>
+          )}
+          {joinStatus === 'pending' && (
+            <View style={styles.pendingBadge}>
+              <Text style={styles.badgeText}>⏳ Pending Approval</Text>
+            </View>
+          )}
+          {eventData.status === 'active' && (
+            <View style={styles.activeBadge}>
+              <Text style={styles.badgeText}>🔴 Active Now</Text>
+            </View>
+          )}
+          {eventData.status === 'completed' && (
+            <View style={styles.completedBadge}>
+              <Text style={styles.badgeText}>Completed</Text>
+            </View>
+          )}
+          {userIsCaptain && (
+            <View style={styles.captainBadge}>
+              <Text style={styles.badgeText}>👑 Captain</Text>
+            </View>
+          )}
+        </View>
+
         {/* Progress Bar Section */}
         <View style={styles.progressSection}>
           <ProgressBar
@@ -636,6 +668,17 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
           participantCount={eventData.stats.participantCount}
           completedCount={eventData.stats.completedCount}
         />
+
+        {/* Captain Participant Management */}
+        {userIsCaptain && currentUserHexPubkey && (
+          <EventParticipantManagementSection
+            eventId={eventData.id}
+            eventName={eventData.name}
+            captainPubkey={currentUserHexPubkey}
+            onParticipantUpdate={loadEventData}
+            style={styles.participantManagement}
+          />
+        )}
 
         {/* Live Leaderboard with Distribution Panel for Captains */}
         {team && leaderboard && (
@@ -767,6 +810,64 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: theme.colors.text,
+  },
+  participantManagement: {
+    marginBottom: 20,
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  statusBadgesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginVertical: 16,
+  },
+  joinedBadge: {
+    backgroundColor: theme.colors.success + '20',
+    borderWidth: 1,
+    borderColor: theme.colors.success,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  pendingBadge: {
+    backgroundColor: theme.colors.warning + '20',
+    borderWidth: 1,
+    borderColor: theme.colors.warning,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  activeBadge: {
+    backgroundColor: theme.colors.error + '20',
+    borderWidth: 1,
+    borderColor: theme.colors.error,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  completedBadge: {
+    backgroundColor: theme.colors.textMuted + '20',
+    borderWidth: 1,
+    borderColor: theme.colors.textMuted,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  captainBadge: {
+    backgroundColor: theme.colors.accent + '20',
+    borderWidth: 1,
+    borderColor: theme.colors.accent,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.colors.text,
+    letterSpacing: 0.3,
   },
   bottomPadding: {
     height: 20, // Extra space before action button
