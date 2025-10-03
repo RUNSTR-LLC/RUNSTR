@@ -34,12 +34,58 @@ RUNSTR REWARDS is a React Native mobile application that transforms fitness rout
 - **Data Layer**: Pure Nostr - NO SUPABASE (all data from Nostr events)
 - **Authentication**: Nostr (nsec) - direct authentication only
 - **Fitness Data**: Kind 1301 events from Nostr relays + Apple HealthKit
-- **Team Data**: Custom Nostr event kinds for teams, leagues, events, challenges
+- **Team Data**: Custom Nostr event kinds for teams, leagues, events, challenges (see [nostr-native-fitness-competitions.md](./docs/nostr-native-fitness-competitions.md))
 - **Bitcoin**: Lightning payments via NIP-60/61 protocol for P2P transactions with auto-wallet creation
 - **Nostr Library**: NDK (@nostr-dev-kit/ndk) EXCLUSIVELY - NEVER use nostr-tools
 - **Nostr Relays**: Damus, Primal, nos.lol for social data operations
 - **In-App Notifications**: Nostr event-driven notifications (kinds 1101, 1102, 1103) - no push notifications
 - **IMPORTANT**: This project uses NO SUPABASE - pure Nostr only
+
+## Nostr Event Kinds Reference
+
+📖 **For comprehensive details, see**: [nostr-native-fitness-competitions.md](./docs/nostr-native-fitness-competitions.md)
+
+**Quick Reference Table:**
+
+### Fitness & Workout Data
+- **kind 1301**: Workout events (distance, duration, calories) - **foundation of all competitions**
+- **kind 1**: Social workout posts with beautiful cards
+
+### Team Management
+- **kind 33404**: Team metadata and discovery
+- **kind 30000**: Team member lists (**single source of truth** for membership)
+- **kind 30001**: Generic lists (secondary lists)
+- **kind 1104**: Team join requests
+
+### Competitions (Leagues & Events)
+- **kind 30100**: League definitions (ongoing competitions)
+- **kind 30101**: Event definitions (time-bounded competitions)
+- **kind 1105**: Event join requests (separate from team joins)
+
+### Challenges (1v1 Competitions)
+- **kind 1105**: Challenge requests (initiate 1v1 competition)
+- **kind 1106**: Challenge acceptances (creates kind 30000 participant list)
+- **kind 1107**: Challenge declines
+
+### Notifications
+- **kind 1101**: Competition announcements
+- **kind 1102**: Competition results and prize distribution
+- **kind 1103**: Competition starting soon reminders
+
+### Bitcoin/Lightning Wallet
+- **kind 37375**: Wallet info (NIP-60 Lightning wallet config)
+- **kind 9321**: Nutzap events (P2P Bitcoin zap receipts)
+- **kind 7375**: Token events (ecash balance tracking)
+
+### User Profile
+- **kind 0**: Profile metadata (name, picture, about)
+- **kind 3**: Contact lists (social graph)
+
+**Critical Architecture:**
+- **kind 1301** = workout data (what users do)
+- **kind 30000** = team rosters (who's competing)
+- **Leaderboards** = query kind 30000 for members → query kind 1301 from those members → calculate locally
+- **No backend database** - pure client-side Nostr queries
 
 ## Kind 1301 Workout Event Format (RUNSTR Leaderboard Compatible)
 
@@ -55,7 +101,7 @@ Our app publishes kind 1301 events in the standard RUNSTR format that is compati
   - `['distance', '5.2', 'km']` - Distance value and unit (separate array elements)
   - `['duration', '00:30:45']` - Duration in HH:MM:SS format
   - `['source', 'RUNSTR']` - App identification
-  - `['client', 'RUNSTR', '1.0.15']` - Client info with version
+  - `['client', 'RUNSTR', '0.1.1']` - Client info with version
   - `['t', 'Running']` - Hashtag for activity type
   - `['calories', '312']` - Optional: Calorie count
   - `['elevation_gain', '50', 'm']` - Optional: Elevation gain with unit

@@ -36,7 +36,7 @@ function createRunstrTags(workout) {
     ['distance', distanceKm, 'km'], // Distance with value and unit
     ['duration', durationFormatted], // HH:MM:SS format
     ['source', 'RUNSTR'], // App identification
-    ['client', 'RUNSTR', '1.0.15'], // Client info
+    ['client', 'RUNSTR', '0.1.1'], // Client info
     ['t', 'Running'], // Hashtag
   ];
 

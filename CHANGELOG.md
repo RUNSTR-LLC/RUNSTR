@@ -4,6 +4,45 @@ All notable changes to RUNSTR will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2025-10-03
+
+### Added
+- **QR-Based Event Joining**: Scan QR codes to instantly join competitions
+  - Event QR code generation and display for captains
+  - QR scanner with camera permissions for participants
+  - Complete participant management system with join tracking
+- **Dual-Path Challenge System**: Complete 1v1 competition infrastructure
+  - Challenge creation wizard with activity type selection
+  - Challenge acceptance/decline workflow
+  - Dedicated leaderboard for head-to-head competitions
+  - Navigation flow for browsing and managing challenges
+- **Local Workout Persistence**: Activity tracker saves workouts locally before syncing
+  - Prevents data loss during network issues
+  - Background sync when connection restored
+- **NIP-60 Wallet Enhancements**:
+  - Encrypted proof backup to Nostr using NIP-44 encryption
+  - Offline-first wallet initialization for instant load
+  - Bulletproof duplicate wallet prevention
+
+### Improved
+- **Performance Optimizations**:
+  - Extended league cache to 24 hours with pull-to-refresh
+  - Instant app resume with persistent caching
+  - Android performance improvements for team and wallet loading
+- **GPS Tracking Reliability**:
+  - GPS recovery timeout prevents distance tracking freeze
+  - Better handling of GPS signal loss during workouts
+- **Authentication Fixes**:
+  - Proper NIP-55 Activity Result pattern for Amber signer
+  - Flexible callback handler for various response formats
+  - WorkoutSummaryModal uses correct nsec storage key
+
+### Fixed
+- Migrated Slider component to @react-native-community/slider for React Native 0.74+ compatibility
+- Amber signer callback handling - Access result.extra instead of result.data
+- Android SafeAreaView for proper status bar spacing
+- Enable receive button with offline-first wallet initialization
+
 ## [0.1.0] - 2025-10-02
 
 ### Added
