@@ -33,6 +33,7 @@ type GlobalChallengeStep = 'user_search' | 'activity_config' | 'review' | 'succe
 interface GlobalChallengeWizardProps {
   onComplete?: () => void;
   onCancel: () => void;
+  preselectedOpponent?: DiscoveredNostrUser; // For in-app challenge buttons
 }
 
 interface WizardProgressProps {
@@ -62,9 +63,13 @@ const WizardProgress: React.FC<WizardProgressProps> = ({ currentStep }) => {
 export const GlobalChallengeWizard: React.FC<GlobalChallengeWizardProps> = ({
   onComplete,
   onCancel,
+  preselectedOpponent,
 }) => {
-  const [currentStep, setCurrentStep] = useState<GlobalChallengeStep>('user_search');
-  const [selectedUser, setSelectedUser] = useState<DiscoveredNostrUser | undefined>();
+  // Skip user search if opponent is preselected
+  const [currentStep, setCurrentStep] = useState<GlobalChallengeStep>(
+    preselectedOpponent ? 'activity_config' : 'user_search'
+  );
+  const [selectedUser, setSelectedUser] = useState<DiscoveredNostrUser | undefined>(preselectedOpponent);
   const [configuration, setConfiguration] = useState<Partial<ActivityConfiguration>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [challengeQRData, setChallengeQRData] = useState<ChallengeQRData | null>(null);
@@ -110,13 +115,16 @@ export const GlobalChallengeWizard: React.FC<GlobalChallengeWizardProps> = ({
   const handleBack = useCallback(() => {
     switch (currentStep) {
       case 'activity_config':
-        setCurrentStep('user_search');
+        // Only go back to user search if no preselected opponent
+        if (!preselectedOpponent) {
+          setCurrentStep('user_search');
+        }
         break;
       case 'review':
         setCurrentStep('activity_config');
         break;
     }
-  }, [currentStep]);
+  }, [currentStep, preselectedOpponent]);
 
   const handleCreateChallenge = useCallback(async () => {
     if (!selectedUser || !configuration.activityType || !configuration.metric ||
@@ -217,7 +225,11 @@ export const GlobalChallengeWizard: React.FC<GlobalChallengeWizardProps> = ({
     onCancel();
   };
 
-  const canGoBack = currentStep !== 'user_search' && currentStep !== 'success';
+  // Can't go back from user search, success, or activity_config if opponent was preselected
+  const canGoBack =
+    currentStep !== 'user_search' &&
+    currentStep !== 'success' &&
+    !(currentStep === 'activity_config' && preselectedOpponent);
   const isValid = validateCurrentStep();
   const showActionButton = currentStep !== 'success';
 

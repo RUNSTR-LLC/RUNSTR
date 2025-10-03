@@ -299,8 +299,9 @@ function encryptNsec(nsec: string, key: string): string {
 
 /**
  * Simple XOR decryption
+ * EXPORTED for wallet service to use correct decryption matching encryptNsec
  */
-function decryptNsec(encrypted: string, key: string): string {
+export function decryptNsec(encrypted: string, key: string): string {
   try {
     // Use consistent 32-char key
     const keyPadded = key.slice(0, 32).padEnd(32, '0');

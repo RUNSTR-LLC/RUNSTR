@@ -308,7 +308,7 @@ export const RunningTrackerScreen: React.FC = () => {
                     <Ionicons
                       name="checkmark-circle"
                       size={20}
-                      color="#ffffff"
+                      color={theme.colors.text}
                     />
                   </View>
                 </View>

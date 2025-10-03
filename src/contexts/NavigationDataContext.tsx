@@ -11,6 +11,7 @@ import { appCache } from '../utils/cache';
 import { CaptainCache } from '../utils/captainCache';
 import { TeamMembershipService } from '../services/team/teamMembershipService';
 import { TeamCacheService } from '../services/cache/TeamCacheService';
+import { CompetitionCacheService } from '../services/cache/CompetitionCacheService';
 import { isTeamCaptainEnhanced } from '../utils/teamUtils';
 import { getUserNostrIdentifiers } from '../utils/nostr';
 import { useAuth } from './AuthContext';
@@ -37,6 +38,7 @@ export interface NavigationData {
   loadTeams: () => Promise<void>;
   loadWallet: () => Promise<void>;
   loadCaptainDashboard: () => Promise<void>;
+  prefetchLeaguesInBackground: () => Promise<void>;
 }
 
 const NavigationDataContext = createContext<NavigationData | undefined>(undefined);
@@ -60,6 +62,7 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({ 
   const [teamsLastLoaded, setTeamsLastLoaded] = useState<number>(0);
   const [walletLoaded, setWalletLoaded] = useState(false);
   const [isLoadingTeam, setIsLoadingTeam] = useState(false);
+  const [leaguesPrefetched, setLeaguesPrefetched] = useState(false);
 
   const fetchUserData = async (): Promise<UserWithWallet | null> => {
     try {
@@ -410,6 +413,40 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({ 
     }
   }, [user]);
 
+  /**
+   * Prefetch league data in background for instant loading
+   * Uses CompetitionCacheService with 30-min TTL
+   * Non-blocking operation to avoid slowing down initial load
+   */
+  const prefetchLeaguesInBackground = useCallback(async (): Promise<void> => {
+    // Only prefetch once
+    if (leaguesPrefetched) {
+      console.log('📦 Leagues already prefetched, skipping');
+      return;
+    }
+
+    try {
+      console.log('🏁 Prefetching leagues in background...');
+      const competitionCache = CompetitionCacheService.getInstance();
+
+      // Check if already cached
+      const hasCached = await competitionCache.hasCachedCompetitions();
+      if (hasCached) {
+        console.log('✅ Leagues already cached, skipping prefetch');
+        setLeaguesPrefetched(true);
+        return;
+      }
+
+      // Fetch all competitions (leagues + events) and cache them
+      const competitions = await competitionCache.getAllCompetitions();
+      console.log(`✅ Prefetched ${competitions.leagues.length} leagues, ${competitions.events.length} events`);
+      setLeaguesPrefetched(true);
+    } catch (error) {
+      console.error('❌ Failed to prefetch leagues:', error);
+      // Don't block app on prefetch failure
+    }
+  }, [leaguesPrefetched]);
+
   const refresh = async (): Promise<void> => {
     setIsLoading(true);
     setError(null);
@@ -458,9 +495,16 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({ 
 
       setIsLoading(false);
       console.log('🚀 NavigationDataProvider: Initial load complete, isLoading:', false);
+
+      // Prefetch leagues in background after 2-second delay
+      // This avoids network congestion during critical initial load
+      setTimeout(() => {
+        console.log('⏰ Starting delayed league prefetch (2s after initial load)');
+        prefetchLeaguesInBackground();
+      }, 2000);
     };
     init();
-  }, []);
+  }, [prefetchLeaguesInBackground]);
 
   const value: NavigationData = {
     user,
@@ -476,6 +520,7 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({ 
     loadTeams,
     loadWallet,
     loadCaptainDashboard,
+    prefetchLeaguesInBackground,
   };
 
   return (

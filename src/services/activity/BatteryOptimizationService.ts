@@ -21,7 +21,7 @@ const BATTERY_CONFIGS: Record<BatteryMode, BatteryOptimizationConfig> = {
     mode: 'high_accuracy',
     accuracy: Location.Accuracy.BestForNavigation,
     timeInterval: 2000, // 2 seconds
-    distanceInterval: 5, // 5 meters
+    distanceInterval: 3, // 3 meters (improved accuracy for running)
     description: 'Maximum accuracy, higher battery usage',
   },
   balanced: {

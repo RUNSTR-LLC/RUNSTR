@@ -146,15 +146,15 @@ export class LocationValidator {
     // Android: Use simplified validation (similar to reference implementation)
     if (Platform.OS === 'android') {
       // Reference implementation uses: distance >= 1m && accuracy < 15m
-      // We use similar approach: distance >= 1m to filter GPS jitter
+      // We use similar approach: distance >= 0.5m to filter GPS jitter while tracking slow movement
 
-      // Filter out GPS jitter (< 1m movements)
-      if (distance < 1) {
-        console.log(`⚠️ [ANDROID] GPS jitter filtered: distance=${distance.toFixed(2)}m < 1m`);
+      // Filter out GPS jitter (< 0.5m movements)
+      if (distance < 0.5) {
+        console.log(`⚠️ [ANDROID] GPS jitter filtered: distance=${distance.toFixed(2)}m < 0.5m`);
         return {
           isValid: false,
           confidence: 0,
-          reason: 'GPS jitter (< 1m)',
+          reason: 'GPS jitter (< 0.5m)',
         };
       }
 

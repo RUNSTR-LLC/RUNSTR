@@ -33,6 +33,16 @@ export const PasswordNotice: React.FC<PasswordNoticeProps> = ({
   const [hasAcknowledged, setHasAcknowledged] = useState(false);
 
   const handleCopyPassword = async () => {
+    // Validate that password exists before copying
+    if (!password || password.trim() === '') {
+      console.error('[PasswordNotice] Cannot copy: password is empty');
+      Alert.alert(
+        'Error',
+        'Password not available. Please try restarting the signup process.'
+      );
+      return;
+    }
+
     try {
       await Clipboard.setStringAsync(password);
       setHasCopied(true);
@@ -71,19 +81,31 @@ export const PasswordNotice: React.FC<PasswordNoticeProps> = ({
     ? password
     : password.slice(0, 6) + '•'.repeat(20) + '...';
 
+  // Show error state if password is missing
+  const hasPassword = password && password.trim() !== '';
+
   return (
     <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
       {/* Icon */}
       <View style={styles.iconContainer}>
-        <Ionicons name="key" size={60} color={theme.colors.primary} />
+        <Ionicons name="key" size={60} color={theme.colors.text} />
       </View>
 
       {/* Title */}
       <Text style={styles.title}>Your Account Password</Text>
 
+      {/* Error state if password not loaded */}
+      {!hasPassword && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>
+            ⚠️ Password not loaded. Please restart the signup process.
+          </Text>
+        </View>
+      )}
+
       {/* Important Notice */}
       <View style={styles.warningContainer}>
-        <Ionicons name="warning" size={24} color="#FF9500" />
+        <Ionicons name="warning" size={24} color={theme.colors.text} />
         <Text style={styles.warningText}>
           This is the ONLY way to access your account
         </Text>
@@ -98,9 +120,9 @@ export const PasswordNotice: React.FC<PasswordNoticeProps> = ({
       <View style={styles.passwordContainer}>
         <Text style={styles.passwordLabel}>Your Password:</Text>
 
-        <View style={styles.passwordBox}>
+        <View style={[styles.passwordBox, !hasPassword && styles.passwordBoxError]}>
           <Text style={styles.passwordText} numberOfLines={2}>
-            {displayPassword}
+            {hasPassword ? displayPassword : 'Password not available'}
           </Text>
 
           <View style={styles.passwordActions}>
@@ -124,7 +146,7 @@ export const PasswordNotice: React.FC<PasswordNoticeProps> = ({
               <Ionicons
                 name={hasCopied ? 'checkmark' : 'copy'}
                 size={22}
-                color={hasCopied ? theme.colors.success : theme.colors.textSecondary}
+                color={hasCopied ? theme.colors.text : theme.colors.textSecondary}
               />
             </TouchableOpacity>
           </View>
@@ -144,7 +166,7 @@ export const PasswordNotice: React.FC<PasswordNoticeProps> = ({
       >
         <View style={[styles.checkbox, hasAcknowledged && styles.checkboxChecked]}>
           {hasAcknowledged && (
-            <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+            <Ionicons name="checkmark" size={16} color={theme.colors.background} />
           )}
         </View>
         <Text style={styles.checkboxText}>
@@ -157,9 +179,10 @@ export const PasswordNotice: React.FC<PasswordNoticeProps> = ({
         <TouchableOpacity
           style={[
             styles.continueButton,
-            !hasAcknowledged && styles.continueButtonDisabled,
+            (!hasAcknowledged || !hasPassword) && styles.continueButtonDisabled,
           ]}
           onPress={handleContinue}
+          disabled={!hasAcknowledged || !hasPassword}
           activeOpacity={0.8}
         >
           <Text style={[
@@ -184,7 +207,9 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: `${theme.colors.primary}15`,
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'center',
@@ -201,7 +226,9 @@ const styles = StyleSheet.create({
   warningContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FF950015',
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
@@ -210,7 +237,7 @@ const styles = StyleSheet.create({
   warningText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FF9500',
+    color: theme.colors.text,
     marginLeft: 10,
     flex: 1,
   },
@@ -240,6 +267,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  passwordBoxError: {
+    borderColor: theme.colors.error,
+    backgroundColor: `${theme.colors.error}10`,
+  },
+  errorContainer: {
+    backgroundColor: `${theme.colors.error}15`,
+    borderWidth: 1,
+    borderColor: theme.colors.error,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+  },
+  errorText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.error,
+    textAlign: 'center',
+  },
   passwordText: {
     fontSize: 14,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
@@ -260,7 +305,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   iconButtonSuccess: {
-    backgroundColor: `${theme.colors.success}15`,
+    backgroundColor: theme.colors.border,
   },
   settingsNote: {
     fontSize: 14,
@@ -285,8 +330,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   checkboxChecked: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.text,
+    borderColor: theme.colors.text,
   },
   checkboxText: {
     fontSize: 15,
@@ -297,7 +342,7 @@ const styles = StyleSheet.create({
     marginTop: 'auto',
   },
   continueButton: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.text,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -308,7 +353,7 @@ const styles = StyleSheet.create({
   continueButtonText: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: theme.colors.background,
   },
   continueButtonTextDisabled: {
     color: theme.colors.textMuted,

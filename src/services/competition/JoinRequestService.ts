@@ -5,7 +5,7 @@
  */
 
 import NDK, { NDKEvent, NDKFilter, NDKSubscription } from '@nostr-dev-kit/ndk';
-import { ndkStore } from '../../store/ndkStore';
+import { NostrInitializationService } from '../nostr/NostrInitializationService';
 import { NostrListService } from '../nostr/NostrListService';
 import type { JoinRequest } from '../../components/competition/JoinRequestCard';
 
@@ -34,7 +34,7 @@ export class JoinRequestService {
     type: 'challenge' | 'event',
     onNewRequest: (request: JoinRequest) => void
   ): Promise<void> {
-    const ndk = ndkStore.getState().ndk;
+    const ndk = NostrInitializationService.getInstance().getNDK();
     if (!ndk) {
       throw new Error('NDK not initialized');
     }
@@ -101,7 +101,7 @@ export class JoinRequestService {
     creatorPubkey: string,
     type: 'challenge' | 'event'
   ): Promise<JoinRequest[]> {
-    const ndk = ndkStore.getState().ndk;
+    const ndk = NostrInitializationService.getInstance().getNDK();
     if (!ndk) {
       throw new Error('NDK not initialized');
     }
@@ -132,7 +132,7 @@ export class JoinRequestService {
    * Approve join request - Add to kind 30000 list and publish acceptance
    */
   async approveRequest(request: JoinRequest): Promise<void> {
-    const ndk = ndkStore.getState().ndk;
+    const ndk = NostrInitializationService.getInstance().getNDK();
     if (!ndk) {
       throw new Error('NDK not initialized');
     }
@@ -162,7 +162,7 @@ export class JoinRequestService {
    * Reject join request - Publish rejection notification
    */
   async rejectRequest(request: JoinRequest): Promise<void> {
-    const ndk = ndkStore.getState().ndk;
+    const ndk = NostrInitializationService.getInstance().getNDK();
     if (!ndk) {
       throw new Error('NDK not initialized');
     }
@@ -189,7 +189,7 @@ export class JoinRequestService {
     challengeId: string,
     creatorPubkey: string
   ): Promise<void> {
-    const ndk = ndkStore.getState().ndk;
+    const ndk = NostrInitializationService.getInstance().getNDK();
     if (!ndk) {
       throw new Error('NDK not initialized');
     }
@@ -216,7 +216,7 @@ export class JoinRequestService {
     captainPubkey: string,
     eventName: string
   ): Promise<void> {
-    const ndk = ndkStore.getState().ndk;
+    const ndk = NostrInitializationService.getInstance().getNDK();
     if (!ndk) {
       throw new Error('NDK not initialized');
     }

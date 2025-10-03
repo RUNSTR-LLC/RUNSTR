@@ -3,6 +3,9 @@ PODS:
   - DoubleConversion (1.1.6)
   - EXApplication (6.1.5):
     - ExpoModulesCore
+  - EXAV (15.1.7):
+    - ExpoModulesCore
+    - ReactCommon/turbomodule/core
   - EXConstants (17.1.7):
     - ExpoModulesCore
   - EXImageLoader (5.1.0):
@@ -45,6 +48,10 @@ PODS:
     - ExpoModulesCore
   - ExpoBlur (14.1.5):
     - ExpoModulesCore
+  - ExpoCamera (17.0.8):
+    - ExpoModulesCore
+    - ZXingObjC/OneD
+    - ZXingObjC/PDF417
   - ExpoClipboard (8.0.7):
     - ExpoModulesCore
   - ExpoCrypto (14.1.5):
@@ -103,6 +110,8 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - ExpoSpeech (13.1.7):
+    - ExpoModulesCore
   - ExpoSplashScreen (0.30.10):
     - ExpoModulesCore
   - ExpoSQLite (16.0.8):
@@ -2245,11 +2254,17 @@ PODS:
   - SocketRocket (0.7.1)
   - UMAppLoader (6.0.7)
   - Yoga (0.0.0)
+  - ZXingObjC/Core (3.6.9)
+  - ZXingObjC/OneD (3.6.9):
+    - ZXingObjC/Core
+  - ZXingObjC/PDF417 (3.6.9):
+    - ZXingObjC/Core
 
 DEPENDENCIES:
   - boost (from `../node_modules/react-native/third-party-podspecs/boost.podspec`)
   - DoubleConversion (from `../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec`)
   - EXApplication (from `../node_modules/expo-application/ios`)
+  - EXAV (from `../node_modules/expo-av/ios`)
   - EXConstants (from `../node_modules/expo-constants/ios`)
   - EXImageLoader (from `../node_modules/expo-image-loader/ios`)
   - EXNotifications (from `../node_modules/expo-notifications/ios`)
@@ -2258,6 +2273,7 @@ DEPENDENCIES:
   - ExpoAsset (from `../node_modules/expo-asset/ios`)
   - ExpoBattery (from `../node_modules/expo-battery/ios`)
   - ExpoBlur (from `../node_modules/expo-blur/ios`)
+  - ExpoCamera (from `../node_modules/expo-camera/ios`)
   - ExpoClipboard (from `../node_modules/expo-clipboard/ios`)
   - ExpoCrypto (from `../node_modules/expo-crypto/ios`)
   - ExpoDevice (from `../node_modules/expo-device/ios`)
@@ -2273,6 +2289,7 @@ DEPENDENCIES:
   - ExpoLinking (from `../node_modules/expo-linking/ios`)
   - ExpoLocation (from `../node_modules/expo-location/ios`)
   - ExpoModulesCore (from `../node_modules/expo-modules-core`)
+  - ExpoSpeech (from `../node_modules/expo-speech/ios`)
   - ExpoSplashScreen (from `../node_modules/expo-splash-screen/ios`)
   - ExpoSQLite (from `../node_modules/expo-sqlite/ios`)
   - ExpoSymbols (from `../node_modules/expo-symbols/ios`)
@@ -2372,6 +2389,7 @@ SPEC REPOS:
     - SDWebImageSVGCoder
     - SDWebImageWebPCoder
     - SocketRocket
+    - ZXingObjC
 
 EXTERNAL SOURCES:
   boost:
@@ -2380,6 +2398,8 @@ EXTERNAL SOURCES:
     :podspec: "../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec"
   EXApplication:
     :path: "../node_modules/expo-application/ios"
+  EXAV:
+    :path: "../node_modules/expo-av/ios"
   EXConstants:
     :path: "../node_modules/expo-constants/ios"
   EXImageLoader:
@@ -2396,6 +2416,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-battery/ios"
   ExpoBlur:
     :path: "../node_modules/expo-blur/ios"
+  ExpoCamera:
+    :path: "../node_modules/expo-camera/ios"
   ExpoClipboard:
     :path: "../node_modules/expo-clipboard/ios"
   ExpoCrypto:
@@ -2426,6 +2448,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-location/ios"
   ExpoModulesCore:
     :path: "../node_modules/expo-modules-core"
+  ExpoSpeech:
+    :path: "../node_modules/expo-speech/ios"
   ExpoSplashScreen:
     :path: "../node_modules/expo-splash-screen/ios"
   ExpoSQLite:
@@ -2604,6 +2628,7 @@ SPEC CHECKSUMS:
   boost: 7e761d76ca2ce687f7cc98e698152abd03a18f90
   DoubleConversion: cb417026b2400c8f53ae97020b2be961b59470cb
   EXApplication: 1e06972201838375ca1ec1ba34d586a98a5dc718
+  EXAV: ae28256069c4cdde93d185c007d8f68d92902c2e
   EXConstants: 98bcf0f22b820f9b28f9fee55ff2daededadd2f8
   EXImageLoader: 4d3d3284141f1a45006cc4d0844061c182daf7ee
   EXNotifications: be5e949edf1d60b70e77178b81aa505298fadd07
@@ -2612,6 +2637,7 @@ SPEC CHECKSUMS:
   ExpoAsset: ef06e880126c375f580d4923fdd1cdf4ee6ee7d6
   ExpoBattery: a5d7037bbdc0ecf6619ce23a92b8d74d470ac54f
   ExpoBlur: 3c8885b9bf9eef4309041ec87adec48b5f1986a9
+  ExpoCamera: e75f6807a2c047f3338bbadd101af4c71a1d13a5
   ExpoClipboard: af650d14765f19c60ce2a1eaf9dfe6445eff7365
   ExpoCrypto: a9f1d75baeea6ef8b03c1660621585196c382e85
   ExpoDevice: 7082f03af1c588333ef1417d5aa8287081d94b24
@@ -2627,6 +2653,7 @@ SPEC CHECKSUMS:
   ExpoLinking: d5c183998ca6ada66ff45e407e0f965b398a8902
   ExpoLocation: 93d7faa0c2adbd5a04686af0c1a61bc6ed3ee2f7
   ExpoModulesCore: 00a1b5c73248465bd0b93f59f8538c4573dac579
+  ExpoSpeech: 9b3bdf552e69c8015c246dc52b5ad5fcdbec878e
   ExpoSplashScreen: 0ad5acac1b5d2953c6e00d4319f16d616f70d4dd
   ExpoSQLite: 7fa091ba5562474093fef09be644161a65e11b3f
   ExpoSymbols: c5612a90fb9179cdaebcd19bea9d8c69e5d3b859
@@ -2721,6 +2748,7 @@ SPEC CHECKSUMS:
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   UMAppLoader: e1234c45d2b7da239e9e90fc4bbeacee12afd5b6
   Yoga: adb397651e1c00672c12e9495babca70777e411e
+  ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
 PODFILE CHECKSUM: ce54074f35b534c4fb95ed5a5f34e427222720bf
 

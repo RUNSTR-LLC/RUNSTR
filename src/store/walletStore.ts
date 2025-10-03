@@ -88,18 +88,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
         console.log('[WalletStore] Existing wallet loaded successfully');
       }
 
-      // Start auto-claim interval (every 30 seconds)
-      setInterval(async () => {
-        try {
-          const { claimed, total } = await nutzapService.claimNutzaps();
-          if (claimed > 0) {
-            console.log(`[WalletStore] Auto-claimed ${claimed} nutzaps, ${total} sats total`);
-            get().refreshBalance();
-          }
-        } catch (error) {
-          console.error('[WalletStore] Auto-claim error:', error);
-        }
-      }, 30000);
+      // Note: Auto-claim is now handled by WalletSync background service
 
     } catch (error) {
       console.error('[WalletStore] Initialization error:', error);

@@ -297,7 +297,7 @@ export class ChallengeRequestService {
 
       console.log('Publishing kind 1106 acceptance event...');
 
-      // Create kind 30000 participant list
+      // Create kind 30000 participant list with full challenge metadata
       const listDTag = `challenge_${challengeId}`;
       const listData = {
         name: `Challenge: ${challenge.activityType}`,
@@ -308,7 +308,27 @@ export class ChallengeRequestService {
       };
 
       const listEvent = this.listService.prepareListCreation(listData, userIdentifiers.hexPubkey);
-      console.log('Creating kind 30000 participant list for challenge...');
+
+      // Add challenge-specific metadata tags to the list
+      if (listEvent) {
+        listEvent.tags.push(
+          ['t', 'challenge'],
+          ['t', 'fitness'],
+          ['t', 'competition'],
+          ['t', challenge.activityType],
+          ['activity', challenge.activityType],
+          ['metric', challenge.metric],
+          ['wager', challenge.wagerAmount.toString()],
+          ['duration', challenge.duration.toString()],
+          ['status', 'active'],
+          ['starts', challenge.startDate.toString()],
+          ['expires', challenge.endDate.toString()],
+          ['challenger', challenge.challengerPubkey],
+          ['challenged', challenge.challengedPubkey]
+        );
+      }
+
+      console.log('Creating kind 30000 participant list for challenge with metadata...');
 
       // Update challenge status
       challenge.status = 'accepted';

@@ -114,7 +114,8 @@ const AppContent: React.FC = () => {
     isConnected,
     initError,
     showLoadingSplash,
-    onSplashComplete
+    onSplashComplete,
+    signOut
   } = useAuth();
 
   // Show loading splash after successful authentication
@@ -186,6 +187,7 @@ const AppContent: React.FC = () => {
               onNavigateToTeamCreation={() => {
                 navigation.navigate('TeamCreation');
               }}
+              onSignOut={signOut}
             />
           )}
         </AuthenticatedStack.Screen>
@@ -356,7 +358,10 @@ const AppContent: React.FC = () => {
               onHelp={() => navigation.navigate('HelpSupport')}
               onContactSupport={() => navigation.navigate('ContactSupport')}
               onPrivacyPolicy={() => navigation.navigate('PrivacyPolicy')}
-              onSignOut={route.params?.onSignOut}
+              onSignOut={async () => {
+                await signOut();
+                // AuthContext state change will trigger App.tsx to show login screen
+              }}
             />
           )}
         </AuthenticatedStack.Screen>

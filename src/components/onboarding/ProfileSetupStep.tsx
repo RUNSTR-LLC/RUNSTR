@@ -265,7 +265,7 @@ export const ProfileSetupStep: React.FC<ProfileSetupStepProps> = ({
 
         {/* Note */}
         <View style={styles.noteContainer}>
-          <Ionicons name="information-circle" size={20} color={theme.colors.primary} />
+          <Ionicons name="information-circle" size={20} color={theme.colors.text} />
           <Text style={styles.noteText}>
             You can always update your profile later in Settings
           </Text>
@@ -405,7 +405,9 @@ const styles = StyleSheet.create({
   noteContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: `${theme.colors.primary}10`,
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     padding: 16,
     borderRadius: 12,
     marginTop: 10,
@@ -434,7 +436,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
   },
   continueButton: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.text,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -442,6 +444,6 @@ const styles = StyleSheet.create({
   continueButtonText: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: theme.colors.background,
   },
 });

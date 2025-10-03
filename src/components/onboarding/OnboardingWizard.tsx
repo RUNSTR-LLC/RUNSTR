@@ -116,7 +116,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
           <Ionicons
             name={slide.icon}
             size={60}
-            color={theme.colors.primary}
+            color={theme.colors.text}
           />
         </View>
 
@@ -129,7 +129,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
               <Ionicons
                 name="checkmark-circle"
                 size={20}
-                color={theme.colors.success}
+                color={theme.colors.text}
               />
               <Text style={styles.featureText}>
                 {feature}
@@ -189,7 +189,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
         {/* Loading Indicator */}
         {isLoading && (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color={theme.colors.primary} />
+            <ActivityIndicator size="small" color={theme.colors.text} />
             <Text style={styles.loadingText}>Setting up your account...</Text>
           </View>
         )}
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
   },
   skipButtonText: {
     fontSize: 16,
-    color: theme.colors.primary,
+    color: theme.colors.textSecondary,
     fontWeight: '600',
   },
   slide: {
@@ -249,7 +249,9 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: `${theme.colors.primary}15`,
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -324,7 +326,7 @@ const styles = StyleSheet.create({
   },
   dotActive: {
     width: 24,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.text,
   },
   loadingContainer: {
     flexDirection: 'row',
@@ -338,7 +340,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   nextButton: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.text,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -346,6 +348,6 @@ const styles = StyleSheet.create({
   nextButtonText: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: theme.colors.background,
   },
 });

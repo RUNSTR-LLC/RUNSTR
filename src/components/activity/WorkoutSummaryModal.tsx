@@ -427,18 +427,18 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
                             <Ionicons
                               name="trending-up"
                               size={16}
-                              color="#ffffff"
+                              color={theme.colors.text}
                             />
                           )}
                           {comparison === 'slower' && (
                             <Ionicons
                               name="trending-down"
                               size={16}
-                              color="#888888"
+                              color={theme.colors.textMuted}
                             />
                           )}
                           {comparison === 'average' && (
-                            <Ionicons name="remove" size={16} color="#888888" />
+                            <Ionicons name="remove" size={16} color={theme.colors.textMuted} />
                           )}
                         </View>
                       </View>

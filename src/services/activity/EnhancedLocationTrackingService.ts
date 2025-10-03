@@ -90,7 +90,7 @@ export class EnhancedLocationTrackingService {
   private pointsAfterRecovery: number = 0;
   private wasInGpsLostState: boolean = false;
   private recoveryStartTime: number | null = null;
-  private readonly GPS_RECOVERY_TIMEOUT_MS = 30000; // 30 seconds max recovery time
+  private readonly GPS_RECOVERY_TIMEOUT_MS = 10000; // 10 seconds max recovery time
 
   private constructor() {
     this.stateMachine = new ActivityStateMachine();

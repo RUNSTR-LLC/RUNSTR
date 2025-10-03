@@ -26,14 +26,15 @@ export class AuthService {
       // Import AsyncStorage for wallet cleanup
       const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
 
-      // Clear wallet-related data to prevent cross-user contamination
+      // Clear wallet-related data and onboarding flags to prevent cross-user contamination
       await AsyncStorage.multiRemove([
         '@runstr:wallet_proofs',
         '@runstr:wallet_pubkey',
         '@runstr:wallet_mint',
         '@runstr:current_user_pubkey',
         '@runstr:tx_history',
-        '@runstr:last_sync'
+        '@runstr:last_sync',
+        '@runstr:onboarding_completed' // Clear onboarding flag to ensure clean state
       ]);
 
       // Reset nutzap service if initialized

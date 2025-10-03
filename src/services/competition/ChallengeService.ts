@@ -31,9 +31,14 @@ export class ChallengeService {
 
   /**
    * Create a new challenge
-   * Initially only includes the challenger in the participant list
+   * Can be called by either requester (for QR) or accepter (after accepting request)
+   * @param metadata - Challenge details
+   * @param creatorPubkey - Optional: pubkey of the user creating the list (defaults to current user)
    */
-  async createChallenge(metadata: Omit<ChallengeMetadata, 'id' | 'status' | 'createdAt'>): Promise<string> {
+  async createChallenge(
+    metadata: Omit<ChallengeMetadata, 'id' | 'status' | 'createdAt'>,
+    creatorPubkey?: string
+  ): Promise<string> {
     const challengeId = `challenge-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const now = Math.floor(Date.now() / 1000);
 
@@ -43,28 +48,36 @@ export class ChallengeService {
       throw new Error('User not authenticated');
     }
 
+    // Use provided creator or default to current user
+    const listCreator = creatorPubkey || userIdentifiers.hexPubkey;
+
     const fullMetadata: ChallengeMetadata = {
       ...metadata,
       id: challengeId,
-      status: ChallengeStatus.PENDING,
+      status: ChallengeStatus.ACTIVE, // Changed from PENDING - active when list is created
       createdAt: now,
-      challengerPubkey: userIdentifiers.hexPubkey
+      challengerPubkey: metadata.challengerPubkey || userIdentifiers.hexPubkey
     };
 
     // Store challenge metadata locally
     await this.storeChallengeLocally(fullMetadata);
 
     // Prepare kind 30000 list for the challenge
+    // Include both participants if challenged pubkey is provided
+    const members = metadata.challengedPubkey
+      ? [metadata.challengerPubkey, metadata.challengedPubkey]
+      : [userIdentifiers.hexPubkey];
+
     const listData: ListCreationData = {
       name: metadata.name,
       description: metadata.description || `${metadata.activity} challenge for ${metadata.wager} sats`,
-      members: [userIdentifiers.hexPubkey], // Initially only challenger
+      members,
       dTag: challengeId,
       listType: 'people'
     };
 
     // Create the list event template (needs external signing)
-    const listEvent = this.listService.prepareListCreation(listData, userIdentifiers.hexPubkey);
+    const listEvent = this.listService.prepareListCreation(listData, listCreator);
 
     // Add challenge-specific tags
     if (listEvent) {

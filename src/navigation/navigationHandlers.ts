@@ -690,16 +690,19 @@ export const createNavigationHandlers = (): NavigationHandlers => {
           style: 'destructive',
           onPress: async () => {
             try {
-              // Access the store directly
-              const signOut = useUserStore.getState().signOut;
-              await signOut();
+              // Use AuthService to properly clear all auth state
+              await AuthService.signOut();
               console.log('User signed out successfully');
 
-              // Navigate back to onboarding or login screen
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Onboarding' }],
-              });
+              // Don't manually navigate - the App.tsx will detect auth state change
+              // and automatically show the Login screen
+              // If we're in a nested navigator, navigate to a root screen first
+              if (navigation.getParent()) {
+                navigation.getParent().reset({
+                  index: 0,
+                  routes: [{ name: 'Login' }],
+                });
+              }
             } catch (error) {
               console.error('Error during sign out:', error);
               Alert.alert('Error', 'Failed to sign out. Please try again.');

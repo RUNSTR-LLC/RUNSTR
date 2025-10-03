@@ -38,9 +38,31 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ route }) => 
   useEffect(() => {
     // Get the nsec from route params or storage
     const loadPassword = async () => {
-      const nsec = route?.params?.nsec || await AsyncStorage.getItem(STORAGE_KEYS.USER_NSEC);
+      // Try to get nsec from route params first
+      let nsec = route?.params?.nsec;
+
+      // If not in params, try AsyncStorage
+      if (!nsec) {
+        nsec = await AsyncStorage.getItem(STORAGE_KEYS.USER_NSEC);
+      }
+
       if (nsec) {
+        console.log('[Onboarding] Password loaded successfully:', nsec.slice(0, 10) + '...');
         setUserPassword(nsec);
+      } else {
+        console.error('[Onboarding] ⚠️ No nsec found in params or storage!');
+        console.error('[Onboarding] This screen should only be accessed after signup.');
+        console.error('[Onboarding] Redirecting to login screen...');
+
+        // Safeguard: If no nsec is available, user shouldn't be in onboarding
+        // This can happen if onboarding is incorrectly accessed (e.g., after sign out)
+        setTimeout(() => {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Login' }],
+          });
+        }, 1000);
+        return;
       }
     };
 
@@ -48,7 +70,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ route }) => 
 
     // Start background caching when onboarding begins
     OnboardingCacheService.startBackgroundCaching();
-  }, [route?.params?.nsec]);
+  }, [route?.params?.nsec, navigation]);
 
   const handleSlidesComplete = () => {
     console.log('[Onboarding] Slides completed, showing profile setup');

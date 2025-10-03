@@ -226,13 +226,6 @@ export const CompetitionsListScreen: React.FC = () => {
         >
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <View style={styles.headerSpacer} />
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={handleCreateChallenge}
-        >
-          <Ionicons name="add" size={24} color="#fff" />
-        </TouchableOpacity>
       </View>
 
       {/* Tabs */}
@@ -283,7 +276,6 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
@@ -296,12 +288,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#fff',
-  },
-  headerSpacer: {
-    flex: 1,
-  },
-  addButton: {
-    padding: 4,
   },
   tabContainer: {
     maxHeight: 50,

@@ -34,10 +34,12 @@ const Tab = createBottomTabNavigator<BottomTabParamList>();
 
 interface BottomTabNavigatorProps {
   onNavigateToTeamCreation?: () => void;
+  onSignOut?: () => Promise<void>;
 }
 
 export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
   onNavigateToTeamCreation,
+  onSignOut,
 }) => {
   // Fetch real data for navigation screens
   const {
@@ -49,7 +51,8 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
     error,
     refresh,
     loadTeams,
-    loadWallet
+    loadWallet,
+    prefetchLeaguesInBackground
   } = useNavigationData();
 
   // Create navigation handlers
@@ -99,6 +102,8 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
           focus: () => {
             // Lazy load teams when tab is focused
             loadTeams();
+            // Also prefetch leagues for instant loading when viewing teams
+            prefetchLeaguesInBackground();
           },
         }}
       >
@@ -218,7 +223,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
               onHelp={() => handlers.handleHelp(navigation)}
               onContactSupport={() => handlers.handleContactSupport(navigation)}
               onPrivacyPolicy={() => handlers.handlePrivacyPolicy(navigation)}
-              onSignOut={() => handlers.handleSignOut(navigation)}
+              onSignOut={onSignOut || (() => handlers.handleSignOut(navigation))}
               onRefresh={refresh}
             />
           ) : (
