@@ -166,7 +166,7 @@ export const EnhancedZapModal: React.FC<EnhancedZapModalProps> = ({
             {/* Header */}
             <View style={styles.header}>
               <View style={styles.titleContainer}>
-                <Ionicons name="flash" size={24} color="#FFD700" />
+                <Ionicons name="flash" size={24} color={theme.colors.text} />
                 <Text style={styles.title}>Custom Zap</Text>
               </View>
               <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -263,9 +263,9 @@ export const EnhancedZapModal: React.FC<EnhancedZapModalProps> = ({
                     onValueChange={setSetAsDefault}
                     trackColor={{
                       false: theme.colors.border,
-                      true: theme.colors.primary,
+                      true: theme.colors.text,
                     }}
-                    thumbColor={theme.colors.text}
+                    thumbColor={setAsDefault ? theme.colors.background : theme.colors.text}
                   />
                 </View>
               )}
@@ -445,12 +445,12 @@ const styles = StyleSheet.create({
   },
 
   presetButtonActive: {
-    backgroundColor: '#FFD700',
-    borderColor: '#FFD700',
+    backgroundColor: theme.colors.text,
+    borderColor: theme.colors.text,
   },
 
   presetButtonDefault: {
-    borderColor: theme.colors.primary,
+    borderColor: theme.colors.text,
   },
 
   presetButtonText: {
@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
 
   defaultBadge: {
     fontSize: 9,
-    color: theme.colors.primary,
+    color: theme.colors.text,
     marginTop: 2,
   },
 
@@ -529,14 +529,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#FFD700',
+    backgroundColor: theme.colors.text,
     paddingVertical: 14,
     borderRadius: theme.borderRadius.medium,
   },
 
   sendButtonDisabled: {
     opacity: 0.5,
-    backgroundColor: theme.colors.buttonBorder,
+    backgroundColor: theme.colors.border,
   },
 
   sendButtonText: {

@@ -144,14 +144,19 @@ class NutzapService {
         return { success: false, error: 'Wallet not initialized' };
       }
 
-      // Send via WalletCore
+      // Send via WalletCore (creates token and deducts balance)
       const result = await WalletCore.sendNutzap(recipientPubkey, amount, memo);
 
-      if (result.success) {
-        // Publish to Nostr in background (don't block)
-        // Note: WalletCore already created the token, we'd need to get it
-        // For now, just log success
-        console.log(`[NutZap] Sent ${amount} sats (Nostr publish in background)`);
+      if (result.success && result.token) {
+        // Publish nutzap to Nostr (NIP-61)
+        try {
+          const WalletSync = require('./WalletSync').default;
+          await WalletSync.publishNutzap(recipientPubkey, amount, result.token, memo);
+          console.log(`[NutZap] Sent ${amount} sats and published to Nostr`);
+        } catch (publishError) {
+          // Token already created and balance deducted, just log the publish error
+          console.warn('[NutZap] Failed to publish to Nostr, but token created:', publishError);
+        }
       }
 
       return result;
