@@ -366,7 +366,7 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({ 
         balance: {
           sats: realWalletBalance,
           usd: realWalletBalance / 2500,
-          connected: !!user.lightningAddress,
+          connected: true,  // Offline-first WalletCore is always ready to receive
         },
         autoWithdraw: {
           enabled: false,
