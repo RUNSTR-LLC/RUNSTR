@@ -66,6 +66,11 @@ export class LeagueDataBridge {
   private nostrTeamService = new NostrTeamService();
   private activeLeagues = new Map<string, ActiveLeague>();
   private STORAGE_PREFIX = '@runstr:competition:';
+  private ACTIVE_LEAGUE_PREFIX = '@runstr:active_league:'; // For team-specific active league cache
+
+  // Cache TTL configuration (matching leagueRankingService pattern)
+  private readonly CACHE_FRESH_MS = 5 * 60 * 1000; // 5 minutes fresh
+  private readonly CACHE_STALE_MS = 24 * 60 * 60 * 1000; // 24 hours max stale
 
   static getInstance(): LeagueDataBridge {
     if (!LeagueDataBridge.instance) {
@@ -76,6 +81,10 @@ export class LeagueDataBridge {
 
   private getStorageKey(competitionId: string): string {
     return `${this.STORAGE_PREFIX}${competitionId}`;
+  }
+
+  private getActiveLeagueStorageKey(teamId: string): string {
+    return `${this.ACTIVE_LEAGUE_PREFIX}${teamId}`;
   }
 
   /**
@@ -221,19 +230,64 @@ export class LeagueDataBridge {
 
   /**
    * Get active league for a team
+   * Uses persistent cache with stale-while-revalidate pattern (instant display, background refresh)
    */
   async getActiveLeagueForTeam(teamId: string): Promise<ActiveLeague | null> {
     console.log(`🔍 Getting active league for team: ${teamId.slice(0, 8)}...`);
 
-    // Check cached active leagues first
+    // Step 1: Check in-memory cache (fastest)
     for (const league of this.activeLeagues.values()) {
       if (league.teamId === teamId && league.isActive) {
-        console.log(`✅ Found cached active league: ${league.name}`);
+        console.log(`⚡ Found in-memory active league: ${league.name}`);
         return league;
       }
     }
 
-    // Query Nostr for team leagues
+    // Step 2: Check persistent cache (AsyncStorage)
+    const cacheKey = this.getActiveLeagueStorageKey(teamId);
+    try {
+      const cachedData = await AsyncStorage.getItem(cacheKey);
+      if (cachedData) {
+        const cached = JSON.parse(cachedData);
+        const cacheAge = Date.now() - cached.timestamp;
+
+        // Fresh cache (< 5 minutes) - return immediately
+        if (cacheAge < this.CACHE_FRESH_MS) {
+          console.log(`✅ Returning fresh cached league (age: ${Math.round(cacheAge / 1000)}s)`);
+          const activeLeague = cached.league as ActiveLeague;
+          this.activeLeagues.set(activeLeague.competitionId, activeLeague);
+          return activeLeague;
+        }
+
+        // Stale cache (5 min - 24 hours) - return immediately, refresh in background
+        if (cacheAge < this.CACHE_STALE_MS) {
+          const ageHours = Math.round(cacheAge / (1000 * 60 * 60));
+          const ageMinutes = Math.round(cacheAge / (1000 * 60));
+          console.log(`⚡ Returning stale cache (age: ${ageHours > 0 ? ageHours + 'h' : ageMinutes + 'm'}), refreshing in background`);
+
+          const activeLeague = cached.league as ActiveLeague;
+          this.activeLeagues.set(activeLeague.competitionId, activeLeague);
+
+          // Trigger background refresh without blocking
+          this.refreshActiveLeagueInBackground(teamId);
+
+          return activeLeague;
+        }
+
+        console.log(`🗑️ Cache expired (age: ${Math.round(cacheAge / (1000 * 60 * 60))}h), fetching fresh`);
+      }
+    } catch (error) {
+      console.warn('⚠️ Failed to read cached league:', error);
+    }
+
+    // Step 3: No cache or cache expired - query Nostr (blocking)
+    return this.fetchActiveLeagueFromNostr(teamId);
+  }
+
+  /**
+   * Fetch active league from Nostr (blocking call)
+   */
+  private async fetchActiveLeagueFromNostr(teamId: string): Promise<ActiveLeague | null> {
     try {
       console.log(`🔍 Querying Nostr for team leagues: ${teamId}`);
 
@@ -255,18 +309,11 @@ export class LeagueDataBridge {
           // Convert to ActiveLeague format and cache it
           const activeLeague = await this.convertNostrLeagueToActive(league, teamId);
           if (activeLeague) {
+            // Cache in memory
             this.activeLeagues.set(league.id, activeLeague);
 
-            // Also cache in AsyncStorage for offline access
-            const storageKey = this.getStorageKey(league.id);
-            const cacheData = {
-              competitionId: league.id,
-              type: 'league',
-              parameters: activeLeague.parameters,
-              participants: activeLeague.participants.map(p => p.npub),
-              lastUpdated: new Date().toISOString(),
-            };
-            await AsyncStorage.setItem(storageKey, JSON.stringify(cacheData));
+            // Cache in persistent storage with timestamp
+            await this.cacheActiveLeague(teamId, activeLeague);
 
             console.log(`✅ Found active league from Nostr: ${league.name}`);
             return activeLeague;
@@ -294,6 +341,43 @@ export class LeagueDataBridge {
       }
 
       return null;
+    }
+  }
+
+  /**
+   * Refresh active league in background (non-blocking)
+   */
+  private async refreshActiveLeagueInBackground(teamId: string): Promise<void> {
+    try {
+      console.log(`🔄 Background refresh started for team: ${teamId.slice(0, 8)}...`);
+
+      const freshLeague = await this.fetchActiveLeagueFromNostr(teamId);
+
+      if (freshLeague) {
+        console.log(`✅ Background refresh complete: ${freshLeague.name}`);
+      } else {
+        console.log(`📭 Background refresh found no active league`);
+      }
+    } catch (error) {
+      console.error('❌ Background refresh failed:', error);
+      // Don't throw - this is a background operation
+    }
+  }
+
+  /**
+   * Cache active league with timestamp in persistent storage
+   */
+  private async cacheActiveLeague(teamId: string, league: ActiveLeague): Promise<void> {
+    try {
+      const cacheKey = this.getActiveLeagueStorageKey(teamId);
+      const cacheData = {
+        league,
+        timestamp: Date.now(),
+      };
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
+      console.log(`💾 Cached active league to persistent storage: ${league.name}`);
+    } catch (error) {
+      console.error('❌ Failed to cache active league:', error);
     }
   }
 
