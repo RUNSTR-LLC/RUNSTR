@@ -183,14 +183,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   };
 
   const handleSend = () => {
-    // Refresh balance in background (non-blocking)
-    refreshBalance().catch(err => console.warn('[ProfileScreen] Balance refresh failed:', err));
     setShowSendModal(true);
   };
 
   const handleReceive = () => {
-    // Refresh balance in background (non-blocking)
-    refreshBalance().catch(err => console.warn('[ProfileScreen] Balance refresh failed:', err));
     setShowReceiveModal(true);
   };
 
