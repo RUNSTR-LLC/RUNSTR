@@ -12,8 +12,8 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../styles/theme';
+import { useWalletStore } from '../../store/walletStore';
 import { useNutzap } from '../../hooks/useNutzap';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -28,45 +28,14 @@ export const CompactWallet: React.FC<CompactWalletProps> = ({
   onReceivePress,
   onHistoryPress,
 }) => {
-  const {
-    isInitialized,
-    isLoading,
-    balance,
-    error,
-    claimNutzaps,
-    refreshBalance,
-  } = useNutzap(false); // Changed from true - ProfileScreen already initializes wallet
+  // Subscribe directly to wallet store for real-time balance updates
+  const { balance, isInitialized, isInitializing } = useWalletStore();
+
+  // Get claim function from hook (doesn't trigger initialization)
+  const { claimNutzaps } = useNutzap(false);
 
   const [lastClaimTime, setLastClaimTime] = useState<Date | null>(null);
-  const [displayBalance, setDisplayBalance] = useState<number>(0);
-
-  // Load cached balance immediately on mount for instant display
-  useEffect(() => {
-    const loadCachedBalance = async () => {
-      try {
-        const cachedBalance = await AsyncStorage.getItem('@runstr:cached_wallet_balance');
-        if (cachedBalance) {
-          const parsedBalance = parseInt(cachedBalance, 10);
-          setDisplayBalance(parsedBalance);
-          console.log('[CompactWallet] Showing cached balance:', parsedBalance);
-        }
-      } catch (error) {
-        console.error('[CompactWallet] Failed to load cached balance:', error);
-      }
-    };
-    loadCachedBalance();
-  }, []);
-
-  // Update display balance when wallet balance changes
-  useEffect(() => {
-    if (isInitialized && balance >= 0) {
-      setDisplayBalance(balance);
-      // Cache the balance for next session
-      AsyncStorage.setItem('@runstr:cached_wallet_balance', balance.toString()).catch(err =>
-        console.error('[CompactWallet] Failed to cache balance:', err)
-      );
-    }
-  }, [balance, isInitialized]);
+  const isLoading = isInitializing;
 
   // Auto-claim handler with optional silent mode
   const handleClaim = useCallback(async (silent: boolean = true) => {
@@ -106,14 +75,14 @@ export const CompactWallet: React.FC<CompactWalletProps> = ({
     return sats.toString();
   };
 
-  // Always show wallet UI with current balance (cached or synced)
-  // No blocking loading spinner for better Android UX
+  // Always show wallet UI with real-time balance from store
+  // Balance updates instantly when transactions complete
   return (
     <View style={styles.walletBox}>
         {/* Centered balance with sync indicator */}
         <View style={styles.balanceContainer}>
           <Text style={styles.balanceAmount}>
-            {formatBalance(displayBalance)}
+            {formatBalance(balance)}
           </Text>
           <Text style={styles.balanceUnit}>sats</Text>
           {isLoading && (
