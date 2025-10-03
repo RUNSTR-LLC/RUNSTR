@@ -3,7 +3,7 @@
  * 50% smaller than original, centered balance, no USD display
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -35,7 +35,7 @@ export const CompactWallet: React.FC<CompactWalletProps> = ({
     error,
     claimNutzaps,
     refreshBalance,
-  } = useNutzap(true);
+  } = useNutzap(false); // Changed from true - ProfileScreen already initializes wallet
 
   const [lastClaimTime, setLastClaimTime] = useState<Date | null>(null);
   const [displayBalance, setDisplayBalance] = useState<number>(0);
@@ -68,28 +68,34 @@ export const CompactWallet: React.FC<CompactWalletProps> = ({
     }
   }, [balance, isInitialized]);
 
-  // Auto-claim on mount and periodically
-  useEffect(() => {
-    if (isInitialized) {
-      handleClaim();
-      const interval = setInterval(() => {
-        handleClaim();
-      }, 60000); // Every minute
-      return () => clearInterval(interval);
-    }
-  }, [isInitialized]);
-
-  const handleClaim = async () => {
+  // Auto-claim handler with optional silent mode
+  const handleClaim = useCallback(async (silent: boolean = true) => {
     const result = await claimNutzaps();
     if (result.claimed > 0) {
       setLastClaimTime(new Date());
-      Alert.alert(
-        'Payment Received!',
-        `Received ${result.claimed} sats`,
-        [{ text: 'OK' }]
-      );
+      // Only show alert if not silent (prevents interference with modals)
+      if (!silent) {
+        Alert.alert(
+          'Payment Received!',
+          `Received ${result.claimed} sats`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        console.log('[CompactWallet] Auto-claimed', result.claimed, 'sats (silent mode)');
+      }
     }
-  };
+  }, [claimNutzaps]);
+
+  // Auto-claim on mount and periodically (silent mode to avoid Alert/Modal conflicts)
+  useEffect(() => {
+    if (isInitialized) {
+      handleClaim(true); // Silent auto-claim
+      const interval = setInterval(() => {
+        handleClaim(true); // Silent periodic claim
+      }, 60000); // Every minute
+      return () => clearInterval(interval);
+    }
+  }, [isInitialized, handleClaim]);
 
   const formatBalance = (sats: number): string => {
     if (sats >= 1000000) {
