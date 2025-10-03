@@ -19,6 +19,11 @@ import { npubToHex } from '../../utils/ndkConversion';
 import { NDKPrivateKeySigner, NDKEvent } from '@nostr-dev-kit/ndk';
 import { Alert } from 'react-native';
 
+// QR Code
+import { QRDisplayModal } from '../qr/QRDisplayModal';
+import QRCodeService from '../../services/qr/QRCodeService';
+import type { EventQRData } from '../../services/qr/QRCodeService';
+
 interface EventsCardProps {
   events: FormattedEvent[];
   onEventPress?: (eventId: string, event?: FormattedEvent) => void;
@@ -46,6 +51,10 @@ export const EventsCard: React.FC<EventsCardProps> = ({
   const [requestingJoin, setRequestingJoin] = useState<string | null>(null);
   const listService = NostrListService.getInstance();
   const joinRequestService = EventJoinRequestService.getInstance();
+
+  // QR Code state
+  const [qrModalVisible, setQrModalVisible] = useState(false);
+  const [selectedEventQR, setSelectedEventQR] = useState<EventQRData | null>(null);
 
   useEffect(() => {
     const loadCurrentUser = async () => {
@@ -112,6 +121,32 @@ export const EventsCard: React.FC<EventsCardProps> = ({
 
     checkEventStatuses();
   }, [events, currentUserNpub]);
+
+  const handleShowEventQR = (event: FormattedEvent) => {
+    if (!currentUserNpub) return;
+
+    // Parse date to timestamp
+    const eventDate = new Date(event.startDate || event.date);
+    const startTimestamp = Math.floor(eventDate.getTime() / 1000);
+    const endTimestamp = startTimestamp + 86400; // Add 1 day
+
+    // Generate QR data
+    const qrData = QRCodeService.generateEventQR(
+      event.id,
+      event.teamId || '',
+      currentUserNpub,
+      event.name,
+      startTimestamp,
+      endTimestamp,
+      event.description || event.details
+    );
+
+    // Parse to object
+    const parsedQR = JSON.parse(qrData) as EventQRData;
+    setSelectedEventQR(parsedQR);
+    setQrModalVisible(true);
+  };
+
   return (
     <Card style={styles.card}>
       <View style={styles.header}>
@@ -173,6 +208,17 @@ export const EventsCard: React.FC<EventsCardProps> = ({
                 {eventStatuses[event.id]?.participantCount || 0} participants
               </Text>
 
+              {/* Captain QR button */}
+              {isCaptain && (
+                <TouchableOpacity
+                  style={styles.qrButton}
+                  onPress={() => handleShowEventQR(event)}
+                >
+                  <Ionicons name="qr-code-outline" size={16} color={theme.colors.text} />
+                  <Text style={styles.qrButtonText}>QR</Text>
+                </TouchableOpacity>
+              )}
+
               {!isCaptain && !eventStatuses[event.id]?.isJoined && !eventStatuses[event.id]?.isCompleted && (
                 <TouchableOpacity
                   style={[
@@ -196,6 +242,18 @@ export const EventsCard: React.FC<EventsCardProps> = ({
           </TouchableOpacity>
         ))}
       </ScrollView>
+
+      {/* QR Code Modal */}
+      {selectedEventQR && (
+        <QRDisplayModal
+          visible={qrModalVisible}
+          onClose={() => {
+            setQrModalVisible(false);
+            setSelectedEventQR(null);
+          }}
+          data={selectedEventQR}
+        />
+      )}
     </Card>
   );
 
@@ -387,5 +445,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: theme.colors.background,
+  },
+  qrButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  qrButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.colors.text,
   },
 });

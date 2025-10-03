@@ -38,6 +38,10 @@ import { challengeNotificationHandler } from '../services/notifications/Challeng
 import { getUserNostrIdentifiers } from '../utils/nostr';
 import type { QRData } from '../services/qr/QRCodeService';
 import JoinRequestService from '../services/competition/JoinRequestService';
+import { EventJoinRequestService } from '../services/events/EventJoinRequestService';
+import { getAuthenticationData } from '../utils/nostrAuth';
+import { nsecToPrivateKey } from '../utils/nostr';
+import { NDKPrivateKeySigner, NDKEvent } from '@nostr-dev-kit/ndk';
 import { Alert } from 'react-native';
 
 interface ProfileScreenProps {
@@ -251,12 +255,42 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         );
         Alert.alert('Success', 'Challenge acceptance request sent!');
       } else {
-        await JoinRequestService.publishEventJoinRequest(
-          qrData.id,
-          qrData.captain_npub,
-          qrData.name
+        // Handle event join using EventJoinRequestService (kind 1105)
+        const authData = await getAuthenticationData();
+        if (!authData?.nsec) {
+          Alert.alert('Error', 'Authentication required to join events');
+          return;
+        }
+
+        const eventJoinService = EventJoinRequestService.getInstance();
+
+        // Prepare event join request
+        const requestData = {
+          eventId: qrData.id,
+          eventName: qrData.name,
+          teamId: qrData.team_id,
+          captainPubkey: qrData.captain_npub,
+          message: `Requesting to join ${qrData.name} via QR code`,
+        };
+
+        const eventTemplate = eventJoinService.prepareEventJoinRequest(
+          requestData,
+          authData.hexPubkey
         );
-        Alert.alert('Success', 'Event join request sent to captain!');
+
+        // Sign and publish the event join request
+        const g = globalThis as any;
+        const ndk = g.__RUNSTR_NDK_INSTANCE__;
+        const privateKeyHex = nsecToPrivateKey(authData.nsec);
+        const signer = new NDKPrivateKeySigner(privateKeyHex);
+        const ndkEvent = new NDKEvent(ndk, eventTemplate);
+        await ndkEvent.sign(signer);
+        await ndkEvent.publish();
+
+        Alert.alert(
+          'Request Sent',
+          'Your join request has been sent to the captain for approval!'
+        );
       }
     } catch (error) {
       console.error('Failed to join competition:', error);

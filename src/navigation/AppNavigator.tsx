@@ -21,10 +21,12 @@ import { TeamCreationWizard } from '../components/wizards/TeamCreationWizard';
 import { GlobalChallengeWizard } from '../components/wizards/GlobalChallengeWizard';
 import { EventDetailScreen } from '../screens/EventDetailScreen';
 import { ChallengeDetailScreen } from '../screens/ChallengeDetailScreen';
+import { ChallengeLeaderboardScreen } from '../screens/ChallengeLeaderboardScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { CompetitionsListScreen } from '../screens/CompetitionsListScreen';
 import { WorkoutHistoryScreen } from '../screens/WorkoutHistoryScreen';
+import type { DiscoveredNostrUser } from '../services/user/UserDiscoveryService';
 
 // Navigation Configuration
 import {
@@ -58,7 +60,7 @@ export type RootStackParamList = {
   ChallengeDetail: { challengeId: string };
   CompetitionsList: undefined;
   ChallengeLeaderboard: { challengeId: string };
-  ChallengeWizard: undefined;
+  ChallengeWizard: { preselectedOpponent?: DiscoveredNostrUser };
   WorkoutHistory: { userId: string; pubkey: string };
 };
 
@@ -519,21 +521,15 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
         component={WorkoutHistoryScreen}
       />
 
-      {/* Challenge Leaderboard Screen (placeholder for now) */}
+      {/* Challenge Leaderboard Screen */}
       <Stack.Screen
         name="ChallengeLeaderboard"
+        component={ChallengeLeaderboardScreen}
         options={{
           ...defaultScreenOptions,
-          headerTitle: 'Challenge',
+          headerShown: false,
         }}
-      >
-        {({ navigation, route }) => (
-          <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
-            <Text style={{ color: '#fff' }}>Challenge Leaderboard - Coming Soon</Text>
-            <Text style={{ color: '#666', marginTop: 8 }}>Challenge ID: {route.params?.challengeId}</Text>
-          </View>
-        )}
-      </Stack.Screen>
+      />
 
       {/* Global Challenge Wizard Screen */}
       <Stack.Screen
@@ -544,13 +540,14 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
           presentation: 'modal',
         }}
       >
-        {({ navigation }) => (
+        {({ navigation, route }) => (
           <GlobalChallengeWizard
             onComplete={() => {
               navigation.goBack();
               refresh(); // Refresh competitions list
             }}
             onCancel={() => navigation.goBack()}
+            preselectedOpponent={route.params?.preselectedOpponent}
           />
         )}
       </Stack.Screen>
