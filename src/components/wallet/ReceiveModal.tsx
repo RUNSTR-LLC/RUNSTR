@@ -37,7 +37,7 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
   currentBalance,
   userNpub,
 }) => {
-  const { refreshBalance, isInitialized, isLoading } = useNutzap(true);
+  const { refreshBalance, isInitialized, isLoading } = useNutzap(false);
   const [receiveMethod] = useState<ReceiveMethod>('lightning');
   const [amount, setAmount] = useState('');
   const [invoice, setInvoice] = useState('');
