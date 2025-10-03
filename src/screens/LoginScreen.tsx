@@ -80,8 +80,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
       const result = await signIn(nsecInput);
 
       if (result.success) {
-        console.log('✅ LoginScreen: Authentication successful - AuthContext will handle navigation');
-        // No need to call onLoginSuccess() - AuthContext updates trigger automatic navigation
+        console.log('✅ LoginScreen: Authentication successful - checking onboarding status...');
+
+        // Check if user has completed onboarding
+        const onboardingCompleted = await AsyncStorage.getItem('@runstr:onboarding_completed');
+
+        if (!onboardingCompleted) {
+          console.log('LoginScreen: User has not completed onboarding - showing wizard');
+          // Get nsec for onboarding password screen
+          const nsec = await AsyncStorage.getItem('@runstr:user_nsec');
+          navigation.navigate('Onboarding', { nsec: nsec || undefined });
+        } else {
+          console.log('LoginScreen: Onboarding previously completed - AuthContext will handle navigation');
+          // AuthContext updates trigger automatic navigation to MainTabs
+        }
       } else {
         console.error('❌ LoginScreen: Authentication failed:', result.error);
         setError(result.error || 'Authentication failed. Please try again.');

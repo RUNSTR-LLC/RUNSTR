@@ -47,6 +47,15 @@ export class AuthService {
         console.log('AuthService: NutZap service reset skipped:', err);
       }
 
+      // Reset wallet store state (Zustand)
+      try {
+        const { useWalletStore } = await import('../../store/walletStore');
+        useWalletStore.getState().reset();
+        console.log('AuthService: Wallet store reset successful');
+      } catch (err) {
+        console.log('AuthService: Wallet store reset skipped:', err);
+      }
+
       console.log('AuthService: Sign out successful with wallet cleanup');
 
       return {
