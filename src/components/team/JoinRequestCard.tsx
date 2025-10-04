@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
   },
 
   newBadgeText: {
-    color: '#fff',
+    color: theme.colors.textBright,
     fontSize: 10,
     fontWeight: theme.typography.weights.bold,
     textTransform: 'uppercase',

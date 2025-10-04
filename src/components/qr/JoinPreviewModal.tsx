@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#1a1a1a',
   },
   joinButton: {
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.colors.orangeDeep, // Deep orange button
     paddingVertical: 16,
     borderRadius: 8,
     alignItems: 'center',
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
   joinButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
+    color: theme.colors.accentText, // Black text on orange
   },
   cancelButton: {
     paddingVertical: 14,

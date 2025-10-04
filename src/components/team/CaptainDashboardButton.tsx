@@ -161,33 +161,33 @@ const styles = StyleSheet.create({
 
   // Style variants
   primaryButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.orangeDeep, // Deep orange background
     borderWidth: 1,
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.orangeBurnt, // Burnt orange border
   },
 
   outlineButton: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.orangeDeep, // Orange border
   },
 
   subtleButton: {
-    backgroundColor: theme.colors.accent + '20',
+    backgroundColor: theme.colors.orangeDeep + '20', // Subtle orange background
     borderWidth: 1,
     borderColor: 'transparent',
   },
 
   primaryText: {
-    color: theme.colors.accentText,
+    color: theme.colors.accentText, // Black text on orange
   },
 
   outlineText: {
-    color: theme.colors.accent,
+    color: theme.colors.orangeBright, // Bright orange text
   },
 
   subtleText: {
-    color: theme.colors.accent,
+    color: theme.colors.orangeBright, // Bright orange text
   },
 
   // Disabled state

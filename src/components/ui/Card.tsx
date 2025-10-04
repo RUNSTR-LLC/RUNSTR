@@ -21,7 +21,7 @@ const styles = StyleSheet.create({
     // Exact CSS: background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 12px; padding: 16px;
     backgroundColor: theme.colors.cardBackground,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.orangeDeep, // Orange border
     borderRadius: theme.borderRadius.large,
     padding: theme.spacing.xxl,
   },

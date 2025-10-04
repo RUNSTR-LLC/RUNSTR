@@ -82,12 +82,12 @@ const styles = StyleSheet.create({
     borderColor: '#1a1a1a',
     borderRadius: 12,
     overflow: 'hidden', // To clip banner image
-    height: 180, // Increased height to show avatar and username
+    height: 150, // Reduced height for better screen fit
   },
 
   // Banner styles
   bannerContainer: {
-    height: 60, // Reduced height
+    height: 50, // Further reduced height
     position: 'relative',
     marginHorizontal: -1, // Offset border width
     marginTop: -1, // Offset border width
@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
 
   // Profile content that sits below banner or replaces container content
   profileContent: {
-    padding: 16,
+    padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
   },
 
   profileContentWithBanner: {
-    paddingTop: 12, // Reduced top padding when banner present
+    paddingTop: 8, // Reduced top padding when banner present
   },
 
   avatar: {

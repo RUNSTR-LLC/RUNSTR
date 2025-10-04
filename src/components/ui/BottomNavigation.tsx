@@ -36,7 +36,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
           name="search-outline"
           size={16}
           color={
-            activeScreen === 'team' ? theme.colors.text : theme.colors.textMuted
+            activeScreen === 'team' ? theme.colors.orangeBright : theme.colors.textMuted
           }
         />
         <Text
@@ -63,7 +63,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
           size={16}
           color={
             activeScreen === 'profile'
-              ? theme.colors.text
+              ? theme.colors.orangeBright
               : theme.colors.textMuted
           }
         />
@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
     height: theme.layout.bottomNavHeight, // 50px
     backgroundColor: theme.colors.navBackground, // #0a0a0a
     borderWidth: 1,
-    borderColor: theme.colors.border, // #1a1a1a
+    borderColor: theme.colors.orangeDeep, // Orange border
     borderRadius: theme.borderRadius.large, // 12px
     flexDirection: 'row',
     padding: theme.spacing.lg, // 8px
@@ -130,6 +130,6 @@ const styles = StyleSheet.create({
   },
 
   navLabelActive: {
-    color: theme.colors.text, // #fff
+    color: theme.colors.orangeBright, // Bright orange for active tab
   },
 });

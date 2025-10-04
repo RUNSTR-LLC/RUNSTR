@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.colors.orangeBright, // Bright orange progress
     borderRadius: 1,
   },
   stepsIndicator: {
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#2a2a2a',
   },
   stepDotActive: {
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.colors.orangeBright, // Bright orange active dot
   },
   versionText: {
     position: 'absolute',

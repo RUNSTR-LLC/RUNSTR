@@ -564,7 +564,7 @@ const styles = StyleSheet.create({
   amberButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: theme.colors.accentText,
   },
   amberSubtext: {
     fontSize: 12,

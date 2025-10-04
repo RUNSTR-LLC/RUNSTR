@@ -31,7 +31,7 @@ export const ChallengesCard: React.FC<ChallengesCardProps> = ({
       <ScrollView
         style={styles.scrollableList}
         showsVerticalScrollIndicator={true}
-        indicatorStyle="white"
+        indicatorStyle="#FF9D42"
       >
         {challenges.map((challenge) => (
           <TouchableOpacity

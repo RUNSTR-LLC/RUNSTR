@@ -4,39 +4,50 @@
  */
 
 export const colors = {
-  // Core backgrounds - exact from CSS
+  // Core backgrounds - black theme
   background: '#000000', // body background
   cardBackground: '#0a0a0a', // all cards (.main-leaderboard, .events-card, etc.)
   card: '#0a0a0a', // alias for cardBackground for compatibility
   border: '#1a1a1a', // card borders, separators
 
-  // Text colors - exact from CSS
-  text: '#ffffff', // primary text (.team-name, .leaderboard-name)
-  textSecondary: '#cccccc', // .about-text
-  textMuted: '#666666', // labels (.about-title, .prize-currency)
-  textDark: '#999999', // .event-details, .challenge-details
+  // Orange palette - from RUNSTR logo
+  orangeBright: '#FF9D42', // Bright orange (highlights, active states)
+  orangeDeep: '#FF7B1C', // Deep orange (primary actions, mid-tones)
+  orangeBurnt: '#E65100', // Burnt orange (darker accents, emphasis)
+  orangeDark: '#BF360C', // Dark orange (subtle accents)
 
-  // Accent colors - exact from CSS
-  accent: '#ffffff', // .rank.top3 background, .add-btn background
-  accentText: '#000000', // .rank.top3 text, .add-btn text
+  // Text colors - ALL ORANGE, NO WHITE
+  text: '#FFB366', // Light orange for primary text (readable on black)
+  textSecondary: '#FF9D42', // Bright orange for secondary text
+  textMuted: '#CC7A33', // Muted orange for labels
+  textDark: '#996633', // Dark orange for details
+  textOrange: '#FF9D42', // Bright orange for headings/emphasis
+  textOrangeDeep: '#FF7B1C', // Deep orange text variant
+  textBright: '#FFB366', // Light orange (replaces white)
 
-  // Button styles - exact from CSS
+  // Accent colors - updated to orange theme
+  accent: '#FF7B1C', // Primary accent (deep orange)
+  accentBright: '#FF9D42', // Bright accent (bright orange)
+  accentText: '#000000', // Black text on bright orange backgrounds
+
+  // Button styles - orange theme
   button: 'transparent', // .manage-wallet-btn, .edit-btn background
-  buttonBorder: '#333333', // button borders
+  buttonBorder: '#FF7B1C', // Orange button borders
   buttonHover: '#1a1a1a', // hover states, .nav-item.active
+  buttonPrimary: '#FF7B1C', // Primary button background (deep orange)
 
-  // Special backgrounds - exact from CSS
+  // Special backgrounds
   prizeBackground: '#1a1a1a', // .challenge-prize background
   navBackground: '#0a0a0a', // .bottom-nav background
   syncBackground: '#333333', // .sync-icon, .leaderboard-avatar background
 
   // Status indicators
-  statusConnected: '#0a84ff', // .sync-status.connected
+  statusConnected: '#FF9D42', // Connected state (bright orange)
   statusDot: '#666666', // .status-dot
 
   // Additional colors needed by components
-  textPrimary: '#ffffff', // Same as text for primary text
-  primary: '#0a84ff', // Primary action color
+  textPrimary: '#FFB366', // Light orange for primary text (NO WHITE)
+  primary: '#FF7B1C', // Primary action color (deep orange)
   textTertiary: '#999999', // For darker text
   gray: '#333333', // For borders and backgrounds
   error: '#ff4444', // Error messages and validation

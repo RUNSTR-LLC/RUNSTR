@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   badge: {
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.colors.orangeBright, // Bright orange badge
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#000',
+    color: '#000', // Black text on bright orange
   },
   scrollView: {
     flex: 1,

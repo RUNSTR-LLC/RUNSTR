@@ -14,6 +14,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import { theme } from '../../styles/theme';
 import { NostrCompetitionDiscoveryService } from '../../services/competition/NostrCompetitionDiscoveryService';
 import { getUserNostrIdentifiers } from '../../utils/nostr';
 import type { UserCompetition } from '../../types/challenge';
@@ -120,10 +121,10 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: '#0a0a0a',
     borderRadius: 12,
-    padding: 12,
+    padding: 10,
     borderWidth: 1,
     borderColor: '#1a1a1a',
-    height: 90, // Compact height
+    height: 80, // Further reduced height
     justifyContent: 'flex-start',
   },
   header: {
@@ -136,7 +137,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.5,
-    backgroundColor: '#fff',
+    backgroundColor: '#FF9D42', // Bright orange badge
     color: '#000',
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -146,7 +147,7 @@ const styles = StyleSheet.create({
   activeCount: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#fff',
+    color: theme.colors.orangeBright, // Bright orange for count
     marginBottom: 4,
   },
   emptyState: {

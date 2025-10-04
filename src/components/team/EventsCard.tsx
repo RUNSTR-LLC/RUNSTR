@@ -161,7 +161,7 @@ export const EventsCard: React.FC<EventsCardProps> = ({
       <ScrollView
         style={styles.scrollableList}
         showsVerticalScrollIndicator={true}
-        indicatorStyle="white"
+        indicatorStyle="#FF9D42"
       >
         {events.map((event) => (
           <TouchableOpacity

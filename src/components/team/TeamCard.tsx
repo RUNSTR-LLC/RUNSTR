@@ -230,11 +230,6 @@ export const TeamCard: React.FC<TeamCardProps> = ({
 
   const cardContent = (
     <View style={styles.cardContent}>
-          {/* Team Avatar */}
-          <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
-            <Text style={styles.avatarText}>{teamInitials}</Text>
-          </View>
-
           {/* Team Info */}
           <View style={styles.teamInfo}>
             <View style={styles.teamHeader}>
@@ -345,7 +340,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: theme.colors.cardBackground,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.orangeDeep, // Orange border
     borderRadius: 12,
     marginBottom: 16,
     padding: 16,
@@ -374,21 +369,6 @@ const styles = StyleSheet.create({
   cardContent: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-  },
-
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-
-  avatarText: {
-    fontSize: 18,
-    fontWeight: theme.typography.weights.bold,
-    color: '#FFFFFF',
   },
 
   teamInfo: {
@@ -420,7 +400,7 @@ const styles = StyleSheet.create({
   teamName: {
     fontSize: 17,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
+    color: theme.colors.orangeBright, // Orange gradient text
     marginRight: 8,
   },
 
@@ -444,7 +424,8 @@ const styles = StyleSheet.create({
 
   prizeText: {
     fontSize: 13,
-    color: theme.colors.accent,
+    color: theme.colors.orangeBright, // Bright orange for prize text
+    fontWeight: theme.typography.weights.semiBold,
   },
 
   noPrizeRow: {
@@ -461,7 +442,7 @@ const styles = StyleSheet.create({
   },
 
   captainBadge: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.orangeBurnt, // Burnt orange for captain badge
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -470,12 +451,12 @@ const styles = StyleSheet.create({
   captainBadgeText: {
     fontSize: 9,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.accentText,
+    color: theme.colors.accentText, // Black text on orange
     letterSpacing: 0.5,
   },
 
   joinButton: {
-    backgroundColor: theme.colors.text, // White background
+    backgroundColor: theme.colors.orangeDeep, // Deep orange background
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 8,
@@ -499,7 +480,7 @@ const styles = StyleSheet.create({
   joinButtonText: {
     fontSize: 13,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.background, // Black text on white button
+    color: theme.colors.accentText, // Black text on orange button
   },
 
   memberButtonText: {

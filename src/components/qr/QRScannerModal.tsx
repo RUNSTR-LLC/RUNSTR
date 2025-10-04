@@ -113,11 +113,7 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({
               style={styles.permissionButton}
               onPress={handlePermissionRequest}
             >
-              <Text style={styles.permissionButtonText}>Grant Access</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text style={styles.permissionButtonText}>Continue</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -203,7 +199,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 30,
     height: 30,
-    borderColor: '#fff',
+    borderColor: theme.colors.orangeDeep,
   },
   topLeft: {
     top: 0,
@@ -238,7 +234,7 @@ const styles = StyleSheet.create({
   },
   instructionText: {
     fontSize: 16,
-    color: '#fff',
+    color: theme.colors.textBright,
     textAlign: 'center',
     marginBottom: 24,
   },
@@ -286,14 +282,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#000',
-    textAlign: 'center',
-  },
-  cancelButton: {
-    paddingVertical: 14,
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    color: theme.colors.textMuted,
     textAlign: 'center',
   },
 });

@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   closeButton: {
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.colors.orangeDeep, // Deep orange close button
     paddingVertical: 16,
     alignItems: 'center',
     borderBottomLeftRadius: 16,
@@ -221,6 +221,6 @@ const styles = StyleSheet.create({
   closeButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
+    color: theme.colors.accentText, // Black text on orange
   },
 });

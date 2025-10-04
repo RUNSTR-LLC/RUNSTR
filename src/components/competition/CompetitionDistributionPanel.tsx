@@ -286,7 +286,7 @@ export const CompetitionDistributionPanel: React.FC<CompetitionDistributionPanel
         disabled={hasDistributed || isDistributing || walletLoading || balance < totalPrize}
       >
         {isDistributing ? (
-          <ActivityIndicator size="small" color="#fff" />
+          <ActivityIndicator size="small" color="#FF9D42" />
         ) : hasDistributed ? (
           <Text style={styles.distributeButtonText}>✓ Rewards Distributed</Text>
         ) : balance < totalPrize ? (
@@ -462,6 +462,6 @@ const styles = StyleSheet.create({
   distributeButtonText: {
     fontSize: 16,
     fontWeight: theme.typography.weights.semiBold,
-    color: '#fff',
+    color: theme.colors.textBright,
   },
 });

@@ -1,5 +1,5 @@
 /**
- * PrimaryButton - Reusable white button with black text
+ * PrimaryButton - Reusable orange button with white text
  * Consistent styling across the app for primary actions
  */
 
@@ -38,23 +38,23 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.colors.orangeDeep, // Deep orange background
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   buttonDisabled: {
-    backgroundColor: '#666666',
+    backgroundColor: theme.colors.orangeDark, // Dark orange when disabled
     opacity: 0.5,
   },
   buttonText: {
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
-    color: '#000000',
+    color: theme.colors.accentText, // Black text on orange
     letterSpacing: 0.5,
   },
   buttonTextDisabled: {
-    color: '#999999',
+    color: '#CCCCCC', // Light gray text when disabled
   },
 });

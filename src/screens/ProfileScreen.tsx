@@ -36,6 +36,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { npubEncode } from '../utils/nostrEncoding';
 import { unifiedNotificationStore } from '../services/notifications/UnifiedNotificationStore';
 import { challengeNotificationHandler } from '../services/notifications/ChallengeNotificationHandler';
+// TEMPORARILY REMOVED TO DEBUG THEME ERROR
+// import { NotificationService } from '../services/notifications/NotificationService';
 import { getUserNostrIdentifiers } from '../utils/nostr';
 import type { QRData } from '../services/qr/QRCodeService';
 import JoinRequestService from '../services/competition/JoinRequestService';
@@ -124,6 +126,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
           // Start challenge notification listener
           await challengeNotificationHandler.startListening();
+
+          // Initialize NotificationService to start competition event monitoring
+          // TEMPORARILY COMMENTED OUT TO DEBUG THEME ERROR
+          // await NotificationService.getInstance().initialize(userIdentifiers.hexPubkey);
 
           console.log('[ProfileScreen] Unified notification system initialized');
         }
@@ -390,7 +396,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           activeOpacity={0.7}
         >
           <View style={styles.createChallengeContent}>
-            <Text style={styles.createChallengeIcon}>⚔️</Text>
             <View style={styles.createChallengeTextContainer}>
               <Text style={styles.createChallengeTitle}>Create Challenge</Text>
               <Text style={styles.createChallengeSubtitle}>
@@ -515,19 +520,19 @@ const styles = StyleSheet.create({
 
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 100, // Extra space for bottom tab bar
+    paddingTop: 8,
+    paddingBottom: 80, // Reduced space for bottom tab bar
   },
 
   // Profile header container for badge positioning
   profileHeaderContainer: {
     position: 'relative',
-    marginBottom: 10,
+    marginBottom: 6,
   },
 
   // Box styling with uniform spacing
   boxContainer: {
-    marginBottom: 10,
+    marginBottom: 6,
   },
 
   sectionTitle: {
@@ -543,8 +548,9 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.large,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    padding: 16,
-    marginBottom: 16,
+    padding: 10,
+    marginBottom: 6,
+    height: 80, // Match other box heights
   },
 
   createChallengeContent: {
@@ -552,24 +558,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  createChallengeIcon: {
-    fontSize: 24,
-    marginRight: 12,
-  },
-
   createChallengeTextContainer: {
     flex: 1,
   },
 
   createChallengeTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: theme.typography.weights.semiBold,
     color: theme.colors.text,
     marginBottom: 2,
   },
 
   createChallengeSubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: theme.colors.textSecondary,
   },
 

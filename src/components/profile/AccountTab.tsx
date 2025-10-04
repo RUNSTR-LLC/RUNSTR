@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.md, // 6px
     paddingHorizontal: theme.spacing.xl, // 12px
     borderRadius: theme.borderRadius.small, // 6px
-    backgroundColor: '#dc2626', // Red background for destructive action
+    backgroundColor: theme.colors.orangeDeep, // Orange background matching theme
   },
 
   signOutButtonText: {

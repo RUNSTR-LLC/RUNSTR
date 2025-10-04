@@ -525,7 +525,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
   },
   modeButtonTextActive: {
-    color: '#ffffff',
+    color: theme.colors.textBright,
     fontWeight: '600',
   },
   templateButton: {
@@ -650,7 +650,7 @@ const styles = StyleSheet.create({
   },
   distributeButtonText: {
     fontSize: theme.typography.headingTertiary,
-    color: '#ffffff',
+    color: theme.colors.textBright,
     fontWeight: 'bold',
   },
 });

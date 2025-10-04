@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
   },
   approveButton: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.colors.orangeDeep, // Deep orange approve button
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
   approveButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#000',
+    color: theme.colors.accentText, // Black text on orange
   },
   rejectButton: {
     flex: 1,

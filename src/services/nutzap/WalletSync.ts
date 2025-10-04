@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NDK, { NDKEvent, NDKPrivateKeySigner, NDKKind } from '@nostr-dev-kit/ndk';
 import { Proof } from '@cashu/cashu-ts';
 import WalletCore from './WalletCore';
+import { unifiedNotificationStore } from '../notifications/UnifiedNotificationStore';
 
 // Event kinds
 const EVENT_KINDS = {
@@ -280,6 +281,28 @@ export class WalletSync {
             if (result.amount > 0) {
               claimedAmount += result.amount;
               console.log(`[WalletSync] Claimed ${result.amount} sats from ${event.pubkey.slice(0, 8)}...`);
+
+              // Create notification for incoming zap
+              try {
+                await unifiedNotificationStore.addNotification(
+                  'incoming_zap',
+                  `You received ${result.amount} sats!`,
+                  `Lightning payment received`,
+                  {
+                    amount: result.amount,
+                    senderPubkey: event.pubkey,
+                    timestamp: event.created_at || Math.floor(Date.now() / 1000),
+                  },
+                  {
+                    icon: 'flash',
+                    actions: [
+                      { id: 'view_wallet', type: 'view_wallet', label: 'View Wallet', isPrimary: true }
+                    ]
+                  }
+                );
+              } catch (notifError) {
+                console.warn('[WalletSync] Failed to create zap notification:', notifError);
+              }
             }
           }
         } catch (err: any) {

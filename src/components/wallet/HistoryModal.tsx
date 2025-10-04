@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: theme.typography.weights.bold,
-    color: '#ffffff', // White text
+    color: theme.colors.textBright, // White text
   },
 
   closeButton: {
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
   transactionTitle: {
     fontSize: 14,
     fontWeight: theme.typography.weights.semiBold,
-    color: '#ffffff', // White text
+    color: theme.colors.textBright, // White text
     marginBottom: 2,
   },
 
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: theme.typography.weights.semiBold,
-    color: '#ffffff', // White text
+    color: theme.colors.textBright, // White text
     marginTop: 16,
     marginBottom: 8,
   },

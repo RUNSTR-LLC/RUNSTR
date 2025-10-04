@@ -93,7 +93,7 @@ export const CompetitionWinnersCard: React.FC<CompetitionWinnersCardProps> = ({
         <ScrollView
           style={styles.scrollableList}
           showsVerticalScrollIndicator={true}
-          indicatorStyle="white"
+          indicatorStyle="#FF9D42"
         >
           {winners.map((winner) => (
             <View

@@ -243,13 +243,13 @@ const styles = StyleSheet.create({
   },
 
   progressDotActive: {
-    borderColor: theme.colors.accent,
-    backgroundColor: theme.colors.accent,
+    borderColor: theme.colors.orangeDeep, // Orange for active step
+    backgroundColor: theme.colors.orangeDeep,
   },
 
   progressDotCompleted: {
-    backgroundColor: '#10b981', // Green for completed
-    borderColor: '#10b981',
+    backgroundColor: theme.colors.orangeBright, // Bright orange for completed
+    borderColor: theme.colors.orangeBright,
   },
 
   progressDotNumber: {
@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
   progressDotCheck: {
     fontSize: 14,
     fontWeight: theme.typography.weights.bold,
-    color: '#fff',
+    color: theme.colors.textBright,
   },
 
   progressLine: {
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
   },
 
   progressLineActive: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.orangeDeep, // Orange progress line
   },
 
   // Content styles
@@ -305,11 +305,11 @@ const styles = StyleSheet.create({
   previousButton: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.orangeDeep, // Orange border for previous
   },
 
   nextButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.orangeDeep, // Deep orange for next/create
   },
 
   navigationButtonDisabled: {
@@ -319,11 +319,11 @@ const styles = StyleSheet.create({
   navigationButtonText: {
     fontSize: 14,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.text,
+    color: theme.colors.orangeBright, // Bright orange for previous text
   },
 
   nextButtonText: {
-    color: theme.colors.accentText,
+    color: theme.colors.accentText, // Black text on orange button
   },
 
   navigationButtonTextDisabled: {

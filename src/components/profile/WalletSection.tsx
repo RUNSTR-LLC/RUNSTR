@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.xxl, // 16px
     backgroundColor: theme.colors.cardBackground, // #0a0a0a
     borderWidth: 1,
-    borderColor: theme.colors.border, // #1a1a1a
+    borderColor: theme.colors.orangeDeep, // Orange border
     borderRadius: theme.borderRadius.large, // 12px
     padding: theme.spacing.xxl, // 16px
     flexDirection: 'row',
@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
   balanceNumber: {
     fontSize: theme.typography.balanceNumber, // 24px
     fontWeight: theme.typography.weights.extraBold, // 800
-    color: theme.colors.text,
+    color: theme.colors.orangeBright, // Bright orange for balance
   },
 
   // CSS: font-size: 14px; color: #666; font-weight: 500;

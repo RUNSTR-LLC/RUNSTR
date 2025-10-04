@@ -124,8 +124,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#1a1a1a',
     borderRadius: 12,
-    padding: 12,
-    height: 90, // Compact height
+    padding: 10,
+    height: 80, // Further reduced height
     position: 'relative',
   },
 
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    marginTop: -20, // Move balance up to avoid overlap with buttons
+    marginTop: -32, // Move balance up to avoid overlap with buttons (increased from -20)
   },
 
   balanceAmount: {

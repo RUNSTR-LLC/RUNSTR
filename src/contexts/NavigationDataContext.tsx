@@ -262,8 +262,12 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
 
       try {
         // Fetch all teams user is a member of (multi-team support)
-        teams = await getAllUserTeams(user);
-        console.log(`✅ Profile: Found ${teams.length} team(s) for user`);
+        const allTeams = await getAllUserTeams(user);
+        console.log(`✅ Profile: Found ${allTeams.length} team(s) for user`);
+
+        // Filter out pending teams - only show teams where user is captain or verified member
+        teams = allTeams.filter(team => team.role === 'captain' || team.role === 'member');
+        console.log(`✅ Profile: Filtered to ${teams.length} verified team(s) (excluding pending)`);
 
         // Get primary team ID from user preferences
         const userIdentifiers = await getUserNostrIdentifiers();
@@ -287,6 +291,7 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
         }
 
         // Keep currentTeam for backward compatibility (use first team)
+        // Only set if user has verified teams (not pending)
         currentTeam = teams.length > 0 ? teams[0] : undefined;
       } catch (teamError) {
         console.log('Could not fetch user teams:', teamError);

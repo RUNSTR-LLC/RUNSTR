@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   badgeText: {
-    color: '#fff',
+    color: theme.colors.textBright,
     fontSize: 14,
     fontWeight: theme.typography.weights.bold,
     textAlign: 'center',

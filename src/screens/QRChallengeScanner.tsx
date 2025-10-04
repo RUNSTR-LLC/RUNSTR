@@ -427,7 +427,7 @@ const styles = StyleSheet.create({
     width: 250,
     height: 250,
     borderWidth: 2,
-    borderColor: '#ffffff',
+    borderColor: theme.colors.orangeDeep,
     borderRadius: theme.borderRadius.large,
   },
 
@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
 
   instructionText: {
     fontSize: 16,
-    color: '#ffffff',
+    color: theme.colors.textBright,
     textAlign: 'center',
   },
 
@@ -458,7 +458,7 @@ const styles = StyleSheet.create({
 
   manualInputToggleText: {
     fontSize: 15,
-    color: '#ffffff',
+    color: theme.colors.textBright,
     textDecorationLine: 'underline',
   },
 

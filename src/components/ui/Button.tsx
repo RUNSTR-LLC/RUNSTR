@@ -90,9 +90,9 @@ export const AddButtonContent: React.FC<AddButtonContentProps> = ({
 
 const styles = StyleSheet.create({
   primaryButton: {
-    backgroundColor: theme.colors.button,
+    backgroundColor: theme.colors.orangeDeep, // Deep orange background
     borderWidth: 1,
-    borderColor: theme.colors.buttonBorder,
+    borderColor: theme.colors.orangeBurnt, // Burnt orange border
     paddingVertical: theme.spacing.md,
     paddingHorizontal: theme.spacing.xl,
     borderRadius: theme.borderRadius.small,
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
   },
 
   addButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.orangeBright, // Bright orange for add button
     borderRadius: theme.spacing.xl,
     paddingVertical: theme.spacing.sm,
     paddingHorizontal: theme.spacing.lg + 2,
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
   },
 
   addButtonText: {
-    color: theme.colors.accentText,
+    color: '#000000', // Black text on bright orange
     fontSize: theme.typography.addBtn,
     fontWeight: theme.typography.weights.semiBold,
   },
@@ -128,13 +128,13 @@ const styles = StyleSheet.create({
   },
 
   addButtonIcon: {
-    color: theme.colors.accentText,
+    color: '#000000', // Black icon on bright orange
     fontSize: theme.typography.addBtn,
     fontWeight: theme.typography.weights.semiBold,
   },
 
   addButtonLabel: {
-    color: theme.colors.accentText,
+    color: '#000000', // Black label on bright orange
     fontSize: theme.typography.addBtn,
     fontWeight: theme.typography.weights.semiBold,
   },
@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
     height: theme.layout.menuBtnSize,
     backgroundColor: theme.colors.button,
     borderWidth: 1,
-    borderColor: theme.colors.buttonBorder,
+    borderColor: theme.colors.orangeDeep, // Orange border
     borderRadius: theme.borderRadius.small,
     alignItems: 'center',
     justifyContent: 'center',

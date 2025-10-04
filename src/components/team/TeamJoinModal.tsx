@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   leaveButtonText: {
-    color: '#fff',
+    color: theme.colors.textBright,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   confirmButtonText: {
-    color: '#fff',
+    color: theme.colors.textBright,
     fontSize: 14,
     fontWeight: '600',
   },

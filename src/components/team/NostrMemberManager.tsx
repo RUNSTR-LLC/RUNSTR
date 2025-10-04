@@ -169,7 +169,7 @@ export const NostrMemberManager: React.FC<NostrMemberManagerProps> = ({
       <ScrollView
         style={styles.membersList}
         showsVerticalScrollIndicator={true}
-        indicatorStyle="white"
+        indicatorStyle="#FF9D42"
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -388,7 +388,7 @@ const styles = StyleSheet.create({
   },
 
   pendingBadgeText: {
-    color: '#fff',
+    color: theme.colors.textBright,
     fontSize: 8,
     fontWeight: theme.typography.weights.bold,
     textTransform: 'uppercase',

@@ -178,14 +178,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.colors.orangeDeep, // Deep orange button
     paddingVertical: 14,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.orangeBurnt, // Burnt orange border
   },
   importText: {
-    color: '#000000',
+    color: theme.colors.accentText, // Black text on orange
     fontSize: 16,
     fontWeight: '600',
   },

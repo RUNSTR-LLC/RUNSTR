@@ -88,7 +88,7 @@ export const TeamMembersSection: React.FC<TeamMembersSectionProps> = ({
       <ScrollView
         style={styles.membersList}
         showsVerticalScrollIndicator={true}
-        indicatorStyle="white"
+        indicatorStyle="#FF9D42"
       >
         {members.map((member, index) => {
           // If member has npub property, use ZappableUserRow for better display

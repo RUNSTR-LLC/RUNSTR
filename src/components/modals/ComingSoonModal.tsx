@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   closeButton: {
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.colors.orangeDeep, // Deep orange button
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 32,
@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
   closeButtonText: {
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
-    color: '#000000',
+    color: theme.colors.accentText, // Black text on orange
     textAlign: 'center',
     letterSpacing: 0.5,
   },

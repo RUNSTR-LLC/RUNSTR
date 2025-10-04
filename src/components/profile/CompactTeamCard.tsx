@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 14,
     fontWeight: theme.typography.weights.bold,
-    color: '#FFFFFF',
+    color: theme.colors.text,
   },
 
   teamInfo: {

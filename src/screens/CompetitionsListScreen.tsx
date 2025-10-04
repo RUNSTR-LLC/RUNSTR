@@ -172,7 +172,7 @@ export const CompetitionsListScreen: React.FC = () => {
         onPress={() => handleCompetitionPress(item)}
       >
         <View style={styles.competitionIcon}>
-          <Ionicons name={getTypeIcon() as any} size={24} color="#fff" />
+          <Ionicons name={getTypeIcon() as any} size={24} color="#FF9D42" />
         </View>
 
         <View style={styles.competitionInfo}>
@@ -188,7 +188,7 @@ export const CompetitionsListScreen: React.FC = () => {
             </Text>
             {item.wager && (
               <Text style={styles.wager}>
-                <Ionicons name="flash" size={12} color="#fff" /> {item.wager} sats
+                <Ionicons name="flash" size={12} color="#FF9D42" /> {item.wager} sats
               </Text>
             )}
           </View>
@@ -224,7 +224,7 @@ export const CompetitionsListScreen: React.FC = () => {
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name="arrow-back" size={24} color="#FF9D42" />
         </TouchableOpacity>
       </View>
 
@@ -244,7 +244,7 @@ export const CompetitionsListScreen: React.FC = () => {
       {/* Content */}
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#fff" />
+          <ActivityIndicator size="large" color="#FF9D42" />
           <Text style={styles.loadingText}>Loading competitions...</Text>
         </View>
       ) : (
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#fff',
+    color: theme.colors.textBright,
   },
   tabContainer: {
     maxHeight: 50,
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
   },
   activeTab: {
     borderBottomWidth: 2,
-    borderBottomColor: '#fff',
+    borderBottomColor: theme.colors.orangeDeep,
   },
   tabText: {
     fontSize: 14,
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   activeTabText: {
-    color: '#fff',
+    color: theme.colors.textBright,
   },
   loadingContainer: {
     flex: 1,
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
   competitionName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: theme.colors.textBright,
     marginBottom: 4,
   },
   competitionMeta: {
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
   },
   wager: {
     fontSize: 12,
-    color: '#fff',
+    color: theme.colors.textBright,
   },
   emptyListContainer: {
     flex: 1,
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   createButton: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.orangeDeep, // Deep orange button
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 24,
@@ -409,6 +409,6 @@ const styles = StyleSheet.create({
   createButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#000',
+    color: theme.colors.accentText, // Black text on orange
   },
 });

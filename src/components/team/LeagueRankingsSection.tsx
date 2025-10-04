@@ -405,7 +405,7 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
       <ScrollView
         style={styles.rankingsList}
         showsVerticalScrollIndicator={true}
-        indicatorStyle="white"
+        indicatorStyle="#FF9D42"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

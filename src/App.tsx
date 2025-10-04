@@ -120,6 +120,22 @@ const AppContent: React.FC = () => {
 
   // Show loading splash after successful authentication
   const [splashShown, setSplashShown] = React.useState(false);
+  const [onboardingCompleted, setOnboardingCompleted] = React.useState<boolean | null>(null);
+
+  // Check onboarding completion status when user becomes authenticated
+  React.useEffect(() => {
+    const checkOnboarding = async () => {
+      if (isAuthenticated && currentUser) {
+        const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+        const completed = await AsyncStorage.getItem('@runstr:onboarding_completed');
+        setOnboardingCompleted(completed === 'true');
+        console.log('🎯 App: Onboarding completed:', completed === 'true');
+      } else {
+        setOnboardingCompleted(null);
+      }
+    };
+    checkOnboarding();
+  }, [isAuthenticated, currentUser]);
 
   // PERFORMANCE OPTIMIZATION: App state detection for smart resume
   const walletStore = useWalletStore();
@@ -449,11 +465,11 @@ const AppContent: React.FC = () => {
         >
           {({ navigation, route }) => (
             <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
-              <Text style={{ color: '#fff', fontSize: 18, marginBottom: 20 }}>Challenge Leaderboard</Text>
+              <Text style={{ color: theme.colors.textBright, fontSize: 18, marginBottom: 20 }}>Challenge Leaderboard</Text>
               <Text style={{ color: '#666', fontSize: 14 }}>Challenge ID: {route.params?.challengeId}</Text>
               <Text style={{ color: '#666', fontSize: 14, marginTop: 10 }}>Coming Soon</Text>
               <TouchableOpacity
-                style={{ marginTop: 30, padding: 12, backgroundColor: '#fff', borderRadius: 8 }}
+                style={{ marginTop: 30, padding: 12, backgroundColor: theme.colors.orangeDeep, borderRadius: 8 }}
                 onPress={() => navigation.goBack()}
               >
                 <Text style={{ color: '#000' }}>Go Back</Text>
@@ -482,11 +498,25 @@ const AppContent: React.FC = () => {
   // Simplified navigation - no more SplashInit screen
   // Show login immediately if not authenticated
 
+  // Refresh onboarding status when app gains focus
+  const handleNavigationStateChange = React.useCallback(async () => {
+    if (isAuthenticated && currentUser) {
+      const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+      const completed = await AsyncStorage.getItem('@runstr:onboarding_completed');
+      if (completed === 'true' && onboardingCompleted === false) {
+        console.log('🎯 App: Onboarding completed, refreshing to main app');
+        setOnboardingCompleted(true);
+      }
+    }
+  }, [isAuthenticated, currentUser, onboardingCompleted]);
+
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
 
-      <NavigationContainer>
+      <NavigationContainer
+        onStateChange={handleNavigationStateChange}
+      >
         {(() => {
           console.log(
             '🚀 AppContent: Navigation decision - isAuthenticated:',
@@ -526,8 +556,29 @@ const AppContent: React.FC = () => {
             );
           }
 
-          // Authenticated with loaded profile - show main app
+          // Authenticated with loaded profile - check onboarding before showing main app
           if (isAuthenticated && currentUser) {
+            // If onboarding status is still being checked, show loading
+            if (onboardingCompleted === null) {
+              return (
+                <View style={errorStyles.container}>
+                  <ActivityIndicator size="large" color="#ffffff" />
+                  <Text style={errorStyles.instruction}>Setting up your account...</Text>
+                </View>
+              );
+            }
+
+            // If onboarding not completed, show onboarding flow
+            if (onboardingCompleted === false) {
+              console.log('🎯 App: Showing onboarding for new user');
+              return (
+                <AuthenticatedStack.Navigator screenOptions={{ headerShown: false }}>
+                  <AuthenticatedStack.Screen name="Onboarding" component={OnboardingScreen} />
+                </AuthenticatedStack.Navigator>
+              );
+            }
+
+            // Onboarding completed - show main app
             return <AuthenticatedNavigator user={currentUser} />;
           }
 

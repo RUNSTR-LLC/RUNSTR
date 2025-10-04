@@ -401,7 +401,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   handleTTSSettingChange('enabled', value)
                 }
                 trackColor={{ false: '#3e3e3e', true: theme.colors.accent }}
-                thumbColor={ttsSettings.enabled ? '#fff' : '#f4f3f4'}
+                thumbColor={ttsSettings.enabled ? '#FF9D42' : '#f4f3f4'}
               />
             </View>
 
@@ -419,7 +419,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   handleTTSSettingChange('announceOnSummary', value)
                 }
                 trackColor={{ false: '#3e3e3e', true: theme.colors.accent }}
-                thumbColor={ttsSettings.announceOnSummary ? '#fff' : '#f4f3f4'}
+                thumbColor={ttsSettings.announceOnSummary ? '#FF9D42' : '#f4f3f4'}
                 disabled={!ttsSettings.enabled}
               />
             </View>
@@ -438,7 +438,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   handleTTSSettingChange('includeSplits', value)
                 }
                 trackColor={{ false: '#3e3e3e', true: theme.colors.accent }}
-                thumbColor={ttsSettings.includeSplits ? '#fff' : '#f4f3f4'}
+                thumbColor={ttsSettings.includeSplits ? '#FF9D42' : '#f4f3f4'}
                 disabled={!ttsSettings.enabled}
               />
             </View>
@@ -676,7 +676,7 @@ const styles = StyleSheet.create({
 
   // Sign Out Button
   signOutButton: {
-    backgroundColor: '#dc2626',
+    backgroundColor: theme.colors.orangeDeep,
     borderRadius: theme.borderRadius.medium,
     paddingVertical: 12,
     paddingHorizontal: 24,
@@ -686,24 +686,24 @@ const styles = StyleSheet.create({
   signOutButtonText: {
     fontSize: 14,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.text,
+    color: theme.colors.accentText,
   },
 
   // Delete Account Button - More destructive styling
   deleteAccountButton: {
-    backgroundColor: '#7f1d1d', // Darker red for more serious action
+    backgroundColor: theme.colors.orangeBurnt,
     borderRadius: theme.borderRadius.medium,
     paddingVertical: 12,
     paddingHorizontal: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#dc2626',
+    borderColor: theme.colors.orangeDeep,
   },
 
   deleteAccountButtonText: {
     fontSize: 14,
     fontWeight: theme.typography.weights.semiBold,
-    color: '#fca5a5', // Lighter text for contrast
+    color: theme.colors.accentText,
   },
 
   buttonDisabled: {

@@ -105,6 +105,9 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ visible, o
       case 'view_wallet':
         handleViewWallet();
         break;
+      case 'view_captain_dashboard':
+        handleViewCaptainDashboard(notification);
+        break;
       default:
         console.log('Unhandled action type:', action.type);
     }
@@ -125,6 +128,9 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ visible, o
         break;
       case 'incoming_zap':
         handleViewWallet();
+        break;
+      case 'team_join_request':
+        handleViewCaptainDashboard(notification);
         break;
       default:
         console.log('No default action for type:', notification.type);
@@ -175,25 +181,32 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({ visible, o
 
   const handleViewChallenge = (notification: UnifiedNotification) => {
     onClose();
-    // Navigate to challenge details screen
-    // navigation.navigate('ChallengeDetail', { challengeId: notification.metadata.challengeId });
+    // For now, just close the modal - challenge details screen may not exist yet
+    console.log('View challenge:', notification.metadata?.challengeId);
   };
 
   const handleViewCompetition = (notification: UnifiedNotification) => {
     onClose();
-    // Navigate to competition/event screen
-    // navigation.navigate('TeamScreen', { /* competition details */ });
+    // Navigate to Teams tab to view competitions
+    navigation.navigate('Teams');
   };
 
   const handleViewResults = (notification: UnifiedNotification) => {
     onClose();
-    // Navigate to competition results
+    // Navigate to Teams tab where results would be displayed
+    navigation.navigate('Teams');
   };
 
   const handleViewWallet = () => {
     onClose();
-    // Navigate to wallet/profile with wallet tab selected
+    // Navigate to Profile tab (wallet is displayed there)
     navigation.navigate('Profile');
+  };
+
+  const handleViewCaptainDashboard = (notification: UnifiedNotification) => {
+    onClose();
+    // Navigate to Teams tab - captain can access dashboard from there
+    navigation.navigate('Teams');
   };
 
   const handleMarkAllAsRead = async () => {

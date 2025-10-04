@@ -13,6 +13,7 @@ import { SessionRecoveryService } from './SessionRecoveryService';
 import { BatteryOptimizationService } from './BatteryOptimizationService';
 import { locationPermissionService } from './LocationPermissionService';
 import { SplitTrackingService, type Split } from './SplitTrackingService';
+import { KalmanDistanceFilter } from './KalmanDistanceFilter';
 import {
   startBackgroundLocationTracking,
   stopBackgroundLocationTracking,
@@ -72,6 +73,7 @@ export class EnhancedLocationTrackingService {
   private recoveryService: SessionRecoveryService;
   private batteryService: BatteryOptimizationService;
   private splitTracker: SplitTrackingService;
+  private kalmanFilter: KalmanDistanceFilter;
 
   // Tracking state
   private currentSession: EnhancedTrackingSession | null = null;
@@ -88,6 +90,11 @@ export class EnhancedLocationTrackingService {
   // Transport detection
   private justResumedFromPause = false;
 
+  // GPS warmup tracking (prevents premature recovery mode on startup)
+  private isInWarmup: boolean = false;
+  private warmupStartTime: number | null = null;
+  private readonly GPS_WARMUP_DURATION_MS = 5000; // 5 seconds warmup period
+
   // GPS recovery tracking
   private pointsAfterRecovery: number = 0;
   private wasInGpsLostState: boolean = false;
@@ -95,13 +102,14 @@ export class EnhancedLocationTrackingService {
   private recoveryAccuracyThreshold: number = 50; // Initial accuracy threshold for recovery
   private skippedRecoveryDistance: number = 0; // Track phantom distance during recovery
   private readonly GPS_RECOVERY_TIMEOUT_MS = 10000; // 10 seconds max recovery time
-  private readonly GPS_RECOVERY_POINTS = 3; // Number of points to skip after GPS recovery
+  private readonly GPS_RECOVERY_POINTS = 2; // Number of points to skip after GPS recovery (reduced from 3 with Kalman filter)
 
   private constructor() {
     this.stateMachine = new ActivityStateMachine();
     this.recoveryService = SessionRecoveryService.getInstance();
     this.batteryService = BatteryOptimizationService.getInstance();
     this.splitTracker = new SplitTrackingService();
+    this.kalmanFilter = new KalmanDistanceFilter();
     this.initializeAppStateHandling();
     this.checkForRecoverableSessions();
   }
@@ -230,6 +238,11 @@ export class EnhancedLocationTrackingService {
         },
       };
 
+      // Start GPS warmup period
+      this.isInWarmup = true;
+      this.warmupStartTime = Date.now();
+      console.log(`🔥 GPS warmup started (${this.GPS_WARMUP_DURATION_MS / 1000}s) - recovery mode disabled during warmup`);
+
       // Start split tracking for running activities
       if (activityType === 'running') {
         this.splitTracker.start(startTime);
@@ -239,6 +252,8 @@ export class EnhancedLocationTrackingService {
       this.validator = new LocationValidator(activityType);
       this.storage = new StreamingLocationStorage(sessionId);
       this.recoveryService.startSession(sessionId, activityType);
+      this.kalmanFilter.reset(); // Reset Kalman filter for new session
+      console.log('🔵 Kalman distance filter initialized');
 
       // Start GPS monitoring
       this.startGPSMonitoring();
@@ -342,11 +357,22 @@ export class EnhancedLocationTrackingService {
         };
       }
 
+      // Check if we're still in warmup period
+      if (this.isInWarmup && this.warmupStartTime) {
+        const warmupElapsed = Date.now() - this.warmupStartTime;
+        if (warmupElapsed >= this.GPS_WARMUP_DURATION_MS) {
+          this.isInWarmup = false;
+          this.warmupStartTime = null;
+          console.log(`✅ GPS warmup complete (${(warmupElapsed / 1000).toFixed(1)}s) - recovery mode now active`);
+        }
+      }
+
       // Check if we're recovering from GPS loss
       // Skip distance accumulation for first few points after recovery to prevent
       // "straight line" phantom distance through obstacles (tunnels, buildings, etc.)
+      // IMPORTANT: Don't enter recovery mode during warmup period
       const previousState = this.stateMachine.getPreviousState();
-      const isRecoveringFromGpsLoss = this.wasInGpsLostState || previousState === 'gps_lost';
+      const isRecoveringFromGpsLoss = !this.isInWarmup && (this.wasInGpsLostState || previousState === 'gps_lost');
 
       if (isRecoveringFromGpsLoss) {
         // Start recovery timer if not already started
@@ -398,7 +424,19 @@ export class EnhancedLocationTrackingService {
             console.log(`⚠️ GPS Recovery: Rejected point with poor accuracy ${currentAccuracy.toFixed(1)}m > ${this.recoveryAccuracyThreshold.toFixed(1)}m threshold`);
           }
 
-          // Store the point but don't accumulate distance
+          // During recovery, use Kalman prediction for smooth UI updates
+          // This prevents phantom distance while still showing progress
+          if (this.kalmanFilter.isReady() && isImprovingQuality && this.lastValidLocation) {
+            const recoveryTimeDelta = (pointToStore.timestamp - this.lastValidLocation.timestamp) / 1000;
+            const estimatedDistance = this.kalmanFilter.predict(recoveryTimeDelta);
+            this.currentSession.totalDistance = Math.max(
+              this.currentSession.totalDistance,
+              estimatedDistance
+            );
+            console.log(`🔵 Recovery interpolation: using Kalman prediction ${estimatedDistance.toFixed(1)}m (actual point not counted)`);
+          }
+
+          // Store the point but don't count it toward distance
           this.lastValidLocation = pointToStore;
           await this.storage.addPoint({
             latitude: pointToStore.latitude,
@@ -434,12 +472,23 @@ export class EnhancedLocationTrackingService {
 
       // Update metrics (normal flow when not recovering)
       if (this.lastValidLocation) {
-        const distance = this.calculateDistance(this.lastValidLocation, pointToStore);
-        this.currentSession.totalDistance += distance;
+        const rawDistance = this.calculateDistance(this.lastValidLocation, pointToStore);
+        const timeDelta = (pointToStore.timestamp - this.lastValidLocation.timestamp) / 1000;
 
-        // Android debugging: Log distance accumulation
+        // Update Kalman filter with measurement
+        const kalmanState = this.kalmanFilter.update({
+          distance: rawDistance,
+          timeDelta: timeDelta,
+          accuracy: pointToStore.accuracy || 20,
+          confidence: pointToStore.confidence,
+        });
+
+        // Use Kalman-filtered distance for smoother accumulation
+        this.currentSession.totalDistance = kalmanState.distance;
+
+        // Debug logging for Kalman filtering
         if (Platform.OS === 'android') {
-          console.log(`📏 [ANDROID] Distance added: +${distance.toFixed(1)}m, Total: ${this.currentSession.totalDistance.toFixed(1)}m (${(this.currentSession.totalDistance / 1000).toFixed(2)}km)`);
+          console.log(`📏 [ANDROID] Raw distance: +${rawDistance.toFixed(1)}m, Kalman total: ${kalmanState.distance.toFixed(1)}m (velocity: ${kalmanState.velocity.toFixed(2)}m/s, error: ${kalmanState.estimateError.toFixed(1)}m)`);
         }
 
         if (pointToStore.altitude && this.lastValidLocation.altitude) {
@@ -690,6 +739,7 @@ export class EnhancedLocationTrackingService {
         lastGPSUpdate: Date.now(),
         isBackgroundTracking: false,
         batteryMode: this.batteryService.getCurrentMode(),
+        splits: [], // Recovered sessions start with empty splits
         statistics: {
           averageSpeed: 0,
           maxSpeed: 0,
@@ -781,12 +831,15 @@ export class EnhancedLocationTrackingService {
     this.totalValidPoints = 0;
     this.totalInvalidPoints = 0;
     this.gpsOutageStart = null;
+    this.isInWarmup = false;
+    this.warmupStartTime = null;
     this.pointsAfterRecovery = 0;
     this.wasInGpsLostState = false;
     this.recoveryStartTime = null;
     this.recoveryAccuracyThreshold = 50;
     this.skippedRecoveryDistance = 0;
     this.splitTracker.reset();
+    this.kalmanFilter.reset();
   }
 
   /**

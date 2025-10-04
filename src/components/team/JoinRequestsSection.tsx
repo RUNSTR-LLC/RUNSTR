@@ -15,6 +15,7 @@ import { theme } from '../../styles/theme';
 import { JoinRequestCard } from './JoinRequestCard';
 import { TeamMembershipService } from '../../services/team/teamMembershipService';
 import type { JoinRequest } from '../../services/team/teamMembershipService';
+import { unifiedNotificationStore } from '../../services/notifications/UnifiedNotificationStore';
 
 interface JoinRequestsSectionProps {
   teamId: string;
@@ -60,7 +61,7 @@ export const JoinRequestsSection: React.FC<JoinRequestsSectionProps> = ({
         // Subscribe to new requests
         const subId = await membershipService.subscribeToJoinRequests(
           captainPubkey,
-          (newRequest: JoinRequest) => {
+          async (newRequest: JoinRequest) => {
             setRequests((prev) => {
               // Avoid duplicates
               const exists = prev.some((req) => req.id === newRequest.id);
@@ -69,6 +70,29 @@ export const JoinRequestsSection: React.FC<JoinRequestsSectionProps> = ({
               // Add new request at the top
               return [newRequest, ...prev];
             });
+
+            // Create notification for join request
+            try {
+              await unifiedNotificationStore.addNotification(
+                'team_join_request',
+                'New join request',
+                `${newRequest.requesterName || 'Someone'} wants to join your team`,
+                {
+                  teamId: newRequest.teamId,
+                  requestId: newRequest.id,
+                  requesterId: newRequest.requesterId,
+                  requesterName: newRequest.requesterName,
+                },
+                {
+                  icon: 'people',
+                  actions: [
+                    { id: 'view_dashboard', type: 'view_captain_dashboard', label: 'View', isPrimary: true }
+                  ]
+                }
+              );
+            } catch (notifError) {
+              console.warn('[JoinRequestsSection] Failed to create join request notification:', notifError);
+            }
           }
         );
         setSubscriptionId(subId);
@@ -138,7 +162,7 @@ export const JoinRequestsSection: React.FC<JoinRequestsSectionProps> = ({
         <ScrollView
           style={styles.requestsList}
           showsVerticalScrollIndicator={true}
-          indicatorStyle="white"
+          indicatorStyle="#FF9D42"
           refreshControl={
             <RefreshControl
               refreshing={isLoading}

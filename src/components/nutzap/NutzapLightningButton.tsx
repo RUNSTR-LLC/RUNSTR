@@ -310,8 +310,8 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
                     !isInitialized
                       ? theme.colors.textMuted
                       : isZapped
-                        ? '#FFD700'
-                        : '#ffffff'
+                        ? theme.colors.orangeBright
+                        : theme.colors.orangeBright
                   }
                 />
               </Animated.View>
@@ -343,20 +343,20 @@ const styles = StyleSheet.create({
   button: {
     backgroundColor: '#1a1a1a', // Lighter than card background for visibility
     borderWidth: 1,
-    borderColor: '#333333', // More visible border color
+    borderColor: theme.colors.orangeDeep, // Orange border
     alignItems: 'center',
     justifyContent: 'center',
     // Add subtle shadow for better visibility
-    shadowColor: '#fff',
+    shadowColor: theme.colors.orangeBright,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
     elevation: 2,
   },
 
   buttonZapped: {
-    borderColor: '#FFD700',
-    backgroundColor: 'rgba(255, 215, 0, 0.2)', // Slightly more visible when zapped
+    borderColor: theme.colors.orangeBright,
+    backgroundColor: 'rgba(255, 157, 66, 0.3)', // Orange glow when zapped
   },
 
   buttonDisabled: {

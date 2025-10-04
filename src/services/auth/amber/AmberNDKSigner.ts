@@ -125,11 +125,14 @@ export class AmberNDKSigner implements NDKSigner {
         console.log('[Amber DEBUG] Pubkey value:', pubkey ? pubkey.substring(0, 20) + '...' : 'NONE');
 
         if (pubkey) {
+          // Ensure pubkey is properly formatted (decode npub if needed, pad to 64 chars)
+          const hexPubkey = await this.ensureHexPubkey(pubkey);
+
           // Store for future sessions
-          await AsyncStorage.setItem('@runstr:amber_pubkey', pubkey);
-          this._pubkey = pubkey;
+          await AsyncStorage.setItem('@runstr:amber_pubkey', hexPubkey);
+          this._pubkey = hexPubkey;
           this.isReady = true;
-          return pubkey;
+          return hexPubkey;
         } else {
           throw new Error('No pubkey in Amber response');
         }
@@ -349,6 +352,49 @@ export class AmberNDKSigner implements NDKSigner {
       type: 'amber',
       pubkey: this._pubkey || null
     });
+  }
+
+  /**
+   * Ensure pubkey is in hex format and properly padded to 64 characters
+   * Handles npub decoding and fixes unpadded hex strings from Amber
+   */
+  private async ensureHexPubkey(pubkey: string): Promise<string> {
+    let hexPubkey = pubkey;
+
+    // If it's an npub, decode it to hex
+    if (pubkey.startsWith('npub')) {
+      try {
+        const { nip19 } = await import('nostr-tools');
+        const decoded = nip19.decode(pubkey);
+        hexPubkey = decoded.data as string;
+        console.log('[Amber] Decoded npub to hex');
+      } catch (error) {
+        console.error('[Amber] Failed to decode npub:', error);
+        throw new Error('Invalid npub format');
+      }
+    }
+
+    // Ensure hex string is exactly 64 characters (32 bytes)
+    // Amber sometimes returns 63-character hex strings missing leading zero
+    if (hexPubkey.length === 63) {
+      hexPubkey = '0' + hexPubkey;
+      console.log('[Amber] Padded hex pubkey from 63 to 64 characters');
+    } else if (hexPubkey.length < 64) {
+      // Pad with leading zeros to reach 64 characters
+      hexPubkey = hexPubkey.padStart(64, '0');
+      console.log(`[Amber] Padded hex pubkey from ${pubkey.length} to 64 characters`);
+    } else if (hexPubkey.length > 64) {
+      console.error('[Amber] Invalid pubkey length:', hexPubkey.length);
+      throw new Error(`Invalid pubkey length: ${hexPubkey.length}`);
+    }
+
+    // Validate it's valid hex
+    if (!/^[0-9a-fA-F]{64}$/.test(hexPubkey)) {
+      console.error('[Amber] Invalid hex format:', hexPubkey.slice(0, 20) + '...');
+      throw new Error('Invalid hex pubkey format');
+    }
+
+    return hexPubkey;
   }
 
   cleanup(): void {

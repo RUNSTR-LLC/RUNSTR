@@ -125,12 +125,12 @@ export const CaptainBadge: React.FC<CaptainBadgeProps> = ({
       case 'admin':
         return {
           backgroundColor: '#ff6b35', // Orange for admin
-          color: '#fff',
+          color: theme.colors.textBright,
         };
       case 'owner':
         return {
           backgroundColor: '#4CAF50', // Green for owner
-          color: '#fff',
+          color: theme.colors.textBright,
         };
       default:
         return {

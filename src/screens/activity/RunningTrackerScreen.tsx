@@ -44,7 +44,7 @@ export const RunningTrackerScreen: React.FC = () => {
   });
   const [elapsedTime, setElapsedTime] = useState(0);
   const [splits, setSplits] = useState<Split[]>([]);
-  const [gpsSignal, setGpsSignal] = useState<GPSSignalStrength>('none');
+  const [gpsSignal, setGpsSignal] = useState<GPSSignalStrength>('searching'); // Start with 'searching' for proper UI initialization
   const [gpsAccuracy, setGpsAccuracy] = useState<number | undefined>();
   const [isBackgroundTracking, setIsBackgroundTracking] = useState(false);
   const [summaryModalVisible, setSummaryModalVisible] = useState(false);
@@ -97,8 +97,8 @@ export const RunningTrackerScreen: React.FC = () => {
       }
     }, 1000);
 
-    // Start metrics update timer
-    metricsUpdateRef.current = setInterval(updateMetrics, 2000);
+    // Start metrics update timer (1 second for responsive UI)
+    metricsUpdateRef.current = setInterval(updateMetrics, 1000);
   };
 
   const formatElapsedTime = (seconds: number): string => {
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   startButton: {
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.colors.orangeDeep,
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 40,
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   startButtonText: {
-    color: '#000000',
+    color: theme.colors.textBright,
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
     letterSpacing: 0.5,
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   resumeButton: {
-    backgroundColor: theme.colors.text, // White for resume
+    backgroundColor: theme.colors.orangeBright, // Orange for resume
     borderRadius: 35,
     width: 70,
     height: 70,
@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
   },
   statusContainer: {
     position: 'absolute',
-    top: 40,
+    top: 80, // Position below GPS status indicator (which takes ~60px + margin)
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
@@ -475,7 +475,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: theme.colors.text, // White when recording
+    backgroundColor: theme.colors.orangeBright, // Orange when recording
     marginRight: 8,
   },
   statusDotPaused: {

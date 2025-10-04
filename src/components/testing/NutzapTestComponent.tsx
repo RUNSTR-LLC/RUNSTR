@@ -164,7 +164,7 @@ export const NutzapTestComponent: React.FC = () => {
           disabled={isRunning}
         >
           {isRunning ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color="#FF9D42" />
           ) : (
             <Text style={styles.buttonText}>Run Tests</Text>
           )}
@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#fff',
+    color: theme.colors.textBright,
     marginBottom: 5
   },
   subtitle: {
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
   statusTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: theme.colors.textBright,
     marginBottom: 12
   },
   statusRow: {
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
     fontSize: 14
   },
   value: {
-    color: '#fff',
+    color: theme.colors.textBright,
     fontSize: 14,
     fontWeight: '500'
   },
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ff3b30'
   },
   buttonText: {
-    color: '#fff',
+    color: theme.colors.textBright,
     fontSize: 16,
     fontWeight: '600'
   },
@@ -298,11 +298,11 @@ const styles = StyleSheet.create({
   resultsTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: theme.colors.textBright,
     marginBottom: 12
   },
   resultItem: {
-    color: '#fff',
+    color: theme.colors.textBright,
     fontSize: 13,
     marginBottom: 6,
     lineHeight: 18
