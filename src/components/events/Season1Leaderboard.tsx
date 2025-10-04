@@ -137,30 +137,33 @@ export const Season1LeaderboardComponent: React.FC<Season1LeaderboardProps> = ({
               </View>
 
               <View style={styles.nameContainer}>
-                <Text style={styles.name} numberOfLines={1}>
-                  {formatName(participant.name, participant.pubkey)}
-                </Text>
+                <View style={styles.nameRow}>
+                  <Text style={styles.name} numberOfLines={1}>
+                    {formatName(participant.name, participant.pubkey)}
+                  </Text>
+
+                  {/* Challenge Icon - Right next to username */}
+                  {currentUserPubkey && participant.pubkey !== currentUserPubkey && (
+                    <View style={styles.challengeButtonContainer}>
+                      <ChallengeIconButton
+                        userPubkey={participant.pubkey}
+                        userName={formatName(participant.name, participant.pubkey)}
+                        onPress={() => handleChallengePress(
+                          participant.pubkey,
+                          participant.name,
+                          participant.picture
+                        )}
+                      />
+                    </View>
+                  )}
+                </View>
+
                 {participant.workoutCount > 0 && (
                   <Text style={styles.workoutCount}>
                     {participant.workoutCount} workout{participant.workoutCount !== 1 ? 's' : ''}
                   </Text>
                 )}
               </View>
-
-              {/* Challenge Icon - Between name and stats */}
-              {currentUserPubkey && participant.pubkey !== currentUserPubkey && (
-                <View style={styles.challengeButtonContainer}>
-                  <ChallengeIconButton
-                    userPubkey={participant.pubkey}
-                    userName={formatName(participant.name, participant.pubkey)}
-                    onPress={() => handleChallengePress(
-                      participant.pubkey,
-                      participant.name,
-                      participant.picture
-                    )}
-                  />
-                </View>
-              )}
 
               <View style={styles.statsContainer}>
                 <Text style={styles.distance}>
@@ -297,6 +300,12 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
 
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+
   name: {
     fontSize: 16,
     color: theme.colors.text,
@@ -332,6 +341,6 @@ const styles = StyleSheet.create({
   },
 
   challengeButtonContainer: {
-    marginLeft: 8,
+    // Gap handled by nameRow
   },
 });
