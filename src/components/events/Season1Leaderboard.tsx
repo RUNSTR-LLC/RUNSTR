@@ -147,18 +147,7 @@ export const Season1LeaderboardComponent: React.FC<Season1LeaderboardProps> = ({
                 )}
               </View>
 
-              <View style={styles.statsContainer}>
-                <Text style={styles.distance}>
-                  {formatDistance(participant.totalDistance)}
-                </Text>
-                {prize > 0 && (
-                  <Text style={styles.prize}>
-                    {prize.toLocaleString()} sats
-                  </Text>
-                )}
-              </View>
-
-              {/* Challenge Icon - Only show if not current user */}
+              {/* Challenge Icon - Between name and stats */}
               {currentUserPubkey && participant.pubkey !== currentUserPubkey && (
                 <View style={styles.challengeButtonContainer}>
                   <ChallengeIconButton
@@ -172,6 +161,17 @@ export const Season1LeaderboardComponent: React.FC<Season1LeaderboardProps> = ({
                   />
                 </View>
               )}
+
+              <View style={styles.statsContainer}>
+                <Text style={styles.distance}>
+                  {formatDistance(participant.totalDistance)}
+                </Text>
+                {prize > 0 && (
+                  <Text style={styles.prize}>
+                    {prize.toLocaleString()} sats
+                  </Text>
+                )}
+              </View>
             </View>
           );
         })}
