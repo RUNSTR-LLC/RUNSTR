@@ -74,7 +74,7 @@
     "react-native-web": "~0.20.0",
     "react-native-webview": "13.13.5",
     "text-encoding-polyfill": "^0.6.7",
-    "zustand": "^5.0.8"
+    "zustand": "^4.5.7"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

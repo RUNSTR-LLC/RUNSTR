@@ -185,10 +185,7 @@ export class NdkTeamService {
    * ULTRA-SIMPLE: Find ALL 33404 events from ALL time from ANY author
    */
   async discoverAllTeams(filters?: TeamDiscoveryFilters): Promise<NostrTeam[]> {
-    const timestamp = new Date().toISOString();
-    console.log(`🟢🟢🟢 NDK TEAM SERVICE ACTIVE ${timestamp} 🟢🟢🟢`);
-    console.log('🌍🌍🌍 GLOBAL TEAM DISCOVERY - ALL 33404 EVENTS, ALL TIME 🌍🌍🌍');
-    console.log('📊 NDK Global Team Discovery Starting...');
+    // Starting global team discovery
 
     // Wait for NDK to be ready
     const isReady = await this.awaitNDKReady(5000);
@@ -216,10 +213,7 @@ export class NdkTeamService {
         subscriptionStats
       );
       
-      console.log(`📊 Global discovery found ${globalResult.totalEventsFound} raw 33404 events`);
-
-      // SIMPLIFIED: Convert collected events to basic teams with minimal filtering
-      console.log(`📊 SIMPLIFIED PROCESSING: Converting all ${allEvents.length} events to teams, filtering "Deleted" and duplicates`);
+      // Convert collected events to basic teams with minimal filtering
       
       const seenTeamNames = new Set<string>(); // Track team names to prevent duplicates
       
@@ -231,14 +225,12 @@ export class NdkTeamService {
           
           // Filter 1: Skip "Deleted" teams
           if (teamName.toLowerCase() === 'deleted') {
-            console.log(`🗑️ SKIPPING DELETED TEAM: ${teamName} (ID: ${ndkEvent.id?.slice(0, 8)})`);
             continue;
           }
-          
+
           // Filter 2: Skip duplicate team names (keep first occurrence)
           const teamNameLower = teamName.toLowerCase();
           if (seenTeamNames.has(teamNameLower)) {
-            console.log(`🔄 SKIPPING DUPLICATE TEAM: "${teamName}" (ID: ${ndkEvent.id?.slice(0, 8)})`);
             continue;
           }
           seenTeamNames.add(teamNameLower);
@@ -257,9 +249,7 @@ export class NdkTeamService {
           const bannerTag = ndkEvent.tags?.find((tag: any) => tag[0] === 'banner' || tag[0] === 'image');
           const bannerImage = bannerTag?.[1] || undefined;
 
-          if (bannerImage) {
-            console.log(`🖼️ NdkTeamService: Banner found for team ${teamName}:`, bannerImage);
-          }
+          // Banner image handled silently
 
           // Extract shop and flash URLs from tags
           const shopTag = ndkEvent.tags?.find((tag: any) => tag[0] === 'shop');
@@ -291,7 +281,6 @@ export class NdkTeamService {
           };
 
           teams.push(simpleTeam);
-          console.log(`✅ SIMPLE TEAM ADDED: "${teamName}" (ID: ${teamId.slice(0, 8)}) - ${ndkEvent.content?.slice(0, 50) || 'No description'}`);
           
         } catch (error) {
           console.warn(`⚠️ Error creating simple team from event ${ndkEvent.id}:`, error);
@@ -299,27 +288,10 @@ export class NdkTeamService {
       }
 
       const queryTime = Date.now() - startTime;
-      console.log(`🚀🚀🚀 NDK TEAM RESULT: Found ${teams.length} teams in ${queryTime}ms`);
-      console.log(`📊 NDK TEAM PERFORMANCE METRICS:`);
-      console.log(`   Total NDK Events Collected: ${allEvents.length}`);
-      console.log(`   Unique Events Processed: ${processedEventIds.size}`);
-      console.log(`   Valid Teams After Processing: ${teams.length}`);
-      console.log(`   Subscriptions Created: ${subscriptionStats.subscriptionsCreated}`);
-      console.log(`   Events Received via Subscriptions: ${subscriptionStats.eventsReceived}`);
-      console.log(`   Timeouts Caught: ${subscriptionStats.timeoutsCaught}`);
+      console.log(`✅ Found ${teams.length} teams in ${queryTime}ms`);
+      // Performance metrics logged
 
-      if (teams.length > 0) {
-        console.log('📋 NDK Team summary:');
-        teams.forEach((team, index) => {
-          console.log(`  ${index + 1}. ${team.name} (${team.memberCount} members) - ${team.activityType}`);
-        });
-
-        // Show date range
-        const dates = teams.map(t => t.createdAt * 1000).sort();
-        const oldest = new Date(dates[0]);
-        const newest = new Date(dates[dates.length - 1]);
-        console.log(`📅 NDK Date range: ${oldest.toDateString()} → ${newest.toDateString()}`);
-      }
+      // Teams processed successfully
 
       return teams.sort((a, b) => b.createdAt - a.createdAt);
 
@@ -338,7 +310,7 @@ export class NdkTeamService {
     processedEventIds: Set<string>,
     subscriptionStats: any
   ): Promise<NdkTeamQueryResult> {
-    console.log('🌍 NDK GLOBAL STRATEGY: All 33404 team events from all time');
+    // Using global strategy for team discovery
     
     const startTime = Date.now();
     let totalEventsFound = 0;
@@ -347,7 +319,7 @@ export class NdkTeamService {
     const limits = [500, 1000]; // Try multiple limits to catch all teams
     
     for (const limit of limits) {
-      console.log(`🌍 NDK Global team subscription with limit: ${limit}`);
+      // Querying with limit: ${limit}
       
       const filter: NDKFilter = {
         kinds: [33404 as any],    // Fitness teams (cast to any for NDK compatibility)
@@ -367,7 +339,7 @@ export class NdkTeamService {
         }
       }
 
-      console.log(`   NDK Global ${limit}: ${globalEvents.length} events (${totalEventsFound} total unique)`);
+      // Events collected from global query
       
       // React Native breathing room between attempts
       await new Promise(resolve => setTimeout(resolve, 300));
@@ -397,14 +369,7 @@ export class NdkTeamService {
     const timeout = 2000; // 2 second timeout for faster team discovery
     
     return new Promise((resolve) => {
-      console.log(`📡 NDK subscription: ${strategy}`);
-      
-      // Enhanced logging for debug
-      console.log(`🔍 NDK FILTER DEBUG:`, {
-        kinds: filter.kinds,
-        limit: filter.limit,
-        // NO authors or time filters for global discovery
-      });
+      // Creating subscription with filter
       
       // Get fastest relays for this subscription
       const fastRelays = this.getFastestRelays(4);
@@ -421,41 +386,25 @@ export class NdkTeamService {
       subscriptionStats.subscriptionsCreated++;
       
       subscription.on('event', (event: NDKEvent) => {
-        // COMPREHENSIVE EVENT LOGGING
-        console.log(`📥 NDK RAW 33404 EVENT RECEIVED:`, {
-          id: event.id.substring(0, 8),
-          kind: event.kind,
-          tags: event.tags?.slice(0, 5),
-          content: event.content?.substring(0, 50),
-          pubkey: event.pubkey?.substring(0, 8),
-          created_at: new Date((event.created_at || 0) * 1000).toISOString()
-        });
-        
-        // Additional client-side filtering for team events
+        // Silently filter for team events
         if (event.kind === 33404) {
-          const hasTeamTags = event.tags?.some(tag => 
+          const hasTeamTags = event.tags?.some(tag =>
             ['name', 'captain', 'd', 'public', 'member'].includes(tag[0])
           );
           if (hasTeamTags) {
             events.push(event);
             subscriptionStats.eventsReceived++;
-            console.log(`✅ NDK Valid Team Event ${events.length}: ${event.id?.slice(0, 8)} via ${strategy}`);
-          } else {
-            console.log(`⚠️ NDK 33404 event missing team tags: ${event.id?.slice(0, 8)}`);
           }
-        } else {
-          console.log(`⚠️ NDK Unexpected event kind ${event.kind}: ${event.id?.slice(0, 8)}`);
         }
       });
       
       subscription.on('eose', () => {
         // Don't close immediately on EOSE (Zap-Arena pattern: events can arrive after EOSE)
-        console.log(`📨 NDK EOSE received for ${strategy} - continuing to wait for timeout...`);
+        // EOSE received, continuing to wait for timeout
       });
 
       // Timeout with Promise.race pattern (Zap-Arena)
       setTimeout(() => {
-        console.log(`⏰ NDK ${strategy} timeout complete: ${events.length} team events collected`);
         subscription.stop();
         subscriptionStats.timeoutsCaught++;
         resolve(events);

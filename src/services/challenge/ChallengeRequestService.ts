@@ -7,6 +7,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { nostrRelayManager } from '../nostr/NostrRelayManager';
 import { NostrListService } from '../nostr/NostrListService';
+import { NostrProtocolHandler } from '../nostr/NostrProtocolHandler';
 import { getUserNostrIdentifiers } from '../../utils/nostr';
 import { nip19 } from 'nostr-tools';
 import type { Event } from 'nostr-tools';
@@ -58,9 +59,11 @@ export class ChallengeRequestService {
   private readonly STORAGE_KEY = '@runstr:pending_challenges';
   private readonly CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
   private listService: NostrListService;
+  private protocolHandler: NostrProtocolHandler;
 
   private constructor() {
     this.listService = NostrListService.getInstance();
+    this.protocolHandler = new NostrProtocolHandler();
     this.loadPendingChallenges();
   }
 
@@ -198,7 +201,7 @@ export class ChallengeRequestService {
 
       const tags: string[][] = [
         ['p', challengedPubkeyHex],
-        ['challenge-type', requestData.activityType],
+        ['activity', requestData.activityType], // Fixed: was 'challenge-type'
         ['metric', requestData.metric],
         ['duration', requestData.duration.toString()],
         ['wager', requestData.wagerAmount.toString()],
@@ -206,6 +209,7 @@ export class ChallengeRequestService {
         ['end-date', endDate.toString()],
         ['t', 'challenge'],
         ['t', 'fitness'],
+        ['t', requestData.activityType],
       ];
 
       const content = `Challenge: ${requestData.activityType} - ${requestData.metric} for ${requestData.duration} days. Wager: ${requestData.wagerAmount} sats.`;
@@ -215,15 +219,23 @@ export class ChallengeRequestService {
         created_at: now,
         tags,
         content,
-        pubkey: userIdentifiers.hexPubkey,
       };
 
-      console.log('Publishing kind 1105 challenge request event...');
+      console.log('🔄 Publishing kind 1105 challenge request event...');
 
-      // TODO: Sign event with NDK signer
-      // For now, return template for external signing
+      // Sign event with NostrProtocolHandler
+      const signedEvent = await this.protocolHandler.signEvent(eventTemplate, signerNsec);
+
+      // Publish to Nostr relays
+      const publishResult = await nostrRelayManager.publishEvent(signedEvent);
+
+      if (!publishResult.success) {
+        throw new Error('Failed to publish challenge request to Nostr relays');
+      }
+
+      // Store locally for tracking
       const pendingChallenge: PendingChallenge = {
-        challengeId,
+        challengeId: signedEvent.id, // Use actual event ID
         challengerPubkey: userIdentifiers.hexPubkey,
         challengedPubkey: challengedPubkeyHex,
         activityType: requestData.activityType,
@@ -237,14 +249,14 @@ export class ChallengeRequestService {
         status: 'pending',
       };
 
-      this.pendingChallenges.set(challengeId, pendingChallenge);
+      this.pendingChallenges.set(signedEvent.id, pendingChallenge);
       await this.savePendingChallenges();
 
-      console.log(`Challenge request created: ${challengeId}`);
+      console.log(`✅ Challenge request published: ${signedEvent.id}`);
 
       return {
         success: true,
-        challengeId,
+        challengeId: signedEvent.id,
       };
     } catch (error) {
       console.error('Failed to create challenge request:', error);
@@ -259,7 +271,8 @@ export class ChallengeRequestService {
    * Accept a challenge request - publish kind 1106 and create kind 30000 list
    */
   async acceptChallenge(
-    challengeId: string
+    challengeId: string,
+    nsec: string
   ): Promise<{ success: boolean; listId?: string; error?: string }> {
     try {
       const challenge = this.pendingChallenges.get(challengeId);
@@ -278,7 +291,7 @@ export class ChallengeRequestService {
 
       const now = Math.floor(Date.now() / 1000);
 
-      // Publish kind 1106 acceptance event
+      // 1. Sign and publish kind 1106 acceptance event
       const acceptTags: string[][] = [
         ['e', challengeId],
         ['p', challenge.challengerPubkey],
@@ -292,12 +305,20 @@ export class ChallengeRequestService {
         created_at: now,
         tags: acceptTags,
         content: acceptContent,
-        pubkey: userIdentifiers.hexPubkey,
       };
 
-      console.log('Publishing kind 1106 acceptance event...');
+      console.log('🔄 Publishing kind 1106 acceptance event...');
 
-      // Create kind 30000 participant list with full challenge metadata
+      const signedAcceptEvent = await this.protocolHandler.signEvent(acceptEventTemplate, nsec);
+      const acceptPublishResult = await nostrRelayManager.publishEvent(signedAcceptEvent);
+
+      if (!acceptPublishResult.success) {
+        throw new Error('Failed to publish acceptance event');
+      }
+
+      console.log(`✅ Acceptance event published: ${signedAcceptEvent.id}`);
+
+      // 2. Create and publish kind 30000 participant list with full challenge metadata
       const listDTag = `challenge_${challengeId}`;
       const listData = {
         name: `Challenge: ${challenge.activityType}`,
@@ -328,14 +349,23 @@ export class ChallengeRequestService {
         );
       }
 
-      console.log('Creating kind 30000 participant list for challenge with metadata...');
+      console.log('🔄 Publishing kind 30000 participant list...');
+
+      const signedListEvent = await this.protocolHandler.signEvent(listEvent, nsec);
+      const listPublishResult = await nostrRelayManager.publishEvent(signedListEvent);
+
+      if (!listPublishResult.success) {
+        throw new Error('Failed to publish participant list');
+      }
+
+      console.log(`✅ Participant list published: ${signedListEvent.id}`);
 
       // Update challenge status
       challenge.status = 'accepted';
       this.pendingChallenges.set(challengeId, challenge);
       await this.savePendingChallenges();
 
-      console.log(`Challenge ${challengeId} accepted, list created: ${listDTag}`);
+      console.log(`✅ Challenge ${challengeId} fully accepted`);
 
       return {
         success: true,
@@ -355,6 +385,7 @@ export class ChallengeRequestService {
    */
   async declineChallenge(
     challengeId: string,
+    nsec: string,
     reason?: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
@@ -387,10 +418,19 @@ export class ChallengeRequestService {
         created_at: now,
         tags: declineTags,
         content: declineContent,
-        pubkey: userIdentifiers.hexPubkey,
       };
 
-      console.log('Publishing kind 1107 decline event...');
+      console.log('🔄 Publishing kind 1107 decline event...');
+
+      // Sign and publish decline event
+      const signedDeclineEvent = await this.protocolHandler.signEvent(declineEventTemplate, nsec);
+      const publishResult = await nostrRelayManager.publishEvent(signedDeclineEvent);
+
+      if (!publishResult.success) {
+        throw new Error('Failed to publish decline event');
+      }
+
+      console.log(`✅ Decline event published: ${signedDeclineEvent.id}`);
 
       // Update challenge status
       challenge.status = 'declined';
