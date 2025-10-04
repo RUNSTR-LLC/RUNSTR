@@ -4,6 +4,22 @@ All notable changes to RUNSTR will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2025-10-04
+
+### Fixed
+- **Build Compatibility**: Removed deprecated `expo-barcode-scanner` package
+  - Package was removed from Expo SDK 52+ (app uses SDK 53)
+  - Fixes "ExpoModulesCore/EXBarcodeScannerInterface.h not found" build error
+  - All QR scanning functionality already uses `expo-camera` (no feature loss)
+  - Reduces app size by removing unused module
+
+### Changed
+- **Version Updates**: Bumped app version to 0.1.2 across all platforms
+  - Updated app.json, Android build.gradle, and iOS Info.plist
+  - Incremented Android versionCode to 2 (required for app store updates)
+  - Updated kind 1301 workout event client tags to report version 0.1.2
+  - Updated test files and documentation to reflect new version
+
 ## [0.1.1] - 2025-10-03
 
 ### Added
