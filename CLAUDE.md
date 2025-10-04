@@ -101,7 +101,7 @@ Our app publishes kind 1301 events in the standard RUNSTR format that is compati
   - `['distance', '5.2', 'km']` - Distance value and unit (separate array elements)
   - `['duration', '00:30:45']` - Duration in HH:MM:SS format
   - `['source', 'RUNSTR']` - App identification
-  - `['client', 'RUNSTR', '0.1.1']` - Client info with version
+  - `['client', 'RUNSTR', '0.1.2']` - Client info with version
   - `['t', 'Running']` - Hashtag for activity type
   - `['calories', '312']` - Optional: Calorie count
   - `['elevation_gain', '50', 'm']` - Optional: Elevation gain with unit

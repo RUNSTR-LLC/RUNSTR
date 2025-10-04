@@ -53,7 +53,7 @@ RUNSTR REWARDS implements a **pure Nostr architecture** for fitness competitions
     ['distance', '5.2', 'km'],             // Value + unit (separate elements)
     ['duration', '00:30:45'],              // HH:MM:SS format
     ['source', 'RUNSTR'],                  // App identification
-    ['client', 'RUNSTR', '0.1.1'],         // Client + version
+    ['client', 'RUNSTR', '0.1.2'],         // Client + version
     ['t', 'running'],                      // Activity hashtag
     ['calories', '312'],                   // Optional: calorie count
     ['elevation_gain', '50', 'm']          // Optional: elevation with unit
