@@ -4,11 +4,13 @@
  * Used across league rankings, team member lists, and competition displays
  */
 
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Modal } from 'react-native';
 import { theme } from '../../styles/theme';
 import { Avatar } from './Avatar';
 import { NutzapLightningButton } from '../nutzap/NutzapLightningButton';
+import { ChallengeIconButton } from './ChallengeIconButton';
+import { QuickChallengeWizard } from '../wizards/QuickChallengeWizard';
 import { useNostrProfile } from '../../hooks/useCachedData';
 
 interface ZappableUserRowProps {
@@ -16,10 +18,12 @@ interface ZappableUserRowProps {
   fallbackName?: string;
   additionalContent?: React.ReactNode;
   showQuickZap?: boolean;
+  showChallengeButton?: boolean;
   zapAmount?: number;
   onZapSuccess?: () => void;
   style?: any;
   disabled?: boolean;
+  hideActionsForCurrentUser?: boolean; // Hide challenge/zap for current user
 }
 
 export const ZappableUserRow: React.FC<ZappableUserRowProps> = ({
@@ -27,12 +31,15 @@ export const ZappableUserRow: React.FC<ZappableUserRowProps> = ({
   fallbackName,
   additionalContent,
   showQuickZap = true,
+  showChallengeButton = true,
   zapAmount = 21,
   onZapSuccess,
   style,
   disabled = false,
+  hideActionsForCurrentUser = false,
 }) => {
   const { profile } = useNostrProfile(npub);
+  const [challengeWizardVisible, setChallengeWizardVisible] = useState(false);
 
   // Resolve display name with fallback chain
   const displayName = profile?.name ||
@@ -42,44 +49,81 @@ export const ZappableUserRow: React.FC<ZappableUserRowProps> = ({
 
   const avatarUrl = profile?.picture;
 
+  const handleChallengePress = () => {
+    setChallengeWizardVisible(true);
+  };
+
   return (
-    <View style={[styles.container, style]}>
-      <View style={styles.userSection}>
-        {/* Avatar with profile picture or fallback */}
-        <Avatar
-          name={displayName}
-          size={36}
-          imageUrl={avatarUrl}
-          style={styles.avatar}
-        />
+    <>
+      <View style={[styles.container, style]}>
+        <View style={styles.userSection}>
+          {/* Avatar with profile picture or fallback */}
+          <Avatar
+            name={displayName}
+            size={36}
+            imageUrl={avatarUrl}
+            style={styles.avatar}
+          />
 
-        {/* User name and zap button */}
-        <View style={styles.contentSection}>
-          <Text style={styles.userName} numberOfLines={1}>
-            {displayName}
-          </Text>
+          {/* User name with action buttons */}
+          <View style={styles.contentSection}>
+            <View style={styles.nameRow}>
+              <Text style={styles.userName} numberOfLines={1}>
+                {displayName}
+              </Text>
 
-          {/* Nutzap Lightning Button - Now below username */}
-          {showQuickZap && (
-            <NutzapLightningButton
-              recipientNpub={npub}
-              recipientName={displayName}
-              size="rectangular"
-              disabled={disabled}
-              onZapSuccess={onZapSuccess}
-              style={styles.zapButton}
-            />
-          )}
+              {/* Challenge & Zap buttons next to name */}
+              {!hideActionsForCurrentUser && (
+                <View style={styles.actionButtons}>
+                  {showChallengeButton && (
+                    <ChallengeIconButton
+                      userPubkey={npub}
+                      userName={displayName}
+                      disabled={disabled}
+                      onPress={handleChallengePress}
+                    />
+                  )}
+                  {showQuickZap && (
+                    <NutzapLightningButton
+                      recipientNpub={npub}
+                      recipientName={displayName}
+                      size="small"
+                      disabled={disabled}
+                      onZapSuccess={onZapSuccess}
+                      style={styles.zapButton}
+                    />
+                  )}
+                </View>
+              )}
+            </View>
+          </View>
         </View>
+
+        {/* Additional content (stats, etc) on the right */}
+        {additionalContent && (
+          <View style={styles.additionalContent}>
+            {additionalContent}
+          </View>
+        )}
       </View>
 
-      {/* Additional content (stats, etc) on the right */}
-      {additionalContent && (
-        <View style={styles.additionalContent}>
-          {additionalContent}
-        </View>
-      )}
-    </View>
+      {/* Challenge Wizard Modal */}
+      <Modal
+        visible={challengeWizardVisible}
+        animationType="slide"
+        presentationStyle="fullScreen"
+      >
+        <QuickChallengeWizard
+          opponent={{
+            pubkey: npub,
+            name: displayName,
+            picture: avatarUrl,
+          }}
+          onComplete={() => setChallengeWizardVisible(false)}
+          onCancel={() => setChallengeWizardVisible(false)}
+        />
+      </Modal>
+    </>
   );
 };
 
@@ -108,11 +152,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+
   userName: {
     fontSize: 15,
     fontWeight: theme.typography.weights.medium,
     color: theme.colors.text,
-    marginBottom: 2,
+  },
+
+  actionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
 
   additionalContent: {
@@ -123,6 +178,6 @@ const styles = StyleSheet.create({
   },
 
   zapButton: {
-    marginTop: 4,
+    // Gap handled by actionButtons
   },
 });

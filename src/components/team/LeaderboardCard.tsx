@@ -1,9 +1,10 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Modal } from 'react-native';
 import { Card } from '../ui/Card';
 import { Avatar } from '../ui/Avatar';
 import { NutzapLightningButton } from '../nutzap/NutzapLightningButton';
-import { ChallengeButton } from '../profile/ChallengeButton';
+import { ChallengeIconButton } from '../ui/ChallengeIconButton';
+import { QuickChallengeWizard } from '../wizards/QuickChallengeWizard';
 import { FormattedLeaderboardEntry } from '../../types';
 import { theme } from '../../styles/theme';
 
@@ -16,58 +17,88 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
   leaderboard,
   title = 'League',
 }) => {
+  const [challengeWizardVisible, setChallengeWizardVisible] = useState(false);
+  const [selectedOpponent, setSelectedOpponent] = useState<{ pubkey: string; name: string } | null>(null);
+
+  const handleChallengePress = (entry: FormattedLeaderboardEntry) => {
+    setSelectedOpponent({
+      pubkey: entry.npub!,
+      name: entry.name,
+    });
+    setChallengeWizardVisible(true);
+  };
+
   return (
-    <Card style={styles.card}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{title}</Text>
-      </View>
-
-      {leaderboard.slice(0, 5).map((entry) => (
-        <View key={entry.userId} style={styles.item}>
-          <View style={[styles.rank, entry.isTopThree && styles.rankTopThree]}>
-            <Text
-              style={[
-                styles.rankText,
-                entry.isTopThree && styles.rankTopThreeText,
-              ]}
-            >
-              {entry.rank}
-            </Text>
-          </View>
-
-          <Avatar
-            name={entry.avatar}
-            size={theme.layout.avatarSize}
-            style={styles.avatar}
-            showIcon={true}
-          />
-
-          <View style={styles.info}>
-            <Text style={styles.name}>{entry.name}</Text>
-          </View>
-
-          {entry.npub && (
-            <View style={styles.actions}>
-              <ChallengeButton
-                targetUser={{
-                  pubkey: entry.npub,
-                  npub: entry.npub,
-                  name: entry.name,
-                }}
-                size="small"
-                variant="icon"
-              />
-              <NutzapLightningButton
-                recipientNpub={entry.npub}
-                recipientName={entry.name}
-                size="small"
-                style={styles.zapButton}
-              />
-            </View>
-          )}
+    <>
+      <Card style={styles.card}>
+        <View style={styles.header}>
+          <Text style={styles.title}>{title}</Text>
         </View>
-      ))}
-    </Card>
+
+        {leaderboard.slice(0, 5).map((entry) => (
+          <View key={entry.userId} style={styles.item}>
+            <View style={[styles.rank, entry.isTopThree && styles.rankTopThree]}>
+              <Text
+                style={[
+                  styles.rankText,
+                  entry.isTopThree && styles.rankTopThreeText,
+                ]}
+              >
+                {entry.rank}
+              </Text>
+            </View>
+
+            <Avatar
+              name={entry.avatar}
+              size={theme.layout.avatarSize}
+              style={styles.avatar}
+              showIcon={true}
+            />
+
+            <View style={styles.info}>
+              <Text style={styles.name}>{entry.name}</Text>
+            </View>
+
+            {entry.npub && (
+              <View style={styles.actions}>
+                <ChallengeIconButton
+                  userPubkey={entry.npub}
+                  userName={entry.name}
+                  onPress={() => handleChallengePress(entry)}
+                />
+                <NutzapLightningButton
+                  recipientNpub={entry.npub}
+                  recipientName={entry.name}
+                  size="small"
+                  style={styles.zapButton}
+                />
+              </View>
+            )}
+          </View>
+        ))}
+      </Card>
+
+      {/* Challenge Wizard Modal */}
+      {selectedOpponent && (
+        <Modal
+          visible={challengeWizardVisible}
+          animationType="slide"
+          presentationStyle="fullScreen"
+        >
+          <QuickChallengeWizard
+            opponent={selectedOpponent}
+            onComplete={() => {
+              setChallengeWizardVisible(false);
+              setSelectedOpponent(null);
+            }}
+            onCancel={() => {
+              setChallengeWizardVisible(false);
+              setSelectedOpponent(null);
+            }}
+          />
+        </Modal>
+      )}
+    </>
   );
 };
 
