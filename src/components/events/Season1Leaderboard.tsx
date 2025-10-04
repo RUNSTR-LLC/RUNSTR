@@ -12,6 +12,7 @@ import { calculatePrize } from '../../types/season';
 import { ChallengeIconButton } from '../ui/ChallengeIconButton';
 import { QuickChallengeWizard } from '../wizards/QuickChallengeWizard';
 import { getUserNostrIdentifiers } from '../../utils/nostr';
+import { NutzapLightningButton } from '../nutzap/NutzapLightningButton';
 
 interface Season1LeaderboardProps {
   leaderboard: Season1Leaderboard | null;
@@ -142,9 +143,9 @@ export const Season1LeaderboardComponent: React.FC<Season1LeaderboardProps> = ({
                     {formatName(participant.name, participant.pubkey)}
                   </Text>
 
-                  {/* Challenge Icon - Right next to username */}
+                  {/* Challenge Icon & Zap Button - Right next to username */}
                   {currentUserPubkey && participant.pubkey !== currentUserPubkey && (
-                    <View style={styles.challengeButtonContainer}>
+                    <View style={styles.actionButtonsContainer}>
                       <ChallengeIconButton
                         userPubkey={participant.pubkey}
                         userName={formatName(participant.name, participant.pubkey)}
@@ -153,6 +154,12 @@ export const Season1LeaderboardComponent: React.FC<Season1LeaderboardProps> = ({
                           participant.name,
                           participant.picture
                         )}
+                      />
+                      <NutzapLightningButton
+                        recipientNpub={participant.pubkey}
+                        recipientName={formatName(participant.name, participant.pubkey)}
+                        size="small"
+                        style={styles.zapButton}
                       />
                     </View>
                   )}
@@ -340,7 +347,13 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
 
-  challengeButtonContainer: {
-    // Gap handled by nameRow
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+
+  zapButton: {
+    // Inherits from component
   },
 });

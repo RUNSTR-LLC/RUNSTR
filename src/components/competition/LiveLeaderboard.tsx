@@ -17,6 +17,7 @@ import { MemberAvatar } from '../ui/MemberAvatar';
 import { TimeRemaining } from '../ui/TimeRemaining';
 import { LeaderboardService } from '../../services/competition/leaderboardService';
 import { CompetitionDistributionPanel } from './CompetitionDistributionPanel';
+import { NutzapLightningButton } from '../nutzap/NutzapLightningButton';
 import type {
   Competition,
   CompetitionParticipant,
@@ -284,6 +285,13 @@ export const LiveLeaderboard: React.FC<LiveLeaderboardProps> = ({
               </View>
             </View>
 
+            <NutzapLightningButton
+              recipientNpub={entry.pubkey}
+              recipientName={`User ${entry.pubkey.slice(0, 8)}`}
+              size="small"
+              style={styles.zapButton}
+            />
+
             <View style={styles.scoreSection}>
               <Text style={styles.scoreValue}>{formatScore(entry)}</Text>
               {entry.lastActivity && (
@@ -447,6 +455,10 @@ const styles = StyleSheet.create({
   participantStats: {
     fontSize: 11,
     color: theme.colors.textMuted,
+  },
+
+  zapButton: {
+    marginHorizontal: 8,
   },
 
   // Score section

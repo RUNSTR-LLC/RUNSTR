@@ -21,6 +21,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { theme } from '../styles/theme';
 import { challengeService } from '../services/competition/ChallengeService';
 import type { ChallengeLeaderboard } from '../types/challenge';
+import { NutzapLightningButton } from '../components/nutzap/NutzapLightningButton';
 
 type RouteParams = {
   ChallengeLeaderboard: {
@@ -148,9 +149,17 @@ export const ChallengeLeaderboardScreen: React.FC = () => {
               <Text style={styles.workoutCount}>{participant.workoutCount} workouts</Text>
             </View>
           </View>
-          {isLeader && leaderboard && !leaderboard.tied && (
-            <Ionicons name="trophy" size={24} color={theme.colors.accent} />
-          )}
+          <View style={styles.headerActions}>
+            <NutzapLightningButton
+              recipientNpub={participant.pubkey}
+              recipientName={participant.name}
+              size="small"
+              style={styles.zapButton}
+            />
+            {isLeader && leaderboard && !leaderboard.tied && (
+              <Ionicons name="trophy" size={24} color={theme.colors.accent} />
+            )}
+          </View>
         </View>
 
         {/* Progress Bar */}
@@ -451,6 +460,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  zapButton: {
+    // No additional styles needed, inherits from component
   },
   avatar: {
     width: 48,
