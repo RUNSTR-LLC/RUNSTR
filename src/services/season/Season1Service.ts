@@ -22,9 +22,9 @@ const CACHE_KEYS = {
 
 // Cache duration in milliseconds
 const CACHE_DURATION = {
-  PARTICIPANTS: 5 * 60 * 1000, // 5 minutes
-  WORKOUTS: 5 * 60 * 1000, // 5 minutes (increased from 1 min)
-  PROFILES: 10 * 60 * 1000, // 10 minutes
+  PARTICIPANTS: 24 * 60 * 60 * 1000, // 24 hours
+  WORKOUTS: 24 * 60 * 60 * 1000, // 24 hours
+  PROFILES: 24 * 60 * 60 * 1000, // 24 hours
 };
 
 // Query timeout in milliseconds
