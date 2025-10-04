@@ -1,13 +1,17 @@
 /**
  * Season1Leaderboard - Displays leaderboard for RUNSTR Season 1
  * Shows ranked participants with distances and prizes for top 3
+ * Includes challenge icons for tap-to-challenge functionality
  */
 
-import React from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, Image, Modal } from 'react-native';
 import { theme } from '../../styles/theme';
 import type { Season1Leaderboard, SeasonActivityType } from '../../types/season';
 import { calculatePrize } from '../../types/season';
+import { ChallengeIconButton } from '../ui/ChallengeIconButton';
+import { QuickChallengeWizard } from '../wizards/QuickChallengeWizard';
+import { getUserNostrIdentifiers } from '../../utils/nostr';
 
 interface Season1LeaderboardProps {
   leaderboard: Season1Leaderboard | null;
@@ -20,6 +24,21 @@ export const Season1LeaderboardComponent: React.FC<Season1LeaderboardProps> = ({
   activityType,
   isLoading,
 }) => {
+  const [currentUserPubkey, setCurrentUserPubkey] = useState<string | null>(null);
+  const [challengeWizardVisible, setChallengeWizardVisible] = useState(false);
+  const [selectedOpponent, setSelectedOpponent] = useState<{ pubkey: string; name: string; picture?: string } | null>(null);
+
+  // Get current user's pubkey
+  useEffect(() => {
+    const loadUserPubkey = async () => {
+      const identifiers = await getUserNostrIdentifiers();
+      if (identifiers?.hexPubkey) {
+        setCurrentUserPubkey(identifiers.hexPubkey);
+      }
+    };
+    loadUserPubkey();
+  }, []);
+
   const getMedal = (rank: number) => {
     switch (rank) {
       case 1: return '🥇';
@@ -38,6 +57,15 @@ export const Season1LeaderboardComponent: React.FC<Season1LeaderboardProps> = ({
     if (name) return name;
     if (pubkey) return pubkey.slice(0, 8) + '...';
     return 'Anonymous';
+  };
+
+  const handleChallengePress = (pubkey: string, name?: string, picture?: string) => {
+    setSelectedOpponent({
+      pubkey,
+      name: name || pubkey.slice(0, 8) + '...',
+      picture,
+    });
+    setChallengeWizardVisible(true);
   };
 
   if (isLoading) {
@@ -129,6 +157,21 @@ export const Season1LeaderboardComponent: React.FC<Season1LeaderboardProps> = ({
                   </Text>
                 )}
               </View>
+
+              {/* Challenge Icon - Only show if not current user */}
+              {currentUserPubkey && participant.pubkey !== currentUserPubkey && (
+                <View style={styles.challengeButtonContainer}>
+                  <ChallengeIconButton
+                    userPubkey={participant.pubkey}
+                    userName={formatName(participant.name, participant.pubkey)}
+                    onPress={() => handleChallengePress(
+                      participant.pubkey,
+                      participant.name,
+                      participant.picture
+                    )}
+                  />
+                </View>
+              )}
             </View>
           );
         })}
@@ -138,6 +181,27 @@ export const Season1LeaderboardComponent: React.FC<Season1LeaderboardProps> = ({
         <Text style={styles.moreText}>
           +{leaderboard.totalParticipants - 10} more participants
         </Text>
+      )}
+
+      {/* Challenge Wizard Modal */}
+      {selectedOpponent && (
+        <Modal
+          visible={challengeWizardVisible}
+          animationType="slide"
+          presentationStyle="fullScreen"
+        >
+          <QuickChallengeWizard
+            opponent={selectedOpponent}
+            onComplete={() => {
+              setChallengeWizardVisible(false);
+              setSelectedOpponent(null);
+            }}
+            onCancel={() => {
+              setChallengeWizardVisible(false);
+              setSelectedOpponent(null);
+            }}
+          />
+        </Modal>
       )}
     </View>
   );
@@ -265,5 +329,9 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     textAlign: 'center',
     marginTop: 16,
+  },
+
+  challengeButtonContainer: {
+    marginLeft: 8,
   },
 });
