@@ -252,12 +252,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
                   )}
                 </TouchableOpacity>
 
-                <View style={styles.dividerContainer}>
-                  <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>OR</Text>
-                  <View style={styles.dividerLine} />
-                </View>
-
                 <TouchableOpacity
                   style={styles.signupButton}
                   onPress={handleSignUp}
@@ -425,6 +419,7 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     alignItems: 'center',
+    gap: 16,
   },
   loginButton: {
     backgroundColor: theme.colors.accent,
@@ -589,14 +584,6 @@ const styles = StyleSheet.create({
   },
 
   // Signup button styles
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 20,
-    width: '80%',
-    maxWidth: 320,
-    alignSelf: 'center',
-  },
   signupButton: {
     backgroundColor: theme.colors.accent,
     height: 50,
