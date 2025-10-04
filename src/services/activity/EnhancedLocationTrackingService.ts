@@ -57,6 +57,8 @@ export interface EnhancedTrackingSession {
     averageAccuracy: number;
     gpsOutages: number;
     interpolatedPoints: number;
+    recoveryAttempts: number; // Number of GPS recovery sequences
+    distanceSkippedInRecovery: number; // Meters of phantom distance prevented
   };
 }
 
@@ -90,7 +92,10 @@ export class EnhancedLocationTrackingService {
   private pointsAfterRecovery: number = 0;
   private wasInGpsLostState: boolean = false;
   private recoveryStartTime: number | null = null;
+  private recoveryAccuracyThreshold: number = 50; // Initial accuracy threshold for recovery
+  private skippedRecoveryDistance: number = 0; // Track phantom distance during recovery
   private readonly GPS_RECOVERY_TIMEOUT_MS = 10000; // 10 seconds max recovery time
+  private readonly GPS_RECOVERY_POINTS = 3; // Number of points to skip after GPS recovery
 
   private constructor() {
     this.stateMachine = new ActivityStateMachine();
@@ -220,6 +225,8 @@ export class EnhancedLocationTrackingService {
           averageAccuracy: 0,
           gpsOutages: 0,
           interpolatedPoints: 0,
+          recoveryAttempts: 0,
+          distanceSkippedInRecovery: 0,
         },
       };
 
@@ -336,8 +343,8 @@ export class EnhancedLocationTrackingService {
       }
 
       // Check if we're recovering from GPS loss
-      // Skip distance accumulation for first few points after recovery
-      // Alternative check: use state machine's previous state
+      // Skip distance accumulation for first few points after recovery to prevent
+      // "straight line" phantom distance through obstacles (tunnels, buildings, etc.)
       const previousState = this.stateMachine.getPreviousState();
       const isRecoveringFromGpsLoss = this.wasInGpsLostState || previousState === 'gps_lost';
 
@@ -346,22 +353,50 @@ export class EnhancedLocationTrackingService {
         if (this.recoveryStartTime === null) {
           this.recoveryStartTime = Date.now();
           this.pointsAfterRecovery = 0;
-          console.log('🔄 GPS Recovery: Starting recovery mode, will skip distance for up to 3 clean points');
+          this.skippedRecoveryDistance = 0;
+          this.recoveryAccuracyThreshold = 50; // Start with lenient threshold
+          this.currentSession.statistics.recoveryAttempts++;
+          console.log(`🔄 GPS Recovery #${this.currentSession.statistics.recoveryAttempts}: Starting recovery buffer (${this.GPS_RECOVERY_POINTS} points)`);
         }
 
-        // Check if recovery has timed out (30 seconds max)
+        // Check if recovery has timed out (10 seconds max)
         const recoveryDuration = Date.now() - this.recoveryStartTime;
         const hasTimedOut = recoveryDuration > this.GPS_RECOVERY_TIMEOUT_MS;
 
         if (hasTimedOut) {
           console.log(`⏰ GPS Recovery: Timeout after ${(recoveryDuration / 1000).toFixed(1)}s, forcing exit from recovery mode`);
+          console.log(`   Skipped ${this.skippedRecoveryDistance.toFixed(1)}m of phantom distance during recovery`);
+
+          // Update statistics
+          this.currentSession.statistics.distanceSkippedInRecovery += this.skippedRecoveryDistance;
+
+          // Reset recovery state
           this.wasInGpsLostState = false;
           this.pointsAfterRecovery = 0;
           this.recoveryStartTime = null;
+          this.skippedRecoveryDistance = 0;
           // Continue to normal distance tracking below
-        } else if (this.pointsAfterRecovery < 3) {
-          this.pointsAfterRecovery++;
-          console.log(`📍 GPS Recovery: Skipping distance for point ${this.pointsAfterRecovery}/3 to avoid straight line through obstacles (${(recoveryDuration / 1000).toFixed(1)}s elapsed)`);
+        } else if (this.pointsAfterRecovery < this.GPS_RECOVERY_POINTS) {
+          // Calculate what the distance would have been (phantom distance)
+          if (this.lastValidLocation) {
+            const phantomDistance = this.calculateDistance(this.lastValidLocation, pointToStore);
+            this.skippedRecoveryDistance += phantomDistance;
+          }
+
+          // Check if GPS accuracy is improving
+          const currentAccuracy = pointToStore.accuracy || 50;
+          const isImprovingQuality = currentAccuracy <= this.recoveryAccuracyThreshold;
+
+          if (isImprovingQuality) {
+            // Quality is good or improving, accept this recovery point
+            this.pointsAfterRecovery++;
+            this.recoveryAccuracyThreshold = currentAccuracy; // Lower threshold for next point
+
+            console.log(`📍 GPS Recovery: Point ${this.pointsAfterRecovery}/${this.GPS_RECOVERY_POINTS} (accuracy: ${currentAccuracy.toFixed(1)}m, skipped: ${this.skippedRecoveryDistance.toFixed(1)}m, ${(recoveryDuration / 1000).toFixed(1)}s elapsed)`);
+          } else {
+            // Quality not improving, skip this point but don't count it toward recovery
+            console.log(`⚠️ GPS Recovery: Rejected point with poor accuracy ${currentAccuracy.toFixed(1)}m > ${this.recoveryAccuracyThreshold.toFixed(1)}m threshold`);
+          }
 
           // Store the point but don't accumulate distance
           this.lastValidLocation = pointToStore;
@@ -374,16 +409,23 @@ export class EnhancedLocationTrackingService {
             speed: pointToStore.speed,
           });
 
-          // Still update GPS signal and recovery service
+          // Still update GPS signal strength and recovery service
           this.updateGPSSignalStrength(pointToStore.accuracy || 20);
           this.currentSession.lastGPSUpdate = Date.now();
 
-          // After 3 points, we're fully recovered
-          if (this.pointsAfterRecovery >= 3) {
+          // After required points with good quality, we're fully recovered
+          if (this.pointsAfterRecovery >= this.GPS_RECOVERY_POINTS) {
+            console.log(`✅ GPS fully recovered! Prevented ${this.skippedRecoveryDistance.toFixed(1)}m of phantom distance`);
+            console.log(`   Final accuracy: ${currentAccuracy.toFixed(1)}m, Recovery took ${(recoveryDuration / 1000).toFixed(1)}s`);
+
+            // Update statistics
+            this.currentSession.statistics.distanceSkippedInRecovery += this.skippedRecoveryDistance;
+
+            // Reset recovery state
             this.wasInGpsLostState = false;
             this.pointsAfterRecovery = 0;
             this.recoveryStartTime = null;
-            console.log('✅ GPS fully recovered, resuming normal distance tracking');
+            this.skippedRecoveryDistance = 0;
           }
 
           return; // Skip the rest of the distance calculation
@@ -654,6 +696,8 @@ export class EnhancedLocationTrackingService {
           averageAccuracy: 0,
           gpsOutages: 0,
           interpolatedPoints: 0,
+          recoveryAttempts: 0,
+          distanceSkippedInRecovery: 0,
         },
       };
 
@@ -740,6 +784,8 @@ export class EnhancedLocationTrackingService {
     this.pointsAfterRecovery = 0;
     this.wasInGpsLostState = false;
     this.recoveryStartTime = null;
+    this.recoveryAccuracyThreshold = 50;
+    this.skippedRecoveryDistance = 0;
     this.splitTracker.reset();
   }
 
@@ -774,12 +820,48 @@ export class EnhancedLocationTrackingService {
     invalidPoints: number;
     accuracy: number;
     batteryMode: string;
+    gpsOutages: number;
+    recoveryAttempts: number;
+    distanceSkippedInRecovery: number;
   } {
     return {
       validPoints: this.totalValidPoints,
       invalidPoints: this.totalInvalidPoints,
       accuracy: this.currentSession?.statistics.averageAccuracy || 0,
       batteryMode: this.batteryService.getCurrentMode(),
+      gpsOutages: this.currentSession?.statistics.gpsOutages || 0,
+      recoveryAttempts: this.currentSession?.statistics.recoveryAttempts || 0,
+      distanceSkippedInRecovery: this.currentSession?.statistics.distanceSkippedInRecovery || 0,
+    };
+  }
+
+  /**
+   * Check if currently in GPS recovery mode
+   */
+  isInRecoveryMode(): boolean {
+    return this.wasInGpsLostState && this.recoveryStartTime !== null;
+  }
+
+  /**
+   * Get current recovery progress
+   */
+  getRecoveryProgress(): {
+    isRecovering: boolean;
+    pointsCompleted: number;
+    pointsRequired: number;
+    skippedDistance: number;
+    duration: number;
+  } | null {
+    if (!this.isInRecoveryMode()) {
+      return null;
+    }
+
+    return {
+      isRecovering: true,
+      pointsCompleted: this.pointsAfterRecovery,
+      pointsRequired: this.GPS_RECOVERY_POINTS,
+      skippedDistance: this.skippedRecoveryDistance,
+      duration: this.recoveryStartTime ? Date.now() - this.recoveryStartTime : 0,
     };
   }
 }
