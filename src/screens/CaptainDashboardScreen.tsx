@@ -31,7 +31,11 @@ import { EventJoinRequestsSection } from '../components/captain/EventJoinRequest
 import { EventCreationWizard } from '../components/wizards/EventCreationWizard';
 import { LeagueCreationWizard } from '../components/wizards/LeagueCreationWizard';
 import { CompetitionParticipantsSection } from '../components/captain/CompetitionParticipantsSection';
+import { ActiveEventsSection } from '../components/captain/ActiveEventsSection';
+import { QREventDisplayModal } from '../components/event/QREventDisplayModal';
 import { CompetitionService } from '../services/competition/competitionService';
+import { qrEventService } from '../services/event/QREventService';
+import type { QREventData } from '../services/event/QREventService';
 import { NostrListService } from '../services/nostr/NostrListService';
 import { NostrProtocolHandler } from '../services/nostr/NostrProtocolHandler';
 import { NostrRelayManager } from '../services/nostr/NostrRelayManager';
@@ -115,6 +119,12 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
 
   // Competition state
   const [activeCompetitions, setActiveCompetitions] = useState<any[]>([]);
+
+  // QR Event Display state
+  const [showEventQRModal, setShowEventQRModal] = useState(false);
+  const [selectedEventForQR, setSelectedEventForQR] = useState<QREventData | null>(null);
+  const [selectedEventQRString, setSelectedEventQRString] = useState('');
+  const [selectedEventDeepLink, setSelectedEventDeepLink] = useState('');
 
   // Charity state - Initialize from team data
   const [selectedCharityId, setSelectedCharityId] = useState<string | undefined>(undefined);
@@ -362,6 +372,31 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
   const handleLeagueCreated = (leagueData: any) => {
     setLeagueWizardVisible(false);
     onLeagueCreated?.(leagueData);
+  };
+
+  // QR Event Display Handler
+  const handleShowEventQR = async (event: any) => {
+    try {
+      // Create QR event data from the event
+      const qrEventData = await qrEventService.createQREvent(event, data.team.name);
+      const qrString = qrEventService.toQRString(qrEventData);
+      const deepLink = qrEventService.toDeepLink(qrEventData);
+
+      setSelectedEventForQR(qrEventData);
+      setSelectedEventQRString(qrString);
+      setSelectedEventDeepLink(deepLink);
+      setShowEventQRModal(true);
+    } catch (error) {
+      console.error('Failed to generate event QR:', error);
+      Alert.alert('Error', 'Failed to generate QR code for event');
+    }
+  };
+
+  const handleCloseEventQR = () => {
+    setShowEventQRModal(false);
+    setSelectedEventForQR(null);
+    setSelectedEventQRString('');
+    setSelectedEventDeepLink('');
   };
 
   // Load team's current data including charity selection
@@ -1391,6 +1426,12 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
           onManageFlash={() => setShowFlashModal(true)}
         />
 
+        {/* Active Events with QR */}
+        <ActiveEventsSection
+          events={activeCompetitions}
+          onShowQR={handleShowEventQR}
+        />
+
         {/* Team Join Requests */}
         <JoinRequestsSection
           teamId={data.team.id}
@@ -1727,6 +1768,17 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
         onClose={handleCloseLeagueWizard}
         onLeagueCreated={handleLeagueCreated}
       />
+
+      {/* Event QR Display Modal */}
+      {selectedEventForQR && (
+        <QREventDisplayModal
+          visible={showEventQRModal}
+          eventData={selectedEventForQR}
+          qrString={selectedEventQRString}
+          deepLink={selectedEventDeepLink}
+          onClose={handleCloseEventQR}
+        />
+      )}
 
       {/* Add Member Modal */}
       <Modal

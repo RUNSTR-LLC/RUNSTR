@@ -523,6 +523,116 @@ export class ChallengeRequestService {
   }
 
   /**
+   * Accept QR-based challenge
+   * Similar to acceptChallenge but works with QR challenge data instead of stored pending challenges
+   */
+  async acceptQRChallenge(
+    qrChallengeData: any, // QRChallengeData type from QRChallengeService
+    nsec: string
+  ): Promise<{ success: boolean; listId?: string; error?: string }> {
+    try {
+      const userIdentifiers = await getUserNostrIdentifiers();
+      if (!userIdentifiers?.hexPubkey) {
+        throw new Error('User not authenticated');
+      }
+
+      const accepterPubkey = userIdentifiers.hexPubkey;
+      const creatorPubkey = qrChallengeData.creator_pubkey;
+
+      // Calculate start and end dates
+      const now = Math.floor(Date.now() / 1000);
+      const durationSeconds = qrChallengeData.duration * 24 * 60 * 60;
+      const startDate = now;
+      const endDate = now + durationSeconds;
+
+      // 1. Create and publish kind 1106 acceptance event
+      const acceptEventTemplate = {
+        kind: 1106,
+        created_at: now,
+        tags: [
+          ['e', qrChallengeData.challenge_id], // Reference QR challenge ID
+          ['p', creatorPubkey], // Creator pubkey
+          ['t', 'challenge-accept'],
+          ['qr', 'true'], // Indicates QR-based challenge
+          ['activity', qrChallengeData.activity],
+          ['metric', qrChallengeData.metric],
+          ['duration', qrChallengeData.duration.toString()],
+          ['wager', qrChallengeData.wager.toString()],
+          ['start-date', startDate.toString()],
+          ['end-date', endDate.toString()],
+        ],
+        content: `Accepted QR challenge: ${qrChallengeData.activity} (${qrChallengeData.metric})`,
+      };
+
+      console.log('🔄 Publishing kind 1106 acceptance event for QR challenge...');
+
+      // Sign acceptance event
+      const signedAcceptEvent = await this.protocolHandler.signEvent(
+        acceptEventTemplate,
+        nsec
+      );
+
+      // Publish acceptance event
+      const acceptPublishResult = await nostrRelayManager.publishEvent(signedAcceptEvent);
+
+      if (!acceptPublishResult.success) {
+        throw new Error('Failed to publish acceptance event to Nostr relays');
+      }
+
+      console.log(`✅ Challenge acceptance published: ${signedAcceptEvent.id}`);
+
+      // 2. Create kind 30000 participant list
+      const listDTag = `challenge_${qrChallengeData.challenge_id}`;
+
+      const listEvent = {
+        kind: 30000,
+        created_at: now,
+        tags: [
+          ['d', listDTag],
+          ['title', `Challenge: ${qrChallengeData.activity}`],
+          ['description', `${qrChallengeData.metric} challenge for ${qrChallengeData.duration} days`],
+          ['p', creatorPubkey, '', 'challenger'],
+          ['p', accepterPubkey, '', 'challenged'],
+          ['activity', qrChallengeData.activity],
+          ['metric', qrChallengeData.metric],
+          ['duration', qrChallengeData.duration.toString()],
+          ['wager', qrChallengeData.wager.toString()],
+          ['start-date', startDate.toString()],
+          ['end-date', endDate.toString()],
+          ['status', 'active'],
+        ],
+        content: '',
+      };
+
+      console.log('🔄 Publishing kind 30000 participant list for QR challenge...');
+
+      // Sign list event
+      const signedListEvent = await this.protocolHandler.signEvent(listEvent, nsec);
+
+      // Publish list event
+      const listPublishResult = await nostrRelayManager.publishEvent(signedListEvent);
+
+      if (!listPublishResult.success) {
+        throw new Error('Failed to publish participant list to Nostr relays');
+      }
+
+      console.log(`✅ Participant list published: ${signedListEvent.id}`);
+      console.log(`✅ QR Challenge ${qrChallengeData.challenge_id} fully accepted`);
+
+      return {
+        success: true,
+        listId: listDTag,
+      };
+    } catch (error) {
+      console.error('Failed to accept QR challenge:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+      };
+    }
+  }
+
+  /**
    * Clear expired challenges
    */
   async clearExpiredChallenges(): Promise<void> {

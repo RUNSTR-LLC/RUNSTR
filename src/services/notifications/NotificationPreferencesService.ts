@@ -1,14 +1,12 @@
 /**
- * NotificationPreferencesService - Persistent storage for user notification preferences
- * Handles saving/loading notification settings with AsyncStorage persistence
+ * NotificationPreferencesService - Simplified notification service
+ * All notifications are now enabled by default - no user toggles
+ * Service kept for backward compatibility
  */
 
-import { SafeStorage } from '../../utils/storage';
 import { NotificationSettings } from '../../types';
 
-const NOTIFICATION_PREFERENCES_KEY = '@runstr_notification_preferences';
-
-// Default settings for new users - all enabled by default for better engagement
+// All notifications enabled - no user preferences
 const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   eventNotifications: true,
   leagueUpdates: true,
@@ -20,188 +18,102 @@ const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
 };
 
 export class NotificationPreferencesService {
-  private static cachedSettings: NotificationSettings | null = null;
-
   /**
-   * Get user's notification preferences from storage
+   * Get notification settings - always returns all enabled
    */
   static async getNotificationSettings(): Promise<NotificationSettings> {
-    // Return cached settings if available
-    if (this.cachedSettings) {
-      return this.cachedSettings;
-    }
-
-    try {
-      const stored = await SafeStorage.getItem(NOTIFICATION_PREFERENCES_KEY);
-      
-      if (!stored) {
-        console.log('📱 No stored notification preferences found, using defaults');
-        this.cachedSettings = DEFAULT_NOTIFICATION_SETTINGS;
-        await this.saveNotificationSettings(DEFAULT_NOTIFICATION_SETTINGS);
-        return DEFAULT_NOTIFICATION_SETTINGS;
-      }
-
-      const settings: NotificationSettings = JSON.parse(stored);
-      
-      // Merge with defaults to handle new preference keys
-      const mergedSettings = {
-        ...DEFAULT_NOTIFICATION_SETTINGS,
-        ...settings,
-      };
-
-      this.cachedSettings = mergedSettings;
-      return mergedSettings;
-    } catch (error) {
-      console.error('Error loading notification preferences:', error);
-      this.cachedSettings = DEFAULT_NOTIFICATION_SETTINGS;
-      return DEFAULT_NOTIFICATION_SETTINGS;
-    }
+    return DEFAULT_NOTIFICATION_SETTINGS;
   }
 
   /**
-   * Save notification preferences to storage
+   * Save notification preferences - no-op (kept for compatibility)
    */
   static async saveNotificationSettings(settings: NotificationSettings): Promise<void> {
-    try {
-      await SafeStorage.setItem(NOTIFICATION_PREFERENCES_KEY, JSON.stringify(settings));
-      this.cachedSettings = settings;
-      console.log('📱 Notification preferences saved:', settings);
-    } catch (error) {
-      console.error('Error saving notification preferences:', error);
-      throw error;
-    }
+    // No-op - we don't save preferences anymore
+    console.log('📱 Notification preferences are always enabled');
   }
 
   /**
-   * Update a specific notification preference
+   * Update a specific notification setting - no-op (kept for compatibility)
    */
   static async updateNotificationSetting(
     key: keyof NotificationSettings,
     value: boolean
   ): Promise<NotificationSettings> {
-    try {
-      const currentSettings = await this.getNotificationSettings();
-      const updatedSettings = {
-        ...currentSettings,
-        [key]: value,
-      };
-
-      await this.saveNotificationSettings(updatedSettings);
-      return updatedSettings;
-    } catch (error) {
-      console.error(`Error updating notification setting ${key}:`, error);
-      throw error;
-    }
+    // Always return all enabled
+    return DEFAULT_NOTIFICATION_SETTINGS;
   }
 
   /**
-   * Check if a specific notification type is enabled
+   * Check if a specific notification type is enabled - always returns true
    */
   static async isNotificationEnabled(key: keyof NotificationSettings): Promise<boolean> {
-    try {
-      const settings = await this.getNotificationSettings();
-      return settings[key];
-    } catch (error) {
-      console.error(`Error checking notification setting ${key}:`, error);
-      // Default to enabled on error to avoid blocking notifications
-      return true;
-    }
+    return true;
   }
 
   /**
-   * Reset all notification preferences to defaults
+   * Reset all notification preferences to defaults - no-op
    */
   static async resetToDefaults(): Promise<NotificationSettings> {
-    try {
-      await this.saveNotificationSettings(DEFAULT_NOTIFICATION_SETTINGS);
-      return DEFAULT_NOTIFICATION_SETTINGS;
-    } catch (error) {
-      console.error('Error resetting notification preferences:', error);
-      throw error;
-    }
+    return DEFAULT_NOTIFICATION_SETTINGS;
   }
 
   /**
-   * Clear cached settings (useful for testing or user logout)
+   * Clear cached settings - no-op (kept for compatibility)
    */
   static clearCache(): void {
-    this.cachedSettings = null;
+    // No-op
   }
 
   /**
-   * Specific helper methods for common notification types
+   * Specific helper methods - all return true
    */
   static async canSendEventNotifications(): Promise<boolean> {
-    return this.isNotificationEnabled('eventNotifications');
+    return true;
   }
 
   static async canSendLeagueUpdates(): Promise<boolean> {
-    return this.isNotificationEnabled('leagueUpdates');
+    return true;
   }
 
   static async canSendTeamAnnouncements(): Promise<boolean> {
-    return this.isNotificationEnabled('teamAnnouncements');
+    return true;
   }
 
   static async canSendBitcoinRewards(): Promise<boolean> {
-    return this.isNotificationEnabled('bitcoinRewards');
+    return true;
   }
 
   static async canSendChallengeUpdates(): Promise<boolean> {
-    return this.isNotificationEnabled('challengeUpdates');
+    return true;
   }
 
   static async canSendLiveCompetitionUpdates(): Promise<boolean> {
-    return this.isNotificationEnabled('liveCompetitionUpdates');
+    return true;
   }
 
   static async canSendWorkoutReminders(): Promise<boolean> {
-    return this.isNotificationEnabled('workoutReminders');
+    return true;
   }
 
   /**
-   * Get summary of current notification settings for debugging
+   * Get summary of current notification settings
    */
   static async getSettingsSummary(): Promise<string> {
-    try {
-      const settings = await this.getNotificationSettings();
-      const enabledCount = Object.values(settings).filter(Boolean).length;
-      const totalCount = Object.keys(settings).length;
-      
-      return `${enabledCount}/${totalCount} notification types enabled`;
-    } catch (error) {
-      return 'Error loading settings';
-    }
+    return 'All notification types enabled';
   }
 
   /**
-   * Export settings for backup/sync (future feature)
+   * Export settings - returns all enabled
    */
   static async exportSettings(): Promise<string> {
-    const settings = await this.getNotificationSettings();
-    return JSON.stringify(settings, null, 2);
+    return JSON.stringify(DEFAULT_NOTIFICATION_SETTINGS, null, 2);
   }
 
   /**
-   * Import settings from backup (future feature)
+   * Import settings - no-op (kept for compatibility)
    */
   static async importSettings(settingsJson: string): Promise<NotificationSettings> {
-    try {
-      const settings = JSON.parse(settingsJson) as NotificationSettings;
-      
-      // Validate that all required keys exist
-      const requiredKeys = Object.keys(DEFAULT_NOTIFICATION_SETTINGS) as (keyof NotificationSettings)[];
-      const isValid = requiredKeys.every(key => typeof settings[key] === 'boolean');
-      
-      if (!isValid) {
-        throw new Error('Invalid settings format');
-      }
-
-      await this.saveNotificationSettings(settings);
-      return settings;
-    } catch (error) {
-      console.error('Error importing notification settings:', error);
-      throw error;
-    }
+    return DEFAULT_NOTIFICATION_SETTINGS;
   }
 }

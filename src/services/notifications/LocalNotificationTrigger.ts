@@ -2,10 +2,10 @@
  * LocalNotificationTrigger - Triggers local notifications for competition events
  * Handles new competitions, leaderboard changes, and competition ending alerts
  * Works with ExpoNotificationProvider to display local push notifications
+ * All notifications are sent - no user preference checks
  */
 
 import { ExpoNotificationProvider } from './ExpoNotificationProvider';
-import { NotificationPreferencesService } from './NotificationPreferencesService';
 import { NotificationService } from '../notificationService';
 import type { RichNotificationData } from '../../types';
 
@@ -49,11 +49,6 @@ export class LocalNotificationTrigger {
     activityType: string,
     startTime?: Date
   ): Promise<void> {
-    // Check if user has notifications enabled for competitions
-    const settings = await NotificationPreferencesService.getNotificationSettings();
-    if (!settings.eventNotifications && competitionType === 'event') return;
-    if (!settings.leagueUpdates && competitionType === 'league') return;
-
     const notification: RichNotificationData = {
       id: `new_comp_${Date.now()}`,
       type: 'competition_announcement',
@@ -95,10 +90,6 @@ export class LocalNotificationTrigger {
     newPosition: number,
     totalParticipants: number
   ): Promise<void> {
-    // Check if user has notifications enabled
-    const settings = await NotificationPreferencesService.getNotificationSettings();
-    if (!settings.leagueUpdates) return;
-
     const improved = newPosition < previousPosition;
     const emoji = improved ? '📈' : '📉';
     const action = improved ? 'climbed to' : 'dropped to';
@@ -147,11 +138,6 @@ export class LocalNotificationTrigger {
     currentPosition?: number,
     pointsFromNext?: number
   ): Promise<void> {
-    // Check if user has notifications enabled
-    const settings = await NotificationPreferencesService.getNotificationSettings();
-    if (!settings.eventNotifications && competitionType === 'event') return;
-    if (!settings.leagueUpdates && competitionType === 'league') return;
-
     const hoursLeft = Math.max(1, Math.ceil((endTime.getTime() - Date.now()) / (1000 * 60 * 60)));
 
     let bodyText = `"${competitionName}" ends in ${hoursLeft} hour${hoursLeft > 1 ? 's' : ''}!`;

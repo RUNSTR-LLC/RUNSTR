@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../styles/theme';
 import { ProfileTab, ProfileScreenData, NotificationSettings } from '../types';
@@ -27,6 +27,7 @@ import { NotificationBadge } from '../components/profile/NotificationBadge';
 import { NotificationModal } from '../components/profile/NotificationModal';
 import { QRScannerModal } from '../components/qr/QRScannerModal';
 import { JoinPreviewModal } from '../components/qr/JoinPreviewModal';
+import { OpenChallengeWizard } from '../components/wizards/OpenChallengeWizard';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useNutzap } from '../hooks/useNutzap';
@@ -91,6 +92,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [showOpenChallengeWizard, setShowOpenChallengeWizard] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [showJoinPreview, setShowJoinPreview] = useState(false);
   const [scannedQRData, setScannedQRData] = useState<QRData | null>(null);
@@ -381,6 +383,23 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <ChallengeNotificationsBox />
         </View>
 
+        {/* Create Challenge Button - Open challenge via QR code */}
+        <TouchableOpacity
+          style={styles.createChallengeButton}
+          onPress={() => setShowOpenChallengeWizard(true)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.createChallengeContent}>
+            <Text style={styles.createChallengeIcon}>⚔️</Text>
+            <View style={styles.createChallengeTextContainer}>
+              <Text style={styles.createChallengeTitle}>Create Challenge</Text>
+              <Text style={styles.createChallengeSubtitle}>
+                Generate QR code to challenge anyone
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+
         {/* User's Competitions */}
         <View style={styles.boxContainer}>
           <YourCompetitionsBox />
@@ -390,22 +409,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         <View style={styles.boxContainer}>
           <YourWorkoutsBox />
         </View>
-
-        {/* Create Challenge Button */}
-        <TouchableOpacity
-          style={styles.createChallengeButton}
-          onPress={() => {
-            const parentNav = navigation.getParent();
-            if (parentNav) {
-              parentNav.navigate('ChallengeWizard' as any);
-            } else {
-              navigation.navigate('ChallengeWizard' as any);
-            }
-          }}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.createChallengeButtonText}>Create Challenge</Text>
-        </TouchableOpacity>
       </ScrollView>
 
       {/* Send Modal */}
@@ -449,6 +452,20 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         data={scannedQRData}
         onJoin={handleJoinCompetition}
       />
+
+      {/* Open Challenge Wizard - QR code challenge creation */}
+      {showOpenChallengeWizard && (
+        <Modal
+          visible={showOpenChallengeWizard}
+          animationType="slide"
+          presentationStyle="fullScreen"
+        >
+          <OpenChallengeWizard
+            onComplete={() => setShowOpenChallengeWizard(false)}
+            onCancel={() => setShowOpenChallengeWizard(false)}
+          />
+        </Modal>
+      )}
     </SafeAreaView>
   );
 };
@@ -522,12 +539,38 @@ const styles = StyleSheet.create({
 
   // Create Challenge Button
   createChallengeButton: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    paddingVertical: 16,
+    backgroundColor: theme.colors.cardBackground,
+    borderRadius: theme.borderRadius.large,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: 16,
+    marginBottom: 16,
+  },
+
+  createChallengeContent: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
+  },
+
+  createChallengeIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+
+  createChallengeTextContainer: {
+    flex: 1,
+  },
+
+  createChallengeTitle: {
+    fontSize: 16,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.text,
+    marginBottom: 2,
+  },
+
+  createChallengeSubtitle: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
   },
 
   createChallengeButtonText: {

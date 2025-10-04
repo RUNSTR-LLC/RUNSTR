@@ -17,8 +17,7 @@ import {
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { theme } from '../styles/theme';
-import { NotificationSettings, Team } from '../types';
-import { NotificationPreferencesService } from '../services/notifications/NotificationPreferencesService';
+import { Team } from '../types';
 import {
   TTSPreferencesService,
   type TTSSettings,
@@ -85,18 +84,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onSignOut,
 }) => {
   const navigation = useNavigation();
-  const [notificationSettings, setNotificationSettings] =
-    useState<NotificationSettings>({
-      leaguesStarting: true,
-      eventsStarting: true,
-      challengesStarting: false,
-      leagueResults: true,
-      eventResults: true,
-      challengeResults: false,
-      teamAnnouncements: true,
-    });
-  const [isLoadingNotificationSettings, setIsLoadingNotificationSettings] =
-    useState(true);
   const [userRole, setUserRole] = useState<'captain' | 'member' | null>(null);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [userNsec, setUserNsec] = useState<string | null>(null);
@@ -112,13 +99,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   }, []);
 
   const loadSettings = async () => {
-    setIsLoadingNotificationSettings(true);
     try {
-      // Load notification settings
-      const settings =
-        await NotificationPreferencesService.getNotificationSettings();
-      setNotificationSettings(settings);
-
       // Load TTS settings
       const ttsPrefs = await TTSPreferencesService.getTTSSettings();
       setTtsSettings(ttsPrefs);
@@ -132,33 +113,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       setUserNsec(nsec);
     } catch (error) {
       console.error('Error loading settings:', error);
-    } finally {
-      setIsLoadingNotificationSettings(false);
-    }
-  };
-
-  const handleNotificationSettingChange = async (
-    key: keyof NotificationSettings,
-    value: boolean
-  ) => {
-    try {
-      setNotificationSettings((prev) => ({
-        ...prev,
-        [key]: value,
-      }));
-
-      const updatedSettings =
-        await NotificationPreferencesService.updateNotificationSetting(
-          key,
-          value
-        );
-      setNotificationSettings(updatedSettings);
-    } catch (error) {
-      console.error(`Error updating notification setting ${key}:`, error);
-      setNotificationSettings((prev) => ({
-        ...prev,
-        [key]: !value,
-      }));
     }
   };
 
@@ -423,10 +377,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>NOTIFICATIONS</Text>
           <Card style={styles.card}>
-            <NotificationsTab
-              settings={notificationSettings}
-              onSettingChange={handleNotificationSettingChange}
-            />
+            <NotificationsTab />
           </Card>
         </View>
 

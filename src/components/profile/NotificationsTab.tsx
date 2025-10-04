@@ -1,69 +1,20 @@
 /**
- * NotificationsTab Component - Push notification settings and history
- * Matches notifications tab content from HTML mockup exactly
+ * NotificationsTab Component - Notification history and info
+ * Displays all notifications without toggle controls
  */
 
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { theme } from '../../styles/theme';
-import { NotificationSettings, NotificationHistory } from '../../types';
+import { NotificationHistory } from '../../types';
 import { Card } from '../ui/Card';
 import { NotificationService } from '../../services/notificationService';
 
 interface NotificationsTabProps {
-  settings: NotificationSettings;
-  onSettingChange: (key: keyof NotificationSettings, value: boolean) => void;
+  // No settings needed anymore - just display notifications
 }
 
-interface ToggleProps {
-  value: boolean;
-  onValueChange: (value: boolean) => void;
-}
-
-const Toggle: React.FC<ToggleProps> = ({ value, onValueChange }) => {
-  return (
-    <TouchableOpacity
-      style={[styles.toggle, value && styles.toggleActive]}
-      onPress={() => onValueChange(!value)}
-      activeOpacity={1}
-    >
-      <View style={[styles.toggleHandle, value && styles.toggleHandleActive]} />
-    </TouchableOpacity>
-  );
-};
-
-interface NotificationItemProps {
-  title: string;
-  subtitle: string;
-  value: boolean;
-  onValueChange: (value: boolean) => void;
-  isLast?: boolean;
-}
-
-const NotificationItem: React.FC<NotificationItemProps> = ({
-  title,
-  subtitle,
-  value,
-  onValueChange,
-  isLast = false,
-}) => {
-  return (
-    <View
-      style={[styles.notificationItem, isLast && styles.notificationItemLast]}
-    >
-      <View style={styles.notificationInfo}>
-        <Text style={styles.notificationTitle}>{title}</Text>
-        <Text style={styles.notificationSubtitle}>{subtitle}</Text>
-      </View>
-      <Toggle value={value} onValueChange={onValueChange} />
-    </View>
-  );
-};
-
-export const NotificationsTab: React.FC<NotificationsTabProps> = ({
-  settings,
-  onSettingChange,
-}) => {
+export const NotificationsTab: React.FC<NotificationsTabProps> = () => {
   const [notificationHistory, setNotificationHistory] =
     useState<NotificationHistory>({
       items: [],
@@ -115,58 +66,16 @@ export const NotificationsTab: React.FC<NotificationsTabProps> = ({
     }
   };
 
-  const notifications = [
-    {
-      key: 'eventNotifications' as keyof NotificationSettings,
-      title: 'Competition Events',
-      subtitle: 'New events created by your team captain',
-    },
-    {
-      key: 'leagueUpdates' as keyof NotificationSettings,
-      title: 'Leaderboard Changes',
-      subtitle: 'Position changes when you move up or down',
-    },
-    {
-      key: 'teamAnnouncements' as keyof NotificationSettings,
-      title: 'Competition Reminders',
-      subtitle: 'Alerts when competitions are ending soon',
-    },
-    {
-      key: 'challengeUpdates' as keyof NotificationSettings,
-      title: 'New Leagues',
-      subtitle: 'Multi-day competitions created by your captain',
-    },
-  ];
-
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Info Card */}
       <Card style={styles.card}>
-        <Text style={styles.cardTitle}>How Notifications Work</Text>
+        <Text style={styles.cardTitle}>About Notifications</Text>
         <Text style={styles.infoText}>
-          You'll receive notifications when your app is open or running in the background.
-          Notifications alert you to new competitions from your team captain, changes in your
-          leaderboard position, and reminders when competitions are ending soon.
+          You'll receive notifications for new competitions, leaderboard changes,
+          competition reminders, and team announcements. Notifications appear when
+          your app is open or running in the background.
         </Text>
-      </Card>
-
-      {/* Push Notifications Settings */}
-      <Card style={styles.card}>
-        <Text style={styles.cardTitle}>Notification Preferences</Text>
-        <View style={styles.notificationsGroup}>
-          {notifications.map((notification, index) => (
-            <NotificationItem
-              key={notification.key}
-              title={notification.title}
-              subtitle={notification.subtitle}
-              value={settings[notification.key]}
-              onValueChange={(value) =>
-                onSettingChange(notification.key, value)
-              }
-              isLast={index === notifications.length - 1}
-            />
-          ))}
-        </View>
       </Card>
 
       {/* Notification History */}
@@ -270,74 +179,6 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary, // #ccc
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-  },
-
-  notificationsGroup: {
-    // Container for grouped notification items
-  },
-
-  // CSS: display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-bottom: 1px solid #1a1a1a;
-  notificationItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: theme.spacing.xxl, // 16px
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border, // #1a1a1a
-  },
-
-  notificationItemLast: {
-    borderBottomWidth: 0,
-  },
-
-  notificationInfo: {
-    flex: 1,
-  },
-
-  // CSS: font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 2px;
-  notificationTitle: {
-    fontSize: 15, // Exact from CSS
-    fontWeight: theme.typography.weights.semiBold, // 600
-    color: theme.colors.text, // #fff
-    marginBottom: theme.spacing.xs, // 2px
-  },
-
-  // CSS: font-size: 12px; color: #666;
-  notificationSubtitle: {
-    fontSize: 12, // Exact from CSS
-    color: theme.colors.textMuted, // #666
-  },
-
-  // CSS: width: 44px; height: 24px; background: #333; border-radius: 12px; position: relative;
-  toggle: {
-    width: 44, // Exact from CSS
-    height: 24, // Exact from CSS
-    backgroundColor: theme.colors.syncBackground, // #333
-    borderRadius: 12, // Exact from CSS
-    position: 'relative',
-    justifyContent: 'center',
-  },
-
-  // CSS: .toggle.active { background: #fff; }
-  toggleActive: {
-    backgroundColor: theme.colors.accent, // #fff
-  },
-
-  // CSS: width: 20px; height: 20px; background: #fff; border-radius: 10px; position: absolute; top: 2px; left: 2px;
-  toggleHandle: {
-    width: 20, // Exact from CSS
-    height: 20, // Exact from CSS
-    backgroundColor: theme.colors.text, // #fff
-    borderRadius: 10, // Exact from CSS
-    position: 'absolute',
-    top: 2, // Exact from CSS
-    left: 2, // Exact from CSS
-  },
-
-  // CSS: .toggle.active .toggle-handle { transform: translateX(20px); background: #000; }
-  toggleHandleActive: {
-    transform: [{ translateX: 20 }], // Exact from CSS
-    backgroundColor: theme.colors.accentText, // #000
   },
 
   // Notification History Styles

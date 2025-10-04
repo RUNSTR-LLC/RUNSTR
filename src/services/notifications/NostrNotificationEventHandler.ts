@@ -217,12 +217,7 @@ export class NostrNotificationEventHandler {
 
     // Create notification for each team member
     for (const member of teamMembers) {
-      const { userId, userSettings } = member;
-
-      // Check if user wants event notifications
-      if (!userSettings.eventNotifications && !userSettings.teamAnnouncements) {
-        continue;
-      }
+      const { userId } = member;
 
       // Get user's team for branding
       const membership = await this.teamContextService.getCurrentUserTeam(
@@ -317,13 +312,6 @@ export class NostrNotificationEventHandler {
 
     // Notify each participant with their results
     for (const result of competitionEvent.results) {
-      const userSettings = await this.getUserNotificationSettings(result.npub);
-
-      // Check if user wants result notifications
-      if (!userSettings?.eventNotifications && !userSettings?.bitcoinRewards) {
-        continue;
-      }
-
       // Get user's team for branding
       const membership = await this.teamContextService.getCurrentUserTeam(
         result.npub
@@ -425,15 +413,7 @@ export class NostrNotificationEventHandler {
     );
 
     for (const member of teamMembers) {
-      const { userId, userSettings } = member;
-
-      // Check if user wants reminder notifications
-      if (
-        !userSettings.eventNotifications &&
-        !userSettings.liveCompetitionUpdates
-      ) {
-        continue;
-      }
+      const { userId } = member;
 
       // Get user's team for branding
       const membership = await this.teamContextService.getCurrentUserTeam(
@@ -655,67 +635,10 @@ export class NostrNotificationEventHandler {
   private async getNotificationTargets(npubs: string[]): Promise<
     Array<{
       userId: string;
-      userSettings: NotificationSettings;
     }>
   > {
-    const targets: Array<{
-      userId: string;
-      userSettings: NotificationSettings;
-    }> = [];
-
-    for (const npub of npubs) {
-      const userSettings = await this.getUserNotificationSettings(npub);
-      if (userSettings) {
-        targets.push({ userId: npub, userSettings });
-      }
-    }
-
-    return targets;
-  }
-
-  private async getUserNotificationSettings(
-    userId: string
-  ): Promise<NotificationSettings | null> {
-    try {
-      // Check if this is the current user
-      const userStore = useUserStore.getState();
-      const isCurrentUser = userStore.user && (
-        userStore.user.id === userId || 
-        userStore.user.npub === userId
-      );
-
-      if (isCurrentUser) {
-        // Get actual user preferences from persistent storage
-        const settings = await NotificationPreferencesService.getNotificationSettings();
-        console.log(`📱 Using real notification preferences for current user: ${userId.slice(0, 20)}...`);
-        return settings;
-      }
-
-      // For other users (in multi-user scenarios), we can't access their preferences
-      // In practice, this handler should mainly process events for the current user
-      console.log(`📱 Using default notification settings for other user: ${userId.slice(0, 20)}...`);
-      return {
-        eventNotifications: true,
-        leagueUpdates: true,
-        teamAnnouncements: true,
-        bitcoinRewards: true,
-        challengeUpdates: false,
-        liveCompetitionUpdates: false,
-        workoutReminders: false,
-      };
-    } catch (error) {
-      console.error('Failed to get user notification settings:', error);
-      // Return permissive defaults on error to avoid blocking notifications completely
-      return {
-        eventNotifications: true,
-        leagueUpdates: true,
-        teamAnnouncements: true,
-        bitcoinRewards: true,
-        challengeUpdates: true,
-        liveCompetitionUpdates: true,
-        workoutReminders: true,
-      };
-    }
+    // All users get notifications now - no preference checking
+    return npubs.map(npub => ({ userId: npub }));
   }
 
   private getOrdinal(num: number): string {

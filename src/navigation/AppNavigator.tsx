@@ -26,6 +26,7 @@ import { LoginScreen } from '../screens/LoginScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { CompetitionsListScreen } from '../screens/CompetitionsListScreen';
 import { WorkoutHistoryScreen } from '../screens/WorkoutHistoryScreen';
+import { QRChallengeScanner } from '../screens/QRChallengeScanner';
 import type { DiscoveredNostrUser } from '../services/user/UserDiscoveryService';
 
 // Navigation Configuration
@@ -61,6 +62,7 @@ export type RootStackParamList = {
   CompetitionsList: undefined;
   ChallengeLeaderboard: { challengeId: string };
   ChallengeWizard: { preselectedOpponent?: DiscoveredNostrUser };
+  QRChallengeScanner: undefined;
   WorkoutHistory: { userId: string; pubkey: string };
 };
 
@@ -551,6 +553,17 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
           />
         )}
       </Stack.Screen>
+
+      {/* QR Challenge Scanner - Scan QR codes to accept challenges */}
+      <Stack.Screen
+        name="QRChallengeScanner"
+        options={{
+          ...defaultScreenOptions,
+          headerShown: false,
+          presentation: 'modal',
+        }}
+        component={QRChallengeScanner}
+      />
     </Stack.Navigator>
   );
 };

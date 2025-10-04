@@ -48,7 +48,7 @@ PODS:
     - ExpoModulesCore
   - ExpoBlur (14.1.5):
     - ExpoModulesCore
-  - ExpoCamera (17.0.8):
+  - ExpoCamera (16.1.11):
     - ExpoModulesCore
     - ZXingObjC/OneD
     - ZXingObjC/PDF417
@@ -85,6 +85,9 @@ PODS:
     - ExpoModulesCore
   - ExpoLocation (19.0.7):
     - ExpoModulesCore
+  - ExpoMediaLibrary (17.1.7):
+    - ExpoModulesCore
+    - React-Core
   - ExpoModulesCore (2.5.0):
     - DoubleConversion
     - glog
@@ -1599,6 +1602,30 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - react-native-view-shot (4.0.3):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.11.18.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-hermes
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
   - react-native-webview (13.13.5):
     - DoubleConversion
     - glog
@@ -2337,6 +2364,7 @@ DEPENDENCIES:
   - ExpoLinearGradient (from `../node_modules/expo-linear-gradient/ios`)
   - ExpoLinking (from `../node_modules/expo-linking/ios`)
   - ExpoLocation (from `../node_modules/expo-location/ios`)
+  - ExpoMediaLibrary (from `../node_modules/expo-media-library/ios`)
   - ExpoModulesCore (from `../node_modules/expo-modules-core`)
   - ExpoSpeech (from `../node_modules/expo-speech/ios`)
   - ExpoSplashScreen (from `../node_modules/expo-splash-screen/ios`)
@@ -2386,6 +2414,7 @@ DEPENDENCIES:
   - react-native-get-random-values (from `../node_modules/react-native-get-random-values`)
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
   - "react-native-slider (from `../node_modules/@react-native-community/slider`)"
+  - react-native-view-shot (from `../node_modules/react-native-view-shot`)
   - react-native-webview (from `../node_modules/react-native-webview`)
   - React-NativeModulesApple (from `../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)
   - React-oscompat (from `../node_modules/react-native/ReactCommon/oscompat`)
@@ -2496,6 +2525,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-linking/ios"
   ExpoLocation:
     :path: "../node_modules/expo-location/ios"
+  ExpoMediaLibrary:
+    :path: "../node_modules/expo-media-library/ios"
   ExpoModulesCore:
     :path: "../node_modules/expo-modules-core"
   ExpoSpeech:
@@ -2591,6 +2622,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-safe-area-context"
   react-native-slider:
     :path: "../node_modules/@react-native-community/slider"
+  react-native-view-shot:
+    :path: "../node_modules/react-native-view-shot"
   react-native-webview:
     :path: "../node_modules/react-native-webview"
   React-NativeModulesApple:
@@ -2689,7 +2722,7 @@ SPEC CHECKSUMS:
   ExpoAsset: ef06e880126c375f580d4923fdd1cdf4ee6ee7d6
   ExpoBattery: a5d7037bbdc0ecf6619ce23a92b8d74d470ac54f
   ExpoBlur: 3c8885b9bf9eef4309041ec87adec48b5f1986a9
-  ExpoCamera: e75f6807a2c047f3338bbadd101af4c71a1d13a5
+  ExpoCamera: e1879906d41184e84b57d7643119f8509414e318
   ExpoClipboard: af650d14765f19c60ce2a1eaf9dfe6445eff7365
   ExpoCrypto: a9f1d75baeea6ef8b03c1660621585196c382e85
   ExpoDevice: 7082f03af1c588333ef1417d5aa8287081d94b24
@@ -2704,6 +2737,7 @@ SPEC CHECKSUMS:
   ExpoLinearGradient: a464898cb95153125e3b81894fd479bcb1c7dd27
   ExpoLinking: d5c183998ca6ada66ff45e407e0f965b398a8902
   ExpoLocation: 93d7faa0c2adbd5a04686af0c1a61bc6ed3ee2f7
+  ExpoMediaLibrary: 0daf5e811e00daa47690f5da2989e71ff7de56e0
   ExpoModulesCore: 00a1b5c73248465bd0b93f59f8538c4573dac579
   ExpoSpeech: 9b3bdf552e69c8015c246dc52b5ad5fcdbec878e
   ExpoSplashScreen: 0ad5acac1b5d2953c6e00d4319f16d616f70d4dd
@@ -2754,6 +2788,7 @@ SPEC CHECKSUMS:
   react-native-get-random-values: d16467cf726c618e9c7a8c3c39c31faa2244bbba
   react-native-safe-area-context: 562163222d999b79a51577eda2ea8ad2c32b4d06
   react-native-slider: 62376253ee88489c19981f0370ff7130e84c47bc
+  react-native-view-shot: 57c7b8158751f19f32cb885109574712955ea016
   react-native-webview: 520bcb79c3f2af91e157cdd695732a34ab5f25c8
   React-NativeModulesApple: 1ecb83880dd11baf2228f8dd89d8419c387e03ad
   React-oscompat: 0592889a9fcf0eacb205532028e4a364e22907dd
