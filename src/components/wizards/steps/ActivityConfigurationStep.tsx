@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   TextInput,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../../styles/theme';
 import {
   ACTIVITY_METRICS,
@@ -27,14 +28,14 @@ interface ActivityConfigurationStepProps {
   onUpdateConfiguration: (config: Partial<ActivityConfiguration>) => void;
 }
 
-const ACTIVITY_TYPES: { value: ActivityType; label: string; icon: string }[] = [
-  { value: 'running', label: 'Running', icon: '🏃' },
-  { value: 'walking', label: 'Walking', icon: '🚶' },
-  { value: 'cycling', label: 'Cycling', icon: '🚴' },
-  { value: 'hiking', label: 'Hiking', icon: '🥾' },
-  { value: 'swimming', label: 'Swimming', icon: '🏊' },
-  { value: 'rowing', label: 'Rowing', icon: '🚣' },
-  { value: 'workout', label: 'Workout', icon: '💪' },
+const ACTIVITY_TYPES: { value: ActivityType; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { value: 'running', label: 'Running', icon: 'walk-outline' },
+  { value: 'walking', label: 'Walking', icon: 'walk-outline' },
+  { value: 'cycling', label: 'Cycling', icon: 'bicycle-outline' },
+  { value: 'hiking', label: 'Hiking', icon: 'trail-sign-outline' },
+  { value: 'swimming', label: 'Swimming', icon: 'water-outline' },
+  { value: 'rowing', label: 'Rowing', icon: 'boat-outline' },
+  { value: 'workout', label: 'Workout', icon: 'barbell-outline' },
 ];
 
 const DURATION_OPTIONS: { value: DurationOption; label: string }[] = [
@@ -125,7 +126,7 @@ export const ActivityConfigurationStep: React.FC<ActivityConfigurationStepProps>
               onPress={() => handleActivitySelect(activity.value)}
               activeOpacity={0.7}
             >
-              <Text style={styles.activityIcon}>{activity.icon}</Text>
+              <Ionicons name={activity.icon} size={32} color={theme.colors.accent} />
               <Text
                 style={[
                   styles.activityLabel,
@@ -331,10 +332,6 @@ const styles = StyleSheet.create({
   activityOptionSelected: {
     borderColor: theme.colors.text,
     backgroundColor: theme.colors.border,
-  },
-  activityIcon: {
-    fontSize: 32,
-    marginBottom: 4,
   },
   activityLabel: {
     fontSize: 12,
