@@ -14,6 +14,7 @@ import {
 import { NostrListService } from '../nostr/NostrListService';
 import { TeamJoinRequestService } from './TeamJoinRequestService';
 import type { NostrFilter } from '../nostr/NostrProtocolHandler';
+import { normalizeUserKeyForStorage } from '../../utils/nostr';
 
 export interface LocalMembership {
   teamId: string;
@@ -83,9 +84,16 @@ export class TeamMembershipService {
     console.log(`🏃‍♂️ Joining team locally: ${teamName} (${teamId})`);
 
     try {
+      // CRITICAL: Normalize pubkey to npub format for consistent storage keys
+      const normalizedKey = normalizeUserKeyForStorage(userPubkey);
+      if (!normalizedKey) {
+        console.error('Failed to normalize user pubkey for storage');
+        return false;
+      }
+
       // Check if already a local member
       const existingMembership = await this.getLocalMembership(
-        userPubkey,
+        normalizedKey,
         teamId
       );
       if (existingMembership) {
@@ -102,16 +110,16 @@ export class TeamMembershipService {
         status: 'local',
       };
 
-      // Store locally
-      const memberships = await this.getLocalMemberships(userPubkey);
+      // Store locally with normalized key
+      const memberships = await this.getLocalMemberships(normalizedKey);
       memberships.push(membership);
 
       await AsyncStorage.setItem(
-        `${this.LOCAL_MEMBERSHIPS_KEY}:${userPubkey}`,
+        `${this.LOCAL_MEMBERSHIPS_KEY}:${normalizedKey}`,
         JSON.stringify(memberships)
       );
 
-      console.log(`✅ Local membership created for team: ${teamName}`);
+      console.log(`✅ Local membership created for team: ${teamName} (key: ${normalizedKey.slice(0, 20)}...)`);
       return true;
     } catch (error) {
       console.error('Failed to join team locally:', error);
@@ -124,8 +132,15 @@ export class TeamMembershipService {
    */
   async getLocalMemberships(userPubkey: string): Promise<LocalMembership[]> {
     try {
+      // CRITICAL: Normalize pubkey to npub format for consistent storage keys
+      const normalizedKey = normalizeUserKeyForStorage(userPubkey);
+      if (!normalizedKey) {
+        console.error('Failed to normalize user pubkey for retrieval');
+        return [];
+      }
+
       const stored = await AsyncStorage.getItem(
-        `${this.LOCAL_MEMBERSHIPS_KEY}:${userPubkey}`
+        `${this.LOCAL_MEMBERSHIPS_KEY}:${normalizedKey}`
       );
       return stored ? JSON.parse(stored) : [];
     } catch (error) {
@@ -163,8 +178,15 @@ export class TeamMembershipService {
         memberships[membershipIndex].requestEventId = requestEventId;
       }
 
+      // CRITICAL: Normalize pubkey for consistent storage
+      const normalizedKey = normalizeUserKeyForStorage(userPubkey);
+      if (!normalizedKey) {
+        console.error('Failed to normalize user pubkey for update');
+        return;
+      }
+
       await AsyncStorage.setItem(
-        `${this.LOCAL_MEMBERSHIPS_KEY}:${userPubkey}`,
+        `${this.LOCAL_MEMBERSHIPS_KEY}:${normalizedKey}`,
         JSON.stringify(memberships)
       );
 
@@ -377,8 +399,15 @@ export class TeamMembershipService {
    * Clear local memberships (useful for testing)
    */
   async clearLocalMemberships(userPubkey: string): Promise<void> {
+    // CRITICAL: Normalize pubkey for consistent storage
+    const normalizedKey = normalizeUserKeyForStorage(userPubkey);
+    if (!normalizedKey) {
+      console.error('Failed to normalize user pubkey for clearing');
+      return;
+    }
+
     await AsyncStorage.removeItem(
-      `${this.LOCAL_MEMBERSHIPS_KEY}:${userPubkey}`
+      `${this.LOCAL_MEMBERSHIPS_KEY}:${normalizedKey}`
     );
     console.log('🧹 Cleared local memberships');
   }
@@ -408,8 +437,14 @@ export class TeamMembershipService {
 
     // Check if user has set a primary team preference
     try {
+      // CRITICAL: Normalize pubkey for consistent storage
+      const normalizedKey = normalizeUserKeyForStorage(userPubkey);
+      if (!normalizedKey) {
+        return memberships[0]; // Fallback to first team
+      }
+
       const primaryTeamId = await AsyncStorage.getItem(
-        `runstr:primaryTeamId:${userPubkey}`
+        `runstr:primaryTeamId:${normalizedKey}`
       );
 
       if (primaryTeamId) {
@@ -438,7 +473,14 @@ export class TeamMembershipService {
         return false;
       }
 
-      await AsyncStorage.setItem(`runstr:primaryTeamId:${userPubkey}`, teamId);
+      // CRITICAL: Normalize pubkey for consistent storage
+      const normalizedKey = normalizeUserKeyForStorage(userPubkey);
+      if (!normalizedKey) {
+        console.error('Failed to normalize user pubkey for setting primary team');
+        return false;
+      }
+
+      await AsyncStorage.setItem(`runstr:primaryTeamId:${normalizedKey}`, teamId);
 
       console.log(`⭐ Set primary team: ${teamId}`);
       return true;
@@ -458,8 +500,15 @@ export class TeamMembershipService {
         (m) => m.teamId !== teamId
       );
 
+      // CRITICAL: Normalize pubkey for consistent storage
+      const normalizedKey = normalizeUserKeyForStorage(userPubkey);
+      if (!normalizedKey) {
+        console.error('Failed to normalize user pubkey for leaving team');
+        return false;
+      }
+
       await AsyncStorage.setItem(
-        `${this.LOCAL_MEMBERSHIPS_KEY}:${userPubkey}`,
+        `${this.LOCAL_MEMBERSHIPS_KEY}:${normalizedKey}`,
         JSON.stringify(filteredMemberships)
       );
 

@@ -427,7 +427,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loginButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.accent,
     height: 50,
     borderRadius: 12,
     width: '80%',
@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
   loginButtonText: {
     fontSize: 19,
     fontWeight: '600',
-    color: '#000000',
+    color: theme.colors.accentText,
   },
 
   // Input Form

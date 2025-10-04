@@ -445,6 +445,36 @@ export function normalizeNsecInput(input: string): string {
 }
 
 /**
+ * Normalize user pubkey to canonical format for storage keys
+ * ALWAYS returns npub format for consistent AsyncStorage key generation
+ *
+ * This ensures team memberships and other user data use consistent keys
+ * regardless of whether we receive npub or hexPubkey format.
+ *
+ * @param userPubkey - Either npub (npub1xxx) or hex pubkey (3f2a8b...)
+ * @returns npub format string for use as storage key, or null if invalid
+ */
+export function normalizeUserKeyForStorage(userPubkey: string): string | null {
+  try {
+    // Already npub format - return as-is
+    if (userPubkey.startsWith('npub1')) {
+      return userPubkey;
+    }
+
+    // Hex pubkey - convert to npub
+    if (userPubkey.length === 64 && /^[0-9a-fA-F]+$/.test(userPubkey)) {
+      return nip19.npubEncode(userPubkey);
+    }
+
+    console.error('normalizeUserKeyForStorage: Invalid pubkey format:', userPubkey.slice(0, 20));
+    return null;
+  } catch (error) {
+    console.error('normalizeUserKeyForStorage: Error normalizing key:', error);
+    return null;
+  }
+}
+
+/**
  * Get user's Nostr identifiers from storage
  * Returns both npub and hex pubkey for easy use in comparisons
  */
