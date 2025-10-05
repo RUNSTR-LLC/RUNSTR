@@ -4,6 +4,36 @@ All notable changes to RUNSTR will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2025-10-04
+
+### Changed
+- **Theme Refresh**: Updated color scheme from black/white to orange/black
+  - Primary action buttons now use RUNSTR orange (#FF6B35) for better brand identity
+  - Improved visual hierarchy with orange accents throughout the app
+  - Team cards, navigation elements, and CTAs feature new orange theme
+  - Maintains dark mode foundation with strategic orange highlights
+
+### Improved
+- **Activity Tracker Enhancements**: Major improvements to workout tracking experience
+  - More responsive GPS tracking with better accuracy indicators
+  - Enhanced pause/resume functionality with clearer visual states
+  - Improved workout summary display with better stat formatting
+  - Better handling of edge cases (GPS loss, app backgrounding)
+- **Amber Login Flow**: Streamlined Nostr signer authentication
+  - More reliable callback handling for Amber responses
+  - Better error messages when Amber is not installed
+  - Improved user guidance during sign-in process
+  - Enhanced compatibility with latest Amber signer versions
+
+### Fixed
+- **Pace Display Bug**: Corrected workout summary pace from incorrect "483:60/km" to proper "MM:SS/km" format
+  - WorkoutSummaryModal now uses ActivityMetricsService.formatPace() for correct seconds-to-minutes conversion
+  - Fixes main pace stat, split paces, and average pace footer displays
+  - Example: 0.13 km in 1:05 now correctly shows "8:20/km" instead of malformed values
+- Activity tracker UI consistency across different workout types
+- Orange theme application across all screens and components
+- Amber authentication edge cases and timeout handling
+
 ## [0.1.2] - 2025-10-04
 
 ### Fixed
