@@ -199,16 +199,23 @@ export class EnhancedLocationTrackingService {
       // Send start tracking event to state machine
       this.stateMachine.send({ type: 'START_TRACKING', activityType });
 
-      // Request permissions
-      console.log(`🔐 [${Platform.OS.toUpperCase()}] Requesting location permissions...`);
-      const hasPermission = await this.requestPermissions();
-      if (!hasPermission) {
-        console.error(`❌ [${Platform.OS.toUpperCase()}] Location permissions denied`);
-        // Reset state machine if permissions denied
-        this.stateMachine.send({ type: 'RESET' });
-        return false;
+      // Check if permissions are already granted first
+      console.log(`🔐 [${Platform.OS.toUpperCase()}] Checking location permissions...`);
+      const permissionStatus = await locationPermissionService.checkPermissionStatus();
+
+      if (permissionStatus.foreground !== 'granted') {
+        console.log(`📍 [${Platform.OS.toUpperCase()}] Location permissions not granted, requesting...`);
+        const hasPermission = await this.requestPermissions();
+        if (!hasPermission) {
+          console.error(`❌ [${Platform.OS.toUpperCase()}] Location permissions denied`);
+          // Reset state machine if permissions denied
+          this.stateMachine.send({ type: 'RESET' });
+          return false;
+        }
+      } else {
+        console.log(`✅ [${Platform.OS.toUpperCase()}] Location permissions already granted`);
+        this.stateMachine.send({ type: 'PERMISSIONS_GRANTED' });
       }
-      console.log(`✅ [${Platform.OS.toUpperCase()}] Location permissions granted`);
 
       // Create session
       const sessionId = `session_${Date.now()}`;

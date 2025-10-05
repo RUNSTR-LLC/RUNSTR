@@ -7,6 +7,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { AuthService } from '../services/auth/authService';
 import { getNpubFromStorage } from '../utils/nostr';
 import { DirectNostrProfileService } from '../services/user/directNostrProfileService';
+import { locationPermissionService } from '../services/activity/LocationPermissionService';
 import type { User } from '../types';
 
 // Authentication state interface
@@ -255,6 +256,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setInitError(null);
       }, 100);
 
+      // Request location permissions after successful login (in background)
+      setTimeout(async () => {
+        console.log('📍 Requesting location permissions after login...');
+        await locationPermissionService.requestActivityTrackingPermissions();
+      }, 500);
+
       return { success: true };
     } catch (error) {
       console.error('❌ AuthContext: Sign in error:', error);
@@ -297,6 +304,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setConnectionStatus('Connected');
         setInitError(null);
       }, 100);
+
+      // Request location permissions after successful signup (in background)
+      setTimeout(async () => {
+        console.log('📍 Requesting location permissions after signup...');
+        await locationPermissionService.requestActivityTrackingPermissions();
+      }, 500);
 
       return { success: true };
     } catch (error) {
@@ -348,6 +361,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Cache the profile
       const { appCache } = await import('../utils/cache');
       await appCache.set('current_user_profile', result.user, 5 * 60 * 1000);
+
+      // Request location permissions after successful Amber login (in background)
+      setTimeout(async () => {
+        console.log('📍 Requesting location permissions after Amber login...');
+        await locationPermissionService.requestActivityTrackingPermissions();
+      }, 500);
 
       return { success: true };
     } catch (error) {
