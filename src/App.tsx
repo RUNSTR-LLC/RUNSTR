@@ -82,6 +82,7 @@ import { User } from './types';
 import { useWalletStore } from './store/walletStore';
 import { appInitializationService } from './services/initialization/AppInitializationService';
 import { theme } from './styles/theme';
+import unifiedCache from './services/cache/UnifiedNostrCache';
 
 // Types for authenticated app navigation
 type AuthenticatedStackParamList = {

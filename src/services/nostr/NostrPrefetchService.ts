@@ -25,6 +25,7 @@ import { TeamMembershipService } from '../team/teamMembershipService';
 import { getNpubFromHex, getUserNostrIdentifiers } from '../../utils/nostr';
 import unifiedCache from '../cache/UnifiedNostrCache';
 import { CacheTTL, CacheKeys } from '../../constants/cacheTTL';
+import { CaptainCache } from '../../utils/captainCache';
 
 export class NostrPrefetchService {
   private static instance: NostrPrefetchService;
@@ -187,6 +188,25 @@ export class NostrPrefetchService {
         },
         { ttl: CacheTTL.DISCOVERED_TEAMS }
       );
+
+      // Populate CaptainCache for all discovered teams
+      // This ensures captain status is detected during prefetch
+      const identifiers = await getUserNostrIdentifiers();
+      if (identifiers && teams && teams.length > 0) {
+        const { hexPubkey, npub } = identifiers;
+        console.log('[Prefetch] Checking captain status for', teams.length, 'teams');
+
+        for (const team of teams) {
+          const teamCaptain = team.captain || team.captainId || team.captainNpub;
+          if (teamCaptain) {
+            const isCaptain = teamCaptain === hexPubkey || teamCaptain === npub;
+            if (isCaptain) {
+              await CaptainCache.setCaptainStatus(team.id, true);
+              console.log(`[Prefetch] ✅ User is captain of team: ${team.name}`);
+            }
+          }
+        }
+      }
 
       console.log('[Prefetch] Discovered teams cached:', teams?.length || 0);
     } catch (error) {
