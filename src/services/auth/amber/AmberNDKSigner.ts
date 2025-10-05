@@ -155,21 +155,24 @@ export class AmberNDKSigner implements NDKSigner {
 
     console.log('[Amber] Signing event kind', event.kind, 'via Activity Result');
 
-    // Prepare unsigned event WITHOUT id (Amber calculates id per NIP-55)
-    const unsignedEvent: NostrEvent = {
+    // Prepare unsigned event WITHOUT id/sig fields (Amber calculates per NIP-55)
+    // CRITICAL: id and sig fields must be ABSENT, not empty strings
+    const unsignedEvent = {
       pubkey: this._pubkey!,
       created_at: event.created_at || Math.floor(Date.now() / 1000),
       kind: event.kind!,
       tags: event.tags || [],
-      content: event.content || '',
-      id: '',   // Keep empty - Amber will calculate
-      sig: ''   // Keep empty - Amber will sign
+      content: event.content || ''
+      // NO id field - Amber will calculate
+      // NO sig field - Amber will sign
     };
 
-    console.log('[Amber DEBUG] Event prepared for signing:', {
+    console.log('[Amber DEBUG] Event prepared for signing (NO id/sig fields):', {
       kind: unsignedEvent.kind,
       pubkey: unsignedEvent.pubkey.substring(0, 16) + '...',
-      tagsCount: unsignedEvent.tags.length
+      tagsCount: unsignedEvent.tags.length,
+      hasId: 'id' in unsignedEvent,  // Should be false
+      hasSig: 'sig' in unsignedEvent  // Should be false
     });
 
     try {
