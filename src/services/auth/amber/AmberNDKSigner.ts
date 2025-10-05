@@ -154,7 +154,7 @@ export class AmberNDKSigner implements NDKSigner {
 
     console.log('[Amber] Signing event kind', event.kind, 'via Activity Result');
 
-    // Prepare unsigned event
+    // Prepare unsigned event with calculated ID (required by NIP-01)
     const unsignedEvent: NostrEvent = {
       pubkey: this._pubkey!,
       created_at: event.created_at || Math.floor(Date.now() / 1000),
@@ -164,6 +164,17 @@ export class AmberNDKSigner implements NDKSigner {
       id: '',
       sig: ''
     };
+
+    // Calculate event ID using nostr-tools (required before signing)
+    const { getEventHash } = await import('nostr-tools');
+    const eventId = getEventHash(unsignedEvent);
+    unsignedEvent.id = eventId;
+
+    console.log('[Amber DEBUG] Event prepared for signing:', {
+      kind: unsignedEvent.kind,
+      id: eventId.substring(0, 16) + '...',
+      hasId: !!unsignedEvent.id
+    });
 
     try {
       const intentExtras = {
@@ -184,6 +195,9 @@ export class AmberNDKSigner implements NDKSigner {
 
       console.log('[Amber DEBUG] Sign result received:', {
         resultCode: result.resultCode,
+        resultCodeValue: Object.keys(IntentLauncher.ResultCode).find(
+          key => IntentLauncher.ResultCode[key as keyof typeof IntentLauncher.ResultCode] === result.resultCode
+        ),
         hasData: !!result.data,
         hasExtra: !!result.extra,
         extraKeys: result.extra ? Object.keys(result.extra) : []
@@ -223,12 +237,23 @@ export class AmberNDKSigner implements NDKSigner {
         } else {
           throw new Error('No signature in Amber response');
         }
+      } else if (result.resultCode === IntentLauncher.ResultCode.Canceled) {
+        throw new Error('User canceled signing request in Amber');
       } else {
-        throw new Error('User rejected signing request or request failed');
+        throw new Error(`Amber signing failed with result code: ${result.resultCode}`);
       }
     } catch (error) {
       console.error('[Amber] Failed to sign event:', error);
-      throw new Error('Could not sign event with Amber: ' + (error instanceof Error ? error.message : String(error)));
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      // Provide helpful error messages
+      if (errorMessage.includes('canceled')) {
+        throw new Error('User canceled signing request in Amber');
+      } else if (errorMessage.includes('No signature')) {
+        throw new Error('Amber did not return a signature. Please check permissions in Amber app.');
+      } else {
+        throw new Error('Could not sign event with Amber: ' + errorMessage);
+      }
     }
   }
 

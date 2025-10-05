@@ -87,31 +87,37 @@ RUNSTR REWARDS is a React Native mobile application that transforms fitness rout
 - **Leaderboards** = query kind 30000 for members → query kind 1301 from those members → calculate locally
 - **No backend database** - pure client-side Nostr queries
 
-## Kind 1301 Workout Event Format (RUNSTR Leaderboard Compatible)
+## Kind 1301 Workout Event Format (In-App Competition Support)
 
-Our app publishes kind 1301 events in the standard RUNSTR format that is compatible with Season 1 leaderboards:
+Our app publishes kind 1301 events supporting all fitness activities for in-app competitions:
 
 **Event Structure**:
 - **Kind**: 1301 (fitness tracking event)
 - **Content**: Plain text description (e.g., "Completed a running with RUNSTR!")
-- **Tags** (REQUIRED for leaderboard compatibility):
+- **Tags** (REQUIRED for competition support):
   - `['d', 'unique_workout_id']` - Unique identifier for the workout
   - `['title', 'Morning Run']` - Human-readable title
-  - `['exercise', 'running']` - Activity type: running, walking, cycling, hiking, swimming, rowing
+  - `['exercise', 'running']` - Activity type: **running, walking, cycling, hiking, swimming, rowing, strength, yoga, meditation, other**
   - `['distance', '5.2', 'km']` - Distance value and unit (separate array elements)
   - `['duration', '00:30:45']` - Duration in HH:MM:SS format
   - `['source', 'RUNSTR']` - App identification
-  - `['client', 'RUNSTR', '0.1.2']` - Client info with version
+  - `['client', 'RUNSTR', '0.1.3']` - Client info with version
   - `['t', 'Running']` - Hashtag for activity type
   - `['calories', '312']` - Optional: Calorie count
   - `['elevation_gain', '50', 'm']` - Optional: Elevation gain with unit
+
+**Supported Activities**:
+- **Cardio**: running, walking, cycling, hiking, swimming, rowing
+- **Strength**: strength (includes pushups, pullups, situps, weights, gym)
+- **Wellness**: yoga, meditation
+- **Other**: any manually-entered workout type
 
 **Important Notes**:
 - Content field must be plain text, NOT JSON
 - Exercise type must be lowercase full words (running, not run)
 - Distance must include both value and unit as separate array elements
 - Duration must be in HH:MM:SS format, not seconds
-- This format is required for RUNSTR Season 1 leaderboard compatibility
+- Format supports both external RUNSTR leaderboards (cardio only) and in-app competitions (all types)
 
 ## Architecture Principles
 - **File Size Limit**: Maximum 500 lines per file for maintainability

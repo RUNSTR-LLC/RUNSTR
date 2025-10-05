@@ -19,7 +19,7 @@ import { CompactWallet } from '../components/profile/CompactWallet';
 import { SendModal } from '../components/wallet/SendModal';
 import { ReceiveModal } from '../components/wallet/ReceiveModal';
 import { HistoryModal } from '../components/wallet/HistoryModal';
-import { TeamManagementSection } from '../components/profile/TeamManagementSection';
+import { MyTeamsBox } from '../components/profile/MyTeamsBox';
 import { ChallengeNotificationsBox } from '../components/profile/ChallengeNotificationsBox';
 import { YourCompetitionsBox } from '../components/profile/YourCompetitionsBox';
 import { YourWorkoutsBox } from '../components/profile/YourWorkoutsBox';
@@ -370,18 +370,19 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           />
         </TouchableOpacity>
 
-        {/* User's Team(s) - Multi-team support */}
+        {/* User's Team(s) - Simple navigation box */}
         <View style={styles.boxContainer}>
-          <TeamManagementSection
-            currentTeam={data.currentTeam}
-            teams={data.teams}
-            primaryTeamId={data.primaryTeamId}
-            isLoading={isLoadingTeam || (isRefreshing && !data.currentTeam && !data.teams)}
-            onChangeTeam={() => onNavigateToTeamDiscovery?.()}
-            onJoinTeam={() => onNavigateToTeamDiscovery?.()}
-            onViewTeam={onViewCurrentTeam}
-            onRefresh={onRefresh}
-          />
+          <MyTeamsBox />
+        </View>
+
+        {/* User's Competitions - Simple navigation box */}
+        <View style={styles.boxContainer}>
+          <YourCompetitionsBox />
+        </View>
+
+        {/* User's Workouts - Simple navigation box */}
+        <View style={styles.boxContainer}>
+          <YourWorkoutsBox />
         </View>
 
         {/* Challenge Notifications - Only shows when there are pending challenges */}
@@ -389,31 +390,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <ChallengeNotificationsBox />
         </View>
 
-        {/* Create Challenge Button - Open challenge via QR code */}
+        {/* Create Challenge Button - Large prominent button */}
         <TouchableOpacity
           style={styles.createChallengeButton}
           onPress={() => setShowOpenChallengeWizard(true)}
           activeOpacity={0.7}
         >
-          <View style={styles.createChallengeContent}>
-            <View style={styles.createChallengeTextContainer}>
-              <Text style={styles.createChallengeTitle}>Create Challenge</Text>
-              <Text style={styles.createChallengeSubtitle}>
-                Generate QR code to challenge anyone
-              </Text>
-            </View>
-          </View>
+          <Text style={styles.createChallengeTitle}>Challenge</Text>
         </TouchableOpacity>
-
-        {/* User's Competitions */}
-        <View style={styles.boxContainer}>
-          <YourCompetitionsBox />
-        </View>
-
-        {/* User's Workouts */}
-        <View style={styles.boxContainer}>
-          <YourWorkoutsBox />
-        </View>
       </ScrollView>
 
       {/* Send Modal */}
@@ -521,7 +505,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: 80, // Reduced space for bottom tab bar
+    paddingBottom: 100, // Extra space at bottom for comfortable scrolling
   },
 
   // Profile header container for badge positioning
@@ -542,42 +526,22 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
-  // Create Challenge Button
+  // Create Challenge Button - Large prominent button at bottom
   createChallengeButton: {
-    backgroundColor: theme.colors.cardBackground,
-    borderRadius: theme.borderRadius.large,
+    backgroundColor: '#0a0a0a',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: 10,
-    marginBottom: 6,
-    height: 80, // Match other box heights
-  },
-
-  createChallengeContent: {
-    flexDirection: 'row',
+    borderColor: '#1a1a1a',
+    marginTop: 12,
+    justifyContent: 'center',
     alignItems: 'center',
-  },
-
-  createChallengeTextContainer: {
-    flex: 1,
+    height: 200,
   },
 
   createChallengeTitle: {
-    fontSize: 14,
+    fontSize: 28,
     fontWeight: theme.typography.weights.semiBold,
     color: theme.colors.text,
-    marginBottom: 2,
-  },
-
-  createChallengeSubtitle: {
-    fontSize: 12,
-    color: theme.colors.textSecondary,
-  },
-
-  createChallengeButtonText: {
-    fontSize: 16,
-    fontWeight: theme.typography.weights.bold,
-    color: '#000000',
-    letterSpacing: 0.5,
+    textAlign: 'center',
   },
 });

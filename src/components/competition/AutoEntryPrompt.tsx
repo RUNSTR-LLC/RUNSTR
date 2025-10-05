@@ -221,9 +221,7 @@ export const AutoEntryPrompt: React.FC<AutoEntryPromptProps> = ({
           <Button
             title={isCurrentlyEntering ? 'Entering...' : 'Quick Entry'}
             variant="primary"
-            size="small"
             onPress={() => handleQuickEntry(event)}
-            loading={isCurrentlyEntering}
             disabled={isEntering}
             style={styles.quickEntryButton}
           />

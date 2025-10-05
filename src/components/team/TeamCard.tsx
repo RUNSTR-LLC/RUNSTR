@@ -24,20 +24,6 @@ import leagueRankingService from '../../services/competition/leagueRankingServic
 import { TeamMemberCache } from '../../services/team/TeamMemberCache';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Avatar will use dark gray background for all teams
-const getAvatarColor = (): string => {
-  return '#333333'; // Dark gray for all avatars
-};
-
-// Helper to get team initials for avatar
-const getTeamInitials = (teamName: string): string => {
-  const words = teamName.split(' ');
-  if (words.length >= 2) {
-    return words[0][0] + words[1][0];
-  }
-  return teamName.substring(0, 2).toUpperCase();
-};
-
 // Helper to categorize team activity
 const categorizeTeam = (team: DiscoveryTeam): string => {
   const content = `${team.name} ${team.about}`.toLowerCase();
@@ -83,8 +69,6 @@ export const TeamCard: React.FC<TeamCardProps> = ({
   };
 
   const isCaptain = isTeamCaptain(currentUserNpub, team);
-  const teamInitials = getTeamInitials(team.name);
-  const avatarColor = getAvatarColor();
   const teamCategory = categorizeTeam(team);
 
   // Cache captain status when we detect it correctly
@@ -340,7 +324,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: theme.colors.cardBackground,
     borderWidth: 1,
-    borderColor: theme.colors.orangeDeep, // Orange border
+    borderColor: '#1a1a1a', // Consistent with other cards
     borderRadius: 12,
     marginBottom: 16,
     padding: 16,
@@ -442,7 +426,7 @@ const styles = StyleSheet.create({
   },
 
   captainBadge: {
-    backgroundColor: theme.colors.orangeBurnt, // Burnt orange for captain badge
+    backgroundColor: theme.colors.text, // Light orange for captain badge
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -456,7 +440,7 @@ const styles = StyleSheet.create({
   },
 
   joinButton: {
-    backgroundColor: theme.colors.orangeDeep, // Deep orange background
+    backgroundColor: theme.colors.text, // Light orange background
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 8,

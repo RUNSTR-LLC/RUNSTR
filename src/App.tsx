@@ -75,6 +75,7 @@ import { SettingsScreen } from './screens/SettingsScreen';
 import { OnboardingScreen } from './screens/OnboardingScreen';
 import { CompetitionsListScreen } from './screens/CompetitionsListScreen';
 import { WorkoutHistoryScreen } from './screens/WorkoutHistoryScreen';
+import { MyTeamsScreen } from './screens/MyTeamsScreen';
 import { ProfileEditScreen } from './screens/ProfileEditScreen';
 import { User } from './types';
 import { useWalletStore } from './store/walletStore';
@@ -99,6 +100,7 @@ type AuthenticatedStackParamList = {
   ChallengeWizard: undefined;
   ChallengeLeaderboard: { challengeId: string };
   WorkoutHistory: { userId: string; pubkey: string };
+  MyTeams: undefined;
   ProfileEdit: undefined;
 };
 
@@ -436,6 +438,15 @@ const AppContent: React.FC = () => {
             headerShown: false,
           }}
           component={WorkoutHistoryScreen}
+        />
+
+        {/* My Teams Screen */}
+        <AuthenticatedStack.Screen
+          name="MyTeams"
+          options={{
+            headerShown: false,
+          }}
+          component={MyTeamsScreen}
         />
 
         {/* Profile Edit Screen */}

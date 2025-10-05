@@ -4,6 +4,24 @@ All notable changes to RUNSTR will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - 2025-10-04
+
+### Fixed
+- **Amber Authentication**: Complete support for all signing operations
+  - Event signing now works properly with Amber signer
+  - Improved callback handling and error messages
+  - Better compatibility with latest Amber versions
+- **Pace Display**: Workout summary now shows pace in MM:SS format instead of raw seconds
+- **Onboarding Flow**: Welcome screens only show for new signups, not returning users
+- **Auto-Login**: Restored automatic login with backward compatibility for team memberships
+
+### Improved
+- **UI Polish**: Refined visual elements throughout the app
+  - Login button updated to orange background for brand consistency
+  - Challenge wizard now uses minimalist Ionicons instead of emojis
+  - Removed OR divider between Login and Start buttons for cleaner design
+- **Performance**: Extended Season 1 cache duration from 5 minutes to 24 hours for faster loading
+
 ## [0.1.3] - 2025-10-04
 
 ### Changed

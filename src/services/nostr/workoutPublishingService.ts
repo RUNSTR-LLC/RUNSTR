@@ -269,18 +269,26 @@ export class WorkoutPublishingService {
   }
 
   /**
-   * Get simple exercise verb for runstr compatibility
+   * Get simple exercise verb for in-app competitions
+   * Supports cardio, strength, and wellness activities
    */
   private getExerciseVerb(workoutType: string): string {
     const type = workoutType.toLowerCase();
+    // Cardio activities
     if (type.includes('run') || type === 'running') return 'running';
     if (type.includes('walk') || type === 'walking') return 'walking';
     if (type.includes('cycl') || type === 'cycling' || type.includes('bike')) return 'cycling';
     if (type.includes('hik')) return 'hiking';
     if (type.includes('swim')) return 'swimming';
     if (type.includes('row')) return 'rowing';
-    // Default to running for unknown types
-    return 'running';
+    // Strength activities
+    if (type.includes('strength') || type.includes('gym') || type.includes('weight')) return 'strength';
+    if (type.includes('pushup') || type.includes('pullup') || type.includes('situp')) return 'strength';
+    // Wellness activities
+    if (type.includes('yoga')) return 'yoga';
+    if (type.includes('meditation')) return 'meditation';
+    // Default to 'other' for unrecognized types
+    return 'other';
   }
 
   /**
@@ -294,17 +302,24 @@ export class WorkoutPublishingService {
   }
 
   /**
-   * Get activity hashtag for runstr compatibility
+   * Get activity hashtag for in-app competitions
+   * Supports cardio, strength, and wellness activities
    */
   private getActivityHashtag(workoutType: string): string {
     const type = workoutType.toLowerCase();
+    // Cardio hashtags
     if (type.includes('run') || type === 'running') return 'Running';
     if (type.includes('walk') || type === 'walking') return 'Walking';
     if (type.includes('cycl') || type === 'cycling' || type.includes('bike')) return 'Cycling';
     if (type.includes('hik')) return 'Hiking';
     if (type.includes('swim')) return 'Swimming';
     if (type.includes('row')) return 'Rowing';
-    if (type.includes('gym') || type.includes('strength')) return 'Gym';
+    // Strength hashtags
+    if (type.includes('gym') || type.includes('strength') || type.includes('weight')) return 'Strength';
+    if (type.includes('pushup') || type.includes('pullup') || type.includes('situp')) return 'Strength';
+    // Wellness hashtags
+    if (type.includes('yoga')) return 'Yoga';
+    if (type.includes('meditation')) return 'Meditation';
     return 'Fitness';
   }
 
@@ -456,10 +471,10 @@ export class WorkoutPublishingService {
       return false;
     }
 
-    // Validate exercise type is one of the expected values
-    const validExerciseTypes = ['running', 'walking', 'cycling', 'hiking', 'swimming', 'rowing'];
+    // Validate exercise type is one of the supported values for in-app competitions
+    const validExerciseTypes = ['running', 'walking', 'cycling', 'hiking', 'swimming', 'rowing', 'strength', 'yoga', 'meditation', 'other'];
     if (!validExerciseTypes.includes(exerciseTag[1])) {
-      console.warn(`Exercise type '${exerciseTag[1]}' may not be recognized by leaderboard`);
+      console.warn(`Exercise type '${exerciseTag[1]}' is non-standard - competitions may not recognize it`);
     }
 
     // Validate distance tag has value and unit

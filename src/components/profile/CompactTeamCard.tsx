@@ -20,15 +20,6 @@ interface CompactTeamCardProps {
   onPress?: (team: Team) => void;
 }
 
-// Helper to get team initials for avatar
-const getTeamInitials = (teamName: string): string => {
-  const words = teamName.split(' ');
-  if (words.length >= 2) {
-    return words[0][0] + words[1][0];
-  }
-  return teamName.substring(0, 2).toUpperCase();
-};
-
 export const CompactTeamCard: React.FC<CompactTeamCardProps> = ({
   team,
   isPrimary = false,
@@ -38,9 +29,8 @@ export const CompactTeamCard: React.FC<CompactTeamCardProps> = ({
   const [userRank, setUserRank] = useState<number | null>(null);
   const [loadingRank, setLoadingRank] = useState(false);
 
-  const teamInitials = getTeamInitials(team.name);
   const isCaptain = currentUserNpub
-    ? isTeamCaptain(currentUserNpub, team)
+    ? isTeamCaptain(currentUserNpub, team as any)
     : false;
 
   // Fetch user's rank in this team (only if top 10)
@@ -111,23 +101,11 @@ export const CompactTeamCard: React.FC<CompactTeamCardProps> = ({
       onPress={handlePress}
       activeOpacity={0.7}
     >
-      {/* Team Avatar */}
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{teamInitials}</Text>
-      </View>
-
       {/* Team Info */}
       <View style={styles.teamInfo}>
-        <View style={styles.teamHeader}>
-          <Text style={styles.teamName} numberOfLines={1}>
-            {team.name}
-          </Text>
-          {isPrimary && (
-            <View style={styles.primaryIndicator}>
-              <Text style={styles.primaryStar}>⭐</Text>
-            </View>
-          )}
-        </View>
+        <Text style={styles.teamName} numberOfLines={1}>
+          {team.name}
+        </Text>
         <Text style={styles.teamDescription} numberOfLines={1}>
           {team.description}
         </Text>
@@ -167,46 +145,16 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#333333', // Dark gray
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-
-  avatarText: {
-    fontSize: 14,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
-  },
-
   teamInfo: {
     flex: 1,
     marginRight: 8,
-  },
-
-  teamHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 2,
   },
 
   teamName: {
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.text, // #ffffff
-    flex: 1,
-  },
-
-  primaryIndicator: {
-    marginLeft: 4,
-  },
-
-  primaryStar: {
-    fontSize: 12,
+    marginBottom: 2,
   },
 
   teamDescription: {

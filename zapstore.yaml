@@ -1,6 +1,6 @@
 # zapstore.yaml for RUNSTR
 
-name: RUNSTR TEAMS
+name: RUNSTR
 identifier: com.anonymous.runstr.project
 summary: Bitcoin-powered fitness competitions on Nostr
 description: Fitness teams and competitions powered by Nostr and eCash.

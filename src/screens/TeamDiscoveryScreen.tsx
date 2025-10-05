@@ -1118,8 +1118,8 @@ const styles = StyleSheet.create({
   },
 
   filterPillActive: {
-    backgroundColor: theme.colors.accent,
-    borderColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
+    borderColor: theme.colors.text,
   },
 
   filterPillText: {

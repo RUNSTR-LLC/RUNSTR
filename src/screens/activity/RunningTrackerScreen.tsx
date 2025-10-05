@@ -311,7 +311,7 @@ export const RunningTrackerScreen: React.FC = () => {
                     <Ionicons
                       name="checkmark-circle"
                       size={20}
-                      color={theme.colors.text}
+                      color={theme.colors.orangeBright}
                     />
                   </View>
                 </View>
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   startButton: {
-    backgroundColor: theme.colors.orangeDeep,
+    backgroundColor: theme.colors.text,
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 40,
@@ -495,13 +495,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.orangeDeep,
     maxHeight: 200,
   },
   splitsTitle: {
     fontSize: 14,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
+    color: theme.colors.orangeBright,
     marginBottom: 12,
     letterSpacing: 0.5,
   },
@@ -518,7 +518,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.orangeDeep,
   },
   splitNumberContainer: {
     width: 40,
@@ -527,7 +527,7 @@ const styles = StyleSheet.create({
   splitNumber: {
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
+    color: theme.colors.orangeBright,
   },
   splitTimeContainer: {
     flex: 1,

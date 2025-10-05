@@ -27,6 +27,7 @@ import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { CompetitionsListScreen } from '../screens/CompetitionsListScreen';
 import { WorkoutHistoryScreen } from '../screens/WorkoutHistoryScreen';
 import { QRChallengeScanner } from '../screens/QRChallengeScanner';
+import { MyTeamsScreen } from '../screens/MyTeamsScreen';
 import type { DiscoveredNostrUser } from '../services/user/UserDiscoveryService';
 
 // Navigation Configuration
@@ -64,6 +65,7 @@ export type RootStackParamList = {
   ChallengeWizard: { preselectedOpponent?: DiscoveredNostrUser };
   QRChallengeScanner: undefined;
   WorkoutHistory: { userId: string; pubkey: string };
+  MyTeams: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -521,6 +523,16 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
           headerShown: false,
         }}
         component={WorkoutHistoryScreen}
+      />
+
+      {/* My Teams Screen */}
+      <Stack.Screen
+        name="MyTeams"
+        options={{
+          ...defaultScreenOptions,
+          headerShown: false,
+        }}
+        component={MyTeamsScreen}
       />
 
       {/* Challenge Leaderboard Screen */}

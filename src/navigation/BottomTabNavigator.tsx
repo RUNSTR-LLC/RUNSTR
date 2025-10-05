@@ -247,8 +247,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
 const styles = StyleSheet.create({
   tabBar: {
     backgroundColor: theme.colors.background, // #000000
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border, // #1a1a1a  
+    borderTopWidth: 0, // Remove border to eliminate white line on Android
     paddingTop: 10,
     paddingBottom: 10,
     height: 85,
