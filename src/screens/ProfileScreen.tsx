@@ -47,6 +47,8 @@ import { nsecToPrivateKey } from '../utils/nostr';
 import { NDKPrivateKeySigner, NDKEvent } from '@nostr-dev-kit/ndk';
 import { Alert } from 'react-native';
 import { WorkoutCacheService } from '../services/cache/WorkoutCacheService';
+import unifiedCache from '../services/cache/UnifiedNostrCache';
+import { CacheKeys } from '../constants/cacheTTL';
 
 interface ProfileScreenProps {
   data: ProfileScreenData;
@@ -193,6 +195,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         const userPubkey = data.user.id;
         if (!userPubkey) {
           console.log('[ProfileScreen] No pubkey available for workout fetch');
+          return;
+        }
+
+        // ✅ Check UnifiedNostrCache first
+        const cachedWorkouts = unifiedCache.getCached(CacheKeys.USER_WORKOUTS(userPubkey));
+        if (cachedWorkouts) {
+          console.log('[ProfileScreen] ✅ Using cached workouts (instant)');
           return;
         }
 

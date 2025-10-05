@@ -14,16 +14,13 @@ import React, {
 import { AuthService } from '../services/auth/authService';
 import { getNostrTeamService } from '../services/nostr/NostrTeamService';
 import { DirectNostrProfileService } from '../services/user/directNostrProfileService';
-import { appCache } from '../utils/cache';
 import { CaptainCache } from '../utils/captainCache';
 import { TeamMembershipService } from '../services/team/teamMembershipService';
-import { TeamCacheService } from '../services/cache/TeamCacheService';
-import { CompetitionCacheService } from '../services/cache/CompetitionCacheService';
 import { isTeamCaptainEnhanced } from '../utils/teamUtils';
 import { getUserNostrIdentifiers } from '../utils/nostr';
 import { useAuth } from './AuthContext';
 import unifiedCache from '../services/cache/UnifiedNostrCache';
-import { CacheKeys } from '../constants/cacheTTL';
+import { CacheKeys, CacheTTL } from '../constants/cacheTTL';
 import type {
   TeamScreenData,
   ProfileScreenData,
@@ -82,12 +79,18 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
 
   const fetchUserData = async (): Promise<UserWithWallet | null> => {
     try {
-      const cachedUser = await appCache.get<UserWithWallet>('nav_user_data');
-      if (cachedUser) {
-        setUser(cachedUser);
-        setIsLoading(false);
-        fetchUserDataFresh();
-        return cachedUser;
+      // ✅ Check UnifiedNostrCache first
+      const identifiers = await getUserNostrIdentifiers();
+      if (identifiers) {
+        const cachedUser = unifiedCache.getCached<UserWithWallet>(CacheKeys.USER_PROFILE(identifiers.hexPubkey));
+        if (cachedUser) {
+          console.log('✅ fetchUserData: Using cached user profile (instant)');
+          setUser(cachedUser);
+          setIsLoading(false);
+          // Background refresh
+          fetchUserDataFresh();
+          return cachedUser;
+        }
       }
       return await fetchUserDataFresh();
     } catch (error) {
@@ -99,13 +102,23 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
 
   const fetchUserDataFresh = async (): Promise<UserWithWallet | null> => {
     try {
+      // Get user identifiers for caching
+      const identifiers = await getUserNostrIdentifiers();
+
       // First check if we have a user from AuthContext
       if (currentUser) {
         console.log(
           '✅ NavigationDataProvider: Using currentUser from AuthContext'
         );
         setUser(currentUser);
-        await appCache.set('nav_user_data', currentUser, 5 * 60 * 1000);
+        // ✅ Cache in UnifiedNostrCache
+        if (identifiers) {
+          await unifiedCache.set(
+            CacheKeys.USER_PROFILE(identifiers.hexPubkey),
+            currentUser,
+            CacheTTL.USER_PROFILE
+          );
+        }
         return currentUser;
       }
 
@@ -119,7 +132,14 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
           await DirectNostrProfileService.getCurrentUserProfile();
         if (directNostrUser) {
           setUser(directNostrUser);
-          await appCache.set('nav_user_data', directNostrUser, 5 * 60 * 1000);
+          // ✅ Cache in UnifiedNostrCache
+          if (identifiers) {
+            await unifiedCache.set(
+              CacheKeys.USER_PROFILE(identifiers.hexPubkey),
+              directNostrUser,
+              CacheTTL.USER_PROFILE
+            );
+          }
           return directNostrUser;
         }
       } catch (directError) {}
@@ -128,13 +148,27 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
         const userData = await AuthService.getCurrentUserWithWallet();
         if (userData) {
           setUser(userData);
-          await appCache.set('nav_user_data', userData, 5 * 60 * 1000);
+          // ✅ Cache in UnifiedNostrCache
+          if (identifiers) {
+            await unifiedCache.set(
+              CacheKeys.USER_PROFILE(identifiers.hexPubkey),
+              userData,
+              CacheTTL.USER_PROFILE
+            );
+          }
           return userData;
         }
       } catch (supabaseError) {}
 
       if (fallbackUser) {
-        await appCache.set('nav_user_data', fallbackUser, 5 * 60 * 1000);
+        // ✅ Cache in UnifiedNostrCache
+        if (identifiers) {
+          await unifiedCache.set(
+            CacheKeys.USER_PROFILE(identifiers.hexPubkey),
+            fallbackUser,
+            CacheTTL.USER_PROFILE
+          );
+        }
         return fallbackUser;
       }
 
@@ -156,6 +190,14 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
         console.log('No user identifiers found for team detection');
         setIsLoadingTeam(false);
         return [];
+      }
+
+      // ✅ Check UnifiedNostrCache first (instant if prefetched)
+      const cachedTeams = unifiedCache.getCached(CacheKeys.USER_TEAMS(userIdentifiers.hexPubkey));
+      if (cachedTeams) {
+        console.log(`✅ getAllUserTeams: Returning ${cachedTeams.length} cached teams (instant)`);
+        setIsLoadingTeam(false);
+        return cachedTeams;
       }
 
       const teams: any[] = [];
@@ -231,6 +273,14 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
       }
 
       console.log(`✅ Found total of ${teams.length} teams for user`);
+
+      // ✅ Cache the teams in UnifiedNostrCache for future instant access
+      await unifiedCache.set(
+        CacheKeys.USER_TEAMS(userIdentifiers.hexPubkey),
+        teams,
+        CacheTTL.USER_TEAMS
+      );
+
       setIsLoadingTeam(false);
       return teams;
     } catch (error) {
@@ -371,12 +421,22 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
     }
 
     try {
-      // Use TeamCacheService as single source of truth (30-min TTL)
-      const cacheService = TeamCacheService.getInstance();
-      const teams = await cacheService.getTeams();
+      // ✅ Check UnifiedNostrCache first
+      const cachedTeams = unifiedCache.getCached<DiscoveryTeam[]>(CacheKeys.DISCOVERED_TEAMS);
+      if (cachedTeams) {
+        console.log(
+          `✅ NavigationDataContext: Loaded ${cachedTeams.length} teams from UnifiedNostrCache (instant)`
+        );
+        setAvailableTeams(cachedTeams);
+        setTeamsLoaded(true);
+        setTeamsLastLoaded(now);
+        return;
+      }
 
+      // ✅ Fetch from Nostr if not cached
+      const teams = await fetchTeamsFresh();
       console.log(
-        `✅ NavigationDataContext: Loaded ${teams.length} teams from TeamCacheService`
+        `✅ NavigationDataContext: Loaded ${teams.length} teams from Nostr`
       );
       setAvailableTeams(teams);
       setTeamsLoaded(true);
@@ -387,18 +447,30 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
     }
   }, [teamsLoaded, teamsLastLoaded]);
 
-  const fetchTeamsFresh = async (): Promise<void> => {
+  const fetchTeamsFresh = async (): Promise<DiscoveryTeam[]> => {
     try {
-      // Use TeamCacheService with force refresh
-      const cacheService = TeamCacheService.getInstance();
-      const teams = await cacheService.refreshTeams();
+      // ✅ Fetch from Nostr using team service
+      const teamService = getNostrTeamService();
+      await teamService.discoverTeams(); // Fetches from Nostr
+      const discoveredTeamsMap = teamService.getDiscoveredTeams();
+      const teams = Array.from(discoveredTeamsMap.values());
 
       console.log(
-        `✅ NavigationDataContext: Refreshed ${teams.length} teams from TeamCacheService`
+        `✅ NavigationDataContext: Refreshed ${teams.length} teams from Nostr`
       );
+
+      // ✅ Cache in UnifiedNostrCache
+      await unifiedCache.set(
+        CacheKeys.DISCOVERED_TEAMS,
+        teams,
+        CacheTTL.DISCOVERED_TEAMS
+      );
+
       setAvailableTeams(teams);
       setTeamsLoaded(true);
       setTeamsLastLoaded(Date.now());
+
+      return teams;
     } catch (error) {
       console.error('Error fetching teams:', error);
       throw error;
@@ -476,7 +548,7 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
 
   /**
    * Prefetch league data in background for instant loading
-   * Uses CompetitionCacheService with 30-min TTL
+   * Uses UnifiedNostrCache with competitions TTL
    * Non-blocking operation to avoid slowing down initial load
    */
   const prefetchLeaguesInBackground = useCallback(async (): Promise<void> => {
@@ -488,21 +560,20 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
 
     try {
       console.log('🏁 Prefetching leagues in background...');
-      const competitionCache = CompetitionCacheService.getInstance();
 
-      // Check if already cached
-      const hasCached = await competitionCache.hasCachedCompetitions();
-      if (hasCached) {
-        console.log('✅ Leagues already cached, skipping prefetch');
+      // ✅ Check if already cached in UnifiedNostrCache
+      const cachedCompetitions = unifiedCache.getCached(CacheKeys.COMPETITIONS);
+      if (cachedCompetitions) {
+        console.log('✅ Leagues already cached in UnifiedNostrCache, skipping prefetch');
         setLeaguesPrefetched(true);
         return;
       }
 
-      // Fetch all competitions (leagues + events) and cache them
-      const competitions = await competitionCache.getAllCompetitions();
-      console.log(
-        `✅ Prefetched ${competitions.leagues.length} leagues, ${competitions.events.length} events`
-      );
+      // Note: Competitions are already prefetched by NostrPrefetchService in SplashInit
+      // This is just a fallback check. The actual prefetching happens in:
+      // src/services/nostr/NostrPrefetchService.ts -> prefetchCompetitions()
+
+      console.log('⚠️ Competitions not in cache - should have been prefetched by SplashInit');
       setLeaguesPrefetched(true);
     } catch (error) {
       console.error('❌ Failed to prefetch leagues:', error);
