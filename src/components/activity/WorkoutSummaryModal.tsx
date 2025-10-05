@@ -24,6 +24,7 @@ import { SocialShareModal } from '../fitness/SocialShareModal';
 import { nsecToPrivateKey } from '../../utils/nostr';
 import TTSAnnouncementService from '../../services/activity/TTSAnnouncementService';
 import LocalWorkoutStorageService from '../../services/fitness/LocalWorkoutStorageService';
+import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
 
 interface WorkoutSummaryProps {
   visible: boolean;
@@ -89,13 +90,6 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
         .padStart(2, '0')}`;
     }
     return `${minutes}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const formatPace = (pace?: number): string => {
-    if (!pace) return '--:--';
-    const minutes = Math.floor(pace);
-    const seconds = Math.round((pace - minutes) * 60);
-    return `${minutes}:${seconds.toString().padStart(2, '0')} /km`;
   };
 
   const formatSpeed = (speed?: number): string => {
@@ -361,7 +355,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
             </View>
             {workout.type === 'running' && (
               <View style={styles.statCard}>
-                <Text style={styles.statValue}>{formatPace(workout.pace)}</Text>
+                <Text style={styles.statValue}>{activityMetricsService.formatPace(workout.pace)}</Text>
                 <Text style={styles.statLabel}>Pace</Text>
               </View>
             )}
@@ -419,7 +413,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
                             {formatSplitTime(split.splitTime)}
                           </Text>
                           <Text style={styles.splitPaceText}>
-                            {formatSplitTime(split.pace)}/km
+                            {activityMetricsService.formatPace(split.pace)}
                           </Text>
                         </View>
                         <View style={styles.splitRight}>
@@ -446,7 +440,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
                   })}
                 </ScrollView>
                 <Text style={styles.splitsFooter}>
-                  Average Pace: {formatSplitTime(getAverageSplitPace() || 0)}/km
+                  Average Pace: {activityMetricsService.formatPace(getAverageSplitPace() || 0)}
                 </Text>
               </View>
             )}
