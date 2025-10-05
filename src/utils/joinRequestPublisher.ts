@@ -15,73 +15,101 @@ interface PublishJoinRequestResult {
 }
 
 /**
- * Publishes a team join request to Nostr
+ * Publishes a team join request to Nostr with automatic retry logic
  * Creates a kind 1104 event that captains can see in their dashboard
+ * Retries up to 3 times with exponential backoff on failure
  */
 export async function publishJoinRequest(
   teamId: string,
   teamName: string,
   captainPubkey: string,
   userPubkey: string,
-  message?: string
+  message?: string,
+  maxRetries: number = 3
 ): Promise<PublishJoinRequestResult> {
-  try {
-    console.log(`📤 Publishing join request for team: ${teamName}`);
+  let lastError: string = '';
 
-    // 1. Prepare the join request event (unsigned)
-    const membershipService = TeamMembershipService.getInstance();
-    const eventTemplate = membershipService.prepareJoinRequest(
-      teamId,
-      teamName,
-      captainPubkey,
-      userPubkey,
-      message || 'I would like to join your team'
-    );
+  // Retry loop with exponential backoff
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`📤 Publishing join request for team: ${teamName} (attempt ${attempt}/${maxRetries})`);
 
-    // 2. Get user's private key from storage
-    const nsec = await getNsecFromStorage();
-    if (!nsec) {
-      console.error('No nsec found in storage');
-      return { success: false, error: 'Authentication required' };
-    }
-
-    const privateKey = await nsecToPrivateKey(nsec);
-
-    // 3. Sign the event
-    const protocolHandler = new NostrProtocolHandler();
-    const signedEvent = await protocolHandler.signEvent(eventTemplate as any, privateKey);
-
-    // 4. Publish to Nostr relays
-    const relayManager = new NostrRelayManager();
-    const publishResult = await relayManager.publishEvent(signedEvent);
-
-    if (publishResult.successful && publishResult.successful.length > 0) {
-      console.log(`✅ Join request published successfully: ${signedEvent.id}`);
-
-      // 5. Update local membership status to "requested"
-      await membershipService.updateLocalMembershipStatus(
-        userPubkey,
+      // 1. Prepare the join request event (unsigned)
+      const membershipService = TeamMembershipService.getInstance();
+      const eventTemplate = membershipService.prepareJoinRequest(
         teamId,
-        'requested',
-        signedEvent.id
+        teamName,
+        captainPubkey,
+        userPubkey,
+        message || 'I would like to join your team'
       );
 
-      return {
-        success: true,
-        eventId: signedEvent.id
-      };
-    } else {
-      console.error('Failed to publish to any relay');
-      return {
-        success: false,
-        error: 'Failed to publish request. Please try again.'
-      };
+      // 2. Get user's private key from storage
+      const nsec = await getNsecFromStorage();
+      if (!nsec) {
+        console.error('No nsec found in storage');
+        return { success: false, error: 'Authentication required' };
+      }
+
+      const privateKey = await nsecToPrivateKey(nsec);
+
+      // 3. Sign the event
+      const protocolHandler = new NostrProtocolHandler();
+      const signedEvent = await protocolHandler.signEvent(eventTemplate as any, privateKey);
+
+      // 4. Publish to Nostr relays
+      const relayManager = new NostrRelayManager();
+      const publishResult = await relayManager.publishEvent(signedEvent);
+
+      if (publishResult.successful && publishResult.successful.length > 0) {
+        console.log(`✅ Join request published successfully on attempt ${attempt}: ${signedEvent.id}`);
+
+        // 5. Update local membership status to "requested"
+        await membershipService.updateLocalMembershipStatus(
+          userPubkey,
+          teamId,
+          'requested',
+          signedEvent.id
+        );
+
+        return {
+          success: true,
+          eventId: signedEvent.id
+        };
+      } else {
+        lastError = 'Failed to publish to any relay';
+        console.warn(`⚠️ Attempt ${attempt}/${maxRetries} failed: ${lastError}`);
+
+        // Don't retry if this was the last attempt
+        if (attempt < maxRetries) {
+          // Exponential backoff: 1s, 2s, 4s
+          const delayMs = Math.pow(2, attempt - 1) * 1000;
+          console.log(`⏳ Retrying in ${delayMs}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+      }
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`❌ Attempt ${attempt}/${maxRetries} error:`, lastError);
+
+      // Don't retry on authentication errors
+      if (lastError.includes('Authentication required') || lastError.includes('nsec')) {
+        return { success: false, error: lastError };
+      }
+
+      // Retry on other errors with backoff
+      if (attempt < maxRetries) {
+        const delayMs = Math.pow(2, attempt - 1) * 1000;
+        console.log(`⏳ Retrying in ${delayMs}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
     }
-  } catch (error) {
-    console.error('Error publishing join request:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    };
   }
+
+  // All retries exhausted
+  console.error(`💥 All ${maxRetries} publish attempts failed`);
+  return {
+    success: false,
+    error: lastError || 'Failed to publish request after multiple attempts'
+  };
 }
