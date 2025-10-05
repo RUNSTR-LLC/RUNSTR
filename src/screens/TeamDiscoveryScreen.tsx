@@ -322,7 +322,7 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
       { id: 'running', label: `Running (${getCategoryCount((team) => categorizeTeam(team) === 'Running')})`, filter: (team: DiscoveryTeam) => categorizeTeam(team) === 'Running' },
       { id: 'cycling', label: `Cycling (${getCategoryCount((team) => categorizeTeam(team) === 'Cycling')})`, filter: (team: DiscoveryTeam) => categorizeTeam(team) === 'Cycling' },
       { id: 'gym', label: `Gym (${getCategoryCount((team) => categorizeTeam(team) === 'Gym & Fitness')})`, filter: (team: DiscoveryTeam) => categorizeTeam(team) === 'Gym & Fitness' },
-      { id: 'active', label: `Active (${getCategoryCount((team) => team.stats.memberCount > 10)})`, filter: (team: DiscoveryTeam) => team.stats.memberCount > 10 },
+      { id: 'active', label: `Active (${getCategoryCount((team) => (team.stats?.memberCount ?? 0) > 10)})`, filter: (team: DiscoveryTeam) => (team.stats?.memberCount ?? 0) > 10 },
       { id: 'prizes', label: `Prizes (${getCategoryCount((team) => (team.prizePool || 0) > 0)})`, filter: (team: DiscoveryTeam) => (team.prizePool || 0) > 0 },
     ];
   }, [teams]);
