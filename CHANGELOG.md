@@ -4,6 +4,19 @@ All notable changes to RUNSTR will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] - 2025-10-05
+
+### Fixed
+- **Distance Tracking Oscillation**: Eliminated GPS distance "bounce" during workouts
+  - Fixed distance oscillating between values (e.g., 1.14 → 1.13 → 1.14 km)
+  - Implemented monotonicity guarantee - distance never decreases during active tracking
+  - Improved Kalman filter to use incremental filtering instead of cumulative overwrite
+  - Reduced interpolation window from 5 seconds to 1 second to prevent prediction errors
+  - Disabled distance prediction in background mode to prevent oscillations from throttled GPS
+  - Strengthened Android GPS filtering: increased minimum movement threshold from 0.5m to 1.0m
+  - Added hysteresis requiring 2 consecutive valid GPS points before accepting
+  - Prevents micro-oscillations from GPS coordinate jitter accumulating over time
+
 ## [0.1.5] - 2025-10-04
 
 ### Fixed

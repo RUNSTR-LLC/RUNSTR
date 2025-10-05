@@ -748,6 +748,7 @@ export class EnhancedLocationTrackingService {
         startTime: result.session.startTime,
         activityType: result.session.activityType,
         totalDistance: result.session.totalDistance,
+        rawCumulativeDistance: result.session.totalDistance, // Initialize raw to same as smoothed
         totalElevationGain: result.session.totalElevationGain,
         duration: result.session.duration,
         pausedDuration: result.session.pausedDuration,
@@ -919,14 +920,21 @@ export class EnhancedLocationTrackingService {
   getInterpolatedDistance(): number {
     if (!this.currentSession) return 0;
 
-    // If Kalman filter is ready and has velocity estimate, use prediction
+    // Don't interpolate in background mode - prevents oscillations from throttled GPS
+    if (this.currentSession.isBackgroundTracking) {
+      return this.currentSession.totalDistance;
+    }
+
+    // If Kalman filter is ready and has velocity estimate, use prediction for sub-second smoothing
     if (this.kalmanFilter.isReady() && this.lastValidLocation) {
       const timeSinceLastGPS = (Date.now() - this.lastValidLocation.timestamp) / 1000;
 
-      // Only interpolate if less than 5 seconds since last GPS update
-      // (prevents runaway interpolation if GPS is lost)
-      if (timeSinceLastGPS < 5) {
-        return this.kalmanFilter.predict(timeSinceLastGPS);
+      // Only interpolate for very short durations (< 1 second)
+      // Prevents oscillations from long GPS gaps
+      if (timeSinceLastGPS < 1.0) {
+        const predicted = this.kalmanFilter.predict(timeSinceLastGPS);
+        // Apply monotonicity guarantee - never show less than current distance
+        return Math.max(this.currentSession.totalDistance, predicted);
       }
     }
 
