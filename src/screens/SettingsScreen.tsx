@@ -400,8 +400,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 onValueChange={(value) =>
                   handleTTSSettingChange('enabled', value)
                 }
-                trackColor={{ false: '#3e3e3e', true: theme.colors.accent }}
-                thumbColor={ttsSettings.enabled ? '#FF9D42' : '#f4f3f4'}
+                trackColor={{ false: '#000000', true: theme.colors.accent }}
+                thumbColor='#000000'
               />
             </View>
 
@@ -418,8 +418,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 onValueChange={(value) =>
                   handleTTSSettingChange('announceOnSummary', value)
                 }
-                trackColor={{ false: '#3e3e3e', true: theme.colors.accent }}
-                thumbColor={ttsSettings.announceOnSummary ? '#FF9D42' : '#f4f3f4'}
+                trackColor={{ false: '#000000', true: theme.colors.accent }}
+                thumbColor='#000000'
                 disabled={!ttsSettings.enabled}
               />
             </View>
@@ -437,8 +437,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 onValueChange={(value) =>
                   handleTTSSettingChange('includeSplits', value)
                 }
-                trackColor={{ false: '#3e3e3e', true: theme.colors.accent }}
-                thumbColor={ttsSettings.includeSplits ? '#FF9D42' : '#f4f3f4'}
+                trackColor={{ false: '#000000', true: theme.colors.accent }}
+                thumbColor='#000000'
                 disabled={!ttsSettings.enabled}
               />
             </View>

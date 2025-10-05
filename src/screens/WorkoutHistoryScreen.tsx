@@ -179,6 +179,7 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
       console.log(`  - Total workouts: ${result.allWorkouts.length}`);
       console.log(`  - HealthKit: ${result.healthKitCount}`);
       console.log(`  - Nostr: ${result.nostrCount}`);
+      console.log(`  - Local: ${result.localCount}`);
       console.log(`  - Duplicates removed: ${result.duplicateCount}`);
       console.log(`  - From cache: ${result.fromCache}`);
 

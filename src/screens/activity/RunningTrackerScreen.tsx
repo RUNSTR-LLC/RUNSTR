@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: theme.colors.orangeDeep,
-    maxHeight: 200, // Reduced to prevent overlap with controls
+    maxHeight: 220, // Fits ~5 splits, scrollable for longer runs
     flexShrink: 1, // Allow shrinking if space is limited
   },
   splitsTitle: {
@@ -470,14 +470,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   splitsScrollContent: {
-    gap: 8,
+    gap: 4, // Reduced for compact layout
   },
   splitRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.background,
     borderRadius: 8,
-    padding: 12,
+    padding: 6, // Reduced for compact layout
     borderWidth: 1,
     borderColor: theme.colors.orangeDeep,
   },
@@ -486,7 +486,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   splitNumber: {
-    fontSize: 16,
+    fontSize: 14, // Reduced for compact layout
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.orangeBright,
   },
@@ -494,13 +494,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   splitTime: {
-    fontSize: 18,
+    fontSize: 15, // Reduced for compact layout
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
     marginBottom: 2,
   },
   splitPace: {
-    fontSize: 12,
+    fontSize: 10, // Reduced for compact layout
     color: theme.colors.textMuted,
   },
   splitIconContainer: {
