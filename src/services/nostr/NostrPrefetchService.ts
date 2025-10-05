@@ -41,6 +41,7 @@ export class NostrPrefetchService {
 
   /**
    * Prefetch all user-specific and global data
+   * OPTIMIZED: Parallel fetching for faster app startup
    * This is the main entry point called from SplashInitScreen
    */
   async prefetchAllUserData(
@@ -69,31 +70,26 @@ export class NostrPrefetchService {
 
       const { npub, hexPubkey } = identifiers;
 
-      // Step 1: User Profile
-      reportProgress('Loading your profile...');
-      await this.prefetchUserProfile(hexPubkey);
+      console.log('🚀 [Prefetch] Starting PARALLEL prefetch for faster startup...');
 
-      // Step 2: User Teams
+      // ✅ OPTIMIZATION: Group 1 - Independent fetches (run in parallel)
+      // These don't depend on each other and can fetch simultaneously
+      await Promise.all([
+        this.prefetchUserProfile(hexPubkey).then(() => reportProgress('Profile loaded')),
+        this.prefetchDiscoveredTeams().then(() => reportProgress('Teams discovered')),
+        this.prefetchCompetitions().then(() => reportProgress('Competitions loaded')),
+        this.prefetchWalletInfo(hexPubkey).then(() => reportProgress('Wallet initialized')),
+      ]);
+
+      // ✅ Step 5: User Teams (depends on discovered teams, so runs after Group 1)
       reportProgress('Finding your teams...');
       await this.prefetchUserTeams(hexPubkey);
 
-      // Step 3: Discovered Teams
-      reportProgress('Discovering teams...');
-      await this.prefetchDiscoveredTeams();
-
-      // Step 4: User Workouts
+      // ✅ Step 6: User Workouts (independent, but lower priority)
       reportProgress('Loading workouts...');
       await this.prefetchUserWorkouts(hexPubkey);
 
-      // Step 5: Wallet Info
-      reportProgress('Loading wallet...');
-      await this.prefetchWalletInfo(hexPubkey);
-
-      // Step 6: Competitions
-      reportProgress('Loading competitions...');
-      await this.prefetchCompetitions();
-
-      console.log('✅ Prefetch complete - all data cached');
+      console.log('✅ Prefetch complete - all data cached in parallel batches');
     } catch (error) {
       console.error('❌ Prefetch failed:', error);
       // Don't throw - app should still work with partial data
