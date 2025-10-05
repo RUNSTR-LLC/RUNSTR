@@ -433,16 +433,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   /**
    * Initialize authentication on app startup
-   * NO AUTO-LOGIN: User must manually authenticate via login screen
+   * Checks for stored credentials and auto-authenticates if found
    */
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        // Don't auto-authenticate - user must login manually
-        // This ensures login screen is always shown on app start
-        setIsAuthenticated(false);
-        setCurrentUser(null);
-        console.log('🔐 AuthContext: Initialized - showing login screen (no auto-auth)');
+        await checkStoredCredentials();
       } catch (error) {
         console.error('❌ AuthContext: Initialization failed:', error);
         setInitError(error instanceof Error ? error.message : 'Initialization failed');
@@ -452,7 +448,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
 
     initializeAuth();
-  }, []);
+  }, [checkStoredCredentials]);
 
   // Initialize background services after app is interactive
   useEffect(() => {

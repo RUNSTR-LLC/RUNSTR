@@ -129,6 +129,7 @@ export class TeamMembershipService {
 
   /**
    * Get user's local memberships
+   * Includes fallback check for old hex-based storage keys
    */
   async getLocalMemberships(userPubkey: string): Promise<LocalMembership[]> {
     try {
@@ -139,9 +140,22 @@ export class TeamMembershipService {
         return [];
       }
 
-      const stored = await AsyncStorage.getItem(
+      // Try npub key first (new format)
+      let stored = await AsyncStorage.getItem(
         `${this.LOCAL_MEMBERSHIPS_KEY}:${normalizedKey}`
       );
+
+      // FALLBACK: Check hex key for old data (backward compatibility)
+      if (!stored && userPubkey.length === 64 && /^[0-9a-fA-F]+$/.test(userPubkey)) {
+        console.log('🔄 No data at npub key, checking hex key for old team data...');
+        stored = await AsyncStorage.getItem(
+          `${this.LOCAL_MEMBERSHIPS_KEY}:${userPubkey}`
+        );
+        if (stored) {
+          console.log('✅ Found team data at old hex key, will use it');
+        }
+      }
+
       return stored ? JSON.parse(stored) : [];
     } catch (error) {
       console.error('Failed to get local memberships:', error);

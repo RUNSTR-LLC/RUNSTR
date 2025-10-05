@@ -184,10 +184,10 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
 
       // 2. Get all local memberships
       const membershipService = TeamMembershipService.getInstance();
-      // CRITICAL FIX: Use npub first to match key format used during team join
-      // Teams are joined using npub, so we must load using npub to find the data
+      // Pass hexPubkey if available (service will check both npub and hex keys for backward compatibility)
+      // If only npub available, pass that
       const localMemberships = await membershipService.getLocalMemberships(
-        userIdentifiers.npub || userIdentifiers.hexPubkey || ''
+        userIdentifiers.hexPubkey || userIdentifiers.npub || ''
       );
 
       console.log(`Found ${localMemberships.length} local memberships`);
