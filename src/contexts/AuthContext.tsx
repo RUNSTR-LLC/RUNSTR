@@ -282,6 +282,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       console.log('✅ AuthContext: Signup successful - new identity created');
 
+      // Mark this as a new signup (for onboarding flow)
+      await AsyncStorage.setItem('@runstr:is_new_signup', 'true');
+
       // Direct state updates (like iOS app)
       setIsAuthenticated(true);
       setShowLoadingSplash(true); // Show loading splash after successful signup

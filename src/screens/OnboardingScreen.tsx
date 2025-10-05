@@ -114,16 +114,14 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ route }) => 
     try {
       // Mark onboarding as completed
       await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETED, 'true');
-      console.log('[Onboarding] ✅ Onboarding flag set');
 
-      // Force navigation to MainTabs by resetting the navigation stack
-      // This ensures the app properly transitions from onboarding to main app
-      setTimeout(() => {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'MainTabs' }],
-        });
-      }, 100);
+      // Clear the new signup flag (onboarding complete)
+      await AsyncStorage.removeItem('@runstr:is_new_signup');
+
+      console.log('[Onboarding] ✅ Onboarding flags set, App.tsx will auto-navigate to MainTabs');
+
+      // Don't navigate - App.tsx will detect the flag change and show MainTabs automatically
+      // This prevents navigation errors since MainTabs isn't in this navigator's stack
     } catch (error) {
       console.error('[Onboarding] Failed to complete onboarding:', error);
     } finally {

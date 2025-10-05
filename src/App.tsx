@@ -127,9 +127,20 @@ const AppContent: React.FC = () => {
     const checkOnboarding = async () => {
       if (isAuthenticated && currentUser) {
         const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+
+        // Check if onboarding was already completed
         const completed = await AsyncStorage.getItem('@runstr:onboarding_completed');
-        setOnboardingCompleted(completed === 'true');
-        console.log('🎯 App: Onboarding completed:', completed === 'true');
+
+        // Check if this is a new signup (from "Start" button)
+        const isNewSignup = await AsyncStorage.getItem('@runstr:is_new_signup');
+
+        // Only show onboarding if:
+        // 1. This is a new signup (Start button was clicked)
+        // 2. AND onboarding hasn't been completed yet
+        const needsOnboarding = isNewSignup === 'true' && completed !== 'true';
+
+        setOnboardingCompleted(!needsOnboarding);
+        console.log('🎯 App: Onboarding check - isNewSignup:', isNewSignup === 'true', 'completed:', completed === 'true', 'needsOnboarding:', needsOnboarding);
       } else {
         setOnboardingCompleted(null);
       }
@@ -503,7 +514,14 @@ const AppContent: React.FC = () => {
     if (isAuthenticated && currentUser) {
       const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
       const completed = await AsyncStorage.getItem('@runstr:onboarding_completed');
-      if (completed === 'true' && onboardingCompleted === false) {
+      const isNewSignup = await AsyncStorage.getItem('@runstr:is_new_signup');
+
+      // Onboarding is complete if either:
+      // 1. The completed flag is set, OR
+      // 2. This is NOT a new signup (returning user)
+      const needsOnboarding = isNewSignup === 'true' && completed !== 'true';
+
+      if (!needsOnboarding && onboardingCompleted === false) {
         console.log('🎯 App: Onboarding completed, refreshing to main app');
         setOnboardingCompleted(true);
       }
