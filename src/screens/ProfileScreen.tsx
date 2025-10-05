@@ -102,6 +102,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [showJoinPreview, setShowJoinPreview] = useState(false);
   const [scannedQRData, setScannedQRData] = useState<QRData | null>(null);
   const [userNpub, setUserNpub] = useState<string>('');
+  const [showBalanceMenu, setShowBalanceMenu] = useState(false);
 
   const { balance, refreshBalance } = useNutzap(true);
   const { initialize: initializeWallet, isInitialized } = useWalletStore();
@@ -339,9 +340,18 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   };
 
 
+  const formatBalance = (sats: number): string => {
+    if (sats >= 1000000) {
+      return `${(sats / 1000000).toFixed(2)}M`;
+    } else if (sats >= 1000) {
+      return `${(sats / 1000).toFixed(1)}K`;
+    }
+    return sats.toString();
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header with QR Scanner and Settings Button */}
+      {/* Header with QR Scanner, Balance, and Settings Button */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.qrButton}
@@ -351,6 +361,17 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <Ionicons name="qr-code-outline" size={24} color={theme.colors.text} />
         </TouchableOpacity>
         <View style={styles.headerSpacer} />
+
+        {/* Balance Display - Tappable */}
+        <TouchableOpacity
+          style={styles.balanceButton}
+          onPress={() => setShowBalanceMenu(!showBalanceMenu)}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Text style={styles.balanceText}>{formatBalance(balance)}</Text>
+          <Ionicons name="flash" size={16} color={theme.colors.accent} style={styles.balanceIcon} />
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={styles.settingsButton}
           onPress={handleSettingsPress}
@@ -360,19 +381,34 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        style={styles.scrollContainer}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            tintColor={theme.colors.text}
-            colors={[theme.colors.text]}
-          />
-        }
-        showsVerticalScrollIndicator={false}
-      >
+      {/* Balance Menu Dropdown */}
+      {showBalanceMenu && (
+        <View style={styles.balanceMenu}>
+          <TouchableOpacity
+            style={styles.balanceMenuItem}
+            onPress={() => {
+              setShowBalanceMenu(false);
+              handleSend();
+            }}
+          >
+            <Ionicons name="arrow-up-outline" size={20} color={theme.colors.text} />
+            <Text style={styles.balanceMenuText}>Send</Text>
+          </TouchableOpacity>
+          <View style={styles.balanceMenuDivider} />
+          <TouchableOpacity
+            style={styles.balanceMenuItem}
+            onPress={() => {
+              setShowBalanceMenu(false);
+              handleReceive();
+            }}
+          >
+            <Ionicons name="arrow-down-outline" size={20} color={theme.colors.text} />
+            <Text style={styles.balanceMenuText}>Receive</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      <View style={styles.content}>
         {/* Profile Header Box - Tappable to Edit Profile */}
         <View style={styles.profileHeaderContainer}>
           <TouchableOpacity
@@ -393,48 +429,34 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <NotificationBadge onPress={() => setShowNotificationModal(true)} />
         </View>
 
-        {/* Compact Wallet - Tappable to Transaction History */}
-        <TouchableOpacity
-          style={styles.boxContainer}
-          onPress={handleWalletHistory}
-          activeOpacity={0.7}
-        >
-          <CompactWallet
-            onSendPress={handleSend}
-            onReceivePress={handleReceive}
-            onHistoryPress={handleWalletHistory}
-          />
-        </TouchableOpacity>
+        {/* Navigation Buttons */}
+        <View style={styles.navigationButtons}>
+          {/* My Teams */}
+          <View style={styles.boxContainer}>
+            <MyTeamsBox />
+          </View>
 
-        {/* User's Team(s) - Simple navigation box */}
-        <View style={styles.boxContainer}>
-          <MyTeamsBox />
+          {/* My Competitions */}
+          <View style={styles.boxContainer}>
+            <YourCompetitionsBox />
+          </View>
+
+          {/* My Workouts */}
+          <View style={styles.boxContainer}>
+            <YourWorkoutsBox />
+          </View>
+
+          {/* Challenge Button */}
+          <TouchableOpacity
+            style={styles.challengeButton}
+            onPress={() => setShowOpenChallengeWizard(true)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="flash-outline" size={24} color={theme.colors.text} />
+            <Text style={styles.challengeButtonText}>CHALLENGE</Text>
+          </TouchableOpacity>
         </View>
-
-        {/* User's Competitions - Simple navigation box */}
-        <View style={styles.boxContainer}>
-          <YourCompetitionsBox />
-        </View>
-
-        {/* User's Workouts - Simple navigation box */}
-        <View style={styles.boxContainer}>
-          <YourWorkoutsBox />
-        </View>
-
-        {/* Challenge Notifications - Only shows when there are pending challenges */}
-        <View style={styles.boxContainer}>
-          <ChallengeNotificationsBox />
-        </View>
-
-        {/* Create Challenge Button - Large prominent button */}
-        <TouchableOpacity
-          style={styles.createChallengeButton}
-          onPress={() => setShowOpenChallengeWizard(true)}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.createChallengeTitle}>Challenge</Text>
-        </TouchableOpacity>
-      </ScrollView>
+      </View>
 
       {/* Send Modal */}
       <SendModal
@@ -501,7 +523,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background, // #000
   },
 
-  // Header with settings
+  // Header with QR, Balance, Settings
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -510,74 +532,120 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
-  },
-
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
+    zIndex: 10,
   },
 
   headerSpacer: {
     flex: 1,
   },
 
-  editButton: {
+  qrButton: {
     padding: 4,
   },
 
-  qrButton: {
-    padding: 4,
+  balanceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#0a0a0a',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#1a1a1a',
+    marginRight: 8,
+  },
+
+  balanceText: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.text,
+  },
+
+  balanceIcon: {
+    marginLeft: 4,
   },
 
   settingsButton: {
     padding: 4,
   },
 
-  scrollContainer: {
-    flex: 1,
+  // Balance Menu Dropdown
+  balanceMenu: {
+    position: 'absolute',
+    top: 56,
+    right: 60,
+    backgroundColor: '#0a0a0a',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#1a1a1a',
+    zIndex: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 5,
+    minWidth: 140,
   },
 
-  scrollContent: {
+  balanceMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 100, // Extra space at bottom for comfortable scrolling
+    paddingVertical: 12,
+    gap: 8,
+  },
+
+  balanceMenuText: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.text,
+  },
+
+  balanceMenuDivider: {
+    height: 1,
+    backgroundColor: '#1a1a1a',
+  },
+
+  // Content container (no scrolling)
+  content: {
+    flex: 1,
+    paddingHorizontal: 16,
   },
 
   // Profile header container for badge positioning
   profileHeaderContainer: {
     position: 'relative',
-    marginBottom: 6,
+    marginTop: 8,
+    marginBottom: 12,
+  },
+
+  // Navigation buttons container
+  navigationButtons: {
+    flex: 1,
+    justifyContent: 'space-evenly',
   },
 
   // Box styling with uniform spacing
   boxContainer: {
-    marginBottom: 6,
+    marginBottom: 8,
   },
 
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
-    marginBottom: 12,
-  },
-
-  // Create Challenge Button - Large prominent button at bottom
-  createChallengeButton: {
+  // Challenge Button - Same style as other buttons
+  challengeButton: {
     backgroundColor: '#0a0a0a',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#1a1a1a',
-    marginTop: 12,
+    height: 80,
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    height: 200,
+    gap: 12,
   },
 
-  createChallengeTitle: {
-    fontSize: 28,
+  challengeButtonText: {
+    fontSize: 16,
     fontWeight: theme.typography.weights.semiBold,
     color: theme.colors.text,
-    textAlign: 'center',
   },
 });

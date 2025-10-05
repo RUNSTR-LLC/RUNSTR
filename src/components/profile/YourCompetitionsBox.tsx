@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 
 type RootStackParamList = {
@@ -33,7 +34,8 @@ export const YourCompetitionsBox: React.FC = () => {
       onPress={handlePress}
       activeOpacity={0.7}
     >
-      <Text style={styles.title}>My Competitions</Text>
+      <Ionicons name="trophy-outline" size={24} color={theme.colors.text} />
+      <Text style={styles.title}>MY COMPETITIONS</Text>
     </TouchableOpacity>
   );
 };
@@ -42,17 +44,17 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: '#0a0a0a',
     borderRadius: 12,
-    padding: 16,
     borderWidth: 1,
     borderColor: '#1a1a1a',
-    height: 60,
+    height: 80,
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 12,
   },
   title: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: theme.typography.weights.semiBold,
     color: theme.colors.text,
-    textAlign: 'center',
   },
 });

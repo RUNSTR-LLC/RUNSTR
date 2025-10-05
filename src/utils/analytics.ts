@@ -190,7 +190,7 @@ class Analytics {
       teamName: team.name,
       teamDifficulty: team.difficulty,
       teamPrizePool: team.prizePool,
-      teamMemberCount: team.stats.memberCount,
+      teamMemberCount: team.stats?.memberCount ?? 0,
       isTeamFeatured: team.isFeatured || false,
     });
   }
@@ -211,7 +211,7 @@ class Analytics {
       teamName: team.name,
       teamDifficulty: team.difficulty,
       teamPrizePool: team.prizePool,
-      teamMemberCount: team.stats.memberCount,
+      teamMemberCount: team.stats?.memberCount ?? 0,
     });
   }
 
