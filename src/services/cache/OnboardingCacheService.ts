@@ -98,7 +98,7 @@ class OnboardingCacheService {
 
       // Discover teams with a reasonable timeout
       const teams = await Promise.race([
-        ndkService.discoverTeams(),
+        ndkService.discoverAllTeams(),
         new Promise<any[]>((resolve) =>
           setTimeout(() => resolve([]), 10000) // 10 second timeout
         ),
