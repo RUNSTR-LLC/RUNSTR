@@ -19,6 +19,7 @@
 
 import NDK, { NDKEvent, NDKFilter, NDKSubscription, NDKRelay } from '@nostr-dev-kit/ndk';
 import type { NostrTeam, NostrTeamEvent, TeamDiscoveryFilters } from '../nostr/NostrTeamService';
+import { GlobalNDKService } from '../nostr/GlobalNDKService';
 
 export interface NdkTeamQueryResult {
   success: boolean;
@@ -68,42 +69,28 @@ export class NdkTeamService {
   }
 
   /**
-   * Initialize NDK singleton following Zap-Arena global instance pattern
+   * Initialize NDK using GlobalNDKService (optimized singleton)
    */
   private initializeNDK(): void {
-    if (!g.__RUNSTR_NDK_INSTANCE__) {
-      console.log('[NDK Singleton] Creating new NDK instance for global team discovery...');
-      
-      this.ndk = new NDK({
-        explicitRelayUrls: this.relayUrls,
-        // Remove debug flag - not available in React Native/Hermes runtime
-      });
-      
-      g.__RUNSTR_NDK_INSTANCE__ = this.ndk;
-      
-      // Initialize connection promise following Zap-Arena pattern
-      this.readyPromise = this.connectWithTimeout();
-      g.__RUNSTR_NDK_READY_PROMISE__ = this.readyPromise;
-    } else {
-      console.log('[NDK Singleton] Reusing existing NDK instance for teams.');
-      this.ndk = g.__RUNSTR_NDK_INSTANCE__;
-      this.readyPromise = g.__RUNSTR_NDK_READY_PROMISE__ || this.connectWithTimeout();
-    }
+    console.log('[NDK Singleton] Using GlobalNDKService for team discovery...');
+
+    // ✅ OPTIMIZATION: Use GlobalNDKService instead of creating separate instance
+    // This ensures only ONE NDK instance exists across the entire app
+    this.readyPromise = this.connectWithGlobalService();
   }
 
   /**
-   * Connect to NDK with timeout (Zap-Arena pattern: 30s timeout)
+   * Connect to NDK using GlobalNDKService
    */
-  private async connectWithTimeout(): Promise<boolean> {
+  private async connectWithGlobalService(): Promise<boolean> {
     try {
-      const connectTimeoutMs = 2000; // 2 second timeout for faster initial load
-      console.log(`[NDK Team] Attempting NDK.connect() with timeout: ${connectTimeoutMs}ms`);
-      console.log(`[NDK Team] Using relays:`, this.relayUrls);
-      
-      await this.ndk.connect(connectTimeoutMs);
-      
+      console.log(`[NDK Team] Connecting via GlobalNDKService...`);
+
+      // ✅ Get global NDK instance (already connected by GlobalNDKService)
+      this.ndk = await GlobalNDKService.getInstance();
+
       const connectedCount = this.ndk.pool?.stats()?.connected || 0;
-      console.log(`[NDK Team] NDK.connect() completed. Connected relays: ${connectedCount}`);
+      console.log(`[NDK Team] GlobalNDK connected. Connected relays: ${connectedCount}`);
       console.log(`[NDK Team] Pool stats:`, this.ndk.pool?.stats());
 
       if (connectedCount > 0) {
@@ -111,11 +98,12 @@ export class NdkTeamService {
         this.isReady = true;
         return true;
       } else {
-        console.error('[NDK Team] No relays connected after NDK.connect()');
-        throw new Error('Failed to connect to any relays for team discovery.');
+        console.warn('[NDK Team] No relays connected yet, but NDK instance available');
+        this.isReady = true; // Still mark as ready - connections may come later
+        return true;
       }
     } catch (err) {
-      console.error('[NDK Team] Error during NDK connection:', err);
+      console.error('[NDK Team] Error getting GlobalNDK:', err);
       this.isReady = false;
       return false;
     }

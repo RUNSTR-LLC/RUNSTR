@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { appCache } from '../../utils/cache';
 import { getNpubFromStorage } from '../../utils/nostr';
 import { TeamCacheService } from '../cache/TeamCacheService';
+import { GlobalNDKService } from './GlobalNDKService';
 
 interface InitializationProgress {
   step: string;
@@ -68,33 +69,18 @@ export class NostrInitializationService {
       return this.ndk;
     }
 
-    console.log('🚀 Initializing NDK...');
+    console.log('🚀 Initializing NDK via GlobalNDKService...');
 
     try {
-      // Get stored relay URLs
-      const storedRelays = await AsyncStorage.getItem('nostr_relays');
-      const relayUrls = storedRelays ? JSON.parse(storedRelays) : [
-        'wss://relay.damus.io',
-        'wss://relay.primal.net',
-        'wss://nos.lol',
-        'wss://relay.nostr.band',
-      ];
+      // ✅ OPTIMIZATION: Use GlobalNDKService instead of creating new instance
+      // This ensures only ONE NDK instance exists across the entire app
+      this.ndk = await GlobalNDKService.getInstance();
 
-      // Create NDK instance
-      this.ndk = new NDK({
-        explicitRelayUrls: relayUrls,
-        autoConnectUserRelays: true,
-        autoFetchUserMutelist: false,
-      });
-
-      // Connect to relays
-      await this.ndk.connect(2000); // 2 second timeout
-
-      // Store NDK instance globally for other services
+      // Store NDK instance globally for backward compatibility
       (global as any).preInitializedNDK = this.ndk;
 
       this.isInitialized = true;
-      console.log('✅ NDK initialized successfully');
+      console.log('✅ NDK initialized successfully via GlobalNDKService');
 
       return this.ndk;
     } catch (error) {

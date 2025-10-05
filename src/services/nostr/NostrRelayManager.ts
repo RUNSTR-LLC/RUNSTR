@@ -68,13 +68,17 @@ export class NostrRelayManager {
 
   /**
    * Initialize WebSocket connections to all configured relays
+   * OPTIMIZED: Parallel connection for faster startup
    */
   private async initializeConnections(): Promise<void> {
-    console.log('🔄 Initializing real Nostr relay connections...');
+    console.log('🔄 Initializing real Nostr relay connections in parallel...');
 
-    for (const url of this.config.relayUrls) {
-      await this.connectToRelay(url);
-    }
+    // ✅ Connect to all relays in parallel (instead of sequential)
+    const connectionPromises = this.config.relayUrls.map(url =>
+      this.connectToRelay(url)
+    );
+
+    await Promise.all(connectionPromises);
 
     console.log(
       `✅ Initiated connections to ${this.config.relayUrls.length} Nostr relays`

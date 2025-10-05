@@ -101,6 +101,37 @@ export class TTSAnnouncementService {
   }
 
   /**
+   * Announce a split as it happens during the run
+   * Announces kilometer number and pace for that split
+   */
+  static async announceSplit(split: Split): Promise<void> {
+    try {
+      // Check if live split announcements are enabled
+      const shouldAnnounce =
+        await TTSPreferencesService.shouldAnnounceLiveSplits();
+      if (!shouldAnnounce) {
+        return;
+      }
+
+      // Initialize if needed
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
+
+      // Format the split announcement
+      const splitText = this.formatSplitText(split);
+
+      console.log('🔊 Announcing split:', splitText);
+
+      // Speak the split announcement
+      await this.speak(splitText);
+    } catch (error) {
+      console.error('❌ Failed to announce split:', error);
+      // Graceful degradation - don't crash the app
+    }
+  }
+
+  /**
    * Speak text with configured settings
    * Handles speech rate and queuing
    */
@@ -286,9 +317,11 @@ export class TTSAnnouncementService {
   /**
    * Format pace for voice (e.g., "5 minutes 54 seconds")
    */
-  private static formatPaceVoice(paceMinutesPerKm: number): string {
-    const minutes = Math.floor(paceMinutesPerKm);
-    const seconds = Math.round((paceMinutesPerKm - minutes) * 60);
+  private static formatPaceVoice(paceSecondsPerKm: number): string {
+    // Convert seconds per km to minutes per km
+    const totalMinutes = paceSecondsPerKm / 60;
+    const minutes = Math.floor(totalMinutes);
+    const seconds = Math.round((totalMinutes - minutes) * 60);
 
     if (seconds === 0) {
       return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
@@ -297,6 +330,18 @@ export class TTSAnnouncementService {
         minutes === 1 ? 'minute' : 'minutes'
       } and ${seconds} ${seconds === 1 ? 'second' : 'seconds'}`;
     }
+  }
+
+  /**
+   * Format a single split for voice announcement
+   * Brief format for real-time announcements during run
+   */
+  private static formatSplitText(split: Split): string {
+    // Convert pace from seconds per km to voice format
+    const pace = this.formatPaceVoice(split.pace);
+
+    // Simple announcement: "Kilometer 1, 5 minutes 30 seconds per kilometer"
+    return `Kilometer ${split.number}, ${pace} per kilometer`;
   }
 
   /**

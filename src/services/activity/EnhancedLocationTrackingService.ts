@@ -14,6 +14,7 @@ import { BatteryOptimizationService } from './BatteryOptimizationService';
 import { locationPermissionService } from './LocationPermissionService';
 import { SplitTrackingService, type Split } from './SplitTrackingService';
 import { KalmanDistanceFilter } from './KalmanDistanceFilter';
+import { TTSAnnouncementService } from './TTSAnnouncementService';
 import {
   startBackgroundLocationTracking,
   stopBackgroundLocationTracking,
@@ -95,7 +96,7 @@ export class EnhancedLocationTrackingService {
   // GPS warmup tracking (prevents premature recovery mode on startup)
   private isInWarmup: boolean = false;
   private warmupStartTime: number | null = null;
-  private readonly GPS_WARMUP_DURATION_MS = 5000; // 5 seconds warmup period
+  private readonly GPS_WARMUP_DURATION_MS = 10000; // 10 seconds warmup period
 
   // GPS recovery tracking
   private pointsAfterRecovery: number = 0;
@@ -103,8 +104,8 @@ export class EnhancedLocationTrackingService {
   private recoveryStartTime: number | null = null;
   private recoveryAccuracyThreshold: number = 50; // Initial accuracy threshold for recovery
   private skippedRecoveryDistance: number = 0; // Track phantom distance during recovery
-  private readonly GPS_RECOVERY_TIMEOUT_MS = 5000; // 5 seconds max recovery time (reduced to prevent distance freeze)
-  private readonly GPS_RECOVERY_POINTS = 1; // Number of points to skip after GPS recovery (reduced to 1 to prevent prolonged freezes)
+  private readonly GPS_RECOVERY_TIMEOUT_MS = 10000; // 10 seconds max recovery time
+  private readonly GPS_RECOVERY_POINTS = 3; // Number of points to skip after GPS recovery
 
   // Distance freeze detection
   private lastDistanceUpdateTime: number = 0;
@@ -545,9 +546,13 @@ export class EnhancedLocationTrackingService {
             this.currentSession.pausedDuration
           );
 
-          // If a new split was recorded, add it to session
+          // If a new split was recorded, add it to session and announce it
           if (newSplit) {
             this.currentSession.splits.push(newSplit);
+            // Announce the split via TTS (non-blocking)
+            TTSAnnouncementService.announceSplit(newSplit).catch((err) => {
+              console.error('Failed to announce split:', err);
+            });
           }
         }
       }

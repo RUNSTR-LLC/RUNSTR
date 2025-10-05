@@ -12,6 +12,7 @@ export interface TTSSettings {
   speechRate: number; // Speech speed: 0.5 - 2.0 (1.0 = normal)
   announceOnSummary: boolean; // Speak when workout summary appears
   includeSplits: boolean; // Include split details in announcement
+  announceLiveSplits: boolean; // Announce splits as they happen during the run
 }
 
 // Default settings for new users
@@ -20,6 +21,7 @@ const DEFAULT_TTS_SETTINGS: TTSSettings = {
   speechRate: 1.0,
   announceOnSummary: true,
   includeSplits: false, // Keep it brief by default
+  announceLiveSplits: false, // Off by default to avoid interruptions
 };
 
 export class TTSPreferencesService {
@@ -150,6 +152,19 @@ export class TTSPreferencesService {
   }
 
   /**
+   * Check if live split announcements are enabled
+   */
+  static async shouldAnnounceLiveSplits(): Promise<boolean> {
+    try {
+      const settings = await this.getTTSSettings();
+      return settings.enabled && settings.announceLiveSplits;
+    } catch (error) {
+      console.error('Error checking live split announcement setting:', error);
+      return false;
+    }
+  }
+
+  /**
    * Reset all TTS preferences to defaults
    */
   static async resetToDefaults(): Promise<TTSSettings> {
@@ -179,7 +194,7 @@ export class TTSPreferencesService {
         settings.speechRate
       }x, Summary: ${settings.announceOnSummary ? 'ON' : 'OFF'}, Splits: ${
         settings.includeSplits ? 'ON' : 'OFF'
-      }`;
+      }, Live Splits: ${settings.announceLiveSplits ? 'ON' : 'OFF'}`;
     } catch (error) {
       return 'Error loading TTS settings';
     }
@@ -205,7 +220,8 @@ export class TTSPreferencesService {
         typeof settings.enabled !== 'boolean' ||
         typeof settings.speechRate !== 'number' ||
         typeof settings.announceOnSummary !== 'boolean' ||
-        typeof settings.includeSplits !== 'boolean'
+        typeof settings.includeSplits !== 'boolean' ||
+        typeof settings.announceLiveSplits !== 'boolean'
       ) {
         throw new Error('Invalid TTS settings format');
       }
