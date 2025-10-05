@@ -177,6 +177,21 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
         setTeamParticipants(participantsToUse);
       }
 
+      // If still no participants, create empty result instead of throwing error
+      if (participantsToUse.length === 0) {
+        console.log('⚠️ No participants found, showing empty state');
+        const emptyResult: LeagueRankingResult = {
+          rankings: [],
+          totalParticipants: 0,
+          lastUpdated: new Date().toISOString(),
+          competitionId,
+          isActive: false,
+        };
+        setRankings(emptyResult);
+        setError(null);
+        return;
+      }
+
       // Pass forceRefresh flag to bypass cache (for pull-to-refresh)
       const result = await rankingService.calculateLeagueRankings(
         competitionId,
@@ -185,6 +200,7 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
         force // This bypasses cache and forces fresh fetch
       );
 
+      console.log(`✅ League rankings loaded: ${result.rankings.length} entries`);
       setRankings(result);
       setError(null);
 
@@ -200,6 +216,7 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
       console.error('❌ Failed to load league rankings:', err);
       setError(err instanceof Error ? err.message : 'Failed to load rankings');
     } finally {
+      console.log(`🏁 League loading complete - setting loading to false`);
       setLoading(false);
       setRefreshing(false);
     }
