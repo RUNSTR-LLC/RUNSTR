@@ -148,6 +148,13 @@ export class BatteryOptimizationService {
         break;
     }
 
+    // Activity-specific notification messages
+    const activityNames = {
+      running: 'Run',
+      walking: 'Walk',
+      cycling: 'Ride'
+    };
+
     return {
       accuracy: config.accuracy,
       timeInterval,
@@ -159,6 +166,12 @@ export class BatteryOptimizationService {
       pausesUpdatesAutomatically: false,
       // iOS-specific: Show blue bar when tracking in background (user transparency)
       showsBackgroundLocationIndicator: true,
+      // Android-specific: Foreground service to prevent Doze Mode from stopping tracking
+      foregroundService: {
+        notificationTitle: 'RUNSTR - Activity Tracking',
+        notificationBody: `Tracking your ${activityNames[activityType].toLowerCase()} in progress`,
+        notificationColor: '#FF6B35', // RUNSTR orange color
+      },
     };
   }
 

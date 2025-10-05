@@ -223,6 +223,18 @@ export async function isBackgroundTaskRegistered(): Promise<boolean> {
  * Get location options based on activity type
  */
 function getBackgroundLocationOptions(activityType: string): Location.LocationTaskOptions {
+  // Activity-specific notification messages
+  const activityNotifications = {
+    running: { title: 'RUNSTR - Run Tracking', body: 'Tracking your run in the background' },
+    walking: { title: 'RUNSTR - Walk Tracking', body: 'Tracking your walk in the background' },
+    cycling: { title: 'RUNSTR - Ride Tracking', body: 'Tracking your ride in the background' },
+  };
+
+  const notification = activityNotifications[activityType as keyof typeof activityNotifications] || {
+    title: 'RUNSTR - Activity Tracking',
+    body: 'Tracking your activity in the background',
+  };
+
   const baseOptions: Location.LocationTaskOptions = {
     accuracy: Location.Accuracy.BestForNavigation,
     // iOS-specific: Use fitness-optimized GPS algorithms
@@ -231,6 +243,12 @@ function getBackgroundLocationOptions(activityType: string): Location.LocationTa
     pausesUpdatesAutomatically: false,
     // iOS-specific: Show blue bar when tracking in background (user transparency)
     showsBackgroundLocationIndicator: true,
+    // Android-specific: Foreground service to prevent Doze Mode from stopping tracking
+    foregroundService: {
+      notificationTitle: notification.title,
+      notificationBody: notification.body,
+      notificationColor: '#FF6B35', // RUNSTR orange color
+    },
   };
 
   switch (activityType) {
