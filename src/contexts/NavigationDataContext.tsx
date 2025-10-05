@@ -79,20 +79,40 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
 
   const fetchUserData = async (): Promise<UserWithWallet | null> => {
     try {
-      // ✅ Check UnifiedNostrCache first
       const identifiers = await getUserNostrIdentifiers();
-      if (identifiers) {
-        const cachedUser = unifiedCache.getCached<UserWithWallet>(CacheKeys.USER_PROFILE(identifiers.hexPubkey));
-        if (cachedUser) {
-          console.log('✅ fetchUserData: Using cached user profile (instant)');
-          setUser(cachedUser);
-          setIsLoading(false);
-          // Background refresh
-          fetchUserDataFresh();
-          return cachedUser;
-        }
+      if (!identifiers) {
+        return await fetchUserDataFresh();
       }
-      return await fetchUserDataFresh();
+
+      // ✅ STALE-WHILE-REVALIDATE: Use UnifiedNostrCache with background refresh
+      const hexPubkey = identifiers.hexPubkey || '';
+      const user = await unifiedCache.get<UserWithWallet>(
+        CacheKeys.USER_PROFILE(hexPubkey),
+        async () => {
+          // Fetcher function - called if cache miss or expired
+          if (currentUser) {
+            return currentUser;
+          }
+          const directUser = await DirectNostrProfileService.getCurrentUserProfile();
+          if (directUser) return directUser as UserWithWallet;
+
+          const fallbackUser = await DirectNostrProfileService.getFallbackProfile();
+          return fallbackUser as UserWithWallet;
+        },
+        {
+          ttl: CacheTTL.USER_PROFILE,
+          backgroundRefresh: true, // ✅ Return stale data, refresh in background
+          persist: true,
+        }
+      );
+
+      if (user) {
+        setUser(user);
+        setIsLoading(false);
+        console.log('✅ fetchUserData: User profile loaded (with background refresh)');
+      }
+
+      return user;
     } catch (error) {
       console.error('Error fetching user data:', error);
       setError('Failed to load user data');
@@ -104,6 +124,7 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
     try {
       // Get user identifiers for caching
       const identifiers = await getUserNostrIdentifiers();
+      const hexPubkey = identifiers?.hexPubkey || '';
 
       // First check if we have a user from AuthContext
       if (currentUser) {
@@ -112,9 +133,9 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
         );
         setUser(currentUser);
         // ✅ Cache in UnifiedNostrCache
-        if (identifiers) {
+        if (hexPubkey) {
           await unifiedCache.set(
-            CacheKeys.USER_PROFILE(identifiers.hexPubkey),
+            CacheKeys.USER_PROFILE(hexPubkey),
             currentUser,
             CacheTTL.USER_PROFILE
           );
@@ -133,9 +154,9 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
         if (directNostrUser) {
           setUser(directNostrUser);
           // ✅ Cache in UnifiedNostrCache
-          if (identifiers) {
+          if (hexPubkey) {
             await unifiedCache.set(
-              CacheKeys.USER_PROFILE(identifiers.hexPubkey),
+              CacheKeys.USER_PROFILE(hexPubkey),
               directNostrUser,
               CacheTTL.USER_PROFILE
             );
@@ -149,9 +170,9 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
         if (userData) {
           setUser(userData);
           // ✅ Cache in UnifiedNostrCache
-          if (identifiers) {
+          if (hexPubkey) {
             await unifiedCache.set(
-              CacheKeys.USER_PROFILE(identifiers.hexPubkey),
+              CacheKeys.USER_PROFILE(hexPubkey),
               userData,
               CacheTTL.USER_PROFILE
             );
@@ -162,9 +183,9 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
 
       if (fallbackUser) {
         // ✅ Cache in UnifiedNostrCache
-        if (identifiers) {
+        if (hexPubkey) {
           await unifiedCache.set(
-            CacheKeys.USER_PROFILE(identifiers.hexPubkey),
+            CacheKeys.USER_PROFILE(hexPubkey),
             fallbackUser,
             CacheTTL.USER_PROFILE
           );
@@ -181,6 +202,7 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
 
   /**
    * Get all teams user is a member of (multi-team support)
+   * OPTIMIZED: Uses stale-while-revalidate for instant returns
    */
   const getAllUserTeams = async (user: UserWithWallet): Promise<any[]> => {
     setIsLoadingTeam(true);
@@ -192,97 +214,101 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
         return [];
       }
 
-      // ✅ Check UnifiedNostrCache first (instant if prefetched)
-      const cachedTeams = unifiedCache.getCached(CacheKeys.USER_TEAMS(userIdentifiers.hexPubkey));
-      if (cachedTeams) {
-        console.log(`✅ getAllUserTeams: Returning ${cachedTeams.length} cached teams (instant)`);
-        setIsLoadingTeam(false);
-        return cachedTeams;
-      }
+      // ✅ STALE-WHILE-REVALIDATE: Return cached teams, refresh in background
+      const hexPubkey = userIdentifiers.hexPubkey || '';
+      const teams = await unifiedCache.get<any[]>(
+        CacheKeys.USER_TEAMS(hexPubkey),
+        async () => {
+          // Fetcher - builds user teams from memberships + discovered teams
+          const membershipService = TeamMembershipService.getInstance();
+          const localMemberships = await membershipService.getLocalMemberships(hexPubkey);
 
-      const teams: any[] = [];
-      const teamService = getNostrTeamService();
-      const discoveredTeams = teamService.getDiscoveredTeams();
+          const teamService = getNostrTeamService();
+          let discoveredTeams = teamService.getDiscoveredTeams();
 
-      // 1. Get teams where user is captain
-      const captainTeams = await CaptainCache.getCaptainTeams();
-      console.log(`Found ${captainTeams.length} captain teams in cache`);
+          // Ensure discovered teams exist
+          if (discoveredTeams.size === 0) {
+            await teamService.discoverFitnessTeams();
+            discoveredTeams = teamService.getDiscoveredTeams();
+          }
 
-      for (const teamId of captainTeams) {
-        const team = discoveredTeams.get(teamId);
-        if (team) {
-          console.log(`✅ Found captain's team: ${team.name}`);
-          teams.push({
-            id: team.id,
-            name: team.name,
-            description: team.description || '',
-            prizePool: 0,
-            memberCount: team.memberCount || 0,
-            isActive: true,
-            role: 'captain',
-            bannerImage: team.bannerImage,
-            captainId: team.captainId,
-          });
+          // Initialize user teams array
+          const userTeams: any[] = [];
+
+          // 1. Get teams where user is captain
+          const captainTeams = await CaptainCache.getCaptainTeams();
+          console.log(`Found ${captainTeams.length} captain teams in cache`);
+
+          for (const teamId of captainTeams) {
+            const team = discoveredTeams.get(teamId);
+            if (team) {
+              console.log(`✅ Found captain's team: ${team.name}`);
+              userTeams.push({
+                id: team.id,
+                name: team.name,
+                description: team.description || '',
+                prizePool: 0,
+                memberCount: team.memberCount || 0,
+                isActive: true,
+                role: 'captain',
+                bannerImage: team.bannerImage,
+                captainId: team.captainId,
+              });
+            }
+          }
+
+          // 2. Get all local memberships
+          console.log(`Found ${localMemberships.length} local memberships`);
+
+          for (const membership of localMemberships) {
+            // Skip if already added as captain
+            if (userTeams.some((t) => t.id === membership.teamId)) {
+              continue;
+            }
+
+            const team = discoveredTeams.get(membership.teamId);
+
+            if (team) {
+              const isCaptain = isTeamCaptainEnhanced(userIdentifiers, team);
+              userTeams.push({
+                id: team.id,
+                name: team.name,
+                description: team.description || '',
+                prizePool: 0,
+                memberCount: team.memberCount || 0,
+                isActive: true,
+                role: isCaptain ? 'captain' : 'member',
+                bannerImage: team.bannerImage,
+                captainId: team.captainId,
+              });
+            } else {
+              // Team not in discovered teams, use membership data
+              userTeams.push({
+                id: membership.teamId,
+                name: membership.teamName,
+                description: '',
+                prizePool: 0,
+                memberCount: 0,
+                isActive: true,
+                role: membership.status === 'official' ? 'member' : 'pending',
+                captainId: membership.captainPubkey,
+              });
+            }
+          }
+
+          console.log(`✅ Built ${userTeams.length} teams for user`);
+          return userTeams;
+        },
+        {
+          ttl: CacheTTL.USER_TEAMS,
+          backgroundRefresh: true, // ✅ Return stale teams, refresh in background
+          persist: true,
         }
-      }
-
-      // 2. Get all local memberships
-      const membershipService = TeamMembershipService.getInstance();
-      // Pass hexPubkey if available (service will check both npub and hex keys for backward compatibility)
-      // If only npub available, pass that
-      const localMemberships = await membershipService.getLocalMemberships(
-        userIdentifiers.hexPubkey || userIdentifiers.npub || ''
       );
 
-      console.log(`Found ${localMemberships.length} local memberships`);
-
-      for (const membership of localMemberships) {
-        // Skip if already added as captain
-        if (teams.some((t) => t.id === membership.teamId)) {
-          continue;
-        }
-
-        const team = discoveredTeams.get(membership.teamId);
-
-        if (team) {
-          const isCaptain = isTeamCaptainEnhanced(userIdentifiers, team);
-          teams.push({
-            id: team.id,
-            name: team.name,
-            description: team.description || '',
-            prizePool: 0,
-            memberCount: team.memberCount || 0,
-            isActive: true,
-            role: isCaptain ? 'captain' : 'member',
-            bannerImage: team.bannerImage,
-            captainId: team.captainId,
-          });
-        } else {
-          // Team not in discovered teams, use membership data
-          teams.push({
-            id: membership.teamId,
-            name: membership.teamName,
-            description: '',
-            prizePool: 0,
-            memberCount: 0,
-            isActive: true,
-            role: membership.status === 'official' ? 'member' : 'pending',
-            captainId: membership.captainPubkey,
-          });
-        }
-      }
-
-      console.log(`✅ Found total of ${teams.length} teams for user`);
-
-      // ✅ Cache the teams in UnifiedNostrCache for future instant access
-      await unifiedCache.set(
-        CacheKeys.USER_TEAMS(userIdentifiers.hexPubkey),
-        teams,
-        CacheTTL.USER_TEAMS
-      );
-
+      console.log(`✅ getAllUserTeams: Returning ${teams?.length || 0} teams (with background refresh)`);
       setIsLoadingTeam(false);
-      return teams;
+      return teams || [];
     } catch (error) {
       console.error('Error getting all user teams:', error);
       setIsLoadingTeam(false);
@@ -421,24 +447,27 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
     }
 
     try {
-      // ✅ Check UnifiedNostrCache first
-      const cachedTeams = unifiedCache.getCached<DiscoveryTeam[]>(CacheKeys.DISCOVERED_TEAMS);
-      if (cachedTeams) {
-        console.log(
-          `✅ NavigationDataContext: Loaded ${cachedTeams.length} teams from UnifiedNostrCache (instant)`
-        );
-        setAvailableTeams(cachedTeams);
-        setTeamsLoaded(true);
-        setTeamsLastLoaded(now);
-        return;
-      }
-
-      // ✅ Fetch from Nostr if not cached
-      const teams = await fetchTeamsFresh();
-      console.log(
-        `✅ NavigationDataContext: Loaded ${teams.length} teams from Nostr`
+      // ✅ STALE-WHILE-REVALIDATE: Use UnifiedNostrCache with background refresh
+      const teams = await unifiedCache.get<any[]>(
+        CacheKeys.DISCOVERED_TEAMS,
+        async () => {
+          // Fetcher - called if cache miss or expired
+          const teamService = getNostrTeamService();
+          await teamService.discoverFitnessTeams();
+          const discoveredTeamsMap = teamService.getDiscoveredTeams();
+          return Array.from(discoveredTeamsMap.values());
+        },
+        {
+          ttl: CacheTTL.DISCOVERED_TEAMS,
+          backgroundRefresh: true, // ✅ Return stale teams, refresh in background
+          persist: true,
+        }
       );
-      setAvailableTeams(teams);
+
+      console.log(
+        `✅ NavigationDataContext: Loaded ${teams?.length || 0} teams (with background refresh)`
+      );
+      setAvailableTeams(teams || []);
       setTeamsLoaded(true);
       setTeamsLastLoaded(now);
     } catch (error) {
@@ -447,11 +476,11 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
     }
   }, [teamsLoaded, teamsLastLoaded]);
 
-  const fetchTeamsFresh = async (): Promise<DiscoveryTeam[]> => {
+  const fetchTeamsFresh = async (): Promise<any[]> => {
     try {
       // ✅ Fetch from Nostr using team service
       const teamService = getNostrTeamService();
-      await teamService.discoverTeams(); // Fetches from Nostr
+      await teamService.discoverFitnessTeams(); // Fetches from Nostr
       const discoveredTeamsMap = teamService.getDiscoveredTeams();
       const teams = Array.from(discoveredTeamsMap.values());
 

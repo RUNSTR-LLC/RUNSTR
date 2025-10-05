@@ -121,6 +121,7 @@ export class NostrPrefetchService {
 
   /**
    * Prefetch user's teams
+   * OPTIMIZED: Ensures discovered teams exist before matching memberships
    */
   private async prefetchUserTeams(hexPubkey: string): Promise<void> {
     try {
@@ -132,7 +133,15 @@ export class NostrPrefetchService {
           const localMemberships = await membershipService.getLocalMemberships(hexPubkey);
 
           const teamService = getNostrTeamService();
-          const discoveredTeams = teamService.getDiscoveredTeams();
+          let discoveredTeams = teamService.getDiscoveredTeams();
+
+          // ✅ DEPENDENCY FIX: Ensure discovered teams exist before matching
+          if (discoveredTeams.size === 0) {
+            console.log('[Prefetch] No discovered teams found, triggering discovery...');
+            await teamService.discoverFitnessTeams();
+            discoveredTeams = teamService.getDiscoveredTeams();
+            console.log(`[Prefetch] Discovered ${discoveredTeams.size} teams for membership matching`);
+          }
 
           const userTeams: any[] = [];
 
@@ -149,6 +158,8 @@ export class NostrPrefetchService {
                 bannerImage: team.bannerImage,
                 captainId: team.captainId,
               });
+            } else {
+              console.warn(`[Prefetch] Team ${membership.teamId} not found in discovered teams`);
             }
           }
 
@@ -249,15 +260,37 @@ export class NostrPrefetchService {
 
   /**
    * Prefetch user's recent workouts (kind 1301)
-   * TODO: Implement workout prefetching with proper service
+   * OPTIMIZED: Actually prefetches workouts to eliminate loading state
    */
   private async prefetchUserWorkouts(hexPubkey: string): Promise<void> {
     try {
-      // TEMPORARILY DISABLED - Need to implement with WorkoutCacheService or NdkWorkoutService
-      // Workouts will load on demand from existing workout services
-      console.log('[Prefetch] Skipping workout prefetch (will load on demand)');
+      // ✅ Check cache first - avoid redundant fetch if already prefetched
+      const cachedWorkouts = unifiedCache.getCached(CacheKeys.USER_WORKOUTS(hexPubkey));
+      if (cachedWorkouts && cachedWorkouts.length > 0) {
+        console.log(`[Prefetch] Workouts already cached (${cachedWorkouts.length} workouts), skipping fetch`);
+        return;
+      }
+
+      console.log('[Prefetch] Fetching user workouts via WorkoutCacheService...');
+
+      // ✅ Use WorkoutCacheService for centralized workout fetching
+      const { WorkoutCacheService } = await import('../cache/WorkoutCacheService');
+      const cacheService = WorkoutCacheService.getInstance();
+
+      // Fetch merged workouts (HealthKit + Nostr, limit 500 for performance)
+      const result = await cacheService.getMergedWorkouts(hexPubkey, 500);
+
+      // ✅ Cache in UnifiedNostrCache for instant access across app
+      await unifiedCache.set(
+        CacheKeys.USER_WORKOUTS(hexPubkey),
+        result.allWorkouts,
+        CacheTTL.USER_WORKOUTS
+      );
+
+      console.log(`[Prefetch] Cached ${result.allWorkouts.length} workouts (${result.nostrCount} Nostr, ${result.healthKitCount} HealthKit)`);
     } catch (error) {
-      console.error('[Prefetch] User workouts failed:', error);
+      console.error('[Prefetch] User workouts prefetch failed:', error);
+      // Non-blocking - workouts will load on demand if prefetch fails
     }
   }
 
