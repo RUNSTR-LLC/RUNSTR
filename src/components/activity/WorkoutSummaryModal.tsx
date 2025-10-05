@@ -11,7 +11,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,10 +20,11 @@ import type { PublishableWorkout } from '../../services/nostr/workoutPublishingS
 import type { Split } from '../../services/activity/SplitTrackingService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SocialShareModal } from '../fitness/SocialShareModal';
-import { nsecToPrivateKey } from '../../utils/nostr';
 import TTSAnnouncementService from '../../services/activity/TTSAnnouncementService';
 import LocalWorkoutStorageService from '../../services/fitness/LocalWorkoutStorageService';
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
+import unifiedSigningService from '../../services/auth/UnifiedSigningService';
+import { CustomAlert } from '../ui/CustomAlert';
 
 interface WorkoutSummaryProps {
   visible: boolean;
@@ -54,6 +54,16 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
   const [saved, setSaved] = useState(false);
   const [showSocialModal, setShowSocialModal] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+
+  const [alertState, setAlertState] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
 
   // TTS Announcement when modal opens
   useEffect(() => {
@@ -173,24 +183,26 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
 
     setIsPosting(true);
     try {
-      const nsec = await AsyncStorage.getItem('@runstr:user_nsec');
+      // Get signer (works for both nsec and Amber)
+      const signer = await unifiedSigningService.getSigner();
       const npub = await AsyncStorage.getItem('@runstr:npub');
 
-      if (!nsec) {
-        Alert.alert('Error', 'No user key found. Please login first.');
+      if (!signer) {
+        setAlertState({
+          visible: true,
+          title: 'Error',
+          message: 'No authentication found. Please login first.',
+        });
         return;
       }
-
-      // Convert nsec to hex private key for signing
-      const hexPrivKey = nsecToPrivateKey(nsec);
 
       const publishableWorkout = await createPublishableWorkout();
       if (!publishableWorkout) return;
 
-      // Post as kind 1 social event
+      // Post as kind 1 social event (works with both nsec and Amber)
       const result = await workoutPublishingService.postWorkoutToSocial(
         publishableWorkout,
-        hexPrivKey,
+        signer,
         npub || 'unknown',
         {
           includeStats: true,
@@ -216,17 +228,25 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
           }
         }
 
-        Alert.alert(
-          'Shared! 🎉',
-          'Your workout has been shared to your feed!',
-          [{ text: 'OK' }]
-        );
+        setAlertState({
+          visible: true,
+          title: 'Shared! 🎉',
+          message: 'Your workout has been shared to your feed!',
+        });
       } else {
-        Alert.alert('Error', `Failed to post: ${result.error}`);
+        setAlertState({
+          visible: true,
+          title: 'Error',
+          message: `Failed to post: ${result.error}`,
+        });
       }
     } catch (error) {
       console.error('Error posting workout:', error);
-      Alert.alert('Error', 'Failed to post workout to feed');
+      setAlertState({
+        visible: true,
+        title: 'Error',
+        message: 'Failed to post workout to feed',
+      });
     } finally {
       setIsPosting(false);
     }
@@ -235,24 +255,26 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
   const handleSaveForCompetition = async () => {
     setIsSaving(true);
     try {
-      const nsec = await AsyncStorage.getItem('@runstr:user_nsec');
+      // Get signer (works for both nsec and Amber)
+      const signer = await unifiedSigningService.getSigner();
       const npub = await AsyncStorage.getItem('@runstr:npub');
 
-      if (!nsec) {
-        Alert.alert('Error', 'No user key found. Please login first.');
+      if (!signer) {
+        setAlertState({
+          visible: true,
+          title: 'Error',
+          message: 'No authentication found. Please login first.',
+        });
         return;
       }
-
-      // Convert nsec to hex private key for signing
-      const hexPrivKey = nsecToPrivateKey(nsec);
 
       const publishableWorkout = await createPublishableWorkout();
       if (!publishableWorkout) return;
 
-      // Save as kind 1301 workout event
+      // Save as kind 1301 workout event (works with both nsec and Amber)
       const result = await workoutPublishingService.saveWorkoutToNostr(
         publishableWorkout,
-        hexPrivKey,
+        signer,
         npub || 'unknown'
       );
 
@@ -273,17 +295,25 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
           }
         }
 
-        Alert.alert(
-          'Competing! ✅',
-          'Your workout has been entered into competitions!',
-          [{ text: 'OK' }]
-        );
+        setAlertState({
+          visible: true,
+          title: 'Competing! ✅',
+          message: 'Your workout has been entered into competitions!',
+        });
       } else {
-        Alert.alert('Error', `Failed to save: ${result.error}`);
+        setAlertState({
+          visible: true,
+          title: 'Error',
+          message: `Failed to save: ${result.error}`,
+        });
       }
     } catch (error) {
       console.error('Error saving workout:', error);
-      Alert.alert('Error', 'Failed to save workout');
+      setAlertState({
+        visible: true,
+        title: 'Error',
+        message: 'Failed to save workout',
+      });
     } finally {
       setIsSaving(false);
     }
@@ -525,6 +555,14 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
         onClose={() => setShowSocialModal(false)}
         onSelectPlatform={handlePostToFeed}
       />
+
+      <CustomAlert
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        buttons={[{ text: 'OK', style: 'default' }]}
+        onClose={() => setAlertState({ ...alertState, visible: false })}
+      />
     </Modal>
   );
 };
@@ -615,10 +653,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   postButton: {
-    backgroundColor: theme.colors.text,
+    backgroundColor: theme.colors.orangeDeep, // Deep orange
   },
   saveButton: {
-    backgroundColor: theme.colors.text,
+    backgroundColor: theme.colors.orangeDeep, // Deep orange
   },
   disabledButton: {
     opacity: 0.5,

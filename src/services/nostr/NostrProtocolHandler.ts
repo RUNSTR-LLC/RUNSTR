@@ -13,6 +13,8 @@ import {
   type Filter,
   type EventTemplate,
 } from 'nostr-tools';
+import type { NDKSigner } from '@nostr-dev-kit/ndk';
+import type { NostrEvent } from '@nostr-dev-kit/ndk';
 
 export interface NostrFilter {
   ids?: string[];
@@ -241,6 +243,52 @@ export class NostrProtocolHandler {
     } catch (error) {
       console.error('❌ Failed to sign event:', error);
       throw new Error('Failed to sign event');
+    }
+  }
+
+  /**
+   * Sign an event using an NDKSigner (supports both nsec and Amber)
+   */
+  async signEventWithSigner(
+    eventTemplate: EventTemplate,
+    signer: NDKSigner
+  ): Promise<Event> {
+    try {
+      // Get user from signer
+      const user = await signer.user();
+
+      // Create unsigned event with pubkey
+      const unsignedEvent: NostrEvent = {
+        pubkey: user.pubkey,
+        created_at: eventTemplate.created_at || Math.floor(Date.now() / 1000),
+        kind: eventTemplate.kind!,
+        tags: eventTemplate.tags || [],
+        content: eventTemplate.content || '',
+        id: '',
+        sig: ''
+      };
+
+      // Sign with the signer (handles both nsec and Amber automatically)
+      const signature = await signer.sign(unsignedEvent);
+
+      // Calculate event ID for the signed event
+      const { getEventHash } = await import('nostr-tools');
+      const id = getEventHash(unsignedEvent);
+
+      // Create the signed event
+      const signedEvent: Event = {
+        ...unsignedEvent,
+        id,
+        sig: signature
+      };
+
+      console.log(
+        `✅ Signed event with NDKSigner: ${signedEvent.id} (kind ${signedEvent.kind})`
+      );
+      return signedEvent;
+    } catch (error) {
+      console.error('❌ Failed to sign event with NDKSigner:', error);
+      throw error;
     }
   }
 

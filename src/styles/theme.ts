@@ -52,7 +52,7 @@ export const colors = {
   gray: '#333333', // For borders and backgrounds
   error: '#ff4444', // Error messages and validation
   warning: '#fbbf24', // Warning/security indicators (amber)
-  success: '#4ade80', // Success states and active tracking
+  success: '#FF9D42', // Success states - ORANGE not green (matches theme)
 } as const;
 
 export const typography = {

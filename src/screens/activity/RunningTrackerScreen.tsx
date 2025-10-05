@@ -121,10 +121,13 @@ export const RunningTrackerScreen: React.FC = () => {
     const formattedDuration = formatElapsedTime(currentElapsed);
 
     if (session) {
+      // Use interpolated distance for smooth UI updates between GPS points
+      const displayDistance = enhancedLocationTrackingService.getInterpolatedDistance();
+
       const currentMetrics = {
-        distance: session.totalDistance,
+        distance: displayDistance,
         duration: currentElapsed,
-        pace: activityMetricsService.calculatePace(session.totalDistance, currentElapsed),
+        pace: activityMetricsService.calculatePace(displayDistance, currentElapsed),
         elevationGain: session.totalElevationGain,
       };
 
@@ -425,7 +428,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   startButtonText: {
-    color: theme.colors.textBright,
+    color: '#000000',
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
     letterSpacing: 0.5,

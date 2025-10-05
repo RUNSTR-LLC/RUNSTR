@@ -20,7 +20,7 @@ import { NostrCompetitionService } from '../../services/nostr/NostrCompetitionSe
 import NostrCompetitionParticipantService from '../../services/nostr/NostrCompetitionParticipantService';
 import { useUserStore } from '../../store/userStore';
 import { getAuthenticationData } from '../../utils/nostrAuth';
-import { nsecToPrivateKey } from '../../utils/nostr';
+import unifiedSigningService from '../../services/auth/UnifiedSigningService';
 import type {
   NostrActivityType,
   NostrLeagueCompetitionType,
@@ -236,8 +236,13 @@ export const LeagueCreationWizard: React.FC<LeagueCreationWizardProps> = ({
 
       console.log('✅ Retrieved auth data for:', authData.npub.slice(0, 20) + '...');
 
-      // Convert nsec to private key hex
-      const privateKeyHex = nsecToPrivateKey(authData.nsec);
+      // Get signer (works for both nsec and Amber)
+      const signer = await unifiedSigningService.getSigner();
+      if (!signer) {
+        Alert.alert('Error', 'No authentication found. Please login first.');
+        setIsCreating(false);
+        return;
+      }
 
       // Prepare league data for Nostr
       const leagueCreationData = {
@@ -259,10 +264,10 @@ export const LeagueCreationWizard: React.FC<LeagueCreationWizardProps> = ({
 
       console.log('📊 Creating league:', leagueCreationData);
 
-      // Create league using Nostr Competition Service
+      // Create league using Nostr Competition Service (works with both nsec and Amber)
       const result = await NostrCompetitionService.createLeague(
         leagueCreationData,
-        privateKeyHex
+        signer
       );
 
       if (result.success) {

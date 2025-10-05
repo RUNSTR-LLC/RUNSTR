@@ -14,10 +14,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NostrListService } from '../../services/nostr/NostrListService';
 import { EventJoinRequestService } from '../../services/events/EventJoinRequestService';
 import { getAuthenticationData } from '../../utils/nostrAuth';
-import { nsecToPrivateKey } from '../../utils/nostr';
 import { npubToHex } from '../../utils/ndkConversion';
-import { NDKPrivateKeySigner, NDKEvent } from '@nostr-dev-kit/ndk';
+import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { Alert } from 'react-native';
+import unifiedSigningService from '../../services/auth/UnifiedSigningService';
 
 // QR Code
 import { QRDisplayModal } from '../qr/QRDisplayModal';
@@ -285,11 +285,15 @@ export const EventsCard: React.FC<EventsCardProps> = ({
         authData.hexPubkey
       );
 
-      // Sign and publish
+      // Sign and publish (works for both nsec and Amber)
+      const signer = await unifiedSigningService.getSigner();
+      if (!signer) {
+        Alert.alert('Error', 'No authentication found. Please login first.');
+        return;
+      }
+
       const g = globalThis as any;
       const ndk = g.__RUNSTR_NDK_INSTANCE__;
-      const privateKeyHex = nsecToPrivateKey(authData.nsec);
-      const signer = new NDKPrivateKeySigner(privateKeyHex);
       const ndkEvent = new NDKEvent(ndk, eventTemplate);
       await ndkEvent.sign(signer);
       await ndkEvent.publish();

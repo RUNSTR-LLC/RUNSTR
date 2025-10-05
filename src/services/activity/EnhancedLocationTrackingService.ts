@@ -896,6 +896,28 @@ export class EnhancedLocationTrackingService {
   }
 
   /**
+   * Get interpolated distance for smooth UI updates
+   * Uses Kalman filter velocity prediction between GPS updates
+   */
+  getInterpolatedDistance(): number {
+    if (!this.currentSession) return 0;
+
+    // If Kalman filter is ready and has velocity estimate, use prediction
+    if (this.kalmanFilter.isReady() && this.lastValidLocation) {
+      const timeSinceLastGPS = (Date.now() - this.lastValidLocation.timestamp) / 1000;
+
+      // Only interpolate if less than 5 seconds since last GPS update
+      // (prevents runaway interpolation if GPS is lost)
+      if (timeSinceLastGPS < 5) {
+        return this.kalmanFilter.predict(timeSinceLastGPS);
+      }
+    }
+
+    // Fall back to actual distance if interpolation not available
+    return this.currentSession.totalDistance;
+  }
+
+  /**
    * Get current recovery progress
    */
   getRecoveryProgress(): {

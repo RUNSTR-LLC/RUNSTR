@@ -7,6 +7,7 @@
 import { EventTemplate, Event, getPublicKey } from 'nostr-tools';
 import { NostrProtocolHandler } from './NostrProtocolHandler';
 import { NostrRelayManager, nostrRelayManager } from './NostrRelayManager';
+import type { NDKSigner } from '@nostr-dev-kit/ndk';
 import type {
   NostrLeagueDefinition,
   NostrEventDefinition,
@@ -47,23 +48,32 @@ export class NostrCompetitionService {
 
   /**
    * Create and publish a league to Nostr relays
+   * Supports both direct privateKeyHex (nsec users) and NDKSigner (Amber users)
    */
   static async createLeague(
     leagueData: Omit<NostrLeagueDefinition, 'id' | 'captainPubkey' | 'createdAt' | 'updatedAt' | 'status'>,
-    captainPrivateKey: string
+    captainPrivateKeyOrSigner: string | NDKSigner
   ): Promise<CompetitionPublishResult> {
     try {
       console.log('📊 Creating league:', leagueData.name);
+
+      const isSigner = typeof captainPrivateKeyOrSigner !== 'string';
 
       // Generate unique competition ID
       const competitionId = NostrCompetitionService.generateCompetitionId('league', leagueData.name);
       const now = Math.floor(Date.now() / 1000);
 
-      // Get captain's public key from private key
-      const privateKeyBytes = new Uint8Array(
-        captainPrivateKey.match(/.{2}/g)?.map((byte) => parseInt(byte, 16)) || []
-      );
-      const captainPubkey = getPublicKey(privateKeyBytes);
+      // Get captain's public key based on auth method
+      let captainPubkey: string;
+      if (isSigner) {
+        const user = await captainPrivateKeyOrSigner.user();
+        captainPubkey = user.pubkey;
+      } else {
+        const privateKeyBytes = new Uint8Array(
+          captainPrivateKeyOrSigner.match(/.{2}/g)?.map((byte) => parseInt(byte, 16)) || []
+        );
+        captainPubkey = getPublicKey(privateKeyBytes);
+      }
 
       // Create full league definition
       const leagueDefinition: NostrLeagueDefinition = {
@@ -109,9 +119,20 @@ export class NostrCompetitionService {
         created_at: now,
       };
 
-      // Sign and publish event
+      // Sign and publish event based on auth method
       const service = NostrCompetitionService.getInstance();
-      const signedEvent = await service.protocolHandler.signEvent(eventTemplate, captainPrivateKey);
+      let signedEvent: Event;
+      if (isSigner) {
+        signedEvent = await service.protocolHandler.signEventWithSigner(
+          eventTemplate,
+          captainPrivateKeyOrSigner as NDKSigner
+        );
+      } else {
+        signedEvent = await service.protocolHandler.signEvent(
+          eventTemplate,
+          captainPrivateKeyOrSigner as string
+        );
+      }
       const publishResult = await service.relayManager.publishEvent(signedEvent);
 
       // Check if any relays were successful
@@ -141,23 +162,32 @@ export class NostrCompetitionService {
 
   /**
    * Create and publish an event to Nostr relays
+   * Supports both direct privateKeyHex (nsec users) and NDKSigner (Amber users)
    */
   static async createEvent(
     eventData: Omit<NostrEventDefinition, 'id' | 'captainPubkey' | 'createdAt' | 'updatedAt' | 'status'>,
-    captainPrivateKey: string
+    captainPrivateKeyOrSigner: string | NDKSigner
   ): Promise<CompetitionPublishResult> {
     try {
       console.log('🎯 Creating event:', eventData.name);
+
+      const isSigner = typeof captainPrivateKeyOrSigner !== 'string';
 
       // Generate unique competition ID
       const competitionId = NostrCompetitionService.generateCompetitionId('event', eventData.name);
       const now = Math.floor(Date.now() / 1000);
 
-      // Get captain's public key from private key
-      const privateKeyBytes = new Uint8Array(
-        captainPrivateKey.match(/.{2}/g)?.map((byte) => parseInt(byte, 16)) || []
-      );
-      const captainPubkey = getPublicKey(privateKeyBytes);
+      // Get captain's public key based on auth method
+      let captainPubkey: string;
+      if (isSigner) {
+        const user = await captainPrivateKeyOrSigner.user();
+        captainPubkey = user.pubkey;
+      } else {
+        const privateKeyBytes = new Uint8Array(
+          captainPrivateKeyOrSigner.match(/.{2}/g)?.map((byte) => parseInt(byte, 16)) || []
+        );
+        captainPubkey = getPublicKey(privateKeyBytes);
+      }
 
       // Create full event definition
       const eventDefinition: NostrEventDefinition = {
@@ -205,9 +235,20 @@ export class NostrCompetitionService {
         created_at: now,
       };
 
-      // Sign and publish event
+      // Sign and publish event based on auth method
       const service = NostrCompetitionService.getInstance();
-      const signedEvent = await service.protocolHandler.signEvent(eventTemplate, captainPrivateKey);
+      let signedEvent: Event;
+      if (isSigner) {
+        signedEvent = await service.protocolHandler.signEventWithSigner(
+          eventTemplate,
+          captainPrivateKeyOrSigner as NDKSigner
+        );
+      } else {
+        signedEvent = await service.protocolHandler.signEvent(
+          eventTemplate,
+          captainPrivateKeyOrSigner as string
+        );
+      }
       const publishResult = await service.relayManager.publishEvent(signedEvent);
 
       // Check if any relays were successful

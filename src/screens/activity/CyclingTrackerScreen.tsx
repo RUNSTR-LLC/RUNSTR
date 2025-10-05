@@ -72,12 +72,14 @@ export const CyclingTrackerScreen: React.FC = () => {
   const updateMetrics = () => {
     const session = enhancedLocationTrackingService.getCurrentSession();
     if (session) {
+      // Use interpolated distance for smooth UI updates between GPS points
+      const displayDistance = enhancedLocationTrackingService.getInterpolatedDistance();
       // Calculate current speed based on distance and time
-      let speed = activityMetricsService.calculateSpeed(session.totalDistance, elapsedTime);
+      let speed = activityMetricsService.calculateSpeed(displayDistance, elapsedTime);
 
       setCurrentSpeed(speed);
       setMetrics({
-        distance: activityMetricsService.formatDistance(session.totalDistance),
+        distance: activityMetricsService.formatDistance(displayDistance),
         duration: activityMetricsService.formatDuration(elapsedTime),
         speed: activityMetricsService.formatSpeed(speed),
         elevation: activityMetricsService.formatElevation(session.totalElevationGain),

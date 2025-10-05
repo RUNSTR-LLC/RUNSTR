@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   startButton: {
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.colors.orangeDeep,
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 40,

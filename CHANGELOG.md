@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Improved
 - **Activity Tracker Enhancements**: Major improvements to workout tracking experience
+  - **Smooth Distance Updates**: Distance now updates smoothly every second using Kalman filter velocity prediction
+  - GPS accuracy remains unchanged - interpolation only affects UI display between GPS updates
+  - Shows incremental progress (0.01 → 0.02 → 0.03 km) instead of jumpy updates (0 → 0.02 → 0.06)
+  - Applied to all activity types: running, walking, and cycling
   - More responsive GPS tracking with better accuracy indicators
   - Enhanced pause/resume functionality with clearer visual states
   - Improved workout summary display with better stat formatting

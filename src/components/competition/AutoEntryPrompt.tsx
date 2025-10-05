@@ -12,7 +12,6 @@ import {
   StyleSheet,
   Modal,
   ScrollView,
-  Alert,
   Animated,
 } from 'react-native';
 import { theme } from '../../styles/theme';
@@ -21,6 +20,7 @@ import { Card } from '../ui/Card';
 import EventEligibilityService from '../../services/competition/eventEligibilityService';
 import type { EligibleEvent, EventAutoEntryResult } from '../../services/competition/eventEligibilityService';
 import type { NostrWorkout } from '../../types/nostrWorkout';
+import { CustomAlert } from '../ui/CustomAlert';
 
 export interface AutoEntryPromptProps {
   visible: boolean;
@@ -46,6 +46,17 @@ export const AutoEntryPrompt: React.FC<AutoEntryPromptProps> = ({
   const [isEntering, setIsEntering] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EligibleEvent | null>(null);
   const fadeAnim = new Animated.Value(0);
+
+  const [alertState, setAlertState] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    buttons?: Array<{ text: string; onPress?: () => void; style?: 'default' | 'cancel' | 'destructive' }>;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
 
   // Load suggested events when modal opens
   useEffect(() => {
@@ -86,7 +97,11 @@ export const AutoEntryPrompt: React.FC<AutoEntryPromptProps> = ({
 
   const handleQuickEntry = async (event: EligibleEvent) => {
     if (!userPrivateKey) {
-      Alert.alert('Error', 'Authentication required for event entry');
+      setAlertState({
+        visible: true,
+        title: 'Error',
+        message: 'Authentication required for event entry',
+      });
       return;
     }
 
@@ -103,22 +118,29 @@ export const AutoEntryPrompt: React.FC<AutoEntryPromptProps> = ({
 
       // Show result to user
       if (result.success) {
-        Alert.alert(
-          '🎉 Event Entry Successful!',
-          result.requiresApproval 
+        setAlertState({
+          visible: true,
+          title: '🎉 Event Entry Successful!',
+          message: result.requiresApproval
             ? `Your entry to "${event.eventName}" is pending captain approval.`
             : `You're now competing in "${event.eventName}"!`,
-          [{ text: 'Great!', onPress: () => onEntryComplete(result) }]
-        );
+          buttons: [{ text: 'Great!', onPress: () => onEntryComplete(result), style: 'default' }],
+        });
       } else {
-        Alert.alert('Entry Failed', result.message, [
-          { text: 'OK', style: 'default' }
-        ]);
+        setAlertState({
+          visible: true,
+          title: 'Entry Failed',
+          message: result.message,
+        });
       }
 
     } catch (error) {
       console.error('❌ Event entry failed:', error);
-      Alert.alert('Error', 'Failed to enter event. Please try again.');
+      setAlertState({
+        visible: true,
+        title: 'Error',
+        message: 'Failed to enter event. Please try again.',
+      });
     } finally {
       setIsEntering(false);
       setSelectedEvent(null);
@@ -140,9 +162,9 @@ export const AutoEntryPrompt: React.FC<AutoEntryPromptProps> = ({
   };
 
   const getEligibilityBadge = (score: number) => {
-    if (score >= 90) return { text: 'Perfect Match', color: theme.colors.success };
-    if (score >= 70) return { text: 'Great Match', color: theme.colors.accent };
-    if (score >= 50) return { text: 'Good Match', color: theme.colors.warning };
+    if (score >= 90) return { text: 'Perfect Match', color: theme.colors.orangeBright }; // Bright orange
+    if (score >= 70) return { text: 'Great Match', color: theme.colors.orangeDeep }; // Deep orange
+    if (score >= 50) return { text: 'Good Match', color: theme.colors.orangeBurnt }; // Burnt orange
     return { text: 'Possible Match', color: theme.colors.textMuted };
   };
 
@@ -296,6 +318,14 @@ export const AutoEntryPrompt: React.FC<AutoEntryPromptProps> = ({
           </View>
         </Animated.View>
       </View>
+
+      <CustomAlert
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        buttons={alertState.buttons || [{ text: 'OK', style: 'default' }]}
+        onClose={() => setAlertState({ ...alertState, visible: false })}
+      />
     </Modal>
   );
 };

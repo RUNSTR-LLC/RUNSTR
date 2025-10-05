@@ -21,8 +21,8 @@ import { NostrListService } from '../../services/nostr/NostrListService';
 import { npubToHex } from '../../utils/ndkConversion';
 import { useUserStore } from '../../store/userStore';
 import { getAuthenticationData } from '../../utils/nostrAuth';
-import { nsecToPrivateKey } from '../../utils/nostr';
 import { DirectNostrProfileService } from '../../services/user/directNostrProfileService';
+import unifiedSigningService from '../../services/auth/UnifiedSigningService';
 import type {
   NostrActivityType,
   NostrEventCompetitionType,
@@ -228,8 +228,13 @@ export const EventCreationWizard: React.FC<EventCreationWizardProps> = ({
 
       console.log('✅ Retrieved auth data for:', authData.npub.slice(0, 20) + '...');
 
-      // Convert nsec to private key hex
-      const privateKeyHex = nsecToPrivateKey(authData.nsec);
+      // Get signer (works for both nsec and Amber)
+      const signer = await unifiedSigningService.getSigner();
+      if (!signer) {
+        Alert.alert('Error', 'No authentication found. Please login first.');
+        setIsCreating(false);
+        return;
+      }
 
       // Prepare event data for Nostr
       const eventCreationData = {
@@ -249,10 +254,10 @@ export const EventCreationWizard: React.FC<EventCreationWizardProps> = ({
 
       console.log('🎯 Creating event:', eventCreationData);
 
-      // Create event using Nostr Competition Service
+      // Create event using Nostr Competition Service (works with both nsec and Amber)
       const result = await NostrCompetitionService.createEvent(
         eventCreationData,
-        privateKeyHex
+        signer
       );
 
       if (result.success) {

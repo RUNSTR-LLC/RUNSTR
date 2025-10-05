@@ -11,11 +11,11 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { theme } from '../../styles/theme';
 import type { UnifiedWorkout } from '../../services/fitness/workoutMergeService';
 import { SocialShareModal } from './SocialShareModal';
+import { CustomAlert } from '../ui/CustomAlert';
 
 interface WorkoutActionButtonsProps {
   workout: UnifiedWorkout;
@@ -52,6 +52,16 @@ export const WorkoutActionButtons: React.FC<WorkoutActionButtonsProps> = ({
     showSocialShare: false,
   });
 
+  const [alertState, setAlertState] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
+
   const handleSaveToNostr = async () => {
     if (!workout.canSyncToNostr || state.saving) return;
 
@@ -67,11 +77,11 @@ export const WorkoutActionButtons: React.FC<WorkoutActionButtonsProps> = ({
       }, 2000);
     } catch (error) {
       setState((prev) => ({ ...prev, saving: false }));
-      Alert.alert(
-        'Competition Entry Failed',
-        'Could not enter workout into competition. Please check your connection and try again.',
-        [{ text: 'OK' }]
-      );
+      setAlertState({
+        visible: true,
+        title: 'Competition Entry Failed',
+        message: 'Could not enter workout into competition. Please check your connection and try again.',
+      });
     }
   };
 
@@ -104,11 +114,11 @@ export const WorkoutActionButtons: React.FC<WorkoutActionButtonsProps> = ({
       }, 2000);
     } catch (error) {
       setState((prev) => ({ ...prev, posting: false }));
-      Alert.alert(
-        'Post Failed',
-        'Could not post workout to social feeds. Please try again.',
-        [{ text: 'OK' }]
-      );
+      setAlertState({
+        visible: true,
+        title: 'Post Failed',
+        message: 'Could not post workout to social feeds. Please try again.',
+      });
     }
   };
 
@@ -202,6 +212,14 @@ export const WorkoutActionButtons: React.FC<WorkoutActionButtonsProps> = ({
         onClose={() => setModalState({ showSocialShare: false })}
         onSelectPlatform={handlePostToNostr}
       />
+
+      <CustomAlert
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        buttons={[{ text: 'OK', style: 'default' }]}
+        onClose={() => setAlertState({ ...alertState, visible: false })}
+      />
     </View>
   );
 };
@@ -233,12 +251,12 @@ const styles = StyleSheet.create({
     minWidth: 80,
   },
   saveButton: {
-    backgroundColor: theme.colors.text, // White background
-    borderColor: theme.colors.text,
+    backgroundColor: theme.colors.orangeDeep, // Deep orange background
+    borderColor: theme.colors.orangeBright,
   },
   postButton: {
-    backgroundColor: theme.colors.text, // White background
-    borderColor: theme.colors.text, // White border
+    backgroundColor: theme.colors.orangeDeep, // Deep orange background
+    borderColor: theme.colors.orangeBright, // Bright orange border
   },
   disabledButton: {
     backgroundColor: theme.colors.cardBackground,
@@ -246,8 +264,8 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   successButton: {
-    backgroundColor: theme.colors.text, // White background for success
-    borderColor: theme.colors.text,
+    backgroundColor: theme.colors.orangeBright, // Bright orange for success
+    borderColor: theme.colors.orangeBright,
   },
   buttonContent: {
     flexDirection: 'row',
@@ -278,15 +296,15 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1,
     minWidth: 100,
-    backgroundColor: theme.colors.text, // White background
-    borderColor: theme.colors.text,
+    backgroundColor: theme.colors.orangeDeep, // Deep orange background
+    borderColor: theme.colors.orangeBright,
     opacity: 0.6, // Inactive state
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
   competingButtonText: {
-    color: theme.colors.background, // Black text
+    color: theme.colors.background, // Black text on orange
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
@@ -297,15 +315,15 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1,
     minWidth: 100,
-    backgroundColor: theme.colors.text, // White background
-    borderColor: theme.colors.text,
+    backgroundColor: theme.colors.orangeDeep, // Deep orange background
+    borderColor: theme.colors.orangeBright,
     opacity: 0.6, // Inactive state
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
   postedButtonText: {
-    color: theme.colors.background, // Black text
+    color: theme.colors.background, // Black text on orange
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',

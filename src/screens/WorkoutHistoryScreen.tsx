@@ -23,11 +23,11 @@ import {
 } from '../services/fitness/workoutMergeService';
 import { WorkoutPublishingService } from '../services/nostr/workoutPublishingService';
 import { NostrWorkoutSyncService } from '../services/fitness/nostrWorkoutSyncService';
-import { getNsecFromStorage } from '../utils/nostr';
 import { WorkoutCacheService } from '../services/cache/WorkoutCacheService';
 import { WorkoutGroupingService, type WorkoutGroup } from '../utils/workoutGrouping';
 import healthKitService from '../services/fitness/healthKitService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import unifiedSigningService from '../services/auth/UnifiedSigningService';
 
 // UI Components
 import { Card } from '../components/ui/Card';
@@ -76,7 +76,6 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
-  const [nsecKey, setNsecKey] = useState<string | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'year'>('month');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [viewType, setViewType] = useState<ViewType>('all');
@@ -224,16 +223,6 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
     });
   };
 
-  const loadNsecKey = async (userPubkey: string) => {
-    try {
-      // Get nsec from AsyncStorage directly (no userId needed)
-      const nsec = await AsyncStorage.getItem('@runstr:user_nsec');
-      setNsecKey(nsec);
-    } catch (error) {
-      console.error('Failed to load nsec key:', error);
-      // Not critical - user can still view workouts
-    }
-  };
 
   const handleRefresh = useCallback(async () => {
     if (!pubkey) return;
@@ -251,10 +240,13 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
   }, [pubkey]);
 
   const handleSaveToNostr = async (workout: UnifiedWorkout) => {
-    if (!nsecKey) {
+    // Get signer (works for both nsec and Amber)
+    const signer = await unifiedSigningService.getSigner();
+
+    if (!signer) {
       Alert.alert(
         'Authentication Required',
-        'Please log in with your Nostr key to save workouts.'
+        'Please log in to save workouts.'
       );
       return;
     }
@@ -265,10 +257,10 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
     }
 
     try {
-      // Pure Nostr implementation - use pubkey as identifier
+      // Pure Nostr implementation - use pubkey as identifier (works with both nsec and Amber)
       const result = await publishingService.saveWorkoutToNostr(
         workout,
-        nsecKey,
+        signer,
         pubkey // Use pubkey instead of userId
       );
 
@@ -291,10 +283,13 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
   };
 
   const handlePostToNostr = async (workout: UnifiedWorkout) => {
-    if (!nsecKey) {
+    // Get signer (works for both nsec and Amber)
+    const signer = await unifiedSigningService.getSigner();
+
+    if (!signer) {
       Alert.alert(
         'Authentication Required',
-        'Please log in with your Nostr key to post workouts.'
+        'Please log in to post workouts.'
       );
       return;
     }
@@ -305,10 +300,10 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
     }
 
     try {
-      // Pure Nostr implementation - use pubkey as identifier
+      // Pure Nostr implementation - use pubkey as identifier (works with both nsec and Amber)
       const result = await publishingService.postWorkoutToSocial(
         workout,
-        nsecKey,
+        signer,
         pubkey // Use pubkey instead of userId
       );
 

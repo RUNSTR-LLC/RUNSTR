@@ -14,6 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Event, EventTemplate } from 'nostr-tools';
 import type { Workout } from '../../types/workout';
 import type { WorkoutType } from '../../types/workout';
+import type { NDKSigner } from '@nostr-dev-kit/ndk';
 
 // Extended workout interface for publishing (simplified from UnifiedWorkout)
 export interface PublishableWorkout extends Workout {
@@ -74,19 +75,29 @@ export class WorkoutPublishingService {
 
   /**
    * Save HealthKit workout as Kind 1301 Nostr event (NIP-101e compliant)
+   * Supports both direct privateKeyHex (nsec users) and NDKSigner (Amber users)
    */
   async saveWorkoutToNostr(
     workout: PublishableWorkout,
-    privateKeyHex: string,
+    privateKeyHexOrSigner: string | NDKSigner,
     userId: string
   ): Promise<WorkoutPublishResult> {
     try {
       console.log(`🔄 Publishing workout ${workout.id} as kind 1301 event (runstr format)...`);
 
-      // Get public key from private key for exercise tag
-      const pubkey = await this.protocolHandler.getPubkeyFromPrivate(privateKeyHex);
+      const isSigner = typeof privateKeyHexOrSigner !== 'string';
+      let pubkey: string;
+      let signedEvent: Event;
 
-      // Create and sign the kind 1301 event with NIP-101e structure
+      // Get public key based on auth method
+      if (isSigner) {
+        const user = await privateKeyHexOrSigner.user();
+        pubkey = user.pubkey;
+      } else {
+        pubkey = await this.protocolHandler.getPubkeyFromPrivate(privateKeyHexOrSigner);
+      }
+
+      // Create the kind 1301 event with NIP-101e structure
       const eventTemplate: EventTemplate = {
         kind: 1301,
         content: this.generateWorkoutDescription(workout), // Plain text description
@@ -99,10 +110,18 @@ export class WorkoutPublishingService {
         throw new Error('Event structure does not comply with runstr format');
       }
 
-      const signedEvent = await this.protocolHandler.signEvent(
-        eventTemplate,
-        privateKeyHex
-      );
+      // Sign event based on auth method
+      if (isSigner) {
+        signedEvent = await this.protocolHandler.signEventWithSigner(
+          eventTemplate,
+          privateKeyHexOrSigner as NDKSigner
+        );
+      } else {
+        signedEvent = await this.protocolHandler.signEvent(
+          eventTemplate,
+          privateKeyHexOrSigner as string
+        );
+      }
 
       // Publish to relays with retry mechanism
       const publishResult = await this.publishEventToRelaysWithRetry(signedEvent);
@@ -123,15 +142,18 @@ export class WorkoutPublishingService {
 
   /**
    * Post workout as Kind 1 social event with workout card
+   * Supports both direct privateKeyHex (nsec users) and NDKSigner (Amber users)
    */
   async postWorkoutToSocial(
     workout: PublishableWorkout,
-    privateKeyHex: string,
+    privateKeyHexOrSigner: string | NDKSigner,
     userId: string,
     options: SocialPostOptions = {}
   ): Promise<WorkoutPublishResult> {
     try {
       console.log(`🔄 Creating social post for workout ${workout.id}...`);
+
+      const isSigner = typeof privateKeyHexOrSigner !== 'string';
 
       // Generate social post content
       const postContent = await this.generateSocialPostContent(
@@ -139,7 +161,7 @@ export class WorkoutPublishingService {
         options
       );
 
-      // Create and sign the kind 1 event
+      // Create the kind 1 event
       const eventTemplate: EventTemplate = {
         kind: 1,
         content: postContent,
@@ -147,10 +169,19 @@ export class WorkoutPublishingService {
         created_at: Math.floor(Date.now() / 1000),
       };
 
-      const signedEvent = await this.protocolHandler.signEvent(
-        eventTemplate,
-        privateKeyHex
-      );
+      // Sign event based on auth method
+      let signedEvent: Event;
+      if (isSigner) {
+        signedEvent = await this.protocolHandler.signEventWithSigner(
+          eventTemplate,
+          privateKeyHexOrSigner as NDKSigner
+        );
+      } else {
+        signedEvent = await this.protocolHandler.signEvent(
+          eventTemplate,
+          privateKeyHexOrSigner as string
+        );
+      }
 
       // Publish to relays
       const publishResult = await this.publishEventToRelays(signedEvent);
@@ -212,7 +243,7 @@ export class WorkoutPublishingService {
       ['distance', distanceValue, distanceUnit], // Distance with value and unit
       ['duration', durationFormatted], // HH:MM:SS format
       ['source', 'RUNSTR'], // App identification
-      ['client', 'RUNSTR', '0.1.2'], // Client info with version
+      ['client', 'RUNSTR', '0.1.3'], // Client info with version
       ['t', this.getActivityHashtag(workout.type)], // Primary hashtag
     ];
 
@@ -718,10 +749,11 @@ export class WorkoutPublishingService {
 
   /**
    * Batch publish multiple workouts
+   * Supports both direct privateKeyHex (nsec users) and NDKSigner (Amber users)
    */
   async batchSaveWorkouts(
     workouts: PublishableWorkout[],
-    privateKeyHex: string,
+    privateKeyHexOrSigner: string | NDKSigner,
     userId: string,
     onProgress?: (completed: number, total: number) => void
   ): Promise<{
@@ -739,7 +771,7 @@ export class WorkoutPublishingService {
       try {
         const result = await this.saveWorkoutToNostr(
           workout,
-          privateKeyHex,
+          privateKeyHexOrSigner,
           userId
         );
         results.push(result);

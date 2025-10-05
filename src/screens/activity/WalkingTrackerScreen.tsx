@@ -71,10 +71,12 @@ export const WalkingTrackerScreen: React.FC = () => {
   const updateMetrics = () => {
     const session = enhancedLocationTrackingService.getCurrentSession();
     if (session) {
-      const steps = activityMetricsService.estimateSteps(session.totalDistance);
+      // Use interpolated distance for smooth UI updates between GPS points
+      const displayDistance = enhancedLocationTrackingService.getInterpolatedDistance();
+      const steps = activityMetricsService.estimateSteps(displayDistance);
 
       setMetrics({
-        distance: activityMetricsService.formatDistance(session.totalDistance),
+        distance: activityMetricsService.formatDistance(displayDistance),
         duration: activityMetricsService.formatDuration(elapsedTime),
         steps: activityMetricsService.formatSteps(steps),
         elevation: activityMetricsService.formatElevation(session.totalElevationGain),
