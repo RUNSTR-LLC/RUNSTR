@@ -4,6 +4,32 @@ All notable changes to RUNSTR will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.5] - 2025-10-04
+
+### Fixed
+- **Amber Signing**: Calculate event ID before Amber signing to resolve permission errors
+  - Fixed "Permission denied" errors when Amber users try to sign workout events
+  - Event IDs are now properly generated before passing to Amber signer
+  - Resolves compatibility issues with latest Amber versions
+- **Location Tracking Reliability**: Android foreground service prevents Doze Mode from stopping GPS
+  - Background location tracking now continues reliably during long workouts
+  - Foreground service notification keeps location service active
+  - Prevents Android battery optimization from killing workout tracking
+- **Location Permission Flow**: Request permissions at login instead of run start
+  - Smoother onboarding experience with upfront permission requests
+  - Eliminates permission interruptions when starting first workout
+  - Better UX for new users
+
+### Improved
+- **Kilometer Splits Display**: Removed redundant 'Recording' status indicator
+  - Cleaner UI during workout tracking
+  - Focus on actual workout metrics instead of status text
+  - Improved kilometer splits visibility
+- **Android App Icon**: Scaled down adaptive icon by 12% to prevent clipping
+  - Fixed ostrich head being cut off on some Android launchers
+  - Better visual presentation across all Android devices
+  - Maintains proper padding for round icon masks
+
 ## [0.1.4] - 2025-10-04
 
 ### Fixed

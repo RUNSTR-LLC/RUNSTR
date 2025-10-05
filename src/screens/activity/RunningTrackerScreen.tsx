@@ -290,9 +290,9 @@ export const RunningTrackerScreen: React.FC = () => {
           <View style={styles.splitsContainer}>
             <Text style={styles.splitsTitle}>Kilometer Splits</Text>
             <ScrollView
-              style={styles.splitsScrollView}
               contentContainerStyle={styles.splitsScrollContent}
               showsVerticalScrollIndicator={false}
+              nestedScrollEnabled={true}
             >
               {splits.map((split, index) => (
                 <View key={split.number} style={styles.splitRow}>
@@ -373,6 +373,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-start',
     paddingTop: 20,
+    paddingBottom: 20, // Ensure space for controls
   },
   metricsRow: {
     flexDirection: 'row',
@@ -458,8 +459,8 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: theme.colors.orangeDeep,
-    maxHeight: 300,
-    zIndex: 10,
+    maxHeight: 200, // Reduced to prevent overlap with controls
+    flexShrink: 1, // Allow shrinking if space is limited
   },
   splitsTitle: {
     fontSize: 14,
@@ -467,9 +468,6 @@ const styles = StyleSheet.create({
     color: theme.colors.orangeBright,
     marginBottom: 12,
     letterSpacing: 0.5,
-  },
-  splitsScrollView: {
-    flex: 1,
   },
   splitsScrollContent: {
     gap: 8,

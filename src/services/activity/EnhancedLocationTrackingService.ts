@@ -42,7 +42,8 @@ export interface EnhancedTrackingSession {
   startTime: number;
   endTime?: number;
   activityType: 'running' | 'walking' | 'cycling';
-  totalDistance: number;
+  totalDistance: number; // Kalman-smoothed distance for display
+  rawCumulativeDistance: number; // Actual GPS-measured distance (for accuracy tracking)
   totalElevationGain: number;
   duration: number; // Active duration excluding pauses
   pausedDuration: number;
@@ -225,6 +226,7 @@ export class EnhancedLocationTrackingService {
         startTime,
         activityType,
         totalDistance: 0,
+        rawCumulativeDistance: 0,
         totalElevationGain: 0,
         duration: 0,
         pausedDuration: 0,
@@ -490,8 +492,16 @@ export class EnhancedLocationTrackingService {
           confidence: pointToStore.confidence,
         });
 
-        // Use Kalman-filtered distance for smoother accumulation
-        this.currentSession.totalDistance = kalmanState.distance;
+        // Update raw cumulative distance (actual GPS measurements)
+        this.currentSession.rawCumulativeDistance += rawDistance;
+
+        // Use Kalman-filtered distance with monotonicity guarantee
+        // Distance should never decrease (prevents oscillations)
+        const newSmoothedDistance = kalmanState.distance;
+        this.currentSession.totalDistance = Math.max(
+          this.currentSession.totalDistance,
+          newSmoothedDistance
+        );
 
         // Debug logging for Kalman filtering
         if (Platform.OS === 'android') {
