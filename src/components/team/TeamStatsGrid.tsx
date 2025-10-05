@@ -43,16 +43,24 @@ export const TeamStatsGrid: React.FC<TeamStatsGridProps> = ({ stats }) => {
     return pace; // Already formatted like "6:45/mi"
   };
 
+  // ✅ Defensive: Handle undefined stats object
+  const safeStats = stats || {
+    memberCount: 0,
+    activeEvents: 0,
+    activeChallenges: 0,
+    avgPace: 'N/A',
+  };
+
   return (
     <View style={styles.statsGrid}>
-      <StatItem label="MEMBERS" value={formatMemberCount(stats.memberCount)} />
+      <StatItem label="MEMBERS" value={formatMemberCount(safeStats.memberCount)} />
       <StatItem
         label="ACTIVE EVENTS"
-        value={formatEventCount(stats.activeEvents)}
+        value={formatEventCount(safeStats.activeEvents)}
       />
       <StatItem
         label="CHALLENGES"
-        value={formatChallengeCount(stats.activeChallenges)}
+        value={formatChallengeCount(safeStats.activeChallenges)}
       />
     </View>
   );
