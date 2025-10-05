@@ -345,16 +345,6 @@ export const RunningTrackerScreen: React.FC = () => {
         )}
       </View>
 
-      {/* Status Indicator */}
-      {isTracking && (
-        <View style={styles.statusContainer}>
-          <View style={[styles.statusDot, isPaused && styles.statusDotPaused]} />
-          <Text style={styles.statusText}>
-            {isPaused ? 'Paused' : 'Recording'}
-          </Text>
-        </View>
-      )}
-
       {/* Workout Summary Modal */}
       {workoutData && (
         <WorkoutSummaryModal
@@ -461,34 +451,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: theme.colors.border,
   },
-  statusContainer: {
-    position: 'absolute',
-    top: 80, // Position below GPS status indicator (which takes ~60px + margin)
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.card,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: theme.colors.orangeBright, // Orange when recording
-    marginRight: 8,
-  },
-  statusDotPaused: {
-    backgroundColor: theme.colors.textMuted, // Gray when paused
-  },
-  statusText: {
-    color: theme.colors.text,
-    fontSize: 14,
-    fontWeight: theme.typography.weights.medium,
-  },
   splitsContainer: {
     marginTop: 20,
     backgroundColor: theme.colors.card,
@@ -496,7 +458,8 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: theme.colors.orangeDeep,
-    maxHeight: 200,
+    maxHeight: 300,
+    zIndex: 10,
   },
   splitsTitle: {
     fontSize: 14,

@@ -87,16 +87,6 @@ export const BaseTrackerComponent: React.FC<BaseTrackerProps> = ({
           </>
         )}
       </View>
-
-      {/* Status Indicator */}
-      {isTracking && (
-        <View style={styles.statusContainer}>
-          <View style={[styles.statusDot, isPaused && styles.statusDotPaused]} />
-          <Text style={styles.statusText}>
-            {isPaused ? 'Paused' : 'Recording'}
-          </Text>
-        </View>
-      )}
     </View>
   );
 };
@@ -187,33 +177,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: theme.colors.text,
-  },
-  statusContainer: {
-    position: 'absolute',
-    top: 40,
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.card,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: theme.colors.text,
-    marginRight: 8,
-  },
-  statusDotPaused: {
-    backgroundColor: theme.colors.textMuted,
-  },
-  statusText: {
-    color: theme.colors.text,
-    fontSize: 14,
-    fontWeight: theme.typography.weights.medium,
   },
 });
