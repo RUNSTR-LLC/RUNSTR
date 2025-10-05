@@ -5,9 +5,11 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { AuthService } from '../services/auth/authService';
-import { getNpubFromStorage } from '../utils/nostr';
+import { getNpubFromStorage, getUserNostrIdentifiers } from '../utils/nostr';
 import { DirectNostrProfileService } from '../services/user/directNostrProfileService';
 import { locationPermissionService } from '../services/activity/LocationPermissionService';
+import unifiedCache from '../services/cache/UnifiedNostrCache';
+import { CacheKeys } from '../constants/cacheTTL';
 import type { User } from '../types';
 
 // Authentication state interface
@@ -57,37 +59,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   /**
    * Check for stored credentials (FAST - no network calls)
-   * Profile loading is deferred until after app renders
+   * Profile loaded from UnifiedCache (prefetched by SplashInit)
    */
   const checkStoredCredentials = useCallback(async (): Promise<void> => {
     try {
       const storedNpub = await getNpubFromStorage();
 
       if (storedNpub) {
-        // FAST: Set authenticated state immediately for instant UI
+        // FAST: Set authenticated state immediately
         setIsAuthenticated(true);
         setConnectionStatus('Loading...');
 
-        // CRITICAL: Load cached user immediately, then refresh in background
-        const { appCache } = await import('../utils/cache');
-        const cachedUser = await appCache.get<User>('current_user_profile');
+        // Get user identifiers
+        const identifiers = await getUserNostrIdentifiers();
+        if (!identifiers) {
+          console.warn('⚠️ AuthContext: No user identifiers');
+          setIsAuthenticated(false);
+          setCurrentUser(null);
+          return;
+        }
+
+        const { hexPubkey } = identifiers;
+
+        // CRITICAL: Load from UnifiedCache (already prefetched by SplashInit)
+        const cachedUser = unifiedCache.getCached<User>(CacheKeys.USER_PROFILE(hexPubkey));
 
         if (cachedUser) {
-          console.log('⚡ AuthContext: Using cached user for instant UI');
+          console.log('⚡ AuthContext: Loaded user from UnifiedCache (instant)');
           setCurrentUser(cachedUser);
           setIsConnected(true);
           setConnectionStatus('Connected');
 
-          // Refresh profile in background (non-blocking)
-          setTimeout(() => {
-            console.log('🔄 AuthContext: Refreshing profile in background...');
-            loadUserProfile();
-          }, 100);
+          // Subscribe to profile updates
+          unifiedCache.subscribe(CacheKeys.USER_PROFILE(hexPubkey), (updatedUser) => {
+            console.log('🔄 AuthContext: User profile updated from cache');
+            setCurrentUser(updatedUser);
+          });
         } else {
-          // No cache - load profile (will still be non-blocking due to setTimeout)
-          setTimeout(() => {
-            loadUserProfile();
-          }, 100);
+          console.log('⚠️ AuthContext: No cached user found - will load on first access');
+          // Still set as authenticated - profile will load when needed
+          setIsConnected(true);
+          setConnectionStatus('Connected');
         }
       } else {
         setIsAuthenticated(false);

@@ -22,6 +22,8 @@ import { CompetitionCacheService } from '../services/cache/CompetitionCacheServi
 import { isTeamCaptainEnhanced } from '../utils/teamUtils';
 import { getUserNostrIdentifiers } from '../utils/nostr';
 import { useAuth } from './AuthContext';
+import unifiedCache from '../services/cache/UnifiedNostrCache';
+import { CacheKeys } from '../constants/cacheTTL';
 import type {
   TeamScreenData,
   ProfileScreenData,
@@ -538,45 +540,133 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
     }
   }, [currentUser]);
 
-  // Initial load - Non-blocking progressive loading for instant UI
+  // Initial load - Read from UnifiedCache (data already prefetched by SplashInit)
   useEffect(() => {
     const init = async () => {
-      console.log('🚀 NavigationDataProvider: Starting FAST initial load...');
+      console.log('🚀 NavigationDataProvider: Reading from cache (prefetched by SplashInit)...');
 
-      // CRITICAL: Make UI interactive immediately by setting isLoading = false
-      // Load all data in background without blocking UI
-      setIsLoading(false);
-      console.log('✅ NavigationDataProvider: UI now interactive (isLoading: false)');
-
-      // Background Task 1: Load user data (fast, from cache first)
-      fetchUserData().then(userData => {
-        console.log('🚀 NavigationDataProvider: User data loaded:', !!userData);
-
-        // Background Task 2: Load profile data (includes teams)
-        if (userData) {
-          fetchProfileData(userData).catch(err =>
-            console.warn('⚠️ Profile data load failed:', err)
-          );
+      try {
+        // Get user identifiers
+        const identifiers = await getUserNostrIdentifiers();
+        if (!identifiers) {
+          console.warn('⚠️ NavigationDataProvider: No user identifiers');
+          setIsLoading(false);
+          return;
         }
-      }).catch(err =>
-        console.error('❌ User data load failed:', err)
-      );
 
-      // Background Task 3: Load teams in parallel (don't block on user)
-      loadTeams().catch(err =>
-        console.warn('⚠️ Teams load failed:', err)
-      );
+        const { hexPubkey } = identifiers;
 
-      // Background Task 4: Prefetch leagues after short delay
-      setTimeout(() => {
-        console.log('⏰ Starting delayed league prefetch (2s after init)');
-        prefetchLeaguesInBackground().catch(err =>
-          console.warn('⚠️ League prefetch failed:', err)
-        );
-      }, 2000);
+        // Read from cache (INSTANT - no fetching)
+        const cachedProfile = unifiedCache.getCached(CacheKeys.USER_PROFILE(hexPubkey));
+        const cachedTeams = unifiedCache.getCached(CacheKeys.USER_TEAMS(hexPubkey));
+        const cachedDiscoveredTeams = unifiedCache.getCached(CacheKeys.DISCOVERED_TEAMS);
+        const cachedWalletInfo = unifiedCache.getCached(CacheKeys.WALLET_INFO(hexPubkey));
+
+        console.log('📦 NavigationDataProvider: Cache status:', {
+          profile: !!cachedProfile,
+          teams: cachedTeams?.length || 0,
+          discoveredTeams: cachedDiscoveredTeams?.length || 0,
+          wallet: !!cachedWalletInfo
+        });
+
+        // Set user from cached profile
+        if (cachedProfile) {
+          setUser(cachedProfile);
+        }
+
+        // Set teams from cache
+        if (cachedDiscoveredTeams) {
+          setAvailableTeams(cachedDiscoveredTeams);
+        }
+
+        // Build profile data from cached data
+        if (cachedProfile) {
+          const profileData: ProfileScreenData = {
+            user: {
+              id: cachedProfile.id,
+              name: cachedProfile.name,
+              email: cachedProfile.email || '',
+              npub: cachedProfile.npub,
+              avatar: cachedProfile.picture || '',
+              role: cachedProfile.role || 'member',
+              teamId: cachedProfile.teamId,
+              createdAt: cachedProfile.createdAt,
+              lastSyncAt: cachedProfile.lastSyncAt,
+              bio: cachedProfile.bio,
+              website: cachedProfile.website,
+              picture: cachedProfile.picture,
+              banner: cachedProfile.banner,
+              lud16: cachedProfile.lud16,
+              displayName: cachedProfile.displayName,
+            },
+            wallet: {
+              id: 'wallet_' + cachedProfile.id,
+              userId: cachedProfile.id,
+              balance: cachedWalletInfo?.balance || 0,
+              address: cachedProfile.lud16 || '',
+              transactions: [],
+            },
+            syncSources: [
+              {
+                provider: 'healthkit',
+                isConnected: false,
+                permissions: [],
+              },
+            ],
+            recentWorkouts: [],
+            teams: cachedTeams || [],
+            primaryTeamId: cachedTeams?.[0]?.id,
+            subscription: {
+              type: cachedProfile.role || 'member',
+              status: 'active',
+            },
+            notificationSettings: {
+              eventNotifications: true,
+              leagueUpdates: true,
+              teamAnnouncements: true,
+              bitcoinRewards: true,
+              challengeUpdates: true,
+              liveCompetitionUpdates: true,
+              workoutReminders: false,
+            },
+          };
+
+          setProfileData(profileData);
+        }
+
+        // UI is immediately ready - no fetching!
+        setIsLoading(false);
+        console.log('✅ NavigationDataProvider: Instant load complete from cache!');
+
+        // Subscribe to cache updates for reactive data
+        const unsubscribers = [
+          unifiedCache.subscribe(CacheKeys.USER_PROFILE(hexPubkey), (profile) => {
+            console.log('🔄 Profile updated from cache');
+            setUser(profile);
+          }),
+          unifiedCache.subscribe(CacheKeys.USER_TEAMS(hexPubkey), (teams) => {
+            console.log('🔄 Teams updated from cache');
+            // Update profile data with new teams
+            setProfileData(prev => prev ? { ...prev, teams } : null);
+          }),
+          unifiedCache.subscribe(CacheKeys.DISCOVERED_TEAMS, (teams) => {
+            console.log('🔄 Discovered teams updated from cache');
+            setAvailableTeams(teams);
+          })
+        ];
+
+        // Cleanup subscriptions on unmount
+        return () => {
+          unsubscribers.forEach(unsub => unsub());
+        };
+
+      } catch (error) {
+        console.error('❌ NavigationDataProvider: Init error:', error);
+        setIsLoading(false);
+      }
     };
     init();
-  }, [prefetchLeaguesInBackground]);
+  }, []);
 
   const value: NavigationData = {
     user,

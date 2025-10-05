@@ -9,16 +9,19 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NostrInitializationService } from '../services/nostr/NostrInitializationService';
+import nostrPrefetchService from '../services/nostr/NostrPrefetchService';
 import { theme } from '../styles/theme';
 
 const { width } = Dimensions.get('window');
 
 const INITIALIZATION_STEPS = [
-  { message: 'Starting RUNSTR...', weight: 10 },
-  { message: 'Connecting to Nostr relays...', weight: 25 },
-  { message: 'Initializing services...', weight: 20 },
-  { message: 'Loading your profile...', weight: 25 },
-  { message: 'Almost ready...', weight: 20 },
+  { message: 'Connecting to Nostr...', weight: 10 },
+  { message: 'Loading your profile...', weight: 15 },
+  { message: 'Finding your teams...', weight: 15 },
+  { message: 'Discovering teams...', weight: 15 },
+  { message: 'Loading workouts...', weight: 15 },
+  { message: 'Loading wallet...', weight: 15 },
+  { message: 'Loading competitions...', weight: 15 },
 ];
 
 // This screen is now shown after login while loading user data
@@ -62,49 +65,40 @@ export const SplashInitScreen: React.FC = () => {
 
   const initializeApp = async () => {
     try {
-      // Step 1: Initial setup
+      console.log('🚀 SplashInit: Starting comprehensive prefetch...');
+
+      // Step 1: Connect to Nostr relays
       setCurrentStep(0);
       setStatusMessage(INITIALIZATION_STEPS[0].message);
       animateProgress(calculateProgress(0));
-      await new Promise(resolve => setTimeout(resolve, 400));
-
-      // Step 2: Connect to relays
-      setCurrentStep(1);
-      setStatusMessage(INITIALIZATION_STEPS[1].message);
-      animateProgress(calculateProgress(1));
 
       const initService = NostrInitializationService.getInstance();
       await initService.connectToRelays();
-
-      // Step 3: Initialize NDK
-      setCurrentStep(2);
-      setStatusMessage(INITIALIZATION_STEPS[2].message);
-      animateProgress(calculateProgress(2));
-
       await initService.initializeNDK();
 
-      // Step 4: Discover teams (prefetch)
-      setCurrentStep(3);
-      setStatusMessage(INITIALIZATION_STEPS[3].message);
-      animateProgress(calculateProgress(3));
+      console.log('✅ SplashInit: Nostr connected');
 
-      // Start team discovery in background (don't await)
-      initService.prefetchTeams().catch(console.error);
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Step 2-7: Prefetch ALL user data with progress updates
+      await nostrPrefetchService.prefetchAllUserData(
+        (step, total, message) => {
+          // Update UI with each prefetch step
+          setCurrentStep(step); // steps 1-6
+          setStatusMessage(message);
+          animateProgress(calculateProgress(step));
+          console.log(`✅ SplashInit: ${message}`);
+        }
+      );
 
-      // Step 5: Final preparation
-      setCurrentStep(4);
-      setStatusMessage(INITIALIZATION_STEPS[4].message);
+      // Hold at 100% briefly so user sees completion
       animateProgress(1);
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Hold at 100% for a moment so user sees completion
-      await new Promise(resolve => setTimeout(resolve, 800));
+      console.log('✅ SplashInit: All data prefetched and cached - app ready!');
 
       // No navigation here - AuthContext will handle it when profile loads
-      console.log('✅ SplashInitScreen: Initialization complete');
     } catch (error) {
-      console.error('Initialization error:', error);
-      // Continue anyway - user is already authenticated
+      console.error('❌ SplashInit: Initialization error:', error);
+      // Continue anyway - app should work with partial data
     }
   };
 
