@@ -4,14 +4,13 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { enhancedLocationTrackingService } from '../../services/activity/EnhancedLocationTrackingService';
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
 import type { EnhancedTrackingSession } from '../../services/activity/EnhancedLocationTrackingService';
 import type { FormattedMetrics } from '../../services/activity/ActivityMetricsService';
-import type { Split } from '../../services/activity/SplitTrackingService';
 import { GPSStatusIndicator, type GPSSignalStrength } from '../../components/activity/GPSStatusIndicator';
 import { BatteryWarning } from '../../components/activity/BatteryWarning';
 import { WorkoutSummaryModal } from '../../components/activity/WorkoutSummaryModal';
@@ -43,7 +42,6 @@ export const RunningTrackerScreen: React.FC = () => {
     elevation: '0 m',
   });
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [splits, setSplits] = useState<Split[]>([]);
   const [gpsSignal, setGpsSignal] = useState<GPSSignalStrength>('searching'); // Start with 'searching' for proper UI initialization
   const [gpsAccuracy, setGpsAccuracy] = useState<number | undefined>();
   const [isBackgroundTracking, setIsBackgroundTracking] = useState(false);
@@ -137,9 +135,6 @@ export const RunningTrackerScreen: React.FC = () => {
       formatted.duration = formattedDuration;
 
       setMetrics(formatted);
-
-      // Update splits
-      setSplits(session.splits || []);
 
       // Update GPS status
       setGpsSignal(session.gpsSignalStrength as GPSSignalStrength);
@@ -255,7 +250,6 @@ export const RunningTrackerScreen: React.FC = () => {
       elevation: '0 m',
     });
     setElapsedTime(0);
-    setSplits([]);
   };
 
   return (
@@ -284,41 +278,6 @@ export const RunningTrackerScreen: React.FC = () => {
           <MetricCard label="Pace" value={metrics.pace ?? '--:--'} icon="speedometer" />
           <MetricCard label="Elevation" value={metrics.elevation ?? '0 m'} icon="trending-up" />
         </View>
-
-        {/* Splits Display */}
-        {isTracking && splits.length > 0 && (
-          <View style={styles.splitsContainer}>
-            <Text style={styles.splitsTitle}>Kilometer Splits</Text>
-            <ScrollView
-              contentContainerStyle={styles.splitsScrollContent}
-              showsVerticalScrollIndicator={false}
-              nestedScrollEnabled={true}
-            >
-              {splits.map((split, index) => (
-                <View key={split.number} style={styles.splitRow}>
-                  <View style={styles.splitNumberContainer}>
-                    <Text style={styles.splitNumber}>{split.number}K</Text>
-                  </View>
-                  <View style={styles.splitTimeContainer}>
-                    <Text style={styles.splitTime}>
-                      {formatElapsedTime(split.splitTime)}
-                    </Text>
-                    <Text style={styles.splitPace}>
-                      {formatElapsedTime(split.pace)}/km
-                    </Text>
-                  </View>
-                  <View style={styles.splitIconContainer}>
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={20}
-                      color={theme.colors.orangeBright}
-                    />
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-        )}
       </View>
 
       {/* Control Buttons */}
