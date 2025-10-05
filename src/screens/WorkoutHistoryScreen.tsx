@@ -380,38 +380,34 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
   };
 
   const formatDate = (dateString: string): string => {
+    const date = new Date(dateString);
     const diffDays = Math.floor(
-      (Date.now() - new Date(dateString).getTime()) / (1000 * 60 * 60 * 24)
+      (Date.now() - date.getTime()) / (1000 * 60 * 60 * 24)
     );
-    return diffDays === 0
+
+    // Format time as 12-hour with AM/PM
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    const displayMinutes = minutes.toString().padStart(2, '0');
+    const timeStr = `${displayHours}:${displayMinutes} ${ampm}`;
+
+    const dayStr = diffDays === 0
       ? 'Today'
       : diffDays === 1
       ? 'Yesterday'
       : diffDays < 7
       ? `${diffDays} days ago`
-      : new Date(dateString).toLocaleDateString();
-  };
+      : date.toLocaleDateString();
 
-  const getActivityIcon = (type: WorkoutType): string => {
-    const icons: Record<string, string> = {
-      running: '🏃',
-      cycling: '🚴',
-      walking: '🚶',
-      hiking: '🥾',
-      gym: '💪',
-      strength_training: '🏋️',
-      yoga: '🧘',
-    };
-    return icons[type] || '';
+    return `${dayStr} at ${timeStr}`;
   };
 
   const renderWorkoutItem = ({ item: workout }: { item: UnifiedWorkout }) => (
     <Card style={styles.workoutCard}>
       <View style={styles.workoutHeader}>
         <View style={styles.workoutInfo}>
-          <Text style={styles.activityIcon}>
-            {getActivityIcon(workout.type)}
-          </Text>
           <View style={styles.workoutInfoText}>
             <Text style={styles.activityType}>
               {workout.type.charAt(0).toUpperCase() + workout.type.slice(1)}
@@ -658,7 +654,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   toggleButtonActive: {
-    backgroundColor: theme.colors.text,
+    backgroundColor: '#FFB366',
   },
   toggleButtonText: {
     fontSize: 13,
@@ -666,7 +662,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
   },
   toggleButtonTextActive: {
-    color: theme.colors.background,
+    color: '#000000',
   },
   syncStatus: {
     margin: 16,
@@ -691,8 +687,8 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   filterButtonActive: {
-    backgroundColor: theme.colors.accent,
-    borderColor: theme.colors.accent,
+    backgroundColor: '#FFB366',
+    borderColor: '#FFB366',
   },
   filterButtonText: {
     color: theme.colors.textSecondary,
@@ -700,7 +696,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   filterButtonTextActive: {
-    color: theme.colors.accentText,
+    color: '#000000',
     fontWeight: '600',
   },
   sortButton: {
@@ -747,10 +743,6 @@ const styles = StyleSheet.create({
   },
   workoutMeta: {
     alignItems: 'flex-end',
-  },
-  activityIcon: {
-    fontSize: 24,
-    marginRight: 12,
   },
   activityType: {
     color: theme.colors.text,

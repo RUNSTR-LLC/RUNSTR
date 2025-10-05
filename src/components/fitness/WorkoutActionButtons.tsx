@@ -155,7 +155,7 @@ export const WorkoutActionButtons: React.FC<WorkoutActionButtonsProps> = ({
           {loading ? (
             <ActivityIndicator
               size="small"
-              color={variant === 'save' ? theme.colors.background : theme.colors.text}
+              color="#000000"
             />
           ) : (
             <Text style={textStyle}>
@@ -251,12 +251,12 @@ const styles = StyleSheet.create({
     minWidth: 80,
   },
   saveButton: {
-    backgroundColor: theme.colors.orangeDeep, // Deep orange background
-    borderColor: theme.colors.orangeBright,
+    backgroundColor: '#FFB366', // Light orange background
+    borderColor: '#FFB366',
   },
   postButton: {
-    backgroundColor: theme.colors.orangeDeep, // Deep orange background
-    borderColor: theme.colors.orangeBright, // Bright orange border
+    backgroundColor: '#FFB366', // Light orange background
+    borderColor: '#FFB366',
   },
   disabledButton: {
     backgroundColor: theme.colors.cardBackground,
@@ -264,8 +264,8 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   successButton: {
-    backgroundColor: theme.colors.orangeBright, // Bright orange for success
-    borderColor: theme.colors.orangeBright,
+    backgroundColor: '#FFB366', // Light orange for success
+    borderColor: '#FFB366',
   },
   buttonContent: {
     flexDirection: 'row',
@@ -273,13 +273,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionButtonText: {
-    color: theme.colors.background, // Black text (for white button)
+    color: '#000000', // Black text on light orange
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
   },
   compactButtonText: {
-    color: theme.colors.background, // Black text (for white button)
+    color: '#000000', // Black text on light orange
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
   },
   successButtonText: {
-    color: theme.colors.background, // Black text for success state
+    color: '#000000', // Black text for success state
   },
   competingButton: {
     paddingHorizontal: 16,
@@ -296,15 +296,15 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1,
     minWidth: 100,
-    backgroundColor: theme.colors.orangeDeep, // Deep orange background
-    borderColor: theme.colors.orangeBright,
+    backgroundColor: '#FFB366', // Light orange background
+    borderColor: '#FFB366',
     opacity: 0.6, // Inactive state
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
   competingButtonText: {
-    color: theme.colors.background, // Black text on orange
+    color: '#000000', // Black text on orange
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
@@ -315,15 +315,15 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1,
     minWidth: 100,
-    backgroundColor: theme.colors.orangeDeep, // Deep orange background
-    borderColor: theme.colors.orangeBright,
+    backgroundColor: '#FFB366', // Light orange background
+    borderColor: '#FFB366',
     opacity: 0.6, // Inactive state
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
   postedButtonText: {
-    color: theme.colors.background, // Black text on orange
+    color: '#000000', // Black text on orange
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',

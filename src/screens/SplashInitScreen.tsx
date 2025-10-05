@@ -24,8 +24,12 @@ const INITIALIZATION_STEPS = [
   { message: 'Loading competitions...', weight: 15 },
 ];
 
-// This screen is now shown after login while loading user data
-export const SplashInitScreen: React.FC = () => {
+interface SplashInitScreenProps {
+  onComplete?: () => void;
+}
+
+// This screen is shown when cache needs prefetching (fresh + returning users)
+export const SplashInitScreen: React.FC<SplashInitScreenProps> = ({ onComplete }) => {
   const [statusMessage, setStatusMessage] = useState(INITIALIZATION_STEPS[0].message);
   const [currentStep, setCurrentStep] = useState(0);
   const progressAnim = useRef(new Animated.Value(0)).current;
@@ -95,7 +99,10 @@ export const SplashInitScreen: React.FC = () => {
 
       console.log('✅ SplashInit: All data prefetched and cached - app ready!');
 
-      // No navigation here - AuthContext will handle it when profile loads
+      // Notify parent component that initialization is complete
+      if (onComplete) {
+        onComplete();
+      }
     } catch (error) {
       console.error('❌ SplashInit: Initialization error:', error);
       // Continue anyway - app should work with partial data

@@ -196,30 +196,13 @@ export class NostrPrefetchService {
 
   /**
    * Prefetch user's recent workouts (kind 1301)
+   * TODO: Implement workout prefetching with proper service
    */
   private async prefetchUserWorkouts(hexPubkey: string): Promise<void> {
     try {
-      const workouts = await unifiedCache.get(
-        CacheKeys.USER_WORKOUTS(hexPubkey),
-        async () => {
-          // Import workout service
-          const { WorkoutFetchService } = await import('../fitness/WorkoutFetchService');
-
-          // Fetch last 30 days of workouts
-          const thirtyDaysAgo = Math.floor(Date.now() / 1000) - (30 * 24 * 60 * 60);
-
-          const npub = getNpubFromHex(hexPubkey);
-          if (!npub) {
-            return [];
-          }
-
-          const events = await WorkoutFetchService.fetchUserWorkouts(npub, thirtyDaysAgo);
-          return events || [];
-        },
-        { ttl: CacheTTL.USER_WORKOUTS }
-      );
-
-      console.log('[Prefetch] User workouts cached:', workouts?.length || 0);
+      // TEMPORARILY DISABLED - Need to implement with WorkoutCacheService or NdkWorkoutService
+      // Workouts will load on demand from existing workout services
+      console.log('[Prefetch] Skipping workout prefetch (will load on demand)');
     } catch (error) {
       console.error('[Prefetch] User workouts failed:', error);
     }

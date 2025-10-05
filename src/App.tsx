@@ -73,6 +73,7 @@ import { ContactSupportScreen } from './screens/ContactSupportScreen';
 import { PrivacyPolicyScreen } from './screens/PrivacyPolicyScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { OnboardingScreen } from './screens/OnboardingScreen';
+import { SplashInitScreen } from './screens/SplashInitScreen';
 import { CompetitionsListScreen } from './screens/CompetitionsListScreen';
 import { WorkoutHistoryScreen } from './screens/WorkoutHistoryScreen';
 import { MyTeamsScreen } from './screens/MyTeamsScreen';
@@ -125,6 +126,24 @@ const AppContent: React.FC = () => {
   // Show loading splash after successful authentication
   const [splashShown, setSplashShown] = React.useState(false);
   const [onboardingCompleted, setOnboardingCompleted] = React.useState<boolean | null>(null);
+  const [prefetchCompleted, setPrefetchCompleted] = React.useState(false);
+
+  // Check if prefetch is needed when user becomes authenticated
+  React.useEffect(() => {
+    const checkPrefetch = async () => {
+      if (isAuthenticated) {
+        // Check if cache is already populated (from previous session)
+        const cacheStats = unifiedCache.getStats();
+        const hasCachedData = cacheStats.size > 0;
+
+        console.log('📊 App: Cache status - size:', cacheStats.size, 'needs prefetch:', !hasCachedData);
+        setPrefetchCompleted(hasCachedData);
+      } else {
+        setPrefetchCompleted(false);
+      }
+    };
+    checkPrefetch();
+  }, [isAuthenticated]);
 
   // Check onboarding completion status when user becomes authenticated
   React.useEffect(() => {
@@ -578,6 +597,8 @@ const AppContent: React.FC = () => {
             isAuthenticated,
             'currentUser:',
             !!currentUser,
+            'prefetchCompleted:',
+            prefetchCompleted,
             'isInitializing:',
             isInitializing
           );
@@ -587,7 +608,21 @@ const AppContent: React.FC = () => {
             return <AppNavigator initialRoute="Login" isFirstTime={true} />;
           }
 
-          // Show loading splash after successful authentication
+          // CRITICAL FIX: Show SplashInit when authenticated but cache empty
+          // This ensures ALL users (fresh + returning) get proper data prefetching
+          if (isAuthenticated && !prefetchCompleted) {
+            console.log('🚀 App: Showing SplashInit for cache prefetch...');
+            return (
+              <SplashInitScreen
+                onComplete={() => {
+                  console.log('✅ App: SplashInit complete, cache populated');
+                  setPrefetchCompleted(true);
+                }}
+              />
+            );
+          }
+
+          // Show loading splash after successful authentication (legacy)
           if (isAuthenticated && showLoadingSplash && !splashShown) {
             return (
               <AppSplashScreen

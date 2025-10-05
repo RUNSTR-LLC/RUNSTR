@@ -50,38 +50,34 @@ export const WorkoutCard: React.FC<WorkoutCardProps> = ({
   };
 
   const formatDate = (dateString: string): string => {
+    const date = new Date(dateString);
     const diffDays = Math.floor(
-      (Date.now() - new Date(dateString).getTime()) / (1000 * 60 * 60 * 24)
+      (Date.now() - date.getTime()) / (1000 * 60 * 60 * 24)
     );
-    return diffDays === 0
+
+    // Format time as 12-hour with AM/PM
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    const displayMinutes = minutes.toString().padStart(2, '0');
+    const timeStr = `${displayHours}:${displayMinutes} ${ampm}`;
+
+    const dayStr = diffDays === 0
       ? 'Today'
       : diffDays === 1
       ? 'Yesterday'
       : diffDays < 7
       ? `${diffDays} days ago`
-      : new Date(dateString).toLocaleDateString();
-  };
+      : date.toLocaleDateString();
 
-  const getActivityIcon = (type: string): string => {
-    const icons: Record<string, string> = {
-      running: '🏃',
-      cycling: '🚴',
-      walking: '🚶',
-      hiking: '🥾',
-      gym: '💪',
-      strength_training: '🏋️',
-      yoga: '🧘',
-    };
-    return icons[type] || '';
+    return `${dayStr} at ${timeStr}`;
   };
 
   return (
     <View style={styles.workoutCard}>
       <View style={styles.workoutHeader}>
         <View style={styles.workoutInfo}>
-          <Text style={styles.activityIcon}>
-            {getActivityIcon(workout.type)}
-          </Text>
           <View style={styles.workoutInfoText}>
             <Text style={styles.activityType}>
               {workout.type.charAt(0).toUpperCase() + workout.type.slice(1)}
@@ -160,10 +156,6 @@ const styles = StyleSheet.create({
   },
   workoutMeta: {
     alignItems: 'flex-end',
-  },
-  activityIcon: {
-    fontSize: 24,
-    marginRight: 12,
   },
   activityType: {
     color: theme.colors.text,
