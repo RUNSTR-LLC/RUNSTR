@@ -16,6 +16,7 @@ import { EventsCard } from '../components/team/EventsCard';
 // import { CompetitionWinnersCard, CompetitionWinner } from '../components/team/CompetitionWinnersCard';
 // import competitionWinnersService from '../services/competitions/competitionWinnersService';
 import { CompetitionTabs } from '../components/team/CompetitionTabs';
+import { TeamChatSection } from '../components/team/TeamChatSection';
 import { TeamScreenData } from '../types';
 import { theme } from '../styles/theme';
 import { useLeagueRankings } from '../hooks/useLeagueRankings';
@@ -545,7 +546,7 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
             </View>
           </View>
 
-          {/* Competition Tabs - League and Events */}
+          {/* Competition Tabs - League, Events, and Chat */}
           <View style={{ flex: 1, marginTop: 16, minHeight: 500 }}>
             <CompetitionTabs
               leagueContent={
@@ -584,6 +585,17 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
                       const rawEvent = rawNostrEvents.find(e => e.id === eventId);
                       onEventPress?.(eventId, rawEvent || formattedEvent);
                     }}
+                    isCaptain={userIsCaptain}
+                  />
+                </View>
+              }
+              chatContent={
+                <View style={{ flex: 1, minHeight: 450 }}>
+                  <TeamChatSection
+                    teamId={team.id}
+                    teamName={team.name}
+                    userPubkey={userIdentifiers?.hexPubkey || workingUserNpub || ''}
+                    captainPubkey={team.captainId}
                     isCaptain={userIsCaptain}
                   />
                 </View>

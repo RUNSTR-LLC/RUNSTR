@@ -14,11 +14,12 @@ import {
 } from 'react-native';
 import { theme } from '../../styles/theme';
 
-export type CompetitionTab = 'league' | 'events';
+export type CompetitionTab = 'league' | 'events' | 'chat';
 
 interface CompetitionTabsProps {
   leagueContent: React.ReactNode;
   eventsContent: React.ReactNode;
+  chatContent?: React.ReactNode; // Optional chat content
   defaultTab?: CompetitionTab;
   onTabChange?: (tab: CompetitionTab) => void;
 }
@@ -26,6 +27,7 @@ interface CompetitionTabsProps {
 export const CompetitionTabs: React.FC<CompetitionTabsProps> = ({
   leagueContent,
   eventsContent,
+  chatContent,
   defaultTab = 'league',
   onTabChange,
 }) => {
@@ -77,11 +79,34 @@ export const CompetitionTabs: React.FC<CompetitionTabsProps> = ({
           </Text>
           {activeTab === 'events' && <View style={styles.activeIndicator} />}
         </TouchableOpacity>
+
+        {chatContent && (
+          <TouchableOpacity
+            style={[
+              styles.tab,
+              activeTab === 'chat' && styles.activeTab,
+            ]}
+            onPress={() => handleTabPress('chat')}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === 'chat' && styles.activeTabText,
+              ]}
+            >
+              Chat
+            </Text>
+            {activeTab === 'chat' && <View style={styles.activeIndicator} />}
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Tab Content */}
       <View style={styles.tabContent}>
-        {activeTab === 'league' ? leagueContent : eventsContent}
+        {activeTab === 'league' && leagueContent}
+        {activeTab === 'events' && eventsContent}
+        {activeTab === 'chat' && chatContent}
       </View>
     </View>
   );
