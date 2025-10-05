@@ -4,6 +4,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthService } from '../services/auth/authService';
 import { getNpubFromStorage, getUserNostrIdentifiers } from '../utils/nostr';
 import { DirectNostrProfileService } from '../services/user/directNostrProfileService';
@@ -20,7 +21,6 @@ interface AuthState {
   connectionStatus: string;
   isConnected: boolean;
   initError: string | null;
-  showLoadingSplash: boolean;
 }
 
 // Authentication actions interface
@@ -32,7 +32,6 @@ interface AuthActions {
   signOut: () => Promise<void>;
   refreshAuthentication: () => Promise<void>;
   checkStoredCredentials: () => Promise<void>;
-  onSplashComplete: () => void;
 }
 
 // Combined context interface
@@ -55,7 +54,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [connectionStatus, setConnectionStatus] = useState('Connecting to Nostr...');
   const [isConnected, setIsConnected] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
-  const [showLoadingSplash, setShowLoadingSplash] = useState(false);
 
   /**
    * Check for stored credentials (FAST - no network calls)
@@ -277,7 +275,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Direct state updates (like iOS app)
       setIsAuthenticated(true);
-      setShowLoadingSplash(true); // Show loading splash after successful login
       setConnectionStatus('Loading your fitness journey...');
 
       // Start loading profile in background while showing splash
@@ -326,7 +323,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Direct state updates (like iOS app)
       setIsAuthenticated(true);
-      setShowLoadingSplash(true); // Show loading splash after successful signup
       setConnectionStatus('Setting up your fitness journey...');
 
       // Start loading profile in background while showing splash
@@ -352,14 +348,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   /**
-   * Handle splash screen completion
-   */
-  const onSplashComplete = useCallback(() => {
-    console.log('✅ AuthContext: Splash screen completed');
-    setShowLoadingSplash(false);
-  }, []);
-
-  /**
    * Sign in with Amber - uses external key management
    */
   const signInWithAmber = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
@@ -379,7 +367,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Direct state updates (like iOS app)
       setIsAuthenticated(true);
-      setShowLoadingSplash(true); // Show loading splash after successful login
       setConnectionStatus('Loading your fitness journey...');
 
       // Start loading profile in background while showing splash
@@ -533,7 +520,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     connectionStatus,
     isConnected,
     initError,
-    showLoadingSplash,
 
     // Actions
     signIn,
@@ -543,7 +529,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signOut,
     refreshAuthentication,
     checkStoredCredentials,
-    onSplashComplete,
   };
 
   return (

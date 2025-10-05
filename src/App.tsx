@@ -60,7 +60,6 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NavigationDataProvider } from './contexts/NavigationDataContext';
 import { AppNavigator } from './navigation/AppNavigator';
 import { BottomTabNavigator } from './navigation/BottomTabNavigator';
-import { SplashScreen as AppSplashScreen } from './components/ui/SplashScreen';
 import { createStackNavigator } from '@react-navigation/stack';
 import { TeamCreationWizard } from './components/wizards/TeamCreationWizard';
 import { GlobalChallengeWizard } from './components/wizards/GlobalChallengeWizard';
@@ -119,13 +118,9 @@ const AppContent: React.FC = () => {
     connectionStatus,
     isConnected,
     initError,
-    showLoadingSplash,
-    onSplashComplete,
     signOut
   } = useAuth();
 
-  // Show loading splash after successful authentication
-  const [splashShown, setSplashShown] = React.useState(false);
   const [onboardingCompleted, setOnboardingCompleted] = React.useState<boolean | null>(null);
   const [prefetchCompleted, setPrefetchCompleted] = React.useState(false);
 
@@ -623,21 +618,7 @@ const AppContent: React.FC = () => {
             );
           }
 
-          // Show loading splash after successful authentication (legacy)
-          if (isAuthenticated && showLoadingSplash && !splashShown) {
-            return (
-              <AppSplashScreen
-                onComplete={() => {
-                  setSplashShown(true);
-                  onSplashComplete();
-                }}
-                isConnected={isConnected}
-                connectionStatus={connectionStatus}
-              />
-            );
-          }
-
-          // User is authenticated but profile still loading (after splash)
+          // User is authenticated but profile still loading
           if (isAuthenticated && !currentUser) {
             return (
               <View style={errorStyles.container}>
