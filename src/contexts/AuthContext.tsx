@@ -81,7 +81,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         const { hexPubkey } = identifiers;
 
-        // CRITICAL: Load from UnifiedCache (already prefetched by SplashInit)
+        // CRITICAL: Initialize cache from AsyncStorage before reading
+        await unifiedCache.initialize();
+
+        // Load from UnifiedCache (already prefetched by SplashInit)
         const cachedUser = unifiedCache.getCached<User>(CacheKeys.USER_PROFILE(hexPubkey));
 
         if (cachedUser) {
