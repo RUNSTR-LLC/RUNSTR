@@ -23,32 +23,40 @@ export const EventParticipants: React.FC<EventParticipantsProps> = ({
   participants,
   totalCount,
 }) => {
+  // Guard against null/undefined participants array
+  const safeParticipants = participants || [];
+  const safeTotalCount = Math.max(0, totalCount || 0);
+
   return (
     <View style={styles.container}>
       {/* Section Header */}
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Participants</Text>
         <View style={styles.participantCount}>
-          <Text style={styles.countText}>{totalCount} joined</Text>
+          <Text style={styles.countText}>{safeTotalCount} joined</Text>
         </View>
       </View>
 
       {/* Participants List */}
       <View style={styles.participantsList}>
-        {participants.map((participant) => (
-          <View key={participant.id} style={styles.participantItem}>
-            <View style={styles.participantAvatar}>
-              <Text style={styles.avatarText}>{participant.avatar}</Text>
+        {safeParticipants.length > 0 ? (
+          safeParticipants.map((participant) => (
+            <View key={participant?.id || Math.random().toString()} style={styles.participantItem}>
+              <View style={styles.participantAvatar}>
+                <Text style={styles.avatarText}>{participant?.avatar || 'U'}</Text>
+              </View>
+              <Text style={styles.participantName}>{participant?.name || 'Unknown'}</Text>
+              <View
+                style={[
+                  styles.participantStatus,
+                  participant?.isCompleted && styles.participantStatusCompleted,
+                ]}
+              />
             </View>
-            <Text style={styles.participantName}>{participant.name}</Text>
-            <View
-              style={[
-                styles.participantStatus,
-                participant.isCompleted && styles.participantStatusCompleted,
-              ]}
-            />
-          </View>
-        ))}
+          ))
+        ) : (
+          <Text style={styles.emptyText}>No participants yet</Text>
+        )}
       </View>
     </View>
   );
@@ -132,5 +140,12 @@ const styles = StyleSheet.create({
   // Completed status - exact CSS: background: #fff;
   participantStatusCompleted: {
     backgroundColor: theme.colors.text,
+  },
+  // Empty state text
+  emptyText: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+    paddingVertical: 16,
   },
 });

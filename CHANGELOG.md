@@ -4,7 +4,7 @@ All notable changes to RUNSTR will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.6] - 2025-10-05
+## [0.1.7] - 2025-10-05
 
 ### Fixed
 - **Distance Tracking Freeze**: Eliminated distance getting "stuck" during active workouts
@@ -51,6 +51,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - HealthKit workouts appear in unified workout history
   - Seamless integration of local and Nostr-posted workouts
   - Complete workout history at a glance
+- **Android Adaptive Icon**: Reduced icon size to 78% for better padding and visual balance
+  - Shrunk ostrich logo from 1024x1024 to 799x799 on canvas
+  - Added 113px padding around icon for proper spacing
+  - Prevents logo clipping on various Android launcher styles
+  - Better visual presentation across all Android devices and themes
 
 ## [0.1.5] - 2025-10-04
 

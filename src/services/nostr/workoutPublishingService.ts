@@ -243,7 +243,7 @@ export class WorkoutPublishingService {
       ['distance', distanceValue, distanceUnit], // Distance with value and unit
       ['duration', durationFormatted], // HH:MM:SS format
       ['source', 'RUNSTR'], // App identification
-      ['client', 'RUNSTR', '0.1.6'], // Client info with version
+      ['client', 'RUNSTR', '0.1.7'], // Client info with version
       ['t', this.getActivityHashtag(workout.type)], // Primary hashtag
     ];
 

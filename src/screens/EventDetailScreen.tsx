@@ -111,7 +111,7 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
       const comp = competitionService.getCompetitionById(eventId);
       setCompetition(comp);
 
-      if (comp && comp.teamId) {
+      if (comp?.teamId) {
         // Check captain cache first
         const captainCache = CaptainCache.getInstance();
         const isCaptain = await captainCache.getIsCaptain(comp.teamId);
@@ -128,8 +128,10 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
             const captainStatus = teamData.captain === npub ||
                                  teamData.captainHex === npub;
             setUserIsCaptain(captainStatus);
-            // Cache the result
-            await captainCache.setIsCaptain(competition.teamId, captainStatus);
+            // Cache the result - guard against null competition
+            if (comp?.teamId) {
+              await captainCache.setIsCaptain(comp.teamId, captainStatus);
+            }
           }
         }
       }
@@ -148,21 +150,24 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
       // First try to use passed event data if available
       if (passedEventData) {
         console.log('Using passed event data:', passedEventData);
-        // Convert Nostr event to Competition format
+        // Convert Nostr event to Competition format with null guards
+        const eventDate = passedEventData.eventDate ? new Date(passedEventData.eventDate) : new Date();
+        const startTime = Math.floor(eventDate.getTime() / 1000);
+
         competition = {
-          id: passedEventData.id,
-          teamId: passedEventData.teamId,
-          name: passedEventData.name,
-          description: passedEventData.description,
+          id: passedEventData.id || eventId,
+          teamId: passedEventData.teamId || '',
+          name: passedEventData.name || 'Unnamed Event',
+          description: passedEventData.description || '',
           type: 'event',
-          activityType: passedEventData.activityType,
-          competitionType: passedEventData.competitionType,
-          startTime: Math.floor(new Date(passedEventData.eventDate).getTime() / 1000),
-          endTime: Math.floor(new Date(passedEventData.eventDate).getTime() / 1000) + 86400, // Add 1 day
+          activityType: passedEventData.activityType || 'running',
+          competitionType: passedEventData.competitionType || 'distance',
+          startTime,
+          endTime: startTime + 86400, // Add 1 day
           entryFeesSats: passedEventData.entryFeesSats || 0,
           goalValue: passedEventData.targetValue,
-          goalUnit: passedEventData.targetUnit,
-          captainPubkey: passedEventData.captainPubkey,
+          goalUnit: passedEventData.targetUnit || 'km',
+          captainPubkey: passedEventData.captainPubkey || '',
         };
       } else {
         // Fall back to CompetitionService lookup
@@ -196,69 +201,72 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
           }
         }
 
-        // Convert leaderboard participants to participant details format
-        const participantDetails = eventLeaderboard.participants.map((participant: CompetitionParticipant) => ({
-          id: participant.pubkey,
-          name: participant.name || `User ${participant.pubkey.substring(0, 8)}`,
-          avatar: participant.name?.charAt(0).toUpperCase() || 'U',
-          position: participant.position || 0,
-          score: participant.score,
-          distance: participant.totalDistance ? `${Math.round(participant.totalDistance / 1000)} km` : '0 km',
-          time: participant.totalDuration ? formatDuration(participant.totalDuration) : '0 min',
-          workouts: participant.workoutCount || 0,
-          lastActivity: participant.lastActivity || 0,
+        // Convert leaderboard participants to participant details format - guard against missing data
+        const participantDetails = (eventLeaderboard?.participants || []).map((participant: CompetitionParticipant) => ({
+          id: participant?.pubkey || 'unknown',
+          name: participant?.name || `User ${(participant?.pubkey || 'unknown').substring(0, 8)}`,
+          avatar: participant?.name?.charAt(0)?.toUpperCase() || 'U',
+          position: participant?.position || 0,
+          score: participant?.score || 0,
+          distance: participant?.totalDistance ? `${Math.round(participant.totalDistance / 1000)} km` : '0 km',
+          time: participant?.totalDuration ? formatDuration(participant.totalDuration) : '0 min',
+          workouts: participant?.workoutCount || 0,
+          lastActivity: participant?.lastActivity || 0,
           status: 'completed' as const,
         }));
 
-        // Convert Competition to EventDetailData with real leaderboard data
+        // Convert Competition to EventDetailData with real leaderboard data - guard all accesses
+        const participantCount = eventLeaderboard?.participants?.length || 0;
+        const prizePool = (competition?.entryFeesSats || 0) * participantCount;
+
         const eventDetailData: EventDetailData = {
-          id: competition.id,
-          name: competition.name,
-          description: competition.description,
-          startDate: formatEventDateRange(competition.startTime, competition.endTime),
+          id: competition?.id || eventId,
+          name: competition?.name || 'Unnamed Event',
+          description: competition?.description || '',
+          startDate: formatEventDateRange(competition?.startTime || 0, competition?.endTime || 0),
           endDate: '',  // We'll pass the full range in startDate
-          prizePool: competition.entryFeesSats * eventLeaderboard.participants.length, // Calculate from entry fees
+          prizePool, // Calculate from entry fees
           participants: participantDetails, // Use formatted participant details
           participantDetails, // Real participant details from leaderboard
           stats: {
-            participantCount: eventLeaderboard.participants.length,
-            completedCount: eventLeaderboard.participants.filter(p => (p.workoutCount || 0) > 0).length,
+            participantCount,
+            completedCount: (eventLeaderboard?.participants || []).filter(p => (p?.workoutCount || 0) > 0).length,
           },
           progress: {
             isJoined: false, // TODO: Check if current user is participating
-            timeRemaining: calculateTimeRemaining(competition.endTime),
+            timeRemaining: calculateTimeRemaining(competition?.endTime || 0),
             status: getEventStatus(competition),
             percentage: calculateEventProgress(competition),
-            daysRemaining: Math.ceil(
-              (competition.endTime - Date.now() / 1000) / (24 * 60 * 60)
-            ),
+            daysRemaining: Math.max(0, Math.ceil(
+              ((competition?.endTime || 0) - Date.now() / 1000) / (24 * 60 * 60)
+            )),
           },
           status: getEventStatus(competition),
-          formattedPrize: `${competition.entryFeesSats * eventLeaderboard.participants.length} sats`,
-          formattedTimeRemaining: formatTimeRemaining(competition.endTime),
+          formattedPrize: `${prizePool} sats`,
+          formattedTimeRemaining: formatTimeRemaining(competition?.endTime || 0),
           details: {
-            distance: competition.goalValue
-              ? `${competition.goalValue} ${competition.goalUnit || 'units'}`
+            distance: competition?.goalValue
+              ? `${competition.goalValue} ${competition?.goalUnit || 'units'}`
               : 'No specific target',
-            duration: competition.type === 'event' ? '1 day' : '30 days',
-            activityType: competition.activityType,
+            duration: competition?.type === 'event' ? '1 day' : '30 days',
+            activityType: competition?.activityType || 'running',
             createdBy: 'Team Captain', // TODO: Get actual creator name from competition.captainPubkey
             startDate: new Date(
-              competition.startTime * 1000
+              (competition?.startTime || 0) * 1000
             ).toLocaleDateString(),
-            endDate: new Date(competition.endTime * 1000).toLocaleDateString(),
+            endDate: new Date((competition?.endTime || 0) * 1000).toLocaleDateString(),
           },
         };
 
         setEventData(eventDetailData);
       } catch (leaderboardError) {
         console.error('Failed to load leaderboard data:', leaderboardError);
-        // Fall back to basic event data without leaderboard
+        // Fall back to basic event data without leaderboard - guard all accesses
         const eventDetailData: EventDetailData = {
-          id: competition.id,
-          name: competition.name,
-          description: competition.description,
-          startDate: formatEventDateRange(competition.startTime, competition.endTime),
+          id: competition?.id || eventId,
+          name: competition?.name || 'Unnamed Event',
+          description: competition?.description || '',
+          startDate: formatEventDateRange(competition?.startTime || 0, competition?.endTime || 0),
           endDate: '',  // We'll pass the full range in startDate
           prizePool: 0,
           participants: [],
@@ -269,27 +277,27 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
           },
           progress: {
             isJoined: false,
-            timeRemaining: calculateTimeRemaining(competition.endTime),
+            timeRemaining: calculateTimeRemaining(competition?.endTime || 0),
             status: getEventStatus(competition),
             percentage: calculateEventProgress(competition),
-            daysRemaining: Math.ceil(
-              (competition.endTime - Date.now() / 1000) / (24 * 60 * 60)
-            ),
+            daysRemaining: Math.max(0, Math.ceil(
+              ((competition?.endTime || 0) - Date.now() / 1000) / (24 * 60 * 60)
+            )),
           },
           status: getEventStatus(competition),
           formattedPrize: '0 sats',
-          formattedTimeRemaining: formatTimeRemaining(competition.endTime),
+          formattedTimeRemaining: formatTimeRemaining(competition?.endTime || 0),
           details: {
-            distance: competition.goalValue
-              ? `${competition.goalValue} ${competition.goalUnit || 'units'}`
+            distance: competition?.goalValue
+              ? `${competition.goalValue} ${competition?.goalUnit || 'units'}`
               : 'No specific target',
-            duration: competition.type === 'event' ? '1 day' : '30 days',
-            activityType: competition.activityType,
+            duration: competition?.type === 'event' ? '1 day' : '30 days',
+            activityType: competition?.activityType || 'running',
             createdBy: 'Team Captain',
             startDate: new Date(
-              competition.startTime * 1000
+              (competition?.startTime || 0) * 1000
             ).toLocaleDateString(),
-            endDate: new Date(competition.endTime * 1000).toLocaleDateString(),
+            endDate: new Date((competition?.endTime || 0) * 1000).toLocaleDateString(),
           },
         };
         setEventData(eventDetailData);
@@ -346,16 +354,23 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
   const getEventStatus = (
     competition: any
   ): 'upcoming' | 'active' | 'completed' => {
+    if (!competition) return 'completed';
     const now = Math.floor(Date.now() / 1000);
-    if (competition.startTime > now) return 'upcoming'; // upcoming events
-    if (competition.endTime < now) return 'completed'; // completed events
+    const startTime = competition.startTime || 0;
+    const endTime = competition.endTime || 0;
+    if (startTime > now) return 'upcoming'; // upcoming events
+    if (endTime < now) return 'completed'; // completed events
     return 'active';
   };
 
   const calculateEventProgress = (competition: any): number => {
+    if (!competition) return 0;
     const now = Math.floor(Date.now() / 1000);
-    const total = competition.endTime - competition.startTime;
-    const elapsed = now - competition.startTime;
+    const startTime = competition.startTime || 0;
+    const endTime = competition.endTime || 0;
+    const total = endTime - startTime;
+    if (total <= 0) return 0;
+    const elapsed = now - startTime;
     return Math.max(0, Math.min(100, (elapsed / total) * 100));
   };
 
@@ -574,7 +589,7 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
     if (
       !eventData ||
       eventData.status === 'completed' ||
-      eventData.progress.daysRemaining === 0
+      (eventData.progress?.daysRemaining ?? 0) === 0
     ) {
       return 'secondary';
     }
@@ -610,13 +625,13 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
       >
         {/* Event Header Section */}
         <EventHeader
-          title={eventData.name}
-          startDate={eventData.startDate}
-          endDate={eventData.endDate}
+          title={eventData?.name || 'Event'}
+          startDate={eventData?.startDate || ''}
+          endDate={eventData?.endDate || ''}
           type="Distance"
-          description={eventData.description}
-          daysRemaining={eventData.progress.daysRemaining ?? 0}
-          progressPercentage={eventData.progress.percentage}
+          description={eventData?.description || ''}
+          daysRemaining={eventData?.progress?.daysRemaining ?? 0}
+          progressPercentage={eventData?.progress?.percentage ?? 0}
         />
 
         {/* Status Badges */}
@@ -651,26 +666,26 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
         {/* Progress Bar Section */}
         <View style={styles.progressSection}>
           <ProgressBar
-            percentage={eventData.progress.percentage}
+            percentage={eventData?.progress?.percentage ?? 0}
             height={4}
             backgroundColor={theme.colors.border}
             fillColor={theme.colors.text}
           />
           <Text style={styles.progressText}>
-            {typeof eventData.progress.timeRemaining === 'object'
-              ? `${eventData.progress.timeRemaining.hours}h ${eventData.progress.timeRemaining.minutes}m remaining`
-              : eventData.progress.timeRemaining}
+            {typeof eventData?.progress?.timeRemaining === 'object'
+              ? `${eventData.progress.timeRemaining?.hours || 0}h ${eventData.progress.timeRemaining?.minutes || 0}m remaining`
+              : eventData?.progress?.timeRemaining || 'Unknown'}
           </Text>
         </View>
 
         {/* Stats Section */}
         <EventStats
-          participantCount={eventData.stats.participantCount}
-          completedCount={eventData.stats.completedCount}
+          participantCount={eventData?.stats?.participantCount ?? 0}
+          completedCount={eventData?.stats?.completedCount ?? 0}
         />
 
         {/* Captain Participant Management */}
-        {userIsCaptain && currentUserHexPubkey && (
+        {userIsCaptain && currentUserHexPubkey && eventData && (
           <EventParticipantManagementSection
             eventId={eventData.id}
             eventName={eventData.name}
@@ -681,19 +696,19 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
         )}
 
         {/* Live Leaderboard with Distribution Panel for Captains */}
-        {team && leaderboard && (
+        {team && leaderboard && eventData && (
           <LiveLeaderboard
             competition={{
               id: eventData.id,
               teamId: team.id,
               name: eventData.name,
-              description: eventData.description,
+              description: eventData.description || '',
               type: 'event',
-              startTime: Math.floor(new Date(eventData.startDate).getTime() / 1000),
-              endTime: Math.floor(new Date(eventData.endDate).getTime() / 1000),
-              activityType: eventData.details.activityType as any,
+              startTime: eventData.startDate ? Math.floor(new Date(eventData.startDate).getTime() / 1000) : 0,
+              endTime: eventData.endDate ? Math.floor(new Date(eventData.endDate).getTime() / 1000) : 0,
+              activityType: eventData.details?.activityType as any || 'running',
               goalType: 'distance' as any,
-              entryFeesSats: Math.floor(eventData.prizePool / Math.max(1, eventData.stats.participantCount)),
+              entryFeesSats: Math.floor((eventData.prizePool || 0) / Math.max(1, eventData.stats?.participantCount || 1)),
             }}
             team={team}
             userIsCaptain={userIsCaptain}
@@ -703,22 +718,24 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
         )}
 
         {/* Fallback Participants Section if no leaderboard */}
-        {!leaderboard && (
+        {!leaderboard && eventData && (
           <EventParticipants
-            participants={eventData.participantDetails}
-            totalCount={eventData.stats.participantCount}
+            participants={eventData.participantDetails || []}
+            totalCount={eventData.stats?.participantCount || 0}
           />
         )}
 
         {/* Event Details Section */}
-        <EventDetails
-          distance={eventData.details.distance}
-          duration={eventData.details.duration}
-          activityType={eventData.details.activityType}
-          createdBy={eventData.details.createdBy}
-          startDate={eventData.details.startDate}
-          endDate={eventData.details.endDate}
-        />
+        {eventData?.details && (
+          <EventDetails
+            distance={eventData.details.distance}
+            duration={eventData.details.duration}
+            activityType={eventData.details.activityType}
+            createdBy={eventData.details.createdBy}
+            startDate={eventData.details.startDate}
+            endDate={eventData.details.endDate}
+          />
+        )}
 
         {/* Bottom Padding */}
         <View style={styles.bottomPadding} />
@@ -743,8 +760,8 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
           variant={getActionButtonVariant()}
           loading={isLoading}
           disabled={
-            eventData.status === 'completed' ||
-            eventData.progress.daysRemaining === 0
+            eventData?.status === 'completed' ||
+            (eventData?.progress?.daysRemaining ?? 0) === 0
           }
           accessibilityLabel={
             joinStatus === 'joined' ? 'Leave event' : 'Join event'

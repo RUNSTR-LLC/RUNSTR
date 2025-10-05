@@ -26,33 +26,41 @@ export const EventHeader: React.FC<EventHeaderProps> = ({
   daysRemaining,
   progressPercentage,
 }) => {
+  // Guard against null/undefined/NaN values
+  const safeTitle = title || 'Event';
+  const safeStartDate = startDate || '';
+  const safeType = type || 'Event';
+  const safeDescription = description || '';
+  const safeDaysRemaining = Math.max(0, Math.floor(daysRemaining || 0));
+  const safeProgressPercentage = Math.max(0, Math.min(100, progressPercentage || 0));
+
   return (
     <View style={styles.container}>
       {/* Event Title */}
-      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.title}>{safeTitle}</Text>
 
       {/* Event Meta */}
       <View style={styles.meta}>
         <Text style={styles.date}>
-          {startDate}
+          {safeStartDate}
         </Text>
         <View style={styles.typeBadge}>
-          <Text style={styles.typeText}>{type}</Text>
+          <Text style={styles.typeText}>{safeType}</Text>
         </View>
       </View>
 
       {/* Event Description */}
-      <Text style={styles.description}>{description}</Text>
+      <Text style={styles.description}>{safeDescription}</Text>
 
       {/* Progress Section */}
       <View style={styles.progressSection}>
         <View style={styles.progressBar}>
           <View
-            style={[styles.progressFill, { width: `${progressPercentage}%` }]}
+            style={[styles.progressFill, { width: `${safeProgressPercentage}%` }]}
           />
         </View>
         <Text style={styles.progressText}>
-          {daysRemaining} day{daysRemaining !== 1 ? 's' : ''} remaining
+          {safeDaysRemaining} day{safeDaysRemaining !== 1 ? 's' : ''} remaining
         </Text>
       </View>
     </View>
