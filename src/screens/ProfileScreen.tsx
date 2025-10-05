@@ -46,6 +46,7 @@ import { getAuthenticationData } from '../utils/nostrAuth';
 import { nsecToPrivateKey } from '../utils/nostr';
 import { NDKPrivateKeySigner, NDKEvent } from '@nostr-dev-kit/ndk';
 import { Alert } from 'react-native';
+import { WorkoutCacheService } from '../services/cache/WorkoutCacheService';
 
 interface ProfileScreenProps {
   data: ProfileScreenData;
@@ -183,6 +184,32 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     };
 
     loadUserNpub();
+  }, [data.user.id]);
+
+  // Proactively fetch workout data when ProfileScreen mounts
+  useEffect(() => {
+    const fetchWorkoutData = async () => {
+      try {
+        const userPubkey = data.user.id;
+        if (!userPubkey) {
+          console.log('[ProfileScreen] No pubkey available for workout fetch');
+          return;
+        }
+
+        console.log('[ProfileScreen] 🏃 Triggering background workout fetch...');
+        const cacheService = WorkoutCacheService.getInstance();
+
+        // Non-blocking background fetch (cache-first strategy)
+        await cacheService.getMergedWorkouts(userPubkey, 500);
+
+        console.log('[ProfileScreen] ✅ Background workout fetch complete');
+      } catch (error) {
+        console.error('[ProfileScreen] ⚠️ Background workout fetch error:', error);
+        // Non-critical - workouts will load on demand
+      }
+    };
+
+    fetchWorkoutData();
   }, [data.user.id]);
 
   // Event handlers

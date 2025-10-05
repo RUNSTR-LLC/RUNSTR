@@ -16,6 +16,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Strengthened Android GPS filtering: increased minimum movement threshold from 0.5m to 1.0m
   - Added hysteresis requiring 2 consecutive valid GPS points before accepting
   - Prevents micro-oscillations from GPS coordinate jitter accumulating over time
+- **Distance Calculation Method**: Switched from 3D to 2D horizontal distance
+  - Changed to industry-standard 2D Haversine distance calculation
+  - Matches Nike Run Club, Strava, Garmin, and official race distance measurement
+  - Previously used 3D distance (including altitude changes) which inflated distances in hilly terrain
+  - Elevation gain still tracked separately in `totalElevationGain` metric
+  - Typical impact: 1-3% less distance on hilly routes compared to previous version
+
+### Improved
+- **Amber Signer Integration**: Enhanced reliability and user experience
+  - Improved NDK signer authentication flow
+  - Better error handling and user feedback
+  - More robust callback handling for Amber responses
+- **Settings Screen UI**: Polished toggle button layout and styling
+  - Cleaner toggle button appearance and interactions
+  - Improved visual consistency across settings options
+  - Better spacing and alignment for all settings controls
+- **Kilometer Splits Display**: Enhanced workout tracking UI
+  - Improved splits visibility during active workouts
+  - Better formatting and layout for split times
+  - Clearer presentation of pace per kilometer
+- **Workout History**: Local workouts now visible in timeline
+  - HealthKit workouts appear in unified workout history
+  - Seamless integration of local and Nostr-posted workouts
+  - Complete workout history at a glance
 
 ## [0.1.5] - 2025-10-04
 

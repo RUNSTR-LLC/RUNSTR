@@ -15,6 +15,7 @@ import {
 } from 'nostr-tools';
 import type { NDKSigner } from '@nostr-dev-kit/ndk';
 import type { NostrEvent } from '@nostr-dev-kit/ndk';
+import { AmberNDKSigner } from '../auth/amber/AmberNDKSigner';
 
 export interface NostrFilter {
   ids?: string[];
@@ -271,9 +272,25 @@ export class NostrProtocolHandler {
       // Sign with the signer (handles both nsec and Amber automatically)
       const signature = await signer.sign(unsignedEvent);
 
-      // Calculate event ID for the signed event
-      const { getEventHash } = await import('nostr-tools');
-      const id = getEventHash(unsignedEvent);
+      // Try to get event ID from Amber if it's an AmberNDKSigner
+      // Amber calculates the ID as part of signing per NIP-55
+      let id: string;
+      if (signer instanceof AmberNDKSigner) {
+        const amberEventId = signer.getLastSignedEventId();
+        if (amberEventId) {
+          id = amberEventId;
+          console.log('✅ Using event ID from Amber:', id.substring(0, 16) + '...');
+        } else {
+          // Fallback: calculate event ID if Amber didn't return it
+          const { getEventHash } = await import('nostr-tools');
+          id = getEventHash(unsignedEvent as any);
+          console.log('⚠️ Amber did not return event ID, calculated locally:', id.substring(0, 16) + '...');
+        }
+      } else {
+        // For other signers (nsec), calculate event ID locally
+        const { getEventHash } = await import('nostr-tools');
+        id = getEventHash(unsignedEvent as any);
+      }
 
       // Create the signed event
       const signedEvent: Event = {

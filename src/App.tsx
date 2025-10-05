@@ -79,6 +79,8 @@ import { MyTeamsScreen } from './screens/MyTeamsScreen';
 import { ProfileEditScreen } from './screens/ProfileEditScreen';
 import { User } from './types';
 import { useWalletStore } from './store/walletStore';
+import { appInitializationService } from './services/initialization/AppInitializationService';
+import { theme } from './styles/theme';
 
 // Types for authenticated app navigation
 type AuthenticatedStackParamList = {
@@ -91,7 +93,7 @@ type AuthenticatedStackParamList = {
   EnhancedTeamScreen: { team: any; userIsMember?: boolean; currentUserNpub?: string; userIsCaptain?: boolean };
   EventDetail: { eventId: string };
   ChallengeDetail: { challengeId: string };
-  CaptainDashboard: { teamId?: string; teamName?: string; isCaptain?: boolean; userNpub?: string };
+  CaptainDashboard: { teamId?: string; teamName?: string; teamCaptainId?: string; isCaptain?: boolean; userNpub?: string };
   Settings: any;
   HelpSupport: undefined;
   ContactSupport: undefined;
@@ -199,6 +201,31 @@ const AppContent: React.FC = () => {
 
   // Authenticated app with bottom tabs and team creation modal
   const AuthenticatedNavigator: React.FC<{ user: User }> = ({ user }) => {
+    // Initialize app data when user is authenticated
+    React.useEffect(() => {
+      const initializeData = async () => {
+        try {
+          // Get user's pubkey (prioritize hex, fallback to npub)
+          const pubkey = user.id; // User ID should be hex pubkey or npub
+
+          if (!pubkey) {
+            console.warn('[App] Cannot initialize app data: no pubkey available');
+            return;
+          }
+
+          console.log('[App] 🚀 Triggering app data initialization for authenticated user...');
+
+          // Non-blocking background initialization
+          await appInitializationService.initializeAppData(pubkey);
+        } catch (error) {
+          console.error('[App] ❌ App data initialization error:', error);
+          // Don't block app - initialization errors are non-critical
+        }
+      };
+
+      initializeData();
+    }, [user.id]);
+
     return (
       <AuthenticatedStack.Navigator
         screenOptions={{
@@ -353,10 +380,7 @@ const AppContent: React.FC = () => {
                     prizePool: 0,
                   },
                   members: [],
-                  joinRequests: [],
-                  activityLog: [],
                   recentActivity: [],
-                  walletBalance: 0,
                 }}
                 teamId={teamId || ''}
                 captainId={teamCaptainId || user.npub || user.id}
@@ -388,6 +412,8 @@ const AppContent: React.FC = () => {
               onContactSupport={() => navigation.navigate('ContactSupport')}
               onPrivacyPolicy={() => navigation.navigate('PrivacyPolicy')}
               onSignOut={async () => {
+                // Reset initialization state on logout
+                appInitializationService.reset();
                 await signOut();
                 // AuthContext state change will trigger App.tsx to show login screen
               }}

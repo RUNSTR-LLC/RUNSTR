@@ -13,6 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export class AmberNDKSigner implements NDKSigner {
   private _pubkey: string | null = null;
   private isReady = false;
+  private lastSignedEvent: { id: string; sig: string } | null = null;
 
   constructor() {
     console.log('[Amber] Initializing NDK Signer for Activity Result communication');
@@ -228,6 +229,17 @@ export class AmberNDKSigner implements NDKSigner {
         console.log('[Amber DEBUG] Signature value:', sig ? sig.substring(0, 20) + '...' : 'NONE');
 
         if (sig) {
+          // Cache the event ID if Amber returned the full signed event
+          if (signedEvent?.id && signedEvent?.sig) {
+            this.lastSignedEvent = {
+              id: signedEvent.id,
+              sig: signedEvent.sig
+            };
+            console.log('[Amber DEBUG] Cached event ID from Amber:', signedEvent.id.substring(0, 16) + '...');
+          } else {
+            this.lastSignedEvent = null;
+          }
+
           return sig;
         } else {
           throw new Error('No signature in Amber response');
@@ -417,7 +429,17 @@ export class AmberNDKSigner implements NDKSigner {
     return hexPubkey;
   }
 
+  /**
+   * Get the last signed event ID from Amber
+   * Returns the event ID that Amber calculated and signed, or null if not available
+   * This should be called immediately after sign() to get Amber's authoritative event ID
+   */
+  getLastSignedEventId(): string | null {
+    return this.lastSignedEvent?.id || null;
+  }
+
   cleanup(): void {
     // No cleanup needed for Activity Result-based communication
+    this.lastSignedEvent = null;
   }
 }

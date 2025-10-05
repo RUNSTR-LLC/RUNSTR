@@ -33,7 +33,6 @@ import unifiedSigningService from '../services/auth/UnifiedSigningService';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { LoadingOverlay } from '../components/ui/LoadingStates';
-import { SyncDropdown } from '../components/profile/shared/SyncDropdown';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
@@ -111,9 +110,6 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
 
       console.log('✅ Loaded pubkey from AsyncStorage:', userPubkey.slice(0, 20) + '...');
       setPubkey(userPubkey);
-
-      // Load nsec for posting
-      await loadNsecKey(userPubkey);
 
       // Initialize HealthKit and load workouts (pass pubkey directly)
       await initializeHealthKitAndLoadWorkouts(userPubkey);
@@ -509,12 +505,8 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
         <View style={styles.placeholder} />
       </View>
 
-      {/* Import Button and View Toggle */}
+      {/* View Toggle */}
       <View style={styles.topControls}>
-        <SyncDropdown
-          userId={pubkey} // SyncDropdown will be updated later, use pubkey for now
-          onSyncComplete={() => loadWorkouts(true)}
-        />
         <View style={styles.viewToggle}>
           <TouchableOpacity
             style={[
@@ -644,7 +636,7 @@ const styles = StyleSheet.create({
   },
   topControls: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,

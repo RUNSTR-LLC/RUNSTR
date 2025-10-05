@@ -24,9 +24,9 @@ export class WorkoutCacheService {
   // Cache versioning - bump this when cache structure changes
   private readonly CACHE_VERSION = '2.0.0'; // Updated for NIP-101e compliance
 
-  // Cache TTL: 24 hours for long-term cache, 30 minutes for quick refresh
+  // Cache TTL: 24 hours for long-term cache, 5 minutes for quick refresh
   private readonly CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
-  private readonly QUICK_REFRESH_TTL = 30 * 60 * 1000; // 30 minutes (increased from 3 minutes)
+  private readonly QUICK_REFRESH_TTL = 5 * 60 * 1000; // 5 minutes (reduced for fresher data)
 
   // Background refresh after 2 minutes
   private readonly BACKGROUND_REFRESH_TIME = 2 * 60 * 1000;
@@ -56,6 +56,7 @@ export class WorkoutCacheService {
         allWorkouts: [],
         healthKitCount: 0,
         nostrCount: 0,
+        localCount: 0,
         duplicateCount: 0,
         fromCache: false,
         loadDuration: 0,
@@ -81,7 +82,7 @@ export class WorkoutCacheService {
       // Check if cache is expired (24 hours)
       if (cacheAge > this.CACHE_TTL) {
         console.log('⏰ WorkoutCacheService: Cache expired (>24h), fetching fresh data...');
-        return this.fetchAndCacheWorkouts(userId, pubkey, limit);
+        return this.fetchAndCacheWorkouts(pubkey, limit);
       }
 
       console.log(
@@ -157,6 +158,7 @@ export class WorkoutCacheService {
         allWorkouts: [],
         healthKitCount: 0,
         nostrCount: 0,
+        localCount: 0,
         duplicateCount: 0,
         fromCache: false,
         loadDuration: Date.now() - startTime,
@@ -267,5 +269,21 @@ export class WorkoutCacheService {
       healthKitCount: cachedResult?.healthKitCount || 0,
       nostrCount: cachedResult?.nostrCount || 0,
     };
+  }
+
+  /**
+   * Warm up cache during app initialization
+   * Returns cached data immediately if available, triggers background refresh if needed
+   * Pure Nostr implementation - uses pubkey only
+   */
+  async warmUpCache(pubkey: string): Promise<WorkoutMergeResult> {
+    console.log('🔥 WorkoutCacheService: Warming up cache for pubkey:', pubkey?.slice(0, 20) + '...');
+
+    // Use the existing getMergedWorkouts which already implements cache-first strategy
+    const result = await this.getMergedWorkouts(pubkey, 500);
+
+    console.log(`🔥 WorkoutCacheService: Cache warm-up complete - ${result.allWorkouts.length} workouts loaded`);
+
+    return result;
   }
 }

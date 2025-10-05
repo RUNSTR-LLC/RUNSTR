@@ -780,8 +780,9 @@ export class EnhancedLocationTrackingService {
   }
 
   /**
-   * Calculate distance between two points with 3D consideration
-   * Uses Haversine formula for horizontal distance, then applies Pythagorean theorem for altitude
+   * Calculate distance between two points using Haversine formula
+   * Returns horizontal (2D) distance only - industry standard for running apps
+   * Elevation gain is tracked separately in totalElevationGain
    */
   private calculateDistance(p1: EnhancedLocationPoint, p2: EnhancedLocationPoint): number {
     // Calculate 2D horizontal distance using Haversine formula
@@ -795,27 +796,14 @@ export class EnhancedLocationTrackingService {
       Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-    const flatDistance = R * c;
+    const horizontalDistance = R * c;
 
-    // Add altitude component if both points have altitude data
-    if (p1.altitude !== undefined && p2.altitude !== undefined) {
-      const altitudeDiff = p2.altitude - p1.altitude;
-
-      // Apply Pythagorean theorem for 3D distance
-      // This is especially important for trail running and mountain biking
-      const distance3D = Math.sqrt(flatDistance * flatDistance + altitudeDiff * altitudeDiff);
-
-      // Log significant altitude changes for debugging
-      if (Math.abs(altitudeDiff) > 10) {
-        console.log(`\ud83c\udfde️ 3D distance calculation: horizontal=${flatDistance.toFixed(1)}m, altitude∆=${altitudeDiff.toFixed(1)}m, 3D=${distance3D.toFixed(1)}m`);
-      }
-
-      return distance3D;
-    }
-
-    // Return 2D distance if altitude data is unavailable
-    return flatDistance;
+    // Return horizontal distance only (2D)
+    // This matches industry standards (Nike, Strava, Garmin) and official race distance measurement
+    // Elevation changes are tracked separately as totalElevationGain
+    return horizontalDistance;
   }
+
 
   /**
    * Save session to storage
