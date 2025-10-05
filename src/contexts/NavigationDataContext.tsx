@@ -253,6 +253,7 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
                 role: 'captain',
                 bannerImage: team.bannerImage,
                 captainId: team.captainId,
+                charityId: team.charityId,
               });
             }
           }
@@ -280,6 +281,7 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
                 role: isCaptain ? 'captain' : 'member',
                 bannerImage: team.bannerImage,
                 captainId: team.captainId,
+                charityId: team.charityId,
               });
             } else {
               // Team not in discovered teams, use membership data

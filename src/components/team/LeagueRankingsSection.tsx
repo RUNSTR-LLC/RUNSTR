@@ -24,6 +24,7 @@ import leagueRankingService, {
 } from '../../services/competition/leagueRankingService';
 import { TeamMemberCache } from '../../services/team/TeamMemberCache';
 import { getUserNostrIdentifiers } from '../../utils/nostr';
+import { npubToHex } from '../../utils/ndkConversion';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface LeagueRankingsSectionProps {
@@ -88,11 +89,12 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
       let captainHex = captainPubkey;
       if (captainPubkey.startsWith('npub')) {
         // Convert npub to hex if needed
-        try {
-          const { hexPubkey } = await getUserNostrIdentifiers();
-          if (hexPubkey) captainHex = hexPubkey;
-        } catch (e) {
-          console.warn('Could not convert npub to hex, using as-is');
+        const converted = npubToHex(captainPubkey);
+        if (converted) {
+          captainHex = converted;
+          console.log(`✅ Converted captain npub to hex: ${captainHex.slice(0, 12)}...`);
+        } else {
+          console.warn('⚠️ Could not convert captain npub to hex, using as-is');
         }
       }
 

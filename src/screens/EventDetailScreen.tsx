@@ -150,25 +150,47 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
       // First try to use passed event data if available
       if (passedEventData) {
         console.log('Using passed event data:', passedEventData);
-        // Convert Nostr event to Competition format with null guards
-        const eventDate = passedEventData.eventDate ? new Date(passedEventData.eventDate) : new Date();
-        const startTime = Math.floor(eventDate.getTime() / 1000);
 
-        competition = {
-          id: passedEventData.id || eventId,
-          teamId: passedEventData.teamId || '',
-          name: passedEventData.name || 'Unnamed Event',
-          description: passedEventData.description || '',
-          type: 'event',
-          activityType: passedEventData.activityType || 'running',
-          competitionType: passedEventData.competitionType || 'distance',
-          startTime,
-          endTime: startTime + 86400, // Add 1 day
-          entryFeesSats: passedEventData.entryFeesSats || 0,
-          goalValue: passedEventData.targetValue,
-          goalUnit: passedEventData.targetUnit || 'km',
-          captainPubkey: passedEventData.captainPubkey || '',
-        };
+        // Validate critical fields before processing
+        if (!passedEventData.id && !eventId) {
+          throw new Error('Event ID is missing from both route params and passed data');
+        }
+
+        try {
+          // Convert Nostr event to Competition format with comprehensive null guards
+          const eventDate = passedEventData.eventDate ? new Date(passedEventData.eventDate) : new Date();
+
+          // Validate date is not Invalid
+          if (isNaN(eventDate.getTime())) {
+            console.warn('⚠️ Invalid event date, using current date as fallback');
+            eventDate.setTime(Date.now());
+          }
+
+          const startTime = Math.floor(eventDate.getTime() / 1000);
+
+          competition = {
+            id: passedEventData.id || eventId,
+            teamId: passedEventData.teamId || '',
+            name: passedEventData.name || 'Unnamed Event',
+            description: passedEventData.description || '',
+            type: 'event',
+            activityType: passedEventData.activityType || 'running',
+            competitionType: passedEventData.competitionType || 'distance',
+            startTime,
+            endTime: startTime + 86400, // Add 1 day
+            entryFeesSats: passedEventData.entryFeesSats || 0,
+            goalValue: passedEventData.targetValue,
+            goalUnit: passedEventData.targetUnit || 'km',
+            captainPubkey: passedEventData.captainPubkey || '',
+          };
+
+          console.log('✅ Successfully converted passed event data to competition format');
+        } catch (conversionError) {
+          console.error('❌ Error converting passed event data:', conversionError);
+          // If conversion fails, try CompetitionService lookup as fallback
+          const competitionService = CompetitionService.getInstance();
+          competition = competitionService.getCompetitionById(eventId);
+        }
       } else {
         // Fall back to CompetitionService lookup
         const competitionService = CompetitionService.getInstance();

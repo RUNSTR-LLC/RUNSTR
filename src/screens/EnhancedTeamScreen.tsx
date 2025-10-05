@@ -289,7 +289,15 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
             day: 'numeric',
           }),
           details: event.description || 'No description',
-          startDate: event.eventDate, // Keep original for sorting
+          eventDate: event.eventDate, // Use eventDate for EventDetailScreen compatibility
+          teamId: event.teamId,
+          captainPubkey: event.captainPubkey,
+          description: event.description,
+          activityType: event.activityType,
+          competitionType: event.competitionType,
+          entryFeesSats: event.entryFeesSats,
+          targetValue: event.targetValue,
+          targetUnit: event.targetUnit,
           prizePoolSats: event.prizePoolSats, // Include prize pool if available
         }));
 
