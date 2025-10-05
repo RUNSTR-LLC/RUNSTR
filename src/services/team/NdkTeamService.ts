@@ -111,14 +111,30 @@ export class NdkTeamService {
 
   /**
    * Wait for NDK to be ready with timeout racing (Zap-Arena pattern)
+   * OPTIMIZED: Check if already ready before waiting
    */
-  private async awaitNDKReady(timeoutMs: number = 2000): Promise<boolean> {  // 2 second timeout for faster response
+  private async awaitNDKReady(timeoutMs: number = 10000): Promise<boolean> {  // 10 second timeout for GlobalNDK
     try {
+      // ✅ OPTIMIZATION: If already initialized, return immediately
+      if (this.isReady && this.ndk) {
+        console.log('[NDK Team] Already ready, skipping wait');
+        return true;
+      }
+
+      // ✅ OPTIMIZATION: Check if GlobalNDK is already connected
+      const globalStatus = GlobalNDKService.getStatus();
+      if (globalStatus.isInitialized && globalStatus.connectedRelays > 0) {
+        console.log(`[NDK Team] GlobalNDK already connected (${globalStatus.connectedRelays} relays), using immediately`);
+        this.isReady = true;
+        return true;
+      }
+
+      console.log('[NDK Team] Waiting for GlobalNDK to connect...');
       const ready = await Promise.race([
         this.readyPromise,
         new Promise<boolean>((resolve) => setTimeout(() => resolve(false), timeoutMs)),
       ]);
-      
+
       if (!ready) {
         throw new Error('NDK failed to become ready within timeout for team discovery');
       }
@@ -175,10 +191,11 @@ export class NdkTeamService {
   async discoverAllTeams(filters?: TeamDiscoveryFilters): Promise<NostrTeam[]> {
     // Starting global team discovery
 
-    // Wait for NDK to be ready
-    const isReady = await this.awaitNDKReady(5000);
+    // Wait for NDK to be ready (10s timeout, but returns immediately if already connected)
+    const isReady = await this.awaitNDKReady(10000);
     if (!isReady) {
-      console.error('❌ NDK not ready for team discovery');
+      console.error('❌ NDK not ready for team discovery after 10s timeout');
+      console.error('   This usually means GlobalNDK failed to connect to any relays');
       return [];
     }
 
