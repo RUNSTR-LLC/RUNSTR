@@ -78,11 +78,17 @@ export class WalletCore {
    */
   async initialize(hexPubkey: string): Promise<WalletState> {
     console.log('[WalletCore] Initializing offline-first wallet...');
+    console.log('[WalletCore] User pubkey (hex):', hexPubkey.slice(0, 16) + '...');
 
     this.userPubkey = hexPubkey;
 
     // INSTANT: Load local wallet immediately (< 50ms)
     const localWallet = await this.loadLocalWallet();
+
+    console.log('[WalletCore] Wallet loaded for user:', hexPubkey.slice(0, 16) + '...');
+    console.log('[WalletCore] Balance:', localWallet.balance, 'sats');
+    console.log('[WalletCore] Proofs:', localWallet.proofs.length);
+    console.log('[WalletCore] Storage key:', this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS));
 
     // BACKGROUND: Try to connect to mint (don't block)
     this.connectToMintAsync().catch(err =>

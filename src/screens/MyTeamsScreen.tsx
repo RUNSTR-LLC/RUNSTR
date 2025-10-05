@@ -24,9 +24,10 @@ import type { Team } from '../types';
 
 export const MyTeamsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
-  const { profileData, refresh } = useNavigationData();
+  const { profileData, refresh, isLoadingTeam } = useNavigationData();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [userNpub, setUserNpub] = useState<string>('');
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // Load user npub on mount
   useEffect(() => {
@@ -43,6 +44,13 @@ export const MyTeamsScreen: React.FC = () => {
 
     loadUserNpub();
   }, []);
+
+  // Track when initial load completes
+  useEffect(() => {
+    if (profileData?.teams) {
+      setIsInitialLoad(false);
+    }
+  }, [profileData]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -95,7 +103,14 @@ export const MyTeamsScreen: React.FC = () => {
         }
         showsVerticalScrollIndicator={false}
       >
-        {teams.length === 0 ? (
+        {/* Show loading state only on initial load */}
+        {isInitialLoad && teams.length === 0 ? (
+          <View style={styles.loadingState}>
+            <ActivityIndicator size="large" color={theme.colors.text} />
+            <Text style={styles.loadingText}>Loading your teams...</Text>
+          </View>
+        ) : teams.length === 0 ? (
+          /* Empty state after loading completes */
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateTitle}>No Teams Joined</Text>
             <Text style={styles.emptyStateDescription}>
@@ -110,6 +125,7 @@ export const MyTeamsScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         ) : (
+          /* Show teams */
           <View style={styles.teamsList}>
             {teams.map((team) => (
               <CompactTeamCard
@@ -120,6 +136,13 @@ export const MyTeamsScreen: React.FC = () => {
                 onPress={handleTeamPress}
               />
             ))}
+            {/* Show loading indicator while refreshing teams */}
+            {isLoadingTeam && (
+              <View style={styles.refreshingIndicator}>
+                <ActivityIndicator size="small" color={theme.colors.textMuted} />
+                <Text style={styles.refreshingText}>Checking for new teams...</Text>
+              </View>
+            )}
           </View>
         )}
       </ScrollView>
@@ -208,5 +231,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: theme.typography.weights.medium,
     color: theme.colors.background,
+  },
+
+  // Loading State
+  loadingState: {
+    alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 32,
+  },
+
+  loadingText: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+
+  // Refreshing Indicator
+  refreshingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    gap: 8,
+  },
+
+  refreshingText: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
   },
 });

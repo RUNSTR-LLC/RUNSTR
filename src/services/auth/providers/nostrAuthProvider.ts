@@ -64,20 +64,45 @@ export class NostrAuthProvider {
       const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
       const { npubToHex } = await import('../../../utils/ndkConversion');
       const hexPubkey = npubToHex(npub);
+
       if (hexPubkey) {
+        // CRITICAL: Store pubkey BEFORE wallet initialization to ensure correct user isolation
         await AsyncStorage.setItem('@runstr:current_user_pubkey', hexPubkey);
         console.log('✅ NostrAuthProvider: Current user pubkey stored for wallet verification');
+        console.log('🔑 NostrAuthProvider: User pubkey (hex):', hexPubkey.slice(0, 16) + '...');
+
+        // Verify stored pubkey matches what we just set
+        const verifyPubkey = await AsyncStorage.getItem('@runstr:current_user_pubkey');
+        if (verifyPubkey !== hexPubkey) {
+          console.error('❌ NostrAuthProvider: CRITICAL - Stored pubkey mismatch!');
+          console.error('❌ Expected:', hexPubkey.slice(0, 16) + '...');
+          console.error('❌ Got:', verifyPubkey?.slice(0, 16) + '...');
+        } else {
+          console.log('✅ NostrAuthProvider: Pubkey verification successful');
+        }
       }
 
       // Initialize NutZap wallet for user (auto-creates if doesn't exist)
       try {
         console.log('💰 NostrAuthProvider: Initializing NutZap wallet...');
+        console.log('💰 NostrAuthProvider: Wallet will be isolated to pubkey:', hexPubkey?.slice(0, 16) + '...');
+
         const walletState = await nutzapService.initialize(nsec);
+
         if (walletState.created) {
           console.log('✅ NostrAuthProvider: New NutZap wallet created for user');
+          console.log('💰 Initial wallet balance: 0 sats');
         } else {
           console.log('✅ NostrAuthProvider: Existing NutZap wallet loaded');
+          console.log('💰 Current wallet balance:', walletState.balance, 'sats');
+          console.log('💰 Wallet has', walletState.proofCount || 0, 'proofs');
         }
+
+        // Verify wallet is using correct storage keys
+        const walletProofsKey = `@runstr:wallet_proofs:${hexPubkey}`;
+        const storedProofs = await AsyncStorage.getItem(walletProofsKey);
+        console.log('💰 Wallet storage key:', walletProofsKey);
+        console.log('💰 Wallet has stored proofs:', !!storedProofs);
       } catch (walletError) {
         // Don't fail auth if wallet creation fails - wallet can be created later
         console.warn('⚠️ NostrAuthProvider: NutZap wallet initialization failed (non-fatal):', walletError);

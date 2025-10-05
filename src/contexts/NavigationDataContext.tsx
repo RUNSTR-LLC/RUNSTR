@@ -538,37 +538,41 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
     }
   }, [currentUser]);
 
-  // Initial load - Load user and profile data in parallel with teams
+  // Initial load - Non-blocking progressive loading for instant UI
   useEffect(() => {
     const init = async () => {
-      console.log('🚀 NavigationDataProvider: Starting initial data load...');
+      console.log('🚀 NavigationDataProvider: Starting FAST initial load...');
 
-      // Load user data and teams in parallel for faster initial load
-      const [userData] = await Promise.all([
-        fetchUserData(),
-        loadTeams(), // Load teams early
-      ]);
-
-      console.log('🚀 NavigationDataProvider: User data loaded:', !!userData);
-
-      if (userData) {
-        // Profile data loading includes team lookup
-        await fetchProfileData(userData);
-      }
-
+      // CRITICAL: Make UI interactive immediately by setting isLoading = false
+      // Load all data in background without blocking UI
       setIsLoading(false);
-      console.log(
-        '🚀 NavigationDataProvider: Initial load complete, isLoading:',
-        false
+      console.log('✅ NavigationDataProvider: UI now interactive (isLoading: false)');
+
+      // Background Task 1: Load user data (fast, from cache first)
+      fetchUserData().then(userData => {
+        console.log('🚀 NavigationDataProvider: User data loaded:', !!userData);
+
+        // Background Task 2: Load profile data (includes teams)
+        if (userData) {
+          fetchProfileData(userData).catch(err =>
+            console.warn('⚠️ Profile data load failed:', err)
+          );
+        }
+      }).catch(err =>
+        console.error('❌ User data load failed:', err)
       );
 
-      // Prefetch leagues in background after 2-second delay
-      // This avoids network congestion during critical initial load
+      // Background Task 3: Load teams in parallel (don't block on user)
+      loadTeams().catch(err =>
+        console.warn('⚠️ Teams load failed:', err)
+      );
+
+      // Background Task 4: Prefetch leagues after short delay
       setTimeout(() => {
-        console.log(
-          '⏰ Starting delayed league prefetch (2s after initial load)'
+        console.log('⏰ Starting delayed league prefetch (2s after init)');
+        prefetchLeaguesInBackground().catch(err =>
+          console.warn('⚠️ League prefetch failed:', err)
         );
-        prefetchLeaguesInBackground();
       }, 2000);
     };
     init();

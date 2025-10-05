@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NostrInitializationService } from '../services/nostr/NostrInitializationService';
+import { theme } from '../styles/theme';
 
 const { width } = Dimensions.get('window');
 

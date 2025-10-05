@@ -64,14 +64,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const storedNpub = await getNpubFromStorage();
 
       if (storedNpub) {
-        // Just set authenticated state - no profile loading yet
+        // FAST: Set authenticated state immediately for instant UI
         setIsAuthenticated(true);
         setConnectionStatus('Loading...');
 
-        // Defer profile loading to after initial render
-        setTimeout(() => {
-          loadUserProfile();
-        }, 100);
+        // CRITICAL: Load cached user immediately, then refresh in background
+        const { appCache } = await import('../utils/cache');
+        const cachedUser = await appCache.get<User>('current_user_profile');
+
+        if (cachedUser) {
+          console.log('⚡ AuthContext: Using cached user for instant UI');
+          setCurrentUser(cachedUser);
+          setIsConnected(true);
+          setConnectionStatus('Connected');
+
+          // Refresh profile in background (non-blocking)
+          setTimeout(() => {
+            console.log('🔄 AuthContext: Refreshing profile in background...');
+            loadUserProfile();
+          }, 100);
+        } else {
+          // No cache - load profile (will still be non-blocking due to setTimeout)
+          setTimeout(() => {
+            loadUserProfile();
+          }, 100);
+        }
       } else {
         setIsAuthenticated(false);
         setCurrentUser(null);

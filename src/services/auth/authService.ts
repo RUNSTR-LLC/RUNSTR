@@ -20,6 +20,8 @@ export class AuthService {
    */
   static async signOut(): Promise<ApiResponse> {
     try {
+      console.log('🔓 AuthService: Starting sign out with full cleanup...');
+
       // Clear Nostr keys and data
       await clearNostrStorage();
 
@@ -36,6 +38,45 @@ export class AuthService {
         '@runstr:last_sync',
         '@runstr:onboarding_completed' // Clear onboarding flag to ensure clean state
       ]);
+      console.log('✅ AuthService: Wallet data cleared');
+
+      // CRITICAL: Clear all caches to prevent cross-user data contamination
+      try {
+        const { appCache } = await import('../../utils/cache');
+        await appCache.clear();
+        console.log('✅ AuthService: App cache cleared');
+      } catch (err) {
+        console.warn('⚠️ AuthService: App cache clear failed:', err);
+      }
+
+      // Clear captain cache
+      try {
+        const { CaptainCache } = await import('../../utils/captainCache');
+        await CaptainCache.clearAll();
+        console.log('✅ AuthService: Captain cache cleared');
+      } catch (err) {
+        console.warn('⚠️ AuthService: Captain cache clear failed:', err);
+      }
+
+      // Clear team cache service
+      try {
+        const { TeamCacheService } = await import('../cache/TeamCacheService');
+        const teamCache = TeamCacheService.getInstance();
+        await teamCache.clearCache();
+        console.log('✅ AuthService: Team cache cleared');
+      } catch (err) {
+        console.warn('⚠️ AuthService: Team cache clear failed:', err);
+      }
+
+      // Clear competition cache service
+      try {
+        const { CompetitionCacheService } = await import('../cache/CompetitionCacheService');
+        const compCache = CompetitionCacheService.getInstance();
+        await compCache.clearCache();
+        console.log('✅ AuthService: Competition cache cleared');
+      } catch (err) {
+        console.warn('⚠️ AuthService: Competition cache clear failed:', err);
+      }
 
       // Reset nutzap service if initialized
       try {
@@ -43,27 +84,28 @@ export class AuthService {
         if (nutzapService) {
           nutzapService.reset();
         }
+        console.log('✅ AuthService: NutZap service reset');
       } catch (err) {
-        console.log('AuthService: NutZap service reset skipped:', err);
+        console.warn('⚠️ AuthService: NutZap service reset skipped:', err);
       }
 
       // Reset wallet store state (Zustand)
       try {
         const { useWalletStore } = await import('../../store/walletStore');
         useWalletStore.getState().reset();
-        console.log('AuthService: Wallet store reset successful');
+        console.log('✅ AuthService: Wallet store reset successful');
       } catch (err) {
-        console.log('AuthService: Wallet store reset skipped:', err);
+        console.warn('⚠️ AuthService: Wallet store reset skipped:', err);
       }
 
-      console.log('AuthService: Sign out successful with wallet cleanup');
+      console.log('✅ AuthService: Sign out complete - all caches and data cleared');
 
       return {
         success: true,
         message: 'Successfully signed out',
       };
     } catch (error) {
-      console.error('Error signing out:', error);
+      console.error('❌ AuthService: Sign out error:', error);
       return {
         success: false,
         error: 'Failed to sign out',
