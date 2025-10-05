@@ -201,6 +201,16 @@ export const TeamCard: React.FC<TeamCardProps> = ({
         setButtonState('pending');
       }
 
+      // CRITICAL FIX: Refresh teams cache so My Teams screen updates immediately
+      try {
+        const nostrPrefetchService = (await import('../../services/nostr/NostrPrefetchService')).default;
+        await nostrPrefetchService.refreshUserTeamsCache();
+        console.log('✅ Teams cache refreshed after join');
+      } catch (cacheError) {
+        console.warn('⚠️ Failed to refresh teams cache:', cacheError);
+        // Don't block the join flow if cache refresh fails
+      }
+
       // Call external join request handler if provided (for backward compatibility)
       if (onJoinRequest) {
         await onJoinRequest(team);

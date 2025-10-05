@@ -168,26 +168,58 @@ export class NostrPrefetchService {
   }
 
   /**
+   * Force refresh user teams cache
+   * Call this after joining/leaving a team to update My Teams screen
+   */
+  async refreshUserTeamsCache(): Promise<void> {
+    try {
+      const identifiers = await getUserNostrIdentifiers();
+      if (!identifiers) {
+        console.warn('[Prefetch] Cannot refresh teams - no user identifiers');
+        return;
+      }
+
+      const { hexPubkey } = identifiers;
+
+      // Invalidate the cache
+      unifiedCache.delete(CacheKeys.USER_TEAMS(hexPubkey));
+
+      // Re-fetch teams
+      await this.prefetchUserTeams(hexPubkey);
+      console.log('✅ User teams cache refreshed');
+    } catch (error) {
+      console.error('❌ Failed to refresh user teams cache:', error);
+    }
+  }
+
+  /**
    * Prefetch all discovered teams
+   * PERFORMANCE: With 5-second timeout to prevent blocking
    */
   private async prefetchDiscoveredTeams(): Promise<void> {
     try {
-      const teams = await unifiedCache.get(
-        CacheKeys.DISCOVERED_TEAMS,
-        async () => {
-          const teamService = getNostrTeamService();
+      // PERFORMANCE FIX: Add timeout to prevent indefinite blocking
+      const teams = await Promise.race([
+        unifiedCache.get(
+          CacheKeys.DISCOVERED_TEAMS,
+          async () => {
+            const teamService = getNostrTeamService();
 
-          // Trigger team discovery if not already done
-          const cachedTeams = teamService.getDiscoveredTeams();
-          if (cachedTeams.size === 0) {
-            await teamService.discoverFitnessTeams(); // Fixed: use correct method name
-          }
+            // Trigger team discovery if not already done
+            const cachedTeams = teamService.getDiscoveredTeams();
+            if (cachedTeams.size === 0) {
+              await teamService.discoverFitnessTeams();
+            }
 
-          // Convert Map to array
-          return Array.from(teamService.getDiscoveredTeams().values());
-        },
-        { ttl: CacheTTL.DISCOVERED_TEAMS }
-      );
+            // Convert Map to array
+            return Array.from(teamService.getDiscoveredTeams().values());
+          },
+          { ttl: CacheTTL.DISCOVERED_TEAMS }
+        ),
+        new Promise<any[]>((_, reject) =>
+          setTimeout(() => reject(new Error('Team discovery timeout')), 5000)
+        )
+      ]);
 
       // Populate CaptainCache for all discovered teams
       // This ensures captain status is detected during prefetch
@@ -210,7 +242,12 @@ export class NostrPrefetchService {
 
       console.log('[Prefetch] Discovered teams cached:', teams?.length || 0);
     } catch (error) {
-      console.error('[Prefetch] Discovered teams failed:', error);
+      if (error instanceof Error && error.message === 'Team discovery timeout') {
+        console.warn('[Prefetch] Team discovery timed out - teams will load on demand');
+      } else {
+        console.error('[Prefetch] Discovered teams failed:', error);
+      }
+      // Continue without blocking - teams will load on demand
     }
   }
 
@@ -230,29 +267,37 @@ export class NostrPrefetchService {
 
   /**
    * Prefetch wallet info (kind 37375)
+   * NON-BLOCKING: Wallet loads in background, doesn't block app startup
    */
   private async prefetchWalletInfo(hexPubkey: string): Promise<void> {
     try {
-      const walletInfo = await unifiedCache.get(
-        CacheKeys.WALLET_INFO(hexPubkey),
-        async () => {
-          // Import wallet service
+      // PERFORMANCE FIX: Don't block on wallet initialization
+      // Wallet will initialize lazily when user accesses wallet features
+      console.log('[Prefetch] Wallet will initialize on-demand (non-blocking)');
+
+      // Start wallet initialization in background without waiting
+      setTimeout(async () => {
+        try {
           const WalletCore = (await import('../nutzap/WalletCore')).WalletCore;
           const core = WalletCore.getInstance();
-
-          // Get wallet state
           const state = await core.initialize(hexPubkey);
-          return {
-            balance: state.balance,
-            mint: state.mint,
-            isOnline: state.isOnline,
-            pubkey: state.pubkey,
-          };
-        },
-        { ttl: CacheTTL.WALLET_INFO }
-      );
 
-      console.log('[Prefetch] Wallet info cached, balance:', walletInfo?.balance || 0);
+          await unifiedCache.set(
+            CacheKeys.WALLET_INFO(hexPubkey),
+            {
+              balance: state.balance,
+              mint: state.mint,
+              isOnline: state.isOnline,
+              pubkey: state.pubkey,
+            },
+            { ttl: CacheTTL.WALLET_INFO }
+          );
+
+          console.log('[Prefetch] Wallet initialized in background, balance:', state.balance);
+        } catch (bgError) {
+          console.warn('[Prefetch] Background wallet init failed:', bgError);
+        }
+      }, 0);
     } catch (error) {
       console.error('[Prefetch] Wallet info failed:', error);
     }
