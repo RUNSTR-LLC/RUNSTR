@@ -82,6 +82,7 @@ export class EnhancedLocationTrackingService {
   private lastValidLocation: EnhancedLocationPoint | null = null;
   private appStateSubscription: any = null;
   private gpsCheckTimer: NodeJS.Timeout | null = null;
+  private backgroundSyncTimer: NodeJS.Timeout | null = null;
 
   // Metrics
   private totalValidPoints = 0;
@@ -102,8 +103,13 @@ export class EnhancedLocationTrackingService {
   private recoveryStartTime: number | null = null;
   private recoveryAccuracyThreshold: number = 50; // Initial accuracy threshold for recovery
   private skippedRecoveryDistance: number = 0; // Track phantom distance during recovery
-  private readonly GPS_RECOVERY_TIMEOUT_MS = 10000; // 10 seconds max recovery time
-  private readonly GPS_RECOVERY_POINTS = 2; // Number of points to skip after GPS recovery (reduced from 3 with Kalman filter)
+  private readonly GPS_RECOVERY_TIMEOUT_MS = 5000; // 5 seconds max recovery time (reduced to prevent distance freeze)
+  private readonly GPS_RECOVERY_POINTS = 1; // Number of points to skip after GPS recovery (reduced to 1 to prevent prolonged freezes)
+
+  // Distance freeze detection
+  private lastDistanceUpdateTime: number = 0;
+  private lastDistanceValue: number = 0;
+  private readonly DISTANCE_FREEZE_THRESHOLD_MS = 10000; // 10 seconds without distance change = freeze
 
   private constructor() {
     this.stateMachine = new ActivityStateMachine();
@@ -252,6 +258,10 @@ export class EnhancedLocationTrackingService {
       this.warmupStartTime = Date.now();
       console.log(`🔥 GPS warmup started (${this.GPS_WARMUP_DURATION_MS / 1000}s) - recovery mode disabled during warmup`);
 
+      // Initialize distance freeze detection
+      this.lastDistanceValue = 0;
+      this.lastDistanceUpdateTime = Date.now();
+
       // Start split tracking for running activities
       if (activityType === 'running') {
         this.splitTracker.start(startTime);
@@ -266,6 +276,9 @@ export class EnhancedLocationTrackingService {
 
       // Start GPS monitoring
       this.startGPSMonitoring();
+
+      // Start periodic background location sync
+      this.startBackgroundLocationSync();
 
       // Get location options from battery service
       const locationOptions = this.batteryService.getLocationOptions(activityType);
@@ -498,10 +511,17 @@ export class EnhancedLocationTrackingService {
         // Use Kalman-filtered distance with monotonicity guarantee
         // Distance should never decrease (prevents oscillations)
         const newSmoothedDistance = kalmanState.distance;
+        const previousDistance = this.currentSession.totalDistance;
         this.currentSession.totalDistance = Math.max(
           this.currentSession.totalDistance,
           newSmoothedDistance
         );
+
+        // Track distance updates for freeze detection
+        if (this.currentSession.totalDistance > this.lastDistanceValue) {
+          this.lastDistanceValue = this.currentSession.totalDistance;
+          this.lastDistanceUpdateTime = Date.now();
+        }
 
         // Debug logging for Kalman filtering
         if (Platform.OS === 'android') {
@@ -616,7 +636,7 @@ export class EnhancedLocationTrackingService {
   }
 
   /**
-   * Monitor GPS signal timeout
+   * Monitor GPS signal timeout and distance freeze detection
    */
   private startGPSMonitoring(): void {
     this.stopGPSMonitoring();
@@ -624,13 +644,30 @@ export class EnhancedLocationTrackingService {
     this.gpsCheckTimer = setInterval(() => {
       if (!this.currentSession) return;
 
-      const timeSinceLastUpdate = Date.now() - this.currentSession.lastGPSUpdate;
+      const now = Date.now();
+      const timeSinceLastUpdate = now - this.currentSession.lastGPSUpdate;
+
+      // Check for GPS signal timeout
       if (timeSinceLastUpdate > GPS_SIGNAL_TIMEOUT) {
         this.currentSession.gpsSignalStrength = 'none';
         this.stateMachine.send({ type: 'GPS_LOST' });
         console.log(`⚠️ GPS timeout: No updates for ${(timeSinceLastUpdate / 1000).toFixed(1)}s`);
         // Mark for recovery tracking when signal returns
         this.wasInGpsLostState = true;
+      }
+
+      // Check for distance freeze (GPS is working but distance not updating)
+      if (this.lastDistanceUpdateTime > 0) {
+        const timeSinceDistanceUpdate = now - this.lastDistanceUpdateTime;
+        if (timeSinceDistanceUpdate > this.DISTANCE_FREEZE_THRESHOLD_MS &&
+            this.currentSession.gpsSignalStrength !== 'none') {
+          console.log(`⚠️ DISTANCE FREEZE DETECTED: GPS receiving updates but distance stuck at ${this.lastDistanceValue.toFixed(1)}m for ${(timeSinceDistanceUpdate / 1000).toFixed(1)}s`);
+          console.log(`   Current state: ${this.stateMachine.getState()}`);
+          console.log(`   GPS signal: ${this.currentSession.gpsSignalStrength}`);
+          console.log(`   In recovery mode: ${this.isInRecoveryMode()}`);
+          console.log(`   Points after recovery: ${this.pointsAfterRecovery}/${this.GPS_RECOVERY_POINTS}`);
+          console.log(`   Valid points: ${this.totalValidPoints}, Invalid: ${this.totalInvalidPoints}`);
+        }
       }
     }, 5000);
   }
@@ -646,14 +683,61 @@ export class EnhancedLocationTrackingService {
   }
 
   /**
-   * Sync background locations when app comes to foreground
+   * Start periodic background location sync
+   * Checks for background locations every 5 seconds and processes them
+   * This ensures distance updates even when app is backgrounded
+   */
+  private startBackgroundLocationSync(): void {
+    this.stopBackgroundLocationSync();
+
+    this.backgroundSyncTimer = setInterval(async () => {
+      await this.syncBackgroundLocations();
+    }, 5000); // Check every 5 seconds
+
+    console.log('Started periodic background location sync');
+  }
+
+  /**
+   * Stop periodic background location sync
+   */
+  private stopBackgroundLocationSync(): void {
+    if (this.backgroundSyncTimer) {
+      clearInterval(this.backgroundSyncTimer);
+      this.backgroundSyncTimer = null;
+    }
+  }
+
+  /**
+   * Sync background locations
+   * Processes background locations through validation and distance calculation
    */
   private async syncBackgroundLocations(): Promise<void> {
     const backgroundLocations = await getAndClearBackgroundLocations();
-    if (backgroundLocations.length > 0 && this.storage) {
-      console.log(`Syncing ${backgroundLocations.length} background locations`);
-      await this.storage.addPoints(backgroundLocations);
+    if (backgroundLocations.length === 0) return;
+
+    console.log(`📱 Syncing ${backgroundLocations.length} background locations`);
+
+    // Process each background location through normal validation pipeline
+    for (const loc of backgroundLocations) {
+      // Convert to LocationObject format expected by handleLocationUpdate
+      const locationObject: Location.LocationObject = {
+        coords: {
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          altitude: loc.altitude || null,
+          accuracy: loc.accuracy || null,
+          altitudeAccuracy: null,
+          heading: null,
+          speed: loc.speed || null,
+        },
+        timestamp: loc.timestamp,
+      };
+
+      // Process through normal pipeline (includes validation, distance calc, etc.)
+      await this.handleLocationUpdate(locationObject);
     }
+
+    console.log(`✅ Processed ${backgroundLocations.length} background locations`);
   }
 
   /**
@@ -707,6 +791,7 @@ export class EnhancedLocationTrackingService {
 
     await stopBackgroundLocationTracking();
     this.stopGPSMonitoring();
+    this.stopBackgroundLocationSync();
 
     if (this.currentSession && this.storage) {
       // Get final statistics

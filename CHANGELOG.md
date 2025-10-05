@@ -7,14 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.6] - 2025-10-05
 
 ### Fixed
+- **Distance Tracking Freeze**: Eliminated distance getting "stuck" during active workouts
+  - Fixed distance freezing at specific values (e.g., stuck at 0.63 km) while GPS shows strong signal
+  - Reduced GPS recovery buffer from 2 points to 1 point for faster recovery
+  - Added 5-second timeout to GPS recovery mode (was 10 seconds)
+  - Removed Android hysteresis filter that required 2 consecutive valid points
+  - Reduced minimum movement threshold from 1.0m to 0.75m to prevent slow movement rejection
+  - Added distance freeze detection logging to diagnose stuck distance issues
+  - Distance now updates more responsively during brief GPS fluctuations
+- **Background Distance Tracking**: Fixed distance not updating while app is backgrounded
+  - Implemented periodic background location sync (every 5 seconds)
+  - Background locations now processed through validation pipeline in real-time
+  - No more "recalculation" when returning to app - distance updates continuously
+  - Eliminates distance jumps when switching between apps
 - **Distance Tracking Oscillation**: Eliminated GPS distance "bounce" during workouts
   - Fixed distance oscillating between values (e.g., 1.14 → 1.13 → 1.14 km)
   - Implemented monotonicity guarantee - distance never decreases during active tracking
   - Improved Kalman filter to use incremental filtering instead of cumulative overwrite
   - Reduced interpolation window from 5 seconds to 1 second to prevent prediction errors
   - Disabled distance prediction in background mode to prevent oscillations from throttled GPS
-  - Strengthened Android GPS filtering: increased minimum movement threshold from 0.5m to 1.0m
-  - Added hysteresis requiring 2 consecutive valid GPS points before accepting
   - Prevents micro-oscillations from GPS coordinate jitter accumulating over time
 - **Distance Calculation Method**: Switched from 3D to 2D horizontal distance
   - Changed to industry-standard 2D Haversine distance calculation

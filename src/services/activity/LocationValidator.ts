@@ -53,9 +53,6 @@ export class LocationValidator {
   private readonly VELOCITY_HISTORY_SIZE = 5;
   private lastValidTimestamp: number = Date.now();
   private consecutiveInvalidPoints: number = 0;
-  // Hysteresis for Android: require multiple consecutive valid points
-  private consecutiveValidPoints: number = 0;
-  private readonly ANDROID_HYSTERESIS_THRESHOLD = 2;
 
   constructor(activityType: 'running' | 'walking' | 'cycling') {
     this.activityType = activityType;
@@ -146,24 +143,22 @@ export class LocationValidator {
     const distance = this.calculateDistance(referencePoint, point);
     const speed = distance / (timeDelta / 1000); // m/s
 
-    // Android: Use simplified validation with hysteresis to reduce GPS jitter
+    // Android: Use simplified validation to reduce GPS jitter
     if (Platform.OS === 'android') {
-      // Stricter minimum distance: 1.0m instead of 0.5m to reduce oscillations
-      // This filters out GPS coordinate jitter that causes distance to bounce
-      if (distance < 1.0) {
-        this.consecutiveValidPoints = 0; // Reset hysteresis counter
-        console.log(`⚠️ [ANDROID] GPS jitter filtered: distance=${distance.toFixed(2)}m < 1.0m`);
+      // Minimum distance: 0.75m to filter GPS jitter while allowing slow movement
+      // Reduced from 1.0m to prevent distance freezing during slow running
+      if (distance < 0.75) {
+        console.log(`⚠️ [ANDROID] GPS jitter filtered: distance=${distance.toFixed(2)}m < 0.75m`);
         return {
           isValid: false,
           confidence: 0,
-          reason: 'GPS jitter (< 1.0m)',
+          reason: 'GPS jitter (< 0.75m)',
         };
       }
 
       // Only check for extreme teleportation (2x more lenient than iOS)
       const androidMaxJump = this.config.maxJumpDistance * 2;
       if (distance > androidMaxJump) {
-        this.consecutiveValidPoints = 0; // Reset hysteresis counter
         console.log(`❌ [ANDROID] Extreme teleportation: ${distance.toFixed(0)}m > ${androidMaxJump}m`);
         return {
           isValid: false,
@@ -175,7 +170,6 @@ export class LocationValidator {
       // Only check for extreme speeds (2x more lenient than iOS)
       const androidMaxSpeed = this.config.maxSpeedMps * 2;
       if (speed > androidMaxSpeed) {
-        this.consecutiveValidPoints = 0; // Reset hysteresis counter
         console.log(`❌ [ANDROID] Extreme speed: ${(speed * 3.6).toFixed(1)} km/h > ${(androidMaxSpeed * 3.6).toFixed(1)} km/h`);
         return {
           isValid: false,
@@ -184,21 +178,8 @@ export class LocationValidator {
         };
       }
 
-      // Hysteresis: require 2 consecutive valid points before accepting
-      // This prevents single spurious GPS points from causing distance jumps
-      this.consecutiveValidPoints++;
-
-      if (this.consecutiveValidPoints < this.ANDROID_HYSTERESIS_THRESHOLD) {
-        console.log(`🔄 [ANDROID] Hysteresis buffering: ${this.consecutiveValidPoints}/${this.ANDROID_HYSTERESIS_THRESHOLD} valid points`);
-        return {
-          isValid: false,
-          confidence: 0.5, // Partially valid
-          reason: `Hysteresis: ${this.consecutiveValidPoints}/${this.ANDROID_HYSTERESIS_THRESHOLD} valid points`,
-        };
-      }
-
       // Skip acceleration checks on Android - GPS is too noisy
-      console.log(`✅ [ANDROID] Point passed validation: distance=${distance.toFixed(1)}m, speed=${(speed * 3.6).toFixed(1)}km/h, consecutive=${this.consecutiveValidPoints}`);
+      console.log(`✅ [ANDROID] Point accepted: distance=${distance.toFixed(1)}m, speed=${(speed * 3.6).toFixed(1)}km/h`);
       this.lastValidPoint = point;
       return {
         isValid: true,
@@ -460,6 +441,5 @@ export class LocationValidator {
     this.velocityHistory = [];
     this.lastValidTimestamp = Date.now();
     this.consecutiveInvalidPoints = 0;
-    this.consecutiveValidPoints = 0;
   }
 }
