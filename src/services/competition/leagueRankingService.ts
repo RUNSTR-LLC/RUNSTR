@@ -277,12 +277,16 @@ export class LeagueRankingService {
 
     const entries: LeagueRankingEntry[] = [];
 
-    for (const [npub, metric] of metrics) {
-      const participant = participants.find(p => p.npub === npub);
+    // Iterate over ALL participants, not just those with metrics
+    // This ensures team members with 0 workouts still appear on the leaderboard
+    for (const participant of participants) {
+      const npub = participant.npub;
+      const metric = metrics.get(npub); // May be undefined if no workouts
       let score = 0;
       let formattedScore = '0';
 
-      // Calculate score based on competition type
+      // Calculate score based on competition type (only if metrics exist)
+      if (metric) {
       switch (competitionType) {
         case 'Total Distance':
           score = metric.totalDistance || 0;
@@ -371,6 +375,8 @@ export class LeagueRankingService {
           score = metric.totalDistance || 0;
           formattedScore = this.formatDistance(score);
       }
+      } // End if (metric)
+      // If no metric, score remains 0 and formattedScore remains '0'
 
       const entry: LeagueRankingEntry = {
         npub: npub,
@@ -380,13 +386,14 @@ export class LeagueRankingService {
         score,
         formattedScore,
         isTopThree: false, // Will be set after ranking
-        workoutCount: metric.workoutCount,
-        lastActivity: metric.lastActivityDate,
+        workoutCount: metric?.workoutCount || 0,
+        lastActivity: metric?.lastActivityDate,
       };
 
       entries.push(entry);
     }
 
+    console.log(`📊 Created ${entries.length} ranking entries from ${participants.length} participants`);
     return entries;
   }
 
