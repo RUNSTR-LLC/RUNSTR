@@ -154,26 +154,21 @@ export class AmberNDKSigner implements NDKSigner {
 
     console.log('[Amber] Signing event kind', event.kind, 'via Activity Result');
 
-    // Prepare unsigned event with calculated ID (required by NIP-01)
+    // Prepare unsigned event WITHOUT id (Amber calculates id per NIP-55)
     const unsignedEvent: NostrEvent = {
       pubkey: this._pubkey!,
       created_at: event.created_at || Math.floor(Date.now() / 1000),
       kind: event.kind!,
       tags: event.tags || [],
       content: event.content || '',
-      id: '',
-      sig: ''
+      id: '',   // Keep empty - Amber will calculate
+      sig: ''   // Keep empty - Amber will sign
     };
-
-    // Calculate event ID using nostr-tools (required before signing)
-    const { getEventHash } = await import('nostr-tools');
-    const eventId = getEventHash(unsignedEvent);
-    unsignedEvent.id = eventId;
 
     console.log('[Amber DEBUG] Event prepared for signing:', {
       kind: unsignedEvent.kind,
-      id: eventId.substring(0, 16) + '...',
-      hasId: !!unsignedEvent.id
+      pubkey: unsignedEvent.pubkey.substring(0, 16) + '...',
+      tagsCount: unsignedEvent.tags.length
     });
 
     try {
