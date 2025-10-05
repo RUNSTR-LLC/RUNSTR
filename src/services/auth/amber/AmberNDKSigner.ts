@@ -176,20 +176,25 @@ export class AmberNDKSigner implements NDKSigner {
     });
 
     try {
-      const intentExtras = {
-        'type': 'sign_event',
-        'event': JSON.stringify(unsignedEvent)
-      };
+      // NIP-55 requires event to be URI-encoded in the data field, not in extras
+      const eventJson = JSON.stringify(unsignedEvent);
+      const encodedEvent = encodeURIComponent(eventJson);
+      const nostrsignerUri = `nostrsigner:${encodedEvent}`;
 
-      console.log('[Amber DEBUG] Sign event Intent extras:', {
+      console.log('[Amber DEBUG] Sign event URI (NIP-55 compliant):', {
         type: 'sign_event',
-        eventKind: unsignedEvent.kind
+        eventKind: unsignedEvent.kind,
+        uriLength: nostrsignerUri.length,
+        eventJsonLength: eventJson.length
       });
 
       // Use IntentLauncher and wait for Activity Result
+      // Per NIP-55: Event must be in URI, type in extras
       const result = await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-        data: 'nostrsigner:',
-        extra: intentExtras
+        data: nostrsignerUri,  // Event encoded in URI per NIP-55
+        extra: {
+          'type': 'sign_event'  // Only type in extras
+        }
       });
 
       console.log('[Amber DEBUG] Sign result received:', {
