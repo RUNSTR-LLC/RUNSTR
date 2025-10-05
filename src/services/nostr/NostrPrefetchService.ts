@@ -179,7 +179,7 @@ export class NostrPrefetchService {
           // Trigger team discovery if not already done
           const cachedTeams = teamService.getDiscoveredTeams();
           if (cachedTeams.size === 0) {
-            await teamService.discoverTeams();
+            await teamService.discoverFitnessTeams(); // Fixed: use correct method name
           }
 
           // Convert Map to array
