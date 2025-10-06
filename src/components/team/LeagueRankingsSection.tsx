@@ -166,6 +166,7 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
     try {
       console.log(`🏆 Loading league rankings: ${competitionId}${force ? ' (FORCE REFRESH)' : ''}`);
       console.log(`📊 Is default league: ${isDefaultLeague}`);
+      console.log(`👥 Participants passed: ${participants.length}`);
 
       if (force) {
         setRefreshing(true);
@@ -177,6 +178,11 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
         console.log('📥 No participants provided, fetching from cached member lists...');
         participantsToUse = await fetchTeamMembers();
         setTeamParticipants(participantsToUse);
+        console.log(`✅ Fetched ${participantsToUse.length} participants from cache`);
+      } else if (participantsToUse.length > 0) {
+        console.log(`✅ Using ${participantsToUse.length} provided participants`);
+      } else {
+        console.warn(`⚠️ No participants available and cannot fetch (teamId: ${teamId ? 'present' : 'missing'}, captain: ${captainPubkey ? 'present' : 'missing'})`);
       }
 
       // If still no participants, create empty result instead of throwing error
@@ -357,19 +363,34 @@ export const LeagueRankingsSection: React.FC<LeagueRankingsSectionProps> = ({
   }
 
   if (!rankings || rankings.rankings.length === 0) {
+    // Check if we have participants but no rankings
+    const hasParticipants = teamParticipants.length > 0;
+
     return (
       <View style={[styles.rankingsSection, style]}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>
             {isDefaultLeague ? '30-Day Streak Challenge' : 'League Rankings'}
           </Text>
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={handleRefresh}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.actionBtnIcon}>↻</Text>
+            <Text style={styles.actionBtnText}>Refresh</Text>
+          </TouchableOpacity>
         </View>
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>
-            {isDefaultLeague ? 'No team activity yet' : 'No competition data yet'}
+            {!hasParticipants
+              ? 'No team members found'
+              : isDefaultLeague ? 'No team activity yet' : 'No competition data yet'}
           </Text>
           <Text style={styles.emptySubtext}>
-            {isDefaultLeague
+            {!hasParticipants
+              ? 'Team members need to join before rankings appear'
+              : isDefaultLeague
               ? 'Team members will appear here when they complete workouts'
               : 'Complete workouts to see rankings'}
           </Text>

@@ -88,13 +88,13 @@ export class CompetitionCacheService {
     // Get all competitions from cache or fetch
     const allCompetitions = await this.getAllCompetitions();
 
-    // Filter by team ID
+    // Filter by team ID - NostrLeagueDefinition and NostrEventDefinition have teamId directly
     const teamLeagues = allCompetitions.leagues.filter(
-      (league) => league.metadata?.teamId === teamId || league.tags.some((tag) => tag[0] === 'team' && tag[1] === teamId)
+      (league) => league.teamId === teamId
     );
 
     const teamEvents = allCompetitions.events.filter(
-      (event) => event.metadata?.teamId === teamId || event.tags.some((tag) => tag[0] === 'team' && tag[1] === teamId)
+      (event) => event.teamId === teamId
     );
 
     console.log(
@@ -131,8 +131,9 @@ export class CompetitionCacheService {
         limit: 500,
       });
 
-      const leagues = result.filter((comp): comp is NostrLeagueDefinition => comp.kind === 30100);
-      const events = result.filter((comp): comp is NostrEventDefinition => comp.kind === 30101);
+      // queryCompetitions returns { leagues, events, totalCount, syncedAt, errors }
+      const leagues = result.leagues;
+      const events = result.events;
 
       const cachedData: CachedCompetitions = {
         leagues,

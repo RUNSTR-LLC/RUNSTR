@@ -11,7 +11,7 @@ import { NutzapLightningButton } from '../components/nutzap/NutzapLightningButto
 import { TeamHeader } from '../components/team/TeamHeader';
 import { AboutPrizeSection } from '../components/team/AboutPrizeSection';
 import { LeaderboardCard } from '../components/team/LeaderboardCard';
-import { LeagueRankingsSection } from '../components/team/LeagueRankingsSection';
+import { SimpleLeagueDisplay } from '../components/team/SimpleLeagueDisplay';
 import { EventsCard } from '../components/team/EventsCard';
 // import { CompetitionWinnersCard, CompetitionWinner } from '../components/team/CompetitionWinnersCard';
 // import competitionWinnersService from '../services/competitions/competitionWinnersService';
@@ -19,19 +19,16 @@ import { CompetitionTabs } from '../components/team/CompetitionTabs';
 import { TeamChatSection } from '../components/team/TeamChatSection';
 import { TeamScreenData } from '../types';
 import { theme } from '../styles/theme';
-import { useLeagueRankings } from '../hooks/useLeagueRankings';
 import { useUserStore } from '../store/userStore';
 import { isTeamMember } from '../utils/teamUtils';
 import { getUserNostrIdentifiers } from '../utils/nostr';
-import { CompetitionCacheService } from '../services/cache/CompetitionCacheService';
-import { CompetitionService } from '../services/competition/competitionService';
-import type { Competition } from '../services/competition/competitionService';
 
 interface EnhancedTeamScreenProps {
   data: TeamScreenData;
   onBack: () => void;
   onCaptainDashboard: () => void;
   onAddChallenge: () => void;
+  onAddEvent?: () => void;
   onEventPress?: (eventId: string, eventData?: any) => void;
   onChallengePress?: (challengeId: string) => void;
   showJoinButton?: boolean;
@@ -45,6 +42,7 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
   onBack,
   onCaptainDashboard,
   onAddChallenge,
+  onAddEvent,
   onEventPress,
   onChallengePress,
   showJoinButton = false,
@@ -132,19 +130,90 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
     });
   }, [workingUserNpub, team.id, userIsCaptain, calculatedUserIsMember]);
 
-  // Use league rankings hook to check for active competitions
-  const {
-    rankings,
-    activeLeague,
-    loading: rankingsLoading,
-    error: rankingsError,
-    refresh: refreshRankings,
-    hasActiveLeague,
-  } = useLeagueRankings({
-    teamId: team.id,
-    autoRefresh: true,
-    refreshInterval: 60000, // 1 minute
-  });
+  // Simple state for leagues and leaderboard
+  const [teamMembers, setTeamMembers] = React.useState<string[]>([]);
+  const [currentLeague, setCurrentLeague] = React.useState<any>(null);
+  const [leagueRankings, setLeagueRankings] = React.useState<any[]>([]);
+  const [loadingLeague, setLoadingLeague] = React.useState(true);
+
+  // Fetch team members
+  React.useEffect(() => {
+    const fetchTeamMembers = async () => {
+      if (!team.id || !team.captainId) {
+        console.warn(`⚠️ Cannot fetch team members: ${!team.id ? 'missing teamId' : ''} ${!team.captainId ? 'missing captainId' : ''}`);
+        return;
+      }
+
+      try {
+        console.log(`🔍 Fetching team members for ${team.name}`);
+        const memberCache = (await import('../services/team/TeamMemberCache')).TeamMemberCache.getInstance();
+        const members = await memberCache.getTeamMembers(team.id, team.captainId);
+        setTeamMembers(members);
+        console.log(`✅ Loaded ${members.length} team members`);
+      } catch (error) {
+        console.error('❌ Failed to load team members:', error);
+        setTeamMembers([]);
+      }
+    };
+
+    fetchTeamMembers();
+  }, [team.id, team.captainId]);
+
+  // Fetch league and calculate leaderboard
+  React.useEffect(() => {
+    const loadLeagueLeaderboard = async () => {
+      if (!team.id || teamMembers.length === 0) {
+        setLoadingLeague(false);
+        return;
+      }
+
+      setLoadingLeague(true);
+
+      try {
+        console.log(`🏆 Loading league for team: ${team.name}`);
+
+        // Get leagues for team
+        const SimpleCompetitionService = (await import('../services/competition/SimpleCompetitionService')).default;
+        const leagues = await SimpleCompetitionService.getTeamLeagues(team.id);
+
+        // Find active league (current date within start/end)
+        const now = new Date();
+        const activeLeague = leagues.find(league => {
+          const start = new Date(league.startDate);
+          const end = new Date(league.endDate);
+          return now >= start && now <= end;
+        });
+
+        if (activeLeague) {
+          console.log(`✅ Found active league: ${activeLeague.name}`);
+          setCurrentLeague(activeLeague);
+
+          // Calculate leaderboard
+          const SimpleLeaderboardService = (await import('../services/competition/SimpleLeaderboardService')).default;
+          const rankings = await SimpleLeaderboardService.calculateLeagueLeaderboard(
+            activeLeague,
+            teamMembers
+          );
+
+          setLeagueRankings(rankings);
+          console.log(`✅ Leaderboard calculated: ${rankings.length} entries`);
+        } else {
+          console.log(`📭 No active league found`);
+          setCurrentLeague(null);
+          setLeagueRankings([]);
+        }
+
+      } catch (error) {
+        console.error('❌ Failed to load league:', error);
+        setCurrentLeague(null);
+        setLeagueRankings([]);
+      } finally {
+        setLoadingLeague(false);
+      }
+    };
+
+    loadLeagueLeaderboard();
+  }, [team.id, teamMembers]);
 
 
   // Enhanced captain dashboard handler - simplified now that navigation handles auth
@@ -173,145 +242,53 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
     npub: entry.npub, // Pass through npub for zapping
   }));
 
-  const formattedEvents = events.map((event) => ({
-    id: event.id,
-    name: event.name,
-    date: new Date(event.startDate).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-    }),
-    details: event.description,
-  }));
-
   // Competition winners state - commented out for now
   // const [competitionWinners, setCompetitionWinners] = useState<CompetitionWinner[]>([]);
   // const [winnersLoading, setWinnersLoading] = useState(false);
 
-  // Nostr competitions state
+  // Events state
   const [nostrEvents, setNostrEvents] = useState<any[]>([]);
-  const [nostrLeagues, setNostrLeagues] = useState<any[]>([]);
-  const [loadingCompetitions, setLoadingCompetitions] = useState(true);
-  const [rawNostrEvents, setRawNostrEvents] = useState<any[]>([]); // Keep raw event data for navigation
+  const [loadingEvents, setLoadingEvents] = useState(true);
 
-  // Fetch competitions from Nostr with caching (30-min cache + 5-min background refresh)
+  // Fetch events from Nostr
   useEffect(() => {
-    const fetchTeamCompetitions = async () => {
+    const fetchTeamEvents = async () => {
       if (!team?.id) {
-        setLoadingCompetitions(false);
+        setLoadingEvents(false);
         return;
       }
 
+      setLoadingEvents(true);
+
       try {
-        console.log('🔍 Fetching competitions for team:', team.id);
-        const cacheService = CompetitionCacheService.getInstance();
+        console.log('🔍 Fetching events for team:', team.name);
 
-        // Use cache service - returns cached data immediately if available (30-min TTL)
-        // Automatically triggers background refresh if cache is >5 minutes old
-        const cachedData = await cacheService.getCompetitionsForTeam(team.id);
+        // Use simple service
+        const SimpleCompetitionService = (await import('../services/competition/SimpleCompetitionService')).default;
+        const events = await SimpleCompetitionService.getTeamEvents(team.id);
 
-        // Extract leagues and events for this team
-        const teamLeagues = cachedData.leagues;
-        const teamEvents = cachedData.events;
+        console.log(`✅ Found ${events.length} events`);
 
-        console.log('📊 Fetched competitions from cache:', {
-          teamLeagues: teamLeagues.length,
-          teamEvents: teamEvents.length,
-          teamId: team.id,
-          cacheAge: cachedData.timestamp ? `${Math.round((Date.now() - cachedData.timestamp) / 1000)}s` : 'unknown'
-        });
-
-        // Cache competitions in CompetitionService for navigation
-        const competitionService = CompetitionService.getInstance();
-
-        // Cache events
-        teamEvents.forEach(event => {
-          // Convert NostrEventDefinition to Competition format
-          const competition: Competition = {
-            id: event.id,
-            name: event.name,
-            description: event.description || '',
-            type: 'event',
-            teamId: event.teamId,
-            captainPubkey: event.captainPubkey,
-            startTime: Math.floor(new Date(event.eventDate).getTime() / 1000),
-            endTime: Math.floor(new Date(event.eventDate).getTime() / 1000) + 86400, // Add 1 day
-            activityType: event.activityType,
-            competitionType: event.competitionType,
-            goalType: 'distance', // Default, could be derived from competitionType
-            goalValue: event.targetValue,
-            goalUnit: event.targetUnit,
-            entryFeesSats: event.entryFeesSats || 0,
-            maxParticipants: event.maxParticipants || 100,
-            requireApproval: event.requireApproval || false,
-            createdAt: Math.floor(Date.now() / 1000),
-            isActive: true,
-            participantCount: 0,
-            nostrEvent: {} as any, // We don't have the full Nostr event here
-          };
-          competitionService.addCompetitionToCache(competition);
-        });
-
-        // Cache leagues
-        teamLeagues.forEach(league => {
-          const competition: Competition = {
-            id: league.id,
-            name: league.name,
-            description: league.description || '',
-            type: 'league',
-            teamId: league.teamId,
-            captainPubkey: league.captainPubkey,
-            startTime: Math.floor(new Date(league.startDate).getTime() / 1000),
-            endTime: Math.floor(new Date(league.endDate).getTime() / 1000),
-            activityType: league.activityType,
-            competitionType: league.competitionType,
-            goalType: 'consistency', // Default for leagues
-            goalValue: undefined,
-            goalUnit: undefined,
-            entryFeesSats: league.entryFeesSats || 0,
-            maxParticipants: league.maxParticipants || 100,
-            requireApproval: league.requireApproval || false,
-            scoringFrequency: league.scoringFrequency,
-            allowLateJoining: league.allowLateJoining,
-            createdAt: Math.floor(Date.now() / 1000),
-            isActive: true,
-            participantCount: 0,
-            nostrEvent: {} as any,
-          };
-          competitionService.addCompetitionToCache(competition);
-        });
-
-        // Format events for display
-        const formattedNostrEvents = teamEvents.map(event => ({
-          id: event.id,
-          name: event.name,
+        // Format for display
+        const formattedEvents = events.map(event => ({
+          ...event,
           date: new Date(event.eventDate).toLocaleDateString('en-US', {
             month: 'short',
             day: 'numeric',
           }),
           details: event.description || 'No description',
-          eventDate: event.eventDate, // Use eventDate for EventDetailScreen compatibility
-          teamId: event.teamId,
-          captainPubkey: event.captainPubkey,
-          description: event.description,
-          activityType: event.activityType,
-          competitionType: event.competitionType,
-          entryFeesSats: event.entryFeesSats,
-          targetValue: event.targetValue,
-          targetUnit: event.targetUnit,
-          prizePoolSats: event.prizePoolSats, // Include prize pool if available
         }));
 
-        setNostrEvents(formattedNostrEvents);
-        setNostrLeagues(teamLeagues);
-        setRawNostrEvents(teamEvents); // Store raw event data
+        setNostrEvents(formattedEvents);
       } catch (error) {
-        console.error('❌ Failed to fetch team competitions:', error);
+        console.error('❌ Failed to fetch events:', error);
+        setNostrEvents([]);
       } finally {
-        setLoadingCompetitions(false);
+        setLoadingEvents(false);
       }
     };
 
-    fetchTeamCompetitions();
+    fetchTeamEvents();
   }, [team?.id]);
 
   // Fetch competition winners - commented out for now
@@ -354,15 +331,10 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
     console.log(`🎖️ EnhancedTeamScreen: Captain status update - isCaptain: ${userIsCaptain}, isLoading: ${captainLoading}`);
   }, [userIsCaptain, captainLoading]);
 
-  // Debug logging for league rankings
+  // Debug logging for league
   useEffect(() => {
-    console.log(`🏆 EnhancedTeamScreen: League rankings update - hasActiveLeague: ${hasActiveLeague}, loading: ${rankingsLoading}, error: ${rankingsError}`);
-    if (activeLeague) {
-      console.log(`🎯 Active league: ${activeLeague.name} (${activeLeague.competitionId.slice(0, 8)}...)`);
-      console.log(`📊 Competition: ${activeLeague.parameters.activityType} - ${activeLeague.parameters.competitionType}`);
-      console.log(`👥 Participants: ${activeLeague.participants.length}`);
-    }
-  }, [hasActiveLeague, rankingsLoading, rankingsError, activeLeague]);
+    console.log(`🏆 League status - loading: ${loadingLeague}, league: ${currentLeague?.name || 'none'}, rankings: ${leagueRankings.length}`);
+  }, [loadingLeague, currentLeague, leagueRankings]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -559,41 +531,51 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
             <CompetitionTabs
               leagueContent={
                 <View style={{ flex: 1, minHeight: 450 }}>
-                  <LeagueRankingsSection
-                    competitionId={activeLeague?.competitionId || `${team.id}-default-streak`}
-                    participants={activeLeague?.participants || []}
-                    parameters={activeLeague?.parameters || {
-                      activityType: 'Any' as any,
-                      competitionType: 'Most Consistent' as any,
-                      startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-                      endDate: new Date().toISOString(),
-                      scoringFrequency: 'daily' as const,
+                  <SimpleLeagueDisplay
+                    leagueName={currentLeague?.name || 'Team Leaderboard'}
+                    leaderboard={leagueRankings}
+                    loading={loadingLeague}
+                    onRefresh={async () => {
+                      // Reload league data
+                      setLoadingLeague(true);
+                      try {
+                        const SimpleCompetitionService = (await import('../services/competition/SimpleCompetitionService')).default;
+                        const leagues = await SimpleCompetitionService.getTeamLeagues(team.id);
+                        const now = new Date();
+                        const activeLeague = leagues.find(league => {
+                          const start = new Date(league.startDate);
+                          const end = new Date(league.endDate);
+                          return now >= start && now <= end;
+                        });
+
+                        if (activeLeague) {
+                          setCurrentLeague(activeLeague);
+                          const SimpleLeaderboardService = (await import('../services/competition/SimpleLeaderboardService')).default;
+                          const rankings = await SimpleLeaderboardService.calculateLeagueLeaderboard(
+                            activeLeague,
+                            teamMembers
+                          );
+                          setLeagueRankings(rankings);
+                        }
+                      } catch (error) {
+                        console.error('Failed to refresh:', error);
+                      } finally {
+                        setLoadingLeague(false);
+                      }
                     }}
-                    onMemberPress={(npub) => {
-                      console.log(`👤 Member pressed: ${npub.slice(0, 8)}...`);
-                      // Could navigate to member profile
-                    }}
-                    onViewFullLeaderboard={() => {
-                      console.log('📊 View full leaderboard pressed');
-                      // Could navigate to full leaderboard screen
-                    }}
-                    maxDisplayed={15}
-                    teamId={team.id}
-                    captainPubkey={team.captainId} // Pass the team's captain ID
-                    isDefaultLeague={!hasActiveLeague}
                   />
                 </View>
               }
               eventsContent={
                 <View style={{ flex: 1, minHeight: 450 }}>
                   <EventsCard
-                    events={nostrEvents.length > 0 ? nostrEvents : formattedEvents}
-                    onEventPress={(eventId, formattedEvent) => {
-                      // Find the raw Nostr event data if available
-                      const rawEvent = rawNostrEvents.find(e => e.id === eventId);
-                      onEventPress?.(eventId, rawEvent || formattedEvent);
+                    events={nostrEvents}
+                    onEventPress={(eventId, eventData) => {
+                      // Event data already has all needed fields from SimpleCompetitionService
+                      onEventPress?.(eventId, eventData);
                     }}
                     isCaptain={userIsCaptain}
+                    onAddEvent={userIsCaptain ? onAddEvent : undefined}
                   />
                 </View>
               }

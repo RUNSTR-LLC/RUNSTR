@@ -145,138 +145,108 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
     setError(null);
 
     try {
-      let competition = null;
+      console.log('🔍 Loading event:', eventId);
 
-      // First try to use passed event data if available
-      if (passedEventData) {
-        console.log('Using passed event data:', passedEventData);
+      // Use passed event data or fetch from Nostr
+      let eventInfo = passedEventData;
 
-        // Validate critical fields before processing
-        if (!passedEventData.id && !eventId) {
-          throw new Error('Event ID is missing from both route params and passed data');
-        }
-
-        try {
-          // Convert Nostr event to Competition format with comprehensive null guards
-          const eventDate = passedEventData.eventDate ? new Date(passedEventData.eventDate) : new Date();
-
-          // Validate date is not Invalid
-          if (isNaN(eventDate.getTime())) {
-            console.warn('⚠️ Invalid event date, using current date as fallback');
-            eventDate.setTime(Date.now());
-          }
-
-          const startTime = Math.floor(eventDate.getTime() / 1000);
-
-          competition = {
-            id: passedEventData.id || eventId,
-            teamId: passedEventData.teamId || '',
-            name: passedEventData.name || 'Unnamed Event',
-            description: passedEventData.description || '',
-            type: 'event',
-            activityType: passedEventData.activityType || 'running',
-            competitionType: passedEventData.competitionType || 'distance',
-            startTime,
-            endTime: startTime + 86400, // Add 1 day
-            entryFeesSats: passedEventData.entryFeesSats || 0,
-            goalValue: passedEventData.targetValue,
-            goalUnit: passedEventData.targetUnit || 'km',
-            captainPubkey: passedEventData.captainPubkey || '',
-          };
-
-          console.log('✅ Successfully converted passed event data to competition format');
-        } catch (conversionError) {
-          console.error('❌ Error converting passed event data:', conversionError);
-          // If conversion fails, try CompetitionService lookup as fallback
-          const competitionService = CompetitionService.getInstance();
-          competition = competitionService.getCompetitionById(eventId);
-        }
-      } else {
-        // Fall back to CompetitionService lookup
-        const competitionService = CompetitionService.getInstance();
-        competition = competitionService.getCompetitionById(eventId);
+      if (!eventInfo) {
+        const SimpleCompetitionService = (await import('../services/competition/SimpleCompetitionService')).default;
+        eventInfo = await SimpleCompetitionService.getEventById(eventId);
       }
 
-      if (!competition) {
+      if (!eventInfo) {
         throw new Error(`Event not found: ${eventId}`);
       }
 
-      // Load real leaderboard data
-      setIsLoadingLeaderboard(true);
-      const leaderboardService = NostrCompetitionLeaderboardService.getInstance();
-      
-      try {
-        const eventLeaderboard = await leaderboardService.computeEventLeaderboard(
-          competition,
-          undefined, // Let it fetch all team members
-          'current_user_id' // TODO: Get actual current user ID from auth
-        );
-        
-        setLeaderboard(eventLeaderboard);
+      console.log('✅ Event data loaded:', eventInfo.name);
+      setCompetition(eventInfo);
 
-        // Also fetch and set team data if we don't have it yet
-        if (!team && competition.teamId) {
-          const teamService = getNostrTeamService();
-          const teamData = teamService.getTeamById(competition.teamId);
-          if (teamData) {
-            setTeam(teamData);
-          }
+      // Load team data
+      if (eventInfo.teamId) {
+        const teamService = getNostrTeamService();
+        const teamData = teamService.getTeamById(eventInfo.teamId);
+        if (teamData) {
+          setTeam(teamData);
         }
+      }
 
-        // Convert leaderboard participants to participant details format - guard against missing data
-        const participantDetails = (eventLeaderboard?.participants || []).map((participant: CompetitionParticipant) => ({
-          id: participant?.pubkey || 'unknown',
-          name: participant?.name || `User ${(participant?.pubkey || 'unknown').substring(0, 8)}`,
-          avatar: participant?.name?.charAt(0)?.toUpperCase() || 'U',
-          position: participant?.position || 0,
-          score: participant?.score || 0,
-          distance: participant?.totalDistance ? `${Math.round(participant.totalDistance / 1000)} km` : '0 km',
-          time: participant?.totalDuration ? formatDuration(participant.totalDuration) : '0 min',
-          workouts: participant?.workoutCount || 0,
-          lastActivity: participant?.lastActivity || 0,
+      // Load leaderboard
+      setIsLoadingLeaderboard(true);
+
+      try {
+        // Get team members
+        const TeamMemberCache = (await import('../services/team/TeamMemberCache')).TeamMemberCache.getInstance();
+        const members = await TeamMemberCache.getTeamMembers(
+          eventInfo.teamId,
+          eventInfo.captainPubkey
+        );
+
+        console.log(`Found ${members.length} team members`);
+
+        // Calculate leaderboard
+        const SimpleLeaderboardService = (await import('../services/competition/SimpleLeaderboardService')).default;
+        const rankings = await SimpleLeaderboardService.calculateEventLeaderboard(
+          eventInfo,
+          members
+        );
+
+        console.log(`✅ Leaderboard calculated: ${rankings.length} entries`);
+
+        // Convert to old format for compatibility
+        const participantDetails = rankings.map(entry => ({
+          id: entry.npub,
+          name: entry.name,
+          avatar: entry.name.charAt(0).toUpperCase(),
+          position: entry.rank,
+          score: entry.score,
+          distance: entry.formattedScore,
+          time: '0 min', // Not tracking duration in MVP
+          workouts: entry.workoutCount,
+          lastActivity: 0,
           status: 'completed' as const,
         }));
 
-        // Convert Competition to EventDetailData with real leaderboard data - guard all accesses
-        const participantCount = eventLeaderboard?.participants?.length || 0;
-        const prizePool = (competition?.entryFeesSats || 0) * participantCount;
+        // Convert to EventDetailData
+        const eventDate = new Date(eventInfo.eventDate);
+        const startTime = Math.floor(eventDate.getTime() / 1000);
+        const endTime = startTime + 86400;
+
+        const participantCount = rankings.length;
+        const prizePool = (eventInfo.entryFeesSats || 0) * participantCount;
 
         const eventDetailData: EventDetailData = {
-          id: competition?.id || eventId,
-          name: competition?.name || 'Unnamed Event',
-          description: competition?.description || '',
-          startDate: formatEventDateRange(competition?.startTime || 0, competition?.endTime || 0),
-          endDate: '',  // We'll pass the full range in startDate
-          prizePool, // Calculate from entry fees
-          participants: participantDetails, // Use formatted participant details
-          participantDetails, // Real participant details from leaderboard
+          id: eventInfo.id,
+          name: eventInfo.name,
+          description: eventInfo.description || '',
+          startDate: eventDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+          endDate: '',
+          prizePool,
+          participants: participantDetails,
+          participantDetails,
           stats: {
             participantCount,
-            completedCount: (eventLeaderboard?.participants || []).filter(p => (p?.workoutCount || 0) > 0).length,
+            completedCount: rankings.filter(r => r.workoutCount > 0).length,
           },
           progress: {
-            isJoined: false, // TODO: Check if current user is participating
-            timeRemaining: calculateTimeRemaining(competition?.endTime || 0),
-            status: getEventStatus(competition),
-            percentage: calculateEventProgress(competition),
-            daysRemaining: Math.max(0, Math.ceil(
-              ((competition?.endTime || 0) - Date.now() / 1000) / (24 * 60 * 60)
-            )),
+            isJoined: false,
+            timeRemaining: calculateTimeRemaining(endTime),
+            status: getEventStatus({ startTime, endTime }),
+            percentage: calculateEventProgress({ startTime, endTime }),
+            daysRemaining: Math.max(0, Math.ceil((endTime - Date.now() / 1000) / (24 * 60 * 60))),
           },
-          status: getEventStatus(competition),
+          status: getEventStatus({ startTime, endTime }),
           formattedPrize: `${prizePool} sats`,
-          formattedTimeRemaining: formatTimeRemaining(competition?.endTime || 0),
+          formattedTimeRemaining: formatTimeRemaining(endTime),
           details: {
-            distance: competition?.goalValue
-              ? `${competition.goalValue} ${competition?.goalUnit || 'units'}`
+            distance: eventInfo.targetDistance
+              ? `${eventInfo.targetDistance} ${eventInfo.targetUnit || 'km'}`
               : 'No specific target',
-            duration: competition?.type === 'event' ? '1 day' : '30 days',
-            activityType: competition?.activityType || 'running',
-            createdBy: 'Team Captain', // TODO: Get actual creator name from competition.captainPubkey
-            startDate: new Date(
-              (competition?.startTime || 0) * 1000
-            ).toLocaleDateString(),
-            endDate: new Date((competition?.endTime || 0) * 1000).toLocaleDateString(),
+            duration: '1 day',
+            activityType: eventInfo.activityType,
+            createdBy: 'Team Captain',
+            startDate: eventDate.toLocaleDateString(),
+            endDate: new Date(endTime * 1000).toLocaleDateString(),
           },
         };
 
