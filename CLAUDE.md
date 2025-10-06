@@ -37,7 +37,8 @@ RUNSTR REWARDS is a React Native mobile application that transforms fitness rout
 - **Team Data**: Custom Nostr event kinds for teams, leagues, events, challenges (see [nostr-native-fitness-competitions.md](./docs/nostr-native-fitness-competitions.md))
 - **Bitcoin**: Lightning payments via NIP-60/61 protocol for P2P transactions with auto-wallet creation
 - **Nostr Library**: NDK (@nostr-dev-kit/ndk) EXCLUSIVELY - NEVER use nostr-tools
-- **Nostr Relays**: Damus, Primal, nos.lol for social data operations
+- **Global NDK Instance**: Single shared NDK instance via `GlobalNDKService` - reduces WebSocket connections by 90%
+- **Nostr Relays**: Damus, Primal, nos.lol, Nostr.band (4 relays via global NDK pool)
 - **In-App Notifications**: Nostr event-driven notifications (kinds 1101, 1102, 1103) - no push notifications
 - **IMPORTANT**: This project uses NO SUPABASE - pure Nostr only
 
@@ -127,6 +128,55 @@ Our app publishes kind 1301 events supporting all fitness activities for in-app 
 - **Platform-Specific UX**: Different auth flows for iOS/Android
 - **Real Data Only**: No mock data - all functionality uses actual Nostr events + HealthKit data
 - **Folder Documentation**: Update folder READMEs when adding/removing/changing files
+
+## Global NDK Instance Architecture
+
+**CRITICAL: The app uses a single global NDK instance for all Nostr operations**
+
+**Why Global NDK?**
+- **Prevents Connection Explosion**: Before global NDK, 9 services × 4 relays = 36 WebSocket connections. After: 1 NDK × 4 relays = 4 connections (90% reduction)
+- **Eliminates Timing Issues**: New relay managers need 2-3 seconds to connect, causing "No connected relays available" errors
+- **Better Performance**: Reusing one connection pool instead of creating/destroying connections per query
+- **Connection Stability**: Single instance maintains persistent relay connections throughout app lifetime
+
+**How to Use:**
+```typescript
+import { GlobalNDKService } from '../services/nostr/GlobalNDKService';
+
+// In any service that needs to query Nostr:
+const ndk = await GlobalNDKService.getInstance();
+const events = await ndk.fetchEvents(filter);
+```
+
+**IMPORTANT RULES:**
+- ✅ **ALWAYS** use `GlobalNDKService.getInstance()` for Nostr queries
+- ❌ **NEVER** create new `NostrRelayManager()` instances
+- ❌ **NEVER** create new `NDK()` instances (except in GlobalNDKService itself)
+- ✅ **USE** `ndk.fetchEvents()` for direct queries (returns promise)
+- ✅ **USE** `ndk.subscribe()` for real-time subscriptions (returns subscription object)
+
+**Global NDK Configuration:**
+- **Default Relays**: `wss://relay.damus.io`, `wss://relay.primal.net`, `wss://nos.lol`, `wss://relay.nostr.band`
+- **Initialized**: On app startup by `GlobalNDKService`
+- **Connection Timeout**: 2 seconds
+- **Auto-reconnect**: Built into NDK
+
+**Services Using Global NDK:**
+- `SimpleCompetitionService` - Fetches leagues/events (kind 30100, 30101)
+- `SimpleLeaderboardService` - Queries workout events (kind 1301)
+- `NdkTeamService` - Team discovery (kind 33404)
+- `JoinRequestService` - Join requests (kind 1104, 1105)
+- All other Nostr-dependent services
+
+**Connection Status:**
+```typescript
+// Check if NDK is connected
+const status = GlobalNDKService.getStatus();
+console.log(`${status.connectedRelays}/${status.relayCount} relays connected`);
+
+// Force reconnect if needed
+await GlobalNDKService.reconnect();
+```
 
 ## Project Structure
 ```
