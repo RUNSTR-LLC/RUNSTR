@@ -107,9 +107,9 @@ export interface ActivityConfiguration {
   wagerAmount: number;
 }
 
-export type ActivityType = 'running' | 'walking' | 'cycling' | 'hiking' | 'swimming' | 'rowing' | 'workout';
+export type ActivityType = 'running' | 'walking' | 'cycling' | 'hiking' | 'swimming' | 'rowing' | 'strength' | 'treadmill' | 'meditation' | 'yoga' | 'pushups' | 'pullups' | 'situps' | 'weights' | 'workout';
 
-export type MetricType = 'distance' | 'duration' | 'count' | 'calories' | 'pace';
+export type MetricType = 'distance' | 'duration' | 'count' | 'calories' | 'pace' | 'reps' | 'sets' | 'elevation' | 'laps' | 'poses' | 'sessions' | 'weight';
 
 export type DurationOption = 3 | 7 | 14 | 30; // Days
 
@@ -140,13 +140,60 @@ export const ACTIVITY_METRICS: Record<ActivityType, MetricOption[]> = {
   hiking: [
     { value: 'distance', label: 'Distance', unit: 'km' },
     { value: 'duration', label: 'Duration', unit: 'min' },
+    { value: 'elevation', label: 'Elevation Gain', unit: 'm' },
   ],
   swimming: [
     { value: 'distance', label: 'Distance', unit: 'm' },
     { value: 'duration', label: 'Duration', unit: 'min' },
+    { value: 'laps', label: 'Laps', unit: 'laps' },
   ],
   rowing: [
     { value: 'distance', label: 'Distance', unit: 'm' },
+    { value: 'duration', label: 'Duration', unit: 'min' },
+  ],
+  strength: [
+    { value: 'duration', label: 'Duration', unit: 'min' },
+    { value: 'sets', label: 'Sets', unit: 'sets' },
+    { value: 'calories', label: 'Calories', unit: 'kcal' },
+  ],
+  treadmill: [
+    { value: 'distance', label: 'Distance', unit: 'km' },
+    { value: 'duration', label: 'Duration', unit: 'min' },
+    { value: 'pace', label: 'Pace', unit: 'min/km' },
+    { value: 'elevation', label: 'Incline', unit: '%' },
+    { value: 'calories', label: 'Calories', unit: 'kcal' },
+  ],
+  meditation: [
+    { value: 'duration', label: 'Duration', unit: 'min' },
+    { value: 'sessions', label: 'Sessions', unit: 'sessions' },
+  ],
+  yoga: [
+    { value: 'duration', label: 'Duration', unit: 'min' },
+    { value: 'sessions', label: 'Sessions', unit: 'sessions' },
+    { value: 'poses', label: 'Poses', unit: 'poses' },
+  ],
+  pushups: [
+    { value: 'reps', label: 'Reps', unit: 'reps' },
+    { value: 'sets', label: 'Sets', unit: 'sets' },
+    { value: 'duration', label: 'Duration', unit: 'min' },
+    { value: 'calories', label: 'Calories', unit: 'kcal' },
+  ],
+  pullups: [
+    { value: 'reps', label: 'Reps', unit: 'reps' },
+    { value: 'sets', label: 'Sets', unit: 'sets' },
+    { value: 'duration', label: 'Duration', unit: 'min' },
+    { value: 'calories', label: 'Calories', unit: 'kcal' },
+  ],
+  situps: [
+    { value: 'reps', label: 'Reps', unit: 'reps' },
+    { value: 'sets', label: 'Sets', unit: 'sets' },
+    { value: 'duration', label: 'Duration', unit: 'min' },
+    { value: 'calories', label: 'Calories', unit: 'kcal' },
+  ],
+  weights: [
+    { value: 'reps', label: 'Reps', unit: 'reps' },
+    { value: 'sets', label: 'Sets', unit: 'sets' },
+    { value: 'weight', label: 'Weight', unit: 'kg' },
     { value: 'duration', label: 'Duration', unit: 'min' },
   ],
   workout: [

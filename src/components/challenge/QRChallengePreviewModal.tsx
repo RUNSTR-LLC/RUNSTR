@@ -28,6 +28,14 @@ const ACTIVITY_ICONS: Record<ActivityType, string> = {
   hiking: '🥾',
   swimming: '🏊',
   rowing: '🚣',
+  strength: '💪',
+  treadmill: '🏃',
+  meditation: '🧘',
+  yoga: '🧘',
+  pushups: '💪',
+  pullups: '💪',
+  situps: '💪',
+  weights: '🏋️',
   workout: '💪',
 };
 

@@ -25,66 +25,147 @@ interface ChallengeOptionProps {
   onSelect: () => void;
 }
 
-// Predefined challenge types matching the HTML mockup
+// Predefined challenge types with activity-specific options
 const CHALLENGE_TYPES: ChallengeType[] = [
-  // Race Challenges
+  // Cardio Challenges
   {
-    id: 'fastest-5k',
-    name: 'Fastest 5K',
-    description: 'Best time to complete 5 kilometers wins',
-    category: 'race',
+    id: 'fastest-5k-run',
+    name: 'Fastest 5K Run',
+    description: 'Best time to complete 5 kilometers running',
+    category: 'cardio',
+    activityType: 'running',
     metric: 'time',
   },
   {
-    id: 'fastest-10k',
-    name: 'Fastest 10K',
-    description: 'Best time to complete 10 kilometers wins',
-    category: 'race',
-    metric: 'time',
-  },
-  {
-    id: 'fastest-half-marathon',
-    name: 'Fastest Half Marathon',
-    description: 'Best time to complete 21.1 kilometers wins',
-    category: 'race',
-    metric: 'time',
-  },
-  // Distance Challenges
-  {
-    id: 'weekly-distance',
-    name: 'Weekly Distance',
-    description: 'Most distance covered in 7 days wins',
-    category: 'distance',
+    id: 'most-distance-walking',
+    name: 'Most Distance Walking',
+    description: 'Most distance covered walking in 7 days',
+    category: 'cardio',
+    activityType: 'walking',
     metric: 'distance',
   },
   {
-    id: 'monthly-distance',
-    name: 'Monthly Distance',
-    description: 'Most distance covered in 30 days wins',
-    category: 'distance',
+    id: 'longest-cycling-ride',
+    name: 'Longest Cycling Ride',
+    description: 'Longest single cycling session',
+    category: 'cardio',
+    activityType: 'cycling',
     metric: 'distance',
   },
-  // Activity Challenges
   {
-    id: 'daily-steps',
-    name: 'Daily Steps',
-    description: 'Most steps in a single day wins',
-    category: 'activity',
-    metric: 'steps',
+    id: 'elevation-gain-hiking',
+    name: 'Elevation Gain Hiking',
+    description: 'Most elevation gained while hiking',
+    category: 'cardio',
+    activityType: 'hiking',
+    metric: 'elevation',
   },
   {
-    id: 'consistency',
-    name: 'Consistency',
-    description: 'Most active days in a week wins',
-    category: 'activity',
+    id: 'most-swimming-laps',
+    name: 'Most Swimming Laps',
+    description: 'Total laps completed in pool',
+    category: 'cardio',
+    activityType: 'swimming',
+    metric: 'laps',
+  },
+  // Strength Challenges
+  {
+    id: 'most-pushups-single',
+    name: 'Most Pushups (Single Session)',
+    description: 'Most pushup reps in one session',
+    category: 'strength',
+    activityType: 'pushups',
+    metric: 'reps',
+  },
+  {
+    id: 'total-pullup-reps-weekly',
+    name: 'Total Pullup Reps (Weekly)',
+    description: 'Most pullup reps accumulated in 7 days',
+    category: 'strength',
+    activityType: 'pullups',
+    metric: 'reps',
+  },
+  {
+    id: 'situp-endurance-5min',
+    name: 'Situp Endurance (5 Minutes)',
+    description: 'Most situps completed in 5 minutes',
+    category: 'strength',
+    activityType: 'situps',
+    metric: 'reps',
+  },
+  {
+    id: 'heaviest-lift',
+    name: 'Heaviest Lift',
+    description: 'Highest weight lifted in single rep',
+    category: 'strength',
+    activityType: 'weights',
+    metric: 'weight',
+  },
+  {
+    id: 'most-sets-completed',
+    name: 'Most Sets Completed',
+    description: 'Total strength training sets in week',
+    category: 'strength',
+    activityType: 'strength',
+    metric: 'sets',
+  },
+  // Wellness Challenges
+  {
+    id: 'weekly-meditation-minutes',
+    name: 'Weekly Meditation Minutes',
+    description: 'Most meditation time in 7 days',
+    category: 'wellness',
+    activityType: 'meditation',
+    metric: 'duration',
+  },
+  {
+    id: 'yoga-session-streak',
+    name: 'Yoga Session Streak',
+    description: 'Most consecutive days with yoga sessions',
+    category: 'wellness',
+    activityType: 'yoga',
+    metric: 'sessions',
+  },
+  {
+    id: 'most-poses-completed',
+    name: 'Most Poses Completed',
+    description: 'Total yoga poses completed in week',
+    category: 'wellness',
+    activityType: 'yoga',
+    metric: 'poses',
+  },
+  // Endurance Challenges
+  {
+    id: 'longest-treadmill-session',
+    name: 'Longest Treadmill Session',
+    description: 'Longest single treadmill workout',
+    category: 'endurance',
+    activityType: 'treadmill',
+    metric: 'duration',
+  },
+  {
+    id: 'most-rowing-distance',
+    name: 'Most Rowing Distance',
+    description: 'Total rowing distance in week',
+    category: 'endurance',
+    activityType: 'rowing',
+    metric: 'distance',
+  },
+  {
+    id: 'weekly-consistency',
+    name: 'Weekly Consistency',
+    description: 'Most active days in a week',
+    category: 'endurance',
+    activityType: 'any',
     metric: 'consistency',
   },
 ];
 
 const CATEGORY_TITLES: Record<ChallengeCategory, string> = {
-  race: 'Race Challenges',
-  distance: 'Distance Challenges',
-  activity: 'Activity Challenges',
+  cardio: 'Cardio Challenges',
+  strength: 'Strength Challenges',
+  wellness: 'Wellness Challenges',
+  endurance: 'Endurance Challenges',
 };
 
 const ChallengeOption: React.FC<ChallengeOptionProps> = ({

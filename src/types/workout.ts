@@ -206,14 +206,15 @@ export type ChallengeCreationStep =
   | 'review_confirm'
   | 'success';
 
-export type ChallengeCategory = 'race' | 'distance' | 'activity';
+export type ChallengeCategory = 'cardio' | 'strength' | 'wellness' | 'endurance';
 
 export interface ChallengeType {
   id: string;
   name: string;
   description: string;
   category: ChallengeCategory;
-  metric: 'time' | 'distance' | 'steps' | 'consistency';
+  activityType: 'running' | 'walking' | 'cycling' | 'hiking' | 'swimming' | 'rowing' | 'strength' | 'treadmill' | 'meditation' | 'yoga' | 'pushups' | 'pullups' | 'situps' | 'weights' | 'any';
+  metric: 'time' | 'distance' | 'steps' | 'consistency' | 'reps' | 'sets' | 'elevation' | 'laps' | 'poses' | 'sessions' | 'weight' | 'duration' | 'calories' | 'pace';
 }
 
 export interface TeammateInfo {

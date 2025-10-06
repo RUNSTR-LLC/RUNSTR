@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.accentBright,
     borderRadius: 12,
   },
   buttonDisabled: {
