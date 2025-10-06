@@ -484,16 +484,6 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Create Team Button - Only show in teams mode */}
-      {onCreateTeam && discoveryMode === 'teams' && (
-        <View style={styles.createTeamContainer}>
-          <PrimaryButton
-            text="Create Team"
-            onPress={onCreateTeam}
-          />
-        </View>
-      )}
-
       {/* Toggle between Teams and Events */}
       <View style={styles.toggleContainer}>
         <TouchableOpacity
@@ -746,7 +736,19 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
                   })
                 ) : (
                   // All teams view - show by category
-                  categories.map((category) => renderCategorySection({ item: category }))
+                  <>
+                    {categories.map((category) => renderCategorySection({ item: category }))}
+
+                    {/* Create Team Button - Bottom of list after Other category */}
+                    {onCreateTeam && (
+                      <View style={styles.bottomCreateTeamContainer}>
+                        <PrimaryButton
+                          text="Create Team"
+                          onPress={onCreateTeam}
+                        />
+                      </View>
+                    )}
+                  </>
                 )}
 
                 {displayTeams.length === 0 && searchQuery && (
@@ -819,10 +821,12 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
 
-  createTeamContainer: {
+  // Removed top createTeamContainer - button now at bottom
+
+  bottomCreateTeamContainer: {
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingTop: 24,
+    paddingBottom: 20,
   },
 
   headerSpacer: {
