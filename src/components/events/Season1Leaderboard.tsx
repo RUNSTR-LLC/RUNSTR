@@ -41,12 +41,7 @@ export const Season1LeaderboardComponent: React.FC<Season1LeaderboardProps> = ({
   }, []);
 
   const getMedal = (rank: number) => {
-    switch (rank) {
-      case 1: return '🥇';
-      case 2: return '🥈';
-      case 3: return '🥉';
-      default: return `${rank}.`;
-    }
+    return `${rank}.`;
   };
 
   const formatDistance = (meters: number): string => {

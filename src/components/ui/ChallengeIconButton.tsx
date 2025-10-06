@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 
 export interface ChallengeIconButtonProps {
@@ -54,15 +55,17 @@ export const ChallengeIconButton: React.FC<ChallengeIconButtonProps> = ({
       accessibilityHint="Opens challenge wizard"
       accessibilityRole="button"
     >
-      <Text
-        style={[
-          styles.icon,
-          isPressed && styles.iconPressed,
-          disabled && styles.iconDisabled,
-        ]}
-      >
-        ⚔️
-      </Text>
+      <Ionicons
+        name="trophy-outline"
+        size={14}
+        color={
+          disabled
+            ? theme.colors.textMuted
+            : isPressed
+              ? theme.colors.text
+              : theme.colors.textMuted
+        }
+      />
     </TouchableOpacity>
   );
 };
@@ -86,15 +89,5 @@ const styles = StyleSheet.create({
   containerDisabled: {
     opacity: 0.3,
     borderColor: theme.colors.buttonBorder,
-  },
-  icon: {
-    fontSize: 14,
-    color: theme.colors.textMuted,
-  },
-  iconPressed: {
-    color: theme.colors.text,
-  },
-  iconDisabled: {
-    color: theme.colors.textMuted,
   },
 });
