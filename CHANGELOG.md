@@ -6,15 +6,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.8] - 2025-10-05
 
+### Added
+- **League/Event Separation**: Enhanced competition organization with clear distinction between leagues and events
+  - Improved navigation and discovery for different competition types
+  - Better categorization and filtering in competition lists
+  - Clearer visual hierarchy for ongoing vs time-bounded competitions
+- **Event Join Notifications**: Real-time notifications when users join events
+  - Instant feedback for event participation
+  - Better visibility of new team members joining competitions
+  - Improved engagement and social dynamics
+
 ### Performance
 - **60% Faster App Startup**: Parallelized NostrPrefetchService for dramatic performance improvements
   - Team discovery, profile data, and Season 1 leaderboards now load simultaneously
   - Reduced sequential bottlenecks in data fetching
   - Faster time-to-interactive for users
 - **Optimized Relay Connections**: Centralized NDK instance management with GlobalNDKService
-  - Single NDK instance shared across entire app
-  - Eliminated redundant relay connections
+  - Single NDK instance shared across entire app (90% reduction in WebSocket connections)
+  - Eliminated redundant relay connections (4 relays instead of 36)
   - Improved connection stability and reliability
+  - Better performance across all Nostr-dependent services
 - **Stale-While-Revalidate Caching**: Instant data display with background updates
   - Data appears immediately from cache
   - Fresh data fetched in background and updates UI seamlessly
@@ -25,6 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Reduced complexity in loading architecture
 
 ### Improved
+- **Icon System**: Complete migration from emojis to Ionicons for professional appearance
+  - Challenge icon now uses shield (ionicons: shield)
+  - Zap icon now uses flash-outline (ionicons: flash-outline)
+  - Season 1 leaderboard uses consistent Ionicon set
+  - Better visual consistency across all screens
+  - More accessible and platform-agnostic UI
 - **Caching Architecture**: Migrated NavigationDataContext to UnifiedNostrCache
   - Single source of truth for all cached Nostr data
   - Better cache invalidation and refresh strategies
