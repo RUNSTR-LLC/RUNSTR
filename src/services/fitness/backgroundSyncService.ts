@@ -6,8 +6,8 @@
 
 import { AppState, Platform } from 'react-native';
 import healthKitService from './healthKitService';
-import workoutDataProcessor from './workoutDataProcessor';
-import teamLeaderboardService from './teamLeaderboardService';
+// import workoutDataProcessor from './workoutDataProcessor';  // REMOVED: Pure Nostr - workouts processed via kind 1301 events
+// import teamLeaderboardService from './teamLeaderboardService';  // REMOVED: Pure Nostr - leaderboards query kind 1301 events directly
 import nostrWorkoutSyncService from './nostrWorkoutSyncService';
 // import { supabase } from '../supabase';  // REMOVED: Project now uses pure Nostr
 import { AuthService } from '../auth/authService';
@@ -278,20 +278,12 @@ export class BackgroundSyncService {
         console.error('BackgroundSync: Nostr sync error:', nostrError);
       }
 
-      // Process new workouts
+      // Process new workouts - REMOVED: Pure Nostr app processes workouts via kind 1301 events
+      // Workouts are synced directly to Nostr, no additional processing needed
       if (workoutsProcessed > 0) {
-        const unprocessedWorkouts = await this.getUnprocessedWorkouts(user.id);
-
-        for (const workout of unprocessedWorkouts) {
-          const processResult = await workoutDataProcessor.processWorkout(
-            workout
-          );
-          if (processResult.success) {
-            totalScore += processResult.score || 0;
-          } else {
-            errors.push(`Workout processing failed: ${processResult.error}`);
-          }
-        }
+        // const unprocessedWorkouts = await this.getUnprocessedWorkouts(user.id);
+        // Pure Nostr: Workouts are already processed as kind 1301 events
+        console.log(`BackgroundSync: ${workoutsProcessed} workouts synced to Nostr`);
       }
 
       // Update last sync time
@@ -303,9 +295,10 @@ export class BackgroundSyncService {
       }
 
       // Update team leaderboard if user is in a team
-      if (user.teamId) {
-        await teamLeaderboardService.getTeamLeaderboard(user.teamId);
-      }
+      // REMOVED: Pure Nostr - leaderboards query kind 1301 events directly, no background update needed
+      // if (user.teamId) {
+      //   await teamLeaderboardService.getTeamLeaderboard(user.teamId);
+      // }
 
       const duration = Date.now() - startTime;
       console.log(
@@ -494,7 +487,7 @@ export class BackgroundSyncService {
     console.log('BackgroundSync: Cleaning up...');
 
     this.stop();
-    await teamLeaderboardService.cleanup();
+    // await teamLeaderboardService.cleanup();  // REMOVED: Pure Nostr - no background leaderboard service
 
     console.log('BackgroundSync: Cleanup completed');
   }

@@ -5,9 +5,9 @@
  */
 
 import type { Event } from 'nostr-tools';
-import { NostrRelayManager, nostrRelayManager } from '../nostr/NostrRelayManager';
+import { GlobalNDKService } from '../nostr/GlobalNDKService';
+import type { NDKFilter, NDKEvent, NDKSubscription } from '@nostr-dev-kit/ndk';
 import { NostrTeamService } from '../nostr/NostrTeamService';
-import type { NostrFilter } from '../nostr/NostrProtocolHandler';
 import type { NostrTeam } from '../nostr/NostrTeamService';
 import type { NostrCompetition } from '../integrations/NostrCompetitionContextService';
 import type { CompetitionGoalType } from '../../types/nostrCompetition';
@@ -65,19 +65,17 @@ export interface CompetitionStats {
 }
 
 export class LeaderboardService {
-  private relayManager: NostrRelayManager;
   private teamService: NostrTeamService;
   private cachedLeaderboards: Map<string, CompetitionLeaderboard> = new Map();
   private static instance: LeaderboardService;
 
-  constructor(relayManager?: NostrRelayManager) {
-    this.relayManager = relayManager || nostrRelayManager;
+  constructor() {
     this.teamService = new NostrTeamService();
   }
 
-  static getInstance(relayManager?: NostrRelayManager): LeaderboardService {
+  static getInstance(): LeaderboardService {
     if (!LeaderboardService.instance) {
-      LeaderboardService.instance = new LeaderboardService(relayManager);
+      LeaderboardService.instance = new LeaderboardService();
     }
     return LeaderboardService.instance;
   }
@@ -237,7 +235,7 @@ export class LeaderboardService {
     competition: NostrCompetition,
     team: NostrTeam,
     callback: (leaderboard: CompetitionLeaderboard) => void
-  ): Promise<string> {
+  ): Promise<NDKSubscription> {
     console.log(
       `🔔 Subscribing to leaderboard updates for: ${competition.name}`
     );
@@ -272,26 +270,34 @@ export class LeaderboardService {
       },
     ];
 
-    const subscriptionId = await this.relayManager.subscribeToEvents(
-      filters,
-      async (event: Event, relayUrl: string) => {
-        console.log(`🔄 New workout event for leaderboard: ${event.id}`);
+    // Get GlobalNDK instance
+    const ndk = await GlobalNDKService.getInstance();
 
-        // Recalculate leaderboard when new workout is received
-        try {
-          const updatedLeaderboard = await this.calculateLeaderboard(
-            competition,
-            team
-          );
-          callback(updatedLeaderboard);
-          console.log(`✅ Leaderboard updated for ${competition.name}`);
-        } catch (error) {
-          console.warn('Failed to update leaderboard:', error);
-        }
+    const ndkFilter: NDKFilter = {
+      kinds: [1301 as any], // Custom kind
+      authors: memberPubkeys,
+      since: startTime,
+    };
+
+    const subscription = ndk.subscribe(ndkFilter, { closeOnEose: false });
+
+    subscription.on('event', async (event: NDKEvent) => {
+      console.log(`🔄 New workout event for leaderboard: ${event.id}`);
+
+      // Recalculate leaderboard when new workout is received
+      try {
+        const updatedLeaderboard = await this.calculateLeaderboard(
+          competition,
+          team
+        );
+        callback(updatedLeaderboard);
+        console.log(`✅ Leaderboard updated for ${competition.name}`);
+      } catch (error) {
+        console.warn('Failed to update leaderboard:', error);
       }
-    );
+    });
 
-    return subscriptionId;
+    return subscription;
   }
 
   // ================================================================================
@@ -319,44 +325,48 @@ export class LeaderboardService {
     const allWorkouts: WorkoutEvent[] = [];
     const processedIds = new Set<string>();
 
+    // Get GlobalNDK instance
+    const ndk = await GlobalNDKService.getInstance();
+
     for (const batch of batches) {
-      const filters: NostrFilter[] = [
-        {
-          kinds: [1301],
-          authors: batch,
-          since: startTime,
-          until: endTime,
-          limit: 100,
-        },
-      ];
+      const filter: NDKFilter = {
+        kinds: [1301 as any], // Custom kind
+        authors: batch,
+        since: startTime,
+        until: endTime,
+        limit: 100,
+      };
 
-      const subscriptionId = await this.relayManager.subscribeToEvents(
-        filters,
-        (event: Event, relayUrl: string) => {
-          if (processedIds.has(event.id)) return;
-          processedIds.add(event.id);
+      const subscription = ndk.subscribe(filter, { closeOnEose: false });
 
-          // Check if workout is tagged for this competition (optional)
-          const isForCompetition = this.isWorkoutForCompetition(
-            event,
-            competitionId
-          );
+      subscription.on('event', (event: NDKEvent) => {
+        const eventId = event.id || '';
+        if (processedIds.has(eventId)) return;
+        processedIds.add(eventId);
 
-          allWorkouts.push({
-            id: event.id,
-            pubkey: event.pubkey,
-            created_at: event.created_at,
-            tags: event.tags,
-            content: event.content,
-          });
-        }
-      );
+        // Convert NDKEvent to Event format
+        const workoutEvent: WorkoutEvent = {
+          id: eventId,
+          pubkey: event.pubkey || '',
+          created_at: event.created_at || Math.floor(Date.now() / 1000),
+          tags: event.tags || [],
+          content: event.content || '',
+        };
+
+        // Check if workout is tagged for this competition (optional)
+        const isForCompetition = this.isWorkoutForCompetition(
+          workoutEvent,
+          competitionId
+        );
+
+        allWorkouts.push(workoutEvent);
+      });
 
       // Wait for batch results
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
       // Clean up subscription
-      this.relayManager.unsubscribe(subscriptionId);
+      subscription.stop();
     }
 
     console.log(

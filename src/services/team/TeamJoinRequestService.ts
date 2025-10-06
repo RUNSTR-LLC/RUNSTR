@@ -5,8 +5,8 @@
  */
 
 import type { Event } from 'nostr-tools';
-import { NostrRelayManager, nostrRelayManager } from '../nostr/NostrRelayManager';
-import type { NostrFilter } from '../nostr/NostrProtocolHandler';
+import { GlobalNDKService } from '../nostr/GlobalNDKService';
+import type { NDKFilter, NDKEvent, NDKSubscription } from '@nostr-dev-kit/ndk';
 
 export interface TeamJoinRequest {
   id: string;
@@ -36,18 +36,17 @@ export interface JoinRequestResponse {
 
 export class TeamJoinRequestService {
   private static instance: TeamJoinRequestService;
-  private relayManager: NostrRelayManager;
   private cachedRequests: Map<string, TeamJoinRequest[]> = new Map();
   private cacheExpiryMs = 5 * 60 * 1000; // 5 minutes
   private lastCacheUpdate = 0;
 
-  constructor(relayManager?: NostrRelayManager) {
-    this.relayManager = relayManager || nostrRelayManager;
+  constructor() {
+    // No relay manager needed - uses GlobalNDKService
   }
 
-  static getInstance(relayManager?: NostrRelayManager): TeamJoinRequestService {
+  static getInstance(): TeamJoinRequestService {
     if (!TeamJoinRequestService.instance) {
-      TeamJoinRequestService.instance = new TeamJoinRequestService(relayManager);
+      TeamJoinRequestService.instance = new TeamJoinRequestService();
     }
     return TeamJoinRequestService.instance;
   }
@@ -99,40 +98,41 @@ export class TeamJoinRequestService {
     console.log(`🔍 Fetching join requests for captain: ${captainPubkey.slice(0, 8)}`);
 
     try {
-      const filters: NostrFilter[] = [
-        {
-          kinds: [1104],
-          '#p': [captainPubkey],
-          ...(teamId && { '#team-id': [teamId] }),
-          limit: 50,
-        },
-      ];
+      // Get GlobalNDK instance
+      const ndk = await GlobalNDKService.getInstance();
+
+      const filter: NDKFilter = {
+        kinds: [1104 as any], // Custom event kind
+        '#p': [captainPubkey],
+        ...(teamId && { '#team-id': [teamId] }),
+        limit: 50,
+      };
 
       const requests: TeamJoinRequest[] = [];
       let processedEvents = 0;
 
-      const subscriptionId = await this.relayManager.subscribeToEvents(
-        filters,
-        (event: Event, relayUrl: string) => {
-          console.log(`📥 Join request received from ${relayUrl}: ${event.id.slice(0, 8)}`);
-          processedEvents++;
+      const subscription = ndk.subscribe(filter, { closeOnEose: false });
 
-          try {
-            const request = this.parseJoinRequestEvent(event);
-            if (request) {
-              requests.push(request);
-            }
-          } catch (error) {
-            console.warn(`⚠️ Failed to parse join request ${event.id}:`, error);
+      subscription.on('event', (event: NDKEvent) => {
+        console.log(`📥 Join request received: ${event.id.slice(0, 8)}`);
+        processedEvents++;
+
+        try {
+          const nostrEvent = this.ndkEventToEvent(event);
+          const request = this.parseJoinRequestEvent(nostrEvent);
+          if (request) {
+            requests.push(request);
           }
+        } catch (error) {
+          console.warn(`⚠️ Failed to parse join request ${event.id}:`, error);
         }
-      );
+      });
 
       // Wait for initial results
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // Clean up subscription
-      this.relayManager.unsubscribe(subscriptionId);
+      subscription.stop();
 
       // Sort by timestamp (newest first)
       requests.sort((a, b) => b.timestamp - a.timestamp);
@@ -156,32 +156,33 @@ export class TeamJoinRequestService {
     console.log(`🔍 Fetching join requests for team: ${teamId}`);
 
     try {
-      const filters: NostrFilter[] = [
-        {
-          kinds: [1104],
-          '#team-id': [teamId],
-          limit: 20,
-        },
-      ];
+      // Get GlobalNDK instance
+      const ndk = await GlobalNDKService.getInstance();
+
+      const filter: NDKFilter = {
+        kinds: [1104 as any], // Custom event kind
+        '#team-id': [teamId],
+        limit: 20,
+      };
 
       const requests: TeamJoinRequest[] = [];
 
-      const subscriptionId = await this.relayManager.subscribeToEvents(
-        filters,
-        (event: Event) => {
-          try {
-            const request = this.parseJoinRequestEvent(event);
-            if (request) {
-              requests.push(request);
-            }
-          } catch (error) {
-            console.warn(`⚠️ Failed to parse team join request:`, error);
+      const subscription = ndk.subscribe(filter, { closeOnEose: false });
+
+      subscription.on('event', (event: NDKEvent) => {
+        try {
+          const nostrEvent = this.ndkEventToEvent(event);
+          const request = this.parseJoinRequestEvent(nostrEvent);
+          if (request) {
+            requests.push(request);
           }
+        } catch (error) {
+          console.warn(`⚠️ Failed to parse team join request:`, error);
         }
-      );
+      });
 
       await new Promise((resolve) => setTimeout(resolve, 1500));
-      this.relayManager.unsubscribe(subscriptionId);
+      subscription.stop();
 
       requests.sort((a, b) => b.timestamp - a.timestamp);
 
@@ -203,29 +204,30 @@ export class TeamJoinRequestService {
     console.log(`🔍 Checking pending request: ${requesterPubkey.slice(0, 8)} → team ${teamId}`);
 
     try {
-      const filters: NostrFilter[] = [
-        {
-          kinds: [1104],
-          authors: [requesterPubkey],
-          '#team-id': [teamId],
-          limit: 5,
-        },
-      ];
+      // Get GlobalNDK instance
+      const ndk = await GlobalNDKService.getInstance();
+
+      const filter: NDKFilter = {
+        kinds: [1104 as any], // Custom event kind
+        authors: [requesterPubkey],
+        '#team-id': [teamId],
+        limit: 5,
+      };
 
       let hasPending = false;
 
-      const subscriptionId = await this.relayManager.subscribeToEvents(
-        filters,
-        (event: Event) => {
-          const request = this.parseJoinRequestEvent(event);
-          if (request && request.status === 'pending') {
-            hasPending = true;
-          }
+      const subscription = ndk.subscribe(filter, { closeOnEose: false });
+
+      subscription.on('event', (event: NDKEvent) => {
+        const nostrEvent = this.ndkEventToEvent(event);
+        const request = this.parseJoinRequestEvent(nostrEvent);
+        if (request && request.status === 'pending') {
+          hasPending = true;
         }
-      );
+      });
 
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      this.relayManager.unsubscribe(subscriptionId);
+      subscription.stop();
 
       console.log(`${hasPending ? '✅' : '❌'} Pending request status: ${hasPending}`);
       return hasPending;
@@ -233,6 +235,21 @@ export class TeamJoinRequestService {
       console.error(`❌ Failed to check pending request:`, error);
       return false;
     }
+  }
+
+  /**
+   * Convert NDKEvent to our Event interface format
+   */
+  private ndkEventToEvent(ndkEvent: NDKEvent): Event {
+    return {
+      id: ndkEvent.id || '',
+      pubkey: ndkEvent.pubkey || '',
+      created_at: ndkEvent.created_at || Math.floor(Date.now() / 1000),
+      kind: ndkEvent.kind,
+      tags: ndkEvent.tags || [],
+      content: ndkEvent.content || '',
+      sig: ndkEvent.sig || '',
+    };
   }
 
   /**
@@ -272,42 +289,43 @@ export class TeamJoinRequestService {
   async subscribeToJoinRequests(
     captainPubkey: string,
     callback: (request: TeamJoinRequest) => void
-  ): Promise<string> {
+  ): Promise<NDKSubscription> {
     console.log(`🔔 Subscribing to join requests for captain: ${captainPubkey.slice(0, 8)}`);
 
-    const filters: NostrFilter[] = [
-      {
-        kinds: [1104],
-        '#p': [captainPubkey],
-        since: Math.floor(Date.now() / 1000),
-      },
-    ];
+    // Get GlobalNDK instance
+    const ndk = await GlobalNDKService.getInstance();
 
-    const subscriptionId = await this.relayManager.subscribeToEvents(
-      filters,
-      (event: Event, relayUrl: string) => {
-        console.log(`🔔 New join request from ${relayUrl}: ${event.id.slice(0, 8)}`);
+    const filter: NDKFilter = {
+      kinds: [1104 as any], // Custom event kind
+      '#p': [captainPubkey],
+      since: Math.floor(Date.now() / 1000),
+    };
 
-        try {
-          const request = this.parseJoinRequestEvent(event);
-          if (request) {
-            callback(request);
-          }
-        } catch (error) {
-          console.warn(`⚠️ Failed to parse real-time join request:`, error);
+    const subscription = ndk.subscribe(filter, { closeOnEose: false });
+
+    subscription.on('event', (event: NDKEvent) => {
+      console.log(`🔔 New join request: ${event.id.slice(0, 8)}`);
+
+      try {
+        const nostrEvent = this.ndkEventToEvent(event);
+        const request = this.parseJoinRequestEvent(nostrEvent);
+        if (request) {
+          callback(request);
         }
+      } catch (error) {
+        console.warn(`⚠️ Failed to parse real-time join request:`, error);
       }
-    );
+    });
 
-    return subscriptionId;
+    return subscription;
   }
 
   /**
    * Unsubscribe from join request updates
    */
-  unsubscribeFromJoinRequests(subscriptionId: string): void {
-    console.log(`🔕 Unsubscribing from join requests: ${subscriptionId}`);
-    this.relayManager.unsubscribe(subscriptionId);
+  unsubscribeFromJoinRequests(subscription: NDKSubscription): void {
+    console.log(`🔕 Unsubscribing from join requests`);
+    subscription.stop();
   }
 
   /**

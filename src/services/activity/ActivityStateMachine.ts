@@ -125,6 +125,16 @@ export class ActivityStateMachine {
       to: 'completing',
     },
     {
+      from: 'gps_lost',
+      event: 'STOP',
+      to: 'completing',
+    },
+    {
+      from: 'gps_recovering',
+      event: 'STOP',
+      to: 'completing',
+    },
+    {
       from: 'completing',
       event: 'RESET',
       to: 'completed',

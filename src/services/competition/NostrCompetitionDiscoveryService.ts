@@ -54,8 +54,11 @@ export class NostrCompetitionDiscoveryService {
     }
 
     try {
-      // Query all kind 30000 lists where user is a member
-      const filters: NostrFilter[] = [
+      const competitions: UserCompetition[] = [];
+      const processedIds = new Set<string>();
+
+      // Query 1: kind 30000 lists where user is a member
+      const memberFilters: NostrFilter[] = [
         {
           kinds: [30000],
           '#p': [hexPubkey],
@@ -63,11 +66,8 @@ export class NostrCompetitionDiscoveryService {
         }
       ];
 
-      const competitions: UserCompetition[] = [];
-      const processedIds = new Set<string>();
-
-      const subscriptionId = await this.relayManager.subscribeToEvents(
-        filters,
+      const memberSubId = await this.relayManager.subscribeToEvents(
+        memberFilters,
         (event: Event, relayUrl: string) => {
           try {
             const competition = this.parseListToCompetition(event, hexPubkey);
@@ -82,11 +82,37 @@ export class NostrCompetitionDiscoveryService {
         }
       );
 
+      // Query 2: kind 30100/30101 competitions where user is author (captain)
+      const authorFilters: NostrFilter[] = [
+        {
+          kinds: [30100, 30101], // Leagues and Events
+          authors: [hexPubkey],
+          limit: 500
+        }
+      ];
+
+      const authorSubId = await this.relayManager.subscribeToEvents(
+        authorFilters,
+        (event: Event, relayUrl: string) => {
+          try {
+            const competition = this.parseCompetitionDefinition(event, hexPubkey);
+            if (competition && !processedIds.has(competition.id)) {
+              processedIds.add(competition.id);
+              competitions.push(competition);
+              console.log(`✅ Found competition: ${competition.name} (${competition.type})`);
+            }
+          } catch (error) {
+            console.warn(`Failed to parse competition from event ${event.id}:`, error);
+          }
+        }
+      );
+
       // Wait for results
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Unsubscribe
-      this.relayManager.unsubscribe(subscriptionId);
+      // Unsubscribe both
+      this.relayManager.unsubscribe(memberSubId);
+      this.relayManager.unsubscribe(authorSubId);
 
       // Sort competitions by status and start date
       competitions.sort((a, b) => {
@@ -108,6 +134,71 @@ export class NostrCompetitionDiscoveryService {
       console.error('Error discovering competitions:', error);
       return [];
     }
+  }
+
+  /**
+   * Parse kind 30100/30101 competition definition into UserCompetition
+   */
+  private parseCompetitionDefinition(event: Event, userHexPubkey: string): UserCompetition | null {
+    if (!event.tags) return null;
+
+    const tags = new Map(event.tags.map(t => [t[0], t[1]]));
+    const dTag = tags.get('d') || '';
+    const name = tags.get('name') || 'Unnamed Competition';
+    const activityType = tags.get('activity_type') || '';
+
+    // Determine type from kind
+    const type: UserCompetition['type'] = event.kind === 30100 ? 'league' : 'event';
+
+    // Parse dates
+    let startsAt = 0;
+    let endsAt = 0;
+
+    if (type === 'league') {
+      const startDate = tags.get('start_date');
+      const endDate = tags.get('end_date');
+      if (startDate) startsAt = new Date(startDate).getTime() / 1000;
+      if (endDate) endsAt = new Date(endDate).getTime() / 1000;
+    } else {
+      const eventDate = tags.get('event_date');
+      if (eventDate) {
+        startsAt = new Date(eventDate).getTime() / 1000;
+        endsAt = startsAt + 86400; // Events last 1 day
+      }
+    }
+
+    // Determine status
+    const now = Date.now() / 1000;
+    let status: UserCompetition['status'] = 'active';
+    const statusTag = tags.get('status');
+
+    if (statusTag === 'completed' || (endsAt && endsAt < now)) {
+      status = 'completed';
+    } else if (statusTag === 'upcoming' || (startsAt && startsAt > now)) {
+      status = 'upcoming';
+    }
+
+    // Get participant count (estimated from team size, actual count needs kind 30000 list)
+    const maxParticipants = parseInt(tags.get('max_participants') || '0');
+    const participantCount = maxParticipants || 1; // Default to 1 (captain)
+
+    // User is captain since they authored it
+    const yourRole: UserCompetition['yourRole'] = 'captain';
+
+    // Get prize pool
+    const prizePool = parseInt(tags.get('prize_pool') || '0');
+
+    return {
+      id: event.id || dTag,
+      name,
+      type,
+      status,
+      participantCount,
+      yourRole,
+      startsAt,
+      endsAt,
+      prizePool: prizePool || undefined
+    };
   }
 
   /**

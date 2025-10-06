@@ -18,6 +18,7 @@ import { nip19 } from 'nostr-tools';
 import type { NostrWorkout, NostrWorkoutEvent } from '../../types/nostrWorkout';
 import { NostrWorkoutParser } from '../../utils/nostrWorkoutParser';
 import type { WorkoutType } from '../../types/workout';
+import { GlobalNDKService } from '../nostr/GlobalNDKService';
 
 export interface NdkWorkoutQueryResult {
   success: boolean;
@@ -42,29 +43,13 @@ export interface WorkoutDiscoveryFilters {
   limit?: number;
 }
 
-// Global NDK instance following Zap-Arena singleton pattern
-const g = globalThis as any;
-
 export class NdkWorkoutService {
   private static instance: NdkWorkoutService;
-  private ndk: NDK;
-  private isReady: boolean = false;
-  private readyPromise: Promise<boolean>;
-  
-  // Relay list optimized for 1301 events based on Zap-Arena patterns
-  private relayUrls = [
-    'wss://relay.damus.io',
-    'wss://nos.lol', 
-    'wss://relay.primal.net',
-    'wss://nostr.wine',
-    'wss://relay.nostr.band',
-    'wss://relay.snort.social',
-    'wss://nostr-pub.wellorder.net'
-  ];
+  private ndk: NDK | null = null;
 
   private constructor() {
-    console.log('🚀 NdkWorkoutService: Initializing with Zap-Arena proven patterns');
-    this.initializeNDK();
+    console.log('🚀 NdkWorkoutService: Will use GlobalNDKService');
+    // NDK will be initialized lazily on first use via ensureNDK()
   }
 
   static getInstance(): NdkWorkoutService {
@@ -75,115 +60,53 @@ export class NdkWorkoutService {
   }
 
   /**
-   * Initialize NDK singleton following Zap-Arena global instance pattern
+   * Ensure NDK instance is initialized using GlobalNDKService
+   * Lazy initialization pattern - only connects when needed
    */
-  private initializeNDK(): void {
-    if (!g.__RUNSTR_NDK_INSTANCE__) {
-      console.log('[NDK Singleton] Creating new NDK instance for workout discovery...');
-      
-      this.ndk = new NDK({
-        explicitRelayUrls: this.relayUrls,
-        // Remove debug flag - not available in React Native/Hermes runtime
-      });
-      
-      g.__RUNSTR_NDK_INSTANCE__ = this.ndk;
-      
-      // Initialize connection promise following Zap-Arena pattern
-      this.readyPromise = this.connectWithTimeout();
-      g.__RUNSTR_NDK_READY_PROMISE__ = this.readyPromise;
-    } else {
-      console.log('[NDK Singleton] Reusing existing NDK instance for workouts.');
-      this.ndk = g.__RUNSTR_NDK_INSTANCE__;
-      this.readyPromise = g.__RUNSTR_NDK_READY_PROMISE__ || this.connectWithTimeout();
+  private async ensureNDK(): Promise<NDK> {
+    if (this.ndk) {
+      return this.ndk;
     }
+
+    console.log('[NdkWorkout] Initializing NDK via GlobalNDKService');
+    this.ndk = await GlobalNDKService.getInstance();
+
+    // Wait for at least one relay to connect
+    const connected = await GlobalNDKService.waitForConnection(10000);
+    if (!connected) {
+      console.warn('[NdkWorkout] Proceeding with partial relay connectivity');
+    }
+
+    return this.ndk;
   }
 
   /**
-   * Connect to NDK with timeout (Zap-Arena pattern: 30s timeout)
-   */
-  private async connectWithTimeout(): Promise<boolean> {
-    try {
-      const connectTimeoutMs = 30000; // Zap-Arena proven timeout
-      console.log(`[NDK Workout] Attempting NDK.connect() with timeout: ${connectTimeoutMs}ms`);
-      console.log(`[NDK Workout] Using relays:`, this.relayUrls);
-      
-      await this.ndk.connect(connectTimeoutMs);
-      
-      const connectedCount = this.ndk.pool?.stats()?.connected || 0;
-      console.log(`[NDK Workout] NDK.connect() completed. Connected relays: ${connectedCount}`);
-      console.log(`[NDK Workout] Pool stats:`, this.ndk.pool?.stats());
-
-      if (connectedCount > 0) {
-        console.log('[NDK Workout] NDK is ready for workout discovery.');
-        this.isReady = true;
-        return true;
-      } else {
-        console.error('[NDK Workout] No relays connected after NDK.connect()');
-        throw new Error('Failed to connect to any relays for workout discovery.');
-      }
-    } catch (err) {
-      console.error('[NDK Workout] Error during NDK connection:', err);
-      this.isReady = false;
-      return false;
-    }
-  }
-
-  /**
-   * Wait for NDK to be ready with timeout racing (Zap-Arena pattern)
-   */
-  private async awaitNDKReady(timeoutMs: number = 10000): Promise<boolean> {
-    try {
-      const ready = await Promise.race([
-        this.readyPromise,
-        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), timeoutMs)),
-      ]);
-      
-      if (!ready) {
-        throw new Error('NDK failed to become ready within timeout for workout discovery');
-      }
-      return true;
-    } catch (err) {
-      console.error('[NDK Workout] awaitNDKReady error:', err);
-      return false;
-    }
-  }
-
-  /**
-   * Get fastest relays based on performance metrics (Zap-Arena pattern)
+   * Get fastest relays from GlobalNDK pool
    */
   private getFastestRelays(count: number = 4): string[] {
-    try {
-      // Try to get performance metrics (will be undefined in React Native initially)
-      const metricsStr = typeof localStorage !== 'undefined' ? localStorage?.getItem('relayPerformance') : null;
-      if (!metricsStr) return this.relayUrls.slice(0, count);
-      
-      const metrics = JSON.parse(metricsStr);
-      if (Object.keys(metrics).length === 0) return this.relayUrls.slice(0, count);
-      
-      // Calculate average response times
-      const relayScores = Object.entries(metrics)
-        .map(([relay, data]: [string, any]) => {
-          const avgTime = data.count > 0 ? data.totalTime / data.count : Infinity;
-          // Add recency bonus – prefer recently-used relays
-          const recencyFactor = Date.now() - (data.lastUpdated || 0) < 24 * 60 * 60 * 1000 ? 0.7 : 1;
-          return { relay, score: avgTime * recencyFactor }; // Lower score is better
-        })
-        // Only include relays that are in our active list
-        .filter(item => this.relayUrls.includes(item.relay))
-        // Sort by score (fastest first)
-        .sort((a, b) => a.score - b.score)
-        // Take the requested number
-        .slice(0, count)
-        // Extract just the URLs
-        .map(item => item.relay);
+    if (!this.ndk) {
+      console.warn('[NDK Workout] NDK not initialized, returning empty relay list');
+      return [];
+    }
 
-      // Fall back to the first N default relays if we ended up with an empty list
-      const finalRelays = relayScores.length > 0 ? relayScores : this.relayUrls.slice(0, count);
-      console.log(`[NDK Workout] Using fastest relays for 1301 discovery:`, finalRelays);
-      return finalRelays;
+    try {
+      // Get all connected relays from the global NDK pool
+      const connectedRelays = Array.from(this.ndk.pool?.relays?.values() || [])
+        .filter(relay => relay.connectivity.status === 1) // 1 = connected
+        .map(relay => relay.url);
+
+      if (connectedRelays.length === 0) {
+        console.warn('[NDK Workout] No connected relays in GlobalNDK pool');
+        return [];
+      }
+
+      // Return up to 'count' relays
+      const selectedRelays = connectedRelays.slice(0, count);
+      console.log(`[NDK Workout] Using ${selectedRelays.length} relays from GlobalNDK pool:`, selectedRelays);
+      return selectedRelays;
     } catch (err) {
-      console.warn('[NDK Workout] Error getting fastest relays:', err);
-      return this.relayUrls.slice(0, count);
+      console.warn('[NDK Workout] Error getting relays from NDK pool:', err);
+      return [];
     }
   }
 
@@ -194,15 +117,11 @@ export class NdkWorkoutService {
   async discoverUserWorkouts(filters: WorkoutDiscoveryFilters): Promise<NostrWorkout[]> {
     const timestamp = new Date().toISOString();
     console.log(`🟢🟢🟢 NDK WORKOUT SERVICE ACTIVE ${timestamp} 🟢🟢🟢`);
-    console.log('🎯🎯🎯 NDK SUBSCRIPTION STRATEGY - ZAP-ARENA PROVEN PATTERNS 🎯🎯🎯');
+    console.log('🎯🎯🎯 NDK SUBSCRIPTION STRATEGY - USING GLOBAL NDK 🎯🎯🎯');
     console.log(`📊 NDK 1301 Event Discovery Starting for pubkey: ${filters.pubkey.slice(0, 16)}...`);
 
-    // Wait for NDK to be ready
-    const isReady = await this.awaitNDKReady(15000);
-    if (!isReady) {
-      console.error('❌ NDK not ready for workout discovery');
-      return [];
-    }
+    // Ensure NDK is initialized and connected
+    await this.ensureNDK();
 
     const startTime = Date.now();
     const allEvents: NDKEvent[] = [];
@@ -436,16 +355,19 @@ export class NdkWorkoutService {
    * Core NDK Subscription with timeout racing (Zap-Arena Pattern)
    */
   private async subscribeWithNdk(
-    filter: NDKFilter, 
-    strategy: string, 
+    filter: NDKFilter,
+    strategy: string,
     subscriptionStats: any
   ): Promise<NDKEvent[]> {
+    // Ensure NDK is available
+    const ndk = await this.ensureNDK();
+
     const events: NDKEvent[] = [];
     const timeout = 8000; // 8 second timeout (Zap-Arena pattern: 6-8s)
-    
+
     return new Promise((resolve) => {
       console.log(`📡 NDK subscription: ${strategy}`);
-      
+
       // Enhanced logging for debug
       console.log(`🔍 NDK FILTER DEBUG:`, {
         kinds: filter.kinds,
@@ -456,12 +378,12 @@ export class NdkWorkoutService {
         until: filter.until,
         limit: filter.limit
       });
-      
+
       // Get fastest relays for this subscription
       const fastRelays = this.getFastestRelays(4);
-      
+
       // Create subscription with fast relays
-      const subscription: NDKSubscription = this.ndk.subscribe(
+      const subscription: NDKSubscription = ndk.subscribe(
         filter,
         { 
           closeOnEose: false, // CRITICAL: Keep subscription open (Zap-Arena pattern)
@@ -603,15 +525,13 @@ export class NdkWorkoutService {
 
   /**
    * Cleanup resources
+   * Note: Since we use GlobalNDKService, we don't disconnect from relays here
+   * as other services may still be using the shared NDK instance.
    */
   cleanup(): void {
-    if (this.ndk) {
-      // Close all relay connections
-      for (const relay of this.ndk.pool?.relays?.values() || []) {
-        (relay as NDKRelay).disconnect();
-      }
-      console.log('🧹 NdkWorkoutService: Cleanup completed');
-    }
+    // Clear local reference to NDK (but don't disconnect from relays)
+    this.ndk = null;
+    console.log('🧹 NdkWorkoutService: Cleanup completed (NDK reference cleared)');
   }
 }
 

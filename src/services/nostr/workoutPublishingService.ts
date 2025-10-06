@@ -5,7 +5,8 @@
  */
 
 import { NostrProtocolHandler } from './NostrProtocolHandler';
-import { nostrRelayManager } from './NostrRelayManager';
+import { GlobalNDKService } from './GlobalNDKService';
+import type { NDKEvent } from '@nostr-dev-kit/ndk';
 import {
   WorkoutCardGenerator,
   type WorkoutCardOptions,
@@ -872,47 +873,40 @@ export class WorkoutPublishingService {
     event: Event
   ): Promise<WorkoutPublishResult> {
     try {
-      const connectedRelays = nostrRelayManager.getConnectedRelays();
+      // Get GlobalNDK instance
+      const ndk = await GlobalNDKService.getInstance();
 
-      if (connectedRelays.length === 0) {
+      if (!GlobalNDKService.isConnected()) {
         return {
           success: false,
           error: 'No connected relays available for publishing',
         };
       }
 
-      console.log(`📡 Publishing event to ${connectedRelays.length} relays...`);
+      const status = GlobalNDKService.getStatus();
+      console.log(`📡 Publishing event to ${status.connectedRelays} relays...`);
 
-      const publishPromises = connectedRelays.map(async (relay) => {
-        try {
-          await nostrRelayManager.publishEvent(event);
-          return { success: true, relay: relay.url };
-        } catch (error) {
-          console.error(`❌ Failed to publish to ${relay.url}:`, error);
-          return { success: false, relay: relay.url, error: String(error) };
-        }
-      });
+      // Convert Event to NDKEvent
+      const ndkEvent: NDKEvent = new (ndk.constructor as any).Event(ndk, event);
 
-      const results = await Promise.allSettled(publishPromises);
-      const successful = results.filter(
-        (r) => r.status === 'fulfilled' && r.value.success
-      ).length;
-      const failed = results.filter(
-        (r) =>
-          r.status === 'rejected' ||
-          (r.status === 'fulfilled' && !r.value.success)
-      );
+      // Publish to all connected relays
+      try {
+        await ndkEvent.publish();
+        console.log(`✅ Event published successfully to ${status.connectedRelays} relays`);
 
-      const failedRelays = failed.map((r) =>
-        r.status === 'fulfilled' ? r.value.relay : 'unknown'
-      );
+        return {
+          success: true,
+          eventId: event.id,
+          publishedToRelays: status.connectedRelays,
+        };
+      } catch (error) {
+        console.error(`❌ Failed to publish event:`, error);
+        return {
+          success: false,
+          error: `Publishing failed: ${String(error)}`,
+        };
+      }
 
-      return {
-        success: successful > 0,
-        eventId: event.id,
-        publishedToRelays: successful,
-        failedRelays: failedRelays.length > 0 ? failedRelays : undefined,
-      };
     } catch (error) {
       console.error('❌ Error publishing event:', error);
       return {

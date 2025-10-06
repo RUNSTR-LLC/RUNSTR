@@ -37,10 +37,11 @@ export class GlobalNDKService {
    * Get or create the global NDK instance
    *
    * THREAD-SAFE: Multiple concurrent calls will reuse the same initialization promise
-   * TIMEOUT-PROTECTED: Hard 15-second timeout to prevent indefinite hangs
+   * TIMEOUT-PROTECTED: Hard 20-second timeout to prevent indefinite hangs
+   * GRACEFUL DEGRADATION: Returns degraded instance if connection fails
    */
   static async getInstance(): Promise<NDK> {
-    const INIT_TIMEOUT = 15000; // 15 seconds hard timeout
+    const INIT_TIMEOUT = 20000; // 20 seconds hard timeout (increased from 15s)
 
     // Return existing instance if already initialized
     if (this.instance && this.isInitialized) {
@@ -57,7 +58,7 @@ export class GlobalNDKService {
         this.initPromise,
         new Promise<NDK>((_, reject) =>
           setTimeout(() => {
-            console.error('❌ GlobalNDK: Initialization timeout (15s) - clearing stale promise');
+            console.error('❌ GlobalNDK: Initialization timeout (20s) - clearing stale promise');
             this.initPromise = null; // Clear stale promise
             reject(new Error('GlobalNDK initialization timeout'));
           }, INIT_TIMEOUT)
@@ -73,7 +74,7 @@ export class GlobalNDKService {
       this.initializeNDK(),
       new Promise<NDK>((_, reject) =>
         setTimeout(() => {
-          console.error('❌ GlobalNDK: Connect timeout (15s) - relay connection failed');
+          console.error('❌ GlobalNDK: Connect timeout (20s) - relay connection failed');
           reject(new Error('GlobalNDK connect timeout - relays not responding'));
         }, INIT_TIMEOUT)
       )
@@ -87,7 +88,22 @@ export class GlobalNDKService {
     } catch (error) {
       console.error('❌ GlobalNDK: Initialization failed:', error);
       this.initPromise = null; // Clear failed promise to allow retry
-      throw error;
+
+      // ✅ FIX: Return degraded instance instead of throwing
+      // This allows app to start even without relay connections
+      console.warn('⚠️ GlobalNDK: Returning degraded instance - app will work offline with cached data');
+
+      // Create minimal NDK instance for offline mode
+      const degradedNDK = new NDK({
+        explicitRelayUrls: this.DEFAULT_RELAYS,
+        autoConnectUserRelays: false,
+        autoFetchUserMutelist: false,
+      });
+
+      this.instance = degradedNDK;
+      this.isInitialized = true; // Mark as initialized to prevent retry loops
+
+      return degradedNDK;
     } finally {
       this.initPromise = null; // Clear promise after completion
     }
@@ -105,19 +121,46 @@ export class GlobalNDKService {
         : this.DEFAULT_RELAYS;
 
       console.log(`🔗 GlobalNDK: Connecting to ${relayUrls.length} relays...`);
+      console.log(`   Relays: ${relayUrls.join(', ')}`);
 
       // Create NDK instance with optimized settings
       const ndk = new NDK({
         explicitRelayUrls: relayUrls,
         autoConnectUserRelays: true,  // Connect to user's preferred relays
         autoFetchUserMutelist: false, // Don't auto-fetch mute lists (saves bandwidth)
+        debug: __DEV__, // Enable debug logging in development
       });
 
-      // Connect to relays with timeout
-      await ndk.connect(2000); // 2-second timeout
+      // ✅ FIX: Increased timeout from 2s → 10s
+      // React Native WebSocket connections take longer than web
+      console.log('⏳ GlobalNDK: Attempting relay connections (10s timeout)...');
+      await ndk.connect(10000); // 10-second timeout
 
-      console.log('✅ GlobalNDK: Connected successfully');
-      console.log(`   📡 ${ndk.pool.relays.size} relays active`);
+      // ✅ FIX: Validate connection status after connect()
+      const stats = ndk.pool?.stats();
+      const connectedCount = stats?.connected || 0;
+      const totalRelays = ndk.pool?.relays?.size || 0;
+
+      console.log('📊 GlobalNDK: Connection status:');
+      console.log(`   📡 Connected relays: ${connectedCount}/${totalRelays}`);
+
+      if (stats) {
+        console.log(`   ✅ Connected: ${stats.connected || 0}`);
+        console.log(`   ⏳ Connecting: ${stats.connecting || 0}`);
+        console.log(`   ❌ Disconnected: ${stats.disconnected || 0}`);
+      }
+
+      // Verify at least one relay connected
+      if (connectedCount === 0) {
+        console.error('❌ GlobalNDK: No relays connected after timeout');
+        throw new Error('Failed to connect to any Nostr relays');
+      }
+
+      console.log(`✅ GlobalNDK: Connected successfully to ${connectedCount} relay(s)`);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log(`🔌 TOTAL WEBSOCKET CONNECTIONS: ${connectedCount} (Target: 4)`);
+      console.log(`📍 This is the ONLY NDK instance - all services share these ${connectedCount} connections`);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
       // Store in global for backward compatibility (some old code checks this)
       (global as any).preInitializedNDK = ndk;
@@ -125,6 +168,7 @@ export class GlobalNDKService {
       return ndk;
     } catch (error) {
       console.error('❌ GlobalNDK: Initialization failed:', error);
+      console.error('   Error details:', error instanceof Error ? error.message : String(error));
       throw error;
     }
   }
@@ -251,6 +295,85 @@ export class GlobalNDKService {
       `proceeding with ${finalStatus.connectedRelays}/${finalStatus.relayCount} relays connected`
     );
     return false;
+  }
+
+  /**
+   * Retry connection with exponential backoff
+   * Called automatically in background if initial connection fails
+   */
+  static async retryConnection(maxAttempts: number = 3): Promise<boolean> {
+    if (this.isConnected()) {
+      console.log('✅ GlobalNDK: Already connected, no retry needed');
+      return true;
+    }
+
+    console.log(`🔄 GlobalNDK: Starting connection retry (max ${maxAttempts} attempts)...`);
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const backoffDelay = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // 1s, 2s, 4s, max 10s
+
+      console.log(`🔄 GlobalNDK: Retry attempt ${attempt}/${maxAttempts} after ${backoffDelay}ms delay...`);
+      await new Promise(resolve => setTimeout(resolve, backoffDelay));
+
+      try {
+        // Clear previous failed instance
+        if (this.instance) {
+          await this.cleanup();
+        }
+
+        // Try to reconnect
+        await this.getInstance();
+
+        // Check if we successfully connected
+        if (this.isConnected()) {
+          console.log(`✅ GlobalNDK: Reconnected successfully on attempt ${attempt}`);
+          return true;
+        }
+      } catch (error) {
+        console.warn(`⚠️ GlobalNDK: Retry attempt ${attempt} failed:`, error);
+        // Continue to next attempt
+      }
+    }
+
+    console.error(`❌ GlobalNDK: All ${maxAttempts} retry attempts failed`);
+    return false;
+  }
+
+  /**
+   * Start background retry process
+   * Non-blocking - runs in background without blocking app startup
+   */
+  static startBackgroundRetry(): void {
+    if (this.isConnected()) {
+      console.log('✅ GlobalNDK: Already connected, no background retry needed');
+      return;
+    }
+
+    console.log('🔄 GlobalNDK: Starting background connection retry...');
+
+    // Run retry in background without awaiting
+    this.retryConnection(3).then(success => {
+      if (success) {
+        console.log('✅ GlobalNDK: Background retry succeeded - relays now connected');
+      } else {
+        console.warn('⚠️ GlobalNDK: Background retry failed - app will continue in offline mode');
+      }
+    }).catch(error => {
+      console.error('❌ GlobalNDK: Background retry error:', error);
+    });
+  }
+
+  /**
+   * Log current connection count - useful for debugging Phase 1 implementation
+   */
+  static logConnectionCount(): void {
+    const status = this.getStatus();
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log(`🔌 WEBSOCKET CONNECTION COUNT: ${status.connectedRelays}/${status.relayCount}`);
+    console.log(`📊 Status: ${this.isConnected() ? 'CONNECTED' : 'DISCONNECTED'}`);
+    console.log(`✅ Expected: 4 connections (Damus, Primal, nos.lol, Nostr.band)`);
+    console.log(`${status.connectedRelays === 4 ? '✅ PERFECT' : '⚠️ CHECK FOR DUPLICATE NDK INSTANCES'}`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   }
 }
 

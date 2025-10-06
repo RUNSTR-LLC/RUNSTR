@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { enhancedLocationTrackingService } from '../../services/activity/EnhancedLocationTrackingService';
@@ -76,6 +76,15 @@ export const RunningTrackerScreen: React.FC = () => {
     if (!started) {
       // The service will handle permission requests internally
       // and show the native iOS dialog if needed
+      // Show error if tracking service is in invalid state
+      const currentState = enhancedLocationTrackingService.getTrackingState();
+      if (currentState !== 'idle' && currentState !== 'requesting_permissions') {
+        Alert.alert(
+          'Cannot Start Tracking',
+          'Previous activity session is still active. Please wait a moment and try again.',
+          [{ text: 'OK' }]
+        );
+      }
       return;
     }
 

@@ -194,7 +194,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     loadUserNpub();
   }, [data.user.id]);
 
-  // Proactively fetch workout data when ProfileScreen mounts
+  // Proactively fetch workout data when ProfileScreen mounts (non-blocking)
   useEffect(() => {
     const fetchWorkoutData = async () => {
       try {
@@ -219,13 +219,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         console.log('[ProfileScreen] 🏃 Triggering background workout fetch...');
         const cacheService = WorkoutCacheService.getInstance();
 
-        // Non-blocking background fetch (cache-first strategy)
-        await cacheService.getMergedWorkouts(userPubkey, 500);
-
-        console.log('[ProfileScreen] ✅ Background workout fetch complete');
+        // Fire-and-forget: Don't block UI while fetching (removes 10-15s freeze)
+        cacheService.getMergedWorkouts(userPubkey, 500).then(() => {
+          console.log('[ProfileScreen] ✅ Background workout fetch complete');
+        }).catch((error) => {
+          console.error('[ProfileScreen] ⚠️ Background workout fetch error:', error);
+          // Non-critical - workouts will load on demand
+        });
       } catch (error) {
-        console.error('[ProfileScreen] ⚠️ Background workout fetch error:', error);
-        // Non-critical - workouts will load on demand
+        console.error('[ProfileScreen] ⚠️ Background workout fetch setup error:', error);
       }
     };
 

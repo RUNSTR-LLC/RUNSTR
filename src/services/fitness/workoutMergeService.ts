@@ -14,6 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Workout, WorkoutType } from '../../types/workout';
 import type { NostrWorkout } from '../../types/nostrWorkout';
 import type { HealthKitWorkout } from './healthKitService';
+import { GlobalNDKService } from '../nostr/GlobalNDKService';
 
 // Extended workout interface with posting status
 export interface UnifiedWorkout extends Workout {
@@ -87,13 +88,13 @@ export class WorkoutMergeService {
   /**
    * Initialize NDK with global instance reuse
    */
-  private initializeNDK() {
-    // Reuse global instance
-    const g = globalThis as any;
-    this.ndk = g.__RUNSTR_NDK_INSTANCE__;
-
-    if (!this.ndk) {
-      console.warn('NDK not initialized - will initialize on first use');
+  private async initializeNDK() {
+    // Use GlobalNDKService for shared relay connections
+    try {
+      this.ndk = await GlobalNDKService.getInstance();
+      console.log('[WorkoutMerge] Using GlobalNDK instance');
+    } catch (error) {
+      console.warn('[WorkoutMerge] Failed to initialize NDK:', error);
     }
   }
 
@@ -261,32 +262,7 @@ export class WorkoutMergeService {
 
       // Initialize NDK if needed
       if (!this.ndk) {
-        const g = globalThis as any;
-        this.ndk = g.__RUNSTR_NDK_INSTANCE__;
-
-        if (!this.ndk) {
-          console.log('[NDK Workout] Creating NDK instance...');
-          const relayUrls = [
-            'wss://relay.damus.io',
-            'wss://nos.lol',
-            'wss://relay.primal.net',
-            'wss://nostr.wine',
-            'wss://relay.nostr.band',
-            'wss://relay.snort.social',
-            'wss://nostr-pub.wellorder.net',
-            'wss://relay.nostrich.de',
-            'wss://nostr.oxtr.dev',
-            'wss://relay.wellorder.net',
-          ];
-
-          this.ndk = new NDK.default({
-            explicitRelayUrls: relayUrls
-          });
-
-          await this.ndk.connect();
-          g.__RUNSTR_NDK_INSTANCE__ = this.ndk; // Store globally
-          console.log('[NDK Workout] Connected to relays');
-        }
+        await this.initializeNDK();
       }
 
       const events = new Set<any>();

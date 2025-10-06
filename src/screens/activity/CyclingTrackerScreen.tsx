@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { Alert } from 'react-native';
 import { BaseTrackerComponent } from '../../components/activity/BaseTrackerComponent';
 import { enhancedLocationTrackingService } from '../../services/activity/EnhancedLocationTrackingService';
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
@@ -49,6 +50,15 @@ export const CyclingTrackerScreen: React.FC = () => {
     const started = await enhancedLocationTrackingService.startTracking('cycling');
     if (!started) {
       // The service will handle permission requests internally
+      // Show error if tracking service is in invalid state
+      const currentState = enhancedLocationTrackingService.getTrackingState();
+      if (currentState !== 'idle' && currentState !== 'requesting_permissions') {
+        Alert.alert(
+          'Cannot Start Tracking',
+          'Previous activity session is still active. Please wait a moment and try again.',
+          [{ text: 'OK' }]
+        );
+      }
       return;
     }
 

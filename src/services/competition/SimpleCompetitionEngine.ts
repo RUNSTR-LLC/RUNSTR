@@ -11,6 +11,7 @@ import type { NostrWorkout } from '../../types/nostrWorkout';
 import { LocalNotificationTrigger } from '../notifications/LocalNotificationTrigger';
 import { NotificationCache } from '../../utils/notificationCache';
 import { useUserStore } from '../../store/userStore';
+import { GlobalNDKService } from '../nostr/GlobalNDKService';
 
 export interface SimpleParticipant {
   pubkey: string;
@@ -258,26 +259,8 @@ export class SimpleCompetitionEngine {
         hexPubkey = decoded.data as string;
       }
 
-      // Use global NDK instance (like WorkoutMergeService)
-      const g = globalThis as any;
-      let ndk = g.__RUNSTR_NDK_INSTANCE__;
-      
-      if (!ndk) {
-        const relayUrls = [
-          'wss://relay.damus.io',
-          'wss://nos.lol',
-          'wss://relay.primal.net',
-          'wss://nostr.wine',
-          'wss://relay.nostr.band',
-        ];
-
-        ndk = new NDK.default({
-          explicitRelayUrls: relayUrls
-        });
-        
-        await ndk.connect();
-        g.__RUNSTR_NDK_INSTANCE__ = ndk;
-      }
+      // Use GlobalNDKService for shared relay connections
+      const ndk = await GlobalNDKService.getInstance();
 
       const events: any[] = [];
 

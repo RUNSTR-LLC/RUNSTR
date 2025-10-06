@@ -4,6 +4,72 @@ All notable changes to RUNSTR will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **CRITICAL: NDK Connection Failures**: Fixed root cause of Nostr relay connection timeouts
+  - Added missing URL polyfill for React Native WebSocket URL parsing
+  - Increased NDK connection timeout from 2s → 10s (React Native needs more time)
+  - Added connection status validation after `ndk.connect()` completes
+  - Enabled NDK debug mode for better troubleshooting
+  - Implemented graceful degradation - app now starts even without relay connections
+  - Added automatic background retry with exponential backoff (1s, 2s, 4s)
+  - Reduced splash screen timeout from 15s → 12s for faster app startup
+  - App now works offline with cached data while retrying connections
+
+### Improved
+- **Splash Screen Experience**: App no longer hangs on "Loading profile..." screen
+  - Non-blocking initialization prevents indefinite loading states
+  - Clear progress updates during connection attempts
+  - Smooth transition to main app even with partial connectivity
+
+## [0.1.9] - 2025-10-06
+
+### Changed
+- **BREAKING: Complete Supabase Removal**: App now runs entirely on Nostr protocol
+  - Removed all Supabase dependencies and services from codebase
+  - Pure Nostr architecture for all team, competition, and user data
+  - Simplified data layer with single source of truth (Nostr events)
+  - No backend database dependencies - fully decentralized
+  - Improved app reliability and reduced external dependencies
+
+### Added
+- **Activity-Specific Challenge Types**: Enhanced challenge system with activity-type-specific options
+  - Different challenge parameters for each activity type (running, cycling, swimming, etc.)
+  - More relevant competition formats tailored to each sport
+  - Better UX for creating targeted 1v1 challenges
+
+### Improved
+- **Teams Discovery UX**: Create Team button moved to bottom of discovery page
+  - More intuitive placement for new team creation
+  - Cleaner top section focused on browsing existing teams
+  - Better visual hierarchy and user flow
+- **Captain Dashboard**: Multiple UX improvements and bug fixes
+  - More intuitive member management interface
+  - Improved join request approval workflow
+  - Better visual feedback for captain actions
+  - Enhanced stability and reliability
+- **Challenge Button Styling**: Refined challenge UI with better visual consistency
+  - Improved button appearance and interactions
+  - Clearer challenge action buttons
+  - Better integration with overall app theme
+
+### Fixed
+- **TypeScript Compilation**: Resolved all TypeScript compilation errors
+  - Clean build with zero errors
+  - Improved type safety throughout codebase
+  - Better developer experience
+- **Android Data Loading**: Fixed teams and workouts loading issues on Android
+  - Resolved race conditions in data fetching
+  - Added comprehensive debug logging
+  - Improved error handling for network issues
+  - Better cache management
+- **Android Compatibility**: Multiple Android-specific fixes
+  - Fixed UI layout issues on various Android devices
+  - Improved alert dialog theming for dark mode
+  - Enhanced authentication flow reliability
+  - Better keyboard handling and text input
+
 ## [0.1.8] - 2025-10-05
 
 ### Added

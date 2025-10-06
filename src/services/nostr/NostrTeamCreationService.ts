@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NostrListService } from './NostrListService';
 import { TeamMemberCache } from '../team/TeamMemberCache';
 import { getTeamListDetector } from '../../utils/teamListDetector';
+import { GlobalNDKService } from './GlobalNDKService';
 // NostrEvent type replaced with NDKEvent from NDK library
 
 export interface TeamCreationData {
@@ -32,16 +33,13 @@ export interface TeamCreationResult {
 
 export class NostrTeamCreationService {
   private static instance: NostrTeamCreationService;
-  private ndk: NDK;
+  private ndk: NDK | null = null;
   private listService: NostrListService;
   private listDetector = getTeamListDetector();
 
-  // Global NDK instance following established pattern
-  private readonly g = globalThis as any;
-
   private constructor() {
     this.listService = NostrListService.getInstance();
-    this.initializeNDK();
+    // NDK will be initialized lazily on first use via ensureNDK()
   }
 
   static getInstance(): NostrTeamCreationService {
@@ -51,25 +49,25 @@ export class NostrTeamCreationService {
     return NostrTeamCreationService.instance;
   }
 
-  private initializeNDK(): void {
-    // Use global NDK instance if it exists (shared with NdkTeamService)
-    if (this.g.__RUNSTR_NDK_INSTANCE__) {
-      console.log('[NostrTeamCreation] Reusing existing NDK instance');
-      this.ndk = this.g.__RUNSTR_NDK_INSTANCE__;
-    } else {
-      console.log('[NostrTeamCreation] Creating new NDK instance');
-      this.ndk = new NDK({
-        explicitRelayUrls: [
-          'wss://relay.damus.io',
-          'wss://nos.lol',
-          'wss://relay.primal.net',
-          'wss://nostr.wine',
-          'wss://relay.nostr.band',
-        ],
-      });
-      this.g.__RUNSTR_NDK_INSTANCE__ = this.ndk;
-      // Connect will happen when needed
+  /**
+   * Ensure NDK instance is initialized using GlobalNDKService
+   * Lazy initialization pattern - only connects when needed
+   */
+  private async ensureNDK(): Promise<NDK> {
+    if (this.ndk) {
+      return this.ndk;
     }
+
+    console.log('[NostrTeamCreation] Initializing NDK via GlobalNDKService');
+    this.ndk = await GlobalNDKService.getInstance();
+
+    // Wait for at least one relay to connect
+    const connected = await GlobalNDKService.waitForConnection(10000);
+    if (!connected) {
+      console.warn('[NostrTeamCreation] Proceeding with partial relay connectivity');
+    }
+
+    return this.ndk;
   }
 
   /**
@@ -82,11 +80,8 @@ export class NostrTeamCreationService {
     try {
       console.log('NostrTeamCreationService: Creating team', data.name);
 
-      // Ensure NDK is connected
-      if (!this.ndk.pool?.stats()?.connected) {
-        console.log('Connecting NDK...');
-        await this.ndk.connect(2000);
-      }
+      // Ensure NDK is initialized and connected
+      const ndk = await this.ensureNDK();
 
       // Create signer from private key
       const signer = new NDKPrivateKeySigner(privateKey);
@@ -95,7 +90,7 @@ export class NostrTeamCreationService {
       const teamId = this.generateTeamId(data.name);
 
       // Step 1: Create kind 33404 team event using NDK
-      const teamEvent = new NDKEvent(this.ndk);
+      const teamEvent = new NDKEvent(ndk);
       teamEvent.kind = 33404;
       teamEvent.tags = this.prepareTeamTags(teamId, data);
       teamEvent.content = JSON.stringify({
@@ -118,7 +113,7 @@ export class NostrTeamCreationService {
         members
       );
 
-      const memberListEvent = new NDKEvent(this.ndk);
+      const memberListEvent = new NDKEvent(ndk);
       memberListEvent.kind = 30000;
       memberListEvent.tags = listTags;
       memberListEvent.content = '';
@@ -140,7 +135,7 @@ export class NostrTeamCreationService {
       // Step 3.5: Auto-create team chat (kind 40)
       console.log('Auto-creating team chat channel');
       try {
-        const chatEvent = new NDKEvent(this.ndk);
+        const chatEvent = new NDKEvent(ndk);
         chatEvent.kind = 40; // NIP-28 Channel Creation
         chatEvent.content = JSON.stringify({
           name: `${data.name} Chat`,
@@ -226,11 +221,8 @@ export class NostrTeamCreationService {
         };
       }
 
-      // Ensure NDK is connected
-      if (!this.ndk.pool?.stats()?.connected) {
-        console.log('Connecting NDK...');
-        await this.ndk.connect(2000);
-      }
+      // Ensure NDK is initialized and connected
+      const ndk = await this.ensureNDK();
 
       // Create signer from private key
       const signer = new NDKPrivateKeySigner(privateKey);
@@ -243,7 +235,7 @@ export class NostrTeamCreationService {
         members
       );
 
-      const memberListEvent = new NDKEvent(this.ndk);
+      const memberListEvent = new NDKEvent(ndk);
       memberListEvent.kind = 30000;
       memberListEvent.tags = listTags;
       memberListEvent.content = '';

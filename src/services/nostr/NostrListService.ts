@@ -1,12 +1,11 @@
 /**
  * NostrListService - Nostr List Management (Kind 30000/30001)
  * Manages team membership lists for fast, targeted queries
- * Integrates with existing NostrRelayManager infrastructure
+ * Uses GlobalNDKService for efficient relay connection management
  */
 
-import { nostrRelayManager } from './NostrRelayManager';
-import type { NostrRelayManager } from './NostrRelayManager';
-import type { NostrFilter } from './NostrProtocolHandler';
+import { GlobalNDKService } from './GlobalNDKService';
+import type { NDKFilter, NDKEvent, NDKSubscription } from '@nostr-dev-kit/ndk';
 import { npubToHex } from '../../utils/ndkConversion';
 
 // Define Event type locally to avoid nostr-tools dependency
@@ -45,20 +44,15 @@ export interface ListCreationData {
   listType?: 'people' | 'generic'; // Kind 30000 vs 30001
 }
 
-export interface ListSubscription {
-  subscriptionId: string;
-  listId: string;
-  callback: (updatedList: NostrList) => void;
-}
+// No longer needed - subscriptions stored directly in Map
 
 export class NostrListService {
-  private relayManager: NostrRelayManager;
   private cachedLists: Map<string, NostrList> = new Map();
-  private listSubscriptions: Map<string, ListSubscription> = new Map();
+  private listSubscriptions: Map<string, NDKSubscription> = new Map();
   private static instance: NostrListService;
 
-  constructor(relayManager?: NostrRelayManager) {
-    this.relayManager = relayManager || nostrRelayManager;
+  constructor() {
+    // No relay manager needed - uses GlobalNDKService
   }
 
   static getInstance(): NostrListService {
@@ -138,42 +132,45 @@ export class NostrListService {
     console.log(`📋 Using hex pubkey: ${hexAuthorPubkey.slice(0, 20)}...`);
 
     try {
-      const filters: NostrFilter[] = [
-        {
-          kinds: [30000, 30001],
-          authors: [hexAuthorPubkey], // Use hex format for query
-          '#d': [dTag],
-          limit: 1,
-        },
-      ];
+      // Get GlobalNDK instance
+      const ndk = await GlobalNDKService.getInstance();
+
+      const filter: NDKFilter = {
+        kinds: [30000, 30001],
+        authors: [hexAuthorPubkey],
+        '#d': [dTag],
+        limit: 1,
+      };
 
       let foundList: NostrList | null = null;
 
-      const subscriptionId = await this.relayManager.subscribeToEvents(
-        filters,
-        (event: Event, relayUrl: string) => {
-          console.log(`📥 List event received from ${relayUrl}:`, event.id);
+      // Use NDK subscription
+      const subscription = ndk.subscribe(filter, { closeOnEose: false });
 
-          try {
-            const parsedList = this.parseListEvent(event as NostrListEvent);
-            if (parsedList) {
-              foundList = parsedList;
-              this.cachedLists.set(listId, parsedList);
-              console.log(
-                `✅ Cached list: ${parsedList.name} (${parsedList.members.length} members)`
-              );
-            }
-          } catch (error) {
-            console.warn(`⚠️ Failed to parse list event ${event.id}:`, error);
+      subscription.on('event', (event: NDKEvent) => {
+        console.log(`📥 List event received: ${event.id}`);
+
+        try {
+          // Convert NDKEvent to our Event format
+          const nostrEvent = this.ndkEventToEvent(event);
+          const parsedList = this.parseListEvent(nostrEvent as NostrListEvent);
+          if (parsedList) {
+            foundList = parsedList;
+            this.cachedLists.set(listId, parsedList);
+            console.log(
+              `✅ Cached list: ${parsedList.name} (${parsedList.members.length} members)`
+            );
           }
+        } catch (error) {
+          console.warn(`⚠️ Failed to parse list event ${event.id}:`, error);
         }
-      );
+      });
 
       // Wait for initial results
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
       // Clean up subscription
-      this.relayManager.unsubscribe(subscriptionId);
+      subscription.stop();
 
       return foundList;
     } catch (error) {
@@ -213,56 +210,56 @@ export class NostrListService {
     const listId = `${hexAuthorPubkey}:${dTag}`;
     console.log(`🔔 Subscribing to list updates: ${listId}`);
 
-    const filters: NostrFilter[] = [
-      {
-        kinds: [30000, 30001],
-        authors: [hexAuthorPubkey], // Use hex format
-        '#d': [dTag],
-      },
-    ];
+    // Get GlobalNDK instance
+    const ndk = await GlobalNDKService.getInstance();
 
-    const subscriptionId = await this.relayManager.subscribeToEvents(
-      filters,
-      (event: Event, relayUrl: string) => {
-        console.log(`🔄 List update received from ${relayUrl}:`, event.id);
+    const filter: NDKFilter = {
+      kinds: [30000, 30001],
+      authors: [hexAuthorPubkey],
+      '#d': [dTag],
+    };
 
-        try {
-          const updatedList = this.parseListEvent(event as NostrListEvent);
-          if (updatedList) {
-            // Update cache
-            this.cachedLists.set(listId, updatedList);
+    const subscription = ndk.subscribe(filter, { closeOnEose: false });
 
-            // Notify subscriber
-            callback(updatedList);
+    subscription.on('event', (event: NDKEvent) => {
+      console.log(`🔄 List update received:`, event.id);
 
-            console.log(
-              `✅ List updated: ${updatedList.name} (${updatedList.members.length} members)`
-            );
-          }
-        } catch (error) {
-          console.warn(`⚠️ Failed to parse list update ${event.id}:`, error);
+      try {
+        const nostrEvent = this.ndkEventToEvent(event);
+        const updatedList = this.parseListEvent(nostrEvent as NostrListEvent);
+        if (updatedList) {
+          // Update cache
+          this.cachedLists.set(listId, updatedList);
+
+          // Notify subscriber
+          callback(updatedList);
+
+          console.log(
+            `✅ List updated: ${updatedList.name} (${updatedList.members.length} members)`
+          );
         }
+      } catch (error) {
+        console.warn(`⚠️ Failed to parse list update ${event.id}:`, error);
       }
-    );
-
-    // Store subscription for cleanup
-    this.listSubscriptions.set(subscriptionId, {
-      subscriptionId,
-      listId,
-      callback,
     });
 
-    return subscriptionId;
+    // Store subscription for cleanup
+    this.listSubscriptions.set(listId, subscription);
+
+    return listId; // Return listId as subscription identifier
   }
 
   /**
    * Unsubscribe from list updates
    */
-  unsubscribeFromList(subscriptionId: string): void {
-    console.log(`🔕 Unsubscribing from list updates: ${subscriptionId}`);
+  unsubscribeFromList(listId: string): void {
+    console.log(`🔕 Unsubscribing from list updates: ${listId}`);
 
-    this.relayManager.unsubscribe(subscriptionId);
-    this.listSubscriptions.delete(subscriptionId);
+    const subscription = this.listSubscriptions.get(listId);
+    if (subscription) {
+      subscription.stop();
+      this.listSubscriptions.delete(listId);
+    }
   }
 
   /**
@@ -270,6 +267,12 @@ export class NostrListService {
    */
   private parseListEvent(event: NostrListEvent): NostrList | null {
     try {
+      // Ensure tags exist
+      if (!event.tags) {
+        console.warn('List event missing tags:', event.id);
+        return null;
+      }
+
       // Extract basic info
       const dTag = event.tags.find((t) => t[0] === 'd')?.[1];
       if (!dTag) {
@@ -288,13 +291,13 @@ export class NostrListService {
         .map((t) => t[1]);
 
       return {
-        id: `${event.pubkey}:${dTag}`,
+        id: `${event.pubkey || ''}:${dTag}`,
         name,
         description,
         members,
-        author: event.pubkey,
-        createdAt: event.created_at,
-        lastUpdated: event.created_at,
+        author: event.pubkey || '',
+        createdAt: event.created_at || Math.floor(Date.now() / 1000),
+        lastUpdated: event.created_at || Math.floor(Date.now() / 1000),
         dTag,
         tags: event.tags,
         nostrEvent: event,
@@ -303,6 +306,21 @@ export class NostrListService {
       console.error('Failed to parse list event:', error);
       return null;
     }
+  }
+
+  /**
+   * Convert NDKEvent to our Event interface format
+   */
+  private ndkEventToEvent(ndkEvent: NDKEvent): Event {
+    return {
+      id: ndkEvent.id || '',
+      pubkey: ndkEvent.pubkey || '',
+      created_at: ndkEvent.created_at || Math.floor(Date.now() / 1000),
+      kind: ndkEvent.kind,
+      tags: ndkEvent.tags || [],
+      content: ndkEvent.content || '',
+      sig: ndkEvent.sig || '',
+    };
   }
 
   /**
@@ -481,55 +499,56 @@ export class NostrListService {
     console.log(`🔍 Finding all lists containing user: ${hexUserPubkey.slice(0, 20)}...`);
 
     try {
-      const nostrFilters: NostrFilter[] = [
-        {
-          kinds: filters?.kinds || [30000, 30001],
-          '#p': [hexUserPubkey], // Find lists where user is in 'p' tags
-          limit: filters?.limit || 500,
-        },
-      ];
+      // Get GlobalNDK instance
+      const ndk = await GlobalNDKService.getInstance();
+
+      const filter: NDKFilter = {
+        kinds: filters?.kinds || [30000, 30001],
+        '#p': [hexUserPubkey], // Find lists where user is in 'p' tags
+        limit: filters?.limit || 500,
+      };
 
       const foundLists: NostrList[] = [];
       const processedIds = new Set<string>();
 
-      const subscriptionId = await this.relayManager.subscribeToEvents(
-        nostrFilters,
-        (event: Event, relayUrl: string) => {
-          console.log(`📥 List with user received from ${relayUrl}:`, event.id);
+      const subscription = ndk.subscribe(filter, { closeOnEose: false });
 
-          try {
-            const parsedList = this.parseListEvent(event as NostrListEvent);
-            if (parsedList && !processedIds.has(parsedList.id)) {
-              processedIds.add(parsedList.id);
+      subscription.on('event', (event: NDKEvent) => {
+        console.log(`📥 List with user received:`, event.id);
 
-              // Apply additional tag filters if specified
-              if (filters?.tags) {
-                const listTags = event.tags
-                  .filter(t => t[0] === 't')
-                  .map(t => t[1]);
+        try {
+          const nostrEvent = this.ndkEventToEvent(event);
+          const parsedList = this.parseListEvent(nostrEvent as NostrListEvent);
+          if (parsedList && !processedIds.has(parsedList.id)) {
+            processedIds.add(parsedList.id);
 
-                const hasRequiredTags = filters.tags.some(tag => listTags.includes(tag));
-                if (!hasRequiredTags) {
-                  return; // Skip lists without required tags
-                }
+            // Apply additional tag filters if specified
+            if (filters?.tags) {
+              const listTags = nostrEvent.tags!
+                .filter(t => t[0] === 't')
+                .map(t => t[1]);
+
+              const hasRequiredTags = filters.tags.some(tag => listTags.includes(tag));
+              if (!hasRequiredTags) {
+                return; // Skip lists without required tags
               }
-
-              foundLists.push(parsedList);
-              console.log(
-                `✅ Found list: ${parsedList.name} (${parsedList.members.length} members)`
-              );
             }
-          } catch (error) {
-            console.warn(`⚠️ Failed to parse list event ${event.id}:`, error);
+
+            foundLists.push(parsedList);
+            console.log(
+              `✅ Found list: ${parsedList.name} (${parsedList.members.length} members)`
+            );
           }
+        } catch (error) {
+          console.warn(`⚠️ Failed to parse list event ${event.id}:`, error);
         }
-      );
+      });
 
       // Wait for results
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // Clean up subscription
-      this.relayManager.unsubscribe(subscriptionId);
+      subscription.stop();
 
       console.log(`📊 Found ${foundLists.length} lists containing user`);
       return foundLists;
@@ -555,7 +574,7 @@ export class NostrListService {
     console.log('🧹 Cleaning up all list subscriptions');
 
     for (const subscription of this.listSubscriptions.values()) {
-      this.relayManager.unsubscribe(subscription.subscriptionId);
+      subscription.stop();
     }
 
     this.listSubscriptions.clear();

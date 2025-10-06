@@ -1,10 +1,11 @@
 /**
  * Nuclear1301Service - Proven 1301 Workout Event Discovery
- * Extracted from workoutMergeService.ts - uses exact same NDK pattern as successful team discovery
+ * Extracted from workoutMergeService.ts - uses GlobalNDKService for shared relay connections
  * 3-second timeout, nuclear approach with zero validation for maximum reliability
  */
 
 import type { NostrWorkout } from '../../types/nostrWorkout';
+import { GlobalNDKService } from '../nostr/GlobalNDKService';
 
 export class Nuclear1301Service {
   private static instance: Nuclear1301Service;
@@ -50,38 +51,10 @@ export class Nuclear1301Service {
 
       console.log(`📊 NDK NUCLEAR QUERY: Getting ALL kind 1301 events for ${hexPubkey.slice(0, 16)}...`);
 
-      // Use same NDK singleton as teams (proven reliable)
-      const g = globalThis as any;
-      let ndk = g.__RUNSTR_NDK_INSTANCE__;
-      
-      if (!ndk) {
-        console.log('[NDK Workout] Creating NDK instance...');
-        // Nuclear relay list (comprehensive coverage like successful script)
-        const relayUrls = [
-          'wss://relay.damus.io',           // Primary - most important
-          'wss://nos.lol',                  // Secondary  
-          'wss://relay.primal.net',         // Tertiary
-          'wss://nostr.wine',              // Quaternary
-          'wss://relay.nostr.band',        // Additional
-          'wss://relay.snort.social',      // Additional
-          'wss://nostr-pub.wellorder.net', // Additional
-          'wss://relay.nostrich.de',       // Extra coverage
-          'wss://nostr.oxtr.dev',          // Extra coverage
-          'wss://relay.wellorder.net',     // Extra coverage
-        ];
-
-        ndk = new NDK.default({
-          explicitRelayUrls: relayUrls
-        });
-        
-        await ndk.connect();
-        console.log('[NDK Workout] Connected to relays');
-        
-        // Store in global singleton like teams
-        g.__RUNSTR_NDK_INSTANCE__ = ndk;
-      } else {
-        console.log('[NDK Workout] Reusing existing NDK instance from teams');
-      }
+      // Use GlobalNDKService for shared relay connections
+      console.log('[NDK Workout] Getting GlobalNDK instance...');
+      const ndk = await GlobalNDKService.getInstance();
+      console.log('[NDK Workout] Using GlobalNDK instance with shared relay connections');
 
       const events: any[] = [];
 

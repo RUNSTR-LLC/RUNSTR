@@ -11,6 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { OnboardingWizard } from '../components/onboarding/OnboardingWizard';
 import { ProfileSetupStep } from '../components/onboarding/ProfileSetupStep';
 import { PasswordNotice } from '../components/onboarding/PasswordNotice';
+import { PermissionRequestStep } from '../components/onboarding/PermissionRequestStep';
 import OnboardingCacheService from '../services/cache/OnboardingCacheService';
 import { nostrProfilePublisher, type EditableProfile } from '../services/nostr/NostrProfilePublisher';
 import { theme } from '../styles/theme';
@@ -30,7 +31,7 @@ interface OnboardingScreenProps {
 
 export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ route }) => {
   const navigation = useNavigation<any>();
-  const [currentStep, setCurrentStep] = useState<'slides' | 'profile' | 'password'>('slides');
+  const [currentStep, setCurrentStep] = useState<'slides' | 'profile' | 'password' | 'permissions'>('slides');
   const [isLoading, setIsLoading] = useState(false);
   const [userPassword, setUserPassword] = useState<string>('');
   const [profileData, setProfileData] = useState<Partial<EditableProfile>>({});
@@ -39,7 +40,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ route }) => 
     // Get the nsec from route params or storage
     const loadPassword = async () => {
       // Try to get nsec from route params first
-      let nsec = route?.params?.nsec;
+      let nsec: string | null | undefined = route?.params?.nsec;
 
       // If not in params, try AsyncStorage
       if (!nsec) {
@@ -48,7 +49,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ route }) => 
 
       if (nsec) {
         console.log('[Onboarding] Password loaded successfully:', nsec.slice(0, 10) + '...');
-        setUserPassword(nsec);
+        setUserPassword(nsec || '');
       } else {
         console.error('[Onboarding] ⚠️ No nsec found in params or storage!');
         console.error('[Onboarding] This screen should only be accessed after signup.');
@@ -107,8 +108,22 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ route }) => 
     setCurrentStep('password');
   };
 
-  const handlePasswordContinue = async () => {
-    console.log('[Onboarding] Password acknowledged, completing onboarding');
+  const handlePasswordContinue = () => {
+    console.log('[Onboarding] Password acknowledged, moving to permissions');
+    setCurrentStep('permissions');
+  };
+
+  const handlePermissionsContinue = async () => {
+    console.log('[Onboarding] Permissions granted, completing onboarding');
+    await completeOnboarding();
+  };
+
+  const handlePermissionsSkip = async () => {
+    console.log('[Onboarding] Permissions skipped, completing onboarding');
+    await completeOnboarding();
+  };
+
+  const completeOnboarding = async () => {
     setIsLoading(true);
 
     try {
@@ -142,10 +157,15 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ route }) => 
           onSkip={handleProfileSkip}
           isLoading={isLoading}
         />
-      ) : (
+      ) : currentStep === 'password' ? (
         <PasswordNotice
           password={userPassword}
           onContinue={handlePasswordContinue}
+        />
+      ) : (
+        <PermissionRequestStep
+          onContinue={handlePermissionsContinue}
+          onSkip={handlePermissionsSkip}
         />
       )}
     </View>

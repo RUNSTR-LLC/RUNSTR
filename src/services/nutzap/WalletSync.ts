@@ -9,6 +9,7 @@ import NDK, { NDKEvent, NDKPrivateKeySigner, NDKKind } from '@nostr-dev-kit/ndk'
 import { Proof } from '@cashu/cashu-ts';
 import WalletCore from './WalletCore';
 import { unifiedNotificationStore } from '../notifications/UnifiedNotificationStore';
+import { GlobalNDKService } from '../nostr/GlobalNDKService';
 
 // Event kinds
 const EVENT_KINDS = {
@@ -16,20 +17,15 @@ const EVENT_KINDS = {
   NUTZAP: 9321
 } as const;
 
-// Relay URLs
-const RELAYS = [
-  'wss://relay.damus.io',
-  'wss://relay.primal.net',
-  'wss://nos.lol'
-];
-
 /**
  * Background Nostr sync service
+ * Uses GlobalNDKService for shared relay connections
  */
 export class WalletSync {
   private static instance: WalletSync;
 
   private ndk: NDK | null = null;
+  private signer: NDKPrivateKeySigner | null = null;
   private userPubkey: string = '';
   private isConnected: boolean = false;
   private autoClaimInterval: NodeJS.Timeout | null = null;
@@ -44,21 +40,18 @@ export class WalletSync {
   }
 
   /**
-   * Initialize Nostr connection (non-blocking)
+   * Initialize with GlobalNDKService (non-blocking)
    */
   async initialize(nsec: string, hexPubkey: string): Promise<void> {
     try {
-      console.log('[WalletSync] Initializing Nostr connection...');
+      console.log('[WalletSync] Initializing with GlobalNDKService...');
 
       this.userPubkey = hexPubkey;
 
-      const signer = new NDKPrivateKeySigner(nsec);
-      this.ndk = new NDK({
-        explicitRelayUrls: RELAYS,
-        signer
-      });
+      // Create signer for wallet operations
+      this.signer = new NDKPrivateKeySigner(nsec);
 
-      // Connect in background
+      // Use GlobalNDKService for relay connections
       this.connectAsync();
 
     } catch (error) {
@@ -67,31 +60,39 @@ export class WalletSync {
   }
 
   /**
-   * Connect to Nostr asynchronously
+   * Connect to GlobalNDK asynchronously
    */
   private async connectAsync(): Promise<void> {
     try {
-      if (!this.ndk) return;
+      console.log('[WalletSync] Connecting via GlobalNDKService...');
 
-      await Promise.race([
-        this.ndk.connect(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000))
-      ]);
+      // Get global NDK instance
+      this.ndk = await GlobalNDKService.getInstance();
 
-      const connectedRelays = (this.ndk as any).pool?.connectedRelays?.size || 0;
+      // Set signer for wallet operations
+      if (this.signer) {
+        this.ndk.signer = this.signer;
+      }
 
-      if (connectedRelays > 0) {
-        this.isConnected = true;
-        console.log(`[WalletSync] Connected to ${connectedRelays} relay(s)`);
+      // Check if connected
+      this.isConnected = GlobalNDKService.isConnected();
+
+      if (this.isConnected) {
+        const status = GlobalNDKService.getStatus();
+        console.log(`[WalletSync] Using GlobalNDK with ${status.connectedRelays} relay(s)`);
 
         // Start background tasks
         this.startBackgroundTasks();
       } else {
-        console.log('[WalletSync] No relays connected');
+        console.log('[WalletSync] GlobalNDK not yet connected, will retry');
+        // Retry after a delay
+        setTimeout(() => this.connectAsync(), 5000);
       }
 
     } catch (error) {
-      console.log('[WalletSync] Connection failed, will retry later');
+      console.log('[WalletSync] Connection failed, will retry later:', error);
+      // Retry after a delay
+      setTimeout(() => this.connectAsync(), 5000);
     }
   }
 

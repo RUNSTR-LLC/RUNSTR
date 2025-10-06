@@ -6,6 +6,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NDK, NDKEvent, NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
 import { SimpleNostrService } from '../nostr/SimpleNostrService';
+import { GlobalNDKService } from '../nostr/GlobalNDKService';
 
 export class DeleteAccountService {
   private static instance: DeleteAccountService;
@@ -56,21 +57,25 @@ export class DeleteAccountService {
 
   /**
    * Initialize NDK with user's signer for deletion requests
+   * Uses GlobalNDKService for shared relay connections
    */
   private async initializeNDK(nsec: string): Promise<void> {
     try {
-      const signer = new NDKPrivateKeySigner(nsec);
-      this.ndk = new NDK({
-        explicitRelayUrls: [
-          'wss://relay.damus.io',
-          'wss://relay.primal.net',
-          'wss://nos.lol',
-          'wss://relay.nostr.band',
-        ],
-        signer,
-      });
+      console.log('📡 DeleteAccountService: Getting GlobalNDK instance...');
 
-      await this.ndk.connect();
+      // Get global NDK instance
+      this.ndk = await GlobalNDKService.getInstance();
+
+      // Set user's signer for deletion requests
+      const signer = new NDKPrivateKeySigner(nsec);
+      this.ndk.signer = signer;
+
+      // Ensure at least one relay is connected
+      const connected = await GlobalNDKService.waitForConnection(10000);
+      if (!connected) {
+        console.warn('⚠️ DeleteAccountService: Proceeding with partial connectivity');
+      }
+
       console.log('✅ DeleteAccountService: NDK initialized for deletion');
     } catch (error) {
       console.error('Failed to initialize NDK for deletion:', error);
@@ -202,16 +207,17 @@ export class DeleteAccountService {
   }
 
   /**
-   * Cleanup NDK connection
+   * Cleanup NDK reference
+   * Note: We don't disconnect from relays since we use GlobalNDKService
    */
   private cleanupNDK(): void {
     if (this.ndk) {
-      // Disconnect from all relays
-      for (const relay of this.ndk.pool.relays.values()) {
-        relay.disconnect();
-      }
+      // Clear signer to prevent accidental signing
+      this.ndk.signer = undefined;
+      // Clear local reference
       this.ndk = null;
     }
+    console.log('🧹 DeleteAccountService: NDK reference cleared');
   }
 
   /**

@@ -4,7 +4,8 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { nostrRelayManager } from './NostrRelayManager';
+import { GlobalNDKService } from './GlobalNDKService';
+import type { NDKFilter, NDKEvent } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
 import type { Event } from 'nostr-tools';
 
@@ -211,14 +212,40 @@ export class NostrProfileService {
     console.log(`🔍 Fetching profile for pubkey: ${pubkey.slice(0, 20)}...`);
 
     try {
-      // Check if relay manager has connected relays
-      if (!nostrRelayManager.hasConnectedRelays()) {
+      // Get GlobalNDK instance
+      const ndk = await GlobalNDKService.getInstance();
+
+      // Check if NDK is connected
+      if (!GlobalNDKService.isConnected()) {
         console.warn('⚠️ No connected relays available for profile fetch');
         return null;
       }
 
-      // Query profile events from relays
-      const profileEvents = await nostrRelayManager.queryProfileEvents(pubkey);
+      // Query profile events (kind 0) from relays
+      const filter: NDKFilter = {
+        kinds: [0],
+        authors: [pubkey],
+        limit: 10,
+      };
+
+      const profileEvents: Event[] = [];
+      const subscription = ndk.subscribe(filter, { closeOnEose: false });
+
+      subscription.on('event', (event: NDKEvent) => {
+        profileEvents.push({
+          id: event.id || '',
+          pubkey: event.pubkey || '',
+          created_at: event.created_at || Math.floor(Date.now() / 1000),
+          kind: event.kind,
+          tags: event.tags || [],
+          content: event.content || '',
+          sig: event.sig || '',
+        });
+      });
+
+      // Wait for events
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      subscription.stop();
 
       if (profileEvents.length === 0) {
         console.log(

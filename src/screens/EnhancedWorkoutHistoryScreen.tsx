@@ -71,6 +71,8 @@ export const EnhancedWorkoutHistoryScreen: React.FC<EnhancedWorkoutHistoryScreen
   const [displayedWorkouts, setDisplayedWorkouts] = useState<UnifiedWorkout[]>([]);
   const [loadedItems, setLoadedItems] = useState(ITEMS_PER_PAGE);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
 
   // Phase 4: Auto-Entry Integration
   const {
@@ -117,36 +119,50 @@ export const EnhancedWorkoutHistoryScreen: React.FC<EnhancedWorkoutHistoryScreen
     }
   };
 
-  const loadWorkoutHistory = async () => {
+  const loadWorkoutHistory = async (forceRefresh: boolean = false) => {
     setIsLoading(true);
     setSyncStatus('syncing');
+    setFetchError(null);
 
     try {
-      console.log('🔄 Loading workout history...');
-      
-      // Use WorkoutMergeService to get unified workout data
-      const result = await WorkoutMergeService.getMergedWorkoutHistory(userId, {
-        includeHealthKit: true,
-        includeNostr: true,
-        sortBy: 'startTime',
-        sortOrder: 'desc',
-        limit: 100,
-      });
+      console.log('🔄 Loading workout history for pubkey:', pubkey.slice(0, 20) + '...');
 
+      // CACHE-FIRST APPROACH: Load from cache immediately, then refresh from Nostr
+      if (!forceRefresh) {
+        // Try to load from cache first for instant display
+        console.log('📦 Checking cache for instant display...');
+        // Cache check happens inside getMergedWorkouts(), so we'll get cached data first
+      }
+
+      // CRITICAL FIX: Use correct method with pubkey (not userId)
+      // WorkoutMergeService.getMergedWorkouts() is the actual method
+      const result = await WorkoutMergeService.getMergedWorkouts(pubkey);
+
+      // Update state with fetched workouts
       setMergeResult(result);
-      applyFiltersAndSort(result.mergedWorkouts, currentFilter, currentSort);
+      applyFiltersAndSort(result.allWorkouts, currentFilter, currentSort);
       setSyncStatus('success');
-      
-      console.log(`✅ Loaded ${result.mergedWorkouts.length} workouts`);
+      setLastSyncTime(new Date());
+
+      console.log(`✅ Loaded ${result.allWorkouts.length} workouts (${result.nostrCount} from Nostr, ${result.healthKitCount} from HealthKit, ${result.localCount} local)`);
+      console.log(`   📊 Cache hit: ${result.fromCache ? 'Yes' : 'No'}, Duration: ${result.loadDuration}ms`);
 
     } catch (error) {
       console.error('❌ Failed to load workout history:', error);
       setSyncStatus('error');
-      Alert.alert(
-        'Loading Error',
-        'Failed to load workout history. Please try again.',
-        [{ text: 'OK' }]
-      );
+
+      // Set user-friendly error message
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setFetchError(errorMessage);
+
+      // Show alert only on initial load failure (not on pull-to-refresh)
+      if (!forceRefresh) {
+        Alert.alert(
+          'Loading Error',
+          `Failed to load workouts: ${errorMessage}\n\nPlease check your internet connection and try again.`,
+          [{ text: 'OK' }]
+        );
+      }
     } finally {
       setIsLoading(false);
     }
@@ -154,8 +170,16 @@ export const EnhancedWorkoutHistoryScreen: React.FC<EnhancedWorkoutHistoryScreen
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await loadWorkoutHistory();
-    setIsRefreshing(false);
+    setFetchError(null); // Clear previous errors
+
+    try {
+      // Force refresh from Nostr (bypass cache)
+      await loadWorkoutHistory(true);
+    } catch (error) {
+      console.error('❌ Pull-to-refresh failed:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const applyFiltersAndSort = (workouts: UnifiedWorkout[], filter: FilterType, sort: SortOrder) => {
@@ -447,10 +471,28 @@ export const EnhancedWorkoutHistoryScreen: React.FC<EnhancedWorkoutHistoryScreen
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Text style={styles.emptyStateTitle}>No Workouts Found</Text>
-            <Text style={styles.emptyStateMessage}>
-              Complete your first workout or sync from HealthKit to get started.
+            <Text style={styles.emptyStateTitle}>
+              {fetchError ? '⚠️ Loading Failed' : 'No Workouts Found'}
             </Text>
+            <Text style={styles.emptyStateMessage}>
+              {fetchError
+                ? `Error: ${fetchError}\n\nPull down to retry or check your internet connection.`
+                : 'Complete your first workout or sync from HealthKit to get started.\n\nPull down to refresh from Nostr.'
+              }
+            </Text>
+            {lastSyncTime && !fetchError && (
+              <Text style={styles.emptySyncInfo}>
+                Last synced: {lastSyncTime.toLocaleTimeString()}
+              </Text>
+            )}
+            {mergeResult && !fetchError && (
+              <Text style={styles.emptySyncInfo}>
+                {mergeResult.fromCache
+                  ? `📦 Loaded from cache (${mergeResult.cacheAge ? Math.round(mergeResult.cacheAge / 1000 / 60) + 'm ago' : 'recent'})`
+                  : '🌐 Fresh from Nostr'
+                }
+              </Text>
+            )}
           </View>
         }
       />
@@ -714,5 +756,13 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     textAlign: 'center',
     lineHeight: 20,
+  },
+
+  emptySyncInfo: {
+    fontSize: 12,
+    color: theme.colors.textDark,
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
 });

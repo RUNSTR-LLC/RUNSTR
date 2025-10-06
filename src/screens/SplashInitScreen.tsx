@@ -68,47 +68,64 @@ export const SplashInitScreen: React.FC<SplashInitScreenProps> = ({ onComplete }
   };
 
   const initializeApp = async () => {
-    const MAX_INIT_TIME = 30000; // 30 seconds absolute maximum
+    const MAX_INIT_TIME = 12000; // 12 seconds absolute maximum (reduced from 15s)
 
     // ✅ FIX: Wrap entire initialization in timeout to prevent indefinite hangs
     const initPromise = (async () => {
       try {
         console.log('🚀 SplashInit: Starting comprehensive prefetch...');
 
-        // Step 1: Connect to Nostr relays
+        // Step 1: Connect to Nostr relays (NON-BLOCKING)
         setCurrentStep(0);
         setStatusMessage(INITIALIZATION_STEPS[0].message);
         animateProgress(calculateProgress(0));
 
         const initService = NostrInitializationService.getInstance();
-        await initService.connectToRelays();
-        await initService.initializeNDK();
 
-        console.log('✅ SplashInit: Nostr connected');
+        // ✅ FIX: Don't fail app if relay connection fails
+        try {
+          await initService.connectToRelays();
+          await initService.initializeNDK();
+          console.log('✅ SplashInit: Nostr connected');
+        } catch (ndkError) {
+          console.error('⚠️ SplashInit: NDK connection failed, continuing with offline mode');
+          console.error('   Error:', ndkError);
 
-        // Step 2-7: Prefetch ALL user data with progress updates
-        await nostrPrefetchService.prefetchAllUserData(
-          (step, total, message) => {
-            // Update UI with each prefetch step
-            setCurrentStep(step); // steps 1-6
-            setStatusMessage(message);
-            animateProgress(calculateProgress(step));
-            console.log(`✅ SplashInit: ${message}`);
-          }
-        );
+          // ✅ FIX: Start background retry to reconnect after app loads
+          const { GlobalNDKService } = await import('../services/nostr/GlobalNDKService');
+          GlobalNDKService.startBackgroundRetry();
 
-        console.log('✅ SplashInit: All data prefetched and cached - app ready!');
+          // Continue initialization - app can work with cached data
+        }
+
+        // Step 2-7: Prefetch ALL user data with progress updates (BEST EFFORT)
+        try {
+          await nostrPrefetchService.prefetchAllUserData(
+            (step, total, message) => {
+              // Update UI with each prefetch step
+              setCurrentStep(step); // steps 1-6
+              setStatusMessage(message);
+              animateProgress(calculateProgress(step));
+              console.log(`✅ SplashInit: ${message}`);
+            }
+          );
+          console.log('✅ SplashInit: All data prefetched and cached - app ready!');
+        } catch (prefetchError) {
+          console.warn('⚠️ SplashInit: Prefetch failed, app will load cached data');
+          console.warn('   Error:', prefetchError);
+          // Continue anyway - app should work with cached data
+        }
       } catch (error) {
         console.error('❌ SplashInit: Initialization error:', error);
         // Continue anyway - app should work with partial data
       }
     })();
 
-    // ✅ FIX: Emergency timeout - force app forward after 30s maximum
+    // ✅ FIX: Emergency timeout - force app forward after 12s maximum
     const timeoutPromise = new Promise<void>((resolve) => {
       setTimeout(() => {
-        console.warn('⚠️ SplashInit: 30-second timeout reached - forcing app to continue');
-        console.warn('⚠️ App will work with partial data - teams will load on demand');
+        console.warn('⚠️ SplashInit: 12-second timeout reached - forcing app to continue');
+        console.warn('⚠️ App will work with cached data - remaining data loads in background');
         resolve();
       }, MAX_INIT_TIME);
     });
