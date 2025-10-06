@@ -300,8 +300,54 @@ Simple two-tab interface with dark theme:
 - `npx expo start --ios` - **REQUIRED**: Start Metro bundler + open simulator
 - `npx expo start --clear --ios` - Clear Metro cache and restart
 - `open ios/runstrproject.xcworkspace` - Open Xcode (after Metro is running)
-- `npm run typecheck` - TypeScript validation  
+- `npm run typecheck` - TypeScript validation
 - `npm run lint` - Code linting
+
+### **Android APK Build System**
+**Build Infrastructure:**
+- **Android Studio**: Installed at `/Applications/Android Studio.app`
+- **Android SDK**: Located at `~/Library/Android/sdk`
+- **Java Runtime**: Bundled with Android Studio at `/Applications/Android Studio.app/Contents/jbr/Contents/Home`
+- **Gradle Wrapper**: Project includes `android/gradlew` for consistent builds
+- **Configuration**: Requires `android/local.properties` file pointing to SDK location
+
+**Building Android APK:**
+```bash
+# 1. Create local.properties if it doesn't exist
+echo "sdk.dir=$HOME/Library/Android/sdk" > android/local.properties
+
+# 2. Set JAVA_HOME to Android Studio's bundled JDK
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+
+# 3. Clean previous builds (optional but recommended)
+cd android && ./gradlew clean
+
+# 4. Build release APK
+./gradlew assembleRelease
+
+# 5. APK output location
+# android/app/build/outputs/apk/release/app-release.apk
+```
+
+**Build Output:**
+- **APK Location**: `android/app/build/outputs/apk/release/app-release.apk`
+- **Size**: ~120MB (includes all native libraries and assets)
+- **Signing**: Uses debug keystore (for testing/direct distribution, not Play Store)
+- **Version Info**: Defined in `android/app/build.gradle` (versionCode and versionName)
+
+**Version Management:**
+- **Version Name**: Set in `app.json` (`"version": "0.1.8"`)
+- **Version Code**: Set in `android/app/build.gradle` (`versionCode 8`)
+- **Package ID**: `com.anonymous.runstr.project`
+- **Target SDK**: API 35 (Android 15)
+- **Min SDK**: API 24 (Android 7.0)
+
+**Important Notes:**
+- ✅ All build tools come from Android Studio installation (no separate downloads needed)
+- ✅ Gradle wrapper handles dependency downloads automatically
+- ✅ Build works from command line without opening Android Studio IDE
+- ⚠️ Debug keystore signing is for testing only - production builds need release keystore
+- ⚠️ First build may take 5-10 minutes as Gradle downloads dependencies
 
 ### **Change Types & Required Actions**
 **JavaScript/TypeScript Changes (src/ files):**
