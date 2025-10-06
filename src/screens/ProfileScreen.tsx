@@ -198,7 +198,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   useEffect(() => {
     const fetchWorkoutData = async () => {
       try {
-        const userPubkey = data.user.id;
+        // CRITICAL FIX: Use hex pubkey from AsyncStorage, NOT synthetic user.id
+        // user.id is 'nostr_hh6sr85uum' but we need actual hex pubkey for Nostr queries
+        const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+        const npub = await AsyncStorage.getItem('@runstr:npub');
+        const userPubkey = hexPubkey || npub;
+
         if (!userPubkey) {
           console.log('[ProfileScreen] No pubkey available for workout fetch');
           return;

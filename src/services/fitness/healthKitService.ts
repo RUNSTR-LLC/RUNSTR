@@ -506,14 +506,15 @@ export class HealthKitService {
   private async fetchWorkoutChunk(startDate: Date, endDate: Date): Promise<HealthKitWorkout[]> {
     return this.executeWithTimeout(
       async () => {
+        // HealthKit library expects Date objects, NOT ISO strings
         const query = {
-          from: startDate.toISOString(),
-          to: endDate.toISOString(),
+          from: startDate,
+          to: endDate,
           limit: 100
         };
 
         console.log(`📱 Querying HealthKit workouts from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`);
-        console.log('📊 Query object being sent:', JSON.stringify(query, null, 2));
+        console.log('📊 Query object being sent:', { from: startDate.toISOString(), to: endDate.toISOString(), limit: query.limit });
 
         let results;
         try {
@@ -920,14 +921,15 @@ export class HealthKitService {
 
       console.log(`📅 Querying workouts from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`);
 
+      // HealthKit library expects Date objects, NOT ISO strings
       const options = {
-        from: startDate.toISOString(),
-        to: endDate.toISOString(),
+        from: startDate,
+        to: endDate,
         limit: 100, // Reasonable limit
         ascending: false // Get newest workouts first
       };
 
-      console.log('📊 Query options for getRecentWorkouts:', JSON.stringify(options, null, 2));
+      console.log('📊 Query options for getRecentWorkouts:', { from: startDate.toISOString(), to: endDate.toISOString(), limit: options.limit, ascending: options.ascending });
 
       let healthKitWorkouts;
       try {
