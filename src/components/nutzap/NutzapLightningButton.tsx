@@ -304,13 +304,13 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
             <View style={[styles.buttonContent, isRectangular && styles.rectangularContent]}>
               <Animated.View style={!isInitialized && styles.uninitializedIcon}>
                 <Ionicons
-                  name="flash"
+                  name="flash-outline"
                   size={config.icon}
                   color={
                     !isInitialized
                       ? theme.colors.textMuted
                       : isZapped
-                        ? theme.colors.orangeBright
+                        ? theme.colors.background
                         : theme.colors.orangeBright
                   }
                 />

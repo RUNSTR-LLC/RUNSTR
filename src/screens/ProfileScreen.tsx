@@ -36,6 +36,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { npubEncode } from '../utils/nostrEncoding';
 import { unifiedNotificationStore } from '../services/notifications/UnifiedNotificationStore';
 import { challengeNotificationHandler } from '../services/notifications/ChallengeNotificationHandler';
+import { eventJoinNotificationHandler } from '../services/notifications/EventJoinNotificationHandler';
 // TEMPORARILY REMOVED TO DEBUG THEME ERROR
 // import { NotificationService } from '../services/notifications/NotificationService';
 import { getUserNostrIdentifiers } from '../utils/nostr';
@@ -131,6 +132,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           // Start challenge notification listener
           await challengeNotificationHandler.startListening();
 
+          // Start event join request notification listener
+          await eventJoinNotificationHandler.startListening();
+
           // Initialize NotificationService to start competition event monitoring
           // TEMPORARILY COMMENTED OUT TO DEBUG THEME ERROR
           // await NotificationService.getInstance().initialize(userIdentifiers.hexPubkey);
@@ -147,6 +151,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     // Cleanup on unmount
     return () => {
       challengeNotificationHandler.stopListening();
+      eventJoinNotificationHandler.stopListening();
     };
   }, []);
 
@@ -369,7 +374,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Text style={styles.balanceText}>{formatBalance(balance)}</Text>
-          <Ionicons name="flash" size={16} color={theme.colors.accent} style={styles.balanceIcon} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -452,7 +456,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             onPress={() => setShowOpenChallengeWizard(true)}
             activeOpacity={0.7}
           >
-            <Ionicons name="flash-outline" size={24} color={theme.colors.text} />
+            <Ionicons name="shield-outline" size={24} color={theme.colors.text} />
             <Text style={styles.challengeButtonText}>CHALLENGE</Text>
           </TouchableOpacity>
         </View>
@@ -559,10 +563,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: theme.typography.weights.semiBold,
     color: theme.colors.text,
-  },
-
-  balanceIcon: {
-    marginLeft: 4,
   },
 
   settingsButton: {

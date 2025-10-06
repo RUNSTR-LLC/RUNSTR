@@ -56,7 +56,7 @@ export const ChallengeIconButton: React.FC<ChallengeIconButtonProps> = ({
       accessibilityRole="button"
     >
       <Ionicons
-        name="trophy-outline"
+        name="shield-outline"
         size={14}
         color={
           disabled
