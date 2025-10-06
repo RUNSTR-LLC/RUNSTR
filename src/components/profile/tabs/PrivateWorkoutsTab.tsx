@@ -19,7 +19,7 @@ import { theme } from '../../../styles/theme';
 import { Card } from '../../ui/Card';
 import { EnhancedWorkoutCard } from '../shared/EnhancedWorkoutCard';
 import { MonthlyWorkoutGroup, groupWorkoutsByMonth } from '../shared/MonthlyWorkoutGroup';
-import LocalWorkoutStorageService from '../../../services/fitness/LocalWorkoutStorageService';
+import localWorkoutStorage from '../../../services/fitness/LocalWorkoutStorageService';
 import type { LocalWorkout } from '../../../services/fitness/LocalWorkoutStorageService';
 import type { UnifiedWorkout } from '../../../services/fitness/workoutMergeService';
 import type { Workout } from '../../../types/workout';
@@ -42,18 +42,16 @@ export const PrivateWorkoutsTab: React.FC<PrivateWorkoutsTabProps> = ({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [postingWorkoutId, setPostingWorkoutId] = useState<string | null>(null);
 
-  const localStorageService = LocalWorkoutStorageService.getInstance();
-
   useEffect(() => {
     loadPrivateWorkouts();
   }, []);
 
   const loadPrivateWorkouts = async () => {
     try {
-      console.log('=ñ Loading private (unsynced) workouts from local storage...');
+      console.log('=ï¿½ Loading private (unsynced) workouts from local storage...');
 
       // Zero loading time - instant from AsyncStorage
-      const unsyncedWorkouts = await localStorageService.getUnsyncedWorkouts();
+      const unsyncedWorkouts = await localWorkoutStorage.getUnsyncedWorkouts();
 
       console.log(` Loaded ${unsyncedWorkouts.length} private workouts (instant display)`);
       setWorkouts(unsyncedWorkouts);
@@ -127,7 +125,7 @@ export const PrivateWorkoutsTab: React.FC<PrivateWorkoutsTabProps> = ({
           style: 'destructive',
           onPress: async () => {
             try {
-              await localStorageService.deleteWorkout(workoutId);
+              await localWorkoutStorage.deleteWorkout(workoutId);
               await loadPrivateWorkouts();
               console.log(` Deleted workout ${workoutId}`);
             } catch (error) {

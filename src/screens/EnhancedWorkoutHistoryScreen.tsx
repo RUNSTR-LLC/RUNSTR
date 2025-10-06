@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { theme } from '../styles/theme';
 import { WorkoutPublishingService } from '../services/nostr/workoutPublishingService';
-import LocalWorkoutStorageService from '../services/fitness/LocalWorkoutStorageService';
+import localWorkoutStorage from '../services/fitness/LocalWorkoutStorageService';
 import { getNsecFromStorage, getUserNostrIdentifiers } from '../utils/nostr';
 import FEATURE_FLAGS from '../constants/featureFlags';
 
@@ -44,7 +44,7 @@ export const EnhancedWorkoutHistoryScreen: React.FC<EnhancedWorkoutHistoryScreen
   const [userNsec, setUserNsec] = useState<string>('');
   const [isInitializing, setIsInitializing] = useState(true);
 
-  const localStorageService = LocalWorkoutStorageService.getInstance();
+  // Services - localWorkoutStorage is already a singleton instance
   const publishingService = WorkoutPublishingService.getInstance();
 
   // Load user credentials on mount
@@ -102,7 +102,7 @@ export const EnhancedWorkoutHistoryScreen: React.FC<EnhancedWorkoutHistoryScreen
         console.log(`[EnhancedWorkoutHistory] ✅ Workout published: ${result.eventId}`);
 
         // Mark workout as synced - IT WILL DISAPPEAR FROM PRIVATE TAB
-        await localStorageService.markAsSynced(workout.id, result.eventId);
+        await localWorkoutStorage.markAsSynced(workout.id, result.eventId);
         console.log(`[EnhancedWorkoutHistory] ✅ Workout marked as synced`);
 
         Alert.alert(
