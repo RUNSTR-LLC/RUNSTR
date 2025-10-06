@@ -1,602 +1,214 @@
 /**
- * WorkoutHistoryScreen - Unified Workout History Display
- * Shows HealthKit and Nostr workouts with posting controls
- * Integrates with WorkoutMergeService and WorkoutPublishingService
+ * WorkoutHistoryScreen - Two-Tab Workout View
+ * Public Tab: 1301 notes from Nostr (cache-first instant display)
+ * Private Tab: Local Activity Tracker workouts (zero loading time)
+ * Simple architecture with no merge complexity
+ *
+ * IMPORTANT: This replaced the old complex merge-based screen
+ * Old features removed: WorkoutCacheService, HealthKit, filter tabs, "Sync Now" button
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
-  RefreshControl,
   TouchableOpacity,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { theme } from '../styles/theme';
-import {
-  WorkoutMergeService,
-  type UnifiedWorkout,
-  type WorkoutMergeResult,
-} from '../services/fitness/workoutMergeService';
 import { WorkoutPublishingService } from '../services/nostr/workoutPublishingService';
-import { NostrWorkoutSyncService } from '../services/fitness/nostrWorkoutSyncService';
-import { WorkoutCacheService } from '../services/cache/WorkoutCacheService';
-import { WorkoutGroupingService, type WorkoutGroup } from '../utils/workoutGrouping';
-import healthKitService from '../services/fitness/healthKitService';
+import LocalWorkoutStorageService from '../services/fitness/LocalWorkoutStorageService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import unifiedSigningService from '../services/auth/UnifiedSigningService';
+import { nsecToPrivateKey } from '../utils/nostr';
 
 // UI Components
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
 import { LoadingOverlay } from '../components/ui/LoadingStates';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
 
-// Fitness Components
-import { WorkoutSyncStatus } from '../components/fitness/WorkoutSyncStatus';
-import { WorkoutActionButtons } from '../components/fitness/WorkoutActionButtons';
-import { MonthlyWorkoutFolder } from '../components/fitness/MonthlyWorkoutFolder';
-import { WorkoutStatsOverview } from '../components/fitness/WorkoutStatsOverview';
-import { WorkoutCalendarHeatmap } from '../components/fitness/WorkoutCalendarHeatmap';
-
-import type { WorkoutType } from '../types/workout';
+// Two-Tab Workout Components
+import { WorkoutTabNavigator } from '../components/profile/WorkoutTabNavigator';
+import type { LocalWorkout } from '../services/fitness/LocalWorkoutStorageService';
 
 interface WorkoutHistoryScreenProps {
   route?: {
     params?: {
-      // Legacy params - we get pubkey from AsyncStorage now
+      userId?: string;
+      pubkey?: string;
     };
   };
 }
-
-type FilterType = 'all' | WorkoutType;
-type SortOrder = 'newest' | 'oldest' | 'distance' | 'duration';
-type ViewType = 'public' | 'all';
 
 export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
   route,
 }) => {
   const navigation = useNavigation();
-  // Pure Nostr implementation - get pubkey from AsyncStorage
   const [pubkey, setPubkey] = useState<string>('');
-  const [workouts, setWorkouts] = useState<UnifiedWorkout[]>([]);
-  const [filteredWorkouts, setFilteredWorkouts] = useState<UnifiedWorkout[]>(
-    []
-  );
-  const [workoutGroups, setWorkoutGroups] = useState<WorkoutGroup[]>([]);
-  const [mergeResult, setMergeResult] = useState<WorkoutMergeResult | null>(
-    null
-  );
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
-  const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'year'>('month');
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-  const [viewType, setViewType] = useState<ViewType>('all');
+  const [userId, setUserId] = useState<string>('');
+  const [userNsec, setUserNsec] = useState<string>('');
+  const [isInitializing, setIsInitializing] = useState(true);
 
-  const cacheService = WorkoutCacheService.getInstance();
-  const mergeService = WorkoutMergeService.getInstance();
+  // Use static getInstance methods correctly
+  const localStorageService = LocalWorkoutStorageService.getInstance();
   const publishingService = WorkoutPublishingService.getInstance();
-  const syncService = NostrWorkoutSyncService.getInstance();
 
-  // Load pubkey from AsyncStorage on mount
+  // Load user credentials on mount
   useEffect(() => {
-    loadPubkeyAndInitialize();
+    loadUserData();
   }, []);
 
-  const loadPubkeyAndInitialize = async () => {
+  const loadUserData = async () => {
     try {
-      // Try to get hex pubkey first, fallback to npub
-      const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
-      const npub = await AsyncStorage.getItem('@runstr:npub');
+      console.log('[WorkoutHistory] Loading user data...');
 
-      console.log('[WorkoutHistory] 📱 Android: Loading authentication data...');
-      console.log('[WorkoutHistory] 📊 hexPubkey:', hexPubkey ? hexPubkey.slice(0, 20) + '...' : 'NONE');
-      console.log('[WorkoutHistory] 📊 npub:', npub ? npub.slice(0, 20) + '...' : 'NONE');
+      // Try to get from route params first
+      let activePubkey = route?.params?.pubkey || '';
+      let activeUserId = route?.params?.userId || '';
 
-      const userPubkey = hexPubkey || npub || '';
+      // Fallback to AsyncStorage if not in params
+      if (!activePubkey) {
+        const storedNpub = await AsyncStorage.getItem('@runstr:npub');
+        const storedHexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+        activePubkey = storedHexPubkey || storedNpub || '';
+        console.log('[WorkoutHistory] Loaded pubkey from storage:', activePubkey?.slice(0, 20) + '...');
+      }
 
-      if (!userPubkey) {
-        console.error('[WorkoutHistory] ❌ No pubkey found in AsyncStorage - user needs to login');
-        setIsLoading(false);
+      if (!activeUserId) {
+        activeUserId = activePubkey; // Use pubkey as userId fallback
+      }
+
+      setPubkey(activePubkey);
+      setUserId(activeUserId);
+
+      // Load nsec for posting
+      const storedNsec = await AsyncStorage.getItem('@runstr:user_nsec');
+      if (storedNsec) {
+        setUserNsec(storedNsec);
+        console.log('[WorkoutHistory] ✅ User nsec loaded');
+      } else {
+        console.warn('[WorkoutHistory] No nsec found - posting will not work');
+      }
+    } catch (error) {
+      console.error('[WorkoutHistory] ❌ Failed to load user data:', error);
+    } finally {
+      setIsInitializing(false);
+    }
+  };
+
+  /**
+   * Handle posting a local workout to Nostr
+   * Creates kind 1301 event and marks workout as synced
+   * This makes the workout disappear from Private tab and appear in Public tab
+   */
+  const handlePostToNostr = async (workout: LocalWorkout) => {
+    try {
+      console.log(`[WorkoutHistory] Posting workout ${workout.id} to Nostr...`);
+
+      if (!userNsec) {
+        Alert.alert('Error', 'No private key found. Please log in again.');
         return;
       }
 
-      console.log('[WorkoutHistory] ✅ Loaded pubkey from AsyncStorage:', userPubkey.slice(0, 20) + '...');
-      setPubkey(userPubkey);
+      // Convert LocalWorkout to PublishableWorkout format
+      // Remove source field that causes type mismatch
+      const { source, splits, ...workoutData } = workout;
 
-      // Initialize HealthKit and load workouts (pass pubkey directly)
-      await initializeHealthKitAndLoadWorkouts(userPubkey);
-    } catch (error) {
-      console.error('[WorkoutHistory] ❌ Failed to load pubkey:', error);
-      setIsLoading(false);
-    }
-  };
+      const publishableWorkout = {
+        ...workoutData,
+        id: workout.id,
+        userId: userId,
+        type: workout.type,
+        duration: workout.duration / 60, // Convert seconds to minutes for publishing service
+        distance: workout.distance,
+        calories: workout.calories,
+        startTime: workout.startTime,
+        endTime: workout.endTime,
+      };
 
-  const initializeHealthKitAndLoadWorkouts = async (userPubkey: string) => {
-    // Initialize HealthKit if available
-    if (healthKitService.getStatus().available) {
-      console.log('[WorkoutHistory] 🍎 Initializing HealthKit...');
-      try {
-        const initResult = await healthKitService.initialize();
-        if (initResult.success) {
-          console.log('[WorkoutHistory] ✅ HealthKit initialized successfully');
-        } else {
-          console.log('[WorkoutHistory] ⚠️ HealthKit initialization failed:', initResult.error);
-        }
-      } catch (error) {
-        console.error('[WorkoutHistory] ❌ HealthKit initialization error:', error);
-      }
-    } else {
-      console.log('[WorkoutHistory] 📱 Android: HealthKit not available (expected on Android)');
-    }
+      // Convert nsec to hex private key
+      const privateKeyHex = nsecToPrivateKey(userNsec);
 
-    // Load workouts after initialization attempt (pass pubkey directly)
-    console.log('[WorkoutHistory] 🔄 Starting workout load for pubkey:', userPubkey.slice(0, 20) + '...');
-    await loadWorkouts(false, userPubkey);
-  };
-
-  useEffect(() => {
-    applyFiltersAndSort();
-  }, [workouts, selectedFilter, sortOrder]);
-
-  useEffect(() => {
-    // Group filtered workouts by month for folder UI
-    const groups = WorkoutGroupingService.groupWorkoutsByMonth(filteredWorkouts);
-    // Apply expanded state
-    const groupsWithExpanded = groups.map(group => ({
-      ...group,
-      isExpanded: expandedGroups.has(group.key)
-    }));
-    setWorkoutGroups(groupsWithExpanded);
-  }, [filteredWorkouts, expandedGroups]);
-
-  const loadWorkouts = async (forceRefresh = false, userPubkey?: string) => {
-    // Use passed pubkey or fall back to state
-    const activePubkey = userPubkey || pubkey;
-
-    if (!activePubkey) {
-      console.error('❌ Cannot load workouts: no pubkey available');
-      return;
-    }
-
-    try {
-      console.log('📱 WorkoutHistoryScreen: Loading workouts...');
-      console.log('📱 Pubkey:', activePubkey.slice(0, 20) + '...');
-      console.log('📱 HealthKit Status:', healthKitService.getStatus());
-
-      // Pure Nostr implementation - use only pubkey
-      const result = forceRefresh
-        ? await cacheService.refreshWorkouts(activePubkey, 500)
-        : await cacheService.getMergedWorkouts(activePubkey, 500);
-
-      console.log('📱 WorkoutHistoryScreen: Load complete');
-      console.log(`  - Total workouts: ${result.allWorkouts.length}`);
-      console.log(`  - HealthKit: ${result.healthKitCount}`);
-      console.log(`  - Nostr: ${result.nostrCount}`);
-      console.log(`  - Local: ${result.localCount}`);
-      console.log(`  - Duplicates removed: ${result.duplicateCount}`);
-      console.log(`  - From cache: ${result.fromCache}`);
-
-      // Show warning if HealthKit available but no workouts found
-      if (healthKitService.getStatus().available && result.healthKitCount === 0 && !forceRefresh) {
-        console.log('⚠️ HealthKit is available but no workouts found. This could mean:');
-        console.log('  1. No workouts in Apple Health for last 30 days');
-        console.log('  2. HealthKit permissions not granted');
-        console.log('  3. HealthKit query failed (check logs above for errors)');
-      }
-
-      setWorkouts(result.allWorkouts);
-      setMergeResult(result);
-    } catch (error) {
-      console.error('❌ WorkoutHistoryScreen: Failed to load workouts:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('❌ Error details:', errorMessage);
-
-      Alert.alert(
-        'Workout Load Failed',
-        `Could not load workout history: ${errorMessage}\n\nCheck Metro logs for details.`,
-        [{ text: 'OK' }]
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const toggleGroup = (groupKey: string) => {
-    setExpandedGroups(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(groupKey)) {
-        newSet.delete(groupKey);
-      } else {
-        newSet.add(groupKey);
-      }
-      return newSet;
-    });
-  };
-
-
-  const handleRefresh = useCallback(async () => {
-    if (!pubkey) return;
-
-    setIsRefreshing(true);
-    try {
-      // Manual sync no longer needs userId
-      await loadWorkouts(true); // Force refresh from network
-    } catch (error) {
-      console.error('Sync failed:', error);
-      Alert.alert('Sync Error', 'Failed to sync workouts. Please try again.');
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [pubkey]);
-
-  const handleSaveToNostr = async (workout: UnifiedWorkout) => {
-    // Get signer (works for both nsec and Amber)
-    const signer = await unifiedSigningService.getSigner();
-
-    if (!signer) {
-      Alert.alert(
-        'Authentication Required',
-        'Please log in to save workouts.'
-      );
-      return;
-    }
-
-    if (!pubkey) {
-      Alert.alert('Error', 'User pubkey not available');
-      return;
-    }
-
-    try {
-      // Pure Nostr implementation - use pubkey as identifier (works with both nsec and Amber)
+      // Publish to Nostr as kind 1301 event
       const result = await publishingService.saveWorkoutToNostr(
-        workout,
-        signer,
-        pubkey // Use pubkey instead of userId
+        publishableWorkout,
+        privateKeyHex,
+        userId
       );
 
-      if (result.success) {
-        // Update cache with new status
-        await cacheService.updateWorkoutStatus(workout.id, {
-          syncedToNostr: true,
-          nostrEventId: result.eventId,
-        });
-        // Refresh workouts to show updated status
-        await loadWorkouts(true);
-        Alert.alert('Success', 'Workout saved to Nostr successfully!');
+      if (result.success && result.eventId) {
+        console.log(`[WorkoutHistory] ✅ Workout published: ${result.eventId}`);
+
+        // Mark workout as synced - IT WILL DISAPPEAR FROM PRIVATE TAB
+        await localStorageService.markAsSynced(workout.id, result.eventId);
+        console.log(`[WorkoutHistory] ✅ Workout marked as synced`);
+
+        Alert.alert(
+          '✅ Success',
+          'Workout posted to Nostr!\n\nPull down to refresh and see it in your Public tab.',
+          [{ text: 'OK' }]
+        );
       } else {
-        throw new Error(result.error || 'Unknown error');
+        throw new Error(result.error || 'Failed to publish workout');
       }
     } catch (error) {
-      console.error('Save to Nostr failed:', error);
-      throw error; // Re-throw to be handled by WorkoutActionButtons
-    }
-  };
-
-  const handlePostToNostr = async (workout: UnifiedWorkout) => {
-    // Get signer (works for both nsec and Amber)
-    const signer = await unifiedSigningService.getSigner();
-
-    if (!signer) {
+      console.error('[WorkoutHistory] ❌ Post to Nostr failed:', error);
       Alert.alert(
-        'Authentication Required',
-        'Please log in to post workouts.'
+        'Error',
+        'Failed to post workout to Nostr. Please try again.'
       );
-      return;
-    }
-
-    if (!pubkey) {
-      Alert.alert('Error', 'User pubkey not available');
-      return;
-    }
-
-    try {
-      // Pure Nostr implementation - use pubkey as identifier (works with both nsec and Amber)
-      const result = await publishingService.postWorkoutToSocial(
-        workout,
-        signer,
-        pubkey // Use pubkey instead of userId
-      );
-
-      if (result.success) {
-        // Update cache with new status
-        await cacheService.updateWorkoutStatus(workout.id, {
-          postedToSocial: true,
-          nostrEventId: result.eventId,
-        });
-        // Refresh workouts to show updated status
-        await loadWorkouts(true);
-        Alert.alert('Success', 'Workout posted to social feeds successfully!');
-      } else {
-        throw new Error(result.error || 'Unknown error');
-      }
-    } catch (error) {
-      console.error('Post to Nostr failed:', error);
-      throw error; // Re-throw to be handled by WorkoutActionButtons
     }
   };
 
-  const applyFiltersAndSort = () => {
-    let filtered = [...workouts];
-
-    // Filter out invalid workout types
-    filtered = filtered.filter((workout) =>
-      workout.type && workout.type !== 'other'
-    );
-
-    // Apply view type filter (public vs all)
-    if (viewType === 'public') {
-      filtered = filtered.filter((workout) => workout.source === 'nostr');
+  const handleGoBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
     }
-
-    // Apply activity type filter
-    if (selectedFilter !== 'all') {
-      filtered = filtered.filter((workout) => workout.type === selectedFilter);
-    }
-
-    // Apply sorting
-    filtered.sort((a, b) => {
-      switch (sortOrder) {
-        case 'newest':
-          return (
-            new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
-          );
-        case 'oldest':
-          return (
-            new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
-          );
-        case 'distance':
-          return (b.distance || 0) - (a.distance || 0);
-        case 'duration':
-          return b.duration - a.duration;
-        default:
-          return 0;
-      }
-    });
-
-    setFilteredWorkouts(filtered);
   };
 
-  const formatDistance = (meters?: number): string =>
-    !meters
-      ? '--'
-      : meters < 1000
-      ? `${meters}m`
-      : `${(meters / 1000).toFixed(2)}km`;
-
-  const formatDuration = (seconds: number): string => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    return h > 0
-      ? `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
-      : `${m}:${s.toString().padStart(2, '0')}`;
-  };
-
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    const diffDays = Math.floor(
-      (Date.now() - date.getTime()) / (1000 * 60 * 60 * 24)
-    );
-
-    // Format time as 12-hour with AM/PM
-    const hours = date.getHours();
-    const minutes = date.getMinutes();
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    const displayHours = hours % 12 || 12;
-    const displayMinutes = minutes.toString().padStart(2, '0');
-    const timeStr = `${displayHours}:${displayMinutes} ${ampm}`;
-
-    const dayStr = diffDays === 0
-      ? 'Today'
-      : diffDays === 1
-      ? 'Yesterday'
-      : diffDays < 7
-      ? `${diffDays} days ago`
-      : date.toLocaleDateString();
-
-    return `${dayStr} at ${timeStr}`;
-  };
-
-  const renderWorkoutItem = ({ item: workout }: { item: UnifiedWorkout }) => (
-    <Card style={styles.workoutCard}>
-      <View style={styles.workoutHeader}>
-        <View style={styles.workoutInfo}>
-          <View style={styles.workoutInfoText}>
-            <Text style={styles.activityType}>
-              {workout.type.charAt(0).toUpperCase() + workout.type.slice(1)}
-            </Text>
-            <Text style={styles.workoutDate}>
-              {formatDate(workout.startTime)}
-            </Text>
-          </View>
-        </View>
-        <View style={styles.workoutMeta}>
-          <Text style={styles.sourceType}>{workout.source}</Text>
-        </View>
-      </View>
-
-      <View style={styles.workoutStats}>
-        <View style={styles.statItem}>
-          <Text style={styles.statValue}>
-            {formatDuration(workout.duration)}
-          </Text>
-          <Text style={styles.statLabel}>Duration</Text>
-        </View>
-        {workout.distance && (
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>
-              {formatDistance(workout.distance)}
-            </Text>
-            <Text style={styles.statLabel}>Distance</Text>
-          </View>
-        )}
-        {workout.calories && (
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{workout.calories.toFixed(0)}</Text>
-            <Text style={styles.statLabel}>Calories</Text>
-          </View>
-        )}
-        {workout.heartRate?.avg && (
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>
-              {workout.heartRate.avg.toFixed(0)}
-            </Text>
-            <Text style={styles.statLabel}>HR</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Action buttons for posting */}
-      <WorkoutActionButtons
-        workout={workout}
-        onSaveToNostr={handleSaveToNostr}
-        onPostToNostr={handlePostToNostr}
-        compact={true}
-      />
-    </Card>
-  );
-
-  const renderFilterButton = (filter: FilterType, label: string) => (
-    <TouchableOpacity
-      key={filter}
-      style={[
-        styles.filterButton,
-        selectedFilter === filter && styles.filterButtonActive,
-      ]}
-      onPress={() => setSelectedFilter(filter)}
-    >
-      <Text
-        style={[
-          styles.filterButtonText,
-          selectedFilter === filter && styles.filterButtonTextActive,
-        ]}
-      >
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
-
-  if (isLoading) {
+  if (isInitializing) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <LoadingOverlay message="Loading workouts..." visible={true} />
+      <SafeAreaView style={styles.container}>
+        <LoadingOverlay message="Loading..." visible={true} />
+      </SafeAreaView>
+    );
+  }
+
+  if (!pubkey) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={64} color={theme.colors.error} />
+          <Text style={styles.errorTitle}>No User Found</Text>
+          <Text style={styles.errorMessage}>
+            Please log in to view your workouts
+          </Text>
+          <TouchableOpacity style={styles.errorButton} onPress={handleGoBack}>
+            <Text style={styles.errorButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
-        <Text style={styles.title}>Your Workouts</Text>
-        <View style={styles.placeholder} />
+        <Text style={styles.headerTitle}>Your Workouts</Text>
+        <View style={styles.headerSpacer} />
       </View>
 
-      {/* View Toggle */}
-      <View style={styles.topControls}>
-        <View style={styles.viewToggle}>
-          <TouchableOpacity
-            style={[
-              styles.toggleButton,
-              viewType === 'public' && styles.toggleButtonActive,
-            ]}
-            onPress={() => setViewType('public')}
-          >
-            <Text
-              style={[
-                styles.toggleButtonText,
-                viewType === 'public' && styles.toggleButtonTextActive,
-              ]}
-            >
-              Public
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.toggleButton,
-              viewType === 'all' && styles.toggleButtonActive,
-            ]}
-            onPress={() => setViewType('all')}
-          >
-            <Text
-              style={[
-                styles.toggleButtonText,
-                viewType === 'all' && styles.toggleButtonTextActive,
-              ]}
-            >
-              All
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-
-      {/* Filters & Sort */}
-      <View style={styles.controlsContainer}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filtersScroll}
-        >
-          {[
-            ['all', 'All'],
-            ['running', 'Running'],
-            ['cycling', 'Cycling'],
-            ['walking', 'Walking'],
-            ['gym', 'Gym'],
-            ['yoga', 'Yoga'],
-          ].map(([filter, label]) =>
-            renderFilterButton(filter as FilterType, label)
-          )}
-        </ScrollView>
-      </View>
-
-      {/* Grouped Workout List */}
-      <ScrollView
-        style={styles.workoutsContainer}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            tintColor={theme.colors.text}
-          />
-        }
-        contentContainerStyle={styles.workoutsList}
-      >
-        {workoutGroups.length > 0 ? (
-          workoutGroups.map(group => (
-            <MonthlyWorkoutFolder
-              key={group.key}
-              group={group}
-              isExpanded={expandedGroups.has(group.key)}
-              onToggle={toggleGroup}
-              renderWorkout={(workout) => renderWorkoutItem({ item: workout })}
-            />
-          ))
-        ) : (
-          <Card style={styles.emptyState}>
-            <Text style={styles.emptyStateTitle}>No workouts found</Text>
-            <Text style={styles.emptyStateText}>
-              {selectedFilter === 'all'
-                ? 'Your workout history will appear here once synced'
-                : `No ${selectedFilter} workouts found`}
-            </Text>
-            {selectedFilter === 'all' && (
-              <Button title="Sync Now" onPress={handleRefresh} />
-            )}
-          </Card>
-        )}
-      </ScrollView>
+      {/* Two-Tab Workout Navigator */}
+      <WorkoutTabNavigator
+        userId={userId}
+        pubkey={pubkey}
+        onPostToNostr={handlePostToNostr}
+      />
     </SafeAreaView>
   );
 };
@@ -606,202 +218,64 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
+
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    padding: 16,
+    backgroundColor: theme.colors.cardBackground,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
+
   backButton: {
     padding: 8,
   },
-  backButtonText: {
-    color: theme.colors.text,
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  title: {
-    color: theme.colors.text,
+
+  headerTitle: {
+    flex: 1,
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.text,
+    textAlign: 'center',
   },
-  placeholder: {
-    width: 40,
+
+  headerSpacer: {
+    width: 40, // Match back button width
   },
-  topControls: {
-    flexDirection: 'row',
+
+  errorContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  viewToggle: {
-    flexDirection: 'row',
-    backgroundColor: theme.colors.cardBackground,
-    borderRadius: 8,
-    padding: 2,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  toggleButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
-  },
-  toggleButtonActive: {
-    backgroundColor: '#FFB366',
-  },
-  toggleButtonText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: theme.colors.textSecondary,
-  },
-  toggleButtonTextActive: {
-    color: '#000000',
-  },
-  syncStatus: {
-    margin: 16,
-  },
-  controlsContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 16,
-  },
-  filtersScroll: {
-    marginBottom: 8,
-  },
-  sortScroll: {
-    marginBottom: 0,
-  },
-  filterButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginRight: 8,
-    borderRadius: 20,
-    backgroundColor: theme.colors.cardBackground,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  filterButtonActive: {
-    backgroundColor: '#FFB366',
-    borderColor: '#FFB366',
-  },
-  filterButtonText: {
-    color: theme.colors.textSecondary,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  filterButtonTextActive: {
-    color: '#000000',
-    fontWeight: '600',
-  },
-  sortButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginRight: 8,
-    borderRadius: 16,
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: theme.colors.buttonBorder,
-  },
-  sortButtonActive: {
-    backgroundColor: theme.colors.buttonHover,
-  },
-  sortButtonText: {
-    color: theme.colors.textMuted,
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  workoutsContainer: {
-    flex: 1,
-  },
-  workoutsList: {
-    paddingHorizontal: 16,
-    paddingBottom: 100,
-  },
-  workoutCard: {
-    padding: 16,
-    marginBottom: 12,
-  },
-  workoutHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  workoutInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  workoutInfoText: {
-    flex: 1,
-  },
-  workoutMeta: {
-    alignItems: 'flex-end',
-  },
-  activityType: {
-    color: theme.colors.text,
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  workoutDate: {
-    color: theme.colors.textSecondary,
-    fontSize: 14,
-  },
-  sourceApp: {
-    color: theme.colors.textMuted,
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  sourceType: {
-    color: theme.colors.textDark,
-    fontSize: 10,
-    fontWeight: '500',
-    textTransform: 'uppercase',
-    marginTop: 2,
-  },
-  workoutStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  statItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  statValue: {
-    color: theme.colors.text,
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  statLabel: {
-    color: theme.colors.textMuted,
-    fontSize: 12,
-  },
-  emptyState: {
     padding: 32,
-    alignItems: 'center',
-    marginTop: 32,
   },
-  emptyStateTitle: {
-    color: theme.colors.text,
+
+  errorTitle: {
+    marginTop: 16,
     fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.text,
   },
-  emptyStateText: {
-    color: theme.colors.textSecondary,
+
+  errorMessage: {
+    marginTop: 8,
     fontSize: 14,
+    color: theme.colors.textMuted,
     textAlign: 'center',
-    marginBottom: 24,
+  },
+
+  errorButton: {
+    marginTop: 24,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: theme.colors.accent,
+    borderRadius: 8,
+  },
+
+  errorButtonText: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.accentText,
   },
 });
-
-export default WorkoutHistoryScreen;

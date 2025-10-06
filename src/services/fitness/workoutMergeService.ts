@@ -15,6 +15,7 @@ import type { Workout, WorkoutType } from '../../types/workout';
 import type { NostrWorkout } from '../../types/nostrWorkout';
 import type { HealthKitWorkout } from './healthKitService';
 import { GlobalNDKService } from '../nostr/GlobalNDKService';
+import FEATURE_FLAGS from '../../constants/featureFlags';
 
 // Extended workout interface with posting status
 export interface UnifiedWorkout extends Workout {
@@ -129,14 +130,19 @@ export class WorkoutMergeService {
         };
       }
 
-      // Check cache first for performance
-      const cachedWorkouts = await this.healthKitService.getCachedWorkouts();
+      // Feature flag: Skip HealthKit when disabled
       let healthKitWorkouts: HealthKitWorkout[] = [];
 
-      if (cachedWorkouts && cachedWorkouts.length > 0) {
-        console.log(`📦 Using ${cachedWorkouts.length} cached HealthKit workouts`);
-        healthKitWorkouts = cachedWorkouts;
-      } else if (HealthKitService.isAvailable()) {
+      if (!FEATURE_FLAGS.ENABLE_HEALTHKIT) {
+        console.log('⚠️ HealthKit disabled via feature flag - skipping HealthKit fetch');
+      } else {
+        // Check cache first for performance
+        const cachedWorkouts = await this.healthKitService.getCachedWorkouts();
+
+        if (cachedWorkouts && cachedWorkouts.length > 0) {
+          console.log(`📦 Using ${cachedWorkouts.length} cached HealthKit workouts`);
+          healthKitWorkouts = cachedWorkouts;
+        } else if (HealthKitService.isAvailable()) {
         // Fetch HealthKit workouts progressively
         console.log('🔄 Fetching HealthKit workouts progressively...');
         const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -181,6 +187,7 @@ export class WorkoutMergeService {
         }
       } else {
         console.log('ℹ️ HealthKit not available on this device');
+        }
       }
 
       // Fetch Nostr workouts AND local workouts

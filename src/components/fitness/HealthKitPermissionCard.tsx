@@ -10,6 +10,7 @@ import { theme } from '../../styles/theme';
 import { Card } from '../ui/Card';
 import healthKitService from '../../services/fitness/healthKitService';
 import { WorkoutMergeService } from '../../services/fitness/workoutMergeService';
+import FEATURE_FLAGS from '../../constants/featureFlags';
 
 interface HealthKitPermissionCardProps {
   userId: string;
@@ -31,6 +32,10 @@ export const HealthKitPermissionCard: React.FC<
   onPermissionDenied,
   showStats = true,
 }) => {
+  // Feature flag: Hide HealthKit integration when disabled
+  if (!FEATURE_FLAGS.ENABLE_HEALTHKIT) {
+    return null;
+  }
   const [status, setStatus] = useState<
     'unknown' | 'requesting' | 'granted' | 'denied' | 'syncing'
   >('unknown');

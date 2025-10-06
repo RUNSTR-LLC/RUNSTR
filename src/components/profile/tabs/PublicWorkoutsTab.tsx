@@ -17,9 +17,12 @@ import { LoadingOverlay } from '../../ui/LoadingStates';
 import { EnhancedWorkoutCard } from '../shared/EnhancedWorkoutCard';
 import { MonthlyWorkoutGroup, groupWorkoutsByMonth } from '../shared/MonthlyWorkoutGroup';
 import { Nuclear1301Service } from '../../../services/fitness/Nuclear1301Service';
+import unifiedCache from '../../../services/cache/UnifiedNostrCache';
+import { CacheKeys } from '../../../constants/cacheTTL';
 import type { NostrWorkout } from '../../../types/nostrWorkout';
 import type { UnifiedWorkout } from '../../../services/fitness/workoutMergeService';
 import type { Workout } from '../../../types/workout';
+import { Ionicons } from '@expo/vector-icons';
 
 interface PublicWorkoutsTabProps {
   userId: string;
@@ -35,6 +38,7 @@ export const PublicWorkoutsTab: React.FC<PublicWorkoutsTabProps> = ({
   const [workouts, setWorkouts] = useState<NostrWorkout[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [fromCache, setFromCache] = useState(false);
 
   const nuclear1301Service = Nuclear1301Service.getInstance();
 
@@ -42,21 +46,46 @@ export const PublicWorkoutsTab: React.FC<PublicWorkoutsTabProps> = ({
     loadNostrWorkouts();
   }, [pubkey]);
 
-  const loadNostrWorkouts = async () => {
+  const loadNostrWorkouts = async (forceRefresh: boolean = false) => {
     try {
-      setIsLoading(true);
+      setIsLoading(!forceRefresh); // Don't show loading spinner on refresh
       console.log('⚡ Loading public Nostr workouts for pubkey:', pubkey);
 
       if (!pubkey) {
         console.log('No pubkey available, skipping Nostr workout load');
         setWorkouts([]);
+        setIsLoading(false);
         return;
       }
 
-      // Fetch kind 1301 events from Nostr
-      console.log('📡 Calling getUserWorkouts with pubkey:', pubkey);
-      const nostrWorkouts = await nuclear1301Service.getUserWorkouts(pubkey);
-      console.log(`📊 Received ${nostrWorkouts?.length || 0} workouts from Nostr`);
+      let nostrWorkouts: NostrWorkout[] = [];
+      let cacheHit = false;
+
+      // Cache-first approach (unless force refresh)
+      if (!forceRefresh) {
+        const cached = unifiedCache.getCached(CacheKeys.USER_WORKOUTS(pubkey));
+        if (cached && cached.length > 0) {
+          console.log(`📦 Cache hit: ${cached.length} workouts (instant display from prefetch)`);
+          nostrWorkouts = cached;
+          cacheHit = true;
+          setFromCache(true);
+        }
+      }
+
+      // Fetch from Nostr if no cache or force refresh
+      if (!cacheHit || forceRefresh) {
+        console.log('📡 Fetching from Nostr relays...');
+        nostrWorkouts = await nuclear1301Service.getUserWorkouts(pubkey);
+        console.log(`✅ Received ${nostrWorkouts?.length || 0} workouts from Nostr`);
+
+        // Update cache
+        await unifiedCache.set(
+          CacheKeys.USER_WORKOUTS(pubkey),
+          nostrWorkouts,
+          { ttl: 30 * 60 * 1000 } // 30 minutes
+        );
+        setFromCache(false);
+      }
 
       if (!nostrWorkouts || nostrWorkouts.length === 0) {
         console.log('⚠️ No workouts returned from Nuclear1301Service');
@@ -88,7 +117,11 @@ export const PublicWorkoutsTab: React.FC<PublicWorkoutsTabProps> = ({
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await loadNostrWorkouts();
+      // Invalidate cache
+      if (pubkey) {
+        unifiedCache.delete(CacheKeys.USER_WORKOUTS(pubkey));
+      }
+      await loadNostrWorkouts(true); // Force refresh from Nostr
       onRefresh?.();
     } catch (error) {
       console.error('Refresh failed:', error);
@@ -161,26 +194,36 @@ export const PublicWorkoutsTab: React.FC<PublicWorkoutsTabProps> = ({
   }
 
   return (
-    <FlatList
-      data={monthlyGroups}
-      renderItem={renderMonthlyGroup}
-      keyExtractor={(item) => item.key}
-      contentContainerStyle={styles.list}
-      refreshControl={
-        <RefreshControl
-          refreshing={isRefreshing}
-          onRefresh={handleRefresh}
-          tintColor={theme.colors.text}
-        />
-      }
-      ListHeaderComponent={
-        <View style={styles.header}>
-          <Text style={styles.headerText}>
-            {workouts.length} public workout{workouts.length !== 1 ? 's' : ''} on Nostr
-          </Text>
+    <View style={styles.container}>
+      {/* Cache Indicator */}
+      {fromCache && (
+        <View style={styles.cacheIndicator}>
+          <Ionicons name="flash" size={12} color={theme.colors.success} />
+          <Text style={styles.cacheText}>Instant load from cache</Text>
         </View>
-      }
-    />
+      )}
+
+      <FlatList
+        data={monthlyGroups}
+        renderItem={renderMonthlyGroup}
+        keyExtractor={(item) => item.key}
+        contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.colors.text}
+          />
+        }
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <Text style={styles.headerText}>
+              {workouts.length} public workout{workouts.length !== 1 ? 's' : ''} on Nostr
+            </Text>
+          </View>
+        }
+      />
+    </View>
   );
 };
 
@@ -188,7 +231,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
-    padding: 16,
+  },
+  cacheIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
+    backgroundColor: theme.colors.success + '15',
+    gap: 6,
+  },
+  cacheText: {
+    fontSize: 11,
+    color: theme.colors.success,
+    fontWeight: theme.typography.weights.medium,
   },
   list: {
     padding: 16,
