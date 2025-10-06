@@ -95,26 +95,25 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
       const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
       const npub = await AsyncStorage.getItem('@runstr:npub');
 
+      console.log('[WorkoutHistory] 📱 Android: Loading authentication data...');
+      console.log('[WorkoutHistory] 📊 hexPubkey:', hexPubkey ? hexPubkey.slice(0, 20) + '...' : 'NONE');
+      console.log('[WorkoutHistory] 📊 npub:', npub ? npub.slice(0, 20) + '...' : 'NONE');
+
       const userPubkey = hexPubkey || npub || '';
 
       if (!userPubkey) {
-        console.error('❌ No pubkey found in AsyncStorage - user needs to login');
-        Alert.alert(
-          'Not Logged In',
-          'Please log in with your Nostr key to view workouts.',
-          [{ text: 'OK', onPress: () => navigation.goBack() }]
-        );
+        console.error('[WorkoutHistory] ❌ No pubkey found in AsyncStorage - user needs to login');
         setIsLoading(false);
         return;
       }
 
-      console.log('✅ Loaded pubkey from AsyncStorage:', userPubkey.slice(0, 20) + '...');
+      console.log('[WorkoutHistory] ✅ Loaded pubkey from AsyncStorage:', userPubkey.slice(0, 20) + '...');
       setPubkey(userPubkey);
 
       // Initialize HealthKit and load workouts (pass pubkey directly)
       await initializeHealthKitAndLoadWorkouts(userPubkey);
     } catch (error) {
-      console.error('❌ Failed to load pubkey:', error);
+      console.error('[WorkoutHistory] ❌ Failed to load pubkey:', error);
       setIsLoading(false);
     }
   };
@@ -122,22 +121,23 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
   const initializeHealthKitAndLoadWorkouts = async (userPubkey: string) => {
     // Initialize HealthKit if available
     if (healthKitService.getStatus().available) {
-      console.log('🍎 Initializing HealthKit on WorkoutHistoryScreen mount...');
+      console.log('[WorkoutHistory] 🍎 Initializing HealthKit...');
       try {
         const initResult = await healthKitService.initialize();
         if (initResult.success) {
-          console.log('✅ HealthKit initialized successfully');
+          console.log('[WorkoutHistory] ✅ HealthKit initialized successfully');
         } else {
-          console.log('⚠️ HealthKit initialization failed:', initResult.error);
+          console.log('[WorkoutHistory] ⚠️ HealthKit initialization failed:', initResult.error);
         }
       } catch (error) {
-        console.error('❌ HealthKit initialization error:', error);
+        console.error('[WorkoutHistory] ❌ HealthKit initialization error:', error);
       }
     } else {
-      console.log('ℹ️ HealthKit not available on this device');
+      console.log('[WorkoutHistory] 📱 Android: HealthKit not available (expected on Android)');
     }
 
     // Load workouts after initialization attempt (pass pubkey directly)
+    console.log('[WorkoutHistory] 🔄 Starting workout load for pubkey:', userPubkey.slice(0, 20) + '...');
     await loadWorkouts(false, userPubkey);
   };
 

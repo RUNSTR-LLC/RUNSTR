@@ -34,16 +34,33 @@ export const MyTeamsScreen: React.FC = () => {
     const loadUserNpub = async () => {
       try {
         const npub = await AsyncStorage.getItem('@runstr:npub');
+        console.log('[MyTeamsScreen] 📱 Loaded npub:', npub ? npub.slice(0, 20) + '...' : 'NONE');
         if (npub) {
           setUserNpub(npub);
         }
       } catch (error) {
-        console.error('Error loading user npub:', error);
+        console.error('[MyTeamsScreen] ❌ Error loading user npub:', error);
       }
     };
 
     loadUserNpub();
   }, []);
+
+  // Android: Force refresh teams data on mount
+  useEffect(() => {
+    const initializeTeamsData = async () => {
+      console.log('[MyTeamsScreen] 📱 Android: Initializing teams data...');
+      console.log('[MyTeamsScreen] 📊 Current teams count:', profileData?.teams?.length || 0);
+
+      // Force refresh to ensure latest data
+      if (!profileData?.teams || profileData.teams.length === 0) {
+        console.log('[MyTeamsScreen] 🔄 No teams found, triggering refresh...');
+        await refresh();
+      }
+    };
+
+    initializeTeamsData();
+  }, []); // Only on mount
 
   // Track when initial load completes
   useEffect(() => {
@@ -73,6 +90,17 @@ export const MyTeamsScreen: React.FC = () => {
 
   const teams = profileData?.teams || [];
   const primaryTeamId = profileData?.primaryTeamId;
+
+  // Debug logging
+  useEffect(() => {
+    console.log('[MyTeamsScreen] 📊 Render - Teams count:', teams.length);
+    console.log('[MyTeamsScreen] 📊 Profile data status:', {
+      hasProfileData: !!profileData,
+      hasTeams: !!profileData?.teams,
+      teamsLength: profileData?.teams?.length || 0,
+      isLoading: isLoadingTeam,
+    });
+  }, [teams, profileData, isLoadingTeam]);
 
   return (
     <SafeAreaView style={styles.container}>
