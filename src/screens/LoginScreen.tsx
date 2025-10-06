@@ -209,8 +209,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
   };
 
   // Calculate responsive dimensions
-  const logoSize = IS_SMALL_DEVICE ? 800 : 1200;
-  const logoHeight = IS_SMALL_DEVICE ? 266 : 400;
+  const logoSize = IS_SMALL_DEVICE ? 750 : 900;
+  const logoHeight = IS_SMALL_DEVICE ? 249 : 300;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -246,7 +246,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
                   disabled={isLoading}
                 >
                   {isLoading ? (
-                    <ActivityIndicator size="small" color="#000000" />
+                    <ActivityIndicator size="small" color={theme.colors.textOrange} />
                   ) : (
                     <Text style={styles.loginButtonText}>Login</Text>
                   )}
@@ -259,7 +259,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
                   disabled={isLoading}
                 >
                   {isLoading ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <ActivityIndicator size="small" color={theme.colors.textOrange} />
                   ) : (
                     <Text style={styles.signupButtonText}>Start</Text>
                   )}
@@ -291,7 +291,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
                     value={nsecInput}
                     onChangeText={handleNsecChange}
                     placeholder="Your secure password"
-                    placeholderTextColor={theme.colors.textMuted}
+                    placeholderTextColor={theme.colors.textOrange}
                     secureTextEntry={true}
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -399,14 +399,15 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     paddingTop: 80,
-    paddingBottom: 40,
+    paddingBottom: 0,
+    overflow: 'hidden',
   },
   headerSmall: {
     paddingTop: 60,
-    paddingBottom: 20,
+    paddingBottom: 0,
   },
   logo: {
-    marginBottom: 20,
+    marginBottom: 0,
     alignSelf: 'center',
   },
 
@@ -415,15 +416,17 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-start',
     paddingVertical: 10,
-    marginTop: -80,
+    marginTop: -40,
   },
   buttonContainer: {
     alignItems: 'center',
     gap: 16,
   },
   loginButton: {
-    backgroundColor: theme.colors.accent,
-    height: 50,
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    height: 56,
     borderRadius: 12,
     width: '80%',
     maxWidth: 320,
@@ -434,7 +437,7 @@ const styles = StyleSheet.create({
   loginButtonText: {
     fontSize: 19,
     fontWeight: '600',
-    color: theme.colors.accentText,
+    color: theme.colors.textOrange,
   },
 
   // Input Form
@@ -451,12 +454,12 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: 16,
-    color: theme.colors.text,
+    color: theme.colors.textOrange,
   },
   inputTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: theme.colors.text,
+    color: theme.colors.textOrange,
     textAlign: 'center',
   },
 
@@ -467,7 +470,7 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: theme.colors.text,
+    color: theme.colors.textOrange,
     marginBottom: 8,
   },
   textInput: {
@@ -477,7 +480,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 16,
     fontSize: 16,
-    color: theme.colors.text,
+    color: theme.colors.textOrange,
     minHeight: 50,
   },
   textInputError: {
@@ -485,7 +488,7 @@ const styles = StyleSheet.create({
   },
   inputHelper: {
     fontSize: 12,
-    color: theme.colors.textMuted,
+    color: theme.colors.textOrange,
     marginTop: 8,
     textAlign: 'center',
   },
@@ -505,7 +508,7 @@ const styles = StyleSheet.create({
 
   // Submit Button
   submitButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.orangeBright,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -585,8 +588,10 @@ const styles = StyleSheet.create({
 
   // Signup button styles
   signupButton: {
-    backgroundColor: theme.colors.accent,
-    height: 50,
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    height: 56,
     borderRadius: 12,
     width: '80%',
     maxWidth: 320,
@@ -597,6 +602,6 @@ const styles = StyleSheet.create({
   signupButtonText: {
     fontSize: 19,
     fontWeight: '600',
-    color: '#000000',
+    color: theme.colors.textOrange,
   },
 });
