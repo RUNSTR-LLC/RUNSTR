@@ -106,11 +106,15 @@ export class NostrPrefetchService {
       reportProgress('Finding your teams...');
       await this.prefetchUserTeams(hexPubkey);
 
-      // ✅ Step 6: User Workouts (independent, but lower priority)
+      // ✅ Step 6: User Workouts - Start in background but don't wait (non-blocking)
       reportProgress('Loading workouts...');
-      await this.prefetchUserWorkouts(hexPubkey);
+      // PERFORMANCE: Start workout fetch but don't block app initialization
+      // Workouts will appear when ready (typically 2-5 seconds)
+      this.prefetchUserWorkouts(hexPubkey).catch(err => {
+        console.warn('[Prefetch] Background workout fetch failed:', err);
+      });
 
-      console.log('✅ Prefetch complete - all data cached in parallel batches');
+      console.log('✅ Prefetch complete - essential data cached, workouts loading in background');
     } catch (error) {
       console.error('❌ Prefetch failed:', error);
       // Don't throw - app should still work with partial data
@@ -119,10 +123,11 @@ export class NostrPrefetchService {
 
   /**
    * Prefetch user profile (kind 0)
+   * OPTIMIZED: 3-second timeout for fast failure
    */
   private async prefetchUserProfile(hexPubkey: string): Promise<void> {
     try {
-      const profile = await unifiedCache.get(
+      const profileFetchPromise = unifiedCache.get(
         CacheKeys.USER_PROFILE(hexPubkey),
         async () => {
           const user = await DirectNostrProfileService.getCurrentUserProfile();
@@ -134,9 +139,21 @@ export class NostrPrefetchService {
         { ttl: CacheTTL.USER_PROFILE }
       );
 
-      console.log('[Prefetch] User profile cached:', profile?.name || 'Unknown');
+      // ✅ PERFORMANCE: 3-second timeout for profile fetch
+      const profile = await Promise.race([
+        profileFetchPromise,
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Profile fetch timeout')), 3000)
+        )
+      ]);
+
+      console.log('[Prefetch] User profile cached:', (profile as any)?.name || 'Unknown');
     } catch (error) {
-      console.error('[Prefetch] User profile failed:', error);
+      if (error instanceof Error && error.message === 'Profile fetch timeout') {
+        console.warn('[Prefetch] Profile fetch timed out after 3s - using fallback');
+      } else {
+        console.error('[Prefetch] User profile failed:', error);
+      }
     }
   }
 
@@ -281,7 +298,8 @@ export class NostrPrefetchService {
 
   /**
    * Prefetch user's recent workouts (kind 1301)
-   * OPTIMIZED: Actually prefetches workouts to eliminate loading state
+   * OPTIMIZED: Fetches only 100 workouts initially with 8s timeout
+   * Remaining workouts load on-demand when user opens workout screen
    */
   private async prefetchUserWorkouts(hexPubkey: string): Promise<void> {
     try {
@@ -294,23 +312,39 @@ export class NostrPrefetchService {
 
       console.log('[Prefetch] Fetching user workouts via WorkoutCacheService...');
 
-      // ✅ Use WorkoutCacheService for centralized workout fetching
-      const { WorkoutCacheService } = await import('../cache/WorkoutCacheService');
-      const cacheService = WorkoutCacheService.getInstance();
+      // ✅ PERFORMANCE: Add 8-second timeout to prevent blocking
+      const workoutFetchPromise = (async () => {
+        // ✅ Use WorkoutCacheService for centralized workout fetching
+        const { WorkoutCacheService } = await import('../cache/WorkoutCacheService');
+        const cacheService = WorkoutCacheService.getInstance();
 
-      // Fetch merged workouts (HealthKit + Nostr, limit 500 for performance)
-      const result = await cacheService.getMergedWorkouts(hexPubkey, 500);
+        // ✅ OPTIMIZATION: Reduced from 500 → 100 workouts for faster initial load
+        // Remaining workouts load on-demand when user opens workout screen
+        const result = await cacheService.getMergedWorkouts(hexPubkey, 100);
 
-      // ✅ Cache in UnifiedNostrCache for instant access across app
-      await unifiedCache.set(
-        CacheKeys.USER_WORKOUTS(hexPubkey),
-        result.allWorkouts,
-        CacheTTL.USER_WORKOUTS
-      );
+        // ✅ Cache in UnifiedNostrCache for instant access across app
+        await unifiedCache.set(
+          CacheKeys.USER_WORKOUTS(hexPubkey),
+          result.allWorkouts,
+          CacheTTL.USER_WORKOUTS
+        );
 
-      console.log(`[Prefetch] Cached ${result.allWorkouts.length} workouts (${result.nostrCount} Nostr, ${result.healthKitCount} HealthKit)`);
+        console.log(`[Prefetch] Cached ${result.allWorkouts.length} workouts (${result.nostrCount} Nostr, ${result.healthKitCount} HealthKit)`);
+      })();
+
+      // ✅ Race between fetch and timeout
+      await Promise.race([
+        workoutFetchPromise,
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Workout fetch timeout')), 8000)
+        )
+      ]);
     } catch (error) {
-      console.error('[Prefetch] User workouts prefetch failed:', error);
+      if (error instanceof Error && error.message === 'Workout fetch timeout') {
+        console.warn('[Prefetch] Workout fetch timed out after 8s - workouts will load on demand');
+      } else {
+        console.error('[Prefetch] User workouts prefetch failed:', error);
+      }
       // Non-blocking - workouts will load on demand if prefetch fails
     }
   }
@@ -355,11 +389,12 @@ export class NostrPrefetchService {
 
   /**
    * Prefetch competitions (kind 30100 leagues, 30101 events)
+   * OPTIMIZED: 5-second timeout to prevent blocking
    */
   private async prefetchCompetitions(): Promise<void> {
     try {
-      // ✅ Fetch leagues and events in parallel
-      const [leagues, events] = await Promise.all([
+      // ✅ Fetch leagues and events in parallel with timeout
+      const competitionsFetchPromise = Promise.all([
         unifiedCache.get(
           CacheKeys.LEAGUES,
           async () => {
@@ -378,9 +413,21 @@ export class NostrPrefetchService {
         )
       ]);
 
+      // ✅ PERFORMANCE: 5-second timeout for competitions
+      const [leagues, events] = await Promise.race([
+        competitionsFetchPromise,
+        new Promise<[any[], any[]]>((_, reject) =>
+          setTimeout(() => reject(new Error('Competitions fetch timeout')), 5000)
+        )
+      ]);
+
       console.log(`[Prefetch] Competitions cached: ${leagues?.length || 0} leagues, ${events?.length || 0} events`);
     } catch (error) {
-      console.error('[Prefetch] Competitions failed:', error);
+      if (error instanceof Error && error.message === 'Competitions fetch timeout') {
+        console.warn('[Prefetch] Competitions fetch timed out after 5s - competitions will load on demand');
+      } else {
+        console.error('[Prefetch] Competitions failed:', error);
+      }
     }
   }
 }

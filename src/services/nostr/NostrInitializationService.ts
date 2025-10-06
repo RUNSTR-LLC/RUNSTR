@@ -154,12 +154,13 @@ export class NostrInitializationService {
       const cacheService = WorkoutCacheService.getInstance();
 
       console.log('📞 Calling WorkoutCacheService.getMergedWorkouts()...');
-      console.log(`   Parameters: pubkey=${hexPubkey.slice(0, 10)}..., limit=500`);
+      console.log(`   Parameters: pubkey=${hexPubkey.slice(0, 10)}..., limit=100`);
 
-      // Fetch workouts using centralized service (limit: 500 for safety)
+      // ✅ OPTIMIZATION: Reduced from 500 → 100 workouts for faster initial load
+      // Fetch workouts using centralized service (limit: 100 for performance)
       // This will cache in 'user_workouts_merged' key that all screens expect
       // CRITICAL: Only pass hexPubkey and limit (2 params, not 3!)
-      const result = await cacheService.getMergedWorkouts(hexPubkey, 500);
+      const result = await cacheService.getMergedWorkouts(hexPubkey, 100);
 
       console.log('📊 ================================');
       console.log('📊 PREFETCH COMPLETE');
