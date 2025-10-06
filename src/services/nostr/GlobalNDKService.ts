@@ -37,8 +37,11 @@ export class GlobalNDKService {
    * Get or create the global NDK instance
    *
    * THREAD-SAFE: Multiple concurrent calls will reuse the same initialization promise
+   * TIMEOUT-PROTECTED: Hard 15-second timeout to prevent indefinite hangs
    */
   static async getInstance(): Promise<NDK> {
+    const INIT_TIMEOUT = 15000; // 15 seconds hard timeout
+
     // Return existing instance if already initialized
     if (this.instance && this.isInitialized) {
       console.log('✅ GlobalNDK: Returning existing instance');
@@ -48,17 +51,43 @@ export class GlobalNDKService {
     // Reuse existing initialization promise if in progress
     if (this.initPromise) {
       console.log('⏳ GlobalNDK: Waiting for existing initialization...');
-      return this.initPromise;
+
+      // ✅ FIX: Add timeout to prevent waiting forever on stale promise
+      return Promise.race([
+        this.initPromise,
+        new Promise<NDK>((_, reject) =>
+          setTimeout(() => {
+            console.error('❌ GlobalNDK: Initialization timeout (15s) - clearing stale promise');
+            this.initPromise = null; // Clear stale promise
+            reject(new Error('GlobalNDK initialization timeout'));
+          }, INIT_TIMEOUT)
+        )
+      ]);
     }
 
-    // Start new initialization
+    // Start new initialization with timeout protection
     console.log('🚀 GlobalNDK: Creating new NDK instance...');
-    this.initPromise = this.initializeNDK();
+
+    // ✅ FIX: Wrap initialization in Promise.race for hard timeout
+    this.initPromise = Promise.race([
+      this.initializeNDK(),
+      new Promise<NDK>((_, reject) =>
+        setTimeout(() => {
+          console.error('❌ GlobalNDK: Connect timeout (15s) - relay connection failed');
+          reject(new Error('GlobalNDK connect timeout - relays not responding'));
+        }, INIT_TIMEOUT)
+      )
+    ]);
 
     try {
       this.instance = await this.initPromise;
       this.isInitialized = true;
+      console.log('✅ GlobalNDK: Initialization successful');
       return this.instance;
+    } catch (error) {
+      console.error('❌ GlobalNDK: Initialization failed:', error);
+      this.initPromise = null; // Clear failed promise to allow retry
+      throw error;
     } finally {
       this.initPromise = null; // Clear promise after completion
     }

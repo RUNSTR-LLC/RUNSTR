@@ -74,11 +74,32 @@ export class NostrPrefetchService {
 
       // ✅ OPTIMIZATION: Group 1 - Independent fetches (run in parallel)
       // These don't depend on each other and can fetch simultaneously
+      // ✅ FIX: Ensure progress callbacks ALWAYS fire, even on failure
       await Promise.all([
-        this.prefetchUserProfile(hexPubkey).then(() => reportProgress('Profile loaded')),
-        this.prefetchDiscoveredTeams().then(() => reportProgress('Teams discovered')),
-        this.prefetchCompetitions().then(() => reportProgress('Competitions loaded')),
-        this.prefetchWalletInfo(hexPubkey).then(() => reportProgress('Wallet initialized')),
+        this.prefetchUserProfile(hexPubkey)
+          .then(() => reportProgress('Profile loaded'))
+          .catch((err) => {
+            console.warn('[Prefetch] Profile failed, continuing anyway:', err?.message);
+            reportProgress('Profile loaded'); // Report progress even on failure
+          }),
+        this.prefetchDiscoveredTeams()
+          .then(() => reportProgress('Teams discovered'))
+          .catch((err) => {
+            console.warn('[Prefetch] Teams failed, continuing anyway:', err?.message);
+            reportProgress('Teams discovered'); // CRITICAL: Report even on failure
+          }),
+        this.prefetchCompetitions()
+          .then(() => reportProgress('Competitions loaded'))
+          .catch((err) => {
+            console.warn('[Prefetch] Competitions failed, continuing anyway:', err?.message);
+            reportProgress('Competitions loaded'); // Report even on failure
+          }),
+        this.prefetchWalletInfo(hexPubkey)
+          .then(() => reportProgress('Wallet initialized'))
+          .catch((err) => {
+            console.warn('[Prefetch] Wallet failed, continuing anyway:', err?.message);
+            reportProgress('Wallet initialized'); // Report even on failure
+          }),
       ]);
 
       // ✅ Step 5: User Teams (depends on discovered teams, so runs after Group 1)

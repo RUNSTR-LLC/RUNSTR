@@ -68,40 +68,58 @@ export const SplashInitScreen: React.FC<SplashInitScreenProps> = ({ onComplete }
   };
 
   const initializeApp = async () => {
-    try {
-      console.log('🚀 SplashInit: Starting comprehensive prefetch...');
+    const MAX_INIT_TIME = 30000; // 30 seconds absolute maximum
 
-      // Step 1: Connect to Nostr relays
-      setCurrentStep(0);
-      setStatusMessage(INITIALIZATION_STEPS[0].message);
-      animateProgress(calculateProgress(0));
+    // ✅ FIX: Wrap entire initialization in timeout to prevent indefinite hangs
+    const initPromise = (async () => {
+      try {
+        console.log('🚀 SplashInit: Starting comprehensive prefetch...');
 
-      const initService = NostrInitializationService.getInstance();
-      await initService.connectToRelays();
-      await initService.initializeNDK();
+        // Step 1: Connect to Nostr relays
+        setCurrentStep(0);
+        setStatusMessage(INITIALIZATION_STEPS[0].message);
+        animateProgress(calculateProgress(0));
 
-      console.log('✅ SplashInit: Nostr connected');
+        const initService = NostrInitializationService.getInstance();
+        await initService.connectToRelays();
+        await initService.initializeNDK();
 
-      // Step 2-7: Prefetch ALL user data with progress updates
-      await nostrPrefetchService.prefetchAllUserData(
-        (step, total, message) => {
-          // Update UI with each prefetch step
-          setCurrentStep(step); // steps 1-6
-          setStatusMessage(message);
-          animateProgress(calculateProgress(step));
-          console.log(`✅ SplashInit: ${message}`);
-        }
-      );
+        console.log('✅ SplashInit: Nostr connected');
 
-      console.log('✅ SplashInit: All data prefetched and cached - app ready!');
+        // Step 2-7: Prefetch ALL user data with progress updates
+        await nostrPrefetchService.prefetchAllUserData(
+          (step, total, message) => {
+            // Update UI with each prefetch step
+            setCurrentStep(step); // steps 1-6
+            setStatusMessage(message);
+            animateProgress(calculateProgress(step));
+            console.log(`✅ SplashInit: ${message}`);
+          }
+        );
 
-      // Notify parent component that initialization is complete
-      if (onComplete) {
-        onComplete();
+        console.log('✅ SplashInit: All data prefetched and cached - app ready!');
+      } catch (error) {
+        console.error('❌ SplashInit: Initialization error:', error);
+        // Continue anyway - app should work with partial data
       }
-    } catch (error) {
-      console.error('❌ SplashInit: Initialization error:', error);
-      // Continue anyway - app should work with partial data
+    })();
+
+    // ✅ FIX: Emergency timeout - force app forward after 30s maximum
+    const timeoutPromise = new Promise<void>((resolve) => {
+      setTimeout(() => {
+        console.warn('⚠️ SplashInit: 30-second timeout reached - forcing app to continue');
+        console.warn('⚠️ App will work with partial data - teams will load on demand');
+        resolve();
+      }, MAX_INIT_TIME);
+    });
+
+    // Wait for either init to complete OR timeout to fire
+    await Promise.race([initPromise, timeoutPromise]);
+
+    // Always notify completion to move forward
+    if (onComplete) {
+      console.log('✅ SplashInit: Calling onComplete to transition to main app');
+      onComplete();
     }
   };
 
