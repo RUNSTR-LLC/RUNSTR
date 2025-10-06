@@ -273,6 +273,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       console.log('✅ AuthContext: Authentication successful - updating state');
 
+      // ✅ FIX: Clear new signup flag for returning users
+      // This prevents returning users from seeing onboarding wizard
+      await AsyncStorage.setItem('@runstr:is_new_signup', 'false');
+
       // Direct state updates (like iOS app)
       setIsAuthenticated(true);
       setConnectionStatus('Loading your fitness journey...');
