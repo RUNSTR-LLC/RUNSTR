@@ -81,7 +81,7 @@ export const TeamChatSection: React.FC<TeamChatSectionProps> = ({
         setChannelId(channel.id!);
       } else if (isCaptain) {
         // Auto-create chat for captain if it doesn't exist (handles existing teams)
-        console.log('No chat found, auto-creating for captain...');
+        console.log('[TeamChat] 🔨 No chat found, auto-creating for captain...');
         setAutoCreating(true);
 
         try {
@@ -91,9 +91,15 @@ export const TeamChatSection: React.FC<TeamChatSectionProps> = ({
             captainPubkey
           );
           setChannelId(newChannel.id!);
-          console.log('Chat auto-created successfully');
+          console.log('[TeamChat] ✅ Chat auto-created successfully:', newChannel.id);
         } catch (createError) {
-          console.error('Failed to auto-create chat:', createError);
+          console.error('[TeamChat] ❌ Failed to auto-create chat:', createError);
+          console.error('[TeamChat] Error details:', {
+            message: createError instanceof Error ? createError.message : String(createError),
+            teamId,
+            teamName,
+            captainPubkey: captainPubkey?.slice(0, 20) + '...',
+          });
           // Channel stays null, will show error state
         } finally {
           setAutoCreating(false);

@@ -6,6 +6,7 @@
 
 import NDK, { NDKEvent, NDKFilter, NDKSubscription } from '@nostr-dev-kit/ndk';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import unifiedSigningService from '../auth/UnifiedSigningService';
 
 export interface TeamChannel {
   id: string;
@@ -50,6 +51,12 @@ export class ChatService {
     try {
       const ndk = this.getNDK();
 
+      // Get signer from UnifiedSigningService (works for both nsec and Amber)
+      const signer = await unifiedSigningService.getSigner();
+      if (!signer) {
+        throw new Error('No signer available. Please login first.');
+      }
+
       const event = new NDKEvent(ndk);
       event.kind = 40; // NIP-28 Channel Creation
       event.content = JSON.stringify({
@@ -63,7 +70,8 @@ export class ChatService {
         ['t', 'runstr-team-chat'] // Category tag
       ];
 
-      await event.sign();
+      // Sign with UnifiedSigningService signer
+      await event.sign(signer);
       await event.publish();
 
       console.log(`✅ Chat channel created with ID: ${event.id}`);
