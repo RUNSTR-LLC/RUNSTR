@@ -198,10 +198,25 @@ export class EnhancedLocationTrackingService {
     try {
       console.log(`🚀 [${Platform.OS.toUpperCase()}] Starting ${activityType} tracking...`);
 
-      // Check state machine
+      // Check state machine and force cleanup if stuck
+      const currentState = this.stateMachine.getState();
       if (!this.stateMachine.canStart()) {
-        console.warn('Cannot start tracking in current state:', this.stateMachine.getState());
-        return false;
+        console.warn('Cannot start tracking in current state:', currentState);
+
+        // If stuck in non-idle state for zombie session, force cleanup
+        if (currentState !== 'idle' && currentState !== 'requesting_permissions') {
+          console.log('🔧 Forcing cleanup of stuck session state:', currentState);
+          await this.forceCleanup();
+
+          // Verify we're now in idle state
+          if (!this.stateMachine.canStart()) {
+            console.error('❌ Failed to cleanup stuck session, still in:', this.stateMachine.getState());
+            return false;
+          }
+          console.log('✅ Successfully cleaned up stuck session');
+        } else {
+          return false;
+        }
       }
 
       // Send start tracking event to state machine
@@ -413,18 +428,21 @@ export class EnhancedLocationTrackingService {
         const hasTimedOut = recoveryDuration > this.GPS_RECOVERY_TIMEOUT_MS;
 
         if (hasTimedOut) {
-          console.log(`⏰ GPS Recovery: Timeout after ${(recoveryDuration / 1000).toFixed(1)}s, forcing exit from recovery mode`);
-          console.log(`   Skipped ${this.skippedRecoveryDistance.toFixed(1)}m of phantom distance during recovery`);
+          console.log(`⏰ GPS Recovery: FORCED TIMEOUT after ${(recoveryDuration / 1000).toFixed(1)}s`);
+          console.log(`   Completed ${this.pointsAfterRecovery}/${this.GPS_RECOVERY_POINTS} recovery points`);
+          console.log(`   Prevented ${this.skippedRecoveryDistance.toFixed(1)}m of phantom distance`);
 
           // Update statistics
           this.currentSession.statistics.distanceSkippedInRecovery += this.skippedRecoveryDistance;
 
-          // Reset recovery state
+          // Reset recovery state - ALWAYS exit on timeout regardless of point quality
           this.wasInGpsLostState = false;
           this.pointsAfterRecovery = 0;
           this.recoveryStartTime = null;
           this.skippedRecoveryDistance = 0;
-          // Continue to normal distance tracking below
+
+          // DO NOT return - continue to normal distance tracking below
+          // This ensures we resume distance accumulation after timeout
         } else if (this.pointsAfterRecovery < this.GPS_RECOVERY_POINTS) {
           // Calculate what the distance would have been (phantom distance)
           if (this.lastValidLocation) {
@@ -432,24 +450,25 @@ export class EnhancedLocationTrackingService {
             this.skippedRecoveryDistance += phantomDistance;
           }
 
-          // Check if GPS accuracy is improving
+          // Count ALL points during recovery (relaxed logic - prevents getting stuck)
+          // Old logic required perfect accuracy improvement, which was too strict
+          this.pointsAfterRecovery++;
+
+          // Check GPS accuracy for logging purposes
           const currentAccuracy = pointToStore.accuracy || 50;
-          const isImprovingQuality = currentAccuracy <= this.recoveryAccuracyThreshold;
+          const isReasonableQuality = currentAccuracy <= 50; // Relaxed threshold: just needs to be reasonable
 
-          if (isImprovingQuality) {
-            // Quality is good or improving, accept this recovery point
-            this.pointsAfterRecovery++;
-            this.recoveryAccuracyThreshold = currentAccuracy; // Lower threshold for next point
-
-            console.log(`📍 GPS Recovery: Point ${this.pointsAfterRecovery}/${this.GPS_RECOVERY_POINTS} (accuracy: ${currentAccuracy.toFixed(1)}m, skipped: ${this.skippedRecoveryDistance.toFixed(1)}m, ${(recoveryDuration / 1000).toFixed(1)}s elapsed)`);
+          if (isReasonableQuality) {
+            // Update threshold only when we get good points
+            this.recoveryAccuracyThreshold = Math.min(this.recoveryAccuracyThreshold, currentAccuracy);
+            console.log(`📍 GPS Recovery: Point ${this.pointsAfterRecovery}/${this.GPS_RECOVERY_POINTS} ✓ (accuracy: ${currentAccuracy.toFixed(1)}m, skipped: ${this.skippedRecoveryDistance.toFixed(1)}m, ${(recoveryDuration / 1000).toFixed(1)}s elapsed)`);
           } else {
-            // Quality not improving, skip this point but don't count it toward recovery
-            console.log(`⚠️ GPS Recovery: Rejected point with poor accuracy ${currentAccuracy.toFixed(1)}m > ${this.recoveryAccuracyThreshold.toFixed(1)}m threshold`);
+            console.log(`📍 GPS Recovery: Point ${this.pointsAfterRecovery}/${this.GPS_RECOVERY_POINTS} ~ (poor accuracy: ${currentAccuracy.toFixed(1)}m, skipped: ${this.skippedRecoveryDistance.toFixed(1)}m, ${(recoveryDuration / 1000).toFixed(1)}s elapsed)`);
           }
 
           // During recovery, use Kalman prediction for smooth UI updates
           // This prevents phantom distance while still showing progress
-          if (this.kalmanFilter.isReady() && isImprovingQuality && this.lastValidLocation) {
+          if (this.kalmanFilter.isReady() && isReasonableQuality && this.lastValidLocation) {
             const recoveryTimeDelta = (pointToStore.timestamp - this.lastValidLocation.timestamp) / 1000;
             const estimatedDistance = this.kalmanFilter.predict(recoveryTimeDelta);
             this.currentSession.totalDistance = Math.max(
@@ -672,6 +691,24 @@ export class EnhancedLocationTrackingService {
           console.log(`   In recovery mode: ${this.isInRecoveryMode()}`);
           console.log(`   Points after recovery: ${this.pointsAfterRecovery}/${this.GPS_RECOVERY_POINTS}`);
           console.log(`   Valid points: ${this.totalValidPoints}, Invalid: ${this.totalInvalidPoints}`);
+
+          // CORRECTIVE ACTION: Force exit recovery mode if stuck
+          if (this.isInRecoveryMode()) {
+            console.log(`🔧 FREEZE FIX: Force-exiting stuck recovery mode`);
+            this.wasInGpsLostState = false;
+            this.pointsAfterRecovery = 0;
+            this.recoveryStartTime = null;
+            this.skippedRecoveryDistance = 0;
+          }
+
+          // CORRECTIVE ACTION: Reset Kalman filter if stuck
+          console.log(`🔧 FREEZE FIX: Resetting Kalman filter to recover from stuck state`);
+          this.kalmanFilter.reset();
+
+          // Reset freeze detection timer to prevent repeated resets
+          this.lastDistanceUpdateTime = now;
+
+          console.log(`✅ FREEZE FIX: Recovery actions completed, distance tracking should resume`);
         }
       }
     }, 5000);
@@ -817,8 +854,14 @@ export class EnhancedLocationTrackingService {
       const session = { ...this.currentSession };
       this.cleanup();
 
+      // Single RESET to move from 'completing' -> 'completed'
       this.stateMachine.send({ type: 'RESET' });
-      this.stateMachine.send({ type: 'RESET' }); // Move to idle
+
+      // Then RESET again to move from 'completed' -> 'idle'
+      // Wait a tick to ensure first transition completes
+      setTimeout(() => {
+        this.stateMachine.send({ type: 'RESET' });
+      }, 0);
 
       return session;
     }
@@ -936,6 +979,30 @@ export class EnhancedLocationTrackingService {
     this.skippedRecoveryDistance = 0;
     this.splitTracker.reset();
     this.kalmanFilter.reset();
+  }
+
+  /**
+   * Force cleanup of stuck sessions
+   * Used when state machine gets into invalid state
+   */
+  private async forceCleanup(): Promise<void> {
+    console.log('🔧 Force cleanup: stopping location updates and resetting state');
+
+    // Stop all location tracking
+    if (this.locationSubscription) {
+      this.locationSubscription.remove();
+      this.locationSubscription = null;
+    }
+
+    await stopBackgroundLocationTracking();
+    this.stopGPSMonitoring();
+    this.stopBackgroundLocationSync();
+
+    // Clean up resources
+    this.cleanup();
+
+    // Force state machine back to idle
+    this.stateMachine.reset();
   }
 
   /**

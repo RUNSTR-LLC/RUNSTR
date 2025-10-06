@@ -72,22 +72,73 @@ export const RunningTrackerScreen: React.FC = () => {
   }, []);
 
   const startTracking = async () => {
+    // Health check: Detect and cleanup zombie sessions before starting
+    const currentState = enhancedLocationTrackingService.getTrackingState();
+    if (currentState !== 'idle' && currentState !== 'requesting_permissions') {
+      console.log('⚠️ Detected non-idle state before start:', currentState);
+
+      // Check if there's an active session
+      const existingSession = enhancedLocationTrackingService.getCurrentSession();
+
+      if (existingSession) {
+        // Check if session is stale (older than 4 hours = definitely zombie)
+        const sessionAge = Date.now() - existingSession.startTime;
+        const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
+
+        if (sessionAge > FOUR_HOURS_MS) {
+          console.log('🔧 Auto-cleanup: Removing stale zombie session (age: ${(sessionAge / 1000 / 60).toFixed(0)} min)');
+          Alert.alert(
+            'Cleaning Up',
+            'Found and removed a stale activity session. You can now start a new activity.',
+            [{ text: 'OK' }]
+          );
+          // Service will auto-cleanup via forceCleanup in startTracking
+        } else {
+          // Session is recent, might be legitimate
+          Alert.alert(
+            'Active Session Detected',
+            'There appears to be an active session. Would you like to clean it up and start fresh?',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Clean Up',
+                onPress: async () => {
+                  console.log('🔧 User requested cleanup of existing session');
+                  // Let the service handle cleanup via forceCleanup
+                  const retryStarted = await enhancedLocationTrackingService.startTracking('running');
+                  if (retryStarted) {
+                    // Continue with normal initialization below
+                    initializeTracking();
+                  }
+                }
+              }
+            ]
+          );
+          return;
+        }
+      }
+    }
+
     const started = await enhancedLocationTrackingService.startTracking('running');
     if (!started) {
       // The service will handle permission requests internally
       // and show the native iOS dialog if needed
       // Show error if tracking service is in invalid state
-      const currentState = enhancedLocationTrackingService.getTrackingState();
-      if (currentState !== 'idle' && currentState !== 'requesting_permissions') {
+      const finalState = enhancedLocationTrackingService.getTrackingState();
+      if (finalState !== 'idle' && finalState !== 'requesting_permissions') {
         Alert.alert(
           'Cannot Start Tracking',
-          'Previous activity session is still active. Please wait a moment and try again.',
+          'Unable to start activity tracking. Please try again or restart the app if the issue persists.',
           [{ text: 'OK' }]
         );
       }
       return;
     }
 
+    initializeTracking();
+  };
+
+  const initializeTracking = () => {
     setIsTracking(true);
     setIsPaused(false);
     isPausedRef.current = false;
