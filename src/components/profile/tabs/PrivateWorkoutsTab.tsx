@@ -216,12 +216,6 @@ export const PrivateWorkoutsTab: React.FC<PrivateWorkoutsTabProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Instant Load Indicator */}
-      <View style={styles.instantIndicator}>
-        <Ionicons name="phone-portrait" size={12} color={theme.colors.accent} />
-        <Text style={styles.instantText}>Local workouts (instant display)</Text>
-      </View>
-
       <FlatList
         data={monthlyGroups}
         renderItem={renderMonthlyGroup}

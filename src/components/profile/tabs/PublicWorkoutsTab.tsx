@@ -195,14 +195,6 @@ export const PublicWorkoutsTab: React.FC<PublicWorkoutsTabProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Cache Indicator */}
-      {fromCache && (
-        <View style={styles.cacheIndicator}>
-          <Ionicons name="flash" size={12} color={theme.colors.success} />
-          <Text style={styles.cacheText}>Instant load from cache</Text>
-        </View>
-      )}
-
       <FlatList
         data={monthlyGroups}
         renderItem={renderMonthlyGroup}
