@@ -82,6 +82,7 @@ import { useWalletStore } from './store/walletStore';
 import { appInitializationService } from './services/initialization/AppInitializationService';
 import { theme } from './styles/theme';
 import unifiedCache from './services/cache/UnifiedNostrCache';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Types for authenticated app navigation
 type AuthenticatedStackParamList = {
@@ -220,8 +221,11 @@ const AppContent: React.FC = () => {
     React.useEffect(() => {
       const initializeData = async () => {
         try {
-          // Get user's pubkey (prioritize hex, fallback to npub)
-          const pubkey = user.id; // User ID should be hex pubkey or npub
+          // CRITICAL FIX: Get actual hex pubkey from AsyncStorage, NOT synthetic user.id
+          // user.id is 'nostr_hh6sr85uum' but we need actual hex for Nostr queries
+          const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+          const npub = await AsyncStorage.getItem('@runstr:npub');
+          const pubkey = hexPubkey || npub;
 
           if (!pubkey) {
             console.warn('[App] Cannot initialize app data: no pubkey available');
