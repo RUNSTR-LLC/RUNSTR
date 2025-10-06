@@ -8,10 +8,10 @@ import { getAuthenticationData } from './nostrAuth';
 import { nsecToPrivateKey } from './nostr';
 import { NostrCompetitionService } from '../services/nostr/NostrCompetitionService';
 import NostrTeamCreationService from '../services/nostr/NostrTeamCreationService';
-import TeamMemberCache from '../services/team/TeamMemberCache';
-import Competition1301QueryService from '../services/competition/Competition1301QueryService';
-import LeagueRankingService from '../services/competition/leagueRankingService';
-import NostrRelayManager from '../services/nostr/NostrRelayManager';
+import { TeamMemberCache } from '../services/team/TeamMemberCache';
+import { Competition1301QueryService } from '../services/competition/Competition1301QueryService';
+import { LeagueRankingService } from '../services/competition/leagueRankingService';
+import { NostrRelayManager } from '../services/nostr/NostrRelayManager';
 import type { NostrActivityType, NostrLeagueCompetitionType } from '../types/nostrCompetition';
 
 export interface IntegrationTestResult {

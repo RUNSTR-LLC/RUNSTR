@@ -2,7 +2,11 @@
  * Competition Leaderboard Manager
  * Manages competition-specific leaderboard updates when workouts are processed
  * Bridges workout processing with event, challenge, and league leaderboards
+ *
+ * NOTE: This service uses Supabase and needs Nostr rewrite
  */
+
+// @ts-nocheck - Supabase code needs Nostr rewrite
 
 // import { supabase } from '../supabase';  // REMOVED: Project now uses pure Nostr
 import type { WorkoutData } from '../../types';

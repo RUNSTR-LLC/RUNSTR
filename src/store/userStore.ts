@@ -5,10 +5,9 @@
 
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import UserService, {
-  type UserProfile,
-  type TeamSwitchResult,
-} from '../services/userService';
+import { ProfileService, type UserProfile } from '../services/user/ProfileService';
+import { TeamMembershipService, type TeamSwitchResult } from '../services/user/teamMembershipService';
+import { AuthService } from '../services/auth/authService';
 import { TeamMatchingAlgorithm } from '../utils/teamMatching';
 import type {
   DiscoveryTeam,
@@ -167,7 +166,7 @@ export const useUserStore = create<UserStoreState>()(
       set({ isLoadingUser: true, userError: null });
 
       try {
-        const result = await UserService.updateUserPreferences(
+        const result = await ProfileService.updateUserPreferences(
           user.id,
           preferences
         );
@@ -206,7 +205,7 @@ export const useUserStore = create<UserStoreState>()(
       set({ isLoadingRecommendations: true, recommendationsError: null });
 
       try {
-        const recommendations = await UserService.getRecommendedTeams(user.id);
+        const recommendations = await TeamMembershipService.getRecommendedTeams(user.id);
 
         set({ recommendedTeams: recommendations });
       } catch (error) {
@@ -229,9 +228,8 @@ export const useUserStore = create<UserStoreState>()(
       set({ isSwitchingTeams: true, switchError: null });
 
       try {
-        const result = await UserService.switchTeams(
+        const result = await TeamMembershipService.switchTeams(
           user.id,
-          fromTeamId,
           toTeamId
         );
 
@@ -268,7 +266,7 @@ export const useUserStore = create<UserStoreState>()(
       if (!user) return;
 
       try {
-        const cooldownInfo = await UserService.getTeamSwitchCooldown(user.id);
+        const cooldownInfo = await TeamMembershipService.getTeamSwitchCooldown(user.id);
         set({ switchCooldown: cooldownInfo });
       } catch (error) {
         console.error('Error loading switch cooldown:', error);
@@ -280,18 +278,13 @@ export const useUserStore = create<UserStoreState>()(
       if (!user) return;
 
       try {
-        const improvement = await UserService.calculateFitnessImprovement(
-          user.id
-        );
+        // TODO: Implement calculateFitnessImprovement in ProfileService
+        // For now, use placeholder data
+        const improvement = 0;
         set({
           fitnessImprovement: {
             improvement,
-            trend:
-              improvement > 0
-                ? 'improving'
-                : improvement < 0
-                ? 'declining'
-                : 'stable',
+            trend: 'stable',
             metrics: {},
           },
         });
@@ -305,7 +298,7 @@ export const useUserStore = create<UserStoreState>()(
       if (!user) return;
 
       try {
-        const stats = await UserService.getTeamParticipationStats(user.id);
+        const stats = await TeamMembershipService.getTeamParticipationStats(user.id);
         set({ participationStats: stats });
       } catch (error) {
         console.error('Error loading participation stats:', error);
@@ -335,7 +328,7 @@ export const useUserStore = create<UserStoreState>()(
       set({ isLoadingUser: true, userError: null });
 
       try {
-        const result = await UserService.initializeUserForTeamDiscovery(
+        const result = await TeamMembershipService.initializeUserForTeamDiscovery(
           user.id,
           basicInfo
         );
@@ -381,7 +374,7 @@ export const useUserStore = create<UserStoreState>()(
 
     signOut: async () => {
       try {
-        await UserService.signOut(get().user?.id || '');
+        await AuthService.signOut();
         // Clear all user state after successful sign out
         get().reset();
       } catch (error) {

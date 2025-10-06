@@ -93,10 +93,6 @@ export const SplashInitScreen: React.FC<SplashInitScreenProps> = ({ onComplete }
         }
       );
 
-      // Hold at 100% briefly so user sees completion
-      animateProgress(1);
-      await new Promise(resolve => setTimeout(resolve, 500));
-
       console.log('✅ SplashInit: All data prefetched and cached - app ready!');
 
       // Notify parent component that initialization is complete

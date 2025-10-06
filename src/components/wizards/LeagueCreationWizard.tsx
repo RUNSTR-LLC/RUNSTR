@@ -12,10 +12,10 @@ import {
   ScrollView,
   TextInput,
   Switch,
-  Alert,
 } from 'react-native';
 import { theme } from '../../styles/theme';
 import { WizardStepContainer, WizardStep } from './WizardStepContainer';
+import { CustomAlert } from '../ui/CustomAlert';
 import { NostrCompetitionService } from '../../services/nostr/NostrCompetitionService';
 import NostrCompetitionParticipantService from '../../services/nostr/NostrCompetitionParticipantService';
 import { useUserStore } from '../../store/userStore';
@@ -133,6 +133,12 @@ export const LeagueCreationWizard: React.FC<LeagueCreationWizardProps> = ({
     prizePoolSats: undefined,
   });
 
+  // Alert state for CustomAlert
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertButtons, setAlertButtons] = useState<Array<{text: string; onPress?: () => void}>>([]);
+
   // Reset wizard when opened
   useEffect(() => {
     if (visible) {
@@ -209,27 +215,20 @@ export const LeagueCreationWizard: React.FC<LeagueCreationWizardProps> = ({
       const activeCompetitions = await NostrCompetitionService.checkActiveCompetitions(teamId);
 
       if (activeCompetitions.activeLeagues > 0) {
-        Alert.alert(
-          'Active League Exists',
-          `Your team already has an active league: "${activeCompetitions.activeLeagueDetails?.name}"\n\nIt ends on ${activeCompetitions.activeLeagueDetails?.endDate}.\n\nOnly one league can be active at a time.`,
-          [
-            {
-              text: 'OK',
-              onPress: () => setIsCreating(false)
-            }
-          ]
-        );
+        setAlertTitle('Active League Exists');
+        setAlertMessage(`Your team already has an active league: "${activeCompetitions.activeLeagueDetails?.name}"\n\nIt ends on ${activeCompetitions.activeLeagueDetails?.endDate}.\n\nOnly one league can be active at a time.`);
+        setAlertButtons([{ text: 'OK', onPress: () => setIsCreating(false) }]);
+        setAlertVisible(true);
         return;
       }
 
       // Get authentication data from unified auth system
       const authData = await getAuthenticationData();
       if (!authData || !authData.nsec) {
-        Alert.alert(
-          'Authentication Required',
-          'Please log in again to create competitions.',
-          [{ text: 'OK' }]
-        );
+        setAlertTitle('Authentication Required');
+        setAlertMessage('Please log in again to create competitions.');
+        setAlertButtons([{ text: 'OK' }]);
+        setAlertVisible(true);
         setIsCreating(false);
         return;
       }
@@ -239,7 +238,10 @@ export const LeagueCreationWizard: React.FC<LeagueCreationWizardProps> = ({
       // Get signer (works for both nsec and Amber)
       const signer = await unifiedSigningService.getSigner();
       if (!signer) {
-        Alert.alert('Error', 'No authentication found. Please login first.');
+        setAlertTitle('Error');
+        setAlertMessage('No authentication found. Please login first.');
+        setAlertButtons([{ text: 'OK' }]);
+        setAlertVisible(true);
         setIsCreating(false);
         return;
       }
@@ -273,36 +275,25 @@ export const LeagueCreationWizard: React.FC<LeagueCreationWizardProps> = ({
       if (result.success) {
         console.log('✅ League created successfully:', result.competitionId);
 
-        // Create participant list if approval is required
-        if (leagueData.requireApproval && result.competitionId) {
-          console.log('📋 Creating participant list for approval-required league');
-          const participantService = NostrCompetitionParticipantService.getInstance();
-          await participantService.createParticipantList(
-            result.competitionId,
-            teamId,
-            privateKeyHex,
-            true // requireApproval
-          );
-        }
+        // Note: Participant list creation handled internally by NostrCompetitionService
+        // No need to manually create it here
 
-        Alert.alert(
-          'Success!',
-          `League "${leagueData.leagueName}" has been created and published to Nostr relays.`,
-          [{ text: 'OK', onPress: () => {
-            onLeagueCreated(leagueData);
-            onClose();
-          }}]
-        );
+        setAlertTitle('Success!');
+        setAlertMessage(`League "${leagueData.leagueName}" has been created and published to Nostr relays.`);
+        setAlertButtons([{ text: 'OK', onPress: () => {
+          onLeagueCreated(leagueData);
+          onClose();
+        }}]);
+        setAlertVisible(true);
       } else {
         throw new Error(result.message || 'Failed to create league');
       }
     } catch (error) {
       console.error('❌ Failed to create league:', error);
-      Alert.alert(
-        'Error', 
-        `Failed to create league: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        [{ text: 'OK' }]
-      );
+      setAlertTitle('Error');
+      setAlertMessage(`Failed to create league: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setAlertButtons([{ text: 'OK' }]);
+      setAlertVisible(true);
     } finally {
       setIsCreating(false);
     }
@@ -747,23 +738,34 @@ export const LeagueCreationWizard: React.FC<LeagueCreationWizardProps> = ({
   };
 
   return (
-    <WizardStepContainer
-      visible={visible}
-      currentStep={currentStep}
-      steps={steps}
-      wizardTitle="Create League"
-      onClose={onClose}
-      onNext={handleNext}
-      onPrevious={handlePrevious}
-      onComplete={handleComplete}
-      canGoNext={steps[currentStep]?.isValid}
-      canGoPrevious={currentStep > 0}
-      isLastStep={currentStep === steps.length - 1}
-      isProcessing={isCreating}
-      processingText="Creating League..."
-    >
-      {renderStepContent()}
-    </WizardStepContainer>
+    <>
+      <WizardStepContainer
+        visible={visible}
+        currentStep={currentStep}
+        steps={steps}
+        wizardTitle="Create League"
+        onClose={onClose}
+        onNext={handleNext}
+        onPrevious={handlePrevious}
+        onComplete={handleComplete}
+        canGoNext={steps[currentStep]?.isValid}
+        canGoPrevious={currentStep > 0}
+        isLastStep={currentStep === steps.length - 1}
+        isProcessing={isCreating}
+        processingText="Creating League..."
+      >
+        {renderStepContent()}
+      </WizardStepContainer>
+
+      {/* Custom Alert Modal */}
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        buttons={alertButtons}
+        onClose={() => setAlertVisible(false)}
+      />
+    </>
   );
 };
 
@@ -791,17 +793,20 @@ const styles = StyleSheet.create({
   optionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    justifyContent: 'space-between',
+    marginHorizontal: -6, // Negative margin to offset card margins
   },
 
   optionCard: {
-    flexBasis: '47%',
+    width: '47%',
     backgroundColor: theme.colors.cardBackground,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
+    marginHorizontal: 6,
+    marginBottom: 12,
   },
 
   optionCardSelected: {
@@ -822,7 +827,7 @@ const styles = StyleSheet.create({
 
   // Competition selection styles
   optionsList: {
-    gap: 12,
+    // gap not supported on Android RN - use marginBottom on children
   },
 
   competitionOption: {
@@ -831,6 +836,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     borderRadius: 8,
     padding: 16,
+    marginBottom: 12,
   },
 
   competitionOptionSelected: {
@@ -850,7 +856,6 @@ const styles = StyleSheet.create({
 
   // Duration selection styles
   durationOptions: {
-    gap: 12,
     marginBottom: 24,
   },
 
@@ -860,6 +865,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     borderRadius: 8,
     padding: 16,
+    marginBottom: 12,
   },
 
   durationOptionSelected: {
@@ -888,7 +894,6 @@ const styles = StyleSheet.create({
 
   // Start date selection styles
   startDateOptions: {
-    gap: 12,
     marginBottom: 24,
   },
 
@@ -901,6 +906,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12,
   },
 
   startDateOptionSelected: {
@@ -952,17 +958,18 @@ const styles = StyleSheet.create({
 
   // Settings form styles
   settingsForm: {
-    gap: 20,
+    // gap not supported on Android RN - use marginBottom on children
   },
 
   formGroup: {
-    gap: 8,
+    marginBottom: 20,
   },
 
   formLabel: {
     fontSize: 14,
     fontWeight: theme.typography.weights.medium,
     color: theme.colors.text,
+    marginBottom: 8,
   },
 
   textInput: {
@@ -982,7 +989,7 @@ const styles = StyleSheet.create({
 
   scoringOptions: {
     flexDirection: 'row',
-    gap: 8,
+    justifyContent: 'space-between',
   },
 
   scoringOption: {
@@ -1013,7 +1020,6 @@ const styles = StyleSheet.create({
   prizePoolOptions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
   },
 
   prizeOption: {
@@ -1023,6 +1029,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: 8,
+    marginRight: 8,
+    marginBottom: 8,
   },
 
   prizeOptionSelected: {

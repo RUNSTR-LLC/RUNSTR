@@ -8,8 +8,8 @@ import { getAuthenticationData } from './nostrAuth';
 import { nsecToPrivateKey } from './nostr';
 import NostrTeamCreationService from '../services/nostr/NostrTeamCreationService';
 import { NostrListService } from '../services/nostr/NostrListService';
-import TeamMemberCache from '../services/team/TeamMemberCache';
-import NostrRelayManager from '../services/nostr/NostrRelayManager';
+import { TeamMemberCache } from '../services/team/TeamMemberCache';
+import { NostrRelayManager } from '../services/nostr/NostrRelayManager';
 import { npubToHex } from './ndkConversion';
 
 export interface MemberManagementTest {

@@ -11,7 +11,6 @@ import {
   ScrollView,
   SafeAreaView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   Switch,
 } from 'react-native';
@@ -26,6 +25,7 @@ import TTSAnnouncementService from '../services/activity/TTSAnnouncementService'
 import { DeleteAccountService } from '../services/auth/DeleteAccountService';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { CustomAlert } from '../components/ui/CustomAlert';
 import { NotificationsTab } from '../components/profile/NotificationsTab';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -94,6 +94,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     includeSplits: false,
   });
 
+  // Alert state for CustomAlert
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertButtons, setAlertButtons] = useState<Array<{text: string; onPress?: () => void; style?: 'default' | 'cancel' | 'destructive'}>>([]);
+
   useEffect(() => {
     loadSettings();
   }, []);
@@ -144,7 +150,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       await TTSAnnouncementService.testSpeech();
     } catch (error) {
       console.error('Test TTS failed:', error);
-      Alert.alert('Error', 'Failed to play test announcement');
+      setAlertTitle('Error');
+      setAlertMessage('Failed to play test announcement');
+      setAlertButtons([{ text: 'OK' }]);
+      setAlertVisible(true);
     }
   };
 
@@ -155,7 +164,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   };
 
   const handleSignOut = async () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+    setAlertTitle('Sign Out');
+    setAlertMessage('Are you sure you want to sign out?');
+    setAlertButtons([
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign Out',
@@ -174,11 +185,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             onSignOut?.();
           } catch (error) {
             console.error('Error signing out:', error);
-            Alert.alert('Error', 'Failed to sign out. Please try again.');
+            setAlertTitle('Error');
+            setAlertMessage('Failed to sign out. Please try again.');
+            setAlertButtons([{ text: 'OK' }]);
+            setAlertVisible(true);
           }
         },
       },
     ]);
+    setAlertVisible(true);
   };
 
   const handleDeleteAccount = async () => {
@@ -208,17 +223,20 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     warningDetails += '\nThis action CANNOT be undone!';
 
     // First warning dialog
-    Alert.alert(
-      'Delete Account',
-      'Are you sure you want to permanently delete your account?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Continue',
-          style: 'destructive',
-          onPress: () => {
-            // Second warning with detailed information
-            Alert.alert('⚠️ Final Warning', warningDetails, [
+    setAlertTitle('Delete Account');
+    setAlertMessage('Are you sure you want to permanently delete your account?');
+    setAlertButtons([
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Continue',
+        style: 'destructive',
+        onPress: () => {
+          // Close first alert and show second warning
+          setAlertVisible(false);
+          setTimeout(() => {
+            setAlertTitle('⚠️ Final Warning');
+            setAlertMessage(warningDetails);
+            setAlertButtons([
               { text: 'Cancel', style: 'cancel' },
               {
                 text: 'I Understand, Delete My Account',
@@ -226,10 +244,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 onPress: () => performAccountDeletion(),
               },
             ]);
-          },
+            setAlertVisible(true);
+          }, 100);
         },
-      ]
-    );
+      },
+    ]);
+    setAlertVisible(true);
   };
 
   const performAccountDeletion = async () => {
@@ -249,18 +269,17 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
       // Show success message after navigation
       setTimeout(() => {
-        Alert.alert(
-          'Account Deleted',
-          'Your account has been successfully deleted.'
-        );
+        setAlertTitle('Account Deleted');
+        setAlertMessage('Your account has been successfully deleted.');
+        setAlertButtons([{ text: 'OK' }]);
+        setAlertVisible(true);
       }, 100);
     } catch (error) {
       console.error('Account deletion failed:', error);
-      Alert.alert(
-        'Deletion Failed',
-        'Failed to delete your account. Please try again or contact support.',
-        [{ text: 'OK' }]
-      );
+      setAlertTitle('Deletion Failed');
+      setAlertMessage('Failed to delete your account. Please try again or contact support.');
+      setAlertButtons([{ text: 'OK' }]);
+      setAlertVisible(true);
     } finally {
       setIsDeletingAccount(false);
     }
@@ -268,52 +287,63 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
   const handleBackupPassword = () => {
     if (!userNsec) {
-      Alert.alert('Error', 'No account key found. Please sign in again.');
+      setAlertTitle('Error');
+      setAlertMessage('No account key found. Please sign in again.');
+      setAlertButtons([{ text: 'OK' }]);
+      setAlertVisible(true);
       return;
     }
 
     // First warning dialog with education
-    Alert.alert(
-      '🔐 Backup Your Password',
+    setAlertTitle('🔐 Backup Your Password');
+    setAlertMessage(
       'Your password is the master key to your account.\n\n' +
-        '⚠️ IMPORTANT:\n' +
-        '• We do not keep backups of passwords\n' +
-        '• Your password is only stored locally on your phone\n' +
-        '• If you lose your password, you lose access to your account\n' +
-        '• Keep your password safe - write it down or use a password manager\n' +
-        '• NEVER share it with anyone\n' +
-        '• This is the ONLY way to recover your account\n\n' +
-        'Would you like to copy your password?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Yes, Copy Password',
-          onPress: async () => {
-            try {
-              await Clipboard.setStringAsync(userNsec);
-
-              // Show success with security reminder
-              Alert.alert(
-                '✅ Password Copied',
-                'Your password has been copied to your clipboard.\n\n' +
-                  '🔒 Security Tips:\n' +
-                  '1. Paste it in a secure password manager NOW\n' +
-                  '2. Clear your clipboard after saving it\n' +
-                  '3. Never paste it in untrusted apps\n' +
-                  '4. Remember: We do not keep backups - if you lose it, your account is gone forever',
-                [{ text: 'I Understand', style: 'default' }]
-              );
-            } catch (error) {
-              console.error('Failed to copy nsec:', error);
-              Alert.alert(
-                'Error',
-                'Failed to copy password. Please try again.'
-              );
-            }
-          },
-        },
-      ]
+      '⚠️ IMPORTANT:\n' +
+      '• We do not keep backups of passwords\n' +
+      '• Your password is only stored locally on your phone\n' +
+      '• If you lose your password, you lose access to your account\n' +
+      '• Keep your password safe - write it down or use a password manager\n' +
+      '• NEVER share it with anyone\n' +
+      '• This is the ONLY way to recover your account\n\n' +
+      'Would you like to copy your password?'
     );
+    setAlertButtons([
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Yes, Copy Password',
+        onPress: async () => {
+          try {
+            await Clipboard.setStringAsync(userNsec);
+
+            // Close first alert and show success
+            setAlertVisible(false);
+            setTimeout(() => {
+              setAlertTitle('✅ Password Copied');
+              setAlertMessage(
+                'Your password has been copied to your clipboard.\n\n' +
+                '🔒 Security Tips:\n' +
+                '1. Paste it in a secure password manager NOW\n' +
+                '2. Clear your clipboard after saving it\n' +
+                '3. Never paste it in untrusted apps\n' +
+                '4. Remember: We do not keep backups - if you lose it, your account is gone forever'
+              );
+              setAlertButtons([{ text: 'I Understand', style: 'default' }]);
+              setAlertVisible(true);
+            }, 100);
+          } catch (error) {
+            console.error('Failed to copy nsec:', error);
+            setAlertVisible(false);
+            setTimeout(() => {
+              setAlertTitle('Error');
+              setAlertMessage('Failed to copy password. Please try again.');
+              setAlertButtons([{ text: 'OK' }]);
+              setAlertVisible(true);
+            }, 100);
+          }
+        },
+      },
+    ]);
+    setAlertVisible(true);
   };
 
   return (
@@ -572,6 +602,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </Card>
         </View>
       </ScrollView>
+
+      {/* Custom Alert Modal */}
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        buttons={alertButtons}
+        onClose={() => setAlertVisible(false)}
+      />
     </SafeAreaView>
   );
 };
