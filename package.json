@@ -10,6 +10,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "test": "jest",
+    "test:activity-tracker": "npx tsx scripts/testActivityTrackerFixes.ts",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit"
   },
@@ -58,6 +59,7 @@
     "expo-system-ui": "~5.0.11",
     "expo-task-manager": "^14.0.7",
     "expo-web-browser": "~14.2.0",
+    "lucide-react-native": "^0.545.0",
     "nostr-tools": "^2.16.2",
     "react": "19.0.0",
     "react-dom": "19.0.0",
