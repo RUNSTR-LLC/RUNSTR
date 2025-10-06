@@ -62,17 +62,32 @@ export class SimpleLeaderboardService {
     // Calculate scores by member
     const scoresByMember = this.calculateScores(workouts, league.metric);
 
-    // Convert to leaderboard entries
-    const entries: LeaderboardEntry[] = Array.from(scoresByMember.entries()).map(
-      ([npub, data]) => ({
-        rank: 0, // Will be set after sorting
-        npub,
-        name: npub.slice(0, 8) + '...',
-        score: data.score,
-        formattedScore: this.formatScore(data.score, league.metric),
-        workoutCount: data.workoutCount,
-      })
-    );
+    // CRITICAL FIX: Create entries for ALL team members, even those with 0 workouts
+    const entries: LeaderboardEntry[] = teamMembers.map((npub) => {
+      const memberData = scoresByMember.get(npub);
+
+      if (memberData) {
+        // Member has workouts - use their actual scores
+        return {
+          rank: 0, // Will be set after sorting
+          npub,
+          name: npub.slice(0, 8) + '...',
+          score: memberData.score,
+          formattedScore: this.formatScore(memberData.score, league.metric),
+          workoutCount: memberData.workoutCount,
+        };
+      } else {
+        // Member has NO workouts - show them with 0 score
+        return {
+          rank: 0, // Will be set after sorting
+          npub,
+          name: npub.slice(0, 8) + '...',
+          score: 0,
+          formattedScore: this.formatScore(0, league.metric),
+          workoutCount: 0,
+        };
+      }
+    });
 
     // Sort by score (descending)
     entries.sort((a, b) => b.score - a.score);
@@ -82,7 +97,7 @@ export class SimpleLeaderboardService {
       entry.rank = index + 1;
     });
 
-    console.log(`✅ Leaderboard calculated: ${entries.length} entries`);
+    console.log(`✅ Leaderboard calculated: ${entries.length} entries (${teamMembers.length} team members)`);
     return entries;
   }
 
@@ -122,17 +137,32 @@ export class SimpleLeaderboardService {
     // Calculate scores
     const scoresByMember = this.calculateScores(relevantWorkouts, event.metric);
 
-    // Convert to leaderboard entries
-    const entries: LeaderboardEntry[] = Array.from(scoresByMember.entries()).map(
-      ([npub, data]) => ({
-        rank: 0,
-        npub,
-        name: npub.slice(0, 8) + '...',
-        score: data.score,
-        formattedScore: this.formatScore(data.score, event.metric),
-        workoutCount: data.workoutCount,
-      })
-    );
+    // CRITICAL FIX: Create entries for ALL team members, even those with 0 workouts
+    const entries: LeaderboardEntry[] = teamMembers.map((npub) => {
+      const memberData = scoresByMember.get(npub);
+
+      if (memberData) {
+        // Member has workouts - use their actual scores
+        return {
+          rank: 0,
+          npub,
+          name: npub.slice(0, 8) + '...',
+          score: memberData.score,
+          formattedScore: this.formatScore(memberData.score, event.metric),
+          workoutCount: memberData.workoutCount,
+        };
+      } else {
+        // Member has NO workouts - show them with 0 score
+        return {
+          rank: 0,
+          npub,
+          name: npub.slice(0, 8) + '...',
+          score: 0,
+          formattedScore: this.formatScore(0, event.metric),
+          workoutCount: 0,
+        };
+      }
+    });
 
     // Sort and rank
     entries.sort((a, b) => {
@@ -147,6 +177,7 @@ export class SimpleLeaderboardService {
       entry.rank = index + 1;
     });
 
+    console.log(`✅ Event leaderboard calculated: ${entries.length} entries (${teamMembers.length} team members)`);
     return entries;
   }
 
@@ -168,6 +199,12 @@ export class SimpleLeaderboardService {
     const endTimestamp = Math.floor(endDate.getTime() / 1000);
 
     try {
+      // CRITICAL: Wait for all relays to connect before querying
+      const connected = await GlobalNDKService.waitForConnection();
+      if (!connected) {
+        console.warn('⚠️ Proceeding with partial relay connectivity for workout query');
+      }
+
       const ndk = await GlobalNDKService.getInstance();
 
       const filter: NDKFilter = {

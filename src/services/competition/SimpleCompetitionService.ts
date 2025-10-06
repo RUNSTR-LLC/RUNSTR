@@ -51,6 +51,12 @@ export class SimpleCompetitionService {
     console.log(`📋 Fetching leagues for team: ${teamId}`);
 
     try {
+      // CRITICAL: Wait for all relays to connect before querying
+      const connected = await GlobalNDKService.waitForConnection();
+      if (!connected) {
+        console.warn('⚠️ Proceeding with partial relay connectivity for leagues query');
+      }
+
       const ndk = await GlobalNDKService.getInstance();
 
       const filter: NDKFilter = {
@@ -89,6 +95,12 @@ export class SimpleCompetitionService {
     console.log(`📋 Fetching events for team: ${teamId}`);
 
     try {
+      // CRITICAL: Wait for all relays to connect before querying
+      const connected = await GlobalNDKService.waitForConnection();
+      if (!connected) {
+        console.warn('⚠️ Proceeding with partial relay connectivity for events query');
+      }
+
       const ndk = await GlobalNDKService.getInstance();
 
       // Log connection status
@@ -131,6 +143,12 @@ export class SimpleCompetitionService {
     console.log(`🔍 Fetching league: ${leagueId}`);
 
     try {
+      // CRITICAL: Wait for all relays to connect before querying
+      const connected = await GlobalNDKService.waitForConnection();
+      if (!connected) {
+        console.warn('⚠️ Proceeding with partial relay connectivity for league by ID query');
+      }
+
       const ndk = await GlobalNDKService.getInstance();
 
       const filter: NDKFilter = {
@@ -163,6 +181,12 @@ export class SimpleCompetitionService {
     console.log(`🔍 Fetching event: ${eventId}`);
 
     try {
+      // CRITICAL: Wait for all relays to connect before querying
+      const connected = await GlobalNDKService.waitForConnection();
+      if (!connected) {
+        console.warn('⚠️ Proceeding with partial relay connectivity for event by ID query');
+      }
+
       const ndk = await GlobalNDKService.getInstance();
 
       const filter: NDKFilter = {
@@ -207,10 +231,10 @@ export class SimpleCompetitionService {
         id,
         teamId,
         captainPubkey: event.pubkey,
-        name: event.content || 'Unnamed League',
+        name: getTag('name') || 'Unnamed League',
         description: getTag('description'),
-        activityType: getTag('activity') || 'Any',
-        metric: getTag('metric') || 'total_distance',
+        activityType: getTag('activity_type') || 'Any',
+        metric: getTag('competition_type') || 'total_distance',
         startDate: getTag('start_date') || new Date().toISOString(),
         endDate: getTag('end_date') || new Date().toISOString(),
       };
@@ -235,18 +259,18 @@ export class SimpleCompetitionService {
         return null;
       }
 
-      const targetDistance = getTag('target_distance');
+      const targetValue = getTag('target_value');
 
       return {
         id,
         teamId,
         captainPubkey: event.pubkey,
-        name: event.content || 'Unnamed Event',
+        name: getTag('name') || 'Unnamed Event',
         description: getTag('description'),
-        activityType: getTag('activity') || 'running',
-        metric: getTag('metric') || 'fastest_time',
+        activityType: getTag('activity_type') || 'running',
+        metric: getTag('competition_type') || 'fastest_time',
         eventDate: getTag('event_date') || new Date().toISOString(),
-        targetDistance: targetDistance ? parseFloat(targetDistance) : undefined,
+        targetDistance: targetValue ? parseFloat(targetValue) : undefined,
         targetUnit: getTag('target_unit'),
       };
     } catch (error) {

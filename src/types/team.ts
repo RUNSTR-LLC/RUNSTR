@@ -167,6 +167,11 @@ export interface FormattedEvent {
   date: string; // Formatted date string like "Dec 15"
   details: string;
   prizePoolSats?: number; // Optional prize pool amount in sats
+  startDate?: string; // ISO date string for event start
+  captainPubkey?: string; // Event captain's public key
+  authorPubkey?: string; // Event author's public key
+  teamId?: string; // Team ID this event belongs to
+  description?: string; // Event description
 }
 
 export interface FormattedChallenge {

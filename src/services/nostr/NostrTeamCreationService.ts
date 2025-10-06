@@ -5,6 +5,7 @@
  */
 
 import NDK, { NDKEvent, NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NostrListService } from './NostrListService';
 import { TeamMemberCache } from '../team/TeamMemberCache';
 import { getTeamListDetector } from '../../utils/teamListDetector';
@@ -134,6 +135,38 @@ export class NostrTeamCreationService {
 
       if (!teamPublishResult || !listPublishResult) {
         throw new Error('Failed to publish events to relays');
+      }
+
+      // Step 3.5: Auto-create team chat (kind 40)
+      console.log('Auto-creating team chat channel');
+      try {
+        const chatEvent = new NDKEvent(this.ndk);
+        chatEvent.kind = 40; // NIP-28 Channel Creation
+        chatEvent.content = JSON.stringify({
+          name: `${data.name} Chat`,
+          about: `Team chat for ${data.name}. ⚠️ Messages are public on Nostr.`,
+          relays: []
+        });
+        chatEvent.tags = [
+          ['d', teamId],
+          ['team', teamId],
+          ['t', 'runstr-team-chat']
+        ];
+        chatEvent.created_at = Math.floor(Date.now() / 1000);
+
+        await chatEvent.sign(signer);
+        await chatEvent.publish();
+
+        // Cache channel ID for immediate access
+        await AsyncStorage.setItem(
+          `@runstr:team_chat:${teamId}`,
+          chatEvent.id!
+        );
+
+        console.log('Team chat channel created:', chatEvent.id);
+      } catch (chatError) {
+        console.warn('Failed to auto-create chat (non-critical):', chatError);
+        // Don't fail team creation if chat creation fails
       }
 
       // Step 4: Cache the member list locally for immediate access

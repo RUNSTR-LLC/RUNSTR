@@ -20,6 +20,7 @@ import { CaptainDashboardScreen } from '../screens/CaptainDashboardScreen';
 import { TeamCreationWizard } from '../components/wizards/TeamCreationWizard';
 import { GlobalChallengeWizard } from '../components/wizards/GlobalChallengeWizard';
 import { EventDetailScreen } from '../screens/EventDetailScreen';
+import { LeagueDetailScreen } from '../screens/LeagueDetailScreen';
 import { ChallengeDetailScreen } from '../screens/ChallengeDetailScreen';
 import { ChallengeLeaderboardScreen } from '../screens/ChallengeLeaderboardScreen';
 import { LoginScreen } from '../screens/LoginScreen';
@@ -59,6 +60,7 @@ export type RootStackParamList = {
   };
   TeamCreation: undefined;
   EventDetail: { eventId: string; eventData?: any };
+  LeagueDetail: { leagueId: string; leagueData?: any };
   ChallengeDetail: { challengeId: string };
   CompetitionsList: undefined;
   ChallengeLeaderboard: { challengeId: string };
@@ -267,6 +269,9 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
               onAddChallenge={() => handlers.handleAddChallenge(navigation)}
               onEventPress={(eventId, eventData) =>
                 navigation.navigate('EventDetail', { eventId, eventData })
+              }
+              onLeaguePress={(leagueId, leagueData) =>
+                navigation.navigate('LeagueDetail', { leagueId, leagueData })
               }
               onChallengePress={(challengeId) =>
                 navigation.navigate('ChallengeDetail', { challengeId })
@@ -496,6 +501,16 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
         name="EventDetail"
         options={screenConfigurations.EventDetail}
         component={EventDetailScreen}
+      />
+
+      {/* League Detail Screen */}
+      <Stack.Screen
+        name="LeagueDetail"
+        options={{
+          ...defaultScreenOptions,
+          headerShown: false,
+        }}
+        component={LeagueDetailScreen}
       />
 
       {/* Challenge Detail Screen */}

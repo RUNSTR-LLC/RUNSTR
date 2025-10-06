@@ -15,6 +15,7 @@ export type UnifiedNotificationType =
   | 'competition_results'      // Kind 1102: Competition results posted
   | 'incoming_zap'             // Kind 9735: Received Bitcoin zap
   | 'team_join_request'        // Custom: User wants to join your team (captain only)
+  | 'event_join_request'       // Kind 1105: User wants to join your event (captain only)
   | 'workout_comment'          // Kind 1: Comment on your workout post
   | 'workout_zap';             // Kind 9735: Zap on your workout post
 
@@ -31,6 +32,7 @@ export type NotificationActionType =
   | 'view_wallet'
   | 'approve_join_request'
   | 'deny_join_request'
+  | 'view_event_requests'
   | 'view_workout'
   | 'reply_comment';
 
@@ -106,6 +108,20 @@ export interface TeamNotificationMetadata {
 }
 
 /**
+ * Event join request notification metadata
+ */
+export interface EventJoinNotificationMetadata {
+  requestId: string;
+  eventId: string;
+  eventName: string;
+  teamId: string;
+  requesterId: string;
+  requesterName?: string;
+  requesterPicture?: string;
+  message?: string;
+}
+
+/**
  * Workout interaction notification metadata
  */
 export interface WorkoutNotificationMetadata {
@@ -126,6 +142,7 @@ export type NotificationMetadata =
   | CompetitionNotificationMetadata
   | ZapNotificationMetadata
   | TeamNotificationMetadata
+  | EventJoinNotificationMetadata
   | WorkoutNotificationMetadata;
 
 /**

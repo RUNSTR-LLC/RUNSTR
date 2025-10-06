@@ -187,6 +187,42 @@ export class GlobalNDKService {
 
     return false;
   }
+
+  /**
+   * Wait for ALL relays to connect before proceeding
+   *
+   * CRITICAL: This prevents queries from running with partial relay connectivity,
+   * which causes incomplete results and "missing data" issues.
+   *
+   * @param timeoutMs Maximum time to wait (default: 10 seconds)
+   * @returns true if all relays connected, false if timeout occurred
+   */
+  static async waitForConnection(timeoutMs: number = 10000): Promise<boolean> {
+    const startTime = Date.now();
+    const checkInterval = 500; // Check every 500ms
+
+    while (Date.now() - startTime < timeoutMs) {
+      const status = this.getStatus();
+
+      // Success: All relays are connected
+      if (status.connectedRelays === status.relayCount && status.relayCount > 0) {
+        console.log(`✅ GlobalNDK: All ${status.relayCount} relays connected, ready for queries`);
+        return true;
+      }
+
+      // Still waiting
+      console.log(`⏳ GlobalNDK: Waiting for relays... ${status.connectedRelays}/${status.relayCount} connected`);
+      await new Promise(resolve => setTimeout(resolve, checkInterval));
+    }
+
+    // Timeout: Proceed with partial connectivity
+    const finalStatus = this.getStatus();
+    console.warn(
+      `⚠️ GlobalNDK: Connection timeout after ${timeoutMs}ms - ` +
+      `proceeding with ${finalStatus.connectedRelays}/${finalStatus.relayCount} relays connected`
+    );
+    return false;
+  }
 }
 
 // Export singleton getter for convenience

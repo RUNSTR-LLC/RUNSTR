@@ -1,5 +1,5 @@
 /**
- * EventDetailScreen - Simplified event detail view
+ * LeagueDetailScreen - League detail view with leaderboard
  * Uses SimpleCompetitionService and SimpleLeaderboardService
  */
 
@@ -20,64 +20,64 @@ import { theme } from '../styles/theme';
 import { SimpleLeagueDisplay } from '../components/team/SimpleLeagueDisplay';
 import type { RootStackParamList } from '../types';
 
-type EventDetailRouteProp = RouteProp<RootStackParamList, 'EventDetail'>;
-type EventDetailNavigationProp = StackNavigationProp<RootStackParamList, 'EventDetail'>;
+type LeagueDetailRouteProp = RouteProp<RootStackParamList, 'LeagueDetail'>;
+type LeagueDetailNavigationProp = StackNavigationProp<RootStackParamList, 'LeagueDetail'>;
 
-interface EventDetailScreenProps {
-  route: EventDetailRouteProp;
-  navigation: EventDetailNavigationProp;
+interface LeagueDetailScreenProps {
+  route: LeagueDetailRouteProp;
+  navigation: LeagueDetailNavigationProp;
 }
 
-export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
+export const LeagueDetailScreen: React.FC<LeagueDetailScreenProps> = ({
   route,
   navigation,
 }) => {
-  const { eventId, eventData: passedEventData } = route.params;
+  const { leagueId, leagueData: passedLeagueData } = route.params;
 
-  const [eventData, setEventData] = useState<any>(passedEventData || null);
+  const [leagueData, setLeagueData] = useState<any>(passedLeagueData || null);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(!passedEventData);
+  const [isLoading, setIsLoading] = useState(!passedLeagueData);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadEventData();
-  }, [eventId]);
+    loadLeagueData();
+  }, [leagueId]);
 
-  const loadEventData = async () => {
+  const loadLeagueData = async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      console.log('🔍 Loading event:', eventId);
+      console.log('🔍 Loading league:', leagueId);
 
-      // Use passed event data or fetch from Nostr
-      let event = passedEventData;
+      // Use passed league data or fetch from Nostr
+      let league = passedLeagueData;
 
-      if (!event) {
+      if (!league) {
         const SimpleCompetitionService = (await import('../services/competition/SimpleCompetitionService')).default;
-        event = await SimpleCompetitionService.getEventById(eventId);
+        league = await SimpleCompetitionService.getLeagueById(leagueId);
       }
 
-      if (!event) {
-        throw new Error(`Event not found: ${eventId}`);
+      if (!league) {
+        throw new Error(`League not found: ${leagueId}`);
       }
 
-      console.log('✅ Event loaded:', event.name);
-      setEventData(event);
+      console.log('✅ League loaded:', league.name);
+      setLeagueData(league);
 
       // Get team members
       const TeamMemberCache = (await import('../services/team/TeamMemberCache')).TeamMemberCache.getInstance();
       const members = await TeamMemberCache.getTeamMembers(
-        event.teamId,
-        event.captainPubkey
+        league.teamId,
+        league.captainPubkey
       );
 
       console.log(`Found ${members.length} team members`);
 
       // Calculate leaderboard
       const SimpleLeaderboardService = (await import('../services/competition/SimpleLeaderboardService')).default;
-      const rankings = await SimpleLeaderboardService.calculateEventLeaderboard(
-        event,
+      const rankings = await SimpleLeaderboardService.calculateLeagueLeaderboard(
+        league,
         members
       );
 
@@ -85,8 +85,8 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
       console.log(`✅ Leaderboard calculated: ${rankings.length} entries`);
 
     } catch (err) {
-      console.error('❌ Failed to load event:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load event');
+      console.error('❌ Failed to load league:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load league');
     } finally {
       setIsLoading(false);
     }
@@ -96,30 +96,30 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
     navigation.goBack();
   };
 
-  const getEventStatus = () => {
-    if (!eventData?.eventDate) return 'unknown';
+  const getLeagueStatus = () => {
+    if (!leagueData?.startDate || !leagueData?.endDate) return 'unknown';
 
-    const eventDate = new Date(eventData.eventDate);
     const now = new Date();
+    const startDate = new Date(leagueData.startDate);
+    const endDate = new Date(leagueData.endDate);
 
     // Reset time portions for comparison
-    eventDate.setHours(0, 0, 0, 0);
     now.setHours(0, 0, 0, 0);
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(0, 0, 0, 0);
 
-    if (eventDate > now) return 'upcoming';
-    if (eventDate < now) return 'past';
+    if (now < startDate) return 'upcoming';
+    if (now > endDate) return 'past';
     return 'active';
   };
 
-  const formatEventDate = () => {
-    if (!eventData?.eventDate) return 'Unknown date';
-
-    const eventDate = new Date(eventData.eventDate);
-    return eventDate.toLocaleDateString('en-US', {
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
       weekday: 'long',
       month: 'long',
       day: 'numeric',
-      year: 'numeric'
+      year: 'numeric',
     });
   };
 
@@ -129,19 +129,19 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.accent} />
-          <Text style={styles.loadingText}>Loading event...</Text>
+          <Text style={styles.loadingText}>Loading league...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   // Error state
-  if (error || !eventData) {
+  if (error || !leagueData) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error || 'Event not found'}</Text>
-          <TouchableOpacity onPress={loadEventData} style={styles.retryButton}>
+          <Text style={styles.errorText}>{error || 'League not found'}</Text>
+          <TouchableOpacity onPress={loadLeagueData} style={styles.retryButton}>
             <Text style={styles.retryButtonText}>Try Again</Text>
           </TouchableOpacity>
         </View>
@@ -149,7 +149,7 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
     );
   }
 
-  const status = getEventStatus();
+  const status = getLeagueStatus();
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -158,14 +158,14 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Event Details</Text>
+        <Text style={styles.headerTitle}>League Details</Text>
         <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Event Info Card */}
-        <View style={styles.eventCard}>
-          <Text style={styles.eventName}>{eventData.name}</Text>
+        {/* League Info Card */}
+        <View style={styles.leagueCard}>
+          <Text style={styles.leagueName}>{leagueData.name}</Text>
 
           {/* Status Badge */}
           <View style={styles.statusBadgeContainer}>
@@ -183,49 +183,45 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
             </View>
           </View>
 
-          <View style={styles.eventInfoRow}>
-            <Text style={styles.eventLabel}>Date</Text>
-            <Text style={styles.eventValue}>{formatEventDate()}</Text>
+          <View style={styles.leagueInfoRow}>
+            <Text style={styles.leagueLabel}>Start Date</Text>
+            <Text style={styles.leagueValue}>{formatDate(leagueData.startDate)}</Text>
           </View>
 
-          {eventData.description && (
-            <View style={styles.eventInfoRow}>
-              <Text style={styles.eventLabel}>Description</Text>
-              <Text style={styles.eventValue}>{eventData.description}</Text>
+          <View style={styles.leagueInfoRow}>
+            <Text style={styles.leagueLabel}>End Date</Text>
+            <Text style={styles.leagueValue}>{formatDate(leagueData.endDate)}</Text>
+          </View>
+
+          {leagueData.description && (
+            <View style={styles.leagueInfoRow}>
+              <Text style={styles.leagueLabel}>Description</Text>
+              <Text style={styles.leagueValue}>{leagueData.description}</Text>
             </View>
           )}
 
-          <View style={styles.eventInfoRow}>
-            <Text style={styles.eventLabel}>Activity</Text>
-            <Text style={styles.eventValue}>
-              {eventData.activityType || 'Any'}
+          <View style={styles.leagueInfoRow}>
+            <Text style={styles.leagueLabel}>Activity</Text>
+            <Text style={styles.leagueValue}>
+              {leagueData.activityType || 'Any'}
             </Text>
           </View>
 
-          <View style={styles.eventInfoRow}>
-            <Text style={styles.eventLabel}>Scoring</Text>
-            <Text style={styles.eventValue}>
-              {eventData.metric?.replace('_', ' ') || 'Total distance'}
+          <View style={styles.leagueInfoRow}>
+            <Text style={styles.leagueLabel}>Scoring</Text>
+            <Text style={styles.leagueValue}>
+              {leagueData.metric?.replace('_', ' ') || 'Total distance'}
             </Text>
           </View>
-
-          {eventData.targetDistance && (
-            <View style={styles.eventInfoRow}>
-              <Text style={styles.eventLabel}>Target</Text>
-              <Text style={styles.eventValue}>
-                {eventData.targetDistance} {eventData.targetUnit || 'km'}
-              </Text>
-            </View>
-          )}
         </View>
 
         {/* Leaderboard */}
         <View style={styles.leaderboardContainer}>
           <SimpleLeagueDisplay
-            leagueName="Event Leaderboard"
+            leagueName="League Leaderboard"
             leaderboard={leaderboard}
             loading={isLoading}
-            onRefresh={loadEventData}
+            onRefresh={loadLeagueData}
           />
         </View>
 
@@ -268,7 +264,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
   },
-  eventCard: {
+  leagueCard: {
     backgroundColor: theme.colors.cardBackground,
     borderRadius: 16,
     padding: 20,
@@ -276,7 +272,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  eventName: {
+  leagueName: {
     fontSize: 24,
     fontWeight: '700',
     color: theme.colors.text,
@@ -309,15 +305,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: theme.colors.text,
   },
-  eventInfoRow: {
+  leagueInfoRow: {
     marginBottom: 12,
   },
-  eventLabel: {
+  leagueLabel: {
     fontSize: 12,
     color: theme.colors.textMuted,
     marginBottom: 4,
   },
-  eventValue: {
+  leagueValue: {
     fontSize: 16,
     color: theme.colors.text,
     fontWeight: '500',

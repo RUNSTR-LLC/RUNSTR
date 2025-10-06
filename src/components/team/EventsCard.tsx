@@ -73,7 +73,7 @@ export const EventsCard: React.FC<EventsCardProps> = ({
 
   useEffect(() => {
     const checkEventStatuses = async () => {
-      if (!currentUserNpub) return;
+      if (!currentUserNpub || !events || events.length === 0) return;
 
       const statuses: Record<string, EventStatus> = {};
 
@@ -119,7 +119,9 @@ export const EventsCard: React.FC<EventsCardProps> = ({
       setEventStatuses(statuses);
     };
 
-    checkEventStatuses();
+    checkEventStatuses().catch((error) => {
+      console.error('Failed to check event statuses:', error);
+    });
   }, [events, currentUserNpub]);
 
   const handleShowEventQR = (event: FormattedEvent) => {
@@ -161,13 +163,37 @@ export const EventsCard: React.FC<EventsCardProps> = ({
       <ScrollView
         style={styles.scrollableList}
         showsVerticalScrollIndicator={true}
-        indicatorStyle="#FF9D42"
+        indicatorStyle="white"
       >
-        {events.map((event) => (
-          <TouchableOpacity
+        {events.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateText}>No events yet</Text>
+            {isCaptain && (
+              <Text style={styles.emptyStateHint}>
+                Tap + to create your first event
+              </Text>
+            )}
+          </View>
+        ) : (
+          events.map((event) => (
+            <TouchableOpacity
             key={event.id}
             style={styles.eventItem}
-            onPress={() => onEventPress?.(event.id, event)}
+            onPress={() => {
+              // DEFENSIVE CHECK: Ensure event has required data before navigation
+              if (!event?.id || !event?.teamId) {
+                console.error('❌ Cannot navigate to event: missing required data', {
+                  hasId: !!event?.id,
+                  hasTeamId: !!event?.teamId,
+                  event
+                });
+                Alert.alert('Error', 'Event data incomplete. Please try refreshing the team page.');
+                return;
+              }
+
+              console.log('✅ Navigating to event:', event.id, 'with complete data');
+              onEventPress?.(event.id, event);
+            }}
             activeOpacity={0.7}
           >
             <View style={styles.eventHeader}>
@@ -240,7 +266,7 @@ export const EventsCard: React.FC<EventsCardProps> = ({
               )}
             </View>
           </TouchableOpacity>
-        ))}
+        )))}
       </ScrollView>
 
       {/* QR Code Modal */}
@@ -346,6 +372,20 @@ const styles = StyleSheet.create({
     marginHorizontal: -8,
     paddingHorizontal: 8,
   },
+  emptyState: {
+    paddingVertical: 32,
+    alignItems: 'center',
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    marginBottom: 8,
+  },
+  emptyStateHint: {
+    fontSize: 12,
+    color: theme.colors.textTertiary,
+    fontStyle: 'italic',
+  },
   eventItem: {
     paddingVertical: 8,
     borderBottomWidth: 1,
@@ -440,7 +480,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   pendingButton: {
-    backgroundColor: theme.colors.secondary,
+    backgroundColor: theme.colors.textMuted,
   },
   disabledButton: {
     opacity: 0.5,

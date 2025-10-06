@@ -20,7 +20,6 @@ import { TeamMemberCache } from '../../services/team/TeamMemberCache';
 import { ChatHeader } from './ChatHeader';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
-import { CreateChatButton } from './CreateChatButton';
 
 interface TeamChatSectionProps {
   teamId: string;
@@ -48,6 +47,7 @@ export const TeamChatSection: React.FC<TeamChatSectionProps> = ({
   const [hasAccess, setHasAccess] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [memberCount, setMemberCount] = useState(0);
+  const [autoCreating, setAutoCreating] = useState(false);
 
   // Check access control on mount
   useEffect(() => {
@@ -79,6 +79,25 @@ export const TeamChatSection: React.FC<TeamChatSectionProps> = ({
 
       if (channel) {
         setChannelId(channel.id!);
+      } else if (isCaptain) {
+        // Auto-create chat for captain if it doesn't exist (handles existing teams)
+        console.log('No chat found, auto-creating for captain...');
+        setAutoCreating(true);
+
+        try {
+          const newChannel = await chatService.createTeamChannel(
+            teamId,
+            teamName,
+            captainPubkey
+          );
+          setChannelId(newChannel.id!);
+          console.log('Chat auto-created successfully');
+        } catch (createError) {
+          console.error('Failed to auto-create chat:', createError);
+          // Channel stays null, will show error state
+        } finally {
+          setAutoCreating(false);
+        }
       }
     } catch (error) {
       console.error('Failed to load channel:', error);
@@ -244,11 +263,6 @@ export const TeamChatSection: React.FC<TeamChatSectionProps> = ({
     }
   };
 
-  // Handle chat created
-  const handleChatCreated = (newChannelId: string) => {
-    setChannelId(newChannelId);
-  };
-
   // Handle zap action
   const handleZap = (pubkey: string) => {
     // TODO: Integrate with existing zap functionality
@@ -275,25 +289,27 @@ export const TeamChatSection: React.FC<TeamChatSectionProps> = ({
     );
   };
 
-  // No channel - show create button for captain
-  if (!channelId && isCaptain) {
+  // Auto-creating chat (captain only)
+  if (autoCreating) {
     return (
-      <CreateChatButton
-        teamId={teamId}
-        teamName={teamName}
-        captainPubkey={captainPubkey}
-        onCreated={handleChatCreated}
-      />
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={theme.colors.orangeDeep} />
+        <Text style={styles.loadingText}>Setting up team chat...</Text>
+      </View>
     );
   }
 
-  // No channel - show message for non-captain
+  // No channel - show message for members (captain auto-creates, so this means it failed)
   if (!channelId) {
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>Chat not available</Text>
+        <Text style={styles.emptyText}>
+          {isCaptain ? 'Chat Unavailable' : 'No Team Chat'}
+        </Text>
         <Text style={styles.emptySubtext}>
-          Team captain hasn't enabled chat yet
+          {isCaptain
+            ? 'Unable to create team chat. Please try again later.'
+            : 'Team chat has not been set up yet'}
         </Text>
       </View>
     );
