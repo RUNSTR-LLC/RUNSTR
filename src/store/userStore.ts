@@ -6,7 +6,7 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { ProfileService, type UserProfile } from '../services/user/ProfileService';
-import { TeamMembershipService, type TeamSwitchResult } from '../services/user/teamMembershipService';
+import { TeamMembershipService, type TeamSwitchResult } from '../services/team/teamMembershipService';
 import { AuthService } from '../services/auth/authService';
 import { TeamMatchingAlgorithm } from '../utils/teamMatching';
 import type {

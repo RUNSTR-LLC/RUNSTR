@@ -333,21 +333,31 @@ export class NostrPrefetchService {
   }
 
   /**
-   * Prefetch competitions (kind 30100, 30101)
+   * Prefetch competitions (kind 30100 leagues, 30101 events)
    */
   private async prefetchCompetitions(): Promise<void> {
     try {
-      const competitions = await unifiedCache.get(
-        CacheKeys.COMPETITIONS,
-        async () => {
-          // This would fetch from Nostr - for now return empty
-          // TODO: Implement competition fetching
-          return [];
-        },
-        { ttl: CacheTTL.COMPETITIONS }
-      );
+      // ✅ Fetch leagues and events in parallel
+      const [leagues, events] = await Promise.all([
+        unifiedCache.get(
+          CacheKeys.LEAGUES,
+          async () => {
+            const SimpleCompetitionService = (await import('../competition/SimpleCompetitionService')).default;
+            return await SimpleCompetitionService.getAllLeagues();
+          },
+          { ttl: CacheTTL.LEAGUES }
+        ),
+        unifiedCache.get(
+          CacheKeys.COMPETITIONS,
+          async () => {
+            const SimpleCompetitionService = (await import('../competition/SimpleCompetitionService')).default;
+            return await SimpleCompetitionService.getAllEvents();
+          },
+          { ttl: CacheTTL.COMPETITIONS }
+        )
+      ]);
 
-      console.log('[Prefetch] Competitions cached:', competitions?.length || 0);
+      console.log(`[Prefetch] Competitions cached: ${leagues?.length || 0} leagues, ${events?.length || 0} events`);
     } catch (error) {
       console.error('[Prefetch] Competitions failed:', error);
     }

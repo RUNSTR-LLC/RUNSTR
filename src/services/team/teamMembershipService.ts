@@ -44,6 +44,12 @@ export interface MembershipStatus {
   requestEventId?: string;
 }
 
+export interface TeamSwitchResult {
+  success: boolean;
+  error?: string;
+  cooldownUntil?: string;
+}
+
 export class TeamMembershipService {
   private relayManager: NostrRelayManager;
   private listService: NostrListService;

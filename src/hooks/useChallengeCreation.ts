@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { ChallengeService } from '../services/challengeService';
+import { ChallengeService } from '../services/competition/ChallengeService';
 import { getNostrTeamService } from '../services/nostr/NostrTeamService';
 // Removed Bitcoin utilities - no wagers in this phase
 import type { TeammateInfo, ChallengeCreationData, User } from '../types';

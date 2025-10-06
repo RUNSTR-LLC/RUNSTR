@@ -337,22 +337,9 @@ export class BackgroundSyncService {
    * Get unprocessed workouts from database
    */
   private async getUnprocessedWorkouts(userId: string): Promise<any[]> {
-    try {
-      const { data: workouts, error } = await supabase
-        .from('workouts')
-        .select('*')
-        .eq('user_id', userId)
-        .is('processed_at', null)
-        .order('start_time', { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
-
-      return workouts || [];
-    } catch (error) {
-      console.error('Error fetching unprocessed workouts:', error);
-      return [];
-    }
+    // Pure Nostr app doesn't need database processing
+    // Workouts are handled directly via kind 1301 events
+    return [];
   }
 
   /**

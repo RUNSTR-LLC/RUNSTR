@@ -31,7 +31,7 @@ import { ChallengeStatus } from '../components/challenge/ChallengeStatus';
 import { RulesSection } from '../components/challenge/RulesSection';
 
 // Real Data Services
-import { ChallengeService } from '../services/challengeService';
+import { ChallengeService } from '../services/competition/ChallengeService';
 import { NostrCompetitionLeaderboardService } from '../services/competition/nostrCompetitionLeaderboardService';
 import type { CompetitionLeaderboard, CompetitionParticipant } from '../services/competition/nostrCompetitionLeaderboardService';
 

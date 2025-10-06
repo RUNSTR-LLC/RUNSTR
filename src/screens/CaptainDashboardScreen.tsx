@@ -46,6 +46,8 @@ import NostrTeamCreationService from '../services/nostr/NostrTeamCreationService
 import { getAuthenticationData, migrateAuthenticationStorage } from '../utils/nostrAuth';
 import { NDKPrivateKeySigner, NDKEvent } from '@nostr-dev-kit/ndk';
 import { npubToHex } from '../utils/ndkConversion';
+import unifiedCache from '../services/cache/UnifiedNostrCache';
+import { CacheKeys } from '../constants/cacheTTL';
 
 // Type definitions for captain dashboard data
 export interface CaptainDashboardData {
@@ -166,11 +168,7 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
         captainIdToUse = authData.hexPubkey;
       }
 
-      // Clear stale cache on mount to ensure fresh data
-      const memberCache = TeamMemberCache.getInstance();
-      await memberCache.invalidateTeam(teamId, captainIdToUse);
-
-      // Check for list
+      // Check for list (cache is preserved - only invalidate when data actually changes)
       await checkForKind30000List();
 
       // Load current charity from team data if available
@@ -412,11 +410,20 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
   // Load team's current data including charity selection
   const loadTeamCharity = async () => {
     try {
-      // Get team data from Nostr
-      const { getNostrTeamService } = await import('../services/nostr/NostrTeamService');
-      const teamService = getNostrTeamService();
-      const teams = await teamService.discoverFitnessTeams();
-      const currentTeam = teams.find(t => t.id === teamId);
+      // ✅ First check UnifiedNostrCache for prefetched teams
+      let teams = unifiedCache.getCached(CacheKeys.DISCOVERED_TEAMS);
+      let currentTeam = teams?.find((t: any) => t.id === teamId);
+
+      // Fallback: fetch from Nostr if not in cache
+      if (!currentTeam) {
+        console.log('⚠️ Team not in cache, fetching from Nostr...');
+        const { getNostrTeamService } = await import('../services/nostr/NostrTeamService');
+        const teamService = getNostrTeamService();
+        teams = await teamService.discoverFitnessTeams();
+        currentTeam = teams.find(t => t.id === teamId);
+      } else {
+        console.log('✅ Using cached team data for:', teamId);
+      }
 
       if (currentTeam) {
         // Debug logging to trace banner data

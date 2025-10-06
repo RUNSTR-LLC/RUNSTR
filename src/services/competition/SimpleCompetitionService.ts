@@ -1,11 +1,13 @@
 /**
  * Simple Competition Service - MVP Implementation
  * Fetches leagues (kind 30100) and events (kind 30101) from Nostr
- * No caching, no complexity - just simple queries using global NDK
+ * Now with UnifiedNostrCache integration for better performance
  */
 
 import { GlobalNDKService } from '../nostr/GlobalNDKService';
 import type { NDKFilter, NDKEvent } from '@nostr-dev-kit/ndk';
+import unifiedCache from '../cache/UnifiedNostrCache';
+import { CacheKeys, CacheTTL } from '../../constants/cacheTTL';
 
 export interface League {
   id: string; // d tag
@@ -45,24 +47,23 @@ export class SimpleCompetitionService {
   }
 
   /**
-   * Get all leagues for a team
+   * Fetch ALL leagues from Nostr (no team filter)
+   * Used for prefetching during app initialization
    */
-  async getTeamLeagues(teamId: string): Promise<League[]> {
-    console.log(`📋 Fetching leagues for team: ${teamId}`);
+  async getAllLeagues(): Promise<League[]> {
+    console.log('📋 Fetching ALL leagues from Nostr...');
 
     try {
-      // CRITICAL: Wait for all relays to connect before querying
       const connected = await GlobalNDKService.waitForConnection();
       if (!connected) {
-        console.warn('⚠️ Proceeding with partial relay connectivity for leagues query');
+        console.warn('⚠️ Proceeding with partial relay connectivity for all leagues query');
       }
 
       const ndk = await GlobalNDKService.getInstance();
 
       const filter: NDKFilter = {
         kinds: [30100],
-        '#team': [teamId],
-        limit: 100,
+        limit: 500, // Fetch many leagues for caching
       };
 
       const events = await ndk.fetchEvents(filter);
@@ -79,38 +80,33 @@ export class SimpleCompetitionService {
         }
       });
 
-      console.log(`✅ Found ${leagues.length} leagues for team ${teamId}`);
+      console.log(`✅ Fetched ${leagues.length} total leagues`);
       return leagues;
 
     } catch (error) {
-      console.error('Failed to fetch leagues:', error);
+      console.error('Failed to fetch all leagues:', error);
       return [];
     }
   }
 
   /**
-   * Get all events for a team
+   * Fetch ALL events from Nostr (no team filter)
+   * Used for prefetching during app initialization
    */
-  async getTeamEvents(teamId: string): Promise<CompetitionEvent[]> {
-    console.log(`📋 Fetching events for team: ${teamId}`);
+  async getAllEvents(): Promise<CompetitionEvent[]> {
+    console.log('📋 Fetching ALL events from Nostr...');
 
     try {
-      // CRITICAL: Wait for all relays to connect before querying
       const connected = await GlobalNDKService.waitForConnection();
       if (!connected) {
-        console.warn('⚠️ Proceeding with partial relay connectivity for events query');
+        console.warn('⚠️ Proceeding with partial relay connectivity for all events query');
       }
 
       const ndk = await GlobalNDKService.getInstance();
 
-      // Log connection status
-      const status = GlobalNDKService.getStatus();
-      console.log(`📊 GlobalNDK status: ${status.connectedRelays}/${status.relayCount} relays connected`);
-
       const filter: NDKFilter = {
         kinds: [30101],
-        '#team': [teamId],
-        limit: 100,
+        limit: 500, // Fetch many events for caching
       };
 
       const events = await ndk.fetchEvents(filter);
@@ -127,8 +123,60 @@ export class SimpleCompetitionService {
         }
       });
 
-      console.log(`✅ Found ${competitionEvents.length} events for team ${teamId}`);
+      console.log(`✅ Fetched ${competitionEvents.length} total events`);
       return competitionEvents;
+
+    } catch (error) {
+      console.error('Failed to fetch all events:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get all leagues for a team (with caching)
+   */
+  async getTeamLeagues(teamId: string): Promise<League[]> {
+    console.log(`📋 Fetching leagues for team: ${teamId}`);
+
+    try {
+      // ✅ Try to get from cache first
+      const allLeagues = await unifiedCache.get(
+        CacheKeys.LEAGUES,
+        () => this.getAllLeagues(),
+        { ttl: CacheTTL.LEAGUES, backgroundRefresh: true }
+      );
+
+      // Filter for this team
+      const teamLeagues = allLeagues.filter(league => league.teamId === teamId);
+      console.log(`✅ Found ${teamLeagues.length} leagues for team ${teamId} (${allLeagues.length} total cached)`);
+
+      return teamLeagues;
+
+    } catch (error) {
+      console.error('Failed to fetch leagues:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get all events for a team (with caching)
+   */
+  async getTeamEvents(teamId: string): Promise<CompetitionEvent[]> {
+    console.log(`📋 Fetching events for team: ${teamId}`);
+
+    try {
+      // ✅ Try to get from cache first
+      const allEvents = await unifiedCache.get(
+        CacheKeys.COMPETITIONS,
+        () => this.getAllEvents(),
+        { ttl: CacheTTL.COMPETITIONS, backgroundRefresh: true }
+      );
+
+      // Filter for this team
+      const teamEvents = allEvents.filter(event => event.teamId === teamId);
+      console.log(`✅ Found ${teamEvents.length} events for team ${teamId} (${allEvents.length} total cached)`);
+
+      return teamEvents;
 
     } catch (error) {
       console.error('Failed to fetch events:', error);
