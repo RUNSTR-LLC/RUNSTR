@@ -24,6 +24,10 @@ export interface PublishableWorkout extends Workout {
   sourceApp?: string;
   canSyncToNostr?: boolean;
   canPostToSocial?: boolean;
+  // Strength training fields (inherited from Workout, but explicit for clarity)
+  sets?: number;
+  reps?: number;
+  notes?: string;
 }
 
 export interface WorkoutPublishResult {
@@ -261,6 +265,14 @@ export class WorkoutPublishingService {
       tags.push(['calories', Math.round(workout.calories).toString()]);
     }
 
+    // Add sets and reps for strength training workouts (pushups, pullups, etc.)
+    if (workout.sets && workout.sets > 0) {
+      tags.push(['sets', workout.sets.toString()]);
+    }
+    if (workout.reps && workout.reps > 0) {
+      tags.push(['reps', workout.reps.toString()]);
+    }
+
     // TODO: Add team and challenge associations when available
     // ['team', '33404:pubkey:uuid', 'relay', 'teamName']
     // ['challenge_uuid', 'uuid']
@@ -352,6 +364,16 @@ export class WorkoutPublishingService {
     const exerciseVerb = this.getExerciseVerb(workout.type);
     const activityEmoji = this.getActivityEmoji(exerciseVerb);
 
+    // For strength workouts with sets/reps, create detailed description
+    if ((workout.sets || workout.reps) && exerciseVerb === 'strength') {
+      const specificExercise = this.getSpecificExerciseName(workout);
+      if (specificExercise && workout.reps && workout.sets) {
+        return `Completed ${workout.reps} ${specificExercise} in ${workout.sets} sets with RUNSTR!`;
+      } else if (specificExercise && workout.reps) {
+        return `Completed ${workout.reps} ${specificExercise} with RUNSTR!`;
+      }
+    }
+
     // Simple format matching runstr: "Completed a run with RUNSTR!"
     // Use the activity type directly for consistency
     let description = `Completed a ${exerciseVerb.toLowerCase()} with RUNSTR!`;
@@ -359,9 +381,55 @@ export class WorkoutPublishingService {
     // Optionally add notes if available
     if (workout.metadata?.notes && workout.metadata.notes.length > 0) {
       description = workout.metadata.notes;
+    } else if (workout.notes && workout.notes.length > 0) {
+      description = workout.notes;
     }
 
     return description;
+  }
+
+  /**
+   * Extract specific exercise name from workout metadata or type
+   * Returns exercise name like "pushups", "pullups", "situps", etc.
+   */
+  private getSpecificExerciseName(workout: PublishableWorkout): string | null {
+    // Check notes first (where we store the specific exercise name from manual entry)
+    if (workout.notes) {
+      const notes = workout.notes.toLowerCase();
+      if (notes.includes('pushup')) return 'pushups';
+      if (notes.includes('pullup')) return 'pullups';
+      if (notes.includes('situp') || notes.includes('sit-up')) return 'situps';
+      if (notes.includes('squat')) return 'squats';
+      if (notes.includes('burpee')) return 'burpees';
+    }
+
+    // Check metadata (from manual entry screen)
+    if (workout.metadata?.title) {
+      const title = workout.metadata.title.toLowerCase();
+      if (title.includes('pushup')) return 'pushups';
+      if (title.includes('pullup')) return 'pullups';
+      if (title.includes('situp') || title.includes('sit-up')) return 'situps';
+      if (title.includes('squat')) return 'squats';
+      if (title.includes('burpee')) return 'burpees';
+    }
+
+    // Check workout type string
+    const typeStr = workout.type.toLowerCase();
+    if (typeStr.includes('pushup')) return 'pushups';
+    if (typeStr.includes('pullup')) return 'pullups';
+    if (typeStr.includes('situp') || typeStr.includes('sit-up')) return 'situps';
+    if (typeStr.includes('squat')) return 'squats';
+    if (typeStr.includes('burpee')) return 'burpees';
+
+    // Check sourceApp for exercise type
+    if (workout.sourceApp) {
+      const sourceStr = workout.sourceApp.toLowerCase();
+      if (sourceStr.includes('pushup')) return 'pushups';
+      if (sourceStr.includes('pullup')) return 'pullups';
+      if (sourceStr.includes('situp')) return 'situps';
+    }
+
+    return null;
   }
 
   /**
@@ -542,10 +610,26 @@ export class WorkoutPublishingService {
     if (options.customMessage) {
       content = options.customMessage + '\n\n';
     } else {
-      // Generate clean header
-      const workoutType = this.getReadableWorkoutType(workout.type);
-      const activityEmoji = this.getActivityEmoji(this.getExerciseVerb(workout.type));
-      content = `Just completed a ${workoutType} with RUNSTR TEAMS! ${activityEmoji}\n\n`;
+      // Generate clean header with specific exercise details for strength workouts
+      const exerciseVerb = this.getExerciseVerb(workout.type);
+      const activityEmoji = this.getActivityEmoji(exerciseVerb);
+
+      // For strength workouts with sets/reps, create detailed header
+      if ((workout.sets || workout.reps) && exerciseVerb === 'strength') {
+        const specificExercise = this.getSpecificExerciseName(workout);
+        if (specificExercise && workout.reps && workout.sets) {
+          content = `Completed ${workout.reps} ${specificExercise} in ${workout.sets} sets with RUNSTR! ${activityEmoji}\n\n`;
+        } else if (specificExercise && workout.reps) {
+          content = `Completed ${workout.reps} ${specificExercise} with RUNSTR! ${activityEmoji}\n\n`;
+        } else {
+          const workoutType = this.getReadableWorkoutType(workout.type);
+          content = `Just completed a ${workoutType} with RUNSTR! ${activityEmoji}\n\n`;
+        }
+      } else {
+        // For cardio and other workouts, use general format
+        const workoutType = this.getReadableWorkoutType(workout.type);
+        content = `Just completed a ${workoutType} with RUNSTR! ${activityEmoji}\n\n`;
+      }
     }
 
     // Add workout stats in vertical format
@@ -599,6 +683,14 @@ export class WorkoutPublishingService {
    */
   private formatWorkoutStats(workout: PublishableWorkout): string {
     const stats = [];
+
+    // Strength training stats (sets/reps) - show first for strength workouts
+    if (workout.reps && workout.reps > 0) {
+      stats.push(`💪 Reps: ${workout.reps}`);
+    }
+    if (workout.sets && workout.sets > 0) {
+      stats.push(`🔢 Sets: ${workout.sets}`);
+    }
 
     // Duration - format as HH:MM:SS or MM:SS
     const durationFormatted = this.formatDurationForPost(workout.duration);

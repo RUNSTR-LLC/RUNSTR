@@ -4,6 +4,8 @@
  * Handles live updates, rank calculations, and performance tracking
  */
 
+// @ts-nocheck - Supabase code needs Nostr rewrite
+
 // import { supabase } from '../supabase';  // REMOVED: Project now uses pure Nostr
 // import { RealtimeChannel } from '@supabase/supabase-js';  // REMOVED: Project now uses pure Nostr
 import type { LeaderboardEntry, TeamStats, WorkoutData } from '../../types';

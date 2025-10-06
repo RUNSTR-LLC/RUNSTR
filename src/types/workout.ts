@@ -32,6 +32,9 @@ export interface Workout {
   };
   pace?: number; // seconds per mile
   syncedAt: string;
+  // Strength training fields
+  sets?: number;
+  reps?: number;
   metadata?: Record<string, any>; // Additional data from source
 }
 

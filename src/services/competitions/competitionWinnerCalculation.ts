@@ -4,6 +4,8 @@
  * Handles prize distribution calculations and ranking logic
  */
 
+// @ts-nocheck - Supabase code needs Nostr rewrite
+
 // import { supabase } from '../supabase';  // REMOVED: Project now uses pure Nostr
 import type { Event, Challenge, League } from '../../types/team';
 

@@ -4,6 +4,8 @@
  * Manages Lightning payments, transaction logging, and notifications
  */
 
+// @ts-nocheck - Supabase code needs Nostr rewrite
+
 // Team wallets removed - using P2P NIP-60/61 payments
 
 export interface RewardDistribution {

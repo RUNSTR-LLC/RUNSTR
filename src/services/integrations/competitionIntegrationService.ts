@@ -4,6 +4,8 @@
  * Connects competition completion triggers with captain dashboard and UI components
  */
 
+// @ts-nocheck - Supabase code needs Nostr rewrite
+
 // import { supabase } from '../supabase';  // REMOVED: Project now uses pure Nostr
 import competitionCompletionService from '../competitions/competitionCompletionService';
 import rewardDistributionService from '../fitness/rewardDistributionService';

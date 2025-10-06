@@ -36,6 +36,11 @@ export interface UnifiedWorkout extends Workout {
   sourceApp?: string;
   location?: string;
 
+  // Strength training fields (inherited from Workout, but explicit for clarity)
+  sets?: number;
+  reps?: number;
+  notes?: string;
+
   // UI state
   canSyncToNostr: boolean;
   canPostToSocial: boolean;
@@ -524,6 +529,10 @@ export class WorkoutMergeService {
           nostrEventId: localWorkout.nostrEventId,
           elevationGain: localWorkout.elevation,
           sourceApp: localWorkout.source === 'gps_tracker' ? 'RUNSTR GPS Tracker' : 'RUNSTR Manual Entry',
+          // Strength training fields (for manual entry workouts like pushups, pullups, etc.)
+          sets: localWorkout.sets,
+          reps: localWorkout.reps,
+          notes: localWorkout.notes,
         });
       } else {
         duplicateCount++;

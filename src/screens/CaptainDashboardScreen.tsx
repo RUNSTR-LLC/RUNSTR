@@ -22,7 +22,7 @@ import { Picker } from '@react-native-picker/picker';
 import { CHARITIES, getCharityById } from '../constants/charities';
 import { validateShopUrl, getShopDisplayName, validateFlashUrl } from '../utils/validation';
 import { theme } from '../styles/theme';
-import { BottomNavigation } from '../components/ui/BottomNavigation';
+// BottomNavigation removed - Captain Dashboard has back button
 import { ZappableUserRow } from '../components/ui/ZappableUserRow';
 import { QuickActionsSection } from '../components/team/QuickActionsSection';
 import { ActivityFeedSection } from '../components/team/ActivityFeedSection';
@@ -364,13 +364,23 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
     setLeagueWizardVisible(true);
   };
 
-  const handleEventCreated = (eventData: any) => {
+  const handleEventCreated = async (eventData: any) => {
+    console.log('[CaptainDashboard] 📅 Event created, refreshing competitions list...');
     setEventWizardVisible(false);
+
+    // Reload active competitions to show the new event
+    await loadActiveCompetitions();
+
     onEventCreated?.(eventData);
   };
 
-  const handleLeagueCreated = (leagueData: any) => {
+  const handleLeagueCreated = async (leagueData: any) => {
+    console.log('[CaptainDashboard] 🏆 League created, refreshing competitions list...');
     setLeagueWizardVisible(false);
+
+    // Reload active competitions to show the new league
+    await loadActiveCompetitions();
+
     onLeagueCreated?.(leagueData);
   };
 
@@ -1471,12 +1481,7 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
         />
       </ScrollView>
 
-      {/* Bottom Navigation */}
-      <BottomNavigation
-        activeScreen="team"
-        onNavigateToTeam={onNavigateToTeam}
-        onNavigateToProfile={onNavigateToProfile}
-      />
+      {/* Bottom Navigation removed - Captain Dashboard has back button */}
 
       {/* Team Edit Modal */}
       <Modal
@@ -2091,7 +2096,7 @@ const styles = StyleSheet.create({
 
   // Add member button
   addMemberButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.orangeBright, // Light orange instead of dark
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 6,
@@ -2100,7 +2105,7 @@ const styles = StyleSheet.create({
   addMemberButtonText: {
     fontSize: 14,
     fontWeight: theme.typography.weights.medium,
-    color: theme.colors.accentText,
+    color: theme.colors.accentText, // Black text on light orange
   },
 
   // Modal styles
@@ -2197,7 +2202,7 @@ const styles = StyleSheet.create({
   },
 
   modalButtonPrimary: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.orangeBright, // Light orange for consistency
   },
 
   modalButtonSecondary: {
@@ -2319,9 +2324,9 @@ const styles = StyleSheet.create({
 
   // Picker styles for charity modal
   pickerContainer: {
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.cardBackground, // Better contrast than pure black
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.orangeDeep, // Orange border for visibility
     borderRadius: 12,
     overflow: 'hidden',
     marginBottom: 16,
@@ -2329,12 +2334,12 @@ const styles = StyleSheet.create({
 
   picker: {
     height: 150,
-    color: theme.colors.text,
+    color: theme.colors.orangeBright, // Light orange text for visibility
   },
 
   pickerItem: {
     fontSize: 16,
-    color: theme.colors.text,
+    color: theme.colors.orangeBright, // Light orange for better contrast
   },
 
   selectedCharityDescription: {
@@ -2364,11 +2369,11 @@ const styles = StyleSheet.create({
   },
 
   saveButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.orangeBright, // Light orange instead of dark
   },
 
   saveButtonText: {
-    color: theme.colors.accentText,
+    color: theme.colors.accentText, // Black text on light orange
     fontSize: 16,
     fontWeight: theme.typography.weights.semiBold,
   },

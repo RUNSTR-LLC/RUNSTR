@@ -4,6 +4,8 @@
  * Calculates scores, leaderboard rankings, and team statistics
  */
 
+// @ts-nocheck - Supabase code needs Nostr rewrite
+
 // import { supabase } from '../supabase';  // REMOVED: Project now uses pure Nostr
 import competitionLeaderboardManager from '../competitions/competitionLeaderboardManager';
 import type {

@@ -75,6 +75,11 @@ export const ManualWorkoutScreen: React.FC = () => {
     const mappedType = workoutTypeMapping[workoutType] || 'other';
 
     try {
+      // Preserve specific exercise name in notes for better publishing
+      const exerciseNotes = workoutType !== mappedType
+        ? `${workoutType}${notes ? ': ' + notes : ''}`
+        : notes;
+
       // Save workout to local storage
       const workoutId = await LocalWorkoutStorageService.saveManualWorkout({
         type: mappedType,
@@ -82,7 +87,7 @@ export const ManualWorkoutScreen: React.FC = () => {
         distance: distance ? parseFloat(distance) : undefined,
         reps: reps ? parseInt(reps) : undefined,
         sets: sets ? parseInt(sets) : undefined,
-        notes,
+        notes: exerciseNotes,
       });
 
       console.log(`✅ Manual workout saved locally: ${workoutId} (${workoutType})`);

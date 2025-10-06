@@ -76,11 +76,22 @@ export const MyTeamsScreen: React.FC = () => {
   };
 
   const handleTeamPress = (team: Team) => {
-    // Navigate to EnhancedTeamScreen with team data
+    // Detect if user is captain of this team
+    const isCaptain = team.captainId === userNpub || team.captain === userNpub;
+
+    console.log('[MyTeamsScreen] 🎖️ Captain detection:', {
+      teamId: team.id,
+      teamCaptainId: team.captainId,
+      userNpub: userNpub?.slice(0, 20) + '...',
+      isCaptain,
+    });
+
+    // Navigate to EnhancedTeamScreen with team data and captain status
     navigation.navigate('EnhancedTeamScreen', {
       team,
       userIsMember: true,
       currentUserNpub: userNpub,
+      userIsCaptain: isCaptain, // Pass captain status for captain dashboard access
     });
   };
 
