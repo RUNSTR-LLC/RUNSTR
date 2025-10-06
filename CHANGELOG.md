@@ -4,6 +4,70 @@ All notable changes to RUNSTR will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.8] - 2025-10-05
+
+### Performance
+- **60% Faster App Startup**: Parallelized NostrPrefetchService for dramatic performance improvements
+  - Team discovery, profile data, and Season 1 leaderboards now load simultaneously
+  - Reduced sequential bottlenecks in data fetching
+  - Faster time-to-interactive for users
+- **Optimized Relay Connections**: Centralized NDK instance management with GlobalNDKService
+  - Single NDK instance shared across entire app
+  - Eliminated redundant relay connections
+  - Improved connection stability and reliability
+- **Stale-While-Revalidate Caching**: Instant data display with background updates
+  - Data appears immediately from cache
+  - Fresh data fetched in background and updates UI seamlessly
+  - Dramatically improved perceived performance
+- **Streamlined Loading Flow**: Removed redundant AppSplashScreen
+  - Cleaner initialization process
+  - Faster transition to main app
+  - Reduced complexity in loading architecture
+
+### Improved
+- **Caching Architecture**: Migrated NavigationDataContext to UnifiedNostrCache
+  - Single source of truth for all cached Nostr data
+  - Better cache invalidation and refresh strategies
+  - Improved data consistency across components
+- **Profile Screen**: Enhanced performance with optimized data loading
+  - Faster rendering of team memberships
+  - More responsive workout history
+  - Smoother scrolling and interactions
+- **Activity Tracker UI**: Removed live kilometer splits display from running tracker
+  - Cleaner, less cluttered interface during workouts
+  - Focus on essential metrics (distance, pace, duration)
+  - Improved readability while running
+- **TTS Announcements**: Enhanced TTS service with better preference management
+  - More reliable voice feedback during workouts
+  - Improved settings synchronization
+  - Better handling of user preferences
+
+### Fixed
+- **Team Stats Crashes**: Added defensive null checks for team.stats throughout codebase
+  - Prevents crashes when team statistics are unavailable
+  - Graceful degradation when stats data is missing
+  - Improved app stability in TeamStatsGrid and TeamJoinModal components
+- **NDK Initialization**: Resolved 'NDK not ready' error on discover page
+  - Optimized ready state checks
+  - Better handling of NDK initialization timing
+  - More reliable team discovery on app launch
+- **Amber Signer**: Fixed URI encoding for sign_event per NIP-55 spec
+  - Proper event encoding in deep link URIs
+  - Improved compatibility with Amber app
+  - More reliable event signing flow
+- **Join Request Publishing**: Automatic retry logic for failed join requests
+  - Network failures no longer silently fail
+  - Requests retry automatically until successful
+  - Better user feedback on request status
+- **Leaderboard Display**: Show all team members, including those with 0 workouts
+  - Complete team roster visible on leaderboards
+  - Members with no workouts shown at bottom
+  - More accurate representation of team participation
+- **League Loading**: Improved loading state handling with empty participant fallback
+  - No more blank screens when league has no participants
+  - Better loading indicators
+  - Graceful handling of edge cases
+
 ## [0.1.7] - 2025-10-05
 
 ### Fixed
