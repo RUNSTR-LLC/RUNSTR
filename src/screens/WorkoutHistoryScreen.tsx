@@ -20,7 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { theme } from '../styles/theme';
 import { WorkoutPublishingService } from '../services/nostr/workoutPublishingService';
-import LocalWorkoutStorageService from '../services/fitness/LocalWorkoutStorageService';
+import localWorkoutStorage from '../services/fitness/LocalWorkoutStorageService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { nsecToPrivateKey } from '../utils/nostr';
 
@@ -30,6 +30,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 // Two-Tab Workout Components
 import { WorkoutTabNavigator } from '../components/profile/WorkoutTabNavigator';
+// Import type from the service file (not from the default export)
 import type { LocalWorkout } from '../services/fitness/LocalWorkoutStorageService';
 
 interface WorkoutHistoryScreenProps {
@@ -50,8 +51,7 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
   const [userNsec, setUserNsec] = useState<string>('');
   const [isInitializing, setIsInitializing] = useState(true);
 
-  // Use static getInstance methods correctly
-  const localStorageService = LocalWorkoutStorageService.getInstance();
+  // Services - localWorkoutStorage is already a singleton instance
   const publishingService = WorkoutPublishingService.getInstance();
 
   // Load user credentials on mount
@@ -141,7 +141,7 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
         console.log(`[WorkoutHistory] ✅ Workout published: ${result.eventId}`);
 
         // Mark workout as synced - IT WILL DISAPPEAR FROM PRIVATE TAB
-        await localStorageService.markAsSynced(workout.id, result.eventId);
+        await localWorkoutStorage.markAsSynced(workout.id, result.eventId);
         console.log(`[WorkoutHistory] ✅ Workout marked as synced`);
 
         Alert.alert(
