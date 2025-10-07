@@ -92,6 +92,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     speechRate: 1.0,
     announceOnSummary: true,
     includeSplits: false,
+    announceLiveSplits: false,
   });
 
   // Alert state for CustomAlert
@@ -466,6 +467,25 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 value={ttsSettings.includeSplits}
                 onValueChange={(value) =>
                   handleTTSSettingChange('includeSplits', value)
+                }
+                trackColor={{ false: '#000000', true: theme.colors.accent }}
+                thumbColor='#000000'
+                disabled={!ttsSettings.enabled}
+              />
+            </View>
+
+            {/* Live Split Announcements */}
+            <View style={styles.settingItem}>
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingTitle}>Live Split Announcements</Text>
+                <Text style={styles.settingSubtitle}>
+                  Announce each kilometer as you run
+                </Text>
+              </View>
+              <Switch
+                value={ttsSettings.announceLiveSplits}
+                onValueChange={(value) =>
+                  handleTTSSettingChange('announceLiveSplits', value)
                 }
                 trackColor={{ false: '#000000', true: theme.colors.accent }}
                 thumbColor='#000000'
