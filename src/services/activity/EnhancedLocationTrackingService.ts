@@ -112,6 +112,19 @@ export class EnhancedLocationTrackingService {
   private lastDistanceValue: number = 0;
   private readonly DISTANCE_FREEZE_THRESHOLD_MS = 10000; // 10 seconds without distance change = freeze
 
+  // GPS signal strength thresholds
+  private readonly GPS_ACCURACY_STRONG_THRESHOLD = 10; // meters - excellent GPS signal
+  private readonly GPS_ACCURACY_MEDIUM_THRESHOLD = 20; // meters - good GPS signal
+  private readonly GPS_ACCURACY_WEAK_THRESHOLD = 50; // meters - weak GPS signal
+  private readonly GPS_ACCURACY_RECOVERY_THRESHOLD = 50; // meters - threshold for accepting recovery points
+
+  // Background sync and check intervals
+  private readonly GPS_CHECK_INTERVAL_MS = 5000; // Check GPS signal every 5 seconds
+  private readonly BACKGROUND_SYNC_INTERVAL_MS = 5000; // Sync background locations every 5 seconds
+
+  // Session management
+  private readonly MAX_SESSIONS_TO_KEEP = 50; // Maximum number of session snapshots to retain
+
   private constructor() {
     this.stateMachine = new ActivityStateMachine();
     this.recoveryService = SessionRecoveryService.getInstance();
@@ -138,9 +151,14 @@ export class EnhancedLocationTrackingService {
         if (nextAppState === 'background') {
           this.stateMachine.send({ type: 'ENTER_BACKGROUND' });
           this.currentSession.isBackgroundTracking = true;
+          // Start background sync only when app actually goes to background
+          this.startBackgroundLocationSync();
         } else if (nextAppState === 'active') {
           this.stateMachine.send({ type: 'ENTER_FOREGROUND' });
           this.currentSession.isBackgroundTracking = false;
+          // Stop background sync when app returns to foreground
+          this.stopBackgroundLocationSync();
+          // Sync any remaining background locations
           this.syncBackgroundLocations();
         }
       }
@@ -293,8 +311,10 @@ export class EnhancedLocationTrackingService {
       // Start GPS monitoring
       this.startGPSMonitoring();
 
-      // Start periodic background location sync
-      this.startBackgroundLocationSync();
+      // Start periodic background location sync only if app is already in background
+      if (AppState.currentState === 'background') {
+        this.startBackgroundLocationSync();
+      }
 
       // Get location options from battery service
       const locationOptions = this.batteryService.getLocationOptions(activityType);
@@ -418,7 +438,7 @@ export class EnhancedLocationTrackingService {
           this.recoveryStartTime = Date.now();
           this.pointsAfterRecovery = 0;
           this.skippedRecoveryDistance = 0;
-          this.recoveryAccuracyThreshold = 50; // Start with lenient threshold
+          this.recoveryAccuracyThreshold = this.GPS_ACCURACY_RECOVERY_THRESHOLD; // Start with lenient threshold
           this.currentSession.statistics.recoveryAttempts++;
           console.log(`🔄 GPS Recovery #${this.currentSession.statistics.recoveryAttempts}: Starting recovery buffer (${this.GPS_RECOVERY_POINTS} points)`);
         }
@@ -455,8 +475,8 @@ export class EnhancedLocationTrackingService {
           this.pointsAfterRecovery++;
 
           // Check GPS accuracy for logging purposes
-          const currentAccuracy = pointToStore.accuracy || 50;
-          const isReasonableQuality = currentAccuracy <= 50; // Relaxed threshold: just needs to be reasonable
+          const currentAccuracy = pointToStore.accuracy || this.GPS_ACCURACY_RECOVERY_THRESHOLD;
+          const isReasonableQuality = currentAccuracy <= this.GPS_ACCURACY_RECOVERY_THRESHOLD; // Relaxed threshold: just needs to be reasonable
 
           if (isReasonableQuality) {
             // Update threshold only when we get good points
@@ -620,11 +640,11 @@ export class EnhancedLocationTrackingService {
 
     let strength: 'strong' | 'medium' | 'weak' | 'none';
 
-    if (accuracy < 10) {
+    if (accuracy < this.GPS_ACCURACY_STRONG_THRESHOLD) {
       strength = 'strong';
-    } else if (accuracy < 20) {
+    } else if (accuracy < this.GPS_ACCURACY_MEDIUM_THRESHOLD) {
       strength = 'medium';
-    } else if (accuracy < 50) {
+    } else if (accuracy < this.GPS_ACCURACY_WEAK_THRESHOLD) {
       strength = 'weak';
     } else {
       strength = 'none';
@@ -711,7 +731,7 @@ export class EnhancedLocationTrackingService {
           console.log(`✅ FREEZE FIX: Recovery actions completed, distance tracking should resume`);
         }
       }
-    }, 5000);
+    }, this.GPS_CHECK_INTERVAL_MS);
   }
 
   /**
@@ -734,7 +754,7 @@ export class EnhancedLocationTrackingService {
 
     this.backgroundSyncTimer = setInterval(async () => {
       await this.syncBackgroundLocations();
-    }, 5000); // Check every 5 seconds
+    }, this.BACKGROUND_SYNC_INTERVAL_MS); // Check every 5 seconds
 
     console.log('Started periodic background location sync');
   }
@@ -947,7 +967,7 @@ export class EnhancedLocationTrackingService {
       const sessions = existingSessions ? JSON.parse(existingSessions) : [];
       sessions.push(session);
 
-      if (sessions.length > 50) {
+      if (sessions.length > this.MAX_SESSIONS_TO_KEEP) {
         sessions.shift();
       }
 
@@ -975,7 +995,7 @@ export class EnhancedLocationTrackingService {
     this.pointsAfterRecovery = 0;
     this.wasInGpsLostState = false;
     this.recoveryStartTime = null;
-    this.recoveryAccuracyThreshold = 50;
+    this.recoveryAccuracyThreshold = this.GPS_ACCURACY_RECOVERY_THRESHOLD;
     this.skippedRecoveryDistance = 0;
     this.splitTracker.reset();
     this.kalmanFilter.reset();

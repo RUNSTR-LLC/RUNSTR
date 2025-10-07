@@ -16,6 +16,12 @@ import { BatteryWarning } from '../../components/activity/BatteryWarning';
 import { WorkoutSummaryModal } from '../../components/activity/WorkoutSummaryModal';
 import LocalWorkoutStorageService from '../../services/fitness/LocalWorkoutStorageService';
 
+// Constants
+const TIMER_INTERVAL_MS = 1000; // Update timer every second
+const METRICS_UPDATE_INTERVAL_MS = 1000; // Update metrics every second for running
+const MIN_WORKOUT_DISTANCE_METERS = 10; // Minimum distance to show workout summary
+const ZOMBIE_SESSION_TIMEOUT_MS = 4 * 60 * 60 * 1000; // 4 hours
+
 interface MetricCardProps {
   label: string;
   value: string;
@@ -83,9 +89,8 @@ export const RunningTrackerScreen: React.FC = () => {
       if (existingSession) {
         // Check if session is stale (older than 4 hours = definitely zombie)
         const sessionAge = Date.now() - existingSession.startTime;
-        const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
 
-        if (sessionAge > FOUR_HOURS_MS) {
+        if (sessionAge > ZOMBIE_SESSION_TIMEOUT_MS) {
           console.log('🔧 Auto-cleanup: Removing stale zombie session (age: ${(sessionAge / 1000 / 60).toFixed(0)} min)');
           Alert.alert(
             'Cleaning Up',
@@ -153,10 +158,10 @@ export const RunningTrackerScreen: React.FC = () => {
         const totalElapsed = Math.floor((now - startTimeRef.current - totalPausedTimeRef.current) / 1000);
         setElapsedTime(totalElapsed);
       }
-    }, 1000);
+    }, TIMER_INTERVAL_MS);
 
     // Start metrics update timer (1 second for responsive UI)
-    metricsUpdateRef.current = setInterval(updateMetrics, 1000);
+    metricsUpdateRef.current = setInterval(updateMetrics, METRICS_UPDATE_INTERVAL_MS);
   };
 
   const formatElapsedTime = (seconds: number): string => {
@@ -243,7 +248,7 @@ export const RunningTrackerScreen: React.FC = () => {
     setIsTracking(false);
     setIsPaused(false);
 
-    if (session && session.totalDistance > 10) { // Only show summary if moved at least 10 meters
+    if (session && session.totalDistance > MIN_WORKOUT_DISTANCE_METERS) { // Only show summary if moved at least 10 meters
       showWorkoutSummary(session);
     } else {
       // Reset metrics

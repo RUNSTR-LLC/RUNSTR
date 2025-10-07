@@ -37,6 +37,7 @@ export const WalkingTrackerScreen: React.FC = () => {
   const startTimeRef = useRef<number>(0);
   const pauseStartTimeRef = useRef<number>(0);  // When pause started
   const totalPausedTimeRef = useRef<number>(0);  // Cumulative pause duration in ms
+  const isPausedRef = useRef<boolean>(false);  // Ref to avoid stale closure in timer
 
   useEffect(() => {
     return () => {
@@ -46,36 +47,88 @@ export const WalkingTrackerScreen: React.FC = () => {
   }, []);
 
   const startTracking = async () => {
+    // Health check: Detect and cleanup zombie sessions before starting
+    const currentState = enhancedLocationTrackingService.getTrackingState();
+    if (currentState !== 'idle' && currentState !== 'requesting_permissions') {
+      console.log('⚠️ Detected non-idle state before start:', currentState);
+
+      // Check if there's an active session
+      const existingSession = enhancedLocationTrackingService.getCurrentSession();
+
+      if (existingSession) {
+        // Check if session is stale (older than 4 hours = definitely zombie)
+        const sessionAge = Date.now() - existingSession.startTime;
+        const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
+
+        if (sessionAge > FOUR_HOURS_MS) {
+          console.log(`🔧 Auto-cleanup: Removing stale zombie session (age: ${(sessionAge / 1000 / 60).toFixed(0)} min)`);
+          Alert.alert(
+            'Cleaning Up',
+            'Found and removed a stale activity session. You can now start a new activity.',
+            [{ text: 'OK' }]
+          );
+          // Service will auto-cleanup via forceCleanup in startTracking
+        } else {
+          // Session is recent, might be legitimate
+          Alert.alert(
+            'Active Session Detected',
+            'There appears to be an active session. Would you like to clean it up and start fresh?',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Clean Up',
+                onPress: async () => {
+                  console.log('🔧 User requested cleanup of existing session');
+                  // Let the service handle cleanup via forceCleanup
+                  const retryStarted = await enhancedLocationTrackingService.startTracking('walking');
+                  if (retryStarted) {
+                    // Continue with normal initialization below
+                    initializeTracking();
+                  }
+                }
+              }
+            ]
+          );
+          return;
+        }
+      }
+    }
+
     const started = await enhancedLocationTrackingService.startTracking('walking');
     if (!started) {
       // The service will handle permission requests internally
       // Show error if tracking service is in invalid state
-      const currentState = enhancedLocationTrackingService.getTrackingState();
-      if (currentState !== 'idle' && currentState !== 'requesting_permissions') {
+      const finalState = enhancedLocationTrackingService.getTrackingState();
+      if (finalState !== 'idle' && finalState !== 'requesting_permissions') {
         Alert.alert(
           'Cannot Start Tracking',
-          'Previous activity session is still active. Please wait a moment and try again.',
+          'Unable to start activity tracking. Please try again or restart the app if the issue persists.',
           [{ text: 'OK' }]
         );
       }
       return;
     }
 
+    initializeTracking();
+  };
+
+  const initializeTracking = () => {
     setIsTracking(true);
     setIsPaused(false);
+    isPausedRef.current = false;
     startTimeRef.current = Date.now();
     pauseStartTimeRef.current = 0;
     totalPausedTimeRef.current = 0;
 
     timerRef.current = setInterval(() => {
-      if (!isPaused) {
+      if (!isPausedRef.current) {
         const now = Date.now();
         const totalElapsed = Math.floor((now - startTimeRef.current - totalPausedTimeRef.current) / 1000);
         setElapsedTime(totalElapsed);
       }
     }, 1000);
 
-    metricsUpdateRef.current = setInterval(updateMetrics, 3000); // Update every 3 seconds for walking
+    metricsUpdateRef.current = setInterval(updateMetrics, 1000); // Update every second for consistent UX across activities
   };
 
   const updateMetrics = () => {
@@ -98,6 +151,7 @@ export const WalkingTrackerScreen: React.FC = () => {
     if (!isPaused) {
       await enhancedLocationTrackingService.pauseTracking();
       setIsPaused(true);
+      isPausedRef.current = true;
       pauseStartTimeRef.current = Date.now();  // Store when pause started
     }
   };
@@ -108,6 +162,7 @@ export const WalkingTrackerScreen: React.FC = () => {
       totalPausedTimeRef.current += pauseDuration;  // Add to cumulative total
       await enhancedLocationTrackingService.resumeTracking();
       setIsPaused(false);
+      isPausedRef.current = false;
     }
   };
 
