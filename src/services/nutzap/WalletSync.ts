@@ -178,7 +178,8 @@ export class WalletSync {
       const existingEvents = await this.ndk.fetchEvents({
         kinds: [EVENT_KINDS.WALLET_INFO as NDKKind],
         authors: [this.userPubkey],
-        '#d': [dTag]
+        '#d': [dTag],
+        limit: 1  // Only need latest wallet event
       });
 
       if (existingEvents.size > 0) {
@@ -244,9 +245,15 @@ export class WalletSync {
 
   /**
    * Claim incoming nutzaps from Nostr
+   * Includes retry logic for connection failures
    */
-  async claimNutzaps(): Promise<{ claimed: number; total: number }> {
+  async claimNutzaps(retryCount: number = 3): Promise<{ claimed: number; total: number }> {
     if (!this.ndk || !this.isConnected) {
+      if (retryCount > 0) {
+        console.log(`[WalletSync] Not connected, retrying in 2s (${retryCount} retries left)...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        return this.claimNutzaps(retryCount - 1);
+      }
       return { claimed: 0, total: 0 };
     }
 
@@ -257,7 +264,8 @@ export class WalletSync {
         this.ndk.fetchEvents({
           kinds: [EVENT_KINDS.NUTZAP as NDKKind],
           '#p': [this.userPubkey],
-          since: Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60) // Last 7 days
+          since: Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60), // Last 7 days
+          limit: 200  // Reasonable for 7-day claim window
         }),
         new Promise<Set<NDKEvent>>((resolve) => setTimeout(() => resolve(new Set()), 5000))
       ]);
@@ -382,7 +390,8 @@ export class WalletSync {
       const tokenEvents = await Promise.race([
         this.ndk.fetchEvents({
           kinds: [7375 as NDKKind],
-          authors: [this.userPubkey]
+          authors: [this.userPubkey],
+          limit: 200 // Fetch recent token history for restoration
         }),
         new Promise<Set<NDKEvent>>((resolve) =>
           setTimeout(() => resolve(new Set()), 5000) // 5s timeout

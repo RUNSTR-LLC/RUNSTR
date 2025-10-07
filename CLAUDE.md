@@ -397,6 +397,62 @@ cd android && ./gradlew clean
 
 **Note:** No phase should be marked "complete" until TypeScript compiles without errors, folder READMEs are current, and lessons learned have been reviewed.
 
+## Pre-Launch Review System
+**IMPORTANT: Use this system before any major release or launch.**
+
+The project includes a comprehensive pre-launch review system with both automated and manual review capabilities.
+
+### Automated Audit (5 minutes)
+```bash
+npm run audit:pre-launch
+```
+
+**What it checks:**
+- ✅ Error boundaries and try-catch blocks
+- ✅ Loading states on data-fetching screens
+- ✅ Memory leaks (useEffect cleanup)
+- ✅ Hardcoded colors vs theme usage
+- ✅ Console.log statements
+- ✅ AsyncStorage error handling
+- ✅ Unbounded Nostr queries (performance)
+- ✅ Empty state handling
+
+**Output:** Generates `AUDIT_REPORT.md` with categorized issues (Critical, High, Medium, Low)
+
+### Manual Claude Review (90 minutes)
+For deep analysis requiring human judgment:
+
+1. Open a new Claude conversation
+2. Paste the content from `CLAUDE_REVIEW_PROMPT.md`
+3. Claude will systematically review:
+   - TypeScript compilation and build errors
+   - Authentication and wallet security
+   - Nostr connection stability
+   - Loading/error/empty states
+   - Navigation edge cases
+   - Performance bottlenecks
+   - UI consistency and accessibility
+   - Launch readiness checklist
+
+**Output:** Comprehensive report with prioritized, actionable recommendations
+
+### When to Use
+- **Automated Audit**: Run daily during pre-launch week, after major changes
+- **Manual Review**: Before initial launch, before major releases, quarterly health checks
+
+### Review Priority Levels
+- 🔴 **Critical**: Fix before launch (crashes, data loss, security issues)
+- 🟠 **High**: Quick wins (loading states, performance, UX gaps)
+- 🟡 **Medium**: Post-launch OK (UI polish, consistency)
+- 🟢 **Low**: Technical debt (refactoring, documentation)
+
+### Complete Documentation
+📖 **See**: `PRE_LAUNCH_REVIEW_GUIDE.md` for detailed workflow and usage instructions
+📖 **See**: `PRE_LAUNCH_REVIEW_SCRIPT.md` for Claude's manual review guide
+📖 **See**: `CLAUDE_REVIEW_PROMPT.md` for ready-to-paste Claude prompt
+
+**Note:** Always fix Critical issues before launch. High-priority items are recommended if time permits.
+
 ## Git Workflow Requirements
 **MANDATORY: After every successful fix or feature implementation:**
 

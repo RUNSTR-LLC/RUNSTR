@@ -18,6 +18,7 @@ import { TimeRemaining } from '../ui/TimeRemaining';
 import { LeaderboardService } from '../../services/competition/leaderboardService';
 import { CompetitionDistributionPanel } from './CompetitionDistributionPanel';
 import { NutzapLightningButton } from '../nutzap/NutzapLightningButton';
+import type { NDKSubscription } from '@nostr-dev-kit/ndk';
 import type {
   Competition,
   CompetitionParticipant,
@@ -67,7 +68,7 @@ export const LiveLeaderboard: React.FC<LiveLeaderboardProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
-  const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
+  const [subscription, setSubscription] = useState<NDKSubscription | null>(null);
 
   const leaderboardService = LeaderboardService.getInstance();
 
@@ -106,7 +107,7 @@ export const LiveLeaderboard: React.FC<LiveLeaderboardProps> = ({
         await loadLeaderboard();
 
         // Subscribe to real-time updates
-        const subId = await leaderboardService.subscribeToLeaderboardUpdates(
+        const sub = await leaderboardService.subscribeToLeaderboardUpdates(
           competition,
           team,
           (updatedLeaderboard: CompetitionLeaderboard) => {
@@ -115,7 +116,7 @@ export const LiveLeaderboard: React.FC<LiveLeaderboardProps> = ({
             setLastUpdate(new Date());
           }
         );
-        setSubscriptionId(subId);
+        setSubscription(sub);
       } catch (error) {
         console.error('Failed to setup leaderboard:', error);
       }
@@ -125,9 +126,9 @@ export const LiveLeaderboard: React.FC<LiveLeaderboardProps> = ({
 
     // Cleanup subscription
     return () => {
-      if (subscriptionId) {
-        console.log('Cleaning up leaderboard subscription:', subscriptionId);
-        // TODO: Add unsubscribe method to leaderboardService
+      if (subscription) {
+        console.log('Cleaning up leaderboard subscription');
+        subscription.stop();
       }
     };
   }, [competition.id, team.id]);

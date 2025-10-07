@@ -11,6 +11,7 @@
     "web": "expo start --web",
     "test": "jest",
     "test:activity-tracker": "npx tsx scripts/testActivityTrackerFixes.ts",
+    "audit:pre-launch": "npx tsx scripts/preLaunchAudit.ts",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit"
   },

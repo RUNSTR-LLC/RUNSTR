@@ -6,22 +6,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.13] - 2025-10-06
+
+### Added
+- **Two-Tab Workout Feed**: Separate Public and Private workout tabs
+  - Public tab shows workouts posted to Nostr (kind 1 social posts)
+  - Private tab shows local HealthKit workouts (not yet posted)
+  - Cleaner separation between social workout sharing and personal tracking
+  - Removed HealthKit complexity from workout display logic
+
 ### Fixed
-- **CRITICAL: NDK Connection Failures**: Fixed root cause of Nostr relay connection timeouts
-  - Added missing URL polyfill for React Native WebSocket URL parsing
-  - Increased NDK connection timeout from 2s → 10s (React Native needs more time)
-  - Added connection status validation after `ndk.connect()` completes
-  - Enabled NDK debug mode for better troubleshooting
-  - Implemented graceful degradation - app now starts even without relay connections
-  - Added automatic background retry with exponential backoff (1s, 2s, 4s)
-  - Reduced splash screen timeout from 15s → 12s for faster app startup
-  - App now works offline with cached data while retrying connections
+- **LocalWorkoutStorageService**: Fixed singleton instance usage across all components
+  - Corrected imports to use singleton instance directly
+  - Removed redundant instantiation causing storage inconsistencies
+  - Improved workout posting status tracking reliability
+- **iOS Build Errors**: Removed conflicting expo packages
+  - Cleaned up package dependencies for stable iOS builds
+  - Eliminated build failures from package conflicts
+- **Workout Tab UI**: Removed cache/instant load indicators
+  - Cleaner workout feed interface
+  - Removed redundant loading state indicators
+  - Improved visual clarity and reduced UI clutter
 
 ### Improved
-- **Splash Screen Experience**: App no longer hangs on "Loading profile..." screen
-  - Non-blocking initialization prevents indefinite loading states
-  - Clear progress updates during connection attempts
-  - Smooth transition to main app even with partial connectivity
+- **Workout Feed Architecture**: Simplified workout display with dedicated public/private tabs
+  - Better user mental model for workout management
+  - Clear distinction between social posts and private tracking
+  - More intuitive workout posting workflow
+
+## [0.1.12] - 2025-10-06
+
+### Fixed
+- **CRITICAL: Workout Fetching Bug**: Fixed parameter mismatch in prefetch service
+  - Corrected `fetchUserWorkouts` method signature (pubkey parameter)
+  - Eliminated "workouts.filter is not a function" errors
+  - Restored proper workout data fetching from Nostr relays
+- **HealthKit Date Format**: Fixed date parsing for HealthKit workout import
+  - Corrected ISO date string handling for workout timestamps
+  - Eliminated timezone-related workout import failures
+- **Pubkey Corruption in App.tsx**: Fixed pubkey retrieval from AsyncStorage
+  - Use stored hex pubkey instead of potentially corrupted user.id
+  - Prevents authentication errors on app startup
+  - More reliable user identification throughout app
+
+### Improved
+- **NostrRelayManager Migration**: Migrated 6 critical services to GlobalNDK
+  - Reduced redundant relay connections across the app
+  - Better connection stability and reliability
+  - Improved performance for Nostr operations
+
+## [0.1.11] - 2025-10-06
+
+### Fixed
+- **Onboarding Loop**: Prevented returning users from seeing onboarding wizard
+  - Added proper "onboarding complete" flag in AsyncStorage
+  - Returning users now bypass wizard and go straight to app
+  - Improved login flow reliability
+
+## [0.1.10] - 2025-10-06
+
+### Fixed
+- **Loading Screen Hang**: Multi-layer timeout protection for app initialization
+  - Added fallback timeouts to prevent indefinite loading states
+  - Better error handling for network and authentication failures
+  - Improved splash screen reliability
+
+### Improved
+- **LoginScreen Theme**: Updated to match orange theme design
+  - Consistent visual branding throughout authentication flow
+  - Better color scheme alignment with app design system
 
 ## [0.1.9] - 2025-10-06
 

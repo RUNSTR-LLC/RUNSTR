@@ -79,7 +79,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         const { hexPubkey } = identifiers;
 
-        // CRITICAL: Initialize cache from AsyncStorage before reading
+        // ✅ ANDROID FIX: Initialize cache (now non-blocking with lazy loading)
         await unifiedCache.initialize();
 
         // Load from UnifiedCache (already prefetched by SplashInit)
@@ -97,10 +97,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             setCurrentUser(updatedUser);
           });
         } else {
-          console.log('⚠️ AuthContext: No cached user found - will load on first access');
-          // Still set as authenticated - profile will load when needed
+          // ✅ ANDROID FIX: If no cached user, load from Nostr with timeout protection
+          console.log('⚠️ AuthContext: No cached user - fetching from Nostr...');
           setIsConnected(true);
-          setConnectionStatus('Connected');
+          setConnectionStatus('Loading profile...');
+
+          // ✅ ANDROID FIX: Set fallback user immediately, upgrade when profile loads
+          const fallbackUser: User = {
+            id: 'fallback_' + hexPubkey.slice(-10),
+            npub: storedNpub,
+            name: 'User ' + storedNpub.slice(5, 13),
+            email: '',
+            role: 'member',
+            createdAt: new Date().toISOString(),
+          } as User;
+
+          setCurrentUser(fallbackUser);
+
+          // Try to upgrade to full profile in background (non-blocking)
+          loadUserProfile().catch((err) => {
+            console.warn('⚠️ AuthContext: Profile upgrade failed, using fallback:', err);
+          });
         }
       } else {
         setIsAuthenticated(false);

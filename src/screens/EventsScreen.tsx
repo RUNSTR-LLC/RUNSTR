@@ -11,15 +11,16 @@ import {
   ActivityIndicator,
   RefreshControl,
   Text,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 
 // Components
 import { Season1Header } from '../components/events/Season1Header';
 import { ActivityTypeSelector } from '../components/events/ActivityTypeSelector';
 import { Season1LeaderboardComponent } from '../components/events/Season1Leaderboard';
-import { PrimaryButton } from '../components/ui/PrimaryButton';
 import { ComingSoonModal } from '../components/modals/ComingSoonModal';
 
 // Services and types
@@ -93,15 +94,14 @@ export const EventsScreen: React.FC = () => {
 
         {/* Purchase Season Pass Button */}
         <View style={styles.seasonPassContainer}>
-          <PrimaryButton
-            text="Purchase Season Pass"
+          <TouchableOpacity
+            style={styles.seasonPassButton}
             onPress={() => setShowComingSoonModal(true)}
-          />
-        </View>
-
-        {/* Top 3 Label */}
-        <View style={styles.topThreeContainer}>
-          <Text style={styles.topThreeText}>Top 3 in each category</Text>
+            activeOpacity={0.7}
+          >
+            <Ionicons name="card-outline" size={24} color={theme.colors.text} />
+            <Text style={styles.seasonPassText}>PURCHASE SEASON PASS</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Leaderboard */}
@@ -148,15 +148,22 @@ const styles = StyleSheet.create({
   seasonPassContainer: {
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 8,
+    paddingBottom: 20,
   },
 
-  topThreeContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+  seasonPassButton: {
+    backgroundColor: '#0a0a0a',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1a1a1a',
+    height: 80,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
   },
 
-  topThreeText: {
+  seasonPassText: {
     fontSize: 16,
     fontWeight: theme.typography.weights.semiBold,
     color: theme.colors.text,

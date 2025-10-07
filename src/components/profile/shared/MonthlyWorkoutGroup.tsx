@@ -1,9 +1,10 @@
 /**
  * MonthlyWorkoutGroup - Collapsible monthly workout folder
  * Organizes workouts by month with expandable/collapsible UI
+ * Now includes detailed monthly stats panel
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,8 +14,12 @@ import {
   Platform,
   UIManager,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../../styles/theme';
 import type { Workout } from '../../../types/workout';
+import { MonthlyStatsPanel } from '../MonthlyStatsPanel';
+import { MonthlyStatsCalculator } from '../../../services/fitness/MonthlyStatsCalculator';
+import type { MonthlyStats } from '../../../services/fitness/MonthlyStatsCalculator';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -37,18 +42,35 @@ interface MonthlyWorkoutGroupProps {
   group: MonthlyGroup;
   renderWorkout: (workout: Workout) => React.ReactElement;
   defaultExpanded?: boolean;
+  previousMonthWorkouts?: Workout[]; // For month-over-month comparison
 }
 
 export const MonthlyWorkoutGroup: React.FC<MonthlyWorkoutGroupProps> = ({
   group,
   renderWorkout,
   defaultExpanded = false,
+  previousMonthWorkouts,
 }) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const [showStats, setShowStats] = useState(false);
+  const [monthlyStats, setMonthlyStats] = useState<MonthlyStats | null>(null);
+
+  // Calculate monthly stats on mount
+  useEffect(() => {
+    const stats = MonthlyStatsCalculator.calculate(group.workouts, previousMonthWorkouts);
+    setMonthlyStats(stats);
+  }, [group.workouts, previousMonthWorkouts]);
 
   const toggleExpanded = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setIsExpanded(!isExpanded);
+  };
+
+  const toggleStats = (event: any) => {
+    // Stop event from bubbling to header (which toggles workouts)
+    event.stopPropagation();
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setShowStats(!showStats);
   };
 
   const formatDuration = (seconds: number): string => {
@@ -92,8 +114,25 @@ export const MonthlyWorkoutGroup: React.FC<MonthlyWorkoutGroupProps> = ({
               </Text>
             )}
           </View>
+          {/* Stats toggle icon */}
+          <TouchableOpacity
+            style={styles.statsIconButton}
+            onPress={toggleStats}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons
+              name={showStats ? 'stats-chart' : 'stats-chart-outline'}
+              size={20}
+              color={showStats ? '#FF9D42' : '#CC7A33'}
+            />
+          </TouchableOpacity>
         </View>
       </TouchableOpacity>
+
+      {/* Monthly Stats Panel */}
+      {showStats && monthlyStats && (
+        <MonthlyStatsPanel stats={monthlyStats} />
+      )}
 
       {/* Workouts */}
       {isExpanded && (
@@ -213,6 +252,10 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 14,
     marginLeft: 4,
+  },
+  statsIconButton: {
+    marginLeft: 12,
+    padding: 4,
   },
   workouts: {
     marginTop: 8,

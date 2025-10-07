@@ -77,22 +77,28 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
   const [isLoadingTeam, setIsLoadingTeam] = useState(false);
   const [leaguesPrefetched, setLeaguesPrefetched] = useState(false);
 
+  // ✅ ANDROID FIX: Skip redundant fetching if AuthContext already has user
   const fetchUserData = async (): Promise<UserWithWallet | null> => {
     try {
+      // ✅ OPTIMIZATION: If AuthContext already loaded user, use it immediately
+      if (currentUser) {
+        console.log('✅ NavigationData: Using user from AuthContext (skip refetch)');
+        setUser(currentUser);
+        setIsLoading(false);
+        return currentUser;
+      }
+
       const identifiers = await getUserNostrIdentifiers();
       if (!identifiers) {
         return await fetchUserDataFresh();
       }
 
-      // ✅ STALE-WHILE-REVALIDATE: Use UnifiedNostrCache with background refresh
+      // Only fetch if not already in currentUser
       const hexPubkey = identifiers.hexPubkey || '';
       const user = await unifiedCache.get<UserWithWallet>(
         CacheKeys.USER_PROFILE(hexPubkey),
         async () => {
           // Fetcher function - called if cache miss or expired
-          if (currentUser) {
-            return currentUser;
-          }
           const directUser = await DirectNostrProfileService.getCurrentUserProfile();
           if (directUser) return directUser as UserWithWallet;
 
@@ -101,7 +107,7 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
         },
         {
           ttl: CacheTTL.USER_PROFILE,
-          backgroundRefresh: true, // ✅ Return stale data, refresh in background
+          backgroundRefresh: true,
           persist: true,
         }
       );
@@ -109,7 +115,7 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
       if (user) {
         setUser(user);
         setIsLoading(false);
-        console.log('✅ fetchUserData: User profile loaded (with background refresh)');
+        console.log('✅ fetchUserData: User profile loaded from cache');
       }
 
       return user;
@@ -631,21 +637,32 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
     }
   };
 
-  // React to changes in currentUser from AuthContext
+  // ✅ ANDROID FIX: React to currentUser from AuthContext WITHOUT refetching
   useEffect(() => {
-    if (currentUser) {
+    if (currentUser && user?.id !== currentUser.id) {
       console.log(
-        '🚀 NavigationDataProvider: currentUser changed in AuthContext, refreshing data...'
+        '✅ NavigationData: Using currentUser from AuthContext (no refetch needed)'
       );
       setUser(currentUser);
-      fetchProfileData(currentUser);
+      // Only fetch profile data if we don't already have it
+      if (!profileData) {
+        fetchProfileData(currentUser);
+      }
     }
-  }, [currentUser]);
+  }, [currentUser, user?.id, profileData]);
 
-  // Initial load - Read from UnifiedCache (data already prefetched by SplashInit)
+  // ✅ ANDROID FIX: Initial load - Skip if AuthContext already loaded user
   useEffect(() => {
     const init = async () => {
-      console.log('🚀 NavigationDataProvider: Reading from cache (prefetched by SplashInit)...');
+      // Skip initialization if AuthContext already loaded user
+      if (currentUser) {
+        console.log('✅ NavigationData: Skipping init (AuthContext already loaded user)');
+        setUser(currentUser);
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('🚀 NavigationDataProvider: Initial load from cache...');
 
       try {
         // Get user identifiers

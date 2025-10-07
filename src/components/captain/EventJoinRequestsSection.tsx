@@ -22,7 +22,7 @@ import { NostrListService } from '../../services/nostr/NostrListService';
 import { getAuthenticationData } from '../../utils/nostrAuth';
 import { nsecToPrivateKey } from '../../utils/nostr';
 import { npubToHex } from '../../utils/ndkConversion';
-import { NDKPrivateKeySigner, NDKEvent } from '@nostr-dev-kit/ndk';
+import { NDKPrivateKeySigner, NDKEvent, NDKSubscription } from '@nostr-dev-kit/ndk';
 
 interface EventJoinRequestsSectionProps {
   captainPubkey: string;
@@ -46,7 +46,7 @@ export const EventJoinRequestsSection: React.FC<EventJoinRequestsSectionProps> =
 }) => {
   const [groupedRequests, setGroupedRequests] = useState<GroupedRequests[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
+  const [subscription, setSubscription] = useState<NDKSubscription | null>(null);
 
   const requestService = EventJoinRequestService.getInstance();
   const listService = NostrListService.getInstance();
@@ -89,7 +89,7 @@ export const EventJoinRequestsSection: React.FC<EventJoinRequestsSectionProps> =
         await loadEventJoinRequests();
 
         // Subscribe to new requests
-        const subId = await requestService.subscribeToEventJoinRequests(
+        const sub = await requestService.subscribeToEventJoinRequests(
           captainPubkey,
           (newRequest: EventJoinRequest) => {
             setGroupedRequests((prev) => {
@@ -116,7 +116,7 @@ export const EventJoinRequestsSection: React.FC<EventJoinRequestsSectionProps> =
             });
           }
         );
-        setSubscriptionId(subId);
+        setSubscription(sub);
       } catch (error) {
         console.error('Failed to setup event join requests subscription:', error);
       }
@@ -126,8 +126,9 @@ export const EventJoinRequestsSection: React.FC<EventJoinRequestsSectionProps> =
 
     // Cleanup subscription
     return () => {
-      if (subscriptionId) {
-        console.log('Cleaning up event join requests subscription:', subscriptionId);
+      if (subscription) {
+        console.log('Cleaning up event join requests subscription');
+        subscription.stop();
       }
     };
   }, [captainPubkey, teamId]);
@@ -322,6 +323,7 @@ export const EventJoinRequestsSection: React.FC<EventJoinRequestsSectionProps> =
                         requesterName: request.requesterName,
                         requestedAt: request.timestamp,
                         message: request.message,
+                        nostrEvent: request.nostrEvent,
                       }}
                       onApprove={() =>
                         handleApproveRequest(

@@ -64,6 +64,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { TeamCreationWizard } from './components/wizards/TeamCreationWizard';
 import { GlobalChallengeWizard } from './components/wizards/GlobalChallengeWizard';
 import { EventDetailScreen } from './screens/EventDetailScreen';
+import { LeagueDetailScreen } from './screens/LeagueDetailScreen';
 import { ChallengeDetailScreen } from './screens/ChallengeDetailScreen';
 import { EnhancedTeamScreen } from './screens/EnhancedTeamScreen';
 import { CaptainDashboardScreen } from './screens/CaptainDashboardScreen';
@@ -94,6 +95,7 @@ type AuthenticatedStackParamList = {
   TeamCreation: undefined;
   EnhancedTeamScreen: { team: any; userIsMember?: boolean; currentUserNpub?: string; userIsCaptain?: boolean };
   EventDetail: { eventId: string };
+  LeagueDetail: { leagueId: string; leagueData?: any };
   ChallengeDetail: { challengeId: string };
   CaptainDashboard: { teamId?: string; teamName?: string; teamCaptainId?: string; isCaptain?: boolean; userNpub?: string };
   Settings: any;
@@ -338,6 +340,7 @@ const AppContent: React.FC = () => {
                 }}
                 onAddChallenge={() => console.log('Add challenge')}
                 onEventPress={(eventId) => navigation.navigate('EventDetail', { eventId })}
+                onLeaguePress={(leagueId, leagueData) => navigation.navigate('LeagueDetail', { leagueId, leagueData })}
                 onChallengePress={(challengeId) => navigation.navigate('ChallengeDetail', { challengeId })}
                 showJoinButton={!userIsMember}
                 userIsMemberProp={userIsMember}
@@ -357,6 +360,21 @@ const AppContent: React.FC = () => {
         >
           {({ navigation, route }) => (
             <EventDetailScreen
+              route={route}
+              navigation={navigation}
+            />
+          )}
+        </AuthenticatedStack.Screen>
+
+        {/* League Detail Screen */}
+        <AuthenticatedStack.Screen
+          name="LeagueDetail"
+          options={{
+            headerShown: false,
+          }}
+        >
+          {({ navigation, route }) => (
+            <LeagueDetailScreen
               route={route}
               navigation={navigation}
             />

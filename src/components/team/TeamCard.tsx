@@ -222,73 +222,6 @@ export const TeamCard: React.FC<TeamCardProps> = ({
     }
   };
 
-  const cardContent = (
-    <View style={styles.cardContent}>
-          {/* Team Info */}
-          <View style={styles.teamInfo}>
-            <View style={styles.teamHeader}>
-              <Text style={styles.teamName} numberOfLines={1}>{team.name}</Text>
-              {userRank && userRank <= 10 && (
-                <View style={styles.rankBadge}>
-                  <Text style={styles.rankText}>#{userRank}</Text>
-                </View>
-              )}
-              {isCaptain && (
-                <View style={styles.captainBadge}>
-                  <Text style={styles.captainBadgeText}>CAPTAIN</Text>
-                </View>
-              )}
-            </View>
-
-            <Text style={styles.teamDescription} numberOfLines={1}>
-              {team.about || `${teamCategory} team`}
-            </Text>
-
-            {/* Prize Pool Display */}
-            {team.prizePool && team.prizePool > 0 ? (
-              <View style={styles.prizeRow}>
-                <Text style={styles.prizeIcon}>⚡</Text>
-                <Text style={styles.prizeText}>
-                  {team.prizePool.toLocaleString()} sats prize pool
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.noPrizeRow}>
-                <Text style={styles.noPrizeText}>
-                  No active prizes
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* Join Button */}
-          <View style={styles.buttonContainer}>
-            {currentUserNpub && buttonState !== 'captain' && (
-              <Pressable
-                style={[
-                  styles.joinButton,
-                  buttonState === 'member' && styles.memberButton,
-                  buttonState === 'pending' && styles.pendingButton,
-                  buttonState === 'loading' && styles.loadingButton,
-                ]}
-                onPress={handleJoinPress}
-                disabled={buttonState === 'loading' || buttonState === 'pending' || buttonState === 'member'}
-              >
-                <Text style={[
-                  styles.joinButtonText,
-                  buttonState === 'member' && styles.memberButtonText,
-                  buttonState === 'pending' && styles.pendingButtonText,
-                ]}>
-                  {buttonState === 'loading' ? '...' :
-                   buttonState === 'pending' ? 'Pending' :
-                   buttonState === 'member' ? 'Member' : 'Join'}
-                </Text>
-              </Pressable>
-            )}
-          </View>
-        </View>
-  );
-
   return (
     <View>
       {showCategory && (
@@ -300,20 +233,20 @@ export const TeamCard: React.FC<TeamCardProps> = ({
         android_ripple={{ color: theme.colors.buttonHover }}
       >
         {team.bannerImage ? (
+          // Show only banner image when available
           <ImageBackground
             source={{ uri: team.bannerImage }}
             style={styles.bannerBackground}
             imageStyle={styles.bannerImage}
-          >
-            <LinearGradient
-              colors={['transparent', 'rgba(0,0,0,0.8)', 'rgba(0,0,0,0.95)']}
-              style={styles.bannerGradient}
-            >
-              {cardContent}
-            </LinearGradient>
-          </ImageBackground>
+            resizeMode="cover"
+          />
         ) : (
-          cardContent
+          // Fallback: Show only team name when no banner
+          <View style={styles.fallbackContent}>
+            <Text style={styles.fallbackTeamName} numberOfLines={1}>
+              {team.name}
+            </Text>
+          </View>
         )}
       </Pressable>
     </View>
@@ -347,7 +280,7 @@ const styles = StyleSheet.create({
 
   bannerBackground: {
     width: '100%',
-    minHeight: 120,
+    minHeight: 140,
   },
 
   bannerImage: {
@@ -358,6 +291,20 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     justifyContent: 'flex-end',
+  },
+
+  fallbackContent: {
+    padding: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 95,
+  },
+
+  fallbackTeamName: {
+    fontSize: 18,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+    textAlign: 'center',
   },
 
   cardContent: {

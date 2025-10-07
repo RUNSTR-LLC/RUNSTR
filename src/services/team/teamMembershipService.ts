@@ -7,13 +7,8 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Event } from 'nostr-tools';
-import {
-  NostrRelayManager,
-  nostrRelayManager,
-} from '../nostr/NostrRelayManager';
 import { NostrListService } from '../nostr/NostrListService';
 import { TeamJoinRequestService } from './TeamJoinRequestService';
-import type { NostrFilter } from '../nostr/NostrProtocolHandler';
 import { normalizeUserKeyForStorage } from '../../utils/nostr';
 
 export interface LocalMembership {
@@ -51,7 +46,6 @@ export interface TeamSwitchResult {
 }
 
 export class TeamMembershipService {
-  private relayManager: NostrRelayManager;
   private listService: NostrListService;
   private joinRequestService: TeamJoinRequestService;
   private static instance: TeamMembershipService;
@@ -59,17 +53,14 @@ export class TeamMembershipService {
   // Storage keys
   private readonly LOCAL_MEMBERSHIPS_KEY = 'runstr:localMemberships';
 
-  constructor(relayManager?: NostrRelayManager) {
-    this.relayManager = relayManager || nostrRelayManager;
-    this.listService = NostrListService.getInstance(this.relayManager);
-    this.joinRequestService = TeamJoinRequestService.getInstance(
-      this.relayManager
-    );
+  constructor() {
+    this.listService = NostrListService.getInstance();
+    this.joinRequestService = TeamJoinRequestService.getInstance();
   }
 
-  static getInstance(relayManager?: NostrRelayManager): TeamMembershipService {
+  static getInstance(): TeamMembershipService {
     if (!TeamMembershipService.instance) {
-      TeamMembershipService.instance = new TeamMembershipService(relayManager);
+      TeamMembershipService.instance = new TeamMembershipService();
     }
     return TeamMembershipService.instance;
   }
@@ -281,7 +272,7 @@ export class TeamMembershipService {
   async subscribeToJoinRequests(
     captainPubkey: string,
     callback: (joinRequest: JoinRequest) => void
-  ): Promise<string> {
+  ): Promise<import('@nostr-dev-kit/ndk').NDKSubscription> {
     console.log(
       `🔔 Subscribing to join requests for captain: ${captainPubkey}`
     );

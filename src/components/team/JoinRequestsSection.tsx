@@ -11,6 +11,7 @@ import {
   StyleSheet,
   RefreshControl,
 } from 'react-native';
+import type { NDKSubscription } from '@nostr-dev-kit/ndk';
 import { theme } from '../../styles/theme';
 import { JoinRequestCard } from './JoinRequestCard';
 import { TeamMembershipService } from '../../services/team/teamMembershipService';
@@ -32,7 +33,7 @@ export const JoinRequestsSection: React.FC<JoinRequestsSectionProps> = ({
 }) => {
   const [requests, setRequests] = useState<JoinRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
+  const [subscription, setSubscription] = useState<NDKSubscription | null>(null);
 
   const membershipService = TeamMembershipService.getInstance();
 
@@ -59,7 +60,7 @@ export const JoinRequestsSection: React.FC<JoinRequestsSectionProps> = ({
         await loadJoinRequests();
 
         // Subscribe to new requests
-        const subId = await membershipService.subscribeToJoinRequests(
+        const sub = await membershipService.subscribeToJoinRequests(
           captainPubkey,
           async (newRequest: JoinRequest) => {
             setRequests((prev) => {
@@ -95,7 +96,7 @@ export const JoinRequestsSection: React.FC<JoinRequestsSectionProps> = ({
             }
           }
         );
-        setSubscriptionId(subId);
+        setSubscription(sub);
       } catch (error) {
         console.error('Failed to setup join requests subscription:', error);
       }
@@ -105,12 +106,13 @@ export const JoinRequestsSection: React.FC<JoinRequestsSectionProps> = ({
 
     // Cleanup subscription
     return () => {
-      if (subscriptionId) {
+      if (subscription) {
         // Unsubscribe when component unmounts
-        // Note: Add unsubscribe method to membershipService if not present
-        console.log('Cleaning up join requests subscription:', subscriptionId);
+        console.log('Cleaning up join requests subscription');
+        subscription.stop();
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamId, captainPubkey]);
 
   const handleApproveRequest = async (

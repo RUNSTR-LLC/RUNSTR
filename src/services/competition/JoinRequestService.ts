@@ -112,6 +112,7 @@ export class JoinRequestService {
       kinds: [kind],
       '#e': [competitionId],
       '#p': [creatorPubkey],
+      limit: 100, // Prevent unbounded query - fetch recent join requests
     };
 
     const events = await ndk.fetchEvents(filter);

@@ -115,7 +115,8 @@ export class ChatService {
       const filter: NDKFilter = {
         kinds: [40],
         '#team': [teamId],
-        authors: [captainPubkey] // Only captain can create
+        authors: [captainPubkey], // Only captain can create
+        limit: 50 // Prevent unbounded query
       };
 
       const events = await ndk.fetchEvents(filter);
@@ -148,7 +149,8 @@ export class ChatService {
       const ndk = this.getNDK();
       const filter: NDKFilter = {
         kinds: [40],
-        ids: [channelId]
+        ids: [channelId],
+        limit: 1 // Only need one specific channel
       };
 
       const events = await ndk.fetchEvents(filter);

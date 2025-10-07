@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Modal, InteractionManager } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../styles/theme';
 import { ProfileTab, ProfileScreenData, NotificationSettings } from '../types';
@@ -108,48 +108,52 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const { balance, refreshBalance } = useNutzap(true);
   const { initialize: initializeWallet, isInitialized } = useWalletStore();
 
-  // Initialize wallet and load notification settings on mount
+  // ✅ ANDROID FIX: Defer wallet initialization until after screen is interactive
   useEffect(() => {
-    // Initialize wallet globally when profile screen loads
-    // Use quick resume mode for instant loading on Android
-    if (!isInitialized) {
-      console.log('[ProfileScreen] Initializing global wallet with quick resume...');
-      initializeWallet(undefined, true); // Pass quickResume: true
+    if (isInitialized) {
+      return; // Already initialized
     }
+
+    const initTask = InteractionManager.runAfterInteractions(() => {
+      console.log('[ProfileScreen] ⚡ Initializing wallet (deferred after interactions)...');
+      initializeWallet(undefined, true); // Quick resume mode
+    });
+
+    return () => initTask.cancel();
   }, [isInitialized, initializeWallet]);
 
-  // Initialize unified notification system
+  // ✅ ANDROID FIX: Defer notification initialization until after screen is interactive
   useEffect(() => {
-    const initializeNotifications = async () => {
+    const initTask = InteractionManager.runAfterInteractions(async () => {
       try {
         const userIdentifiers = await getUserNostrIdentifiers();
         if (userIdentifiers?.hexPubkey) {
-          console.log('[ProfileScreen] Initializing unified notification system...');
+          console.log('[ProfileScreen] ⚡ Initializing notifications (deferred after interactions)...');
 
-          // Initialize the unified notification store
-          await unifiedNotificationStore.initialize(userIdentifiers.hexPubkey);
+          // Initialize in background - don't block UI
+          unifiedNotificationStore.initialize(userIdentifiers.hexPubkey).catch((err) => {
+            console.warn('[ProfileScreen] Notification store init failed:', err);
+          });
 
-          // Start challenge notification listener
-          await challengeNotificationHandler.startListening();
+          // Start listeners in background
+          challengeNotificationHandler.startListening().catch((err) => {
+            console.warn('[ProfileScreen] Challenge notification handler failed:', err);
+          });
 
-          // Start event join request notification listener
-          await eventJoinNotificationHandler.startListening();
+          eventJoinNotificationHandler.startListening().catch((err) => {
+            console.warn('[ProfileScreen] Event join notification handler failed:', err);
+          });
 
-          // Initialize NotificationService to start competition event monitoring
-          // TEMPORARILY COMMENTED OUT TO DEBUG THEME ERROR
-          // await NotificationService.getInstance().initialize(userIdentifiers.hexPubkey);
-
-          console.log('[ProfileScreen] Unified notification system initialized');
+          console.log('[ProfileScreen] ✅ Notification system initialization started (background)');
         }
       } catch (error) {
         console.error('[ProfileScreen] Failed to initialize notification system:', error);
       }
-    };
-
-    initializeNotifications();
+    });
 
     // Cleanup on unmount
     return () => {
+      initTask.cancel();
       challengeNotificationHandler.stopListening();
       eventJoinNotificationHandler.stopListening();
     };
@@ -194,12 +198,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     loadUserNpub();
   }, [data.user.id]);
 
-  // Proactively fetch workout data when ProfileScreen mounts (non-blocking)
+  // ✅ ANDROID FIX: Defer workout fetch until WELL AFTER screen is interactive
   useEffect(() => {
-    const fetchWorkoutData = async () => {
+    const fetchTask = InteractionManager.runAfterInteractions(async () => {
+      // Additional delay for very heavy workout fetching
+      await new Promise(resolve => setTimeout(resolve, 1000)); // 1s delay after interactions
+
       try {
-        // CRITICAL FIX: Use hex pubkey from AsyncStorage, NOT synthetic user.id
-        // user.id is 'nostr_hh6sr85uum' but we need actual hex pubkey for Nostr queries
         const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
         const npub = await AsyncStorage.getItem('@runstr:npub');
         const userPubkey = hexPubkey || npub;
@@ -209,29 +214,28 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           return;
         }
 
-        // ✅ Check UnifiedNostrCache first
+        // Check cache first
         const cachedWorkouts = unifiedCache.getCached(CacheKeys.USER_WORKOUTS(userPubkey));
         if (cachedWorkouts) {
           console.log('[ProfileScreen] ✅ Using cached workouts (instant)');
           return;
         }
 
-        console.log('[ProfileScreen] 🏃 Triggering background workout fetch...');
+        console.log('[ProfileScreen] ⚡ Triggering background workout fetch (deferred)...');
         const cacheService = WorkoutCacheService.getInstance();
 
-        // Fire-and-forget: Don't block UI while fetching (removes 10-15s freeze)
+        // Fire-and-forget background fetch
         cacheService.getMergedWorkouts(userPubkey, 500).then(() => {
           console.log('[ProfileScreen] ✅ Background workout fetch complete');
         }).catch((error) => {
           console.error('[ProfileScreen] ⚠️ Background workout fetch error:', error);
-          // Non-critical - workouts will load on demand
         });
       } catch (error) {
         console.error('[ProfileScreen] ⚠️ Background workout fetch setup error:', error);
       }
-    };
+    });
 
-    fetchWorkoutData();
+    return () => fetchTask.cancel();
   }, [data.user.id]);
 
   // Event handlers
@@ -275,10 +279,36 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     onSignOut?.();
   };
 
+  // ✅ ANDROID FIX: Enhanced pull-to-refresh handler
   const handleRefresh = async () => {
+    console.log('[ProfileScreen] 🔄 Pull-to-refresh triggered');
     setIsRefreshing(true);
-    await onRefresh?.();
-    setIsRefreshing(false);
+
+    try {
+      // 1. Reconnect GlobalNDK to relays
+      const GlobalNDKService = require('../services/nostr/GlobalNDKService').GlobalNDKService;
+      await GlobalNDKService.reconnect().catch((err: any) => {
+        console.warn('[ProfileScreen] Reconnect failed:', err);
+      });
+
+      // 2. Refetch profile from Nostr
+      const DirectNostrProfileService = require('../services/user/directNostrProfileService').DirectNostrProfileService;
+      await DirectNostrProfileService.getCurrentUserProfile().catch((err: any) => {
+        console.warn('[ProfileScreen] Profile refetch failed:', err);
+      });
+
+      // 3. Refresh wallet balance
+      await refreshBalance();
+
+      // 4. Call original onRefresh if provided
+      await onRefresh?.();
+
+      console.log('[ProfileScreen] ✅ Pull-to-refresh complete');
+    } catch (error) {
+      console.error('[ProfileScreen] Pull-to-refresh error:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const handleSettingsPress = () => {

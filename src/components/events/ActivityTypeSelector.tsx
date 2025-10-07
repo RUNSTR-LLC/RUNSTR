@@ -58,24 +58,29 @@ const styles = StyleSheet.create({
   button: {
     flex: 1,
     paddingVertical: 12,
+    backgroundColor: '#0a0a0a',
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: '#1a1a1a',
     borderRadius: 8,
     alignItems: 'center',
+    position: 'relative',
   },
 
   buttonSelected: {
-    backgroundColor: theme.colors.text,
-    borderColor: theme.colors.text,
+    backgroundColor: '#0a0a0a',
+    borderColor: '#1a1a1a',
+    borderBottomWidth: 2,
+    borderBottomColor: theme.colors.orangeBright,
   },
 
   buttonText: {
     fontSize: 14,
     fontWeight: theme.typography.weights.medium,
-    color: theme.colors.text,
+    color: theme.colors.textMuted,
   },
 
   buttonTextSelected: {
-    color: theme.colors.background,
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.semiBold,
   },
 });

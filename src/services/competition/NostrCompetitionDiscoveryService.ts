@@ -4,21 +4,19 @@
  * by querying kind 30000 lists containing their pubkey
  */
 
-import { nostrRelayManager } from '../nostr/NostrRelayManager';
-import type { NostrRelayManager } from '../nostr/NostrRelayManager';
-import type { NostrFilter } from '../nostr/NostrProtocolHandler';
+import { GlobalNDKService } from '../nostr/GlobalNDKService';
+import type { NDKFilter, NDKEvent } from '@nostr-dev-kit/ndk';
 import type { NostrList, Event } from '../nostr/NostrListService';
 import type { UserCompetition } from '../../types/challenge';
 import { npubToHex } from '../../utils/ndkConversion';
 import { appCache } from '../../utils/cache';
 
 export class NostrCompetitionDiscoveryService {
-  private relayManager: NostrRelayManager;
   private static instance: NostrCompetitionDiscoveryService;
   private discoveryCache: Map<string, UserCompetition[]> = new Map();
 
-  constructor(relayManager?: NostrRelayManager) {
-    this.relayManager = relayManager || nostrRelayManager;
+  constructor() {
+    // No relay manager needed - uses GlobalNDKService
   }
 
   static getInstance(): NostrCompetitionDiscoveryService {
@@ -54,65 +52,82 @@ export class NostrCompetitionDiscoveryService {
     }
 
     try {
+      // Get GlobalNDK instance
+      const ndk = await GlobalNDKService.getInstance();
+
       const competitions: UserCompetition[] = [];
       const processedIds = new Set<string>();
 
       // Query 1: kind 30000 lists where user is a member
-      const memberFilters: NostrFilter[] = [
-        {
-          kinds: [30000],
-          '#p': [hexPubkey],
-          limit: 500
-        }
-      ];
+      const memberFilter: NDKFilter = {
+        kinds: [30000],
+        '#p': [hexPubkey],
+        limit: 500
+      };
 
-      const memberSubId = await this.relayManager.subscribeToEvents(
-        memberFilters,
-        (event: Event, relayUrl: string) => {
-          try {
-            const competition = this.parseListToCompetition(event, hexPubkey);
-            if (competition && !processedIds.has(competition.id)) {
-              processedIds.add(competition.id);
-              competitions.push(competition);
-              console.log(`✅ Found competition: ${competition.name} (${competition.type})`);
-            }
-          } catch (error) {
-            console.warn(`Failed to parse competition from event ${event.id}:`, error);
+      const memberSub = ndk.subscribe(memberFilter, { closeOnEose: false });
+
+      memberSub.on('event', (ndkEvent: NDKEvent) => {
+        try {
+          const event: Event = {
+            id: ndkEvent.id || '',
+            pubkey: ndkEvent.pubkey || '',
+            created_at: ndkEvent.created_at || Math.floor(Date.now() / 1000),
+            kind: ndkEvent.kind,
+            tags: ndkEvent.tags || [],
+            content: ndkEvent.content || '',
+            sig: ndkEvent.sig || '',
+          };
+
+          const competition = this.parseListToCompetition(event, hexPubkey);
+          if (competition && !processedIds.has(competition.id)) {
+            processedIds.add(competition.id);
+            competitions.push(competition);
+            console.log(`✅ Found competition: ${competition.name} (${competition.type})`);
           }
+        } catch (error) {
+          console.warn(`Failed to parse competition from event:`, error);
         }
-      );
+      });
 
       // Query 2: kind 30100/30101 competitions where user is author (captain)
-      const authorFilters: NostrFilter[] = [
-        {
-          kinds: [30100, 30101], // Leagues and Events
-          authors: [hexPubkey],
-          limit: 500
-        }
-      ];
+      const authorFilter: NDKFilter = {
+        kinds: [30100 as any, 30101 as any], // Custom kinds - Leagues and Events
+        authors: [hexPubkey],
+        limit: 500
+      };
 
-      const authorSubId = await this.relayManager.subscribeToEvents(
-        authorFilters,
-        (event: Event, relayUrl: string) => {
-          try {
-            const competition = this.parseCompetitionDefinition(event, hexPubkey);
-            if (competition && !processedIds.has(competition.id)) {
-              processedIds.add(competition.id);
-              competitions.push(competition);
-              console.log(`✅ Found competition: ${competition.name} (${competition.type})`);
-            }
-          } catch (error) {
-            console.warn(`Failed to parse competition from event ${event.id}:`, error);
+      const authorSub = ndk.subscribe(authorFilter, { closeOnEose: false });
+
+      authorSub.on('event', (ndkEvent: NDKEvent) => {
+        try {
+          const event: Event = {
+            id: ndkEvent.id || '',
+            pubkey: ndkEvent.pubkey || '',
+            created_at: ndkEvent.created_at || Math.floor(Date.now() / 1000),
+            kind: ndkEvent.kind,
+            tags: ndkEvent.tags || [],
+            content: ndkEvent.content || '',
+            sig: ndkEvent.sig || '',
+          };
+
+          const competition = this.parseCompetitionDefinition(event, hexPubkey);
+          if (competition && !processedIds.has(competition.id)) {
+            processedIds.add(competition.id);
+            competitions.push(competition);
+            console.log(`✅ Found competition: ${competition.name} (${competition.type})`);
           }
+        } catch (error) {
+          console.warn(`Failed to parse competition from event:`, error);
         }
-      );
+      });
 
       // Wait for results
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       // Unsubscribe both
-      this.relayManager.unsubscribe(memberSubId);
-      this.relayManager.unsubscribe(authorSubId);
+      memberSub.stop();
+      authorSub.stop();
 
       // Sort competitions by status and start date
       competitions.sort((a, b) => {
@@ -323,7 +338,7 @@ export class NostrCompetitionDiscoveryService {
   /**
    * Clear cache
    */
-  clearCache(userPubkey?: string): void {
+  async clearCache(userPubkey?: string): Promise<void> {
     if (userPubkey) {
       let hexPubkey = userPubkey;
       if (userPubkey.startsWith('npub')) {
@@ -331,9 +346,11 @@ export class NostrCompetitionDiscoveryService {
         if (converted) hexPubkey = converted;
       }
       this.discoveryCache.delete(hexPubkey);
-      appCache.remove(`competitions_${hexPubkey}`);
+      // Invalidate appCache entry
+      await appCache.set(`competitions_${hexPubkey}`, null, 0);
     } else {
       this.discoveryCache.clear();
+      await appCache.clear('competitions_');
     }
     console.log('🧹 Cleared competition discovery cache');
   }

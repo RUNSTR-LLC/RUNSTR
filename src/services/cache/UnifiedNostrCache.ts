@@ -67,10 +67,12 @@ export class UnifiedNostrCache {
   private subscribers: Map<string, Set<SubscriberCallback>> = new Map();
 
   // Track initialization state
-  private initialized: boolean = false;
+  private initialized: boolean = true; // ✅ ANDROID FIX: Mark as initialized immediately (lazy loading)
+  private hydrationStarted: boolean = false;
 
   private constructor() {
     // Private constructor for singleton
+    // ✅ ANDROID FIX: No blocking operations in constructor
   }
 
   /**
@@ -84,60 +86,108 @@ export class UnifiedNostrCache {
   }
 
   /**
-   * Initialize cache by loading persisted data from AsyncStorage
+   * ✅ ANDROID FIX: Instant, non-blocking initialization
+   * Cache is ready immediately, AsyncStorage loads happen on-demand
    */
   async initialize(): Promise<void> {
-    if (this.initialized) {
+    // Already initialized - cache works instantly
+    if (this.hydrationStarted) {
       return;
     }
 
-    try {
-      console.log('[UnifiedCache] Initializing cache from AsyncStorage...');
+    this.hydrationStarted = true;
+    console.log('[UnifiedCache] ✅ Cache ready (lazy-loading mode)');
 
-      // Load all persisted cache keys
-      const keys = await AsyncStorage.getAllKeys();
-      const cacheKeys = keys.filter(key => key.startsWith(STORAGE_PREFIX));
+    // ✅ ANDROID FIX: Hydrate in background WITHOUT blocking
+    this.hydrateInBackground();
+  }
 
-      if (cacheKeys.length === 0) {
-        console.log('[UnifiedCache] No persisted cache found');
-        this.initialized = true;
-        return;
-      }
+  /**
+   * ✅ ANDROID FIX: Background hydration (non-blocking)
+   * Loads persisted cache entries WITHOUT blocking the main thread
+   */
+  private hydrateInBackground(): void {
+    console.log('[UnifiedCache] 🔄 Starting background hydration...');
 
-      // Load all cache entries
-      const entries = await AsyncStorage.multiGet(cacheKeys);
+    // Run in background - don't await
+    (async () => {
+      try {
+        const keys = await AsyncStorage.getAllKeys();
+        const cacheKeys = keys.filter(key => key.startsWith(STORAGE_PREFIX));
 
-      let loadedCount = 0;
-      for (const [storageKey, value] of entries) {
-        if (!value) continue;
-
-        try {
-          const cacheKey = storageKey.replace(STORAGE_PREFIX, '');
-          const entry: CacheEntry = JSON.parse(value);
-
-          // Only load if not expired
-          if (!this.isExpired(entry)) {
-            this.cache.set(cacheKey, entry);
-            loadedCount++;
-          } else {
-            // Clean up expired entry
-            await AsyncStorage.removeItem(storageKey);
-          }
-        } catch (parseError) {
-          console.warn('[UnifiedCache] Failed to parse cache entry:', parseError);
+        if (cacheKeys.length === 0) {
+          console.log('[UnifiedCache] No persisted cache to hydrate');
+          return;
         }
+
+        // Load entries in background
+        const entries = await AsyncStorage.multiGet(cacheKeys);
+
+        let loadedCount = 0;
+        for (const [storageKey, value] of entries) {
+          if (!value) continue;
+
+          try {
+            const cacheKey = storageKey.replace(STORAGE_PREFIX, '');
+            const entry: CacheEntry = JSON.parse(value);
+
+            // Only load if not expired
+            if (!this.isExpired(entry)) {
+              this.cache.set(cacheKey, entry);
+              loadedCount++;
+
+              // Notify subscribers of hydrated data
+              this.notifySubscribers(cacheKey, entry.data);
+            } else {
+              // Clean up expired entries (non-blocking)
+              AsyncStorage.removeItem(storageKey).catch(() => {});
+            }
+          } catch (parseError) {
+            console.warn('[UnifiedCache] Failed to parse cache entry:', parseError);
+          }
+        }
+
+        console.log(`[UnifiedCache] ✅ Background hydration complete: ${loadedCount} entries`);
+      } catch (error) {
+        console.error('[UnifiedCache] Background hydration failed:', error);
+      }
+    })();
+  }
+
+  /**
+   * ✅ ANDROID FIX: Load single cache entry on-demand from AsyncStorage
+   * Used when memory cache misses but we need to check persistent storage
+   */
+  private async loadCachedEntry<T>(key: string): Promise<CacheEntry<T> | null> {
+    try {
+      const storageKey = `${STORAGE_PREFIX}${key}`;
+      const value = await AsyncStorage.getItem(storageKey);
+
+      if (!value) return null;
+
+      const entry: CacheEntry<T> = JSON.parse(value);
+
+      // Check if expired
+      if (this.isExpired(entry)) {
+        // Clean up expired entry
+        AsyncStorage.removeItem(storageKey).catch(() => {});
+        return null;
       }
 
-      console.log(`[UnifiedCache] Loaded ${loadedCount} valid cache entries`);
-      this.initialized = true;
+      // Load into memory cache
+      this.cache.set(key, entry);
+      console.log(`[UnifiedCache] ⚡ Loaded on-demand: ${key}`);
+
+      return entry;
     } catch (error) {
-      console.error('[UnifiedCache] Initialization failed:', error);
-      this.initialized = true; // Continue anyway
+      console.warn(`[UnifiedCache] Failed to load entry on-demand: ${key}`, error);
+      return null;
     }
   }
 
   /**
    * Get data from cache or fetch if missing/expired
+   * ✅ ANDROID FIX: Now checks AsyncStorage on-demand if memory cache misses
    */
   async get<T>(
     key: string,
@@ -151,10 +201,7 @@ export class UnifiedNostrCache {
       persist = true
     } = options;
 
-    // Ensure cache is initialized
-    if (!this.initialized) {
-      await this.initialize();
-    }
+    // ✅ ANDROID FIX: No blocking initialize() call - cache is always ready
 
     // Check for pending fetch (deduplication)
     if (this.pendingFetches.has(key)) {
@@ -164,7 +211,13 @@ export class UnifiedNostrCache {
 
     // Check cache if not forcing refresh
     if (!forceRefresh) {
-      const cached = this.cache.get(key);
+      // Check memory cache first
+      let cached = this.cache.get(key);
+
+      // ✅ ANDROID FIX: If not in memory, check AsyncStorage on-demand
+      if (!cached) {
+        cached = await this.loadCachedEntry<T>(key);
+      }
 
       if (cached && !this.isExpired(cached)) {
         console.log(`[UnifiedCache] Cache hit: ${key} (age: ${Date.now() - cached.timestamp}ms)`);
@@ -189,11 +242,32 @@ export class UnifiedNostrCache {
   }
 
   /**
-   * Get cached data only (no fetch)
-   * Returns null if not cached or expired
+   * Get cached data only (no fetch, synchronous)
+   * Returns null if not cached in memory or expired
+   * ✅ ANDROID FIX: Synchronous-only to avoid blocking - use getCachedAsync() to check AsyncStorage
    */
   getCached<T>(key: string): T | null {
     const cached = this.cache.get(key);
+
+    if (!cached || this.isExpired(cached)) {
+      return null;
+    }
+
+    return cached.data;
+  }
+
+  /**
+   * ✅ ANDROID FIX: Async version that checks AsyncStorage if memory cache misses
+   * Use this when you need to check persistent storage without triggering a fetch
+   */
+  async getCachedAsync<T>(key: string): Promise<T | null> {
+    // Check memory first
+    let cached = this.cache.get(key);
+
+    // If not in memory, try loading from AsyncStorage
+    if (!cached) {
+      cached = await this.loadCachedEntry<T>(key);
+    }
 
     if (!cached || this.isExpired(cached)) {
       return null;

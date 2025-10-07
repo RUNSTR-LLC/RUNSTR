@@ -1,11 +1,12 @@
 /**
  * ChallengeRequestService - Handles Nostr kind 1105/1106/1107 challenge protocol
  * Manages challenge requests, acceptances, declines, and participant list creation
- * Integrates with NostrRelayManager and NostrListService
+ * Uses GlobalNDKService and NostrListService
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { nostrRelayManager } from '../nostr/NostrRelayManager';
+import { GlobalNDKService } from '../nostr/GlobalNDKService';
+import type { NDKFilter, NDKEvent, NDKSubscription } from '@nostr-dev-kit/ndk';
 import { NostrListService } from '../nostr/NostrListService';
 import { NostrProtocolHandler } from '../nostr/NostrProtocolHandler';
 import { getUserNostrIdentifiers } from '../../utils/nostr';
@@ -55,6 +56,7 @@ export class ChallengeRequestService {
   private static instance: ChallengeRequestService;
   private pendingChallenges: Map<string, PendingChallenge> = new Map();
   private eventListeners: Map<string, ChallengeEventListener> = new Map();
+  private ndkSubscriptions: Map<string, NDKSubscription> = new Map();
   private subscriptionId?: string;
   private readonly STORAGE_KEY = '@runstr:pending_challenges';
   private readonly CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
@@ -65,6 +67,20 @@ export class ChallengeRequestService {
     this.listService = NostrListService.getInstance();
     this.protocolHandler = new NostrProtocolHandler();
     this.loadPendingChallenges();
+  }
+
+  /**
+   * Helper: Publish event using GlobalNDK
+   */
+  private async publishEventToNDK(event: Event): Promise<{ success: boolean; error?: string }> {
+    try {
+      const ndk = await GlobalNDKService.getInstance();
+      const ndkEvent: NDKEvent = new (ndk.constructor as any).Event(ndk, event);
+      await ndkEvent.publish();
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
   }
 
   static getInstance(): ChallengeRequestService {
@@ -227,7 +243,7 @@ export class ChallengeRequestService {
       const signedEvent = await this.protocolHandler.signEvent(eventTemplate, signerNsec);
 
       // Publish to Nostr relays
-      const publishResult = await nostrRelayManager.publishEvent(signedEvent);
+      const publishResult = await this.publishEventToNDK(signedEvent);
 
       if (!publishResult.success) {
         throw new Error('Failed to publish challenge request to Nostr relays');
@@ -310,7 +326,7 @@ export class ChallengeRequestService {
       console.log('🔄 Publishing kind 1106 acceptance event...');
 
       const signedAcceptEvent = await this.protocolHandler.signEvent(acceptEventTemplate, nsec);
-      const acceptPublishResult = await nostrRelayManager.publishEvent(signedAcceptEvent);
+      const acceptPublishResult = await this.publishEventToNDK(signedAcceptEvent);
 
       if (!acceptPublishResult.success) {
         throw new Error('Failed to publish acceptance event');
@@ -352,7 +368,7 @@ export class ChallengeRequestService {
       console.log('🔄 Publishing kind 30000 participant list...');
 
       const signedListEvent = await this.protocolHandler.signEvent(listEvent, nsec);
-      const listPublishResult = await nostrRelayManager.publishEvent(signedListEvent);
+      const listPublishResult = await this.publishEventToNDK(signedListEvent);
 
       if (!listPublishResult.success) {
         throw new Error('Failed to publish participant list');
@@ -424,7 +440,7 @@ export class ChallengeRequestService {
 
       // Sign and publish decline event
       const signedDeclineEvent = await this.protocolHandler.signEvent(declineEventTemplate, nsec);
-      const publishResult = await nostrRelayManager.publishEvent(signedDeclineEvent);
+      const publishResult = await this.publishEventToNDK(signedDeclineEvent);
 
       if (!publishResult.success) {
         throw new Error('Failed to publish decline event');
@@ -460,26 +476,42 @@ export class ChallengeRequestService {
       throw new Error('User not authenticated');
     }
 
-    const filter = {
-      kinds: [CHALLENGE_REQUEST_KIND],
+    const filter: NDKFilter = {
+      kinds: [CHALLENGE_REQUEST_KIND as any],
       '#p': [userIdentifiers.hexPubkey],
     };
 
     console.log('Subscribing to incoming challenge requests...');
 
-    const subscriptionId = await nostrRelayManager.subscribeToEvents(
-      [filter],
-      (event: Event) => {
-        const challenge = this.parseChallengeRequest(event);
-        if (challenge) {
-          this.pendingChallenges.set(challenge.challengeId, challenge);
-          this.savePendingChallenges();
-          callback(challenge);
-        }
-      }
-    );
+    // Get GlobalNDK instance
+    const ndk = await GlobalNDKService.getInstance();
+    const subscription = ndk.subscribe(filter, { closeOnEose: false });
 
+    subscription.on('event', (ndkEvent: NDKEvent) => {
+      const event: Event = {
+        id: ndkEvent.id || '',
+        pubkey: ndkEvent.pubkey || '',
+        created_at: ndkEvent.created_at || Math.floor(Date.now() / 1000),
+        kind: ndkEvent.kind,
+        tags: ndkEvent.tags || [],
+        content: ndkEvent.content || '',
+        sig: ndkEvent.sig || '',
+      };
+
+      const challenge = this.parseChallengeRequest(event);
+      if (challenge) {
+        this.pendingChallenges.set(challenge.challengeId, challenge);
+        this.savePendingChallenges();
+        callback(challenge);
+      }
+    });
+
+    // Use a unique ID for the subscription
+    const subscriptionId = `challenge_${Date.now()}`;
     this.subscriptionId = subscriptionId;
+
+    // Store the NDK subscription for cleanup
+    this.ndkSubscriptions.set(subscriptionId, subscription);
 
     const listener: ChallengeEventListener = {
       subscriptionId,
@@ -497,7 +529,11 @@ export class ChallengeRequestService {
    * Unsubscribe from challenge events
    */
   async unsubscribe(subscriptionId: string): Promise<void> {
-    await nostrRelayManager.unsubscribe(subscriptionId);
+    const subscription = this.ndkSubscriptions.get(subscriptionId);
+    if (subscription) {
+      subscription.stop();
+      this.ndkSubscriptions.delete(subscriptionId);
+    }
     this.eventListeners.delete(subscriptionId);
     console.log(`Unsubscribed from challenges: ${subscriptionId}`);
   }
@@ -573,7 +609,7 @@ export class ChallengeRequestService {
       );
 
       // Publish acceptance event
-      const acceptPublishResult = await nostrRelayManager.publishEvent(signedAcceptEvent);
+      const acceptPublishResult = await this.publishEventToNDK(signedAcceptEvent);
 
       if (!acceptPublishResult.success) {
         throw new Error('Failed to publish acceptance event to Nostr relays');
@@ -610,7 +646,7 @@ export class ChallengeRequestService {
       const signedListEvent = await this.protocolHandler.signEvent(listEvent, nsec);
 
       // Publish list event
-      const listPublishResult = await nostrRelayManager.publishEvent(signedListEvent);
+      const listPublishResult = await this.publishEventToNDK(signedListEvent);
 
       if (!listPublishResult.success) {
         throw new Error('Failed to publish participant list to Nostr relays');

@@ -16,6 +16,7 @@ import { Card } from '../../ui/Card';
 import { LoadingOverlay } from '../../ui/LoadingStates';
 import { EnhancedWorkoutCard } from '../shared/EnhancedWorkoutCard';
 import { MonthlyWorkoutGroup, groupWorkoutsByMonth } from '../shared/MonthlyWorkoutGroup';
+import { WorkoutLevelRing } from '../WorkoutLevelRing';
 import { Nuclear1301Service } from '../../../services/fitness/Nuclear1301Service';
 import unifiedCache from '../../../services/cache/UnifiedNostrCache';
 import { CacheKeys } from '../../../constants/cacheTTL';
@@ -208,11 +209,19 @@ export const PublicWorkoutsTab: React.FC<PublicWorkoutsTabProps> = ({
           />
         }
         ListHeaderComponent={
-          <View style={styles.header}>
-            <Text style={styles.headerText}>
-              {workouts.length} public workout{workouts.length !== 1 ? 's' : ''} on Nostr
-            </Text>
-          </View>
+          <>
+            {/* Workout Level Ring */}
+            {pubkey && workouts.length > 0 && (
+              <WorkoutLevelRing workouts={workouts} pubkey={pubkey} />
+            )}
+
+            {/* Workout count */}
+            <View style={styles.header}>
+              <Text style={styles.headerText}>
+                {workouts.length} public workout{workouts.length !== 1 ? 's' : ''} on Nostr
+              </Text>
+            </View>
+          </>
         }
       />
     </View>

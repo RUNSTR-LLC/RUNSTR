@@ -215,10 +215,10 @@ export class NostrProfileService {
       // Get GlobalNDK instance
       const ndk = await GlobalNDKService.getInstance();
 
-      // Check if NDK is connected
+      // ✅ ANDROID FIX: Don't fail immediately if not connected - try anyway
+      // Degraded NDK instance can still work with cached events
       if (!GlobalNDKService.isConnected()) {
-        console.warn('⚠️ No connected relays available for profile fetch');
-        return null;
+        console.warn('⚠️ No connected relays - will try with degraded instance and return fallback if fetch fails');
       }
 
       // Query profile events (kind 0) from relays

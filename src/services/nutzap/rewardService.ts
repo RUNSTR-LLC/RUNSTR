@@ -6,16 +6,8 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import nutzapService from './nutzapService';
-import NDK, { NDKEvent, NDKKind } from '@nostr-dev-kit/ndk';
-
-// Create NDK instance for publishing reward events
-const ndk = new NDK({
-  explicitRelayUrls: [
-    'wss://relay.damus.io',
-    'wss://relay.primal.net',
-    'wss://nos.lol'
-  ]
-});
+import { NDKEvent, NDKKind } from '@nostr-dev-kit/ndk';
+import { GlobalNDKService } from '../nostr/GlobalNDKService';
 
 // Storage keys for reward history
 const STORAGE_KEYS = {
@@ -240,10 +232,15 @@ class NutzapRewardService {
    */
   private async publishRewardEvent(reward: TeamReward): Promise<void> {
     try {
-      // Ensure NDK is connected
-      if (!ndk.pool) {
-        await ndk.connect();
+      // Validate connection before critical query
+      const connected = GlobalNDKService.isConnected();
+      if (!connected) {
+        console.warn('[RewardService] No relay connections - attempting reconnect...');
+        await GlobalNDKService.reconnect();
       }
+
+      // Use GlobalNDKService for shared relay connections
+      const ndk = await GlobalNDKService.getInstance();
 
       const event = new NDKEvent(ndk);
       event.kind = REWARD_EVENT_KIND as NDKKind;

@@ -17,7 +17,7 @@ import { EventsCard } from '../components/team/EventsCard';
 // import { CompetitionWinnersCard, CompetitionWinner } from '../components/team/CompetitionWinnersCard';
 // import competitionWinnersService from '../services/competitions/competitionWinnersService';
 import { CompetitionTabs } from '../components/team/CompetitionTabs';
-import { TeamChatSection } from '../components/team/TeamChatSection';
+import { ComingSoonPlaceholder } from '../components/ui/ComingSoonPlaceholder';
 import { TeamScreenData } from '../types';
 import { theme } from '../styles/theme';
 import { useUserStore } from '../store/userStore';
@@ -533,12 +533,9 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
               }
               chatContent={
                 <View style={{ flex: 1, minHeight: 450 }}>
-                  <TeamChatSection
-                    teamId={team.id}
-                    teamName={team.name}
-                    userPubkey={userIdentifiers?.hexPubkey || workingUserNpub || ''}
-                    captainPubkey={team.captainId}
-                    isCaptain={userIsCaptain}
+                  <ComingSoonPlaceholder
+                    featureName="Team Chat"
+                    description="Chat with your team members, share updates, and stay connected. This feature is coming soon!"
                   />
                 </View>
               }

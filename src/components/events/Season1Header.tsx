@@ -101,8 +101,11 @@ const styles = StyleSheet.create({
   prizePoolAmount: {
     fontSize: 20,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.text,
+    color: theme.colors.orangeBright,
     marginBottom: 4,
+    textShadowColor: theme.colors.orangeDeep,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 8,
   },
 
   prizePoolDistribution: {

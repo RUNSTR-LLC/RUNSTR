@@ -56,15 +56,16 @@ export const ChallengeIconButton: React.FC<ChallengeIconButtonProps> = ({
       accessibilityRole="button"
     >
       <Ionicons
-        name="shield-outline"
+        name="shield"
         size={14}
         color={
           disabled
             ? theme.colors.textMuted
             : isPressed
-              ? theme.colors.text
+              ? theme.colors.orangeBright
               : theme.colors.textMuted
         }
+        style={{ opacity: disabled ? 0.3 : isPressed ? 1 : 0.6 }}
       />
     </TouchableOpacity>
   );
@@ -77,17 +78,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: theme.colors.buttonBorder,
     borderRadius: theme.borderRadius.small,
     padding: 4,
   },
   containerPressed: {
-    backgroundColor: theme.colors.buttonHover,
-    borderColor: theme.colors.text,
+    backgroundColor: 'transparent',
   },
   containerDisabled: {
-    opacity: 0.3,
-    borderColor: theme.colors.buttonBorder,
+    backgroundColor: 'transparent',
   },
 });

@@ -6,14 +6,7 @@
 
 import NDK, { NDKEvent, NDKPrivateKeySigner, NDKUser } from '@nostr-dev-kit/ndk';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// Default Nostr relays
-const RUNSTR_RELAYS = [
-  'wss://relay.damus.io',
-  'wss://relay.primal.net',
-  'wss://nos.lol',
-  'wss://relay.nostr.band',
-];
+import { GlobalNDKService } from './GlobalNDKService';
 
 // Nostr event kinds for competition participants
 const COMPETITION_PARTICIPANT_LIST_KIND = 30002; // Competition participant list
@@ -73,10 +66,15 @@ class NostrCompetitionParticipantService {
   private async initializeService() {
     try {
       if (!this.ndk) {
-        this.ndk = new NDK({
-          explicitRelayUrls: RUNSTR_RELAYS,
-        });
-        await this.ndk.connect();
+        // Validate connection before initialization
+        const connected = GlobalNDKService.isConnected();
+        if (!connected) {
+          console.warn('[CompetitionParticipant] No relay connections - attempting reconnect...');
+          await GlobalNDKService.reconnect();
+        }
+
+        // Use GlobalNDKService for shared relay connections
+        this.ndk = await GlobalNDKService.getInstance();
       }
     } catch (error) {
       console.error('Failed to initialize NostrCompetitionParticipantService:', error);
@@ -393,6 +391,7 @@ class NostrCompetitionParticipantService {
       const filter = {
         kinds: [COMPETITION_PARTICIPANT_LIST_KIND],
         '#d': [`${competitionId}-participants`],
+        limit: 1  // Only need latest list
       };
 
       const events = await this.ndk!.fetchEvents(filter);
@@ -459,6 +458,7 @@ class NostrCompetitionParticipantService {
       const filter = {
         kinds: [COMPETITION_JOIN_REQUEST_KIND],
         '#competition': [competitionId],
+        limit: 100  // Reasonable request queue size
       };
 
       const events = await this.ndk!.fetchEvents(filter);

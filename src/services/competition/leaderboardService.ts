@@ -261,22 +261,14 @@ export class LeaderboardService {
       endTime = Math.floor(endOfDay.getTime() / 1000);
     }
 
-    const filters: NostrFilter[] = [
-      {
-        kinds: [1301],
-        authors: teamMembers,
-        since: startTime,
-        until: endTime,
-      },
-    ];
-
     // Get GlobalNDK instance
     const ndk = await GlobalNDKService.getInstance();
 
     const ndkFilter: NDKFilter = {
       kinds: [1301 as any], // Custom kind
-      authors: memberPubkeys,
+      authors: teamMembers,
       since: startTime,
+      until: endTime,
     };
 
     const subscription = ndk.subscribe(ndkFilter, { closeOnEose: false });
@@ -316,7 +308,7 @@ export class LeaderboardService {
     console.log(`🔍 Querying workouts from ${memberPubkeys.length} members`);
 
     // Split large member lists into batches for better performance
-    const batchSize = 20;
+    const batchSize = Math.min(50, memberPubkeys.length);  // Larger batches for better performance
     const batches = [];
     for (let i = 0; i < memberPubkeys.length; i += batchSize) {
       batches.push(memberPubkeys.slice(i, i + batchSize));

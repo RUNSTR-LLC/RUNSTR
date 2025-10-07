@@ -172,7 +172,10 @@ export const Season1LeaderboardComponent: React.FC<Season1LeaderboardProps> = ({
                   {formatDistance(participant.totalDistance)}
                 </Text>
                 {prize > 0 && (
-                  <Text style={styles.prize}>
+                  <Text style={[
+                    styles.prize,
+                    rank <= 3 && styles.prizeTop3
+                  ]}>
                     {prize.toLocaleString()} sats
                   </Text>
                 )}
@@ -261,7 +264,7 @@ const styles = StyleSheet.create({
   entry: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
@@ -305,7 +308,7 @@ const styles = StyleSheet.create({
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
 
   name: {
@@ -314,8 +317,9 @@ const styles = StyleSheet.create({
   },
 
   workoutCount: {
-    fontSize: 12,
+    fontSize: 11,
     color: theme.colors.textMuted,
+    opacity: 0.6,
     marginTop: 2,
   },
 
@@ -331,8 +335,12 @@ const styles = StyleSheet.create({
 
   prize: {
     fontSize: 12,
-    color: theme.colors.textSecondary,
+    color: theme.colors.textMuted,
     marginTop: 2,
+  },
+
+  prizeTop3: {
+    color: theme.colors.orangeBright,
   },
 
   moreText: {

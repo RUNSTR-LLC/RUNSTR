@@ -36,76 +36,67 @@ export class GlobalNDKService {
   /**
    * Get or create the global NDK instance
    *
-   * THREAD-SAFE: Multiple concurrent calls will reuse the same initialization promise
-   * TIMEOUT-PROTECTED: Hard 20-second timeout to prevent indefinite hangs
-   * GRACEFUL DEGRADATION: Returns degraded instance if connection fails
+   * ✅ ANDROID FIX: Now non-blocking - returns immediately with degraded instance
+   * Connection happens in background without blocking app startup
    */
   static async getInstance(): Promise<NDK> {
-    const INIT_TIMEOUT = 20000; // 20 seconds hard timeout (increased from 15s)
-
     // Return existing instance if already initialized
-    if (this.instance && this.isInitialized) {
-      console.log('✅ GlobalNDK: Returning existing instance');
+    if (this.instance) {
       return this.instance;
     }
 
-    // Reuse existing initialization promise if in progress
-    if (this.initPromise) {
-      console.log('⏳ GlobalNDK: Waiting for existing initialization...');
+    // Create degraded instance immediately (non-blocking)
+    console.log('🚀 GlobalNDK: Creating instant degraded instance...');
 
-      // ✅ FIX: Add timeout to prevent waiting forever on stale promise
-      return Promise.race([
-        this.initPromise,
-        new Promise<NDK>((_, reject) =>
-          setTimeout(() => {
-            console.error('❌ GlobalNDK: Initialization timeout (20s) - clearing stale promise');
-            this.initPromise = null; // Clear stale promise
-            reject(new Error('GlobalNDK initialization timeout'));
-          }, INIT_TIMEOUT)
-        )
-      ]);
+    const degradedNDK = new NDK({
+      explicitRelayUrls: this.DEFAULT_RELAYS,
+      autoConnectUserRelays: false,
+      autoFetchUserMutelist: false,
+    });
+
+    this.instance = degradedNDK;
+    this.isInitialized = true;
+
+    // ✅ ANDROID FIX: Start background connection WITHOUT awaiting
+    if (!this.initPromise) {
+      this.initPromise = this.connectInBackground();
     }
 
-    // Start new initialization with timeout protection
-    console.log('🚀 GlobalNDK: Creating new NDK instance...');
+    return degradedNDK;
+  }
 
-    // ✅ FIX: Wrap initialization in Promise.race for hard timeout
-    this.initPromise = Promise.race([
-      this.initializeNDK(),
-      new Promise<NDK>((_, reject) =>
-        setTimeout(() => {
-          console.error('❌ GlobalNDK: Connect timeout (20s) - relay connection failed');
-          reject(new Error('GlobalNDK connect timeout - relays not responding'));
-        }, INIT_TIMEOUT)
-      )
-    ]);
+  /**
+   * ✅ ANDROID FIX: Background connection (non-blocking)
+   * Attempts to connect to relays without blocking getInstance()
+   */
+  private static async connectInBackground(): Promise<void> {
+    console.log('🔄 GlobalNDK: Starting background connection to relays...');
 
     try {
-      this.instance = await this.initPromise;
-      this.isInitialized = true;
-      console.log('✅ GlobalNDK: Initialization successful');
-      return this.instance;
+      if (!this.instance) {
+        console.warn('⚠️ No NDK instance to connect');
+        return;
+      }
+
+      // Attempt connection with 10s timeout
+      await this.instance.connect(10000);
+
+      const stats = this.instance.pool?.stats();
+      const connectedCount = stats?.connected || 0;
+
+      if (connectedCount > 0) {
+        console.log(`✅ GlobalNDK: Background connection successful - ${connectedCount} relays connected`);
+      } else {
+        console.warn('⚠️ GlobalNDK: Background connection failed - no relays connected');
+        // Schedule retry
+        setTimeout(() => this.retryConnection(3), 5000); // Retry after 5s
+      }
     } catch (error) {
-      console.error('❌ GlobalNDK: Initialization failed:', error);
-      this.initPromise = null; // Clear failed promise to allow retry
-
-      // ✅ FIX: Return degraded instance instead of throwing
-      // This allows app to start even without relay connections
-      console.warn('⚠️ GlobalNDK: Returning degraded instance - app will work offline with cached data');
-
-      // Create minimal NDK instance for offline mode
-      const degradedNDK = new NDK({
-        explicitRelayUrls: this.DEFAULT_RELAYS,
-        autoConnectUserRelays: false,
-        autoFetchUserMutelist: false,
-      });
-
-      this.instance = degradedNDK;
-      this.isInitialized = true; // Mark as initialized to prevent retry loops
-
-      return degradedNDK;
+      console.warn('⚠️ GlobalNDK: Background connection error:', error);
+      // Schedule retry
+      setTimeout(() => this.retryConnection(3), 5000); // Retry after 5s
     } finally {
-      this.initPromise = null; // Clear promise after completion
+      this.initPromise = null;
     }
   }
 
@@ -128,7 +119,7 @@ export class GlobalNDKService {
         explicitRelayUrls: relayUrls,
         autoConnectUserRelays: true,  // Connect to user's preferred relays
         autoFetchUserMutelist: false, // Don't auto-fetch mute lists (saves bandwidth)
-        debug: __DEV__, // Enable debug logging in development
+        // Note: debug option removed - was causing "ndk.debug.extend is not a function" error
       });
 
       // ✅ FIX: Increased timeout from 2s → 10s

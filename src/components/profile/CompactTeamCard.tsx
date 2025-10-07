@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ImageBackground } from 'react-native';
 import { theme } from '../../styles/theme';
 import { Team } from '../../types';
 import { isTeamCaptain } from '../../utils/teamUtils';
@@ -95,38 +95,31 @@ export const CompactTeamCard: React.FC<CompactTeamCardProps> = ({
     }
   };
 
+  // Check if team has banner image
+  const hasBanner = team.bannerImage && team.bannerImage.length > 0;
+
   return (
     <TouchableOpacity
-      style={styles.card}
+      style={[styles.card, hasBanner && styles.cardWithBanner]}
       onPress={handlePress}
       activeOpacity={0.7}
     >
-      {/* Team Info */}
-      <View style={styles.teamInfo}>
-        <Text style={styles.teamName} numberOfLines={1}>
-          {team.name}
-        </Text>
-        <Text style={styles.teamDescription} numberOfLines={1}>
-          {team.description}
-        </Text>
-      </View>
-
-      {/* Right Side: Badges with Priority (Captain > Rank > "YOUR TEAM") */}
-      <View style={styles.badgeContainer}>
-        {isCaptain ? (
-          <View style={styles.captainBadge}>
-            <Text style={styles.captainBadgeText}>CAPTAIN</Text>
-          </View>
-        ) : userRank && userRank <= 10 ? (
-          <View style={styles.rankBadge}>
-            <Text style={styles.rankBadgeText}>#{userRank}</Text>
-          </View>
-        ) : (
-          <View style={styles.memberBadge}>
-            <Text style={styles.memberBadgeText}>YOUR TEAM</Text>
-          </View>
-        )}
-      </View>
+      {hasBanner ? (
+        // Show only banner image when available
+        <ImageBackground
+          source={{ uri: team.bannerImage }}
+          style={styles.bannerBackground}
+          imageStyle={styles.bannerImage}
+          resizeMode="cover"
+        />
+      ) : (
+        // Fallback: Show only team name when no banner
+        <View style={styles.fallbackContent}>
+          <Text style={styles.fallbackTeamName} numberOfLines={1}>
+            {team.name}
+          </Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 };
@@ -139,10 +132,37 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.large, // 12px
     paddingHorizontal: 12,
     paddingVertical: 10,
-    height: 72,
+    height: 85,
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
+    overflow: 'hidden',
+  },
+
+  cardWithBanner: {
+    padding: 0,
+  },
+
+  bannerBackground: {
+    width: '100%',
+    height: '100%',
+  },
+
+  bannerImage: {
+    borderRadius: theme.borderRadius.large,
+  },
+
+  fallbackContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  fallbackTeamName: {
+    fontSize: 16,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+    textAlign: 'center',
   },
 
   teamInfo: {

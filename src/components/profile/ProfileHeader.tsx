@@ -18,28 +18,44 @@ interface ProfileHeaderProps {
 export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   user,
 }) => {
-  // Use displayName or name, prefer displayName from Nostr profile
-  const displayName = user.displayName || user.name;
+  // ✅ ANDROID FIX: Add null safety and fallbacks
+  const displayName = user?.displayName || user?.name || 'Loading...';
+  const avatarUrl = user?.picture || user?.avatar || undefined;
+  const bio = user?.bio || undefined;
+  const lud16 = user?.lud16 || undefined;
+  const banner = user?.banner || undefined;
 
-  // Get avatar URL with fallback chain
-  const avatarUrl = user.picture || user.avatar || undefined;
-
-  // Debug logging to verify picture data
-  console.log('🖼️ ProfileHeader avatar data:', {
-    hasPicture: !!user.picture,
-    hasAvatar: !!user.avatar,
-    pictureUrl: user.picture?.substring(0, 50),
-    avatarUrl: avatarUrl?.substring(0, 50),
-    displayName
+  // Debug logging to verify profile data
+  console.log('🖼️ ProfileHeader data:', {
+    hasUser: !!user,
+    hasPicture: !!user?.picture,
+    hasAvatar: !!user?.avatar,
+    hasBio: !!bio,
+    displayName,
+    pictureUrl: user?.picture?.substring(0, 50),
   });
+
+  // ✅ ANDROID FIX: Show loading state if user is null/undefined
+  if (!user) {
+    return (
+      <View style={styles.boxContainer}>
+        <View style={styles.profileContent}>
+          <View style={styles.avatar} />
+          <View style={styles.info}>
+            <Text style={styles.name}>Loading profile...</Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.boxContainer}>
       {/* Nostr Banner */}
-      {user.banner && (
+      {banner && (
         <View style={styles.bannerContainer}>
           <Image
-            source={{ uri: user.banner }}
+            source={{ uri: banner }}
             style={styles.bannerImage}
             resizeMode="cover"
           />
@@ -51,24 +67,23 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       <View
         style={[
           styles.profileContent,
-          user.banner && styles.profileContentWithBanner,
+          banner && styles.profileContentWithBanner,
         ]}
       >
         <Avatar
           name={displayName}
-          imageUrl={user.picture} // Use Nostr profile picture directly
-          size={60} // Increased for better visibility
+          imageUrl={avatarUrl} // Use Nostr profile picture with fallback
+          size={60}
           style={styles.avatar}
           showIcon={true}
         />
         <View style={styles.info}>
           <Text style={styles.name}>{displayName}</Text>
-          {user.bio && <Text style={styles.bio} numberOfLines={2}>{user.bio}</Text>}
-          {user.lud16 && (
-            <Text style={styles.lightningAddress} numberOfLines={1}>⚡ {user.lud16}</Text>
+          {bio && <Text style={styles.bio} numberOfLines={2}>{bio}</Text>}
+          {lud16 && (
+            <Text style={styles.lightningAddress} numberOfLines={1}>⚡ {lud16}</Text>
           )}
         </View>
-        {/* Edit button removed for pure Nostr users - use external Nostr clients */}
       </View>
     </View>
   );
