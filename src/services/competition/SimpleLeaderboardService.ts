@@ -182,6 +182,22 @@ export class SimpleLeaderboardService {
   }
 
   /**
+   * Timeout wrapper for async operations
+   */
+  private async fetchWithTimeout<T>(
+    promise: Promise<T>,
+    timeoutMs: number,
+    timeoutError: string
+  ): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new Error(timeoutError)), timeoutMs)
+      ),
+    ]);
+  }
+
+  /**
    * Get workouts for members within date range
    */
   private async getWorkouts(
@@ -215,7 +231,14 @@ export class SimpleLeaderboardService {
         limit: 1000,
       };
 
-      const events = await ndk.fetchEvents(filter);
+      // Add 5-second timeout to prevent UI freeze
+      console.log(`⏱️ Fetching workouts with 5s timeout for ${memberNpubs.length} members...`);
+      const events = await this.fetchWithTimeout(
+        ndk.fetchEvents(filter),
+        5000,
+        'Workout fetch timeout'
+      );
+
       const workouts: Workout[] = [];
 
       events.forEach((event) => {
@@ -231,6 +254,11 @@ export class SimpleLeaderboardService {
       return workouts;
 
     } catch (error) {
+      if (error instanceof Error && error.message === 'Workout fetch timeout') {
+        console.warn('⚠️ Workout fetch timed out after 5 seconds - showing empty leaderboard');
+        console.warn('   This may indicate slow relay connections or large result set');
+        return [];
+      }
       console.error('Failed to fetch workouts:', error);
       return [];
     }
