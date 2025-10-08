@@ -19,6 +19,7 @@ import {
 import { theme } from '../../styles/theme';
 import { challengeRequestService } from '../../services/challenge/ChallengeRequestService';
 import { getUserNostrIdentifiers } from '../../utils/nostr';
+import UnifiedSigningService from '../../services/auth/UnifiedSigningService';
 import type { ActivityConfiguration } from '../../types/challenge';
 import type { DiscoveredNostrUser } from '../../services/user/UserDiscoveryService';
 
@@ -132,16 +133,16 @@ export const QuickChallengeWizard: React.FC<QuickChallengeWizardProps> = ({
     try {
       setIsSubmitting(true);
 
-      // Get user identifiers and nsec for signing
+      // Get user identifiers
       const userIdentifiers = await getUserNostrIdentifiers();
       if (!userIdentifiers?.hexPubkey) {
         throw new Error('User not authenticated');
       }
 
-      // Get nsec from secure storage for signing
-      const nsec = await getUserNostrIdentifiers();
-      if (!nsec?.nsec) {
-        throw new Error('Cannot access private key for signing');
+      // Get signer from UnifiedSigningService (works for both nsec and Amber)
+      const signer = await UnifiedSigningService.getSigner();
+      if (!signer) {
+        throw new Error('Cannot access signing capability. Please ensure you are logged in.');
       }
 
       // Create challenge request with actual Nostr publishing
@@ -153,7 +154,7 @@ export const QuickChallengeWizard: React.FC<QuickChallengeWizardProps> = ({
           duration: configuration.duration,
           wagerAmount: configuration.wagerAmount,
         },
-        nsec.nsec
+        signer
       );
 
       if (!result.success) {
@@ -409,7 +410,7 @@ const styles = StyleSheet.create({
   nextButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: theme.colors.accentText,
+    color: '#000000',
   },
   nextButtonTextDisabled: {
     color: theme.colors.textMuted,

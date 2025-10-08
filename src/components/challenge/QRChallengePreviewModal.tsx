@@ -17,7 +17,7 @@ import {
 import { theme } from '../../styles/theme';
 import type { QRChallengeData } from '../../services/challenge/QRChallengeService';
 import { challengeRequestService } from '../../services/challenge/ChallengeRequestService';
-import { getUserNostrIdentifiers } from '../../utils/nostr';
+import UnifiedSigningService from '../../services/auth/UnifiedSigningService';
 import type { ActivityType } from '../../types/challenge';
 
 // Activity icons mapping
@@ -63,16 +63,16 @@ export const QRChallengePreviewModal: React.FC<QRChallengePreviewModalProps> = (
     try {
       setIsAccepting(true);
 
-      // Get nsec for signing
-      const userIdentifiers = await getUserNostrIdentifiers();
-      if (!userIdentifiers?.nsec) {
-        throw new Error('Cannot access private key for signing');
+      // Get signer from UnifiedSigningService (works for both nsec and Amber)
+      const signer = await UnifiedSigningService.getSigner();
+      if (!signer) {
+        throw new Error('Cannot access signing capability. Please ensure you are logged in.');
       }
 
       // Accept QR challenge (signs and publishes kind 1106 + kind 30000)
       const result = await challengeRequestService.acceptQRChallenge(
         challengeData,
-        userIdentifiers.nsec
+        signer
       );
 
       if (!result.success) {

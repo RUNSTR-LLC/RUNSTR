@@ -6,7 +6,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GlobalNDKService } from '../nostr/GlobalNDKService';
-import type { NDKFilter, NDKEvent, NDKSubscription } from '@nostr-dev-kit/ndk';
+import type { NDKFilter, NDKEvent, NDKSubscription, NDKSigner } from '@nostr-dev-kit/ndk';
 import { NostrListService } from '../nostr/NostrListService';
 import { NostrProtocolHandler } from '../nostr/NostrProtocolHandler';
 import { getUserNostrIdentifiers } from '../../utils/nostr';
@@ -198,10 +198,11 @@ export class ChallengeRequestService {
 
   /**
    * Create and publish kind 1105 challenge request event
+   * Accepts either hex private key (nsec users) or NDKSigner (Amber users)
    */
   async createChallengeRequest(
     requestData: ChallengeRequestData,
-    signerNsec: string
+    privateKeyOrSigner: string | NDKSigner
   ): Promise<{ success: boolean; challengeId?: string; error?: string }> {
     try {
       const userIdentifiers = await getUserNostrIdentifiers();
@@ -239,8 +240,10 @@ export class ChallengeRequestService {
 
       console.log('🔄 Publishing kind 1105 challenge request event...');
 
-      // Sign event with NostrProtocolHandler
-      const signedEvent = await this.protocolHandler.signEvent(eventTemplate, signerNsec);
+      // Sign event with NostrProtocolHandler (handles both string and NDKSigner)
+      const signedEvent = typeof privateKeyOrSigner === 'string'
+        ? await this.protocolHandler.signEvent(eventTemplate, privateKeyOrSigner)
+        : await this.protocolHandler.signEventWithSigner(eventTemplate, privateKeyOrSigner);
 
       // Publish to Nostr relays
       const publishResult = await this.publishEventToNDK(signedEvent);
@@ -285,10 +288,11 @@ export class ChallengeRequestService {
 
   /**
    * Accept a challenge request - publish kind 1106 and create kind 30000 list
+   * Accepts either hex private key (nsec users) or NDKSigner (Amber users)
    */
   async acceptChallenge(
     challengeId: string,
-    nsec: string
+    privateKeyOrSigner: string | NDKSigner
   ): Promise<{ success: boolean; listId?: string; error?: string }> {
     try {
       const challenge = this.pendingChallenges.get(challengeId);
@@ -325,7 +329,10 @@ export class ChallengeRequestService {
 
       console.log('🔄 Publishing kind 1106 acceptance event...');
 
-      const signedAcceptEvent = await this.protocolHandler.signEvent(acceptEventTemplate, nsec);
+      const signedAcceptEvent = typeof privateKeyOrSigner === 'string'
+        ? await this.protocolHandler.signEvent(acceptEventTemplate, privateKeyOrSigner)
+        : await this.protocolHandler.signEventWithSigner(acceptEventTemplate, privateKeyOrSigner);
+
       const acceptPublishResult = await this.publishEventToNDK(signedAcceptEvent);
 
       if (!acceptPublishResult.success) {
@@ -367,7 +374,10 @@ export class ChallengeRequestService {
 
       console.log('🔄 Publishing kind 30000 participant list...');
 
-      const signedListEvent = await this.protocolHandler.signEvent(listEvent, nsec);
+      const signedListEvent = typeof privateKeyOrSigner === 'string'
+        ? await this.protocolHandler.signEvent(listEvent, privateKeyOrSigner)
+        : await this.protocolHandler.signEventWithSigner(listEvent, privateKeyOrSigner);
+
       const listPublishResult = await this.publishEventToNDK(signedListEvent);
 
       if (!listPublishResult.success) {
@@ -398,10 +408,11 @@ export class ChallengeRequestService {
 
   /**
    * Decline a challenge request - publish kind 1107
+   * Accepts either hex private key (nsec users) or NDKSigner (Amber users)
    */
   async declineChallenge(
     challengeId: string,
-    nsec: string,
+    privateKeyOrSigner: string | NDKSigner,
     reason?: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
@@ -439,7 +450,10 @@ export class ChallengeRequestService {
       console.log('🔄 Publishing kind 1107 decline event...');
 
       // Sign and publish decline event
-      const signedDeclineEvent = await this.protocolHandler.signEvent(declineEventTemplate, nsec);
+      const signedDeclineEvent = typeof privateKeyOrSigner === 'string'
+        ? await this.protocolHandler.signEvent(declineEventTemplate, privateKeyOrSigner)
+        : await this.protocolHandler.signEventWithSigner(declineEventTemplate, privateKeyOrSigner);
+
       const publishResult = await this.publishEventToNDK(signedDeclineEvent);
 
       if (!publishResult.success) {
@@ -561,10 +575,11 @@ export class ChallengeRequestService {
   /**
    * Accept QR-based challenge
    * Similar to acceptChallenge but works with QR challenge data instead of stored pending challenges
+   * Accepts either hex private key (nsec users) or NDKSigner (Amber users)
    */
   async acceptQRChallenge(
     qrChallengeData: any, // QRChallengeData type from QRChallengeService
-    nsec: string
+    privateKeyOrSigner: string | NDKSigner
   ): Promise<{ success: boolean; listId?: string; error?: string }> {
     try {
       const userIdentifiers = await getUserNostrIdentifiers();
@@ -603,10 +618,9 @@ export class ChallengeRequestService {
       console.log('🔄 Publishing kind 1106 acceptance event for QR challenge...');
 
       // Sign acceptance event
-      const signedAcceptEvent = await this.protocolHandler.signEvent(
-        acceptEventTemplate,
-        nsec
-      );
+      const signedAcceptEvent = typeof privateKeyOrSigner === 'string'
+        ? await this.protocolHandler.signEvent(acceptEventTemplate, privateKeyOrSigner)
+        : await this.protocolHandler.signEventWithSigner(acceptEventTemplate, privateKeyOrSigner);
 
       // Publish acceptance event
       const acceptPublishResult = await this.publishEventToNDK(signedAcceptEvent);
@@ -643,7 +657,9 @@ export class ChallengeRequestService {
       console.log('🔄 Publishing kind 30000 participant list for QR challenge...');
 
       // Sign list event
-      const signedListEvent = await this.protocolHandler.signEvent(listEvent, nsec);
+      const signedListEvent = typeof privateKeyOrSigner === 'string'
+        ? await this.protocolHandler.signEvent(listEvent, privateKeyOrSigner)
+        : await this.protocolHandler.signEventWithSigner(listEvent, privateKeyOrSigner);
 
       // Publish list event
       const listPublishResult = await this.publishEventToNDK(signedListEvent);

@@ -17,7 +17,7 @@ import {
 import { theme } from '../../styles/theme';
 import type { PendingChallenge } from '../../services/challenge/ChallengeRequestService';
 import { challengeRequestService } from '../../services/challenge/ChallengeRequestService';
-import { getUserNostrIdentifiers } from '../../utils/nostr';
+import UnifiedSigningService from '../../services/auth/UnifiedSigningService';
 
 export interface ChallengeRequestModalProps {
   visible: boolean;
@@ -56,16 +56,16 @@ export const ChallengeRequestModal: React.FC<ChallengeRequestModalProps> = ({
     try {
       setIsAccepting(true);
 
-      // Get nsec for signing
-      const userIdentifiers = await getUserNostrIdentifiers();
-      if (!userIdentifiers?.nsec) {
-        throw new Error('Cannot access private key for signing');
+      // Get signer from UnifiedSigningService (works for both nsec and Amber)
+      const signer = await UnifiedSigningService.getSigner();
+      if (!signer) {
+        throw new Error('Cannot access signing capability. Please ensure you are logged in.');
       }
 
       // Accept challenge (signs and publishes kind 1106 + kind 30000)
       const result = await challengeRequestService.acceptChallenge(
         challenge.challengeId,
-        userIdentifiers.nsec
+        signer
       );
 
       if (!result.success) {
@@ -97,16 +97,16 @@ export const ChallengeRequestModal: React.FC<ChallengeRequestModalProps> = ({
     try {
       setIsDeclining(true);
 
-      // Get nsec for signing
-      const userIdentifiers = await getUserNostrIdentifiers();
-      if (!userIdentifiers?.nsec) {
-        throw new Error('Cannot access private key for signing');
+      // Get signer from UnifiedSigningService (works for both nsec and Amber)
+      const signer = await UnifiedSigningService.getSigner();
+      if (!signer) {
+        throw new Error('Cannot access signing capability. Please ensure you are logged in.');
       }
 
       // Decline challenge (signs and publishes kind 1107)
       const result = await challengeRequestService.declineChallenge(
         challenge.challengeId,
-        userIdentifiers.nsec
+        signer
       );
 
       if (!result.success) {
