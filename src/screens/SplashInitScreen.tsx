@@ -68,12 +68,12 @@ export const SplashInitScreen: React.FC<SplashInitScreenProps> = ({ onComplete }
   };
 
   const initializeApp = async () => {
-    const MAX_PROFILE_LOAD_TIME = 8000; // 8 seconds for profile essentials
+    const MAX_INIT_TIME = 20000; // 20 seconds for ALL data (profile + teams + workouts)
 
-    // ✅ NEW STRATEGY: Load profile essentials, show app, continue rest in background
-    const profileEssentialsPromise = (async () => {
+    // ✅ COMPLETE LOADING STRATEGY: Load everything BEFORE showing app
+    const completeLoadingPromise = (async () => {
       try {
-        console.log('🚀 SplashInit: Starting FAST profile-first initialization...');
+        console.log('🚀 SplashInit: Starting complete data loading...');
 
         // Step 1: Connect to Nostr relays (CRITICAL for all queries)
         setCurrentStep(0);
@@ -94,7 +94,7 @@ export const SplashInitScreen: React.FC<SplashInitScreenProps> = ({ onComplete }
           GlobalNDKService.startBackgroundRetry();
         }
 
-        // Step 2-3: Profile Essentials ONLY (fast!)
+        // Step 2: Load profile
         setCurrentStep(1);
         setStatusMessage(INITIALIZATION_STEPS[1].message);
         animateProgress(calculateProgress(1));
@@ -103,54 +103,50 @@ export const SplashInitScreen: React.FC<SplashInitScreenProps> = ({ onComplete }
         const identifiers = await getUserNostrIdentifiers();
 
         if (identifiers) {
-          // Load profile and wallet in parallel (all we need for Profile tab)
-          await Promise.all([
-            import('../services/user/directNostrProfileService')
-              .then(({ DirectNostrProfileService }) => DirectNostrProfileService.getCurrentUserProfile())
-              .catch(() => console.warn('Profile fetch failed, using cache')),
+          await import('../services/user/directNostrProfileService')
+            .then(({ DirectNostrProfileService }) => DirectNostrProfileService.getCurrentUserProfile())
+            .catch(() => console.warn('Profile fetch failed, using cache'));
 
-            setCurrentStep(2),
-            setStatusMessage(INITIALIZATION_STEPS[5].message), // "Loading wallet..."
-            animateProgress(calculateProgress(2)),
-          ]);
+          console.log('✅ SplashInit: Profile loaded');
 
-          console.log('✅ SplashInit: Profile essentials loaded - ready to show app!');
+          // Step 3-6: Load ALL data using prefetch service (teams, workouts, wallet, competitions)
+          // This will update progress as each step completes
+          await nostrPrefetchService.prefetchAllUserData(
+            (step, total, message) => {
+              console.log(`📊 Prefetch: ${message} (${step}/${total})`);
+              // Update UI with current step (offset by 1 since we already did profile)
+              const uiStep = Math.min(step + 1, INITIALIZATION_STEPS.length - 1);
+              setCurrentStep(uiStep);
+              setStatusMessage(message);
+              animateProgress(calculateProgress(uiStep));
+            }
+          );
+
+          console.log('✅ SplashInit: ALL data loaded - app ready!');
         }
 
       } catch (error) {
-        console.error('❌ SplashInit: Profile essentials error:', error);
+        console.error('❌ SplashInit: Initialization error:', error);
         // Continue anyway - app can work with cached data
       }
     })();
 
-    // Emergency timeout - force app forward after 8s maximum
+    // Emergency timeout - force app forward after 20s maximum
     const timeoutPromise = new Promise<void>((resolve) => {
       setTimeout(() => {
-        console.warn('⚠️ SplashInit: 8-second timeout reached - profile essentials ready, showing app');
+        console.warn('⚠️ SplashInit: 20-second timeout reached - showing app with partial data');
         resolve();
-      }, MAX_PROFILE_LOAD_TIME);
+      }, MAX_INIT_TIME);
     });
 
-    // Wait for profile essentials OR timeout
-    await Promise.race([profileEssentialsPromise, timeoutPromise]);
+    // Wait for complete loading OR timeout
+    await Promise.race([completeLoadingPromise, timeoutPromise]);
 
-    // ✅ SHOW APP NOW - Profile tab is ready!
+    // ✅ SHOW APP NOW - Everything is loaded and cached!
     if (onComplete) {
-      console.log('✅ SplashInit: Profile ready - calling onComplete to show app');
+      console.log('✅ SplashInit: All data ready - calling onComplete to show app');
       onComplete();
     }
-
-    // ✅ Continue loading in BACKGROUND (don't await, don't block app)
-    console.log('🔄 SplashInit: Continuing teams/workouts/competitions in background...');
-    Promise.all([
-      nostrPrefetchService.prefetchAllUserData(
-        (step, total, message) => {
-          console.log(`📊 Background: ${message} (${step}/${total})`);
-        }
-      ).catch(err => console.warn('Background prefetch error:', err))
-    ]).then(() => {
-      console.log('✅ Background loading complete');
-    });
   };
 
   const progressWidth = progressAnim.interpolate({

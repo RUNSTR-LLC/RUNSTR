@@ -106,15 +106,14 @@ export class NostrPrefetchService {
       reportProgress('Finding your teams...');
       await this.prefetchUserTeams(hexPubkey);
 
-      // ✅ Step 6: User Workouts - Start in background but don't wait (non-blocking)
+      // ✅ Step 6: User Workouts - WAIT for completion before showing app
       reportProgress('Loading workouts...');
-      // PERFORMANCE: Start workout fetch but don't block app initialization
-      // Workouts will appear when ready (typically 2-5 seconds)
-      this.prefetchUserWorkouts(hexPubkey).catch(err => {
-        console.warn('[Prefetch] Background workout fetch failed:', err);
+      await this.prefetchUserWorkouts(hexPubkey).catch(err => {
+        console.warn('[Prefetch] Workout fetch failed, continuing anyway:', err?.message);
+        reportProgress('Loading workouts...'); // Report progress even on failure
       });
 
-      console.log('✅ Prefetch complete - essential data cached, workouts loading in background');
+      console.log('✅ Prefetch complete - all data cached and ready');
     } catch (error) {
       console.error('❌ Prefetch failed:', error);
       // Don't throw - app should still work with partial data
