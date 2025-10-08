@@ -40,8 +40,17 @@ export class GlobalNDKService {
    * Connection happens in background without blocking app startup
    */
   static async getInstance(): Promise<NDK> {
-    // Return existing instance if already initialized
+    // If instance exists, check connection status
     if (this.instance) {
+      const status = this.getStatus();
+      console.log(`♻️ GlobalNDK: Reusing cached instance (${status.connectedRelays}/${status.relayCount} relays connected)`);
+
+      // If no relays connected, trigger background reconnection
+      if (status.connectedRelays === 0 && !this.initPromise) {
+        console.log('🔄 GlobalNDK: Cached instance disconnected, starting background reconnection...');
+        this.initPromise = this.connectInBackground();
+      }
+
       return this.instance;
     }
 
