@@ -54,9 +54,9 @@ export class SimpleCompetitionService {
     console.log('📋 Fetching ALL leagues from Nostr...');
 
     try {
-      const connected = await GlobalNDKService.waitForConnection();
+      const connected = await GlobalNDKService.waitForMinimumConnection(2, 4000); // Progressive: 2/4 relays, 4s timeout
       if (!connected) {
-        console.warn('⚠️ Proceeding with partial relay connectivity for all leagues query');
+        console.warn('⚠️ Proceeding with minimal relay connectivity for all leagues query');
       }
 
       const ndk = await GlobalNDKService.getInstance();
@@ -102,9 +102,9 @@ export class SimpleCompetitionService {
     console.log('📋 Fetching ALL events from Nostr...');
 
     try {
-      const connected = await GlobalNDKService.waitForConnection();
+      const connected = await GlobalNDKService.waitForMinimumConnection(2, 4000); // Progressive: 2/4 relays, 4s timeout
       if (!connected) {
-        console.warn('⚠️ Proceeding with partial relay connectivity for all events query');
+        console.warn('⚠️ Proceeding with minimal relay connectivity for all events query');
       }
 
       const ndk = await GlobalNDKService.getInstance();
@@ -201,10 +201,10 @@ export class SimpleCompetitionService {
     console.log(`🔍 Fetching league: ${leagueId}`);
 
     try {
-      // CRITICAL: Wait for all relays to connect before querying
-      const connected = await GlobalNDKService.waitForConnection();
+      // Progressive: Accept 2/4 relays for faster queries with good coverage
+      const connected = await GlobalNDKService.waitForMinimumConnection(2, 4000);
       if (!connected) {
-        console.warn('⚠️ Proceeding with partial relay connectivity for league by ID query');
+        console.warn('⚠️ Proceeding with minimal relay connectivity for league by ID query');
       }
 
       const ndk = await GlobalNDKService.getInstance();
@@ -239,10 +239,10 @@ export class SimpleCompetitionService {
     console.log(`🔍 Fetching event: ${eventId}`);
 
     try {
-      // CRITICAL: Wait for all relays to connect before querying
-      const connected = await GlobalNDKService.waitForConnection();
+      // Progressive: Accept 2/4 relays for faster queries with good coverage
+      const connected = await GlobalNDKService.waitForMinimumConnection(2, 4000);
       if (!connected) {
-        console.warn('⚠️ Proceeding with partial relay connectivity for event by ID query');
+        console.warn('⚠️ Proceeding with minimal relay connectivity for event by ID query');
       }
 
       const ndk = await GlobalNDKService.getInstance();
@@ -338,4 +338,5 @@ export class SimpleCompetitionService {
   }
 }
 
-export default SimpleCompetitionService.getInstance();
+// Export class instead of instance to prevent blocking module initialization
+export default SimpleCompetitionService;

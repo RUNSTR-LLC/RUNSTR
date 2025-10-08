@@ -289,6 +289,87 @@ export class GlobalNDKService {
   }
 
   /**
+   * Wait for MINIMUM number of relays to connect before proceeding
+   *
+   * Progressive connection strategy - faster UX while maintaining good data coverage.
+   * Accepts partial connectivity (e.g., 2/4 relays) instead of waiting for all relays.
+   *
+   * @param minRelays Minimum number of relays required (default: 2 for 50% coverage)
+   * @param timeoutMs Maximum time to wait (default: 4 seconds)
+   * @returns true if minimum relays connected, false if timeout occurred
+   */
+  static async waitForMinimumConnection(
+    minRelays: number = 2,
+    timeoutMs: number = 4000
+  ): Promise<boolean> {
+    const startTime = Date.now();
+    const checkInterval = 500; // Check every 500ms
+
+    while (Date.now() - startTime < timeoutMs) {
+      const status = this.getStatus();
+
+      // Success: Minimum relay count met
+      if (status.connectedRelays >= minRelays) {
+        console.log(
+          `✅ GlobalNDK: ${status.connectedRelays}/${status.relayCount} relays connected ` +
+          `(minimum: ${minRelays}) - ready for queries`
+        );
+        return true;
+      }
+
+      // Still waiting
+      if (Date.now() - startTime < timeoutMs - checkInterval) {
+        console.log(
+          `⏳ GlobalNDK: Waiting for minimum relays... ${status.connectedRelays}/${minRelays} connected`
+        );
+      }
+      await new Promise(resolve => setTimeout(resolve, checkInterval));
+    }
+
+    // Timeout: Check if we have ANY connectivity
+    const finalStatus = this.getStatus();
+    const hasMinimum = finalStatus.connectedRelays >= minRelays;
+
+    if (hasMinimum) {
+      console.log(
+        `✅ GlobalNDK: Minimum threshold met - ${finalStatus.connectedRelays}/${minRelays} relays`
+      );
+    } else {
+      console.warn(
+        `⚠️ GlobalNDK: Connection timeout after ${timeoutMs}ms - ` +
+        `only ${finalStatus.connectedRelays}/${minRelays} minimum relays connected`
+      );
+      this.logConnectionDiagnostics();
+    }
+
+    return hasMinimum;
+  }
+
+  /**
+   * Log detailed connection diagnostics for debugging
+   * Shows per-relay connection status and overall health
+   */
+  static logConnectionDiagnostics(): void {
+    const status = this.getStatus();
+    const relays = Array.from(this.instance?.pool?.relays?.values() || []);
+
+    console.log('━━━━━ NOSTR RELAY DIAGNOSTICS ━━━━━');
+    console.log(`Total Relays: ${status.relayCount}`);
+    console.log(`Connected: ${status.connectedRelays}`);
+    console.log(`Connection Rate: ${Math.round((status.connectedRelays / status.relayCount) * 100)}%`);
+    console.log('');
+    console.log('Per-Relay Status:');
+
+    relays.forEach(relay => {
+      const connStatus = relay.connectivity.status; // 0=disconnected, 1=connected, 2=connecting
+      const statusText = ['❌ DISCONNECTED', '✅ CONNECTED', '⏳ CONNECTING'][connStatus] || '❓ UNKNOWN';
+      console.log(`  ${relay.url}: ${statusText}`);
+    });
+
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  }
+
+  /**
    * Retry connection with exponential backoff
    * Called automatically in background if initial connection fails
    */

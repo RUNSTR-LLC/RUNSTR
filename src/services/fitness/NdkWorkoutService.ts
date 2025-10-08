@@ -71,10 +71,10 @@ export class NdkWorkoutService {
     console.log('[NdkWorkout] Initializing NDK via GlobalNDKService');
     this.ndk = await GlobalNDKService.getInstance();
 
-    // Wait for at least one relay to connect
-    const connected = await GlobalNDKService.waitForConnection(10000);
+    // Progressive: Accept 2/4 relays for faster workout queries
+    const connected = await GlobalNDKService.waitForMinimumConnection(2, 4000);
     if (!connected) {
-      console.warn('[NdkWorkout] Proceeding with partial relay connectivity');
+      console.warn('[NdkWorkout] Proceeding with minimal relay connectivity');
     }
 
     return this.ndk;

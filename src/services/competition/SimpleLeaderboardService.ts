@@ -215,10 +215,10 @@ export class SimpleLeaderboardService {
     const endTimestamp = Math.floor(endDate.getTime() / 1000);
 
     try {
-      // CRITICAL: Wait for all relays to connect before querying
-      const connected = await GlobalNDKService.waitForConnection();
+      // Progressive: Accept 2/4 relays for faster leaderboard loading
+      const connected = await GlobalNDKService.waitForMinimumConnection(2, 4000);
       if (!connected) {
-        console.warn('⚠️ Proceeding with partial relay connectivity for workout query');
+        console.warn('⚠️ Proceeding with minimal relay connectivity for workout query');
       }
 
       const ndk = await GlobalNDKService.getInstance();

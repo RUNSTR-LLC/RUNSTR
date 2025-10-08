@@ -4,7 +4,7 @@
  * Uses NDK for consistency with the rest of the codebase
  */
 
-import NDK, { NDKEvent, NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
+import NDK, { NDKEvent, NDKPrivateKeySigner, type NDKSigner } from '@nostr-dev-kit/ndk';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NostrListService } from './NostrListService';
 import { TeamMemberCache } from '../team/TeamMemberCache';
@@ -61,10 +61,10 @@ export class NostrTeamCreationService {
     console.log('[NostrTeamCreation] Initializing NDK via GlobalNDKService');
     this.ndk = await GlobalNDKService.getInstance();
 
-    // Wait for at least one relay to connect
-    const connected = await GlobalNDKService.waitForConnection(10000);
+    // Progressive: Accept 2/4 relays for faster team creation UX
+    const connected = await GlobalNDKService.waitForMinimumConnection(2, 4000);
     if (!connected) {
-      console.warn('[NostrTeamCreation] Proceeding with partial relay connectivity');
+      console.warn('[NostrTeamCreation] Proceeding with minimal relay connectivity');
     }
 
     return this.ndk;
@@ -72,10 +72,11 @@ export class NostrTeamCreationService {
 
   /**
    * Create a new team with both kind 33404 team event and kind 30000 member list
+   * Accepts either hex private key (nsec users) or NDKSigner (Amber users)
    */
   async createTeam(
     data: TeamCreationData,
-    privateKey: string
+    privateKeyOrSigner: string | NDKSigner
   ): Promise<TeamCreationResult> {
     try {
       console.log('NostrTeamCreationService: Creating team', data.name);
@@ -83,8 +84,10 @@ export class NostrTeamCreationService {
       // Ensure NDK is initialized and connected
       const ndk = await this.ensureNDK();
 
-      // Create signer from private key
-      const signer = new NDKPrivateKeySigner(privateKey);
+      // Get signer - either create from private key or use provided signer
+      const signer = typeof privateKeyOrSigner === 'string'
+        ? new NDKPrivateKeySigner(privateKeyOrSigner)
+        : privateKeyOrSigner;
 
       // Generate unique team ID
       const teamId = this.generateTeamId(data.name);
@@ -199,12 +202,13 @@ export class NostrTeamCreationService {
 
   /**
    * Create member list for existing team (for teams created before kind 30000 support)
+   * Accepts either hex private key (nsec users) or NDKSigner (Amber users)
    */
   async createMemberListForExistingTeam(
     teamId: string,
     teamName: string,
     captainHexPubkey: string,
-    privateKey: string,
+    privateKeyOrSigner: string | NDKSigner,
     initialMembers?: string[]
   ): Promise<TeamCreationResult> {
     try {
@@ -224,8 +228,10 @@ export class NostrTeamCreationService {
       // Ensure NDK is initialized and connected
       const ndk = await this.ensureNDK();
 
-      // Create signer from private key
-      const signer = new NDKPrivateKeySigner(privateKey);
+      // Get signer - either create from private key or use provided signer
+      const signer = typeof privateKeyOrSigner === 'string'
+        ? new NDKPrivateKeySigner(privateKeyOrSigner)
+        : privateKeyOrSigner;
 
       // Create kind 30000 member list
       const members = [captainHexPubkey, ...(initialMembers || [])];
