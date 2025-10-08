@@ -443,38 +443,72 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
   };
 
   const loadTeams = useCallback(async (): Promise<void> => {
-    // PERFORMANCE FIX: Allow refresh if cache is stale (> 1 minute since last load)
-    // This prevents redundant calls while allowing background cache refresh
+    // ✅ PERFORMANCE: Quick cache check first (runstr-github pattern)
     const now = Date.now();
     const timeSinceLastLoad = now - teamsLastLoaded;
     const MIN_RELOAD_INTERVAL = 60 * 1000; // 1 minute
 
+    // ✅ OPTIMIZATION 1: Instant return if recently loaded
     if (teamsLoaded && timeSinceLastLoad < MIN_RELOAD_INTERVAL) {
-      console.log('📦 Teams recently loaded, skipping reload');
+      console.log('⚡ Teams recently loaded, using cached data (instant return)');
       return;
     }
 
+    // ✅ OPTIMIZATION 2: Synchronous cache check for instant display
+    const cachedTeams = unifiedCache.getCached<any[]>(CacheKeys.DISCOVERED_TEAMS);
+    if (cachedTeams && cachedTeams.length > 0) {
+      console.log(`⚡ Using ${cachedTeams.length} cached teams (instant display)`);
+      setAvailableTeams(cachedTeams);
+      setTeamsLoaded(true);
+      setTeamsLastLoaded(now);
+
+      // ✅ OPTIMIZATION 3: Background refresh if cache > 2 minutes old
+      if (timeSinceLastLoad > 2 * 60 * 1000) {
+        console.log('🔄 Triggering background team refresh');
+        // Don't await - let it run in background
+        unifiedCache.get<any[]>(
+          CacheKeys.DISCOVERED_TEAMS,
+          async () => {
+            const teamService = getNostrTeamService();
+            await teamService.discoverFitnessTeams();
+            return Array.from(teamService.getDiscoveredTeams().values());
+          },
+          {
+            ttl: CacheTTL.DISCOVERED_TEAMS,
+            backgroundRefresh: true,
+            persist: true,
+          }
+        ).then((updatedTeams) => {
+          if (updatedTeams && updatedTeams.length > 0) {
+            console.log(`✅ Background refresh complete: ${updatedTeams.length} teams`);
+            setAvailableTeams(updatedTeams);
+          }
+        }).catch((err) => {
+          console.warn('Background team refresh failed:', err);
+        });
+      }
+
+      return; // Return immediately with cached data
+    }
+
+    // ✅ OPTIMIZATION 4: Full load only if no cache
     try {
-      // ✅ STALE-WHILE-REVALIDATE: Use UnifiedNostrCache with background refresh
+      console.log('📡 No cache, fetching teams from Nostr...');
       const teams = await unifiedCache.get<any[]>(
         CacheKeys.DISCOVERED_TEAMS,
         async () => {
-          // Fetcher - called if cache miss or expired
           const teamService = getNostrTeamService();
           await teamService.discoverFitnessTeams();
-          const discoveredTeamsMap = teamService.getDiscoveredTeams();
-          return Array.from(discoveredTeamsMap.values());
+          return Array.from(teamService.getDiscoveredTeams().values());
         },
         {
           ttl: CacheTTL.DISCOVERED_TEAMS,
-          backgroundRefresh: true, // ✅ Return stale teams, refresh in background
+          backgroundRefresh: true,
           persist: true,
         }
       );
 
-      console.log(
-        `✅ NavigationDataContext: Loaded ${teams?.length || 0} teams (with background refresh)`
-      );
+      console.log(`✅ Loaded ${teams?.length || 0} teams from Nostr`);
       setAvailableTeams(teams || []);
       setTeamsLoaded(true);
       setTeamsLastLoaded(now);

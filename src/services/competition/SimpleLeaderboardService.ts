@@ -241,15 +241,28 @@ export class SimpleLeaderboardService {
 
       const workouts: Workout[] = [];
 
-      events.forEach((event) => {
-        const workout = this.parseWorkoutEvent(event);
-        if (workout) {
-          // Filter by activity type if not "Any"
-          if (activityType === 'Any' || workout.activityType.toLowerCase() === activityType.toLowerCase()) {
-            workouts.push(workout);
+      // ✅ PERFORMANCE: Batch process events to avoid blocking UI (runstr-github pattern)
+      const BATCH_SIZE = 100;
+      const eventsArray = Array.from(events);
+
+      for (let i = 0; i < eventsArray.length; i += BATCH_SIZE) {
+        const batch = eventsArray.slice(i, i + BATCH_SIZE);
+
+        batch.forEach((event) => {
+          const workout = this.parseWorkoutEvent(event);
+          if (workout) {
+            // Filter by activity type if not "Any"
+            if (activityType === 'Any' || workout.activityType.toLowerCase() === activityType.toLowerCase()) {
+              workouts.push(workout);
+            }
           }
+        });
+
+        // Yield to UI thread between batches (runstr-github pattern)
+        if (i + BATCH_SIZE < eventsArray.length) {
+          await new Promise(resolve => setTimeout(resolve, 10));
         }
-      });
+      }
 
       return workouts;
 

@@ -3,18 +3,25 @@
  * Teams tab for discovery and Profile tab for user data
  */
 
-import React from 'react';
-import { Text, View, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { Suspense } from 'react';
+import { Text, View, StyleSheet, TouchableOpacity, InteractionManager, ActivityIndicator } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../styles/theme';
 
-// Screens
-import { ProfileScreen } from '../screens/ProfileScreen';
-import { TeamDiscoveryScreen } from '../screens/TeamDiscoveryScreen';
-import { ActivityTrackerScreen } from '../screens/activity/ActivityTrackerScreen';
-import { EventsScreen } from '../screens/EventsScreen';
+// ✅ PERFORMANCE: Lazy load all tab screens (runstr-github pattern)
+const ProfileScreen = React.lazy(() => import('../screens/ProfileScreen').then(m => ({ default: m.ProfileScreen })));
+const TeamDiscoveryScreen = React.lazy(() => import('../screens/TeamDiscoveryScreen').then(m => ({ default: m.TeamDiscoveryScreen })));
+const ActivityTrackerScreen = React.lazy(() => import('../screens/activity/ActivityTrackerScreen').then(m => ({ default: m.ActivityTrackerScreen })));
+const EventsScreen = React.lazy(() => import('../screens/EventsScreen').then(m => ({ default: m.EventsScreen })));
+
+// Loading fallback component
+const LoadingFallback = () => (
+  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
+    <ActivityIndicator size="large" color={theme.colors.accent} />
+  </View>
+);
 
 // Data Hooks
 import { useNavigationData } from '../contexts/NavigationDataContext';
@@ -100,17 +107,21 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
         }}
         listeners={{
           focus: () => {
-            // Lazy load teams when tab is focused
-            loadTeams();
-            // Also prefetch leagues for instant loading when viewing teams
-            prefetchLeaguesInBackground();
+            // ✅ PERFORMANCE: Defer heavy operations until after tab transition
+            InteractionManager.runAfterInteractions(() => {
+              // Lazy load teams when tab is focused
+              loadTeams();
+              // Also prefetch leagues for instant loading when viewing teams
+              prefetchLeaguesInBackground();
+            });
           },
         }}
       >
         {({ navigation }) => (
-          <SafeAreaView style={styles.tabContent} edges={['top']}>
-            {/* Team Discovery Content with integrated header */}
-            <TeamDiscoveryScreen
+          <Suspense fallback={<LoadingFallback />}>
+            <SafeAreaView style={styles.tabContent} edges={['top']}>
+              {/* Team Discovery Content with integrated header */}
+              <TeamDiscoveryScreen
               teams={availableTeams}
               isLoading={isLoading}
               onClose={() => {
@@ -130,8 +141,9 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
               onCaptainDashboard={() => handlers.handleCaptainDashboard(navigation)}
               navigation={navigation} // Pass navigation for EventDetailScreen
               onCreateTeam={onNavigateToTeamCreation} // Pass team creation handler
-            />
-          </SafeAreaView>
+              />
+            </SafeAreaView>
+          </Suspense>
         )}
       </Tab.Screen>
 
@@ -142,8 +154,13 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
           title: 'Season',
           headerShown: false,
         }}
-        component={EventsScreen}
-      />
+      >
+        {() => (
+          <Suspense fallback={<LoadingFallback />}>
+            <EventsScreen />
+          </Suspense>
+        )}
+      </Tab.Screen>
 
       {/* Activity Tab - Tracking + Manual Entry */}
       <Tab.Screen
@@ -152,8 +169,13 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
           title: 'Activity',
           headerShown: false,
         }}
-        component={ActivityTrackerScreen}
-      />
+      >
+        {() => (
+          <Suspense fallback={<LoadingFallback />}>
+            <ActivityTrackerScreen />
+          </Suspense>
+        )}
+      </Tab.Screen>
 
       {/* Profile Tab */}
       <Tab.Screen
@@ -165,7 +187,8 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
       >
         {({ navigation }) =>
           profileData ? (
-            <ProfileScreen
+            <Suspense fallback={<LoadingFallback />}>
+              <ProfileScreen
               data={profileData}
               isLoadingTeam={isLoadingTeam}
               onNavigateToTeam={() => navigation.navigate('Teams')}
@@ -225,7 +248,8 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
               onPrivacyPolicy={() => handlers.handlePrivacyPolicy(navigation)}
               onSignOut={onSignOut || (() => handlers.handleSignOut(navigation))}
               onRefresh={refresh}
-            />
+              />
+            </Suspense>
           ) : (
             <View style={styles.loadingContainer}>
               <Text style={styles.loadingText}>

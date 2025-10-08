@@ -3,7 +3,7 @@
  * Matches HTML mockup profile screen exactly
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Modal, InteractionManager } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../styles/theme';
@@ -197,49 +197,49 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   // No need to fetch them again here - they're in UnifiedNostrCache
   // PublicWorkoutsTab and PrivateWorkoutsTab will read from cache when opened
 
-  // Event handlers
-  const handleEditProfile = () => {
+  // ✅ PERFORMANCE: Memoize event handlers to prevent recreating on every render
+  const handleEditProfile = useCallback(() => {
     onEditProfile?.();
-  };
+  }, [onEditProfile]);
 
-  const handleSend = () => {
+  const handleSend = useCallback(() => {
     setShowSendModal(true);
-  };
+  }, []);
 
-  const handleReceive = () => {
+  const handleReceive = useCallback(() => {
     setShowReceiveModal(true);
-  };
+  }, []);
 
-  const handleWalletHistory = () => {
+  const handleWalletHistory = useCallback(() => {
     setShowHistoryModal(true);
-  };
+  }, []);
 
-  const handleSyncSourcePress = (provider: string) => {
+  const handleSyncSourcePress = useCallback((provider: string) => {
     onSyncSourcePress?.(provider);
-  };
+  }, [onSyncSourcePress]);
 
-  const handleManageSubscription = () => {
+  const handleManageSubscription = useCallback(() => {
     onManageSubscription?.();
-  };
+  }, [onManageSubscription]);
 
-  const handleHelp = () => {
+  const handleHelp = useCallback(() => {
     onHelp?.();
-  };
+  }, [onHelp]);
 
-  const handleContactSupport = () => {
+  const handleContactSupport = useCallback(() => {
     onContactSupport?.();
-  };
+  }, [onContactSupport]);
 
-  const handlePrivacyPolicy = () => {
+  const handlePrivacyPolicy = useCallback(() => {
     onPrivacyPolicy?.();
-  };
+  }, [onPrivacyPolicy]);
 
-  const handleSignOut = () => {
+  const handleSignOut = useCallback(() => {
     onSignOut?.();
-  };
+  }, [onSignOut]);
 
-  // ✅ ANDROID FIX: Enhanced pull-to-refresh handler
-  const handleRefresh = async () => {
+  // ✅ PERFORMANCE + ANDROID FIX: Memoized pull-to-refresh handler
+  const handleRefresh = useCallback(async () => {
     console.log('[ProfileScreen] 🔄 Pull-to-refresh triggered');
     setIsRefreshing(true);
 
@@ -268,9 +268,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     } finally {
       setIsRefreshing(false);
     }
-  };
+  }, [refreshBalance, onRefresh]);
 
-  const handleSettingsPress = () => {
+  const handleSettingsPress = useCallback(() => {
     navigation.navigate('Settings', {
       currentTeam: data.currentTeam,
       onNavigateToTeamDiscovery,
@@ -281,14 +281,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       onPrivacyPolicy,
       onSignOut,
     });
-  };
+  }, [navigation, data.currentTeam, onNavigateToTeamDiscovery, onViewCurrentTeam, onCaptainDashboard, onHelp, onContactSupport, onPrivacyPolicy, onSignOut]);
 
-  const handleQRScanned = (qrData: QRData) => {
+  const handleQRScanned = useCallback((qrData: QRData) => {
     setScannedQRData(qrData);
     setShowJoinPreview(true);
-  };
+  }, []);
 
-  const handleJoinCompetition = async (qrData: QRData) => {
+  const handleJoinCompetition = useCallback(async (qrData: QRData) => {
     try {
       if (qrData.type === 'challenge') {
         await JoinRequestService.publishChallengeAcceptance(
@@ -338,17 +338,17 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       console.error('Failed to join competition:', error);
       Alert.alert('Error', 'Failed to send join request. Please try again.');
     }
-  };
+  }, []);
 
-
-  const formatBalance = (sats: number): string => {
+  // ✅ PERFORMANCE: Memoize balance formatting function
+  const formatBalance = useCallback((sats: number): string => {
     if (sats >= 1000000) {
       return `${(sats / 1000000).toFixed(2)}M`;
     } else if (sats >= 1000) {
       return `${(sats / 1000).toFixed(1)}K`;
     }
     return sats.toString();
-  };
+  }, []);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

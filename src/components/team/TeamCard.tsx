@@ -3,7 +3,7 @@
  * Shows team avatar, stats, activity status, prizes, and membership management
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -62,14 +62,24 @@ export const TeamCard: React.FC<TeamCardProps> = ({
   const [userRank, setUserRank] = useState<number | null>(null);
   const membershipService = TeamMembershipService.getInstance();
 
-  const handleCardPress = () => {
+  // ✅ PERFORMANCE: Memoize handler to prevent recreation on every render
+  const handleCardPress = useCallback(() => {
     if (onPress) {
       onPress(team);
     }
-  };
+  }, [onPress, team]);
 
-  const isCaptain = isTeamCaptain(currentUserNpub, team);
-  const teamCategory = categorizeTeam(team);
+  // ✅ PERFORMANCE: Memoize expensive captain check
+  const isCaptain = useMemo(() =>
+    isTeamCaptain(currentUserNpub, team),
+    [currentUserNpub, team]
+  );
+
+  // ✅ PERFORMANCE: Memoize team category calculation
+  const teamCategory = useMemo(() =>
+    categorizeTeam(team),
+    [team]
+  );
 
   // Cache captain status when we detect it correctly
   useEffect(() => {
@@ -82,11 +92,11 @@ export const TeamCard: React.FC<TeamCardProps> = ({
   // Check membership status on mount
   useEffect(() => {
     checkMembershipStatus();
-  }, [currentUserNpub, team]);
+  }, [checkMembershipStatus]);
 
   // Fetch user's rank in this team
-  useEffect(() => {
-    const fetchUserRank = async () => {
+  // ✅ PERFORMANCE: Memoize expensive rank fetching function
+  const fetchUserRank = useCallback(async () => {
       if (!team?.id || !currentUserNpub || buttonState !== 'member') return;
 
       try {
@@ -126,12 +136,14 @@ export const TeamCard: React.FC<TeamCardProps> = ({
       } catch (error) {
         console.log('Could not fetch user rank for team:', error);
       }
-    };
+    }, [team?.id, currentUserNpub, buttonState]);
 
+  useEffect(() => {
     fetchUserRank();
-  }, [team?.id, currentUserNpub, buttonState]);
+  }, [fetchUserRank]);
 
-  const checkMembershipStatus = async () => {
+  // ✅ PERFORMANCE: Memoize membership check function
+  const checkMembershipStatus = useCallback(async () => {
     if (!currentUserNpub) {
       setButtonState('join');
       return;
@@ -162,9 +174,10 @@ export const TeamCard: React.FC<TeamCardProps> = ({
       console.error('Failed to check membership status:', error);
       setButtonState('join');
     }
-  };
+  }, [currentUserNpub, isCaptain, team, membershipService]);
 
-  const handleJoinPress = async () => {
+  // ✅ PERFORMANCE: Memoize join handler
+  const handleJoinPress = useCallback(async () => {
     if (!currentUserNpub || buttonState !== 'join') return;
 
     try {
@@ -220,7 +233,7 @@ export const TeamCard: React.FC<TeamCardProps> = ({
       Alert.alert('Error', 'Failed to join team. Please try again.');
       setButtonState('join');
     }
-  };
+  }, [currentUserNpub, buttonState, team, membershipService, onJoinRequest]);
 
   return (
     <View>
