@@ -6,6 +6,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.15] - 2025-10-08
+
+### Fixed
+- **App Initialization Architecture**: Complete overhaul to eliminate 30-second button freeze
+  - Wait for all data to load before showing app UI
+  - Profile-first loading strategy for faster perceived performance
+  - Eliminated race conditions causing unresponsive buttons
+  - Simplified to single loading screen for cleaner UX
+- **Profile Display**: Fixed avatar and bio not showing on initial render
+  - Proper data loading sequence ensures profile appears correctly
+  - Eliminated blank profile screen on app launch
+- **GlobalNDK Reconnection**: Fixed cached instance reconnection on app reload
+  - Prevents "NDK not ready" errors when returning to app
+  - More reliable Nostr connection stability
+  - Better handling of app backgrounding/foregrounding
+- **Team Screen Crashes**: Multiple crash prevention fixes
+  - Added null checks for undefined team data
+  - Removed undefined team.captain reference
+  - Protected against malformed team objects
+- **Charity Zap Button**: Fixed crash from Lightning address handling
+  - Proper validation of charity Lightning addresses
+  - Prevents undefined reference errors
+
+### Improved
+- **Progressive Relay Connection**: Optimized relay connection strategy for faster startup
+  - Relays connect progressively instead of all at once
+  - Reduces initial connection overhead
+  - Faster time to first data load
+- **Amber Signer Support**: Enhanced challenge system with Amber signer integration
+  - Users can sign challenges with external Amber app
+  - Better NIP-55 compliance
+  - More secure key management options
+
 ## [0.1.14] - 2025-10-07
 
 ### Changed
