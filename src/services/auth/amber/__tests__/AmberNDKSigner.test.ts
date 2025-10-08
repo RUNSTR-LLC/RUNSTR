@@ -263,11 +263,14 @@ describe('AmberNDKSigner', () => {
 
   describe('Error Detection', () => {
     test('detects "Amber not installed" error', async () => {
-      (IntentLauncher.startActivityAsync as jest.Mock).mockRejectedValueOnce(
-        new Error('No Activity found to handle Intent')
-      );
+      const installError = new Error('No Activity found to handle Intent');
+      (IntentLauncher.startActivityAsync as jest.Mock).mockRejectedValue(installError);
 
       await expect(signer.requestPublicKey()).rejects.toThrow(/Amber app not found/);
+
+      // Reset mock for second test
+      jest.clearAllMocks();
+      (IntentLauncher.startActivityAsync as jest.Mock).mockRejectedValue(installError);
       await expect(signer.requestPublicKey()).rejects.toThrow(/Google Play Store/);
     });
 
@@ -324,7 +327,7 @@ describe('AmberNDKSigner', () => {
         pubkey: mockPubkey
       } as NostrEvent;
 
-      await expect(signer.sign(event)).rejects.toThrow(/No signature/);
+      await expect(signer.sign(event)).rejects.toThrow(/Amber did not return a signature/);
     });
 
     test('throws error on non-Android platform', async () => {

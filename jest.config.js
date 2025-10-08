@@ -1,5 +1,4 @@
 module.exports = {
-  preset: 'jest-expo',
   transform: {
     '^.+\\.tsx?$': [
       'babel-jest',
@@ -21,8 +20,7 @@ module.exports = {
   ],
   moduleNameMapper: {
     '^react-native$': '<rootDir>/node_modules/react-native',
+    'expo-intent-launcher': '<rootDir>/__mocks__/expo-intent-launcher.ts',
+    'expo-linking': '<rootDir>/__mocks__/expo-linking.ts',
   },
-  transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg)'
-  ],
 };
