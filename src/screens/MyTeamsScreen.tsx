@@ -77,7 +77,7 @@ export const MyTeamsScreen: React.FC = () => {
 
   const handleTeamPress = (team: Team) => {
     // Detect if user is captain of this team
-    const isCaptain = team.captainId === userNpub || team.captain === userNpub;
+    const isCaptain = team.captainId === userNpub;
 
     console.log('[MyTeamsScreen] 🎖️ Captain detection:', {
       teamId: team.id,
