@@ -66,7 +66,14 @@ import { GlobalChallengeWizard } from './components/wizards/GlobalChallengeWizar
 import { EventDetailScreen } from './screens/EventDetailScreen';
 import { LeagueDetailScreen } from './screens/LeagueDetailScreen';
 import { ChallengeDetailScreen } from './screens/ChallengeDetailScreen';
-import { EnhancedTeamScreen } from './screens/EnhancedTeamScreen';
+// Use SimpleTeamScreen instead of EnhancedTeamScreen to avoid freeze issues
+const SimpleTeamScreen = React.lazy(() => {
+  console.log('[App.tsx] 🔄 Starting lazy import of SimpleTeamScreen');
+  return import('./screens/SimpleTeamScreen').then(module => {
+    console.log('[App.tsx] ✅ SimpleTeamScreen module loaded');
+    return module;
+  });
+});
 import { CaptainDashboardScreen } from './screens/CaptainDashboardScreen';
 import { HelpSupportScreen } from './screens/HelpSupportScreen';
 import { ContactSupportScreen } from './screens/ContactSupportScreen';
@@ -74,6 +81,7 @@ import { PrivacyPolicyScreen } from './screens/PrivacyPolicyScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { OnboardingScreen } from './screens/OnboardingScreen';
 import { SplashInitScreen } from './screens/SplashInitScreen';
+import { RelayConnectionScreen } from './screens/RelayConnectionScreen';
 import { CompetitionsListScreen } from './screens/CompetitionsListScreen';
 import { WorkoutHistoryScreen } from './screens/WorkoutHistoryScreen';
 import { MyTeamsScreen } from './screens/MyTeamsScreen';
@@ -81,6 +89,7 @@ import { ProfileEditScreen } from './screens/ProfileEditScreen';
 import { User } from './types';
 import { useWalletStore } from './store/walletStore';
 import { appInitializationService } from './services/initialization/AppInitializationService';
+import { GlobalNDKService } from './services/nostr/GlobalNDKService';
 import { theme } from './styles/theme';
 import unifiedCache from './services/cache/UnifiedNostrCache';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -126,23 +135,59 @@ const AppContent: React.FC = () => {
 
   const [onboardingCompleted, setOnboardingCompleted] = React.useState<boolean | null>(null);
   const [prefetchCompleted, setPrefetchCompleted] = React.useState(false);
+  const [relaysConnected, setRelaysConnected] = React.useState(false);
 
-  // Check if prefetch is needed when user becomes authenticated
+  // ✅ CRITICAL FIX: Ensure Nostr relays are connected before showing UI
+  // This runs for ALL users (first-time and returning) to prevent button freeze
+  React.useEffect(() => {
+    const ensureRelayConnection = async () => {
+      if (isAuthenticated && !relaysConnected) {
+        console.log('🔌 App: Ensuring Nostr relay connections...');
+
+        try {
+          // Get GlobalNDK instance (creates if needed, reuses if exists)
+          const ndk = await GlobalNDKService.getInstance();
+
+          // Wait for minimum 3/4 relays to connect (8s timeout)
+          // This prevents the 30-second button freeze issue
+          const connected = await GlobalNDKService.waitForMinimumConnection(3, 8000);
+
+          if (!connected) {
+            console.warn('⚠️ App: Only partial relay connectivity - proceeding anyway');
+            GlobalNDKService.logConnectionDiagnostics();
+          } else {
+            console.log('✅ App: Relay connections established');
+          }
+
+          setRelaysConnected(true);
+        } catch (error) {
+          console.error('❌ App: Relay connection error:', error);
+          // Proceed anyway - app can work in degraded mode
+          setRelaysConnected(true);
+        }
+      }
+    };
+    ensureRelayConnection();
+  }, [isAuthenticated, relaysConnected]);
+
+  // Check if prefetch is needed when relays are connected
   React.useEffect(() => {
     const checkPrefetch = async () => {
-      if (isAuthenticated) {
-        // Check if cache is already populated (from previous session)
+      if (isAuthenticated && relaysConnected) {
+        // Check if cache is fresh (not just if it exists)
         const cacheStats = unifiedCache.getStats();
-        const hasCachedData = cacheStats.size > 0;
+        const isCacheFresh = cacheStats.size > 0 &&
+                           cacheStats.lastUpdate &&
+                           (Date.now() - cacheStats.lastUpdate) < 300000; // 5 minutes
 
-        console.log('📊 App: Cache status - size:', cacheStats.size, 'needs prefetch:', !hasCachedData);
-        setPrefetchCompleted(hasCachedData);
+        console.log('📊 App: Cache status - size:', cacheStats.size, 'fresh:', isCacheFresh);
+        setPrefetchCompleted(isCacheFresh);
       } else {
         setPrefetchCompleted(false);
       }
     };
     checkPrefetch();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, relaysConnected]);
 
   // Check onboarding completion status when user becomes authenticated
   React.useEffect(() => {
@@ -306,47 +351,63 @@ const AppContent: React.FC = () => {
           }}
         >
           {({ navigation, route }) => {
+            console.log('[App.tsx] 🚀 EnhancedTeamScreen route rendering');
             const { team, userIsMember = false, currentUserNpub, userIsCaptain = false } = route.params || {};
+            console.log('[App.tsx] 📦 Route params:', {
+              teamId: team?.id,
+              userIsMember,
+              userIsCaptain,
+              currentUserNpub: currentUserNpub?.slice(0, 20) + '...'
+            });
 
             return (
-              <EnhancedTeamScreen
-                data={{
-                  team: team,
-                  leaderboard: [],
-                  events: [],
-                  challenges: [],
-                }}
-                onBack={() => navigation.goBack()}
-                onCaptainDashboard={() => {
-                  console.log('Captain dashboard from EnhancedTeamScreen');
-                  console.log('Navigating to CaptainDashboard with team:', team?.id);
-                  console.log('Team object has captainId field:', 'captainId' in (team || {}));
-                  console.log('Team captainId value:', team?.captainId);
-                  console.log('Team captainId length:', team?.captainId?.length);
-                  console.log('Team captainId format:', team?.captainId?.startsWith('npub') ? 'npub' : team?.captainId?.length === 64 ? 'hex' : 'other');
-                  console.log('Passing userNpub:', currentUserNpub?.slice(0, 20) + '...');
+              <React.Suspense
+                fallback={
+                  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
+                    {console.log('[App.tsx] ⏳ SUSPENSE FALLBACK RENDERING - Waiting for lazy component')}
+                    <ActivityIndicator size="large" color={theme.colors.text} />
+                  </View>
+                }
+              >
+                <SimpleTeamScreen
+                  data={{
+                    team: team,
+                    leaderboard: [],
+                    events: [],
+                    challenges: [],
+                  }}
+                  onBack={() => navigation.goBack()}
+                  onCaptainDashboard={() => {
+                    console.log('Captain dashboard from EnhancedTeamScreen');
+                    console.log('Navigating to CaptainDashboard with team:', team?.id);
+                    console.log('Team object has captainId field:', 'captainId' in (team || {}));
+                    console.log('Team captainId value:', team?.captainId);
+                    console.log('Team captainId length:', team?.captainId?.length);
+                    console.log('Team captainId format:', team?.captainId?.startsWith('npub') ? 'npub' : team?.captainId?.length === 64 ? 'hex' : 'other');
+                    console.log('Passing userNpub:', currentUserNpub?.slice(0, 20) + '...');
 
-                  // Ensure we pass the captain ID in hex format
-                  const teamCaptainIdToPass = team?.captainId || '';
-                  console.log('Final teamCaptainId being passed:', teamCaptainIdToPass?.slice(0, 20) + '...');
+                    // Ensure we pass the captain ID in hex format
+                    const teamCaptainIdToPass = team?.captainId || '';
+                    console.log('Final teamCaptainId being passed:', teamCaptainIdToPass?.slice(0, 20) + '...');
 
-                  navigation.navigate('CaptainDashboard', {
-                    teamId: team?.id,
-                    teamName: team?.name,
-                    teamCaptainId: teamCaptainIdToPass,  // Pass the team's captain ID
-                    isCaptain: true,
-                    userNpub: currentUserNpub
-                  });
-                }}
-                onAddChallenge={() => console.log('Add challenge')}
-                onEventPress={(eventId) => navigation.navigate('EventDetail', { eventId })}
-                onLeaguePress={(leagueId, leagueData) => navigation.navigate('LeagueDetail', { leagueId, leagueData })}
-                onChallengePress={(challengeId) => navigation.navigate('ChallengeDetail', { challengeId })}
-                showJoinButton={!userIsMember}
-                userIsMemberProp={userIsMember}
-                currentUserNpub={currentUserNpub}
-                userIsCaptain={userIsCaptain}
-              />
+                    navigation.navigate('CaptainDashboard', {
+                      teamId: team?.id,
+                      teamName: team?.name,
+                      teamCaptainId: teamCaptainIdToPass,  // Pass the team's captain ID
+                      isCaptain: true,
+                      userNpub: currentUserNpub
+                    });
+                  }}
+                  onAddChallenge={() => console.log('Add challenge')}
+                  onEventPress={(eventId) => navigation.navigate('EventDetail', { eventId })}
+                  onLeaguePress={(leagueId, leagueData) => navigation.navigate('LeagueDetail', { leagueId, leagueData })}
+                  onChallengePress={(challengeId) => navigation.navigate('ChallengeDetail', { challengeId })}
+                  showJoinButton={!userIsMember}
+                  userIsMemberProp={userIsMember}
+                  currentUserNpub={currentUserNpub}
+                  userIsCaptain={userIsCaptain}
+                />
+              </React.Suspense>
             );
           }}
         </AuthenticatedStack.Screen>
@@ -626,10 +687,17 @@ const AppContent: React.FC = () => {
             return <AppNavigator initialRoute="Login" isFirstTime={true} />;
           }
 
-          // CRITICAL FIX: Show SplashInit when authenticated but cache empty
-          // This ensures ALL users (fresh + returning) get proper data prefetching
-          if (isAuthenticated && !prefetchCompleted) {
-            console.log('🚀 App: Showing SplashInit for cache prefetch...');
+          // ✅ STAGE 1: Ensure Nostr relays are connected (ALL USERS)
+          // This prevents the 30-second button freeze issue
+          if (isAuthenticated && !relaysConnected) {
+            console.log('🔌 App: Showing RelayConnectionScreen - waiting for relays...');
+            return <RelayConnectionScreen />;
+          }
+
+          // ✅ STAGE 2: Prefetch data if cache is stale/empty (CONDITIONAL)
+          // Skip if cache is fresh (< 5 minutes old)
+          if (isAuthenticated && relaysConnected && !prefetchCompleted) {
+            console.log('🚀 App: Showing SplashInit for cache prefetch (cache stale/empty)...');
             return (
               <SplashInitScreen
                 onComplete={() => {

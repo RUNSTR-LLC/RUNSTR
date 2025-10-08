@@ -45,9 +45,9 @@ export class GlobalNDKService {
       const status = this.getStatus();
       console.log(`♻️ GlobalNDK: Reusing cached instance (${status.connectedRelays}/${status.relayCount} relays connected)`);
 
-      // If no relays connected, trigger background reconnection
-      if (status.connectedRelays === 0 && !this.initPromise) {
-        console.log('🔄 GlobalNDK: Cached instance disconnected, starting background reconnection...');
+      // If below target threshold (3 relays), trigger background reconnection
+      if (status.connectedRelays < 3 && !this.initPromise) {
+        console.log(`🔄 GlobalNDK: Only ${status.connectedRelays}/4 relays connected, starting background reconnection...`);
         this.initPromise = this.connectInBackground();
       }
 
