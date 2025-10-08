@@ -5,38 +5,70 @@ Amber login has been successfully integrated into RUNSTR, providing secure Nostr
 
 ## Implementation Summary
 
-### Files Created:
-1. **AmberNDKSigner.ts** - NDK Signer implementation for Amber
-   - Implements NDKSigner interface
-   - Handles deep linking callbacks
-   - Manages signing, encryption, and decryption operations
+### Architecture Overview
+Amber integration uses **GlobalNDK** and **UnifiedSigningService** to provide seamless external signing for Android users. All signing operations flow through a single NDK instance with the Amber signer properly attached, ensuring consistent behavior across the app.
 
-2. **amberAuthProvider.ts** - Authentication provider for Amber
+**Key Architectural Components:**
+1. **GlobalNDK**: Single shared NDK instance for entire app (4 relay connections, not 36)
+2. **UnifiedSigningService**: Central signing hub detecting auth method (nsec vs Amber)
+3. **AmberNDKSigner**: NDK Signer implementation using NIP-55 Activity Result pattern
+4. **Signer Attachment**: Critical step where AmberNDKSigner is set on GlobalNDK instance
+
+### Files Created:
+1. **AmberNDKSigner.ts** (`src/services/auth/amber/`) - NDK Signer implementation for Amber
+   - Implements NDKSigner interface from `@nostr-dev-kit/ndk`
+   - Uses NIP-55 Activity Result pattern (IntentLauncher, not deep links)
+   - Manages signing, encryption, and decryption operations
+   - 60-second timeout prevents indefinite hangs
+   - Enhanced error detection (not installed, timeout, rejection)
+
+2. **amberAuthProvider.ts** (`src/services/auth/providers/`) - Authentication provider for Amber
    - Checks Amber installation
    - Manages authentication flow
    - Integrates with existing auth system
+   - Stores Amber pubkey for session persistence
 
 ### Files Modified:
-1. **LoginScreen.tsx** - Added Amber login UI
+1. **UnifiedSigningService.ts** (`src/services/auth/`) - **CRITICAL AMBER INTEGRATION**
+   - Detects authentication method (nsec vs Amber)
+   - Creates appropriate signer (NDKPrivateKeySigner or AmberNDKSigner)
+   - **Sets signer on GlobalNDK instance** (fixes #1 signing issue)
+   - Provides unified `signEvent()` interface for both auth methods
+   - Enhanced Amber-specific error messages
+
+2. **GlobalNDKService.ts** (`src/services/nostr/`) - Shared NDK instance
+   - Single NDK instance for entire app
+   - 4 relay connections (vs 36 before)
+   - **`ndk.signer` must be set here for Amber users**
+   - All services use this instance, not create their own
+
+3. **joinRequestPublisher.ts** (`src/utils/`) - Team join requests
+   - Updated to use GlobalNDKService instead of NostrRelayManager
+   - Prevents bypassing GlobalNDK signer
+   - Works with both nsec and Amber authentication
+
+4. **NostrProtocolHandler.ts** (`src/services/nostr/`) - Nostr protocol operations
+   - Removed top-level nostr-tools imports
+   - Uses NDK's nip19 to prevent crypto conflicts
+   - Dynamic imports for legacy nostr-tools functions only when needed
+
+5. **LoginScreen.tsx** (`src/screens/auth/`) - Added Amber login UI
    - Shows "Login with Amber" button below nsec input
    - Only visible on Android devices
    - Detects if Amber is installed
 
-2. **AuthContext.tsx** - Added `signInWithAmber` method
+6. **AuthContext.tsx** (`src/contexts/`) - Added `signInWithAmber` method
    - Seamless integration with existing auth flow
    - Caches user profile data
    - Handles session persistence
+   - Initializes signer on GlobalNDK after login (belt & suspenders)
 
-3. **AuthService.ts** - Added Amber authentication method
+7. **AuthService.ts** (`src/services/auth/`) - Added Amber authentication method
    - Parallel to existing nsec and Apple auth
    - Validates Amber availability
    - Returns standardized auth result
 
-4. **app.json** - Configured deep linking
-   - Added Android intent filters
-   - Configured `runstrproject://amber-callback` URL scheme
-
-5. **nutzapService.ts** - Added receive-only mode
+8. **nutzapService.ts** (`src/services/nutzap/`) - Added receive-only mode
    - Allows Amber users to receive zaps
    - No wallet management without nsec access
 
@@ -88,29 +120,121 @@ Amber login has been successfully integrated into RUNSTR, providing secure Nostr
 
 ## Technical Details
 
-### Deep Linking:
-- Scheme: `runstrproject://amber-callback`
-- Handles callbacks with request ID tracking
-- 60-second timeout for auth requests
-- 30-second timeout for signing requests
+### NIP-55 Activity Result Communication:
+Amber integration uses **IntentLauncher Activity Result pattern** (NOT deep linking):
+
+```typescript
+// Launch Amber with Activity Result
+const result = await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+  data: 'nostrsigner:',  // NIP-55 URI scheme
+  extra: {
+    'type': 'get_public_key',
+    'permissions': JSON.stringify(permissions)
+  }
+});
+
+// Amber returns result synchronously (not via deep link callback)
+if (result.resultCode === IntentLauncher.ResultCode.Success) {
+  const pubkey = result.extra?.result || result.data;
+  // Use pubkey immediately
+}
+```
+
+**Key Differences from Deep Linking:**
+- ✅ **Synchronous**: No callback URL, result returned directly
+- ✅ **Timeout Support**: Wrapped in Promise.race() for 60s timeout
+- ✅ **Error Detection**: Can detect "Amber not installed" immediately
+- ✅ **No URL Scheme Conflicts**: Uses Android Intent system, not URL routing
+
+**Timeout Protection:**
+```typescript
+Promise.race([
+  IntentLauncher.startActivityAsync(...),
+  new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Timeout')), 60000)
+  )
+]);
+```
+
+### GlobalNDK Architecture:
+**Critical Requirement:** All services must use the same NDK instance for Amber to work.
+
+**Before GlobalNDK (broken):**
+```typescript
+// ❌ Each service created its own NDK
+const relayManager = new NostrRelayManager(); // New NDK, no signer!
+await relayManager.publishEvent(event); // Fails for Amber users
+```
+
+**After GlobalNDK (working):**
+```typescript
+// ✅ All services share one NDK with signer
+const ndk = await GlobalNDKService.getInstance(); // Has signer attached
+const event = new NDKEvent(ndk, eventData);
+await event.publish(); // Works for both nsec and Amber
+```
+
+**Why GlobalNDK Matters:**
+- **Connection Efficiency**: 4 relay connections (not 36)
+- **Signer Consistency**: Single place to set `ndk.signer`
+- **No Timing Issues**: No 2-3 second connection delays per query
+- **Performance**: Reusing connection pool instead of creating/destroying
+
+### UnifiedSigningService Pattern:
+Central hub for all signing operations:
+
+```typescript
+// Service code (supports both nsec and Amber):
+const signingService = UnifiedSigningService.getInstance();
+const signature = await signingService.signEvent(event);
+
+// UnifiedSigningService handles:
+// 1. Detects auth method (nsec vs Amber)
+// 2. Gets appropriate signer
+// 3. Sets signer on GlobalNDK
+// 4. Signs event
+// 5. Returns signature
+```
+
+**Anti-Pattern (don't do this):**
+```typescript
+// ❌ Creating signers directly
+const signer = new AmberNDKSigner(); // Bypasses UnifiedSigningService
+await signer.sign(event); // May not be attached to GlobalNDK
+```
 
 ### Security:
 - No private keys stored in app
 - All cryptographic operations through Amber
-- Secure intent-based communication
+- Secure Intent-based communication (Android system)
 - Public key cached for session persistence
+- Request timeout prevents indefinite hangs
+- Enhanced error messages prevent confusion
 
 ### Compatibility:
-- NDK-only implementation (no nostr-tools)
+- **NDK-only**: Uses `@nostr-dev-kit/ndk` exclusively
+- **No nostr-tools mixing**: Prevents crypto initialization conflicts
 - Works with existing AuthContext
-- Supports all required event kinds (0, 1, 1301, 30000, 33404)
+- Supports all required event kinds (0, 1, 1301, 30000, 33404, etc.)
 - NIP-04 encryption/decryption support
+- NIP-55 Activity Result protocol
 
 ## Known Limitations:
-1. Android-only (Amber not available on iOS)
-2. NutZap wallet creation requires nsec (receive-only for Amber users)
-3. User must have Amber installed first
-4. Requires user interaction for each signing operation
+1. **Android-only** (Amber not available on iOS)
+2. **NutZap wallet creation requires nsec** (receive-only for Amber users)
+3. **User must have Amber installed first** (app provides helpful error with Play Store link if missing)
+4. **Requires user interaction for each signing operation** (60s timeout prevents indefinite hangs)
+
+## Fixed Issues (January 2025):
+**6 critical/high priority issues resolved:**
+- ✅ Kind 1/1301 signing failures (GlobalNDK signer not set) - Fixed in commit 248e2d5
+- ✅ Join requests bypass GlobalNDK (separate NDK instance) - Fixed in commit 3faead6
+- ✅ nostr-tools crypto initialization conflicts - Fixed in commit 3faead6
+- ✅ Amber requests hang indefinitely (no timeout) - Fixed in commit 3faead6
+- ✅ Amber not installed shows confusing errors - Fixed in commit 3faead6
+- ✅ Poor error messages for Amber failures - Fixed in commit 3faead6
+
+**See "Troubleshooting History" section below for detailed analysis of each issue.**
 
 ## Future Enhancements:
 1. Background event signing queue
