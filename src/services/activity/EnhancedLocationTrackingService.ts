@@ -94,6 +94,9 @@ export class EnhancedLocationTrackingService {
   // Transport detection
   private justResumedFromPause = false;
 
+  // Timestamp deduplication (prevents duplicate point processing)
+  private lastProcessedTimestamp: number = 0;
+
   // GPS warmup tracking (prevents premature recovery mode on startup)
   private isInWarmup: boolean = false;
   private warmupStartTime: number | null = null;
@@ -297,6 +300,9 @@ export class EnhancedLocationTrackingService {
       this.lastDistanceValue = 0;
       this.lastDistanceUpdateTime = Date.now();
 
+      // Reset timestamp deduplication for new session
+      this.lastProcessedTimestamp = 0;
+
       // Start split tracking for running activities
       if (activityType === 'running') {
         this.splitTracker.start(startTime);
@@ -361,6 +367,13 @@ export class EnhancedLocationTrackingService {
   private async handleLocationUpdate(location: Location.LocationObject): Promise<void> {
     if (!this.currentSession || !this.validator || !this.storage) return;
 
+    // Timestamp deduplication: Skip if we've already processed this exact timestamp
+    // This prevents duplicate processing from background sync or multiple location sources
+    if (location.timestamp <= this.lastProcessedTimestamp) {
+      console.log(`⚠️ Skipping duplicate location (timestamp: ${location.timestamp}, last: ${this.lastProcessedTimestamp})`);
+      return;
+    }
+
     // Create enhanced location point
     const newPoint: EnhancedLocationPoint = {
       latitude: location.coords.latitude,
@@ -424,6 +437,9 @@ export class EnhancedLocationTrackingService {
           confidence: validationResult.confidence,
         };
       }
+
+      // Update last processed timestamp to prevent duplicates
+      this.lastProcessedTimestamp = pointToStore.timestamp;
 
       // Update duration using GPS timestamp (prevents timer throttling)
       // This is critical for long sessions where JS timers can throttle in background
@@ -491,7 +507,7 @@ export class EnhancedLocationTrackingService {
 
           // Check GPS accuracy for logging purposes
           const currentAccuracy = pointToStore.accuracy || this.GPS_ACCURACY_RECOVERY_THRESHOLD;
-          const isReasonableQuality = currentAccuracy <= this.GPS_ACCURACY_RECOVERY_THRESHOLD; // Relaxed threshold: just needs to be reasonable
+          const isReasonableQuality = currentAccuracy <= this.GPS_ACCURACY_RECOVERY_THRESHOLD;
 
           if (isReasonableQuality) {
             // Update threshold only when we get good points
@@ -501,17 +517,8 @@ export class EnhancedLocationTrackingService {
             console.log(`📍 GPS Recovery: Point ${this.pointsAfterRecovery}/${this.GPS_RECOVERY_POINTS} ~ (poor accuracy: ${currentAccuracy.toFixed(1)}m, skipped: ${this.skippedRecoveryDistance.toFixed(1)}m, ${(recoveryDuration / 1000).toFixed(1)}s elapsed)`);
           }
 
-          // During recovery, use Kalman prediction for smooth UI updates
-          // This prevents phantom distance while still showing progress
-          if (this.kalmanFilter.isReady() && isReasonableQuality && this.lastValidLocation) {
-            const recoveryTimeDelta = (pointToStore.timestamp - this.lastValidLocation.timestamp) / 1000;
-            const estimatedDistance = this.kalmanFilter.predict(recoveryTimeDelta);
-            this.currentSession.totalDistance = Math.max(
-              this.currentSession.totalDistance,
-              estimatedDistance
-            );
-            console.log(`🔵 Recovery interpolation: using Kalman prediction ${estimatedDistance.toFixed(1)}m (actual point not counted)`);
-          }
+          // Note: We intentionally freeze distance during recovery to prevent phantom distance
+          // Distance will resume updating after recovery completes or times out
 
           // Store the point but don't count it toward distance
           this.lastValidLocation = pointToStore;
@@ -1022,6 +1029,7 @@ export class EnhancedLocationTrackingService {
     this.skippedRecoveryDistance = 0;
     this.splitTracker.reset();
     this.kalmanFilter.reset();
+    this.lastProcessedTimestamp = 0;
   }
 
   /**
