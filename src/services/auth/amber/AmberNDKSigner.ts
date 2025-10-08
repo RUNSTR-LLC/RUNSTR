@@ -235,7 +235,9 @@ export class AmberNDKSigner implements NDKSigner {
       const result = await this.startActivityWithTimeout('android.intent.action.VIEW', {
         data: nostrsignerUri,  // Event encoded in URI per NIP-55
         extra: {
-          'type': 'sign_event'  // Only type in extras
+          'type': 'sign_event',
+          'id': unsignedEvent.created_at.toString(), // Track request/response
+          'current_user': this._pubkey  // CRITICAL: Tell Amber which account to sign with
         }
       });
 
