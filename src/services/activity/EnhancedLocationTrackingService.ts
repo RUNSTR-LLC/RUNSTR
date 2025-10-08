@@ -4,6 +4,7 @@
  */
 
 import * as Location from 'expo-location';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { Platform, AppState, AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ActivityStateMachine } from './ActivityStateMachine';
@@ -104,8 +105,8 @@ export class EnhancedLocationTrackingService {
   private recoveryStartTime: number | null = null;
   private recoveryAccuracyThreshold: number = 50; // Initial accuracy threshold for recovery
   private skippedRecoveryDistance: number = 0; // Track phantom distance during recovery
-  private readonly GPS_RECOVERY_TIMEOUT_MS = 10000; // 10 seconds max recovery time
-  private readonly GPS_RECOVERY_POINTS = 3; // Number of points to skip after GPS recovery
+  private readonly GPS_RECOVERY_TIMEOUT_MS = 7000; // 7 seconds max recovery time (reduced from 10s for faster exit)
+  private readonly GPS_RECOVERY_POINTS = 2; // Number of points to skip after GPS recovery (reduced from 3 for faster exit)
 
   // Distance freeze detection
   private lastDistanceUpdateTime: number = 0;
@@ -333,6 +334,15 @@ export class EnhancedLocationTrackingService {
       console.log(`🌙 [${Platform.OS.toUpperCase()}] Starting background location tracking...`);
       await startBackgroundLocationTracking(activityType, sessionId);
 
+      // Activate KeepAwake to prevent GPS throttling during long sessions
+      // This is CRITICAL for 2+ hour runs to prevent distance tracking from freezing
+      try {
+        await activateKeepAwakeAsync('activity-tracking');
+        console.log('✅ KeepAwake activated - GPS will not be throttled in background');
+      } catch (error) {
+        console.warn('Failed to activate KeepAwake:', error);
+      }
+
       // Update state machine
       this.stateMachine.send({ type: 'INITIALIZATION_COMPLETE', sessionId });
 
@@ -414,6 +424,11 @@ export class EnhancedLocationTrackingService {
           confidence: validationResult.confidence,
         };
       }
+
+      // Update duration using GPS timestamp (prevents timer throttling)
+      // This is critical for long sessions where JS timers can throttle in background
+      this.currentSession.duration =
+        (pointToStore.timestamp - this.currentSession.startTime - this.currentSession.pausedDuration) / 1000;
 
       // Check if we're still in warmup period
       if (this.isInWarmup && this.warmupStartTime) {
@@ -577,8 +592,8 @@ export class EnhancedLocationTrackingService {
 
         // Update split tracking for running activities
         if (this.currentSession.activityType === 'running') {
-          const now = Date.now();
-          const totalElapsed = Math.floor((now - this.currentSession.startTime - this.currentSession.pausedDuration) / 1000);
+          // Use GPS-based duration (already calculated above from GPS timestamp)
+          const totalElapsed = Math.floor(this.currentSession.duration);
           const newSplit = this.splitTracker.update(
             this.currentSession.totalDistance,
             totalElapsed,
@@ -855,6 +870,14 @@ export class EnhancedLocationTrackingService {
     this.stopGPSMonitoring();
     this.stopBackgroundLocationSync();
 
+    // Deactivate KeepAwake
+    try {
+      deactivateKeepAwake('activity-tracking');
+      console.log('✅ KeepAwake deactivated - normal power management restored');
+    } catch (error) {
+      console.warn('Failed to deactivate KeepAwake:', error);
+    }
+
     if (this.currentSession && this.storage) {
       // Get final statistics
       const stats = this.storage.getStatistics();
@@ -1017,6 +1040,13 @@ export class EnhancedLocationTrackingService {
     await stopBackgroundLocationTracking();
     this.stopGPSMonitoring();
     this.stopBackgroundLocationSync();
+
+    // Deactivate KeepAwake
+    try {
+      deactivateKeepAwake('activity-tracking');
+    } catch (error) {
+      // Silently fail - we're in cleanup
+    }
 
     // Clean up resources
     this.cleanup();

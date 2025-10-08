@@ -9,6 +9,7 @@ import { NDKPrivateKeySigner, type NDKSigner } from '@nostr-dev-kit/ndk';
 import { AmberNDKSigner } from './amber/AmberNDKSigner';
 import { nsecToPrivateKey } from '../../utils/nostr';
 import type { NostrEvent } from '@nostr-dev-kit/ndk';
+import { GlobalNDKService } from '../nostr/GlobalNDKService';
 
 export type AuthMethod = 'nostr' | 'amber' | null;
 
@@ -107,7 +108,12 @@ export class UnifiedSigningService {
         const signer = new NDKPrivateKeySigner(hexPrivateKey);
 
         this.cachedSigner = signer;
-        console.log('✅ UnifiedSigningService: Created NDKPrivateKeySigner from nsec');
+
+        // Set signer on GlobalNDK instance for all Nostr operations
+        const ndk = await GlobalNDKService.getInstance();
+        ndk.signer = signer;
+
+        console.log('✅ UnifiedSigningService: Created NDKPrivateKeySigner from nsec and set on GlobalNDK');
         return signer;
       }
 
@@ -119,7 +125,12 @@ export class UnifiedSigningService {
         await signer.blockUntilReady();
 
         this.cachedSigner = signer;
-        console.log('✅ UnifiedSigningService: Created AmberNDKSigner');
+
+        // Set signer on GlobalNDK instance for all Nostr operations
+        const ndk = await GlobalNDKService.getInstance();
+        ndk.signer = signer;
+
+        console.log('✅ UnifiedSigningService: Created AmberNDKSigner and set on GlobalNDK');
         return signer;
       }
 

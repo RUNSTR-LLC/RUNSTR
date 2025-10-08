@@ -398,6 +398,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setConnectionStatus('Connected');
       setInitError(null);
 
+      // Initialize signer on GlobalNDK (belt & suspenders backup)
+      try {
+        const signer = await UnifiedSigningService.getInstance().getSigner();
+        if (signer) {
+          const { GlobalNDKService } = await import('../services/nostr/GlobalNDKService');
+          const ndk = await GlobalNDKService.getInstance();
+          ndk.signer = signer;
+          console.log('✅ AuthContext: Set Amber signer on GlobalNDK after login');
+        }
+      } catch (signerError) {
+        console.error('⚠️ AuthContext: Failed to set signer on GlobalNDK:', signerError);
+        // Don't fail the login if signer setup fails - UnifiedSigningService will handle it
+      }
+
       // Cache the profile
       const { appCache } = await import('../utils/cache');
       await appCache.set('current_user_profile', result.user, 5 * 60 * 1000);
