@@ -365,25 +365,27 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
               {team.description || 'No description available'}
             </Text>
 
-            {/* Charity Section - Shows button or message */}
+            {/* Charity Section - Shows info or captain prompt */}
             {(() => {
               if (team.charityId && getCharityById(team.charityId)) {
-                // Team has a charity selected - show zap button
+                // Team has a charity selected - show info only (no zap button until we have npubs)
+                const charity = getCharityById(team.charityId);
                 return (
                   <View style={{ marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: theme.colors.border }}>
                     <Text style={{ fontSize: 12, color: theme.colors.textMuted, marginBottom: 8 }}>Supporting</Text>
                     <Text style={{ fontSize: 14, color: theme.colors.text, fontWeight: '600', marginBottom: 4 }}>
-                      {getCharityById(team.charityId)?.name}
+                      {charity?.name}
                     </Text>
-                    <Text style={{ fontSize: 12, color: theme.colors.textTertiary, marginBottom: 12, fontStyle: 'italic' }}>
-                      {getCharityById(team.charityId)?.description}
+                    <Text style={{ fontSize: 12, color: theme.colors.textTertiary, marginBottom: 8, fontStyle: 'italic' }}>
+                      {charity?.description}
                     </Text>
-                    <NutzapLightningButton
-                      recipientNpub={getCharityById(team.charityId)?.lightningAddress || ''}
-                      recipientName={getCharityById(team.charityId)?.displayName || ''}
-                      size="rectangular"
-                      customLabel={`Zap ${getCharityById(team.charityId)?.displayName}`}
-                    />
+                    {charity?.website && (
+                      <TouchableOpacity onPress={() => charity.website && Linking.openURL(charity.website)}>
+                        <Text style={{ fontSize: 12, color: theme.colors.accent, textDecorationLine: 'underline' }}>
+                          Learn more →
+                        </Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 );
               } else if (userIsCaptain) {

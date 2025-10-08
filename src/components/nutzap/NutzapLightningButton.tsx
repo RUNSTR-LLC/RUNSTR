@@ -62,10 +62,16 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
     const normalized = npubToHex(recipientNpub);
     if (!normalized) {
       console.warn('[NutzapLightningButton] Invalid recipient pubkey:', recipientNpub.slice(0, 20));
-      return recipientNpub; // Use as-is if conversion fails
+      return null; // Return null instead of invalid value
     }
     return normalized;
   }, [recipientNpub]);
+
+  // Don't render if recipient is invalid
+  if (!recipientHex) {
+    console.log('[NutzapLightningButton] Skipping render - invalid recipient');
+    return null;
+  }
 
   // Load zapped state and default amount on mount
   useEffect(() => {
