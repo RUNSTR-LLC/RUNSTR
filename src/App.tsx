@@ -136,18 +136,20 @@ const AppContent: React.FC = () => {
   const [onboardingCompleted, setOnboardingCompleted] = React.useState<boolean | null>(null);
   const [prefetchCompleted, setPrefetchCompleted] = React.useState(false);
 
-  // ✅ SIMPLIFIED: Just check if we need to prefetch (cache stale or empty)
+  // ✅ PERFORMANCE: Use cache-first strategy - show app immediately if ANY cache exists
   React.useEffect(() => {
     const checkPrefetch = async () => {
       if (isAuthenticated) {
-        // Check if cache is fresh (not just if it exists)
+        // Check if cache exists
         const cacheStats = unifiedCache.getStats();
-        const isCacheFresh = cacheStats.size > 0 &&
-                           cacheStats.lastUpdate &&
-                           (Date.now() - cacheStats.lastUpdate) < 300000; // 5 minutes
+        const hasCachedData = cacheStats.size > 0;
 
-        console.log('📊 App: Cache status - size:', cacheStats.size, 'fresh:', isCacheFresh);
-        setPrefetchCompleted(isCacheFresh);
+        console.log('📊 App: Cache-first check - cache size:', cacheStats.size);
+
+        // Show app immediately if we have ANY cached data
+        // First-time users (no cache) will see SplashInit
+        // Returning users (has cache) see app immediately, refresh happens in background
+        setPrefetchCompleted(hasCachedData);
       } else {
         setPrefetchCompleted(false);
       }
@@ -668,14 +670,14 @@ const AppContent: React.FC = () => {
             return <AppNavigator initialRoute="Login" isFirstTime={true} />;
           }
 
-          // ✅ SIMPLIFIED: Show SplashInit if cache is stale/empty
-          // SplashInit now handles relay connection + profile loading in one screen
+          // ✅ PERFORMANCE: Only show SplashInit for first-time users (no cache at all)
+          // Returning users see app immediately with cached data, refresh happens in background
           if (isAuthenticated && !prefetchCompleted) {
-            console.log('🚀 App: Showing SplashInit (relay connection + profile loading)');
+            console.log('🚀 App: First-time user - showing SplashInit for initial data load');
             return (
               <SplashInitScreen
                 onComplete={() => {
-                  console.log('✅ App: Profile ready, showing app');
+                  console.log('✅ App: Initial data loaded, showing app');
                   setPrefetchCompleted(true);
                 }}
               />

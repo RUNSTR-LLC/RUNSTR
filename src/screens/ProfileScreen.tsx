@@ -100,30 +100,34 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [userNpub, setUserNpub] = useState<string>('');
   const [showBalanceMenu, setShowBalanceMenu] = useState(false);
 
-  const { balance, refreshBalance } = useNutzap(true);
+  // ✅ PERFORMANCE: Lazy wallet initialization - don't auto-initialize on mount
+  const { balance, refreshBalance } = useNutzap(false); // autoInitialize = false
   const { initialize: initializeWallet, isInitialized } = useWalletStore();
 
-  // ✅ ANDROID FIX: Defer wallet initialization until after screen is interactive
+  // ✅ PERFORMANCE: Wallet initialization happens ONLY when needed (user interacts with balance)
+  // Background initialization happens after 2 seconds (truly non-blocking)
   useEffect(() => {
     if (isInitialized) {
       return; // Already initialized
     }
 
-    const initTask = InteractionManager.runAfterInteractions(() => {
-      console.log('[ProfileScreen] ⚡ Initializing wallet (deferred after interactions)...');
+    // Defer wallet init by 2 seconds to allow UI to settle
+    const timer = setTimeout(() => {
+      console.log('[ProfileScreen] ⚡ Background wallet initialization (2s delay)...');
       initializeWallet(undefined, true); // Quick resume mode
-    });
+    }, 2000);
 
-    return () => initTask.cancel();
+    return () => clearTimeout(timer);
   }, [isInitialized, initializeWallet]);
 
-  // ✅ ANDROID FIX: Defer notification initialization until after screen is interactive
+  // ✅ PERFORMANCE: Defer notification initialization by 3 seconds
+  // Notifications are not critical for initial app load, delay them for better UX
   useEffect(() => {
-    const initTask = InteractionManager.runAfterInteractions(async () => {
+    const timer = setTimeout(async () => {
       try {
         const userIdentifiers = await getUserNostrIdentifiers();
         if (userIdentifiers?.hexPubkey) {
-          console.log('[ProfileScreen] ⚡ Initializing notifications (deferred after interactions)...');
+          console.log('[ProfileScreen] ⚡ Background notification initialization (3s delay)...');
 
           // Initialize in background - don't block UI
           unifiedNotificationStore.initialize(userIdentifiers.hexPubkey).catch((err) => {
@@ -144,11 +148,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       } catch (error) {
         console.error('[ProfileScreen] Failed to initialize notification system:', error);
       }
-    });
+    }, 3000);
 
     // Cleanup on unmount
     return () => {
-      initTask.cancel();
+      clearTimeout(timer);
       challengeNotificationHandler.stopListening();
       eventJoinNotificationHandler.stopListening();
     };
@@ -369,7 +373,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           onPress={() => setShowBalanceMenu(!showBalanceMenu)}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Text style={styles.balanceText}>{formatBalance(balance)}</Text>
+          {/* ✅ PERFORMANCE: Show loading state while wallet initializes */}
+          <Text style={styles.balanceText}>
+            {isInitialized ? formatBalance(balance) : '...'}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity

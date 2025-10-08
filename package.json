@@ -11,6 +11,9 @@
     "web": "expo start --web",
     "test": "jest",
     "test:activity-tracker": "npx tsx scripts/testActivityTrackerFixes.ts",
+    "test:amber": "jest --testPathPattern=amber",
+    "test:amber-watch": "jest --testPathPattern=amber --watch",
+    "test:amber-coverage": "jest --testPathPattern=amber --coverage",
     "audit:pre-launch": "npx tsx scripts/preLaunchAudit.ts",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit"

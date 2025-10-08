@@ -43,6 +43,7 @@ export class WalletSync {
   /**
    * Initialize with GlobalNDKService (non-blocking)
    * Uses UnifiedSigningService for both nsec and Amber authentication
+   * ✅ PERFORMANCE: 3-second timeout to prevent blocking
    */
   async initialize(hexPubkey: string): Promise<void> {
     try {
@@ -50,8 +51,17 @@ export class WalletSync {
 
       this.userPubkey = hexPubkey;
 
-      // Get signer from UnifiedSigningService (works for both nsec and Amber)
-      const unifiedSigner = await UnifiedSigningService.getSigner();
+      // ✅ PERFORMANCE: Get signer with 3s timeout to prevent blocking
+      const signerPromise = UnifiedSigningService.getSigner();
+      const timeoutPromise = new Promise<null>((resolve) => {
+        setTimeout(() => {
+          console.warn('[WalletSync] Signer fetch timeout (3s) - continuing without signer');
+          resolve(null);
+        }, 3000);
+      });
+
+      const unifiedSigner = await Promise.race([signerPromise, timeoutPromise]);
+
       if (unifiedSigner) {
         this.signer = unifiedSigner;
         console.log('[WalletSync] Signer obtained from UnifiedSigningService');
@@ -60,7 +70,7 @@ export class WalletSync {
         this.signer = null;
       }
 
-      // Use GlobalNDKService for relay connections
+      // Use GlobalNDKService for relay connections (non-blocking)
       this.connectAsync();
 
     } catch (error) {
