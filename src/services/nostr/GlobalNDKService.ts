@@ -25,12 +25,16 @@ export class GlobalNDKService {
   /**
    * Default relay configuration
    * These are fast, reliable relays used across the app
+   *
+   * PERFORMANCE: Reduced from 4 to 3 relays (removed Primal)
+   * - relay.primal.net removed to avoid EOSE hangs (based on runstr-github testing)
+   * - 25% fewer WebSocket connections = faster initial load
    */
   private static readonly DEFAULT_RELAYS = [
     'wss://relay.damus.io',
-    'wss://relay.primal.net',
     'wss://nos.lol',
     'wss://relay.nostr.band',
+    // 'wss://relay.primal.net', // Removed: causes EOSE hangs
   ];
 
   /**
@@ -45,9 +49,9 @@ export class GlobalNDKService {
       const status = this.getStatus();
       console.log(`♻️ GlobalNDK: Reusing cached instance (${status.connectedRelays}/${status.relayCount} relays connected)`);
 
-      // If below target threshold (3 relays), trigger background reconnection
-      if (status.connectedRelays < 3 && !this.initPromise) {
-        console.log(`🔄 GlobalNDK: Only ${status.connectedRelays}/4 relays connected, starting background reconnection...`);
+      // If below target threshold (2 relays), trigger background reconnection
+      if (status.connectedRelays < 2 && !this.initPromise) {
+        console.log(`🔄 GlobalNDK: Only ${status.connectedRelays}/3 relays connected, starting background reconnection...`);
         this.initPromise = this.connectInBackground();
       }
 
@@ -158,7 +162,7 @@ export class GlobalNDKService {
 
       console.log(`✅ GlobalNDK: Connected successfully to ${connectedCount} relay(s)`);
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log(`🔌 TOTAL WEBSOCKET CONNECTIONS: ${connectedCount} (Target: 4)`);
+      console.log(`🔌 TOTAL WEBSOCKET CONNECTIONS: ${connectedCount} (Target: 3)`);
       console.log(`📍 This is the ONLY NDK instance - all services share these ${connectedCount} connections`);
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
@@ -452,8 +456,8 @@ export class GlobalNDKService {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log(`🔌 WEBSOCKET CONNECTION COUNT: ${status.connectedRelays}/${status.relayCount}`);
     console.log(`📊 Status: ${this.isConnected() ? 'CONNECTED' : 'DISCONNECTED'}`);
-    console.log(`✅ Expected: 4 connections (Damus, Primal, nos.lol, Nostr.band)`);
-    console.log(`${status.connectedRelays === 4 ? '✅ PERFECT' : '⚠️ CHECK FOR DUPLICATE NDK INSTANCES'}`);
+    console.log(`✅ Expected: 3 connections (Damus, nos.lol, Nostr.band)`);
+    console.log(`${status.connectedRelays === 3 ? '✅ PERFECT' : '⚠️ CHECK FOR DUPLICATE NDK INSTANCES'}`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   }
 }
