@@ -644,12 +644,10 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
         '✅ NavigationData: Using currentUser from AuthContext (no refetch needed)'
       );
       setUser(currentUser);
-      // Only fetch profile data if we don't already have it
-      if (!profileData) {
-        fetchProfileData(currentUser);
-      }
+      // Always rebuild profile data when user changes (ensures avatar/bio appear immediately)
+      fetchProfileData(currentUser);
     }
-  }, [currentUser, user?.id, profileData]);
+  }, [currentUser, user?.id]);
 
   // ✅ ANDROID FIX: Initial load - Skip if AuthContext already loaded user
   useEffect(() => {
