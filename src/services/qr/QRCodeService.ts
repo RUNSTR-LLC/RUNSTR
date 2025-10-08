@@ -177,4 +177,6 @@ class QRCodeService {
   }
 }
 
-export default QRCodeService.getInstance();
+// Export class instead of instance to prevent blocking module initialization
+export default QRCodeService;
+export { QRCodeService };

@@ -132,6 +132,7 @@ export class WorkoutMergeService {
 
       // Feature flag: Skip HealthKit when disabled
       let healthKitWorkouts: HealthKitWorkout[] = [];
+      let usedCache = false; // Track if we used cached data
 
       if (!FEATURE_FLAGS.ENABLE_HEALTHKIT) {
         console.log('⚠️ HealthKit disabled via feature flag - skipping HealthKit fetch');
@@ -142,6 +143,7 @@ export class WorkoutMergeService {
         if (cachedWorkouts && cachedWorkouts.length > 0) {
           console.log(`📦 Using ${cachedWorkouts.length} cached HealthKit workouts`);
           healthKitWorkouts = cachedWorkouts;
+          usedCache = true;
         } else if (HealthKitService.isAvailable()) {
         // Fetch HealthKit workouts progressively
         console.log('🔄 Fetching HealthKit workouts progressively...');
@@ -223,7 +225,7 @@ export class WorkoutMergeService {
 
       return {
         ...mergedResult,
-        fromCache: cachedWorkouts !== null,
+        fromCache: usedCache,
         loadDuration: Date.now() - startTime,
         cacheAge: 0,
       };
@@ -424,6 +426,10 @@ export class WorkoutMergeService {
   /**
    * Merge and deduplicate HealthKit, Nostr, and Local workouts
    */
+  /**
+   * PERFORMANCE FIX: O(N) HashMap-based deduplication instead of O(N²) nested loops
+   * Prevents 40-second UI freezes with large workout datasets (200+ workouts)
+   */
   private mergeAndDeduplicate(
     healthKitWorkouts: HealthKitWorkout[],
     nostrWorkouts: NostrWorkout[],
@@ -434,42 +440,75 @@ export class WorkoutMergeService {
     const unified: UnifiedWorkout[] = [];
     let duplicateCount = 0;
 
-    // Add HealthKit workouts and check for duplicates in Nostr
+    // ✅ BUILD LOOKUP MAPS (O(N) instead of nested O(N²) loops)
+    const nostrById = new Map<string, NostrWorkout>();
+    const nostrByUUID = new Map<string, NostrWorkout>();
+    const nostrByEventId = new Map<string, NostrWorkout>();
+
+    // Index Nostr workouts once for O(1) lookups
+    for (const nw of nostrWorkouts) {
+      if (nw.id) nostrById.set(nw.id, nw);
+      if (nw.nostrEventId) nostrByEventId.set(nw.nostrEventId, nw);
+      // Extract UUID from healthkit_UUID format if present
+      const uuid = nw.id?.includes('healthkit_') ? nw.id.replace('healthkit_', '') : null;
+      if (uuid) nostrByUUID.set(uuid, nw);
+    }
+
+    const healthKitById = new Map<string, HealthKitWorkout>();
+    const healthKitByUUID = new Map<string, HealthKitWorkout>();
+
+    // Index HealthKit workouts once for O(1) lookups
+    for (const hk of healthKitWorkouts) {
+      const id = hk.id || `healthkit_${hk.UUID}`;
+      healthKitById.set(id, hk);
+      if (hk.UUID) healthKitByUUID.set(hk.UUID, hk);
+    }
+
+    // ✅ PROCESS HEALTHKIT WORKOUTS (O(N) with hash lookups)
     for (const hkWorkout of healthKitWorkouts) {
-      const isDupe = this.isDuplicate(hkWorkout, nostrWorkouts);
+      const workoutId = hkWorkout.id || `healthkit_${hkWorkout.UUID}`;
+      const uuid = hkWorkout.UUID;
+
+      // Fast O(1) duplicate check via Map lookup instead of O(N) .some() loop
+      const isDupe = !!(
+        nostrById.has(workoutId) ||
+        (uuid && nostrByUUID.has(uuid))
+      );
 
       if (isDupe) {
         duplicateCount++;
       }
 
-      const workoutId = hkWorkout.id || `healthkit_${hkWorkout.UUID}`;
       const status = postingStatus.get(workoutId);
 
       const unifiedWorkout: UnifiedWorkout = {
         id: workoutId,
-        userId: pubkey, // Set to user's pubkey
+        userId: pubkey,
         type: (hkWorkout.activityType || 'other') as WorkoutType,
         startTime: hkWorkout.startDate,
         endTime: hkWorkout.endDate,
         duration: hkWorkout.duration,
-        distance: hkWorkout.totalDistance || 0, // HealthKit returns meters (not km)
+        distance: hkWorkout.totalDistance || 0,
         calories: hkWorkout.totalEnergyBurned || 0,
         source: 'healthkit',
         syncedAt: new Date().toISOString(),
         syncedToNostr: isDupe,
         postedToSocial: status?.postedToSocial || false,
-        canSyncToNostr: !isDupe, // Can sync if not already in Nostr
+        canSyncToNostr: !isDupe,
         canPostToSocial: true,
       };
 
       unified.push(unifiedWorkout);
     }
 
-    // Add Nostr-only workouts (not matching any HealthKit workout)
+    // ✅ PROCESS NOSTR-ONLY WORKOUTS (O(N) with hash lookups)
     for (const nostrWorkout of nostrWorkouts) {
-      const matchingHK = healthKitWorkouts.find(hk =>
-        this.isDuplicate(hk, [nostrWorkout])
-      );
+      // Fast O(1) duplicate check instead of O(N) .find()
+      const uuid = nostrWorkout.id?.includes('healthkit_')
+        ? nostrWorkout.id.replace('healthkit_', '')
+        : nostrWorkout.id;
+
+      const matchingHK = uuid && healthKitByUUID.has(uuid);
 
       if (!matchingHK) {
         const status = postingStatus.get(nostrWorkout.id);
@@ -478,18 +517,16 @@ export class WorkoutMergeService {
           syncedToNostr: true,
           postedToSocial: status?.postedToSocial || false,
           postingInProgress: false,
-          canSyncToNostr: false, // Already in Nostr
+          canSyncToNostr: false,
           canPostToSocial: true,
         });
       }
     }
 
-    // Add Local workouts (from Activity Tracker - GPS + Manual)
+    // ✅ PROCESS LOCAL WORKOUTS (O(N) with hash lookups)
     for (const localWorkout of localWorkouts) {
-      // Check if already synced to Nostr (to avoid duplicates)
-      const matchingNostr = nostrWorkouts.find(nw =>
-        localWorkout.nostrEventId && nw.nostrEventId === localWorkout.nostrEventId
-      );
+      // Fast O(1) duplicate check instead of O(N) .find()
+      const matchingNostr = localWorkout.nostrEventId && nostrByEventId.has(localWorkout.nostrEventId);
 
       if (!matchingNostr) {
         const status = postingStatus.get(localWorkout.id);
@@ -502,17 +539,16 @@ export class WorkoutMergeService {
           duration: localWorkout.duration,
           distance: localWorkout.distance,
           calories: localWorkout.calories,
-          source: localWorkout.source, // 'gps_tracker' or 'manual_entry'
+          source: localWorkout.source,
           syncedAt: localWorkout.createdAt,
           syncedToNostr: localWorkout.syncedToNostr,
           postedToSocial: status?.postedToSocial || false,
           postingInProgress: false,
-          canSyncToNostr: !localWorkout.syncedToNostr, // Can sync if not already synced
+          canSyncToNostr: !localWorkout.syncedToNostr,
           canPostToSocial: true,
           nostrEventId: localWorkout.nostrEventId,
           elevationGain: localWorkout.elevation,
           sourceApp: localWorkout.source === 'gps_tracker' ? 'RUNSTR GPS Tracker' : 'RUNSTR Manual Entry',
-          // Strength training fields (for manual entry workouts like pushups, pullups, etc.)
           sets: localWorkout.sets,
           reps: localWorkout.reps,
           notes: localWorkout.notes,
@@ -526,6 +562,8 @@ export class WorkoutMergeService {
     unified.sort(
       (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
     );
+
+    console.log(`⚡ PERFORMANCE: Merged ${unified.length} workouts in O(N) time (was O(N²))`);
 
     return {
       allWorkouts: unified,

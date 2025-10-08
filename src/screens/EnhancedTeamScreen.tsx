@@ -23,6 +23,8 @@ import { theme } from '../styles/theme';
 import { useUserStore } from '../store/userStore';
 import { isTeamMember } from '../utils/teamUtils';
 import { getUserNostrIdentifiers } from '../utils/nostr';
+import SimpleCompetitionService from '../services/competition/SimpleCompetitionService';
+import { TeamMemberCache } from '../services/team/TeamMemberCache';
 
 interface EnhancedTeamScreenProps {
   data: TeamScreenData;
@@ -39,6 +41,9 @@ interface EnhancedTeamScreenProps {
   userIsCaptain?: boolean; // Passed from navigation to avoid recalculation
 }
 
+// Add render counter
+let renderCount = 0;
+
 export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
   data,
   onBack,
@@ -53,9 +58,13 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
   currentUserNpub, // Working npub from navigation to avoid AsyncStorage corruption
   userIsCaptain: passedUserIsCaptain = false, // Correctly calculated captain status from navigation
 }) => {
+  renderCount++;
+  console.log('[EnhancedTeamScreen] 🎯 COMPONENT START - Render #', renderCount);
+  console.log('[EnhancedTeamScreen] 📍 Component body executing');
+
   // Defensive check: Ensure we have team data with required fields
   if (!data || !data.team || !data.team.id || !data.team.name) {
-    console.error('❌ EnhancedTeamScreen: Missing required team data', {
+    console.error('[EnhancedTeamScreen] ❌ Missing required team data', {
       hasData: !!data,
       hasTeam: !!data?.team,
       hasId: !!data?.team?.id,
@@ -75,10 +84,12 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
     );
   }
 
+  console.log('[EnhancedTeamScreen] 📍 Before destructuring team data');
   const { team, leaderboard, events, challenges } = data;
+  console.log('[EnhancedTeamScreen] 📍 After destructuring team data');
 
   // Debug props received
-  console.log('🔥 EnhancedTeamScreen: Props received:', {
+  console.log('[EnhancedTeamScreen] 🔥 Props received:', {
     passedUserIsCaptain,
     currentUserNpub: currentUserNpub?.slice(0, 20) + '...',
     userIsMemberProp,
@@ -86,7 +97,7 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
   });
 
   // Debug team data received
-  console.log('🔍 EnhancedTeamScreen: Team data received:', {
+  console.log('[EnhancedTeamScreen] 🔍 Team data received:', {
     id: team?.id,
     name: team?.name,
     captainId: team?.captainId ? team.captainId.slice(0, 10) + '...' : 'missing',
@@ -96,15 +107,29 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
   // We're not using the hook anymore - we trust the cached value
   const captainLoading = false; // Not loading since we already have the value
 
+  console.log('[EnhancedTeamScreen] 📍 Before useUserStore hook');
   // Use working currentUserNpub from navigation instead of corrupted store
   const { user } = useUserStore(); // Keep for compatibility but prefer navigation parameter
+  console.log('[EnhancedTeamScreen] 📍 After useUserStore hook');
+
   const workingUserNpub = currentUserNpub || user?.npub; // Use navigation param first, fallback to store
 
+  console.log('[EnhancedTeamScreen] 📍 Before useState for userIdentifiers');
   // Get user identifiers with hex support for enhanced captain detection
   const [userIdentifiers, setUserIdentifiers] = React.useState<{ npub: string | null; hexPubkey: string | null } | null>(null);
+  console.log('[EnhancedTeamScreen] 📍 After useState for userIdentifiers');
 
   React.useEffect(() => {
-    getUserNostrIdentifiers().then(setUserIdentifiers);
+    console.log('[EnhancedTeamScreen] 📍 useEffect #1 (getUserNostrIdentifiers) running');
+    getUserNostrIdentifiers()
+      .then(identifiers => {
+        console.log('[EnhancedTeamScreen] 📍 getUserNostrIdentifiers resolved');
+        setUserIdentifiers(identifiers);
+      })
+      .catch(err => {
+        console.error('[EnhancedTeamScreen] Failed to get user identifiers:', err);
+        setUserIdentifiers(null); // Safe default
+      });
   }, []);
 
   // Calculate membership status using utility functions
@@ -168,8 +193,8 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
     }
 
     try {
-      console.log(`🔍 Fetching team members for ${team.name}`);
-      const memberCache = (await import('../services/team/TeamMemberCache')).TeamMemberCache.getInstance();
+      console.log(`🔍 Fetching team members for team ID: ${team.id}`);
+      const memberCache = TeamMemberCache.getInstance();
       const members = await memberCache.getTeamMembers(team.id, team.captainId);
       setTeamMembers(members || []);
       console.log(`✅ Loaded ${members?.length || 0} team members`);
@@ -177,11 +202,14 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
       console.error('❌ Failed to load team members:', error);
       setTeamMembers([]);
     }
-  }, [team?.id, team?.captainId, team?.name]);
+  }, [team?.id, team?.captainId]); // Removed team?.name to prevent unnecessary re-renders
 
-  // Fetch team members (only after relays are ready)
+  // Fetch team members - RENDER FIRST, then fetch to prevent UI freeze
   React.useEffect(() => {
-    fetchTeamMembers();
+    const timer = setTimeout(() => {
+      fetchTeamMembers();
+    }, 100); // Small delay to let UI render first
+    return () => clearTimeout(timer);
   }, [fetchTeamMembers]);
 
   // Memoized leagues fetching function to prevent re-render cascades
@@ -194,12 +222,11 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
     setLoadingLeagues(true);
 
     try {
-      console.log('📋 Fetching all leagues for team:', team.name);
+      console.log('📋 Fetching all leagues for team ID:', team.id);
 
-      const SimpleCompetitionService = (await import('../services/competition/SimpleCompetitionService')).default;
-      const leagues = await SimpleCompetitionService.getTeamLeagues(team.id);
+      const leagues = await SimpleCompetitionService.getInstance().getTeamLeagues(team.id);
 
-      console.log(`✅ Found ${leagues?.length || 0} leagues for ${team.name}`);
+      console.log(`✅ Found ${leagues?.length || 0} leagues for team`);
       setAllLeagues(leagues || []);
     } catch (error) {
       console.error('❌ Failed to fetch leagues:', error);
@@ -207,11 +234,14 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
     } finally {
       setLoadingLeagues(false);
     }
-  }, [team?.id, team?.name]);
+  }, [team?.id]); // Removed team?.name to prevent unnecessary re-renders
 
-  // Fetch all leagues on mount
+  // Fetch all leagues - RENDER FIRST, then fetch to prevent UI freeze
   React.useEffect(() => {
-    fetchAllLeagues();
+    const timer = setTimeout(() => {
+      fetchAllLeagues();
+    }, 150); // Slightly staggered delay
+    return () => clearTimeout(timer);
   }, [fetchAllLeagues]);
 
 
@@ -259,11 +289,10 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
     setLoadingEvents(true);
 
     try {
-      console.log('🔍 Fetching events for team:', team.name);
+      console.log('🔍 Fetching events for team ID:', team.id);
 
       // Use simple service
-      const SimpleCompetitionService = (await import('../services/competition/SimpleCompetitionService')).default;
-      const events = await SimpleCompetitionService.getTeamEvents(team.id);
+      const events = await SimpleCompetitionService.getInstance().getTeamEvents(team.id);
 
       console.log(`✅ Found ${events?.length || 0} events`);
 
@@ -284,11 +313,14 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
     } finally {
       setLoadingEvents(false);
     }
-  }, [team?.id, team?.name]);
+  }, [team?.id]); // Removed team?.name to prevent unnecessary re-renders
 
-  // Fetch events from Nostr (only after relays are ready)
+  // Fetch events - RENDER FIRST, then fetch to prevent UI freeze
   useEffect(() => {
-    fetchTeamEvents();
+    const timer = setTimeout(() => {
+      fetchTeamEvents();
+    }, 200); // Most staggered delay
+    return () => clearTimeout(timer);
   }, [fetchTeamEvents]);
 
   // Fetch competition winners - commented out for now
@@ -330,6 +362,8 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
   useEffect(() => {
     console.log(`🎖️ EnhancedTeamScreen: Captain status update - isCaptain: ${userIsCaptain}, isLoading: ${captainLoading}`);
   }, [userIsCaptain, captainLoading]);
+
+  console.log('[EnhancedTeamScreen] 📍 REACHING MAIN RETURN STATEMENT - About to render UI');
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -529,7 +563,7 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
               leagueContent={
                 <View style={{ flex: 1, minHeight: 450 }}>
                   <LeaguesCard
-                    leagues={allLeagues}
+                    leagues={allLeagues || []}
                     onLeaguePress={(leagueId, leagueData) => {
                       console.log('📋 League pressed:', leagueId);
                       onLeaguePress?.(leagueId, leagueData);
@@ -545,7 +579,7 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
               eventsContent={
                 <View style={{ flex: 1, minHeight: 450 }}>
                   <EventsCard
-                    events={nostrEvents}
+                    events={nostrEvents || []}
                     onEventPress={(eventId, eventData) => {
                       // Event data already has all needed fields from SimpleCompetitionService
                       onEventPress?.(eventId, eventData);

@@ -64,6 +64,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { TeamCreationWizard } from './components/wizards/TeamCreationWizard';
 import { GlobalChallengeWizard } from './components/wizards/GlobalChallengeWizard';
 import { EventDetailScreen } from './screens/EventDetailScreen';
+import { EventCaptainDashboardScreen } from './screens/EventCaptainDashboardScreen';
 import { LeagueDetailScreen } from './screens/LeagueDetailScreen';
 import { ChallengeDetailScreen } from './screens/ChallengeDetailScreen';
 // Use SimpleTeamScreen instead of EnhancedTeamScreen to avoid freeze issues
@@ -81,7 +82,6 @@ import { PrivacyPolicyScreen } from './screens/PrivacyPolicyScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { OnboardingScreen } from './screens/OnboardingScreen';
 import { SplashInitScreen } from './screens/SplashInitScreen';
-import { RelayConnectionScreen } from './screens/RelayConnectionScreen';
 import { CompetitionsListScreen } from './screens/CompetitionsListScreen';
 import { WorkoutHistoryScreen } from './screens/WorkoutHistoryScreen';
 import { MyTeamsScreen } from './screens/MyTeamsScreen';
@@ -89,7 +89,6 @@ import { ProfileEditScreen } from './screens/ProfileEditScreen';
 import { User } from './types';
 import { useWalletStore } from './store/walletStore';
 import { appInitializationService } from './services/initialization/AppInitializationService';
-import { GlobalNDKService } from './services/nostr/GlobalNDKService';
 import { theme } from './styles/theme';
 import unifiedCache from './services/cache/UnifiedNostrCache';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -104,6 +103,7 @@ type AuthenticatedStackParamList = {
   TeamCreation: undefined;
   EnhancedTeamScreen: { team: any; userIsMember?: boolean; currentUserNpub?: string; userIsCaptain?: boolean };
   EventDetail: { eventId: string };
+  EventCaptainDashboard: { eventId: string; eventData: any };
   LeagueDetail: { leagueId: string; leagueData?: any };
   ChallengeDetail: { challengeId: string };
   CaptainDashboard: { teamId?: string; teamName?: string; teamCaptainId?: string; isCaptain?: boolean; userNpub?: string };
@@ -135,45 +135,11 @@ const AppContent: React.FC = () => {
 
   const [onboardingCompleted, setOnboardingCompleted] = React.useState<boolean | null>(null);
   const [prefetchCompleted, setPrefetchCompleted] = React.useState(false);
-  const [relaysConnected, setRelaysConnected] = React.useState(false);
 
-  // ✅ CRITICAL FIX: Ensure Nostr relays are connected before showing UI
-  // This runs for ALL users (first-time and returning) to prevent button freeze
-  React.useEffect(() => {
-    const ensureRelayConnection = async () => {
-      if (isAuthenticated && !relaysConnected) {
-        console.log('🔌 App: Ensuring Nostr relay connections...');
-
-        try {
-          // Get GlobalNDK instance (creates if needed, reuses if exists)
-          const ndk = await GlobalNDKService.getInstance();
-
-          // Wait for minimum 3/4 relays to connect (8s timeout)
-          // This prevents the 30-second button freeze issue
-          const connected = await GlobalNDKService.waitForMinimumConnection(3, 8000);
-
-          if (!connected) {
-            console.warn('⚠️ App: Only partial relay connectivity - proceeding anyway');
-            GlobalNDKService.logConnectionDiagnostics();
-          } else {
-            console.log('✅ App: Relay connections established');
-          }
-
-          setRelaysConnected(true);
-        } catch (error) {
-          console.error('❌ App: Relay connection error:', error);
-          // Proceed anyway - app can work in degraded mode
-          setRelaysConnected(true);
-        }
-      }
-    };
-    ensureRelayConnection();
-  }, [isAuthenticated, relaysConnected]);
-
-  // Check if prefetch is needed when relays are connected
+  // ✅ SIMPLIFIED: Just check if we need to prefetch (cache stale or empty)
   React.useEffect(() => {
     const checkPrefetch = async () => {
-      if (isAuthenticated && relaysConnected) {
+      if (isAuthenticated) {
         // Check if cache is fresh (not just if it exists)
         const cacheStats = unifiedCache.getStats();
         const isCacheFresh = cacheStats.size > 0 &&
@@ -187,7 +153,7 @@ const AppContent: React.FC = () => {
       }
     };
     checkPrefetch();
-  }, [isAuthenticated, relaysConnected]);
+  }, [isAuthenticated]);
 
   // Check onboarding completion status when user becomes authenticated
   React.useEffect(() => {
@@ -421,6 +387,21 @@ const AppContent: React.FC = () => {
         >
           {({ navigation, route }) => (
             <EventDetailScreen
+              route={route}
+              navigation={navigation}
+            />
+          )}
+        </AuthenticatedStack.Screen>
+
+        {/* Event Captain Dashboard Screen */}
+        <AuthenticatedStack.Screen
+          name="EventCaptainDashboard"
+          options={{
+            headerShown: false,
+          }}
+        >
+          {({ navigation, route }) => (
+            <EventCaptainDashboardScreen
               route={route}
               navigation={navigation}
             />
@@ -687,21 +668,14 @@ const AppContent: React.FC = () => {
             return <AppNavigator initialRoute="Login" isFirstTime={true} />;
           }
 
-          // ✅ STAGE 1: Ensure Nostr relays are connected (ALL USERS)
-          // This prevents the 30-second button freeze issue
-          if (isAuthenticated && !relaysConnected) {
-            console.log('🔌 App: Showing RelayConnectionScreen - waiting for relays...');
-            return <RelayConnectionScreen />;
-          }
-
-          // ✅ STAGE 2: Prefetch data if cache is stale/empty (CONDITIONAL)
-          // Skip if cache is fresh (< 5 minutes old)
-          if (isAuthenticated && relaysConnected && !prefetchCompleted) {
-            console.log('🚀 App: Showing SplashInit for cache prefetch (cache stale/empty)...');
+          // ✅ SIMPLIFIED: Show SplashInit if cache is stale/empty
+          // SplashInit now handles relay connection + profile loading in one screen
+          if (isAuthenticated && !prefetchCompleted) {
+            console.log('🚀 App: Showing SplashInit (relay connection + profile loading)');
             return (
               <SplashInitScreen
                 onComplete={() => {
-                  console.log('✅ App: SplashInit complete, cache populated');
+                  console.log('✅ App: Profile ready, showing app');
                   setPrefetchCompleted(true);
                 }}
               />

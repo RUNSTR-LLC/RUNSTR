@@ -27,23 +27,31 @@ export const MyTeamsScreen: React.FC = () => {
   const { profileData, refresh, isLoadingTeam } = useNavigationData();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [userNpub, setUserNpub] = useState<string>('');
+  const [userHexPubkey, setUserHexPubkey] = useState<string>('');
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-  // Load user npub on mount
+  // Load user npub and hex pubkey on mount
   useEffect(() => {
-    const loadUserNpub = async () => {
+    const loadUserIdentifiers = async () => {
       try {
         const npub = await AsyncStorage.getItem('@runstr:npub');
+        const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+
         console.log('[MyTeamsScreen] 📱 Loaded npub:', npub ? npub.slice(0, 20) + '...' : 'NONE');
+        console.log('[MyTeamsScreen] 📱 Loaded hex:', hexPubkey ? hexPubkey.slice(0, 20) + '...' : 'NONE');
+
         if (npub) {
           setUserNpub(npub);
         }
+        if (hexPubkey) {
+          setUserHexPubkey(hexPubkey);
+        }
       } catch (error) {
-        console.error('[MyTeamsScreen] ❌ Error loading user npub:', error);
+        console.error('[MyTeamsScreen] ❌ Error loading user identifiers:', error);
       }
     };
 
-    loadUserNpub();
+    loadUserIdentifiers();
   }, []);
 
   // Android: Force refresh teams data on mount
@@ -76,15 +84,28 @@ export const MyTeamsScreen: React.FC = () => {
   };
 
   const handleTeamPress = (team: Team) => {
+    console.log('[MyTeamsScreen] 🚀 START handleTeamPress - Team:', team.id);
+    console.log('[MyTeamsScreen] 📊 Team object size:', JSON.stringify(team).length, 'bytes');
+
     // Detect if user is captain of this team
-    const isCaptain = team.captainId === userNpub;
+    // FIX: Compare hex pubkey (team.captainId is always hex format)
+    const isCaptain = team.captainId === userHexPubkey;
 
     console.log('[MyTeamsScreen] 🎖️ Captain detection:', {
       teamId: team.id,
-      teamCaptainId: team.captainId,
+      teamCaptainId: team.captainId?.slice(0, 20) + '...',
       userNpub: userNpub?.slice(0, 20) + '...',
+      userHexPubkey: userHexPubkey?.slice(0, 20) + '...',
       isCaptain,
     });
+
+    console.log('[MyTeamsScreen] 📍 BEFORE navigation.navigate call');
+    console.log('[MyTeamsScreen] 📦 Navigation params size:', JSON.stringify({
+      team,
+      userIsMember: true,
+      currentUserNpub: userNpub,
+      userIsCaptain: isCaptain,
+    }).length, 'bytes');
 
     // Navigate to EnhancedTeamScreen with team data and captain status
     navigation.navigate('EnhancedTeamScreen', {
@@ -93,6 +114,8 @@ export const MyTeamsScreen: React.FC = () => {
       currentUserNpub: userNpub,
       userIsCaptain: isCaptain, // Pass captain status for captain dashboard access
     });
+
+    console.log('[MyTeamsScreen] 📍 AFTER navigation.navigate call - this should not print if frozen');
   };
 
   const handleClose = () => {

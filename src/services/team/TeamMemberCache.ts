@@ -326,4 +326,7 @@ export class TeamMemberCache {
   }
 }
 
-export default TeamMemberCache.getInstance();
+// Export class as default (not instance) to prevent blocking module initialization
+// Also keep named export for compatibility
+export default TeamMemberCache;
+export { TeamMemberCache };

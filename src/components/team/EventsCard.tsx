@@ -17,11 +17,11 @@ import { getAuthenticationData } from '../../utils/nostrAuth';
 import { npubToHex } from '../../utils/ndkConversion';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { Alert } from 'react-native';
-import unifiedSigningService from '../../services/auth/UnifiedSigningService';
+import { UnifiedSigningService } from '../../services/auth/UnifiedSigningService';
 
 // QR Code
 import { QRDisplayModal } from '../qr/QRDisplayModal';
-import QRCodeService from '../../services/qr/QRCodeService';
+import { QRCodeService } from '../../services/qr/QRCodeService';
 import type { EventQRData } from '../../services/qr/QRCodeService';
 
 interface EventsCardProps {
@@ -133,7 +133,7 @@ export const EventsCard: React.FC<EventsCardProps> = ({
     const endTimestamp = startTimestamp + 86400; // Add 1 day
 
     // Generate QR data
-    const qrData = QRCodeService.generateEventQR(
+    const qrData = QRCodeService.getInstance().generateEventQR(
       event.id,
       event.teamId || '',
       currentUserNpub,
@@ -312,7 +312,7 @@ export const EventsCard: React.FC<EventsCardProps> = ({
       );
 
       // Sign and publish (works for both nsec and Amber)
-      const signer = await unifiedSigningService.getSigner();
+      const signer = await UnifiedSigningService.getInstance().getSigner();
       if (!signer) {
         Alert.alert('Error', 'No authentication found. Please login first.');
         return;

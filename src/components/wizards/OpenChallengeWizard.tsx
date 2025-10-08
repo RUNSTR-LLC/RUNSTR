@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   nextButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: theme.colors.accentText,
+    color: '#000000',
   },
   nextButtonTextDisabled: {
     color: theme.colors.textMuted,

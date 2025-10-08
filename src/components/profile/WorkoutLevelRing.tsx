@@ -24,7 +24,7 @@ export const WorkoutLevelRing: React.FC<WorkoutLevelRingProps> = ({
   const [stats, setStats] = useState<LevelStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const levelService = WorkoutLevelService.getInstance();
+  const levelService = WorkoutLevelService;
 
   useEffect(() => {
     loadLevelStats();

@@ -9,6 +9,7 @@ import { decryptNsec } from '../../utils/nostrAuth';
 import WalletCore, { Transaction } from './WalletCore';
 import WalletSync from './WalletSync';
 import { NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
+import UnifiedSigningService from '../auth/UnifiedSigningService';
 
 const STORAGE_KEYS = {
   USER_NSEC: '@runstr:user_nsec',
@@ -41,11 +42,21 @@ class NutzapService {
 
   /**
    * Initialize wallet - offline-first, no blocking
+   * Supports both nsec and Amber authentication
    */
   async initialize(nsec?: string, quickResume: boolean = false): Promise<WalletState> {
     try {
       console.log('[NutZap] Initializing simplified wallet...');
 
+      // Check authentication method
+      const authMethod = await UnifiedSigningService.getAuthMethod();
+
+      if (authMethod === 'amber') {
+        console.log('[NutZap] Detected Amber authentication - using receive-only mode');
+        return await this.initializeAmberMode();
+      }
+
+      // Continue with nsec flow for direct authentication
       // Get nsec from parameter or storage
       let userNsec = nsec;
       if (!userNsec) {
@@ -82,7 +93,8 @@ class NutzapService {
       const walletState = await WalletCore.initialize(this.userPubkey);
 
       // Initialize WalletSync in background (non-blocking)
-      WalletSync.initialize(userNsec, this.userPubkey).catch(err =>
+      // WalletSync now uses UnifiedSigningService internally
+      WalletSync.initialize(this.userPubkey).catch(err =>
         console.warn('[NutZap] Background sync init failed:', err)
       );
 
@@ -110,6 +122,46 @@ class NutzapService {
   }
 
   /**
+   * Initialize in Amber mode (receive-only)
+   * Amber users cannot send zaps due to private key requirements
+   */
+  private async initializeAmberMode(): Promise<WalletState> {
+    try {
+      console.log('[NutZap] Initializing in Amber mode (receive-only)...');
+
+      // Get pubkey from UnifiedSigningService
+      const hexPubkey = await UnifiedSigningService.getUserPubkey();
+      if (!hexPubkey) {
+        throw new Error('Failed to get pubkey from Amber');
+      }
+
+      this.userPubkey = hexPubkey;
+
+      // Initialize WalletCore (offline-first)
+      const walletState = await WalletCore.initialize(hexPubkey);
+
+      // Initialize WalletSync WITHOUT nsec (uses UnifiedSigningService)
+      WalletSync.initialize(hexPubkey).catch(err =>
+        console.warn('[NutZap] Background sync init failed:', err)
+      );
+
+      this.isInitialized = true;
+      console.log('[NutZap] Amber wallet initialized (receive-only)');
+
+      return {
+        balance: walletState.balance,
+        mint: walletState.mint,
+        proofs: walletState.proofs,
+        pubkey: walletState.pubkey,
+        created: false
+      };
+    } catch (error) {
+      console.error('[NutZap] Amber initialization error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Initialize for receive-only mode (Amber users)
    */
   async initializeForReceiveOnly(hexPubkey: string): Promise<{ created: boolean; address?: string }> {
@@ -133,6 +185,8 @@ class NutzapService {
 
   /**
    * Send nutzap
+   * Works with both nsec (direct signing) and Amber (external signer)
+   * Amber users will be prompted to approve the nutzap event signature
    */
   async sendNutzap(
     recipientPubkey: string,
@@ -142,6 +196,15 @@ class NutzapService {
     try {
       if (!this.isInitialized) {
         return { success: false, error: 'Wallet not initialized' };
+      }
+
+      // Verify signing capability (works for both nsec and Amber)
+      const canSign = await UnifiedSigningService.canSign();
+      if (!canSign) {
+        return {
+          success: false,
+          error: 'No signing capability available. Please ensure you are properly authenticated.'
+        };
       }
 
       // Send via WalletCore (creates token and deducts balance)

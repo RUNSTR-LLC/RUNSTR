@@ -5,11 +5,12 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import NDK, { NDKEvent, NDKPrivateKeySigner, NDKKind } from '@nostr-dev-kit/ndk';
+import NDK, { NDKEvent, NDKPrivateKeySigner, NDKKind, type NDKSigner } from '@nostr-dev-kit/ndk';
 import { Proof } from '@cashu/cashu-ts';
 import WalletCore from './WalletCore';
 import { unifiedNotificationStore } from '../notifications/UnifiedNotificationStore';
 import { GlobalNDKService } from '../nostr/GlobalNDKService';
+import UnifiedSigningService from '../auth/UnifiedSigningService';
 
 // Event kinds
 const EVENT_KINDS = {
@@ -25,7 +26,7 @@ export class WalletSync {
   private static instance: WalletSync;
 
   private ndk: NDK | null = null;
-  private signer: NDKPrivateKeySigner | null = null;
+  private signer: NDKSigner | null = null;
   private userPubkey: string = '';
   private isConnected: boolean = false;
   private autoClaimInterval: NodeJS.Timeout | null = null;
@@ -41,15 +42,23 @@ export class WalletSync {
 
   /**
    * Initialize with GlobalNDKService (non-blocking)
+   * Uses UnifiedSigningService for both nsec and Amber authentication
    */
-  async initialize(nsec: string, hexPubkey: string): Promise<void> {
+  async initialize(hexPubkey: string): Promise<void> {
     try {
       console.log('[WalletSync] Initializing with GlobalNDKService...');
 
       this.userPubkey = hexPubkey;
 
-      // Create signer for wallet operations
-      this.signer = new NDKPrivateKeySigner(nsec);
+      // Get signer from UnifiedSigningService (works for both nsec and Amber)
+      const unifiedSigner = await UnifiedSigningService.getSigner();
+      if (unifiedSigner) {
+        this.signer = unifiedSigner;
+        console.log('[WalletSync] Signer obtained from UnifiedSigningService');
+      } else {
+        console.warn('[WalletSync] No signer available - operating in receive-only mode');
+        this.signer = null;
+      }
 
       // Use GlobalNDKService for relay connections
       this.connectAsync();

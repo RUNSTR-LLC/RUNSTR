@@ -255,4 +255,6 @@ export class UnifiedSigningService {
   }
 }
 
-export default UnifiedSigningService.getInstance();
+// Export class instead of instance to prevent blocking module initialization
+export default UnifiedSigningService;
+export { UnifiedSigningService };

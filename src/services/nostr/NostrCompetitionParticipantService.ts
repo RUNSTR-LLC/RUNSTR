@@ -4,7 +4,7 @@
  * Handles join requests, approvals, and participant status tracking
  */
 
-import NDK, { NDKEvent, NDKPrivateKeySigner, NDKUser } from '@nostr-dev-kit/ndk';
+import NDK, { NDKEvent, NDKPrivateKeySigner, NDKUser, type NDKSigner } from '@nostr-dev-kit/ndk';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GlobalNDKService } from './GlobalNDKService';
 
@@ -83,11 +83,12 @@ class NostrCompetitionParticipantService {
 
   /**
    * Create or update a competition participant list
+   * Accepts either hex private key (nsec users) or NDKSigner (Amber users)
    */
   async createParticipantList(
     competitionId: string,
     teamId: string,
-    captainPrivateKey: string,
+    captainPrivateKeyOrSigner: string | NDKSigner,
     requireApproval: boolean = false
   ): Promise<{ success: boolean; eventId?: string; error?: string }> {
     try {
@@ -95,7 +96,10 @@ class NostrCompetitionParticipantService {
         await this.initializeService();
       }
 
-      const signer = new NDKPrivateKeySigner(captainPrivateKey);
+      // Get signer - either create from private key or use provided signer
+      const signer = typeof captainPrivateKeyOrSigner === 'string'
+        ? new NDKPrivateKeySigner(captainPrivateKeyOrSigner)
+        : captainPrivateKeyOrSigner;
       const user = await signer.user();
 
       // Create participant list event
@@ -139,10 +143,11 @@ class NostrCompetitionParticipantService {
 
   /**
    * Request to join a competition
+   * Accepts either hex private key (nsec users) or NDKSigner (Amber users)
    */
   async requestToJoin(
     competitionId: string,
-    userPrivateKey: string,
+    userPrivateKeyOrSigner: string | NDKSigner,
     message?: string
   ): Promise<{ success: boolean; requestId?: string; error?: string }> {
     try {
@@ -150,7 +155,10 @@ class NostrCompetitionParticipantService {
         await this.initializeService();
       }
 
-      const signer = new NDKPrivateKeySigner(userPrivateKey);
+      // Get signer - either create from private key or use provided signer
+      const signer = typeof userPrivateKeyOrSigner === 'string'
+        ? new NDKPrivateKeySigner(userPrivateKeyOrSigner)
+        : userPrivateKeyOrSigner;
       const user = await signer.user();
 
       // Create join request event
@@ -191,11 +199,12 @@ class NostrCompetitionParticipantService {
 
   /**
    * Approve a participant join request
+   * Accepts either hex private key (nsec users) or NDKSigner (Amber users)
    */
   async approveParticipant(
     competitionId: string,
     participantPubkey: string,
-    captainPrivateKey: string
+    captainPrivateKeyOrSigner: string | NDKSigner
   ): Promise<{ success: boolean; error?: string }> {
     try {
       // Get current participant list
@@ -225,7 +234,7 @@ class NostrCompetitionParticipantService {
       return await this.updateParticipantList(
         competitionId,
         updatedParticipants,
-        captainPrivateKey
+        captainPrivateKeyOrSigner
       );
     } catch (error) {
       console.error('Error approving participant:', error);
@@ -238,11 +247,12 @@ class NostrCompetitionParticipantService {
 
   /**
    * Reject a participant join request
+   * Accepts either hex private key (nsec users) or NDKSigner (Amber users)
    */
   async rejectParticipant(
     competitionId: string,
     participantPubkey: string,
-    captainPrivateKey: string
+    captainPrivateKeyOrSigner: string | NDKSigner
   ): Promise<{ success: boolean; error?: string }> {
     try {
       // Similar to approve but set status to rejected
@@ -264,7 +274,7 @@ class NostrCompetitionParticipantService {
       return await this.updateParticipantList(
         competitionId,
         updatedParticipants,
-        captainPrivateKey
+        captainPrivateKeyOrSigner
       );
     } catch (error) {
       console.error('Error rejecting participant:', error);
@@ -277,11 +287,12 @@ class NostrCompetitionParticipantService {
 
   /**
    * Remove a participant from competition
+   * Accepts either hex private key (nsec users) or NDKSigner (Amber users)
    */
   async removeParticipant(
     competitionId: string,
     participantPubkey: string,
-    captainPrivateKey: string
+    captainPrivateKeyOrSigner: string | NDKSigner
   ): Promise<{ success: boolean; error?: string }> {
     try {
       const currentList = await this.getParticipantList(competitionId);
@@ -300,7 +311,7 @@ class NostrCompetitionParticipantService {
       return await this.updateParticipantList(
         competitionId,
         updatedParticipants,
-        captainPrivateKey
+        captainPrivateKeyOrSigner
       );
     } catch (error) {
       console.error('Error removing participant:', error);
@@ -313,18 +324,22 @@ class NostrCompetitionParticipantService {
 
   /**
    * Update the participant list
+   * Accepts either hex private key (nsec users) or NDKSigner (Amber users)
    */
   private async updateParticipantList(
     competitionId: string,
     participants: CompetitionParticipant[],
-    captainPrivateKey: string
+    captainPrivateKeyOrSigner: string | NDKSigner
   ): Promise<{ success: boolean; error?: string }> {
     try {
       if (!this.ndk) {
         await this.initializeService();
       }
 
-      const signer = new NDKPrivateKeySigner(captainPrivateKey);
+      // Get signer - either create from private key or use provided signer
+      const signer = typeof captainPrivateKeyOrSigner === 'string'
+        ? new NDKPrivateKeySigner(captainPrivateKeyOrSigner)
+        : captainPrivateKeyOrSigner;
 
       // Create updated participant list event
       const event = new NDKEvent(this.ndk!);

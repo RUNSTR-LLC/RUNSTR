@@ -582,4 +582,7 @@ export class NostrListService {
   }
 }
 
-export default NostrListService.getInstance();
+// Export class as default (not instance) to prevent blocking module initialization
+// Also keep named export for compatibility with existing imports
+export default NostrListService;
+export { NostrListService };

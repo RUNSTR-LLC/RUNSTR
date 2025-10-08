@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.14] - 2025-10-07
+
+### Changed
+- Version bump for Android APK build
+- Updated all platform version numbers (iOS, Android, Expo)
+
 ## [0.1.13] - 2025-10-06
 
 ### Added

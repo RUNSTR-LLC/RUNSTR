@@ -33,7 +33,7 @@ export const CompactTeamCard: React.FC<CompactTeamCardProps> = ({
     ? isTeamCaptain(currentUserNpub, team as any)
     : false;
 
-  // Fetch user's rank in this team (only if top 10)
+  // Fetch user's rank in this team (only if top 10) - NON-BLOCKING
   useEffect(() => {
     const fetchUserRank = async () => {
       if (!team?.id || !currentUserNpub || !team.captainId) return;
@@ -80,18 +80,26 @@ export const CompactTeamCard: React.FC<CompactTeamCardProps> = ({
           }
         }
       } catch (error) {
-        console.log('Could not fetch user rank for compact card:', error);
+        console.error('[CompactTeamCard] Failed to fetch user rank:', error);
+        // Don't throw - this is non-critical
       } finally {
         setLoadingRank(false);
       }
     };
 
-    fetchUserRank();
+    // Run in background without blocking render
+    fetchUserRank().catch((err) => {
+      console.error('[CompactTeamCard] Unhandled error in fetchUserRank:', err);
+    });
   }, [team?.id, currentUserNpub, team.captainId]);
 
   const handlePress = () => {
+    console.log('[CompactTeamCard] Team card pressed:', team.name, team.id);
     if (onPress) {
+      console.log('[CompactTeamCard] Calling onPress handler');
       onPress(team);
+    } else {
+      console.warn('[CompactTeamCard] No onPress handler provided');
     }
   };
 

@@ -4,7 +4,7 @@
  * Provides cascading dropdowns based on activity type selection
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -32,10 +32,9 @@ const ACTIVITY_TYPES: { value: ActivityType; label: string; icon: keyof typeof I
   { value: 'running', label: 'Running', icon: 'walk-outline' },
   { value: 'walking', label: 'Walking', icon: 'walk-outline' },
   { value: 'cycling', label: 'Cycling', icon: 'bicycle-outline' },
-  { value: 'hiking', label: 'Hiking', icon: 'trail-sign-outline' },
-  { value: 'swimming', label: 'Swimming', icon: 'water-outline' },
-  { value: 'rowing', label: 'Rowing', icon: 'boat-outline' },
-  { value: 'workout', label: 'Workout', icon: 'barbell-outline' },
+  { value: 'pushups', label: 'Pushups', icon: 'fitness-outline' },
+  { value: 'pullups', label: 'Pullups', icon: 'barbell-outline' },
+  { value: 'situps', label: 'Situps', icon: 'body-outline' },
 ];
 
 const DURATION_OPTIONS: { value: DurationOption; label: string }[] = [
@@ -51,6 +50,7 @@ export const ActivityConfigurationStep: React.FC<ActivityConfigurationStepProps>
   configuration,
   onUpdateConfiguration,
 }) => {
+  const scrollViewRef = useRef<ScrollView>(null);
   const [selectedActivity, setSelectedActivity] = useState<ActivityType | undefined>(
     configuration?.activityType
   );
@@ -81,16 +81,28 @@ export const ActivityConfigurationStep: React.FC<ActivityConfigurationStepProps>
       activityType: activity,
       metric: undefined,
     });
+    // Auto-scroll to metric section after short delay
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({ y: 250, animated: true });
+    }, 300);
   };
 
   const handleMetricSelect = (metric: MetricType) => {
     setSelectedMetric(metric);
     onUpdateConfiguration({ metric });
+    // Auto-scroll to duration section
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({ y: 450, animated: true });
+    }, 300);
   };
 
   const handleDurationSelect = (duration: DurationOption) => {
     setSelectedDuration(duration);
     onUpdateConfiguration({ duration });
+    // Auto-scroll to wager section
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({ y: 650, animated: true });
+    }, 300);
   };
 
   const handleWagerPresetSelect = (amount: number) => {
@@ -111,7 +123,7 @@ export const ActivityConfigurationStep: React.FC<ActivityConfigurationStepProps>
   const metricOptions = selectedActivity ? ACTIVITY_METRICS[selectedActivity] : [];
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView ref={scrollViewRef} style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Activity Type Selection */}
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>Activity Type</Text>
@@ -274,36 +286,15 @@ export const ActivityConfigurationStep: React.FC<ActivityConfigurationStepProps>
           )}
         </View>
       )}
-
-      {/* Challenge Preview */}
-      {selectedActivity && selectedMetric && selectedDuration && wagerAmount > 0 && (
-        <View style={styles.previewSection}>
-          <Text style={styles.previewLabel}>Challenge Preview</Text>
-          <View style={styles.previewCard}>
-            <Text style={styles.previewText}>
-              {selectedActivity.charAt(0).toUpperCase() + selectedActivity.slice(1)} -{' '}
-              {metricOptions.find((m) => m.value === selectedMetric)?.label || selectedMetric}
-            </Text>
-            <Text style={styles.previewSubtext}>
-              {selectedDuration} days
-            </Text>
-            <View style={styles.previewDivider} />
-            <Text style={styles.previewWager}>
-              Winner takes {(wagerAmount * 2).toLocaleString()} sats
-            </Text>
-          </View>
-        </View>
-      )}
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
   },
   section: {
-    marginBottom: 32,
+    marginBottom: 16,
   },
   sectionLabel: {
     fontSize: 13,
@@ -319,15 +310,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   activityOption: {
-    width: '31%',
-    aspectRatio: 1,
+    width: '48%',
+    aspectRatio: 0.8,
     backgroundColor: theme.colors.cardBackground,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 8,
+    padding: 4,
   },
   activityOptionSelected: {
     borderColor: theme.colors.text,
@@ -350,7 +341,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: 12,
-    padding: 16,
+    padding: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -381,7 +372,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: 12,
-    paddingVertical: 16,
+    paddingVertical: 12,
     alignItems: 'center',
   },
   durationOptionSelected: {
@@ -406,7 +397,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: 12,
-    paddingVertical: 12,
+    paddingVertical: 8,
     paddingHorizontal: 16,
   },
   wagerOptionSelected: {

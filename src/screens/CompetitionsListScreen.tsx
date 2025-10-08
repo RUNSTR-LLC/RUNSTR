@@ -13,7 +13,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   SafeAreaView,
-  FlatList
+  FlatList,
+  Modal
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -22,6 +23,7 @@ import { NostrCompetitionDiscoveryService } from '../services/competition/NostrC
 import { getUserNostrIdentifiers } from '../utils/nostr';
 import type { UserCompetition } from '../types/challenge';
 import { theme } from '../styles/theme';
+import { OpenChallengeWizard } from '../components/wizards/OpenChallengeWizard';
 
 type RootStackParamList = {
   ChallengeLeaderboard: { challengeId: string };
@@ -43,6 +45,7 @@ export const CompetitionsListScreen: React.FC = () => {
   const [filteredCompetitions, setFilteredCompetitions] = useState<UserCompetition[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showOpenChallengeWizard, setShowOpenChallengeWizard] = useState(false);
 
   useEffect(() => {
     loadCompetitions();
@@ -226,6 +229,14 @@ export const CompetitionsListScreen: React.FC = () => {
         >
           <Ionicons name="arrow-back" size={24} color="#FF9D42" />
         </TouchableOpacity>
+        <View style={styles.headerSpacer} />
+        <TouchableOpacity
+          style={styles.challengeButton}
+          onPress={() => setShowOpenChallengeWizard(true)}
+        >
+          <Ionicons name="shield-outline" size={20} color={theme.colors.text} />
+          <Text style={styles.challengeButtonText}>CHALLENGE</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Tabs */}
@@ -264,6 +275,24 @@ export const CompetitionsListScreen: React.FC = () => {
           contentContainerStyle={filteredCompetitions.length === 0 ? styles.emptyListContainer : styles.listContent}
         />
       )}
+
+      {/* Open Challenge Wizard Modal */}
+      {showOpenChallengeWizard && (
+        <Modal
+          visible={showOpenChallengeWizard}
+          animationType="slide"
+          presentationStyle="fullScreen"
+        >
+          <OpenChallengeWizard
+            onComplete={() => {
+              setShowOpenChallengeWizard(false);
+              // Refresh competitions after challenge is created
+              loadCompetitions(true);
+            }}
+            onCancel={() => setShowOpenChallengeWizard(false)}
+          />
+        </Modal>
+      )}
     </SafeAreaView>
   );
 };
@@ -283,6 +312,25 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 4,
+  },
+  headerSpacer: {
+    flex: 1,
+  },
+  challengeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0a0a0a',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#1a1a1a',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 6,
+  },
+  challengeButtonText: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.text,
   },
   headerTitle: {
     fontSize: 18,

@@ -227,7 +227,7 @@ export class NostrPrefetchService {
       const { hexPubkey } = identifiers;
 
       // Invalidate the cache
-      unifiedCache.delete(CacheKeys.USER_TEAMS(hexPubkey));
+      await unifiedCache.invalidate(CacheKeys.USER_TEAMS(hexPubkey));
 
       // Re-fetch teams
       await this.prefetchUserTeams(hexPubkey);
@@ -298,50 +298,48 @@ export class NostrPrefetchService {
 
   /**
    * Prefetch user's recent workouts (kind 1301)
-   * OPTIMIZED: Fetches only 100 workouts initially with 8s timeout
-   * Remaining workouts load on-demand when user opens workout screen
+   * CLEAN ARCHITECTURE: Fetches ONLY Nostr 1301 events (no HealthKit, no merging)
+   * OPTIMIZED: Fetches 500 workouts with 5s timeout
    */
   private async prefetchUserWorkouts(hexPubkey: string): Promise<void> {
     try {
       // ✅ Check cache first - avoid redundant fetch if already prefetched
-      const cachedWorkouts = unifiedCache.getCached(CacheKeys.USER_WORKOUTS(hexPubkey));
+      const cachedWorkouts = unifiedCache.getCached<any[]>(CacheKeys.USER_WORKOUTS(hexPubkey));
       if (cachedWorkouts && cachedWorkouts.length > 0) {
         console.log(`[Prefetch] Workouts already cached (${cachedWorkouts.length} workouts), skipping fetch`);
         return;
       }
 
-      console.log('[Prefetch] Fetching user workouts via WorkoutCacheService...');
+      console.log('[Prefetch] Fetching user Nostr workouts (kind 1301)...');
 
-      // ✅ PERFORMANCE: Add 8-second timeout to prevent blocking
+      // ✅ CLEAN: Direct Nuclear1301Service call (no merging, no HealthKit)
       const workoutFetchPromise = (async () => {
-        // ✅ Use WorkoutCacheService for centralized workout fetching
-        const { WorkoutCacheService } = await import('../cache/WorkoutCacheService');
-        const cacheService = WorkoutCacheService.getInstance();
+        const { Nuclear1301Service } = await import('../fitness/Nuclear1301Service');
+        const nuclear1301 = Nuclear1301Service.getInstance();
 
-        // ✅ OPTIMIZATION: Reduced from 500 → 100 workouts for faster initial load
-        // Remaining workouts load on-demand when user opens workout screen
-        const result = await cacheService.getMergedWorkouts(hexPubkey, 100);
+        // Fetch Nostr 1301 events only
+        const nostrWorkouts = await nuclear1301.getUserWorkouts(hexPubkey);
 
-        // ✅ Cache in UnifiedNostrCache for instant access across app
+        // Cache in UnifiedNostrCache for instant access
         await unifiedCache.set(
           CacheKeys.USER_WORKOUTS(hexPubkey),
-          result.allWorkouts,
+          nostrWorkouts,
           CacheTTL.USER_WORKOUTS
         );
 
-        console.log(`[Prefetch] Cached ${result.allWorkouts.length} workouts (${result.nostrCount} Nostr, ${result.healthKitCount} HealthKit)`);
+        console.log(`[Prefetch] ✅ Cached ${nostrWorkouts.length} Nostr workouts (kind 1301)`);
       })();
 
-      // ✅ Race between fetch and timeout
+      // ✅ 5-second timeout for faster failure
       await Promise.race([
         workoutFetchPromise,
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Workout fetch timeout')), 8000)
+          setTimeout(() => reject(new Error('Workout fetch timeout')), 5000)
         )
       ]);
     } catch (error) {
       if (error instanceof Error && error.message === 'Workout fetch timeout') {
-        console.warn('[Prefetch] Workout fetch timed out after 8s - workouts will load on demand');
+        console.warn('[Prefetch] Workout fetch timed out after 5s - workouts will load on demand');
       } else {
         console.error('[Prefetch] User workouts prefetch failed:', error);
       }

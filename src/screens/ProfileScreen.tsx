@@ -27,7 +27,6 @@ import { NotificationBadge } from '../components/profile/NotificationBadge';
 import { NotificationModal } from '../components/profile/NotificationModal';
 import { QRScannerModal } from '../components/qr/QRScannerModal';
 import { JoinPreviewModal } from '../components/qr/JoinPreviewModal';
-import { OpenChallengeWizard } from '../components/wizards/OpenChallengeWizard';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useNutzap } from '../hooks/useNutzap';
@@ -47,9 +46,6 @@ import { getAuthenticationData } from '../utils/nostrAuth';
 import { nsecToPrivateKey } from '../utils/nostr';
 import { NDKPrivateKeySigner, NDKEvent } from '@nostr-dev-kit/ndk';
 import { Alert } from 'react-native';
-import { WorkoutCacheService } from '../services/cache/WorkoutCacheService';
-import unifiedCache from '../services/cache/UnifiedNostrCache';
-import { CacheKeys } from '../constants/cacheTTL';
 
 interface ProfileScreenProps {
   data: ProfileScreenData;
@@ -98,7 +94,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
-  const [showOpenChallengeWizard, setShowOpenChallengeWizard] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [showJoinPreview, setShowJoinPreview] = useState(false);
   const [scannedQRData, setScannedQRData] = useState<QRData | null>(null);
@@ -198,45 +193,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     loadUserNpub();
   }, [data.user.id]);
 
-  // ✅ ANDROID FIX: Defer workout fetch until WELL AFTER screen is interactive
-  useEffect(() => {
-    const fetchTask = InteractionManager.runAfterInteractions(async () => {
-      // Additional delay for very heavy workout fetching
-      await new Promise(resolve => setTimeout(resolve, 1000)); // 1s delay after interactions
-
-      try {
-        const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
-        const npub = await AsyncStorage.getItem('@runstr:npub');
-        const userPubkey = hexPubkey || npub;
-
-        if (!userPubkey) {
-          console.log('[ProfileScreen] No pubkey available for workout fetch');
-          return;
-        }
-
-        // Check cache first
-        const cachedWorkouts = unifiedCache.getCached(CacheKeys.USER_WORKOUTS(userPubkey));
-        if (cachedWorkouts) {
-          console.log('[ProfileScreen] ✅ Using cached workouts (instant)');
-          return;
-        }
-
-        console.log('[ProfileScreen] ⚡ Triggering background workout fetch (deferred)...');
-        const cacheService = WorkoutCacheService.getInstance();
-
-        // Fire-and-forget background fetch
-        cacheService.getMergedWorkouts(userPubkey, 500).then(() => {
-          console.log('[ProfileScreen] ✅ Background workout fetch complete');
-        }).catch((error) => {
-          console.error('[ProfileScreen] ⚠️ Background workout fetch error:', error);
-        });
-      } catch (error) {
-        console.error('[ProfileScreen] ⚠️ Background workout fetch setup error:', error);
-      }
-    });
-
-    return () => fetchTask.cancel();
-  }, [data.user.id]);
+  // ✅ CLEAN ARCHITECTURE: Workouts are already prefetched during SplashInit
+  // No need to fetch them again here - they're in UnifiedNostrCache
+  // PublicWorkoutsTab and PrivateWorkoutsTab will read from cache when opened
 
   // Event handlers
   const handleEditProfile = () => {
@@ -486,16 +445,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <View style={styles.boxContainer}>
             <YourWorkoutsBox />
           </View>
-
-          {/* Challenge Button */}
-          <TouchableOpacity
-            style={styles.challengeButton}
-            onPress={() => setShowOpenChallengeWizard(true)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="shield-outline" size={24} color={theme.colors.text} />
-            <Text style={styles.challengeButtonText}>CHALLENGE</Text>
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -540,20 +489,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         data={scannedQRData}
         onJoin={handleJoinCompetition}
       />
-
-      {/* Open Challenge Wizard - QR code challenge creation */}
-      {showOpenChallengeWizard && (
-        <Modal
-          visible={showOpenChallengeWizard}
-          animationType="slide"
-          presentationStyle="fullScreen"
-        >
-          <OpenChallengeWizard
-            onComplete={() => setShowOpenChallengeWizard(false)}
-            onCancel={() => setShowOpenChallengeWizard(false)}
-          />
-        </Modal>
-      )}
     </SafeAreaView>
   );
 };
@@ -659,30 +594,11 @@ const styles = StyleSheet.create({
   // Navigation buttons container
   navigationButtons: {
     flex: 1,
-    justifyContent: 'space-evenly',
-  },
-
-  // Box styling with uniform spacing
-  boxContainer: {
-    marginBottom: 8,
-  },
-
-  // Challenge Button - Same style as other buttons
-  challengeButton: {
-    backgroundColor: '#0a0a0a',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#1a1a1a',
-    height: 80,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
     gap: 12,
   },
 
-  challengeButtonText: {
-    fontSize: 16,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.text,
+  // Box styling - each button takes equal space
+  boxContainer: {
+    flex: 1,
   },
 });
