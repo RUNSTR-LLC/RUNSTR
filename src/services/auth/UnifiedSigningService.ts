@@ -169,12 +169,32 @@ export class UnifiedSigningService {
         // Provide helpful Amber-specific error messages
         const errorMessage = error instanceof Error ? error.message : String(error);
 
-        if (errorMessage.includes('rejected')) {
+        // User rejected or canceled in Amber
+        if (errorMessage.includes('rejected') || errorMessage.includes('canceled')) {
           throw new Error('Signing request rejected in Amber. Please approve the request to continue.');
         }
 
-        if (errorMessage.includes('Could not open Amber')) {
+        // Amber not installed
+        if (errorMessage.includes('Could not open Amber') ||
+            errorMessage.includes('not found') ||
+            errorMessage.includes('No Activity found') ||
+            errorMessage.includes('ActivityNotFoundException')) {
           throw new Error('Could not connect to Amber. Please ensure Amber app is installed and try again.');
+        }
+
+        // Timeout
+        if (errorMessage.includes('timeout') || errorMessage.includes('timed out')) {
+          throw new Error('Amber response timed out. Please try again and respond promptly in Amber.');
+        }
+
+        // Permission denied
+        if (errorMessage.includes('permission')) {
+          throw new Error('Amber permission denied. Please check app permissions in Amber settings.');
+        }
+
+        // Amber crashed or stopped responding
+        if (errorMessage.includes('crash') || errorMessage.includes('stopped')) {
+          throw new Error('Amber app crashed. Please restart Amber and try again.');
         }
 
         throw new Error(`Amber signing failed: ${errorMessage}`);

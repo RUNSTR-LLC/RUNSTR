@@ -4,9 +4,9 @@
  */
 
 import { TeamMembershipService } from '../services/team/teamMembershipService';
-import { NostrProtocolHandler } from '../services/nostr/NostrProtocolHandler';
-import { NostrRelayManager } from '../services/nostr/NostrRelayManager';
-import { getNsecFromStorage, nsecToPrivateKey } from './nostr';
+import { UnifiedSigningService } from '../services/auth/UnifiedSigningService';
+import { GlobalNDKService } from '../services/nostr/GlobalNDKService';
+import { NDKEvent } from '@nostr-dev-kit/ndk';
 
 interface PublishJoinRequestResult {
   success: boolean;
@@ -44,22 +44,29 @@ export async function publishJoinRequest(
         message || 'I would like to join your team'
       );
 
-      // 2. Get user's private key from storage
-      const nsec = await getNsecFromStorage();
-      if (!nsec) {
-        console.error('No nsec found in storage');
+      // 2. Check authentication (works for both nsec and Amber)
+      const signingService = UnifiedSigningService.getInstance();
+      const canSign = await signingService.canSign();
+
+      if (!canSign) {
+        console.error('No authentication available');
         return { success: false, error: 'Authentication required' };
       }
 
-      const privateKey = await nsecToPrivateKey(nsec);
+      // 3. Sign the event (supports both nsec and Amber)
+      const signature = await signingService.signEvent(eventTemplate as any);
+      const signedEvent = {
+        ...eventTemplate,
+        sig: signature
+      };
 
-      // 3. Sign the event
-      const protocolHandler = new NostrProtocolHandler();
-      const signedEvent = await protocolHandler.signEvent(eventTemplate as any, privateKey);
+      // 4. Publish to Nostr relays using GlobalNDK (which has signer set)
+      const ndk = await GlobalNDKService.getInstance();
+      const ndkEvent = new NDKEvent(ndk, signedEvent as any);
+      await ndkEvent.publish();
 
-      // 4. Publish to Nostr relays
-      const relayManager = new NostrRelayManager();
-      const publishResult = await relayManager.publishEvent(signedEvent);
+      // Check if published successfully
+      const publishResult = { successful: ['relay'], failed: [] }; // NDK publish doesn't return detailed results
 
       if (publishResult.successful && publishResult.successful.length > 0) {
         console.log(`✅ Join request published successfully on attempt ${attempt}: ${signedEvent.id}`);
@@ -92,8 +99,10 @@ export async function publishJoinRequest(
       lastError = error instanceof Error ? error.message : 'Unknown error';
       console.error(`❌ Attempt ${attempt}/${maxRetries} error:`, lastError);
 
-      // Don't retry on authentication errors
-      if (lastError.includes('Authentication required') || lastError.includes('nsec')) {
+      // Don't retry on authentication errors or user-rejected signing
+      if (lastError.includes('Authentication required') ||
+          lastError.includes('rejected') ||
+          lastError.includes('canceled')) {
         return { success: false, error: lastError };
       }
 

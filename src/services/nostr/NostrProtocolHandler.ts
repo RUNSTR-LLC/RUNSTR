@@ -3,19 +3,12 @@
  * Handles REQ, EVENT, CLOSE message creation and filter management according to Nostr NIPs
  */
 
-import {
-  generateSecretKey,
-  getPublicKey,
-  finalizeEvent,
-  verifyEvent,
-  nip19,
-  type Event,
-  type Filter,
-  type EventTemplate,
-} from 'nostr-tools';
-import type { NDKSigner } from '@nostr-dev-kit/ndk';
-import type { NostrEvent } from '@nostr-dev-kit/ndk';
+// Use NDK's nip19 instead of nostr-tools to avoid crypto conflicts
+import { nip19, type NDKSigner, type NostrEvent } from '@nostr-dev-kit/ndk';
 import { AmberNDKSigner } from '../auth/amber/AmberNDKSigner';
+
+// Import nostr-tools types only (not functions)
+import type { Event, Filter, EventTemplate } from 'nostr-tools';
 
 export interface NostrFilter {
   ids?: string[];
@@ -64,7 +57,8 @@ export class NostrProtocolHandler {
         throw new Error('Private key must be 32 bytes');
       }
 
-      // Get public key using nostr-tools
+      // Get public key using nostr-tools (dynamic import to avoid crypto conflicts)
+      const { getPublicKey } = await import('nostr-tools');
       const pubkey = getPublicKey(privateKeyBytes);
       return pubkey;
     } catch (error) {
@@ -119,12 +113,14 @@ export class NostrProtocolHandler {
   /**
    * Create an EVENT message for publishing events
    */
-  createEVENTMessage(event: Event): any[] {
+  async createEVENTMessage(event: Event): Promise<any[]> {
     // Verify event structure and signature
     if (!this.verifyEventStructure(event)) {
       throw new Error('Invalid event structure');
     }
 
+    // Dynamic import to avoid crypto conflicts
+    const { verifyEvent } = await import('nostr-tools');
     if (!verifyEvent(event)) {
       throw new Error('Invalid event signature');
     }
@@ -234,7 +230,8 @@ export class NostrProtocolHandler {
         throw new Error('Private key must be 32 bytes');
       }
 
-      // Create and sign event
+      // Create and sign event (dynamic import to avoid crypto conflicts)
+      const { finalizeEvent } = await import('nostr-tools');
       const signedEvent = finalizeEvent(eventTemplate, privateKeyBytes);
 
       console.log(

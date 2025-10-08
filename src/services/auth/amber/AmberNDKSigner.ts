@@ -4,7 +4,7 @@
  * Private keys never leave Amber - all signing done externally
  */
 
-import { NDKSigner, NDKUser, NostrEvent } from '@nostr-dev-kit/ndk';
+import { NDKSigner, NDKUser, NostrEvent, nip19 } from '@nostr-dev-kit/ndk';
 import * as Linking from 'expo-linking';
 import * as IntentLauncher from 'expo-intent-launcher';
 import { Platform } from 'react-native';
@@ -14,9 +14,51 @@ export class AmberNDKSigner implements NDKSigner {
   private _pubkey: string | null = null;
   private isReady = false;
   private lastSignedEvent: { id: string; sig: string } | null = null;
+  private readonly AMBER_TIMEOUT_MS = 60000; // 60 seconds timeout for Amber operations
 
   constructor() {
     console.log('[Amber] Initializing NDK Signer for Activity Result communication');
+  }
+
+  /**
+   * Wraps IntentLauncher call with timeout to prevent indefinite hangs
+   * @param action Intent action
+   * @param options Intent options
+   * @param timeoutMs Timeout in milliseconds (default 60s)
+   * @returns Intent result
+   * @throws Error if timeout is reached or Amber is not installed
+   */
+  private async startActivityWithTimeout(
+    action: string,
+    options: any,
+    timeoutMs: number = this.AMBER_TIMEOUT_MS
+  ): Promise<any> {
+    try {
+      return await Promise.race([
+        IntentLauncher.startActivityAsync(action, options),
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error(`Amber request timed out after ${timeoutMs / 1000} seconds. Please respond in Amber app.`)),
+            timeoutMs
+          )
+        )
+      ]);
+    } catch (error) {
+      const errorMessage = String(error);
+
+      // Check for "Amber not installed" errors
+      if (errorMessage.includes('No Activity found') ||
+          errorMessage.includes('ActivityNotFoundException') ||
+          errorMessage.includes('No app can perform this action')) {
+        throw new Error(
+          'Amber app not found. Please install Amber from Google Play Store:\n' +
+          'https://play.google.com/store/apps/details?id=com.greenart7c3.nostrsigner'
+        );
+      }
+
+      // Re-throw other errors
+      throw error;
+    }
   }
 
   async blockUntilReady(): Promise<NDKUser> {
@@ -95,8 +137,8 @@ export class AmberNDKSigner implements NDKSigner {
 
       console.log('[Amber DEBUG] Launching Intent with extras:', intentExtras);
 
-      // Use IntentLauncher and wait for Activity Result (proper Android NIP-55 way)
-      const result = await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+      // Use IntentLauncher with timeout to prevent indefinite hangs
+      const result = await this.startActivityWithTimeout('android.intent.action.VIEW', {
         data: 'nostrsigner:',
         extra: intentExtras
       });
@@ -188,9 +230,9 @@ export class AmberNDKSigner implements NDKSigner {
         eventJsonLength: eventJson.length
       });
 
-      // Use IntentLauncher and wait for Activity Result
+      // Use IntentLauncher with timeout to prevent indefinite hangs
       // Per NIP-55: Event must be in URI, type in extras
-      const result = await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+      const result = await this.startActivityWithTimeout('android.intent.action.VIEW', {
         data: nostrsignerUri,  // Event encoded in URI per NIP-55
         extra: {
           'type': 'sign_event'  // Only type in extras
@@ -401,10 +443,9 @@ export class AmberNDKSigner implements NDKSigner {
   private async ensureHexPubkey(pubkey: string): Promise<string> {
     let hexPubkey = pubkey;
 
-    // If it's an npub, decode it to hex
+    // If it's an npub, decode it to hex (using NDK's nip19)
     if (pubkey.startsWith('npub')) {
       try {
-        const { nip19 } = await import('nostr-tools');
         const decoded = nip19.decode(pubkey);
         hexPubkey = decoded.data as string;
         console.log('[Amber] Decoded npub to hex');
