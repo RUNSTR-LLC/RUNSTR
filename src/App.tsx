@@ -311,7 +311,7 @@ const AppContent: React.FC = () => {
             return (
               <EnhancedTeamScreen
                 data={{
-                  team: team || {},
+                  team: team,
                   leaderboard: [],
                   events: [],
                   challenges: [],

@@ -197,13 +197,6 @@ export class TeamCacheService {
     });
   }
 
-  /**
-   * Clear team cache (used on logout)
-   */
-  async clearCache(): Promise<void> {
-    await appCache.clear('teams');
-    console.log('🧹 TeamCacheService: Cache cleared');
-  }
 
   /**
    * Get cache status for debugging

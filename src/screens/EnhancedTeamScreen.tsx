@@ -53,6 +53,28 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
   currentUserNpub, // Working npub from navigation to avoid AsyncStorage corruption
   userIsCaptain: passedUserIsCaptain = false, // Correctly calculated captain status from navigation
 }) => {
+  // Defensive check: Ensure we have team data with required fields
+  if (!data || !data.team || !data.team.id || !data.team.name) {
+    console.error('❌ EnhancedTeamScreen: Missing required team data', {
+      hasData: !!data,
+      hasTeam: !!data?.team,
+      hasId: !!data?.team?.id,
+      hasName: !!data?.team?.name,
+    });
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.container}>
+          <Text style={{ color: theme.colors.text, textAlign: 'center', marginTop: 100 }}>
+            Error: Team data not available
+          </Text>
+          <TouchableOpacity onPress={onBack} style={{ marginTop: 20, alignSelf: 'center' }}>
+            <Text style={{ color: theme.colors.accent }}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   const { team, leaderboard, events, challenges } = data;
 
   // Debug props received
@@ -140,8 +162,8 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
 
   // Memoized fetch function to prevent re-render cascades
   const fetchTeamMembers = useCallback(async () => {
-    if (!team.id || !team.captainId) {
-      console.warn(`⚠️ Cannot fetch team members: ${!team.id ? 'missing teamId' : ''} ${!team.captainId ? 'missing captainId' : ''}`);
+    if (!team?.id || !team?.captainId) {
+      console.warn(`⚠️ Cannot fetch team members: ${!team?.id ? 'missing teamId' : ''} ${!team?.captainId ? 'missing captainId' : ''}`);
       return;
     }
 
@@ -149,13 +171,13 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
       console.log(`🔍 Fetching team members for ${team.name}`);
       const memberCache = (await import('../services/team/TeamMemberCache')).TeamMemberCache.getInstance();
       const members = await memberCache.getTeamMembers(team.id, team.captainId);
-      setTeamMembers(members);
-      console.log(`✅ Loaded ${members.length} team members`);
+      setTeamMembers(members || []);
+      console.log(`✅ Loaded ${members?.length || 0} team members`);
     } catch (error) {
       console.error('❌ Failed to load team members:', error);
       setTeamMembers([]);
     }
-  }, [team.id, team.captainId, team.name]);
+  }, [team?.id, team?.captainId, team?.name]);
 
   // Fetch team members (only after relays are ready)
   React.useEffect(() => {
@@ -164,7 +186,7 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
 
   // Memoized leagues fetching function to prevent re-render cascades
   const fetchAllLeagues = useCallback(async () => {
-    if (!team.id) {
+    if (!team?.id) {
       setLoadingLeagues(false);
       return;
     }
@@ -177,15 +199,15 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
       const SimpleCompetitionService = (await import('../services/competition/SimpleCompetitionService')).default;
       const leagues = await SimpleCompetitionService.getTeamLeagues(team.id);
 
-      console.log(`✅ Found ${leagues.length} leagues for ${team.name}`);
-      setAllLeagues(leagues);
+      console.log(`✅ Found ${leagues?.length || 0} leagues for ${team.name}`);
+      setAllLeagues(leagues || []);
     } catch (error) {
       console.error('❌ Failed to fetch leagues:', error);
       setAllLeagues([]);
     } finally {
       setLoadingLeagues(false);
     }
-  }, [team.id, team.name]);
+  }, [team?.id, team?.name]);
 
   // Fetch all leagues on mount
   React.useEffect(() => {
@@ -243,16 +265,16 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
       const SimpleCompetitionService = (await import('../services/competition/SimpleCompetitionService')).default;
       const events = await SimpleCompetitionService.getTeamEvents(team.id);
 
-      console.log(`✅ Found ${events.length} events`);
+      console.log(`✅ Found ${events?.length || 0} events`);
 
       // Format for display
-      const formattedEvents = events.map(event => ({
+      const formattedEvents = (events || []).map(event => ({
         ...event,
-        date: new Date(event.eventDate).toLocaleDateString('en-US', {
+        date: event?.eventDate ? new Date(event.eventDate).toLocaleDateString('en-US', {
           month: 'short',
           day: 'numeric',
-        }),
-        details: event.description || 'No description',
+        }) : 'TBD',
+        details: event?.description || 'No description',
       }));
 
       setNostrEvents(formattedEvents);
@@ -312,8 +334,8 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <TeamHeader
-        teamName={team.name}
-        bannerImage={team.bannerImage}
+        teamName={team?.name || 'Unknown Team'}
+        bannerImage={team?.bannerImage}
         team={team} // Pass full team object for fallback extraction
         onBack={onBack}
       />
@@ -323,7 +345,7 @@ export const EnhancedTeamScreen: React.FC<EnhancedTeamScreenProps> = ({
           {/* Team Name Section */}
           <View style={styles.teamNameSection}>
             <Text style={styles.sectionLabel}>Team</Text>
-            <Text style={styles.teamNameText}>{team.name}</Text>
+            <Text style={styles.teamNameText}>{team?.name || 'Unknown Team'}</Text>
           </View>
           {/* Prize Section - Hidden for now */}
           {/* <AboutPrizeSection
