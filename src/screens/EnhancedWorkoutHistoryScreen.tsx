@@ -17,7 +17,8 @@ import {
 import { theme } from '../styles/theme';
 import { WorkoutPublishingService } from '../services/nostr/workoutPublishingService';
 import localWorkoutStorage from '../services/fitness/LocalWorkoutStorageService';
-import { getNsecFromStorage, getUserNostrIdentifiers } from '../utils/nostr';
+import { UnifiedSigningService } from '../services/auth/UnifiedSigningService';
+import type { NDKSigner } from '@nostr-dev-kit/ndk';
 import FEATURE_FLAGS from '../constants/featureFlags';
 
 // UI Components
@@ -41,7 +42,7 @@ export const EnhancedWorkoutHistoryScreen: React.FC<EnhancedWorkoutHistoryScreen
   onNavigateBack,
   onNavigateToTeam,
 }) => {
-  const [userNsec, setUserNsec] = useState<string>('');
+  const [signer, setSigner] = useState<NDKSigner | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
 
   // Services - localWorkoutStorage is already a singleton instance
@@ -55,12 +56,12 @@ export const EnhancedWorkoutHistoryScreen: React.FC<EnhancedWorkoutHistoryScreen
   const loadUserCredentials = async () => {
     try {
       console.log('[EnhancedWorkoutHistory] Loading user credentials...');
-      const nsec = await getNsecFromStorage(userId);
-      if (nsec) {
-        setUserNsec(nsec);
-        console.log('[EnhancedWorkoutHistory] ✅ User nsec loaded');
+      const userSigner = await UnifiedSigningService.getInstance().getSigner();
+      if (userSigner) {
+        setSigner(userSigner);
+        console.log('[EnhancedWorkoutHistory] ✅ User signer loaded');
       } else {
-        console.warn('[EnhancedWorkoutHistory] No nsec found for user');
+        console.warn('[EnhancedWorkoutHistory] No signer available');
       }
     } catch (error) {
       console.error('[EnhancedWorkoutHistory] ❌ Failed to load credentials:', error);
@@ -71,30 +72,33 @@ export const EnhancedWorkoutHistoryScreen: React.FC<EnhancedWorkoutHistoryScreen
 
   /**
    * Handle posting a local workout to Nostr
-   * Creates kind 1301 event and marks workout as synced
+   * Creates kind 1 social event with workout card
    */
   const handlePostToNostr = async (workout: LocalWorkout) => {
     try {
       console.log(`[EnhancedWorkoutHistory] Posting workout ${workout.id} to Nostr...`);
 
-      if (!userNsec) {
-        Alert.alert('Error', 'No private key found. Please log in again.');
+      if (!signer) {
+        Alert.alert('Error', 'No signer available. Please log in again.');
         return;
       }
 
       // Convert LocalWorkout to PublishableWorkout format
       const publishableWorkout = {
         ...workout,
+        userId: userId,
+        source: 'manual' as const, // Map local workout source to standard type
         type: workout.type,
         duration: workout.duration / 60, // Convert seconds to minutes for publishing service
         distance: workout.distance,
         calories: workout.calories,
+        syncedAt: workout.syncedAt || new Date().toISOString(),
       };
 
-      // Publish to Nostr as kind 1301 event
-      const result = await publishingService.saveWorkoutToNostr(
+      // Publish to Nostr as kind 1 social event
+      const result = await publishingService.postWorkoutToSocial(
         publishableWorkout,
-        userNsec,
+        signer,
         userId
       );
 

@@ -23,7 +23,7 @@ import { SocialShareModal } from '../fitness/SocialShareModal';
 import TTSAnnouncementService from '../../services/activity/TTSAnnouncementService';
 import LocalWorkoutStorageService from '../../services/fitness/LocalWorkoutStorageService';
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
-import unifiedSigningService from '../../services/auth/UnifiedSigningService';
+import { UnifiedSigningService } from '../../services/auth/UnifiedSigningService';
 import { CustomAlert } from '../ui/CustomAlert';
 
 interface WorkoutSummaryProps {
@@ -184,7 +184,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
     setIsPosting(true);
     try {
       // Get signer (works for both nsec and Amber)
-      const signer = await unifiedSigningService.getSigner();
+      const signer = await UnifiedSigningService.getInstance().getSigner();
       const npub = await AsyncStorage.getItem('@runstr:npub');
 
       if (!signer) {
@@ -256,7 +256,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
     setIsSaving(true);
     try {
       // Get signer (works for both nsec and Amber)
-      const signer = await unifiedSigningService.getSigner();
+      const signer = await UnifiedSigningService.getInstance().getSigner();
       const npub = await AsyncStorage.getItem('@runstr:npub');
 
       if (!signer) {

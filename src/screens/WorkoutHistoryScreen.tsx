@@ -22,7 +22,8 @@ import { theme } from '../styles/theme';
 import { WorkoutPublishingService } from '../services/nostr/workoutPublishingService';
 import localWorkoutStorage from '../services/fitness/LocalWorkoutStorageService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { nsecToPrivateKey } from '../utils/nostr';
+import { UnifiedSigningService } from '../services/auth/UnifiedSigningService';
+import type { NDKSigner } from '@nostr-dev-kit/ndk';
 
 // UI Components
 import { LoadingOverlay } from '../components/ui/LoadingStates';
@@ -48,7 +49,7 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
   const navigation = useNavigation();
   const [pubkey, setPubkey] = useState<string>('');
   const [userId, setUserId] = useState<string>('');
-  const [userNsec, setUserNsec] = useState<string>('');
+  const [signer, setSigner] = useState<NDKSigner | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
 
   // Services - localWorkoutStorage is already a singleton instance
@@ -82,13 +83,13 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
       setPubkey(activePubkey);
       setUserId(activeUserId);
 
-      // Load nsec for posting
-      const storedNsec = await AsyncStorage.getItem('@runstr:user_nsec');
-      if (storedNsec) {
-        setUserNsec(storedNsec);
-        console.log('[WorkoutHistory] ✅ User nsec loaded');
+      // Load signer for posting
+      const userSigner = await UnifiedSigningService.getInstance().getSigner();
+      if (userSigner) {
+        setSigner(userSigner);
+        console.log('[WorkoutHistory] ✅ User signer loaded');
       } else {
-        console.warn('[WorkoutHistory] No nsec found - posting will not work');
+        console.warn('[WorkoutHistory] No signer available - posting will not work');
       }
     } catch (error) {
       console.error('[WorkoutHistory] ❌ Failed to load user data:', error);
@@ -99,41 +100,39 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
 
   /**
    * Handle posting a local workout to Nostr
-   * Creates kind 1301 event and marks workout as synced
+   * Creates kind 1 social event with workout card
    * This makes the workout disappear from Private tab and appear in Public tab
    */
   const handlePostToNostr = async (workout: LocalWorkout) => {
     try {
       console.log(`[WorkoutHistory] Posting workout ${workout.id} to Nostr...`);
 
-      if (!userNsec) {
-        Alert.alert('Error', 'No private key found. Please log in again.');
+      if (!signer) {
+        Alert.alert('Error', 'No signer available. Please log in again.');
         return;
       }
 
       // Convert LocalWorkout to PublishableWorkout format
-      // Remove source field that causes type mismatch
-      const { source, splits, ...workoutData } = workout;
+      const { splits, ...workoutData } = workout;
 
       const publishableWorkout = {
         ...workoutData,
         id: workout.id,
         userId: userId,
+        source: 'manual' as const, // Map local workout source to standard type
         type: workout.type,
         duration: workout.duration / 60, // Convert seconds to minutes for publishing service
         distance: workout.distance,
         calories: workout.calories,
         startTime: workout.startTime,
         endTime: workout.endTime,
+        syncedAt: workout.syncedAt || new Date().toISOString(),
       };
 
-      // Convert nsec to hex private key
-      const privateKeyHex = nsecToPrivateKey(userNsec);
-
-      // Publish to Nostr as kind 1301 event
-      const result = await publishingService.saveWorkoutToNostr(
+      // Publish to Nostr as kind 1 social event
+      const result = await publishingService.postWorkoutToSocial(
         publishableWorkout,
-        privateKeyHex,
+        signer,
         userId
       );
 

@@ -21,7 +21,8 @@ import { MonthlyWorkoutGroup, groupWorkoutsByMonth } from '../shared/MonthlyWork
 import { Nuclear1301Service } from '../../../services/fitness/Nuclear1301Service';
 import { WorkoutPublishingService } from '../../../services/nostr/workoutPublishingService';
 import { WorkoutStatusTracker } from '../../../services/fitness/WorkoutStatusTracker';
-import { getNsecFromStorage } from '../../../utils/nostr';
+import { UnifiedSigningService } from '../../../services/auth/UnifiedSigningService';
+import type { NDKSigner } from '@nostr-dev-kit/ndk';
 import type { NostrWorkout } from '../../../types/nostrWorkout';
 import type { Workout } from '../../../types/workout';
 
@@ -41,23 +42,23 @@ export const AllWorkoutsTab: React.FC<AllWorkoutsTabProps> = ({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [shareModalVisible, setShareModalVisible] = useState(false);
   const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null);
-  const [nsecKey, setNsecKey] = useState<string | null>(null);
+  const [signer, setSigner] = useState<NDKSigner | null>(null);
 
   const nuclear1301Service = Nuclear1301Service.getInstance();
   const publishingService = WorkoutPublishingService.getInstance();
   const statusTracker = WorkoutStatusTracker.getInstance();
 
   useEffect(() => {
-    loadNsecKey();
+    loadSigner();
     loadAllWorkouts();
   }, []);
 
-  const loadNsecKey = async () => {
+  const loadSigner = async () => {
     try {
-      const nsec = await getNsecFromStorage(userId);
-      setNsecKey(nsec);
+      const userSigner = await UnifiedSigningService.getInstance().getSigner();
+      setSigner(userSigner);
     } catch (error) {
-      console.error('Failed to load nsec key:', error);
+      console.error('Failed to load signer:', error);
     }
   };
 
@@ -114,7 +115,7 @@ export const AllWorkoutsTab: React.FC<AllWorkoutsTabProps> = ({
   };
 
   const handleCompete = async (workout: Workout) => {
-    if (!nsecKey) {
+    if (!signer) {
       Alert.alert(
         'Authentication Required',
         'Please log in with your Nostr key to enter competitions.'
@@ -126,7 +127,7 @@ export const AllWorkoutsTab: React.FC<AllWorkoutsTabProps> = ({
       console.log('🏃 Creating competition entry (kind 1301)...');
       const result = await publishingService.saveWorkoutToNostr(
         workout,
-        nsecKey,
+        signer,
         userId
       );
 
@@ -162,7 +163,7 @@ export const AllWorkoutsTab: React.FC<AllWorkoutsTabProps> = ({
       onSocialShare={handleSocialShare}
       hideActions={workout.source?.toLowerCase() === 'nostr'}
     />
-  ), [nsecKey]);
+  ), [signer]);
 
   const renderMonthlyGroup = ({ item }: { item: any }) => (
     <MonthlyWorkoutGroup
