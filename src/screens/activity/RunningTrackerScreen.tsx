@@ -161,7 +161,40 @@ export const RunningTrackerScreen: React.FC = () => {
     }, TIMER_INTERVAL_MS);
 
     // Start metrics update timer (1 second for responsive UI)
-    metricsUpdateRef.current = setInterval(updateMetrics, METRICS_UPDATE_INTERVAL_MS);
+    // Use inline function to avoid stale closures with refs
+    metricsUpdateRef.current = setInterval(() => {
+      const session = enhancedLocationTrackingService.getCurrentSession();
+
+      // Calculate current elapsed time from refs INSIDE the interval callback
+      const now = Date.now();
+      const currentElapsed = Math.floor((now - startTimeRef.current - totalPausedTimeRef.current) / 1000);
+      const formattedDuration = formatElapsedTime(currentElapsed);
+
+      if (session) {
+        // Use interpolated distance for smooth UI updates between GPS points
+        const displayDistance = enhancedLocationTrackingService.getInterpolatedDistance();
+
+        const currentMetrics = {
+          distance: displayDistance,
+          duration: currentElapsed,
+          pace: activityMetricsService.calculatePace(displayDistance, currentElapsed),
+          elevationGain: session.totalElevationGain,
+        };
+
+        const formatted = activityMetricsService.getFormattedMetrics(currentMetrics, 'running');
+        formatted.duration = formattedDuration;
+
+        setMetrics(formatted);
+        setGpsSignal(session.gpsSignalStrength as GPSSignalStrength);
+        setGpsAccuracy(session.statistics?.averageAccuracy);
+        setIsBackgroundTracking(session.isBackgroundTracking);
+      } else if (isTracking) {
+        setMetrics(prev => ({
+          ...prev,
+          duration: formattedDuration,
+        }));
+      }
+    }, METRICS_UPDATE_INTERVAL_MS);
   };
 
   const formatElapsedTime = (seconds: number): string => {
@@ -175,44 +208,6 @@ export const RunningTrackerScreen: React.FC = () => {
     return `${minutes}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const updateMetrics = () => {
-    const session = enhancedLocationTrackingService.getCurrentSession();
-
-    // Calculate current elapsed time from refs (not state) to avoid stale closures
-    const now = Date.now();
-    const currentElapsed = Math.floor((now - startTimeRef.current - totalPausedTimeRef.current) / 1000);
-    const formattedDuration = formatElapsedTime(currentElapsed);
-
-    if (session) {
-      // Use interpolated distance for smooth UI updates between GPS points
-      const displayDistance = enhancedLocationTrackingService.getInterpolatedDistance();
-
-      const currentMetrics = {
-        distance: displayDistance,
-        duration: currentElapsed,
-        pace: activityMetricsService.calculatePace(displayDistance, currentElapsed),
-        elevationGain: session.totalElevationGain,
-      };
-
-      const formatted = activityMetricsService.getFormattedMetrics(currentMetrics, 'running');
-
-      // Override with calculated duration for display (handles pause correctly)
-      formatted.duration = formattedDuration;
-
-      setMetrics(formatted);
-
-      // Update GPS status
-      setGpsSignal(session.gpsSignalStrength as GPSSignalStrength);
-      setGpsAccuracy(session.statistics?.averageAccuracy);
-      setIsBackgroundTracking(session.isBackgroundTracking);
-    } else if (isTracking) {
-      // No session yet, but tracking started - show timer-based duration
-      setMetrics(prev => ({
-        ...prev,
-        duration: formattedDuration,
-      }));
-    }
-  };
 
   const pauseTracking = async () => {
     if (!isPaused) {
