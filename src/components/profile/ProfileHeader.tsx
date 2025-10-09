@@ -11,43 +11,52 @@ import { Button } from '../ui/Button';
 import { Avatar } from '../ui/Avatar';
 
 interface ProfileHeaderProps {
-  user: User;
+  user: User | null;
+  isLoading?: boolean;
   // onEdit removed - pure Nostr users use external clients
 }
 
 export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   user,
+  isLoading = false,
 }) => {
-  // ✅ ANDROID FIX: Add null safety and fallbacks
-  const displayName = user?.displayName || user?.name || 'Loading...';
-  const avatarUrl = user?.picture || user?.avatar || undefined;
-  const bio = user?.bio || undefined;
-  const lud16 = user?.lud16 || undefined;
-  const banner = user?.banner || undefined;
+  // ✅ LOADING STATE: Show loading UI if explicitly loading or if user is null
+  const isLoadingProfile = isLoading || !user;
 
   // Debug logging to verify profile data
   console.log('🖼️ ProfileHeader data:', {
     hasUser: !!user,
+    isLoading,
+    isLoadingProfile,
     hasPicture: !!user?.picture,
     hasAvatar: !!user?.avatar,
-    hasBio: !!bio,
-    displayName,
+    hasBio: !!user?.bio,
+    displayName: user?.displayName || user?.name,
     pictureUrl: user?.picture?.substring(0, 50),
   });
 
-  // ✅ ANDROID FIX: Show loading state if user is null/undefined
-  if (!user) {
+  // ✅ LOADING STATE: Show skeleton/loading state instead of fallback names
+  if (isLoadingProfile) {
     return (
       <View style={styles.boxContainer}>
         <View style={styles.profileContent}>
-          <View style={styles.avatar} />
+          {/* Skeleton avatar */}
+          <View style={[styles.avatar, styles.skeletonAvatar]} />
           <View style={styles.info}>
-            <Text style={styles.name}>Loading profile...</Text>
+            <View style={styles.skeletonText} />
+            <View style={[styles.skeletonText, styles.skeletonTextSmall]} />
           </View>
         </View>
       </View>
     );
   }
+
+  // ✅ PROFILE DATA: Extract profile fields only if user exists
+  const displayName = user.displayName || user.name || 'Anonymous';
+  const avatarUrl = user.picture || user.avatar || undefined;
+  const bio = user.bio || undefined;
+  const lud16 = user.lud16 || undefined;
+  const banner = user.banner || undefined;
 
   return (
     <View style={styles.boxContainer}>
@@ -189,5 +198,25 @@ const styles = StyleSheet.create({
   editButtonText: {
     fontSize: 12, // Exact from CSS
     fontWeight: theme.typography.weights.medium, // 500
+  },
+
+  // Skeleton loading states
+  skeletonAvatar: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 30,
+  },
+
+  skeletonText: {
+    height: 18,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 4,
+    marginBottom: 8,
+    width: '60%',
+  },
+
+  skeletonTextSmall: {
+    height: 14,
+    width: '80%',
+    marginBottom: 4,
   },
 });

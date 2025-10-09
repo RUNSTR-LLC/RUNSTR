@@ -33,7 +33,7 @@ export class AuthService {
         '@runstr:wallet_proofs',
         '@runstr:wallet_pubkey',
         '@runstr:wallet_mint',
-        '@runstr:current_user_pubkey',
+        '@runstr:hex_pubkey',
         '@runstr:tx_history',
         '@runstr:last_sync',
         '@runstr:onboarding_completed' // Clear onboarding flag to ensure clean state

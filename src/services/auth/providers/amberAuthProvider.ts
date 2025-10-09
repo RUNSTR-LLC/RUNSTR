@@ -96,7 +96,7 @@ export class AmberAuthProvider {
       let directUser = null;
       try {
         // Set the public key for DirectNostrProfileService to use
-        await AsyncStorage.setItem('@runstr:current_user_pubkey', hexPubkey);
+        await AsyncStorage.setItem('@runstr:hex_pubkey', hexPubkey);
         directUser = await DirectNostrProfileService.getCurrentUserProfile();
       } catch (profileError) {
         console.warn('⚠️ Profile load failed, using fallback:', profileError);

@@ -67,12 +67,12 @@ export class NostrAuthProvider {
 
       if (hexPubkey) {
         // CRITICAL: Store pubkey BEFORE wallet initialization to ensure correct user isolation
-        await AsyncStorage.setItem('@runstr:current_user_pubkey', hexPubkey);
+        await AsyncStorage.setItem('@runstr:hex_pubkey', hexPubkey);
         console.log('✅ NostrAuthProvider: Current user pubkey stored for wallet verification');
         console.log('🔑 NostrAuthProvider: User pubkey (hex):', hexPubkey.slice(0, 16) + '...');
 
         // Verify stored pubkey matches what we just set
-        const verifyPubkey = await AsyncStorage.getItem('@runstr:current_user_pubkey');
+        const verifyPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
         if (verifyPubkey !== hexPubkey) {
           console.error('❌ NostrAuthProvider: CRITICAL - Stored pubkey mismatch!');
           console.error('❌ Expected:', hexPubkey.slice(0, 16) + '...');
@@ -290,7 +290,7 @@ export class NostrAuthProvider {
 
       // Import AsyncStorage and store current user pubkey for wallet verification
       const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
-      await AsyncStorage.setItem('@runstr:current_user_pubkey', hexPubkey);
+      await AsyncStorage.setItem('@runstr:hex_pubkey', hexPubkey);
       console.log('✅ NostrAuthProvider: Current user pubkey stored for wallet verification');
 
       // Initialize NutZap wallet for new user (auto-creates wallet)

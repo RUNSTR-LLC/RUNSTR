@@ -74,72 +74,104 @@ export class WalletCore {
   }
 
   /**
-   * Initialize wallet - with Nostr recovery fallback
-   * ✅ FIXED: Now checks Nostr BEFORE returning empty wallet
+   * Initialize wallet - with deterministic detection
+   * ✅ NEW: Detects RUNSTR wallet via d-tag, NO auto-create
+   * Works identically for nsec and Amber (no decryption at login)
    */
   async initialize(hexPubkey: string): Promise<WalletState> {
-    console.log('[WalletCore] Initializing wallet with Nostr fallback...');
+    console.log('[WalletCore] ========================================');
+    console.log('[WalletCore] Initializing wallet with detection');
     console.log('[WalletCore] User pubkey (hex):', hexPubkey.slice(0, 16) + '...');
 
     this.userPubkey = hexPubkey;
 
-    // Step 1: Check local storage first
+    // Step 1: Check local storage first (instant)
     const localWallet = await this.loadLocalWallet();
 
-    console.log('[WalletCore] Local wallet check:', {
+    console.log('[WalletCore] Local storage check:', {
       balance: localWallet.balance,
       proofs: localWallet.proofs.length,
       key: this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS)
     });
 
-    // Step 2: If local wallet is empty, try Nostr restoration IMMEDIATELY
-    if (localWallet.proofs.length === 0) {
-      console.log('[WalletCore] ⚠️  Local wallet empty - checking Nostr for existing wallet...');
-
-      try {
-        // Try to restore from Nostr (with 5s timeout to prevent blocking)
-        const nostrRestorePromise = this.restoreFromNostrWithTimeout();
-        const restoredWallet = await Promise.race([
-          nostrRestorePromise,
-          new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000))
-        ]);
-
-        if (restoredWallet && restoredWallet.proofs.length > 0) {
-          console.log('[WalletCore] ✅ Restored wallet from Nostr:', {
-            balance: restoredWallet.balance,
-            proofs: restoredWallet.proofs.length
-          });
-
-          // Save to local storage
-          await this.saveWallet(restoredWallet.proofs, restoredWallet.mint);
-
-          // Connect to mint in background
-          this.connectToMintAsync().catch(err =>
-            console.warn('[WalletCore] Mint connection failed:', err)
-          );
-
-          return restoredWallet;
-        } else {
-          console.log('[WalletCore] ℹ️  No wallet found on Nostr - safe to create new wallet');
-        }
-      } catch (error) {
-        console.warn('[WalletCore] Nostr restoration failed:', error);
-      }
-    } else {
-      console.log('[WalletCore] ✅ Local wallet found - verifying against Nostr in background');
+    // Step 2: If local wallet has proofs, use it
+    if (localWallet.proofs.length > 0) {
+      console.log('[WalletCore] ✅ Local wallet found with proofs');
 
       // Verify against Nostr in background (non-blocking)
       this.verifyAndMergeNostrProofs().catch(err =>
         console.warn('[WalletCore] Background verification failed:', err)
       );
+
+      // Connect to mint in background
+      this.connectToMintAsync().catch(err =>
+        console.warn('[WalletCore] Mint connection failed:', err)
+      );
+
+      return localWallet;
     }
 
-    // Connect to mint in background
-    this.connectToMintAsync().catch(err =>
-      console.warn('[WalletCore] Mint connection failed (offline mode):', err)
-    );
+    // Step 3: If local is empty, detect RUNSTR wallet on Nostr
+    console.log('[WalletCore] Local wallet empty - detecting RUNSTR wallet on Nostr...');
 
-    return localWallet;
+    try {
+      const WalletDetectionService = require('./WalletDetectionService').default;
+      const detection = await WalletDetectionService.findRunstrWallet(hexPubkey);
+
+      if (detection.found && detection.walletInfo) {
+        console.log('[WalletCore] ✅ RUNSTR wallet detected on Nostr!');
+        console.log('[WalletCore] Balance:', detection.walletInfo.balance, 'sats');
+        console.log('[WalletCore] Mint:', detection.walletInfo.mint);
+        console.log('[WalletCore] Name:', detection.walletInfo.name);
+
+        // Return wallet stub with balance (proofs will be decrypted on-demand)
+        const walletStub: WalletState = {
+          balance: detection.walletInfo.balance,
+          mint: detection.walletInfo.mint,
+          proofs: [], // Empty - will decrypt when needed for sending
+          pubkey: hexPubkey,
+          isOnline: false
+        };
+
+        // Connect to mint in background
+        this.connectToMintAsync().catch(err =>
+          console.warn('[WalletCore] Mint connection failed:', err)
+        );
+
+        console.log('[WalletCore] Wallet stub created (proofs not decrypted)');
+        console.log('[WalletCore] User can receive/view balance');
+        console.log('[WalletCore] Proofs will decrypt when sending');
+        console.log('[WalletCore] ========================================');
+
+        return walletStub;
+      } else {
+        console.log('[WalletCore] ❌ No RUNSTR wallet found on Nostr');
+        console.log('[WalletCore] User needs to create wallet via UI button');
+        console.log('[WalletCore] NO AUTO-CREATE');
+        console.log('[WalletCore] ========================================');
+
+        // Return empty wallet - user must explicitly create
+        return {
+          balance: 0,
+          mint: DEFAULT_MINT_URL,
+          proofs: [],
+          pubkey: hexPubkey,
+          isOnline: false
+        };
+      }
+    } catch (error) {
+      console.error('[WalletCore] Detection failed:', error);
+      console.log('[WalletCore] Returning empty wallet (detection error)');
+      console.log('[WalletCore] ========================================');
+
+      return {
+        balance: 0,
+        mint: DEFAULT_MINT_URL,
+        proofs: [],
+        pubkey: hexPubkey,
+        isOnline: false
+      };
+    }
   }
 
   /**
@@ -638,6 +670,70 @@ export class WalletCore {
    */
   getOnlineStatus(): boolean {
     return this.isOnline;
+  }
+
+  /**
+   * Create new RUNSTR wallet with deterministic d-tag
+   * ✅ NEW: User-initiated wallet creation (no auto-create)
+   * Publishes kind 37375 event with "runstr-primary-wallet" d-tag
+   */
+  async createRunstrWallet(): Promise<{ success: boolean; error?: string }> {
+    try {
+      if (!this.userPubkey) {
+        return { success: false, error: 'No user pubkey - cannot create wallet' };
+      }
+
+      console.log('[WalletCore] ========================================');
+      console.log('[WalletCore] Creating RUNSTR wallet...');
+      console.log('[WalletCore] User pubkey:', this.userPubkey.slice(0, 16) + '...');
+
+      // Import d-tag constant
+      const { RUNSTR_WALLET_DTAG, RUNSTR_WALLET_NAME } = require('./WalletDetectionService');
+
+      // Check if wallet already exists
+      const WalletDetectionService = require('./WalletDetectionService').default;
+      const detection = await WalletDetectionService.findRunstrWallet(this.userPubkey);
+
+      if (detection.found) {
+        console.warn('[WalletCore] ⚠️  RUNSTR wallet already exists!');
+        console.warn('[WalletCore] Cannot create duplicate wallet');
+        return {
+          success: false,
+          error: 'RUNSTR wallet already exists for this user'
+        };
+      }
+
+      console.log('[WalletCore] No existing wallet - proceeding with creation');
+
+      // Initialize empty wallet locally
+      const emptyProofs: Proof[] = [];
+      const mintUrl = DEFAULT_MINT_URL;
+
+      // Save to local storage
+      await this.saveWallet(emptyProofs, mintUrl);
+
+      console.log('[WalletCore] Local wallet initialized (0 balance)');
+
+      // Publish kind 37375 wallet info event to Nostr
+      const WalletSync = require('./WalletSync').default;
+      await WalletSync.initialize(this.userPubkey);
+      await WalletSync.publishWalletInfo(RUNSTR_WALLET_DTAG, RUNSTR_WALLET_NAME, 0, mintUrl);
+
+      console.log('[WalletCore] ✅ RUNSTR wallet created and published to Nostr');
+      console.log('[WalletCore] d-tag:', RUNSTR_WALLET_DTAG);
+      console.log('[WalletCore] Name:', RUNSTR_WALLET_NAME);
+      console.log('[WalletCore] Balance: 0 sats (empty)');
+      console.log('[WalletCore] ========================================');
+
+      return { success: true };
+
+    } catch (error) {
+      console.error('[WalletCore] Wallet creation failed:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Wallet creation failed'
+      };
+    }
   }
 }
 

@@ -367,7 +367,7 @@ const AppContent: React.FC = () => {
                     });
                   }}
                   onAddChallenge={() => console.log('Add challenge')}
-                  onEventPress={(eventId) => navigation.navigate('EventDetail', { eventId })}
+                  onEventPress={(eventId, eventData) => navigation.navigate('EventDetail', { eventId, eventData })}
                   onLeaguePress={(leagueId, leagueData) => navigation.navigate('LeagueDetail', { leagueId, leagueData })}
                   onChallengePress={(challengeId) => navigation.navigate('ChallengeDetail', { challengeId })}
                   showJoinButton={!userIsMember}

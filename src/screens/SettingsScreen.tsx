@@ -31,6 +31,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
+import { useWalletStore } from '../store/walletStore';
 
 interface SettingsScreenProps {
   currentTeam?: Team;
@@ -94,6 +95,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     includeSplits: false,
     announceLiveSplits: false,
   });
+
+  // Wallet creation state
+  const { walletExists, createWallet } = useWalletStore();
+  const [isCreatingWallet, setIsCreatingWallet] = useState(false);
 
   // Alert state for CustomAlert
   const [alertVisible, setAlertVisible] = useState(false);
@@ -286,6 +291,25 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     }
   };
 
+  const handleCreateWallet = async () => {
+    setIsCreatingWallet(true);
+    try {
+      await createWallet();
+      setAlertTitle('Wallet Created');
+      setAlertMessage('Your RUNSTR Lightning wallet has been created successfully!');
+      setAlertButtons([{ text: 'OK' }]);
+      setAlertVisible(true);
+    } catch (error) {
+      console.error('Wallet creation failed:', error);
+      setAlertTitle('Creation Failed');
+      setAlertMessage('Failed to create wallet. Please try again.');
+      setAlertButtons([{ text: 'OK' }]);
+      setAlertVisible(true);
+    } finally {
+      setIsCreatingWallet(false);
+    }
+  };
+
   const handleBackupPassword = () => {
     if (!userNsec) {
       setAlertTitle('Error');
@@ -401,6 +425,35 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 </View>
               }
             />
+
+            {/* Wallet Status & Creation */}
+            <View style={styles.settingItem}>
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingTitle}>
+                  {walletExists ? 'Lightning Wallet' : 'Create Wallet'}
+                </Text>
+                <Text style={styles.settingSubtitle}>
+                  {walletExists
+                    ? 'Your RUNSTR wallet is active'
+                    : 'Create a Lightning wallet to send/receive sats'}
+                </Text>
+              </View>
+              {walletExists ? (
+                <Text style={styles.statusCheck}>✓</Text>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.createButton, isCreatingWallet && styles.buttonDisabled]}
+                  onPress={handleCreateWallet}
+                  disabled={isCreatingWallet}
+                >
+                  {isCreatingWallet ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.createButtonText}>Create</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
           </Card>
         </View>
 
@@ -777,6 +830,25 @@ const styles = StyleSheet.create({
 
   securityIcon: {
     marginLeft: 8,
+  },
+
+  // Wallet Creation Styles
+  statusCheck: {
+    fontSize: 18,
+    color: theme.colors.primary,
+  },
+
+  createButton: {
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+
+  createButtonText: {
+    color: '#000',
+    fontSize: 13,
+    fontWeight: '600',
   },
 
   // TTS Settings Styles

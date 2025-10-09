@@ -191,6 +191,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
               <ProfileScreen
               data={profileData}
               isLoadingTeam={isLoadingTeam}
+              isLoadingProfile={isLoading}
               onNavigateToTeam={() => navigation.navigate('Teams')}
               onNavigateToTeamDiscovery={() => navigation.navigate('Teams')}
               onViewCurrentTeam={() => {

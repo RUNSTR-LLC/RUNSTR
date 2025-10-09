@@ -48,7 +48,7 @@ interface TeamCardProps {
   showCategory?: boolean; // Show category label above card
 }
 
-type MembershipButtonState = 'join' | 'pending' | 'member' | 'captain' | 'loading';
+type MembershipButtonState = 'join' | 'member' | 'captain' | 'loading'; // REMOVED: 'pending' - instant join, no approval needed
 
 export const TeamCard: React.FC<TeamCardProps> = ({
   team,
@@ -158,17 +158,12 @@ export const TeamCard: React.FC<TeamCardProps> = ({
     try {
       setButtonState('loading');
       const isMember = await isTeamMember(currentUserNpub, team);
-      
+
       if (isMember) {
         setButtonState('member');
       } else {
-        // Check if there's a pending request
-        const membershipStatus = await membershipService.getMembershipStatus(
-          currentUserNpub,
-          team.id, // Use team.id instead of non-existent team.teamId
-          team.captainId
-        );
-        setButtonState(membershipStatus.hasRequestPending ? 'pending' : 'join');
+        // REMOVED: Pending request checking - instant join, no approval needed
+        setButtonState('join');
       }
     } catch (error) {
       console.error('Failed to check membership status:', error);
@@ -183,38 +178,22 @@ export const TeamCard: React.FC<TeamCardProps> = ({
     try {
       setButtonState('loading');
 
-      // Join locally first for instant UX
+      // Join locally - instant bookmark, no captain approval needed
       await membershipService.joinTeamLocally(
-        team.id, // Use team.id instead of non-existent team.teamId
+        team.id,
         team.name,
         team.captainId,
         currentUserNpub
       );
 
-      // Publish join request to Nostr so captain can see it
-      const publishResult = await publishJoinRequest(
-        team.id,
-        team.name,
-        team.captainId,
-        currentUserNpub,
-        `I would like to join ${team.name}`
-      );
+      console.log(`✅ Team bookmarked locally: ${team.name}`);
 
-      if (publishResult.success) {
-        console.log(`✅ Join request sent for team: ${team.name}`);
-        setButtonState('pending');
-      } else {
-        // Still keep local membership but notify user request didn't send
-        Alert.alert(
-          'Join Request Not Sent',
-          'You have joined locally but the request to the captain could not be sent. Please try again later.',
-          [{ text: 'OK' }]
-        );
-        // Keep as pending since they're locally joined
-        setButtonState('pending');
-      }
+      // Instant member status - no waiting for approval
+      setButtonState('member');
 
-      // CRITICAL FIX: Refresh teams cache so My Teams screen updates immediately
+      // REMOVED: publishJoinRequest() - teams are bookmarks now, no approval needed
+
+      // CRITICAL: Refresh teams cache so My Teams screen updates immediately
       try {
         const nostrPrefetchService = (await import('../../services/nostr/NostrPrefetchService')).default;
         await nostrPrefetchService.refreshUserTeamsCache();
@@ -230,7 +209,7 @@ export const TeamCard: React.FC<TeamCardProps> = ({
       }
     } catch (error) {
       console.error('Failed to join team:', error);
-      Alert.alert('Error', 'Failed to join team. Please try again.');
+      Alert.alert('Error', 'Failed to bookmark team. Please try again.');
       setButtonState('join');
     }
   }, [currentUserNpub, buttonState, team, membershipService, onJoinRequest]);

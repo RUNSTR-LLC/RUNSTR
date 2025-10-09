@@ -18,15 +18,15 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Picker } from '@react-native-picker/picker';
-import { CHARITIES, getCharityById } from '../constants/charities';
+// import { Picker } from '@react-native-picker/picker'; // REMOVED: No longer needed without charity feature
+// import { CHARITIES, getCharityById } from '../constants/charities'; // REMOVED: Charity feature removed
 import { validateShopUrl, getShopDisplayName, validateFlashUrl } from '../utils/validation';
 import { theme } from '../styles/theme';
 // BottomNavigation removed - Captain Dashboard has back button
-import { ZappableUserRow } from '../components/ui/ZappableUserRow';
+// import { ZappableUserRow } from '../components/ui/ZappableUserRow'; // REMOVED: No longer needed without member list
 import { QuickActionsSection } from '../components/team/QuickActionsSection';
 import { ActivityFeedSection } from '../components/team/ActivityFeedSection';
-import { JoinRequestsSection } from '../components/team/JoinRequestsSection';
+// import { JoinRequestsSection } from '../components/team/JoinRequestsSection'; // REMOVED: Teams are bookmarks now
 import { EventJoinRequestsSection } from '../components/captain/EventJoinRequestsSection';
 import { EventCreationWizard } from '../components/wizards/EventCreationWizard';
 import { LeagueCreationWizard } from '../components/wizards/LeagueCreationWizard';
@@ -109,15 +109,15 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
   const [eventWizardVisible, setEventWizardVisible] = useState(false);
   const [leagueWizardVisible, setLeagueWizardVisible] = useState(false);
 
-  // Kind 30000 list state
-  const [hasKind30000List, setHasKind30000List] = useState<boolean | null>(null);
-  const [isCreatingList, setIsCreatingList] = useState(false);
+  // REMOVED: Kind 30000 list state - teams no longer require member lists
+  // const [hasKind30000List, setHasKind30000List] = useState<boolean | null>(null);
+  // const [isCreatingList, setIsCreatingList] = useState(false);
 
-  // Member management state
-  const [teamMembers, setTeamMembers] = useState<string[]>([]);
-  const [isLoadingMembers, setIsLoadingMembers] = useState(false);
-  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
-  const [newMemberNpub, setNewMemberNpub] = useState('');
+  // REMOVED: Member management state - teams no longer require member management
+  // const [teamMembers, setTeamMembers] = useState<string[]>([]);
+  // const [isLoadingMembers, setIsLoadingMembers] = useState(false);
+  // const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  // const [newMemberNpub, setNewMemberNpub] = useState('');
 
   // Competition state
   const [activeCompetitions, setActiveCompetitions] = useState<any[]>([]);
@@ -128,18 +128,19 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
   const [selectedEventQRString, setSelectedEventQRString] = useState('');
   const [selectedEventDeepLink, setSelectedEventDeepLink] = useState('');
 
-  // Charity state - Initialize from team data
-  const [selectedCharityId, setSelectedCharityId] = useState<string | undefined>(undefined);
-  const [showCharityModal, setShowCharityModal] = useState(false);
+  // REMOVED: Charity state - charity feature removed
+  // const [selectedCharityId, setSelectedCharityId] = useState<string | undefined>(undefined);
+  // const [showCharityModal, setShowCharityModal] = useState(false);
   const [showShopModal, setShowShopModal] = useState(false);
   const [shopUrl, setShopUrl] = useState<string>(data.team.shopUrl || '');
   const [shopUrlInput, setShopUrlInput] = useState<string>('');
   const [shopUrlError, setShopUrlError] = useState<string>('');
-  const [showFlashModal, setShowFlashModal] = useState(false);
-  const [flashUrl, setFlashUrl] = useState<string>('');
-  const [flashUrlInput, setFlashUrlInput] = useState<string>('');
-  const [flashUrlError, setFlashUrlError] = useState<string>('');
-  const [isSavingCharity, setIsSavingCharity] = useState(false);
+  // REMOVED: Flash subscription state - Flash feature removed
+  // const [showFlashModal, setShowFlashModal] = useState(false);
+  // const [flashUrl, setFlashUrl] = useState<string>('');
+  // const [flashUrlInput, setFlashUrlInput] = useState<string>('');
+  // const [flashUrlError, setFlashUrlError] = useState<string>('');
+  // const [isSavingCharity, setIsSavingCharity] = useState(false); // REMOVED: Charity feature removed
 
   // Team editing state
   const [showEditTeamModal, setShowEditTeamModal] = useState(false);
@@ -168,11 +169,10 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
         captainIdToUse = authData.hexPubkey;
       }
 
-      // Check for list (cache is preserved - only invalidate when data actually changes)
-      await checkForKind30000List();
+      // REMOVED: checkForKind30000List() - teams no longer require member lists
 
-      // Load current charity from team data if available
-      await loadTeamCharity();
+      // Load current team data (for Edit Team functionality)
+      await loadTeamData();
     };
 
     initializeTeam();
@@ -195,12 +195,19 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
     }
   };
 
-  // Load members when list status changes to true
-  React.useEffect(() => {
-    if (hasKind30000List === true) {
-      loadTeamMembers();
-    }
-  }, [hasKind30000List]);
+  // REMOVED: loadTeamMembers() effect - teams no longer require member management
+
+  /* ========================================================================
+   * DEPRECATED FUNCTIONS - Member Management System (No Longer Used)
+   * ========================================================================
+   * The functions below are part of the old team member management system
+   * which required kind 30000 lists and captain approval for team membership.
+   *
+   * NEW ARCHITECTURE: Teams are now bookmarks - users instantly join teams
+   * locally without requiring captain approval or Nostr member lists.
+   *
+   * These functions are kept for reference but should not be called.
+   * ======================================================================== */
 
   const checkForKind30000List = async () => {
     try {
@@ -407,8 +414,8 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
     setSelectedEventDeepLink('');
   };
 
-  // Load team's current data including charity selection
-  const loadTeamCharity = async () => {
+  // Load team's current data for Edit Team functionality
+  const loadTeamData = async () => {
     try {
       // ✅ First check UnifiedNostrCache for prefetched teams
       let teams = unifiedCache.getCached(CacheKeys.DISCOVERED_TEAMS);
@@ -438,11 +445,7 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
         // Store full team data for editing
         setCurrentTeamData(currentTeam);
 
-        // Set charity if exists
-        if (currentTeam.charityId) {
-          console.log('📖 Loaded team charity:', currentTeam.charityId);
-          setSelectedCharityId(currentTeam.charityId);
-        }
+        // REMOVED: Charity loading - charity feature removed
 
         // Set shop URL if exists
         if (currentTeam.shopUrl) {
@@ -450,11 +453,7 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
           setShopUrl(currentTeam.shopUrl);
         }
 
-        // Set Flash URL if exists
-        if (currentTeam.flashUrl) {
-          console.log('⚡ Loaded team Flash URL:', currentTeam.flashUrl);
-          setFlashUrl(currentTeam.flashUrl);
-        }
+        // REMOVED: Flash URL loading - Flash feature removed
 
         // Extract banner URL with fallback to Nostr event tags
         let bannerUrl = currentTeam.bannerImage;
@@ -532,13 +531,7 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
       tags.push(['t', 'fitness']);
       tags.push(['t', 'runstr']);
 
-      // Preserve charity if exists
-      if (currentTeamData?.charityId || selectedCharityId) {
-        const charity = selectedCharityId || currentTeamData?.charityId;
-        if (charity && charity !== 'none') {
-          tags.push(['charity', charity]);
-        }
-      }
+      // REMOVED: Charity preservation - charity feature removed
 
       // Preserve shop URL if exists
       if (currentTeamData?.shopUrl || shopUrl) {
@@ -548,13 +541,7 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
         }
       }
 
-      // Preserve Flash URL if exists
-      if (currentTeamData?.flashUrl || flashUrl) {
-        const flash = flashUrl || currentTeamData?.flashUrl;
-        if (flash) {
-          tags.push(['flash', flash]);
-        }
-      }
+      // REMOVED: Flash URL preservation - Flash feature removed
 
       // Add banner URL if provided
       if (editedBannerUrl.trim()) {
@@ -593,7 +580,7 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
           await teamCache.clearCache();
 
           // Reload team data with fresh cache
-          await loadTeamCharity();
+          await loadTeamData();
           console.log('✅ Team data reloaded with fresh cache');
         }, 3000);
 
@@ -635,7 +622,7 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
 
         // Also reload team data in background
         setTimeout(() => {
-          loadTeamCharity();
+          loadTeamData();
         }, 2000);
       } else {
         throw new Error('Failed to publish update');
@@ -649,128 +636,7 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
     }
   };
 
-  // Save charity selection to team's Nostr event
-  const saveCharitySelection = async () => {
-    try {
-      setIsSavingCharity(true);
-
-      // Get auth data for signing
-      const authData = await getAuthenticationData();
-      if (!authData?.nsec) {
-        Alert.alert('Error', 'Authentication required to update team');
-        return;
-      }
-
-      // Get global NDK instance
-      const g = globalThis as any;
-      const ndk = g.__RUNSTR_NDK_INSTANCE__;
-
-      if (!ndk) {
-        Alert.alert('Error', 'Unable to connect to Nostr network');
-        return;
-      }
-
-      // Create signer
-      const signer = new NDKPrivateKeySigner(authData.nsec);
-
-      // Create updated team event
-      const teamEvent = new NDKEvent(ndk);
-      teamEvent.kind = 33404;
-
-      // Build tags preserving existing team data
-      const tags: string[][] = [
-        ['d', teamId],
-        ['name', currentTeamData?.name || data.team.name],
-        ['about', currentTeamData?.name || data.team.name],
-        ['captain', authData.hexPubkey],
-      ];
-
-      // Preserve location if exists
-      if (currentTeamData?.location) {
-        tags.push(['location', currentTeamData.location]);
-      }
-
-      // Preserve activity tags (filter out base tags to avoid duplication)
-      const baseTags = ['team', 'fitness', 'runstr'];
-      if (currentTeamData?.tags && currentTeamData.tags.length > 0) {
-        const activityTags = currentTeamData.tags.filter((tag: string) =>
-          !baseTags.includes(tag.toLowerCase())
-        );
-        activityTags.forEach((tag: string) => {
-          tags.push(['t', tag.toLowerCase()]);
-        });
-      }
-
-      // Always add base tags (only once)
-      tags.push(['t', 'team']);
-      tags.push(['t', 'fitness']);
-      tags.push(['t', 'runstr']);
-
-      // Add/update charity tag
-      if (selectedCharityId && selectedCharityId !== 'none') {
-        tags.push(['charity', selectedCharityId]);
-      }
-
-      // Add/update shop URL tag
-      if (shopUrl) {
-        tags.push(['shop', shopUrl]);
-      }
-
-      // Add/update Flash URL tag
-      if (flashUrl) {
-        tags.push(['flash', flashUrl]);
-      }
-
-      // Preserve member tags
-      if (currentTeamData?.nostrEvent?.tags) {
-        const memberTags = currentTeamData.nostrEvent.tags.filter(
-          (tag: string[]) => tag[0] === 'member'
-        );
-        memberTags.forEach((tag: string[]) => tags.push(tag));
-      }
-
-      teamEvent.tags = tags;
-
-      // Use actual team description from current team data, NEVER JSON
-      teamEvent.content = currentTeamData?.description || '';
-
-      teamEvent.created_at = Math.floor(Date.now() / 1000);
-
-      // Sign and publish
-      await teamEvent.sign(signer);
-      const publishResult = await teamEvent.publish();
-
-      if (publishResult) {
-        setShowCharityModal(false);
-
-        // Clear cache after a delay to allow relay propagation
-        setTimeout(async () => {
-          console.log('🔄 Clearing cache after 3-second relay propagation delay...');
-          const teamCache = TeamCacheService.getInstance();
-          await teamCache.clearCache();
-
-          // Reload team data with fresh cache
-          await loadTeamCharity();
-          console.log('✅ Team data reloaded with fresh cache');
-        }, 3000);
-
-        Alert.alert('Success', 'Team charity updated successfully! It may take a moment to appear.');
-
-        // Reload team data after a delay
-        setTimeout(() => {
-          loadTeamCharity();
-        }, 2000);
-      } else {
-        throw new Error('Failed to publish update');
-      }
-
-    } catch (error) {
-      console.error('Error saving charity selection:', error);
-      Alert.alert('Error', 'Failed to update team charity. Please try again.');
-    } finally {
-      setIsSavingCharity(false);
-    }
-  };
+  // REMOVED: saveCharitySelection() - charity feature removed
 
   // Save shop URL to team's Nostr event
   const handleUpdateTeamShopUrl = async (newShopUrl: string) => {
@@ -827,10 +693,7 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
       tags.push(['t', 'fitness']);
       tags.push(['t', 'runstr']);
 
-      // Add charity if exists
-      if (selectedCharityId && selectedCharityId !== 'none') {
-        tags.push(['charity', selectedCharityId]);
-      }
+      // REMOVED: Charity preservation - charity feature removed
 
       // Add shop URL if provided
       if (newShopUrl) {
@@ -856,95 +719,7 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
     }
   };
 
-  // Save Flash URL to team's Nostr event
-  const handleUpdateTeamFlashUrl = async (newFlashUrl: string) => {
-    try {
-      // Get auth data for signing
-      const authData = await getAuthenticationData();
-      if (!authData?.nsec) {
-        Alert.alert('Error', 'Authentication required to update team');
-        return;
-      }
-
-      // Get global NDK instance
-      const g = globalThis as any;
-      const ndk = g.__RUNSTR_NDK_INSTANCE__;
-
-      if (!ndk) {
-        Alert.alert('Error', 'Unable to connect to Nostr network');
-        return;
-      }
-
-      // Create signer
-      const signer = new NDKPrivateKeySigner(authData.nsec);
-
-      // Create updated team event
-      const teamEvent = new NDKEvent(ndk);
-      teamEvent.kind = 33404;
-
-      // Build tags preserving existing team data
-      const tags: string[][] = [
-        ['d', teamId],
-        ['name', currentTeamData?.name || data.team.name],
-        ['about', currentTeamData?.description || data.team.name],
-        ['captain', authData.hexPubkey],
-      ];
-
-      // Preserve existing tags
-      if (currentTeamData?.location) {
-        tags.push(['location', currentTeamData.location]);
-      }
-
-      // Preserve activity tags (filter out base tags to avoid duplication)
-      const baseTagsFlash = ['team', 'fitness', 'runstr'];
-      if (currentTeamData?.tags && currentTeamData.tags.length > 0) {
-        const activityTags = currentTeamData.tags.filter((tag: string) =>
-          !baseTagsFlash.includes(tag.toLowerCase())
-        );
-        activityTags.forEach((tag: string) => {
-          tags.push(['t', tag.toLowerCase()]);
-        });
-      }
-
-      // Always add base tags (only once)
-      tags.push(['t', 'team']);
-      tags.push(['t', 'fitness']);
-      tags.push(['t', 'runstr']);
-
-      // Add charity if exists
-      if (selectedCharityId && selectedCharityId !== 'none') {
-        tags.push(['charity', selectedCharityId]);
-      }
-
-      // Add shop URL if exists
-      if (shopUrl) {
-        tags.push(['shop', shopUrl]);
-      }
-
-      // Add Flash URL if provided
-      if (newFlashUrl) {
-        tags.push(['flash', newFlashUrl]);
-      }
-
-      // Preserve member tags
-      if (currentTeamData?.nostrEvent?.tags) {
-        const memberTags = currentTeamData.nostrEvent.tags.filter(
-          (tag: string[]) => tag[0] === 'member'
-        );
-        memberTags.forEach((tag: string[]) => tags.push(tag));
-      }
-
-      teamEvent.tags = tags;
-      teamEvent.content = currentTeamData?.description || '';
-      await teamEvent.sign(signer);
-      await teamEvent.publish();
-
-      console.log('✅ Team Flash URL updated successfully');
-    } catch (error) {
-      console.error('Error updating team Flash URL:', error);
-      Alert.alert('Error', 'Failed to update team Flash URL');
-    }
-  };
+  // REMOVED: handleUpdateTeamFlashUrl() - Flash feature removed
 
   const handleCloseEventWizard = () => {
     setEventWizardVisible(false);
@@ -1272,25 +1047,7 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Status Bar */}
 
-      {/* Show banner if team doesn't have kind 30000 list */}
-      {/* Only show setup banner when truly no list AND no cached members */}
-      {hasKind30000List === false && teamMembers.length === 0 && (
-        <View style={styles.listWarningBanner}>
-          <Text style={styles.listWarningTitle}>⚠️ Team Setup Required</Text>
-          <Text style={styles.listWarningText}>
-            Your team needs a member list to run competitions
-          </Text>
-          <TouchableOpacity
-            style={[styles.createListButton, ...(isCreatingList ? [styles.createListButtonDisabled] : [])]}
-            onPress={handleCreateMemberList}
-            disabled={isCreatingList}
-          >
-            <Text style={styles.createListButtonText}>
-              {isCreatingList ? 'Creating...' : 'Create Member List'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      {/* REMOVED: Member list setup banner - teams no longer require member lists */}
 
       {/* Header */}
       <View style={styles.header}>
@@ -1310,137 +1067,16 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
 
       {/* Content */}
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Team Management Section */}
-        <View style={styles.managementSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Team Members</Text>
-            {/* Show Add Member button if list exists OR if members are loaded */}
-            {(hasKind30000List === true || teamMembers.length > 0) && (
-              <TouchableOpacity
-                style={styles.addMemberButton}
-                onPress={() => setShowAddMemberModal(true)}
-              >
-                <Text style={styles.addMemberButtonText}>+ Add Member</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+        {/* REMOVED: Team Members Section - teams no longer require member management */}
 
-          <ScrollView
-            style={styles.membersList}
-            showsVerticalScrollIndicator={false}
-          >
-            {isLoadingMembers ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyStateText}>Loading members...</Text>
-              </View>
-            ) : teamMembers.length > 0 ? (
-              teamMembers.map((memberPubkey, index) => (
-                <View key={memberPubkey} style={styles.memberItem}>
-                  <View style={styles.memberInfo}>
-                    <ZappableUserRow
-                      npub={memberPubkey}
-                      fallbackName={index === 0 ? 'Captain' : `Member ${index}`}
-                      additionalContent={
-                        <Text style={styles.memberStatus}>
-                          {index === 0 ? 'Captain' : 'Member'}
-                        </Text>
-                      }
-                      showQuickZap={false}
-                      style={{ flex: 1 }}
-                    />
-                  </View>
-                  <View style={styles.memberActions}>
-                    {index !== 0 && ( // Don't allow removing the captain
-                      <TouchableOpacity
-                        style={styles.miniBtn}
-                        onPress={() => handleRemoveMember(memberPubkey)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.miniBtnText}>Remove</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-              ))
-            ) : data.members && data.members.length > 0 ? (
-              // Fallback to data.members if teamMembers not loaded
-              data.members.slice(0, 4).map((member) => (
-                <View key={member.id} style={styles.memberItem}>
-                  <View style={styles.memberInfo}>
-                    <View style={styles.memberAvatar}>
-                      <Text style={styles.memberAvatarText}>
-                        {member.name ? member.name.charAt(0).toUpperCase() : '?'}
-                      </Text>
-                    </View>
-                    <View style={styles.memberDetails}>
-                      <Text style={styles.memberName}>{member.name}</Text>
-                      <Text style={styles.memberStatus}>
-                        {member.status === 'active'
-                          ? `Active • ${member.eventCount} events`
-                          : `Inactive • ${member.inactiveDays} days`}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.memberActions}>
-                    <TouchableOpacity
-                      style={styles.miniBtn}
-                      onPress={() => handleRemoveMember(member.id)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.miniBtnText}>Remove</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))
-            ) : (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyStateText}>No team members yet</Text>
-              </View>
-            )}
-          </ScrollView>
-        </View>
-
-        {/* Team Charity Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Team Charity</Text>
-            <TouchableOpacity
-              style={styles.editBtn}
-              onPress={() => setShowCharityModal(true)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.editBtnText}>
-                {selectedCharityId ? 'Change' : 'Select'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.sectionContent}>
-            {selectedCharityId ? (
-              <View style={styles.charityInfo}>
-                <Text style={styles.charityName}>
-                  {getCharityById(selectedCharityId)?.name}
-                </Text>
-                <Text style={styles.charityDescription}>
-                  {getCharityById(selectedCharityId)?.description}
-                </Text>
-                <Text style={styles.charityAddress}>
-                  Lightning: {getCharityById(selectedCharityId)?.lightningAddress}
-                </Text>
-              </View>
-            ) : (
-              <Text style={styles.noCharityText}>
-                No charity selected. Tap "Select" to choose a charity for your team to support.
-              </Text>
-            )}
-          </View>
-        </View>
+        {/* REMOVED: Team Charity Section - charity feature removed */}
 
         {/* Quick Actions */}
         <QuickActionsSection
           onCreateEvent={handleShowEventWizard}
-          onCreateLeague={handleShowLeagueWizard}
+          // onCreateLeague={handleShowLeagueWizard} // REMOVED: Moving away from leagues
           onEditTeam={() => setShowEditTeamModal(true)}
-          onManageFlash={() => setShowFlashModal(true)}
+          // onManageFlash={() => setShowFlashModal(true)} // REMOVED: Removing Flash subscription management
         />
 
         {/* Active Events with QR */}
@@ -1449,16 +1085,7 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
           onShowQR={handleShowEventQR}
         />
 
-        {/* Team Join Requests */}
-        <JoinRequestsSection
-          teamId={data.team.id}
-          captainPubkey={captainId}
-          onMemberApproved={(requesterPubkey) => {
-            // Handle member approval - could refresh member list
-            console.log('Team member approved:', requesterPubkey);
-            loadTeamMembers(); // Refresh member list
-          }}
-        />
+        {/* REMOVED: Team Join Requests - teams are bookmarks now, no approval needed */}
 
         {/* Event Join Requests */}
         <EventJoinRequestsSection
@@ -1616,153 +1243,9 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
         </View>
       </Modal>
 
-      {/* Charity Selection Modal */}
-      <Modal
-        visible={showCharityModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowCharityModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Team Charity</Text>
-            <Text style={styles.modalDescription}>
-              Choose a charity that your team will support. Members can zap the charity directly from your team page.
-            </Text>
+      {/* REMOVED: Charity Selection Modal - charity feature removed */}
 
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={selectedCharityId || 'none'}
-                onValueChange={(value) => setSelectedCharityId(value === 'none' ? undefined : value)}
-                style={styles.picker}
-                itemStyle={styles.pickerItem}
-              >
-                <Picker.Item label="No charity selected" value="none" />
-                {CHARITIES.map(charity => (
-                  <Picker.Item
-                    key={charity.id}
-                    label={charity.name}
-                    value={charity.id}
-                  />
-                ))}
-              </Picker>
-            </View>
-
-            {selectedCharityId && (
-              <Text style={styles.selectedCharityDescription}>
-                {getCharityById(selectedCharityId)?.description}
-              </Text>
-            )}
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setShowCharityModal(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.saveButton]}
-                onPress={async () => {
-                  await saveCharitySelection();
-                }}
-                disabled={isSavingCharity}
-              >
-                <Text style={styles.saveButtonText}>{isSavingCharity ? 'Saving...' : 'Save'}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Flash Subscription Modal */}
-      <Modal
-        visible={showFlashModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowFlashModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Flash Subscription URL</Text>
-            <Text style={styles.modalDescription}>
-              Add a Flash subscription URL to enable recurring Bitcoin payments from your supporters.
-            </Text>
-
-            <TextInput
-              style={[
-                styles.modalInput,
-                flashUrlError && styles.modalInputError
-              ]}
-              placeholder="https://app.paywithflash.com/subscription-page?flashId=1872"
-              placeholderTextColor={theme.colors.secondary}
-              value={flashUrlInput}
-              onChangeText={(text) => {
-                setFlashUrlInput(text);
-                if (text && !validateFlashUrl(text)) {
-                  setFlashUrlError('Please enter a valid Flash subscription URL');
-                } else {
-                  setFlashUrlError('');
-                }
-              }}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-            />
-            {flashUrlError && (
-              <Text style={styles.modalErrorText}>{flashUrlError}</Text>
-            )}
-            <Text style={styles.modalHelpText}>
-              Get your Flash subscription URL from app.paywithflash.com
-            </Text>
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => {
-                  setShowFlashModal(false);
-                  setFlashUrlInput(flashUrl || '');
-                  setFlashUrlError('');
-                }}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              {flashUrl && (
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.modalBtnDanger]}
-                  onPress={async () => {
-                    await handleUpdateTeamFlashUrl('');
-                    setFlashUrl('');
-                    setFlashUrlInput('');
-                    setShowFlashModal(false);
-                    Alert.alert('Success', 'Flash subscription URL removed');
-                  }}
-                >
-                  <Text style={styles.saveButtonText}>Remove</Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                style={[
-                  styles.modalButton,
-                  styles.saveButton,
-                  (!flashUrlInput || flashUrlError) && styles.modalBtnDisabled
-                ]}
-                onPress={async () => {
-                  if (flashUrlInput && !flashUrlError) {
-                    await handleUpdateTeamFlashUrl(flashUrlInput);
-                    setFlashUrl(flashUrlInput);
-                    setShowFlashModal(false);
-                    Alert.alert('Success', 'Flash subscription URL saved');
-                  }
-                }}
-                disabled={!flashUrlInput || !!flashUrlError}
-              >
-                <Text style={styles.saveButtonText}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* REMOVED: Flash Subscription Modal - Flash feature removed */}
 
       {/* Wizard Modals */}
       <EventCreationWizard
@@ -1792,48 +1275,7 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
         />
       )}
 
-      {/* Add Member Modal */}
-      <Modal
-        visible={showAddMemberModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowAddMemberModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add Team Member</Text>
-            <Text style={styles.modalDescription}>
-              Enter the npub or hex pubkey of the member to add
-            </Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="npub1... or hex pubkey"
-              placeholderTextColor={theme.colors.secondary}
-              value={newMemberNpub}
-              onChangeText={setNewMemberNpub}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonSecondary]}
-                onPress={() => {
-                  setShowAddMemberModal(false);
-                  setNewMemberNpub('');
-                }}
-              >
-                <Text style={styles.modalButtonTextSecondary}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonPrimary]}
-                onPress={handleAddMember}
-              >
-                <Text style={styles.modalButtonText}>Add Member</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* REMOVED: Add Member Modal - teams no longer require member management */}
     </SafeAreaView>
   );
 };

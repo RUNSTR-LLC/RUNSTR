@@ -243,8 +243,8 @@ export class NostrProfileService {
         });
       });
 
-      // Wait for events
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // Wait for events (increased to 3s for better relay response time)
+      await new Promise((resolve) => setTimeout(resolve, 3000));
       subscription.stop();
 
       if (profileEvents.length === 0) {
@@ -309,12 +309,13 @@ export class NostrProfileService {
    */
   async getProfile(
     identifier: string,
-    forceRefresh = false
+    forceRefresh = false,
+    retryCount = 0
   ): Promise<NostrProfile | null> {
     try {
       const pubkey = this.npubToHex(identifier);
 
-      console.log(`🔍 Fetching profile for: ${identifier.slice(0, 20)}...`);
+      console.log(`🔍 Fetching profile for: ${identifier.slice(0, 20)}... (attempt ${retryCount + 1})`);
 
       // Check cache first (unless force refresh)
       if (!forceRefresh) {
@@ -353,16 +354,32 @@ export class NostrProfileService {
               profile.display_name || profile.name || 'Unknown'
             }`
           );
+          return profile;
         } else {
-          console.log(`⚠️ No profile found for: ${identifier.slice(0, 20)}...`);
-        }
+          // Retry once if no profile found and this is first attempt
+          if (retryCount === 0) {
+            console.log(`🔄 No profile found, retrying once for: ${identifier.slice(0, 20)}...`);
+            this.pendingRequests.delete(pubkey);
+            await new Promise(resolve => setTimeout(resolve, 500)); // Brief delay before retry
+            return await this.getProfile(identifier, forceRefresh, retryCount + 1);
+          }
 
-        return profile;
+          console.log(`⚠️ No profile found after retry for: ${identifier.slice(0, 20)}...`);
+          return null;
+        }
       } finally {
         this.pendingRequests.delete(pubkey);
       }
     } catch (error) {
       console.error('❌ Error fetching profile:', error);
+
+      // Retry once on error if this is first attempt
+      if (retryCount === 0) {
+        console.log(`🔄 Error occurred, retrying once for: ${identifier.slice(0, 20)}...`);
+        await new Promise(resolve => setTimeout(resolve, 500)); // Brief delay before retry
+        return await this.getProfile(identifier, forceRefresh, retryCount + 1);
+      }
+
       return null;
     }
   }

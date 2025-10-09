@@ -1,6 +1,6 @@
 /**
- * CompetitionTabs - Tab navigation component for League and Events
- * Provides a clean 2-tab interface for team competitions with enhanced styling
+ * CompetitionTabs - Tab navigation component for Events and Challenges
+ * Provides interface for team events and 1v1 challenges
  */
 
 import React, { useState } from 'react';
@@ -14,21 +14,19 @@ import {
 } from 'react-native';
 import { theme } from '../../styles/theme';
 
-export type CompetitionTab = 'league' | 'events' | 'chat';
+export type CompetitionTab = 'events' | 'challenges';
 
 interface CompetitionTabsProps {
-  leagueContent: React.ReactNode;
   eventsContent: React.ReactNode;
-  chatContent?: React.ReactNode; // Optional chat content
+  challengesContent: React.ReactNode;
   defaultTab?: CompetitionTab;
   onTabChange?: (tab: CompetitionTab) => void;
 }
 
 export const CompetitionTabs: React.FC<CompetitionTabsProps> = ({
-  leagueContent,
   eventsContent,
-  chatContent,
-  defaultTab = 'league',
+  challengesContent,
+  defaultTab = 'events',
   onTabChange,
 }) => {
   const [activeTab, setActiveTab] = useState<CompetitionTab>(defaultTab);
@@ -42,25 +40,6 @@ export const CompetitionTabs: React.FC<CompetitionTabsProps> = ({
     <View style={styles.container}>
       {/* Tab Headers */}
       <View style={styles.tabHeader}>
-        <TouchableOpacity
-          style={[
-            styles.tab,
-            activeTab === 'league' && styles.activeTab,
-          ]}
-          onPress={() => handleTabPress('league')}
-          activeOpacity={0.7}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === 'league' && styles.activeTabText,
-            ]}
-          >
-            League
-          </Text>
-          {activeTab === 'league' && <View style={styles.activeIndicator} />}
-        </TouchableOpacity>
-
         <TouchableOpacity
           style={[
             styles.tab,
@@ -80,33 +59,30 @@ export const CompetitionTabs: React.FC<CompetitionTabsProps> = ({
           {activeTab === 'events' && <View style={styles.activeIndicator} />}
         </TouchableOpacity>
 
-        {chatContent && (
-          <TouchableOpacity
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            activeTab === 'challenges' && styles.activeTab,
+          ]}
+          onPress={() => handleTabPress('challenges')}
+          activeOpacity={0.7}
+        >
+          <Text
             style={[
-              styles.tab,
-              activeTab === 'chat' && styles.activeTab,
+              styles.tabText,
+              activeTab === 'challenges' && styles.activeTabText,
             ]}
-            onPress={() => handleTabPress('chat')}
-            activeOpacity={0.7}
           >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === 'chat' && styles.activeTabText,
-              ]}
-            >
-              Chat
-            </Text>
-            {activeTab === 'chat' && <View style={styles.activeIndicator} />}
-          </TouchableOpacity>
-        )}
+            Challenges
+          </Text>
+          {activeTab === 'challenges' && <View style={styles.activeIndicator} />}
+        </TouchableOpacity>
       </View>
 
       {/* Tab Content */}
       <View style={styles.tabContent}>
-        {activeTab === 'league' && leagueContent}
         {activeTab === 'events' && eventsContent}
-        {activeTab === 'chat' && chatContent}
+        {activeTab === 'challenges' && challengesContent}
       </View>
     </View>
   );

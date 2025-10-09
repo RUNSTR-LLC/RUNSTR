@@ -50,6 +50,7 @@ import { Alert } from 'react-native';
 interface ProfileScreenProps {
   data: ProfileScreenData;
   isLoadingTeam?: boolean;
+  isLoadingProfile?: boolean;
   onNavigateToTeam: () => void;
   onNavigateToTeamDiscovery?: () => void;
   onViewCurrentTeam?: () => void;
@@ -71,6 +72,7 @@ interface ProfileScreenProps {
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   data,
   isLoadingTeam = false,
+  isLoadingProfile = false,
   onNavigateToTeam,
   onNavigateToTeamDiscovery,
   onViewCurrentTeam,
@@ -429,7 +431,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             }}
             activeOpacity={0.7}
           >
-            <ProfileHeader user={data.user} />
+            <ProfileHeader user={data.user} isLoading={isLoadingProfile} />
           </TouchableOpacity>
 
           {/* Notification Badge - positioned in bottom-right of profile header */}

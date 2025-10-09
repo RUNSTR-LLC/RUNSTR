@@ -4,14 +4,14 @@
  */
 
 import React from 'react';
-import { View, ActivityIndicator, Text } from 'react-native';
+import { View, ActivityIndicator, Text, TouchableOpacity, StyleSheet } from 'react-native';
 // Navigation container provided by Expo Router - removed NavigationContainer import
 import { createStackNavigator } from '@react-navigation/stack';
 
 import { theme } from '../styles/theme';
 
 // Screens
-import { EnhancedTeamScreen } from '../screens/EnhancedTeamScreen';
+// import { EnhancedTeamScreen } from '../screens/EnhancedTeamScreen'; // REMOVED: Dead code - not used in authenticated flow
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { ProfileEditScreen } from '../screens/ProfileEditScreen';
 import { WalletScreen } from '../screens/WalletScreen';
@@ -40,6 +40,7 @@ import { createNavigationHandlers } from './navigationHandlers';
 
 // Data Hooks
 import { useNavigationData } from '../contexts/NavigationDataContext';
+import { useWalletStore } from '../store/walletStore';
 
 // Screen params for type safety
 export type RootStackParamList = {
@@ -93,6 +94,9 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
     error,
     refresh,
   } = useNavigationData();
+
+  // Wallet state from zustand store
+  const { walletExists, createWallet } = useWalletStore();
 
   // Determine initial route based on user state
   const getInitialRoute = (): keyof RootStackParamList => {
@@ -215,81 +219,8 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
         )}
       </Stack.Screen>
 
-      {/* Enhanced Team Screen */}
-      <Stack.Screen name="EnhancedTeamScreen" options={screenConfigurations.Team}>
-        {({ navigation, route }) => {
-          // Log raw route params first
-          console.log('🔍 AppNavigator: RAW route.params:', route.params);
-          console.log('🔍 AppNavigator: route.params keys:', route.params ? Object.keys(route.params) : 'undefined');
-          console.log('🔍 AppNavigator: userIsCaptain in params?', route.params?.userIsCaptain);
-
-          const { team, userIsMember = false, currentUserNpub, userIsCaptain = false } = route.params || {};
-
-          console.log('🚨 AppNavigator: Route params AFTER destructuring:', {
-            hasTeam: !!team,
-            userIsMember,
-            currentUserNpub: currentUserNpub?.slice(0, 20) + '...',
-            userIsCaptain,
-            allParamKeys: Object.keys(route.params || {})
-          });
-
-          return (
-            <EnhancedTeamScreen
-              data={{
-                team: (() => {
-                  console.log('🔍 AppNavigator: Team data being passed to EnhancedTeamScreen:', {
-                    id: team?.id,
-                    name: team?.name,
-                    captainId: team?.captainId ? team.captainId.slice(0, 10) + '...' : 'missing',
-                    fullTeamKeys: team ? Object.keys(team) : 'no team object',
-                  });
-                  return team;
-                })(), // Pass original team data to preserve all captain fields
-                leaderboard: [],
-                events: [],
-                challenges: [],
-              }}
-              onMenuPress={() => handlers.handleMenuPress(navigation)}
-              onCaptainDashboard={() => {
-                console.log('🎖️ AppNavigator: Captain dashboard handler called');
-                console.log('🎖️ AppNavigator: Team data:', {
-                  hasTeam: !!team,
-                  teamId: team?.id,
-                  teamName: team?.name,
-                  userIsCaptain
-                });
-                // Pass team information to the captain dashboard handler
-                if (team && team.id) {
-                  handlers.handleCaptainDashboard(navigation, team.id, team.name);
-                } else {
-                  console.error('❌ AppNavigator: Team data missing for captain dashboard');
-                  handlers.handleCaptainDashboard(navigation);
-                }
-              }}
-              onAddChallenge={() => handlers.handleAddChallenge(navigation)}
-              onEventPress={(eventId, eventData) =>
-                navigation.navigate('EventDetail', { eventId, eventData })
-              }
-              onLeaguePress={(leagueId, leagueData) =>
-                navigation.navigate('LeagueDetail', { leagueId, leagueData })
-              }
-              onChallengePress={(challengeId) =>
-                navigation.navigate('ChallengeDetail', { challengeId })
-              }
-              onNavigateToProfile={() => navigation.navigate('Profile')}
-              onLeaveTeam={() => handlers.handleLeaveTeam(navigation, refresh)}
-              onTeamDiscovery={() => navigation.navigate('Team')}
-              onJoinTeam={() =>
-                handlers.handleTeamJoin(team, navigation, refresh)
-              }
-              showJoinButton={!userIsMember}
-              userIsMember={userIsMember}
-              currentUserNpub={currentUserNpub} // Pass working npub to avoid AsyncStorage corruption
-              userIsCaptain={userIsCaptain} // Pass correctly calculated captain status from navigation
-            />
-          );
-        }}
-      </Stack.Screen>
+      {/* REMOVED: EnhancedTeamScreen route - dead code, not used in authenticated flow */}
+      {/* Authenticated users use AuthenticatedNavigator in App.tsx which renders SimpleTeamScreen */}
 
       {/* Profile Screen */}
       <Stack.Screen name="Profile" options={screenConfigurations.Profile}>
@@ -344,8 +275,42 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
 
       {/* Wallet Screen */}
       <Stack.Screen name="Wallet" options={screenConfigurations.Wallet}>
-        {({ navigation }) =>
-          walletData ? (
+        {({ navigation }) => {
+          // Check if wallet exists using walletStore
+          if (!walletExists && walletData) {
+            // No wallet found - show create button
+            return (
+              <View style={styles.walletEmptyContainer}>
+                <View style={styles.walletEmptyContent}>
+                  <Text style={styles.walletEmptyTitle}>No Wallet Found</Text>
+                  <Text style={styles.walletEmptyDescription}>
+                    Create a RUNSTR Lightning wallet to send and receive Bitcoin
+                    zaps. Your wallet is stored securely on Nostr.
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.createWalletButton}
+                    onPress={async () => {
+                      await createWallet();
+                      // Wallet created - screen will automatically update
+                    }}
+                  >
+                    <Text style={styles.createWalletButtonText}>
+                      Create RUNSTR Wallet
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.backButton}
+                    onPress={() => navigation.goBack()}
+                  >
+                    <Text style={styles.backButtonText}>Go Back</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            );
+          }
+
+          // Wallet exists or still loading - show normal wallet screen
+          return walletData ? (
             <WalletScreen
               data={walletData}
               onBack={() => navigation.goBack()}
@@ -376,8 +341,8 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
                 Loading Wallet...
               </Text>
             </View>
-          )
-        }
+          );
+        }}
       </Stack.Screen>
 
       {/* Captain Dashboard Screen */}
@@ -594,3 +559,54 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
     </Stack.Navigator>
   );
 };
+
+const styles = StyleSheet.create({
+  walletEmptyContainer: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  walletEmptyContent: {
+    maxWidth: 400,
+    width: '100%',
+    alignItems: 'center',
+  },
+  walletEmptyTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  walletEmptyDescription: {
+    fontSize: 16,
+    color: theme.colors.textSecondary,
+    marginBottom: 32,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  createWalletButton: {
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 8,
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  createWalletButtonText: {
+    color: theme.colors.background,
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  backButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  backButtonText: {
+    color: theme.colors.textSecondary,
+    fontSize: 16,
+  },
+});

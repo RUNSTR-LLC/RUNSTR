@@ -19,16 +19,16 @@ interface QuickActionItem {
 
 interface QuickActionsSectionProps {
   onCreateEvent: () => void;
-  onCreateLeague: () => void;
+  // onCreateLeague: () => void; // REMOVED: Moving away from leagues
   onEditTeam?: () => void;
-  onManageFlash?: () => void;
+  // onManageFlash?: () => void; // REMOVED: Removing Flash subscription management
 }
 
 export const QuickActionsSection: React.FC<QuickActionsSectionProps> = ({
   onCreateEvent,
-  onCreateLeague,
+  // onCreateLeague, // REMOVED: Moving away from leagues
   onEditTeam,
-  onManageFlash,
+  // onManageFlash, // REMOVED: Removing Flash subscription management
 }) => {
   const quickActions: QuickActionItem[] = [
     {
@@ -38,13 +38,14 @@ export const QuickActionsSection: React.FC<QuickActionsSectionProps> = ({
       description: 'Set up a single-day competition',
       onPress: onCreateEvent,
     },
-    {
-      id: 'create-league',
-      icon: 'trophy-outline',
-      title: 'Create League',
-      description: 'Start a multi-day league challenge',
-      onPress: onCreateLeague,
-    },
+    // REMOVED: Create League - Moving away from leagues to focus on events
+    // {
+    //   id: 'create-league',
+    //   icon: 'trophy-outline',
+    //   title: 'Create League',
+    //   description: 'Start a multi-day league challenge',
+    //   onPress: onCreateLeague,
+    // },
   ];
 
   // Add optional actions
@@ -58,18 +59,8 @@ export const QuickActionsSection: React.FC<QuickActionsSectionProps> = ({
     });
   }
 
-  // Remove Team Charity quick action to avoid duplication with dedicated section
-  // Charity management is handled in the dedicated Team Charity section
-
-  if (onManageFlash) {
-    quickActions.push({
-      id: 'manage-flash',
-      icon: 'flash-outline',
-      title: 'Subscriptions',
-      description: 'Flash Bitcoin subscriptions',
-      onPress: onManageFlash,
-    });
-  }
+  // REMOVED: Team Charity quick action - charity feature removed
+  // REMOVED: Flash subscription management - feature removed
 
   return (
     <View style={styles.container}>

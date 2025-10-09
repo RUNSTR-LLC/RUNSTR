@@ -104,18 +104,18 @@ class NutzapService {
         mint: walletState.mint
       });
 
-      // Check if wallet was restored or is new
-      const wasRestored = walletState.proofs.length > 0;
+      // Check wallet state
+      const hasWallet = walletState.balance > 0 || walletState.proofs.length > 0;
 
-      if (wasRestored) {
-        console.log('[NutZap] ✅ EXISTING WALLET FOUND');
-        console.log('[NutZap] ✅ Balance:', walletState.balance, 'sats');
-        console.log('[NutZap] ✅ Proofs:', walletState.proofs.length);
-        console.log('[NutZap] ✅ NO NEW WALLET CREATED');
+      if (hasWallet) {
+        console.log('[NutZap] ✅ RUNSTR WALLET LOADED');
+        console.log('[NutZap] Balance:', walletState.balance, 'sats');
+        console.log('[NutZap] Proofs:', walletState.proofs.length, walletState.proofs.length === 0 ? '(will decrypt on send)' : '');
+        console.log('[NutZap] Mint:', walletState.mint);
       } else {
-        console.log('[NutZap] ℹ️  No existing wallet found');
-        console.log('[NutZap] ℹ️  Empty wallet state returned');
-        console.log('[NutZap] ⚠️  If you see this but expected a wallet, check Nostr connection');
+        console.log('[NutZap] ℹ️  No RUNSTR wallet found');
+        console.log('[NutZap] ℹ️  User must create wallet via UI button');
+        console.log('[NutZap] ℹ️  NO AUTO-CREATE');
       }
 
       // Initialize WalletSync in background (non-blocking)

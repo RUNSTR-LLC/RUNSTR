@@ -179,7 +179,56 @@ export class WalletSync {
   }
 
   /**
+   * Publish wallet info event with deterministic d-tag
+   * ✅ NEW: Uses RUNSTR-specific d-tag for deterministic wallet identity
+   */
+  async publishWalletInfo(dTag: string, name: string, balance: number, mintUrl: string): Promise<boolean> {
+    if (!this.ndk || !this.isConnected) {
+      console.log('[WalletSync] Not connected, cannot publish wallet info');
+      return false;
+    }
+
+    try {
+      console.log('[WalletSync] Publishing wallet info to Nostr...');
+      console.log('[WalletSync] d-tag:', dTag);
+      console.log('[WalletSync] Name:', name);
+      console.log('[WalletSync] Balance:', balance);
+
+      const walletEvent = new NDKEvent(this.ndk);
+      walletEvent.kind = EVENT_KINDS.WALLET_INFO as NDKKind;
+      walletEvent.content = JSON.stringify({
+        owner: this.userPubkey,
+        mints: [mintUrl],
+        name,
+        unit: 'sat',
+        balance,
+        app: 'runstr',
+        version: '0.1.16',
+        last_updated: Date.now()
+      });
+      walletEvent.tags = [
+        ['d', dTag],           // Deterministic d-tag
+        ['mint', mintUrl],
+        ['name', name],
+        ['unit', 'sat'],
+        ['balance', balance.toString()]  // Public balance - no decryption needed
+      ];
+
+      await walletEvent.publish();
+      console.log('[WalletSync] ✅ Wallet info published to Nostr');
+      console.log('[WalletSync] Event ID:', walletEvent.id?.slice(0, 16) + '...');
+
+      return true;
+
+    } catch (error) {
+      console.error('[WalletSync] Publish wallet info failed:', error);
+      return false;
+    }
+  }
+
+  /**
    * Sync wallet to Nostr (backup)
+   * ✅ UPDATED: Uses RUNSTR d-tag
    */
   async syncWalletToNostr(): Promise<void> {
     if (!this.ndk || !this.isConnected) {
@@ -190,41 +239,13 @@ export class WalletSync {
     try {
       console.log('[WalletSync] Syncing wallet to Nostr...');
 
+      const { RUNSTR_WALLET_DTAG, RUNSTR_WALLET_NAME } = require('./WalletDetectionService');
       const balance = await WalletCore.getBalance();
-      const dTag = `wallet-${this.userPubkey.slice(0, 16)}`;
+      const mintUrl = await AsyncStorage.getItem(`@runstr:wallet_mint:${this.userPubkey}`) || 'https://mint.coinos.io';
 
-      // Check if wallet event already exists
-      const existingEvents = await this.ndk.fetchEvents({
-        kinds: [EVENT_KINDS.WALLET_INFO as NDKKind],
-        authors: [this.userPubkey],
-        '#d': [dTag],
-        limit: 1  // Only need latest wallet event
-      });
+      // Publish/update wallet info with RUNSTR d-tag
+      await this.publishWalletInfo(RUNSTR_WALLET_DTAG, RUNSTR_WALLET_NAME, balance, mintUrl);
 
-      if (existingEvents.size > 0) {
-        console.log('[WalletSync] Wallet event already exists, skipping');
-        return;
-      }
-
-      // Create wallet event
-      const walletEvent = new NDKEvent(this.ndk);
-      walletEvent.kind = EVENT_KINDS.WALLET_INFO as NDKKind;
-      walletEvent.content = JSON.stringify({
-        owner: this.userPubkey,
-        mints: [await AsyncStorage.getItem(`@runstr:wallet_mint:${this.userPubkey}`) || 'https://mint.coinos.io'],
-        name: 'RUNSTR Wallet',
-        unit: 'sat',
-        balance,
-        last_updated: Date.now()
-      });
-      walletEvent.tags = [
-        ['d', dTag],
-        ['mint', await AsyncStorage.getItem(`@runstr:wallet_mint:${this.userPubkey}`) || 'https://mint.coinos.io'],
-        ['name', 'RUNSTR Wallet'],
-        ['unit', 'sat']
-      ];
-
-      await walletEvent.publish();
       console.log('[WalletSync] Wallet synced to Nostr');
 
     } catch (error) {

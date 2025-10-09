@@ -105,29 +105,36 @@ export class DirectNostrProfileService {
         // Continue with null profile - will show basic fallback profile
       }
       
+      // If no profile data found, return null instead of creating fallback with "User xr8tvnnn"
+      // This allows the UI to show proper loading states
+      if (!nostrProfile) {
+        console.log('⚠️ DirectNostrProfileService: No profile data from Nostr, returning null for proper loading state');
+        return null;
+      }
+
       // Generate user ID from npub (deterministic)
       const userId = 'nostr_' + storedNpub.slice(-10);
-      
-      // Create direct Nostr user profile
+
+      // Create direct Nostr user profile with actual data
       const directUser: DirectNostrUser = {
         id: userId,
         npub: storedNpub,
-        name: nostrProfile?.display_name || nostrProfile?.name || `User ${storedNpub.slice(5, 13)}`,
+        name: nostrProfile.display_name || nostrProfile.name || 'Anonymous',
         role: 'member', // Default to member for Nostr-only users
         createdAt: new Date().toISOString(),
-        
+
         // Nostr profile data
-        bio: nostrProfile?.about,
-        website: nostrProfile?.website,
-        picture: nostrProfile?.picture,
-        banner: nostrProfile?.banner,
-        lud16: nostrProfile?.lud16,
-        displayName: nostrProfile?.display_name || nostrProfile?.name,
-        
+        bio: nostrProfile.about,
+        website: nostrProfile.website,
+        picture: nostrProfile.picture,
+        banner: nostrProfile.banner,
+        lud16: nostrProfile.lud16,
+        displayName: nostrProfile.display_name || nostrProfile.name,
+
         // Lightning address from Nostr profile
-        lightningAddress: nostrProfile?.lud16,
-        personalWalletAddress: nostrProfile?.lud16,
-        
+        lightningAddress: nostrProfile.lud16,
+        personalWalletAddress: nostrProfile.lud16,
+
         // Wallet settings for pure Nostr users
         walletBalance: 0, // Members receive payments directly to Lightning address
         hasWalletCredentials: false, // No CoinOS integration for pure Nostr users
@@ -175,43 +182,28 @@ export class DirectNostrProfileService {
 
   /**
    * Get immediate fallback profile (for instant display during loading)
+   * Returns null to allow UI to show proper loading states instead of fake names
    */
   static async getFallbackProfile(): Promise<DirectNostrUser | null> {
     try {
       const storedNpub = await getNpubFromStorage();
       if (!storedNpub) return null;
-      
-      console.log('🏃‍♂️ DirectNostrProfileService: Creating fallback profile for immediate display');
-      
-      const userId = 'nostr_' + storedNpub.slice(-10);
-      const fallbackName = `user_${storedNpub.slice(5, 13)}`;
-      
-      // Basic profile with npub-derived info
-      const fallbackProfile: DirectNostrUser = {
-        id: userId,
-        npub: storedNpub,
-        name: fallbackName,
-        displayName: fallbackName,
-        role: 'member',
-        createdAt: new Date().toISOString(),
-        
-        // Undefined fields - will be updated when real data loads
-        bio: undefined,
-        website: undefined, 
-        picture: undefined,
-        banner: undefined,
-        lud16: undefined,
-        
-        // Basic wallet settings
-        lightningAddress: undefined,
-        personalWalletAddress: undefined,
-        walletBalance: 0,
-        hasWalletCredentials: false,
-      };
-      
-      return fallbackProfile;
+
+      console.log('🏃‍♂️ DirectNostrProfileService: Checking for cached profile before creating fallback');
+
+      // Try to get cached profile first
+      const cachedProfile = await NostrCacheService.getCachedProfile<DirectNostrUser>(storedNpub);
+      if (cachedProfile) {
+        console.log('✅ DirectNostrProfileService: Using cached profile as fallback');
+        return cachedProfile;
+      }
+
+      // Return null to allow UI to show loading state
+      // This prevents showing "User xr8tvnnn" or other fake names
+      console.log('⚠️ DirectNostrProfileService: No cached profile, returning null for loading state');
+      return null;
     } catch (error) {
-      console.error('❌ DirectNostrProfileService: Error creating fallback profile:', error);
+      console.error('❌ DirectNostrProfileService: Error in getFallbackProfile:', error);
       return null;
     }
   }

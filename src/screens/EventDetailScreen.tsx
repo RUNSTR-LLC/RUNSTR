@@ -43,6 +43,8 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
   const [isCaptain, setIsCaptain] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [isLoading, setIsLoading] = useState(!passedEventData);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -50,18 +52,22 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
   }, [eventId]);
 
   const loadEventData = async () => {
-    setIsLoading(true);
     setError(null);
 
     try {
       console.log('🔍 Loading event:', eventId);
 
-      // Use passed event data or fetch from Nostr
+      // PHASE 1: Event data (instant if passed via navigation)
       let event = passedEventData;
 
       if (!event) {
+        setIsLoading(true);
+        console.log('⏳ Fetching event from Nostr (event data not passed)...');
         const SimpleCompetitionService = (await import('../services/competition/SimpleCompetitionService')).default;
         event = await SimpleCompetitionService.getInstance().getEventById(eventId);
+        setIsLoading(false);
+      } else {
+        console.log('✅ Using passed event data (instant load)');
       }
 
       if (!event) {
@@ -71,17 +77,19 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
       console.log('✅ Event loaded:', event.name);
       setEventData(event);
 
-      // Get team members
+      // PHASE 2: Team members (show participant count ASAP)
+      setLoadingMembers(true);
+      console.log('⏳ Fetching team members...');
+
       const TeamMemberCache = (await import('../services/team/TeamMemberCache')).TeamMemberCache.getInstance();
       const members = await TeamMemberCache.getTeamMembers(
         event.teamId,
         event.captainPubkey
       );
 
-      console.log(`Found ${members.length} team members`);
-
-      // Set participants
+      console.log(`✅ Found ${members.length} team members`);
       setParticipants(members);
+      setLoadingMembers(false);
 
       // Check if current user is a participant and/or captain
       const userHexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
@@ -96,7 +104,10 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
         console.log(`User is${isUserCaptain ? '' : ' not'} the captain`);
       }
 
-      // Calculate leaderboard
+      // PHASE 3: Leaderboard calculation (heaviest operation, show skeleton)
+      setLoadingLeaderboard(true);
+      console.log('⏳ Calculating leaderboard...');
+
       const SimpleLeaderboardService = (await import('../services/competition/SimpleLeaderboardService')).default;
       const rankings = await SimpleLeaderboardService.calculateEventLeaderboard(
         event,
@@ -104,13 +115,15 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
       );
 
       setLeaderboard(rankings);
+      setLoadingLeaderboard(false);
       console.log(`✅ Leaderboard calculated: ${rankings.length} entries`);
 
     } catch (err) {
       console.error('❌ Failed to load event:', err);
       setError(err instanceof Error ? err.message : 'Failed to load event');
-    } finally {
       setIsLoading(false);
+      setLoadingMembers(false);
+      setLoadingLeaderboard(false);
     }
   };
 
@@ -334,9 +347,16 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
             <Ionicons name="people" size={20} color={theme.colors.text} />
             <Text style={styles.participantsTitle}>Participants</Text>
           </View>
-          <Text style={styles.participantsCount}>
-            {participants.length} {participants.length === 1 ? 'person' : 'people'} joined
-          </Text>
+          {loadingMembers ? (
+            <View style={styles.loadingParticipants}>
+              <ActivityIndicator size="small" color={theme.colors.accent} />
+              <Text style={styles.loadingParticipantsText}>Loading participants...</Text>
+            </View>
+          ) : (
+            <Text style={styles.participantsCount}>
+              {participants.length} {participants.length === 1 ? 'person' : 'people'} joined
+            </Text>
+          )}
         </View>
 
         {/* Join Button */}
@@ -377,12 +397,19 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
 
         {/* Leaderboard */}
         <View style={styles.leaderboardContainer}>
-          <SimpleLeagueDisplay
-            leagueName="Event Leaderboard"
-            leaderboard={leaderboard}
-            loading={isLoading}
-            onRefresh={loadEventData}
-          />
+          {loadingLeaderboard ? (
+            <View style={styles.leaderboardLoading}>
+              <ActivityIndicator size="large" color={theme.colors.accent} />
+              <Text style={styles.leaderboardLoadingText}>Calculating leaderboard...</Text>
+            </View>
+          ) : (
+            <SimpleLeagueDisplay
+              leagueName="Event Leaderboard"
+              leaderboard={leaderboard}
+              loading={false}
+              onRefresh={loadEventData}
+            />
+          )}
         </View>
 
         {/* Bottom padding */}
@@ -505,6 +532,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: theme.colors.textSecondary,
   },
+  loadingParticipants: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  loadingParticipantsText: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+  },
   joinButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -542,6 +579,20 @@ const styles = StyleSheet.create({
   leaderboardContainer: {
     marginTop: 20,
     marginBottom: 20,
+  },
+  leaderboardLoading: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    backgroundColor: theme.colors.cardBackground,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    gap: 16,
+  },
+  leaderboardLoadingText: {
+    fontSize: 16,
+    color: theme.colors.textMuted,
   },
   loadingContainer: {
     flex: 1,

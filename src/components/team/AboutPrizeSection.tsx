@@ -8,9 +8,9 @@ interface AboutPrizeSectionProps {
   description: string;
   prizePool: number;
   onCaptainDashboard: () => void;
-  onJoinTeam?: () => void;
+  // onJoinTeam?: () => void; // REMOVED: Teams are bookmarks, join happens on discovery page
   isCaptain: boolean;
-  isMember: boolean;
+  // isMember: boolean; // REMOVED: No membership status needed for teams
   captainLoading?: boolean;
 }
 
@@ -18,18 +18,16 @@ export const AboutPrizeSection: React.FC<AboutPrizeSectionProps> = ({
   description,
   prizePool,
   onCaptainDashboard,
-  onJoinTeam,
+  // onJoinTeam, // REMOVED: Teams are bookmarks, join happens on discovery page
   isCaptain,
-  isMember,
+  // isMember, // REMOVED: No membership status needed for teams
   captainLoading = false,
 }) => {
   // Debug logging for captain button rendering
   console.log('🎖️ AboutPrizeSection: Render props debug:', {
     isCaptain,
-    isMember,
     captainLoading,
     hasOnCaptainDashboard: !!onCaptainDashboard,
-    hasOnJoinTeam: !!onJoinTeam,
   });
   const formatPrizePool = (amount: number): string => {
     return amount.toLocaleString();
@@ -44,30 +42,11 @@ export const AboutPrizeSection: React.FC<AboutPrizeSectionProps> = ({
       <View style={styles.prizeSection}>
         <View style={styles.prizeAmount}>
           <Text style={styles.prizeNumber}>{formatPrizePool(prizePool)}</Text>
-          <Text style={styles.prizeCurrency}>League prize pool</Text>
+          <Text style={styles.prizeCurrency}>Prize pool</Text>
         </View>
         <View style={styles.buttonContainer}>
-          {/* Membership Status Button - Always show for members or join button for non-members */}
-          {isMember ? (
-            <Button
-              title="Joined"
-              variant="outline"
-              size="medium"
-              style={[styles.actionButton, styles.joinedButton]}
-              disabled={true}
-            />
-          ) : (
-            onJoinTeam && (
-              <Button
-                title="Join Team"
-                variant="primary"
-                size="medium"
-                onPress={onJoinTeam}
-                style={styles.actionButton}
-              />
-            )
-          )}
-          
+          {/* REMOVED: Join Team / Joined button - teams are bookmarks now, join happens on team discovery page */}
+
           {/* Captain Dashboard Button - Always show, validate on click */}
           <CaptainDashboardButton
             onPress={() => {
