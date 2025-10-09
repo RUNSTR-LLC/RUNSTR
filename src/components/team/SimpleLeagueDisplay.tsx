@@ -99,7 +99,7 @@ export const SimpleLeagueDisplay: React.FC<SimpleLeagueDisplayProps> = ({
               additionalContent={
                 <View style={styles.statsContainer}>
                   <Text style={styles.workoutCount}>
-                    {entry.workoutCount} workouts
+                    {entry.workoutCount} runs
                   </Text>
                   <Text style={[
                     styles.scoreText,
@@ -199,9 +199,9 @@ const styles = StyleSheet.create({
   },
 
   rankContainer: {
-    width: 40,
+    width: 28,
     alignItems: 'center',
-    marginRight: 8,
+    marginRight: 4,
   },
 
   rankText: {

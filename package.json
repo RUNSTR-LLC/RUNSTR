@@ -16,6 +16,8 @@
     "test:amber-coverage": "jest --testPathPattern=amber --coverage",
     "audit:pre-launch": "npx tsx scripts/preLaunchAudit.ts",
     "diagnose:wallet": "npx tsx scripts/diagnose-wallet.ts",
+    "diagnose:wallet-state": "npx tsx scripts/diagnose-wallet-state.ts",
+    "diagnose:wallet-nostr": "npx tsx scripts/diagnose-wallet-nostr-only.ts",
     "find:wallet": "npx tsx scripts/find-nostr-wallet.ts",
     "test:amber-flow": "npx tsx scripts/test-amber-wallet-flow.ts",
     "test:amber-solutions": "npx tsx scripts/test-amber-solutions.ts",

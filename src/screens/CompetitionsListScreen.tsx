@@ -37,11 +37,11 @@ type RootStackParamList = {
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-type TabType = 'all' | 'leagues' | 'events' | 'challenges';
+type TabType = 'events' | 'challenges';
 
 export const CompetitionsListScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
-  const [activeTab, setActiveTab] = useState<TabType>('all');
+  const [activeTab, setActiveTab] = useState<TabType>('events');
   const [competitions, setCompetitions] = useState<UserCompetition[]>([]);
   const [filteredCompetitions, setFilteredCompetitions] = useState<UserCompetition[]>([]);
   const [loading, setLoading] = useState(true);
@@ -117,22 +117,9 @@ export const CompetitionsListScreen: React.FC = () => {
   };
 
   const filterCompetitions = () => {
-    if (activeTab === 'all') {
-      setFilteredCompetitions(competitions);
-    } else {
-      // Map tab to competition type (remove 's' from plural)
-      let type: UserCompetition['type'];
-      if (activeTab === 'leagues') {
-        type = 'league';
-      } else if (activeTab === 'events') {
-        type = 'event';
-      } else if (activeTab === 'challenges') {
-        type = 'challenge';
-      } else {
-        type = activeTab.slice(0, -1) as UserCompetition['type'];
-      }
-      setFilteredCompetitions(competitions.filter(c => c.type === type));
-    }
+    // Map tab to competition type (remove 's' from plural)
+    const type: UserCompetition['type'] = activeTab === 'events' ? 'event' : 'challenge';
+    setFilteredCompetitions(competitions.filter(c => c.type === type));
   };
 
   const handleCompetitionPress = (competition: UserCompetition) => {
@@ -242,13 +229,13 @@ export const CompetitionsListScreen: React.FC = () => {
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
       <Ionicons name="trophy-outline" size={64} color="#333" />
-      <Text style={styles.emptyTitle}>No {activeTab === 'all' ? 'competitions' : activeTab} yet</Text>
+      <Text style={styles.emptyTitle}>No {activeTab} yet</Text>
       <Text style={styles.emptySubtext}>
-        {activeTab === 'challenges' || activeTab === 'all'
+        {activeTab === 'challenges'
           ? 'Create a challenge to get started!'
-          : 'Join a team or competition to see them here'}
+          : 'Join a team or event to see them here'}
       </Text>
-      {(activeTab === 'challenges' || activeTab === 'all') && (
+      {activeTab === 'challenges' && (
         <TouchableOpacity style={styles.createButton} onPress={handleCreateChallenge}>
           <Text style={styles.createButtonText}>Create Challenge</Text>
         </TouchableOpacity>
@@ -277,17 +264,10 @@ export const CompetitionsListScreen: React.FC = () => {
       </View>
 
       {/* Tabs */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.tabContainer}
-        contentContainerStyle={styles.tabContent}
-      >
-        {renderTab('all', 'All')}
-        {renderTab('leagues', 'Leagues')}
+      <View style={styles.tabContainer}>
         {renderTab('events', 'Events')}
         {renderTab('challenges', 'Challenges')}
-      </ScrollView>
+      </View>
 
       {/* Content */}
       {loading ? (
@@ -375,18 +355,15 @@ const styles = StyleSheet.create({
     color: theme.colors.textBright,
   },
   tabContainer: {
+    flexDirection: 'row',
     maxHeight: 50,
     borderBottomWidth: 1,
     borderBottomColor: '#1a1a1a',
   },
-  tabContent: {
-    paddingHorizontal: 16,
-    alignItems: 'center',
-  },
   tab: {
-    paddingHorizontal: 16,
+    flex: 1,
+    alignItems: 'center',
     paddingVertical: 14,
-    marginRight: 8,
   },
   activeTab: {
     borderBottomWidth: 2,

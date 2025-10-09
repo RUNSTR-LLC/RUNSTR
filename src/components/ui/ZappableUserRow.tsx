@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
   },
 
   avatar: {
-    marginRight: 12,
+    marginRight: 8,
   },
 
   contentSection: {

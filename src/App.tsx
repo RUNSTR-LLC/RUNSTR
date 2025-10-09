@@ -251,6 +251,15 @@ const AppContent: React.FC = () => {
 
           // Non-blocking background initialization
           await appInitializationService.initializeAppData(pubkey);
+
+          // ✅ WALLET FIX: Initialize wallet after app data loaded
+          console.log('[App] 💰 Initializing wallet for authenticated user...');
+          if (!walletStore.isInitialized && !walletStore.isInitializing) {
+            await walletStore.initialize();
+            console.log('[App] ✅ Wallet initialization complete');
+          } else {
+            console.log('[App] ℹ️  Wallet already initialized, skipping');
+          }
         } catch (error) {
           console.error('[App] ❌ App data initialization error:', error);
           // Don't block app - initialization errors are non-critical

@@ -49,6 +49,8 @@ class WalletDetectionService {
    * Find RUNSTR wallet for user (deterministic via d-tag)
    * Returns wallet info if found, null if not found
    * NO decryption needed - reads from public tags
+   *
+   * ✅ BACKWARDS COMPATIBLE: Falls back to ANY wallet if standard d-tag not found
    */
   async findRunstrWallet(hexPubkey: string): Promise<WalletDetectionResult> {
     try {
@@ -58,19 +60,19 @@ class WalletDetectionService {
 
       const ndk = await GlobalNDKService.getInstance();
 
-      // Query for RUNSTR-specific wallet (kind 37375 with our d-tag)
-      const filter = {
+      // STEP 1: Try to find wallet with standard d-tag (preferred)
+      const standardFilter = {
         kinds: [37375 as NDKKind],
         authors: [hexPubkey],
         '#d': [RUNSTR_WALLET_DTAG], // Deterministic - only 0 or 1 result
         limit: 1
       };
 
-      console.log('[WalletDetection] Querying Nostr relays...');
+      console.log('[WalletDetection] Querying for standard wallet...');
 
       // Query with 10s timeout (reasonable for Nostr)
-      const events = await Promise.race([
-        ndk.fetchEvents(filter),
+      const standardEvents = await Promise.race([
+        ndk.fetchEvents(standardFilter),
         new Promise<Set<NDKEvent>>((resolve) =>
           setTimeout(() => {
             console.warn('[WalletDetection] Query timeout (10s)');
@@ -79,8 +81,45 @@ class WalletDetectionService {
         )
       ]);
 
-      if (events.size === 0) {
-        console.log('[WalletDetection] ❌ No RUNSTR wallet found');
+      if (standardEvents.size > 0) {
+        // Found wallet with standard d-tag!
+        const event = Array.from(standardEvents)[0];
+        const walletInfo = this.parseWalletEvent(event);
+
+        console.log('[WalletDetection] ✅ Standard RUNSTR wallet found!');
+        console.log('[WalletDetection] Event ID:', walletInfo.eventId.slice(0, 16) + '...');
+        console.log('[WalletDetection] Balance:', walletInfo.balance, 'sats');
+        console.log('[WalletDetection] Mint:', walletInfo.mint);
+        console.log('[WalletDetection] Created:', new Date(walletInfo.createdAt * 1000).toLocaleString());
+
+        return {
+          found: true,
+          walletInfo,
+          error: null
+        };
+      }
+
+      // STEP 2: Fallback - find ANY wallet for this user (backwards compatibility)
+      console.log('[WalletDetection] No standard wallet found, searching for legacy wallets...');
+
+      const legacyFilter = {
+        kinds: [37375 as NDKKind],
+        authors: [hexPubkey],
+        limit: 10  // Get multiple wallets, we'll pick the most recent
+      };
+
+      const legacyEvents = await Promise.race([
+        ndk.fetchEvents(legacyFilter),
+        new Promise<Set<NDKEvent>>((resolve) =>
+          setTimeout(() => {
+            console.warn('[WalletDetection] Legacy query timeout (10s)');
+            resolve(new Set());
+          }, 10000)
+        )
+      ]);
+
+      if (legacyEvents.size === 0) {
+        console.log('[WalletDetection] ❌ No wallets found (neither standard nor legacy)');
         console.log('[WalletDetection] User needs to create wallet');
         return {
           found: false,
@@ -89,15 +128,21 @@ class WalletDetectionService {
         };
       }
 
-      // Parse wallet info from event
-      const event = Array.from(events)[0];
-      const walletInfo = this.parseWalletEvent(event);
+      // Pick most recent legacy wallet
+      const sortedEvents = Array.from(legacyEvents).sort(
+        (a, b) => (b.created_at || 0) - (a.created_at || 0)
+      );
+      const mostRecentEvent = sortedEvents[0];
+      const walletInfo = this.parseWalletEvent(mostRecentEvent);
 
-      console.log('[WalletDetection] ✅ RUNSTR wallet found!');
+      console.log('[WalletDetection] ✅ Legacy wallet found (backwards compatibility)');
+      console.log('[WalletDetection] Found', legacyEvents.size, 'legacy wallet(s), using most recent');
       console.log('[WalletDetection] Event ID:', walletInfo.eventId.slice(0, 16) + '...');
+      console.log('[WalletDetection] d-tag:', walletInfo.dTag);
       console.log('[WalletDetection] Balance:', walletInfo.balance, 'sats');
       console.log('[WalletDetection] Mint:', walletInfo.mint);
       console.log('[WalletDetection] Created:', new Date(walletInfo.createdAt * 1000).toLocaleString());
+      console.log('[WalletDetection] ⚠️  Recommend creating new wallet with standard d-tag for consistency');
 
       return {
         found: true,
