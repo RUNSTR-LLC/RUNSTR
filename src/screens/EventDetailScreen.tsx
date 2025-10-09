@@ -125,38 +125,54 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
     try {
       // Get user pubkey
       const userHexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
-      const userNpub = await AsyncStorage.getItem('@runstr:npub');
-
-      if (!userHexPubkey || !userNpub) {
+      if (!userHexPubkey) {
         Alert.alert('Error', 'User not authenticated');
         return;
       }
 
-      // 1. Store join locally for instant UX
-      const localJoinsKey = `@runstr:event_joins:${eventId}`;
-      await AsyncStorage.setItem(localJoinsKey, JSON.stringify({
-        eventId,
-        userId: userHexPubkey,
-        joinedAt: Date.now(),
-      }));
+      // Create QREventData format for EventJoinService
+      const qrEventData = {
+        type: eventData.entryFeesSats > 0 ? 'paid_event' : 'free_event',
+        event_id: eventData.id,
+        team_id: eventData.teamId,
+        event_name: eventData.name,
+        event_date: eventData.eventDate,
+        activity_type: eventData.activityType,
+        entry_fee: eventData.entryFeesSats || 0,
+        captain_pubkey: eventData.captainPubkey,
+        description: eventData.description,
+        created_at: Math.floor(Date.now() / 1000),
+      };
 
-      // 2. Create Nostr join request (kind 1105)
-      const EventJoinRequestService = (await import('../services/events/EventJoinRequestService')).default;
-      await EventJoinRequestService.getInstance().createJoinRequest(
-        eventId,
-        eventData.teamId,
-        userNpub,
-        `Request to join ${eventData.name}`
-      );
+      // Use EventJoinService (handles payment + join request)
+      const { eventJoinService } = await import('../services/event/EventJoinService');
+      const result = await eventJoinService.joinEvent(qrEventData);
 
-      // 3. Update UI
-      setIsParticipant(true);
-      Alert.alert('Success', 'Join request sent! The captain will review your request.');
+      if (result.success) {
+        // Store participation locally for instant UX
+        const { EventParticipationStore } = await import('../services/event/EventParticipationStore');
+        await EventParticipationStore.addParticipation({
+          eventId: eventData.id,
+          eventName: eventData.name,
+          teamId: eventData.teamId,
+          activityType: eventData.activityType,
+          eventDate: eventData.eventDate,
+          entryFeePaid: eventData.entryFeesSats || 0,
+          paymentMethod: 'nutzap',
+          paidAt: Date.now(),
+          status: 'pending_approval',
+          localOnly: true,
+        });
 
-      console.log('✅ Join request created for event:', eventId);
+        // Update UI
+        setIsParticipant(true);
+
+        console.log('✅ Joined event:', eventData.name);
+      }
+
     } catch (error) {
       console.error('❌ Failed to join event:', error);
-      Alert.alert('Error', 'Failed to send join request. Please try again.');
+      Alert.alert('Error', 'Failed to join event. Please try again.');
     } finally {
       setIsJoining(false);
     }
@@ -290,6 +306,18 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
             </Text>
           </View>
 
+          {eventData.entryFeesSats > 0 && (
+            <View style={styles.eventInfoRow}>
+              <Text style={styles.eventLabel}>Entry Fee</Text>
+              <View style={styles.entryFeeValue}>
+                <Ionicons name="flash" size={16} color={theme.colors.orangeBright} />
+                <Text style={[styles.eventValue, { marginLeft: 4 }]}>
+                  {eventData.entryFeesSats} sats
+                </Text>
+              </View>
+            </View>
+          )}
+
           {eventData.targetDistance && (
             <View style={styles.eventInfoRow}>
               <Text style={styles.eventLabel}>Target</Text>
@@ -323,8 +351,17 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
               <ActivityIndicator size="small" color={theme.colors.background} />
             ) : (
               <>
-                <Ionicons name="add-circle" size={20} color={theme.colors.background} />
-                <Text style={styles.joinButtonText}>Join Event</Text>
+                <Ionicons
+                  name={eventData.entryFeesSats > 0 ? "flash" : "add-circle"}
+                  size={20}
+                  color={theme.colors.background}
+                />
+                <Text style={styles.joinButtonText}>
+                  {eventData.entryFeesSats > 0
+                    ? `Pay ${eventData.entryFeesSats} sats to Join`
+                    : 'Join Event'
+                  }
+                </Text>
               </>
             )}
           </TouchableOpacity>
@@ -440,6 +477,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: theme.colors.text,
     fontWeight: '500',
+  },
+  entryFeeValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   participantsCard: {
     backgroundColor: theme.colors.cardBackground,

@@ -24,6 +24,7 @@ import { getUserNostrIdentifiers } from '../utils/nostr';
 import type { UserCompetition } from '../types/challenge';
 import { theme } from '../styles/theme';
 import { OpenChallengeWizard } from '../components/wizards/OpenChallengeWizard';
+import { EventParticipationStore } from '../services/event/EventParticipationStore';
 
 type RootStackParamList = {
   ChallengeLeaderboard: { challengeId: string };
@@ -69,13 +70,44 @@ export const CompetitionsListScreen: React.FC = () => {
         return;
       }
 
+      // Load local event participations FIRST (instant UX)
+      const localEvents = await EventParticipationStore.getParticipations();
+
+      // Convert to UserCompetition format
+      const localCompetitions: UserCompetition[] = localEvents.map(event => ({
+        id: event.eventId,
+        name: event.eventName,
+        type: 'event',
+        teamId: event.teamId,
+        status: event.status === 'approved' ? 'active' : 'pending',
+        startDate: event.eventDate,
+        activityType: event.activityType,
+        isPending: event.localOnly,
+        entryFee: event.entryFeePaid, // Add entry fee to display
+      }));
+
+      // Show local events immediately for fast UX
+      if (localCompetitions.length > 0) {
+        setCompetitions(localCompetitions);
+      }
+
+      // Load from Nostr in background
       const discoveryService = NostrCompetitionDiscoveryService.getInstance();
       if (isRefresh) {
         discoveryService.clearCache(userIdentifiers.hexPubkey);
       }
 
       const userCompetitions = await discoveryService.getUserCompetitions(userIdentifiers.hexPubkey);
-      setCompetitions(userCompetitions);
+
+      // Merge local + Nostr (dedupe by ID)
+      const merged = [...localCompetitions];
+      userCompetitions.forEach(comp => {
+        if (!merged.some(m => m.id === comp.id)) {
+          merged.push(comp);
+        }
+      });
+
+      setCompetitions(merged);
     } catch (error) {
       console.error('Error loading competitions:', error);
     } finally {
@@ -186,6 +218,11 @@ export const CompetitionsListScreen: React.FC = () => {
                 {item.status.toUpperCase()}
               </Text>
             </View>
+            {item.isPending && (
+              <View style={styles.pendingBadge}>
+                <Text style={styles.pendingBadgeText}>PENDING APPROVAL</Text>
+              </View>
+            )}
             <Text style={styles.participantCount}>
               {item.participantCount} participant{item.participantCount !== 1 ? 's' : ''}
             </Text>
@@ -417,6 +454,19 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 10,
     fontWeight: '600',
+  },
+  pendingBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: theme.colors.orangeBright + '20',
+    borderWidth: 1,
+    borderColor: theme.colors.orangeBright,
+  },
+  pendingBadgeText: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: theme.colors.orangeBright,
   },
   participantCount: {
     fontSize: 12,

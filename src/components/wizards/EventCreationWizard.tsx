@@ -566,20 +566,44 @@ export const EventCreationWizard: React.FC<EventCreationWizardProps> = ({
                 />
               </View>
 
-              {/* Entry Fee - Hidden for now */}
-              {/* <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Entry Fee (sats)</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={eventData.entryFeesSats.toString()}
-                  onChangeText={(text) =>
-                    updateSettings('entryFeesSats', parseInt(text) || 0)
-                  }
-                  placeholder="0"
-                  placeholderTextColor={theme.colors.textMuted}
-                  keyboardType="numeric"
-                />
-              </View> */}
+              {/* Entry Fee Section */}
+              <View style={styles.formGroup}>
+                <View style={styles.switchRow}>
+                  <Text style={styles.switchLabel}>Charge Entry Fee</Text>
+                  <Switch
+                    value={eventData.entryFeesSats > 0}
+                    onValueChange={(enabled) =>
+                      updateSettings('entryFeesSats', enabled ? 100 : 0)
+                    }
+                    trackColor={{
+                      false: theme.colors.border,
+                      true: theme.colors.accent,
+                    }}
+                    thumbColor={theme.colors.text}
+                  />
+                </View>
+
+                {eventData.entryFeesSats > 0 && (
+                  <>
+                    <Text style={styles.formHelper}>
+                      Participants will pay this amount to join the event
+                    </Text>
+                    <TextInput
+                      style={[styles.textInput, { marginTop: 12 }]}
+                      value={eventData.entryFeesSats.toString()}
+                      onChangeText={(text) =>
+                        updateSettings('entryFeesSats', parseInt(text) || 0)
+                      }
+                      placeholder="Enter amount in sats"
+                      placeholderTextColor={theme.colors.textMuted}
+                      keyboardType="numeric"
+                    />
+                    <Text style={styles.formHelper}>
+                      💰 You'll receive {eventData.entryFeesSats} sats per participant
+                    </Text>
+                  </>
+                )}
+              </View>
 
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>Prize Pool (sats)</Text>
@@ -934,5 +958,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: theme.typography.weights.medium,
     color: theme.colors.text,
+  },
+
+  formHelper: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginTop: 4,
+    lineHeight: 16,
   },
 });
