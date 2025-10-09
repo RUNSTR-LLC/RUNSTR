@@ -385,45 +385,36 @@ export class NostrPrefetchService {
   }
 
   /**
-   * Prefetch competitions (kind 30100 leagues, 30101 events)
+   * Prefetch team events (kind 30101)
    * OPTIMIZED: 5-second timeout to prevent blocking
+   * NOTE: Leagues (kind 30100) removed - app only uses Season 1 global league
    */
   private async prefetchCompetitions(): Promise<void> {
     try {
-      // ✅ Fetch leagues and events in parallel with timeout
-      const competitionsFetchPromise = Promise.all([
-        unifiedCache.get(
-          CacheKeys.LEAGUES,
-          async () => {
-            const SimpleCompetitionService = (await import('../competition/SimpleCompetitionService')).default;
-            return await SimpleCompetitionService.getAllLeagues();
-          },
-          { ttl: CacheTTL.LEAGUES }
-        ),
-        unifiedCache.get(
-          CacheKeys.COMPETITIONS,
-          async () => {
-            const SimpleCompetitionService = (await import('../competition/SimpleCompetitionService')).default;
-            return await SimpleCompetitionService.getAllEvents();
-          },
-          { ttl: CacheTTL.COMPETITIONS }
+      // ✅ Fetch team events only (leagues no longer used)
+      const eventsFetchPromise = unifiedCache.get(
+        CacheKeys.COMPETITIONS,
+        async () => {
+          const SimpleCompetitionService = (await import('../competition/SimpleCompetitionService')).default;
+          return await SimpleCompetitionService.getInstance().getAllEvents();
+        },
+        { ttl: CacheTTL.COMPETITIONS }
+      );
+
+      // ✅ PERFORMANCE: 5-second timeout for events
+      const events = await Promise.race([
+        eventsFetchPromise,
+        new Promise<any[]>((_, reject) =>
+          setTimeout(() => reject(new Error('Events fetch timeout')), 5000)
         )
       ]);
 
-      // ✅ PERFORMANCE: 5-second timeout for competitions
-      const [leagues, events] = await Promise.race([
-        competitionsFetchPromise,
-        new Promise<[any[], any[]]>((_, reject) =>
-          setTimeout(() => reject(new Error('Competitions fetch timeout')), 5000)
-        )
-      ]);
-
-      console.log(`[Prefetch] Competitions cached: ${leagues?.length || 0} leagues, ${events?.length || 0} events`);
+      console.log(`[Prefetch] Events cached: ${events?.length || 0} team events`);
     } catch (error) {
-      if (error instanceof Error && error.message === 'Competitions fetch timeout') {
-        console.warn('[Prefetch] Competitions fetch timed out after 5s - competitions will load on demand');
+      if (error instanceof Error && error.message === 'Events fetch timeout') {
+        console.warn('[Prefetch] Events fetch timed out after 5s - events will load on demand');
       } else {
-        console.error('[Prefetch] Competitions failed:', error);
+        console.error('[Prefetch] Events fetch failed:', error);
       }
     }
   }

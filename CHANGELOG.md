@@ -6,6 +6,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.10] - 2025-10-09
+
+### Fixed
+- **Critical Run Tracker Fix**: Resolved distance tracking freeze after 2 minutes
+  - Eliminated stale closure bug in ActivityTrackerScreen
+  - Distance updates now continue reliably throughout entire workout
+  - Ensures accurate tracking for long-duration runs, walks, and cycles
+- **Profile Screen Layout**: Restored proper layout after adding ScrollView
+  - Fixed UI layout issues introduced with scrolling functionality
+  - Consistent profile display across different screen sizes
+- **Lightning Balance Sync**: Synchronized wallet balance with spendable proofs before zapping
+  - Balance now accurately reflects available funds before sending
+  - Prevents failed zaps due to stale balance data
+  - Real-time balance updates after successful Lightning payments
+- **Team Events Refresh**: Added pull-to-refresh to reload team events
+  - Users can now manually refresh event lists
+  - Ensures latest competition data is always available
+  - Better UX for checking new events
+
+### Added
+- **Pull-to-Refresh on Profile**: Enabled pull-to-refresh to update wallet balance
+  - Quick gesture to refresh balance without navigating away
+  - Improved wallet balance visibility
+  - Better user control over data freshness
+
+## [0.1.9] - 2025-10-09
+
+### Changed
+- **Simplified Focus**: Removed team leagues and team member lists to focus exclusively on Teams and Events
+  - Streamlined UI for better user experience
+  - Reduced complexity in team management
+  - Clearer navigation between Teams and Events
+
+### Added
+- **Nutzap Entry Fees**: Event entry fee system using nutzap-based Bitcoin payments
+  - Captains can set entry fees for events
+  - Automatic payment processing via Lightning
+  - Enhanced competition monetization options
+- **Amber Wallet Diagnostics**: Comprehensive diagnostic scripts for Amber wallet restoration
+  - Tools to debug wallet connection issues
+  - Restoration flow testing utilities
+  - Better troubleshooting capabilities
+
+### Fixed
+- **Event Loading Race Condition**: Resolved critical timing issues using useFocusEffect
+  - Events now load reliably on screen focus
+  - Eliminated inconsistent event display
+  - Smoother navigation experience
+- **Wallet Duplication Prevention**: NIP-60 wallet restoration instead of creating duplicates
+  - Check for existing wallets before creation
+  - Restore wallet state from Nostr events
+  - Prevents multiple wallets for same user
+
+### Improved
+- **Deterministic Wallet Detection**: User-initiated wallet creation with backwards compatibility
+  - Smarter wallet detection logic
+  - Maintains compatibility with existing wallets
+  - User control over wallet initialization
+- **Wallet Auto-Initialization**: Automatic wallet setup with backwards compatibility
+  - Seamless onboarding for new users
+  - Preserves existing wallet configurations
+  - Enhanced reliability across app updates
+- **Event Loading Logging**: Comprehensive debugging for event loading issues
+  - Detailed logs for troubleshooting
+  - Better visibility into loading states
+  - Faster issue resolution
+
 ## [0.1.16] - 2025-10-08
 
 ### Performance

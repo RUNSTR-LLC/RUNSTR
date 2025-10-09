@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Switch,
+  RefreshControl,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { theme } from '../styles/theme';
@@ -97,8 +98,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   });
 
   // Wallet creation state
-  const { walletExists, createWallet } = useWalletStore();
+  const { walletExists, createWallet, initialize: initializeWallet } = useWalletStore();
   const [isCreatingWallet, setIsCreatingWallet] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Alert state for CustomAlert
   const [alertVisible, setAlertVisible] = useState(false);
@@ -310,6 +312,19 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     }
   };
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      console.log('[SettingsScreen] Pull-to-refresh: Re-initializing wallet...');
+      await initializeWallet();
+      console.log('[SettingsScreen] Wallet re-initialized successfully');
+    } catch (error) {
+      console.error('[SettingsScreen] Wallet refresh failed:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const handleBackupPassword = () => {
     if (!userNsec) {
       setAlertTitle('Error');
@@ -390,6 +405,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.colors.accent}
+            colors={[theme.colors.accent]}
+          />
+        }
       >
         {/* Captain Dashboard Access */}
         {userRole === 'captain' && onCaptainDashboard && (

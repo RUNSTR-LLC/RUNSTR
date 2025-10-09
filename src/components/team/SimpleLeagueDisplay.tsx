@@ -83,33 +83,37 @@ export const SimpleLeagueDisplay: React.FC<SimpleLeagueDisplayProps> = ({
       >
         {leaderboard.map((entry) => (
           <View key={entry.npub} style={styles.leaderboardItem}>
-            <View style={styles.rankContainer}>
-              <Text style={[
-                styles.rankText,
-                entry.rank <= 3 && styles.topThreeRank
-              ]}>
-                {entry.rank}
-              </Text>
+            {/* Row 1: Rank + User + Action Buttons */}
+            <View style={styles.topRow}>
+              <View style={styles.rankContainer}>
+                <Text style={[
+                  styles.rankText,
+                  entry.rank <= 3 && styles.topThreeRank
+                ]}>
+                  {entry.rank}
+                </Text>
+              </View>
+
+              <ZappableUserRow
+                npub={entry.npub}
+                fallbackName={entry.name}
+                showQuickZap={true}
+                style={styles.userRowInLeaderboard}
+              />
             </View>
 
-            <ZappableUserRow
-              npub={entry.npub}
-              fallbackName={entry.name}
-              showQuickZap={true}
-              additionalContent={
-                <View style={styles.statsContainer}>
-                  <Text style={styles.workoutCount}>
-                    {entry.workoutCount} runs
-                  </Text>
-                  <Text style={[
-                    styles.scoreText,
-                    entry.rank <= 3 && styles.topThreeScore
-                  ]}>
-                    {entry.formattedScore}
-                  </Text>
-                </View>
-              }
-            />
+            {/* Row 2: Stats below */}
+            <View style={styles.statsRow}>
+              <Text style={styles.workoutCount}>
+                {entry.workoutCount} runs
+              </Text>
+              <Text style={[
+                styles.scoreText,
+                entry.rank <= 3 && styles.topThreeScore
+              ]}>
+                {entry.formattedScore}
+              </Text>
+            </View>
           </View>
         ))}
       </ScrollView>
@@ -191,11 +195,29 @@ const styles = StyleSheet.create({
   },
 
   leaderboardItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'column',
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
+  },
+
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  userRowInLeaderboard: {
+    flex: 1,
+    paddingVertical: 0,
+  },
+
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingTop: 4,
+    paddingRight: 12,
+    gap: 12,
   },
 
   rankContainer: {
@@ -214,11 +236,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: theme.colors.accent,
     fontWeight: '700',
-  },
-
-  statsContainer: {
-    alignItems: 'flex-end',
-    gap: 4,
   },
 
   workoutCount: {

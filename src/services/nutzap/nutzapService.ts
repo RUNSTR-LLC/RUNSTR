@@ -52,7 +52,7 @@ class NutzapService {
       console.log('[NutZap] ========================================');
 
       // Check authentication method
-      const authMethod = await UnifiedSigningService.getAuthMethod();
+      const authMethod = await UnifiedSigningService.getInstance().getAuthMethod();
 
       if (authMethod === 'amber') {
         console.log('[NutZap] Detected Amber authentication - using receive-only mode');
@@ -136,7 +136,16 @@ class NutzapService {
       };
 
     } catch (error) {
-      console.error('[NutZap] Initialization error:', error);
+      console.error('[NutZap] ❌ Initialization error:', error);
+      console.error('[NutZap] Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        userPubkey: this.userPubkey || 'not set'
+      });
+
+      // DO NOT set isInitialized = true on error
+      // This will cause "Wallet not initialized" errors
+
       return {
         balance: 0,
         mint: 'https://mint.coinos.io',
@@ -156,7 +165,7 @@ class NutzapService {
       console.log('[NutZap] Initializing in Amber mode (receive-only)...');
 
       // Get pubkey from UnifiedSigningService
-      const hexPubkey = await UnifiedSigningService.getUserPubkey();
+      const hexPubkey = await UnifiedSigningService.getInstance().getUserPubkey();
       if (!hexPubkey) {
         throw new Error('Failed to get pubkey from Amber');
       }
@@ -225,7 +234,7 @@ class NutzapService {
       }
 
       // Verify signing capability (works for both nsec and Amber)
-      const canSign = await UnifiedSigningService.canSign();
+      const canSign = await UnifiedSigningService.getInstance().canSign();
       if (!canSign) {
         return {
           success: false,

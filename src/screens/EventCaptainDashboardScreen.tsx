@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   qrButtonText: {
-    color: theme.colors.background,
+    color: theme.colors.accentText,
     fontSize: 16,
     fontWeight: '600',
   },

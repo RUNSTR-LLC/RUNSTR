@@ -458,7 +458,7 @@ const styles = StyleSheet.create({
     color: theme.colors.accentText,
   },
   nextButtonTextDisabled: {
-    color: theme.colors.textMuted,
+    color: theme.colors.accentText,
   },
   loadingContainer: {
     flex: 1,

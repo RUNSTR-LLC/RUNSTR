@@ -410,9 +410,9 @@ const styles = StyleSheet.create({
   nextButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000000',
+    color: theme.colors.accentText,
   },
   nextButtonTextDisabled: {
-    color: theme.colors.textMuted,
+    color: theme.colors.accentText,
   },
 });
