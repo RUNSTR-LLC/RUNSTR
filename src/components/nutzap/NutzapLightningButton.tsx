@@ -229,6 +229,9 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
       }
 
       if (success) {
+        // Refresh balance from proofs (handles both Lightning and Nutzap sends)
+        await refreshBalance();
+
         // Set zapped state for color change
         setIsZapped(true);
         await saveZapState();

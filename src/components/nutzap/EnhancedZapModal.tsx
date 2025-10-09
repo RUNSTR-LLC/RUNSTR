@@ -137,6 +137,9 @@ export const EnhancedZapModal: React.FC<EnhancedZapModalProps> = ({
       }
 
       if (success) {
+        // Refresh balance from proofs (handles both Lightning and Nutzap sends)
+        await refreshBalance();
+
         // Update default if requested
         if (setAsDefault && onDefaultAmountChange) {
           onDefaultAmountChange(amount);
