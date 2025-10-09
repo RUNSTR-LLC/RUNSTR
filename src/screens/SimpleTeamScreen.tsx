@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -54,6 +55,7 @@ export const SimpleTeamScreen: React.FC<SimpleTeamScreenProps> = ({
   const { team } = data || {};
   const [events, setEvents] = useState<any[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Fetch team events when screen comes into focus
   useFocusEffect(
@@ -89,6 +91,23 @@ export const SimpleTeamScreen: React.FC<SimpleTeamScreenProps> = ({
       fetchEvents();
     }, [team?.id, data, team])
   );
+
+  // Pull-to-refresh handler
+  const onRefresh = useCallback(async () => {
+    if (!team?.id) return;
+
+    setRefreshing(true);
+    try {
+      console.log('[SimpleTeamScreen] 🔄 Pull-to-refresh: Fetching events for team:', team.id);
+      const teamEvents = await SimpleCompetitionService.getInstance().getTeamEvents(team.id);
+      console.log('[SimpleTeamScreen] ✅ Pull-to-refresh: Found events:', teamEvents.length);
+      setEvents(teamEvents);
+    } catch (error) {
+      console.error('[SimpleTeamScreen] ❌ Pull-to-refresh error:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [team?.id]);
 
   // Safety check
   if (!team) {
@@ -127,7 +146,17 @@ export const SimpleTeamScreen: React.FC<SimpleTeamScreenProps> = ({
         </View>
       )}
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.colors.text}
+          />
+        }
+      >
         {/* Team Info */}
         <View style={styles.teamInfoSection}>
           <Text style={styles.teamName}>{team.name || 'Unknown Team'}</Text>
