@@ -84,8 +84,17 @@ export const MyTeamsScreen: React.FC = () => {
   };
 
   const handleTeamPress = (team: Team) => {
-    console.log('[MyTeamsScreen] 🚀 START handleTeamPress - Team:', team.id);
-    console.log('[MyTeamsScreen] 📊 Team object size:', JSON.stringify(team).length, 'bytes');
+    console.log('[MyTeamsScreen] 🚀 START handleTeamPress');
+    console.log('[MyTeamsScreen] 📊 Team object:', {
+      id: team.id,
+      name: team.name,
+      description: team.description?.slice(0, 50) + '...',
+      hasId: !!team.id,
+      idType: typeof team.id,
+      idLength: team.id?.length,
+      allKeys: Object.keys(team),
+      captainId: team.captainId?.slice(0, 20) + '...',
+    });
 
     // Detect if user is captain of this team
     // FIX: Compare hex pubkey (team.captainId is always hex format)
@@ -100,12 +109,14 @@ export const MyTeamsScreen: React.FC = () => {
     });
 
     console.log('[MyTeamsScreen] 📍 BEFORE navigation.navigate call');
-    console.log('[MyTeamsScreen] 📦 Navigation params size:', JSON.stringify({
-      team,
+    console.log('[MyTeamsScreen] 📦 Navigation params being passed:', {
+      teamId: team.id,
+      teamName: team.name,
+      hasTeamId: !!team.id,
       userIsMember: true,
-      currentUserNpub: userNpub,
+      currentUserNpub: userNpub?.slice(0, 20) + '...',
       userIsCaptain: isCaptain,
-    }).length, 'bytes');
+    });
 
     // Navigate to EnhancedTeamScreen with team data and captain status
     navigation.navigate('EnhancedTeamScreen', {

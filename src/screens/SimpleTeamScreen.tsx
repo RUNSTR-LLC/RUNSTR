@@ -59,7 +59,16 @@ export const SimpleTeamScreen: React.FC<SimpleTeamScreenProps> = ({
   useFocusEffect(
     useCallback(() => {
       const fetchEvents = async () => {
+        console.log('[SimpleTeamScreen] 🔍 useFocusEffect triggered - Team data check:', {
+          hasData: !!data,
+          hasTeam: !!team,
+          teamId: team?.id,
+          teamName: team?.name,
+          teamKeys: team ? Object.keys(team) : [],
+        });
+
         if (!team?.id) {
+          console.warn('[SimpleTeamScreen] ⚠️ No team.id found, cannot fetch events');
           setLoadingEvents(false);
           return;
         }
@@ -78,7 +87,7 @@ export const SimpleTeamScreen: React.FC<SimpleTeamScreenProps> = ({
       };
 
       fetchEvents();
-    }, [team?.id])
+    }, [team?.id, data, team])
   );
 
   // Safety check

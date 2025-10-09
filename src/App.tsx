@@ -322,11 +322,32 @@ const AppContent: React.FC = () => {
             console.log('[App.tsx] 🚀 EnhancedTeamScreen route rendering');
             const { team, userIsMember = false, currentUserNpub, userIsCaptain = false } = route.params || {};
             console.log('[App.tsx] 📦 Route params:', {
+              hasRouteParams: !!route.params,
+              hasTeam: !!team,
               teamId: team?.id,
+              teamName: team?.name,
+              teamKeys: team ? Object.keys(team).length : 0,
+              allTeamKeys: team ? Object.keys(team) : [],
               userIsMember,
               userIsCaptain,
               currentUserNpub: currentUserNpub?.slice(0, 20) + '...'
             });
+
+            // Safety check: if no team data, show error
+            if (!team || !team.id) {
+              console.error('[App.tsx] ❌ No valid team data in route params');
+              return (
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
+                  <Text style={{ color: theme.colors.text, marginBottom: 20 }}>Team data not available</Text>
+                  <TouchableOpacity
+                    onPress={() => navigation.goBack()}
+                    style={{ padding: 12, backgroundColor: theme.colors.cardBackground, borderRadius: 8 }}
+                  >
+                    <Text style={{ color: theme.colors.text }}>Go Back</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            }
 
             return (
               <React.Suspense
