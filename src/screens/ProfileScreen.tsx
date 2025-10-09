@@ -417,7 +417,16 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </View>
       )}
 
-      <View style={styles.content}>
+      <ScrollView
+        style={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.colors.text}
+          />
+        }
+      >
         {/* Profile Header Box - Tappable to Edit Profile */}
         <View style={styles.profileHeaderContainer}>
           <TouchableOpacity
@@ -455,7 +464,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <YourWorkoutsBox />
           </View>
         </View>
-      </View>
+      </ScrollView>
 
       {/* Send Modal */}
       <SendModal
