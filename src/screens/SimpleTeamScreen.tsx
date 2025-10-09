@@ -18,9 +18,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 import SimpleCompetitionService from '../services/competition/SimpleCompetitionService';
-import { ChallengeService } from '../services/competition/ChallengeService';
-import { CompetitionTabs } from '../components/team/CompetitionTabs';
-import type { ChallengeMetadata } from '../types/challenge';
 
 interface SimpleTeamScreenProps {
   data: {
@@ -56,9 +53,7 @@ export const SimpleTeamScreen: React.FC<SimpleTeamScreenProps> = ({
 
   const { team } = data || {};
   const [events, setEvents] = useState<any[]>([]);
-  const [challenges, setChallenges] = useState<ChallengeMetadata[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
-  const [loadingChallenges, setLoadingChallenges] = useState(true);
 
   // Fetch team events when screen comes into focus
   useFocusEffect(
@@ -84,32 +79,6 @@ export const SimpleTeamScreen: React.FC<SimpleTeamScreenProps> = ({
 
       fetchEvents();
     }, [team?.id])
-  );
-
-  // Fetch user challenges when screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      const fetchChallenges = async () => {
-        if (!currentUserNpub) {
-          setLoadingChallenges(false);
-          return;
-        }
-
-        setLoadingChallenges(true);
-        try {
-          console.log('[SimpleTeamScreen] 🥊 Fetching challenges for user:', currentUserNpub);
-          const userChallenges = await ChallengeService.getInstance().getUserChallenges(currentUserNpub);
-          console.log('[SimpleTeamScreen] ✅ Found challenges:', userChallenges.length);
-          setChallenges(userChallenges);
-        } catch (error) {
-          console.error('[SimpleTeamScreen] ❌ Error fetching challenges:', error);
-        } finally {
-          setLoadingChallenges(false);
-        }
-      };
-
-      fetchChallenges();
-    }, [currentUserNpub])
   );
 
   // Safety check
@@ -197,131 +166,69 @@ export const SimpleTeamScreen: React.FC<SimpleTeamScreenProps> = ({
           </View>
         </View>
 
-        {/* Competitions Section - Events and Challenges Tabs */}
-        <View style={styles.competitionsSection}>
-          <CompetitionTabs
-            eventsContent={
-              loadingEvents ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="small" color={theme.colors.text} />
-                  <Text style={styles.loadingText}>Loading events...</Text>
-                </View>
-              ) : events.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                  <Ionicons name="calendar-outline" size={48} color={theme.colors.textMuted} />
-                  <Text style={styles.emptyText}>No events scheduled</Text>
-                  {userIsCaptain && (
-                    <Text style={styles.emptySubtext}>
-                      Create an event from the Captain Dashboard
-                    </Text>
-                  )}
-                </View>
-              ) : (
-                <View style={styles.contentList}>
-                  {events.map((event) => (
-                    <TouchableOpacity
-                      key={event.id}
-                      style={styles.eventCard}
-                      onPress={() => onEventPress && onEventPress(event.id, event)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.cardHeader}>
-                        <View style={styles.iconContainer}>
-                          <Ionicons name="flag" size={20} color={theme.colors.accent} />
-                        </View>
-                        <View style={styles.cardInfo}>
-                          <Text style={styles.cardName}>{event.name}</Text>
-                          <Text style={styles.cardDate}>
-                            {new Date(event.eventDate).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric',
-                            })}
-                          </Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={20} color={theme.colors.textMuted} />
-                      </View>
+        {/* Events Section */}
+        <View style={styles.eventsSection}>
+          <Text style={styles.sectionTitle}>Events</Text>
 
-                      <View style={styles.cardDetails}>
-                        <View style={styles.detailItem}>
-                          <Ionicons name="footsteps" size={16} color={theme.colors.textMuted} />
-                          <Text style={styles.detailText}>{event.activityType}</Text>
-                        </View>
-                        {event.targetDistance && (
-                          <View style={styles.detailItem}>
-                            <Ionicons name="flag-outline" size={16} color={theme.colors.textMuted} />
-                            <Text style={styles.detailText}>
-                              {event.targetDistance} {event.targetUnit}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )
-            }
-            challengesContent={
-              loadingChallenges ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="small" color={theme.colors.text} />
-                  <Text style={styles.loadingText}>Loading challenges...</Text>
-                </View>
-              ) : challenges.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                  <Ionicons name="trophy-outline" size={48} color={theme.colors.textMuted} />
-                  <Text style={styles.emptyText}>No active challenges</Text>
-                  <Text style={styles.emptySubtext}>
-                    Challenge a friend to a 1v1 competition
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.contentList}>
-                  {challenges.map((challenge) => (
-                    <TouchableOpacity
-                      key={challenge.id}
-                      style={styles.eventCard}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.cardHeader}>
-                        <View style={styles.iconContainer}>
-                          <Ionicons name="trophy" size={20} color={theme.colors.accent} />
-                        </View>
-                        <View style={styles.cardInfo}>
-                          <Text style={styles.cardName}>{challenge.name}</Text>
-                          <Text style={styles.cardDate}>
-                            {new Date(challenge.startsAt * 1000).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                            })} - {new Date(challenge.expiresAt * 1000).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                            })}
-                          </Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={20} color={theme.colors.textMuted} />
-                      </View>
+          {loadingEvents ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={theme.colors.text} />
+              <Text style={styles.loadingText}>Loading events...</Text>
+            </View>
+          ) : events.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="calendar-outline" size={48} color={theme.colors.textMuted} />
+              <Text style={styles.emptyText}>No events scheduled</Text>
+              {userIsCaptain && (
+                <Text style={styles.emptySubtext}>
+                  Create an event from the Captain Dashboard
+                </Text>
+              )}
+            </View>
+          ) : (
+            <View style={styles.contentList}>
+              {events.map((event) => (
+                <TouchableOpacity
+                  key={event.id}
+                  style={styles.eventCard}
+                  onPress={() => onEventPress && onEventPress(event.id, event)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.cardHeader}>
+                    <View style={styles.iconContainer}>
+                      <Ionicons name="flag" size={20} color={theme.colors.accent} />
+                    </View>
+                    <View style={styles.cardInfo}>
+                      <Text style={styles.cardName}>{event.name}</Text>
+                      <Text style={styles.cardDate}>
+                        {new Date(event.eventDate).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color={theme.colors.textMuted} />
+                  </View>
 
-                      <View style={styles.cardDetails}>
-                        <View style={styles.detailItem}>
-                          <Ionicons name="footsteps" size={16} color={theme.colors.textMuted} />
-                          <Text style={styles.detailText}>{challenge.activity}</Text>
-                        </View>
-                        <View style={styles.detailItem}>
-                          <Ionicons name="flash" size={16} color={theme.colors.textMuted} />
-                          <Text style={styles.detailText}>{challenge.wager} sats</Text>
-                        </View>
-                        <View style={styles.detailItem}>
-                          <Ionicons name="barbell" size={16} color={theme.colors.textMuted} />
-                          <Text style={styles.detailText}>{challenge.metric}</Text>
-                        </View>
+                  <View style={styles.cardDetails}>
+                    <View style={styles.detailItem}>
+                      <Ionicons name="footsteps" size={16} color={theme.colors.textMuted} />
+                      <Text style={styles.detailText}>{event.activityType}</Text>
+                    </View>
+                    {event.targetDistance && (
+                      <View style={styles.detailItem}>
+                        <Ionicons name="flag-outline" size={16} color={theme.colors.textMuted} />
+                        <Text style={styles.detailText}>
+                          {event.targetDistance} {event.targetUnit}
+                        </Text>
                       </View>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )
-            }
-          />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -502,11 +409,18 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // Competitions Section (Events & Challenges)
-  competitionsSection: {
+  // Events Section
+  eventsSection: {
     flex: 1,
     paddingHorizontal: 16,
     paddingVertical: 20,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: theme.colors.text,
+    marginBottom: 16,
+    letterSpacing: 0.5,
   },
   loadingContainer: {
     flexDirection: 'row',
