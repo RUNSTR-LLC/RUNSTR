@@ -419,6 +419,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
       <ScrollView
         style={styles.content}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -596,9 +597,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a1a',
   },
 
-  // Content container (no scrolling)
+  // Content container (now scrollable with pull-to-refresh)
   content: {
     flex: 1,
+  },
+
+  scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 16,
   },
 
