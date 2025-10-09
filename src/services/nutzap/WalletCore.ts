@@ -74,33 +74,115 @@ export class WalletCore {
   }
 
   /**
-   * Initialize wallet - offline-first, no blocking
+   * Initialize wallet - with Nostr recovery fallback
+   * ✅ FIXED: Now checks Nostr BEFORE returning empty wallet
    */
   async initialize(hexPubkey: string): Promise<WalletState> {
-    console.log('[WalletCore] Initializing offline-first wallet...');
+    console.log('[WalletCore] Initializing wallet with Nostr fallback...');
     console.log('[WalletCore] User pubkey (hex):', hexPubkey.slice(0, 16) + '...');
 
     this.userPubkey = hexPubkey;
 
-    // INSTANT: Load local wallet immediately (< 50ms)
+    // Step 1: Check local storage first
     const localWallet = await this.loadLocalWallet();
 
-    console.log('[WalletCore] Wallet loaded for user:', hexPubkey.slice(0, 16) + '...');
-    console.log('[WalletCore] Balance:', localWallet.balance, 'sats');
-    console.log('[WalletCore] Proofs:', localWallet.proofs.length);
-    console.log('[WalletCore] Storage key:', this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS));
+    console.log('[WalletCore] Local wallet check:', {
+      balance: localWallet.balance,
+      proofs: localWallet.proofs.length,
+      key: this.getStorageKey(STORAGE_KEYS.WALLET_PROOFS)
+    });
 
-    // BACKGROUND: Try to connect to mint (don't block)
+    // Step 2: If local wallet is empty, try Nostr restoration IMMEDIATELY
+    if (localWallet.proofs.length === 0) {
+      console.log('[WalletCore] ⚠️  Local wallet empty - checking Nostr for existing wallet...');
+
+      try {
+        // Try to restore from Nostr (with 5s timeout to prevent blocking)
+        const nostrRestorePromise = this.restoreFromNostrWithTimeout();
+        const restoredWallet = await Promise.race([
+          nostrRestorePromise,
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000))
+        ]);
+
+        if (restoredWallet && restoredWallet.proofs.length > 0) {
+          console.log('[WalletCore] ✅ Restored wallet from Nostr:', {
+            balance: restoredWallet.balance,
+            proofs: restoredWallet.proofs.length
+          });
+
+          // Save to local storage
+          await this.saveWallet(restoredWallet.proofs, restoredWallet.mint);
+
+          // Connect to mint in background
+          this.connectToMintAsync().catch(err =>
+            console.warn('[WalletCore] Mint connection failed:', err)
+          );
+
+          return restoredWallet;
+        } else {
+          console.log('[WalletCore] ℹ️  No wallet found on Nostr - safe to create new wallet');
+        }
+      } catch (error) {
+        console.warn('[WalletCore] Nostr restoration failed:', error);
+      }
+    } else {
+      console.log('[WalletCore] ✅ Local wallet found - verifying against Nostr in background');
+
+      // Verify against Nostr in background (non-blocking)
+      this.verifyAndMergeNostrProofs().catch(err =>
+        console.warn('[WalletCore] Background verification failed:', err)
+      );
+    }
+
+    // Connect to mint in background
     this.connectToMintAsync().catch(err =>
       console.warn('[WalletCore] Mint connection failed (offline mode):', err)
     );
 
-    // BACKGROUND: Verify against Nostr backup (don't block)
-    this.verifyAndMergeNostrProofs().catch(err =>
-      console.warn('[WalletCore] Nostr verification failed:', err)
-    );
+    return localWallet;
+  }
 
-    return localWallet; // Return immediately for instant UI
+  /**
+   * Restore wallet from Nostr immediately (blocking with timeout)
+   * ✅ NEW: Called during initialization if no local wallet found
+   */
+  private async restoreFromNostrWithTimeout(): Promise<WalletState | null> {
+    try {
+      console.log('[WalletCore] Attempting Nostr wallet restoration...');
+
+      const WalletSync = require('./WalletSync').default;
+
+      // Initialize WalletSync if not already done
+      await WalletSync.initialize(this.userPubkey);
+
+      // Try to restore proofs from Nostr
+      const nostrWallet = await WalletSync.restoreProofsFromNostr();
+
+      if (!nostrWallet || nostrWallet.proofs.length === 0) {
+        console.log('[WalletCore] No wallet found on Nostr');
+        return null;
+      }
+
+      const balance = nostrWallet.proofs.reduce((sum, p) => sum + p.amount, 0);
+
+      console.log('[WalletCore] ✅ Wallet found on Nostr:', {
+        balance,
+        proofs: nostrWallet.proofs.length,
+        mint: nostrWallet.mintUrl
+      });
+
+      return {
+        balance,
+        mint: nostrWallet.mintUrl,
+        proofs: nostrWallet.proofs,
+        pubkey: this.userPubkey,
+        isOnline: false
+      };
+
+    } catch (error) {
+      console.error('[WalletCore] Nostr restoration error:', error);
+      return null;
+    }
   }
 
   /**

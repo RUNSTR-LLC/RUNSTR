@@ -41,12 +41,15 @@ class NutzapService {
   }
 
   /**
-   * Initialize wallet - offline-first, no blocking
+   * Initialize wallet - with Nostr restoration
+   * ✅ FIXED: Now restores from Nostr instead of creating duplicates
    * Supports both nsec and Amber authentication
    */
   async initialize(nsec?: string, quickResume: boolean = false): Promise<WalletState> {
     try {
-      console.log('[NutZap] Initializing simplified wallet...');
+      console.log('[NutZap] ========================================');
+      console.log('[NutZap] Initializing wallet with Nostr fallback');
+      console.log('[NutZap] ========================================');
 
       // Check authentication method
       const authMethod = await UnifiedSigningService.getAuthMethod();
@@ -89,8 +92,31 @@ class NutzapService {
       const signer = new NDKPrivateKeySigner(userNsec);
       this.userPubkey = await signer.user().then(u => u.pubkey);
 
-      // Initialize WalletCore (instant, offline-first)
+      console.log('[NutZap] User pubkey:', this.userPubkey.slice(0, 16) + '...');
+
+      // ✅ CRITICAL: Initialize WalletCore - will restore from Nostr if no local wallet
+      console.log('[NutZap] Calling WalletCore.initialize()...');
       const walletState = await WalletCore.initialize(this.userPubkey);
+
+      console.log('[NutZap] WalletCore initialized:', {
+        balance: walletState.balance,
+        proofs: walletState.proofs.length,
+        mint: walletState.mint
+      });
+
+      // Check if wallet was restored or is new
+      const wasRestored = walletState.proofs.length > 0;
+
+      if (wasRestored) {
+        console.log('[NutZap] ✅ EXISTING WALLET FOUND');
+        console.log('[NutZap] ✅ Balance:', walletState.balance, 'sats');
+        console.log('[NutZap] ✅ Proofs:', walletState.proofs.length);
+        console.log('[NutZap] ✅ NO NEW WALLET CREATED');
+      } else {
+        console.log('[NutZap] ℹ️  No existing wallet found');
+        console.log('[NutZap] ℹ️  Empty wallet state returned');
+        console.log('[NutZap] ⚠️  If you see this but expected a wallet, check Nostr connection');
+      }
 
       // Initialize WalletSync in background (non-blocking)
       // WalletSync now uses UnifiedSigningService internally
@@ -99,7 +125,7 @@ class NutzapService {
       );
 
       this.isInitialized = true;
-      console.log('[NutZap] Wallet initialized offline-first');
+      console.log('[NutZap] ========================================');
 
       return {
         balance: walletState.balance,
