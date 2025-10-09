@@ -38,7 +38,7 @@ import { qrEventService } from '../services/event/QREventService';
 import type { QREventData } from '../services/event/QREventService';
 import { NostrListService } from '../services/nostr/NostrListService';
 import { NostrProtocolHandler } from '../services/nostr/NostrProtocolHandler';
-import { NostrRelayManager } from '../services/nostr/NostrRelayManager';
+import { GlobalNDKService } from '../services/nostr/GlobalNDKService';
 import { TeamMemberCache } from '../services/team/TeamMemberCache';
 import { TeamCacheService } from '../services/cache/TeamCacheService';
 import { getTeamListDetector } from '../utils/teamListDetector';
@@ -930,30 +930,28 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
 
               // Sign and publish the updated list
               const protocolHandler = new NostrProtocolHandler();
-              const relayManager = new NostrRelayManager();
-
               const signedEvent = await protocolHandler.signEvent(eventTemplate, privateKeyHex);
-              const publishResult = await relayManager.publishEvent(signedEvent);
 
-              if (publishResult.successful && publishResult.successful.length > 0) {
-                console.log(`✅ Removed member from team list: ${memberPubkey}`);
+              // Publish using GlobalNDK
+              const ndk = await GlobalNDKService.getInstance();
+              const ndkEvent = new NDKEvent(ndk, signedEvent);
+              await ndkEvent.publish();
 
-                // Update cache
-                const listId = `${captainId}:${memberListDTag}`;
-                const updatedMembers = currentList.members.filter(m => m !== memberPubkey);
-                listService.updateCachedList(listId, updatedMembers);
+              console.log(`✅ Removed member from team list: ${memberPubkey}`);
 
-                // Update local state
-                setTeamMembers(prevMembers => prevMembers.filter(m => m !== memberPubkey));
+              // Update cache
+              const listId = `${captainId}:${memberListDTag}`;
+              const updatedMembers = currentList.members.filter(m => m !== memberPubkey);
+              listService.updateCachedList(listId, updatedMembers);
 
-                // Invalidate team member cache to force refresh
-                const memberCache = TeamMemberCache.getInstance();
-                memberCache.invalidateTeam(teamId, captainId);
+              // Update local state
+              setTeamMembers(prevMembers => prevMembers.filter(m => m !== memberPubkey));
 
-                Alert.alert('Success', 'Member has been removed from the team');
-              } else {
-                throw new Error('Failed to publish updated member list');
-              }
+              // Invalidate team member cache to force refresh
+              const memberCache = TeamMemberCache.getInstance();
+              memberCache.invalidateTeam(teamId, captainId);
+
+              Alert.alert('Success', 'Member has been removed from the team');
             } catch (error) {
               console.error('Failed to remove member:', error);
               Alert.alert('Error', 'Failed to remove member. Please try again.');
@@ -1018,25 +1016,23 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
 
       // Sign and publish the updated list
       const protocolHandler = new NostrProtocolHandler();
-      const relayManager = new NostrRelayManager();
-
       const signedEvent = await protocolHandler.signEvent(eventTemplate, privateKeyHex);
-      const publishResult = await relayManager.publishEvent(signedEvent);
 
-      if (publishResult.successful && publishResult.successful.length > 0) {
-        // Update local state
-        setTeamMembers([...teamMembers, newMemberNpub]);
-        setNewMemberNpub('');
-        setShowAddMemberModal(false);
+      // Publish using GlobalNDK
+      const ndk = await GlobalNDKService.getInstance();
+      const ndkEvent = new NDKEvent(ndk, signedEvent);
+      await ndkEvent.publish();
 
-        // Invalidate cache
-        const memberCache = TeamMemberCache.getInstance();
-        memberCache.invalidateTeam(teamId, captainId);
+      // Update local state
+      setTeamMembers([...teamMembers, newMemberNpub]);
+      setNewMemberNpub('');
+      setShowAddMemberModal(false);
 
-        Alert.alert('Success', 'Member added to the team successfully');
-      } else {
-        throw new Error('Failed to publish member list update');
-      }
+      // Invalidate cache
+      const memberCache = TeamMemberCache.getInstance();
+      memberCache.invalidateTeam(teamId, captainId);
+
+      Alert.alert('Success', 'Member added to the team successfully');
     } catch (error) {
       console.error('Failed to add member:', error);
       Alert.alert('Error', 'Failed to add member. Please try again.');

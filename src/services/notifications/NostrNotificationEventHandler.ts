@@ -3,7 +3,8 @@
  * Processes kinds 1101, 1102, 1103 and triggers team-branded notifications
  */
 
-import { NostrRelayManager } from '../nostr/NostrRelayManager';
+import { GlobalNDKService } from '../nostr/GlobalNDKService';
+import type { NDKSubscription } from '@nostr-dev-kit/ndk';
 import { TeamContextService } from './TeamContextService';
 import { TeamNotificationFormatter } from './TeamNotificationFormatter';
 import { ExpoNotificationProvider } from './ExpoNotificationProvider';
@@ -56,16 +57,14 @@ type CompetitionEvent =
 
 export class NostrNotificationEventHandler {
   private static instance: NostrNotificationEventHandler;
-  private relayManager: NostrRelayManager;
+  private subscription: NDKSubscription | null = null;
   private teamContextService: TeamContextService;
   private teamFormatter: TeamNotificationFormatter;
   private notificationProvider: ExpoNotificationProvider;
-  private subscriptionIds: Set<string> = new Set();
   private processedEvents: Set<string> = new Set(); // Prevent duplicate processing
   private isActive: boolean = false;
 
   private constructor() {
-    this.relayManager = new NostrRelayManager();
     this.teamContextService = TeamContextService.getInstance();
     this.teamFormatter = TeamNotificationFormatter.getInstance();
     this.notificationProvider = ExpoNotificationProvider.getInstance();
@@ -91,29 +90,42 @@ export class NostrNotificationEventHandler {
     console.log('📡 Starting Nostr competition event monitoring...');
 
     try {
+      // Get GlobalNDK instance
+      const ndk = await GlobalNDKService.getInstance();
+
       // Subscribe to competition events (kinds 1101, 1102, 1103)
-      const subscriptionId = await this.relayManager.subscribeToEvents(
-        [
-          {
-            kinds: [1101, 1102, 1103], // Competition events
-            limit: 100, // Get recent events
-          },
-        ],
-        this.handleCompetitionEvent.bind(this)
+      this.subscription = ndk.subscribe(
+        {
+          kinds: [1101, 1102, 1103], // Competition events
+          limit: 100, // Get recent events
+        },
+        { closeOnEose: false }
       );
 
-      this.subscriptionIds.add(subscriptionId);
+      // Handle incoming events
+      this.subscription.on('event', async (ndkEvent) => {
+        const event = {
+          id: ndkEvent.id,
+          kind: ndkEvent.kind,
+          pubkey: ndkEvent.pubkey,
+          created_at: ndkEvent.created_at || 0,
+          content: ndkEvent.content,
+          tags: ndkEvent.tags,
+          sig: ndkEvent.sig || '',
+        } as Event;
+
+        const relayUrl = ndkEvent.relay?.url || 'unknown';
+        await this.handleCompetitionEvent(event, relayUrl);
+      });
+
       this.isActive = true;
 
       analytics.track('notification_scheduled', {
         event: 'competition_monitoring_started',
-        subscriptionId,
         eventKinds: [1101, 1102, 1103],
       });
 
-      console.log(
-        `✅ Competition event monitoring active with subscription: ${subscriptionId}`
-      );
+      console.log('✅ Competition event monitoring active');
     } catch (error) {
       console.error('❌ Failed to start competition event monitoring:', error);
       const errorMessage =
@@ -132,16 +144,16 @@ export class NostrNotificationEventHandler {
   async stopListening(): Promise<void> {
     console.log('📡 Stopping Nostr competition event monitoring...');
 
-    // Unsubscribe from all active subscriptions
-    for (const subscriptionId of this.subscriptionIds) {
+    // Stop the NDK subscription
+    if (this.subscription) {
       try {
-        await this.relayManager.unsubscribe(subscriptionId);
+        this.subscription.stop();
+        this.subscription = null;
       } catch (error) {
-        console.warn(`Failed to unsubscribe from ${subscriptionId}:`, error);
+        console.warn('Failed to stop subscription:', error);
       }
     }
 
-    this.subscriptionIds.clear();
     this.processedEvents.clear();
     this.isActive = false;
 
@@ -657,7 +669,7 @@ export class NostrNotificationEventHandler {
   } {
     return {
       isActive: this.isActive,
-      subscriptionCount: this.subscriptionIds.size,
+      subscriptionCount: this.subscription ? 1 : 0,
       processedEventCount: this.processedEvents.size,
     };
   }

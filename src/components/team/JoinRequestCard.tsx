@@ -10,7 +10,8 @@ import { MemberAvatar } from '../ui/MemberAvatar';
 import type { JoinRequest } from '../../services/team/teamMembershipService';
 import { NostrListService } from '../../services/nostr/NostrListService';
 import { NostrProtocolHandler } from '../../services/nostr/NostrProtocolHandler';
-import { NostrRelayManager } from '../../services/nostr/NostrRelayManager';
+import { GlobalNDKService } from '../../services/nostr/GlobalNDKService';
+import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { getNsecFromStorage, nsecToPrivateKey } from '../../utils/nostr';
 import { TeamMemberCache } from '../../services/team/TeamMemberCache';
 
@@ -88,27 +89,25 @@ export const JoinRequestCard: React.FC<JoinRequestCardProps> = ({
 
               // Sign and publish the updated list
               const protocolHandler = new NostrProtocolHandler();
-              const relayManager = new NostrRelayManager();
-
               const signedEvent = await protocolHandler.signEvent(eventTemplate, privateKey);
-              const publishResult = await relayManager.publishEvent(signedEvent);
 
-              if (publishResult.successful && publishResult.successful.length > 0) {
-                console.log(`✅ Added member to team list: ${request.requesterPubkey}`);
+              // Publish using GlobalNDK
+              const ndk = await GlobalNDKService.getInstance();
+              const ndkEvent = new NDKEvent(ndk, signedEvent);
+              await ndkEvent.publish();
 
-                // Update cache
-                const listId = `${captainPubkey}:${memberListDTag}`;
-                const updatedMembers = [...currentList.members, request.requesterPubkey];
-                listService.updateCachedList(listId, updatedMembers);
+              console.log(`✅ Added member to team list: ${request.requesterPubkey}`);
 
-                // Invalidate team member cache to force refresh
-                const memberCache = TeamMemberCache.getInstance();
-                memberCache.invalidateTeam(teamId, captainPubkey);
+              // Update cache
+              const listId = `${captainPubkey}:${memberListDTag}`;
+              const updatedMembers = [...currentList.members, request.requesterPubkey];
+              listService.updateCachedList(listId, updatedMembers);
 
-                onApprove(request.id, request.requesterPubkey);
-              } else {
-                throw new Error('Failed to publish updated member list');
-              }
+              // Invalidate team member cache to force refresh
+              const memberCache = TeamMemberCache.getInstance();
+              memberCache.invalidateTeam(teamId, captainPubkey);
+
+              onApprove(request.id, request.requesterPubkey);
             } catch (error) {
               console.error('Failed to approve join request:', error);
               Alert.alert(
