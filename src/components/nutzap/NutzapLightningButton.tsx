@@ -22,6 +22,7 @@ import { theme } from '../../styles/theme';
 import { useNutzap } from '../../hooks/useNutzap';
 import { EnhancedZapModal } from './EnhancedZapModal';
 import { npubToHex } from '../../utils/ndkConversion';
+import LightningZapService from '../../services/nutzap/LightningZapService';
 
 const DEFAULT_ZAP_AMOUNT = 21;
 const LONG_PRESS_DURATION = 500; // ms to trigger long press
@@ -45,7 +46,7 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
   disabled = false,
   customLabel,
 }) => {
-  const { balance, sendNutzap, isInitialized } = useNutzap();
+  const { balance, sendNutzap, isInitialized, refreshBalance } = useNutzap();
   const [isZapped, setIsZapped] = useState(false);
   const [isZapping, setIsZapping] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -143,6 +144,11 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
   const handlePressIn = () => {
     if (disabled || !isInitialized) return;
 
+    // Refresh balance to ensure we have current spendable amount
+    refreshBalance().catch(err =>
+      console.warn('[NutzapButton] Balance refresh failed:', err)
+    );
+
     // Start long press timer
     longPressTimer.current = setTimeout(() => {
       // Trigger haptic feedback if available
@@ -199,11 +205,28 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
     ]).start();
 
     try {
-      const success = await sendNutzap(
+      const memo = `⚡ Quick zap from RUNSTR!`;
+      let success = false;
+
+      // Try Lightning first
+      console.log('[NutzapButton] Attempting Lightning zap...');
+      const lightningResult = await LightningZapService.sendLightningZap(
         recipientHex,
         defaultAmount,
-        `⚡ Quick zap from RUNSTR!`
+        memo
       );
+
+      if (lightningResult.success) {
+        console.log('[NutzapButton] ✅ Lightning zap successful');
+        success = true;
+      } else {
+        // Fallback to nutzap
+        console.log('[NutzapButton] Lightning failed, falling back to nutzap...');
+        success = await sendNutzap(recipientHex, defaultAmount, memo);
+        if (success) {
+          console.log('[NutzapButton] ✅ Nutzap successful');
+        }
+      }
 
       if (success) {
         // Set zapped state for color change

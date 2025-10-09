@@ -29,12 +29,13 @@ export const CompactWallet: React.FC<CompactWalletProps> = ({
   onHistoryPress,
 }) => {
   // Subscribe directly to wallet store for real-time balance updates
-  const { balance, isInitialized, isInitializing } = useWalletStore();
+  const { balance, isInitialized, isInitializing, refreshBalance: refreshStoreBalance } = useWalletStore();
 
   // Get claim function from hook (doesn't trigger initialization)
   const { claimNutzaps } = useNutzap(false);
 
   const [lastClaimTime, setLastClaimTime] = useState<Date | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const isLoading = isInitializing;
 
   // Auto-claim handler with optional silent mode
@@ -54,6 +55,31 @@ export const CompactWallet: React.FC<CompactWalletProps> = ({
       }
     }
   }, [claimNutzaps]);
+
+  // Manual refresh handler - claims nutzaps + syncs balance from proofs
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      // Claim any pending nutzaps
+      await handleClaim(true);
+      // Sync balance from AsyncStorage proofs (source of truth)
+      await refreshStoreBalance();
+      console.log('[CompactWallet] Manual refresh completed');
+    } catch (err) {
+      console.error('[CompactWallet] Refresh failed:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [handleClaim, refreshStoreBalance]);
+
+  // Sync balance from proofs on mount (ensures display matches spendable balance)
+  useEffect(() => {
+    if (isInitialized) {
+      refreshStoreBalance().catch(err =>
+        console.warn('[CompactWallet] Initial balance sync failed:', err)
+      );
+    }
+  }, [isInitialized, refreshStoreBalance]);
 
   // Auto-claim on mount and periodically (silent mode to avoid Alert/Modal conflicts)
   useEffect(() => {
@@ -79,18 +105,26 @@ export const CompactWallet: React.FC<CompactWalletProps> = ({
   // Balance updates instantly when transactions complete
   return (
     <View style={styles.walletBox}>
-        {/* Centered balance with sync indicator */}
+        {/* Centered balance with sync indicator and refresh button */}
         <View style={styles.balanceContainer}>
           <Text style={styles.balanceAmount}>
             {formatBalance(balance)}
           </Text>
           <Text style={styles.balanceUnit}>sats</Text>
-          {isLoading && (
+          {(isLoading || isRefreshing) ? (
             <ActivityIndicator
               size="small"
               color={theme.colors.textMuted}
               style={styles.syncIndicator}
             />
+          ) : (
+            <TouchableOpacity
+              onPress={handleRefresh}
+              style={styles.refreshButton}
+              activeOpacity={0.6}
+            >
+              <Ionicons name="refresh" size={16} color={theme.colors.textMuted} />
+            </TouchableOpacity>
           )}
         </View>
 
@@ -153,6 +187,11 @@ const styles = StyleSheet.create({
 
   syncIndicator: {
     marginLeft: 8,
+  },
+
+  refreshButton: {
+    marginLeft: 8,
+    padding: 4,
   },
 
   // Actions

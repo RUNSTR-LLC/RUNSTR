@@ -22,6 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { useNutzap } from '../../hooks/useNutzap';
 import { hexToNpub, npubToHex } from '../../utils/ndkConversion';
+import LightningZapService from '../../services/nutzap/LightningZapService';
 
 interface EnhancedZapModalProps {
   visible: boolean;
@@ -44,7 +45,7 @@ export const EnhancedZapModal: React.FC<EnhancedZapModalProps> = ({
   onSuccess,
   onDefaultAmountChange,
 }) => {
-  const { sendNutzap } = useNutzap();
+  const { sendNutzap, refreshBalance } = useNutzap();
   const [selectedAmount, setSelectedAmount] = useState<number>(defaultAmount);
   const [customAmount, setCustomAmount] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -84,6 +85,15 @@ export const EnhancedZapModal: React.FC<EnhancedZapModalProps> = ({
     }
   }, [visible, defaultAmount]);
 
+  // Refresh balance when modal opens to ensure display matches spendable balance
+  useEffect(() => {
+    if (visible) {
+      refreshBalance().catch(err =>
+        console.warn('[EnhancedZapModal] Balance refresh failed:', err)
+      );
+    }
+  }, [visible, refreshBalance]);
+
   const handleSend = async () => {
     const amount = customAmount ? parseInt(customAmount) : selectedAmount;
 
@@ -104,7 +114,27 @@ export const EnhancedZapModal: React.FC<EnhancedZapModalProps> = ({
 
     try {
       const zapMemo = memo || `⚡ Zap from RUNSTR - ${amount} sats!`;
-      const success = await sendNutzap(recipientHex, amount, zapMemo);
+      let success = false;
+
+      // Try Lightning first
+      console.log('[ZapModal] Attempting Lightning zap...');
+      const lightningResult = await LightningZapService.sendLightningZap(
+        recipientHex,
+        amount,
+        zapMemo
+      );
+
+      if (lightningResult.success) {
+        console.log('[ZapModal] ✅ Lightning zap successful');
+        success = true;
+      } else {
+        // Fallback to nutzap
+        console.log('[ZapModal] Lightning failed, falling back to nutzap...');
+        success = await sendNutzap(recipientHex, amount, zapMemo);
+        if (success) {
+          console.log('[ZapModal] ✅ Nutzap successful');
+        }
+      }
 
       if (success) {
         // Update default if requested
@@ -162,18 +192,22 @@ export const EnhancedZapModal: React.FC<EnhancedZapModalProps> = ({
     >
       <View style={styles.overlay}>
         <View style={styles.modal}>
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Header */}
-            <View style={styles.header}>
-              <View style={styles.titleContainer}>
-                <Ionicons name="flash" size={24} color={theme.colors.text} />
-                <Text style={styles.title}>Custom Zap</Text>
-              </View>
-              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Ionicons name="close" size={24} color={theme.colors.text} />
-              </TouchableOpacity>
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.titleContainer}>
+              <Ionicons name="flash" size={24} color={theme.colors.text} />
+              <Text style={styles.title}>Custom Zap</Text>
             </View>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Ionicons name="close" size={24} color={theme.colors.text} />
+            </TouchableOpacity>
+          </View>
 
+          {/* Scrollable Content */}
+          <ScrollView
+            style={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
             {/* Recipient Info */}
             <View style={styles.recipientSection}>
               <Text style={styles.recipientLabel}>Sending to:</Text>
@@ -252,20 +286,27 @@ export const EnhancedZapModal: React.FC<EnhancedZapModalProps> = ({
                 <Text style={styles.satsSuffix}>sats</Text>
               </View>
 
-              {/* Set as Default Toggle */}
-              {displayAmount > 0 && displayAmount !== defaultAmount && (
+              {/* Set as Default Toggle - Always show when amount selected */}
+              {displayAmount > 0 && (
                 <View style={styles.defaultToggle}>
-                  <Text style={styles.defaultToggleLabel}>
-                    Set {displayAmount} sats as my default
+                  <Text style={[
+                    styles.defaultToggleLabel,
+                    displayAmount === defaultAmount && styles.defaultToggleLabelDisabled
+                  ]}>
+                    {displayAmount === defaultAmount
+                      ? `${displayAmount} sats is already your default`
+                      : `Set ${displayAmount} sats as my default`
+                    }
                   </Text>
                   <Switch
-                    value={setAsDefault}
+                    value={displayAmount === defaultAmount ? true : setAsDefault}
                     onValueChange={setSetAsDefault}
+                    disabled={displayAmount === defaultAmount}
                     trackColor={{
                       false: theme.colors.border,
                       true: theme.colors.text,
                     }}
-                    thumbColor={setAsDefault ? theme.colors.background : theme.colors.text}
+                    thumbColor={(displayAmount === defaultAmount || setAsDefault) ? theme.colors.background : theme.colors.text}
                   />
                 </View>
               )}
@@ -273,7 +314,7 @@ export const EnhancedZapModal: React.FC<EnhancedZapModalProps> = ({
 
             {/* Optional Memo */}
             <View style={styles.memoSection}>
-              <Text style={styles.sectionLabel}>Add a Message (optional)</Text>
+              <Text style={styles.sectionLabel}>Message (optional)</Text>
               <TextInput
                 style={styles.memoInput}
                 value={memo}
@@ -284,8 +325,10 @@ export const EnhancedZapModal: React.FC<EnhancedZapModalProps> = ({
                 maxLength={100}
               />
             </View>
+          </ScrollView>
 
-            {/* Send Button */}
+          {/* Send Button - Fixed at bottom, always visible */}
+          <View style={styles.buttonContainer}>
             <TouchableOpacity
               style={[
                 styles.sendButton,
@@ -309,7 +352,7 @@ export const EnhancedZapModal: React.FC<EnhancedZapModalProps> = ({
                 </>
               )}
             </TouchableOpacity>
-          </ScrollView>
+          </View>
         </View>
       </View>
     </Modal>
@@ -328,19 +371,32 @@ const styles = StyleSheet.create({
   modal: {
     width: '100%',
     maxWidth: 400,
-    maxHeight: '80%',
+    maxHeight: '85%',
     backgroundColor: theme.colors.background,
     borderRadius: theme.borderRadius.large,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    padding: 20,
+  },
+
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
+
+  buttonContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
   },
 
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
   },
 
   titleContainer: {
@@ -360,7 +416,7 @@ const styles = StyleSheet.create({
   },
 
   recipientSection: {
-    marginBottom: 16,
+    marginBottom: 12,
     padding: 12,
     backgroundColor: theme.colors.cardBackground,
     borderRadius: theme.borderRadius.medium,
@@ -387,7 +443,7 @@ const styles = StyleSheet.create({
   },
 
   balanceSection: {
-    marginBottom: 20,
+    marginBottom: 12,
     padding: 12,
     backgroundColor: theme.colors.cardBackground,
     borderRadius: theme.borderRadius.medium,
@@ -416,7 +472,7 @@ const styles = StyleSheet.create({
   },
 
   amountSection: {
-    marginBottom: 20,
+    marginBottom: 12,
   },
 
   sectionLabel: {
@@ -506,10 +562,15 @@ const styles = StyleSheet.create({
   defaultToggleLabel: {
     fontSize: 13,
     color: theme.colors.text,
+    flex: 1,
+  },
+
+  defaultToggleLabelDisabled: {
+    color: theme.colors.textMuted,
   },
 
   memoSection: {
-    marginBottom: 20,
+    marginBottom: 0,
   },
 
   memoInput: {
