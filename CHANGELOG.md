@@ -6,6 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2025-10-09
+
+### Improved
+- **Activity Tracking Architecture**: Simplified location tracking system
+  - Replaced complex tracking system with SimpleLocationTrackingService
+  - More maintainable and reliable GPS tracking
+  - Better performance during workouts
+
+### Fixed
+- **Theme Consistency**: Updated Bitcoin message box and notifications to match black and orange theme
+  - Consistent visual design across all UI components
+  - Better integration with app's color scheme
+
 ## [0.2.0] - 2025-10-09
 
 ### Performance
