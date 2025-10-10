@@ -326,12 +326,23 @@ export class EnhancedLocationTrackingService {
       // Get location options from battery service
       const locationOptions = this.batteryService.getLocationOptions(activityType);
 
-      console.log(`📍 [${Platform.OS.toUpperCase()}] Location options:`, JSON.stringify(locationOptions, null, 2));
+      // 🔧 iOS FIX: Add iOS-specific options for fitness tracking
+      const iosEnhancedOptions = Platform.OS === 'ios' ? {
+        ...locationOptions,
+        // iOS requires explicit activity type for fitness tracking
+        activityType: Location.ActivityType.Fitness,
+        // Don't pause updates automatically during workouts
+        pausesUpdatesAutomatically: false,
+        // Show blue status bar indicator (user transparency)
+        showsBackgroundLocationIndicator: true,
+      } : locationOptions;
+
+      console.log(`📍 [${Platform.OS.toUpperCase()}] Location options:`, JSON.stringify(iosEnhancedOptions, null, 2));
 
       // Start foreground tracking
       console.log(`📡 [${Platform.OS.toUpperCase()}] Starting foreground location tracking...`);
       this.locationSubscription = await Location.watchPositionAsync(
-        locationOptions,
+        iosEnhancedOptions,
         (location) => this.handleLocationUpdate(location)
       );
       console.log(`✅ [${Platform.OS.toUpperCase()}] Foreground location tracking started`);

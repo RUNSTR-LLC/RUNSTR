@@ -7,9 +7,11 @@
 // SENIOR DEVELOPER FIX: Initialize WebSocket polyfill early
 import { initializeWebSocketPolyfill } from './utils/webSocketPolyfill';
 import * as ExpoSplashScreen from 'expo-splash-screen';
+import * as TaskManager from 'expo-task-manager';
 
 // Initialize background location task (must be imported early for TaskManager.defineTask to execute)
 import './services/activity/BackgroundLocationTask';
+import { BACKGROUND_LOCATION_TASK } from './services/activity/BackgroundLocationTask';
 
 import React from 'react';
 import { StatusBar, View, Text, StyleSheet, TouchableOpacity, AppState, AppStateStatus } from 'react-native';
@@ -776,12 +778,30 @@ export default function App() {
           // App can continue without polyfill in most cases
         }
 
+        // 🔧 iOS FIX: Verify background location task is defined for distance tracking
+        try {
+          const isTaskDefined = await TaskManager.isTaskDefined(BACKGROUND_LOCATION_TASK);
+          const isTaskRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_LOCATION_TASK);
+
+          console.log(`📍 Background task status - Defined: ${isTaskDefined}, Registered: ${isTaskRegistered}`);
+
+          if (!isTaskDefined) {
+            console.error('❌ Background location task NOT defined - distance tracking will fail');
+            console.error('   This should not happen - check BackgroundLocationTask import');
+          } else {
+            console.log('✅ Background location task defined and ready for distance tracking');
+          }
+        } catch (error) {
+          console.error('❌ Failed to check background task status:', error);
+          // Don't block app initialization - tracking will fall back to foreground only
+        }
+
         // Give app a moment to ensure black background is set
         await new Promise(resolve => setTimeout(resolve, 100));
-        
+
         // Pre-load any critical resources here if needed
         console.log('🚀 App initialization complete');
-        
+
       } catch (e) {
         console.warn('App initialization warning:', e);
       } finally {

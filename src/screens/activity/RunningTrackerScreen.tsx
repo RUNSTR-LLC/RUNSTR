@@ -4,8 +4,10 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as TaskManager from 'expo-task-manager';
+import * as Device from 'expo-device';
 import { theme } from '../../styles/theme';
 import { enhancedLocationTrackingService } from '../../services/activity/EnhancedLocationTrackingService';
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
@@ -15,6 +17,7 @@ import { GPSStatusIndicator, type GPSSignalStrength } from '../../components/act
 import { BatteryWarning } from '../../components/activity/BatteryWarning';
 import { WorkoutSummaryModal } from '../../components/activity/WorkoutSummaryModal';
 import LocalWorkoutStorageService from '../../services/fitness/LocalWorkoutStorageService';
+import { BACKGROUND_LOCATION_TASK } from '../../services/activity/BackgroundLocationTask';
 
 // Constants
 const TIMER_INTERVAL_MS = 1000; // Update timer every second
@@ -78,6 +81,29 @@ export const RunningTrackerScreen: React.FC = () => {
   }, []);
 
   const startTracking = async () => {
+    // 🔧 iOS DEBUG: Check background task registration status
+    try {
+      const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_LOCATION_TASK);
+      console.log(`📍 [DEBUG] Background task registered: ${isRegistered}`);
+
+      if (!isRegistered) {
+        console.warn('⚠️ Background task NOT registered - distance tracking may not work properly');
+        Alert.alert(
+          'Setup Warning',
+          'Background tracking is not initialized. Distance tracking may not work properly on iOS. Please restart the app.',
+          [{ text: 'OK' }]
+        );
+      }
+
+      // Warn if testing on iOS simulator
+      if (Platform.OS === 'ios' && !Device.isDevice) {
+        console.warn('⚠️ Running on iOS simulator - GPS may not work properly');
+        console.warn('   Recommendation: Test on physical device for accurate distance tracking');
+      }
+    } catch (error) {
+      console.error('❌ Failed to check background task status:', error);
+    }
+
     // Health check: Detect and cleanup zombie sessions before starting
     const currentState = enhancedLocationTrackingService.getTrackingState();
     if (currentState !== 'idle' && currentState !== 'requesting_permissions') {

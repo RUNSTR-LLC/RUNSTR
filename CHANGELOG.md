@@ -6,6 +6,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-10-09
+
+### Performance
+- **Global NDK Service Migration**: Eliminated duplicate WebSocket connections across the app
+  - Migrated remaining services from NostrRelayManager to GlobalNDKService
+  - Reduced redundant relay connections for better performance
+  - Improved connection stability and reliability
+  - More efficient Nostr operations throughout the app
+
+### Improved
+- **Workout Posting Reliability**: Enhanced workout posting with UnifiedSigningService
+  - More reliable kind 1 workout posting to Nostr
+  - Better signing coordination across the app
+  - Improved error handling for workout events
+- **Lightning Zap Experience**: Refined nutzap and Lightning payment flows
+  - Improved zap button interactions and feedback
+  - Better error handling for Lightning payments
+  - Enhanced user experience for sending satoshis
+
+### Fixed
+- **Prefetch Service**: Resolved errors in NostrPrefetchService
+  - Removed unused league fetching causing errors
+  - Cleaner initialization flow
+  - Faster app startup without unnecessary queries
+
 ## [0.1.10] - 2025-10-09
 
 ### Fixed

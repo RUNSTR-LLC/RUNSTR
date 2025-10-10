@@ -5,7 +5,7 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Modal } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableWithoutFeedback } from 'react-native';
 import { theme } from '../../styles/theme';
 import { Avatar } from './Avatar';
 import { NutzapLightningButton } from '../nutzap/NutzapLightningButton';

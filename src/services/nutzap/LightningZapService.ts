@@ -108,7 +108,7 @@ class LightningZapService {
           fee: paymentResult.fee,
         };
       } else {
-        console.error('[LightningZap] Payment failed:', paymentResult.error);
+        console.log('[LightningZap] Payment failed:', paymentResult.error);
         return {
           success: false,
           method: 'none',
@@ -116,7 +116,7 @@ class LightningZapService {
         };
       }
     } catch (error) {
-      console.error('[LightningZap] Error:', error);
+      console.log('[LightningZap] Error:', error);
       return {
         success: false,
         method: 'none',
@@ -144,7 +144,7 @@ class LightningZapService {
 
       return null;
     } catch (error) {
-      console.error('[LightningZap] Error fetching profile:', error);
+      console.log('[LightningZap] Error fetching profile:', error);
       return null;
     }
   }
@@ -165,11 +165,11 @@ class LightningZapService {
         // LNURL bech32 format - decode it
         lnurlPayUrl = this.decodeLnurl(lud);
         if (!lnurlPayUrl) {
-          console.error('[LightningZap] Failed to decode LNURL');
+          console.log('[LightningZap] Failed to decode LNURL');
           return null;
         }
       } else {
-        console.error('[LightningZap] Invalid Lightning address format:', lud);
+        console.log('[LightningZap] Invalid Lightning address format:', lud);
         return null;
       }
 
@@ -187,7 +187,7 @@ class LightningZapService {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        console.error('[LightningZap] LNURL fetch failed:', response.status);
+        console.log('[LightningZap] LNURL fetch failed:', response.status);
         return null;
       }
 
@@ -195,9 +195,9 @@ class LightningZapService {
       return details;
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        console.error('[LightningZap] LNURL fetch timeout');
+        console.log('[LightningZap] LNURL fetch timeout');
       } else {
-        console.error('[LightningZap] Error fetching LNURL:', error);
+        console.log('[LightningZap] Error fetching LNURL:', error);
       }
       return null;
     }
@@ -214,7 +214,7 @@ class LightningZapService {
       console.warn('[LightningZap] LNURL bech32 decode not fully implemented, use lud16 format');
       return '';
     } catch (error) {
-      console.error('[LightningZap] LNURL decode error:', error);
+      console.log('[LightningZap] LNURL decode error:', error);
       return '';
     }
   }
@@ -232,7 +232,7 @@ class LightningZapService {
       const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
 
       if (!hexPubkey) {
-        console.error('[LightningZap] No user pubkey found');
+        console.log('[LightningZap] No user pubkey found');
         return null;
       }
 
@@ -253,13 +253,13 @@ class LightningZapService {
       const signedEvent = await signingService.signEvent(zapRequest);
 
       if (!signedEvent) {
-        console.error('[LightningZap] Failed to sign zap request');
+        console.log('[LightningZap] Failed to sign zap request');
         return null;
       }
 
       return signedEvent;
     } catch (error) {
-      console.error('[LightningZap] Error creating zap request:', error);
+      console.log('[LightningZap] Error creating zap request:', error);
       return null;
     }
   }
@@ -303,23 +303,23 @@ class LightningZapService {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        console.error('[LightningZap] Invoice callback failed:', response.status);
+        console.log('[LightningZap] Invoice callback failed:', response.status);
         return null;
       }
 
       const data = await response.json();
 
       if (!data.pr) {
-        console.error('[LightningZap] No invoice in response');
+        console.log('[LightningZap] No invoice in response');
         return null;
       }
 
       return data.pr;
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        console.error('[LightningZap] Invoice fetch timeout');
+        console.log('[LightningZap] Invoice fetch timeout');
       } else {
-        console.error('[LightningZap] Error getting invoice:', error);
+        console.log('[LightningZap] Error getting invoice:', error);
       }
       return null;
     }

@@ -229,13 +229,30 @@ class NutzapService {
     memo: string = ''
   ): Promise<{ success: boolean; error?: string }> {
     try {
+      console.log('[NutZap] sendNutzap called:', {
+        recipientPubkey: recipientPubkey.slice(0, 16) + '...',
+        amount,
+        memo: memo.slice(0, 30),
+        isInitialized: this.isInitialized,
+        userPubkey: this.userPubkey.slice(0, 16) + '...'
+      });
+
       if (!this.isInitialized) {
-        return { success: false, error: 'Wallet not initialized' };
+        console.error('[NutZap] ❌ Cannot send: Wallet not initialized');
+        console.error('[NutZap] Wallet state:', {
+          isInitialized: this.isInitialized,
+          userPubkey: this.userPubkey || 'not set'
+        });
+        return { success: false, error: 'Wallet not initialized. Please go to Settings and pull down to refresh.' };
       }
 
       // Verify signing capability (works for both nsec and Amber)
+      console.log('[NutZap] Checking signing capability...');
       const canSign = await UnifiedSigningService.getInstance().canSign();
+      console.log('[NutZap] Signing capability:', canSign);
+
       if (!canSign) {
+        console.error('[NutZap] ❌ No signing capability');
         return {
           success: false,
           error: 'No signing capability available. Please ensure you are properly authenticated.'
@@ -243,7 +260,9 @@ class NutzapService {
       }
 
       // Send via WalletCore (creates token and deducts balance)
+      console.log('[NutZap] Calling WalletCore.sendNutzap...');
       const result = await WalletCore.sendNutzap(recipientPubkey, amount, memo);
+      console.log('[NutZap] WalletCore result:', result);
 
       if (result.success && result.token) {
         // Publish nutzap to Nostr (NIP-61)

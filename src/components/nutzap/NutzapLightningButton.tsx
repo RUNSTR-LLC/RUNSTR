@@ -55,7 +55,7 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
   // Animation for the zap effect
   const scaleAnimation = useRef(new Animated.Value(1)).current;
 
-  // Timer for long press detection
+  // Manual timer for long press detection
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Normalize recipient pubkey to hex format for consistency
@@ -79,6 +79,25 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
     loadZapState();
     loadDefaultAmount();
   }, [recipientHex]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+      }
+    };
+  }, []);
+
+  // Log wallet initialization state for debugging
+  useEffect(() => {
+    console.log('[NutzapButton] Wallet state changed:', {
+      isInitialized,
+      balance,
+      disabled,
+      recipientName
+    });
+  }, [isInitialized, balance, disabled, recipientName]);
 
   const loadZapState = async () => {
     try {
@@ -142,31 +161,48 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
   };
 
   const handlePressIn = () => {
-    if (disabled || !isInitialized) return;
+    console.log('[NutzapButton] Press detected, checking state...');
 
-    // Refresh balance to ensure we have current spendable amount
-    refreshBalance().catch(err =>
-      console.warn('[NutzapButton] Balance refresh failed:', err)
-    );
+    if (disabled) {
+      console.log('[NutzapButton] Button is disabled');
+      return;
+    }
 
-    // Start long press timer
+    if (!isInitialized) {
+      console.log('[NutzapButton] Wallet not initialized, showing alert');
+      Alert.alert(
+        'Wallet Not Ready',
+        'Your wallet is still initializing. Please pull down to refresh in Settings, or wait a moment and try again.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    // Start long press timer (no balance refresh to avoid re-renders)
+    console.log('[NutzapButton] Starting long press timer...');
     longPressTimer.current = setTimeout(() => {
-      // Trigger haptic feedback if available
+      console.log('[NutzapButton] ⏰ TIMER FIRED - Long press detected, opening modal');
       setShowModal(true);
       longPressTimer.current = null;
     }, LONG_PRESS_DURATION);
+
+    // Debug: verify timer was set
+    console.log('[NutzapButton] Timer set:', longPressTimer.current !== null);
   };
 
-  const handlePressOut = async (event: GestureResponderEvent) => {
-    if (disabled || !isInitialized) return;
+  const handlePressOut = async () => {
+    console.log('[NutzapButton] 🖐️ PRESS OUT - Timer active:', longPressTimer.current !== null);
 
-    // If timer is still running, it's a tap
     if (longPressTimer.current) {
+      // Timer still active = quick tap (not long press)
+      console.log('[NutzapButton] Quick tap detected, clearing timer and performing zap');
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
 
       // Quick zap with default amount
       await performQuickZap();
+    } else {
+      console.log('[NutzapButton] Press out after long press, ignoring');
     }
   };
 
@@ -291,45 +327,40 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
 
   return (
     <>
-      <Animated.View
-        style={[
-          {
-            transform: [{ scale: scaleAnimation }],
-          },
-        ]}
+      <View
+        onStartShouldSetResponder={() => true}
+        onResponderGrant={() => {}}
       >
-        <TouchableOpacity
+        <Animated.View
           style={[
-            styles.button,
-            isRectangular ? {
-              width: config.width,
-              height: config.button,
-              borderRadius: 4,
-              flexDirection: 'row',
-              paddingHorizontal: 8,
-            } : {
-              width: config.button,
-              height: config.button,
-              borderRadius: config.button / 2,
+            {
+              transform: [{ scale: scaleAnimation }],
             },
-            isZapped && styles.buttonZapped,
-            isDisabled && styles.buttonDisabled,
-            style,
           ]}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          disabled={isDisabled || isZapping}
-          activeOpacity={0.7}
-          onPress={() => {
-            if (!isInitialized) {
-              Alert.alert(
-                'Wallet Initializing',
-                'Please wait while your wallet initializes...',
-                [{ text: 'OK' }]
-              );
-            }
-          }}
         >
+          <TouchableOpacity
+            style={[
+              styles.button,
+              isRectangular ? {
+                width: config.width,
+                height: config.button,
+                borderRadius: 4,
+                flexDirection: 'row',
+                paddingHorizontal: 8,
+              } : {
+                width: config.button,
+                height: config.button,
+                borderRadius: config.button / 2,
+              },
+              isZapped && styles.buttonZapped,
+              isDisabled && styles.buttonDisabled,
+              style,
+            ]}
+            onPressIn={handlePressIn}
+            onPressOut={handlePressOut}
+            disabled={isDisabled || isZapping}
+            activeOpacity={0.7}
+          >
           {isZapping ? (
             <ActivityIndicator size="small" color={theme.colors.primary} />
           ) : (
@@ -356,6 +387,7 @@ export const NutzapLightningButton: React.FC<NutzapLightningButtonProps> = ({
           )}
         </TouchableOpacity>
       </Animated.View>
+      </View>
 
       <EnhancedZapModal
         visible={showModal}
