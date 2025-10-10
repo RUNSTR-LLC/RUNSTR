@@ -4,11 +4,12 @@
  * Centralized configuration for all cache expiration times.
  * Values are in milliseconds.
  *
- * Categories:
- * - STATIC: Data that rarely changes (hours/days)
- * - SEMI_STATIC: Data that changes occasionally (30min-1hr)
- * - DYNAMIC: Data that changes frequently (1-5min)
- * - REAL_TIME: Data that needs to be fresh (no cache or <30s)
+ * ✅ OPTIMIZED FOR SMALL APP (10 teams):
+ * - Most data: 24-hour TTL (user triggers refresh via pull-to-refresh)
+ * - Interactive data: 1-5 minute TTL (captains need freshness)
+ * - Real-time data: No cache (wallet balance, live tracking)
+ *
+ * Strategy: Cache-first with pull-to-refresh (Twitter/Instagram pattern)
  */
 
 // Time unit constants
@@ -39,21 +40,23 @@ export const CacheTTL = {
 
   /**
    * Discovered teams list
-   * New teams appear occasionally, existing teams rarely change
+   * ✅ OPTIMIZATION: 24h TTL (only 10 teams, teams rarely created)
+   * User can pull-to-refresh for latest teams
    */
-  DISCOVERED_TEAMS: 1 * HOUR,
+  DISCOVERED_TEAMS: 24 * HOUR,
 
   /**
    * Competition definitions (kind 30100, 30101)
+   * ✅ OPTIMIZATION: 24h TTL (competitions created infrequently)
    * Created once, rarely modified
    */
-  COMPETITIONS: 1 * HOUR,
+  COMPETITIONS: 24 * HOUR,
 
   /**
    * League definitions (kind 30100)
-   * Long-running competitions with stable rules
+   * ✅ OPTIMIZATION: 24h TTL (long-running competitions with stable rules)
    */
-  LEAGUES: 2 * HOUR,
+  LEAGUES: 24 * HOUR,
 
   // ============================================================================
   // SEMI-STATIC DATA - Changes occasionally (medium TTL)
@@ -61,33 +64,36 @@ export const CacheTTL = {
 
   /**
    * Team member lists (kind 30000)
-   * Changes when members join/leave (occasional)
+   * ✅ OPTIMIZATION: 24h TTL (only 10 teams, infrequent joins/leaves)
+   * Cache invalidation handles immediate updates after joins
    */
-  TEAM_MEMBERS: 30 * MINUTE,
+  TEAM_MEMBERS: 24 * HOUR,
 
   /**
    * User's teams list
-   * Changes when user joins/leaves teams (occasional)
+   * ✅ OPTIMIZATION: 24h TTL (users don't join teams constantly)
+   * Cache invalidation handles immediate updates
    */
-  USER_TEAMS: 30 * MINUTE,
+  USER_TEAMS: 24 * HOUR,
 
   /**
    * Captain status cache
-   * Changes when team ownership transfers (rare)
+   * ✅ OPTIMIZATION: 24h TTL (team ownership rarely transfers)
    */
-  CAPTAIN_STATUS: 1 * HOUR,
+  CAPTAIN_STATUS: 24 * HOUR,
 
   /**
    * Event definitions (kind 30101)
-   * Time-bounded competitions with fixed parameters
+   * ✅ OPTIMIZATION: 24h TTL (time-bounded competitions created infrequently)
    */
-  EVENTS: 30 * MINUTE,
+  EVENTS: 24 * HOUR,
 
   /**
    * User workout history (kind 1301)
-   * New workouts added regularly, but historical data is stable
+   * ✅ OPTIMIZATION: 24h TTL (historical data is stable)
+   * Cache invalidation handles new workout posts immediately
    */
-  USER_WORKOUTS: 15 * MINUTE,
+  USER_WORKOUTS: 24 * HOUR,
 
   // ============================================================================
   // DYNAMIC DATA - Changes frequently (short TTL)
@@ -107,15 +113,18 @@ export const CacheTTL = {
 
   /**
    * Competition leaderboards
-   * Updates as participants post new workouts
+   * ✅ OPTIMIZATION: 24h TTL (only 10 teams, not live-streaming data)
+   * Cache invalidation updates scores after workout posts
+   * User can pull-to-refresh for latest rankings
    */
-  LEADERBOARDS: 5 * MINUTE,
+  LEADERBOARDS: 24 * HOUR,
 
   /**
    * Recent team activity
-   * Workouts, joins, announcements - frequently updated
+   * ✅ OPTIMIZATION: 24h TTL (workouts don't need real-time display)
+   * Cache invalidation handles immediate updates
    */
-  TEAM_ACTIVITY: 2 * MINUTE,
+  TEAM_ACTIVITY: 24 * HOUR,
 
   /**
    * Wallet info (kind 37375)

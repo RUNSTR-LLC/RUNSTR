@@ -29,6 +29,8 @@ import { CaptainDetectionService } from '../services/team/captainDetectionServic
 import { TeamCacheService } from '../services/cache/TeamCacheService';
 import NostrCompetitionService from '../services/nostr/NostrCompetitionService';
 import type { NostrLeagueDefinition, NostrEventDefinition } from '../types/nostrCompetition';
+import unifiedCache from '../services/cache/UnifiedNostrCache';
+import { CacheKeys } from '../constants/cacheTTL';
 
 interface TeamDiscoveryScreenProps {
   onClose: () => void;
@@ -182,26 +184,33 @@ export const TeamDiscoveryScreen: React.FC<TeamDiscoveryScreenProps> = ({
     try {
       setError(null);
 
-      console.log('📦 TeamDiscoveryScreen: Loading teams with cache support...');
+      console.log('📦 TeamDiscoveryScreen: Loading teams with cache-first strategy...');
 
-      // Use TeamCacheService for cached teams
-      const cacheService = TeamCacheService.getInstance();
-
-      // Check if we have cached teams first (instant check)
-      const hasCachedTeams = await cacheService.hasCachedTeams();
-
-      // Only show loading if we don't have cached teams
-      if (!hasCachedTeams || forceRefresh) {
-        setIsLoading(true);
+      // ✅ PERFORMANCE: Show cached teams INSTANTLY (synchronous)
+      // This makes the screen feel instant on subsequent visits
+      const cachedTeams = unifiedCache.getCached<DiscoveryTeam[]>(CacheKeys.DISCOVERED_TEAMS);
+      if (cachedTeams && cachedTeams.length > 0 && !forceRefresh) {
+        console.log(`⚡ TeamDiscoveryScreen: Showing ${cachedTeams.length} cached teams instantly`);
+        setTeams(cachedTeams);
+        setIsLoading(false);
+        // Screen is now visible with cached data!
+        // Skip fetch since cache is valid
+        return;
       }
 
-      // Get teams (from cache if available, otherwise fetch)
+      // Only fetch if no cache or force refresh
+      setIsLoading(true);
+
+      // Use TeamCacheService for fetching
+      const cacheService = TeamCacheService.getInstance();
+
+      // Get teams (will fetch from Nostr if cache missing/expired)
       const discoveryTeams = forceRefresh
         ? await cacheService.refreshTeams()
         : await cacheService.getTeams();
 
       console.log(
-        `✅ TeamDiscoveryScreen: Loaded ${discoveryTeams.length} teams ${hasCachedTeams && !forceRefresh ? '(from cache)' : '(fresh)'}`
+        `✅ TeamDiscoveryScreen: Loaded ${discoveryTeams.length} teams (fresh fetch)`
       );
 
       // Set teams in state

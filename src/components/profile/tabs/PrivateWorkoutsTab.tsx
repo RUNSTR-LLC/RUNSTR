@@ -30,6 +30,7 @@ interface PrivateWorkoutsTabProps {
   pubkey?: string;
   onRefresh?: () => void;
   onPostToNostr?: (workout: LocalWorkout) => Promise<void>;
+  onPostToSocial?: (workout: LocalWorkout) => Promise<void>;
 }
 
 export const PrivateWorkoutsTab: React.FC<PrivateWorkoutsTabProps> = ({
@@ -37,10 +38,12 @@ export const PrivateWorkoutsTab: React.FC<PrivateWorkoutsTabProps> = ({
   pubkey,
   onRefresh,
   onPostToNostr,
+  onPostToSocial,
 }) => {
   const [workouts, setWorkouts] = useState<LocalWorkout[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [postingWorkoutId, setPostingWorkoutId] = useState<string | null>(null);
+  const [postingType, setPostingType] = useState<'social' | 'nostr' | null>(null);
 
   useEffect(() => {
     loadPrivateWorkouts();

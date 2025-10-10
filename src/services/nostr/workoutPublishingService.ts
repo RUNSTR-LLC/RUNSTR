@@ -14,6 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Workout } from '../../types/workout';
 import type { WorkoutType } from '../../types/workout';
 import type { NDKSigner } from '@nostr-dev-kit/ndk';
+import { CacheInvalidationService } from '../cache/CacheInvalidationService';
 
 // Extended workout interface for publishing (simplified from UnifiedWorkout)
 export interface PublishableWorkout extends Workout {
@@ -127,6 +128,12 @@ export class WorkoutPublishingService {
 
       console.log(`✅ Workout saved to Nostr (runstr format): ${ndkEvent.id}`);
 
+      // ✅ CRITICAL: Invalidate workout caches so user sees posted workout immediately
+      // This fixes the "I posted a workout but don't see it after refresh" bug
+      await CacheInvalidationService.invalidateWorkout(pubkey).catch((err) => {
+        console.warn('⚠️ Cache invalidation failed (non-blocking):', err);
+      });
+
       return {
         success: true,
         eventId: ndkEvent.id,
@@ -176,6 +183,13 @@ export class WorkoutPublishingService {
       await ndkEvent.publish();
 
       console.log(`✅ Workout posted to social: ${ndkEvent.id}`);
+
+      // ✅ CRITICAL: Invalidate workout caches so social post appears in feeds
+      // Get signer's pubkey for invalidation
+      const user = await signer.user();
+      await CacheInvalidationService.invalidateWorkout(user.pubkey).catch((err) => {
+        console.warn('⚠️ Cache invalidation failed (non-blocking):', err);
+      });
 
       return {
         success: true,
