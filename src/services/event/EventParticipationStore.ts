@@ -82,6 +82,26 @@ export class EventParticipationStore {
   }
 
   /**
+   * Check if current user has paid for a specific event
+   * Used to include paid users in leaderboards before captain approval
+   */
+  static async hasUserPaidForEvent(eventId: string): Promise<boolean> {
+    try {
+      const participation = await this.getParticipationByEventId(eventId);
+
+      // User must have paid (entry fee > 0) and not be rejected
+      if (!participation) return false;
+      if (participation.status === 'rejected') return false;
+      if (participation.entryFeePaid === 0) return false; // Free events don't count
+
+      return true;
+    } catch (error) {
+      console.error('[EventParticipation] Failed to check payment status:', error);
+      return false;
+    }
+  }
+
+  /**
    * Update participation status (when captain approves)
    */
   static async updateStatus(

@@ -93,6 +93,8 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
 
       // Check if current user is a participant and/or captain
       const userHexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+      let userPaidLocally = false;
+
       if (userHexPubkey) {
         const isUserParticipant = members.includes(userHexPubkey);
         setIsParticipant(isUserParticipant);
@@ -102,16 +104,35 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
         const isUserCaptain = event.captainPubkey === userHexPubkey;
         setIsCaptain(isUserCaptain);
         console.log(`User is${isUserCaptain ? '' : ' not'} the captain`);
+
+        // Check if user paid locally but not in official list yet
+        const { EventParticipationStore } = await import('../services/event/EventParticipationStore');
+        userPaidLocally = await EventParticipationStore.hasUserPaidForEvent(eventId);
+
+        if (userPaidLocally && !isUserParticipant) {
+          console.log('💰 User paid locally but not in official list - will include in leaderboard');
+          setIsParticipant(true); // Show as participant in UI
+        }
       }
 
       // PHASE 3: Leaderboard calculation (heaviest operation, show skeleton)
       setLoadingLeaderboard(true);
       console.log('⏳ Calculating leaderboard...');
 
+      // Merge official participants with local paid user (if applicable)
+      const participantsForLeaderboard =
+        userHexPubkey && userPaidLocally && !members.includes(userHexPubkey)
+          ? [...members, userHexPubkey]
+          : members;
+
+      if (participantsForLeaderboard.length > members.length) {
+        console.log(`📊 Including ${participantsForLeaderboard.length - members.length} local paid participant(s) in leaderboard`);
+      }
+
       const SimpleLeaderboardService = (await import('../services/competition/SimpleLeaderboardService')).default;
       const rankings = await SimpleLeaderboardService.calculateEventLeaderboard(
         event,
-        members
+        participantsForLeaderboard
       );
 
       setLeaderboard(rankings);
