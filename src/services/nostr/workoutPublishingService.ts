@@ -876,6 +876,10 @@ export class WorkoutPublishingService {
       // Get GlobalNDK instance
       const ndk = await GlobalNDKService.getInstance();
 
+      // Wait for minimum relay connection (2 relays, 4 second timeout)
+      // This prevents race condition where NDK instance exists but relays are still connecting in background
+      await GlobalNDKService.waitForMinimumConnection(2, 4000);
+
       if (!GlobalNDKService.isConnected()) {
         return {
           success: false,
