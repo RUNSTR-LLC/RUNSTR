@@ -6,6 +6,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2025-10-09
+
+### Performance
+- **Dramatic Startup Improvement**: Reduced app startup time from 45-90 seconds to under 2 seconds for returning users
+  - Implemented smarter initialization flow
+  - Better caching and data prefetching
+  - Significantly improved user experience on app launch
+
+### Added
+- **GPS Smoothing**: Kalman filtering for smoother GPS tracking (feature flagged)
+  - Added KalmanFilter utility class for location data smoothing
+  - GPS validation utilities for better accuracy
+  - Can be enabled via feature flags for testing
+
+### Fixed
+- **Nostr Publishing**: Wait for relay connections before posting kind 1 notes
+  - Prevents failed posts due to premature publishing
+  - Better relay connection handling
+  - More reliable social workout posting
+
+### Documentation
+- Added lessons learned from reference implementation
+  - Detailed GPS and Kalman filtering implementation notes
+  - Best practices for location tracking
+
 ## [0.2.1] - 2025-10-09
 
 ### Improved
