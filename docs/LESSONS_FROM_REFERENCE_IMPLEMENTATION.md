@@ -595,3 +595,150 @@ If distance tracking works reliably:
 - **Web Hook**: `/reference/runstr-github/src/hooks/useLocation.js`
 
 **Next:** Test current simple version → Add filtering only if needed → Iterate based on real data
+
+---
+
+## UPDATE: Kalman Filter & Validation IMPLEMENTED ✅
+
+**Date:** January 2025
+
+**Status:** Both Kalman filtering and GPS validation have been added with feature flags.
+
+### What Was Added
+
+**Commit 1 (a158a35):** KalmanFilter utility
+- 195 lines of proven GPS smoothing code
+- Speed-based process noise adjustment
+- Acceleration validation
+- Not integrated yet (safe to add)
+
+**Commit 2 (82d02d6):** Kalman + Validation integration
+- Added gpsValidation.ts utility (205 lines)
+- Integrated both into SimpleLocationTrackingService
+- Feature flags for easy disable:
+  - `USE_KALMAN_FILTER = true` (line 56)
+  - `USE_POSITION_VALIDATION = true` (line 57)
+
+### Total Code Added
+
+**Before:** ~400 lines (simple version, working but unfiltered)
+**After:** ~675 lines (Kalman + validation + service integration)
+**Comparison to reference:** ~1,600 lines (our implementation is 58% smaller)
+**Comparison to old code:** ~3,000+ lines (78% reduction from over-engineered version)
+
+### Implementation Details
+
+**Two-Phase GPS Filtering (handleLocationUpdate):**
+```typescript
+// Phase 1: Kalman smoothing
+if (USE_KALMAN_FILTER) {
+  const filtered = kalmanFilter.update(lat, lon, accuracy, timestamp);
+  processedPoint = { ...processedPoint, latitude: filtered.lat, longitude: filtered.lng };
+}
+
+// Phase 2: Validation
+if (USE_POSITION_VALIDATION) {
+  const isValid = filterLocation(processedPoint, lastPosition);
+  if (!isValid) return; // Reject bad point
+}
+
+// Phase 3: Calculate distance and update
+```
+
+**Feature Flags (SimpleLocationTrackingService.ts:56-57):**
+```typescript
+private readonly USE_KALMAN_FILTER = true; // Toggle Kalman smoothing
+private readonly USE_POSITION_VALIDATION = true; // Toggle validation
+```
+
+### Testing Configurations
+
+**Configuration A: Both Enabled (Default)**
+- Best accuracy, most filtering
+- Rejects: poor accuracy, GPS jumps, unrealistic speeds
+- Smooths: GPS jitter when stationary
+
+**Configuration B: Validation Only**
+```typescript
+USE_KALMAN_FILTER = false
+USE_POSITION_VALIDATION = true
+```
+- Rejects bad points but doesn't smooth
+- Good for debugging Kalman issues
+
+**Configuration C: Kalman Only**
+```typescript
+USE_KALMAN_FILTER = true
+USE_POSITION_VALIDATION = false
+```
+- Smooths coordinates but accepts all points
+- Good for debugging validation issues
+
+**Configuration D: Both Disabled (Original Simple)**
+```typescript
+USE_KALMAN_FILTER = false
+USE_POSITION_VALIDATION = false
+```
+- Raw GPS data, minimal filtering
+- Fallback if filtering causes issues
+
+### Android Logging
+
+Watch Metro logs for:
+```
+[ANDROID] Kalman filtered: 2.3m adjustment
+[ANDROID] GPS filtered: lat=37.123456, lon=-122.123456, accuracy=8.5m
+[GPS] Rejected: poor accuracy (25.3m > 20m)
+[GPS] Rejected: unrealistic speed (25.5 m/s > 18 m/s)
+[ANDROID] Distance update: +5.2m, total=123.4m
+```
+
+### Rollback Instructions
+
+**If Kalman causes issues:**
+```bash
+# Open src/services/activity/SimpleLocationTrackingService.ts
+# Line 56: Change to:
+private readonly USE_KALMAN_FILTER = false;
+```
+
+**If validation causes issues:**
+```bash
+# Line 57: Change to:
+private readonly USE_POSITION_VALIDATION = false;
+```
+
+**If all filtering causes issues:**
+```bash
+git revert 82d02d6  # Revert Commit 2 (filtering integration)
+git revert a158a35  # Revert Commit 1 (KalmanFilter utility)
+```
+
+### Success Metrics
+
+Compare these scenarios:
+
+**Scenario 1: Standing Still Test**
+- Without Kalman: Distance increases by ~5-15m per minute
+- With Kalman: Distance should stay at 0m or increase <1m per minute
+
+**Scenario 2: GPS Jump Test**
+- Without validation: GPS jump (50m teleport) counts as real movement
+- With validation: GPS jump rejected, distance unaffected
+
+**Scenario 3: Normal Walking**
+- Both enabled: Accurate distance tracking (±5% of real distance)
+- Both disabled: May accumulate extra distance from GPS noise
+
+### What to Report
+
+After Android testing, report:
+1. **Configuration used:** A/B/C/D
+2. **Standing still:** Distance accumulated in 1 minute
+3. **GPS jumps observed:** How many rejected in logs
+4. **Accuracy:** 1km walk measured distance
+5. **Issues:** Any crashes, freezes, or unexpected behavior
+
+### Recommendation
+
+**Start with Configuration A (both enabled)** - this matches the proven reference implementation. Only disable features if specific issues occur.
