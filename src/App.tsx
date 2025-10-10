@@ -142,16 +142,23 @@ const AppContent: React.FC = () => {
   React.useEffect(() => {
     const checkPrefetch = async () => {
       if (isAuthenticated) {
-        // Check if cache exists
-        const cacheStats = unifiedCache.getStats();
-        const hasCachedData = cacheStats.size > 0;
+        // ✅ FIX: Check AsyncStorage synchronously for cached keys instead of waiting for hydration
+        // This prevents race conditions where cache hydration hasn't finished yet
+        const keys = await AsyncStorage.getAllKeys();
+        const hasCachedData = keys.some(key => key.startsWith('@runstr:unified_cache:'));
 
-        console.log('📊 App: Cache-first check - cache size:', cacheStats.size);
+        console.log('📊 App: Cache-first check - found', keys.filter(k => k.startsWith('@runstr:unified_cache:')).length, 'cached entries');
 
         // Show app immediately if we have ANY cached data
         // First-time users (no cache) will see SplashInit
         // Returning users (has cache) see app immediately, refresh happens in background
         setPrefetchCompleted(hasCachedData);
+
+        if (hasCachedData) {
+          console.log('✅ App: Cached data found - skipping SplashInit for instant load');
+        } else {
+          console.log('⚡ App: No cached data - showing SplashInit for first-time initialization');
+        }
       } else {
         setPrefetchCompleted(false);
       }
@@ -526,7 +533,7 @@ const AppContent: React.FC = () => {
               onPrivacyPolicy={() => navigation.navigate('PrivacyPolicy')}
               onSignOut={async () => {
                 // Reset initialization state on logout
-                appInitializationService.reset();
+                await appInitializationService.reset();
                 await signOut();
                 // AuthContext state change will trigger App.tsx to show login screen
               }}

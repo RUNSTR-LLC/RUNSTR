@@ -86,8 +86,9 @@ export const SplashInitScreen: React.FC<SplashInitScreenProps> = ({ onComplete }
         try {
           await initService.connectToRelays();
           await GlobalNDKService.getInstance();
+          // ✅ PERFORMANCE: Reduced wait from 4s to 2s for faster startup
           // Wait for minimum 2 relays (fast threshold)
-          await GlobalNDKService.waitForMinimumConnection(2, 4000);
+          await GlobalNDKService.waitForMinimumConnection(2, 2000);
           console.log('✅ SplashInit: Nostr connected (minimum relays)');
         } catch (ndkError) {
           console.error('⚠️ SplashInit: NDK connection failed, continuing with offline mode');
@@ -141,6 +142,15 @@ export const SplashInitScreen: React.FC<SplashInitScreenProps> = ({ onComplete }
 
     // Wait for complete loading OR timeout
     await Promise.race([completeLoadingPromise, timeoutPromise]);
+
+    // ✅ PERFORMANCE: Set flag to prevent AppInitializationService from re-fetching
+    try {
+      const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+      await AsyncStorage.setItem('@runstr:splash_init_completed', 'true');
+      console.log('✅ SplashInit: Set completion flag to prevent duplicate initialization');
+    } catch (error) {
+      console.warn('⚠️ Failed to set SplashInit completion flag:', error);
+    }
 
     // ✅ SHOW APP NOW - Everything is loaded and cached!
     if (onComplete) {

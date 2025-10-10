@@ -25,6 +25,7 @@ export class AppInitializationService {
   /**
    * Initialize all app data after authentication
    * Non-blocking - runs in background
+   * ✅ PERFORMANCE: Skips initialization if SplashInit already completed
    */
   async initializeAppData(pubkey: string): Promise<void> {
     if (this.isInitializing || this.isInitialized) {
@@ -32,8 +33,16 @@ export class AppInitializationService {
       return;
     }
 
+    // ✅ PERFORMANCE: Check if SplashInit already completed to avoid duplicate fetching
+    const splashCompleted = await AsyncStorage.getItem('@runstr:splash_init_completed');
+    if (splashCompleted === 'true') {
+      console.log('[AppInit] ✅ SplashInit already completed data prefetch, skipping duplicate initialization');
+      this.isInitialized = true;
+      return;
+    }
+
     this.isInitializing = true;
-    console.log('[AppInit] 🚀 Starting app data initialization...');
+    console.log('[AppInit] 🚀 Starting app data initialization (SplashInit was skipped)...');
 
     try {
       // Run all initializations in parallel (non-blocking)
@@ -121,11 +130,19 @@ export class AppInitializationService {
 
   /**
    * Reset initialization state (for logout/re-login)
+   * ✅ PERFORMANCE: Also clears SplashInit completion flag
    */
-  reset(): void {
+  async reset(): Promise<void> {
     this.isInitialized = false;
     this.isInitializing = false;
-    console.log('[AppInit] 🔄 Initialization state reset');
+
+    // Clear SplashInit completion flag so next login goes through full initialization
+    try {
+      await AsyncStorage.removeItem('@runstr:splash_init_completed');
+      console.log('[AppInit] 🔄 Initialization state reset (including SplashInit flag)');
+    } catch (error) {
+      console.warn('[AppInit] Failed to clear SplashInit flag:', error);
+    }
   }
 
   /**

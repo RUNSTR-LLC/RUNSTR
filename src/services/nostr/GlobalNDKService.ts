@@ -308,12 +308,12 @@ export class GlobalNDKService {
    * Accepts partial connectivity (e.g., 2/4 relays) instead of waiting for all relays.
    *
    * @param minRelays Minimum number of relays required (default: 2 for 50% coverage)
-   * @param timeoutMs Maximum time to wait (default: 4 seconds)
+   * @param timeoutMs Maximum time to wait (default: 3 seconds - reduced from 4s for faster startup)
    * @returns true if minimum relays connected, false if timeout occurred
    */
   static async waitForMinimumConnection(
     minRelays: number = 2,
-    timeoutMs: number = 4000
+    timeoutMs: number = 3000  // ✅ PERFORMANCE: Reduced from 4000ms to 3000ms
   ): Promise<boolean> {
     const startTime = Date.now();
     const checkInterval = 500; // Check every 500ms
