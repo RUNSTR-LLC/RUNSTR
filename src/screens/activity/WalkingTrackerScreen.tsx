@@ -6,9 +6,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Alert } from 'react-native';
 import { BaseTrackerComponent } from '../../components/activity/BaseTrackerComponent';
-import { enhancedLocationTrackingService } from '../../services/activity/EnhancedLocationTrackingService';
+import { simpleLocationTrackingService } from '../../services/activity/SimpleLocationTrackingService';
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
-import type { EnhancedTrackingSession } from '../../services/activity/EnhancedLocationTrackingService';
+import type { TrackingSession } from '../../services/activity/SimpleLocationTrackingService';
 import { WorkoutSummaryModal } from '../../components/activity/WorkoutSummaryModal';
 import LocalWorkoutStorageService from '../../services/fitness/LocalWorkoutStorageService';
 
@@ -47,65 +47,16 @@ export const WalkingTrackerScreen: React.FC = () => {
   }, []);
 
   const startTracking = async () => {
-    // Health check: Detect and cleanup zombie sessions before starting
-    const currentState = enhancedLocationTrackingService.getTrackingState();
-    if (currentState !== 'idle' && currentState !== 'requesting_permissions') {
-      console.log('⚠️ Detected non-idle state before start:', currentState);
+    console.log('[WalkingTrackerScreen] Starting tracking...');
 
-      // Check if there's an active session
-      const existingSession = enhancedLocationTrackingService.getCurrentSession();
-
-      if (existingSession) {
-        // Check if session is stale (older than 4 hours = definitely zombie)
-        const sessionAge = Date.now() - existingSession.startTime;
-        const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
-
-        if (sessionAge > FOUR_HOURS_MS) {
-          console.log(`🔧 Auto-cleanup: Removing stale zombie session (age: ${(sessionAge / 1000 / 60).toFixed(0)} min)`);
-          Alert.alert(
-            'Cleaning Up',
-            'Found and removed a stale activity session. You can now start a new activity.',
-            [{ text: 'OK' }]
-          );
-          // Service will auto-cleanup via forceCleanup in startTracking
-        } else {
-          // Session is recent, might be legitimate
-          Alert.alert(
-            'Active Session Detected',
-            'There appears to be an active session. Would you like to clean it up and start fresh?',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              {
-                text: 'Clean Up',
-                onPress: async () => {
-                  console.log('🔧 User requested cleanup of existing session');
-                  // Let the service handle cleanup via forceCleanup
-                  const retryStarted = await enhancedLocationTrackingService.startTracking('walking');
-                  if (retryStarted) {
-                    // Continue with normal initialization below
-                    initializeTracking();
-                  }
-                }
-              }
-            ]
-          );
-          return;
-        }
-      }
-    }
-
-    const started = await enhancedLocationTrackingService.startTracking('walking');
+    // Simple permission and start flow
+    const started = await simpleLocationTrackingService.startTracking('walking');
     if (!started) {
-      // The service will handle permission requests internally
-      // Show error if tracking service is in invalid state
-      const finalState = enhancedLocationTrackingService.getTrackingState();
-      if (finalState !== 'idle' && finalState !== 'requesting_permissions') {
-        Alert.alert(
-          'Cannot Start Tracking',
-          'Unable to start activity tracking. Please try again or restart the app if the issue persists.',
-          [{ text: 'OK' }]
-        );
-      }
+      Alert.alert(
+        'Cannot Start Tracking',
+        'Unable to start activity tracking. Please check location permissions and try again.',
+        [{ text: 'OK' }]
+      );
       return;
     }
 
@@ -132,24 +83,22 @@ export const WalkingTrackerScreen: React.FC = () => {
   };
 
   const updateMetrics = () => {
-    const session = enhancedLocationTrackingService.getCurrentSession();
+    const session = simpleLocationTrackingService.getCurrentSession();
     if (session) {
-      // Use interpolated distance for smooth UI updates between GPS points
-      const displayDistance = enhancedLocationTrackingService.getInterpolatedDistance();
-      const steps = activityMetricsService.estimateSteps(displayDistance);
+      const steps = activityMetricsService.estimateSteps(session.distance);
 
       setMetrics({
-        distance: activityMetricsService.formatDistance(displayDistance),
+        distance: activityMetricsService.formatDistance(session.distance),
         duration: activityMetricsService.formatDuration(elapsedTime),
         steps: activityMetricsService.formatSteps(steps),
-        elevation: activityMetricsService.formatElevation(session.totalElevationGain),
+        elevation: activityMetricsService.formatElevation(session.elevationGain),
       });
     }
   };
 
   const pauseTracking = async () => {
     if (!isPaused) {
-      await enhancedLocationTrackingService.pauseTracking();
+      await simpleLocationTrackingService.pauseTracking();
       setIsPaused(true);
       isPausedRef.current = true;
       pauseStartTimeRef.current = Date.now();  // Store when pause started
@@ -160,7 +109,7 @@ export const WalkingTrackerScreen: React.FC = () => {
     if (isPaused) {
       const pauseDuration = Date.now() - pauseStartTimeRef.current;  // Calculate how long we were paused
       totalPausedTimeRef.current += pauseDuration;  // Add to cumulative total
-      await enhancedLocationTrackingService.resumeTracking();
+      await simpleLocationTrackingService.resumeTracking();
       setIsPaused(false);
       isPausedRef.current = false;
     }
@@ -176,39 +125,39 @@ export const WalkingTrackerScreen: React.FC = () => {
       metricsUpdateRef.current = null;
     }
 
-    const session = await enhancedLocationTrackingService.stopTracking();
+    const session = await simpleLocationTrackingService.stopTracking();
     setIsTracking(false);
     setIsPaused(false);
 
-    if (session && session.totalDistance > 10) {
+    if (session && session.distance > 10) {
       showWorkoutSummary(session);
     } else {
       resetMetrics();
     }
   };
 
-  const showWorkoutSummary = async (session: EnhancedTrackingSession) => {
-    const steps = activityMetricsService.estimateSteps(session.totalDistance);
-    const calories = activityMetricsService.estimateCalories('walking', session.totalDistance, elapsedTime);
+  const showWorkoutSummary = async (session: TrackingSession) => {
+    const steps = activityMetricsService.estimateSteps(session.distance);
+    const calories = activityMetricsService.estimateCalories('walking', session.distance, elapsedTime);
 
     // Save workout to local storage BEFORE showing modal
     try {
       const workoutId = await LocalWorkoutStorageService.saveGPSWorkout({
         type: 'walking',
-        distance: session.totalDistance,
+        distance: session.distance,
         duration: elapsedTime,
         calories,
-        elevation: session.totalElevationGain,
+        elevation: session.elevationGain,
       });
 
       console.log(`✅ Walking workout saved locally: ${workoutId}`);
 
       setWorkoutData({
         type: 'walking',
-        distance: session.totalDistance,
+        distance: session.distance,
         duration: elapsedTime,
         calories,
-        elevation: session.totalElevationGain,
+        elevation: session.elevationGain,
         steps,
         localWorkoutId: workoutId,
       });
@@ -218,10 +167,10 @@ export const WalkingTrackerScreen: React.FC = () => {
       // Still show modal even if save failed
       setWorkoutData({
         type: 'walking',
-        distance: session.totalDistance,
+        distance: session.distance,
         duration: elapsedTime,
         calories,
-        elevation: session.totalElevationGain,
+        elevation: session.elevationGain,
         steps,
       });
       setSummaryModalVisible(true);

@@ -9,9 +9,9 @@ import { Ionicons } from '@expo/vector-icons';
 import * as TaskManager from 'expo-task-manager';
 import * as Device from 'expo-device';
 import { theme } from '../../styles/theme';
-import { enhancedLocationTrackingService } from '../../services/activity/EnhancedLocationTrackingService';
+import { simpleLocationTrackingService } from '../../services/activity/SimpleLocationTrackingService';
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
-import type { EnhancedTrackingSession } from '../../services/activity/EnhancedLocationTrackingService';
+import type { TrackingSession } from '../../services/activity/SimpleLocationTrackingService';
 import type { FormattedMetrics } from '../../services/activity/ActivityMetricsService';
 import { GPSStatusIndicator, type GPSSignalStrength } from '../../components/activity/GPSStatusIndicator';
 import { BatteryWarning } from '../../components/activity/BatteryWarning';
@@ -81,88 +81,16 @@ export const RunningTrackerScreen: React.FC = () => {
   }, []);
 
   const startTracking = async () => {
-    // 🔧 iOS DEBUG: Check background task registration status
-    try {
-      const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_LOCATION_TASK);
-      console.log(`📍 [DEBUG] Background task registered: ${isRegistered}`);
+    console.log('[RunningTrackerScreen] Starting tracking...');
 
-      if (!isRegistered) {
-        console.warn('⚠️ Background task NOT registered - distance tracking may not work properly');
-        Alert.alert(
-          'Setup Warning',
-          'Background tracking is not initialized. Distance tracking may not work properly on iOS. Please restart the app.',
-          [{ text: 'OK' }]
-        );
-      }
-
-      // Warn if testing on iOS simulator
-      if (Platform.OS === 'ios' && !Device.isDevice) {
-        console.warn('⚠️ Running on iOS simulator - GPS may not work properly');
-        console.warn('   Recommendation: Test on physical device for accurate distance tracking');
-      }
-    } catch (error) {
-      console.error('❌ Failed to check background task status:', error);
-    }
-
-    // Health check: Detect and cleanup zombie sessions before starting
-    const currentState = enhancedLocationTrackingService.getTrackingState();
-    if (currentState !== 'idle' && currentState !== 'requesting_permissions') {
-      console.log('⚠️ Detected non-idle state before start:', currentState);
-
-      // Check if there's an active session
-      const existingSession = enhancedLocationTrackingService.getCurrentSession();
-
-      if (existingSession) {
-        // Check if session is stale (older than 4 hours = definitely zombie)
-        const sessionAge = Date.now() - existingSession.startTime;
-
-        if (sessionAge > ZOMBIE_SESSION_TIMEOUT_MS) {
-          console.log('🔧 Auto-cleanup: Removing stale zombie session (age: ${(sessionAge / 1000 / 60).toFixed(0)} min)');
-          Alert.alert(
-            'Cleaning Up',
-            'Found and removed a stale activity session. You can now start a new activity.',
-            [{ text: 'OK' }]
-          );
-          // Service will auto-cleanup via forceCleanup in startTracking
-        } else {
-          // Session is recent, might be legitimate
-          Alert.alert(
-            'Active Session Detected',
-            'There appears to be an active session. Would you like to clean it up and start fresh?',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              {
-                text: 'Clean Up',
-                onPress: async () => {
-                  console.log('🔧 User requested cleanup of existing session');
-                  // Let the service handle cleanup via forceCleanup
-                  const retryStarted = await enhancedLocationTrackingService.startTracking('running');
-                  if (retryStarted) {
-                    // Continue with normal initialization below
-                    initializeTracking();
-                  }
-                }
-              }
-            ]
-          );
-          return;
-        }
-      }
-    }
-
-    const started = await enhancedLocationTrackingService.startTracking('running');
+    // Simple permission and start flow
+    const started = await simpleLocationTrackingService.startTracking('running');
     if (!started) {
-      // The service will handle permission requests internally
-      // and show the native iOS dialog if needed
-      // Show error if tracking service is in invalid state
-      const finalState = enhancedLocationTrackingService.getTrackingState();
-      if (finalState !== 'idle' && finalState !== 'requesting_permissions') {
-        Alert.alert(
-          'Cannot Start Tracking',
-          'Unable to start activity tracking. Please try again or restart the app if the issue persists.',
-          [{ text: 'OK' }]
-        );
-      }
+      Alert.alert(
+        'Cannot Start Tracking',
+        'Unable to start activity tracking. Please check location permissions and try again.',
+        [{ text: 'OK' }]
+      );
       return;
     }
 
@@ -187,9 +115,8 @@ export const RunningTrackerScreen: React.FC = () => {
     }, TIMER_INTERVAL_MS);
 
     // Start metrics update timer (1 second for responsive UI)
-    // Use inline function to avoid stale closures with refs
     metricsUpdateRef.current = setInterval(() => {
-      const session = enhancedLocationTrackingService.getCurrentSession();
+      const session = simpleLocationTrackingService.getCurrentSession();
 
       // Calculate current elapsed time from refs INSIDE the interval callback
       const now = Date.now();
@@ -197,23 +124,20 @@ export const RunningTrackerScreen: React.FC = () => {
       const formattedDuration = formatElapsedTime(currentElapsed);
 
       if (session) {
-        // Use interpolated distance for smooth UI updates between GPS points
-        const displayDistance = enhancedLocationTrackingService.getInterpolatedDistance();
-
         const currentMetrics = {
-          distance: displayDistance,
+          distance: session.distance,
           duration: currentElapsed,
-          pace: activityMetricsService.calculatePace(displayDistance, currentElapsed),
-          elevationGain: session.totalElevationGain,
+          pace: activityMetricsService.calculatePace(session.distance, currentElapsed),
+          elevationGain: session.elevationGain,
         };
 
         const formatted = activityMetricsService.getFormattedMetrics(currentMetrics, 'running');
         formatted.duration = formattedDuration;
 
         setMetrics(formatted);
-        setGpsSignal(session.gpsSignalStrength as GPSSignalStrength);
-        setGpsAccuracy(session.statistics?.averageAccuracy);
-        setIsBackgroundTracking(session.isBackgroundTracking);
+        setGpsSignal(simpleLocationTrackingService.getGPSSignalStrength());
+        setGpsAccuracy(session.positions[session.positions.length - 1]?.accuracy);
+        setIsBackgroundTracking(false); // Simple service doesn't differentiate
       } else if (isTracking) {
         setMetrics(prev => ({
           ...prev,
@@ -237,7 +161,7 @@ export const RunningTrackerScreen: React.FC = () => {
 
   const pauseTracking = async () => {
     if (!isPaused) {
-      await enhancedLocationTrackingService.pauseTracking();
+      await simpleLocationTrackingService.pauseTracking();
       setIsPaused(true);
       isPausedRef.current = true;
       pauseStartTimeRef.current = Date.now();  // Store when pause started
@@ -248,7 +172,7 @@ export const RunningTrackerScreen: React.FC = () => {
     if (isPaused) {
       const pauseDuration = Date.now() - pauseStartTimeRef.current;  // Calculate how long we were paused
       totalPausedTimeRef.current += pauseDuration;  // Add to cumulative total
-      await enhancedLocationTrackingService.resumeTracking();
+      await simpleLocationTrackingService.resumeTracking();
       setIsPaused(false);
       isPausedRef.current = false;
     }
@@ -265,11 +189,11 @@ export const RunningTrackerScreen: React.FC = () => {
       metricsUpdateRef.current = null;
     }
 
-    const session = await enhancedLocationTrackingService.stopTracking();
+    const session = await simpleLocationTrackingService.stopTracking();
     setIsTracking(false);
     setIsPaused(false);
 
-    if (session && session.totalDistance > MIN_WORKOUT_DISTANCE_METERS) { // Only show summary if moved at least 10 meters
+    if (session && session.distance > MIN_WORKOUT_DISTANCE_METERS) { // Only show summary if moved at least 10 meters
       showWorkoutSummary(session);
     } else {
       // Reset metrics
@@ -283,19 +207,19 @@ export const RunningTrackerScreen: React.FC = () => {
     }
   };
 
-  const showWorkoutSummary = async (session: EnhancedTrackingSession) => {
-    const calories = activityMetricsService.estimateCalories('running', session.totalDistance, elapsedTime);
-    const pace = activityMetricsService.calculatePace(session.totalDistance, elapsedTime);
+  const showWorkoutSummary = async (session: TrackingSession) => {
+    const calories = activityMetricsService.estimateCalories('running', session.distance, elapsedTime);
+    const pace = activityMetricsService.calculatePace(session.distance, elapsedTime);
 
     // Save workout to local storage BEFORE showing modal
     // This ensures data persists even if user dismisses modal
     try {
       const workoutId = await LocalWorkoutStorageService.saveGPSWorkout({
         type: 'running',
-        distance: session.totalDistance,
+        distance: session.distance,
         duration: elapsedTime,
         calories,
-        elevation: session.totalElevationGain,
+        elevation: session.elevationGain,
         pace,
         splits: session.splits,
       });
@@ -304,10 +228,10 @@ export const RunningTrackerScreen: React.FC = () => {
 
       setWorkoutData({
         type: 'running',
-        distance: session.totalDistance,
+        distance: session.distance,
         duration: elapsedTime,
         calories,
-        elevation: session.totalElevationGain,
+        elevation: session.elevationGain,
         pace,
         splits: session.splits,
         localWorkoutId: workoutId, // Pass to modal for sync tracking
@@ -318,10 +242,10 @@ export const RunningTrackerScreen: React.FC = () => {
       // Still show modal even if save failed
       setWorkoutData({
         type: 'running',
-        distance: session.totalDistance,
+        distance: session.distance,
         duration: elapsedTime,
         calories,
-        elevation: session.totalElevationGain,
+        elevation: session.elevationGain,
         pace,
         splits: session.splits,
       });

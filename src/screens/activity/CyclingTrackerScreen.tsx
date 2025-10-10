@@ -6,9 +6,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Alert } from 'react-native';
 import { BaseTrackerComponent } from '../../components/activity/BaseTrackerComponent';
-import { enhancedLocationTrackingService } from '../../services/activity/EnhancedLocationTrackingService';
+import { simpleLocationTrackingService } from '../../services/activity/SimpleLocationTrackingService';
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
-import type { EnhancedTrackingSession } from '../../services/activity/EnhancedLocationTrackingService';
+import type { TrackingSession } from '../../services/activity/SimpleLocationTrackingService';
 import { WorkoutSummaryModal } from '../../components/activity/WorkoutSummaryModal';
 import LocalWorkoutStorageService from '../../services/fitness/LocalWorkoutStorageService';
 
@@ -48,65 +48,16 @@ export const CyclingTrackerScreen: React.FC = () => {
   }, []);
 
   const startTracking = async () => {
-    // Health check: Detect and cleanup zombie sessions before starting
-    const currentState = enhancedLocationTrackingService.getTrackingState();
-    if (currentState !== 'idle' && currentState !== 'requesting_permissions') {
-      console.log('⚠️ Detected non-idle state before start:', currentState);
+    console.log('[CyclingTrackerScreen] Starting tracking...');
 
-      // Check if there's an active session
-      const existingSession = enhancedLocationTrackingService.getCurrentSession();
-
-      if (existingSession) {
-        // Check if session is stale (older than 4 hours = definitely zombie)
-        const sessionAge = Date.now() - existingSession.startTime;
-        const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
-
-        if (sessionAge > FOUR_HOURS_MS) {
-          console.log(`🔧 Auto-cleanup: Removing stale zombie session (age: ${(sessionAge / 1000 / 60).toFixed(0)} min)`);
-          Alert.alert(
-            'Cleaning Up',
-            'Found and removed a stale activity session. You can now start a new activity.',
-            [{ text: 'OK' }]
-          );
-          // Service will auto-cleanup via forceCleanup in startTracking
-        } else {
-          // Session is recent, might be legitimate
-          Alert.alert(
-            'Active Session Detected',
-            'There appears to be an active session. Would you like to clean it up and start fresh?',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              {
-                text: 'Clean Up',
-                onPress: async () => {
-                  console.log('🔧 User requested cleanup of existing session');
-                  // Let the service handle cleanup via forceCleanup
-                  const retryStarted = await enhancedLocationTrackingService.startTracking('cycling');
-                  if (retryStarted) {
-                    // Continue with normal initialization below
-                    initializeTracking();
-                  }
-                }
-              }
-            ]
-          );
-          return;
-        }
-      }
-    }
-
-    const started = await enhancedLocationTrackingService.startTracking('cycling');
+    // Simple permission and start flow
+    const started = await simpleLocationTrackingService.startTracking('cycling');
     if (!started) {
-      // The service will handle permission requests internally
-      // Show error if tracking service is in invalid state
-      const finalState = enhancedLocationTrackingService.getTrackingState();
-      if (finalState !== 'idle' && finalState !== 'requesting_permissions') {
-        Alert.alert(
-          'Cannot Start Tracking',
-          'Unable to start activity tracking. Please try again or restart the app if the issue persists.',
-          [{ text: 'OK' }]
-        );
-      }
+      Alert.alert(
+        'Cannot Start Tracking',
+        'Unable to start activity tracking. Please check location permissions and try again.',
+        [{ text: 'OK' }]
+      );
       return;
     }
 
@@ -133,26 +84,24 @@ export const CyclingTrackerScreen: React.FC = () => {
   };
 
   const updateMetrics = () => {
-    const session = enhancedLocationTrackingService.getCurrentSession();
+    const session = simpleLocationTrackingService.getCurrentSession();
     if (session) {
-      // Use interpolated distance for smooth UI updates between GPS points
-      const displayDistance = enhancedLocationTrackingService.getInterpolatedDistance();
       // Calculate current speed based on distance and time
-      let speed = activityMetricsService.calculateSpeed(displayDistance, elapsedTime);
+      let speed = activityMetricsService.calculateSpeed(session.distance, elapsedTime);
 
       setCurrentSpeed(speed);
       setMetrics({
-        distance: activityMetricsService.formatDistance(displayDistance),
+        distance: activityMetricsService.formatDistance(session.distance),
         duration: activityMetricsService.formatDuration(elapsedTime),
         speed: activityMetricsService.formatSpeed(speed),
-        elevation: activityMetricsService.formatElevation(session.totalElevationGain),
+        elevation: activityMetricsService.formatElevation(session.elevationGain),
       });
     }
   };
 
   const pauseTracking = async () => {
     if (!isPaused) {
-      await enhancedLocationTrackingService.pauseTracking();
+      await simpleLocationTrackingService.pauseTracking();
       setIsPaused(true);
       isPausedRef.current = true;
       pauseStartTimeRef.current = Date.now();  // Store when pause started
@@ -163,7 +112,7 @@ export const CyclingTrackerScreen: React.FC = () => {
     if (isPaused) {
       const pauseDuration = Date.now() - pauseStartTimeRef.current;  // Calculate how long we were paused
       totalPausedTimeRef.current += pauseDuration;  // Add to cumulative total
-      await enhancedLocationTrackingService.resumeTracking();
+      await simpleLocationTrackingService.resumeTracking();
       setIsPaused(false);
       isPausedRef.current = false;
     }
@@ -179,29 +128,29 @@ export const CyclingTrackerScreen: React.FC = () => {
       metricsUpdateRef.current = null;
     }
 
-    const session = await enhancedLocationTrackingService.stopTracking();
+    const session = await simpleLocationTrackingService.stopTracking();
     setIsTracking(false);
     setIsPaused(false);
 
-    if (session && session.totalDistance > 50) { // Minimum 50 meters for cycling
+    if (session && session.distance > 50) { // Minimum 50 meters for cycling
       showWorkoutSummary(session);
     } else {
       resetMetrics();
     }
   };
 
-  const showWorkoutSummary = async (session: EnhancedTrackingSession) => {
-    const avgSpeed = activityMetricsService.calculateSpeed(session.totalDistance, elapsedTime);
-    const calories = activityMetricsService.estimateCalories('cycling', session.totalDistance, elapsedTime);
+  const showWorkoutSummary = async (session: TrackingSession) => {
+    const avgSpeed = activityMetricsService.calculateSpeed(session.distance, elapsedTime);
+    const calories = activityMetricsService.estimateCalories('cycling', session.distance, elapsedTime);
 
     // Save workout to local storage BEFORE showing modal
     try {
       const workoutId = await LocalWorkoutStorageService.saveGPSWorkout({
         type: 'cycling',
-        distance: session.totalDistance,
+        distance: session.distance,
         duration: elapsedTime,
         calories,
-        elevation: session.totalElevationGain,
+        elevation: session.elevationGain,
         speed: avgSpeed,
       });
 
@@ -209,10 +158,10 @@ export const CyclingTrackerScreen: React.FC = () => {
 
       setWorkoutData({
         type: 'cycling',
-        distance: session.totalDistance,
+        distance: session.distance,
         duration: elapsedTime,
         calories,
-        elevation: session.totalElevationGain,
+        elevation: session.elevationGain,
         speed: avgSpeed,
         localWorkoutId: workoutId,
       });
@@ -222,10 +171,10 @@ export const CyclingTrackerScreen: React.FC = () => {
       // Still show modal even if save failed
       setWorkoutData({
         type: 'cycling',
-        distance: session.totalDistance,
+        distance: session.distance,
         duration: elapsedTime,
         calories,
-        elevation: session.totalElevationGain,
+        elevation: session.elevationGain,
         speed: avgSpeed,
       });
       setSummaryModalVisible(true);
