@@ -4,15 +4,13 @@
  * Integrates with existing NostrProtocolHandler and NostrRelayManager
  */
 
-import { NostrProtocolHandler } from './NostrProtocolHandler';
 import { GlobalNDKService } from './GlobalNDKService';
-import type { NDKEvent } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
 import {
   WorkoutCardGenerator,
   type WorkoutCardOptions,
 } from './workoutCardGenerator';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Event, EventTemplate } from 'nostr-tools';
 import type { Workout } from '../../types/workout';
 import type { WorkoutType } from '../../types/workout';
 import type { NDKSigner } from '@nostr-dev-kit/ndk';
@@ -63,11 +61,9 @@ interface WorkoutEventData {
 
 export class WorkoutPublishingService {
   private static instance: WorkoutPublishingService;
-  private protocolHandler: NostrProtocolHandler;
   private cardGenerator: WorkoutCardGenerator;
 
   private constructor() {
-    this.protocolHandler = new NostrProtocolHandler();
     this.cardGenerator = WorkoutCardGenerator.getInstance();
   }
 
@@ -90,52 +86,51 @@ export class WorkoutPublishingService {
     try {
       console.log(`🔄 Publishing workout ${workout.id} as kind 1301 event (runstr format)...`);
 
+      const ndk = await GlobalNDKService.getInstance();
       const isSigner = typeof privateKeyHexOrSigner !== 'string';
-      let pubkey: string;
-      let signedEvent: Event;
 
-      // Get public key based on auth method
+      // Get signer and pubkey
+      let signer: NDKSigner;
+      let pubkey: string;
+
       if (isSigner) {
-        const user = await privateKeyHexOrSigner.user();
+        signer = privateKeyHexOrSigner;
+        const user = await signer.user();
         pubkey = user.pubkey;
       } else {
-        pubkey = await this.protocolHandler.getPubkeyFromPrivate(privateKeyHexOrSigner);
+        signer = new NDKPrivateKeySigner(privateKeyHexOrSigner);
+        const user = await signer.user();
+        pubkey = user.pubkey;
       }
 
-      // Create the kind 1301 event with NIP-101e structure
-      const eventTemplate: EventTemplate = {
-        kind: 1301,
-        content: this.generateWorkoutDescription(workout), // Plain text description
-        tags: this.createNIP101eWorkoutTags(workout, pubkey),
-        created_at: Math.floor(new Date(workout.startTime).getTime() / 1000),
-      };
+      // Create unsigned NDKEvent
+      const ndkEvent = new NDKEvent(ndk);
+      ndkEvent.kind = 1301;
+      ndkEvent.content = this.generateWorkoutDescription(workout);
+      ndkEvent.tags = this.createNIP101eWorkoutTags(workout, pubkey);
+      ndkEvent.created_at = Math.floor(new Date(workout.startTime).getTime() / 1000);
 
-      // Validate runstr format compliance before signing
+      // Validate runstr format compliance
+      const eventTemplate = {
+        kind: ndkEvent.kind,
+        content: ndkEvent.content,
+        tags: ndkEvent.tags,
+        created_at: ndkEvent.created_at,
+      };
       if (!this.validateNIP101eStructure(eventTemplate)) {
         throw new Error('Event structure does not comply with runstr format');
       }
 
-      // Sign event based on auth method
-      if (isSigner) {
-        signedEvent = await this.protocolHandler.signEventWithSigner(
-          eventTemplate,
-          privateKeyHexOrSigner as NDKSigner
-        );
-      } else {
-        signedEvent = await this.protocolHandler.signEvent(
-          eventTemplate,
-          privateKeyHexOrSigner as string
-        );
-      }
+      // Sign and publish
+      await ndkEvent.sign(signer);
+      await ndkEvent.publish();
 
-      // Publish to relays with retry mechanism
-      const publishResult = await this.publishEventToRelaysWithRetry(signedEvent);
+      console.log(`✅ Workout saved to Nostr (runstr format): ${ndkEvent.id}`);
 
-      if (publishResult.success) {
-        console.log(`✅ Workout saved to Nostr (runstr format): ${signedEvent.id}`);
-      }
-
-      return publishResult;
+      return {
+        success: true,
+        eventId: ndkEvent.id,
+      };
     } catch (error) {
       console.error('❌ Error saving workout to Nostr:', error);
       return {
@@ -158,44 +153,34 @@ export class WorkoutPublishingService {
     try {
       console.log(`🔄 Creating social post for workout ${workout.id}...`);
 
+      const ndk = await GlobalNDKService.getInstance();
       const isSigner = typeof privateKeyHexOrSigner !== 'string';
 
-      // Generate social post content
-      const postContent = await this.generateSocialPostContent(
-        workout,
-        options
-      );
-
-      // Create the kind 1 event
-      const eventTemplate: EventTemplate = {
-        kind: 1,
-        content: postContent,
-        tags: this.createSocialPostTags(workout),
-        created_at: Math.floor(Date.now() / 1000),
-      };
-
-      // Sign event based on auth method
-      let signedEvent: Event;
+      // Get signer
+      let signer: NDKSigner;
       if (isSigner) {
-        signedEvent = await this.protocolHandler.signEventWithSigner(
-          eventTemplate,
-          privateKeyHexOrSigner as NDKSigner
-        );
+        signer = privateKeyHexOrSigner;
       } else {
-        signedEvent = await this.protocolHandler.signEvent(
-          eventTemplate,
-          privateKeyHexOrSigner as string
-        );
+        signer = new NDKPrivateKeySigner(privateKeyHexOrSigner);
       }
 
-      // Publish to relays
-      const publishResult = await this.publishEventToRelays(signedEvent);
+      // Create unsigned NDKEvent
+      const ndkEvent = new NDKEvent(ndk);
+      ndkEvent.kind = 1;
+      ndkEvent.content = await this.generateSocialPostContent(workout, options);
+      ndkEvent.tags = this.createSocialPostTags(workout);
+      ndkEvent.created_at = Math.floor(Date.now() / 1000);
 
-      if (publishResult.success) {
-        console.log(`✅ Workout posted to social: ${signedEvent.id}`);
-      }
+      // Sign and publish
+      await ndkEvent.sign(signer);
+      await ndkEvent.publish();
 
-      return publishResult;
+      console.log(`✅ Workout posted to social: ${ndkEvent.id}`);
+
+      return {
+        success: true,
+        eventId: ndkEvent.id,
+      };
     } catch (error) {
       console.error('❌ Error posting workout to social:', error);
       return {
@@ -580,7 +565,12 @@ export class WorkoutPublishingService {
   /**
    * Validate that an event template complies with runstr format
    */
-  private validateNIP101eStructure(eventTemplate: EventTemplate): boolean {
+  private validateNIP101eStructure(eventTemplate: {
+    kind: number;
+    content: string;
+    tags: string[][];
+    created_at?: number;
+  }): boolean {
     // Check that content is plain text, not JSON
     if (typeof eventTemplate.content !== 'string') {
       console.error('Validation failed: content must be a string');
@@ -824,101 +814,6 @@ export class WorkoutPublishingService {
     }
 
     return achievements.length > 0 ? achievements.join(' ') : null;
-  }
-
-  /**
-   * Publish event to relays with retry mechanism for failures
-   */
-  private async publishEventToRelaysWithRetry(
-    event: Event,
-    maxRetries: number = 3
-  ): Promise<WorkoutPublishResult> {
-    let attempt = 0;
-    let lastError: Error | null = null;
-    let delay = 1000; // Start with 1 second delay
-
-    while (attempt < maxRetries) {
-      try {
-        const result = await this.publishEventToRelays(event);
-
-        // If at least one relay succeeded, consider it a success
-        if (result.publishedToRelays && result.publishedToRelays > 0) {
-          return result;
-        }
-
-        // If all relays failed, prepare for retry
-        throw new Error(`All relays failed: ${result.error || 'Unknown error'}`);
-      } catch (error) {
-        lastError = error as Error;
-        attempt++;
-
-        if (attempt < maxRetries) {
-          console.log(`📡 Retry attempt ${attempt}/${maxRetries} after ${delay}ms...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-          delay *= 2; // Exponential backoff: 1s, 2s, 4s
-        }
-      }
-    }
-
-    return {
-      success: false,
-      error: lastError?.message || 'Failed to publish after all retries'
-    };
-  }
-
-  /**
-   * Publish event to all connected relays (single attempt)
-   */
-  private async publishEventToRelays(
-    event: Event
-  ): Promise<WorkoutPublishResult> {
-    try {
-      // Get GlobalNDK instance
-      const ndk = await GlobalNDKService.getInstance();
-
-      // Wait for minimum relay connection (2 relays, 4 second timeout)
-      // This prevents race condition where NDK instance exists but relays are still connecting in background
-      await GlobalNDKService.waitForMinimumConnection(2, 4000);
-
-      if (!GlobalNDKService.isConnected()) {
-        return {
-          success: false,
-          error: 'No connected relays available for publishing',
-        };
-      }
-
-      const status = GlobalNDKService.getStatus();
-      console.log(`📡 Publishing event to ${status.connectedRelays} relays...`);
-
-      // Convert Event to NDKEvent
-      const ndkEvent: NDKEvent = new (ndk.constructor as any).Event(ndk, event);
-
-      // Publish to all connected relays
-      try {
-        await ndkEvent.publish();
-        console.log(`✅ Event published successfully to ${status.connectedRelays} relays`);
-
-        return {
-          success: true,
-          eventId: event.id,
-          publishedToRelays: status.connectedRelays,
-        };
-      } catch (error) {
-        console.error(`❌ Failed to publish event:`, error);
-        return {
-          success: false,
-          error: `Publishing failed: ${String(error)}`,
-        };
-      }
-
-    } catch (error) {
-      console.error('❌ Error publishing event:', error);
-      return {
-        success: false,
-        error:
-          error instanceof Error ? error.message : 'Unknown publishing error',
-      };
-    }
   }
 
   /**
