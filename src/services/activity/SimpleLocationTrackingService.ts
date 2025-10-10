@@ -13,6 +13,8 @@ import * as Location from 'expo-location';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { Platform } from 'react-native';
 import { locationPermissionService } from './LocationPermissionService';
+import { KalmanFilter } from '../../utils/KalmanFilter';
+import { filterLocation } from '../../utils/gpsValidation';
 
 // Types
 export interface LocationPoint {
@@ -50,6 +52,10 @@ export type GPSSignalStrength = 'none' | 'weak' | 'medium' | 'strong' | 'searchi
 export class SimpleLocationTrackingService {
   private static instance: SimpleLocationTrackingService;
 
+  // 🎛️ Feature Flags - Easy toggle for testing
+  private readonly USE_KALMAN_FILTER = true; // Set to false to disable Kalman filtering
+  private readonly USE_POSITION_VALIDATION = true; // Set to false to disable validation
+
   // Core tracking state (simple booleans, no complex state machine)
   private isTracking = false;
   private isPaused = false;
@@ -77,6 +83,9 @@ export class SimpleLocationTrackingService {
   private lastGPSUpdate: number = 0;
   private currentAccuracy: number | undefined;
 
+  // GPS filtering
+  private kalmanFilter: KalmanFilter;
+
   // Constants
   private readonly SPLIT_DISTANCE_METERS = 1000; // 1 km (TODO: support miles)
   private readonly GPS_SIGNAL_TIMEOUT_MS = 10000; // 10 seconds
@@ -84,6 +93,7 @@ export class SimpleLocationTrackingService {
 
   private constructor() {
     console.log('[SimpleLocationTrackingService] Initialized');
+    this.kalmanFilter = new KalmanFilter();
   }
 
   static getInstance(): SimpleLocationTrackingService {
@@ -135,6 +145,12 @@ export class SimpleLocationTrackingService {
       this.lastGPSUpdate = Date.now();
       this.currentAccuracy = undefined;
 
+      // Reset Kalman filter for new session
+      if (this.USE_KALMAN_FILTER) {
+        this.kalmanFilter.reset();
+        console.log('[SimpleLocationTrackingService] Kalman filter reset for new session');
+      }
+
       // 3. Start location tracking
       console.log('[SimpleLocationTrackingService] Starting GPS location updates...');
       this.locationSubscription = await Location.watchPositionAsync(
@@ -181,8 +197,8 @@ export class SimpleLocationTrackingService {
       return;
     }
 
-    // Create location point
-    const newPoint: LocationPoint = {
+    // Create raw location point
+    let processedPoint: LocationPoint = {
       latitude: location.coords.latitude,
       longitude: location.coords.longitude,
       altitude: location.coords.altitude || undefined,
@@ -191,23 +207,60 @@ export class SimpleLocationTrackingService {
       speed: location.coords.speed || undefined,
     };
 
+    // Phase 1: Apply Kalman filter (smooths GPS jitter)
+    if (this.USE_KALMAN_FILTER) {
+      const filtered = this.kalmanFilter.update(
+        location.coords.latitude,
+        location.coords.longitude,
+        location.coords.accuracy || 20,
+        location.timestamp
+      );
+
+      processedPoint = {
+        ...processedPoint,
+        latitude: filtered.lat,
+        longitude: filtered.lng,
+        accuracy: filtered.accuracy,
+      };
+
+      // Log filtering effect on Android
+      if (Platform.OS === 'android') {
+        const rawDist = Math.sqrt(
+          Math.pow(location.coords.latitude - filtered.lat, 2) +
+          Math.pow(location.coords.longitude - filtered.lng, 2)
+        ) * 111111; // Rough meters
+        if (rawDist > 1) {
+          console.log(`[ANDROID] Kalman filtered: ${rawDist.toFixed(1)}m adjustment`);
+        }
+      }
+    }
+
+    // Phase 2: Validate position (rejects bad points)
+    if (this.USE_POSITION_VALIDATION) {
+      const isValid = filterLocation(processedPoint, this.lastPosition);
+      if (!isValid) {
+        // Point rejected by validation - don't process it
+        return;
+      }
+    }
+
     // Update GPS signal tracking
     this.lastGPSUpdate = Date.now();
-    this.currentAccuracy = newPoint.accuracy;
+    this.currentAccuracy = processedPoint.accuracy;
 
     // Platform-specific logging
     if (Platform.OS === 'android') {
       console.log(
-        `[ANDROID] GPS update: lat=${newPoint.latitude.toFixed(6)}, ` +
-        `lon=${newPoint.longitude.toFixed(6)}, accuracy=${newPoint.accuracy?.toFixed(1)}m`
+        `[ANDROID] GPS ${this.USE_KALMAN_FILTER ? 'filtered' : 'raw'}: lat=${processedPoint.latitude.toFixed(6)}, ` +
+        `lon=${processedPoint.longitude.toFixed(6)}, accuracy=${processedPoint.accuracy?.toFixed(1)}m`
       );
     }
 
     // Calculate distance if we have a previous position
     if (this.lastPosition) {
-      const segmentDistance = this.calculateDistance(this.lastPosition, newPoint);
+      const segmentDistance = this.calculateDistance(this.lastPosition, processedPoint);
 
-      // Filter out micro-movements (GPS jitter)
+      // Filter out micro-movements (GPS jitter) - note: validation already handles minimum distance
       if (segmentDistance >= this.MIN_MOVEMENT_THRESHOLD_METERS) {
         this.distance += segmentDistance;
 
@@ -222,13 +275,13 @@ export class SimpleLocationTrackingService {
     }
 
     // Update elevation if available
-    if (newPoint.altitude !== undefined) {
-      this.updateElevation(newPoint.altitude);
+    if (processedPoint.altitude !== undefined) {
+      this.updateElevation(processedPoint.altitude);
     }
 
     // Store position
-    this.positions.push(newPoint);
-    this.lastPosition = newPoint;
+    this.positions.push(processedPoint);
+    this.lastPosition = processedPoint;
   }
 
   /**
