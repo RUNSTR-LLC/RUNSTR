@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#dc2626', // Red dot matching badge
+    backgroundColor: theme.colors.orangeBright, // Orange dot matching theme
     marginLeft: 8,
     marginTop: 20,
   },

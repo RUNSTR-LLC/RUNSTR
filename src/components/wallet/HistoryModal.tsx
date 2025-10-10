@@ -89,8 +89,8 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
   };
 
   const getTransactionColor = (type: string): string => {
-    if (type.includes('sent')) return '#666666'; // Gray for sent
-    return '#ffffff'; // White for received
+    if (type.includes('sent')) return theme.colors.textMuted; // Muted orange for sent
+    return theme.colors.orangeBright; // Bright orange for received
   };
 
   const getTransactionTitle = (type: string): string => {
@@ -279,13 +279,13 @@ const styles = StyleSheet.create({
 
   transactionMemo: {
     fontSize: 12,
-    color: '#666666', // Muted text
+    color: theme.colors.textMuted, // Muted orange text
     marginBottom: 2,
   },
 
   transactionTime: {
     fontSize: 11,
-    color: '#999999', // Dark text
+    color: theme.colors.textMuted, // Muted orange text
   },
 
   transactionAmount: {
@@ -299,13 +299,13 @@ const styles = StyleSheet.create({
 
   amountUnit: {
     fontSize: 11,
-    color: '#666666', // Muted text
+    color: theme.colors.textMuted, // Muted orange text
     marginTop: 2,
   },
 
   feeText: {
     fontSize: 10,
-    color: '#999999', // Dark text
+    color: theme.colors.textMuted, // Muted orange text
     marginTop: 2,
   },
 
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
 
   emptyText: {
     fontSize: 14,
-    color: '#666666', // Muted text
+    color: theme.colors.textMuted, // Muted orange text
     textAlign: 'center',
   },
 });
