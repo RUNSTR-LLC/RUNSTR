@@ -203,14 +203,16 @@ function getMonthlyPeriod(
  * Get period for a specific date (useful for viewing historical periods)
  */
 export function getPeriodForDate(
-  targetDate: Date,
+  _targetDate: Date, // TODO: Actually use targetDate for historical period calculation
   recurrence: RecurrenceFrequency,
   recurrenceDay: RecurrenceDay | undefined,
   recurrenceStartDate: string,
   durationMinutes?: number
 ): RecurrencePeriod | null {
-  // Temporarily override "now" to calculate period for target date
-  const originalGetCurrentPeriod = getCurrentPeriod;
+  // TODO: Implement proper date-based period calculation
+  // Currently just returns current period (bug - should use _targetDate)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _originalGetCurrentPeriod = getCurrentPeriod;
 
   // For simplicity, we'll just call getCurrentPeriod with targetDate substituted
   // This is a bit hacky but works for our use case

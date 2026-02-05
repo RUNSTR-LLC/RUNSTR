@@ -56,7 +56,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
   // Initialize wallet (called once at app startup)
   // PERFORMANCE: Uses quick resume for instant load when returning to app
   // NOTE: Wallet functionality disabled - NutZap service removed in v0.6.2
-  initialize: async (nsec?: string, quickResume: boolean = false) => {
+  initialize: async (_nsec?: string, _quickResume: boolean = false) => {
     const state = get();
 
     // Prevent multiple initializations
