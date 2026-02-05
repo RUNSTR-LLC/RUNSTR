@@ -25,6 +25,9 @@
     "*.config.js",
     "babel.config.js",
     ".expo",
-    "dist"
+    "dist",
+    "supabase/functions/**/*",
+    "__tests__/**/*",
+    "scripts/**/*"
   ]
 }
