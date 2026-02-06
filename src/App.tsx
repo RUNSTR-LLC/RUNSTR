@@ -24,7 +24,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   AppState,
-  AppStateStatus,
   Platform,
   LogBox,
 } from 'react-native';
@@ -177,7 +176,6 @@ import { Season2Screen } from './screens/season2/Season2Screen';
 import { CompeteScreen } from './screens/CompeteScreen';
 import { LeaderboardsScreen } from './screens/LeaderboardsScreen';
 import { RewardsScreen } from './screens/RewardsScreen';
-import { DonateScreen } from './screens/DonateScreen';
 import { TeamsScreen } from './screens/TeamsScreen';
 import { EventsScreen } from './screens/EventsScreen';
 import { ActivityTrackerScreen } from './screens/activity/ActivityTrackerScreen';
