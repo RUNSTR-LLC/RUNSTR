@@ -16,11 +16,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NDK, { NDKFilter, NDKEvent } from '@nostr-dev-kit/ndk';
 import type { CachedWoTScore } from '../../types/wot';
 
+// Set to true to bypass Brainstorm relay (relay down/unreliable)
+// When true, all WoT checks return a default passing score
+const WOT_BYPASS_ENABLED = true;
+const WOT_BYPASS_SCORE = 0.001; // "Known" tier
+
 // Timeout for fetch operations (10 seconds)
 const FETCH_TIMEOUT_MS = 10000;
 
 // Connection establishment wait time
 const CONNECTION_WAIT_MS = 500;
+
+// Cache time-to-live (24 hours) - expired entries trigger re-fetch
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 export class WoTService {
   private static instance: WoTService;
@@ -108,6 +116,11 @@ export class WoTService {
    * @returns The WoT score (float) or null if not found
    */
   async fetchAndCacheScore(userHexPubkey: string): Promise<number | null> {
+    if (WOT_BYPASS_ENABLED) {
+      console.log('[WoTService] Bypass enabled, returning default score:', WOT_BYPASS_SCORE);
+      return WOT_BYPASS_SCORE;
+    }
+
     try {
       console.log('[WoTService] Fetching RUNSTR Rank for:', userHexPubkey);
 
@@ -171,7 +184,7 @@ export class WoTService {
     try {
       const cacheKey = this.getCacheKey(hexPubkey);
       const cacheData: CachedWoTScore = {
-        score: score ?? 0,
+        score: score,
         fetchedAt: Date.now(),
         pubkey: hexPubkey,
       };
@@ -189,6 +202,10 @@ export class WoTService {
    * @returns Cached score or null if not cached
    */
   async getCachedScore(userHexPubkey: string): Promise<number | null> {
+    if (WOT_BYPASS_ENABLED) {
+      return WOT_BYPASS_SCORE;
+    }
+
     try {
       const cacheKey = this.getCacheKey(userHexPubkey);
       const cached = await AsyncStorage.getItem(cacheKey);
@@ -198,6 +215,13 @@ export class WoTService {
       }
 
       const data: CachedWoTScore = JSON.parse(cached);
+
+      // Expire stale cache entries so unranked users get re-checked
+      if (Date.now() - data.fetchedAt > CACHE_TTL_MS) {
+        console.log('[WoTService] Cache expired for', userHexPubkey);
+        return null;
+      }
+
       return data.score;
     } catch (error) {
       console.error('[WoTService] Error reading cached score:', error);

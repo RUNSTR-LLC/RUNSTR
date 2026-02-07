@@ -578,6 +578,9 @@ export class SimpleLeaderboardService {
       console.log('⏰ NUCLEAR: Waiting 5 seconds for all events...');
       await new Promise<void>((resolve) => {
         setTimeout(() => {
+          // ✅ MEMORY LEAK FIX: Remove listeners before stopping subscription
+          subscription.removeAllListeners('event');
+          subscription.removeAllListeners('eose');
           subscription.stop();
           resolve();
         }, 5000);
@@ -1031,6 +1034,9 @@ export class SimpleLeaderboardService {
       const checkInterval = setInterval(() => {
         if (eoseReceived) {
           clearInterval(checkInterval);
+          // ✅ MEMORY LEAK FIX: Remove listeners before stopping subscription
+          subscription.removeAllListeners('event');
+          subscription.removeAllListeners('eose');
           subscription.stop();
           const queryDuration = Date.now() - queryStartTime;
           console.log(`📊 [Leaderboard] ✅ Early exit on EOSE (${queryDuration}ms)`);
@@ -1041,6 +1047,9 @@ export class SimpleLeaderboardService {
       // Hard timeout after 5s
       setTimeout(() => {
         clearInterval(checkInterval);
+        // ✅ MEMORY LEAK FIX: Remove listeners before stopping subscription
+        subscription.removeAllListeners('event');
+        subscription.removeAllListeners('eose');
         subscription.stop();
         const queryDuration = Date.now() - queryStartTime;
         if (!eoseReceived) {
@@ -1283,6 +1292,9 @@ export class SimpleLeaderboardService {
       const checkInterval = setInterval(() => {
         if (eoseReceived) {
           clearInterval(checkInterval);
+          // ✅ MEMORY LEAK FIX: Remove listeners before stopping subscription
+          subscription.removeAllListeners('event');
+          subscription.removeAllListeners('eose');
           subscription.stop();
           const queryDuration = Date.now() - queryStartTime;
           console.log(`📊 [GlobalLeaderboard] ✅ Early exit on EOSE (${queryDuration}ms)`);
@@ -1293,6 +1305,9 @@ export class SimpleLeaderboardService {
       // Hard timeout after 5s
       setTimeout(() => {
         clearInterval(checkInterval);
+        // ✅ MEMORY LEAK FIX: Remove listeners before stopping subscription
+        subscription.removeAllListeners('event');
+        subscription.removeAllListeners('eose');
         subscription.stop();
         const queryDuration = Date.now() - queryStartTime;
         if (!eoseReceived) {

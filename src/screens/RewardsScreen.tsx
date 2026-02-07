@@ -12,12 +12,12 @@ import {
   TouchableOpacity,
   RefreshControl,
   Alert,
-  LayoutAnimation,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { theme } from '../styles/theme';
+import { TexturedBackground } from '../components/ui/TexturedBackground';
 import { CustomAlert } from '../components/ui/CustomAlert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NWCStorageService } from '../services/wallet/NWCStorageService';
@@ -29,16 +29,20 @@ import { HistoryModal } from '../components/wallet/HistoryModal';
 import { QRScannerModal } from '../components/qr/QRScannerModal';
 import { NWCQRConfirmationModal } from '../components/wallet/NWCQRConfirmationModal';
 import type { QRData } from '../services/qr/QRCodeService';
-import { getCharityById } from '../constants/charities';
+import { getCharityById, isPPQTeam } from '../constants/charities';
 import { Avatar } from '../components/ui/Avatar';
 import { ExternalZapModal } from '../components/nutzap/ExternalZapModal';
 import Toast from 'react-native-toast-message';
-import { ImpactLevelCard } from '../components/rewards/ImpactLevelCard';
-import { PersonalImpactSection } from '../components/rewards/PersonalImpactSection';
-import { NWCGatewayService } from '../services/rewards/NWCGatewayService';
+import { EarningsHeroCard } from '../components/rewards/EarningsHeroCard';
+import { ImpactHeroCard } from '../components/rewards/ImpactHeroCard';
+import { TransparencyDashboardModal } from '../components/rewards/TransparencyDashboardModal';
 import { PledgeService } from '../services/pledge/PledgeService';
 import { ActivePledgeCard } from '../components/pledge/ActivePledgeCard';
 import type { Pledge } from '../types/pledge';
+import { useTranslation } from 'react-i18next';
+import { SupabaseRewardService } from '../services/rewards/SupabaseRewardService';
+import { RewardDestinationService } from '../services/rewards/RewardDestinationService';
+import { PPQCreditTopupModal } from '../components/ai/PPQCreditTopupModal';
 
 // Storage keys for donation settings
 // Note: Teams are now charities (rebranded)
@@ -47,14 +51,18 @@ const SELECTED_TEAM_KEY = '@runstr:selected_team_id';
 // ✅ PERFORMANCE: React.memo prevents re-renders when props haven't changed
 const RewardsScreenComponent: React.FC = () => {
   const navigation = useNavigation<any>();
+  const { t } = useTranslation('rewards');
 
   // NWC Wallet state
   const [hasNWC, setHasNWC] = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // App's rewards pool balance (from Supabase NWC)
-  const [prizePoolBalance, setPrizePoolBalance] = useState(0);
+  // Rewards pool state
+  const [poolBalance, setPoolBalance] = useState<number | null>(null);
+
+  // Transparency dashboard modal
+  const [showTransparencyDashboard, setShowTransparencyDashboard] = useState(false);
 
   const [showWalletConfig, setShowWalletConfig] = useState(false);
 
@@ -72,6 +80,9 @@ const RewardsScreenComponent: React.FC = () => {
   // User pubkey for Impact Level
   const [userHexPubkey, setUserHexPubkey] = useState<string>('');
 
+  // Lightning address state for conditional rendering
+  const [hasLightningAddress, setHasLightningAddress] = useState(false);
+
 
   // Donation settings state (for zap modal)
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>('als-foundation');
@@ -82,8 +93,8 @@ const RewardsScreenComponent: React.FC = () => {
   // Charity zap modal state (for Teams tab zap functionality)
   const [showZapModal, setShowZapModal] = useState(false);
 
-  // Team accordion state (collapsed by default)
-  const [isTeamExpanded, setIsTeamExpanded] = useState(false);
+  // PPQ.AI credit topup modal state
+  const [showPPQTopupModal, setShowPPQTopupModal] = useState(false);
 
   // Alert state
   const [alertVisible, setAlertVisible] = useState(false);
@@ -97,11 +108,30 @@ const RewardsScreenComponent: React.FC = () => {
     }>
   >([]);
 
+  // Load rewards pool balance from Supabase
+  const loadPoolBalance = async () => {
+    try {
+      const result = await SupabaseRewardService.getRewardsPoolBalance();
+      if (result) {
+        setPoolBalance(result.balance);
+      }
+    } catch (error) {
+      console.error('[RewardsScreen] Failed to load pool balance:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to load rewards pool',
+        text2: 'Pull down to retry',
+        position: 'bottom',
+        visibilityTime: 3000,
+      });
+    }
+  };
+
   // Reload settings whenever screen gains focus (e.g., after selecting charity in TeamsScreen)
   useFocusEffect(
     useCallback(() => {
       loadSettings();
-      loadPrizePoolBalance();
+      loadPoolBalance();
     }, [])
   );
 
@@ -116,6 +146,10 @@ const RewardsScreenComponent: React.FC = () => {
       // Check NWC wallet status
       const nwcAvailable = await NWCStorageService.hasNWC();
       setHasNWC(nwcAvailable);
+
+      // Check Lightning address for conditional rendering
+      const hasAddress = await RewardDestinationService.hasUserLightningAddress();
+      setHasLightningAddress(hasAddress);
 
       // Load selected team for zap modal
       const teamId = await AsyncStorage.getItem(SELECTED_TEAM_KEY);
@@ -132,56 +166,23 @@ const RewardsScreenComponent: React.FC = () => {
       }
     } catch (error) {
       console.error('[RewardsScreen] Error loading settings:', error);
-    }
-  };
-
-  /**
-   * Load the app's rewards pool balance from Supabase NWC
-   * This shows users how much is available in the rewards pool
-   */
-  const loadPrizePoolBalance = async () => {
-    try {
-      const result = await NWCGatewayService.getBalance();
-      if (result.success && result.balance !== undefined) {
-        // NWC returns millisats, convert to sats
-        const balanceSats = Math.floor(result.balance / 1000);
-        setPrizePoolBalance(balanceSats);
-        console.log('[RewardsScreen] Prize pool balance:', balanceSats, 'sats');
-      } else {
-        console.error('[RewardsScreen] Failed to load prize pool balance:', result.error);
-      }
-    } catch (error) {
-      console.error('[RewardsScreen] Error loading prize pool balance:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to load settings',
+        text2: 'Pull down to retry',
+        position: 'bottom',
+        visibilityTime: 3000,
+      });
     }
   };
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await Promise.all([
-        loadSettings(),
-        loadPrizePoolBalance(),
-      ]);
+      await Promise.all([loadSettings(), loadPoolBalance()]);
     } finally {
       setIsRefreshing(false);
     }
-  };
-
-  /**
-   * Toggle team accordion
-   */
-  const toggleTeamAccordion = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setIsTeamExpanded(!isTeamExpanded);
-  };
-
-  const formatBalance = (sats: number): string => {
-    if (sats >= 1000000) {
-      return `${(sats / 1000000).toFixed(2)}M sats`;
-    } else if (sats >= 1000) {
-      return `${(sats / 1000).toFixed(1)}K sats`;
-    }
-    return `${sats.toLocaleString()} sats`;
   };
 
   const handleWalletConfigSuccess = async () => {
@@ -249,8 +250,25 @@ const RewardsScreenComponent: React.FC = () => {
     setShowZapModal(false);
   };
 
+  // Handle PPQ.AI credit topup
+  const handlePPQTopup = () => {
+    setShowPPQTopupModal(true);
+  };
+
+  // Handle successful PPQ topup
+  const handlePPQTopupSuccess = () => {
+    Toast.show({
+      type: 'success',
+      text1: 'Credits Added!',
+      text2: 'AI credits have been topped up.',
+      position: 'top',
+      visibilityTime: 3000,
+    });
+    setShowPPQTopupModal(false);
+  };
+
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <TexturedBackground>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -263,90 +281,122 @@ const RewardsScreenComponent: React.FC = () => {
           />
         }
       >
-        {/* Rewards Pool - Shows app's reward pool balance */}
-        {prizePoolBalance > 0 && (
-          <View style={styles.prizePoolCard}>
-            <View style={styles.prizePoolHeader}>
-              <Text style={styles.prizePoolLabel}>Rewards Pool</Text>
-            </View>
-            <Text style={styles.prizePoolAmount}>{formatBalance(prizePoolBalance)}</Text>
+        {/* Rewards Pool - Live balance from Supabase */}
+        <TouchableOpacity
+          style={styles.prizePoolCard}
+          onPress={() => setShowTransparencyDashboard(true)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.prizePoolHeader}>
+            <Text style={styles.prizePoolLabel}>{t('rewardsPool', { defaultValue: 'Rewards Pool' })}</Text>
+            <Ionicons name="information-circle-outline" size={16} color={theme.colors.textMuted} />
           </View>
+          <Text style={styles.prizePoolAmount}>
+            {poolBalance !== null
+              ? `${poolBalance.toLocaleString()} sats`
+              : t('loading', { defaultValue: '-- sats' })}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Earnings Hero Card - Only shown when user has Lightning address */}
+        {userHexPubkey && hasLightningAddress && (
+          <EarningsHeroCard pubkey={userHexPubkey} />
         )}
 
-        {/* Impact Level Card - Now first after rewards pool */}
-        {userHexPubkey && (
-          <ImpactLevelCard pubkey={userHexPubkey} />
+        {/* Impact Hero Card - Only shown when user does NOT have Lightning address */}
+        {userHexPubkey && !hasLightningAddress && (
+          <ImpactHeroCard pubkey={userHexPubkey} />
         )}
 
-        {/* Your Team Card - Collapsible accordion */}
+        {/* Your Team Card - Always visible */}
         <View style={styles.teamCard}>
-          <TouchableOpacity
-            style={styles.teamCardHeader}
-            onPress={toggleTeamAccordion}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.teamCardTitle}>YOUR TEAM</Text>
-            <Ionicons
-              name={isTeamExpanded ? 'chevron-up' : 'chevron-down'}
-              size={18}
-              color="#FF9D42"
-            />
-          </TouchableOpacity>
-          {isTeamExpanded && (
-            <View style={styles.teamCardContent}>
+          <Text style={styles.teamCardTitle}>{t('yourTeam', { defaultValue: 'YOUR TEAM' })}</Text>
+          <View style={styles.teamCardContent}>
+            <TouchableOpacity
+              style={styles.teamInfoRow}
+              onPress={() => navigation.navigate('Teams')}
+              activeOpacity={0.7}
+            >
+              {selectedTeam ? (
+                <>
+                  <Avatar
+                    name={selectedTeam.name}
+                    size={44}
+                    imageSource={selectedTeam.image}
+                  />
+                  <View style={styles.teamTextSection}>
+                    <Text style={styles.teamName}>{selectedTeam.name}</Text>
+                    <Text style={styles.teamSupportText}>
+                      {t('allRewardsSupportTeam', { defaultValue: 'All rewards support this team' })}
+                    </Text>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <View style={styles.emptyAvatarPlaceholder}>
+                    <Ionicons name="add" size={24} color="#666" />
+                  </View>
+                  <View style={styles.teamTextSection}>
+                    <Text style={styles.teamNameEmpty}>{t('selectTeam', { defaultValue: 'Select a team' })}</Text>
+                    <Text style={styles.teamSupportText}>{t('tapToChoose', { defaultValue: 'Tap to choose' })}</Text>
+                  </View>
+                </>
+              )}
+            </TouchableOpacity>
+            {/* Zap button for charities with Lightning address */}
+            {selectedTeam && !isPPQTeam(selectedTeam.id) && selectedTeam.lightningAddress && (
               <TouchableOpacity
-                style={styles.teamInfoRow}
-                onPress={() => navigation.navigate('Teams')}
+                style={styles.zapButton}
+                onPress={handleZapCharity}
                 activeOpacity={0.7}
               >
-                {selectedTeam ? (
-                  <>
-                    <Avatar
-                      name={selectedTeam.name}
-                      size={44}
-                      imageSource={selectedTeam.image}
-                    />
-                    <View style={styles.teamTextSection}>
-                      <Text style={styles.teamName}>{selectedTeam.name}</Text>
-                      <Text style={styles.teamSupportText}>
-                        All rewards support this team
-                      </Text>
-                    </View>
-                  </>
-                ) : (
-                  <>
-                    <View style={styles.emptyAvatarPlaceholder}>
-                      <Ionicons name="add" size={24} color="#666" />
-                    </View>
-                    <View style={styles.teamTextSection}>
-                      <Text style={styles.teamNameEmpty}>Select a team</Text>
-                      <Text style={styles.teamSupportText}>Tap to choose</Text>
-                    </View>
-                  </>
-                )}
+                <Ionicons name="flash" size={22} color="#FF9D42" />
               </TouchableOpacity>
-              {selectedTeam && (
-                <TouchableOpacity
-                  style={styles.zapButton}
-                  onPress={handleZapCharity}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="flash" size={22} color="#FF9D42" />
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
+            )}
+            {/* Sparkle button for PPQ.AI team (credit topup) */}
+            {selectedTeam && isPPQTeam(selectedTeam.id) && (
+              <TouchableOpacity
+                style={styles.zapButton}
+                onPress={handlePPQTopup}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="sparkles" size={22} color="#FF9D42" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
-        {/* Personal Impact Section (collapsed by default) */}
-        {userHexPubkey && (
-          <PersonalImpactSection pubkey={userHexPubkey} defaultExpanded={false} />
-        )}
+        {/* How It Works Section */}
+        <View style={styles.howItWorksCard}>
+          <Text style={styles.howItWorksTitle}>{t('howItWorks', { defaultValue: 'HOW IT WORKS' })}</Text>
+
+          <View style={styles.rewardRow}>
+            <Ionicons name="fitness-outline" size={20} color="#FF9D42" />
+            <View style={styles.rewardTextSection}>
+              <Text style={styles.rewardLabel}>{t('dailyWorkout', { defaultValue: '3km+ Cardio' })}</Text>
+              <Text style={styles.rewardValue}>50 sats</Text>
+            </View>
+          </View>
+
+          <View style={styles.rewardRow}>
+            <Ionicons name="footsteps-outline" size={20} color="#FF9D42" />
+            <View style={styles.rewardTextSection}>
+              <Text style={styles.rewardLabel}>{t('tenKSteps', { defaultValue: '10,000 Steps' })}</Text>
+              <Text style={styles.rewardValue}>50 sats</Text>
+            </View>
+          </View>
+
+          <Text style={styles.howItWorksDescription}>
+            {hasLightningAddress
+              ? t('howItWorksDescriptionWithLN', { defaultValue: 'Run, walk, or cycle 3km+ OR hit 10k steps daily to earn real Bitcoin. Rewards are sent directly to your Lightning address.' })
+              : t('howItWorksDescriptionWithoutLN', { defaultValue: "Run, walk, or cycle 3km+ OR hit 10k steps daily to earn rewards for your team's charity." })}
+          </Text>
+        </View>
 
         {/* Active Pledge Section (only shown if user has active pledge) */}
         {activePledge && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>ACTIVE PLEDGE</Text>
+            <Text style={styles.sectionTitle}>{t('activePledge', { defaultValue: 'ACTIVE PLEDGE' })}</Text>
             <ActivePledgeCard pledge={activePledge} />
           </View>
         )}
@@ -387,8 +437,8 @@ const RewardsScreenComponent: React.FC = () => {
         onClose={() => setShowHistoryModal(false)}
       />
 
-      {/* External Zap Modal for charity donations */}
-      {selectedTeam && (
+      {/* External Zap Modal for charity donations (only for teams with Lightning address, not PPQ.AI) */}
+      {selectedTeam && selectedTeam.lightningAddress && !isPPQTeam(selectedTeam.id) && (
         <ExternalZapModal
           visible={showZapModal}
           recipientNpub={selectedTeam.lightningAddress}
@@ -401,6 +451,13 @@ const RewardsScreenComponent: React.FC = () => {
           charityLightningAddress={selectedTeam.lightningAddress}
         />
       )}
+
+      {/* PPQ.AI Credit Top-up Modal */}
+      <PPQCreditTopupModal
+        visible={showPPQTopupModal}
+        onClose={() => setShowPPQTopupModal(false)}
+        onSuccess={handlePPQTopupSuccess}
+      />
 
       {showQRScanner && (
         <QRScannerModal
@@ -418,7 +475,14 @@ const RewardsScreenComponent: React.FC = () => {
           onSuccess={handleNWCConnected}
         />
       )}
-    </SafeAreaView>
+
+      {/* Rewards Transparency Dashboard Modal */}
+      <TransparencyDashboardModal
+        visible={showTransparencyDashboard}
+        onClose={() => setShowTransparencyDashboard(false)}
+        initialPoolBalance={poolBalance}
+      />
+    </TexturedBackground>
   );
 };
 
@@ -801,6 +865,49 @@ const styles = StyleSheet.create({
     borderTopColor: '#1a1a1a',
   },
 
+  // How It Works card styles
+  howItWorksCard: {
+    backgroundColor: '#0a0a0a',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1a1a1a',
+    padding: 16,
+    marginBottom: 12,
+  },
+  howItWorksTitle: {
+    fontSize: 12,
+    fontWeight: theme.typography.weights.bold,
+    color: '#FF9D42',
+    letterSpacing: 1,
+    marginBottom: 16,
+  },
+  rewardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  rewardTextSection: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  rewardLabel: {
+    fontSize: 14,
+    color: '#fff',
+  },
+  rewardValue: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.bold,
+    color: '#FF9D42',
+  },
+  howItWorksDescription: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 8,
+    lineHeight: 18,
+  },
 });
 
 // ✅ PERFORMANCE: React.memo prevents re-renders when props haven't changed

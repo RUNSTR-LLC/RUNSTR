@@ -16,34 +16,54 @@ export interface MergeResult {
 
 /**
  * Check if two workouts are duplicates using fuzzy matching
- * Matches by: same start time (within 1 minute) + same type + similar duration (within 10 seconds)
+ * Matches by: same start time (within 5 minutes) + same type + similar duration OR distance
+ * Wide time window catches simultaneous multi-app tracking (e.g., RUNSTR GPS + Nike Run Club)
  */
 function isDuplicateByFuzzyMatch(
   healthWorkout: Workout,
   localWorkouts: LocalWorkout[]
 ): boolean {
   const healthStart = new Date(healthWorkout.startTime).getTime();
-  const TIME_WINDOW_MS = 60 * 1000; // 1 minute tolerance
+  const TIME_WINDOW_MS = 300 * 1000; // 5 minute tolerance for multi-app tracking
   const DURATION_TOLERANCE_S = 10; // 10 second tolerance
+  const DISTANCE_TOLERANCE_RATIO = 0.2; // 20% distance tolerance
 
   return localWorkouts.some((local) => {
     const localStart = new Date(local.startTime).getTime();
     const timeDiff = Math.abs(healthStart - localStart);
+
+    // Must be same type and within time window
+    if (timeDiff > TIME_WINDOW_MS || healthWorkout.type !== local.type) {
+      return false;
+    }
+
     const durationDiff = Math.abs(
       (healthWorkout.duration || 0) - (local.duration || 0)
     );
 
-    // Match if: same time window + same type + similar duration
-    return (
-      timeDiff <= TIME_WINDOW_MS &&
-      healthWorkout.type === local.type &&
-      durationDiff <= DURATION_TOLERANCE_S
-    );
+    // Match by duration (tight tolerance)
+    if (durationDiff <= DURATION_TOLERANCE_S) {
+      return true;
+    }
+
+    // Match by distance (within 20%) - catches multi-app tracking with time drift
+    const healthDist = healthWorkout.distance || 0;
+    const localDist = local.distance || 0;
+    if (healthDist > 0 && localDist > 0) {
+      const maxDist = Math.max(healthDist, localDist);
+      const distDiff = Math.abs(healthDist - localDist);
+      if (distDiff / maxDist <= DISTANCE_TOLERANCE_RATIO) {
+        return true;
+      }
+    }
+
+    return false;
   });
 }
 
 /**
  * Convert LocalWorkout to Workout interface for unified display
+ * Preserves all enriched data (splits, savedCard, weather, etc.) for detail view
  */
 export function localToWorkout(local: LocalWorkout, userId: string): Workout {
   return {
@@ -58,10 +78,43 @@ export function localToWorkout(local: LocalWorkout, userId: string): Workout {
     endTime: local.endTime,
     syncedAt: local.syncedAt || new Date().toISOString(),
     pace: local.pace,
+    // GPS tracking fields
+    splits: local.splits,
+    elevation: local.elevation,
+    speed: local.speed,
+    raceDistance: local.raceDistance,
+    steps: local.steps,
+    // Route fields
+    routeId: local.routeId,
+    routeLabel: local.routeLabel,
+    // Saved card for sharing
+    savedCard: local.savedCard,
+    // Weather
+    weather: local.weather,
+    // Strength training fields
+    sets: local.sets,
+    reps: local.reps,
+    weight: local.weight,
+    weightsPerSet: local.weightsPerSet,
+    exerciseType: local.exerciseType,
+    repsBreakdown: local.repsBreakdown,
+    // Meditation fields
+    meditationType: local.meditationType,
+    // Diet fields
+    mealType: local.mealType,
+    mealSize: local.mealSize,
+    // Notes
+    notes: local.notes,
+    // Fitness test fields
+    fitnessTestScore: local.fitnessTestScore,
+    fitnessTestGrade: local.fitnessTestGrade,
+    fitnessTestComponents: local.fitnessTestComponents,
+    // Metadata
     metadata: {
       isLocal: true,
       originalSource: local.source,
-      steps: local.steps,
+      nostrEventId: local.nostrEventId,
+      syncedToNostr: local.syncedToNostr,
     },
   };
 }

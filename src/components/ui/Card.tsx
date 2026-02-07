@@ -12,9 +12,9 @@ interface CardProps {
   style?: ViewStyle;
 }
 
-export const Card: React.FC<CardProps> = ({ children, style }) => {
+export const Card: React.FC<CardProps> = React.memo(({ children, style }) => {
   return <View style={[styles.card, style]}>{children}</View>;
-};
+});
 
 const styles = StyleSheet.create({
   card: {

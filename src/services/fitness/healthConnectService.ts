@@ -8,6 +8,7 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { WorkoutData, WorkoutType } from '../../types/workout';
 import { inferActivityTypeSimple } from '../../utils/activityInference';
+import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
 
 // Environment-based logging utility
 const isDevelopment = __DEV__;
@@ -751,11 +752,24 @@ export class HealthConnectService {
 
   /**
    * Cache workouts to AsyncStorage
-   * Also triggers daily reward check when new workouts are cached.
+   * Also auto-submits NEW cardio workouts to Supabase for leaderboard tracking.
    */
   private async cacheWorkouts(workouts: HealthConnectWorkout[]): Promise<void> {
     try {
       const cacheKey = 'healthconnect_workouts_cache';
+
+      // Identify new workouts by comparing with previous cache
+      const previousCache = await AsyncStorage.getItem(cacheKey);
+      const previousIds = new Set<string>();
+      if (previousCache) {
+        try {
+          const parsed = JSON.parse(previousCache);
+          (parsed.workouts || []).forEach((w: HealthConnectWorkout) => {
+            previousIds.add(w.id || '');
+          });
+        } catch { /* ignore parse errors */ }
+      }
+
       const cacheData = {
         workouts,
         timestamp: Date.now(),
@@ -766,11 +780,49 @@ export class HealthConnectService {
       this.lastSyncAt = new Date();
       debugLog(`Health Connect: Cached ${workouts.length} workouts`);
 
-      // NOTE: Reward trigger removed - Health Connect imports should NOT trigger rewards
-      // Only user-generated workouts (gps_tracker, manual_entry, daily_steps) trigger rewards
-      // This is handled in LocalWorkoutStorageService.checkStreakAndReward()
+      // Auto-submit new cardio workouts to Supabase (fire-and-forget)
+      this.submitNewWorkoutsToSupabase(workouts, previousIds).catch((err) => {
+        console.warn('[HealthConnect] Supabase auto-submit error (silent):', err);
+      });
     } catch (error) {
       console.warn('Failed to cache Health Connect workouts:', error);
+    }
+  }
+
+  /**
+   * Submit newly discovered cardio workouts to Supabase for leaderboard tracking.
+   */
+  private async submitNewWorkoutsToSupabase(
+    workouts: HealthConnectWorkout[],
+    previousIds: Set<string>
+  ): Promise<void> {
+    const CARDIO_TYPES = ['running', 'walking', 'cycling', 'hiking'];
+    const npub = await AsyncStorage.getItem('@runstr:npub');
+    if (!npub) return;
+
+    const newCardio = workouts.filter((w) => {
+      if (!w.id || previousIds.has(w.id)) return false;
+      if (!w.activityType || !CARDIO_TYPES.includes(w.activityType)) return false;
+      if (!w.totalDistance || w.totalDistance <= 0) return false;
+      return true;
+    });
+
+    for (const w of newCardio) {
+      try {
+        const eventId = `hc_${w.id}`;
+        await SupabaseCompetitionService.submitWorkoutSimple({
+          eventId,
+          npub,
+          type: w.activityType || 'running',
+          distance: w.totalDistance,
+          duration: w.duration,
+          calories: w.totalEnergyBurned,
+          startTime: w.startTime,
+        });
+        debugLog(`[HealthConnect] Auto-submitted ${w.activityType} workout to Supabase: ${eventId}`);
+      } catch (err) {
+        console.warn(`[HealthConnect] Failed to submit workout ${w.id}:`, err);
+      }
     }
   }
 

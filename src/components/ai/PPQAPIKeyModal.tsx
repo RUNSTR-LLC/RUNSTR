@@ -1,11 +1,11 @@
 /**
- * PPQAPIKeyModal - Configure PPQ.AI API Key for Coach RUNSTR
+ * PPQAPIKeyModal - Manage PPQ.AI Account for RUNSTR AI
  *
- * Allows users to input their PPQ.AI API key and provides link to sign up
- * with referral code for Bitcoin-powered AI insights.
+ * Shows AI credit balance and allows account management.
+ * Integrates with PPQAccountService for PPQ.AI team rewards.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Modal,
   View,
@@ -14,11 +14,15 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Linking,
+  RefreshControl,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
+import Toast from 'react-native-toast-message';
 import { theme } from '../../styles/theme';
 import { useCoachRunstr } from '../../services/ai/useCoachRunstr';
+import { PPQAccountService } from '../../services/ai/PPQAccountService';
 
 interface PPQAPIKeyModalProps {
   visible: boolean;
@@ -26,36 +30,106 @@ interface PPQAPIKeyModalProps {
   onSuccess: () => void;
 }
 
-const PPQ_REFERRAL_URL = 'https://ppq.ai/invite/637cf3fc';
-
 export const PPQAPIKeyModal: React.FC<PPQAPIKeyModalProps> = ({
   visible,
   onClose,
   onSuccess,
 }) => {
-  const [apiKey, setApiKey] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showCustomKeySection, setShowCustomKeySection] = useState(false);
-  const { setApiKey: saveApiKey, resetToDefaultKey, isUsingDefaultKey } = useCoachRunstr();
+  const [showManualEntry, setShowManualEntry] = useState(false);
 
-  const handleGetApiKey = async () => {
+  // Account state
+  const [hasAccount, setHasAccount] = useState(false);
+  const [balance, setBalance] = useState<number | null>(null);
+  const [storedApiKey, setStoredApiKey] = useState<string | null>(null);
+  const [storedCreditId, setStoredCreditId] = useState<string | null>(null);
+
+  // Manual entry fields
+  const [apiKey, setApiKey] = useState('');
+  const [creditId, setCreditId] = useState('');
+
+  const { setApiKey: saveApiKey, isUsingDefaultKey } = useCoachRunstr();
+
+  // Load account data when modal opens
+  const loadAccountData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
     try {
-      const supported = await Linking.canOpenURL(PPQ_REFERRAL_URL);
-      if (supported) {
-        await Linking.openURL(PPQ_REFERRAL_URL);
-      } else {
-        setError('Cannot open browser. Please visit ppq.ai manually.');
+      const accountExists = await PPQAccountService.hasAccount();
+      setHasAccount(accountExists);
+
+      if (accountExists) {
+        // Load balance
+        const balanceResult = await PPQAccountService.getBalance();
+        if (balanceResult.success) {
+          setBalance(balanceResult.balance ?? 0);
+        } else {
+          console.warn('[PPQModal] Failed to fetch balance:', balanceResult.error);
+          // Don't show error for balance fetch, account still exists
+        }
+
+        // Load stored credentials for copy functionality
+        const account = await PPQAccountService.getAccount();
+        if (account) {
+          setStoredApiKey(account.apiKey);
+          setStoredCreditId(account.creditId);
+        }
       }
     } catch (err) {
-      console.error('Failed to open PPQ.AI referral link:', err);
-      setError('Failed to open browser.');
+      console.error('[PPQModal] Error loading account:', err);
+      setError('Failed to load account data');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (visible) {
+      loadAccountData();
+    }
+  }, [visible, loadAccountData]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadAccountData();
+    setIsRefreshing(false);
+  };
+
+  const handleCreateAccount = async () => {
+    setIsCreating(true);
+    setError(null);
+
+    try {
+      const result = await PPQAccountService.createAccount();
+
+      if (result.success && result.apiKey) {
+        setHasAccount(true);
+        setBalance(0); // New account starts with 0 balance
+
+        // Also update the useCoachRunstr hook with the new key
+        await saveApiKey(result.apiKey);
+
+        console.log('[PPQModal] Account created successfully');
+        onSuccess();
+      } else {
+        setError(result.error || 'Failed to create account');
+      }
+    } catch (err) {
+      console.error('[PPQModal] Create account error:', err);
+      setError('Failed to create account. Please try again.');
+    } finally {
+      setIsCreating(false);
     }
   };
 
-  const handleSave = async () => {
-    if (!apiKey.trim()) {
-      setError('Please enter an API key');
+  const handleSaveManualKey = async () => {
+    if (!apiKey.trim() || !creditId.trim()) {
+      setError('Please enter both API key and Credit ID');
       return;
     }
 
@@ -63,40 +137,94 @@ export const PPQAPIKeyModal: React.FC<PPQAPIKeyModalProps> = ({
     setError(null);
 
     try {
-      await saveApiKey(apiKey.trim());
-      setApiKey('');
-      onSuccess();
+      const success = await PPQAccountService.setAccount(apiKey.trim(), creditId.trim());
+
+      if (success) {
+        // Also update the useCoachRunstr hook
+        await saveApiKey(apiKey.trim());
+
+        setApiKey('');
+        setCreditId('');
+        setShowManualEntry(false);
+        setHasAccount(true);
+
+        // Refresh balance
+        const balanceResult = await PPQAccountService.getBalance();
+        if (balanceResult.success) {
+          setBalance(balanceResult.balance ?? 0);
+        }
+
+        onSuccess();
+      } else {
+        setError('Failed to save credentials');
+      }
     } catch (err) {
-      console.error('Failed to save API key:', err);
-      setError('Failed to save API key. Please try again.');
+      console.error('[PPQModal] Save manual key error:', err);
+      setError('Failed to save credentials. Please try again.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleClearAccount = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      await PPQAccountService.clearAccount();
+      setHasAccount(false);
+      setBalance(null);
+      console.log('[PPQModal] Account cleared');
+    } catch (err) {
+      console.error('[PPQModal] Clear account error:', err);
+      setError('Failed to clear account');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleClose = () => {
-    setApiKey('');
     setError(null);
-    setShowCustomKeySection(false);
+    setShowManualEntry(false);
+    setApiKey('');
+    setCreditId('');
     onClose();
   };
 
-  const handleResetToDefault = async () => {
-    setIsSaving(true);
-    setError(null);
-
-    try {
-      await resetToDefaultKey();
-      setApiKey('');
-      setShowCustomKeySection(false);
-      onSuccess();
-    } catch (err) {
-      console.error('Failed to reset to default key:', err);
-      setError('Failed to reset. Please try again.');
-    } finally {
-      setIsSaving(false);
+  const handleCopyApiKey = async () => {
+    if (storedApiKey) {
+      await Clipboard.setStringAsync(storedApiKey);
+      Toast.show({
+        type: 'success',
+        text1: 'Copied!',
+        text2: 'API key copied to clipboard',
+        position: 'top',
+        visibilityTime: 2000,
+      });
     }
   };
+
+  const handleCopyCreditId = async () => {
+    if (storedCreditId) {
+      await Clipboard.setStringAsync(storedCreditId);
+      Toast.show({
+        type: 'success',
+        text1: 'Copied!',
+        text2: 'Credit ID copied to clipboard',
+        position: 'top',
+        visibilityTime: 2000,
+      });
+    }
+  };
+
+  // Helper to mask API key for display
+  const getMaskedApiKey = (key: string | null): string => {
+    if (!key) return '••••••••';
+    if (key.length <= 8) return '••••••••';
+    return `${key.slice(0, 4)}...${key.slice(-4)}`;
+  };
+
+  const isProcessing = isLoading || isCreating || isSaving;
 
   return (
     <Modal
@@ -110,9 +238,9 @@ export const PPQAPIKeyModal: React.FC<PPQAPIKeyModalProps> = ({
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerIcon}>
-              <Ionicons name="fitness" size={24} color="#FF9D42" />
+              <Ionicons name="sparkles" size={24} color="#FF9D42" />
             </View>
-            <Text style={styles.title}>Coach RUNSTR AI</Text>
+            <Text style={styles.title}>RUNSTR AI</Text>
             <TouchableOpacity
               onPress={handleClose}
               style={styles.closeButton}
@@ -122,121 +250,242 @@ export const PPQAPIKeyModal: React.FC<PPQAPIKeyModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* Default Key Active Status */}
-          {isUsingDefaultKey && (
-            <View style={styles.defaultActiveBox}>
-              <Ionicons name="checkmark-circle" size={20} color="#FF9D42" />
-              <Text style={styles.defaultActiveText}>
-                RUNSTR Premium is active. AI features are ready to use!
-              </Text>
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#FF9D42" />
+              <Text style={styles.loadingText}>Loading account...</Text>
             </View>
-          )}
-
-          {/* Custom Key Active Status */}
-          {!isUsingDefaultKey && (
-            <View style={styles.customActiveBox}>
-              <Ionicons name="key" size={20} color="#FF9D42" />
-              <Text style={styles.customActiveText}>
-                Using your custom PPQ.AI key
-              </Text>
-            </View>
-          )}
-
-          {/* Reset to Default Button (only if using custom key) */}
-          {!isUsingDefaultKey && (
-            <TouchableOpacity
-              style={styles.resetButton}
-              onPress={handleResetToDefault}
-              disabled={isSaving}
-            >
-              {isSaving ? (
-                <ActivityIndicator size="small" color={theme.colors.text} />
-              ) : (
-                <>
-                  <Ionicons name="refresh" size={18} color={theme.colors.text} />
-                  <Text style={styles.resetButtonText}>Reset to RUNSTR Premium</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          )}
-
-          {/* Toggle Custom Key Section */}
-          <TouchableOpacity
-            style={styles.toggleCustomSection}
-            onPress={() => setShowCustomKeySection(!showCustomKeySection)}
-          >
-            <Text style={styles.toggleCustomText}>
-              {showCustomKeySection ? 'Hide custom key options' : 'Use your own PPQ.AI key (optional)'}
-            </Text>
-            <Ionicons
-              name={showCustomKeySection ? 'chevron-up' : 'chevron-down'}
-              size={18}
-              color={theme.colors.textMuted}
-            />
-          </TouchableOpacity>
-
-          {/* Custom Key Section (expandable) */}
-          {showCustomKeySection && (
+          ) : hasAccount ? (
+            // Account exists - show balance and management
             <>
-              {/* Get API Key Button */}
-              <TouchableOpacity
-                style={styles.getReferralButton}
-                onPress={handleGetApiKey}
-                disabled={isSaving}
-              >
-                <Ionicons
-                  name="open-outline"
-                  size={20}
-                  color="#000"
-                  style={styles.buttonIcon}
-                />
-                <Text style={styles.getReferralButtonText}>Get Your Own API Key</Text>
-              </TouchableOpacity>
-
-              {/* API Key Input */}
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Your API Key</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Paste your PPQ.AI API key here"
-                  placeholderTextColor={theme.colors.textMuted}
-                  value={apiKey}
-                  onChangeText={setApiKey}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  secureTextEntry
-                  editable={!isSaving}
-                />
+              {/* Balance Card */}
+              <View style={styles.balanceCard}>
+                <Text style={styles.balanceLabel}>AI Credits Balance</Text>
+                <Text style={styles.balanceValue}>
+                  ${balance !== null ? balance.toFixed(2) : '--'}
+                </Text>
+                <TouchableOpacity
+                  style={styles.refreshButton}
+                  onPress={handleRefresh}
+                  disabled={isRefreshing}
+                >
+                  {isRefreshing ? (
+                    <ActivityIndicator size="small" color="#FF9D42" />
+                  ) : (
+                    <Ionicons name="refresh" size={18} color="#FF9D42" />
+                  )}
+                </TouchableOpacity>
               </View>
 
-              {/* Info Box */}
+              {/* Info about earning credits */}
               <View style={styles.infoBox}>
-                <Ionicons
-                  name="information-circle-outline"
-                  size={20}
-                  color="#FF9D42"
-                />
+                <Ionicons name="flash-outline" size={18} color="#FF9D42" />
                 <Text style={styles.infoText}>
-                  Using your own key? Costs ~$0.001 per insight. Your key is stored
-                  locally and never shared.
+                  Select "PPQ.AI" as your team to earn AI credits from workout rewards instead of sats.
                 </Text>
               </View>
 
-              {/* Save Button */}
+              {/* Your Credentials Section */}
+              {(storedApiKey || storedCreditId) && (
+                <View style={styles.credentialsSection}>
+                  <Text style={styles.credentialsSectionTitle}>Your Credentials</Text>
+
+                  {/* API Key Row */}
+                  <View style={styles.credentialRow}>
+                    <View style={styles.credentialInfo}>
+                      <Text style={styles.credentialLabel}>API Key</Text>
+                      <Text style={styles.credentialValue}>{getMaskedApiKey(storedApiKey)}</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.copyButton}
+                      onPress={handleCopyApiKey}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons name="copy-outline" size={18} color="#FF9D42" />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Credit ID Row */}
+                  <View style={styles.credentialRow}>
+                    <View style={styles.credentialInfo}>
+                      <Text style={styles.credentialLabel}>Credit ID</Text>
+                      <Text style={styles.credentialValue} numberOfLines={1} ellipsizeMode="middle">
+                        {storedCreditId || '••••••••'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.copyButton}
+                      onPress={handleCopyCreditId}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons name="copy-outline" size={18} color="#FF9D42" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              {/* Manual entry toggle (for power users) */}
               <TouchableOpacity
-                style={[
-                  styles.saveButton,
-                  (!apiKey.trim() || isSaving) && styles.saveButtonDisabled,
-                ]}
-                onPress={handleSave}
-                disabled={!apiKey.trim() || isSaving}
+                style={styles.secondaryButton}
+                onPress={() => setShowManualEntry(!showManualEntry)}
+                disabled={isProcessing}
               >
-                {isSaving ? (
-                  <ActivityIndicator size="small" color={theme.colors.accentText} />
+                <Text style={styles.secondaryButtonText}>
+                  {showManualEntry ? 'Hide manual entry' : 'Enter different credentials'}
+                </Text>
+                <Ionicons
+                  name={showManualEntry ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color={theme.colors.textMuted}
+                />
+              </TouchableOpacity>
+
+              {showManualEntry && (
+                <>
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>API Key</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Enter your PPQ.AI API key"
+                      placeholderTextColor={theme.colors.textMuted}
+                      value={apiKey}
+                      onChangeText={setApiKey}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      secureTextEntry
+                      editable={!isProcessing}
+                    />
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Credit ID</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Enter your Credit ID"
+                      placeholderTextColor={theme.colors.textMuted}
+                      value={creditId}
+                      onChangeText={setCreditId}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      editable={!isProcessing}
+                    />
+                  </View>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.primaryButton,
+                      (!apiKey.trim() || !creditId.trim() || isProcessing) && styles.buttonDisabled,
+                    ]}
+                    onPress={handleSaveManualKey}
+                    disabled={!apiKey.trim() || !creditId.trim() || isProcessing}
+                  >
+                    {isSaving ? (
+                      <ActivityIndicator size="small" color="#000" />
+                    ) : (
+                      <Text style={styles.primaryButtonText}>Save Credentials</Text>
+                    )}
+                  </TouchableOpacity>
+                </>
+              )}
+
+              {/* Clear account button */}
+              <TouchableOpacity
+                style={styles.dangerButton}
+                onPress={handleClearAccount}
+                disabled={isProcessing}
+              >
+                <Ionicons name="trash-outline" size={16} color="#ff6b6b" />
+                <Text style={styles.dangerButtonText}>Clear Account</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            // No account - show setup options
+            <>
+              <Text style={styles.description}>
+                Set up AI credits to power RUNSTR AI's personalized insights and analysis.
+              </Text>
+
+              {/* Create Account Button */}
+              <TouchableOpacity
+                style={[styles.primaryButton, isProcessing && styles.buttonDisabled]}
+                onPress={handleCreateAccount}
+                disabled={isProcessing}
+              >
+                {isCreating ? (
+                  <ActivityIndicator size="small" color="#000" />
                 ) : (
-                  <Text style={styles.saveButtonText}>Save Custom Key</Text>
+                  <>
+                    <Ionicons name="add-circle" size={20} color="#000" style={styles.buttonIcon} />
+                    <Text style={styles.primaryButtonText}>Create PPQ.AI Account</Text>
+                  </>
                 )}
               </TouchableOpacity>
+
+              {/* Manual entry toggle */}
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={() => setShowManualEntry(!showManualEntry)}
+                disabled={isProcessing}
+              >
+                <Ionicons name="key-outline" size={18} color={theme.colors.text} />
+                <Text style={styles.secondaryButtonTextAlt}>I have PPQ.AI credentials</Text>
+              </TouchableOpacity>
+
+              {showManualEntry && (
+                <>
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>API Key</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Enter your PPQ.AI API key"
+                      placeholderTextColor={theme.colors.textMuted}
+                      value={apiKey}
+                      onChangeText={setApiKey}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      secureTextEntry
+                      editable={!isProcessing}
+                    />
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Credit ID</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Enter your Credit ID"
+                      placeholderTextColor={theme.colors.textMuted}
+                      value={creditId}
+                      onChangeText={setCreditId}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      editable={!isProcessing}
+                    />
+                  </View>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.primaryButton,
+                      (!apiKey.trim() || !creditId.trim() || isProcessing) && styles.buttonDisabled,
+                    ]}
+                    onPress={handleSaveManualKey}
+                    disabled={!apiKey.trim() || !creditId.trim() || isProcessing}
+                  >
+                    {isSaving ? (
+                      <ActivityIndicator size="small" color="#000" />
+                    ) : (
+                      <Text style={styles.primaryButtonText}>Save Credentials</Text>
+                    )}
+                  </TouchableOpacity>
+                </>
+              )}
+
+              {/* Privacy note */}
+              <View style={styles.privacyNote}>
+                <Ionicons name="shield-checkmark-outline" size={16} color={theme.colors.textMuted} />
+                <Text style={styles.privacyText}>
+                  Credentials are stored locally on your device
+                </Text>
+              </View>
             </>
           )}
 
@@ -261,7 +510,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
-
   modalContainer: {
     backgroundColor: '#0a0a0a',
     borderRadius: 16,
@@ -271,103 +519,70 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 400,
   },
-
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 16,
   },
-
   headerIcon: {
     marginRight: 8,
   },
-
   title: {
     flex: 1,
     fontSize: 20,
-    fontWeight: theme.typography.weights.bold,
+    fontWeight: '700',
     color: '#FFB366',
   },
-
   closeButton: {
     padding: 4,
   },
-
+  loadingContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 12,
+    color: theme.colors.textMuted,
+    fontSize: 14,
+  },
   description: {
     fontSize: 14,
     color: theme.colors.textSecondary,
     marginBottom: 20,
     lineHeight: 20,
   },
-
-  getReferralButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FF9D42',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-    marginBottom: 24,
-  },
-
-  buttonIcon: {
-    marginRight: 8,
-  },
-
-  getReferralButtonText: {
-    fontSize: 16,
-    fontWeight: theme.typography.weights.semiBold,
-    color: '#000',
-  },
-
-  inputContainer: {
-    marginBottom: 16,
-  },
-
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: theme.typography.weights.medium,
-    color: theme.colors.text,
-    marginBottom: 8,
-  },
-
-  input: {
+  balanceCard: {
     backgroundColor: '#1a1a1a',
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-    borderRadius: 10,
-    padding: 14,
-    fontSize: 15,
-    color: theme.colors.text,
-    fontFamily: 'monospace',
-  },
-
-  errorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#2a1a1a',
-    padding: 12,
-    borderRadius: 8,
+    borderRadius: 12,
+    padding: 20,
     marginBottom: 16,
+    alignItems: 'center',
+    position: 'relative',
   },
-
-  errorText: {
+  balanceLabel: {
     fontSize: 13,
-    color: '#ff6b6b',
-    marginLeft: 8,
-    flex: 1,
+    color: theme.colors.textMuted,
+    marginBottom: 4,
   },
-
+  balanceValue: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#FF9D42',
+  },
+  refreshButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    padding: 8,
+  },
   infoBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     backgroundColor: '#1a1510',
     padding: 12,
     borderRadius: 8,
-    marginBottom: 20,
+    marginBottom: 16,
   },
-
   infoText: {
     fontSize: 13,
     color: '#CC7A33',
@@ -375,81 +590,73 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 18,
   },
-
-  saveButton: {
+  credentialsSection: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+  },
+  credentialsSectionTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 12,
+  },
+  credentialRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a2a',
+  },
+  credentialInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  credentialLabel: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginBottom: 2,
+  },
+  credentialValue: {
+    fontSize: 14,
+    fontFamily: 'monospace',
+    color: theme.colors.text,
+  },
+  copyButton: {
+    padding: 8,
+    backgroundColor: 'rgba(255, 157, 66, 0.1)',
+    borderRadius: 6,
+  },
+  primaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#FF9D42',
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
+    marginBottom: 12,
     minHeight: 48,
   },
-
-  saveButtonDisabled: {
-    backgroundColor: '#3a3a3a',
-    opacity: 0.5,
+  buttonIcon: {
+    marginRight: 8,
   },
-
-  saveButtonText: {
+  primaryButtonText: {
     fontSize: 16,
-    fontWeight: theme.typography.weights.semiBold,
+    fontWeight: '600',
     color: '#000',
   },
-
-  statusContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 16,
+  buttonDisabled: {
+    backgroundColor: '#3a3a3a',
+    opacity: 0.6,
   },
-
-  statusText: {
-    fontSize: 14,
-    color: theme.colors.accent,
-    marginLeft: 8,
-    fontWeight: theme.typography.weights.medium,
-  },
-
-  defaultActiveBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1a1510',
-    padding: 16,
-    borderRadius: 10,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#3a2a10',
-  },
-
-  defaultActiveText: {
-    fontSize: 14,
-    color: '#FF9D42',
-    marginLeft: 10,
-    flex: 1,
-    fontWeight: theme.typography.weights.medium,
-  },
-
-  customActiveBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1a1510',
-    padding: 16,
-    borderRadius: 10,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#3a2a10',
-  },
-
-  customActiveText: {
-    fontSize: 14,
-    color: '#FF9D42',
-    marginLeft: 10,
-    flex: 1,
-    fontWeight: theme.typography.weights.medium,
-  },
-
-  resetButton: {
+  secondaryButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -461,25 +668,73 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#2a2a2a',
   },
-
-  resetButtonText: {
-    fontSize: 14,
-    color: theme.colors.text,
-    marginLeft: 8,
-    fontWeight: theme.typography.weights.medium,
-  },
-
-  toggleCustomSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    marginBottom: 16,
-  },
-
-  toggleCustomText: {
+  secondaryButtonText: {
     fontSize: 14,
     color: theme.colors.textMuted,
     marginRight: 6,
   },
+  secondaryButtonTextAlt: {
+    fontSize: 14,
+    color: theme.colors.text,
+    marginLeft: 8,
+    fontWeight: '500',
+  },
+  inputContainer: {
+    marginBottom: 12,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: theme.colors.text,
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: '#1a1a1a',
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+    borderRadius: 10,
+    padding: 14,
+    fontSize: 15,
+    color: theme.colors.text,
+    fontFamily: 'monospace',
+  },
+  dangerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    marginTop: 8,
+  },
+  dangerButtonText: {
+    fontSize: 13,
+    color: '#ff6b6b',
+    marginLeft: 6,
+  },
+  privacyNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+  },
+  privacyText: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginLeft: 6,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2a1a1a',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  errorText: {
+    fontSize: 13,
+    color: '#ff6b6b',
+    marginLeft: 8,
+    flex: 1,
+  },
 });
+
+export default PPQAPIKeyModal;

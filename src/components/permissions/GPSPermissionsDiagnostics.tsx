@@ -7,6 +7,10 @@
  * 2. Background Location (always vs while using)
  * 3. Precise Location (Android 12+)
  * 4. Battery Optimization
+ * 5. Manufacturer-specific battery settings (Samsung/Xiaomi/Huawei/etc)
+ * 6. Android 12 Phantom Process Killer warning
+ * 7. Notification Permission (Android 13+)
+ * 8. Foreground Service status (Android 14+)
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -23,6 +27,8 @@ import {
 import * as Location from 'expo-location';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as Application from 'expo-application';
+import * as Device from 'expo-device';
+import * as Notifications from 'expo-notifications';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { BatteryOptimizationService } from '../../services/activity/BatteryOptimizationService';
@@ -30,7 +36,86 @@ import { BatteryOptimizationService } from '../../services/activity/BatteryOptim
 // Android API level constants
 const ANDROID_10 = 29;
 const ANDROID_12 = 31;
+const ANDROID_12L = 32;
+const ANDROID_13 = 33;
+const ANDROID_14 = 34;
 const ANDROID_16 = 36;
+
+// Manufacturer-specific battery guidance
+interface ManufacturerGuide {
+  name: string;
+  badText: string;
+  instructions: string;
+}
+
+const getManufacturerBatteryGuide = (manufacturer: string): ManufacturerGuide => {
+  const mfr = (manufacturer || '').toLowerCase();
+
+  if (mfr.includes('samsung')) {
+    return {
+      name: 'Samsung App Sleeping',
+      badText: 'May be in Sleeping Apps list',
+      instructions:
+        '1. Open Settings\n' +
+        '2. Battery → Background usage limits\n' +
+        '3. Remove RUNSTR from Sleeping/Deep sleeping apps',
+    };
+  }
+  if (mfr.includes('xiaomi') || mfr.includes('redmi') || mfr.includes('poco')) {
+    return {
+      name: 'MIUI Autostart',
+      badText: 'Autostart may be disabled',
+      instructions:
+        '1. Open Settings\n' +
+        '2. Apps → Manage apps → RUNSTR\n' +
+        '3. Enable Autostart\n' +
+        '4. Battery saver → No restrictions',
+    };
+  }
+  if (mfr.includes('huawei') || mfr.includes('honor')) {
+    return {
+      name: 'Huawei Protected Apps',
+      badText: 'May not be protected',
+      instructions:
+        '1. Open Settings\n' +
+        '2. Battery → App launch\n' +
+        '3. Find RUNSTR and set to "Manage manually"\n' +
+        '4. Enable Auto-launch, Secondary launch, and Run in background',
+    };
+  }
+  if (mfr.includes('oneplus') || mfr.includes('oppo') || mfr.includes('realme')) {
+    return {
+      name: 'Battery Optimization',
+      badText: 'May be restricted',
+      instructions:
+        '1. Open Settings\n' +
+        '2. Battery → Battery optimization\n' +
+        '3. Find RUNSTR and select "Don\'t optimize"\n' +
+        '4. Also check: Settings → Apps → RUNSTR → Battery → Allow background activity',
+    };
+  }
+  if (mfr.includes('vivo')) {
+    return {
+      name: 'Vivo Background Settings',
+      badText: 'May be restricted',
+      instructions:
+        '1. Open Settings\n' +
+        '2. Battery → High power consumption\n' +
+        '3. Enable RUNSTR\n' +
+        '4. Also check: Settings → Apps → Autostart → Enable RUNSTR',
+    };
+  }
+  // Default for other manufacturers
+  return {
+    name: 'Battery Optimization',
+    badText: 'May be restricted',
+    instructions:
+      '1. Open Settings\n' +
+      '2. Apps → RUNSTR\n' +
+      '3. Battery → Unrestricted\n' +
+      '4. Also check background activity is enabled',
+  };
+};
 
 interface DiagnosticStatus {
   // Location Services
@@ -50,6 +135,20 @@ interface DiagnosticStatus {
   // Battery
   batteryExempted: boolean;
 
+  // Manufacturer-specific (Android only)
+  manufacturer: string;
+
+  // Android 12 Phantom Process Killer (API 31-32)
+  isAndroid12: boolean;
+
+  // Notification Permission (Android 13+)
+  notificationGranted: boolean;
+  showNotificationOption: boolean;
+
+  // Foreground Service (Android 14+)
+  foregroundServiceWorking: boolean;
+  showForegroundServiceOption: boolean;
+
   // Device Info
   androidVersion: number;
   isLoading: boolean;
@@ -57,6 +156,16 @@ interface DiagnosticStatus {
 
 const getAndroidVersion = (): number => {
   return Platform.OS === 'android' ? (Platform.Version as number) : 0;
+};
+
+// Map Android API level to user-friendly version string
+const API_LEVEL_TO_VERSION: Record<number, string> = {
+  36: '16', 35: '15', 34: '14', 33: '13', 32: '12L',
+  31: '12', 30: '11', 29: '10', 28: '9', 27: '8.1', 26: '8.0',
+};
+
+const getAndroidVersionDisplay = (apiLevel: number): string => {
+  return API_LEVEL_TO_VERSION[apiLevel] || String(apiLevel);
 };
 
 export const GPSPermissionsDiagnostics: React.FC = () => {
@@ -70,6 +179,12 @@ export const GPSPermissionsDiagnostics: React.FC = () => {
     preciseStatus: 'granted',
     showPreciseOption: false,
     batteryExempted: false,
+    manufacturer: '',
+    isAndroid12: false,
+    notificationGranted: true,
+    showNotificationOption: false,
+    foregroundServiceWorking: true,
+    showForegroundServiceOption: false,
     androidVersion: 0,
     isLoading: true,
   });
@@ -128,6 +243,37 @@ export const GPSPermissionsDiagnostics: React.FC = () => {
         await batteryService.checkBatteryOptimizationStatus();
       const batteryExempted = batteryStatus.exempted;
 
+      // 6. Get device manufacturer
+      const manufacturer = Device.manufacturer || '';
+
+      // 7. Detect Android 12/12L (Phantom Process Killer)
+      const isAndroid12 =
+        androidVersion >= ANDROID_12 && androidVersion <= ANDROID_12L;
+
+      // 8. Check Notification Permission (Android 13+)
+      const showNotificationOption = androidVersion >= ANDROID_13;
+      let notificationGranted = true;
+      if (showNotificationOption) {
+        try {
+          const notifStatus = await Notifications.getPermissionsAsync();
+          notificationGranted = notifStatus.status === 'granted';
+        } catch (e) {
+          console.warn('[GPSPermissionsDiagnostics] Error checking notification permission:', e);
+          notificationGranted = true; // Assume granted on error
+        }
+      }
+
+      // 9. Check Foreground Service (Android 14+)
+      // We can't directly check if foreground service is working, but we can
+      // check if the location task has been registered successfully
+      const showForegroundServiceOption = androidVersion >= ANDROID_14;
+      let foregroundServiceWorking = true;
+      // For now, assume working if background location is granted
+      // This is a reasonable proxy since foreground service requires location permissions
+      if (showForegroundServiceOption) {
+        foregroundServiceWorking = backgroundGranted;
+      }
+
       setStatus({
         locationServicesEnabled,
         gpsAvailable,
@@ -138,6 +284,12 @@ export const GPSPermissionsDiagnostics: React.FC = () => {
         preciseStatus,
         showPreciseOption,
         batteryExempted,
+        manufacturer,
+        isAndroid12,
+        notificationGranted,
+        showNotificationOption,
+        foregroundServiceWorking,
+        showForegroundServiceOption,
         androidVersion,
         isLoading: false,
       });
@@ -234,23 +386,124 @@ export const GPSPermissionsDiagnostics: React.FC = () => {
     }
   };
 
+  const handleFixManufacturerBattery = () => {
+    const guide = getManufacturerBatteryGuide(status.manufacturer);
+    Alert.alert(
+      guide.name,
+      `${guide.instructions}\n\nTap "Open Settings" to configure.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Open Settings',
+          onPress: () => Linking.openSettings(),
+        },
+      ]
+    );
+  };
+
+  const handleFixAndroid12 = async () => {
+    const packageName =
+      Application.applicationId || 'com.anonymous.runstr.project';
+
+    Alert.alert(
+      'Android 12 Background Protection',
+      'Android 12 introduced the "Phantom Process Killer" which aggressively stops background apps.\n\n' +
+        'To prevent RUNSTR from being killed during workouts:\n\n' +
+        '1. Tap "Open Settings"\n' +
+        '2. Scroll to "Battery"\n' +
+        '3. Select "Unrestricted"\n' +
+        '4. Also disable "Remove permissions if app unused"',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Open Settings',
+          onPress: async () => {
+            try {
+              // Open app's specific settings page
+              await IntentLauncher.startActivityAsync(
+                IntentLauncher.ActivityAction.APPLICATION_DETAILS_SETTINGS,
+                { data: `package:${packageName}` }
+              );
+            } catch {
+              await Linking.openSettings();
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleFixNotificationPermission = async () => {
+    // Try to request permission first
+    try {
+      const { status: newStatus } = await Notifications.requestPermissionsAsync();
+      if (newStatus === 'granted') {
+        checkStatus();
+        return;
+      }
+    } catch (e) {
+      // Continue to show manual instructions
+    }
+
+    Alert.alert(
+      'Notification Permission Required',
+      'Notifications are needed to show the tracking indicator in your status bar.\n\n' +
+        '1. Tap "Open Settings"\n' +
+        '2. Tap "Notifications"\n' +
+        '3. Enable notifications for RUNSTR',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Open Settings',
+          onPress: () => Linking.openSettings(),
+        },
+      ]
+    );
+  };
+
+  const handleFixForegroundService = () => {
+    Alert.alert(
+      'Foreground Service Permission',
+      'Android 14+ requires special foreground service permissions for location tracking.\n\n' +
+        'If tracking stops unexpectedly:\n' +
+        '1. Tap "Open Settings"\n' +
+        '2. Check "Permissions" → "Location" is set to "Allow all the time"\n' +
+        '3. Check "Battery" is set to "Unrestricted"',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Open Settings',
+          onPress: () => Linking.openSettings(),
+        },
+      ]
+    );
+  };
+
   // Don't render on iOS
   if (Platform.OS !== 'android') {
     return null;
   }
 
-  // Calculate overall status
+  // Get manufacturer-specific guidance
+  const manufacturerGuide = getManufacturerBatteryGuide(status.manufacturer);
+
+  // Calculate overall status (includes new checks)
   const allGood =
     status.locationServicesEnabled &&
     status.backgroundGranted &&
     status.preciseGranted &&
-    status.batteryExempted;
+    status.batteryExempted &&
+    (!status.showNotificationOption || status.notificationGranted) &&
+    (!status.showForegroundServiceOption || status.foregroundServiceWorking);
 
   const hasIssues =
     !status.locationServicesEnabled ||
     !status.backgroundGranted ||
     !status.preciseGranted ||
-    !status.batteryExempted;
+    !status.batteryExempted ||
+    (status.showNotificationOption && !status.notificationGranted) ||
+    (status.showForegroundServiceOption && !status.foregroundServiceWorking) ||
+    status.isAndroid12; // Android 12 always shows warning
 
   return (
     <View style={styles.container}>
@@ -322,20 +575,78 @@ export const GPSPermissionsDiagnostics: React.FC = () => {
             />
           )}
 
-          {/* Battery Optimization */}
-          <StatusRow
-            label="Battery Optimization"
-            isGood={status.batteryExempted}
-            goodText="Unrestricted"
-            badText="Optimized"
-            badDescription="Android may kill GPS after 30 seconds"
-            onFix={handleFixBatteryOptimization}
-          />
+          {/* Battery Optimization - show manufacturer-specific guide if different name, otherwise generic */}
+          {status.manufacturer && manufacturerGuide.name !== 'Battery Optimization' ? (
+            <>
+              <StatusRow
+                label="Battery Optimization"
+                isGood={status.batteryExempted}
+                goodText="Unrestricted"
+                badText="Optimized"
+                badDescription="Android may kill GPS after 30 seconds"
+                onFix={handleFixBatteryOptimization}
+              />
+              <StatusRow
+                label={manufacturerGuide.name}
+                isGood={status.batteryExempted}
+                goodText="Configured"
+                badText={manufacturerGuide.badText}
+                badDescription={`${status.manufacturer} devices need extra settings`}
+                onFix={handleFixManufacturerBattery}
+              />
+            </>
+          ) : (
+            <StatusRow
+              label="Battery Optimization"
+              isGood={status.batteryExempted}
+              goodText="Unrestricted"
+              badText="Optimized"
+              badDescription="Android may kill GPS after 30 seconds"
+              onFix={handleFixBatteryOptimization}
+            />
+          )}
+
+          {/* Android 12 Phantom Process Killer Warning - CRITICAL for original bug */}
+          {status.isAndroid12 && (
+            <StatusRow
+              label="Android 12 Background Limits"
+              isGood={false} // Always show as warning on Android 12
+              goodText="Protected"
+              badText="May kill app during workouts"
+              badDescription="Android 12's Phantom Process Killer is aggressive"
+              onFix={handleFixAndroid12}
+              isImportant
+            />
+          )}
+
+          {/* Notification Permission (Android 13+) */}
+          {status.showNotificationOption && (
+            <StatusRow
+              label="Notification Permission"
+              isGood={status.notificationGranted}
+              goodText="Granted"
+              badText="Not granted"
+              badDescription="Required for tracking indicator"
+              onFix={handleFixNotificationPermission}
+            />
+          )}
+
+          {/* Foreground Service (Android 14+) */}
+          {status.showForegroundServiceOption && (
+            <StatusRow
+              label="Foreground Service"
+              isGood={status.foregroundServiceWorking}
+              goodText="Enabled"
+              badText="May not work"
+              badDescription="Location may stop in background"
+              onFix={handleFixForegroundService}
+            />
+          )}
 
           {/* Device Info & Refresh */}
           <View style={styles.footer}>
             <Text style={styles.deviceInfo}>
-              Android {status.androidVersion}
+              {status.manufacturer ? `${status.manufacturer} • ` : ''}Android {getAndroidVersionDisplay(status.androidVersion)}
             </Text>
             <TouchableOpacity
               style={styles.refreshButton}

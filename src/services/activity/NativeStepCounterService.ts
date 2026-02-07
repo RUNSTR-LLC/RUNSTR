@@ -1,19 +1,22 @@
 /**
  * NativeStepCounterService - Native Android step counting
  *
- * Uses expo-android-pedometer for background step tracking on stock Android.
- * Only used when NOT on a privacy ROM (GrapheneOS/CalyxOS use Health Connect instead).
+ * Uses expo-android-pedometer for background step tracking on ALL Android devices.
  *
  * This service:
  * - Starts a foreground service with persistent notification
  * - Counts steps via Android's TYPE_STEP_COUNTER sensor
  * - Works even when app is backgrounded or closed
- * - Respects privacy ROM users by not activating on GrapheneOS/CalyxOS
+ * - Works on privacy ROMs (GrapheneOS/CalyxOS) - the native sensor is independent
+ *   of Google Play Services and doesn't require special permissions
+ *
+ * Note: Previously this service was disabled for privacy ROMs, but testing on
+ * GrapheneOS proved the native sensor works (notification shows correct step count).
+ * The assumption that privacy ROMs can't use native sensors was incorrect.
  */
 
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { privacyROMDetectionService } from '../platform/PrivacyROMDetectionService';
 
 // Storage key for tracking preference
 const BACKGROUND_STEP_TRACKING_KEY = '@runstr:background_step_tracking_enabled';
@@ -47,7 +50,12 @@ class NativeStepCounterService {
 
   /**
    * Check if native step counting should be used
-   * Returns false for iOS and privacy ROMs
+   * Returns true for ALL Android devices (including privacy ROMs like GrapheneOS)
+   *
+   * Note: Previously this returned false for privacy ROMs, assuming they couldn't
+   * use native sensors. Testing proved this was incorrect - the native step sensor
+   * works on GrapheneOS (notification shows correct step count). The native sensor
+   * uses Android's TYPE_STEP_COUNTER which doesn't require Google Play Services.
    */
   async shouldUseNativeSteps(): Promise<boolean> {
     if (Platform.OS !== 'android') {
@@ -55,13 +63,10 @@ class NativeStepCounterService {
       return false;
     }
 
-    const rom = await privacyROMDetectionService.detectROM();
-    if (rom.isPrivacyROM) {
-      console.log(`[NativeStepCounter] Privacy ROM (${rom.romType}) detected - using Health Connect instead`);
-      return false;
-    }
-
-    console.log('[NativeStepCounter] Stock Android - native step counting available');
+    // Try native sensor on ALL Android devices, including privacy ROMs
+    // The native step sensor (TYPE_STEP_COUNTER) works independently of Google Play Services
+    // and has been proven to work on GrapheneOS (notification shows correct step count)
+    console.log('[NativeStepCounter] Android detected - native step counting available');
     return true;
   }
 
@@ -116,6 +121,28 @@ class NativeStepCounterService {
   }
 
   /**
+   * Request ACTIVITY_RECOGNITION permission (required on Android 10+)
+   * GrapheneOS may not auto-grant this permission, causing PermissionDenied errors.
+   * Returns true if granted, false if denied.
+   */
+  async requestPermissions(): Promise<boolean> {
+    if (Platform.OS !== 'android') return false;
+
+    const initialized = await this.initialize();
+    if (!initialized || !AndroidPedometer) return false;
+
+    try {
+      const result = await AndroidPedometer.requestActivityPermissions();
+      const granted = result?.status === 'granted';
+      console.log(`[NativeStepCounter] ACTIVITY_RECOGNITION permission: ${granted ? 'granted' : 'denied'}`);
+      return granted;
+    } catch (error) {
+      console.warn('[NativeStepCounter] Failed to request permissions:', error);
+      return false;
+    }
+  }
+
+  /**
    * Start background step counting
    * Shows persistent notification on Android
    */
@@ -126,7 +153,7 @@ class NativeStepCounterService {
     }
 
     if (!(await this.shouldUseNativeSteps())) {
-      console.log('[NativeStepCounter] Skipping - not stock Android');
+      console.log('[NativeStepCounter] Skipping - not Android');
       return false;
     }
 
@@ -137,13 +164,24 @@ class NativeStepCounterService {
     }
 
     try {
+      // Request ACTIVITY_RECOGNITION permission before accessing sensor
+      const permGranted = await this.requestPermissions();
+      if (!permGranted) {
+        console.log('[NativeStepCounter] ACTIVITY_RECOGNITION permission denied - cannot track steps');
+        return false;
+      }
+
       // Get current step count as baseline
-      const currentSteps = await AndroidPedometer.getStepCountAsync();
-      this.stepCountAtStart = currentSteps?.steps || 0;
+      const currentSteps = await AndroidPedometer.getStepsCountAsync();
+      this.stepCountAtStart = typeof currentSteps === 'number' ? currentSteps : 0;
       this.trackingStartTime = new Date();
 
-      // Start the foreground service
-      await AndroidPedometer.startAsync();
+      // Start the foreground service with notification config
+      await AndroidPedometer.setupBackgroundUpdates({
+        title: 'RUNSTR Step Tracking',
+        contentTemplate: 'You\'ve taken %d steps today',
+        iconResourceName: 'notification_icon',
+      });
       this.isTracking = true;
 
       console.log(`[NativeStepCounter] Started tracking (baseline: ${this.stepCountAtStart} steps)`);
@@ -169,19 +207,12 @@ class NativeStepCounterService {
       return 0;
     }
 
-    try {
-      const finalSteps = await this.getStepsSinceStart();
-      await AndroidPedometer.stopAsync();
-      this.isTracking = false;
-      this.trackingStartTime = null;
+    const finalSteps = await this.getStepsSinceStart();
+    this.isTracking = false;
+    this.trackingStartTime = null;
 
-      console.log(`[NativeStepCounter] Stopped tracking (${finalSteps} steps recorded)`);
-      return finalSteps;
-    } catch (error) {
-      console.error('[NativeStepCounter] Failed to stop:', error);
-      this.isTracking = false;
-      return 0;
-    }
+    console.log(`[NativeStepCounter] Stopped tracking (${finalSteps} steps recorded)`);
+    return finalSteps;
   }
 
   /**
@@ -194,8 +225,8 @@ class NativeStepCounterService {
     }
 
     try {
-      const currentSteps = await AndroidPedometer.getStepCountAsync();
-      const totalCurrentSteps = currentSteps?.steps || 0;
+      const currentSteps = await AndroidPedometer.getStepsCountAsync();
+      const totalCurrentSteps = typeof currentSteps === 'number' ? currentSteps : 0;
       const stepsSinceStart = totalCurrentSteps - this.stepCountAtStart;
       return Math.max(0, stepsSinceStart);
     } catch (error) {
@@ -215,10 +246,17 @@ class NativeStepCounterService {
     if (!initialized || !AndroidPedometer) return 0;
 
     try {
-      const result = await AndroidPedometer.getStepCountAsync();
-      const steps = result?.steps || 0;
-      console.log(`[NativeStepCounter] Today's steps: ${steps}`);
-      return steps;
+      // Request permission before sensor access (GrapheneOS may not auto-grant)
+      const permGranted = await this.requestPermissions();
+      if (!permGranted) {
+        console.log('[NativeStepCounter] ACTIVITY_RECOGNITION denied - returning 0 steps');
+        return 0;
+      }
+
+      const steps = await AndroidPedometer.getStepsCountAsync();
+      const stepCount = typeof steps === 'number' ? steps : 0;
+      console.log(`[NativeStepCounter] Today's steps: ${stepCount}`);
+      return stepCount;
     } catch (error) {
       console.error('[NativeStepCounter] Failed to get today steps:', error);
       return 0;

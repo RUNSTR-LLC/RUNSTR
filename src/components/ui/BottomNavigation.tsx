@@ -7,6 +7,7 @@ import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
+import { useTranslation } from 'react-i18next';
 
 type ScreenType = 'team' | 'profile';
 
@@ -21,6 +22,8 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   onNavigateToTeam,
   onNavigateToProfile,
 }) => {
+  const { t } = useTranslation('profile');
+
   return (
     <View style={styles.bottomNav}>
       {/* Discover Navigation Item */}
@@ -31,10 +34,11 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
         ]}
         onPress={onNavigateToTeam}
         activeOpacity={0.7}
+        hitSlop={{ top: 4, bottom: 4 }}
       >
         <Ionicons
           name="search-outline"
-          size={16}
+          size={20}
           color={
             activeScreen === 'team'
               ? theme.colors.orangeBright
@@ -47,7 +51,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             activeScreen === 'team' && styles.navLabelActive,
           ]}
         >
-          Discover
+          {t('discover')}
         </Text>
       </TouchableOpacity>
 
@@ -59,10 +63,11 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
         ]}
         onPress={onNavigateToProfile}
         activeOpacity={0.7}
+        hitSlop={{ top: 4, bottom: 4 }}
       >
         <Ionicons
           name="person-outline"
-          size={16}
+          size={20}
           color={
             activeScreen === 'profile'
               ? theme.colors.orangeBright
@@ -75,7 +80,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             activeScreen === 'profile' && styles.navLabelActive,
           ]}
         >
-          Profile
+          {t('title')}
         </Text>
       </TouchableOpacity>
     </View>

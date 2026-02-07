@@ -2,14 +2,16 @@
 
 ## Kind 1301: The Nostr Fitness Standard
 
-RUNSTR publishes workouts as **kind 1301** Nostr events. This is the emerging standard for fitness data on Nostr, allowing interoperability between fitness apps.
+RUNSTR creates workouts as **kind 1301** Nostr events. This is the emerging standard for fitness data on Nostr, allowing interoperability between fitness apps.
 
-### Why Kind 1301?
+> **Important:** Kind 1301 events are created locally for validation and structure, but are **NOT published to Nostr relays**. Supabase is the single source of truth for workout data and leaderboards. The kind 1301 format is used locally to maintain compatibility with the Nostr fitness standard.
 
-- **Decentralized** - Workouts stored on Nostr relays, not a central database
-- **Portable** - Users can switch apps and keep their fitness history
+### Why Kind 1301 Format?
+
+- **Standardized** - Uses the emerging Nostr fitness data format
+- **Structured** - Consistent tag format for all workout data
 - **Verifiable** - Cryptographically signed by user's private key
-- **Queryable** - Other apps can read your workout data
+- **Future-ready** - Can enable Nostr publishing if desired later
 
 ---
 

@@ -1,30 +1,34 @@
 /**
- * StepRewardService - Automated step milestone rewards
+ * @deprecated - This service is DEPRECATED as of v3 architecture migration
  *
- * REWARD FLOW (v2 - Server-Side):
- * 1. App polls steps periodically while active
- * 2. For each 1,000 step milestone crossed, check if already rewarded locally
- * 3. Call Supabase claim-reward function (handles eligibility + payment)
- * 4. Server enforces 50 sat daily cap and pays via NWC
- * 5. Show toast notification for each reward
+ * StepRewardService (DEPRECATED)
  *
- * ARCHITECTURE (v2):
- * - NWC credentials stored SERVER-SIDE in Supabase env vars
- * - Daily 50 sat cap enforced SERVER-SIDE by Lightning address hash
- * - Local milestone tracking for UI only (server is source of truth)
+ * Step rewards (5 sats per 1,000 steps) have been REMOVED to simplify fraud detection.
+ * The only reward now is 50 sats per daily workout, handled by external service.
  *
- * SILENT FAILURE: If payment fails, milestone is NOT marked as rewarded
- * so it will retry on next poll
+ * REASON FOR REMOVAL:
+ * - Step rewards were prone to gaming (fake step count imports)
+ * - Having two reward types (workout + steps) complicated fraud detection
+ * - Simplifying to one reward type (50 sats per workout) makes anti-cheat easier
+ *
+ * MIGRATION:
+ * - All references to StepRewardService should be removed
+ * - StepPollingService can be disabled or removed
+ * - UI showing step rewards should be hidden
+ *
+ * This file is kept for reference but should not be imported.
+ *
+ * === ORIGINAL DOCUMENTATION (for reference) ===
+ * Provided 5 sats per 1,000 steps, with 50 sat daily cap.
+ * Used Supabase edge function for payment via NWC.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { RewardLightningAddressService } from './RewardLightningAddressService';
-import { ProfileService } from '../user/profileService';
 import Toast from 'react-native-toast-message';
 import { REWARD_CONFIG } from '../../config/rewards';
 import { supabase } from '../../utils/supabase';
-import { StepRewardsPreferencesService } from '../activity/StepRewardsPreferencesService';
-import { getCharityById } from '../../constants/charities';
+import { RewardDestinationService } from './RewardDestinationService';
+import { DonationTrackingService } from '../donation/DonationTrackingService';
 
 // Step reward configuration
 const STEP_CONFIG = {
@@ -145,30 +149,6 @@ class StepRewardServiceClass {
   }
 
   /**
-   * Get user's Lightning address for rewards
-   */
-  private async getUserLightningAddress(userPubkey: string): Promise<string | null> {
-    try {
-      // Priority 1: Settings-stored address
-      const settingsAddress = await RewardLightningAddressService.getRewardLightningAddress();
-      if (settingsAddress) {
-        return settingsAddress;
-      }
-
-      // Priority 2: Nostr profile lud16
-      const profile = await ProfileService.getUserProfile(userPubkey);
-      if (profile?.lud16) {
-        return profile.lud16;
-      }
-
-      return null;
-    } catch (error) {
-      console.error('[StepReward] Error getting Lightning address:', error);
-      return null;
-    }
-  }
-
-  /**
    * Call Supabase claim-reward edge function for step rewards
    * Server handles: eligibility check (50 sat cap), LNURL invoice, NWC payment
    */
@@ -211,11 +191,113 @@ class StepRewardServiceClass {
   }
 
   /**
+   * Record charity payment to Supabase for audit trail
+   * Non-blocking: failures are logged but don't affect user experience
+   */
+  private async recordCharityPaymentToSupabase(params: {
+    userPubkey: string;
+    charityId: string;
+    charityName: string;
+    charityLightningAddress: string;
+    amountSats: number;
+    rewardType: 'workout' | 'steps';
+    donationPercentage: number;
+    paymentHash?: string;
+    preimage?: string;
+  }): Promise<void> {
+    try {
+      if (!supabase) {
+        console.log('[StepReward] Supabase not configured, skipping audit trail');
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('claim-reward', {
+        body: {
+          operation: 'record_charity_payment',
+          user_pubkey: params.userPubkey,
+          charity_id: params.charityId,
+          charity_name: params.charityName,
+          charity_lightning_address: params.charityLightningAddress,
+          amount_sats: params.amountSats,
+          reward_type: params.rewardType,
+          donation_percentage: params.donationPercentage,
+          payment_hash: params.paymentHash,
+          preimage: params.preimage,
+        },
+      });
+
+      if (error) {
+        console.error('[StepReward] Error recording charity payment:', error);
+        return;
+      }
+
+      if (data?.success) {
+        console.log('[StepReward] Charity payment recorded to Supabase:', data.payment_id);
+      } else {
+        console.log('[StepReward] Failed to record charity payment:', data?.reason);
+      }
+    } catch (error) {
+      console.error('[StepReward] Exception recording charity payment:', error);
+    }
+  }
+
+  /**
+   * Log a failed charity payment to Supabase for monitoring and debugging.
+   * This helps identify which charities have routing issues.
+   * Non-blocking: failures are logged but don't affect user experience
+   */
+  private async logCharityPaymentFailure(params: {
+    userPubkey: string;
+    charityId: string;
+    charityName: string;
+    charityLightningAddress: string;
+    amountSats: number;
+    rewardType: 'workout' | 'steps';
+    errorMessage: string;
+    lnurlResponse?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      if (!supabase) {
+        console.log('[StepReward] Supabase not configured, skipping failure logging');
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('claim-reward', {
+        body: {
+          operation: 'log_charity_payment_failure',
+          user_pubkey: params.userPubkey,
+          charity_id: params.charityId,
+          charity_name: params.charityName,
+          charity_lightning_address: params.charityLightningAddress,
+          amount_sats: params.amountSats,
+          reward_type: params.rewardType,
+          error_message: params.errorMessage,
+          lnurl_response: params.lnurlResponse,
+        },
+      });
+
+      if (error) {
+        console.error('[StepReward] Error logging charity payment failure:', error);
+        return;
+      }
+
+      if (data?.success) {
+        console.log('[StepReward] Charity payment failure logged:', data.failure_id);
+      } else {
+        console.log('[StepReward] Failed to log charity payment failure:', data?.reason);
+      }
+    } catch (error) {
+      console.error('[StepReward] Exception logging charity payment failure:', error);
+    }
+  }
+
+  /**
    * Pay a milestone reward via Supabase
    * Server handles invoice request and NWC payment with 50 sat daily cap
    *
-   * By default, step rewards go to the user's selected charity (normie-friendly).
-   * Power users can toggle this in Advanced Settings to receive step rewards themselves.
+   * Uses unified RewardDestinationService for destination logic:
+   * - If toggle ON + user has Lightning address → user gets reward
+   * - Otherwise → charity gets reward (charity is always the fallback)
    */
   private async payMilestoneReward(
     userPubkey: string,
@@ -223,47 +305,70 @@ class StepRewardServiceClass {
   ): Promise<MilestoneReward> {
     const amount = STEP_CONFIG.SATS_PER_MILESTONE;
 
+    // Get unified destination (user OR charity)
+    let destination: {
+      address: string;
+      isCharity: boolean;
+      charityName: string;
+      charityId: string;
+    };
+
     try {
-      // Check if step rewards should go to user or charity
-      const sendToUser = await StepRewardsPreferencesService.shouldSendToUser();
-      let lightningAddress: string | null = null;
-      let recipientType: 'user' | 'charity' = 'charity';
+      destination = await RewardDestinationService.getDestinationAddress();
 
-      if (sendToUser) {
-        // Power user: send to their Lightning address
-        lightningAddress = await this.getUserLightningAddress(userPubkey);
-        recipientType = 'user';
-      } else {
-        // Default (normie): send to selected charity
-        const charityId = await AsyncStorage.getItem('@runstr:selected_team_id');
-        const charity = getCharityById(charityId || 'als-foundation');
-        if (charity?.lightningAddress) {
-          lightningAddress = charity.lightningAddress;
-          console.log(`[StepReward] Routing to charity: ${charity.name}`);
-        } else {
-          // Fallback: try user's address if no charity
-          lightningAddress = await this.getUserLightningAddress(userPubkey);
-          recipientType = 'user';
-        }
-      }
-
-      if (!lightningAddress) {
-        console.log('[StepReward] No Lightning address configured');
-        return {
-          milestone,
-          amount,
-          success: false,
-          error: 'No Lightning address',
-        };
-      }
+      console.log(`[StepReward] Destination for milestone ${milestone}:`, {
+        address: destination.address,
+        isCharity: destination.isCharity,
+        charityName: destination.charityName,
+      });
 
       // Call Supabase to handle payment (server enforces 50 sat cap)
-      console.log(`[StepReward] Claiming ${amount} sats for milestone ${milestone} (to ${recipientType})`);
-      const result = await this.claimStepRewardViaSupabase(lightningAddress, amount);
+      const result = await this.claimStepRewardViaSupabase(destination.address, amount);
 
       if (result.success) {
         const amountPaid = result.amount_paid || amount;
-        console.log(`[StepReward] ✅ Milestone ${milestone} paid: ${amountPaid} sats to ${recipientType}`);
+        console.log(
+          `[StepReward] ✅ Milestone ${milestone} paid: ${amountPaid} sats to ${destination.isCharity ? destination.charityName : 'user'}`
+        );
+
+        // Track charity donation for impact score
+        if (destination.isCharity) {
+          // Record locally for Impact Level XP
+          try {
+            await DonationTrackingService.recordDonation({
+              donorPubkey: userPubkey,
+              amount: amountPaid,
+              charityId: destination.charityId,
+              charityName: destination.charityName,
+            });
+            console.log(`[StepReward] ✅ Donation recorded for impact: ${amountPaid} sats to ${destination.charityName}`);
+          } catch (trackingError) {
+            console.error('[StepReward] Failed to record donation for impact:', trackingError);
+          }
+
+          // Record to Supabase for audit trail
+          try {
+            await this.recordCharityPaymentToSupabase({
+              userPubkey,
+              charityId: destination.charityId,
+              charityName: destination.charityName,
+              charityLightningAddress: destination.address,
+              amountSats: amountPaid,
+              rewardType: 'steps',
+              donationPercentage: 100,
+            });
+          } catch (recordError) {
+            console.error('[StepReward] Failed to record charity payment to Supabase:', recordError);
+          }
+        }
+
+        // Show toast with charity name when appropriate
+        this.showRewardToast(
+          milestone,
+          amountPaid,
+          destination.isCharity ? destination.charityName : undefined
+        );
+
         return { milestone, amount: amountPaid, success: true };
       }
 
@@ -278,6 +383,23 @@ class StepRewardServiceClass {
         };
       }
 
+      // Log charity payment failure for monitoring
+      if (destination.isCharity) {
+        try {
+          await this.logCharityPaymentFailure({
+            userPubkey,
+            charityId: destination.charityId,
+            charityName: destination.charityName,
+            charityLightningAddress: destination.address,
+            amountSats: amount,
+            rewardType: 'steps',
+            errorMessage: result.reason || 'Payment failed',
+          });
+        } catch (logError) {
+          console.error('[StepReward] Failed to log charity payment failure:', logError);
+        }
+      }
+
       return {
         milestone,
         amount,
@@ -287,6 +409,7 @@ class StepRewardServiceClass {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       console.error(`[StepReward] Error paying milestone ${milestone}:`, error);
+
       return {
         milestone,
         amount,
@@ -326,11 +449,12 @@ class StepRewardServiceClass {
 
   /**
    * Show toast notification for step rewards
+   * Shows charity name when rewards go to charity
    */
-  private showRewardToast(milestone: number, amount: number): void {
+  private showRewardToast(milestone: number, amount: number, charityName?: string): void {
     Toast.show({
       type: 'stepReward',
-      text1: `+${amount} sats!`,
+      text1: charityName ? `+${amount} sats for ${charityName}!` : `+${amount} sats!`,
       text2: `${milestone.toLocaleString()} steps reached`,
       position: 'top',
       visibilityTime: 4000,
@@ -409,9 +533,7 @@ class StepRewardServiceClass {
           // Mark as rewarded ONLY on success
           await this.markMilestoneRewarded(userPubkey, milestone);
           totalEarned += result.amount;
-
-          // Show toast for successful reward
-          this.showRewardToast(milestone, result.amount);
+          // Toast is shown inside payMilestoneReward with charity name
         } else if (result.error === 'Daily cap reached') {
           // Server said cap reached, stop processing
           dailyCapReached = true;

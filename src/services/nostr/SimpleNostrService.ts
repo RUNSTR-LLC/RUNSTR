@@ -37,7 +37,6 @@ export class SimpleNostrService {
     'wss://relay.damus.io',
     'wss://nos.lol',
     'wss://relay.primal.net',
-    'wss://nostr.wine',
   ];
 
   private constructor() {

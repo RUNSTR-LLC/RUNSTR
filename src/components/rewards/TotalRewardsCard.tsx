@@ -1,8 +1,7 @@
 /**
- * TotalRewardsCard - Unified hero display for all rewards
+ * TotalRewardsCard - Activity summary card
  *
- * Combines workout rewards and step rewards into a single minimalist card:
- * - Total sats earned (prominent)
+ * Displays workout activity stats:
  * - Workout count and streak
  * - Steps today with Compete button
  * - Info modal explaining the rewards system
@@ -20,6 +19,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import type { LocalWorkout } from '../../services/fitness/LocalWorkoutStorageService';
+import { useTranslation } from 'react-i18next';
 
 interface TotalRewardsCardProps {
   workouts: LocalWorkout[];
@@ -40,6 +40,7 @@ export const TotalRewardsCard: React.FC<TotalRewardsCardProps> = ({
   onShare,
   isPublishing = false,
 }) => {
+  const { t } = useTranslation('profile');
   const [totalStreak, setTotalStreak] = useState(0);
   const [showInfoModal, setShowInfoModal] = useState(false);
 
@@ -108,7 +109,7 @@ export const TotalRewardsCard: React.FC<TotalRewardsCardProps> = ({
       {/* Header row - sats hidden for normie-friendly UX (visible in Settings) */}
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>YOUR ACTIVITY</Text>
+          <Text style={styles.headerTitle}>{t('yourActivity')}</Text>
           <TouchableOpacity
             onPress={() => setShowInfoModal(true)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -122,15 +123,15 @@ export const TotalRewardsCard: React.FC<TotalRewardsCardProps> = ({
       <View style={styles.statsSection}>
         {/* Workout stats row */}
         <View style={styles.workoutStatsRow}>
-          <Text style={styles.statText}>{workoutsThisWeek} workouts</Text>
+          <Text style={styles.statText}>{workoutsThisWeek} {t('workouts').toLowerCase()}</Text>
           <Text style={styles.statDot}>•</Text>
-          <Text style={styles.statText}>{totalStreak} day streak</Text>
+          <Text style={styles.statText}>{totalStreak} {t('dayStreak')}</Text>
         </View>
 
         {/* Steps row with Compete button */}
         <View style={styles.stepsRow}>
           <Text style={styles.stepsText}>
-            {currentSteps.toLocaleString()} steps today
+            {currentSteps.toLocaleString()} {t('stepsToday')}
           </Text>
 
           {(onShare || onCompete) && (
@@ -141,7 +142,7 @@ export const TotalRewardsCard: React.FC<TotalRewardsCardProps> = ({
                   onPress={onShare}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.actionButtonText}>Share</Text>
+                  <Text style={styles.actionButtonText}>{t('share')}</Text>
                 </TouchableOpacity>
               )}
               {onCompete && (
@@ -157,7 +158,7 @@ export const TotalRewardsCard: React.FC<TotalRewardsCardProps> = ({
                   {isPublishing ? (
                     <ActivityIndicator size="small" color={theme.colors.accent} />
                   ) : (
-                    <Text style={styles.actionButtonText}>Compete</Text>
+                    <Text style={styles.actionButtonText}>{t('compete')}</Text>
                   )}
                 </TouchableOpacity>
               )}
@@ -192,16 +193,7 @@ export const TotalRewardsCard: React.FC<TotalRewardsCardProps> = ({
             <View style={styles.infoSection}>
               <Text style={styles.infoSubtitle}>Workout Rewards</Text>
               <Text style={styles.infoText}>
-                Earn 50 sats per daily workout.
-              </Text>
-            </View>
-
-            <View style={styles.infoDivider} />
-
-            <View style={styles.infoSection}>
-              <Text style={styles.infoSubtitle}>Step Rewards</Text>
-              <Text style={styles.infoText}>
-                Earn 5 sats for every 1,000 steps. Milestones are tracked automatically throughout the day.
+                Earn 50 sats per daily workout. Rewards are sent daily ~10pm EST.
               </Text>
             </View>
 

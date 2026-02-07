@@ -2,13 +2,15 @@
 
 ## Nostr Events Used in RUNSTR
 
-RUNSTR uses Nostr for workouts and user identity. This appendix documents the event kinds and formats.
+RUNSTR uses Nostr for user identity, social posting, and encrypted backup. This appendix documents the event kinds and formats.
 
 ---
 
 ## Kind 1301: Workout Events
 
-The primary Nostr event type for fitness data.
+The Nostr event format used for fitness data.
+
+> **Important:** Kind 1301 events are created locally for structure and validation, but are **NOT published to Nostr relays**. Supabase is the single source of truth for workout data. The kind 1301 format is used locally to maintain compatibility with the Nostr fitness standard.
 
 ### Event Structure
 
@@ -91,7 +93,7 @@ The primary Nostr event type for fitness data.
 
 ## Kind 0: Profile Metadata
 
-User profile information.
+User profile information. **This IS published to Nostr relays** when users update their profile.
 
 ### Event Structure
 
@@ -138,6 +140,16 @@ RUNSTR uses 4 relays via GlobalNDKService:
 | Auto-reconnect | Enabled |
 | Minimum relays | 2 of 4 |
 
+### What Gets Published
+
+| Event Kind | Published to Relays? | Purpose |
+|------------|---------------------|---------|
+| Kind 0 | Yes | Profile metadata (name, picture, Lightning address) |
+| Kind 1 | Yes (WoT-gated) | Social posts for workout sharing |
+| Kind 5 | Yes | Deletion requests |
+| Kind 1301 | **No** | Created locally only for structure (submitted to Supabase) |
+| Kind 30078 | Yes | Encrypted backup (NIP-44 self-encryption, gzip compressed) |
+
 ---
 
 ## NDK Usage
@@ -176,19 +188,17 @@ const profileFilter = {
 };
 ```
 
-### Publishing
+### Publishing Kind 0 (Profile Updates)
 
 ```typescript
-// Create and sign event
+// Create and sign profile event
 const event = new NDKEvent(ndk);
-event.kind = 1301;
-event.content = "Morning run in the park";
-event.tags = [
-  ["d", uniqueId],
-  ["exercise", "running"],
-  ["duration", "00:30:45"],
-  ["distance", "5.2", "km"],
-];
+event.kind = 0;
+event.content = JSON.stringify({
+  name: "runner",
+  picture: "https://...",
+  lud16: "runner@getalby.com"
+});
 
 // Sign with user's key
 await event.sign(signer);
@@ -196,6 +206,78 @@ await event.sign(signer);
 // Publish to relays
 await event.publish();
 ```
+
+### Publishing Kind 1 (Social Posts)
+
+```typescript
+// Create and sign social post (WoT-gated)
+const event = new NDKEvent(ndk);
+event.kind = 1;
+event.content = "Just completed a 5K morning run! #RUNSTR";
+event.tags = [
+  ["t", "RUNSTR"],
+  ["t", "Running"],
+];
+
+await event.sign(signer);
+await event.publish();
+```
+
+**Note:** Kind 1301 events are created locally but NOT published to relays. Supabase is the single source of truth for workout data.
+
+---
+
+## Kind 5: Deletion Requests
+
+Used to request deletion of previously published events (e.g., social posts).
+
+### Event Structure
+
+```json
+{
+  "kind": 5,
+  "pubkey": "hex_pubkey",
+  "created_at": 1704067200,
+  "content": "",
+  "tags": [
+    ["e", "event_id_to_delete"]
+  ]
+}
+```
+
+---
+
+## Kind 30078: Encrypted Backup
+
+Used for encrypted backup and restore of user data. See [Chapter 14: Encrypted Backup](./14-encrypted-backup.md) for full details.
+
+### Event Structure
+
+```json
+{
+  "kind": 30078,
+  "pubkey": "hex_pubkey",
+  "created_at": 1706500000,
+  "tags": [
+    ["d", "runstr-workout-backup"],
+    ["client", "RUNSTR", "1.6.3"],
+    ["encrypted", "nip44"],
+    ["compression", "gzip"],
+    ["backup_version", "1"],
+    ["workout_count", "47"],
+    ["habit_count", "3"],
+    ["journal_count", "12"],
+    ["date_range", "2025-08-15", "2026-01-28"]
+  ],
+  "content": "<NIP-44 encrypted + gzipped JSON>"
+}
+```
+
+### Key Properties
+- **Replaceable parameterized event** -- `d` tag ensures only latest backup exists
+- **NIP-44 self-encryption** -- Only the user can decrypt their own backup
+- **Gzip compression** -- Handles large payloads within NIP-44's 64KB limit
+- **Public metadata tags** -- Workout/habit counts visible, content encrypted
 
 ---
 
@@ -298,7 +380,5 @@ This document contains:
 ## Navigation
 
 **Previous:** [Chapter 15: Conclusion](./15-conclusion.md)
-
-**Next:** [Chapter 17: In-Person Events](./17-in-person-events.md)
 
 **Table of Contents:** [Back to TOC](./00-table-of-contents.md)

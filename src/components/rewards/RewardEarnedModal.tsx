@@ -1,7 +1,8 @@
 /**
- * RewardEarnedModal - Display when user earns daily workout reward
+ * RewardEarnedModal - Display when user completes workout and reward is queued
  * Uses CustomAlert-style black/orange theme matching app style
- * Shows amount earned with optional breakdown (user/charity/pledge)
+ * Shows amount queued with optional breakdown (user/charity/pledge)
+ * Indicates rewards are sent daily ~10pm EST via batch payout
  */
 
 import React from 'react';
@@ -86,8 +87,8 @@ export const RewardEarnedModal: React.FC<RewardEarnedModalProps> = ({
     if (hasCharitySplit) {
       return (
         <>
-          <Text style={styles.title}>Reward Earned</Text>
-          <Text style={styles.message}>You earned {amount} sats!</Text>
+          <Text style={styles.title}>Reward Queued</Text>
+          <Text style={styles.message}>{amount} sats queued for payout!</Text>
           <View style={styles.splitContainer}>
             <View style={styles.splitRow}>
               <Text style={styles.splitLine}>{'├─'}</Text>
@@ -102,6 +103,7 @@ export const RewardEarnedModal: React.FC<RewardEarnedModalProps> = ({
               </Text>
             </View>
           </View>
+          <Text style={styles.deliveryInfo}>Rewards sent daily ~10pm EST</Text>
         </>
       );
     }
@@ -109,8 +111,9 @@ export const RewardEarnedModal: React.FC<RewardEarnedModalProps> = ({
     // Normal reward without split
     return (
       <>
-        <Text style={styles.title}>Reward Earned</Text>
-        <Text style={styles.message}>You earned {amount} sats!</Text>
+        <Text style={styles.title}>Reward Queued</Text>
+        <Text style={styles.message}>{amount} sats queued for payout!</Text>
+        <Text style={styles.deliveryInfo}>Rewards sent daily ~10pm EST</Text>
       </>
     );
   };
@@ -233,6 +236,13 @@ const styles = StyleSheet.create({
     color: theme.colors.orangeBright,
     fontWeight: theme.typography.weights.semiBold,
     textAlign: 'center',
+  },
+  deliveryInfo: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 16,
   },
   button: {
     backgroundColor: theme.colors.orangeDeep,

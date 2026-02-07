@@ -6,6 +6,8 @@ import FitnessTestService from '../fitness/FitnessTestService';
 import type { FitnessTestResult } from '../../types/fitnessTest';
 import { BodyCompositionAnalytics } from '../analytics/BodyCompositionAnalytics';
 import type { HealthProfile } from '../../types/analytics';
+import { JournalService } from '../journal/JournalService';
+import { getMoodOption, getEnergyOption } from '../../types/journal';
 
 const CONTEXT_STORAGE_KEY = '@runstr:ai_context';
 const CONTEXT_TIMESTAMP_KEY = '@runstr:ai_context_timestamp';
@@ -53,6 +55,12 @@ export class RunstrContextGenerator {
     const fitnessTests = await this.getFitnessTestResults();
     if (fitnessTests) {
       sections.push(fitnessTests);
+    }
+
+    // Journal Entries
+    const journalContext = await this.getJournalContext();
+    if (journalContext) {
+      sections.push(journalContext);
     }
 
     // Recent Performance
@@ -342,6 +350,72 @@ export class RunstrContextGenerator {
       return lines.join('\n');
     } catch (error) {
       console.error('Error generating body composition data:', error);
+      return null;
+    }
+  }
+
+  private static async getJournalContext(): Promise<string | null> {
+    try {
+      // Get last 7 days of journal entries
+      const recentEntries = await JournalService.getRecentEntries(7);
+
+      if (!recentEntries || recentEntries.length === 0) {
+        return null;
+      }
+
+      const lines: string[] = ['## Recent Journal Entries'];
+      lines.push('');
+
+      // Include each entry (truncate to 300 chars for API cost efficiency)
+      recentEntries.forEach((entry) => {
+        const date = new Date(entry.date).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+        });
+
+        // Build mood/energy indicator
+        const indicators: string[] = [];
+        if (entry.mood) {
+          const moodOpt = getMoodOption(entry.mood);
+          if (moodOpt) {
+            indicators.push(`Mood: ${moodOpt.label}`);
+          }
+        }
+        if (entry.energy) {
+          indicators.push(`Energy: ${entry.energy}/5`);
+        }
+
+        const indicatorStr = indicators.length > 0
+          ? ` (${indicators.join(', ')})`
+          : '';
+
+        // Truncate content to 300 chars
+        const truncatedContent =
+          entry.content.length > 300
+            ? entry.content.substring(0, 300) + '...'
+            : entry.content;
+
+        lines.push(`[${date}]${indicatorStr}`);
+        lines.push(`"${truncatedContent}"`);
+        lines.push('');
+      });
+
+      // Add journal stats
+      const stats = await JournalService.getStats();
+      if (stats.currentStreak > 1) {
+        lines.push(`Journal Streak: ${stats.currentStreak} days`);
+      }
+      if (stats.averageMood) {
+        const moodLabel =
+          stats.averageMood >= 4 ? 'Good' :
+          stats.averageMood >= 3 ? 'Neutral' : 'Low';
+        lines.push(`Average Mood: ${moodLabel} (${stats.averageMood.toFixed(1)}/5)`);
+      }
+
+      lines.push('');
+      return lines.join('\n');
+    } catch (error) {
+      console.error('[RunstrContextGenerator] Journal context error:', error);
       return null;
     }
   }

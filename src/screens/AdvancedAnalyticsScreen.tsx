@@ -111,9 +111,13 @@ export const AdvancedAnalyticsScreen: React.FC = () => {
 
       // Load health profile
       const profileData = await AsyncStorage.getItem(HEALTH_PROFILE_KEY);
-      const profile: HealthProfile | null = profileData
-        ? JSON.parse(profileData)
-        : null;
+      let profile: HealthProfile | null = null;
+      try {
+        profile = profileData ? JSON.parse(profileData) : null;
+      } catch (e) {
+        console.warn('[AdvancedAnalytics] Failed to parse health profile:', e);
+        profile = null;
+      }
       setHealthProfile(profile);
 
       // Get ALL local workouts (includes GPS, manual, daily steps, AND imported Nostr)
@@ -345,8 +349,9 @@ export const AdvancedAnalyticsScreen: React.FC = () => {
         </View>
         */}
 
-        {/* COACH RUNSTR - AI-Powered Insights */}
+        {/* COACH RUNSTR - AI-Powered Insights - HIDDEN: Coach RUNSTR feature disabled
         <CoachRunstrCard workouts={workouts} />
+        */}
 
         {/* Last Updated */}
         {analytics && (

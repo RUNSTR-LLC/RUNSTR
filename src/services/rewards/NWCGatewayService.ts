@@ -1,14 +1,27 @@
 /**
- * NWCGatewayService - Server-side NWC operations via Supabase
+ * @deprecated - This service is DEPRECATED as of v3 architecture migration
  *
- * All NWC operations are now handled server-side for security.
- * This service wraps the Supabase edge function calls.
+ * NWCGatewayService (DEPRECATED)
  *
- * Operations:
- * - pay_invoice: Pay a Lightning invoice
- * - create_invoice: Create an invoice for receiving payments
- * - lookup_invoice: Check if an invoice has been paid
- * - get_balance: Get wallet balance
+ * NWC operations have been moved to a separate external reward service.
+ * NWC credentials are NO LONGER stored in Supabase (security risk).
+ *
+ * NEW ARCHITECTURE (v3):
+ * - External service monitors kind 1301 events
+ * - External service holds NWC credentials (isolated, not in Supabase)
+ * - External service sends 50 sats based on reward_destination tag
+ * - App never interacts with NWC directly
+ *
+ * MIGRATION:
+ * - Remove all direct calls to NWCGatewayService
+ * - Hide in-app zap buttons (direct donations)
+ * - Users can still zap via external wallets using lightning addresses in profiles
+ *
+ * This file is kept for reference but should not be imported.
+ *
+ * === ORIGINAL DOCUMENTATION (for reference) ===
+ * Wrapped Supabase edge function calls for NWC operations.
+ * Operations: pay_invoice, create_invoice, lookup_invoice, get_balance
  */
 
 import { supabase } from '../../utils/supabase';

@@ -19,8 +19,8 @@ export const MiniLeaderboard: React.FC<MiniLeaderboardProps> = ({
 }) => {
   return (
     <View style={[styles.container, style]}>
-      {entries.map((entry, index) => (
-        <View key={index} style={styles.leaderboardRow}>
+      {entries.map((entry) => (
+        <View key={entry.position} style={styles.leaderboardRow}>
           <View style={styles.leaderboardPosition}>
             <View
               style={[

@@ -33,7 +33,7 @@ export interface CharityRanking {
   charityId: string;
   charityName: string;
   lightningAddress?: string;
-  totalDistance: number; // meters
+  totalDistance: number; // kilometers (km)
   participantCount: number; // Number of participants contributing
 }
 

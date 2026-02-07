@@ -73,8 +73,13 @@ export class DailyStepCounterService {
   async requestPermissions(): Promise<boolean> {
     try {
       if (Platform.OS === 'android') {
-        // Android: No permissions needed for local workout storage
-        console.log('[DailyStepCounterService] Android: No permissions needed for local workout storage');
+        // Android: Request ACTIVITY_RECOGNITION for native step sensor
+        console.log('[DailyStepCounterService] Android: Requesting ACTIVITY_RECOGNITION permission...');
+        const granted = await nativeStepCounterService.requestPermissions();
+        if (!granted) {
+          console.log('[DailyStepCounterService] Android: ACTIVITY_RECOGNITION denied, falling back to Health Connect');
+        }
+        // Return true regardless - Health Connect fallback doesn't need this permission
         return true;
       } else {
         // iOS: Check Pedometer availability and request HealthKit access
@@ -216,11 +221,14 @@ export class DailyStepCounterService {
 
   /**
    * Android-specific step fetching
-   * Priority: Native sensor (stock Android) → Health Connect (privacy ROMs) → Local tracked workouts
+   * Priority: Native sensor (all Android) → Health Connect fallback
    *
-   * Stock Android: Uses native step sensor via expo-android-pedometer (no Google Fit needed)
-   * Privacy ROMs: Uses Health Connect aggregation (respects user's privacy choices)
-   * Fallback: Local tracked workout steps
+   * Native sensor: Uses expo-android-pedometer (TYPE_STEP_COUNTER) - works on ALL Android
+   *                including privacy ROMs like GrapheneOS. Does NOT require Google Play Services.
+   * Health Connect: Falls back to HC if native sensor returns 0 or fails
+   *
+   * Note: Previously we assumed privacy ROMs couldn't use native sensors, but testing
+   * on GrapheneOS proved this was incorrect - the notification shows correct step count.
    */
   private async getTodayStepsAndroid(): Promise<DailyStepData | null> {
     // Calculate time bounds for today

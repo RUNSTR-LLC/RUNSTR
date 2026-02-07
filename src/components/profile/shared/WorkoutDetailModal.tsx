@@ -17,9 +17,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../../styles/theme';
 import type { LocalWorkout } from '../../../services/fitness/LocalWorkoutStorageService';
 import type { Workout } from '../../../types/workout';
-import type { Split } from '../../../services/activity/SplitTrackingService';
 import type { PublishableWorkout } from '../../../services/nostr/workoutPublishingService';
 import { FullScreenCardModal } from './FullScreenCardModal';
+import { useUnitPreference } from '../../../hooks/useUnitPreference';
 
 interface WorkoutDetailModalProps {
   visible: boolean;
@@ -33,6 +33,7 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
   onClose,
 }) => {
   const [showFullscreenCard, setShowFullscreenCard] = useState(false);
+  const { isMetric, paceLabel, speedLabel } = useUnitPreference();
 
   if (!workout) return null;
 
@@ -52,15 +53,25 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
 
   const formatDistance = (meters?: number): string => {
     if (!meters) return '--';
-    return meters < 1000
-      ? `${meters.toFixed(0)}m`
-      : `${(meters / 1000).toFixed(2)}km`;
+    if (isMetric) {
+      return meters < 1000
+        ? `${meters.toFixed(0)}m`
+        : `${(meters / 1000).toFixed(2)} km`;
+    } else {
+      const feet = meters * 3.28084;
+      const miles = meters * 0.000621371;
+      return feet < 5280
+        ? `${feet.toFixed(0)} ft`
+        : `${miles.toFixed(2)} mi`;
+    }
   };
 
   const formatPace = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')} /km`;
+    // If imperial, convert pace from seconds/km to seconds/mi
+    const paceSeconds = isMetric ? seconds : seconds * 1.60934;
+    const mins = Math.floor(paceSeconds / 60);
+    const secs = Math.floor(paceSeconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')} ${paceLabel}`;
   };
 
   const formatSplitTime = (seconds: number): string => {
@@ -71,13 +82,23 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
 
   const formatElevation = (meters?: number): string => {
     if (!meters) return '--';
-    return `${Math.round(meters)}m`;
+    if (isMetric) {
+      return `${Math.round(meters)} m`;
+    } else {
+      const feet = Math.round(meters * 3.28084);
+      return `${feet} ft`;
+    }
   };
 
   const formatSpeed = (metersPerSecond?: number): string => {
     if (!metersPerSecond) return '--';
-    const kmh = (metersPerSecond * 3.6).toFixed(1);
-    return `${kmh} km/h`;
+    if (isMetric) {
+      const kmh = (metersPerSecond * 3.6).toFixed(1);
+      return `${kmh} ${speedLabel}`;
+    } else {
+      const mph = (metersPerSecond * 2.23694).toFixed(1);
+      return `${mph} ${speedLabel}`;
+    }
   };
 
   const formatTime = (dateString: string): string => {
@@ -258,10 +279,10 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Splits</Text>
             <View style={styles.splitsTable}>
-              {/* Table Header - Removed duplicate Split column (same as Pace for 1km segments) */}
+              {/* Table Header - Removed duplicate Split column (same as Pace for 1km/mi segments) */}
               <View style={styles.splitsHeader}>
                 <Text style={[styles.splitsHeaderText, styles.kmColumn]}>
-                  Km
+                  {isMetric ? 'Km' : 'Mi'}
                 </Text>
                 <Text style={[styles.splitsHeaderText, styles.timeColumn]}>
                   Total
@@ -272,25 +293,28 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
               </View>
 
               {/* Table Rows */}
-              {splits.map((split, index) => (
-                <View
-                  key={index}
-                  style={[
-                    styles.splitsRow,
-                    index % 2 === 1 && styles.splitsRowAlt,
-                  ]}
-                >
-                  <Text style={[styles.splitsRowText, styles.kmColumn]}>
-                    {split.number || split.splitNumber || index + 1}
-                  </Text>
+              {splits.map((split, index) => {
+                const splitNumber = split.number || index + 1;
+                return (
+                  <View
+                    key={`split-${splitNumber}`}
+                    style={[
+                      styles.splitsRow,
+                      index % 2 === 1 && styles.splitsRowAlt,
+                    ]}
+                  >
+                    <Text style={[styles.splitsRowText, styles.kmColumn]}>
+                      {splitNumber}
+                    </Text>
                   <Text style={[styles.splitsRowText, styles.timeColumn]}>
-                    {formatSplitTime(split.elapsedTime || split.duration || 0)}
+                    {formatSplitTime(split.elapsedTime || 0)}
                   </Text>
                   <Text style={[styles.splitsRowText, styles.paceColumn]}>
                     {formatPace(split.pace)}
                   </Text>
                 </View>
-              ))}
+                );
+              })}
             </View>
           </View>
         )}

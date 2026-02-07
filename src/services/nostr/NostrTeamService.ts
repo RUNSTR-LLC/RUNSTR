@@ -57,13 +57,11 @@ export class NostrTeamService {
   private ndkTeamService: NdkTeamService;
 
   // ENHANCED RELAY LIST - Optimized for hybrid HTTP/WebSocket strategy
-  // Performance ranking based on working script results: damus (21 events) > nos.lol (3) > primal (1) > nostr.wine (1)
+  // Performance ranking based on working script results: damus (21 events) > nos.lol (3) > primal (1)
   private relayUrls = [
     'wss://relay.damus.io', // Primary: 21 events (80% of all events)
     'wss://nos.lol', // Secondary: 3 events
     'wss://relay.primal.net', // Tertiary: 1 event
-    'wss://nostr.wine', // Quaternary: 1 event (had LATAM team)
-    'wss://relay.nostr.band', // Additional coverage
     'wss://relay.snort.social', // Enhanced coverage
     'wss://nostr-pub.wellorder.net', // Backup
   ];
@@ -305,7 +303,6 @@ export class NostrTeamService {
       'wss://relay.damus.io', // 80% of teams found here
       'wss://nos.lol', // Secondary coverage
       'wss://relay.primal.net', // Tertiary coverage
-      'wss://nostr.wine', // Had LATAM team
     ];
   }
 }

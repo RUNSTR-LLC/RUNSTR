@@ -1,9 +1,20 @@
 /**
- * CharitySection - Display team's supported charity with zap button
+ * CharitySection - Display team's supported charity with info
  * Shows charity info below team bio on team detail screens
- * Works with NWC for quick zaps, external wallets for custom amounts
- * Follows standard NWC pattern: single tap = quick 21 sats, long press = amount modal
+ *
+ * v3 UPDATE: In-app zaps are DISABLED.
+ * NWC credentials have moved to external reward service (security reasons).
+ * Users can still zap charities via external wallets using the lightning addresses
+ * displayed in charity profiles.
+ *
+ * Original behavior (when NWC re-enabled):
+ * - Single tap = QR code for external wallet payment
+ * - Long press = Quick NWC zap (21 sats default)
  */
+
+// v3: In-app zaps disabled - NWC moved to external service
+// Set to true to re-enable when NWC is configured in-app again
+const IN_APP_ZAPS_ENABLED = false;
 
 import React, { useEffect, useState, useRef } from 'react';
 import {
@@ -17,13 +28,13 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { theme } from '../../styles/theme';
 import { getCharityById } from '../../constants/charities';
 import { ExternalZapModal } from '../nutzap/ExternalZapModal';
 import { NWCWalletService } from '../../services/wallet/NWCWalletService';
 import { NWCGatewayService } from '../../services/rewards/NWCGatewayService';
 import { DonationTrackingService } from '../../services/donation/DonationTrackingService';
-import { ImpactLevelService } from '../../services/impact/ImpactLevelService';
 import { useNWCZap } from '../../hooks/useNWCZap';
 import { useAuth } from '../../contexts/AuthContext';
 import { getInvoiceFromLightningAddress } from '../../utils/lnurl';
@@ -37,6 +48,8 @@ interface CharitySectionProps {
 export const CharitySection: React.FC<CharitySectionProps> = ({
   charityId,
 }) => {
+  const { t } = useTranslation('charities');
+
   // State for payment modal
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
@@ -234,12 +247,6 @@ export const CharitySection: React.FC<CharitySectionProps> = ({
         charityLightningAddress: charity.lightningAddress,
       });
 
-      // Clear Impact Level cache so it recalculates immediately with new donation
-      if (donorPubkey !== 'anonymous') {
-        await ImpactLevelService.clearCache(donorPubkey);
-        console.log('[CharitySection] Impact Level cache cleared for immediate update');
-      }
-
       await markAsZapped();
       await refreshBalance();
       Alert.alert(
@@ -270,7 +277,7 @@ export const CharitySection: React.FC<CharitySectionProps> = ({
     setShowPaymentModal(false);
     Alert.alert(
       'Thank You!',
-      `Your donation to ${charity.name} has been verified and recorded!`,
+      `Thanks for donating to ${charity.name}!`,
       [{ text: 'OK' }]
     );
   };
@@ -278,7 +285,7 @@ export const CharitySection: React.FC<CharitySectionProps> = ({
   return (
     <View style={styles.container}>
       {/* Section Label */}
-      <Text style={styles.sectionLabel}>Team Charity</Text>
+      <Text style={styles.sectionLabel}>{t('teamCharity')}</Text>
 
       {/* Charity Card */}
       <View style={styles.charityCard}>
@@ -290,7 +297,9 @@ export const CharitySection: React.FC<CharitySectionProps> = ({
         {/* Charity Info */}
         <View style={styles.charityInfo}>
           <Text style={styles.charityName}>{charity.name}</Text>
-          <Text style={styles.charityDescription}>{charity.description}</Text>
+          <Text style={styles.charityDescription}>
+            {t(`descriptions.${charity.id}`, { defaultValue: charity.description })}
+          </Text>
 
           {/* Learn More Link */}
           {charity.website && (
@@ -298,7 +307,7 @@ export const CharitySection: React.FC<CharitySectionProps> = ({
               onPress={handleLearnMore}
               style={styles.learnMoreButton}
             >
-              <Text style={styles.learnMoreText}>Learn more</Text>
+              <Text style={styles.learnMoreText}>{t('learnMore')}</Text>
               <Ionicons
                 name="open-outline"
                 size={14}
@@ -308,49 +317,56 @@ export const CharitySection: React.FC<CharitySectionProps> = ({
           )}
         </View>
 
-        {/* Zap Button - Tap for QR code, long press for quick NWC zap */}
-        <Animated.View style={{ transform: [{ scale: scaleAnimation }] }}>
-          <TouchableOpacity
-            onPress={handleZapPress}
-            onLongPress={handleZapLongPress}
-            style={[
-              styles.zapButton,
-              isZapped && styles.zappedButton,
-              isZapping && styles.zappingButton,
-            ]}
-            activeOpacity={0.7}
-            delayLongPress={500} // 500ms long press delay
-            disabled={isZapping}
-          >
-            <Ionicons
-              name="flash"
-              size={20}
-              color={isZapped ? theme.colors.accent : '#000000'}
-            />
-            <Text
+        {/* Zap Button - Tap for QR code, long press for quick NWC zap
+            v3: Disabled - NWC moved to external reward service
+            Users can copy lightning address from charity website */}
+        {IN_APP_ZAPS_ENABLED && (
+          <Animated.View style={{ transform: [{ scale: scaleAnimation }] }}>
+            <TouchableOpacity
+              onPress={handleZapPress}
+              onLongPress={handleZapLongPress}
               style={[
-                styles.zapButtonText,
-                isZapped && styles.zappedButtonText,
+                styles.zapButton,
+                isZapped && styles.zappedButton,
+                isZapping && styles.zappingButton,
               ]}
+              activeOpacity={0.7}
+              delayLongPress={500} // 500ms long press delay
+              disabled={isZapping}
             >
-              {isZapping ? 'Sending...' : isZapped ? 'Zapped' : 'Zap'}
-            </Text>
-          </TouchableOpacity>
-        </Animated.View>
+              <Ionicons
+                name="flash"
+                size={20}
+                color={isZapped ? theme.colors.accent : '#000000'}
+              />
+              <Text
+                style={[
+                  styles.zapButtonText,
+                  isZapped && styles.zappedButtonText,
+                ]}
+              >
+                {isZapping ? 'Sending...' : isZapped ? 'Zapped' : 'Zap'}
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+        )}
       </View>
 
-      {/* External Zap Modal with charity donation verification */}
-      <ExternalZapModal
-        visible={showPaymentModal}
-        recipientNpub={charity.lightningAddress}
-        recipientName={charity.name}
-        memo={`Donation to ${charity.name}`}
-        onClose={() => setShowPaymentModal(false)}
-        onSuccess={handlePaymentConfirmed}
-        isCharityDonation={true}
-        charityId={charity.id}
-        charityLightningAddress={charity.lightningAddress}
-      />
+      {/* External Zap Modal with charity donation verification
+          v3: Modal disabled - NWC moved to external service */}
+      {IN_APP_ZAPS_ENABLED && (
+        <ExternalZapModal
+          visible={showPaymentModal}
+          recipientNpub={charity.lightningAddress}
+          recipientName={charity.name}
+          memo={`Donation to ${charity.name}`}
+          onClose={() => setShowPaymentModal(false)}
+          onSuccess={handlePaymentConfirmed}
+          isCharityDonation={true}
+          charityId={charity.id}
+          charityLightningAddress={charity.lightningAddress}
+        />
+      )}
     </View>
   );
 };

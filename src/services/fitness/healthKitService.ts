@@ -8,6 +8,7 @@
 import { Platform, InteractionManager } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { WorkoutData, WorkoutType } from '../../types/workout';
+import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
 
 // Environment-based logging utility
 const isDevelopment = __DEV__;
@@ -967,10 +968,24 @@ export class HealthKitService {
 
   /**
    * Cache workouts to AsyncStorage
+   * Also auto-submits NEW cardio workouts to Supabase for leaderboard tracking.
    */
   private async cacheWorkouts(workouts: HealthKitWorkout[]): Promise<void> {
     try {
       const cacheKey = 'healthkit_workouts_cache';
+
+      // Identify new workouts by comparing with previous cache
+      const previousCache = await AsyncStorage.getItem(cacheKey);
+      const previousIds = new Set<string>();
+      if (previousCache) {
+        try {
+          const parsed = JSON.parse(previousCache);
+          (parsed.workouts || []).forEach((w: HealthKitWorkout) => {
+            previousIds.add(w.UUID || w.id || '');
+          });
+        } catch { /* ignore parse errors */ }
+      }
+
       const cacheData = {
         workouts,
         timestamp: Date.now(),
@@ -979,8 +994,51 @@ export class HealthKitService {
 
       await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
       debugLog(`HealthKit: Cached ${workouts.length} workouts`);
+
+      // Auto-submit new cardio workouts to Supabase (fire-and-forget)
+      this.submitNewWorkoutsToSupabase(workouts, previousIds).catch((err) => {
+        console.warn('[HealthKit] Supabase auto-submit error (silent):', err);
+      });
     } catch (error) {
       console.warn('Failed to cache workouts:', error);
+    }
+  }
+
+  /**
+   * Submit newly discovered cardio workouts to Supabase for leaderboard tracking.
+   */
+  private async submitNewWorkoutsToSupabase(
+    workouts: HealthKitWorkout[],
+    previousIds: Set<string>
+  ): Promise<void> {
+    const CARDIO_TYPES = ['running', 'walking', 'cycling', 'hiking'];
+    const npub = await AsyncStorage.getItem('@runstr:npub');
+    if (!npub) return;
+
+    const newCardio = workouts.filter((w) => {
+      const id = w.UUID || w.id || '';
+      if (!id || previousIds.has(id)) return false;
+      if (!w.activityType || !CARDIO_TYPES.includes(w.activityType)) return false;
+      if (!w.totalDistance || w.totalDistance <= 0) return false;
+      return true;
+    });
+
+    for (const w of newCardio) {
+      try {
+        const eventId = `hk_${w.UUID || w.id}`;
+        await SupabaseCompetitionService.submitWorkoutSimple({
+          eventId,
+          npub,
+          type: w.activityType || 'running',
+          distance: w.totalDistance,
+          duration: w.duration,
+          calories: w.totalEnergyBurned,
+          startTime: w.startDate,
+        });
+        debugLog(`[HealthKit] Auto-submitted ${w.activityType} workout to Supabase: ${eventId}`);
+      } catch (err) {
+        console.warn(`[HealthKit] Failed to submit workout ${w.UUID}:`, err);
+      }
     }
   }
 

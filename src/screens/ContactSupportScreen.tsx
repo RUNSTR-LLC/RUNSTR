@@ -57,7 +57,14 @@ export const ContactSupportScreen: React.FC<{ navigation: any }> = ({
     // Gather debug information
     const gatherDebugInfo = async () => {
       const appVersion = '1.0.0'; // You might want to get this from app.json
-      const deviceInfo = `${Device.brand} ${Device.modelName} (${Platform.OS} ${Platform.Version})`;
+      const androidVersionMap: Record<number, string> = {
+        36: '16', 35: '15', 34: '14', 33: '13', 32: '12L',
+        31: '12', 30: '11', 29: '10', 28: '9', 27: '8.1', 26: '8.0',
+      };
+      const osVersion = Platform.OS === 'android'
+        ? (androidVersionMap[Platform.Version as number] || String(Platform.Version))
+        : String(Platform.Version);
+      const deviceInfo = `${Device.brand} ${Device.modelName} (${Platform.OS} ${osVersion})`;
       const userNpub = user?.npub
         ? user.npub.slice(0, 8) + '...'
         : 'Not logged in';
@@ -116,7 +123,13 @@ Team: ${teamInfo}`;
 
       // Save to local storage for now
       const existingRequests = await AsyncStorage.getItem('supportRequests');
-      const requests = existingRequests ? JSON.parse(existingRequests) : [];
+      let requests: any[] = [];
+      try {
+        requests = existingRequests ? JSON.parse(existingRequests) : [];
+      } catch (e) {
+        console.warn('[ContactSupport] Failed to parse stored requests, starting fresh:', e);
+        requests = [];
+      }
       requests.push(supportRequest);
       await AsyncStorage.setItem('supportRequests', JSON.stringify(requests));
 

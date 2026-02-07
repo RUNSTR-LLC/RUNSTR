@@ -12,23 +12,31 @@ import {
   TextInput,
   ScrollView,
   Modal,
+  Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { HeroMetric } from '../../components/activity/HeroMetric';
+import {
+  SecondaryMetricRow,
+  type SecondaryMetric,
+} from '../../components/activity/SecondaryMetricRow';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../styles/theme';
 import { CustomAlert } from '../../components/ui/CustomAlert';
 import LocalWorkoutStorageService from '../../services/fitness/LocalWorkoutStorageService';
-import { WorkoutPublishingService } from '../../services/nostr/workoutPublishingService';
+import workoutPublishingService from '../../services/nostr/workoutPublishingService';
 import { UnifiedSigningService } from '../../services/auth/UnifiedSigningService';
 import CalorieEstimationService from '../../services/fitness/CalorieEstimationService';
 import { EnhancedSocialShareModal } from '../../components/profile/shared/EnhancedSocialShareModal';
 import { nostrProfileService } from '../../services/nostr/NostrProfileService';
 import { HoldToStartButton } from '../../components/activity/HoldToStartButton';
 import { CountdownOverlay } from '../../components/activity/CountdownOverlay';
+import { AutoCompetePreferencesService } from '../../services/activity/AutoCompetePreferencesService';
+import WorkoutStatusTracker from '../../services/fitness/WorkoutStatusTracker';
+import { WoTService } from '../../services/wot/WoTService';
+import Toast from 'react-native-toast-message';
 import type { HealthProfile } from '../HealthProfileScreen';
-import type { NDKSigner } from '@nostr-dev-kit/ndk';
-import type { LocalWorkout } from '../../services/fitness/LocalWorkoutStorageService';
+import type { PublishableWorkout } from '../../services/nostr/workoutPublishingService';
 import type { Workout } from '../../types/workout';
 
 type ExerciseType =
@@ -65,13 +73,13 @@ interface StrengthTrackerScreenProps {
 export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
   initialExercise,
 }) => {
-  const navigation = useNavigation<any>();
-  const publishingService = WorkoutPublishingService.getInstance();
-  const [signer, setSigner] = useState<NDKSigner | null>(null);
   const [userId, setUserId] = useState<string>('');
   const [userWeight, setUserWeight] = useState<number | undefined>(undefined);
   const [userAvatar, setUserAvatar] = useState<string | undefined>(undefined);
   const [userName, setUserName] = useState<string | undefined>(undefined);
+  const [wotScore, setWotScore] = useState<number | null>(null);
+  const [autoCompeteTriggered, setAutoCompeteTriggered] = useState(false);
+  const [postedToNostr, setPostedToNostr] = useState(false);
 
   // Setup state - use initialExercise if provided
   const [selectedExercise, setSelectedExercise] =
@@ -102,7 +110,7 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
 
   // Alert state
   const [alertVisible, setAlertVisible] = useState(false);
-  const [alertConfig, setAlertConfig] = useState<{
+  const [alertConfig, _setAlertConfig] = useState<{
     title: string;
     message: string;
     buttons: Array<{
@@ -130,20 +138,25 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
     }
   }, [initialExercise]);
 
-  // Load signer and health profile on mount
+  // Load user data, health profile, and WoT score on mount
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Load signer and user ID
-        const signingService = UnifiedSigningService.getInstance();
-        const userSigner = await signingService.getSigner();
-        const userPubkey = await signingService.getUserPubkey();
-        if (userSigner && userPubkey) {
-          setSigner(userSigner);
-          setUserId(userPubkey);
-          console.log(
-            '[StrengthTracker] ✅ User signer and pubkey loaded for posting'
-          );
+        // Load user ID
+        const pubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+        const npub = await AsyncStorage.getItem('@runstr:npub');
+        const activeUserId = npub || pubkey || '';
+        setUserId(activeUserId);
+
+        // Load WoT score
+        if (pubkey) {
+          try {
+            const wotService = WoTService.getInstance();
+            const score = await wotService.getCachedScore(pubkey);
+            setWotScore(score);
+          } catch (e) {
+            console.warn('[StrengthTracker] WoT cache read failed:', e);
+          }
         }
 
         // Load health profile for calorie estimation
@@ -151,8 +164,14 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
           '@runstr:health_profile'
         );
         if (profileData) {
-          const profile: HealthProfile = JSON.parse(profileData);
-          if (profile.weight) {
+          let profile: HealthProfile | null = null;
+          try {
+            profile = JSON.parse(profileData);
+          } catch (e) {
+            console.warn('[StrengthTracker] Failed to parse health profile:', e);
+            profile = null;
+          }
+          if (profile && profile.weight) {
             setUserWeight(profile.weight);
             console.log(
               '[StrengthTracker] ✅ User weight loaded:',
@@ -162,8 +181,8 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
         }
 
         // Load user's Nostr profile (avatar and name)
-        if (userPubkey) {
-          const nostrProfile = await nostrProfileService.getProfile(userPubkey);
+        if (pubkey) {
+          const nostrProfile = await nostrProfileService.getProfile(pubkey);
           if (nostrProfile) {
             setUserAvatar(nostrProfile.picture);
             setUserName(nostrProfile.display_name || nostrProfile.name);
@@ -206,7 +225,12 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
   }, [phase, restTimeRemaining]);
 
   const handleHoldComplete = () => {
-    console.log('[StrengthTrackerScreen] Hold complete, starting countdown...');
+    console.log('[StrengthTrackerScreen] Hold complete, going to setup...');
+    setPhase('setup');
+  };
+
+  const startWorkout = () => {
+    console.log('[StrengthTrackerScreen] Starting countdown before workout...');
 
     // Start countdown: 3 → 2 → 1 → GO!
     setCountdown(3);
@@ -218,20 +242,16 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
           setCountdown('GO');
           setTimeout(() => {
             setCountdown(null);
-            // Go to setup phase after countdown
-            setPhase('setup');
-          }, 500); // Show "GO!" for 0.5 seconds
+            // Now start the actual workout
+            setPhase('active');
+            setCurrentSet(1);
+            setRepsCompleted([]);
+            setWeightsCompleted([]);
+            setWorkoutStartTime(Date.now());
+          }, 500);
         }, 1000);
       }, 1000);
     }, 1000);
-  };
-
-  const startWorkout = () => {
-    setPhase('active');
-    setCurrentSet(1);
-    setRepsCompleted([]);
-    setWeightsCompleted([]); // Reset weights
-    setWorkoutStartTime(Date.now());
   };
 
   const handleSetComplete = () => {
@@ -369,108 +389,129 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
     }
   };
 
+  // WoT > 0 means user has any trust score (eligible for Nostr posting)
+  const isWoTEligible = wotScore !== null && wotScore > 0;
+
   /**
-   * Post workout to Nostr as Kind 1301 (competition entry)
+   * Auto-compete: publish kind 1301 when summary phase starts
    */
-  const handlePostNostr = async () => {
-    if (!savedWorkoutId) {
-      setAlertConfig({
-        title: 'Error',
-        message: 'No workout to post. Please complete a workout first.',
-        buttons: [{ text: 'OK', style: 'default' }],
-      });
-      setAlertVisible(true);
-      return;
-    }
+  useEffect(() => {
+    const attemptAutoCompete = async () => {
+      if (phase !== 'summary' || !savedWorkoutId || autoCompeteTriggered) return;
 
-    if (!signer || !userId) {
-      setAlertConfig({
-        title: 'Error',
-        message: 'Authentication required. Please log in again.',
-        buttons: [{ text: 'OK', style: 'default' }],
-      });
-      setAlertVisible(true);
-      return;
-    }
+      const isEnabled = await AutoCompetePreferencesService.isAutoCompeteEnabled();
+      if (!isEnabled) return;
 
-    try {
-      // Get the saved workout from local storage
-      const workouts = await LocalWorkoutStorageService.getAllWorkouts();
-      const workout = workouts.find((w) => w.id === savedWorkoutId);
+      // Check if already competed
+      const status = await WorkoutStatusTracker.getStatus(savedWorkoutId);
+      if (status.competedInNostr) return;
 
-      if (!workout) {
-        setAlertConfig({
-          title: 'Error',
-          message: 'Workout not found.',
-          buttons: [{ text: 'OK', style: 'default' }],
+      setAutoCompeteTriggered(true);
+
+      try {
+        const signer = await UnifiedSigningService.getInstance().getSigner();
+        const npub = await AsyncStorage.getItem('@runstr:npub');
+        if (!signer) {
+          Toast.show({
+            type: 'error',
+            text1: 'Auto-compete failed',
+            text2: 'No authentication found.',
+            position: 'top',
+            visibilityTime: 4000,
+          });
+          return;
+        }
+
+        if (!savedWorkout) return;
+
+        const publishableWorkout = {
+          ...savedWorkout,
+          source: 'manual' as const,
+        } as PublishableWorkout;
+
+        const result = await workoutPublishingService.saveWorkoutToNostr(
+          publishableWorkout,
+          signer,
+          npub || 'unknown'
+        );
+
+        if (result.success) {
+          await WorkoutStatusTracker.markAsCompeted(savedWorkoutId, result.eventId);
+          if (result.eventId) {
+            await LocalWorkoutStorageService.markAsSynced(savedWorkoutId, result.eventId);
+          }
+          console.log('[StrengthTracker] ✅ Auto-competed kind 1301');
+        } else {
+          Toast.show({
+            type: 'error',
+            text1: 'Auto-compete failed',
+            text2: 'Tap Post to retry manually.',
+            position: 'top',
+            visibilityTime: 4000,
+          });
+        }
+      } catch (error) {
+        console.error('[StrengthTracker] Auto-compete error:', error);
+        Toast.show({
+          type: 'error',
+          text1: 'Auto-compete failed',
+          text2: 'Tap Post to retry manually.',
+          position: 'top',
+          visibilityTime: 4000,
         });
-        setAlertVisible(true);
-        return;
+      }
+    };
+    attemptAutoCompete();
+  }, [phase, savedWorkoutId, autoCompeteTriggered]);
+
+  /**
+   * Handle posting to Nostr (called from EnhancedSocialShareModal after card capture)
+   */
+  const handlePostToNostr = async (cardImageUri?: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const signer = await UnifiedSigningService.getInstance().getSigner();
+      const npub = await AsyncStorage.getItem('@runstr:npub');
+      if (!signer) {
+        return { success: false, error: 'Not authenticated' };
       }
 
-      console.log(
-        `[StrengthTracker] Posting workout ${workout.id} as kind 1301...`
-      );
+      if (!savedWorkout) {
+        return { success: false, error: 'No workout data' };
+      }
 
-      // Convert LocalWorkout to PublishableWorkout format
       const publishableWorkout = {
-        ...workout,
+        ...savedWorkout,
         source: 'manual' as const,
-      };
+      } as PublishableWorkout;
 
-      // Publish to Nostr as kind 1301 workout event
-      const result = await publishingService.saveWorkoutToNostr(
+      const result = await workoutPublishingService.postWorkoutToSocial(
         publishableWorkout,
         signer,
-        userId
+        npub || 'unknown',
+        {
+          includeCard: true,
+          cardImageUri,
+          userAvatar,
+          userName,
+        }
       );
 
-      if (result.success && result.eventId) {
-        console.log(
-          `[StrengthTracker] ✅ Workout published as kind 1301: ${result.eventId}`
-        );
-
-        // Mark workout as synced
-        await LocalWorkoutStorageService.markAsSynced(
-          workout.id,
-          result.eventId
-        );
-
-        setAlertConfig({
-          title: 'Success',
-          message: 'Workout saved!',
-          buttons: [{ text: 'OK', style: 'default' }],
-        });
-        setAlertVisible(true);
-      } else {
-        throw new Error(result.error || 'Failed to publish workout');
+      if (result.success) {
+        setPostedToNostr(true);
       }
+      return result;
     } catch (error) {
-      console.error('[StrengthTracker] ❌ Post to Nostr (1301) failed:', error);
-      setAlertConfig({
-        title: 'Error',
-        message: 'Failed to post workout. Please try again.',
-        buttons: [{ text: 'OK', style: 'default' }],
-      });
-      setAlertVisible(true);
+      console.error('[StrengthTracker] Post to Nostr error:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Post failed' };
     }
   };
 
   /**
-   * Post workout to Nostr as Kind 1 (social post with card)
+   * Open social share modal for card design + posting
    */
-  const handlePostSocial = () => {
-    if (!savedWorkout) {
-      setAlertConfig({
-        title: 'Error',
-        message: 'No workout to post. Please complete a workout first.',
-        buttons: [{ text: 'OK', style: 'default' }],
-      });
-      setAlertVisible(true);
-      return;
-    }
-
-    // Open social share modal with enhanced UI (beautiful cards)
+  const handleShowSocialModal = () => {
+    if (!savedWorkout) return;
+    Keyboard.dismiss();
     setShowShareModal(true);
   };
 
@@ -484,12 +525,9 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
   if (phase === 'idle') {
     return (
       <View style={styles.container}>
-        {/* Countdown Overlay */}
-        <CountdownOverlay countdown={countdown} />
-
         <View style={styles.idleCenteredContainer}>
           <HoldToStartButton
-            label="Start Strength"
+            label={`Start ${EXERCISE_OPTIONS.find(e => e.value === selectedExercise)?.label || 'Strength'}`}
             onHoldComplete={handleHoldComplete}
             size="large"
           />
@@ -507,164 +545,161 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
     );
   }
 
-  // Setup screen
+  // Setup screen - Option C: stacked dark cards, no icon, circle start
   if (phase === 'setup') {
     return (
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.setupContainer}
-      >
-        {/* Dynamic icon and title based on selected exercise */}
-        <View style={styles.iconContainer}>
-          <Ionicons
-            name={EXERCISE_OPTIONS.find(e => e.value === selectedExercise)?.icon || 'barbell'}
-            size={64}
-            color={theme.colors.text}
-          />
-        </View>
+      <View style={styles.container}>
+        {/* Countdown Overlay - shows 3-2-1-GO before active phase */}
+        <CountdownOverlay countdown={countdown} />
 
-        <Text style={styles.title}>
-          {initialExercise
-            ? EXERCISE_OPTIONS.find(e => e.value === initialExercise)?.label || 'Strength Training'
-            : 'Strength Training'}
-        </Text>
-        <Text style={styles.subtitle}>Configure your workout</Text>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.setupContainer}
+        >
+          {/* Muted uppercase exercise label */}
+          <Text style={styles.exerciseNameLabel}>
+            {(EXERCISE_OPTIONS.find(e => e.value === selectedExercise)?.label || 'STRENGTH').toUpperCase()}
+          </Text>
 
-        {/* Exercise Selector - only show if not pre-selected from menu */}
-        {!initialExercise && (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Exercise</Text>
-            <View style={styles.exerciseGrid}>
-              {EXERCISE_OPTIONS.map((exercise) => (
+          {/* Exercise Selector - only show if not pre-selected from menu */}
+          {!initialExercise && (
+            <View style={styles.setupCard}>
+              <Text style={styles.setupCardLabel}>EXERCISE</Text>
+              <View style={styles.exerciseGrid}>
+                {EXERCISE_OPTIONS.map((exercise) => (
+                  <TouchableOpacity
+                    key={exercise.value}
+                    style={[
+                      styles.exerciseChip,
+                      selectedExercise === exercise.value &&
+                        styles.exerciseChipActive,
+                    ]}
+                    onPress={() => setSelectedExercise(exercise.value)}
+                  >
+                    <Text
+                      style={[
+                        styles.exerciseChipText,
+                        selectedExercise === exercise.value &&
+                          styles.exerciseChipTextActive,
+                      ]}
+                    >
+                      {exercise.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* Sets Card */}
+          <View style={styles.setupCard}>
+            <View style={styles.setupCardRow}>
+              <Text style={styles.setupCardLabel}>SETS</Text>
+              <View style={styles.stepperRow}>
                 <TouchableOpacity
-                  key={exercise.value}
-                  style={[
-                    styles.exerciseOption,
-                    selectedExercise === exercise.value &&
-                      styles.exerciseOptionActive,
-                  ]}
-                  onPress={() => setSelectedExercise(exercise.value)}
+                  style={styles.numberButton}
+                  onPress={() => setTotalSets(Math.max(1, totalSets - 1))}
                 >
-                  <Ionicons
-                    name={exercise.icon}
-                    size={24}
-                    color={
-                      selectedExercise === exercise.value
-                        ? theme.colors.text
-                        : theme.colors.textMuted
+                  <Ionicons name="remove" size={20} color={theme.colors.text} />
+                </TouchableOpacity>
+                <Text style={styles.stepperValue}>{totalSets}</Text>
+                <TouchableOpacity
+                  style={styles.numberButton}
+                  onPress={() => setTotalSets(Math.min(10, totalSets + 1))}
+                >
+                  <Ionicons name="add" size={20} color={theme.colors.text} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          {/* Target Reps Card */}
+          <View style={styles.setupCard}>
+            <View style={styles.setupCardRow}>
+              <Text style={styles.setupCardLabel}>TARGET REPS</Text>
+              <View style={styles.stepperRow}>
+                <TouchableOpacity
+                  style={styles.numberButton}
+                  onPress={() => setTargetReps(Math.max(1, targetReps - 5))}
+                >
+                  <Ionicons name="remove" size={20} color={theme.colors.text} />
+                </TouchableOpacity>
+                <Text style={styles.stepperValue}>{targetReps}</Text>
+                <TouchableOpacity
+                  style={styles.numberButton}
+                  onPress={() => setTargetReps(targetReps + 5)}
+                >
+                  <Ionicons name="add" size={20} color={theme.colors.text} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          {/* Weight Card (only for weighted exercises) */}
+          {['bench', 'curls'].includes(selectedExercise) && (
+            <View style={styles.setupCard}>
+              <View style={styles.setupCardRow}>
+                <Text style={styles.setupCardLabel}>WEIGHT (lbs)</Text>
+                <View style={styles.stepperRow}>
+                  <TouchableOpacity
+                    style={styles.numberButton}
+                    onPress={() =>
+                      setExerciseWeight(Math.max(0, exerciseWeight - 5))
                     }
-                  />
+                  >
+                    <Ionicons name="remove" size={20} color={theme.colors.text} />
+                  </TouchableOpacity>
+                  <Text style={styles.stepperValue}>{exerciseWeight}</Text>
+                  <TouchableOpacity
+                    style={styles.numberButton}
+                    onPress={() => setExerciseWeight(exerciseWeight + 5)}
+                  >
+                    <Ionicons name="add" size={20} color={theme.colors.text} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Rest Duration Card */}
+          <View style={styles.setupCard}>
+            <Text style={styles.setupCardLabel}>REST BETWEEN SETS</Text>
+            <View style={styles.restOptions}>
+              {REST_DURATIONS.map((duration) => (
+                <TouchableOpacity
+                  key={duration}
+                  style={[
+                    styles.restOption,
+                    restDuration === duration && styles.restOptionActive,
+                  ]}
+                  onPress={() => setRestDuration(duration)}
+                >
                   <Text
                     style={[
-                      styles.exerciseLabel,
-                      selectedExercise === exercise.value &&
-                        styles.exerciseLabelActive,
+                      styles.restOptionText,
+                      restDuration === duration && styles.restOptionTextActive,
                     ]}
                   >
-                    {exercise.label}
+                    {duration}s
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
           </View>
-        )}
+        </ScrollView>
 
-        {/* Sets Input */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Number of Sets</Text>
-          <View style={styles.numberInput}>
+        {/* Fixed bottom - circle start button */}
+        <View style={styles.fixedControlsWrapper}>
+          <View style={styles.controlsContainer}>
             <TouchableOpacity
-              style={styles.numberButton}
-              onPress={() => setTotalSets(Math.max(1, totalSets - 1))}
+              style={styles.circleButton}
+              onPress={startWorkout}
             >
-              <Ionicons name="remove" size={24} color={theme.colors.text} />
-            </TouchableOpacity>
-            <Text style={styles.numberValue}>{totalSets}</Text>
-            <TouchableOpacity
-              style={styles.numberButton}
-              onPress={() => setTotalSets(Math.min(10, totalSets + 1))}
-            >
-              <Ionicons name="add" size={24} color={theme.colors.text} />
+              <Ionicons name="play" size={30} color={theme.colors.text} />
             </TouchableOpacity>
           </View>
+          <Text style={styles.circleButtonLabel}>start</Text>
         </View>
-
-        {/* Target Reps Input */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Target Reps per Set</Text>
-          <View style={styles.numberInput}>
-            <TouchableOpacity
-              style={styles.numberButton}
-              onPress={() => setTargetReps(Math.max(1, targetReps - 5))}
-            >
-              <Ionicons name="remove" size={24} color={theme.colors.text} />
-            </TouchableOpacity>
-            <Text style={styles.numberValue}>{targetReps}</Text>
-            <TouchableOpacity
-              style={styles.numberButton}
-              onPress={() => setTargetReps(targetReps + 5)}
-            >
-              <Ionicons name="add" size={24} color={theme.colors.text} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Exercise Weight Input (only for weighted exercises: bench, curls) */}
-        {['bench', 'curls'].includes(selectedExercise) && (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Weight (lbs)</Text>
-            <View style={styles.numberInput}>
-              <TouchableOpacity
-                style={styles.numberButton}
-                onPress={() =>
-                  setExerciseWeight(Math.max(0, exerciseWeight - 5))
-                }
-              >
-                <Ionicons name="remove" size={24} color={theme.colors.text} />
-              </TouchableOpacity>
-              <View style={{ alignItems: 'center' }}>
-                <Text style={styles.numberValue}>{exerciseWeight}</Text>
-                <Text style={styles.weightUnit}>lbs</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.numberButton}
-                onPress={() => setExerciseWeight(exerciseWeight + 5)}
-              >
-                <Ionicons name="add" size={24} color={theme.colors.text} />
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
-        {/* Rest Duration */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Rest Between Sets</Text>
-          <View style={styles.restOptions}>
-            {REST_DURATIONS.map((duration) => (
-              <TouchableOpacity
-                key={duration}
-                style={[
-                  styles.restOption,
-                  restDuration === duration && styles.restOptionActive,
-                ]}
-                onPress={() => setRestDuration(duration)}
-              >
-                <Text
-                  style={[
-                    styles.restOptionText,
-                    restDuration === duration && styles.restOptionTextActive,
-                  ]}
-                >
-                  {duration}s
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        <TouchableOpacity style={styles.startButton} onPress={startWorkout}>
-          <Text style={styles.startButtonText}>Start Workout</Text>
-        </TouchableOpacity>
 
         {/* Custom Alert */}
         <CustomAlert
@@ -674,46 +709,82 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
           buttons={alertConfig.buttons}
           onClose={() => setAlertVisible(false)}
         />
-      </ScrollView>
+      </View>
     );
   }
 
-  // Active set screen
+  // Active set screen - Running-style layout
   if (phase === 'active') {
+    const totalRepsCompleted = repsCompleted.reduce((sum, r) => sum + r, 0);
+    const activeSecondaryMetrics: SecondaryMetric[] = [
+      { value: `${targetReps}`, label: 'Target', icon: 'flag' },
+      { value: `${totalRepsCompleted}`, label: 'Total Reps', icon: 'fitness' },
+    ];
+
     return (
       <View style={styles.container}>
-        <View style={styles.activeContainer}>
-          <Text style={styles.exerciseName}>
-            {EXERCISE_OPTIONS.find((e) => e.value === selectedExercise)?.label}
-          </Text>
-
-          <View style={styles.setIndicator}>
-            <Text style={styles.setNumber}>Set {currentSet}</Text>
-            <Text style={styles.setTotal}>of {totalSets}</Text>
-          </View>
-
-          <View style={styles.targetContainer}>
-            <Text style={styles.targetLabel}>Target</Text>
-            <Text style={styles.targetValue}>{targetReps} reps</Text>
-          </View>
-
-          {repsCompleted.length > 0 && (
-            <View style={styles.previousSets}>
-              <Text style={styles.previousLabel}>Previous Sets:</Text>
-              {repsCompleted.map((reps, index) => (
-                <Text key={index} style={styles.previousReps}>
-                  Set {index + 1}: {reps} reps
-                </Text>
-              ))}
-            </View>
-          )}
-
-          <TouchableOpacity
-            style={styles.completeButton}
-            onPress={handleSetComplete}
+        <View style={styles.activeContentWrapper}>
+          <ScrollView
+            style={styles.activeScrollable}
+            contentContainerStyle={styles.activeScrollContent}
+            showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.completeButtonText}>Set Complete</Text>
-          </TouchableOpacity>
+            {/* Exercise name label - muted, like running's activity label */}
+            <Text style={styles.exerciseNameLabel}>
+              {EXERCISE_OPTIONS.find((e) => e.value === selectedExercise)?.label?.toUpperCase()}
+            </Text>
+
+            {/* Hero metric - current set number (matches distance display) */}
+            <HeroMetric
+              primaryValue={`${currentSet}`}
+              primaryUnit={`of ${totalSets} sets`}
+            />
+
+            {/* Secondary Metrics - Target + Total Reps (like pace/elevation cards) */}
+            <SecondaryMetricRow metrics={activeSecondaryMetrics} />
+
+            {/* Previous sets as horizontal bar (like splits) */}
+            {repsCompleted.length > 0 && (
+              <View style={styles.setsBarContainer}>
+                <Text style={styles.setsBarLabel}>SETS</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.setsBarScrollContent}
+                >
+                  {repsCompleted.map((reps, index) => {
+                    const isLatest = index === repsCompleted.length - 1;
+                    return (
+                      <View
+                        key={`set-${index}`}
+                        style={[styles.setChip, isLatest && styles.setChipLatest]}
+                      >
+                        <Text style={[styles.setChipLabel, isLatest && styles.setChipLatestText]}>
+                          Set {index + 1}
+                        </Text>
+                        <Text style={[styles.setChipValue, isLatest && styles.setChipLatestText]}>
+                          {reps} reps
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+          </ScrollView>
+        </View>
+
+        {/* Fixed bottom controls - matches running screen */}
+        <View style={styles.fixedControlsWrapper}>
+          <View style={styles.controlsContainer}>
+            <TouchableOpacity
+              style={styles.circleButton}
+              onPress={handleSetComplete}
+            >
+              <Ionicons name="checkmark" size={30} color={theme.colors.text} />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.circleButtonLabel}>set done</Text>
         </View>
 
         {/* Reps & Weight Input Modal */}
@@ -774,33 +845,45 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
     );
   }
 
-  // Rest timer screen
+  // Rest timer screen - Running-style layout
   if (phase === 'rest') {
-    const progress = (restTimeRemaining / restDuration) * 100;
-
     return (
       <View style={styles.container}>
-        <View style={styles.restContainer}>
-          <Text style={styles.restLabel}>Rest Time</Text>
-
-          <View style={styles.restTimerCircle}>
-            <Text style={styles.restTimerText}>{restTimeRemaining}</Text>
-            <Text style={styles.restTimerUnit}>seconds</Text>
-          </View>
-
-          <Text style={styles.nextSetLabel}>
-            Next: Set {currentSet + 1} of {totalSets}
-          </Text>
-
-          <TouchableOpacity
-            style={styles.skipButton}
-            onPress={() => {
-              setPhase('active');
-              setCurrentSet((s) => s + 1);
-            }}
+        <View style={styles.activeContentWrapper}>
+          <ScrollView
+            style={styles.activeScrollable}
+            contentContainerStyle={styles.activeScrollContent}
+            showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.skipButtonText}>Skip Rest</Text>
-          </TouchableOpacity>
+            {/* Muted label */}
+            <Text style={styles.exerciseNameLabel}>REST TIME</Text>
+
+            {/* Timer circle */}
+            <View style={styles.restTimerCircle}>
+              <Text style={styles.restTimerText}>{restTimeRemaining}</Text>
+              <Text style={styles.restTimerUnit}>seconds</Text>
+            </View>
+
+            <Text style={styles.nextSetLabel}>
+              Next: Set {currentSet + 1} of {totalSets}
+            </Text>
+          </ScrollView>
+        </View>
+
+        {/* Fixed bottom controls - skip rest as circle button */}
+        <View style={styles.fixedControlsWrapper}>
+          <View style={styles.controlsContainer}>
+            <TouchableOpacity
+              style={styles.circleButton}
+              onPress={() => {
+                setPhase('active');
+                setCurrentSet((s) => s + 1);
+              }}
+            >
+              <Ionicons name="play-skip-forward" size={30} color={theme.colors.text} />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.circleButtonLabel}>skip rest</Text>
         </View>
 
         {/* Custom Alert */}
@@ -887,30 +970,33 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
           </View>
         </View>
 
-        {/* Save Button */}
-        <TouchableOpacity style={styles.postButton} onPress={handlePostSocial}>
-          <Ionicons
-            name="bookmark-outline"
-            size={20}
-            color={theme.colors.background}
-            style={{ marginRight: 8 }}
-          />
-          <Text style={styles.postButtonText}>Share</Text>
-        </TouchableOpacity>
+        {/* Post to Nostr - Only visible if WoT > 0 */}
+        {isWoTEligible && !postedToNostr && (
+          <TouchableOpacity style={styles.postButton} onPress={handleShowSocialModal}>
+            <Ionicons
+              name="paper-plane-outline"
+              size={20}
+              color={theme.colors.background}
+              style={{ marginRight: 8 }}
+            />
+            <Text style={styles.postButtonText}>Post to Nostr</Text>
+          </TouchableOpacity>
+        )}
 
-        <TouchableOpacity
-          style={styles.competeButton}
-          onPress={handlePostNostr}
-        >
-          <Ionicons
-            name="cloud-upload-outline"
-            size={20}
-            color={theme.colors.background}
-            style={{ marginRight: 8 }}
-          />
-          <Text style={styles.competeButtonText}>Compete</Text>
-        </TouchableOpacity>
+        {/* Posted confirmation */}
+        {postedToNostr && (
+          <View style={[styles.postButton, { opacity: 0.5 }]}>
+            <Ionicons
+              name="checkmark-circle"
+              size={20}
+              color={theme.colors.background}
+              style={{ marginRight: 8 }}
+            />
+            <Text style={styles.postButtonText}>Posted</Text>
+          </View>
+        )}
 
+        {/* Discard Button */}
         <TouchableOpacity
           style={styles.discardButton}
           onPress={async () => {
@@ -922,6 +1008,9 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
             setRepsCompleted([]);
             setCurrentSet(1);
             setSavedWorkoutId(null);
+            setSavedWorkout(null);
+            setAutoCompeteTriggered(false);
+            setPostedToNostr(false);
           }}
         >
           <Text style={styles.discardButtonText}>Discard</Text>
@@ -935,25 +1024,11 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
             userId={userId}
             userAvatar={userAvatar}
             userName={userName}
+            localWorkoutId={savedWorkoutId || undefined}
+            onPostToNostr={handlePostToNostr}
             onClose={() => setShowShareModal(false)}
             onSuccess={() => {
-              setAlertConfig({
-                title: 'Success',
-                message:
-                  'Your workout has been shared with a beautiful card!',
-                buttons: [
-                  {
-                    text: 'OK',
-                    style: 'default',
-                    onPress: () => {
-                      setShowShareModal(false);
-                      // Navigate back to profile after posting
-                      navigation.navigate('Profile' as any);
-                    },
-                  },
-                ],
-              });
-              setAlertVisible(true);
+              setShowShareModal(false);
             }}
           />
         )}
@@ -980,7 +1055,8 @@ const styles = StyleSheet.create({
   },
   setupContainer: {
     flexGrow: 1,
-    padding: 20,
+    padding: 16,
+    paddingBottom: 160, // Space for fixed start button
   },
   // Idle state container - centered HoldToStart button
   idleCenteredContainer: {
@@ -990,68 +1066,64 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
     paddingBottom: 120, // Shift button up from true center
   },
-  iconContainer: {
-    alignSelf: 'center',
-    marginTop: 20,
-    marginBottom: 20,
+  // Setup card styles (Option C)
+  setupCard: {
+    backgroundColor: theme.colors.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
-    textAlign: 'center',
+  setupCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  setupCardLabel: {
+    fontSize: 12,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.textMuted,
+    letterSpacing: 1,
     marginBottom: 8,
   },
-  subtitle: {
-    fontSize: 16,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-    marginBottom: 32,
+  stepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
   },
-  section: {
-    marginBottom: 32,
-  },
-  sectionLabel: {
-    fontSize: 16,
-    fontWeight: theme.typography.weights.semiBold,
+  stepperValue: {
+    fontSize: 24,
+    fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
-    marginBottom: 12,
+    minWidth: 40,
+    textAlign: 'center',
   },
   exerciseGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 8,
   },
-  exerciseOption: {
-    flex: 1,
-    minWidth: '45%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.card,
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 2,
+  exerciseChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: theme.colors.background,
+    borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  exerciseOptionActive: {
+  exerciseChipActive: {
     borderColor: theme.colors.text,
     backgroundColor: theme.colors.border,
   },
-  exerciseLabel: {
-    fontSize: 14,
+  exerciseChipText: {
+    fontSize: 13,
     fontWeight: theme.typography.weights.medium,
     color: theme.colors.textMuted,
-    marginLeft: 8,
   },
-  exerciseLabelActive: {
+  exerciseChipTextActive: {
     color: theme.colors.text,
     fontWeight: theme.typography.weights.semiBold,
-  },
-  numberInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 24,
   },
   numberButton: {
     backgroundColor: theme.colors.card,
@@ -1062,18 +1134,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: theme.colors.border,
-  },
-  numberValue: {
-    fontSize: 32,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
-    minWidth: 60,
-    textAlign: 'center',
-  },
-  weightUnit: {
-    fontSize: 14,
-    color: theme.colors.textMuted,
-    marginTop: 4,
   },
   restOptions: {
     flexDirection: 'row',
@@ -1101,89 +1161,111 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontWeight: theme.typography.weights.semiBold,
   },
-  startButton: {
-    backgroundColor: theme.colors.text,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  startButtonText: {
-    color: theme.colors.background,
-    fontSize: 18,
-    fontWeight: theme.typography.weights.bold,
-  },
-  activeContainer: {
+  // Active phase - running-style layout
+  activeContentWrapper: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
   },
-  exerciseName: {
-    fontSize: 24,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
-    marginBottom: 40,
+  activeScrollable: {
+    flex: 1,
   },
-  setIndicator: {
-    alignItems: 'center',
-    marginBottom: 40,
+  activeScrollContent: {
+    paddingTop: 12,
+    paddingBottom: 180, // Space for fixed controls
   },
-  setNumber: {
-    fontSize: 48,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
-  },
-  setTotal: {
-    fontSize: 18,
-    color: theme.colors.textMuted,
-    marginTop: 4,
-  },
-  targetContainer: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  targetLabel: {
-    fontSize: 14,
-    color: theme.colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  targetValue: {
-    fontSize: 32,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.orangeBright,
-    marginTop: 4,
-  },
-  previousSets: {
-    backgroundColor: theme.colors.card,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 40,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  previousLabel: {
+  exerciseNameLabel: {
     fontSize: 14,
     fontWeight: theme.typography.weights.semiBold,
     color: theme.colors.textMuted,
+    textAlign: 'center',
+    letterSpacing: 2,
+    marginTop: 16,
+  },
+  // Previous sets as horizontal bar (like SplitsBar)
+  setsBarContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: theme.colors.card,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  setsBarLabel: {
+    fontSize: 11,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.textMuted,
+    letterSpacing: 1,
     marginBottom: 8,
   },
-  previousReps: {
-    fontSize: 14,
-    color: theme.colors.text,
-    marginTop: 4,
+  setsBarScrollContent: {
+    paddingRight: 16,
   },
-  completeButton: {
+  setChip: {
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginRight: 8,
+    backgroundColor: theme.colors.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    minWidth: 70,
+  },
+  setChipLatest: {
     backgroundColor: theme.colors.text,
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 48,
+    borderColor: theme.colors.text,
   },
-  completeButtonText: {
-    color: theme.colors.background,
-    fontSize: 18,
+  setChipLabel: {
+    fontSize: 11,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.textMuted,
+    marginBottom: 2,
+  },
+  setChipValue: {
+    fontSize: 14,
     fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+  },
+  setChipLatestText: {
+    color: theme.colors.background,
+  },
+  // Fixed bottom controls (matches running screen)
+  fixedControlsWrapper: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingBottom: 24,
+    paddingTop: 16,
+    backgroundColor: theme.colors.background,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  controlsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 20,
+  },
+  circleButton: {
+    backgroundColor: theme.colors.card,
+    borderRadius: 35,
+    width: 70,
+    height: 70,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+  },
+  circleButtonLabel: {
+    fontSize: 12,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.textMuted,
+    marginTop: 8,
   },
   modalOverlay: {
     flex: 1,
@@ -1227,29 +1309,17 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   confirmButton: {
-    backgroundColor: theme.colors.text,
+    backgroundColor: theme.colors.card,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   confirmButtonText: {
-    color: theme.colors.background,
+    color: theme.colors.text,
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
-  },
-  restContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  restLabel: {
-    fontSize: 18,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.textMuted,
-    marginBottom: 40,
-    textTransform: 'uppercase',
-    letterSpacing: 2,
   },
   restTimerCircle: {
     width: 200,
@@ -1260,7 +1330,8 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.orangeBright,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 40,
+    alignSelf: 'center',
+    marginVertical: 32,
   },
   restTimerText: {
     fontSize: 64,
@@ -1275,20 +1346,7 @@ const styles = StyleSheet.create({
   nextSetLabel: {
     fontSize: 16,
     color: theme.colors.textMuted,
-    marginBottom: 40,
-  },
-  skipButton: {
-    backgroundColor: theme.colors.card,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 32,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  skipButtonText: {
-    color: theme.colors.text,
-    fontSize: 16,
-    fontWeight: theme.typography.weights.medium,
+    textAlign: 'center',
   },
   summaryContainer: {
     flexGrow: 1,
@@ -1398,20 +1456,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   postButtonText: {
-    color: theme.colors.background,
-    fontSize: 16,
-    fontWeight: theme.typography.weights.bold,
-  },
-  competeButton: {
-    backgroundColor: theme.colors.text,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  competeButtonText: {
     color: theme.colors.background,
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,

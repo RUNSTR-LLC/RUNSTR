@@ -136,6 +136,7 @@ export class AmberNDKSigner implements NDKSigner {
         { type: 'sign_event', kind: 1301 }, // Workout events
         { type: 'sign_event', kind: 30000 }, // Team member lists
         { type: 'sign_event', kind: 30001 }, // Additional lists
+        { type: 'sign_event', kind: 30078 }, // Replaceable app data (backups)
         { type: 'sign_event', kind: 33404 }, // Team events
         { type: 'nip04_encrypt' },
         { type: 'nip04_decrypt' },
@@ -384,7 +385,7 @@ export class AmberNDKSigner implements NDKSigner {
     }
   }
 
-  async encrypt(recipient: NDKUser | string, value: string): Promise<string> {
+  async encrypt(recipient: NDKUser | string, value: string, scheme?: string): Promise<string> {
     if (Platform.OS !== 'android') {
       throw new Error('Amber is only available on Android');
     }
@@ -393,7 +394,8 @@ export class AmberNDKSigner implements NDKSigner {
 
     const recipientPubkey =
       typeof recipient === 'string' ? recipient : recipient.pubkey;
-    console.log('[Amber] Encrypting message via Activity Result');
+    const intentType = scheme === 'nip44' ? 'nip44_encrypt' : 'nip04_encrypt';
+    console.log(`[Amber] Encrypting message via Activity Result (${intentType})`);
 
     try {
       // Use timeout wrapper to prevent indefinite hangs
@@ -402,7 +404,7 @@ export class AmberNDKSigner implements NDKSigner {
         {
           data: 'nostrsigner:',
           extra: {
-            type: 'nip04_encrypt',
+            type: intentType,
             pubkey: recipientPubkey,
             plaintext: value,
             current_user: this._pubkey, // Tell Amber which account to use
@@ -456,7 +458,7 @@ export class AmberNDKSigner implements NDKSigner {
     }
   }
 
-  async decrypt(sender: NDKUser | string, value: string): Promise<string> {
+  async decrypt(sender: NDKUser | string, value: string, scheme?: string): Promise<string> {
     if (Platform.OS !== 'android') {
       throw new Error('Amber is only available on Android');
     }
@@ -464,7 +466,8 @@ export class AmberNDKSigner implements NDKSigner {
     await this.blockUntilReady();
 
     const senderPubkey = typeof sender === 'string' ? sender : sender.pubkey;
-    console.log('[Amber] Decrypting message via Activity Result');
+    const intentType = scheme === 'nip44' ? 'nip44_decrypt' : 'nip04_decrypt';
+    console.log(`[Amber] Decrypting message via Activity Result (${intentType})`);
 
     try {
       // Use timeout wrapper to prevent indefinite hangs
@@ -473,7 +476,7 @@ export class AmberNDKSigner implements NDKSigner {
         {
           data: 'nostrsigner:',
           extra: {
-            type: 'nip04_decrypt',
+            type: intentType,
             pubkey: senderPubkey,
             ciphertext: value,
             current_user: this._pubkey, // Tell Amber which account to use

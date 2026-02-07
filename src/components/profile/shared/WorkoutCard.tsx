@@ -8,6 +8,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { theme } from '../../../styles/theme';
 import type { WorkoutType } from '../../../types/workout';
 import { formatDistance } from '../../../utils/distanceFormatter';
+import { useUnitPreference } from '../../../hooks/useUnitPreference';
 
 interface Workout {
   id: string;
@@ -38,12 +39,14 @@ interface WorkoutCardProps {
   children?: React.ReactNode;
 }
 
-export const WorkoutCard: React.FC<WorkoutCardProps> = ({
+export const WorkoutCard: React.FC<WorkoutCardProps> = React.memo(({
   workout,
   showPostButton,
   onPostToNostr,
   children,
 }) => {
+  const { unitSystem } = useUnitPreference();
+
   const formatDuration = (seconds: number): string => {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
@@ -213,7 +216,7 @@ export const WorkoutCard: React.FC<WorkoutCardProps> = ({
             {workout.distance && (
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>
-                  {formatDistance(workout.distance)}
+                  {formatDistance(workout.distance, unitSystem)}
                 </Text>
                 <Text style={styles.statLabel}>Distance</Text>
               </View>
@@ -241,7 +244,9 @@ export const WorkoutCard: React.FC<WorkoutCardProps> = ({
       {children}
     </View>
   );
-};
+});
+
+WorkoutCard.displayName = 'WorkoutCard';
 
 const styles = StyleSheet.create({
   workoutCard: {

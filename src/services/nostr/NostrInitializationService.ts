@@ -39,7 +39,6 @@ export class NostrInitializationService {
         'wss://relay.damus.io',
         'wss://relay.primal.net',
         'wss://nos.lol',
-        'wss://relay.nostr.band',
       ];
 
       // Store relay URLs for later use

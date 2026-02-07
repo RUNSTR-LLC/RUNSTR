@@ -7,6 +7,7 @@ RUNSTR is an anonymous fitness tracker that rewards cardio workouts with Bitcoin
 
 📖 **For workout event specification, see**: [docs/KIND_1301_SPEC.md](./docs/KIND_1301_SPEC.md)
 🔐 **For environment setup, see**: [docs/ENVIRONMENT_SETUP.md](./docs/ENVIRONMENT_SETUP.md)
+🏗️ **For full system architecture, see**: [ARCHITECTURE.md](./ARCHITECTURE.md)
 
 ## Four Core Pillars
 
@@ -109,6 +110,47 @@ Workouts include tags for:
 - **Nostr for Workouts**: Kind 1301 events for fitness data
 - **Performance First**: Aggressive caching eliminates loading states
 - **Local-First**: Store locally, sync to Nostr on user action
+
+## Multi-Agent Workflow (MANDATORY)
+
+**CRITICAL: ALWAYS parallelize. Launch agents aggressively. Never do sequentially what can be done concurrently.**
+
+### When given ANY task:
+1. **Break it down** into independent subtasks immediately
+2. **Launch parallel agents** for every subtask that doesn't depend on another
+3. **Use background agents** for long-running work (searches, builds, large refactors)
+4. **Only serialize** when there's a true data dependency (task B needs output from task A)
+
+### When given multiple tasks:
+- Launch ALL of them as parallel agents simultaneously
+- Each agent gets its own branch (per Git Workflow rules)
+- Each agent opens its own PR when done
+- Report a unified summary when all agents complete
+
+### When given a single complex task:
+- Decompose into subtasks (research, implement, test, document)
+- Launch research/exploration agents in parallel first
+- Follow with implementation agents once research returns
+- Run typecheck and verification agents in parallel after implementation
+
+### Agent types to use:
+- **Explore agents**: Codebase research, finding files, understanding patterns
+- **General-purpose agents**: Multi-step implementation, complex changes
+- **Bash agents**: Running builds, tests, git operations
+- **Nostr-dev-expert agents**: Any Nostr/NDK related work
+- **Fitness-tracker-expert agents**: GPS tracking, HealthKit, workout features
+
+### Examples:
+- User says "fix X and add Y" → 2 parallel agents, 2 branches, 2 PRs
+- User says "add hiking tracker" → 1 explore agent (research patterns) + then parallel agents for screen, service, types, navigation
+- User says "investigate why X is slow" → 3 explore agents searching different parts of the codebase simultaneously
+- User says "do these 5 things" → 5 parallel agents, 5 branches, 5 PRs
+
+### Rules:
+- **Default is parallel, not sequential** -- justify serialization, never justify parallelization
+- **Minimum 2 agents** for any non-trivial task
+- **Always report back** with a summary of what each agent did
+- **If an agent fails**, don't block others -- report the failure and let the rest finish
 
 ## Global NDK Instance Architecture
 
@@ -241,44 +283,54 @@ Simple three-tab interface with dark theme:
 
 ### **Metro Bundler (JavaScript Engine)**
 - **Purpose**: Transforms and serves your React Native code to the app
-- **Start Command**: `npx expo start --ios` (starts on port 8081)
+- **Start Command**: `npx expo start` (starts on port 8081)
+- **NEVER use `--ios` flag** - this launches Expo Go (wrong app, missing native modules)
 - **Role**: Watches `src/` files, compiles TypeScript/React Native to JavaScript bundles
 - **Logs**: Shows app's `console.log()`, React Native errors, service initializations
 - **Hot Reload**: Changes to `src/` files appear instantly via Fast Refresh
+- **Must stay running** as a persistent background process
 
-### **Xcode (Native iOS Shell)**  
-- **Purpose**: Builds and runs the native iOS wrapper
-- **Start Command**: `open ios/runstrproject.xcworkspace`
+### **Xcode (Native iOS Shell)**
+- **Purpose**: Builds and runs the native RUNSTR app
+- **Start Command**: `open ios/RUNSTR.xcworkspace`
+- **Bundle ID**: `com.anonymous.runstr.project`
 - **Role**: Compiles native iOS code, installs app on device/simulator
 - **The App Logic**: Native shell downloads JavaScript from Metro at `http://localhost:8081`
 - **Logs**: Shows native iOS system events, less useful for app logic debugging
 
 ### **Standard Testing Protocol**
-**When user says "let's test" or requests testing, Claude should:**
+**When user says "let's test" or requests testing, Claude should use the `runstr-simulator` skill, or follow these steps:**
 
 1. **Check Metro Status**: Verify Metro bundler is running on port 8081
-   - If not running: Start with `npx expo start --ios` 
+   ```bash
+   curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/status
+   ```
+   - If not running: `lsof -ti:8081 | xargs kill -9 2>/dev/null; sleep 1; npx expo start &`
    - If running on wrong port: Kill and restart on 8081
-   - If stale: Use `npx expo start --clear --ios` to reset cache
+   - Only use `--clear` flag when debugging asset/cache issues
 
-2. **Open Xcode Workspace**: `open ios/runstrproject.xcworkspace`
+2. **Open Xcode Workspace**: `open ios/RUNSTR.xcworkspace`
    - Select iOS Simulator (not physical device unless specified)
-   - Click Play ▶️ button or Cmd+R
+   - Click Play button or Cmd+R
 
-3. **Monitor Metro Logs**: Use BashOutput tool to check Metro's console output
+3. **Reload App** (without rebuilding in Xcode):
+   ```bash
+   DEVICE_ID=$(xcrun simctl list devices booted -j | python3 -c "import sys,json; devices=json.load(sys.stdin)['devices']; print([d['udid'] for devs in devices.values() for d in devs if d['state']=='Booted'][0])")
+   xcrun simctl terminate "$DEVICE_ID" com.anonymous.runstr.project
+   sleep 1
+   xcrun simctl launch "$DEVICE_ID" com.anonymous.runstr.project
+   ```
+
+4. **Monitor Metro Logs**: Use BashOutput tool to check Metro's console output
    - Metro logs show actual app behavior and JavaScript execution
    - Look for authentication flows, service initialization, errors
    - Ignore Xcode native system logs unless investigating native issues
 
-4. **Force Refresh if Needed**: 
-   - Press `Cmd+R` in iOS Simulator to reload from Metro
-   - Or restart Metro with `--clear` flag if changes aren't appearing
-
 ### **Development Commands**
 - `npm install` - Install dependencies
-- `npx expo start --ios` - **REQUIRED**: Start Metro bundler + open simulator
-- `npx expo start --clear --ios` - Clear Metro cache and restart
-- `open ios/runstrproject.xcworkspace` - Open Xcode (after Metro is running)
+- `npx expo start` - **REQUIRED**: Start Metro bundler on port 8081 (NEVER use `--ios` flag)
+- `npx expo start --clear` - Clear Metro cache and restart (only for asset/cache issues)
+- `open ios/RUNSTR.xcworkspace` - Open Xcode, then Cmd+R to build and run
 - `npm run typecheck` - TypeScript validation
 - `npm run lint` - Code linting
 
@@ -335,18 +387,209 @@ Simple three-tab interface with dark theme:
 
 📖 **For complete workflow and usage instructions, see**: [docs/PRE_LAUNCH_REVIEW_GUIDE.md](./docs/PRE_LAUNCH_REVIEW_GUIDE.md)
 
-## Git Workflow Requirements
-**Commit after every successful fix or feature:**
+## Script-Based Verification & Debugging
 
-**Commit Guidelines:**
-- Use prefix format: `Fix:`, `Feature:`, `Refactor:`, `Docs:`
-- ✅ Commit: successful fixes, completed features, updated folder READMEs
-- ❌ Don't commit: broken code, TypeScript errors, out-of-sync folder READMEs
+**MANDATORY: After implementing any fix or feature, verify it works before reporting "done".**
+
+### After Implementing a Fix or Feature:
+1. Run `npm run typecheck` (baseline -- always do this first)
+2. **Write a short verification script** (10-50 lines) that:
+   - Imports the changed function/service
+   - Feeds it real inputs and edge cases
+   - Prints pass/fail results
+   - Lives in `scripts/verify/` and runs with `npx tsx scripts/verify/<name>.ts`
+3. Run the script and report results to the user before saying "done"
+
+### When Debugging:
+1. **Write a diagnostic script first** before changing code
+   - Reproduce the problem in isolation
+   - Print actual vs expected values
+   - Lives in `scripts/diagnostics/` and runs with `npx tsx scripts/diagnostics/<name>.ts`
+2. Run it to confirm the bug exists
+3. Make the fix
+4. Re-run the diagnostic script to confirm the fix works
+
+### Examples:
+- "Fixed duration parser" → script tests `parseDuration("01:15:55")` returns 4555
+- "Fixed Nostr query" → script runs the query and prints event count
+- "Added new service method" → script calls the method and prints output
+- "Debugging auth issue" → script reads AsyncStorage keys and prints state
+
+### Rules:
+- Scripts go in `scripts/verify/` (verification) or `scripts/diagnostics/` (debugging)
+- Scripts must be runnable with `npx tsx <script>` (Node.js, no device needed)
+- For things that NEED a device (GPS, HealthKit, UI), verify what you can in Node and note what must be manually tested
+- Keep scripts small and focused -- throwaway, not a test suite
+- Always run `npm run typecheck` as the baseline check
+- Delete or keep old scripts as needed -- they're not permanent infrastructure
+
+## Video Creation (Remotion)
+
+**ALWAYS use Remotion for video creation. NEVER use InVideo or other video generation services.**
+
+Remotion is a React-based video framework. The demo video project lives at:
+- **Project:** `/Users/dakotabrown/runstr-demo-video/`
+- **Scenes:** `src/scenes/` (each scene is a React component)
+- **Assets:** `public/` (screenshots, images, audio files)
+- **Output:** `out/` (rendered MP4s)
 
 **Commands:**
+- `npm run studio` -- Opens Remotion Studio at localhost:3000 for preview/editing
+- `npm run render` -- Renders final MP4 to `out/runstr-demo.mp4`
+
+**Video specs:** 1080x1920 (vertical), 30fps, dark theme (#000000 bg, #FF7B1C deep orange, #FFB366 light orange)
+
+**When user asks to create a video:**
+1. Copy any new screenshots to `public/`
+2. Create/update scene components in `src/scenes/`
+3. Wire scenes together using `<TransitionSeries>` from `@remotion/transitions`
+4. Use the app's theme colors (deep orange #FF7B1C, burnt orange #E65100, NOT bright orange)
+5. Enhance with AI-generated assets via PPQ.ai (see AI Enhancement Layer below)
+6. Start studio with `npm run studio` so user can preview
+7. Render with `npm run render` when ready
+
+**Key Remotion rules:**
+- Use `<Img>` from remotion (never HTML `<img>`)
+- Use `staticFile()` for assets in `public/`
+- All animations driven by `useCurrentFrame()` -- NO CSS animations
+- Use `spring()` for natural motion, `interpolate()` for linear
+- Use `<TransitionSeries>` with `fade()` or `slide()` for scene transitions
+- Always `premountFor` on `<Sequence>` components
+
+## AI Enhancement Layer (PPQ.ai)
+
+PPQ.ai (PayPerQ) provides access to 500+ specialized AI models via an OpenAI-compatible API, paid with Bitcoin over Lightning. Use it to enhance video creation, generate images, create music, and more.
+
+**API Key:** Stored in `.env` as `CLAUDE_PPQ_API_KEY` (never hardcode in source files)
+**Base URL:** `https://api.ppq.ai`
+**Auth:** `Authorization: Bearer $CLAUDE_PPQ_API_KEY`
+
+### Image Generation (Nano Banana)
+
+Use Nano Banana (Gemini image models) for AI-generated images via the chat completions endpoint. These models accept text prompts and return images inline.
+
+**Model IDs (confirmed on PPQ.ai):**
+- `google/gemini-2.5-flash-image` -- Nano Banana (fast, ~$0.001/image)
+- `google/gemini-3-pro-image-preview` -- Nano Banana Pro (highest quality, ~$0.005/image)
+- `openai/gpt-5-image` -- GPT-5 Image (~$0.025/image)
+- `openai/gpt-5-image-mini` -- GPT-5 Image Mini (~$0.006/image)
+
+**Usage (via chat completions - images returned as base64 in response):**
 ```bash
-git add . && git status && git commit -m "Fix: description" && git push origin main
+curl -X POST https://api.ppq.ai/v1/chat/completions \
+  -H "Authorization: Bearer $CLAUDE_PPQ_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "google/gemini-2.5-flash-image",
+    "messages": [{"role": "user", "content": "Generate an image: dark fitness app background with deep burnt orange (#E65100) glow, abstract running figure silhouette, 1080x1920 vertical"}]
+  }'
 ```
+
+**For Remotion videos:** Generate images -> save to `runstr-demo-video/public/` -> use with `<Img src={staticFile("generated-bg.png")} />`
+
+### Music Generation (ElevenLabs)
+
+Use ElevenLabs Eleven Music for AI-generated background music and soundtracks.
+
+**Try these endpoints (test in order):**
+```bash
+# Option 1: Dedicated music endpoint
+curl -X POST https://api.ppq.ai/v1/audio/music \
+  -H "Authorization: Bearer $CLAUDE_PPQ_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "elevenlabs/eleven_music", "prompt": "Energetic electronic workout music, 120 BPM, dark atmosphere", "duration_ms": 30000}'
+
+# Option 2: Music via compose endpoint
+curl -X POST https://api.ppq.ai/v1/music/compose \
+  -H "Authorization: Bearer $CLAUDE_PPQ_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Energetic electronic workout music, 120 BPM", "duration_ms": 30000}'
+```
+Note: The exact endpoint for ElevenLabs Music on PPQ.ai needs testing. If neither works, check PPQ.ai docs or UI for the correct path.
+
+**For Remotion videos:** Generate music -> save MP3 to `public/` -> use with `<Audio src={staticFile("bg-music.mp3")} />`
+
+### Text-to-Speech (Voiceovers)
+
+**Endpoint:** `POST /v1/audio/speech`
+```bash
+curl -X POST https://api.ppq.ai/v1/audio/speech \
+  -H "Authorization: Bearer $CLAUDE_PPQ_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"input": "RUNSTR. Run. Earn Bitcoin. Support Charities.", "model": "deepgram_aura_2", "voice": "aura-2-apollo-en"}' \
+  --output voiceover.mp3
+```
+Voices: `aura-2-arcas-en`, `aura-2-thalia-en`, `aura-2-andromeda-en`, `aura-2-helena-en`, `aura-2-apollo-en`, `aura-2-aries-en`
+
+### Speech-to-Text (Subtitles)
+
+**Endpoint:** `POST /v1/audio/transcriptions`
+```bash
+curl -X POST https://api.ppq.ai/v1/audio/transcriptions \
+  -H "Authorization: Bearer $CLAUDE_PPQ_API_KEY" \
+  -F file=@voiceover.mp3 \
+  -F model=nova-3 \
+  -F response_format=srt
+```
+
+### Audio Models
+
+- `openai/gpt-audio` -- GPT Audio (full, ~$0.011/query)
+- `openai/gpt-audio-mini` -- GPT Audio Mini (~$0.003/query)
+
+### Video Enhancement Workflow
+
+When creating enhanced Remotion videos with PPQ.ai:
+1. **Generate background images** via Nano Banana -> save to `public/` -> `<Img>` in scenes
+2. **Generate voiceover** via TTS -> save to `public/` -> `<Audio>` in Remotion
+3. **Generate background music** via ElevenLabs -> save to `public/` -> `<Audio>` in Remotion
+4. **Generate subtitles** via STT on voiceover -> parse SRT -> animate text in scenes
+5. **Write scripts** via chat LLM -> feed into TTS pipeline
+
+### Recommended Models by Task
+
+| Task | Model | Cost |
+|------|-------|------|
+| Background images | `google/gemini-2.5-flash-image` (Nano Banana) | ~$0.001/image |
+| Hero/promo images | `google/gemini-3-pro-image-preview` (Nano Banana Pro) | ~$0.005/image |
+| Voiceovers | `deepgram_aura_2` via `/v1/audio/speech` | fractions of a cent |
+| Subtitles | `nova-3` via `/v1/audio/transcriptions` | fractions of a cent |
+| Script writing | `claude-haiku-4.5` via `/v1/chat/completions` | ~$0.005/query |
+| Background music | `elevenlabs/eleven_music` (test endpoint) | TBD |
+
+### Cost
+Pay-per-query via Lightning. No subscription required. Budget-friendly: most operations cost fractions of a cent. Image generation is the most expensive at ~$0.005/image with Nano Banana Pro.
+
+## Git Workflow Requirements
+
+**CRITICAL: All code changes go through branches and pull requests. NEVER push directly to main.**
+
+📖 **For full workflow details, see**: [docs/GIT_WORKFLOW.md](./docs/GIT_WORKFLOW.md)
+
+### Working Branch Model
+The user works on multiple features simultaneously and tests everything together locally. Use a **single working branch per session** that collects all changes, with individual commits per logical change.
+
+### Rules (Claude MUST follow these automatically):
+1. **At session start**, check if a working branch exists. If not, create one:
+   ```bash
+   git checkout main && git pull origin main
+   git checkout -b dev/<short-description-of-session>
+   ```
+   - Use `dev/` prefix for working branches (e.g., `dev/feb-updates`, `dev/rewards-and-tracking-fixes`)
+   - If the user specifies a focused task, use a specific prefix: `feature/`, `fix/`, `refactor/`, `docs/`, `chore/`
+2. **Commit after every meaningful change** -- don't wait to be asked
+   - Run `npm run typecheck` before every commit
+   - Stage specific files (`git add src/path/to/file.ts`) -- NEVER use `git add .`
+   - Use prefix format: `Fix:`, `Feature:`, `Refactor:`, `Docs:`, `Chore:`
+   - ✅ Commit: working fixes, completed feature steps, doc updates
+   - ❌ Don't commit: broken code, TypeScript errors, secrets
+3. **All changes stay on the same branch** so the user can test everything together locally
+4. **Push + open a PR** when the user says they're done or asks to ship:
+   ```bash
+   git push -u origin dev/<branch-name>
+   gh pr create --title "<description>" --body "..."
+   ```
+5. **NEVER push directly to main** -- all changes merge via PR after CI passes
 
 ## Folder Documentation Requirements
 **Update folder READMEs when adding/removing/changing files:**

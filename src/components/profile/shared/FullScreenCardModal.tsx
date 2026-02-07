@@ -4,7 +4,7 @@
  * Supports themed photo overlays: MINIMAL, TACTICAL, TOUGH
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Modal,
   View,
@@ -14,14 +14,21 @@ import {
   Image,
   Dimensions,
   ActivityIndicator,
+  Platform,
+  StatusBar as RNStatusBar,
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+import { useTranslation } from 'react-i18next';
+import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import { captureRef } from 'react-native-view-shot';
+import Toast from 'react-native-toast-message';
 import { WorkoutCardRenderer } from '../../cards/WorkoutCardRenderer';
 import { WorkoutCardGenerator } from '../../../services/nostr/workoutCardGenerator';
 import { FullScreenVerticalCard } from './FullScreenVerticalCard';
 import { theme } from '../../../styles/theme';
 import type { PublishableWorkout } from '../../../services/nostr/workoutPublishingService';
+import { useUnitPreference } from '../../../hooks/useUnitPreference';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -67,6 +74,7 @@ interface FullScreenCardModalProps {
   userAvatar?: string;
   userName?: string;
   photoStyle?: PhotoStyle;
+  onPostToNostr?: (cardImageUri?: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 export const FullScreenCardModal: React.FC<FullScreenCardModalProps> = ({
@@ -78,7 +86,13 @@ export const FullScreenCardModal: React.FC<FullScreenCardModalProps> = ({
   userAvatar,
   userName,
   photoStyle = 'minimal',
+  onPostToNostr,
 }) => {
+  const { t } = useTranslation('profile');
+  const { isMetric, distanceLabel, paceLabel } = useUnitPreference();
+  const [isPosting, setIsPosting] = useState(false);
+  const captureViewRef = useRef<View>(null);
+
   // Calculate photo dimensions for custom photo overlay
   const photoWidth = SCREEN_WIDTH - 32; // 16px padding on each side
   const photoHeight = SCREEN_HEIGHT * 0.75; // 75% of screen height
@@ -112,6 +126,26 @@ export const FullScreenCardModal: React.FC<FullScreenCardModalProps> = ({
     }
   }, [visible]);
 
+  // Android status bar control - use imperative API for reliable hiding
+  useEffect(() => {
+    if (visible && Platform.OS === 'android') {
+      // Make status bar translucent so content draws underneath
+      RNStatusBar.setTranslucent(true);
+      // Hide the status bar completely
+      RNStatusBar.setHidden(true, 'fade');
+      // Set background transparent in case it shows momentarily
+      RNStatusBar.setBackgroundColor('transparent');
+    }
+
+    return () => {
+      if (Platform.OS === 'android') {
+        // Restore status bar when modal closes
+        RNStatusBar.setHidden(false, 'fade');
+        RNStatusBar.setBackgroundColor('#000000');
+      }
+    };
+  }, [visible]);
+
   const generateCard = async () => {
     if (!workout) return;
     setIsGenerating(true);
@@ -131,15 +165,26 @@ export const FullScreenCardModal: React.FC<FullScreenCardModalProps> = ({
 
   // Helper: get workout stats
   const getWorkoutStats = () => {
-    if (!workout) return { durationStr: '0:00', distanceKm: null, paceMinKm: null, activityUpper: 'WORKOUT', isStrength: false, totalReps: null, sets: null, reps: null };
+    if (!workout) return { durationStr: '0:00', distanceValue: null, paceValue: null, activityUpper: 'WORKOUT', isStrength: false, totalReps: null, sets: null, reps: null };
     const minutes = Math.floor(workout.duration / 60);
     const seconds = Math.floor(workout.duration % 60);
     const durationStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    const distanceKm = workout.distance ? (workout.distance / 1000).toFixed(2) : null;
-    // Calculate pace in mm:ss format (e.g., "6:02" for 6 minutes 2 seconds per km)
-    const paceMinKm = workout.distance && workout.distance > 0
+
+    // Distance in user's preferred unit
+    const distanceValue = workout.distance
+      ? isMetric
+        ? (workout.distance / 1000).toFixed(2)
+        : (workout.distance * 0.000621371).toFixed(2)
+      : null;
+
+    // Calculate pace in mm:ss format (e.g., "6:02" for 6 minutes 2 seconds per unit)
+    const paceValue = workout.distance && workout.distance > 0
       ? (() => {
-          const totalMinutes = workout.duration / 60 / (workout.distance / 1000);
+          // Convert to user's preferred unit
+          const distanceInUnits = isMetric
+            ? workout.distance / 1000
+            : workout.distance * 0.000621371;
+          const totalMinutes = workout.duration / 60 / distanceInUnits;
           const mins = Math.floor(totalMinutes);
           const secs = Math.round((totalMinutes - mins) * 60);
           return `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -148,35 +193,36 @@ export const FullScreenCardModal: React.FC<FullScreenCardModalProps> = ({
     const activityUpper = workout.type.replace(/_/g, ' ').toUpperCase();
 
     // Strength training stats
+    // Note: workout.reps is already the TOTAL reps (sum across all sets), not per-set
     const isStrength = workout.type === 'strength_training' || workout.type === 'gym';
-    const totalReps = isStrength ? (workout.reps || 0) * (workout.sets || 1) : null;
+    const totalReps = isStrength ? (workout.reps || 0) : null;
     const sets = isStrength ? workout.sets : null;
     const reps = isStrength ? workout.reps : null;
 
-    return { durationStr, distanceKm, paceMinKm, activityUpper, isStrength, totalReps, sets, reps };
+    return { durationStr, distanceValue, paceValue, activityUpper, isStrength, totalReps, sets, reps };
   };
 
   // MINIMAL STYLE - Clean, modern, Instagram-story style
   const renderMinimalOverlay = () => {
-    const { durationStr, distanceKm, paceMinKm } = getWorkoutStats();
+    const { durationStr, distanceValue, paceValue } = getWorkoutStats();
     return (
       <View style={styles.minimalOverlay}>
         <View style={styles.minimalLine} />
         <View style={styles.minimalStatsRow}>
-          {distanceKm && (
+          {distanceValue && (
             <View style={styles.minimalStat}>
-              <Text style={styles.minimalValue}>{distanceKm}</Text>
-              <Text style={styles.minimalLabel}>km</Text>
+              <Text style={styles.minimalValue}>{distanceValue}</Text>
+              <Text style={styles.minimalLabel}>{distanceLabel}</Text>
             </View>
           )}
           <View style={styles.minimalStat}>
             <Text style={styles.minimalValue}>{durationStr}</Text>
             <Text style={styles.minimalLabel}>min</Text>
           </View>
-          {paceMinKm && (
+          {paceValue && (
             <View style={styles.minimalStat}>
-              <Text style={styles.minimalValue}>{paceMinKm}</Text>
-              <Text style={styles.minimalLabel}>/km</Text>
+              <Text style={styles.minimalValue}>{paceValue}</Text>
+              <Text style={styles.minimalLabel}>{paceLabel}</Text>
             </View>
           )}
         </View>
@@ -187,7 +233,7 @@ export const FullScreenCardModal: React.FC<FullScreenCardModalProps> = ({
 
   // TACTICAL STYLE - Military/spec-ops data readout
   const renderTacticalOverlay = () => {
-    const { durationStr, distanceKm, paceMinKm, activityUpper } = getWorkoutStats();
+    const { durationStr, distanceValue, paceValue, activityUpper } = getWorkoutStats();
     return (
       <View style={styles.tacticalOverlay}>
         {/* Corner brackets */}
@@ -200,9 +246,9 @@ export const FullScreenCardModal: React.FC<FullScreenCardModalProps> = ({
           <Text style={styles.tacticalMission}>MISSION: {activityUpper}</Text>
           <View style={styles.tacticalDivider} />
           <View style={styles.tacticalStatsColumn}>
-            {distanceKm && <Text style={styles.tacticalStat}>DIST: {distanceKm} km</Text>}
+            {distanceValue && <Text style={styles.tacticalStat}>DIST: {distanceValue} {distanceLabel}</Text>}
             <Text style={styles.tacticalStat}>TIME: {durationStr}</Text>
-            {paceMinKm && <Text style={styles.tacticalStat}>PACE: {paceMinKm}/km</Text>}
+            {paceValue && <Text style={styles.tacticalStat}>PACE: {paceValue}{paceLabel}</Text>}
           </View>
           <View style={styles.tacticalDivider} />
           <Text style={styles.tacticalStatus}>{'▶'} RUNSTR // COMPLETE</Text>
@@ -213,7 +259,7 @@ export const FullScreenCardModal: React.FC<FullScreenCardModalProps> = ({
 
   // TOUGH STYLE - Bold, industrial, high-contrast
   const renderToughOverlay = () => {
-    const { durationStr, distanceKm, paceMinKm, activityUpper } = getWorkoutStats();
+    const { durationStr, distanceValue, paceValue, activityUpper } = getWorkoutStats();
     const activitySpaced = activityUpper.split('').join(' ');
     return (
       <View style={styles.toughOverlay}>
@@ -221,7 +267,7 @@ export const FullScreenCardModal: React.FC<FullScreenCardModalProps> = ({
         <View style={styles.toughContent}>
           <Text style={styles.toughActivity}>{activitySpaced}</Text>
           <Text style={styles.toughStats}>
-            {distanceKm ? `${distanceKm} KM` : ''}{distanceKm ? '  |  ' : ''}{durationStr}{paceMinKm ? `  |  ${paceMinKm} PACE` : ''}
+            {distanceValue ? `${distanceValue} ${distanceLabel.toUpperCase()}` : ''}{distanceValue ? '  |  ' : ''}{durationStr}{paceValue ? `  |  ${paceValue} PACE` : ''}
           </Text>
           <View style={styles.toughUnderline} />
           <Text style={styles.toughBrand}>RUNSTR</Text>
@@ -283,7 +329,7 @@ export const FullScreenCardModal: React.FC<FullScreenCardModalProps> = ({
 
   // Render elegant template as fully native layout (no SVG)
   const renderElegantNative = () => {
-    const { durationStr, distanceKm, paceMinKm, isStrength, totalReps, sets, reps } = getWorkoutStats();
+    const { durationStr, distanceValue, paceValue, isStrength, totalReps, sets, reps } = getWorkoutStats();
 
     // Get team from workout metadata or default to ALS Network
     const teamName = workout?.metadata?.team || 'ALS Network';
@@ -293,7 +339,7 @@ export const FullScreenCardModal: React.FC<FullScreenCardModalProps> = ({
         {/* TOP: Username + Quote */}
         <View style={styles.elegantTop}>
           <Text style={styles.elegantUsername}>
-            {userName || 'Anonymous Athlete'}
+            {userName || t('anonymousAthlete')}
           </Text>
           <Text style={styles.elegantQuote}>"{wrapperQuote}"</Text>
         </View>
@@ -323,12 +369,12 @@ export const FullScreenCardModal: React.FC<FullScreenCardModalProps> = ({
           ) : (
             /* CARDIO STATS */
             <>
-              {distanceKm && (
-                <Text style={styles.elegantStat}>{distanceKm} km</Text>
+              {distanceValue && (
+                <Text style={styles.elegantStat}>{distanceValue} {distanceLabel}</Text>
               )}
               <Text style={styles.elegantStat}>{durationStr}</Text>
-              {paceMinKm && (
-                <Text style={styles.elegantStatSecondary}>{paceMinKm} /km</Text>
+              {paceValue && (
+                <Text style={styles.elegantStatSecondary}>{paceValue} {paceLabel}</Text>
               )}
             </>
           )}
@@ -406,7 +452,7 @@ export const FullScreenCardModal: React.FC<FullScreenCardModalProps> = ({
 
     // Text-based achievement template (no emojis)
     if (templateId === 'achievement' && workout) {
-      const { durationStr, distanceKm, activityUpper } = getWorkoutStats();
+      const { durationStr, distanceValue, activityUpper } = getWorkoutStats();
       return (
         <View style={styles.textCardContainer}>
           <Text style={styles.textCardTitle}>
@@ -414,8 +460,8 @@ export const FullScreenCardModal: React.FC<FullScreenCardModalProps> = ({
           </Text>
           <View style={styles.textCardDivider} />
           <Text style={styles.textCardDuration}>{durationStr}</Text>
-          {distanceKm && (
-            <Text style={styles.textCardDistance}>{distanceKm} km</Text>
+          {distanceValue && (
+            <Text style={styles.textCardDistance}>{distanceValue} {distanceLabel}</Text>
           )}
           <Text style={styles.textCardHashtags}>#RUNSTR</Text>
         </View>
@@ -445,34 +491,149 @@ export const FullScreenCardModal: React.FC<FullScreenCardModalProps> = ({
     return null;
   };
 
+  // Handle posting to Nostr (captures card and calls callback)
+  const handlePost = async () => {
+    if (!onPostToNostr || !captureViewRef.current) return;
+
+    setIsPosting(true);
+    try {
+      // Capture the full-screen card as an image
+      const uri = await captureRef(captureViewRef, {
+        format: 'png',
+        quality: 1,
+        result: 'tmpfile',
+      });
+
+      console.log('[FullScreenCard] Captured card image:', uri?.substring(0, 50));
+
+      // Call the post callback with the captured image
+      const result = await onPostToNostr(uri);
+
+      if (result.success) {
+        Toast.show({
+          type: 'success',
+          text1: 'Posted to Nostr!',
+          text2: 'Your workout has been shared',
+          position: 'bottom',
+          visibilityTime: 3000,
+        });
+        onClose();
+        return; // Exit early - don't update state on unmounting component
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Post Failed',
+          text2: result.error || 'Could not post to Nostr',
+          position: 'bottom',
+          visibilityTime: 4000,
+        });
+      }
+    } catch (error) {
+      console.error('[FullScreenCard] Post error:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Post Failed',
+        text2: 'Could not capture card',
+        position: 'bottom',
+        visibilityTime: 4000,
+      });
+    }
+    // Only reset isPosting if we didn't close (i.e. there was an error)
+    setIsPosting(false);
+  };
+
   return (
-    <>
-      {visible && <StatusBar hidden={true} />}
-      <Modal
-        visible={visible}
-        animationType="fade"
-        transparent={false}
-        statusBarTranslucent
-        onRequestClose={onClose}
-      >
-        <TouchableOpacity
-          style={styles.container}
-          activeOpacity={1}
-          onPress={onClose}
-        >
+    <Modal
+      visible={visible}
+      animationType="fade"
+      transparent={false}
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
+      {/* iOS: Use declarative expo-status-bar. Android: Handled imperatively via useEffect */}
+      {Platform.OS === 'ios' && <ExpoStatusBar hidden={true} />}
+      <View style={styles.container}>
+        {/* Capture wrapper for screenshot */}
+        <View ref={captureViewRef} collapsable={false} style={styles.captureWrapper}>
           <View style={styles.cardContainer}>
             {renderContent()}
           </View>
-        </TouchableOpacity>
-      </Modal>
-    </>
+        </View>
+
+        {/* Post to Nostr button (only if callback provided) */}
+        {onPostToNostr && (
+          <View style={styles.postButtonContainer}>
+            <TouchableOpacity
+              style={[styles.postButton, isPosting && styles.postButtonDisabled]}
+              onPress={handlePost}
+              disabled={isPosting}
+            >
+              {isPosting ? (
+                <ActivityIndicator size="small" color={theme.colors.accentText} />
+              ) : (
+                <>
+                  <Ionicons name="paper-plane-outline" size={20} color={theme.colors.accentText} />
+                  <Text style={styles.postButtonText}>Post to Nostr</Text>
+                </>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Tap to close (only if no post callback - screenshot mode) */}
+        {!onPostToNostr && (
+          <TouchableOpacity
+            style={styles.closeOverlay}
+            activeOpacity={1}
+            onPress={onClose}
+          />
+        )}
+      </View>
+    </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
+  container: { flex: 1, backgroundColor: '#000' },
+  captureWrapper: { flex: 1, backgroundColor: '#000' },
   cardContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   cardWrapper: { overflow: 'hidden', borderRadius: 12 },
+  closeOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  postButtonContainer: {
+    position: 'absolute',
+    bottom: 40,
+    left: 20,
+    right: 20,
+    gap: 12,
+  },
+  postButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.accent,
+    paddingVertical: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  postButtonDisabled: {
+    opacity: 0.6,
+  },
+  postButtonText: {
+    color: theme.colors.accentText,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cancelButton: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  cancelButtonText: {
+    color: theme.colors.textMuted,
+    fontSize: 14,
+  },
   photoWithOverlay: { position: 'relative', borderRadius: 16, overflow: 'hidden' },
   customPhotoBackground: { position: 'absolute', top: 0, left: 0 },
   gradientOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, height: '50%' },

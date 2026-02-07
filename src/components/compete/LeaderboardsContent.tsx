@@ -2,16 +2,29 @@
  * LeaderboardsContent - Embeddable leaderboards for Compete screen toggle
  * Shows daily leaderboards for ALL users with workouts today (running + steps)
  *
- * ARCHITECTURE: Uses DailyLeaderboardService (Supabase-backed)
+ * CURRENT ARCHITECTURE: Uses DailyLeaderboardService (Supabase-backed)
  * - Queries Supabase for today's workouts (~500ms vs 3-5s with Nostr)
  * - Running workouts for time leaderboards (5K/10K/Half/Marathon)
  * - Walking workouts for steps leaderboard
  * - Top 25 display with user position shown below if outside top 25
  * - Server-side anti-cheat validation
+ *
+ * FUTURE ARCHITECTURE: When external aggregator is deployed, swap to NostrLeaderboardService
+ * - External service publishes kind 30150 note every 2 minutes with all leaderboard data
+ * - App fetches ONE note containing all competitions, entries, and embedded profile data
+ * - Cache-first strategy: Show cached data immediately, pull-to-refresh for fresh
+ * - No more Supabase dependency for leaderboards
+ *
+ * TODO: When NostrLeaderboardService.ts has an active aggregator:
+ * 1. Import NostrLeaderboardService
+ * 2. Replace DailyLeaderboardService.getGlobalDailyLeaderboards() with
+ *    NostrLeaderboardService.getCachedLeaderboard() for instant display
+ * 3. Call NostrLeaderboardService.refreshLeaderboard() on pull-to-refresh
  */
 
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { DailyLeaderboardCard } from '../team/DailyLeaderboardCard';
@@ -32,6 +45,8 @@ interface GlobalLeaderboards {
 interface LeaderboardsContentProps {
   /** Increment to trigger re-fetch after pull-to-refresh */
   refreshTrigger?: number;
+  /** Callback when refresh completes (for pull-to-refresh spinner) */
+  onRefreshComplete?: () => void;
 }
 
 // ============================================================================
@@ -40,6 +55,7 @@ interface LeaderboardsContentProps {
 
 export const LeaderboardsContent: React.FC<LeaderboardsContentProps> = ({
   refreshTrigger = 0,
+  onRefreshComplete,
 }) => {
   const [globalLeaderboards, setGlobalLeaderboards] = useState<GlobalLeaderboards>({
     leaderboard5k: [],
@@ -49,6 +65,14 @@ export const LeaderboardsContent: React.FC<LeaderboardsContentProps> = ({
     leaderboardSteps: [],
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [currentUserNpub, setCurrentUserNpub] = useState<string | null>(null);
+
+  // Fetch current user's npub for "Your position" display
+  useEffect(() => {
+    AsyncStorage.getItem('@runstr:npub').then(npub => {
+      if (npub) setCurrentUserNpub(npub);
+    });
+  }, []);
 
   // Load leaderboards from DailyLeaderboardService (Supabase-backed)
   // Queries Supabase for today's workouts - ~500ms vs 3-5s with Nostr
@@ -81,11 +105,15 @@ export const LeaderboardsContent: React.FC<LeaderboardsContentProps> = ({
         console.error('[LeaderboardsContent] Failed to load leaderboards:', error);
       } finally {
         setIsLoading(false);
+        // Signal to parent that refresh is complete (for pull-to-refresh spinner)
+        if (refreshTrigger > 0 && onRefreshComplete) {
+          onRefreshComplete();
+        }
       }
     };
 
     loadLeaderboards();
-  }, [refreshTrigger]);
+  }, [refreshTrigger, onRefreshComplete]);
 
   // Calculate if there are any active leaderboards
   const hasAnyLeaderboards =
@@ -146,6 +174,7 @@ export const LeaderboardsContent: React.FC<LeaderboardsContentProps> = ({
             participants={globalLeaderboards.leaderboard5k.length}
             entries={globalLeaderboards.leaderboard5k}
             onPress={() => console.log('Navigate to 5K leaderboard')}
+            currentUserPubkey={currentUserNpub || undefined}
           />
         )}
 
@@ -156,6 +185,7 @@ export const LeaderboardsContent: React.FC<LeaderboardsContentProps> = ({
             participants={globalLeaderboards.leaderboard10k.length}
             entries={globalLeaderboards.leaderboard10k}
             onPress={() => console.log('Navigate to 10K leaderboard')}
+            currentUserPubkey={currentUserNpub || undefined}
           />
         )}
 
@@ -166,6 +196,7 @@ export const LeaderboardsContent: React.FC<LeaderboardsContentProps> = ({
             participants={globalLeaderboards.leaderboardHalf.length}
             entries={globalLeaderboards.leaderboardHalf}
             onPress={() => console.log('Navigate to Half Marathon leaderboard')}
+            currentUserPubkey={currentUserNpub || undefined}
           />
         )}
 
@@ -176,6 +207,7 @@ export const LeaderboardsContent: React.FC<LeaderboardsContentProps> = ({
             participants={globalLeaderboards.leaderboardMarathon.length}
             entries={globalLeaderboards.leaderboardMarathon}
             onPress={() => console.log('Navigate to Marathon leaderboard')}
+            currentUserPubkey={currentUserNpub || undefined}
           />
         )}
 
@@ -187,6 +219,7 @@ export const LeaderboardsContent: React.FC<LeaderboardsContentProps> = ({
             entries={globalLeaderboards.leaderboardSteps}
             onPress={() => console.log('Navigate to Steps leaderboard')}
             participantLabel="walker"
+            currentUserPubkey={currentUserNpub || undefined}
           />
         )}
       </View>

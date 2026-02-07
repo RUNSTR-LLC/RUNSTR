@@ -25,7 +25,7 @@ interface AvatarProps {
   showIcon?: boolean; // Legacy prop, not used but kept for compatibility
 }
 
-export const Avatar: React.FC<AvatarProps> = ({
+export const Avatar: React.FC<AvatarProps> = React.memo(({
   size = theme.layout.avatarSize, // Default to 36px (leaderboard size)
   imageUrl,
   imageSource,
@@ -139,7 +139,7 @@ export const Avatar: React.FC<AvatarProps> = ({
       fadeDuration={0}
     />
   );
-};
+});
 
 const styles = StyleSheet.create({
   // CSS: border-radius: 18px;

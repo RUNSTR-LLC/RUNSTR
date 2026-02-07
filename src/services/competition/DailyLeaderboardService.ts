@@ -1,15 +1,21 @@
 /**
- * Daily Leaderboard Service - Supabase Implementation
+ * Daily Leaderboard Service - Supabase Implementation with Hybrid Support
  *
  * Queries daily leaderboards from Supabase instead of Nostr for:
  * - Better anti-cheat (server-validated workouts)
  * - Faster performance (~500ms vs 3-5s with Nostr)
  * - Universal visibility (all users who submitted)
  *
+ * HYBRID LEADERBOARDS: Also merges local pending workouts that haven't
+ * synced to Supabase yet. This ensures users always see themselves on
+ * the leaderboard even if their submission failed.
+ *
  * Compatible with existing LeaderboardEntry interface.
  */
 
 import { UnifiedCacheService } from '../cache/UnifiedCacheService';
+import { PendingSubmissionService, type PendingSubmission } from './PendingSubmissionService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface LeaderboardEntry {
   rank: number;
@@ -19,6 +25,7 @@ export interface LeaderboardEntry {
   formattedScore: string;
   workoutCount: number;
   lightningAddress?: string;
+  isPending?: boolean; // NEW: true if from local queue, not yet synced
 }
 
 export interface DailyLeaderboards {
@@ -98,30 +105,63 @@ class DailyLeaderboardServiceClass {
     }
 
     try {
-      // Fetch today's verified workouts with leaderboard fields
-      // verified=eq.true filter excludes flagged/impossible workouts
-      const url = `${supabaseUrl}/rest/v1/workout_submissions?` +
+      // Fetch today's workouts with leaderboard fields
+      // REMOVED verified=eq.true filter - show all workouts regardless of verification status
+      // Anti-cheat validation already filters out impossible workouts (they go to flagged_workouts table)
+      // Users were not appearing on leaderboard because verification status was not being set properly
+      // ADDED source=eq.app filter - only show workouts submitted through RUNSTR app
+      // This prevents cheaters from creating fake kind 1301 events via terminal that get picked up by nostr_scan
+      const workoutUrl = `${supabaseUrl}/rest/v1/workout_submissions?` +
         `leaderboard_date=eq.${todayDate}&` +
-        `verified=eq.true&` +
-        `select=npub,time_5k_seconds,time_10k_seconds,time_half_seconds,time_marathon_seconds,step_count,profile_name,profile_picture,activity_type`;
+        `source=eq.app&` +
+        `select=npub,time_5k_seconds,time_10k_seconds,time_half_seconds,time_marathon_seconds,step_count,profile_name,profile_picture,activity_type&` +
+        `limit=10000`;
 
-      const response = await fetch(url, {
-        headers: {
-          apikey: supabaseKey,
-          Authorization: `Bearer ${supabaseKey}`,
-        },
-      });
+      // Fetch banned users (permanent bans have null expires_at, temp bans have future expires_at)
+      const now = new Date().toISOString();
+      const bannedUrl = `${supabaseUrl}/rest/v1/banned_users?` +
+        `select=npub&` +
+        `or=(expires_at.is.null,expires_at.gt.${now})`;
 
-      if (!response.ok) {
-        console.error(`[DailyLeaderboard/Supabase] Query failed: ${response.status}`);
+      // Fetch both in parallel
+      const [workoutResponse, bannedResponse] = await Promise.all([
+        fetch(workoutUrl, {
+          headers: {
+            apikey: supabaseKey,
+            Authorization: `Bearer ${supabaseKey}`,
+          },
+        }),
+        fetch(bannedUrl, {
+          headers: {
+            apikey: supabaseKey,
+            Authorization: `Bearer ${supabaseKey}`,
+          },
+        }),
+      ]);
+
+      if (!workoutResponse.ok) {
+        console.error(`[DailyLeaderboard/Supabase] Workout query failed: ${workoutResponse.status}`);
         return this.emptyLeaderboards(todayDate);
       }
 
-      const rows: SupabaseWorkoutRow[] = await response.json();
-      console.log(`📊 [DailyLeaderboard/Supabase] Fetched ${rows.length} workouts`);
+      const allRows: SupabaseWorkoutRow[] = await workoutResponse.json();
 
-      // Build leaderboards
-      const result: DailyLeaderboards = {
+      // Build set of banned npubs
+      let bannedNpubs = new Set<string>();
+      if (bannedResponse.ok) {
+        const bannedUsers: { npub: string }[] = await bannedResponse.json();
+        bannedNpubs = new Set(bannedUsers.map(b => b.npub));
+        if (bannedNpubs.size > 0) {
+          console.log(`📊 [DailyLeaderboard/Supabase] Filtering out ${bannedNpubs.size} banned users`);
+        }
+      }
+
+      // Filter out banned users
+      const rows = allRows.filter(r => !bannedNpubs.has(r.npub));
+      console.log(`📊 [DailyLeaderboard/Supabase] Fetched ${allRows.length} workouts, ${rows.length} after ban filter`);
+
+      // Build leaderboards from Supabase data
+      const supabaseResult: DailyLeaderboards = {
         date: todayDate,
         leaderboard5k: this.buildTimeLeaderboard(rows, 'time_5k_seconds', 'running'),
         leaderboard10k: this.buildTimeLeaderboard(rows, 'time_10k_seconds', 'running'),
@@ -129,6 +169,23 @@ class DailyLeaderboardServiceClass {
         leaderboardMarathon: this.buildTimeLeaderboard(rows, 'time_marathon_seconds', 'running'),
         leaderboardSteps: this.buildStepsLeaderboard(rows),
       };
+
+      // ========== HYBRID LEADERBOARDS: Merge pending submissions ==========
+      // Get current user's npub to identify their pending workouts
+      const currentUserNpub = await AsyncStorage.getItem('@runstr:npub');
+
+      // Get pending submissions for today
+      const pendingToday = await PendingSubmissionService.getPendingForToday();
+
+      // Filter to current user's pending (we only show the current user's pending workouts)
+      const userPending = currentUserNpub
+        ? pendingToday.filter(p => p.submissionData.npub === currentUserNpub)
+        : [];
+
+      console.log(`📊 [DailyLeaderboard/Supabase] Pending workouts for merge: ${userPending.length}`);
+
+      // Merge pending workouts with Supabase results
+      const result = this.mergeWithPending(supabaseResult, userPending);
 
       // Log counts
       console.log(
@@ -255,6 +312,178 @@ class DailyLeaderboardServiceClass {
       leaderboardMarathon: [],
       leaderboardSteps: [],
     };
+  }
+
+  /**
+   * Merge pending submissions with Supabase leaderboard data
+   * Adds local pending workouts that aren't already in Supabase
+   */
+  private mergeWithPending(
+    supabaseData: DailyLeaderboards,
+    pendingWorkouts: PendingSubmission[]
+  ): DailyLeaderboards {
+    if (pendingWorkouts.length === 0) {
+      return supabaseData;
+    }
+
+    const result = { ...supabaseData };
+
+    for (const pending of pendingWorkouts) {
+      const { submissionData } = pending;
+      const npub = submissionData.npub;
+      const activityType = submissionData.type?.toLowerCase();
+      const distanceKm = submissionData.distance / 1000;
+      const durationSeconds = submissionData.duration;
+
+      // Check if this workout is already in Supabase (by npub match)
+      // We don't want to show duplicates
+      const isInSupabase = (leaderboard: LeaderboardEntry[]) =>
+        leaderboard.some(entry => entry.npub === npub);
+
+      // For running workouts, add to appropriate distance leaderboard
+      if (activityType === 'running') {
+        // 5K leaderboard (distance >= 5km)
+        if (distanceKm >= 5 && !isInSupabase(result.leaderboard5k)) {
+          const time5k = this.calculateTimeForDistance(durationSeconds, distanceKm, 5);
+          result.leaderboard5k = this.addPendingEntry(
+            result.leaderboard5k,
+            npub,
+            time5k,
+            true // isPending
+          );
+        }
+
+        // 10K leaderboard (distance >= 10km)
+        if (distanceKm >= 10 && !isInSupabase(result.leaderboard10k)) {
+          const time10k = this.calculateTimeForDistance(durationSeconds, distanceKm, 10);
+          result.leaderboard10k = this.addPendingEntry(
+            result.leaderboard10k,
+            npub,
+            time10k,
+            true
+          );
+        }
+
+        // Half Marathon leaderboard (distance >= 21.1km)
+        if (distanceKm >= 21.1 && !isInSupabase(result.leaderboardHalf)) {
+          const timeHalf = this.calculateTimeForDistance(durationSeconds, distanceKm, 21.1);
+          result.leaderboardHalf = this.addPendingEntry(
+            result.leaderboardHalf,
+            npub,
+            timeHalf,
+            true
+          );
+        }
+
+        // Marathon leaderboard (distance >= 42.2km)
+        if (distanceKm >= 42.2 && !isInSupabase(result.leaderboardMarathon)) {
+          const timeMarathon = this.calculateTimeForDistance(durationSeconds, distanceKm, 42.2);
+          result.leaderboardMarathon = this.addPendingEntry(
+            result.leaderboardMarathon,
+            npub,
+            timeMarathon,
+            true
+          );
+        }
+      }
+
+      // For walking workouts with steps, add to steps leaderboard
+      if (activityType === 'walking' && !isInSupabase(result.leaderboardSteps)) {
+        // Extract steps from tags
+        const stepsTag = submissionData.tags?.find(t => t[0] === 'steps');
+        const steps = stepsTag ? parseInt(stepsTag[1]) || 0 : 0;
+
+        if (steps > 0) {
+          result.leaderboardSteps = this.addPendingStepsEntry(
+            result.leaderboardSteps,
+            npub,
+            steps,
+            true
+          );
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Calculate time for a specific distance based on pace
+   * Used for hybrid leaderboards when extrapolating from total distance
+   */
+  private calculateTimeForDistance(
+    totalDurationSeconds: number,
+    totalDistanceKm: number,
+    targetDistanceKm: number
+  ): number {
+    if (totalDistanceKm <= 0) return totalDurationSeconds;
+
+    // If workout exactly matches target, return actual time
+    if (Math.abs(totalDistanceKm - targetDistanceKm) < 0.1) {
+      return totalDurationSeconds;
+    }
+
+    // Calculate pace and extrapolate
+    const pacePerKm = totalDurationSeconds / totalDistanceKm;
+    return Math.round(pacePerKm * targetDistanceKm);
+  }
+
+  /**
+   * Add a pending entry to a time-based leaderboard and re-sort
+   */
+  private addPendingEntry(
+    leaderboard: LeaderboardEntry[],
+    npub: string,
+    timeSeconds: number,
+    isPending: boolean
+  ): LeaderboardEntry[] {
+    const entry: LeaderboardEntry = {
+      rank: 0,
+      npub,
+      name: 'Anonymous Athlete', // Will be resolved by profile lookup in UI
+      score: timeSeconds,
+      formattedScore: this.formatTime(timeSeconds),
+      workoutCount: 1,
+      isPending,
+    };
+
+    // Add to list
+    const updated = [...leaderboard, entry];
+
+    // Sort by time ascending (fastest first)
+    updated.sort((a, b) => a.score - b.score);
+
+    // Recalculate ranks
+    return updated.map((e, index) => ({ ...e, rank: index + 1 }));
+  }
+
+  /**
+   * Add a pending entry to steps leaderboard and re-sort
+   */
+  private addPendingStepsEntry(
+    leaderboard: LeaderboardEntry[],
+    npub: string,
+    steps: number,
+    isPending: boolean
+  ): LeaderboardEntry[] {
+    const entry: LeaderboardEntry = {
+      rank: 0,
+      npub,
+      name: 'Anonymous Athlete',
+      score: steps,
+      formattedScore: `${steps.toLocaleString()} steps`,
+      workoutCount: 1,
+      isPending,
+    };
+
+    // Add to list
+    const updated = [...leaderboard, entry];
+
+    // Sort by steps descending (most steps first)
+    updated.sort((a, b) => b.score - a.score);
+
+    // Recalculate ranks
+    return updated.map((e, index) => ({ ...e, rank: index + 1 }));
   }
 }
 

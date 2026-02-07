@@ -7,8 +7,47 @@
  *
  * Einundzwanzig donates sats proportional to total distance.
  *
- * Production dates: January 21 - February 21, 2025
+ * Production dates: January 21 - February 21, 2026
  */
+
+// ============================================
+// Demo Mode & Competition ID
+// ============================================
+
+/**
+ * Demo mode - Simulates an active event (started 10 days ago)
+ * Set to true during development, false for production
+ *
+ * When enabled:
+ * - Start date shifts to 10 days ago
+ * - End date shifts to 21 days from now
+ * - Event appears "active" instead of "upcoming"
+ * - Uses real EIN competition data (not Season II)
+ */
+export const EINUNDZWANZIG_DEMO_MODE = false;
+
+// Demo mode dates - pretend event started 10 days ago
+const DEMO_START = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000); // 10 days ago
+const DEMO_END = new Date(Date.now() + 21 * 24 * 60 * 60 * 1000); // 21 days from now
+
+/**
+ * Single Supabase competition ID for combined running+walking leaderboard
+ */
+export const EINUNDZWANZIG_COMPETITION_ID = 'einundzwanzig';
+
+/**
+ * Featured charities for the Einundzwanzig Challenge
+ * These 3 charities are highlighted on the detail screen with total distances
+ */
+export const EINUNDZWANZIG_FEATURED_CHARITIES = [
+  'als-foundation',
+  'ashigaru',
+  'buho-go',
+] as const;
+
+// ============================================
+// Core Configuration
+// ============================================
 
 export interface EinundzwanzigConfig {
   eventId: string;
@@ -25,13 +64,13 @@ export interface EinundzwanzigConfig {
 export const EINUNDZWANZIG_CONFIG: EinundzwanzigConfig = {
   eventId: 'einundzwanzig-2026',
   eventName: 'Einundzwanzig Fitness Challenge',
-  // Production dates: January 21 - February 21, 2026 (1 month)
-  startDate: new Date('2026-01-21T00:00:00Z'),
-  endDate: new Date('2026-02-21T23:59:59Z'),
+  // Use demo dates when demo mode is enabled, otherwise production dates
+  startDate: EINUNDZWANZIG_DEMO_MODE ? DEMO_START : new Date('2026-01-21T00:00:00Z'),
+  endDate: EINUNDZWANZIG_DEMO_MODE ? DEMO_END : new Date('2026-02-21T23:59:59Z'),
   eligibleActivityTypes: ['running', 'walking'],
   satsPerKm: 1000, // 1 km = 1,000 sats donated
   description:
-    'Run or walk for charity! Every kilometer you cover earns 1,000 sats for your selected charity. Join the Einundzwanzig community in supporting Bitcoin worldwide.',
+    'Run or walk for a cause! Every kilometer you cover earns 1,000 sats for your selected team. Join the Einundzwanzig community in supporting Bitcoin worldwide.',
   website: 'https://einundzwanzig.space',
   bannerImage: require('../../assets/images/einundzwanzig/banner.png'),
 };
@@ -138,6 +177,21 @@ export function getDaysSinceStart(): number {
 export function calculateSatsFromDistance(distanceKm: number): number {
   return Math.floor(distanceKm * EINUNDZWANZIG_CONFIG.satsPerKm);
 }
+
+// ============================================
+// Double Rewards Configuration
+// ============================================
+
+/**
+ * Einundzwanzig participants with featured team tags earn double rewards (100 sats)
+ * instead of the standard 50 sats per daily workout during the challenge period.
+ */
+export const EINUNDZWANZIG_REWARD_CONFIG = {
+  baseRewardSats: 50,
+  bonusRewardSats: 100,
+  requiresFeaturedTeam: true,
+  featuredTeams: EINUNDZWANZIG_FEATURED_CHARITIES,
+} as const;
 
 // ============================================
 // Payout Configuration

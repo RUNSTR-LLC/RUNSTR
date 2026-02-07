@@ -56,6 +56,7 @@ export class GarminAuthService {
 
   /**
    * Load OAuth configuration from environment variables
+   * Note: Silently handles missing credentials - errors shown only when OAuth is attempted
    */
   private loadConfig() {
     const clientId =
@@ -69,11 +70,8 @@ export class GarminAuthService {
       process.env.EXPO_PUBLIC_GARMIN_REDIRECT_URI ||
       'https://www.runstr.club/oauth-garmin-callback.html';
 
+    // Silently skip if credentials not configured - will error when OAuth is actually attempted
     if (!clientId || !clientSecret) {
-      console.error('❌ Garmin OAuth credentials not configured');
-      console.error(
-        'Please set EXPO_PUBLIC_GARMIN_CLIENT_ID and EXPO_PUBLIC_GARMIN_CLIENT_SECRET'
-      );
       return;
     }
 
@@ -82,11 +80,6 @@ export class GarminAuthService {
       clientSecret,
       redirectUri,
     };
-
-    console.log('✅ Garmin OAuth configured:', {
-      clientId: clientId.substring(0, 10) + '...',
-      redirectUri,
-    });
   }
 
   /**
@@ -618,4 +611,26 @@ export class GarminAuthService {
   }
 }
 
-export default GarminAuthService.getInstance();
+// Lazy singleton - only initialize when actually used (e.g., OAuth callback or Garmin tab)
+let _garminAuthServiceInstance: GarminAuthService | null = null;
+
+export function getGarminAuthService(): GarminAuthService {
+  if (!_garminAuthServiceInstance) {
+    _garminAuthServiceInstance = GarminAuthService.getInstance();
+  }
+  return _garminAuthServiceInstance;
+}
+
+// For backward compatibility - use a Proxy to lazy-init on property access
+const garminAuthService = new Proxy({} as GarminAuthService, {
+  get(_target, prop) {
+    const instance = getGarminAuthService();
+    const value = (instance as any)[prop];
+    if (typeof value === 'function') {
+      return value.bind(instance);
+    }
+    return value;
+  },
+});
+
+export default garminAuthService;

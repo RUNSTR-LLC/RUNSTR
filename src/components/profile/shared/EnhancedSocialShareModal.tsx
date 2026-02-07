@@ -16,8 +16,10 @@ import {
   Platform,
   Image,
   Alert,
-  SafeAreaView,
+  Keyboard,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
@@ -37,11 +39,12 @@ interface EnhancedSocialShareModalProps {
   userAvatar?: string;
   userName?: string;
   localWorkoutId?: string;
+  onPostToNostr?: (cardImageUri?: string) => Promise<{ success: boolean; error?: string }>;
   onClose: () => void;
   onSuccess?: () => void;
 }
 
-type Template = 'achievement' | 'progress' | 'minimal' | 'stats' | 'elegant' | 'custom_photo' | 'vertical';
+type Template = 'achievement' | 'progress' | 'minimal' | 'stats' | 'elegant' | 'custom_photo' | 'vertical' | 'gallery';
 
 interface TemplateOption {
   id: Template;
@@ -52,7 +55,8 @@ interface TemplateOption {
 
 const TEMPLATE_OPTIONS: TemplateOption[] = [
   { id: 'vertical', name: 'Text', description: 'Workout stats with motivational quote', icon: 'phone-portrait-outline' },
-  { id: 'custom_photo', name: 'Camera', description: 'Your photo with stats overlay', icon: 'camera' },
+  { id: 'custom_photo', name: 'Camera', description: 'Take a photo with stats overlay', icon: 'camera' },
+  { id: 'gallery', name: 'Gallery', description: 'Choose photo from library', icon: 'images-outline' },
   { id: 'elegant', name: 'Profile', description: 'Your avatar with workout stats', icon: 'sparkles' },
 ];
 
@@ -69,9 +73,12 @@ export const EnhancedSocialShareModal: React.FC<EnhancedSocialShareModalProps> =
   userAvatar,
   userName,
   localWorkoutId,
+  onPostToNostr,
   onClose,
   onSuccess,
 }) => {
+  const { t } = useTranslation('profile');
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<Template>('vertical');
   const [cardSvg, setCardSvg] = useState<string>('');
@@ -119,14 +126,16 @@ export const EnhancedSocialShareModal: React.FC<EnhancedSocialShareModalProps> =
 
   const generateCardPreview = async () => {
     if (!workout) return;
-    // Skip SVG generation for native/text templates
-    if (selectedTemplate === 'achievement' || selectedTemplate === 'custom_photo' || selectedTemplate === 'vertical' || selectedTemplate === 'elegant') {
+    // Skip SVG generation for native/text templates (gallery uses custom_photo rendering)
+    if (selectedTemplate === 'achievement' || selectedTemplate === 'custom_photo' || selectedTemplate === 'vertical' || selectedTemplate === 'elegant' || selectedTemplate === 'gallery') {
       if (isMountedRef.current) setCardSvg('');
       return;
     }
     try {
+      // At this point, selectedTemplate is guaranteed to be a valid SVG template
+      // (achievement, progress, minimal, stats, elegant) since we skip native templates above
       const cardData = await cardGenerator.generateWorkoutCard(workout as PublishableWorkout, {
-        template: selectedTemplate,
+        template: selectedTemplate as 'achievement' | 'progress' | 'minimal' | 'stats' | 'elegant',
         userAvatar,
         userName,
       });
@@ -162,9 +171,35 @@ export const EnhancedSocialShareModal: React.FC<EnhancedSocialShareModalProps> =
     }
   };
 
+  const pickPhotoFromGallery = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Photo library access is required to select photos');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [9, 16], // Portrait aspect for fullscreen
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0]) {
+        console.log('🖼️ Photo selected:', result.assets[0].uri.substring(0, 50));
+        setCustomPhotoUri(result.assets[0].uri);
+        setSelectedTemplate('custom_photo');
+      }
+    } catch (error) {
+      console.error('Failed to pick photo:', error);
+      Alert.alert('Error', 'Failed to select photo');
+    }
+  };
+
   const handleTemplateSelect = (templateId: Template) => {
     if (templateId === 'custom_photo') {
       takePhoto();
+    } else if (templateId === 'gallery') {
+      pickPhotoFromGallery();
     } else {
       setSelectedTemplate(templateId);
     }
@@ -172,6 +207,9 @@ export const EnhancedSocialShareModal: React.FC<EnhancedSocialShareModalProps> =
 
   const handleSave = async () => {
     if (!workout) return;
+
+    // Dismiss keyboard to prevent iOS crash during modal transition
+    Keyboard.dismiss();
 
     console.log('🖼️ handleSave called:', {
       selectedTemplate,
@@ -182,8 +220,10 @@ export const EnhancedSocialShareModal: React.FC<EnhancedSocialShareModalProps> =
     if (isMountedRef.current) setLoading(true);
     try {
       if (localWorkoutId) {
+        // Gallery selection uses custom_photo template for storage
+        const storageTemplateId = selectedTemplate === 'gallery' ? 'custom_photo' : selectedTemplate;
         await LocalWorkoutStorageService.saveWorkoutCard(localWorkoutId, {
-          templateId: selectedTemplate,
+          templateId: storageTemplateId,
           customPhotoUri: selectedTemplate === 'custom_photo' ? customPhotoUri || undefined : undefined,
         });
       }
@@ -198,7 +238,8 @@ export const EnhancedSocialShareModal: React.FC<EnhancedSocialShareModalProps> =
   };
 
   const handleFullscreenClose = () => {
-    // Close parent modal first, then hide fullscreen to prevent flash
+    // Reset fullscreen state FIRST to prevent render-during-unmount crash
+    setShowFullscreenPreview(false);
     onSuccess?.();
     onClose();
   };
@@ -210,6 +251,31 @@ export const EnhancedSocialShareModal: React.FC<EnhancedSocialShareModalProps> =
   };
 
   if (!workout) return null;
+
+  // Guard against zero-value workouts that can cause rendering issues
+  if (workout.duration === 0 && (!workout.distance || workout.distance === 0)) {
+    if (visible) {
+      return (
+        <Modal visible={visible} animationType="fade" statusBarTranslucent onRequestClose={onClose}>
+          <View style={[styles.container, { paddingTop: insets.top + (Platform.OS === 'android' ? 16 : 0) }]}>
+            <View style={styles.header}>
+              <TouchableOpacity onPress={onClose} style={styles.backButton}>
+                <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>Share Workout</Text>
+              <View style={styles.headerSpacer} />
+            </View>
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 }}>
+              <Text style={{ color: theme.colors.textMuted, fontSize: 16, textAlign: 'center' }}>
+                No workout data to share yet. Complete a workout first!
+              </Text>
+            </View>
+          </View>
+        </Modal>
+      );
+    }
+    return null;
+  }
 
   const MODAL_PADDING = 40;
   const MAX_PREVIEW_HEIGHT = 180; // Cap preview height to ensure Done button is visible
@@ -274,21 +340,27 @@ export const EnhancedSocialShareModal: React.FC<EnhancedSocialShareModalProps> =
       : null;
     const activityType = workout.type.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     const activityUpper = workout.type.replace(/_/g, ' ').toUpperCase();
-    return { durationStr, distanceKm, paceMinKm, activityType, activityUpper };
+    const steps = workout.steps ?? (workout.metadata as any)?.steps ?? null;
+    return { durationStr, distanceKm, paceMinKm, activityType, activityUpper, steps };
   };
 
   const renderPreview = () => {
     // Vertical full-screen preview
     if (selectedTemplate === 'vertical') {
-      const { durationStr, distanceKm, activityType } = getPreviewStats();
-      const primaryValue = distanceKm ? distanceKm : durationStr;
-      const primaryLabel = distanceKm ? 'KM' : 'MIN';
+      const { durationStr, distanceKm, activityType, steps } = getPreviewStats();
+      const primaryValue = steps ? steps.toLocaleString() : (distanceKm ? distanceKm : durationStr);
+      const primaryLabel = steps ? 'STEPS' : (distanceKm ? 'KM' : 'MIN');
+      // Show estimated distance below steps when both are available
+      const stepDistanceKm = steps && distanceKm ? distanceKm : null;
       return (
         <View style={styles.verticalPreview}>
           <Text style={styles.verticalPreviewBrand}>R U N S T R</Text>
           <Text style={styles.verticalPreviewActivity}>{activityType}</Text>
           <Text style={styles.verticalPreviewValue}>{primaryValue}</Text>
           <Text style={styles.verticalPreviewLabel}>{primaryLabel}</Text>
+          {stepDistanceKm && (
+            <Text style={styles.verticalPreviewEstDistance}>~{stepDistanceKm} km</Text>
+          )}
           <View style={styles.verticalPreviewDivider} />
           <Text style={styles.verticalPreviewQuote}>"Progress, not perfection."</Text>
         </View>
@@ -299,7 +371,7 @@ export const EnhancedSocialShareModal: React.FC<EnhancedSocialShareModalProps> =
       const { durationStr, distanceKm, paceMinKm } = getPreviewStats();
       return (
         <View style={styles.elegantPreview}>
-          <Text style={styles.elegantPreviewUsername}>{userName || 'Anonymous Athlete'}</Text>
+          <Text style={styles.elegantPreviewUsername}>{userName || t('anonymousAthlete')}</Text>
           <Text style={styles.elegantPreviewQuote}>"Consistency beats perfection."</Text>
           <View style={styles.elegantPreviewAvatarCircle}>
             <Text style={styles.elegantPreviewInitial}>
@@ -402,7 +474,7 @@ export const EnhancedSocialShareModal: React.FC<EnhancedSocialShareModalProps> =
   return (
     <Modal visible={visible} animationType="fade" statusBarTranslucent onRequestClose={onClose}>
       <PostingErrorBoundary onClose={onClose} fallbackTitle="Share Error" fallbackMessage="There was an error preparing your post. Please try again.">
-        <SafeAreaView style={styles.container}>
+        <View style={[styles.container, { paddingTop: insets.top + (Platform.OS === 'android' ? 16 : 0) }]}>
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity onPress={onClose} style={styles.backButton}>
@@ -448,7 +520,7 @@ export const EnhancedSocialShareModal: React.FC<EnhancedSocialShareModalProps> =
               <View style={styles.previewContainer}>{renderPreview()}</View>
             </SectionCard>
 
-            {/* Done Button */}
+            {/* Action Button - Post to Nostr when callback provided, otherwise Full Screen for screenshot */}
             <TouchableOpacity
               style={[styles.doneButton, loading && styles.doneButtonDisabled]}
               onPress={handleSave}
@@ -457,12 +529,14 @@ export const EnhancedSocialShareModal: React.FC<EnhancedSocialShareModalProps> =
               {loading ? (
                 <ActivityIndicator size="small" color={theme.colors.accentText} />
               ) : (
-                <Text style={styles.doneButtonText}>Full Screen</Text>
+                <Text style={styles.doneButtonText}>
+                  {onPostToNostr ? 'Post to Nostr' : 'Full Screen'}
+                </Text>
               )}
             </TouchableOpacity>
 
           </View>
-        </SafeAreaView>
+        </View>
       </PostingErrorBoundary>
 
       {/* Fullscreen Preview Modal */}
@@ -470,11 +544,12 @@ export const EnhancedSocialShareModal: React.FC<EnhancedSocialShareModalProps> =
         visible={showFullscreenPreview}
         onClose={handleFullscreenClose}
         workout={workout as PublishableWorkout}
-        templateId={selectedTemplate}
+        templateId={selectedTemplate === 'gallery' ? 'custom_photo' : selectedTemplate}
         customPhotoUri={customPhotoUri}
         userAvatar={userAvatar}
         userName={userName}
         photoStyle={photoStyle}
+        onPostToNostr={onPostToNostr}
       />
     </Modal>
   );
@@ -756,6 +831,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: 'rgba(255,255,255,0.6)',
     letterSpacing: 2,
+  },
+  verticalPreviewEstDistance: {
+    fontSize: 11,
+    fontWeight: '400',
+    color: 'rgba(255,255,255,0.45)',
+    marginTop: 4,
   },
   verticalPreviewDivider: {
     height: 1,

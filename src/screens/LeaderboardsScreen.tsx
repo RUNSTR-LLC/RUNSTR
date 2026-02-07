@@ -4,7 +4,7 @@
  * Shows daily running leaderboards with back navigation to the events page.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,8 +16,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../styles/theme';
 import { LeaderboardsContent } from '../components/compete';
+import { PendingSubmissionService } from '../services/competition/PendingSubmissionService';
+import { StepCompetitionService } from '../services/competition/StepCompetitionService';
 
 interface LeaderboardsScreenProps {
   navigation?: any;
@@ -29,22 +33,76 @@ export const LeaderboardsScreen: React.FC<LeaderboardsScreenProps> = ({ navigati
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup timeout on unmount to prevent state updates on dead component
+  useEffect(() => {
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+        refreshTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   // Refresh handler - triggers re-fetch in LeaderboardsContent
-  // LeaderboardsContent uses SimpleLeaderboardService.getGlobalDailyLeaderboards(forceRefresh=true)
+  // Also retries any pending workout submissions that failed to sync
   const handleRefresh = useCallback(async () => {
-    const t0 = Date.now();
     console.log('[LeaderboardsScreen] Pull-to-refresh started');
     setIsRefreshing(true);
 
+    // Safety timeout - reset spinner after 10 seconds max (prevents frozen UI on network failure)
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+    }
+    refreshTimeoutRef.current = setTimeout(() => {
+      console.log('[LeaderboardsScreen] Refresh timeout safety - resetting spinner');
+      setIsRefreshing(false);
+    }, 10000);
+
+    // Retry pending submissions first (before refreshing leaderboard)
+    try {
+      const retryResult = await PendingSubmissionService.retryAll();
+      if (retryResult.succeeded > 0) {
+        Toast.show({
+          type: 'success',
+          text1: `${retryResult.succeeded} workout${retryResult.succeeded > 1 ? 's' : ''} synced!`,
+          text2: 'Your workout is now on the leaderboard',
+          position: 'bottom',
+          visibilityTime: 3000,
+        });
+      }
+    } catch (error) {
+      console.warn('[LeaderboardsScreen] Retry failed:', error);
+      // Non-blocking - continue with refresh even if retry fails
+    }
+
+    // Sync daily steps for universal leaderboard
+    try {
+      const npub = await AsyncStorage.getItem('@runstr:npub');
+      if (npub) {
+        const stepResult = await StepCompetitionService.forceSubmitSteps(npub);
+        if (stepResult.success) {
+          console.log('[LeaderboardsScreen] Daily steps synced to leaderboard');
+        }
+      }
+    } catch (error) {
+      console.warn('[LeaderboardsScreen] Step sync failed:', error);
+      // Non-blocking - continue with refresh even if step sync fails
+    }
+
     // Increment trigger to tell LeaderboardsContent to re-fetch with forceRefresh
     setRefreshTrigger(prev => prev + 1);
+  }, []);
 
-    // Use setImmediate to bypass iOS timer blocking
-    setImmediate(() => {
-      setIsRefreshing(false);
-      console.log(`[LeaderboardsScreen] Refresh complete: ${Date.now() - t0}ms`);
-    });
+  // Callback from LeaderboardsContent when fetch completes
+  const handleRefreshComplete = useCallback(() => {
+    console.log('[LeaderboardsScreen] Refresh complete');
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+      refreshTimeoutRef.current = null;
+    }
+    setIsRefreshing(false);
   }, []);
 
   return (
@@ -74,7 +132,10 @@ export const LeaderboardsScreen: React.FC<LeaderboardsScreenProps> = ({ navigati
           />
         }
       >
-        <LeaderboardsContent refreshTrigger={refreshTrigger} />
+        <LeaderboardsContent
+          refreshTrigger={refreshTrigger}
+          onRefreshComplete={handleRefreshComplete}
+        />
       </ScrollView>
     </SafeAreaView>
   );

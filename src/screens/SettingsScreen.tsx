@@ -1,14 +1,25 @@
 /**
  * SettingsScreen - Consolidated settings for Account, Teams, and Notifications
  * Accessed from Profile screen settings button
+ *
+ * v3 UPDATE: Step rewards DISABLED - NWC moved to external service
+ * Step-related features (background tracking, step rewards display) are hidden
  */
+
+// v3: Step rewards disabled - NWC moved to external service
+const STEP_REWARDS_ENABLED = false;
+// v3: Hide sats earned display - rewards are now tracked by external service
+// We can't show accurate counts since we don't know if rewards were actually sent
+const SHOW_SATS_EARNED_DISPLAY = false;
 
 import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
+  TextInput,
   StyleSheet,
   ScrollView,
+  KeyboardAvoidingView,
   SafeAreaView,
   TouchableOpacity,
   ActivityIndicator,
@@ -17,14 +28,14 @@ import {
   Modal,
   Platform,
 } from 'react-native';
-import Slider from '@react-native-community/slider';
+// HIDDEN: Speech Speed slider disabled - using default 1.0x speed
+// import Slider from '@react-native-community/slider';
 import { theme } from '../styles/theme';
 import {
   TTSPreferencesService,
   type TTSSettings,
 } from '../services/activity/TTSPreferencesService';
 import { AutoCompetePreferencesService } from '../services/activity/AutoCompetePreferencesService';
-import { StepRewardsPreferencesService } from '../services/activity/StepRewardsPreferencesService';
 import { RewardLightningAddressService } from '../services/rewards/RewardLightningAddressService';
 import TTSAnnouncementService from '../services/activity/TTSAnnouncementService';
 import { DeleteAccountService } from '../services/auth/DeleteAccountService';
@@ -41,15 +52,23 @@ import RNRestart from 'react-native-restart';
 import { dailyStepCounterService } from '../services/activity/DailyStepCounterService';
 import { DailyRewardService } from '../services/rewards/DailyRewardService';
 import { StepRewardService } from '../services/rewards/StepRewardService';
-import { PPQAPIKeyModal } from '../components/ai/PPQAPIKeyModal';
-import { useCoachRunstr } from '../services/ai/useCoachRunstr';
-import { ModelManager } from '../services/ai/ModelManager';
 import { GPSPermissionsDiagnostics } from '../components/permissions/GPSPermissionsDiagnostics';
+import { StepCountDiagnostics } from '../components/permissions/StepCountDiagnostics';
 import { AntiCheatRequestModal } from '../components/settings/AntiCheatRequestModal';
 import Nostr1301ImportService from '../services/fitness/Nostr1301ImportService';
 import { CustomAlertManager } from '../components/ui/CustomAlert';
 import Toast from 'react-native-toast-message';
 import { useSeason2Registration } from '../hooks/useSeason2';
+import { useUnitPreference } from '../hooks/useUnitPreference';
+import { useTranslation } from 'react-i18next';
+import { LanguagePreferenceService } from '../services/i18n/LanguagePreferenceService';
+import { SUPPORTED_LANGUAGES, LanguageCode } from '../i18n';
+import { MusicPlayerPreferencesService } from '../services/music/MusicPlayerPreferencesService';
+import { WoTService } from '../services/wot/WoTService';
+import { ExportDataModal } from '../components/backup/ExportDataModal';
+import { ImportDataModal } from '../components/backup/ImportDataModal';
+import { SecureNsecStorage } from '../services/auth/SecureNsecStorage';
+import { defaultActivityService, type DefaultActivity } from '../services/activity/DefaultActivityService';
 // useAuth removed - using direct AsyncStorage.clear() + CommonActions.reset()
 
 interface SettingsScreenProps {
@@ -98,10 +117,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onSignOut,
 }) => {
   const navigation = useNavigation();
+  const { t } = useTranslation('settings');
   const { isRegistered: isSeason2Participant } = useSeason2Registration();
+  const { isMetric, setUnitSystem } = useUnitPreference();
+  const [currentLanguage, setCurrentLanguage] = useState<LanguageCode>(
+    LanguagePreferenceService.getCurrentLanguage()
+  );
   const [userRole, setUserRole] = useState<'captain' | 'member' | null>(null);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [userNsec, setUserNsec] = useState<string | null>(null);
+  const [userNpub, setUserNpub] = useState<string | null>(null);
   const [ttsSettings, setTtsSettings] = useState<TTSSettings>({
     enabled: true,
     speechRate: 1.0,
@@ -113,14 +138,19 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     useState(false);
   const [autoCompeteEnabled, setAutoCompeteEnabled] = useState(false);
 
-  // Coach RUNSTR AI state
-  const [showPPQModal, setShowPPQModal] = useState(false);
-  const { apiKeyConfigured } = useCoachRunstr();
-  const [selectedAIModel, setSelectedAIModel] =
-    useState<string>('claude-haiku-4.5');
-  const [showModelPicker, setShowModelPicker] = useState(false);
+  // Anti-cheat state
   const [showAntiCheatModal, setShowAntiCheatModal] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [musicPlayerHeaderEnabled, setMusicPlayerHeaderEnabled] = useState(false);
+  const [wotScore, setWotScore] = useState<number | null>(null);
+
+  // Backup/Restore state
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+
+  // Default activity state
+  const [defaultActivity, setDefaultActivity] = useState<DefaultActivity>('run');
+  const [showDefaultActivityPicker, setShowDefaultActivityPicker] = useState(false);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -128,8 +158,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [rewardLightningAddress, setRewardLightningAddress] = useState<string>('');
   const [isValidLightningAddress, setIsValidLightningAddress] = useState(false);
   const [isSavingLightningAddress, setIsSavingLightningAddress] = useState(false);
-  const [stepRewardsToUser, setStepRewardsToUser] = useState(false);
-  const [donationPercentage, setDonationPercentage] = useState<number>(100);
   const [weeklyRewardsEarned, setWeeklyRewardsEarned] = useState(0);
   const [stepTodaySats, setStepTodaySats] = useState(0);
 
@@ -181,14 +209,18 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
       // ✅ PERFORMANCE FIX: Batch AsyncStorage reads using multiGet
       // This is 3x faster than sequential getItem calls
-      const keys = ['@runstr:user_role', '@runstr:user_nsec'];
+      const keys = ['@runstr:user_role', '@runstr:npub'];
       const values = await AsyncStorage.multiGet(keys);
 
       const storedRole = values[0][1]; // [key, value] pairs
-      const nsec = values[1][1];
+      const npub = values[1][1];
+
+      // Get nsec from SecureStore (hardware-backed encryption)
+      const nsec = await SecureNsecStorage.getNsec();
 
       setUserRole(storedRole as 'captain' | 'member' | null);
       setUserNsec(nsec);
+      setUserNpub(npub);
 
       // Check if background step tracking is enabled (reads from AsyncStorage)
       const trackingEnabled = await dailyStepCounterService.isBackgroundTrackingEnabled();
@@ -198,23 +230,19 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       const autoCompete = await AutoCompetePreferencesService.isAutoCompeteEnabled();
       setAutoCompeteEnabled(autoCompete);
 
-      // Load selected AI model
-      const model = await ModelManager.getSelectedModel();
-      setSelectedAIModel(model);
+      // Load music player header setting
+      const musicHeaderEnabled = await MusicPlayerPreferencesService.isMusicPlayerHeaderEnabled();
+      setMusicPlayerHeaderEnabled(musicHeaderEnabled);
+
+      // Load default activity preference
+      const savedDefaultActivity = await defaultActivityService.getDefault();
+      setDefaultActivity(savedDefaultActivity);
 
       // Load rewards settings
       const savedLightningAddress = await RewardLightningAddressService.getRewardLightningAddress();
       if (savedLightningAddress) {
         setRewardLightningAddress(savedLightningAddress);
         setIsValidLightningAddress(true);
-      }
-
-      const stepToUser = await StepRewardsPreferencesService.shouldSendToUser();
-      setStepRewardsToUser(stepToUser);
-
-      const donationPct = await AsyncStorage.getItem('@runstr:donation_percentage');
-      if (donationPct !== null) {
-        setDonationPercentage(parseInt(donationPct, 10));
       }
 
       // Load sats earned data
@@ -225,6 +253,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
         const stepStats = await StepRewardService.getStats(pubkey);
         setStepTodaySats(stepStats.todaySats);
+
+        // Load WoT score for feature gating (music, etc.)
+        try {
+          const wotService = WoTService.getInstance();
+          const score = await wotService.getCachedScore(pubkey);
+          setWotScore(score);
+        } catch (wotError) {
+          console.warn('[Settings] WoT score load failed:', wotError);
+        }
       }
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -310,6 +347,41 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     }
   };
 
+  const handleMusicPlayerHeaderToggle = async (enabled: boolean) => {
+    try {
+      await MusicPlayerPreferencesService.setMusicPlayerHeaderEnabled(enabled);
+      setMusicPlayerHeaderEnabled(enabled);
+    } catch (error) {
+      console.error('Error saving music player header setting:', error);
+      // Revert on error
+      const current = await MusicPlayerPreferencesService.isMusicPlayerHeaderEnabled();
+      setMusicPlayerHeaderEnabled(current);
+    }
+  };
+
+  const handleDefaultActivityChange = async (activity: DefaultActivity) => {
+    try {
+      await defaultActivityService.setDefault(activity);
+      setDefaultActivity(activity);
+      setShowDefaultActivityPicker(false);
+      Toast.show({
+        type: 'success',
+        text1: 'Default Activity Set',
+        text2: `${defaultActivityService.getActivityDisplayName(activity)} is now your default`,
+        position: 'top',
+        visibilityTime: 2000,
+      });
+    } catch (error) {
+      console.error('[SettingsScreen] Error changing default activity:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to save default activity',
+        position: 'top',
+      });
+    }
+  };
+
   // Rewards settings handlers
   const handleLightningAddressChange = (text: string) => {
     setRewardLightningAddress(text);
@@ -344,24 +416,26 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     }
   };
 
-  const handleStepRewardsToggle = async (enabled: boolean) => {
+  const handleClearLightningAddress = async () => {
     try {
-      await StepRewardsPreferencesService.setSendToUser(enabled);
-      setStepRewardsToUser(enabled);
+      await RewardLightningAddressService.clearRewardLightningAddress();
+      setRewardLightningAddress('');
+      setIsValidLightningAddress(false);
+      Toast.show({
+        type: 'success',
+        text1: 'Cleared',
+        text2: 'Lightning address removed - rewards will go to charity',
+        position: 'top',
+        visibilityTime: 2000,
+      });
     } catch (error) {
-      console.error('Error saving step rewards preference:', error);
-      // Revert on error
-      const current = await StepRewardsPreferencesService.shouldSendToUser();
-      setStepRewardsToUser(current);
-    }
-  };
-
-  const handleDonationPercentageChange = async (percentage: number) => {
-    try {
-      setDonationPercentage(percentage);
-      await AsyncStorage.setItem('@runstr:donation_percentage', percentage.toString());
-    } catch (error) {
-      console.error('Error saving donation percentage:', error);
+      console.error('Error clearing lightning address:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to clear address',
+        position: 'top',
+      });
     }
   };
 
@@ -517,23 +591,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     }
   };
 
-  const handleModelSelect = async (modelId: string) => {
-    try {
-      await ModelManager.setSelectedModel(modelId);
-      setSelectedAIModel(modelId);
-      setShowModelPicker(false);
-    } catch (error) {
-      console.error('Error setting AI model:', error);
-      setShowModelPicker(false);
-      setTimeout(() => {
-        setAlertTitle('Error');
-        setAlertMessage('Failed to update AI model. Please try again.');
-        setAlertButtons([{ text: 'OK' }]);
-        setAlertVisible(true);
-      }, 100);
-    }
-  };
-
   // REMOVED: handleChangeCompetitionTeam - Users now auto-assigned to Team RUNSTR
   // const handleChangeCompetitionTeam = (teamId: string | null) => {
   //   // If selecting the same team, just close modal
@@ -583,6 +640,22 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   //   ]);
   //   setAlertVisible(true);
   // };
+
+  const handleLanguageChange = async (languageCode: LanguageCode) => {
+    try {
+      await LanguagePreferenceService.setLanguage(languageCode);
+      setCurrentLanguage(languageCode);
+      Toast.show({
+        type: 'success',
+        text1: t('saved'),
+        text2: SUPPORTED_LANGUAGES.find(l => l.code === languageCode)?.nativeName || languageCode,
+        position: 'top',
+        visibilityTime: 2000,
+      });
+    } catch (error) {
+      console.error('[SettingsScreen] Error changing language:', error);
+    }
+  };
 
   const handleBackupPassword = () => {
     if (!userNsec) {
@@ -645,6 +718,19 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     setAlertVisible(true);
   };
 
+  const handleCopyNpub = async () => {
+    if (userNpub) {
+      await Clipboard.setStringAsync(userNpub);
+      Toast.show({
+        type: 'success',
+        text1: 'Copied!',
+        text2: 'Your npub has been copied to clipboard',
+        position: 'top',
+        visibilityTime: 2000,
+      });
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -660,11 +746,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
@@ -687,28 +778,71 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </View>
         )}
 
+        {/* Language Selection Accordion */}
+        <View style={styles.section}>
+          <SettingsAccordion title={t('language')} defaultExpanded={false}>
+            <Card style={styles.accordionCard}>
+              <View style={styles.languageSection}>
+                <Text style={styles.languageSectionTitle}>{t('languageSelect')}</Text>
+                <Text style={styles.languageSectionSubtitle}>{t('languageSelectSubtitle')}</Text>
+                <View style={styles.languageOptions}>
+                  {SUPPORTED_LANGUAGES.map((lang) => (
+                    <TouchableOpacity
+                      key={lang.code}
+                      style={[
+                        styles.languageOption,
+                        currentLanguage === lang.code && styles.languageOptionSelected,
+                      ]}
+                      onPress={() => handleLanguageChange(lang.code)}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.languageOptionText,
+                          currentLanguage === lang.code && styles.languageOptionTextSelected,
+                        ]}
+                      >
+                        {lang.nativeName}
+                      </Text>
+                      {currentLanguage === lang.code && (
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={20}
+                          color={theme.colors.success}
+                        />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </Card>
+          </SettingsAccordion>
+        </View>
+
         {/* Fitness Tracking Accordion */}
         <View style={styles.section}>
-          <SettingsAccordion title="FITNESS TRACKING" defaultExpanded={false}>
+          <SettingsAccordion title={t('fitnessTracking')} defaultExpanded={false}>
             <Card style={styles.accordionCard}>
-              {/* Background Step Tracking */}
-              <SettingItem
-                title="Background Step Tracking"
-                subtitle="Automatically count steps throughout the day"
-                rightElement={
-                  <Switch
-                    value={backgroundTrackingEnabled}
-                    onValueChange={handleBackgroundTrackingToggle}
-                    trackColor={{
-                      false: theme.colors.warning,
-                      true: theme.colors.accent,
-                    }}
-                    thumbColor={theme.colors.orangeBright}
-                  />
-                }
-              />
+              {/* Background Step Tracking - v3: Hidden (step rewards disabled) */}
+              {STEP_REWARDS_ENABLED && (
+                <SettingItem
+                  title="Background Step Tracking"
+                  subtitle="Automatically count steps throughout the day"
+                  rightElement={
+                    <Switch
+                      value={backgroundTrackingEnabled}
+                      onValueChange={handleBackgroundTrackingToggle}
+                      trackColor={{
+                        false: theme.colors.warning,
+                        true: theme.colors.accent,
+                      }}
+                      thumbColor={theme.colors.orangeBright}
+                    />
+                  }
+                />
+              )}
 
-              {/* Auto-Compete */}
+              {/* Auto-Compete - HIDDEN: Feature temporarily disabled
               <SettingItem
                 title="Auto-Compete"
                 subtitle="Automatically enter workouts into competitions"
@@ -724,30 +858,22 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   />
                 }
               />
+              */}
 
-              {/* Health Profile */}
+              {/* Health Profile - HIDDEN: Feature temporarily disabled
               <SettingItem
                 title="Health Profile"
                 subtitle="Set weight, height, age for better analytics (optional)"
                 onPress={() => (navigation as any).navigate('HealthProfile')}
               />
+              */}
 
-              {/* Import Workouts */}
-              <SettingItem
-                title="Import"
-                subtitle="Download your workout history"
-                onPress={handleImportNostrHistory}
-                rightElement={
-                  importing ? (
-                    <ActivityIndicator size="small" color={theme.colors.orangeBright} />
-                  ) : (
-                    <Ionicons name="cloud-download-outline" size={20} color={theme.colors.textMuted} />
-                  )
-                }
-              />
 
               {/* GPS Permissions Diagnostics (Android only) */}
               {Platform.OS === 'android' && <GPSPermissionsDiagnostics />}
+
+              {/* Step Count Diagnostics (Android only) */}
+              {Platform.OS === 'android' && <StepCountDiagnostics />}
 
               {/* Voice Announcements Subsection */}
               <View style={styles.voiceSubsection}>
@@ -795,7 +921,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 {/* Include Splits */}
                 <SettingItem
                   title="Include Split Details"
-                  subtitle="Announce kilometer splits in summary"
+                  subtitle={isMetric ? "Announce kilometer splits in summary" : "Announce mile splits in summary"}
                   rightElement={
                     <Switch
                       value={ttsSettings.includeSplits}
@@ -815,7 +941,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 {/* Live Split Announcements */}
                 <SettingItem
                   title="Live Split Announcements"
-                  subtitle="Announce each kilometer as you run"
+                  subtitle={isMetric ? "Announce each kilometer as you run" : "Announce each mile as you run"}
                   rightElement={
                     <Switch
                       value={ttsSettings.announceLiveSplits}
@@ -832,68 +958,92 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   }
                 />
 
-                {/* Speech Speed Controls Card */}
-                <View style={styles.voiceControlsCard}>
-                  {/* Speech Rate Slider */}
-                  <View style={styles.sliderContainer}>
-                    <View style={styles.sliderHeader}>
-                      <Text style={styles.settingTitle}>Speech Speed</Text>
-                      <Text style={styles.sliderValue}>
-                        {ttsSettings.speechRate.toFixed(1)}x
-                      </Text>
-                    </View>
-                    <Text style={styles.settingSubtitle}>
-                      Adjust how fast announcements are read
-                    </Text>
-                    <View style={styles.sliderRow}>
-                      <Text style={styles.sliderLabel}>Slow</Text>
-                      <Slider
-                        style={styles.slider}
-                        minimumValue={0.5}
-                        maximumValue={2.0}
-                        step={0.1}
-                        value={ttsSettings.speechRate}
-                        onValueChange={(value) =>
-                          handleTTSSettingChange('speechRate', value)
-                        }
-                        minimumTrackTintColor={theme.colors.accent}
-                        maximumTrackTintColor="#3e3e3e"
-                        thumbTintColor={theme.colors.accent}
-                        disabled={!ttsSettings.enabled}
-                      />
-                      <Text style={styles.sliderLabel}>Fast</Text>
-                    </View>
-                  </View>
+              </View>
 
-                  {/* Test Button */}
-                  <TouchableOpacity
-                    style={[
-                      styles.testButton,
-                      !ttsSettings.enabled && styles.testButtonDisabled,
-                    ]}
-                    onPress={handleTestTTS}
-                    disabled={!ttsSettings.enabled}
-                    activeOpacity={0.7}
-                  >
+              {/* Distance Units Subsection */}
+              <View style={styles.voiceSubsection}>
+                <Text style={styles.subsectionTitle}>Distance Units</Text>
+
+                <SettingItem
+                  title="Distance Units"
+                  subtitle={isMetric ? "Kilometers (km)" : "Miles (mi)"}
+                  rightElement={
+                    <View style={styles.unitToggleRow}>
+                      <Text style={[styles.unitLabel, isMetric && styles.unitLabelActive]}>km</Text>
+                      <Switch
+                        value={!isMetric}
+                        onValueChange={(v) => setUnitSystem(v ? 'imperial' : 'metric')}
+                        trackColor={{ false: theme.colors.accent, true: theme.colors.accent }}
+                        thumbColor={theme.colors.orangeBright}
+                      />
+                      <Text style={[styles.unitLabel, !isMetric && styles.unitLabelActive]}>mi</Text>
+                    </View>
+                  }
+                />
+              </View>
+
+              {/* Default Activity Subsection */}
+              <View style={styles.voiceSubsection}>
+                <Text style={styles.subsectionTitle}>Default Activity</Text>
+
+                <SettingItem
+                  title="Default Workout"
+                  subtitle={`Opens ${defaultActivityService.getActivityDisplayName(defaultActivity)} when you start a workout`}
+                  onPress={() => setShowDefaultActivityPicker(true)}
+                  rightElement={
+                    <View style={styles.defaultActivityValue}>
+                      <Text style={styles.defaultActivityText}>
+                        {defaultActivityService.getActivityDisplayName(defaultActivity)}
+                      </Text>
+                      <Ionicons name="chevron-forward" size={16} color={theme.colors.textMuted} />
+                    </View>
+                  }
+                />
+              </View>
+            </Card>
+          </SettingsAccordion>
+        </View>
+
+        {/* Data & Backup Accordion */}
+        <View style={styles.section}>
+          <SettingsAccordion title="Data & Backup" defaultExpanded={false}>
+            <Card style={styles.accordionCard}>
+              {/* Export Data */}
+              <SettingItem
+                title="Export Data"
+                subtitle="Backup workouts, habits & journal to Nostr"
+                onPress={() => setShowExportModal(true)}
+                rightElement={
+                  <View style={styles.securityIcon}>
                     <Ionicons
-                      name="volume-high"
+                      name="cloud-upload-outline"
                       size={20}
-                      color={
-                        ttsSettings.enabled
-                          ? theme.colors.text
-                          : theme.colors.textMuted
-                      }
+                      color={theme.colors.textMuted}
                     />
-                    <Text
-                      style={[
-                        styles.testButtonText,
-                        !ttsSettings.enabled && styles.testButtonTextDisabled,
-                      ]}
-                    >
-                      Test Announcement
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                  </View>
+                }
+              />
+              {/* Import Data */}
+              <SettingItem
+                title="Import Data"
+                subtitle="Restore from Nostr backup"
+                onPress={() => setShowImportModal(true)}
+                rightElement={
+                  <View style={styles.securityIcon}>
+                    <Ionicons
+                      name="cloud-download-outline"
+                      size={20}
+                      color={theme.colors.textMuted}
+                    />
+                  </View>
+                }
+              />
+              {/* Security Notice */}
+              <View style={styles.backupSecurityNotice}>
+                <Ionicons name="lock-closed" size={14} color={theme.colors.orangeBright} />
+                <Text style={styles.backupSecurityText}>
+                  Encrypted with your key - only you can read your backups
+                </Text>
               </View>
             </Card>
           </SettingsAccordion>
@@ -901,192 +1051,90 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
         {/* Advanced Features Accordion */}
         <View style={styles.section}>
-          <SettingsAccordion title="ADVANCED FEATURES" defaultExpanded={false}>
+          <SettingsAccordion title={t('advancedFeatures')} defaultExpanded={false}>
             <Card style={styles.accordionCard}>
-              {/* PPQ.AI API Key */}
-              <SettingItem
-                title="PPQ.AI API Key"
-                subtitle={
-                  apiKeyConfigured
-                    ? 'Configured - AI insights enabled'
-                    : 'Not configured - Tap to set up'
-                }
-                onPress={() => setShowPPQModal(true)}
-                rightElement={
-                  <View style={styles.securityIcon}>
-                    <Ionicons
-                      name={
-                        apiKeyConfigured
-                          ? 'checkmark-circle'
-                          : 'add-circle-outline'
-                      }
-                      size={20}
-                      color={
-                        apiKeyConfigured ? '#FF9D42' : theme.colors.textMuted
-                      }
+              {/* Wavlake Music - Only visible to WoT users */}
+              {wotScore !== null && wotScore > 0 && (
+                <SettingItem
+                  title="Wavlake"
+                  subtitle="Show music player in Profile header"
+                  rightElement={
+                    <Switch
+                      value={musicPlayerHeaderEnabled}
+                      onValueChange={handleMusicPlayerHeaderToggle}
+                      trackColor={{
+                        false: theme.colors.warning,
+                        true: theme.colors.accent,
+                      }}
+                      thumbColor={theme.colors.orangeBright}
                     />
-                  </View>
-                }
-              />
-
-              {/* AI Model Selection */}
-              <SettingItem
-                title="AI Model"
-                subtitle={ModelManager.getModelName(selectedAIModel)}
-                onPress={() => setShowModelPicker(true)}
-                rightElement={
-                  <View style={styles.securityIcon}>
-                    <Ionicons
-                      name="swap-horizontal"
-                      size={20}
-                      color={theme.colors.textMuted}
-                    />
-                  </View>
-                }
-              />
-
-              {/* Advanced Analytics */}
-              <SettingItem
-                title="Advanced Analytics"
-                subtitle="Body composition, fitness age & AI coaching"
-                onPress={() => (navigation as any).navigate('AdvancedAnalytics')}
-                rightElement={
-                  <View style={styles.securityIcon}>
-                    <Ionicons
-                      name="analytics"
-                      size={20}
-                      color={theme.colors.textMuted}
-                    />
-                  </View>
-                }
-              />
-
-              {/* Extended Activities (Strength, Diet, Wellness) */}
-              <SettingItem
-                title="Extended Activities"
-                subtitle="Strength, diet & wellness tracking"
-                onPress={() => (navigation as any).navigate('Exercise', { showExperimentalMenu: true })}
-                rightElement={
-                  <View style={styles.securityIcon}>
-                    <Ionicons
-                      name="flask"
-                      size={20}
-                      color={theme.colors.textMuted}
-                    />
-                  </View>
-                }
-              />
+                  }
+                />
+              )}
 
               {/* Rewards Subsection */}
               <View style={styles.rewardsSubsection}>
                 <Text style={styles.subsectionTitle}>Rewards</Text>
 
-                {/* Sats Earned Display */}
-                <View style={styles.satsEarnedCard}>
-                  <View style={styles.satsEarnedRow}>
-                    <Text style={styles.satsEarnedLabel}>Workout rewards (this week)</Text>
-                    <Text style={styles.satsEarnedValue}>{weeklyRewardsEarned} sats</Text>
+                {/* Sats Earned Display - v3: Hidden since external service tracks rewards */}
+                {SHOW_SATS_EARNED_DISPLAY && (
+                  <View style={styles.satsEarnedCard}>
+                    <View style={styles.satsEarnedRow}>
+                      <Text style={styles.satsEarnedLabel}>Workout rewards (this week)</Text>
+                      <Text style={styles.satsEarnedValue}>{weeklyRewardsEarned} sats</Text>
+                    </View>
+                    {/* v3: Step rewards hidden - only workout rewards remain */}
+                    {STEP_REWARDS_ENABLED && (
+                      <View style={styles.satsEarnedRow}>
+                        <Text style={styles.satsEarnedLabel}>Step rewards (today)</Text>
+                        <Text style={styles.satsEarnedValue}>{stepTodaySats} sats</Text>
+                      </View>
+                    )}
+                    <View style={[styles.satsEarnedRow, styles.satsEarnedTotalRow]}>
+                      <Text style={styles.satsEarnedTotalLabel}>Total</Text>
+                      <Text style={styles.satsEarnedTotalValue}>
+                        {STEP_REWARDS_ENABLED ? weeklyRewardsEarned + stepTodaySats : weeklyRewardsEarned} sats
+                      </Text>
+                    </View>
                   </View>
-                  <View style={styles.satsEarnedRow}>
-                    <Text style={styles.satsEarnedLabel}>Step rewards (today)</Text>
-                    <Text style={styles.satsEarnedValue}>{stepTodaySats} sats</Text>
-                  </View>
-                  <View style={[styles.satsEarnedRow, styles.satsEarnedTotalRow]}>
-                    <Text style={styles.satsEarnedTotalLabel}>Total</Text>
-                    <Text style={styles.satsEarnedTotalValue}>{weeklyRewardsEarned + stepTodaySats} sats</Text>
-                  </View>
-                </View>
+                )}
 
                 {/* Lightning Address Input */}
                 <View style={styles.rewardSettingRow}>
                   <View style={styles.rewardSettingInfo}>
                     <Text style={styles.rewardSettingTitle}>Lightning Address</Text>
-                    <Text style={styles.rewardSettingSubtitle}>Receive sats to your wallet</Text>
+                    <Text style={styles.rewardSettingSubtitle}>Enter to receive rewards (leave empty to donate to your team)</Text>
                   </View>
                 </View>
                 <View style={styles.lightningAddressRow}>
                   <View style={styles.lightningInputContainer}>
                     <Ionicons name="flash" size={16} color="#FF9D42" style={styles.lightningIcon} />
                     <View style={styles.lightningInputWrapper}>
-                      <Text
-                        style={[
-                          styles.lightningAddressText,
-                          !rewardLightningAddress && styles.lightningAddressPlaceholder,
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {rewardLightningAddress || 'user@getalby.com'}
-                      </Text>
+                      <TextInput
+                        style={styles.lightningAddressText}
+                        value={rewardLightningAddress}
+                        onChangeText={handleLightningAddressChange}
+                        placeholder="user@getalby.com"
+                        placeholderTextColor={theme.colors.textMuted}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        keyboardType="email-address"
+                        returnKeyType="done"
+                        onSubmitEditing={handleSaveLightningAddress}
+                        onBlur={handleSaveLightningAddress}
+                      />
                     </View>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.editButton}
-                    onPress={() => {
-                      setAlertTitle('Lightning Address');
-                      setAlertMessage('Enter your Lightning address to receive rewards:');
-                      setAlertButtons([
-                        { text: 'Cancel', style: 'cancel' },
-                        {
-                          text: 'Save',
-                          onPress: () => {
-                            // This is handled by the prompt
-                          },
-                        },
-                      ]);
-                      // Use native prompt for text input
-                      const address = rewardLightningAddress;
-                      handleLightningAddressChange(address);
-                      if (isValidLightningAddress) {
-                        handleSaveLightningAddress();
-                      }
-                    }}
-                  >
-                    <Ionicons name="pencil" size={16} color={theme.colors.textMuted} />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Donation Split Percentage */}
-                <View style={styles.rewardSettingRow}>
-                  <View style={styles.rewardSettingInfo}>
-                    <Text style={styles.rewardSettingTitle}>Workout Donation Split</Text>
-                    <Text style={styles.rewardSettingSubtitle}>Percentage of rewards to your team</Text>
-                  </View>
-                </View>
-                <View style={styles.percentageButtons}>
-                  {[0, 25, 50, 75, 100].map((pct) => (
-                    <TouchableOpacity
-                      key={pct}
-                      style={[
-                        styles.percentageButton,
-                        donationPercentage === pct && styles.percentageButtonActive,
-                      ]}
-                      onPress={() => handleDonationPercentageChange(pct)}
-                    >
-                      <Text
-                        style={[
-                          styles.percentageButtonText,
-                          donationPercentage === pct && styles.percentageButtonTextActive,
-                        ]}
+                    {rewardLightningAddress.trim().length > 0 && (
+                      <TouchableOpacity
+                        style={styles.clearAddressButton}
+                        onPress={handleClearLightningAddress}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                       >
-                        {pct}%
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                        <Ionicons name="close-circle" size={20} color={theme.colors.textMuted} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
-
-                {/* Step Rewards Toggle */}
-                <SettingItem
-                  title="Step Rewards to Me"
-                  subtitle="Send step rewards to my wallet instead of team"
-                  rightElement={
-                    <Switch
-                      value={stepRewardsToUser}
-                      onValueChange={handleStepRewardsToggle}
-                      trackColor={{ false: '#333', true: theme.colors.accent }}
-                      thumbColor={stepRewardsToUser ? theme.colors.orangeBright : '#666'}
-                    />
-                  }
-                />
               </View>
 
             </Card>
@@ -1095,7 +1143,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
         {/* Password Accordion (collapsed by default) */}
         <View style={styles.section}>
-          <SettingsAccordion title="PASSWORD" defaultExpanded={false}>
+          <SettingsAccordion title={t('password')} defaultExpanded={false}>
             <Card style={styles.accordionCard}>
               {/* Account Security */}
               <SettingItem
@@ -1114,13 +1162,28 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   </View>
                 }
               />
+              {/* Copy Nostr ID */}
+              <SettingItem
+                title="Copy ID"
+                subtitle="Copy your public Nostr identifier"
+                onPress={handleCopyNpub}
+                rightElement={
+                  <View style={styles.securityIcon}>
+                    <Ionicons
+                      name="finger-print"
+                      size={20}
+                      color={theme.colors.textMuted}
+                    />
+                  </View>
+                }
+              />
             </Card>
           </SettingsAccordion>
         </View>
 
         {/* Support & Legal Accordion */}
         <View style={styles.section}>
-          <SettingsAccordion title="SUPPORT & LEGAL" defaultExpanded={false}>
+          <SettingsAccordion title={t('supportAndLegal')} defaultExpanded={false}>
             <Card style={styles.accordionCard}>
               <SettingItem
                 title="Help & Support"
@@ -1153,7 +1216,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             onPress={handleSignOut}
             activeOpacity={0.8}
           >
-            <Text style={styles.signOutButtonText}>Sign Out</Text>
+            <Text style={styles.signOutButtonText}>{t('signOut')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -1174,20 +1237,21 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 <Text
                   style={[styles.deleteAccountButtonText, { marginLeft: 8 }]}
                 >
-                  Deleting Account...
+                  {t('deletingAccount')}
                 </Text>
               </View>
             ) : (
-              <Text style={styles.deleteAccountButtonText}>Delete Account</Text>
+              <Text style={styles.deleteAccountButtonText}>{t('deleteAccount')}</Text>
             )}
           </TouchableOpacity>
         </View>
 
         {/* App Version Info */}
         <View style={styles.versionContainer}>
-          <Text style={styles.versionText}>Version 1.6.3-debug (Build 163)</Text>
+          <Text style={styles.versionText}>Version 1.6.6-debug (Build 166)</Text>
         </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Custom Alert Modal */}
       <CustomAlert
@@ -1199,72 +1263,72 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       />
 
 
-      {/* PPQ.AI API Key Configuration Modal */}
-      <PPQAPIKeyModal
-        visible={showPPQModal}
-        onClose={() => setShowPPQModal(false)}
-        onSuccess={() => {
-          setShowPPQModal(false);
-          // Reload settings to update UI
-          loadSettings();
-        }}
-      />
-
-      {/* AI Model Selection Modal */}
-      <Modal
-        visible={showModelPicker}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowModelPicker(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modelPickerContainer}>
-            <View style={styles.modelPickerHeader}>
-              <Text style={styles.modelPickerTitle}>Select AI Model</Text>
-              <TouchableOpacity
-                onPress={() => setShowModelPicker(false)}
-                style={styles.modalCloseButton}
-              >
-                <Ionicons name="close" size={24} color={theme.colors.text} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={styles.modelList}>
-              {ModelManager.getAvailableModels().map((model) => (
-                <TouchableOpacity
-                  key={model.id}
-                  style={[
-                    styles.modelItem,
-                    selectedAIModel === model.id && styles.modelItemSelected,
-                  ]}
-                  onPress={() => handleModelSelect(model.id)}
-                >
-                  <Text
-                    style={[
-                      styles.modelName,
-                      selectedAIModel === model.id && styles.modelNameSelected,
-                    ]}
-                  >
-                    {model.name}
-                  </Text>
-                  {selectedAIModel === model.id && (
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={20}
-                      color="#FF9D42"
-                    />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
       {/* Anti-Cheat Request Modal */}
       <AntiCheatRequestModal
         visible={showAntiCheatModal}
         onClose={() => setShowAntiCheatModal(false)}
       />
+
+      {/* Export Data Modal */}
+      <ExportDataModal
+        visible={showExportModal}
+        onClose={() => setShowExportModal(false)}
+      />
+
+      {/* Import Data Modal */}
+      <ImportDataModal
+        visible={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
+
+      {/* Default Activity Picker Modal */}
+      <Modal
+        visible={showDefaultActivityPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowDefaultActivityPicker(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowDefaultActivityPicker(false)}
+        >
+          <View style={styles.defaultActivityPickerContainer}>
+            <View style={styles.menuHandle} />
+            <Text style={styles.defaultActivityPickerTitle}>Select Default Activity</Text>
+            <Text style={styles.defaultActivityPickerSubtitle}>
+              This activity will open when you tap "Start Workout"
+            </Text>
+            {(['run', 'walk', 'cycle', 'hiking'] as DefaultActivity[]).map((activity) => (
+              <TouchableOpacity
+                key={activity}
+                style={[
+                  styles.defaultActivityOption,
+                  defaultActivity === activity && styles.defaultActivityOptionSelected,
+                ]}
+                onPress={() => handleDefaultActivityChange(activity)}
+              >
+                <Ionicons
+                  name={defaultActivityService.getActivityIcon(activity) as keyof typeof Ionicons.glyphMap}
+                  size={24}
+                  color={defaultActivity === activity ? theme.colors.orangeBright : theme.colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.defaultActivityOptionText,
+                    defaultActivity === activity && styles.defaultActivityOptionTextSelected,
+                  ]}
+                >
+                  {defaultActivityService.getActivityDisplayName(activity)}
+                </Text>
+                {defaultActivity === activity && (
+                  <Ionicons name="checkmark-circle" size={22} color={theme.colors.success} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
     </SafeAreaView>
   );
@@ -1367,6 +1431,22 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+
+  // Unit Toggle Styles
+  unitToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  unitLabel: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.textMuted,
+  },
+  unitLabelActive: {
+    color: theme.colors.orangeBright,
+    fontWeight: theme.typography.weights.bold,
   },
 
   // Setting Items
@@ -1863,35 +1943,9 @@ const styles = StyleSheet.create({
     padding: 8,
   },
 
-  percentageButtons: {
-    flexDirection: 'row',
-    gap: 6,
-    marginBottom: 16,
-  },
-
-  percentageButton: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    backgroundColor: '#1a1a1a',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-  },
-
-  percentageButtonActive: {
-    backgroundColor: theme.colors.orangeBright,
-    borderColor: theme.colors.orangeBright,
-  },
-
-  percentageButtonText: {
-    fontSize: 13,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.text,
-  },
-
-  percentageButtonTextActive: {
-    color: '#000',
+  clearAddressButton: {
+    padding: 4,
+    marginLeft: 8,
   },
 
   // Sats Earned Display Styles
@@ -1933,5 +1987,132 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
     color: '#FFB366',
+  },
+
+  // Language Section Styles
+  languageSection: {
+    paddingVertical: 8,
+  },
+  languageSectionTitle: {
+    fontSize: 15,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.text,
+    marginBottom: 4,
+  },
+  languageSectionSubtitle: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginBottom: 16,
+  },
+  languageOptions: {
+    gap: 8,
+  },
+  languageOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+  },
+  languageOptionSelected: {
+    borderColor: theme.colors.orangeBright,
+    backgroundColor: 'rgba(255, 157, 66, 0.1)',
+  },
+  languageOptionText: {
+    fontSize: 16,
+    color: theme.colors.text,
+  },
+  languageOptionTextSelected: {
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.orangeBright,
+  },
+
+  // Backup Security Notice
+  backupSecurityNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255, 157, 66, 0.08)',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginTop: 8,
+  },
+  backupSecurityText: {
+    flex: 1,
+    fontSize: 12,
+    color: theme.colors.orangeBright,
+    lineHeight: 16,
+  },
+
+  // Default Activity Styles
+  defaultActivityValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  defaultActivityText: {
+    fontSize: 14,
+    color: theme.colors.accent,
+    fontWeight: theme.typography.weights.medium,
+  },
+  menuHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: theme.colors.border,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  defaultActivityPickerContainer: {
+    backgroundColor: theme.colors.cardBackground,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 12,
+    paddingBottom: 40,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  defaultActivityPickerTitle: {
+    fontSize: 18,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  defaultActivityPickerSubtitle: {
+    fontSize: 13,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  defaultActivityOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    marginBottom: 8,
+    gap: 16,
+  },
+  defaultActivityOptionSelected: {
+    backgroundColor: 'rgba(255, 157, 66, 0.1)',
+    borderWidth: 1,
+    borderColor: theme.colors.orangeBright,
+  },
+  defaultActivityOptionText: {
+    flex: 1,
+    fontSize: 16,
+    color: theme.colors.text,
+  },
+  defaultActivityOptionTextSelected: {
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.orangeBright,
   },
 });

@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { AppStateManager } from '../../services/core/AppStateManager';
 import { CustomAlert } from '../../components/ui/CustomAlert';
 import { simpleRunTracker } from '../../services/activity/SimpleRunTracker';
@@ -47,9 +48,17 @@ import { CountdownOverlay } from '../../components/activity/CountdownOverlay';
 import { ControlBar } from '../../components/activity/ControlBar';
 import { HoldToStartButton } from '../../components/activity/HoldToStartButton';
 import { LastActivityCard } from '../../components/activity/LastActivityCard';
+import { StepDebugOverlay } from '../../components/debug/StepDebugOverlay';
 
-export const CyclingTrackerScreen: React.FC = () => {
+interface CyclingTrackerScreenProps {
+  onWorkoutStateChange?: (isActive: boolean) => void;
+}
+
+export const CyclingTrackerScreen: React.FC<CyclingTrackerScreenProps> = ({
+  onWorkoutStateChange,
+}) => {
   const navigation = useNavigation<any>();
+  const { t } = useTranslation('profile');
   const [isTracking, setIsTracking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [metrics, setMetrics] = useState({
@@ -123,6 +132,11 @@ export const CyclingTrackerScreen: React.FC = () => {
     isPausedRef.current = isPaused;
   }, [isTracking, isPaused]);
 
+  // Notify parent when workout state changes (for swipe navigation lock)
+  useEffect(() => {
+    onWorkoutStateChange?.(isTracking && !isPaused);
+  }, [isTracking, isPaused, onWorkoutStateChange]);
+
   // CRITICAL: Prevent navigation away from tracker screen during active tracking
   // This fixes the bug where users were unexpectedly navigated to profile screen mid-workout
   // FIXED: Use refs instead of state to prevent race condition from listener recreation
@@ -172,6 +186,114 @@ export const CyclingTrackerScreen: React.FC = () => {
       if (metricsUpdateRef.current) clearInterval(metricsUpdateRef.current);
     };
   }, []);
+
+  // Auto-recovery for interrupted workouts
+  useEffect(() => {
+    const checkAutoRecovery = async () => {
+      // Don't recover if already tracking
+      if (isTracking) return;
+
+      console.log('[CyclingTrackerScreen] Checking for auto-recovery...');
+
+      // First try regular session restore
+      const restored = await simpleRunTracker.restoreSession();
+      if (restored) {
+        setIsTracking(true);
+        setIsPaused(simpleRunTracker.isCurrentlyPaused());
+
+        // Get current session data for UI
+        const session = simpleRunTracker.getCurrentSession();
+        if (session) {
+          setElapsedTime(session.duration || 0);
+          const distance = session.distance || 0;
+          const avgSpd = session.duration && session.duration > 0
+            ? (distance / session.duration) * 3.6
+            : 0;
+          setAvgSpeed(avgSpd);
+          setMetrics({
+            distance: `${(distance / 1000).toFixed(2)} km`,
+            duration: formatElapsedTime(session.duration || 0),
+            speed: `${avgSpd.toFixed(1)} km/h`,
+            elevation: `${Math.round(session.elevationGain || 0)} m`,
+          });
+        }
+
+        console.log('[CyclingTrackerScreen] Active session restored');
+        return;
+      }
+
+      // Try auto-recovery
+      const autoRecoveryResult = await simpleRunTracker.checkAndAutoRecover();
+
+      if (autoRecoveryResult.recovered && autoRecoveryResult.checkpoint) {
+        const { checkpoint } = autoRecoveryResult;
+
+        // Only auto-recover cycling workouts on this screen
+        if (checkpoint.activityType !== 'cycling') {
+          console.log(
+            `[CyclingTrackerScreen] Auto-recovery checkpoint is for ${checkpoint.activityType}, skipping`
+          );
+          return;
+        }
+
+        // Calculate average speed
+        const avgSpd = checkpoint.duration > 0
+          ? (checkpoint.distance / checkpoint.duration) * 3.6
+          : 0;
+
+        // Update UI state
+        setIsTracking(true);
+        setIsPaused(false);
+        setElapsedTime(checkpoint.duration);
+        setAvgSpeed(avgSpd);
+        setMetrics({
+          distance: `${(checkpoint.distance / 1000).toFixed(2)} km`,
+          duration: formatElapsedTime(checkpoint.duration),
+          speed: `${avgSpd.toFixed(1)} km/h`,
+          elevation: '0 m',
+        });
+
+        // Start UI update timer (clear first to prevent duplicates)
+        startTimeRef.current = Date.now() - (checkpoint.duration * 1000);
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+        }
+        timerRef.current = setInterval(() => {
+          if (!isPausedRef.current) {
+            const now = Date.now();
+            const elapsed = Math.floor((now - startTimeRef.current - totalPausedTimeRef.current) / 1000);
+            setElapsedTime(elapsed);
+          }
+        }, 1000);
+
+        // Show notification
+        setAlertConfig({
+          title: 'Ride Resumed',
+          message: `Recovered ${(checkpoint.distance / 1000).toFixed(2)} km ride that was interrupted.`,
+          buttons: [{ text: 'OK', style: 'default' }],
+        });
+        setAlertVisible(true);
+
+        console.log(
+          `[CyclingTrackerScreen] ✅ Auto-recovered workout: ${(checkpoint.distance / 1000).toFixed(2)} km`
+        );
+      }
+    };
+
+    checkAutoRecovery();
+  }, []);
+
+  // Helper function for time formatting
+  const formatElapsedTime = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  };
 
   // Load user profile for social sharing
   useEffect(() => {
@@ -316,10 +438,7 @@ export const CyclingTrackerScreen: React.FC = () => {
     };
   }, []); // Subscribe only once to avoid race conditions
 
-  // Update the ref whenever isTracking changes
-  useEffect(() => {
-    isTrackingRef.current = isTracking;
-  }, [isTracking]);
+  // NOTE: isTrackingRef sync removed - consolidated at lines 129-132 to prevent duplicate updates
 
   const handleHoldComplete = async () => {
     console.log('[CyclingTrackerScreen] Hold complete, starting countdown...');
@@ -393,7 +512,7 @@ export const CyclingTrackerScreen: React.FC = () => {
     pauseStartTimeRef.current = 0;
     totalPausedTimeRef.current = 0;
 
-    // Single timer interval - metrics update via useEffect when elapsedTime changes
+    // Timer for elapsed time display
     timerRef.current = setInterval(() => {
       if (!isPausedRef.current) {
         const now = Date.now();
@@ -403,9 +522,24 @@ export const CyclingTrackerScreen: React.FC = () => {
         setElapsedTime(totalElapsed);
       }
     }, 1000);
+
+    // Start metrics interval (uses refs to avoid stale closures)
+    updateMetricsFromSession(); // Immediate first update
+    startMetricsInterval();
   };
 
-  const updateMetrics = () => {
+  // Helper function to safely start metrics interval (prevents duplicates)
+  const startMetricsInterval = () => {
+    if (metricsUpdateRef.current) {
+      clearInterval(metricsUpdateRef.current);
+    }
+    metricsUpdateRef.current = setInterval(() => {
+      updateMetricsFromSession();
+    }, 1000); // Update every second
+  };
+
+  // FIXED: Get elapsed time directly from refs to avoid stale closure
+  const updateMetricsFromSession = () => {
     // CRITICAL: Don't update UI if app is backgrounded
     const appStateManager = AppStateManager;
     if (!appStateManager.isActive()) {
@@ -414,11 +548,17 @@ export const CyclingTrackerScreen: React.FC = () => {
 
     const session = simpleRunTracker.getCurrentSession();
     if (session) {
+      // Calculate current elapsed time from refs (avoids stale closure)
+      const now = Date.now();
+      const currentElapsed = Math.floor(
+        (now - startTimeRef.current - totalPausedTimeRef.current) / 1000
+      );
+
       const distance = session.distance || 0;
       // Calculate average speed based on total distance and time
       const calculatedAvgSpeed = activityMetricsService.calculateSpeed(
         distance,
-        elapsedTime
+        currentElapsed
       );
 
       // Get current speed from recent position data if available
@@ -435,7 +575,7 @@ export const CyclingTrackerScreen: React.FC = () => {
 
       setMetrics({
         distance: activityMetricsService.formatDistance(distance),
-        duration: activityMetricsService.formatDuration(elapsedTime),
+        duration: activityMetricsService.formatDuration(currentElapsed),
         speed: activityMetricsService.formatSpeed(instantSpeed),
         elevation: activityMetricsService.formatElevation(
           session.elevationGain || 0
@@ -674,11 +814,8 @@ export const CyclingTrackerScreen: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    if (isTracking && !isPaused) {
-      updateMetrics();
-    }
-  }, [elapsedTime]);
+  // NOTE: Direct updateMetrics() on elapsedTime removed - now using interval-based updates
+  // via startMetricsInterval() to avoid stale closures and performance issues
 
   // Secondary metrics for active tracking
   const secondaryMetrics: SecondaryMetric[] = [
@@ -736,7 +873,7 @@ export const CyclingTrackerScreen: React.FC = () => {
         /* ============ IDLE STATE ============ */
         <View style={styles.idleCenteredContainer}>
           <HoldToStartButton
-            label="Start Ride"
+            label={t('startRide')}
             onHoldComplete={handleHoldComplete}
             size="large"
           />
@@ -821,6 +958,9 @@ export const CyclingTrackerScreen: React.FC = () => {
         }}
       />
       </View>
+
+      {/* Step Debug Overlay - Android-only diagnostic panel */}
+      <StepDebugOverlay />
     </View>
   );
 };

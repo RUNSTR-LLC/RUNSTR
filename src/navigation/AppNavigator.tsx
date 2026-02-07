@@ -37,6 +37,7 @@ import { SatlantisEventDetailScreen } from '../screens/satlantis/SatlantisEventD
 import { RunningBitcoinDetailScreen } from '../screens/events/RunningBitcoinDetailScreen';
 import { EinundzwanzigDetailScreen } from '../screens/events/EinundzwanzigDetailScreen';
 import { JanuaryWalkingDetailScreen } from '../screens/events/JanuaryWalkingDetailScreen';
+import { JournalHistoryScreen } from '../screens/JournalHistoryScreen';
 import { RewardsScreen } from '../screens/RewardsScreen';
 import { DonateScreen } from '../screens/DonateScreen';
 import { TeamsScreen } from '../screens/TeamsScreen';
@@ -100,6 +101,7 @@ export type RootStackParamList = {
   Settings: undefined;
   Exercise: undefined;
   Compete: undefined;
+  JournalHistory: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -599,6 +601,16 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
       <Stack.Screen
         name="Settings"
         component={SettingsScreen}
+        options={{
+          ...defaultScreenOptions,
+          headerShown: false,
+        }}
+      />
+
+      {/* Journal History Screen - Full journal entry list */}
+      <Stack.Screen
+        name="JournalHistory"
+        component={JournalHistoryScreen}
         options={{
           ...defaultScreenOptions,
           headerShown: false,

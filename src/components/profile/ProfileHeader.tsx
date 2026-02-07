@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { theme } from '../../styles/theme';
 import { User } from '../../types';
 import { Button } from '../ui/Button';
@@ -20,6 +21,8 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   user,
   isLoading = false,
 }) => {
+  const { t } = useTranslation('profile');
+
   // ✅ LOADING STATE: Show loading UI if explicitly loading or if user is null
   const isLoadingProfile = isLoading || !user;
 
@@ -30,9 +33,12 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     isLoadingProfile,
     hasPicture: !!user?.picture,
     hasAvatar: !!user?.avatar,
+    hasBanner: !!user?.banner,
     hasBio: !!user?.bio,
     displayName: user?.displayName || user?.name,
     pictureUrl: user?.picture?.substring(0, 50),
+    bannerUrl: user?.banner?.substring(0, 50),
+    npub: user?.npub?.substring(0, 20),
   });
 
   // ✅ LOADING STATE: Show skeleton/loading state instead of fallback names
@@ -52,9 +58,19 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   }
 
   // ✅ PROFILE DATA: Extract profile fields only if user exists
-  const displayName = user.displayName || user.name || 'Anonymous';
+  // Translate default values at display time (Nostr stores English defaults)
+  const rawDisplayName = user.displayName || user.name || '';
+  const displayName = rawDisplayName === '' || rawDisplayName === 'Anonymous Athlete'
+    ? t('anonymousAthlete')
+    : rawDisplayName;
+
   const avatarUrl = user.picture || user.avatar || undefined;
-  const bio = user.bio || undefined;
+
+  // Translate default bio at display time
+  const rawBio = user.bio || '';
+  const bio = rawBio === '' || rawBio === 'Welcome to RUNSTR! Tap to edit your profile.'
+    ? t('defaultBio')
+    : rawBio;
   const lud16 = user.lud16 || undefined;
   const banner = user.banner || undefined;
 

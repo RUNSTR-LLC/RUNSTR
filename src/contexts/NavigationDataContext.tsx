@@ -136,14 +136,34 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
     }
   };
 
-  const fetchUserDataFresh = async (): Promise<UserWithWallet | null> => {
+  const fetchUserDataFresh = async (forceRefresh: boolean = false): Promise<UserWithWallet | null> => {
     try {
       // Get user identifiers for caching
       const identifiers = await getUserNostrIdentifiers();
       const hexPubkey = identifiers?.hexPubkey || '';
 
-      // First check if we have a user from AuthContext
-      if (currentUser) {
+      // When forceRefresh=true, actually fetch from DirectNostrProfileService (bypass currentUser shortcut)
+      if (forceRefresh) {
+        console.log('🔄 NavigationDataProvider: Force refresh - fetching fresh profile from Nostr');
+        const directNostrUser = await DirectNostrProfileService.getCurrentUserProfile(true);
+        if (directNostrUser) {
+          console.log('✅ NavigationDataProvider: Fresh profile fetched, banner:', directNostrUser.banner ? 'present' : 'missing');
+          setUser(directNostrUser);
+          // Update cache with fresh data
+          if (hexPubkey) {
+            await unifiedCache.set(
+              CacheKeys.USER_PROFILE(hexPubkey),
+              directNostrUser,
+              CacheTTL.USER_PROFILE
+            );
+          }
+          return directNostrUser as UserWithWallet;
+        }
+        // Fall through to other methods if direct fetch fails
+      }
+
+      // First check if we have a user from AuthContext (only if NOT force refreshing)
+      if (currentUser && !forceRefresh) {
         console.log(
           '✅ NavigationDataProvider: Using currentUser from AuthContext'
         );
@@ -830,7 +850,8 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
     setWalletLoaded(false);
 
     try {
-      const userData = await fetchUserDataFresh();
+      // ✅ Pass forceRefresh=true to actually fetch fresh profile from Nostr (including banner)
+      const userData = await fetchUserDataFresh(true);
       if (userData) {
         await fetchProfileData(userData);
       }
@@ -895,7 +916,11 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
       isLoading,
       isLoadingTeam,
       error,
-      // Note: Callbacks excluded - they're stable via useCallback
+      refresh,
+      loadTeams,
+      loadWallet,
+      loadCaptainDashboard,
+      prefetchLeaguesInBackground,
     ]
   );
 

@@ -62,8 +62,6 @@ export class NdkTeamService {
     'wss://relay.damus.io', // Primary: Most teams found here
     'wss://nos.lol',
     'wss://relay.primal.net',
-    'wss://nostr.wine',
-    'wss://relay.nostr.band',
     'wss://relay.snort.social',
     'wss://nostr-pub.wellorder.net',
   ];

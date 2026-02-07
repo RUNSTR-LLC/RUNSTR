@@ -574,13 +574,15 @@ async function getBalanceViaNWC(
 // ============================================
 
 type Operation =
-  | 'claim_reward'       // Rate-limited reward claims
-  | 'pay_invoice'        // Pay any invoice
-  | 'create_invoice'     // Create invoice for receiving
-  | 'lookup_invoice'     // Check if invoice is paid
-  | 'get_balance'        // Get wallet balance
-  | 'diagnose'           // Test NWC connection (for debugging)
-  | 'register_donation'  // Register pending donation for auto-forwarding
+  | 'claim_reward'              // Rate-limited reward claims
+  | 'pay_invoice'               // Pay any invoice
+  | 'create_invoice'            // Create invoice for receiving
+  | 'lookup_invoice'            // Check if invoice is paid
+  | 'get_balance'               // Get wallet balance
+  | 'diagnose'                  // Test NWC connection (for debugging)
+  | 'register_donation'         // Register pending donation for auto-forwarding
+  | 'record_charity_payment'    // Record charity payment for audit trail
+  | 'log_charity_payment_failure'  // Log failed charity payment with details
 
 interface RequestBody {
   operation: Operation
@@ -591,6 +593,9 @@ interface RequestBody {
   amount_sats?: number
   is_charity_donation?: boolean // Skip rate-limiting for charity donations
 
+  // For PPQ.AI team rewards (pay directly to PPQ bolt11 instead of Lightning address)
+  ppq_bolt11?: string
+
   // For pay_invoice
   invoice?: string
 
@@ -598,12 +603,26 @@ interface RequestBody {
   // amount_sats (reused)
   description?: string
 
-  // For lookup_invoice
+  // For lookup_invoice and record_charity_payment
   payment_hash?: string
 
   // For register_donation
   charity_id?: string
   charity_lightning_address?: string
+
+  // For record_charity_payment and log_charity_payment_failure
+  user_pubkey?: string
+  charity_name?: string
+  donation_percentage?: number
+  preimage?: string
+  error_message?: string
+  lnurl_response?: Record<string, unknown>
+
+  // For pending payment retry system
+  mark_as_pending?: boolean
+  next_retry_at?: string
+  is_batch_charity?: boolean
+  batch_min_amount?: number
 }
 
 // ============================================
@@ -949,6 +968,211 @@ serve(async (req) => {
     }
 
     // ========================================
+    // Operation: record_charity_payment (audit trail)
+    // ========================================
+    if (operation === 'record_charity_payment') {
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      )
+
+      const {
+        user_pubkey,
+        charity_id,
+        charity_name,
+        charity_lightning_address,
+        amount_sats,
+        reward_type,
+        donation_percentage,
+        payment_hash,
+        preimage,
+      } = body
+
+      // Validate required fields
+      if (!user_pubkey || !charity_id || !charity_name || !charity_lightning_address || !amount_sats || !reward_type) {
+        return new Response(
+          JSON.stringify({ success: false, reason: 'missing_fields' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Validate donation percentage if provided
+      if (donation_percentage !== undefined && (donation_percentage < 0 || donation_percentage > 100)) {
+        return new Response(
+          JSON.stringify({ success: false, reason: 'invalid_donation_percentage' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      console.log('[NWC Gateway] Recording charity payment:', {
+        charity_id,
+        amount_sats,
+        reward_type,
+        has_preimage: !!preimage,
+      })
+
+      try {
+        const { data, error } = await supabase
+          .from('charity_reward_payments')
+          .insert({
+            user_pubkey,
+            charity_id,
+            charity_name,
+            charity_lightning_address,
+            amount_sats,
+            reward_type,
+            donation_percentage: donation_percentage ?? 100,
+            payment_hash: payment_hash || null,
+            preimage: preimage || null,
+            status: preimage ? 'success' : 'pending',
+            paid_at: preimage ? new Date().toISOString() : null,
+          })
+          .select()
+          .single()
+
+        if (error) {
+          console.error('[NWC Gateway] Error recording charity payment:', error)
+          return new Response(
+            JSON.stringify({
+              success: false,
+              reason: error.message || 'insert_error',
+            }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        console.log('[NWC Gateway] Charity payment recorded:', data.id)
+        return new Response(
+          JSON.stringify({
+            success: true,
+            payment_id: data.id,
+            status: data.status,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      } catch (error) {
+        console.error('[NWC Gateway] Exception recording charity payment:', error)
+        return new Response(
+          JSON.stringify({
+            success: false,
+            reason: error instanceof Error ? error.message : 'unexpected_error',
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+
+    // ========================================
+    // Operation: log_charity_payment_failure
+    // Records a failed charity payment with detailed error information
+    // Supports 'pending' status for retry-eligible or batch-payment charities
+    // ========================================
+    if (operation === 'log_charity_payment_failure') {
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      )
+
+      const {
+        user_pubkey,
+        charity_id,
+        charity_name,
+        charity_lightning_address,
+        amount_sats,
+        reward_type,
+        error_message,
+        lnurl_response,
+        // Retry system fields
+        mark_as_pending,
+        next_retry_at,
+        is_batch_charity,
+        batch_min_amount,
+      } = body
+
+      // Validate required fields
+      if (!user_pubkey || !charity_id || !charity_name || !charity_lightning_address || !amount_sats || !reward_type) {
+        return new Response(
+          JSON.stringify({ success: false, reason: 'missing_fields' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Determine status: 'pending' for retry-eligible/batch charities, 'failed' otherwise
+      const status = mark_as_pending ? 'pending' : 'failed'
+
+      console.log('[NWC Gateway] Logging charity payment failure:', {
+        charity_id,
+        charity_lightning_address,
+        amount_sats,
+        status,
+        is_batch_charity,
+        next_retry_at,
+        error_message: error_message?.slice(0, 100),
+      })
+
+      try {
+        const { data, error } = await supabase
+          .from('charity_reward_payments')
+          .insert({
+            user_pubkey,
+            charity_id,
+            charity_name,
+            charity_lightning_address,
+            amount_sats,
+            reward_type,
+            donation_percentage: 100, // Failures are typically 100% charity donations
+            payment_hash: null,
+            preimage: null,
+            status,
+            error_message: error_message || 'Unknown error',
+            lnurl_response: lnurl_response || null,
+            paid_at: null,
+            // Retry fields
+            retry_count: 0,
+            next_retry_at: next_retry_at || null,
+          })
+          .select()
+          .single()
+
+        if (error) {
+          console.error('[NWC Gateway] Error logging charity payment failure:', error)
+          return new Response(
+            JSON.stringify({
+              success: false,
+              reason: error.message || 'insert_error',
+            }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        const statusMsg = mark_as_pending
+          ? `pending (retry at ${next_retry_at || 'next batch'})`
+          : 'failed (no retry)'
+        console.log(`[NWC Gateway] Charity payment logged as ${statusMsg}:`, data.id)
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            failure_id: data.id,
+            status,
+            will_retry: mark_as_pending || false,
+            is_batch_charity: is_batch_charity || false,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      } catch (error) {
+        console.error('[NWC Gateway] Exception logging charity payment failure:', error)
+        return new Response(
+          JSON.stringify({
+            success: false,
+            reason: error instanceof Error ? error.message : 'unexpected_error',
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+
+    // ========================================
     // Operation: claim_reward (default, rate-limited)
     // ========================================
     if (operation === 'claim_reward') {
@@ -957,10 +1181,10 @@ serve(async (req) => {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       )
 
-      const { lightning_address, reward_type, amount_sats, is_charity_donation } = body
+      const { lightning_address, reward_type, amount_sats, is_charity_donation, ppq_bolt11 } = body
 
-      // Validate required fields
-      if (!lightning_address || !reward_type) {
+      // Validate required fields (ppq_bolt11 can substitute for lightning_address)
+      if ((!lightning_address && !ppq_bolt11) || !reward_type) {
         return new Response(
           JSON.stringify({ success: false, reason: 'missing_fields' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -976,7 +1200,10 @@ serve(async (req) => {
       }
 
       // Hash the Lightning address for privacy (lowercase, trimmed)
-      const normalizedAddress = lightning_address.toLowerCase().trim()
+      // For PPQ.AI team, use a special prefix + bolt11 hash for tracking
+      const normalizedAddress = ppq_bolt11
+        ? `ppq:${ppq_bolt11.slice(0, 50)}`  // PPQ bolt11 hash for tracking
+        : lightning_address!.toLowerCase().trim()
       const hashBytes = sha256(new TextEncoder().encode(normalizedAddress))
       const addressHash = bytesToHex(hashBytes)
 
@@ -1028,12 +1255,25 @@ serve(async (req) => {
         console.log(`[claim-reward] Workout reward amount: ${rewardAmount} sats`)
 
         try {
-          // Get invoice from user's Lightning address
-          const invoice = await getInvoiceFromLightningAddress(
-            lightning_address,
-            rewardAmount,
-            'Daily workout reward from RUNSTR!'
-          )
+          // Get or use invoice:
+          // - PPQ.AI team: Use the pre-created PPQ bolt11 invoice directly
+          // - Regular team: Create invoice from user's Lightning address
+          let invoice: string
+          let isPPQPayment = false
+
+          if (ppq_bolt11) {
+            // PPQ.AI team: Pay directly to the PPQ bolt11 invoice
+            console.log('[claim-reward] PPQ.AI team - using provided bolt11 invoice')
+            invoice = ppq_bolt11
+            isPPQPayment = true
+          } else {
+            // Regular: Get invoice from user's Lightning address
+            invoice = await getInvoiceFromLightningAddress(
+              lightning_address!,
+              rewardAmount,
+              'Daily workout reward from RUNSTR!'
+            )
+          }
 
           // Pay the invoice via NWC
           const paymentResult = await payInvoiceViaNWC(nwcUrl, invoice)
@@ -1046,26 +1286,36 @@ serve(async (req) => {
             )
           }
 
-          // Record the claim (SKIP for charity donations - don't rate-limit charities)
+          // Record the claim with payment verification (SKIP for charity donations - don't rate-limit charities)
           if (!is_charity_donation) {
             if (existingClaim) {
               await supabase
                 .from('daily_reward_claims')
-                .update({ workout_claimed: true, updated_at: new Date().toISOString() })
+                .update({
+                  workout_claimed: true,
+                  workout_preimage: paymentResult.preimage || null, // Payment proof
+                  updated_at: new Date().toISOString(),
+                })
                 .eq('id', existingClaim.id)
             } else {
               await supabase.from('daily_reward_claims').insert({
                 lightning_address_hash: addressHash,
                 reward_date: today,
                 workout_claimed: true,
+                workout_preimage: paymentResult.preimage || null, // Payment proof
                 step_sats_claimed: 0,
               })
             }
           }
 
-          console.log('[claim-reward] Workout reward paid successfully:', rewardAmount, 'sats')
+          const paymentType = isPPQPayment ? 'PPQ.AI credits' : 'Lightning'
+          console.log(`[claim-reward] Workout reward paid to ${paymentType}:`, rewardAmount, 'sats', paymentResult.preimage ? '(verified)' : '(no preimage)')
           return new Response(
-            JSON.stringify({ success: true, amount_paid: rewardAmount }),
+            JSON.stringify({
+              success: true,
+              amount_paid: rewardAmount,
+              preimage: paymentResult.preimage, // Return preimage for client-side verification
+            }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )
         } catch (payError) {
@@ -1118,7 +1368,7 @@ serve(async (req) => {
             )
           }
 
-          // Update step sats claimed
+          // Update step sats claimed with payment verification
           const newStepSats = currentStepSats + amountToPay
           const newRemaining = MAX_DAILY_STEP_SATS - newStepSats
 
@@ -1127,6 +1377,7 @@ serve(async (req) => {
               .from('daily_reward_claims')
               .update({
                 step_sats_claimed: newStepSats,
+                step_preimage: paymentResult.preimage || null, // Payment proof
                 updated_at: new Date().toISOString(),
               })
               .eq('id', existingClaim.id)
@@ -1136,15 +1387,17 @@ serve(async (req) => {
               reward_date: today,
               workout_claimed: false,
               step_sats_claimed: amountToPay,
+              step_preimage: paymentResult.preimage || null, // Payment proof
             })
           }
 
-          console.log('[claim-reward] Step reward paid:', amountToPay, 'sats')
+          console.log('[claim-reward] Step reward paid:', amountToPay, 'sats', paymentResult.preimage ? '(verified)' : '(no preimage)')
           return new Response(
             JSON.stringify({
               success: true,
               amount_paid: amountToPay,
               remaining_step_allowance: newRemaining,
+              preimage: paymentResult.preimage, // Return preimage for client-side verification
             }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )

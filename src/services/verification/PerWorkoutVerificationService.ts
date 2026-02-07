@@ -1,21 +1,23 @@
 /**
- * PerWorkoutVerificationService
+ * @deprecated - This service is DEPRECATED as of v3 architecture migration
  *
- * Fetches unique verification codes for each workout from Supabase.
- * Each code is tied to immutable workout data and can only be used once.
+ * PerWorkoutVerificationService (DEPRECATED)
  *
- * Security model:
- * - Code is unique per workout (tied to workout hash)
- * - Server stores expected hash and marks code as used after submission
- * - Replay attacks blocked by 'used' flag
- * - Data tampering detected by hash mismatch
+ * Previously fetched unique verification codes from Supabase for anti-cheat.
+ * Now replaced by rolling verification codes from kind 30150 leaderboard notes.
  *
- * Flow:
- * 1. Workout completes locally
- * 2. App sends workout data to get-workout-verification
- * 3. Server returns unique code (stored with expiry)
- * 4. Code included in kind 1301 event
- * 5. On "Compete", server validates code + hash
+ * NEW ARCHITECTURE:
+ * - External aggregator publishes kind 30150 note every 2 minutes
+ * - Note includes rolling vcode valid for 5 minutes
+ * - App gets vcode from NostrLeaderboardService.getCurrentVcode()
+ * - External reward service validates vcode from kind 1301 events
+ *
+ * This file is kept for reference but should not be imported.
+ * See: src/services/competition/NostrLeaderboardService.ts for new vcode source
+ *
+ * === ORIGINAL DOCUMENTATION (for reference) ===
+ * Fetched unique verification codes for each workout from Supabase.
+ * Each code was tied to immutable workout data and could only be used once.
  */
 
 import Constants from 'expo-constants';
@@ -149,7 +151,7 @@ class PerWorkoutVerificationServiceClass {
    * Get current app version from Expo config
    */
   private getAppVersion(): string {
-    return Constants.expoConfig?.version || '1.5.3';
+    return Constants.expoConfig?.version || '1.6.5';
   }
 
   /**

@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
+import { useTranslation } from 'react-i18next';
 import { theme } from '../../styles/theme';
 
 // Create animated Circle component for SVG progress animation
@@ -53,6 +54,7 @@ export const HoldToStartButton: React.FC<HoldToStartButtonProps> = ({
   holdDuration = 2000,
   size: sizeVariant = 'default',
 }) => {
+  const { t } = useTranslation('profile');
   const progressAnim = useRef(new Animated.Value(0)).current;
   const holdTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -197,7 +199,7 @@ export const HoldToStartButton: React.FC<HoldToStartButtonProps> = ({
           { fontSize: config.hintFontSize },
           disabled && styles.hintDisabled
         ]}>
-          Hold to start
+          {t('holdToStart')}
         </Text>
       </View>
     </View>

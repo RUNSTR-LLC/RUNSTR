@@ -91,31 +91,75 @@ const SEASON_2_PUBKEYS = [
   '24b45900a92fbc4527ccf975bd416988e444c6e4d9f364c5158667f077623fe2', // Jose Sammut
 ]
 
-// Anti-cheat limits (same as submit-workout)
-const VALIDATION_LIMITS: Record<string, {
-  minPaceSecondsPerKm: number
+// =============================================
+// ANTI-CHEAT: Distance-Aware Pace Limits (same as submit-workout)
+// =============================================
+
+// Base limits for each activity type (max pace and duration)
+const BASE_LIMITS: Record<string, {
   maxPaceSecondsPerKm: number
   maxDistanceKm: number
   maxDurationSeconds: number
 }> = {
   running: {
-    minPaceSecondsPerKm: 120,
-    maxPaceSecondsPerKm: 1800,
-    maxDistanceKm: 200,
-    maxDurationSeconds: 172800,
+    maxPaceSecondsPerKm: 1800,   // 30:00/km (too slow to be running)
+    maxDistanceKm: 200,          // Ultra marathon limit
+    maxDurationSeconds: 172800,  // 48 hours
   },
   walking: {
-    minPaceSecondsPerKm: 180,
-    maxPaceSecondsPerKm: 3600,
-    maxDistanceKm: 100,
-    maxDurationSeconds: 86400,
+    maxPaceSecondsPerKm: 3600,   // 60:00/km (too slow to count)
+    maxDistanceKm: 100,          // Max single walk
+    maxDurationSeconds: 86400,   // 24 hours
   },
   cycling: {
-    minPaceSecondsPerKm: 30,
-    maxPaceSecondsPerKm: 600,
-    maxDistanceKm: 500,
-    maxDurationSeconds: 172800,
+    maxPaceSecondsPerKm: 600,    // 10:00/km (6 km/h - too slow)
+    maxDistanceKm: 500,          // Max single ride
+    maxDurationSeconds: 172800,  // 48 hours
   },
+}
+
+/**
+ * Get minimum pace (sec/km) based on distance for running
+ * Uses world record paces as reference, allowing slightly faster to avoid false positives
+ */
+function getMinPaceForRunning(distanceKm: number): number {
+  if (distanceKm < 1) return 90      // 1:30/km - sprint/interval territory
+  if (distanceKm < 3) return 130     // 2:10/km - faster than 1500m WR pace
+  if (distanceKm < 5) return 145     // 2:25/km - faster than 5K WR (151)
+  if (distanceKm < 10) return 150    // 2:30/km - between 5K and 10K WR
+  if (distanceKm < 21.1) return 155  // 2:35/km - faster than 10K WR (157)
+  if (distanceKm < 42.2) return 160  // 2:40/km - faster than HM WR (163)
+  return 170                          // 2:50/km - faster than marathon WR (172)
+}
+
+function getMinPaceForWalking(_distanceKm: number): number {
+  return 180 // 3:00/km - anything faster is running
+}
+
+function getMinPaceForCycling(distanceKm: number): number {
+  if (distanceKm < 1) return 20   // 0:20/km = 180 km/h - very short downhill burst
+  return 30                        // 0:30/km = 120 km/h - max sustained
+}
+
+function getMinPaceSecondsPerKm(activityType: string, distanceKm: number): number {
+  switch (activityType) {
+    case 'running':
+      return getMinPaceForRunning(distanceKm)
+    case 'walking':
+      return getMinPaceForWalking(distanceKm)
+    case 'cycling':
+      return getMinPaceForCycling(distanceKm)
+    default:
+      return 60 // 1:00/km default for unknown types
+  }
+}
+
+// Minimum allowed target times (slightly below world records)
+const MIN_TARGET_TIMES = {
+  time_5k_seconds: 750,      // 12:30 (WR is 12:35)
+  time_10k_seconds: 1560,    // 26:00 (WR is 26:11)
+  time_half_seconds: 3440,   // 57:20 (WR is 57:30)
+  time_marathon_seconds: 7200, // 2:00:00 (WR is 2:00:35)
 }
 
 // =============================================
@@ -443,11 +487,19 @@ function validateWorkout(
   distanceMeters: number | null,
   durationSeconds: number | null
 ): ValidationResult {
-  const limits = VALIDATION_LIMITS[activityType]
+  const limits = BASE_LIMITS[activityType]
   if (!limits) return { valid: true }
 
   const distanceKm = (distanceMeters || 0) / 1000
   const duration = durationSeconds || 0
+
+  // Empty workout check - both distance and duration are zero/missing
+  if (distanceKm === 0 && duration === 0) {
+    return {
+      valid: false,
+      reason: 'Empty workout - no distance or duration recorded',
+    }
+  }
 
   // Zero distance with significant duration
   if (distanceKm === 0 && duration > 1800) {
@@ -481,14 +533,17 @@ function validateWorkout(
     }
   }
 
-  // Pace validation
+  // Distance-aware pace validation
   if (distanceKm > 0 && duration > 0) {
     const paceSecondsPerKm = duration / distanceKm
+    const minPace = getMinPaceSecondsPerKm(activityType, distanceKm)
 
-    if (paceSecondsPerKm < limits.minPaceSecondsPerKm) {
+    if (paceSecondsPerKm < minPace) {
+      const paceMin = Math.floor(paceSecondsPerKm / 60)
+      const paceSec = Math.round(paceSecondsPerKm % 60)
       return {
         valid: false,
-        reason: `Pace too fast for ${activityType}`,
+        reason: `Pace ${paceMin}:${String(paceSec).padStart(2, '0')}/km too fast for ${distanceKm.toFixed(1)}km ${activityType}`,
       }
     }
 
@@ -497,6 +552,157 @@ function validateWorkout(
         valid: false,
         reason: `Pace too slow for ${activityType}`,
       }
+    }
+  }
+
+  return { valid: true }
+}
+
+/**
+ * Validate target times against world record minimums
+ */
+function validateTargetTimes(targetTimes: {
+  time_5k_seconds: number | null
+  time_10k_seconds: number | null
+  time_half_seconds: number | null
+  time_marathon_seconds: number | null
+}): ValidationResult {
+  if (targetTimes.time_5k_seconds !== null && targetTimes.time_5k_seconds < MIN_TARGET_TIMES.time_5k_seconds) {
+    const min = Math.floor(targetTimes.time_5k_seconds / 60)
+    const sec = Math.round(targetTimes.time_5k_seconds % 60)
+    return {
+      valid: false,
+      reason: `5K time of ${min}:${String(sec).padStart(2, '0')} is faster than world record`,
+    }
+  }
+  if (targetTimes.time_10k_seconds !== null && targetTimes.time_10k_seconds < MIN_TARGET_TIMES.time_10k_seconds) {
+    return {
+      valid: false,
+      reason: `10K time is faster than world record`,
+    }
+  }
+  if (targetTimes.time_half_seconds !== null && targetTimes.time_half_seconds < MIN_TARGET_TIMES.time_half_seconds) {
+    return {
+      valid: false,
+      reason: `Half marathon time is faster than world record`,
+    }
+  }
+  if (targetTimes.time_marathon_seconds !== null && targetTimes.time_marathon_seconds < MIN_TARGET_TIMES.time_marathon_seconds) {
+    return {
+      valid: false,
+      reason: `Marathon time is faster than world record`,
+    }
+  }
+  return { valid: true }
+}
+
+/**
+ * Validate splits for consistency and realism
+ * Detects:
+ * 1. Individual splits faster than physically possible
+ * 2. Suspicious split patterns (one split way faster than average)
+ * 3. Suspiciously LOW variance (car cheating detection)
+ * 4. Total time vs splits mismatch
+ */
+function validateSplitConsistency(
+  splits: Record<number, number>,
+  totalDurationSeconds: number,
+  activityType: string
+): ValidationResult {
+  if (Object.keys(splits).length === 0) {
+    return { valid: true } // No splits to validate
+  }
+
+  const sortedKms = Object.keys(splits).map(Number).sort((a, b) => a - b)
+
+  // Calculate individual split times (delta between consecutive splits)
+  const individualSplits: { km: number; deltaSeconds: number; pacePerKm: number }[] = []
+  let prevKm = 0
+  let prevTime = 0
+
+  for (const km of sortedKms) {
+    const deltaKm = km - prevKm
+    const deltaSeconds = splits[km] - prevTime
+
+    if (deltaKm > 0 && deltaSeconds > 0) {
+      const pacePerKm = deltaSeconds / deltaKm
+      individualSplits.push({ km, deltaSeconds, pacePerKm })
+    }
+
+    prevKm = km
+    prevTime = splits[km]
+  }
+
+  if (individualSplits.length === 0) {
+    return { valid: true }
+  }
+
+  // 1. Check individual split pace limits
+  for (const split of individualSplits) {
+    const minPace = getMinPaceSecondsPerKm(activityType, split.km)
+    if (split.pacePerKm < minPace) {
+      const paceMin = Math.floor(split.pacePerKm / 60)
+      const paceSec = Math.round(split.pacePerKm % 60)
+      return {
+        valid: false,
+        reason: `Split at ${split.km}km has impossible pace of ${paceMin}:${String(paceSec).padStart(2, '0')}/km`,
+      }
+    }
+  }
+
+  // 2. Check for suspicious HIGH variation (one split > 2x faster than average)
+  if (individualSplits.length >= 3) {
+    const avgPace = individualSplits.reduce((sum, s) => sum + s.pacePerKm, 0) / individualSplits.length
+    for (const split of individualSplits) {
+      if (split.pacePerKm < avgPace * 0.5) {
+        const paceMin = Math.floor(split.pacePerKm / 60)
+        const paceSec = Math.round(split.pacePerKm % 60)
+        const avgMin = Math.floor(avgPace / 60)
+        const avgSec = Math.round(avgPace % 60)
+        return {
+          valid: false,
+          reason: `Split at ${split.km}km (${paceMin}:${String(paceSec).padStart(2, '0')}/km) is suspiciously faster than average (${avgMin}:${String(avgSec).padStart(2, '0')}/km)`,
+        }
+      }
+    }
+  }
+
+  // 2b. Check for suspiciously LOW variance (car cheating detection)
+  // Real runners have natural pace variation (5-15% typical)
+  // Cars maintain near-constant speed (< 3% variance is suspicious for elite pace)
+  if (individualSplits.length >= 3 && activityType === 'running') {
+    const avgPace = individualSplits.reduce((sum, s) => sum + s.pacePerKm, 0) / individualSplits.length
+
+    // Only check if pace is elite (< 4:00/km = 240 sec/km)
+    // Regular joggers at 6:00/km can have low variance naturally
+    if (avgPace < 240) {
+      // Calculate coefficient of variation (standard deviation / mean)
+      const variance = individualSplits.reduce((sum, s) => sum + Math.pow(s.pacePerKm - avgPace, 2), 0) / individualSplits.length
+      const stdDev = Math.sqrt(variance)
+      const coefficientOfVariation = (stdDev / avgPace) * 100
+
+      // Elite runners typically have 5-15% CV
+      // Car at constant speed would be < 3%
+      const MIN_CV_FOR_ELITE_PACE = 3.0
+
+      if (coefficientOfVariation < MIN_CV_FOR_ELITE_PACE) {
+        const avgMin = Math.floor(avgPace / 60)
+        const avgSec = Math.round(avgPace % 60)
+        return {
+          valid: false,
+          reason: `Suspiciously consistent pace (${coefficientOfVariation.toFixed(1)}% variance) at elite speed (${avgMin}:${String(avgSec).padStart(2, '0')}/km) - real running shows more variation`,
+        }
+      }
+    }
+  }
+
+  // 3. Check last split vs total time (allow 10% tolerance for timing differences)
+  const lastKm = sortedKms[sortedKms.length - 1]
+  const lastSplitTime = splits[lastKm]
+  if (lastSplitTime > totalDurationSeconds * 1.1) {
+    return {
+      valid: false,
+      reason: `Split time (${Math.round(lastSplitTime)}s at ${lastKm}km) exceeds total duration (${totalDurationSeconds}s)`,
     }
   }
 
@@ -711,12 +917,27 @@ serve(async (req) => {
       submitted: 0,
       duplicates: 0,
       flagged: 0,
+      banned: 0,
       errors: 0,
     }
+
+    // Pre-fetch banned users for efficiency (avoid N queries in loop)
+    const { data: bannedUsers } = await supabase
+      .from('banned_users')
+      .select('npub')
+    const bannedNpubs = new Set((bannedUsers || []).map(b => b.npub))
 
     for (const event of events) {
       try {
         const npub = npubEncode(event.pubkey)
+
+        // Skip banned users
+        if (bannedNpubs.has(npub)) {
+          console.log(`🚫 Skipping banned user: ${npub.slice(0, 20)}...`)
+          stats.banned++
+          continue
+        }
+
         const workout = parseWorkoutEvent(event)
 
         // Check for existing event
@@ -756,45 +977,16 @@ serve(async (req) => {
           workout.durationSeconds
         )
 
-        if (validation.valid) {
-          // Calculate leaderboard data
-          const distanceKm = (workout.distanceMeters || 0) / 1000
-          const durationSeconds = workout.durationSeconds || 0
-          const splits = parseSplitsFromTags(event)
-          const targetTimes = calculateAllTargetTimes(splits, distanceKm, durationSeconds)
-          const stepCount = parseStepCount(event)
-          const leaderboardDate = new Date(event.created_at * 1000).toISOString().split('T')[0]
+        // Calculate leaderboard data (needed for all validation paths)
+        const distanceKm = (workout.distanceMeters || 0) / 1000
+        const durationSeconds = workout.durationSeconds || 0
+        const splits = parseSplitsFromTags(event)
+        const targetTimes = calculateAllTargetTimes(splits, distanceKm, durationSeconds)
+        const stepCount = parseStepCount(event)
+        const leaderboardDate = new Date(event.created_at * 1000).toISOString().split('T')[0]
 
-          // Insert workout
-          const { error: insertError } = await supabase.from('workout_submissions').insert({
-            event_id: event.id,
-            npub,
-            activity_type: classifiedType,
-            distance_meters: workout.distanceMeters,
-            duration_seconds: workout.durationSeconds,
-            calories: workout.calories,
-            created_at: new Date(event.created_at * 1000).toISOString(),
-            raw_event: event,
-            verified: true,
-            source: 'nostr_scan',
-            splits_json: Object.keys(splits).length > 0 ? splits : null,
-            time_5k_seconds: targetTimes.time_5k_seconds,
-            time_10k_seconds: targetTimes.time_10k_seconds,
-            time_half_seconds: targetTimes.time_half_seconds,
-            time_marathon_seconds: targetTimes.time_marathon_seconds,
-            step_count: stepCount,
-            leaderboard_date: leaderboardDate,
-          })
-
-          if (insertError) {
-            console.error(`Insert error for ${event.id}:`, insertError.message)
-            stats.errors++
-          } else {
-            console.log(`✅ ${event.id.slice(0, 8)}: ${classifiedType} ${distanceKm.toFixed(1)}km`)
-            stats.submitted++
-          }
-        } else {
-          // Insert into flagged_workouts
+        // Check basic workout validation first
+        if (!validation.valid) {
           await supabase.from('flagged_workouts').insert({
             event_id: event.id,
             npub,
@@ -805,9 +997,74 @@ serve(async (req) => {
             reason: validation.reason,
             raw_event: event,
           })
-
           console.log(`🚫 ${event.id.slice(0, 8)}: ${validation.reason}`)
           stats.flagged++
+          continue
+        }
+
+        // Validate target times against world records
+        const targetTimeValidation = validateTargetTimes(targetTimes)
+        if (!targetTimeValidation.valid) {
+          await supabase.from('flagged_workouts').insert({
+            event_id: event.id,
+            npub,
+            activity_type: classifiedType,
+            distance_meters: workout.distanceMeters,
+            duration_seconds: workout.durationSeconds,
+            created_at: new Date(event.created_at * 1000).toISOString(),
+            reason: targetTimeValidation.reason,
+            raw_event: event,
+          })
+          console.log(`🚫 ${event.id.slice(0, 8)}: ${targetTimeValidation.reason}`)
+          stats.flagged++
+          continue
+        }
+
+        // Validate split consistency (catches suspicious patterns and car cheating)
+        const splitValidation = validateSplitConsistency(splits, durationSeconds, classifiedType)
+        if (!splitValidation.valid) {
+          await supabase.from('flagged_workouts').insert({
+            event_id: event.id,
+            npub,
+            activity_type: classifiedType,
+            distance_meters: workout.distanceMeters,
+            duration_seconds: workout.durationSeconds,
+            created_at: new Date(event.created_at * 1000).toISOString(),
+            reason: splitValidation.reason,
+            raw_event: event,
+          })
+          console.log(`🚫 ${event.id.slice(0, 8)}: ${splitValidation.reason}`)
+          stats.flagged++
+          continue
+        }
+
+        // All validations passed - insert workout
+        const { error: insertError } = await supabase.from('workout_submissions').insert({
+          event_id: event.id,
+          npub,
+          activity_type: classifiedType,
+          distance_meters: workout.distanceMeters,
+          duration_seconds: workout.durationSeconds,
+          calories: workout.calories,
+          created_at: new Date(event.created_at * 1000).toISOString(),
+          raw_event: event,
+          verified: true,
+          source: 'nostr_scan',
+          splits_json: Object.keys(splits).length > 0 ? splits : null,
+          time_5k_seconds: targetTimes.time_5k_seconds,
+          time_10k_seconds: targetTimes.time_10k_seconds,
+          time_half_seconds: targetTimes.time_half_seconds,
+          time_marathon_seconds: targetTimes.time_marathon_seconds,
+          step_count: stepCount,
+          leaderboard_date: leaderboardDate,
+        })
+
+        if (insertError) {
+          console.error(`Insert error for ${event.id}:`, insertError.message)
+          stats.errors++
+        } else {
+          console.log(`✅ ${event.id.slice(0, 8)}: ${classifiedType} ${distanceKm.toFixed(1)}km`)
+          stats.submitted++
         }
       } catch (err) {
         console.error(`Error processing ${event.id}:`, err)
@@ -817,7 +1074,7 @@ serve(async (req) => {
 
     const duration = Date.now() - startTime
     console.log(`\n=== Sync complete in ${duration}ms ===`)
-    console.log(`Total: ${stats.total}, New: ${stats.submitted}, Dups: ${stats.duplicates}, Flagged: ${stats.flagged}, Errors: ${stats.errors}`)
+    console.log(`Total: ${stats.total}, New: ${stats.submitted}, Dups: ${stats.duplicates}, Flagged: ${stats.flagged}, Banned: ${stats.banned}, Errors: ${stats.errors}`)
 
     return new Response(
       JSON.stringify({

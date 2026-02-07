@@ -37,9 +37,15 @@ LogBox.ignoreLogs([
   '[NWC] ❌ User wallet initialization failed: No NWC connection string found',
   // Expected on iOS Simulator (no pedometer hardware) or when HealthKit permissions not granted
   '[DailyStepCounterService] Steps unavailable',
+  // Normal Nostr relay responses during connection/query - not errors
+  'Error from relay',
 ]);
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Linking from 'expo-linking';
+
+// Initialize i18n for internationalization
+import './i18n';
+import { LanguagePreferenceService } from './services/i18n/LanguagePreferenceService';
 
 // Error Boundary Component to catch runtime errors during initialization
 class AppErrorBoundary extends React.Component<
@@ -181,6 +187,8 @@ import { DonateScreen } from './screens/DonateScreen';
 import { TeamsScreen } from './screens/TeamsScreen';
 import { EventsScreen } from './screens/EventsScreen';
 import { ActivityTrackerScreen } from './screens/activity/ActivityTrackerScreen';
+import { AIHealthDashboardScreen } from './screens/AIHealthDashboardScreen';
+import { JournalHistoryScreen } from './screens/JournalHistoryScreen';
 import { User } from './types';
 import { useWalletStore } from './store/walletStore';
 import { theme } from './styles/theme';
@@ -197,9 +205,9 @@ import { AppStateManager } from './services/core/AppStateManager';
 import { appPermissionService } from './services/initialization/AppPermissionService';
 import { PermissionRequestModal } from './components/permissions/PermissionRequestModal';
 import { WelcomePermissionModal } from './components/onboarding/WelcomePermissionModal';
-import garminAuthService from './services/fitness/garminAuthService';
 import AppInitializationService from './services/core/AppInitializationService';
 import { StepPollingService } from './services/rewards/StepPollingService';
+import { StepCompetitionService } from './services/competition/StepCompetitionService';
 import {
   CustomAlertProvider,
   CustomAlertManager,
@@ -211,6 +219,13 @@ import {
   parseEventDeepLink,
   type ParsedEventData,
 } from './utils/eventDeepLink';
+import { PendingSubmissionService } from './services/competition/PendingSubmissionService';
+import { RewardPollingService } from './services/rewards/RewardPollingService';
+
+// Music player components for Wavlake integration
+// Note: MiniMusicPlayer removed - replaced by ProfileMusicBar in ProfileScreen
+import { ExpandedMusicPlayer } from './components/music/ExpandedMusicPlayer';
+import { PlaylistBrowser } from './components/music/PlaylistBrowser';
 
 // ✅ FIX #18: Permission modal removed from startup to prevent iOS freeze
 // Permissions are now requested at point of use (when starting exercise tracking)
@@ -262,6 +277,10 @@ type AuthenticatedStackParamList = {
   Events: undefined;
   Exercise: undefined;
   Compete: undefined;
+  Leaderboards: undefined;
+  AIHealthDashboard: undefined;
+  JournalHistory: undefined;
+  Experimental: undefined;
 };
 
 const AuthenticatedStack = createStackNavigator<AuthenticatedStackParamList>();
@@ -332,8 +351,9 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
         AppInitializationService.initializeInBackground()
           .then(() => {
             console.log('✅ App: Background initialization completed');
-            // Initialize step polling service after app is initialized
-            StepPollingService.initialize();
+            // v3: Step rewards DISABLED - NWC moved to external service
+            // Step polling no longer triggers rewards, only workout rewards remain
+            // StepPollingService.initialize();
           })
           .catch((error) => {
             console.error('❌ Background initialization error:', error);
@@ -343,11 +363,109 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
 
       return () => {
         clearTimeout(timer);
-        // Cleanup step polling on unmount
-        StepPollingService.cleanup();
+        // v3: Step polling disabled - cleanup not needed
+        // StepPollingService.cleanup();
       };
     }
   }, [isAuthenticated, currentUser, hasInitialized]);
+
+  // Step Competition: Auto-submit daily steps on app foreground
+  // Users in step-based competitions (January Walking) have their passive
+  // pedometer steps submitted automatically for leaderboard tracking
+  // Also: Retry pending workout submissions that failed to sync
+  React.useEffect(() => {
+    if (!isAuthenticated || !currentUser) {
+      return;
+    }
+
+    const npub = currentUser.npub || currentUser.id;
+    if (!npub) {
+      return;
+    }
+
+    console.log('[App] Registering foreground handlers (step competition + pending sync)');
+
+    // Register callback with AppStateManager for foreground events
+    const unsubscribe = AppStateManager.onStateChange(async (isActive) => {
+      if (isActive) {
+        console.log('[App] App foregrounded - running foreground tasks...');
+
+        // Task 1: Retry pending workout submissions
+        try {
+          const retryResult = await PendingSubmissionService.retryAll();
+          if (retryResult.succeeded > 0) {
+            console.log(`[App] ✅ Synced ${retryResult.succeeded} pending workout(s)`);
+            Toast.show({
+              type: 'success',
+              text1: `${retryResult.succeeded} workout${retryResult.succeeded > 1 ? 's' : ''} synced!`,
+              text2: 'Your workout is now on the leaderboard',
+              position: 'bottom',
+              visibilityTime: 3000,
+            });
+          }
+        } catch (error) {
+          console.warn('[App] Pending submission retry failed:', error);
+          // Non-critical - don't block app functionality
+        }
+
+        // Task 2: Check step competitions
+        try {
+          await StepCompetitionService.checkAndSubmitSteps(npub);
+        } catch (error) {
+          console.warn('[App] Step competition check failed:', error);
+          // Non-critical - don't block app functionality
+        }
+      }
+    });
+
+    // Also check on initial mount (user may have opened app fresh)
+    const initialCheckTimer = setTimeout(async () => {
+      try {
+        await StepCompetitionService.checkAndSubmitSteps(npub);
+      } catch (error) {
+        console.warn('[App] Initial step competition check failed:', error);
+      }
+    }, 2000); // Delay to let app fully initialize
+
+    return () => {
+      console.log('[App] Unregistering foreground handlers');
+      unsubscribe();
+      clearTimeout(initialCheckTimer);
+    };
+  }, [isAuthenticated, currentUser]);
+
+  // Reward Polling: Check for confirmed payments from Supabase
+  // Shows toast notifications when payments are actually confirmed
+  React.useEffect(() => {
+    if (!isAuthenticated || !currentUser) {
+      // User logged out - cleanup polling
+      RewardPollingService.cleanup();
+      return;
+    }
+
+    // Get hex pubkey for polling service
+    const initializePolling = async () => {
+      try {
+        const hexPubkey = await safeGetItem('@runstr:hex_pubkey', 2000, null);
+        if (hexPubkey) {
+          console.log('[App] Initializing RewardPollingService');
+          await RewardPollingService.initialize(hexPubkey);
+        } else {
+          console.warn('[App] No hex pubkey found for reward polling');
+        }
+      } catch (error) {
+        console.warn('[App] Failed to initialize reward polling:', error);
+        // Non-critical - app continues without polling
+      }
+    };
+
+    initializePolling();
+
+    return () => {
+      console.log('[App] Cleaning up RewardPollingService');
+      RewardPollingService.cleanup();
+    };
+  }, [isAuthenticated, currentUser]);
 
   // Handle pending event navigation when navigation is ready
   React.useEffect(() => {
@@ -381,47 +499,13 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
     }
   }, [pendingEventNavigation, isAuthenticated, currentUser]);
 
-  // Handle deep links (Garmin OAuth and Challenge QR codes)
+  // Handle deep links (Challenge QR codes, events)
   React.useEffect(() => {
     const handleDeepLink = async ({ url }: { url: string }) => {
       console.log('🔗 Deep link received:', url);
 
       const { hostname, path, queryParams } = Linking.parse(url);
       console.log('📍 Parsed deep link:', { hostname, path, queryParams });
-
-      // Handle Garmin OAuth callback: runstr://oauth/garmin?code=ABC123&state=xyz
-      if (path === 'oauth/garmin' && queryParams?.code) {
-        console.log('🔐 Garmin OAuth callback detected');
-        console.log('   Code:', queryParams.code);
-        console.log('   State:', queryParams.state || 'not provided');
-
-        try {
-          const result = await garminAuthService.handleOAuthCallback(
-            queryParams.code as string,
-            queryParams.state as string | undefined
-          );
-
-          if (result.success) {
-            CustomAlertManager.alert(
-              'Success',
-              'Garmin connected! You can now sync your workouts.',
-              [{ text: 'OK' }]
-            );
-          } else {
-            CustomAlertManager.alert(
-              'Connection Failed',
-              result.error || 'Failed to connect Garmin. Please try again.'
-            );
-          }
-        } catch (error) {
-          console.error('❌ Failed to handle Garmin OAuth callback:', error);
-          CustomAlertManager.alert(
-            'Error',
-            'Failed to connect Garmin. Please try again.'
-          );
-        }
-        return;
-      }
 
       // Handle Event deep link: runstr://event/{eventId}?team={teamId}&name={eventName}
       if (path?.startsWith('event/') || url.includes('runstr://event/')) {
@@ -1066,6 +1150,33 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
         >
           {({ navigation }) => <LeaderboardsScreen navigation={navigation} />}
         </AuthenticatedStack.Screen>
+
+        {/* AI Health Dashboard - Journal, Habits, Goals + AI Coaching */}
+        <AuthenticatedStack.Screen
+          name="AIHealthDashboard"
+          options={{
+            headerShown: false,
+          }}
+          component={AIHealthDashboardScreen}
+        />
+
+        {/* Journal History */}
+        <AuthenticatedStack.Screen
+          name="JournalHistory"
+          options={{
+            headerShown: false,
+          }}
+          component={JournalHistoryScreen}
+        />
+
+        {/* Experimental Features (alias for AdvancedAnalytics) */}
+        <AuthenticatedStack.Screen
+          name="Experimental"
+          options={{
+            headerShown: false,
+          }}
+          component={AdvancedAnalyticsScreen}
+        />
       </AuthenticatedStack.Navigator>
     );
   };
@@ -1129,6 +1240,11 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
         })()}
       </NavigationContainer>
 
+      {/* Music Player - Wavlake integration */}
+      {/* Note: MiniMusicPlayer removed - replaced by ProfileMusicBar in ProfileScreen */}
+      <ExpandedMusicPlayer />
+      <PlaylistBrowser />
+
       {/* Welcome Modal - Shows on first app launch */}
       <WelcomePermissionModal
         visible={showWelcomeModal}
@@ -1157,6 +1273,15 @@ export default function App() {
         } catch (error) {
           console.error('🚨 WebSocket polyfill initialization failed:', error);
           // App can continue without polyfill in most cases
+        }
+
+        // Initialize i18n language from saved preference
+        try {
+          await LanguagePreferenceService.initializeLanguage();
+          console.log('[App] 🌐 Language preference initialized');
+        } catch (error) {
+          console.warn('[App] Failed to initialize language preference:', error);
+          // App continues with default language
         }
 
         // Enable WebSocket debugging in development mode for NWC troubleshooting

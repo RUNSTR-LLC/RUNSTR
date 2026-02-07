@@ -553,4 +553,26 @@ export class GarminActivityService {
   }
 }
 
-export default GarminActivityService.getInstance();
+// Lazy singleton - only initialize when actually used (e.g., Garmin tab)
+let _garminActivityServiceInstance: GarminActivityService | null = null;
+
+export function getGarminActivityService(): GarminActivityService {
+  if (!_garminActivityServiceInstance) {
+    _garminActivityServiceInstance = GarminActivityService.getInstance();
+  }
+  return _garminActivityServiceInstance;
+}
+
+// For backward compatibility - use a Proxy to lazy-init on property access
+const garminActivityService = new Proxy({} as GarminActivityService, {
+  get(_target, prop) {
+    const instance = getGarminActivityService();
+    const value = (instance as any)[prop];
+    if (typeof value === 'function') {
+      return value.bind(instance);
+    }
+    return value;
+  },
+});
+
+export default garminActivityService;

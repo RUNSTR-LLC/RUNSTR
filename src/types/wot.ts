@@ -7,8 +7,8 @@
  * Cached WoT score data stored in AsyncStorage
  */
 export interface CachedWoTScore {
-  /** The WoT rank value (float, e.g., 0.000168) */
-  score: number;
+  /** The WoT rank value (float, e.g., 0.000168), or null if not ranked */
+  score: number | null;
   /** Timestamp when the score was fetched */
   fetchedAt: number;
   /** The hex pubkey this score is for */

@@ -1,7 +1,9 @@
 /**
- * SplitTrackingService - Kilometer split tracking for running activities
- * Monitors distance milestones and captures split times with pace analysis
+ * SplitTrackingService - Distance split tracking for running activities
+ * Monitors distance milestones (km or miles) and captures split times with pace analysis
  */
+
+export type UnitSystem = 'metric' | 'imperial';
 
 export interface Split {
   number: number; // Split number (1, 2, 3, etc.)
@@ -22,19 +24,25 @@ export interface SplitStatistics {
 
 export class SplitTrackingService {
   private splits: Split[] = [];
-  private splitInterval: number = 1000; // 1km in meters
+  private splitInterval: number = 1000; // 1km in meters (default)
   private lastSplitDistance: number = 0;
   private startTime: number = 0;
   private pausedDuration: number = 0; // Total time spent paused
+  private unitSystem: UnitSystem = 'metric';
 
   /**
    * Start tracking splits for a new session
+   * @param startTime - Timestamp when session started
+   * @param unitSystem - 'metric' for 1km splits, 'imperial' for 1 mile splits
    */
-  start(startTime: number): void {
+  start(startTime: number, unitSystem: UnitSystem = 'metric'): void {
     this.splits = [];
     this.lastSplitDistance = 0;
     this.startTime = startTime;
     this.pausedDuration = 0;
+    this.unitSystem = unitSystem;
+    // 1km = 1000m, 1 mile = 1609m
+    this.splitInterval = unitSystem === 'imperial' ? 1609 : 1000;
   }
 
   /**
@@ -80,10 +88,11 @@ export class SplitTrackingService {
       this.splits.push(newSplit);
       this.lastSplitDistance = currentDistanceMeters;
 
+      const unitLabel = this.unitSystem === 'imperial' ? 'mi' : 'km';
       console.log(
         `🏃 Split ${splitNumber}: ${this.formatSplitTime(
           splitTime
-        )} (${this.formatPace(pace)}/km)`
+        )} (${this.formatPace(pace)}/${unitLabel})`
       );
 
       return newSplit;
@@ -249,6 +258,8 @@ export class SplitTrackingService {
     this.lastSplitDistance = 0;
     this.startTime = 0;
     this.pausedDuration = 0;
+    this.unitSystem = 'metric';
+    this.splitInterval = 1000;
   }
 
   /**
@@ -266,9 +277,24 @@ export class SplitTrackingService {
     const lastSplit = savedSplits[savedSplits.length - 1];
     this.lastSplitDistance = lastSplit.distanceKm * 1000; // Convert km back to meters
 
+    const unitLabel = this.unitSystem === 'imperial' ? 'mi' : 'km';
     console.log(
-      `[SplitTrackingService] Restored ${savedSplits.length} splits (last: ${lastSplit.distanceKm} km)`
+      `[SplitTrackingService] Restored ${savedSplits.length} splits (last: ${lastSplit.distanceKm} ${unitLabel})`
     );
+  }
+
+  /**
+   * Get the current unit system
+   */
+  getUnitSystem(): UnitSystem {
+    return this.unitSystem;
+  }
+
+  /**
+   * Get the split interval in meters
+   */
+  getSplitInterval(): number {
+    return this.splitInterval;
   }
 
   /**

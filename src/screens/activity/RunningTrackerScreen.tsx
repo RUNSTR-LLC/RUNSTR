@@ -20,6 +20,7 @@ import { useNavigation } from '@react-navigation/native';
 import * as TaskManager from 'expo-task-manager';
 import * as Device from 'expo-device';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTranslation } from 'react-i18next';
 import { theme } from '../../styles/theme';
 const WEEKLY_DISTANCE_UPDATE_KEY = '@runstr:weekly_distance_last_updated_running';
 import { CustomAlert } from '../../components/ui/CustomAlert';
@@ -59,8 +60,9 @@ import {
 import { SplitsBar } from '../../components/activity/SplitsBar';
 import { CountdownOverlay } from '../../components/activity/CountdownOverlay';
 import { LastActivityCard } from '../../components/activity/LastActivityCard';
-// Debug overlay for GPS diagnosis
+// Debug overlays for GPS and step diagnosis
 import { ActivityDebugOverlay } from '../../components/debug/ActivityDebugOverlay';
+import { StepDebugOverlay } from '../../components/debug/StepDebugOverlay';
 
 // DEBUG MODE - Set to true for debug APK builds, false for production
 const DEBUG_MODE = false;
@@ -95,8 +97,15 @@ const MetricCard: React.FC<MetricCardProps> = ({ label, value, icon }) => (
   </View>
 );
 
-export const RunningTrackerScreen: React.FC = () => {
+interface RunningTrackerScreenProps {
+  onWorkoutStateChange?: (isActive: boolean) => void;
+}
+
+export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
+  onWorkoutStateChange,
+}) => {
   const navigation = useNavigation<any>();
+  const { t } = useTranslation('profile');
   const [isTracking, setIsTracking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [metrics, setMetrics] = useState<FormattedMetrics>({
@@ -172,6 +181,11 @@ export const RunningTrackerScreen: React.FC = () => {
     isTrackingRef.current = isTracking;
     isPausedRef.current = isPaused;
   }, [isTracking, isPaused]);
+
+  // Notify parent when workout state changes (for swipe navigation lock)
+  useEffect(() => {
+    onWorkoutStateChange?.(isTracking && !isPaused);
+  }, [isTracking, isPaused, onWorkoutStateChange]);
 
   // CRITICAL: Prevent navigation away from tracker screen during active tracking
   // This fixes the bug where users were unexpectedly navigated to profile screen mid-workout
@@ -255,7 +269,19 @@ export const RunningTrackerScreen: React.FC = () => {
     }
   };
 
+  // Helper function to safely start metrics interval (prevents duplicates)
+  const startMetricsInterval = () => {
+    // Always clear existing interval first to prevent duplicates
+    if (metricsUpdateRef.current) {
+      clearInterval(metricsUpdateRef.current);
+    }
+    metricsUpdateRef.current = setInterval(() => {
+      updateMetrics();
+    }, METRICS_UPDATE_INTERVAL_MS);
+  };
+
   // Check for active session on mount (fixes session loss on app switch)
+  // Also handles auto-recovery of interrupted workouts
   useEffect(() => {
     // ✅ PERFORMANCE FIX: Defer session restoration until after navigation completes
     // This eliminates 7-second blocking from AsyncStorage reads and GPS point processing
@@ -264,6 +290,8 @@ export const RunningTrackerScreen: React.FC = () => {
         console.log(
           '[RunningTrackerScreen] Checking for active session (deferred for performance)...'
         );
+
+        // First try to restore an active session (user switched apps and came back)
         const restored = await simpleRunTracker.restoreSession();
 
         if (restored) {
@@ -273,11 +301,48 @@ export const RunningTrackerScreen: React.FC = () => {
 
           // Start metrics update interval
           updateMetrics(); // Call immediately
-          metricsUpdateRef.current = setInterval(() => {
-            updateMetrics();
-          }, METRICS_UPDATE_INTERVAL_MS);
+          startMetricsInterval();
 
           console.log('[RunningTrackerScreen] Active session restored');
+          return;
+        }
+
+        // If no active session, try auto-recovery (app was killed/crashed)
+        // Only for running activity type
+        const autoRecoveryResult = await simpleRunTracker.checkAndAutoRecover();
+
+        if (autoRecoveryResult.recovered && autoRecoveryResult.checkpoint) {
+          const { checkpoint } = autoRecoveryResult;
+
+          // Only auto-recover running workouts on this screen
+          if (checkpoint.activityType !== 'running') {
+            console.log(
+              `[RunningTrackerScreen] Auto-recovery checkpoint is for ${checkpoint.activityType}, skipping`
+            );
+            return;
+          }
+
+          // Update UI state to reflect recovered workout
+          setIsTracking(true);
+          setIsPaused(false);
+
+          // Start metrics update interval
+          updateMetrics(); // Call immediately
+          startMetricsInterval();
+
+          // Show toast notification
+          setAlertConfig({
+            title: 'Workout Resumed',
+            message: `Recovered ${(checkpoint.distance / 1000).toFixed(2)} km run that was interrupted.`,
+            buttons: [{ text: 'OK', style: 'default' }],
+          });
+          setAlertVisible(true);
+
+          console.log(
+            `[RunningTrackerScreen] ✅ Auto-recovered workout: ${(
+              checkpoint.distance / 1000
+            ).toFixed(2)} km`
+          );
         }
       };
 
@@ -383,11 +448,9 @@ export const RunningTrackerScreen: React.FC = () => {
           '[RunningTrackerScreen] App returned to foreground, ensuring timers are running...'
         );
 
-        // Restart timers
+        // Restart timers if not already running
         if (!metricsUpdateRef.current) {
-          metricsUpdateRef.current = setInterval(() => {
-            updateMetrics();
-          }, METRICS_UPDATE_INTERVAL_MS);
+          startMetricsInterval();
         }
 
         // MEMORY-ONLY ARCHITECTURE: No GPS sync needed, distance is calculated incrementally
@@ -433,10 +496,7 @@ export const RunningTrackerScreen: React.FC = () => {
     };
   }, []); // Subscribe only once to avoid race conditions
 
-  // Update the ref whenever isTracking changes
-  useEffect(() => {
-    isTrackingRef.current = isTracking;
-  }, [isTracking]);
+  // NOTE: isTrackingRef sync removed - consolidated at lines 179-182 to prevent duplicate updates
 
   // FIX iOS 30-min issue + Android throttling: Health check with LIVENESS detection
   // This prevents UI freeze from:
@@ -448,18 +508,16 @@ export const RunningTrackerScreen: React.FC = () => {
     const healthCheckInterval = setInterval(() => {
       // LIVENESS CHECK: Detect "zombie" intervals that exist but stopped firing
       // This happens when Android throttles background JS execution
+      // Using 10s threshold to avoid false positives from GPS delays or React lag
       const timeSinceLastUpdate = Date.now() - lastMetricsUpdateRef.current;
-      const isZombieInterval = metricsUpdateRef.current && timeSinceLastUpdate > 3000;
+      const isZombieInterval = metricsUpdateRef.current && timeSinceLastUpdate > 10000;
 
       if (isZombieInterval) {
         console.log(
           `[RunningTrackerScreen] 🧟 ZOMBIE INTERVAL DETECTED - no update for ${(timeSinceLastUpdate / 1000).toFixed(1)}s, restarting...`
         );
         // Kill the zombie and create a fresh interval
-        clearInterval(metricsUpdateRef.current!);
-        metricsUpdateRef.current = setInterval(() => {
-          updateMetrics();
-        }, METRICS_UPDATE_INTERVAL_MS);
+        startMetricsInterval();
       }
 
       // If we're tracking but metrics interval is completely dead (null), restart it
@@ -467,9 +525,7 @@ export const RunningTrackerScreen: React.FC = () => {
         console.log(
           '[RunningTrackerScreen] Metrics interval was null, restarting...'
         );
-        metricsUpdateRef.current = setInterval(() => {
-          updateMetrics();
-        }, METRICS_UPDATE_INTERVAL_MS);
+        startMetricsInterval();
       }
     }, 5000); // Check every 5 seconds
 
@@ -545,10 +601,7 @@ export const RunningTrackerScreen: React.FC = () => {
     // Start metrics update timer - SimpleRunTracker handles all timing internally
     // Call once immediately (fixes "duration doesn't move on start" bug)
     updateMetrics();
-
-    metricsUpdateRef.current = setInterval(() => {
-      updateMetrics();
-    }, METRICS_UPDATE_INTERVAL_MS);
+    startMetricsInterval();
   };
 
   const formatElapsedTime = (seconds: number): string => {
@@ -832,7 +885,7 @@ export const RunningTrackerScreen: React.FC = () => {
         {!isTracking && !countdown && (
           <View style={styles.idleCenteredContainer}>
             <HoldToStartButton
-              label="Start Run"
+              label={t('startRun')}
               onHoldComplete={handleHoldComplete}
               disabled={false}
               holdDuration={2000}
@@ -978,6 +1031,9 @@ export const RunningTrackerScreen: React.FC = () => {
 
       {/* Debug Overlay - GPS death diagnosis (only in DEBUG_MODE and while tracking) */}
       {DEBUG_MODE && isTracking && <ActivityDebugOverlay />}
+
+      {/* Step Debug Overlay - Android-only diagnostic panel */}
+      <StepDebugOverlay />
     </View>
   );
 };

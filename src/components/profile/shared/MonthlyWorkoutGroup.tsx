@@ -17,9 +17,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../../styles/theme';
 import type { Workout } from '../../../types/workout';
+import type { TimelineItem } from '../../../types/timeline';
 import { MonthlyStatsPanel } from '../MonthlyStatsPanel';
 import { MonthlyStatsCalculator } from '../../../services/fitness/MonthlyStatsCalculator';
 import type { MonthlyStats } from '../../../services/fitness/MonthlyStatsCalculator';
+import { useUnitPreference } from '../../../hooks/useUnitPreference';
 
 // Enable LayoutAnimation on Android
 if (
@@ -33,30 +35,38 @@ export interface MonthlyGroup {
   key: string;
   title: string; // e.g., "January 2025"
   workouts: Workout[];
+  /** Timeline items (workouts + journal + habits) - when present, used instead of workouts */
+  items?: TimelineItem[];
   stats: {
     totalWorkouts: number;
     totalDuration: number;
     totalDistance?: number;
     totalCalories?: number;
+    journalEntries?: number;
+    habitCheckIns?: number;
   };
 }
 
 interface MonthlyWorkoutGroupProps {
   group: MonthlyGroup;
   renderWorkout: (workout: Workout) => React.ReactElement;
+  /** Render a timeline item (journal/habit). If not provided, only workouts are shown. */
+  renderTimelineItem?: (item: TimelineItem) => React.ReactElement;
   defaultExpanded?: boolean;
   previousMonthWorkouts?: Workout[]; // For month-over-month comparison
 }
 
-export const MonthlyWorkoutGroup: React.FC<MonthlyWorkoutGroupProps> = ({
+export const MonthlyWorkoutGroup: React.FC<MonthlyWorkoutGroupProps> = React.memo(({
   group,
   renderWorkout,
+  renderTimelineItem,
   defaultExpanded = false,
   previousMonthWorkouts,
 }) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [showStats, setShowStats] = useState(false);
   const [monthlyStats, setMonthlyStats] = useState<MonthlyStats | null>(null);
+  const { isMetric, distanceLabel } = useUnitPreference();
 
   // Calculate monthly stats on mount
   useEffect(() => {
@@ -87,8 +97,13 @@ export const MonthlyWorkoutGroup: React.FC<MonthlyWorkoutGroupProps> = ({
 
   const formatDistance = (meters?: number): string => {
     if (!meters) return '';
-    const km = (meters / 1000).toFixed(1);
-    return `${km}km`;
+    if (isMetric) {
+      const km = (meters / 1000).toFixed(1);
+      return `${km} ${distanceLabel}`;
+    } else {
+      const miles = (meters * 0.000621371).toFixed(1);
+      return `${miles} ${distanceLabel}`;
+    }
   };
 
   return (
@@ -106,6 +121,10 @@ export const MonthlyWorkoutGroup: React.FC<MonthlyWorkoutGroupProps> = ({
             <Text style={styles.subtitle}>
               {group.stats.totalWorkouts} workout
               {group.stats.totalWorkouts !== 1 ? 's' : ''}
+              {(group.stats.journalEntries ?? 0) > 0 &&
+                ` \u2022 ${group.stats.journalEntries} journal`}
+              {(group.stats.habitCheckIns ?? 0) > 0 &&
+                ` \u2022 ${group.stats.habitCheckIns} habit${group.stats.habitCheckIns !== 1 ? 's' : ''}`}
             </Text>
           </View>
         </View>
@@ -139,19 +158,29 @@ export const MonthlyWorkoutGroup: React.FC<MonthlyWorkoutGroupProps> = ({
       {/* Monthly Stats Panel */}
       {showStats && monthlyStats && <MonthlyStatsPanel stats={monthlyStats} />}
 
-      {/* Workouts */}
+      {/* Items (timeline mode) or Workouts (legacy mode) */}
       {isExpanded && (
         <View style={styles.workouts}>
-          {group.workouts.map((workout) => (
-            <View key={workout.id} style={styles.workoutWrapper}>
-              {renderWorkout(workout)}
-            </View>
-          ))}
+          {group.items && renderTimelineItem
+            ? group.items.map((item) => (
+                <View key={item.id} style={styles.workoutWrapper}>
+                  {item.type === 'workout' && item.workout
+                    ? renderWorkout(item.workout)
+                    : renderTimelineItem(item)}
+                </View>
+              ))
+            : group.workouts.map((workout) => (
+                <View key={workout.id} style={styles.workoutWrapper}>
+                  {renderWorkout(workout)}
+                </View>
+              ))}
         </View>
       )}
     </View>
   );
-};
+});
+
+MonthlyWorkoutGroup.displayName = 'MonthlyWorkoutGroup';
 
 /**
  * Helper function to group workouts by month

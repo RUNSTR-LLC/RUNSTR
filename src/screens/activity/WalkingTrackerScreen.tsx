@@ -18,6 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { AppStateManager } from '../../services/core/AppStateManager';
 import { CustomAlert } from '../../components/ui/CustomAlert';
 import { simpleRunTracker } from '../../services/activity/SimpleRunTracker';
@@ -29,7 +30,6 @@ import healthConnectService from '../../services/fitness/healthConnectService';
 import { RouteSelectionModal } from '../../components/routes/RouteSelectionModal';
 import routeStorageService from '../../services/routes/RouteStorageService';
 import {
-  DailyStepGoalCard,
   type PostingState,
 } from '../../components/activity/DailyStepGoalCard';
 import { dailyStepCounterService } from '../../services/activity/DailyStepCounterService';
@@ -57,11 +57,20 @@ import {
 } from '../../services/nostr/workoutPublishingService';
 import { UnifiedSigningService } from '../../services/auth/UnifiedSigningService';
 import { theme } from '../../styles/theme';
+import { KM_PER_STEP } from '../../constants/appConstants';
+import { StepDebugOverlay } from '../../components/debug/StepDebugOverlay';
 
 const STEP_UPDATE_INTERVAL = 5 * 1000; // Update every 5 seconds for near-real-time
 
-export const WalkingTrackerScreen: React.FC = () => {
+interface WalkingTrackerScreenProps {
+  onWorkoutStateChange?: (isActive: boolean) => void;
+}
+
+export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
+  onWorkoutStateChange,
+}) => {
   const navigation = useNavigation<any>();
+  const { t } = useTranslation('profile');
   const [isTracking, setIsTracking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [metrics, setMetrics] = useState({
@@ -142,6 +151,11 @@ export const WalkingTrackerScreen: React.FC = () => {
     isPausedRef.current = isPaused;
   }, [isTracking, isPaused]);
 
+  // Notify parent when workout state changes (for swipe navigation lock)
+  useEffect(() => {
+    onWorkoutStateChange?.(isTracking && !isPaused);
+  }, [isTracking, isPaused, onWorkoutStateChange]);
+
   // CRITICAL: Prevent navigation away from tracker screen during active tracking
   // This fixes the bug where users were unexpectedly navigated to profile screen mid-workout
   // FIXED: Use refs instead of state to prevent race condition from listener recreation
@@ -195,6 +209,104 @@ export const WalkingTrackerScreen: React.FC = () => {
         unsubscribeLiveStepsRef.current();
     };
   }, []);
+
+  // Auto-recovery for interrupted workouts
+  useEffect(() => {
+    const checkAutoRecovery = async () => {
+      // Don't recover if already tracking
+      if (isTracking) return;
+
+      console.log('[WalkingTrackerScreen] Checking for auto-recovery...');
+
+      // First try regular session restore
+      const restored = await simpleRunTracker.restoreSession();
+      if (restored) {
+        setIsTracking(true);
+        setIsPaused(simpleRunTracker.isCurrentlyPaused());
+
+        // Get current session data for UI
+        const session = simpleRunTracker.getCurrentSession();
+        if (session) {
+          setElapsedTime(session.duration || 0);
+          const distance = session.distance || 0;
+          setMetrics({
+            distance: `${(distance / 1000).toFixed(2)} km`,
+            duration: formatElapsedTime(session.duration || 0),
+            elevation: `${Math.round(session.elevationGain || 0)} m`,
+            calories: `${activityMetricsService.estimateCalories('walking', distance, session.duration || 0)}`,
+          });
+        }
+
+        console.log('[WalkingTrackerScreen] Active session restored');
+        return;
+      }
+
+      // Try auto-recovery
+      const autoRecoveryResult = await simpleRunTracker.checkAndAutoRecover();
+
+      if (autoRecoveryResult.recovered && autoRecoveryResult.checkpoint) {
+        const { checkpoint } = autoRecoveryResult;
+
+        // Only auto-recover walking workouts on this screen
+        if (checkpoint.activityType !== 'walking') {
+          console.log(
+            `[WalkingTrackerScreen] Auto-recovery checkpoint is for ${checkpoint.activityType}, skipping`
+          );
+          return;
+        }
+
+        // Update UI state
+        setIsTracking(true);
+        setIsPaused(false);
+        setElapsedTime(checkpoint.duration);
+        setMetrics({
+          distance: `${(checkpoint.distance / 1000).toFixed(2)} km`,
+          duration: formatElapsedTime(checkpoint.duration),
+          elevation: '0 m',
+          calories: `${activityMetricsService.estimateCalories('walking', checkpoint.distance, checkpoint.duration)}`,
+        });
+
+        // Start UI update timer (clear first to prevent duplicates)
+        startTimeRef.current = Date.now() - (checkpoint.duration * 1000);
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+        }
+        timerRef.current = setInterval(() => {
+          if (!isPausedRef.current) {
+            const now = Date.now();
+            const elapsed = Math.floor((now - startTimeRef.current - totalPausedTimeRef.current) / 1000);
+            setElapsedTime(elapsed);
+          }
+        }, 1000);
+
+        // Show notification
+        setAlertConfig({
+          title: 'Walk Resumed',
+          message: `Recovered ${(checkpoint.distance / 1000).toFixed(2)} km walk that was interrupted.`,
+          buttons: [{ text: 'OK', style: 'default' }],
+        });
+        setAlertVisible(true);
+
+        console.log(
+          `[WalkingTrackerScreen] ✅ Auto-recovered workout: ${(checkpoint.distance / 1000).toFixed(2)} km`
+        );
+      }
+    };
+
+    checkAutoRecovery();
+  }, []);
+
+  // Helper function for time formatting
+  const formatElapsedTime = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  };
 
   // Load user profile for social sharing
   useEffect(() => {
@@ -818,6 +930,7 @@ export const WalkingTrackerScreen: React.FC = () => {
       console.log(`[WalkingTrackerScreen] ✅ Daily steps saved: ${workoutId}`);
 
       // Create PublishableWorkout for social sharing with steps in metadata
+      const estimatedDistanceMeters = dailySteps * KM_PER_STEP * 1000;
       const publishableWorkout: PublishableWorkout = {
         id: workoutId,
         userId: userId || 'unknown',
@@ -825,8 +938,9 @@ export const WalkingTrackerScreen: React.FC = () => {
         startTime: midnight.toISOString(),
         endTime: now.toISOString(),
         duration,
-        distance: 0, // No GPS distance tracking
+        distance: estimatedDistanceMeters,
         calories,
+        steps: dailySteps,
         source: 'manual', // Device pedometer data entered manually
         syncedAt: new Date().toISOString(),
         sourceApp: 'RUNSTR',
@@ -1051,7 +1165,7 @@ export const WalkingTrackerScreen: React.FC = () => {
         /* ============ IDLE STATE ============ */
         <View style={styles.idleCenteredContainer}>
           <HoldToStartButton
-            label="Start Walk"
+            label={t('startWalk')}
             onHoldComplete={handleHoldComplete}
             size="large"
           />
@@ -1135,6 +1249,9 @@ export const WalkingTrackerScreen: React.FC = () => {
         }}
       />
       </View>
+
+      {/* Step Debug Overlay - Android-only diagnostic panel */}
+      <StepDebugOverlay />
     </View>
   );
 };

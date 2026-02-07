@@ -134,6 +134,55 @@ class ActivityMetricsService {
   }
 
   /**
+   * Estimate distance from step count
+   * @param steps Number of steps
+   * @returns Estimated distance in meters
+   */
+  estimateDistanceFromSteps(steps: number): number {
+    return steps * this.strideLength;
+  }
+
+  /**
+   * Calculate total daily distance combining GPS workouts with step estimates
+   * GPS distance is used for tracked workouts, step estimates for remaining activity
+   *
+   * Formula:
+   * Total Distance = GPS Workout Distance + Non-Workout Step Distance
+   *
+   * Where:
+   * - GPS Workout Distance = sum of all GPS workouts completed today
+   * - GPS Step Equivalent = GPS Distance ÷ stride length
+   * - Non-Workout Steps = Total Daily Steps - GPS Step Equivalent
+   * - Non-Workout Step Distance = Non-Workout Steps × stride length
+   *
+   * @param totalSteps Total steps from HealthKit/Health Connect today
+   * @param gpsWorkoutDistanceMeters Sum of GPS-tracked workout distances today (in meters)
+   * @returns Combined distance in meters
+   */
+  calculateCombinedDailyDistance(
+    totalSteps: number,
+    gpsWorkoutDistanceMeters: number
+  ): number {
+    // If no GPS workouts, return pure step estimate
+    if (gpsWorkoutDistanceMeters <= 0) {
+      return this.estimateDistanceFromSteps(totalSteps);
+    }
+
+    // Estimate how many steps the GPS distance represents
+    const gpsStepEquivalent = this.estimateSteps(gpsWorkoutDistanceMeters);
+
+    // Calculate non-workout steps (steps outside of GPS workouts)
+    // Clamp to 0 to handle cases where GPS steps > total steps
+    const nonWorkoutSteps = Math.max(0, totalSteps - gpsStepEquivalent);
+
+    // Non-workout distance from step estimate
+    const nonWorkoutDistance = this.estimateDistanceFromSteps(nonWorkoutSteps);
+
+    // Total = actual GPS distance + estimated non-workout distance
+    return gpsWorkoutDistanceMeters + nonWorkoutDistance;
+  }
+
+  /**
    * Estimate calories burned
    */
   estimateCalories(
@@ -196,14 +245,19 @@ class ActivityMetricsService {
 
   /**
    * Format pace to display string
+   * Input: seconds per km (canonical unit)
+   * Output: formatted string with appropriate unit conversion
    */
-  formatPace(secondsPerUnit: number | undefined): string {
-    if (!secondsPerUnit || secondsPerUnit <= 0 || !isFinite(secondsPerUnit)) {
+  formatPace(secondsPerKm: number | undefined): string {
+    if (!secondsPerKm || secondsPerKm <= 0 || !isFinite(secondsPerKm)) {
       return '--:--';
     }
 
-    const minutes = Math.floor(secondsPerUnit / 60);
-    const seconds = Math.floor(secondsPerUnit % 60);
+    // Convert from seconds/km to seconds/mi for imperial users
+    const paceSeconds =
+      this.unitSystem === 'imperial' ? secondsPerKm * 1.60934 : secondsPerKm;
+    const minutes = Math.floor(paceSeconds / 60);
+    const seconds = Math.floor(paceSeconds % 60);
 
     const unit = this.unitSystem === 'imperial' ? '/mi' : '/km';
     return `${minutes}:${seconds.toString().padStart(2, '0')}${unit}`;
@@ -211,14 +265,19 @@ class ActivityMetricsService {
 
   /**
    * Format speed to display string
+   * Input: km/h (canonical unit)
+   * Output: formatted string with appropriate unit conversion
    */
-  formatSpeed(speedValue: number): string {
-    if (speedValue <= 0 || !isFinite(speedValue)) {
+  formatSpeed(speedKmH: number): string {
+    if (speedKmH <= 0 || !isFinite(speedKmH)) {
       return '0.0';
     }
 
+    // Convert from km/h to mph for imperial users
+    const speed =
+      this.unitSystem === 'imperial' ? speedKmH * 0.621371 : speedKmH;
     const unit = this.unitSystem === 'imperial' ? 'mph' : 'km/h';
-    return `${speedValue.toFixed(1)} ${unit}`;
+    return `${speed.toFixed(1)} ${unit}`;
   }
 
   /**

@@ -222,29 +222,39 @@ function generateHabitId(): string {
 }
 
 /**
- * Get today's date as YYYY-MM-DD string
+ * Get today's date as YYYY-MM-DD string (local timezone)
  */
 function getTodayDateString(): string {
   const now = new Date();
-  return now.toISOString().split('T')[0];
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 /**
- * Get yesterday's date as YYYY-MM-DD string
+ * Get yesterday's date as YYYY-MM-DD string (local timezone)
  */
 function getYesterdayDateString(): string {
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
-  return yesterday.toISOString().split('T')[0];
+  const year = yesterday.getFullYear();
+  const month = String(yesterday.getMonth() + 1).padStart(2, '0');
+  const day = String(yesterday.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 /**
- * Get previous day's date string from given date string
+ * Get previous day's date string from given date string (local timezone)
  */
 function getPreviousDateString(dateString: string): string {
-  const date = new Date(dateString);
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
   date.setDate(date.getDate() - 1);
-  return date.toISOString().split('T')[0];
+  const prevYear = date.getFullYear();
+  const prevMonth = String(date.getMonth() + 1).padStart(2, '0');
+  const prevDay = String(date.getDate()).padStart(2, '0');
+  return `${prevYear}-${prevMonth}-${prevDay}`;
 }
 
 /**
@@ -254,7 +264,7 @@ export const HABIT_TEMPLATES = [
   {
     name: 'No Smoking',
     icon: 'ban-outline',
-    color: '#FF6B6B',
+    color: '#FF9D42',
     type: 'abstinence' as const,
   },
   {
@@ -272,25 +282,25 @@ export const HABIT_TEMPLATES = [
   {
     name: 'No Caffeine',
     icon: 'cafe-outline',
-    color: '#8B5A3C',
+    color: '#8B7355',
     type: 'abstinence' as const,
   },
   {
     name: 'Daily Meditation',
     icon: 'body-outline',
-    color: '#4ECDC4',
+    color: '#FF9D42',
     type: 'positive' as const,
   },
   {
     name: 'Read Daily',
     icon: 'book-outline',
-    color: '#95E1D3',
+    color: '#FF9D42',
     type: 'positive' as const,
   },
   {
     name: 'Journal',
     icon: 'pencil-outline',
-    color: '#FFE66D',
+    color: '#FF9D42',
     type: 'positive' as const,
   },
   {

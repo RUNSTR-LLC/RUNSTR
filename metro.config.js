@@ -4,6 +4,16 @@ const fs = require('fs');
 
 const config = getDefaultConfig(__dirname);
 
+// Exclude iOS build directory from Metro file watcher (contains symlinks that cause EINVAL errors)
+config.resolver.blockList = [
+  ...(Array.isArray(config.resolver.blockList) ? config.resolver.blockList : config.resolver.blockList ? [config.resolver.blockList] : []),
+  /ios\/build\/.*/,
+];
+config.watcher = {
+  ...config.watcher,
+  additionalExts: config.watcher?.additionalExts || [],
+};
+
 // Custom resolver to handle nostr-tools subpath imports
 const originalResolveRequest = config.resolver.resolveRequest;
 config.resolver.resolveRequest = (context, moduleName, platform) => {

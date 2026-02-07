@@ -14,7 +14,7 @@ import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
-import { SplitTrackingService, type Split } from './SplitTrackingService';
+import { SplitTrackingService, type Split, type UnitSystem } from './SplitTrackingService';
 import { CustomAlertManager as CustomAlert } from '../../components/ui/CustomAlert';
 import {
   startNativeWorkoutSession,
@@ -39,6 +39,7 @@ import { workoutRecovery } from './WorkoutRecovery';
 const SESSION_STATE_KEY = '@runstr:session_state';
 const ACTIVE_METRICS_KEY = '@runstr:active_metrics'; // Periodic save: distance, duration, splits
 const LAST_GPS_POINT_KEY = '@runstr:last_gps_point'; // Single point for background task filtering
+const UNIT_PREFERENCE_KEY = '@runstr:unit_preference'; // User's km/miles preference
 
 // Task name
 export const SIMPLE_TRACKER_TASK = 'runstr-simple-tracker';
@@ -234,9 +235,13 @@ export class SimpleRunTracker {
   private watchdogInterval: NodeJS.Timeout | null = null;
   private gpsRestartAttempts = 0;
   private readonly MAX_GPS_RESTARTS = 100; // Increased from 5 - resets on successful GPS
-  // REVERTED to v1.2.5 value: 15s timeout for faster GPS recovery
-  // Previous 30s on Android was missing GPS hiccups, causing 20-30 min death
-  private readonly GPS_TIMEOUT_MS = 15000;
+  // Platform-aware GPS timeout:
+  // - Android (15s): GPS can silently die, needs faster watchdog detection
+  // - iOS (30s): GPS is reliable but occasionally delivers in slightly delayed
+  //   batches (12-16s apart) during background operation. The old 15s value
+  //   caused false-positive watchdog triggers on iOS, each costing ~100m of
+  //   distance due to the recovery cycle overhead.
+  private readonly GPS_TIMEOUT_MS = Platform.OS === 'ios' ? 30000 : 15000;
   private readonly WATCHDOG_CHECK_MS = 5000; // Check every 5 seconds
 
   // Silent audio recording - keeps app alive in background (Android insurance)
@@ -322,8 +327,19 @@ export class SimpleRunTracker {
 
     // Start split tracking for running activities
     if (activityType === 'running') {
-      this.splitTracker.start(this.startTime);
-      console.log('[SimpleRunTracker] 🏃 Split tracking enabled for running');
+      // Get unit preference for split intervals (1km vs 1 mile)
+      let unitSystem: UnitSystem = 'metric';
+      try {
+        const stored = await AsyncStorage.getItem(UNIT_PREFERENCE_KEY);
+        if (stored === 'imperial' || stored === 'metric') {
+          unitSystem = stored;
+        }
+      } catch (e) {
+        // Default to metric
+      }
+      this.splitTracker.start(this.startTime, unitSystem);
+      const intervalLabel = unitSystem === 'imperial' ? 'mile' : 'km';
+      console.log(`[SimpleRunTracker] 🏃 Split tracking enabled for running (${intervalLabel} splits)`);
     }
 
     if (presetDistance) {
@@ -405,11 +421,17 @@ export class SimpleRunTracker {
       // Android: Request battery optimization exemption FIRST (CRITICAL!)
       // Without this, Android will kill the background location service after ~30 seconds
       // when user switches to another app (like Spotify)
+      // Only prompt if not already exempted (prevents re-prompting after user handled it)
       if (Platform.OS === 'android') {
         try {
           const batteryService = BatteryOptimizationService.getInstance();
-          await batteryService.requestBatteryOptimizationExemption();
-          console.log('[SimpleRunTracker] Battery optimization exemption requested');
+          const batteryStatus = await batteryService.checkBatteryOptimizationStatus();
+          if (!batteryStatus.exempted) {
+            await batteryService.requestBatteryOptimizationExemption();
+            console.log('[SimpleRunTracker] Battery optimization exemption requested');
+          } else {
+            console.log('[SimpleRunTracker] Battery optimization already exempted, skipping prompt');
+          }
         } catch (e) {
           console.warn('[SimpleRunTracker] Battery optimization request failed:', e);
           // Continue anyway - tracking may work if user already exempted app
@@ -763,12 +785,21 @@ export class SimpleRunTracker {
 
     // Skip first 2 points after GPS recovery (often inaccurate)
     // Reduced from 3 to 2 to minimize distance loss during walking
+    // FIX: Update lastGpsPoint with skipped point's position to preserve continuity.
+    // Previously, skipped points did NOT update lastGpsPoint, so after recovery the
+    // next accepted point calculated distance from the pre-gap position (potentially
+    // minutes ago), causing either phantom distance or lost distance.
     if (this.isInGPSRecovery) {
       if (this.recoveryPointsSkipped < 2) {
         this.recoveryPointsSkipped++;
         console.log(
           `🔄 [SimpleRunTracker] Skipping recovery point ${this.recoveryPointsSkipped}/2`
         );
+        // Accept as position baseline WITHOUT adding distance
+        // This ensures the next accepted point measures from the correct location
+        if (points.length > 0) {
+          this.lastGpsPoint = points[points.length - 1];
+        }
         this.lastGPSUpdate = now;
         return;
       } else {
@@ -823,9 +854,24 @@ export class SimpleRunTracker {
     }
 
     // Keep only last 100 points for route display (not full history)
-    this.cachedGpsPoints.push(...points);
-    if (this.cachedGpsPoints.length > 100) {
-      this.cachedGpsPoints = this.cachedGpsPoints.slice(-100);
+    // MEMORY FIX: Optimize array handling to reduce allocations during long workouts
+    // For 60+ min workouts with 3-second intervals, this prevents 1,200+ array reallocations
+    const MAX_CACHED_POINTS = 100;
+    const newLength = this.cachedGpsPoints.length + points.length;
+
+    if (newLength <= MAX_CACHED_POINTS) {
+      // Simple case: just push, no trimming needed
+      this.cachedGpsPoints.push(...points);
+    } else if (points.length >= MAX_CACHED_POINTS) {
+      // New points alone exceed limit, just keep newest
+      this.cachedGpsPoints = points.slice(-MAX_CACHED_POINTS);
+    } else {
+      // Need to trim old points before adding new ones
+      const keepFromOld = MAX_CACHED_POINTS - points.length;
+      this.cachedGpsPoints = [
+        ...this.cachedGpsPoints.slice(-keepFromOld),
+        ...points,
+      ];
     }
 
     // Update split tracker for running activities
@@ -840,12 +886,13 @@ export class SimpleRunTracker {
       );
 
       if (newSplit) {
+        const unitLabel = this.splitTracker.getUnitSystem() === 'imperial' ? 'mi' : 'km';
         console.log(
           `[SimpleRunTracker] 🏃 Split ${
             newSplit.number
           }: ${this.splitTracker.formatSplitTime(
             newSplit.splitTime
-          )} (${this.splitTracker.formatPace(newSplit.pace)}/km)`
+          )} (${this.splitTracker.formatPace(newSplit.pace)}/${unitLabel})`
         );
 
         TTSAnnouncementService.announceSplit(newSplit).catch((err) => {
@@ -878,7 +925,11 @@ export class SimpleRunTracker {
 
     this.metricsSaveInterval = setInterval(() => {
       if (this.isTracking && !this.isPaused) {
-        this.saveActiveMetrics();
+        // CRITICAL FIX: Wrap async call with error handling to prevent unhandled promise rejections
+        // Unhandled rejections can terminate iOS apps during long workouts
+        this.saveActiveMetrics().catch((error) => {
+          console.error('[SimpleRunTracker] Metrics save failed (non-fatal):', error);
+        });
       }
     }, this.METRICS_SAVE_INTERVAL_MS);
 
@@ -1076,28 +1127,42 @@ export class SimpleRunTracker {
     this.gpsRestartAttempts = 0;
 
     this.watchdogInterval = setInterval(async () => {
-      // Track watchdog activity for debug UI
-      this.debugState.watchdogLastCheck = Date.now();
-
-      if (!this.isTracking || this.isPaused) return;
-
-      // Read last GPS time from AsyncStorage (shared with background task)
+      // CRITICAL FIX: Wrap entire watchdog logic in try-catch to prevent crashes
+      // Also re-check isTracking after async operations to handle race conditions
       try {
-        const lastTimeStr = await AsyncStorage.getItem('@runstr:last_gps_time');
-        if (lastTimeStr) {
-          this.lastGPSUpdate = parseInt(lastTimeStr, 10);
+        // Track watchdog activity for debug UI
+        this.debugState.watchdogLastCheck = Date.now();
+
+        if (!this.isTracking || this.isPaused) return;
+
+        // Read last GPS time from AsyncStorage (shared with background task)
+        try {
+          const lastTimeStr = await AsyncStorage.getItem('@runstr:last_gps_time');
+          // Re-check tracking state after async operation (may have stopped during await)
+          if (!this.isTracking) return;
+
+          if (lastTimeStr) {
+            this.lastGPSUpdate = parseInt(lastTimeStr, 10);
+          }
+        } catch (e) {
+          console.warn('[WATCHDOG] Failed to read last GPS time:', e);
+          return; // Exit gracefully on storage error
         }
-      } catch (e) {
-        console.warn('[WATCHDOG] Failed to read last GPS time:', e);
-      }
 
-      const gap = Date.now() - this.lastGPSUpdate;
+        // Re-check tracking state before attempting recovery
+        if (!this.isTracking || this.isPaused) return;
 
-      if (gap > this.GPS_TIMEOUT_MS) {
-        console.warn(
-          `[WATCHDOG] GPS silent for ${(gap / 1000).toFixed(0)}s - attempting recovery`
-        );
-        await this.attemptGPSRecovery();
+        const gap = Date.now() - this.lastGPSUpdate;
+
+        if (gap > this.GPS_TIMEOUT_MS) {
+          console.warn(
+            `[WATCHDOG] GPS silent for ${(gap / 1000).toFixed(0)}s - attempting recovery`
+          );
+          await this.attemptGPSRecovery();
+        }
+      } catch (error) {
+        // CRITICAL: Catch any errors to prevent watchdog from crashing the app
+        console.error('[WATCHDOG] Unexpected error (non-fatal):', error);
       }
     }, this.WATCHDOG_CHECK_MS);
 
@@ -1113,6 +1178,52 @@ export class SimpleRunTracker {
       this.watchdogInterval = null;
     }
     console.log('[WATCHDOG] Stopped');
+  }
+
+  /**
+   * Restart GPS location task WITHOUT clearing AsyncStorage state.
+   * Used by watchdog recovery, session restore, and crash auto-recovery.
+   * Unlike initializeGPS(), this preserves:
+   * - LAST_GPS_POINT_KEY (Stage 1 filter reference for the background task)
+   * - SESSION_STATE_KEY (so background task knows session is still active)
+   * - ACTIVE_METRICS_KEY (crash recovery metrics)
+   */
+  private async restartGPSOnly(_activityType: string): Promise<void> {
+    // Clean up any existing GPS watchers
+    const isAlreadyRunning = await Location.hasStartedLocationUpdatesAsync(
+      SIMPLE_TRACKER_TASK
+    );
+    if (isAlreadyRunning) {
+      console.log('[SimpleRunTracker] Cleaning up previous GPS session...');
+      await Location.stopLocationUpdatesAsync(SIMPLE_TRACKER_TASK);
+    }
+
+    // Brief pause before restarting (allow OS to release resources)
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    // Restart GPS tracking with same config as initializeGPS
+    await Location.startLocationUpdatesAsync(SIMPLE_TRACKER_TASK, {
+      accuracy: Location.Accuracy.BestForNavigation,
+      timeInterval: 3000,
+      distanceInterval: 5,
+      deferredUpdatesInterval: 0,
+      deferredUpdatesDistance: 0,
+      foregroundService: {
+        notificationTitle: 'RUNSTR Active',
+        notificationBody: 'Tracking your workout...',
+        notificationColor: '#FF6B35',
+        notificationChannelId: 'runstr-gps-tracking',
+        notificationChannelName: 'GPS Tracking',
+        notificationChannelDescription: 'Shows active workout tracking status',
+        notificationId: 123456,
+        killServiceOnDestroy: false,
+      },
+      pausesUpdatesAutomatically: false,
+      activityType: Location.ActivityType.Fitness,
+      showsBackgroundLocationIndicator: true,
+    });
+
+    console.log('[SimpleRunTracker] ✅ GPS restarted (state preserved)');
   }
 
   /**
@@ -1134,19 +1245,12 @@ export class SimpleRunTracker {
     );
 
     try {
-      // Stop existing GPS task
-      const isRunning = await Location.hasStartedLocationUpdatesAsync(
-        SIMPLE_TRACKER_TASK
-      );
-      if (isRunning) {
-        await Location.stopLocationUpdatesAsync(SIMPLE_TRACKER_TASK);
-      }
-
-      // Brief pause before restarting
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Restart GPS
-      await this.initializeGPS(this.activityType);
+      // Restart GPS WITHOUT clearing AsyncStorage keys
+      // initializeGPS() was designed for fresh starts and clears LAST_GPS_POINT_KEY,
+      // SESSION_STATE_KEY, and ACTIVE_METRICS_KEY. During mid-workout recovery this
+      // causes distance loss (Stage 1 filter loses reference) and a race condition
+      // (background task sees no session and drops GPS points).
+      await this.restartGPSOnly(this.activityType);
 
       // Update last GPS time to prevent immediate re-trigger
       this.lastGPSUpdate = Date.now();
@@ -1322,7 +1426,9 @@ export class SimpleRunTracker {
         );
 
         if (!isTaskRunning) {
-          await this.initializeGPS(this.activityType);
+          // Use restartGPSOnly to preserve AsyncStorage state (session, metrics, last GPS point)
+          // initializeGPS() would clear these keys, causing distance loss and race conditions
+          await this.restartGPSOnly(this.activityType);
           console.log(
             '[SimpleRunTracker] ✅ GPS tracking restarted successfully'
           );
@@ -1357,6 +1463,187 @@ export class SimpleRunTracker {
     } catch (error) {
       console.error('[SimpleRunTracker] Error restoring session:', error);
       return false;
+    }
+  }
+
+  // ============================================================
+  // AUTO-RECOVERY - Silent workout resume after app interruption
+  // ============================================================
+
+  /**
+   * Check for and automatically recover interrupted workouts
+   * Called on tracker screen mount - silently resumes if valid checkpoint found
+   *
+   * Recovery criteria (all must be true):
+   * - Checkpoint exists
+   * - Checkpoint < 5 minutes old
+   * - Checkpoint distance > 10 meters (real workout, not accidental start)
+   * - Checkpoint duration > 60 seconds
+   *
+   * @returns Object with recovered flag and optional checkpoint data for UI sync
+   */
+  async checkAndAutoRecover(): Promise<{
+    recovered: boolean;
+    checkpoint?: {
+      distance: number;
+      duration: number;
+      pausedDuration: number;
+      activityType: 'running' | 'walking' | 'cycling';
+    };
+  }> {
+    // Don't recover if already tracking
+    if (this.isTracking) {
+      console.log('[SimpleRunTracker] Already tracking, skipping auto-recovery');
+      return { recovered: false };
+    }
+
+    try {
+      const checkpoint = await workoutRecovery.checkForRecoverableWorkout();
+
+      if (!checkpoint) {
+        console.log('[SimpleRunTracker] No checkpoint found for auto-recovery');
+        return { recovered: false };
+      }
+
+      // Check if checkpoint is recent enough (< 5 minutes old)
+      const AUTO_RECOVERY_MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes
+      const age = Date.now() - checkpoint.timestamp;
+
+      if (age > AUTO_RECOVERY_MAX_AGE_MS) {
+        console.log(
+          `[SimpleRunTracker] Checkpoint too old for auto-recovery (${Math.round(
+            age / 1000
+          )}s > 300s), discarding`
+        );
+        await workoutRecovery.clearCheckpoint();
+        return { recovered: false };
+      }
+
+      // Additional validation: must have meaningful workout data
+      if (checkpoint.distance < 10 || checkpoint.duration < 60) {
+        console.log(
+          `[SimpleRunTracker] Checkpoint too short for auto-recovery (${checkpoint.distance}m, ${checkpoint.duration}s)`
+        );
+        await workoutRecovery.clearCheckpoint();
+        return { recovered: false };
+      }
+
+      // Auto-restore the session
+      console.log(
+        `[SimpleRunTracker] 🔄 AUTO-RECOVERING interrupted workout: ${(
+          checkpoint.distance / 1000
+        ).toFixed(2)} km, ${checkpoint.duration}s`
+      );
+
+      // Restore state from checkpoint
+      this.sessionId = checkpoint.sessionId;
+      this.activityType = checkpoint.activityType;
+      this.startTime = checkpoint.startTime;
+      this.runningDistance = checkpoint.distance;
+      this.cachedGpsPoints = checkpoint.gpsPoints || [];
+      this.isTracking = true;
+      this.isPaused = false;
+
+      // Set last GPS point from cached points for incremental distance
+      if (this.cachedGpsPoints.length > 0) {
+        this.lastGpsPoint = this.cachedGpsPoints[this.cachedGpsPoints.length - 1];
+      }
+
+      // Restore duration tracker state
+      // Calculate total paused time including time since checkpoint was saved
+      const pausedDurationMs = checkpoint.pausedDuration * 1000;
+      const timeSinceCheckpoint = Date.now() - checkpoint.timestamp;
+      this.durationTracker.restoreState({
+        startTime: checkpoint.startTime,
+        totalPausedTime: pausedDurationMs + timeSinceCheckpoint,
+        pauseStartTime: 0, // Not paused
+      });
+
+      // Reset GPS state for fresh tracking
+      this.lastGPSUpdate = Date.now();
+      this.isInGPSRecovery = false;
+      this.recoveryPointsSkipped = 0;
+      this.gpsFailureCount = 0;
+      this.lastGPSError = null;
+
+      // Reset debug state
+      this.resetDebugState();
+
+      // Reset GPS health monitor
+      gpsHealthMonitor.reset();
+      this.lastGPSHealthStatus = null;
+
+      // Restore split tracking for running activities
+      if (this.activityType === 'running') {
+        // Get unit preference for split intervals
+        let unitSystem: UnitSystem = 'metric';
+        try {
+          const stored = await AsyncStorage.getItem(UNIT_PREFERENCE_KEY);
+          if (stored === 'imperial' || stored === 'metric') {
+            unitSystem = stored;
+          }
+        } catch (e) {
+          // Default to metric
+        }
+        this.splitTracker.start(checkpoint.startTime, unitSystem);
+        // Update split tracker to current distance
+        this.splitTracker.update(
+          checkpoint.distance,
+          checkpoint.duration,
+          checkpoint.pausedDuration * 1000
+        );
+      }
+
+      // Start GPS tracking (use restartGPSOnly to preserve AsyncStorage state)
+      await this.restartGPSOnly(this.activityType);
+
+      // Start watchdog
+      this.startWatchdog();
+
+      // Start periodic metrics save
+      this.startMetricsSave();
+
+      // Start silent audio
+      this.startSilentAudio();
+
+      // Start WorkoutRecovery checkpointing (continues saving)
+      workoutRecovery.startCheckpointing(
+        this.sessionId!,
+        this.activityType,
+        this.startTime,
+        () => ({
+          distance: this.runningDistance,
+          duration: this.durationTracker.getDuration(),
+          pausedDuration: this.durationTracker.getTotalPausedTime(),
+          gpsPoints: this.cachedGpsPoints,
+        })
+      );
+
+      // Clear the old checkpoint (we've restored it)
+      await workoutRecovery.clearCheckpoint();
+
+      console.log(
+        `[SimpleRunTracker] ✅ AUTO-RECOVERY COMPLETE: Workout resumed`
+      );
+
+      return {
+        recovered: true,
+        checkpoint: {
+          distance: checkpoint.distance,
+          duration: checkpoint.duration,
+          pausedDuration: checkpoint.pausedDuration,
+          activityType: checkpoint.activityType,
+        },
+      };
+    } catch (error) {
+      console.error('[SimpleRunTracker] Error during auto-recovery:', error);
+      // Clear potentially corrupted checkpoint
+      try {
+        await workoutRecovery.clearCheckpoint();
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+      return { recovered: false };
     }
   }
 

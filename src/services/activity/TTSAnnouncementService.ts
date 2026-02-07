@@ -6,9 +6,13 @@
 import * as Speech from 'expo-speech';
 import { Audio, InterruptionModeIOS, InterruptionModeAndroid } from 'expo-av';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TTSPreferencesService } from './TTSPreferencesService';
 import { AppStateManager } from '../core/AppStateManager';
 import type { Split } from './SplitTrackingService';
+
+type UnitSystem = 'metric' | 'imperial';
+const UNIT_PREFERENCE_KEY = '@runstr:unit_preference';
 
 interface WorkoutData {
   type: 'running' | 'walking' | 'cycling';
@@ -27,6 +31,18 @@ export class TTSAnnouncementService {
   private static isSpeaking = false;
   private static speechQueue: string[] = [];
   private static appStateUnsubscribe: (() => void) | null = null;
+
+  /**
+   * Get the user's unit system preference
+   */
+  private static async getUnitSystem(): Promise<UnitSystem> {
+    try {
+      const stored = await AsyncStorage.getItem(UNIT_PREFERENCE_KEY);
+      return (stored as UnitSystem) || 'metric';
+    } catch {
+      return 'metric';
+    }
+  }
 
   /**
    * Initialize audio session with ducking support
@@ -95,7 +111,8 @@ export class TTSAnnouncementService {
 
       // Generate announcement text
       const includeSplits = await TTSPreferencesService.shouldIncludeSplits();
-      const announcementText = this.formatSummaryText(workout, includeSplits);
+      const unitSystem = await this.getUnitSystem();
+      const announcementText = this.formatSummaryText(workout, includeSplits, unitSystem);
 
       console.log('🔊 Announcing:', announcementText);
 
@@ -126,7 +143,8 @@ export class TTSAnnouncementService {
       }
 
       // Format the split announcement
-      const splitText = this.formatSplitText(split);
+      const unitSystem = await this.getUnitSystem();
+      const splitText = this.formatSplitText(split, unitSystem);
 
       console.log('🔊 Announcing split:', splitText);
 
@@ -217,14 +235,16 @@ export class TTSAnnouncementService {
    */
   private static formatSummaryText(
     workout: WorkoutData,
-    includeSplits: boolean
+    includeSplits: boolean,
+    unitSystem: UnitSystem
   ): string {
     const parts: string[] = [];
+    const isMetric = unitSystem === 'metric';
 
     // Activity type and distance
     const activityType =
       workout.type.charAt(0).toUpperCase() + workout.type.slice(1);
-    const distance = this.formatDistance(workout.distance);
+    const distance = this.formatDistance(workout.distance, unitSystem);
 
     if (workout.type === 'running') {
       parts.push(`You completed a ${distance} run`);
@@ -240,11 +260,14 @@ export class TTSAnnouncementService {
 
     // Pace or Speed
     if (workout.type === 'running' && workout.pace) {
-      const pace = this.formatPaceVoice(workout.pace);
-      parts.push(`at an average pace of ${pace} per kilometer`);
+      const pace = this.formatPaceVoice(workout.pace, unitSystem);
+      parts.push(`at an average pace of ${pace} per ${isMetric ? 'kilometer' : 'mile'}`);
     } else if (workout.type === 'cycling' && workout.speed) {
-      const speed = workout.speed.toFixed(1);
-      parts.push(`at an average speed of ${speed} kilometers per hour`);
+      // Convert speed to miles per hour if imperial
+      const speed = isMetric
+        ? workout.speed.toFixed(1)
+        : (workout.speed * 0.621371).toFixed(1);
+      parts.push(`at an average speed of ${speed} ${isMetric ? 'kilometers' : 'miles'} per hour`);
     }
 
     // Calories
@@ -254,7 +277,12 @@ export class TTSAnnouncementService {
 
     // Elevation (if significant)
     if (workout.elevation && workout.elevation > 10) {
-      parts.push(`and climbed ${workout.elevation.toFixed(0)} meters`);
+      if (isMetric) {
+        parts.push(`and climbed ${workout.elevation.toFixed(0)} meters`);
+      } else {
+        const feet = Math.round(workout.elevation * 3.28084);
+        parts.push(`and climbed ${feet} feet`);
+      }
     }
 
     // Steps (for walking)
@@ -264,7 +292,7 @@ export class TTSAnnouncementService {
 
     // Splits (optional)
     if (includeSplits && workout.splits && workout.splits.length > 0) {
-      const splitsText = this.formatSplitsVoice(workout.splits);
+      const splitsText = this.formatSplitsVoice(workout.splits, unitSystem);
       parts.push(splitsText);
     }
 
@@ -275,17 +303,30 @@ export class TTSAnnouncementService {
   }
 
   /**
-   * Format distance for voice (e.g., "5.2 kilometers")
+   * Format distance for voice (e.g., "5.2 kilometers" or "3.2 miles")
    */
-  private static formatDistance(meters: number): string {
-    const km = meters / 1000;
+  private static formatDistance(meters: number, unitSystem: UnitSystem): string {
+    if (unitSystem === 'imperial') {
+      const miles = meters * 0.000621371;
+      const feet = meters * 3.28084;
 
-    if (km < 1) {
-      return `${meters.toFixed(0)} meters`;
-    } else if (km < 10) {
-      return `${km.toFixed(1)} kilometers`;
+      if (miles < 0.1) {
+        return `${feet.toFixed(0)} feet`;
+      } else if (miles < 10) {
+        return `${miles.toFixed(1)} miles`;
+      } else {
+        return `${miles.toFixed(0)} miles`;
+      }
     } else {
-      return `${km.toFixed(0)} kilometers`;
+      const km = meters / 1000;
+
+      if (km < 1) {
+        return `${meters.toFixed(0)} meters`;
+      } else if (km < 10) {
+        return `${km.toFixed(1)} kilometers`;
+      } else {
+        return `${km.toFixed(0)} kilometers`;
+      }
     }
   }
 
@@ -323,10 +364,16 @@ export class TTSAnnouncementService {
 
   /**
    * Format pace for voice (e.g., "5 minutes 54 seconds")
+   * If imperial, converts pace from seconds/km to seconds/mile
    */
-  private static formatPaceVoice(paceSecondsPerKm: number): string {
-    // Convert seconds per km to minutes per km
-    const totalMinutes = paceSecondsPerKm / 60;
+  private static formatPaceVoice(paceSecondsPerKm: number, unitSystem: UnitSystem = 'metric'): string {
+    // Convert to seconds per mile if imperial
+    const paceSeconds = unitSystem === 'imperial'
+      ? paceSecondsPerKm * 1.60934
+      : paceSecondsPerKm;
+
+    // Convert seconds to minutes
+    const totalMinutes = paceSeconds / 60;
     const minutes = Math.floor(totalMinutes);
     const seconds = Math.round((totalMinutes - minutes) * 60);
 
@@ -343,30 +390,36 @@ export class TTSAnnouncementService {
    * Format a single split for voice announcement
    * Brief format for real-time announcements during run
    */
-  private static formatSplitText(split: Split): string {
+  private static formatSplitText(split: Split, unitSystem: UnitSystem): string {
+    const isMetric = unitSystem === 'metric';
     // Convert pace from seconds per km to voice format
-    const pace = this.formatPaceVoice(split.pace);
+    const pace = this.formatPaceVoice(split.pace, unitSystem);
+    const unitName = isMetric ? 'Kilometer' : 'Mile';
+    const unitNameLower = isMetric ? 'kilometer' : 'mile';
 
     // Simple announcement: "Kilometer 1, 5 minutes 30 seconds per kilometer"
-    return `Kilometer ${split.number}, ${pace} per kilometer`;
+    return `${unitName} ${split.number}, ${pace} per ${unitNameLower}`;
   }
 
   /**
    * Format splits for voice (brief summary)
    */
-  private static formatSplitsVoice(splits: Split[]): string {
+  private static formatSplitsVoice(splits: Split[], unitSystem: UnitSystem): string {
     if (splits.length === 0) {
       return '';
     }
+
+    const isMetric = unitSystem === 'metric';
+    const unitName = isMetric ? 'kilometer' : 'mile';
 
     // Keep it brief - just mention number of splits and fastest
     const fastestSplit = splits.reduce((prev, current) =>
       current.pace < prev.pace ? current : prev
     );
 
-    const fastestPace = this.formatPaceVoice(fastestSplit.pace / 60); // Convert seconds to minutes
+    const fastestPace = this.formatPaceVoice(fastestSplit.pace / 60, unitSystem); // Convert seconds to minutes
 
-    return `Your fastest kilometer was number ${fastestSplit.number} at ${fastestPace}`;
+    return `Your fastest ${unitName} was number ${fastestSplit.number} at ${fastestPace}`;
   }
 
   /**

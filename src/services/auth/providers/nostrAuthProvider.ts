@@ -36,6 +36,27 @@ export class NostrAuthProvider {
       UnifiedSigningService.getInstance().clearCache();
       console.log('🔐 NostrAuthProvider: Cleared signer cache for fresh login');
 
+      // CRITICAL: Clear profile cache to prevent stale/wrong profile data
+      // This ensures fresh profile fetch after re-login
+      try {
+        const { UnifiedNostrCache } = await import('../../cache/UnifiedNostrCache');
+        const unifiedCache = UnifiedNostrCache.getInstance();
+        await unifiedCache.clear();
+        console.log('🗑️ NostrAuthProvider: Cleared UnifiedNostrCache for fresh login');
+      } catch (e) {
+        console.warn('⚠️ NostrAuthProvider: UnifiedNostrCache clear failed:', e);
+      }
+
+      // ALSO clear NostrProfileService cache to force fresh profile fetch
+      // This ensures banner and other profile fields are fetched fresh from relays
+      try {
+        const { nostrProfileService } = await import('../../nostr/NostrProfileService');
+        await nostrProfileService.clearCache();
+        console.log('🗑️ NostrAuthProvider: Cleared NostrProfileService cache');
+      } catch (e) {
+        console.warn('⚠️ NostrAuthProvider: NostrProfileService cache clear failed:', e);
+      }
+
       // Validate and normalize nsec input
       const nsec = normalizeNsecInput(nsecInput);
 
@@ -79,6 +100,14 @@ export class NostrAuthProvider {
       const AsyncStorage = (
         await import('@react-native-async-storage/async-storage')
       ).default;
+
+      // Verify stored npub matches what we expect
+      const verifyNpub = await AsyncStorage.getItem('@runstr:npub');
+      console.log('🔑 NostrAuthProvider: Stored npub verification:', {
+        expected: npub.slice(0, 20) + '...',
+        stored: verifyNpub?.slice(0, 20) + '...',
+        match: npub === verifyNpub,
+      });
 
       // CRITICAL: Explicitly set auth method to prevent Amber fallback
       // Without this, if SecureNsecStorage.hasNsec() fails, the app falls back to
@@ -194,6 +223,7 @@ export class NostrAuthProvider {
           name: user.name,
           npub: user.npub.slice(0, 20) + '...',
           hasPicture: !!user.picture,
+          hasBanner: !!user.banner,
           hasLightning: !!user.lud16,
         }
       );
