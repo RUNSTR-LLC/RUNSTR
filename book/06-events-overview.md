@@ -8,7 +8,7 @@ Joining an event takes a single tap. Navigate to the Events page, select an even
 
 The leaderboard system organizes competitors by activity type. In Season II, separate leaderboards track Running, Walking, and Cycling distances, ensuring fair competition within each category. You compete against others doing the same activity, not against cyclists when you're a runner. Leaderboards display participant names, total distances, workout counts, and rankings—calculated outside the app and updated every 2 minutes.
 
-Event participation is tracked through Supabase rather than purely on Nostr. This hybrid approach provides faster queries for participant lists, simpler management for event operations, and reliable tracking for prize distribution. When you tap Compete after a workout, the kind 1301 event publishes to Nostr, and leaderboard calculations happen externally before being displayed in the app.
+Event participation is tracked entirely through Supabase. This approach provides faster queries for participant lists, simpler management for event operations, and reliable tracking for prize distribution. When you complete a workout, it is automatically submitted to Supabase for leaderboard ranking. Kind 1301 events are created locally for structure but are NOT published to Nostr relays—Supabase is the single source of truth for competition data.
 
 Prize distribution happens at event conclusion, with Bitcoin sent via Lightning to top performers. The transparent prize structure—displayed on each event card—lets you know exactly what you're competing for before joining. Whether you're chasing the grand prize in Season II or competing for daily leaderboard recognition, RUNSTR events add stakes and community to your fitness routine, transforming solitary workouts into shared competition with tangible rewards.
 
@@ -152,7 +152,7 @@ Leaderboard data fetched (calculated externally, updated every 2 minutes)
 Displays leaderboard rankings
 ```
 
-**Note:** Leaderboard calculations happen outside the app by aggregating kind 1301 events from Nostr. The app fetches and displays these pre-calculated results.
+**Note:** Leaderboard data comes from Supabase, which aggregates submitted workouts. The app queries Supabase via the `useSupabaseLeaderboard` hook and displays ranked results.
 
 ---
 
@@ -181,6 +181,6 @@ Displays leaderboard rankings
 
 **Previous:** [Chapter 5: Workout Storage & Publishing](./05-workouts-storage.md)
 
-**Next:** [Chapter 7: Joining Events](./07-events-joining.md)
+**Next:** [Chapter 7: In-Person Events & Business Model](./07-in-person-events.md)
 
 **Table of Contents:** [Back to TOC](./00-table-of-contents.md)

@@ -6,11 +6,11 @@ RUNSTR transforms your smartphone into a powerful GPS fitness tracker for runnin
 
 The tracking experience prioritizes intentionality and reliability. The hold-to-start mechanism prevents accidental workout starts while giving your phone's GPS time to acquire a strong signal. During your workout, you can pause and resume freely without losing any data—perfect for stopping at traffic lights or taking a water break. The interface displays your most important metrics prominently, with secondary stats readily available.
 
-When you finish your workout, you're presented with two clear options: Compete or Post. Tapping Compete publishes your workout as a kind 1301 event to Nostr, making it visible to the decentralized network. Tapping Post opens the Enhanced Share Modal, where you can choose from different visual templates to create a social post celebrating your achievement. Leaderboard results are calculated outside of the app by aggregating kind 1301 events from Nostr, then displayed inside the app with updates every 2 minutes.
+When you finish your workout, it's saved locally first. If you have auto-compete enabled and are enrolled in an active competition, the workout automatically syncs to Supabase for leaderboard tracking. Users with high Web of Trust (WoT) scores also see a "Post" button that opens the Enhanced Share Modal, where you can choose from different visual templates to create a social post (kind 1) celebrating your achievement.
 
-Privacy sits at the core of RUNSTR's workout architecture. While the app uses GPS to calculate your metrics, your actual route coordinates never leave your device. Only aggregated data—total distance, duration, elevation gain—gets published if you choose to share. This means you can participate in competitions and share achievements without revealing where you run, walk, or cycle.
+Privacy sits at the core of RUNSTR's workout architecture. While the app uses GPS to calculate your metrics, your actual route coordinates never leave your device. Only aggregated data—total distance, duration, elevation gain—gets submitted to competitions. This means you can participate in competitions and share achievements without revealing where you run, walk, or cycle.
 
-RUNSTR also integrates with Apple Health on iOS and Health Connect on Android, allowing workouts tracked by other apps or wearables to sync into RUNSTR. These imported workouts qualify for rewards and can be published to competitions, giving you flexibility in how you track your fitness while still participating in the RUNSTR ecosystem.
+RUNSTR also integrates with Apple Health on iOS and Health Connect on Android, allowing workouts tracked by other apps or wearables to sync into RUNSTR. These imported workouts qualify for rewards and can be submitted to competitions, giving you flexibility in how you track your fitness while still participating in the RUNSTR ecosystem.
 
 ---
 
@@ -19,9 +19,9 @@ RUNSTR also integrates with Apple Health on iOS and Health Connect on Android, a
 A workout in RUNSTR is any fitness activity that a user tracks through the app. Workouts can be:
 - **GPS-tracked** - Running, walking, cycling with real-time location
 - **Manually entered** - Strength training, diet logging, wellness activities
-- **Health-synced** - Imported from HealthKit, Health Connect, or Garmin
+- **Health-synced** - Imported from HealthKit or Health Connect
 
-Once saved, workouts can be published to the Nostr network as **kind 1301 events**, making them visible on leaderboards and creating a permanent fitness record.
+Once saved, workouts are stored locally and can be automatically submitted to Supabase for competition tracking. Kind 1301 events are created locally for validation but are **not published to Nostr relays**—Supabase is the single source of truth for leaderboards.
 
 ---
 
@@ -65,19 +65,22 @@ Mind-body activities.
 
 ---
 
-## Publishing to Nostr
+## Auto-Submission to Supabase
 
-Workouts are stored locally first, then optionally published to Nostr:
+Workouts are stored locally first, then automatically synced to Supabase when auto-compete is enabled:
 
-### Kind 1301 Events
-The standard Nostr event type for fitness data. Publishing a workout as kind 1301:
-- Makes it visible on RUNSTR leaderboards
-- Creates a permanent, decentralized record
-- Allows other Nostr fitness apps to read your data
+### How It Works
+When you complete a workout with auto-compete enabled:
+- Workout is saved locally via `LocalWorkoutStorageService`
+- Automatically submitted to Supabase via `submit-workout` Edge Function
+- Server-side anti-cheat validation flags impossible workouts
+- Appears on leaderboards within seconds
 
-### Two Publishing Options
-1. **Compete** - Publishes kind 1301 event to Nostr (counts for competitions/leaderboards)
-2. **Post** - Opens Enhanced Share Modal with different style templates for social posting (kind 1)
+### Social Posting (WoT-Gated)
+Users with high Web of Trust scores (> 0) see a "Post" button:
+- Opens Enhanced Share Modal with style templates
+- Creates a kind 1 social post (NOT kind 1301)
+- Publishes to Nostr for sharing achievements
 
 ---
 
@@ -129,18 +132,17 @@ RUNSTR syncs with external fitness platforms:
 - Automatic import of Apple Watch workouts
 - Step count integration
 - Heart rate data (when available)
-- **Imported workouts qualify for rewards**
+- **Imported workouts qualify for rewards and competitions**
 
 ### Android: Health Connect
 - Google Health Connect API (Android 14+)
 - Step count from phone sensors
 - Exercise sessions from other apps
-- **Imported workouts qualify for rewards**
+- **Imported workouts qualify for rewards and competitions**
 
-### Garmin & Other Wearables
-- No direct integration
-- Garmin data syncs through Apple Health or Health Connect
-- Workouts flow: Garmin → Apple Health → RUNSTR
+### Other Wearables
+- Garmin, Fitbit, etc. sync through Apple Health or Health Connect
+- Workouts flow: Wearable → Apple Health/Health Connect → RUNSTR
 
 ---
 
@@ -165,11 +167,9 @@ LocalWorkoutStorageService.saveWorkout()
         ↓
 Stored in AsyncStorage
         ↓
-[Optional] WorkoutPublishingService.publishToNostr()
+[If auto-compete enabled] Submit to Supabase
         ↓
-Kind 1301 event published to 4 relays
-        ↓
-WorkoutEventStore cache invalidated
+Server-side validation (submit-workout Edge Function)
         ↓
 Leaderboards updated
 ```
@@ -216,17 +216,17 @@ interface StoredWorkout {
 ## What Workouts Should Be
 
 ### Ideal Architecture
-1. **Local-first** - All workouts stored locally before publishing
-2. **User control** - User decides what to publish and when
+1. **Local-first** - All workouts stored locally before syncing
+2. **Auto-compete** - Automatic submission when user enables it
 3. **Simple categories** - Four clear categories (Cardio, Strength, Diet, Wellness)
 4. **Automatic sync** - Health platforms sync in background
-5. **Single cache** - WorkoutEventStore is the only source of truth
+5. **Supabase primary** - Supabase is the source of truth for competitions
 
 ### What to Avoid
 - Multiple competing cache systems
-- Automatic publishing without user consent
 - Complex workout type hierarchies
-- Direct relay queries bypassing WorkoutEventStore
+- Manual "Compete" buttons for each workout
+- Publishing kind 1301 to Nostr relays
 
 ---
 

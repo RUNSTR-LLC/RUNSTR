@@ -1,4 +1,4 @@
-# Chapter 17: RUNSTR In Meatspace
+# Chapter 7: In-Person Events & Business Model
 
 ## Summary
 
@@ -8,7 +8,7 @@ RUNSTR's in-person race events represent a strategic expansion beyond the app, c
 
 ## The Vision: Fitness Events as a Sustainable Business Model
 
-RUNSTR is heading in the direction of being a Bitcoin-powered fitness company. The business model has multiple revenue streams:
+RUNSTR is a fitness event company powered by Bitcoin. The business model has multiple revenue streams:
 
 1. **Subscriptions** - Season passes for access to special events and features
 2. **In-person events** - Ticket sales and sponsorships
@@ -28,7 +28,7 @@ RUNSTR is heading in the direction of being a Bitcoin-powered fitness company. T
 
 The app should remain very simple:
 
-> A privacy-preserving fitness tracker that gives you Bitcoin for working out. You can donate a portion of those rewards to charity. You can also participate in virtual fitness events to help raise money for charity and earn additional rewards.
+> A privacy-preserving fitness tracker that's free and open source, focused on private local-first fitness tracking, with the opportunity to support a charity with every workout.
 
 Key principles:
 - Reward people for exercise
@@ -293,6 +293,8 @@ Event profits flow into the RUNSTR strategic reserve—building a sats treasury 
 
 ## Navigation
 
-**Previous:** [Chapter 16: Appendix - Nostr Events](./16-appendix-nostr-events.md)
+**Previous:** [Chapter 6: Events Overview](./06-events-overview.md)
+
+**Next:** [Chapter 8: Joining Events](./08-events-joining.md)
 
 **Table of Contents:** [Back to TOC](./00-table-of-contents.md)

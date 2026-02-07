@@ -1,4 +1,4 @@
-# Chapter 11: Lightning Address Rewards
+# Chapter 12: Lightning Address Delivery
 
 ## No NWC or E-Cash Wallets
 
@@ -272,8 +272,8 @@ async function getUserLightningAddress(pubkey: string): Promise<string | null> {
 
 ## Navigation
 
-**Previous:** [Chapter 10: Daily & Step Rewards](./10-rewards-daily-step.md)
+**Previous:** [Chapter 11: Daily & Step Rewards](./11-rewards-daily-step.md)
 
-**Next:** [Chapter 12: Donations Overview](./12-donations-overview.md)
+**Next:** [Chapter 13: Teams & Charities](./13-rewards-teams-charities.md)
 
 **Table of Contents:** [Back to TOC](./00-table-of-contents.md)

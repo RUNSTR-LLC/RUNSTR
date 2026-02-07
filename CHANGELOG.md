@@ -2,7 +2,333 @@
 
 All notable changes to RUNSTR will be documented in this file.
 
-## [1.6.3-debug] - 2026-01-16 - Pre-Release Testing
+## [1.6.7] - 2026-02-03 - RUNSTR AI & Auto-Compete
+
+### Automatic Competition Entry
+- Workouts and steps automatically enter competitions - no manual "Compete" button needed
+- Complete a workout → automatically compete for rewards
+
+### RUNSTR AI (PPQ.ai)
+- One-click anonymous AI account creation
+- Journal and habit tracker
+- AI chat with model selection
+- Top up AI credits from workout rewards
+
+### Encrypted Workout Backup
+- Backup workout history to Nostr (NIP-44 encrypted)
+- Import workouts from backup
+
+### Passive Step Tracking
+- Walk screen shows steps from Health Connect
+- Steps auto-compete for rewards
+- Instant 50 sats when daily steps hit 10,000
+
+### Rewards Transparency
+- Rewards Pool breakdown display
+- Earnings view (users with Lightning address)
+- Charitable contributions view
+- Full transparency dashboard
+
+### Android Stability
+- Fixed activity tracker freezing on first load
+- Fixed step counter and posting issues
+- Improved battery optimization handling
+
+### UI Improvements
+- Activity tracker header now shows only step count (removed confusing estimated distance)
+
+### Leaderboard Fix
+- Fixed distance double-counting: leaderboards now use MAX(steps, GPS) per day instead of summing both sources
+
+---
+
+## [1.6.6-debug] - 2026-01-27 - Major Feature Release
+
+### Automatic Competition Entry
+- **Removed Compete Button**: Workouts and steps automatically enter competitions
+- **Simplified Workflow**: Complete workout → automatically compete for rewards
+
+### WOT-Gated Features (Web of Trust)
+- **Nostr User Features**: Verified Nostr users see posting options and Wavlake toggle in settings
+- **Feature Visibility**: Trust-based access to social features
+
+### Passive Walking Tracker
+- **Health Connect Integration**: Walk screen shows steps from Health Connect
+- **Distance Estimation**: Estimates distance from step count
+- **Auto-Competition**: Steps automatically enter competitions
+
+### Rewards Screen Overhaul
+- **Rewards Pool Display**: Shows total rewards pool breakdown
+- **Earnings View**: Users with Lightning address see their earnings
+- **Charitable Contributions**: Users without Lightning address see charity breakdown
+- **Transparency Dashboard**: Full breakdown of where rewards went
+
+### RUNSTR AI (formerly Coach RUNSTR)
+- **PPQ.ai Integration**: Select ppq.ai as team
+- **One-Click Account Creation**: Create anonymous PPQ account instantly
+- **Rewards to PPQ**: Option to send rewards to top up PPQ balance
+- **Journal/Habit Tracker**: Track fitness habits and journal entries
+- **AI Chat Interface**: Select model and ask health/fitness questions
+
+### Encrypted Workout Backup
+- **Nostr Backup**: Encrypt and save workout history to Nostr
+- **Relay Selection**: Choose which relay(s) to send backup to
+- **Private Relays**: Support for Citrine or personal relay
+- **Import Functionality**: Import workout history from Nostr to local storage
+
+### Blossom Music Playlists
+- **Restored Feature**: Blossom servers as music playlists
+- **Native Support**: Better integration with blossom ecosystem
+
+### Instant Rewards
+- **10k Steps Reward**: Instant 50 sats when daily steps hit 10,000
+- **3km Cardio Reward**: Instant 50 sats when cardio hits 3km+
+
+### UI/UX Improvements
+- **Step Tracker at Top**: Added step tracker with distance estimation to activity trackers
+- **Swipe Navigation**: Swipe to switch between trackers
+- **Stats in History**: Added statistics to workout history
+- **RUNSTR AI in History**: Access AI from history screen
+
+### Bug Fixes (Android)
+- **Activity Tracker Frozen on First Load**: Wrapped mount-time async operations in `InteractionManager.runAfterInteractions()`; added `permissionsReady` state gate so SwipeGridNavigator and heavy tracker useEffect hooks don't mount until permission check completes; shows ActivityIndicator during wait
+- **Fix Buttons Not Working**: Clarified battery exemption status logic in BatteryOptimizationService to prevent incorrect short-circuit; added feedback Alert when background tracking fails to start native sensor
+- **Battery Optimization Shown Twice**: Only show both generic + manufacturer-specific battery rows when names differ (e.g., Samsung "Device Care"); single row for Google/Pixel devices
+- **Battery Optimization Re-requested After Countdown**: Added `checkBatteryOptimizationStatus()` call before requesting exemption in `initializeGPS()`; skips prompt if already exempted
+- **Android Version Shows API Level**: Added API-level-to-version mapping so device info shows "Android 14" instead of "Android 34" in GPS diagnostics and contact support
+- **N Button Darkens Screen**: Memoized step workout object keyed on `[dailySteps, userPubkey]` to prevent render thrash on Android; removed dailySteps > 0 gate so users can post with 0 steps; modal uses stable memoized ref instead of inline `createStepWorkout()` call; defensive guard shows "No workout data" message for zero duration/distance
+- **WoT Fallback for N Button**: `checkWoTEligibility()` now falls back to `fetchAndCacheScore()` when `getCachedScore()` returns null; useEffect dependency changed from `[dailySteps]` to `[]` (runs on mount)
+- **Step Distance Constant**: Replaced hardcoded step-to-distance values with shared `STRIDE_LENGTH_METERS` (0.67) and `KM_PER_STEP` constants in `appConstants.ts`
+- **Workout Dedup Window**: Widened dedup time window from 60s to 300s (5 min); added distance-based matching (20% tolerance) for multi-app tracking scenarios
+- **Share Workout Back Button Too High**: Changed SafeAreaView import from react-native to react-native-safe-area-context for proper status bar inset handling on Android
+- **Import Workouts "Not Logged In" Error**: Improved error message to "Please log in with your nsec before importing data" with "Login Required" title and person icon
+
+### Bug Fixes (Competition & Rewards)
+- **Auto-Submit All Workouts to Supabase**: Added `autoSubmitToSupabase()` in LocalWorkoutStorageService called after `saveWorkout()`; HealthKit and Health Connect services now compare against previous cache to identify and submit new cardio workouts automatically
+- **Step Re-Submission Interval**: Replaced daily `hasSubmittedToday()` gate with `hasSubmittedRecently()` (30-minute interval); stores timestamp instead of date string so steps update throughout the day
+
+### Bug Fixes (Backup & Amber)
+- **Amber NIP-44 Backup Support**: Added kind 30078 to Amber permissions; `encrypt()`/`decrypt()` now accept optional scheme parameter routing to `nip44_encrypt`/`nip44_decrypt` intents for Amber users
+- **Backup Service Amber Compatibility**: Replaced `getNsec()` + manual `nip44.v2.encrypt()` with `UnifiedSigningService.getSigner()` + `signer.encrypt()`; removed nostr-tools imports; fixed `_selectedRelays` → `selectedRelays` passthrough
+- **Restore Service Amber Compatibility**: Replaced `getNsec()` + manual `nip44.v2.decrypt()` with `signer.decrypt()`; uses `signer.user().pubkey` instead of AsyncStorage lookup
+- **Export Modal Error Display**: Added inline error/success messages visible inside the pageSheet modal; success auto-closes modal after 1.5s
+
+### Bug Fixes (Rewards Cleanup)
+- **Removed Stale Reward Notifications**: Cleaned up unused reward notification code across 8 files
+  - Removed `showPendingRewardToast()` calls from WorkoutSummaryModal, ManualEntryScreen, MeditationTrackerScreen, DietTrackerScreen
+  - Removed `showRewardEarned()` calls from DailyRewardService
+  - Cleaned dead methods from RewardNotificationManager (`lastReward`, `getLastReward()`, `clearLastReward()`, `showPendingRewardToast()`, `showRewardEarned()`)
+  - Simplified empty state messages in EarningsHeroCard and ImpactHeroCard
+- **HealthKit/Health Connect Rewards Not Paying Out**: Fixed `REWARD_ELIGIBLE_SOURCES` whitelist using wrong source strings (`imported_healthkit`, `imported_health_connect`, `imported_garmin`) instead of actual values (`healthkit`, `health_connect`); synced workouts now pass eligibility check and earn the 50 sats daily reward
+- **Workout Submission Toast Feedback**: `autoSubmitToSupabase()` now shows toast notifications after submitting — "Workout Submitted" success toast (3s) or "Workout Under Review" if flagged (4s); errors remain silent since `PendingSubmissionService` handles retries
+
+### Bug Fixes (Step Counter & Android)
+- **NativeStepCounterService Method Names**: Fixed 5 incorrect expo-sensors-step-counter API calls — `requestPermissions()` → `requestActivityPermissions()`, `getStepCountAsync()` → `getStepsCountAsync()` (3 sites), `startAsync()` → `setupBackgroundUpdates()` with proper `NotificationConfig` (title, contentTemplate, iconResourceName), removed non-existent `stopAsync()` call, fixed response handling (`getStepsCountAsync()` returns a number directly, not `{ steps }`)
+- **GrapheneOS Package Queries**: Added `app.grapheneos.camera`, `app.grapheneos.pdfviewer`, `app.grapheneos.vanadium` to AndroidManifest `<queries>` block so `Linking.canOpenURL()` detects GrapheneOS apps on Android 11+
+- **Dead Import Cleanup**: Removed unused `DailyStepGoalCard` import from WalkingTrackerScreen (component not rendered after UI redesign)
+- **Step Counter Log Message**: Corrected 'Skipping - not stock Android' to 'Skipping - not Android'
+
+### Bug Fixes (Step Posting)
+- **Display vs Publish Mismatch**: `handlePostToNostr` now uses the memoized `stepWorkout` instead of calling `createStepWorkout()` fresh, ensuring published data matches what the modal displayed even if `dailySteps` changed between opening the modal and tapping Post
+- **startTime === endTime**: `createStepWorkout()` now computes `startTime` as `endTime - estimatedDuration`, giving a realistic time range instead of a zero-duration window
+- **Modal Data Shifts on Re-Focus**: Added `snapshotWorkout` state that captures the step workout when the modal opens; snapshot is passed to both `EnhancedSocialShareModal` and `handlePostToNostr` so data stays frozen even if `useFocusEffect` updates `dailySteps` while the modal is open
+- **Duplicate Step Post Guard**: Added `hasPostedStepsToday` tracking with `lastPostDateRef`; subsequent taps the same day show "You already shared your steps today. Post again with updated count?" confirmation dialog; flag auto-resets on date change
+
+### Step Distance & Competition Improvements
+- **Step Distance Tracking**: Steps now include estimated distance (steps × KM_PER_STEP) in workout history and Supabase submissions instead of `distance=0`
+- **Daily Step Upsert**: Added `upsertDailyStepsWorkout()` for deterministic daily step entries that update in place instead of creating duplicates
+- **Supabase Step Upsert**: Duplicate `steps_` submissions now UPDATE existing rows (distance, step count) instead of returning `duplicate: true`
+- **Step Anti-Cheat Bypass**: Step submissions skip pace/speed/duration validation (duration=0); basic validation caps at 200,000 steps/day with negative distance rejection
+- **Step Distance in Competitions**: Step submissions with non-zero distance now contribute to distance totals; only `distance_meters === 0` entries are excluded
+- **Step Distance on Share Cards**: Vertical card preview and FullScreenVerticalCard show estimated distance (~X.XX km) below step count; WalkingTrackerScreen step posts include distance and steps fields
+
+### Supabase Submission Status Tracking
+- **Workout Submission Status**: Added `supabaseSubmitted` and `supabaseError` fields to `LocalWorkout` interface; `autoSubmitToSupabase()` now tracks success/flagged/failure status per workout
+- **Retry Compete Button**: Workouts that failed Supabase submission show a "Compete" button (trophy icon, orange outlined) in UnifiedWorkoutsTab and EnhancedWorkoutCard; tapping retries `submitWorkoutSimple()` with toast feedback
+- **Step Status Tracking**: `StepCompetitionService` calls `updateSupabaseStatus()` after step submissions so step entries also track competition status
+- **Full Kind 1301 Tags on Submit**: `autoSubmitToSupabase()` and `retrySupabaseSubmission()` now build complete kind 1301 tags (exercise, distance in km, duration in HH:MM:SS, splits, steps) via `buildWorkoutTags()`, include team tag from selected charity, and pass cached profile name/picture to `submitWorkoutSimple()`
+
+### Workout Summary Overhaul (Meditation & Diet)
+- **Unified Posting Flow**: MeditationTrackerScreen and DietTrackerScreen now use the same posting pattern — auto-compete on summary, WoT-gated "Post to Nostr" button, `EnhancedSocialShareModal`, "Discard" button to delete saved workout
+- **Removed Old Patterns**: Removed `WorkoutPublishingService` named import, NDKSigner state at mount, `handleCompete()`/`handlePost()`, separate Share/Compete buttons, Modal-based summary
+- **Added**: `workoutPublishingService` default import, `AutoCompetePreferencesService`, `WorkoutStatusTracker`, `WoTService`, `Toast` imports, explicit phase system (`setup` | `ready` | `active` | `summary`)
+- **Meditation Setup Restyle**: Replaced icon + title + "Continue" button with dark card + type chips + circle button in fixed bottom bar
+- **Diet Setup Restyle**: Replaced icon + title + rectangular buttons with muted label + dark cards (meal type chips, meal size pills, time selector, notes) + circle button in fixed bottom bar
+
+### PPQ Credit Top-Up from Teams Screen
+- **Sparkle Badge Tap**: PPQ team card sparkle badge now opens PPQ Credit Top-Up modal (or account setup if no account exists)
+- **Top-Up Modal**: `PPQCreditTopupModal` rendered on TeamsScreen with success toast on completion
+
+### Reward Notification Improvements
+- **Charity Lookup Helper**: `getCharityByLightningAddress()` for case-insensitive charity lookup by Lightning address
+- **Restyled Reward Toasts**: Black/orange theme — `rewardConfirmed` uses #f7931a, `rewardDonated` uses #FF9D42 with gift icon
+- **Fallback Charity Detection**: `RewardPollingService` and `SupabaseRewardService` detect charity from Lightning address when `charity_id` is null
+- **Batch Donated Toast**: `showBatchRewardsDonated()` method; label changed from "Reward Donated!" to "Reward Sent!"
+
+### Batch Payment Configuration
+- **Ashigaru Added to Batch Payments**: Added Ashigaru to `BATCH_PAYMENT_CHARITIES` config with 2,000 sat minimum threshold
+- **Config-Driven Pending Payouts**: `getPendingBatchPayouts()` now filters to only charities in `BATCH_PAYMENT_CHARITIES` (HRF excluded), overrides `minimumSats` with config's `minAmount`, and recalculates `progressPercent` based on config threshold
+
+### Bug Fixes (Android UI)
+- **Android Spinner Stuck**: Removed `InteractionManager.runAfterInteractions` wrapper from permission check that caused infinite spinner on some devices
+- **Hidden N Button**: Replaced conditional N button with header spacer so the button is always accessible
+- **Android Modal Header**: Added 16px extra `paddingTop` on Android in EnhancedSocialShareModal to prevent header overlap
+- **Steps in Workout History**: EnhancedWorkoutCard now shows Steps + Distance for cardio workouts with `steps > 0`
+
+### Bug Fixes (Step Competition & Submission)
+- **Step Submission Race Condition**: `upsertDailyStepsWorkout()` now runs before `updateSupabaseStatus()` in StepCompetitionService; previously the status update silently failed because the workout didn't exist in local storage yet, so `supabaseSubmitted` was never set and the Compete button never showed
+- **Default supabaseSubmitted: false**: New step workouts in LocalWorkoutStorageService are created with `supabaseSubmitted: false` instead of `undefined`, ensuring the Compete button is visible immediately if submission failed
+- **Distance Coercion Bug**: Changed `data.distance || null` to `data.distance ?? null` in SupabaseCompetitionService; the `||` operator converted `0` to `null` (since 0 is falsy), causing step workouts with zero GPS distance to send `null` instead of `0`
+- **Retry Duration for Steps**: When retrying a step workout via the Compete button, sends `duration: 0` instead of the locally-stored duration (time since midnight) to match original submission behavior
+
+### Bug Fixes (RUNSTR AI)
+- **Account Creation Callback Missing**: Added `onSuccess()` call at end of `handleCreateAccount()` in PPQAPIKeyModal; creating an account never notified the parent screen, so the dashboard wouldn't refresh after setup
+- **AI Screen Blocked Without API Key**: Removed setup gate that blocked the entire AIHealthDashboardScreen when no API key was present; Overview tab (Journal + Habits) now always renders regardless of API key state; Chat tab shows inline "Set Up AI Credits" prompt instead of blocking the whole screen; header balance badge and model picker only appear when `apiKey` exists
+
+### Bug Fixes (UI)
+- **Share Modal Safe Area**: Replaced `SafeAreaView` with `useSafeAreaInsets` + manual `paddingTop` in EnhancedSocialShareModal so back button renders below the iOS status bar and is tappable
+- **0-Step Posting Guard Removed**: Removed `dailySteps === 0` alert and disabled/opacity gates from ActivityTrackerScreen step posting button
+
+### WoT Bypass (Temporary)
+- **WoT Bypass Flag**: Added `WOT_BYPASS_ENABLED` flag in WoTService.ts; when enabled, `getCachedScore()` and `fetchAndCacheScore()` return 0.001 immediately (skips AsyncStorage and relay connections); all 15 consumer files pass `score > 0` checks without changes. Set `WOT_BYPASS_ENABLED = false` to restore real WoT gating.
+
+### Unified Timeline
+- **Timeline Types**: New `TimelineItem`, `TimelineFilter`, `MonthlyTimelineGroup` types unifying workouts, journal entries, and habit check-ins
+- **Timeline Entry Cards**: Journal cards (brown accent, mood/energy icons, content preview, tags) and habit check-in cards (colored dot, streak badge) in new `TimelineEntryCard` component
+- **Unified Workouts Tab**: Fetches journal entries and habits alongside workouts; filter chip row (All | Workouts | Journal | Habits); tapping journal cards opens editor; pull-to-refresh reloads all sources in parallel
+- **MonthlyWorkoutGroup**: Accepts optional `TimelineItem[]` and `renderTimelineItem` prop for mixed-type rendering with backward-compatible workout-only fallback
+
+### Performance
+- Optimized tracker switching
+- Improved step counter reliability
+- Permission-gated tracker rendering prevents 7+ concurrent async operations from saturating the React Native bridge on Android first load
+
+### Technical Changes
+- New WOT verification service
+- PPQ account integration
+- Encrypted backup service
+- Enhanced rewards transparency service
+- Shared step distance constants in `appConstants.ts`
+
+---
+
+## [1.6.5] - 2026-01-21 - Units, i18n & GrapheneOS Fix
+
+### New Features
+
+#### KM/Miles Unit Preference
+- **Unit Toggle**: Settings → Fitness Tracking → toggle between Kilometers and Miles
+- **Full App Support**: Distance, pace, speed, and elevation display in preferred units
+- **TTS Announcements**: Voice coach speaks in your preferred units ("per mile" or "per kilometer")
+- **Split Tracking**: Mile splits (1609m) or kilometer splits (1000m) based on preference
+- **Workout Cards**: All workout displays respect unit preference
+
+#### Internationalization (i18n)
+- **Auto-Detection**: App detects device language on startup
+- **Language Switcher**: Settings → Language for manual language selection
+- **Persistent Preference**: Selected language saved across sessions
+- **Fallback System**: Falls back to English for missing translations
+
+### Bug Fixes
+
+#### GrapheneOS Step Counter Fix
+- **Fixed**: Steps displayed as 0 in app while notification bar showed correct count
+- **Root Cause**: Privacy ROM detection was incorrectly blocking native step sensor
+- **Solution**: Removed privacy ROM check - native step sensor works on all Android devices
+- **Files**: `NativeStepCounterService.ts`, `DailyStepCounterService.ts`
+
+#### Relay Connectivity Fix
+- **Fixed**: Workout publishing failures due to relay connection timing
+- **Solution**: Service now waits for minimum relay connectivity (2 relays, 3s timeout) before publishing
+- **Graceful Degradation**: Continues with warning if connectivity not established
+- **File**: `workoutPublishingService.ts`
+
+### Technical
+
+#### New Files
+- `src/hooks/useUnitPreference.ts` - Centralized unit preference hook
+- `src/hooks/useWavlakePlayer.ts` - Wavlake player integration hook
+- `src/types/music.ts` - Music type definitions
+- `src/store/musicStore.ts` - Zustand store for music state
+- `src/constants/music.ts` - Music constants
+- `src/services/music/WavlakeService.ts` - Wavlake API service
+- `src/services/music/MusicPlayerService.ts` - Audio playback service
+- `src/services/music/WavlakeZapService.ts` - Lightning zap service for artists
+- `src/components/music/` - Music UI components (6 files)
+- `src/i18n/` - Internationalization files
+- `src/services/i18n/` - i18n service
+
+#### Modified Files
+- `src/utils/distanceFormatter.ts` - Added unit conversion helpers
+- `src/services/activity/ActivityMetricsService.ts` - Unit-aware formatting
+- `src/services/activity/TTSAnnouncementService.ts` - Unit-aware voice announcements
+- `src/services/activity/SplitTrackingService.ts` - Configurable split intervals
+- `src/services/activity/SimpleRunTracker.ts` - Passes unit preference to split tracker
+- Multiple workout card components updated for unit preference
+
+---
+
+## [1.6.4] - 2026-01-19 - Daily Rewards & Einundzwanzig Teams
+
+### Rewards System Changes
+- **Daily Rewards**: Switched from instant rewards to daily rewards system
+- **Compete to Earn**: Workouts must be submitted to competitions to earn rewards
+- **Step Rewards Removed**: Removed the 5 sats per 1,000 steps reward
+- **Impact Score**: Only workout rewards increase your Impact Level XP
+- **P2P Donations**: Direct zaps in the app now go directly to the team's Lightning address (untracked donations)
+
+### Einundzwanzig Challenge Teams
+- Added **Ashigaru** as a featured team
+- Added **WeSatoshi** as a featured team
+- Users without featured team tags now display "No Team" in leaderboard
+- Demo mode disabled for production
+
+### New Teams
+- Added **RUNSTR** as a team option
+- Added **BuhoGO** as a team option
+
+### UI Improvements
+- **Simplified Advanced Settings**: Streamlined the Advanced Features menu
+- **Leaderboard Optimizations**: Performance improvements for faster leaderboard loading
+- **Daily Rewards Payout UI**: Updated UI to reflect new daily rewards system
+- **Direct Donation Toasts**: Improved toast notifications for direct P2P donations
+- **Rewards Section UI**: Updated UI in the Rewards section
+
+### Performance Optimizations
+- Fixed back button issue in EinundzwanzigDetailScreen (separate isRefreshing state, setImmediate cleanup)
+- Added Top 10 + "See More" pagination to DailyLeaderboardCard
+- Fixed React list keys in MiniLeaderboard (using entry.position instead of index)
+- Fixed React list keys in WorkoutDetailModal splits (using split number)
+- Restored Nostr profile fetching for non-Season2 competitions (fixed "Anonymous" display)
+
+### Bug Fixes
+- Fixed Lightning address input in Advanced Settings
+- Fixed leaderboard date and time display bug
+- Fixed Android status bar hiding in FullScreenCardModal
+
+---
+
+## [1.6.3] - 2026-01-17 - Compete-Based Rewards & Einundzwanzig Challenge
+
+### Rewards System Overhaul
+- **Compete-Based Rewards**: Workout rewards (50 sats) now trigger AFTER server-side validation
+  - Previously: Rewards fired immediately on local save (before anti-cheat validation)
+  - Now: Rewards only fire when workout passes server-side validation and is accepted into competition
+  - Moved reward trigger from `workoutPublishingService.ts` to `SupabaseCompetitionService.ts`
+- **Einundzwanzig Double Rewards**: Earn 100 sats per workout during Einundzwanzig Challenge (Jan 21 - Feb 21)
+  - Requires: Challenge dates active + joined Einundzwanzig + workout tagged with featured team
+  - Featured teams: ALS Foundation, Human Rights Foundation, Bitcoin Veterans
+  - New `checkEinundzwanzigBonus()` method in SupabaseCompetitionService
+  - Orange banner on Einundzwanzig detail screen announces double rewards
+- **Step Rewards Unchanged**: Step rewards (5 sats/1k steps) operate independently via StepPollingService
+  - Polls every 60 seconds, triggers rewards through StepRewardService
+  - No "compete" button needed for steps
+- **Auto-Compete Default**: New users now have auto-compete enabled by default
+  - Workouts automatically submit to competitions when finished
+  - Toggle available in Settings → Advanced Features
+- **100% Donation Default**: Donation split now defaults to 100% charity
+  - All workout rewards go to your selected team/charity by default
+  - Donation splits section moved to Settings → Advanced Features
 
 ### UI Improvements
 - **Unified Workout History**: Single view merges local + health app workouts
@@ -26,12 +352,13 @@ All notable changes to RUNSTR will be documented in this file.
 - **Leaderboard Deduplication**: Prevents inflated distances from duplicate workout submissions
   - Added deduplication logic to `SupabaseCompetitionService.getLeaderboard()`
   - Matches by (npub, rounded distance, date)
-- **Double Zap Prevention**: Running Bitcoin rewards now use Supabase-backed claim tracking
+- **Double Zap Prevention**: Running Bitcoin rewards now use server-backed claim tracking
   - Prevents duplicate reward claims across app reinstalls
 
 ### Technical
 - New files: `src/utils/unifiedWorkoutMerge.ts`, `src/components/profile/tabs/UnifiedWorkoutsTab.tsx`
 - Modified: `WorkoutTabNavigator.tsx` simplified from ~157 to ~75 lines
+- New config: `EINUNDZWANZIG_REWARD_CONFIG` in constants file
 
 ---
 

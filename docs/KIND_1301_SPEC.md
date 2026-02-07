@@ -221,6 +221,38 @@ Kind 1301 is a Nostr event kind for publishing fitness tracking data. RUNSTR pub
 - **Example**: `["team", "bitcoin-runners-nyc"]`
 - **Note**: Used for daily leaderboards and competition tracking
 
+### `reward_destination` - Reward Routing
+```typescript
+["reward_destination", "user"]
+```
+- **Purpose**: Tells the external reward service where to send the 50 sat reward
+- **Format**: Two elements - tag name, destination type
+- **Valid Values**: `user`, `charity`
+- **Logic**:
+  - `user`: User has "Rewards to Me" toggle enabled AND has a Lightning address configured
+  - `charity`: User wants rewards to go to their selected team/charity (or has no Lightning address)
+- **Note**: External reward service reads this tag to route payments automatically
+- **Fallback**: If no Lightning address is configured, rewards always route to charity
+
+### `lightning` - User's Lightning Address
+```typescript
+["lightning", "user@getalby.com"]
+```
+- **Purpose**: User's Lightning address for receiving workout rewards
+- **Format**: Two elements - tag name, Lightning address
+- **Example**: `["lightning", "alice@primal.net"]`
+- **Note**: Used by external reward service when `reward_destination` is `user`
+
+### `v` - Verification Code
+```typescript
+["v", "abc123xyz"]
+```
+- **Purpose**: Rolling verification code for anti-bot protection
+- **Format**: Two elements - tag name, verification code
+- **Source**: Obtained from the kind 30150 leaderboard note published by external aggregator
+- **Validity**: Codes are valid for 5 minutes (current + 2 previous codes accepted)
+- **Note**: External reward service validates this code to ensure workouts were created recently
+
 ## Content Field
 
 The `content` field must be **plain text**, NOT JSON.
@@ -323,8 +355,12 @@ External leaderboards (runstr.app website) currently support **cardio activities
     ["data_points", "1687"],
     ["recording_pauses", "1"],
     ["workout_start_time", "1736950800"],
-    ["source", "RUNSTR"],
-    ["client", "RUNSTR", "0.2.6"],
+    ["team", "als-foundation"],
+    ["charity", "als-foundation", "ALS Network", "RunningBTC@primal.net"],
+    ["lightning", "alice@getalby.com"],
+    ["reward_destination", "charity"],
+    ["source", "gps"],
+    ["client", "RUNSTR", "1.6.3"],
     ["t", "Running"]
   ]
 }

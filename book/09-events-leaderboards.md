@@ -1,10 +1,10 @@
-# Chapter 8: Event Leaderboards
+# Chapter 9: Event Leaderboards
 
 ## How Leaderboards Work
 
 Leaderboards show ranked participants based on their workout performance during an event. Rankings are calculated from:
 - **Participant list** - Who joined the event (from Supabase)
-- **Workout data** - Kind 1301 events from Nostr
+- **Workout data** - Submitted workouts in Supabase (auto-submitted via `submitWorkoutSimple()`)
 - **Scoring rules** - Total distance, workout count, etc.
 
 ---
@@ -43,34 +43,31 @@ Each entry shows:
 
 ## Data Sources
 
-### Participant List (Supabase)
-- Query `event_participants` table
-- Get list of pubkeys who joined the event
-- Cache for performance
+### All Data from Supabase
 
-### Workout Data (Nostr)
-- Query kind 1301 events from participants
-- Filter by event date range
-- Filter by activity type
-- Sum distances per user
+Both participant lists and workout data come from Supabase:
 
-### Hybrid Approach
+- **Participants** - Query `event_participants` table for who joined the event
+- **Workouts** - Query `workouts` table for submitted workouts during event period
+- **Profiles** - User names and avatars from Nostr kind 0 (cached)
+
+### Data Flow
 
 ```
-Get participants from Supabase
+useSupabaseLeaderboard hook
         ↓
-For each participant:
-  Query kind 1301 events from Nostr
+Query Supabase workouts table:
+  - Filter by event date range
+  - Filter by activity type (running/walking/cycling)
+  - Filter by event participants
         ↓
-Filter workouts by:
-  - Activity type (running/walking/cycling)
-  - Date range (event start → end)
-        ↓
-Calculate totals:
+Aggregate per user:
   - Total distance (sum)
   - Workout count
         ↓
 Sort by total distance (descending)
+        ↓
+Enrich with profile data (name, avatar)
         ↓
 Display ranked leaderboard
 ```
@@ -107,7 +104,7 @@ const workoutCount = workouts.length;
 For long events like Season II, a **baseline system** improves performance:
 
 ### Problem
-Fetching 2 months of workouts from Nostr on every load is slow.
+Re-aggregating 2 months of workouts on every load is slow.
 
 ### Solution
 Pre-compute totals at a snapshot date, then only fetch recent workouts.
@@ -131,25 +128,18 @@ const currentTotal = baseline.running + freshWorkoutsSinceSnapshot.running;
 
 ## Technical Section
 
-### Season2Service Leaderboard Methods
+### Supabase Leaderboard Hook
 
-**File:** `src/services/season/Season2Service.ts`
+**File:** `src/hooks/useSupabaseLeaderboard.ts`
+
+The primary hook for querying leaderboard data from Supabase:
 
 ```typescript
-// Get leaderboard for specific activity
-async getLeaderboard(
-  activityType: 'running' | 'walking' | 'cycling'
-): Promise<LeaderboardEntry[]>
-
-// Get all three leaderboards at once
-async getAllLeaderboards(): Promise<{
-  running: LeaderboardEntry[];
-  walking: LeaderboardEntry[];
-  cycling: LeaderboardEntry[];
-}>
-
-// Build leaderboard from fresh Nostr data
-async buildLeaderboardsFromFresh(): Promise<LeaderboardData>
+// Usage in competition screens
+const { data, isLoading, error } = useSupabaseLeaderboard({
+  eventId: 'season-2',
+  activityType: 'running',
+});
 
 interface LeaderboardEntry {
   rank: number;
@@ -162,18 +152,19 @@ interface LeaderboardEntry {
 }
 ```
 
-### Workout Queries
+### SupabaseCompetitionService
+
+**File:** `src/services/backend/SupabaseCompetitionService.ts`
+
+Handles workout submission and leaderboard queries:
 
 ```typescript
-// Query kind 1301 events for participants
-const filter = {
-  kinds: [1301],
-  authors: participantPubkeys,
-  since: eventStartTimestamp,
-  until: eventEndTimestamp,
-};
-
-const events = await ndk.fetchEvents(filter);
+// Submit workout to Supabase (called automatically for all cardio workouts)
+static async submitWorkoutSimple(data: WorkoutSubmissionData): Promise<{
+  success: boolean;
+  error?: string;
+  flagged?: boolean;
+}>
 ```
 
 ### Filtering by Activity
@@ -238,23 +229,23 @@ Limits displayed entries with "Show More" button:
 
 ### Ideal Architecture
 1. **Fast loading** - Baseline + fresh data pattern
-2. **Accurate data** - Real kind 1301 events from Nostr
+2. **Accurate data** - Supabase as single source of truth
 3. **Clear ranking** - Obvious who's winning
 4. **Activity filtering** - Easy tab switching
 5. **Current user visible** - Highlight logged-in user
 
 ### What to Avoid
-- Full relay queries on every load
 - Complex scoring algorithms
 - Multiple competing leaderboard services
 - Stale cached data
+- Querying Nostr relays for leaderboard data
 
 ---
 
 ## Navigation
 
-**Previous:** [Chapter 7: Joining Events](./07-events-joining.md)
+**Previous:** [Chapter 8: Joining Events](./08-events-joining.md)
 
-**Next:** [Chapter 9: Rewards Overview](./09-rewards-overview.md)
+**Next:** [Chapter 10: Rewards Overview](./10-rewards-overview.md)
 
 **Table of Contents:** [Back to TOC](./00-table-of-contents.md)

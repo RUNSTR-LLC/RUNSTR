@@ -1,4 +1,4 @@
-# Chapter 7: Joining Events
+# Chapter 8: Joining Events
 
 ## How Users Join Events
 
@@ -217,8 +217,8 @@ async getParticipants() {
 
 ## Navigation
 
-**Previous:** [Chapter 6: Events Overview](./06-events-overview.md)
+**Previous:** [Chapter 7: In-Person Events & Business Model](./07-in-person-events.md)
 
-**Next:** [Chapter 8: Event Leaderboards](./08-events-leaderboards.md)
+**Next:** [Chapter 9: Event Leaderboards](./09-events-leaderboards.md)
 
 **Table of Contents:** [Back to TOC](./00-table-of-contents.md)

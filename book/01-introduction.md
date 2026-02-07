@@ -2,12 +2,12 @@
 
 ## What is RUNSTR?
 
-RUNSTR is a Bitcoin-powered fitness application that rewards users for working out and enables them to support charities through their fitness activities. The app transforms everyday exercise into Bitcoin earnings while creating a community of health-conscious Bitcoiners.
+RUNSTR is a fitness event company that operates both virtual and in-person competitions, rewarding participants with Bitcoin for their fitness activities. The app serves as the digital backbone—tracking workouts, managing event participation, and delivering rewards—while in-person races like the District 5K bring the community together in meatspace.
 
 ### Core Value Proposition
-**Fitness earns Bitcoin. Bitcoin supports charities.**
+**Fitness earns Bitcoin. Events build community.**
 
-Complete your daily workout and earn satoshis (sats). Hit step milestones throughout the day for bonus rewards. Choose to split a portion of your earnings with a charity you care about.
+Complete your daily workout and earn satoshis (sats). Hit step milestones throughout the day for bonus rewards. Compete in virtual and in-person events for Bitcoin prize pools. Choose to support a charity through your fitness activities.
 
 ---
 
@@ -54,57 +54,55 @@ The code is the proof. Don't trust—verify.
 
 ---
 
-## The Four Core Pillars
+## The Three Pillars
 
-RUNSTR is built on four interconnected pillars:
+RUNSTR is built on three interconnected pillars:
 
 ### 1. Workouts
-Track your fitness activities using GPS or manual entry. Workouts are published to the Nostr network as kind 1301 events, creating a permanent, decentralized record of your fitness journey.
+Track your fitness activities using GPS or health sync. Workouts are saved to Supabase for competition tracking and leaderboards. Kind 1301 events are created locally for structure but are not published to Nostr relays.
 
 **Key Features:**
 - GPS tracking for Running, Walking, Cycling
-- Manual entry for Strength, Diet, Wellness
-- HealthKit (iOS), Health Connect (Android), Garmin sync
+- HealthKit (iOS) and Health Connect (Android) sync
 - Real-time metrics: pace, distance, elevation, splits
+- Auto-submit to Supabase for competitions (all cardio workouts)
 
 ### 2. Events
-Compete in fitness challenges with Bitcoin prizes. Events like "RUNSTR Season II" and "January Walking Contest" bring users together in friendly competition.
+Compete in virtual and in-person fitness competitions with Bitcoin prizes. Virtual events like "RUNSTR Season II" run through the app, while in-person events like the District 5K bring runners together at real-world venues. Events are core to RUNSTR's identity as a fitness event company.
 
 **Key Features:**
-- Hardcoded events (currently no dynamic creation)
-- Leaderboards with Running/Walking/Cycling tabs
-- Prize pools in satoshis
+- Virtual competitions with leaderboards (Season II, January Walking Contest)
+- In-person 5K races with sponsorships and prize pools
+- Dual participation: run in-person or virtually from anywhere
 - Supabase-based participant tracking
 
 ### 3. Rewards
-Earn Bitcoin for staying active. The app sends real satoshis to your Lightning address for completing workouts and hitting step milestones.
+Earn Bitcoin for staying active. The app sends real satoshis to your Lightning address for completing workouts and hitting step milestones. Teams and charities are part of the rewards ecosystem—select a team to support and your fitness activities help fund their mission.
 
 **Key Features:**
 - 50 sats per daily workout
 - 5 sats per 1,000 steps
 - Delivered via Lightning address (LNURL protocol)
+- Teams/charities integrated into reward routing
 - Silent failure - rewards never block workout saving
-
-### 4. Donations
-Support Bitcoin-focused charities through your fitness. Select a "team" (charity) to support, and split a percentage of your rewards with them.
-
-**Key Features:**
-- Teams = Charities (Bitcoin Bay, Bitcoin Ekasi, ALS Network, etc.)
-- Donation split from daily rewards
-- Impact Level - XP-based gamification for donations
-- Direct zap button for manual donations
 
 ---
 
 ## Target Market
 
-RUNSTR targets the Bitcoin and Nostr community - approximately 50,000+ addressable users who:
-- Already understand private keys (nsec) and public keys (npub)
-- Are familiar with Lightning Network payments
-- Value decentralized protocols and data ownership
-- Care about health and fitness
+RUNSTR targets two audiences:
 
-This focused market solves the "cold start problem" by targeting users who already have the knowledge to use the app immediately.
+### Bitcoin & Nostr Community (~50,000+ users)
+- Already understand private keys (nsec) and public keys (npub)
+- Familiar with Lightning Network payments
+- Value decentralized protocols and data ownership
+- Solve the "cold start problem" with knowledgeable early adopters
+
+### Fitness Enthusiasts (in-person events)
+- Runners, walkers, and cyclists looking for race events
+- Discover RUNSTR through 5K races and local running communities
+- Experience Bitcoin rewards organically without evangelism
+- Target mix: 80% regular runners, 20% Bitcoiners
 
 ---
 
@@ -112,9 +110,9 @@ This focused market solves the "cold start problem" by targeting users who alrea
 
 ### Overview
 
-RUNSTR uses a **hybrid architecture**:
-- **Nostr** - For workouts (kind 1301 events) and user authentication
-- **Supabase** - For event participation and leaderboards
+RUNSTR uses a **Supabase-first architecture**:
+- **Supabase** - Primary storage for workouts, event participation, and leaderboards
+- **Nostr** - For user authentication (nsec login) and profile sync (kind 0)
 - **Lightning** - For reward payments via LNURL
 
 ### Key Technical Decisions
@@ -122,14 +120,15 @@ RUNSTR uses a **hybrid architecture**:
 | Decision | Implementation | Rationale |
 |----------|---------------|-----------|
 | Authentication | Nostr (nsec-only) | Decentralized identity |
-| Workout Data | Nostr kind 1301 | Interoperable fitness standard |
-| Event Joining | Supabase | Simpler than Nostr for participation tracking |
+| Workout Data | Supabase | Fast queries, reliable storage |
+| Kind 1301 | Local only | Created for validation, not published |
+| Event Joining | Supabase | Simple participation tracking |
 | Rewards | Lightning address | Universal wallet support |
 | Charity Selection | Teams tab | Simple UX for choosing charity |
 
 ### Global NDK Instance
 
-All Nostr operations use a single global NDK instance (`GlobalNDKService`):
+Nostr operations (profile sync, social posting) use a single global NDK instance (`GlobalNDKService`):
 - Reduces WebSocket connections by 90%
 - Maintains persistent relay connections
 - 4 relays: damus, primal, nos.lol, nostr.band
@@ -150,7 +149,7 @@ The app uses a simple three-tab navigation:
 |-----|---------|-------------|
 | **Profile** | User dashboard | Start Workout, View History, Join Events |
 | **Teams** | Charity selection | Select team, view all charities, zap |
-| **Rewards** | Earnings & donations | View rewards, Impact Level, set donation splits |
+| **Rewards** | Earnings display | View rewards, earnings history, settings |
 
 ---
 
@@ -163,10 +162,8 @@ The app uses a simple three-tab navigation:
 
 ### Core Services
 - `src/services/nostr/GlobalNDKService.ts` - Nostr connection
-- `src/services/fitness/WorkoutEventStore.ts` - Workout cache
+- `src/services/fitness/LocalWorkoutStorageService.ts` - Local workout storage
 - `src/services/rewards/DailyRewardService.ts` - Daily rewards
-- `src/services/impact/ImpactLevelService.ts` - XP calculations
-
 ### Authentication
 - `src/contexts/AuthContext.tsx` - Auth state
 - `src/services/auth/authService.ts` - nsec login flow
@@ -175,7 +172,7 @@ The app uses a simple three-tab navigation:
 
 ## What This Book Covers
 
-This book documents what RUNSTR **should be** - the idealized architecture that keeps the app simple, focused, and aligned with its core mission.
+This book documents what RUNSTR **should be** - the idealized architecture that keeps the app simple, focused, and aligned with its core mission as a fitness event company.
 
 Each chapter covers:
 - **Overview Section** - High-level concepts, user experience, philosophy

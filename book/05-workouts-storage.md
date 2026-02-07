@@ -2,7 +2,7 @@
 
 ## Local-First Storage
 
-RUNSTR follows a **local-first** approach: all workouts are stored locally before being published to Nostr. This ensures:
+RUNSTR follows a **local-first** approach: all workouts are stored locally before being submitted to Supabase. This ensures:
 - Workouts are never lost due to network issues
 - User controls when/what to publish
 - Fast, responsive UI without network dependency
@@ -18,13 +18,13 @@ LocalWorkoutStorageService.saveWorkout()
         ↓
 Stored in AsyncStorage
         ↓
-User chooses to publish?
+Auto-compete enabled?
         ↓
-    YES → WorkoutPublishingService.publishToNostr()
+    YES → Submit to Supabase (submit-workout Edge Function)
         ↓
-    Kind 1301 event sent to 4 relays
+    Server-side validation and anti-cheat
         ↓
-    WorkoutEventStore cache invalidated
+    Leaderboards updated
 ```
 
 ---
@@ -39,8 +39,6 @@ Workouts can come from multiple sources:
 | `manual_entry` | User manual input | On save |
 | `healthkit` | Apple HealthKit | Background sync |
 | `health_connect` | Android Health Connect | Background sync |
-| `garmin` | Garmin Connect | OAuth sync |
-| `nostr` | Imported from Nostr | One-time import |
 
 ---
 
@@ -88,45 +86,32 @@ readExerciseSessions(since: Date): Promise<ExerciseSession[]>
 readStepCount(date: Date): Promise<number>
 ```
 
-### Garmin
-
-**File:** `src/services/fitness/garminActivityService.ts`
-
-Features:
-- OAuth-based authentication
-- 7-day historical import
-- Progressive chunk loading
-- Deduplication by activity ID
-
-```typescript
-// Key methods
-syncActivities(): Promise<GarminActivity[]>
-getActivityDetails(activityId: string): Promise<ActivityDetails>
-```
-
 ---
 
-## Publishing to Nostr
+## Auto-Submission to Supabase
 
-### WorkoutPublishingService
+When auto-compete is enabled, workouts are automatically submitted to Supabase for leaderboard tracking.
+
+### How Auto-Submit Works
+
+```typescript
+// After workout saved locally
+if (autoCompeteEnabled && isEnrolledInCompetition) {
+  await SupabaseCompetitionService.submitWorkout(workout);
+}
+```
+
+The `submit-workout` Supabase Edge Function handles:
+- Server-side validation
+- Anti-cheat flagging (impossible workouts)
+- Deduplication by event ID
+- Leaderboard updates
+
+### Social Posting (WoT-Gated)
 
 **File:** `src/services/nostr/workoutPublishingService.ts`
 
-Two publishing methods:
-
-#### 1. Save to Nostr (Kind 1301)
-For competition entry - structured workout data.
-
-```typescript
-async saveWorkoutToNostr(
-  workout: PublishableWorkout,
-  signer: NDKSigner,
-  userId: string
-): Promise<WorkoutPublishResult>
-```
-
-#### 2. Post to Nostr (Kind 1)
-For social sharing - beautiful workout card with image.
+Users with high WoT scores can post workout achievements as kind 1 events:
 
 ```typescript
 async postToNostr(
@@ -136,33 +121,32 @@ async postToNostr(
 ): Promise<WorkoutPublishResult>
 ```
 
-### Publishing Flow
+### Social Post Flow
 
 ```
-User taps "Save to Nostr"
+User taps "Post" (WoT-gated)
         ↓
-Build kind 1301 event with tags
+Opens Enhanced Share Modal
+        ↓
+User selects template style
+        ↓
+Build kind 1 event with image
         ↓
 Sign event with user's nsec
         ↓
-GlobalNDKService.publish() to 4 relays
-        ↓
-Mark workout as synced in LocalWorkoutStorageService
-        ↓
-Invalidate WorkoutEventStore cache
-        ↓
-Check reward eligibility (DailyRewardService)
+Publish to 3 relays
         ↓
 Show success toast
 ```
 
-### Relay Distribution
+### Relay Configuration
 
-Events are published to 4 relays:
+Social posts (kind 1) are published to 3 relays:
 - `wss://relay.damus.io`
 - `wss://relay.primal.net`
 - `wss://nos.lol`
-- `wss://relay.nostr.band`
+
+**Note:** Kind 1301 events are NOT published to relays. Supabase is the single source of truth for competition data.
 
 ---
 
@@ -273,7 +257,7 @@ Only certain sources qualify for rewards:
 - `gps_tracker` - GPS-tracked workouts
 - `manual_entry` - User-entered workouts
 
-HealthKit/Garmin imports do NOT trigger rewards (prevents gaming).
+HealthKit/Health Connect imports do NOT trigger rewards (prevents gaming).
 
 ---
 
@@ -281,15 +265,15 @@ HealthKit/Garmin imports do NOT trigger rewards (prevents gaming).
 
 ### Ideal Architecture
 1. **Single local store** - LocalWorkoutStorageService only
-2. **Single cache** - WorkoutEventStore only
-3. **Explicit publish** - User always chooses to publish
-4. **Clean sync status** - Clear tracking of what's synced
+2. **Supabase primary** - Competition data lives in Supabase
+3. **Auto-submit** - Automatic submission when user enables it
+4. **Clean sync status** - Clear tracking of what's submitted
 
 ### What to Avoid
-- Multiple competing storage services
-- Automatic publishing without consent
+- Publishing kind 1301 to Nostr relays
+- Manual "Compete" buttons for each workout
 - Duplicate workouts from multiple imports
-- Cache inconsistencies
+- Cache inconsistencies between local and Supabase
 
 ---
 

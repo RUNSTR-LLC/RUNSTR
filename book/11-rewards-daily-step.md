@@ -1,4 +1,4 @@
-# Chapter 10: Daily & Step Rewards
+# Chapter 11: Daily & Step Rewards
 
 ## Daily Workout Rewards
 
@@ -16,8 +16,7 @@ To earn the daily 50 sats reward:
 These do NOT trigger rewards:
 - HealthKit imports
 - Health Connect imports
-- Garmin imports
-- Previously imported Nostr workouts
+- Previously imported workouts
 
 **Why?** To prevent gaming - users could import endless historical workouts.
 
@@ -79,36 +78,29 @@ Step milestones reset at midnight:
 
 ---
 
-## Step Polling
+## Step Submission to Supabase
 
-### StepPollingService
+### Automatic Step Submission
 
-**File:** `src/services/rewards/StepPollingService.ts`
-
-Polls device step count every 60 seconds while app is active:
+When the app returns to foreground, step workouts are automatically submitted to Supabase:
 
 ```typescript
-// Polling loop
-setInterval(async () => {
-  const currentSteps = await getStepCount();
-  await checkAndRewardMilestones(currentSteps);
-}, 60000);
+// In App.tsx - on app foreground
+StepCompetitionService.checkAndSubmitSteps();
 ```
 
-### App State Integration
+The submission uses a deterministic event ID (`steps_YYYY-MM-DD_npub12chars`) ensuring one submission per day per user.
 
-Polling only runs when app is in foreground:
+### External Reward Processing
 
-```typescript
-// Start/stop based on app state
-AppState.addEventListener('change', (state) => {
-  if (state === 'active') {
-    startPolling();
-  } else {
-    stopPolling();
-  }
-});
-```
+**Important:** Step reward payments are handled by an external service, not the app:
+
+1. Step workout submitted to Supabase
+2. External service monitors Supabase for new step workouts
+3. External service validates and pays 5 sats per 1,000 steps
+4. User receives Lightning payment to their configured address
+
+The in-app `StepRewardService` is deprecated—all step reward processing happens externally.
 
 ---
 
@@ -143,36 +135,34 @@ async function checkStreakAndReward(
 }
 ```
 
-### StepRewardService
+### StepCompetitionService
 
-**File:** `src/services/rewards/StepRewardService.ts`
+**File:** `src/services/competition/StepCompetitionService.ts`
 
 ```typescript
-// Called by StepPollingService
-async function checkAndRewardMilestones(
-  currentSteps: number,
-  userPubkey: string
-): Promise<void> {
-  // 1. Get today's achieved milestones
-  const achieved = await getAchievedMilestones(userPubkey);
+// Called on app foreground
+async function checkAndSubmitSteps(): Promise<void> {
+  // 1. Check if already submitted today
+  const alreadySubmitted = await hasSubmittedToday();
+  if (alreadySubmitted) return;
 
-  // 2. Calculate new milestones
-  const currentMilestone = Math.floor(currentSteps / 1000) * 1000;
-  const newMilestones = [];
+  // 2. Get current step count
+  const steps = await DailyStepCounterService.getStepCount();
+  if (steps < 1000) return;
 
-  for (let m = 1000; m <= currentMilestone; m += 1000) {
-    if (!achieved.includes(m)) {
-      newMilestones.push(m);
-    }
-  }
+  // 3. Create deterministic event ID
+  const eventId = `steps_${dateStr}_${npub.slice(0, 12)}`;
 
-  // 3. Send rewards for new milestones
-  for (const milestone of newMilestones) {
-    await sendMilestoneReward(userPubkey, milestone);
-    await markMilestoneAchieved(userPubkey, milestone);
-  }
+  // 4. Submit to Supabase
+  await SupabaseCompetitionService.submitStepWorkout({
+    eventId,
+    steps,
+    pubkey: userPubkey,
+  });
 }
 ```
+
+**Note:** The in-app StepRewardService is deprecated. Step rewards are processed externally by monitoring Supabase.
 
 ### Counter Storage
 
@@ -240,11 +230,13 @@ Already rewarded today?
     NO ↓
 Set atomic marker (timestamp)
         ↓
-Get user's Lightning address
+Submit workout to Supabase
         ↓
-Request invoice via LNURL
+External service monitors Supabase
         ↓
-RewardSenderWallet.sendPayment()
+External service sends 50 sats via LNURL
+        ↓
+RewardPollingService detects payment
         ↓
 Update total/weekly counters
         ↓
@@ -254,23 +246,25 @@ Show toast notification
 ### Step Reward Flow
 
 ```
-StepPollingService (every 60s)
+App returns to foreground
+        ↓
+StepCompetitionService.checkAndSubmitSteps()
         ↓
 Get current step count from device
         ↓
-checkAndRewardMilestones(steps, pubkey)
+Already submitted today? → Exit
         ↓
-Get today's achieved milestones from storage
+Steps >= 1000?
         ↓
-Calculate new milestones (1k, 2k, 3k...)
+    NO → Exit
+    YES ↓
+Submit to Supabase (deterministic event ID)
         ↓
-For each new milestone:
-  - Get user's Lightning address
-  - Request invoice
-  - Send 5 sats
-  - Mark milestone achieved
+External service monitors Supabase
         ↓
-Show toast notification
+External service pays 5 sats per 1k steps
+        ↓
+User receives Lightning payment
 ```
 
 ---
@@ -294,8 +288,8 @@ Show toast notification
 
 ## Navigation
 
-**Previous:** [Chapter 9: Rewards Overview](./09-rewards-overview.md)
+**Previous:** [Chapter 10: Rewards Overview](./10-rewards-overview.md)
 
-**Next:** [Chapter 11: Lightning Address](./11-rewards-lightning-address.md)
+**Next:** [Chapter 12: Lightning Address Delivery](./12-rewards-lightning-address.md)
 
 **Table of Contents:** [Back to TOC](./00-table-of-contents.md)

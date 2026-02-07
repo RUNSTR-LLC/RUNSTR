@@ -1,6 +1,6 @@
 # RUNSTR Book - Table of Contents
 
-**Version:** 1.4.4
+**Version:** 2.0.0
 **Last Updated:** January 2026
 
 ---
@@ -9,7 +9,7 @@
 
 | Chapter | Title | Description |
 |---------|-------|-------------|
-| 01 | [Introduction](./01-introduction.md) | What is RUNSTR, core pillars, architecture overview |
+| 01 | [Introduction](./01-introduction.md) | RUNSTR as a fitness event company, three pillars, architecture overview |
 
 ---
 
@@ -28,9 +28,10 @@
 
 | Chapter | Title | Description |
 |---------|-------|-------------|
-| 06 | [Events Overview](./06-events-overview.md) | What events are, hardcoded competitions, prize pools |
-| 07 | [Joining Events](./07-events-joining.md) | Supabase participant tracking, join flow |
-| 08 | [Event Leaderboards](./08-events-leaderboards.md) | Leaderboard calculation, Running/Walking/Cycling tabs |
+| 06 | [Events Overview](./06-events-overview.md) | What events are, virtual competitions, prize pools |
+| 07 | [In-Person Events & Business Model](./07-in-person-events.md) | Meatspace races, sponsorship strategy, scaling to 100+ events |
+| 08 | [Joining Events](./08-events-joining.md) | Supabase participant tracking, join flow |
+| 09 | [Event Leaderboards](./09-events-leaderboards.md) | Leaderboard calculation, Running/Walking/Cycling tabs |
 
 ---
 
@@ -38,27 +39,11 @@
 
 | Chapter | Title | Description |
 |---------|-------|-------------|
-| 09 | [Rewards Overview](./09-rewards-overview.md) | Fitness = Bitcoin philosophy, reward types |
-| 10 | [Daily & Step Rewards](./10-rewards-daily-step.md) | 50 sats/workout, 5 sats/1k steps, streaks |
-| 11 | [Lightning Address](./11-rewards-lightning-address.md) | No NWC, LNURL protocol, reward delivery |
-
----
-
-## Part 4: Donations
-
-| Chapter | Title | Description |
-|---------|-------|-------------|
-| 12 | [Donations Overview](./12-donations-overview.md) | Teams = Charities, donation splits |
-| 13 | [Teams (Charities)](./13-donations-teams.md) | Supported charities, selection, zap button |
-| 14 | [Impact Level](./14-donations-impact-level.md) | XP system, level progression, streaks |
-
----
-
-## Part 5: In-Person Events
-
-| Chapter | Title | Description |
-|---------|-------|-------------|
-| 17 | [In-Person Events](./17-in-person-events.md) | Meatspace races, sponsorship strategy, scaling to 100+ events |
+| 10 | [Rewards Overview](./10-rewards-overview.md) | Fitness = Bitcoin philosophy, reward types, charity integration |
+| 11 | [Daily & Step Rewards](./11-rewards-daily-step.md) | 50 sats/workout, 5 sats/1k steps, streaks |
+| 12 | [Lightning Address Delivery](./12-rewards-lightning-address.md) | No NWC, LNURL protocol, reward delivery |
+| 13 | [Teams & Charities](./13-rewards-teams-charities.md) | Teams = Charities, reward routing, zap button |
+| 14 | [Encrypted Backup](./14-encrypted-backup.md) | Kind 30078, NIP-44 self-encryption, gzip compression |
 
 ---
 
@@ -74,22 +59,24 @@
 ## Quick Reference
 
 ### Core Concepts
+- **Fitness Event Company** - RUNSTR operates virtual and in-person fitness competitions
+- **Three Pillars** - Workouts, Events, Rewards
 - **Teams = Charities** - Users select one team/charity to support
-- **Rewards** - 50 sats per daily workout + 5 sats per 1,000 steps
-- **Lightning Address** - Users enter their address to receive rewards (no NWC)
-- **Impact Level** - XP-based score from donations
-- **Events** - Hardcoded competitions (Season II, January Walking, etc.)
+- **Rewards** - 50 sats per daily workout, 5 sats per 1k steps
+- **Lightning Address** - Users enter their address to receive rewards
+- **Encrypted Backup** - Kind 30078 NIP-44 encrypted backup/restore via Nostr relays
+- **In-Person Events** - 5K races with sponsorships, scaling nationwide
 
 ### Key Services
 | Service | Purpose | Chapter |
 |---------|---------|---------|
 | `WorkoutEventStore` | Workout cache | 02-05 |
-| `DailyRewardService` | 50 sats/workout | 09-10 |
-| `StepRewardService` | 5 sats/1k steps | 09-10 |
-| `ImpactLevelService` | XP calculations | 14 |
-| `Season2Service` | Event leaderboards | 08 |
+| `DailyRewardService` | 50 sats/workout | 10-11 |
+| `StepRewardService` | 5 sats/1k steps | 10-11 |
+| `BackupService` | Encrypted backup (kind 30078) | 14 |
+| `SupabaseCompetitionService` | Event leaderboards | 09 |
 
 ### Navigation
 - **Profile Tab** - Start Workout, View History, Join Events
 - **Teams Tab** - Select charity to support
-- **Rewards Tab** - Total rewards, Impact Level, Donation Splits
+- **Rewards Tab** - Total rewards, earnings history, settings

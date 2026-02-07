@@ -1,16 +1,18 @@
-# Chapter 9: Rewards Overview
+# Chapter 10: Rewards Overview
 
 ## Summary
 
 RUNSTR pays you real Bitcoin for staying active—not points, not tokens, but actual satoshis delivered to your Lightning wallet. Complete a workout and earn 50 sats. Hit step milestones throughout your day and earn 5 sats for every 1,000 steps. These micropayments accumulate over time, creating a tangible financial incentive that compounds alongside your fitness gains.
 
-The daily workout reward system is straightforward: save one qualifying workout per day and receive 50 sats. Workouts tracked via GPS in the app, manually entered, or synced from Apple Health and Health Connect all qualify. The app uses atomic markers to prevent duplicate rewards—only your first qualifying workout of the day triggers payment, even if you save multiple workouts in rapid succession.
+The Rewards pillar encompasses everything related to earning and distributing Bitcoin through RUNSTR: daily workout rewards, step milestone rewards, Lightning address delivery, and teams and charities. Teams and charities are part of the rewards ecosystem—when you select a team, you're choosing a charity to support through your fitness activities, with reward routing directing payments accordingly.
+
+The daily workout reward system is straightforward: save one qualifying workout per day and receive 50 sats. Workouts tracked via GPS in the app or manually entered all qualify. The app uses atomic markers to prevent duplicate rewards—only your first qualifying workout of the day triggers payment, even if you save multiple workouts in rapid succession.
 
 Step rewards work on a milestone system that resets at midnight. Every time your step count crosses a 1,000-step threshold (1k, 2k, 3k, and so on), you earn 5 sats. The app polls your device's step count every 60 seconds while active, automatically detecting and rewarding new milestones. There's no cap on step rewards—the more you move, the more you earn.
 
 To receive rewards, you simply enter your Lightning address in the app settings. RUNSTR supports any Lightning address from wallets like Strike, Alby, Zeus, or Wallet of Satoshi. When you earn a reward, the app's NWC wallet requests an invoice from your Lightning address and sends payment, enabling verification that the sats actually arrived.
 
-The rewards system follows a silent failure philosophy: if a payment fails for any reason, your workout still saves and your experience remains uninterrupted. Rewards are designed as a bonus that enhances your fitness journey, never as a blocker that frustrates it. You'll see toast notifications when rewards arrive, but you'll never see error modals demanding attention when something goes wrong on the payment side.
+The rewards system follows a silent failure philosophy: if a payment fails for any reason, your workout still saves and your experience remains uninterrupted. Rewards are designed as a bonus that enhances your fitness journey, never as a blocker that frustrates it.
 
 ---
 
@@ -42,6 +44,24 @@ This creates a direct incentive loop:
 - Resets at midnight
 - Step count from device sensors
 - Multiple rewards possible per day
+
+### 3. Teams & Charities
+Select a team (charity) to support through your fitness activities.
+
+- Teams = Charities — choosing a team means supporting a cause
+- Reward routing directs payments to user or charity
+- Direct zaps available via the Teams tab
+- See [Chapter 13: Teams & Charities](./13-rewards-teams-charities.md) for details
+
+### 4. Encrypted Backup
+Back up all your fitness data to Nostr relays using encrypted events.
+
+- Kind 30078 replaceable parameterized events
+- NIP-44 self-encryption (only you can decrypt)
+- Gzip compression for large payloads
+- Backs up workouts, habits, journal, preferences
+- Export/Import buttons in Settings
+- See [Chapter 14: Encrypted Backup](./14-encrypted-backup.md) for details
 
 ---
 
@@ -75,15 +95,7 @@ The Rewards tab shows:
 │  22 workouts • 0 day streak        │
 │  0 steps today  [Compete] [Post]   │
 ├─────────────────────────────────────┤
-│  🏆 IMPACT LEVEL                ℹ  │
-│     ┌───────────┐                  │
-│     │     2     │  Impact Starter  │
-│     │           │  3 / 132 XP      │
-│     └───────────┘                  │
-├─────────────────────────────────────┤
-│  ❤ YOUR IMPACT                  ▼  │
-├─────────────────────────────────────┤
-│  ↕ DONATION SPLITS              ▼  │
+│  ❤ YOUR TEAM                   ▼  │
 ├─────────────────────────────────────┤
 │  💳 REWARDS ADDRESS             ▼  │
 └─────────────────────────────────────┘
@@ -94,9 +106,7 @@ The Rewards tab shows:
 - **Workout Count** - Total workouts tracked
 - **Day Streak** - Consecutive days with workouts
 - **Steps Today** - Current step count
-- **Impact Level** - Donation gamification (see Chapter 14)
-- **Donation Splits** - Configure charity percentage
-- **Rewards Address** - Set Lightning address
+- **Lightning Address** - Set address to receive rewards
 
 ---
 
@@ -123,36 +133,17 @@ Rewards are implemented with **silent failure**:
 |---------|------|---------|
 | DailyRewardService | `src/services/rewards/DailyRewardService.ts` | 50 sats/workout |
 | StepRewardService | `src/services/rewards/StepRewardService.ts` | 5 sats/1k steps |
-| StepPollingService | `src/services/rewards/StepPollingService.ts` | Step count polling |
-| RewardSenderWallet | `src/services/rewards/RewardSenderWallet.ts` | App's payment wallet |
+| SupabaseRewardService | `src/services/rewards/SupabaseRewardService.ts` | Query verified payments + impact data |
+| RewardsTransparencyService | `src/services/rewards/RewardsTransparencyService.ts` | Global reward pool + charity leaderboards |
 | RewardNotificationManager | `src/services/rewards/RewardNotificationManager.ts` | Toast notifications |
 
-### RewardSenderWallet
+### External Reward Processing
 
-The app has a dedicated wallet for sending rewards:
-
-```typescript
-// App's reward wallet (NWC)
-const REWARD_SENDER_NWC = "nostr+walletconnect://...";
-
-// Send reward to user's Lightning address
-await RewardSenderWallet.sendRewardPayment(invoice, amountSats);
-```
-
-### Reward Configuration
-
-**File:** `src/config/rewards.ts`
-
-```typescript
-const REWARD_CONFIG = {
-  DAILY_WORKOUT_REWARD: 50,        // sats per day
-  STEP_MILESTONE_REWARD: 5,        // sats per milestone
-  STEP_MILESTONE_INCREMENT: 1000,  // steps per milestone
-  MIN_WORKOUT_DISTANCE_METERS: 1000, // 1km minimum
-  MAX_REWARDS_PER_DAY: 1,          // daily workout limit
-  MAX_RETRY_ATTEMPTS: 0,           // silent failure
-};
-```
+**Important:** Actual reward payments are processed by an external service that monitors Supabase, not by the app itself. The app:
+1. Tracks reward eligibility locally
+2. Submits workouts to Supabase
+3. Polls for confirmed payments via `RewardPollingService`
+4. Displays payment results and totals via `SupabaseRewardService`
 
 ### Storage Keys
 
@@ -172,19 +163,21 @@ const REWARD_CONFIG = {
 2. **Silent failure** - Never block user experience
 3. **Lightning address** - Universal wallet support
 4. **Clear tracking** - User sees total and streak
+5. **Integrated charities** - Teams/charities as part of rewards, not a separate pillar
 
 ### What to Avoid
 - Complex eligibility rules
 - Blocking payment errors
 - NWC wallet requirements for users
 - Retry loops that delay workouts
+- Treating donations as a separate system from rewards
 
 ---
 
 ## Navigation
 
-**Previous:** [Chapter 8: Event Leaderboards](./08-events-leaderboards.md)
+**Previous:** [Chapter 9: Event Leaderboards](./09-events-leaderboards.md)
 
-**Next:** [Chapter 10: Daily & Step Rewards](./10-rewards-daily-step.md)
+**Next:** [Chapter 11: Daily & Step Rewards](./11-rewards-daily-step.md)
 
 **Table of Contents:** [Back to TOC](./00-table-of-contents.md)

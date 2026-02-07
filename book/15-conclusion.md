@@ -42,23 +42,23 @@ User Input (workouts, settings)
         ↓
 Local Storage (AsyncStorage)
         ↓
-Nostr (kind 1301 workouts)
+Supabase (workout submission, leaderboards, rewards)
         ↓
-Supabase (event participation)
+Lightning (reward payments via LNURL)
         ↓
-Lightning (reward payments)
+Nostr (profiles, social posts, encrypted backup)
 ```
 
 ### Key Services
 
 | Layer | Service | Responsibility |
 |-------|---------|----------------|
-| Workouts | WorkoutEventStore | Workout cache |
-| Workouts | LocalWorkoutStorageService | Persistence |
-| Events | Season2Service | Leaderboards |
-| Rewards | DailyRewardService | 50 sats/day |
-| Rewards | StepRewardService | 5 sats/1k steps |
-| Donations | ImpactLevelService | XP calculations |
+| Workouts | LocalWorkoutStorageService | Local persistence |
+| Workouts | SupabaseCompetitionService | Workout submission to backend |
+| Events | useSupabaseLeaderboard | Leaderboard queries |
+| Rewards | DailyRewardService | 50 sats/day eligibility |
+| Rewards | SupabaseRewardService | Verified payment tracking |
+| Backup | BackupService | Encrypted backup (kind 30078) |
 
 ### Navigation
 
@@ -66,7 +66,7 @@ Lightning (reward payments)
 |-----|---------|
 | Profile | Start workouts, view history |
 | Teams | Select charity to support |
-| Rewards | View earnings, set donation split |
+| Rewards | View earnings, Lightning address, settings |
 
 ---
 
@@ -82,7 +82,7 @@ Works with any Lightning wallet - Cash App, Strike, Alby, self-custodial.
 Every workout can support a cause you care about.
 
 ### 4. Nostr Identity
-Your fitness data belongs to you, stored on decentralized relays.
+Your identity is a cryptographic key pair. Social posts and encrypted backups live on decentralized relays.
 
 ### 5. Simple UX
 Three tabs, clear actions, no confusion.
@@ -115,7 +115,8 @@ Three tabs, clear actions, no confusion.
 - Split large files into focused modules
 
 ### Single Source of Truth
-- WorkoutEventStore for workouts
+- Supabase for competition data and leaderboards
+- AsyncStorage for local workout persistence
 - One service per domain
 
 ### Silent Failures for Rewards
@@ -166,7 +167,7 @@ Keep it simple. Keep it focused. Keep people moving.
 
 ## Navigation
 
-**Previous:** [Chapter 14: Impact Level](./14-donations-impact-level.md)
+**Previous:** [Chapter 14: Encrypted Backup](./14-encrypted-backup.md)
 
 **Next:** [Chapter 16: Appendix - Nostr Events](./16-appendix-nostr-events.md)
 
