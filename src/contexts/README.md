@@ -4,4 +4,5 @@ React context providers for global state management across the RUNSTR applicatio
 
 ## Files
 
-- **AuthContext.tsx** - Authentication context provider managing Nostr login state and user session
+- **AuthContext.tsx** - Authentication context provider managing Nostr login state and user session.
+- **NavigationDataContext.tsx** - Centralized navigation data management providing a single source of truth for navigation data (profile, teams, preferences) across all components.
