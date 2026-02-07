@@ -15,11 +15,8 @@ interface WorkoutTabNavigatorProps {
   userId: string;
   pubkey?: string;
   onRefresh?: () => void;
-  onPostToNostr?: (workout: LocalWorkout) => Promise<void>;
   onPostToSocial?: (workout: LocalWorkout) => Promise<void>;
-  onCompeteHealthKit?: (workout: any) => Promise<void>;
   onSocialShareHealthKit?: (workout: any) => Promise<void>;
-  onCompeteHealthConnect?: (workout: any) => Promise<void>;
   onSocialShareHealthConnect?: (workout: any) => Promise<void>;
   onNavigateToAnalytics?: () => void;
 }
@@ -28,22 +25,11 @@ export const WorkoutTabNavigator: React.FC<WorkoutTabNavigatorProps> = ({
   userId,
   pubkey,
   onRefresh,
-  onPostToNostr,
   onPostToSocial,
-  onCompeteHealthKit,
   onSocialShareHealthKit,
-  onCompeteHealthConnect,
   onSocialShareHealthConnect,
 }) => {
   // Determine which health app callback to use based on platform
-  const handleCompeteHealthApp = async (workout: Workout) => {
-    if (Platform.OS === 'ios' && onCompeteHealthKit) {
-      await onCompeteHealthKit(workout);
-    } else if (Platform.OS === 'android' && onCompeteHealthConnect) {
-      await onCompeteHealthConnect(workout);
-    }
-  };
-
   const handleSocialShareHealthApp = async (workout: Workout) => {
     if (Platform.OS === 'ios' && onSocialShareHealthKit) {
       await onSocialShareHealthKit(workout);
@@ -58,9 +44,7 @@ export const WorkoutTabNavigator: React.FC<WorkoutTabNavigatorProps> = ({
         userId={userId}
         pubkey={pubkey}
         onRefresh={onRefresh}
-        onPostToNostr={onPostToNostr}
         onPostToSocial={onPostToSocial}
-        onCompeteHealthApp={handleCompeteHealthApp}
         onSocialShareHealthApp={handleSocialShareHealthApp}
       />
     </View>

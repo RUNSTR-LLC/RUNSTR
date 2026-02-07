@@ -1,12 +1,11 @@
 /**
  * PersonalImpactSection Component
- * Displays user's personal donation breakdown
+ * Displays user's charity impact from workout rewards
  *
  * Features:
- * - Total sats donated
- * - Number of donations
- * - Charities supported
- * - Breakdown by charity
+ * - Total sats donated to charities via workout rewards
+ * - Number of charities supported
+ * - Breakdown by charity (name + amount)
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -19,15 +18,18 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { theme } from '../../styles/theme';
-import { ImpactLevelService } from '../../services/impact/ImpactLevelService';
-import type { ImpactStats } from '../../types/impactLevel';
+import { DonationTrackingService } from '../../services/donation/DonationTrackingService';
+import { SupabaseRewardService, CharityPaymentSummary } from '../../services/rewards/SupabaseRewardService';
 
-interface CharityBreakdown {
+interface CharityBreakdownItem {
   charityId: string;
   charityName: string;
   total: number;
   count: number;
+  status?: 'success' | 'pending' | 'partial';
+  isGeyser?: boolean;
 }
 
 interface PersonalImpactSectionProps {
@@ -39,16 +41,17 @@ export const PersonalImpactSection: React.FC<PersonalImpactSectionProps> = ({
   pubkey,
   defaultExpanded = true,
 }) => {
+  const { t } = useTranslation('rewards');
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
-  const [stats, setStats] = useState<ImpactStats | null>(null);
-  const [charityBreakdown, setCharityBreakdown] = useState<CharityBreakdown[]>([]);
+  const [charityBreakdown, setCharityBreakdown] = useState<CharityBreakdownItem[]>([]);
+  const [totalDonated, setTotalDonated] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     loadData();
   }, [pubkey]);
 
-  // Reload data when screen regains focus (e.g., after donating)
+  // Reload data when screen regains focus (e.g., after completing workout)
   useFocusEffect(
     useCallback(() => {
       if (pubkey) {
@@ -60,18 +63,55 @@ export const PersonalImpactSection: React.FC<PersonalImpactSectionProps> = ({
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [impactStats, breakdown] = await Promise.all([
-        ImpactLevelService.getImpactStats(pubkey),
-        ImpactLevelService.getCharityBreakdown(pubkey),
-      ]);
-      setStats(impactStats);
+
+      // Get all charity donations from local storage
+      const allDonations = await DonationTrackingService.getAllCharityDonations();
+
+      // Filter to this user's donations
+      const userDonations = allDonations.filter(d => d.donorPubkey === pubkey);
+
+      // Get verified payment status from Supabase
+      const rewardBreakdown = await SupabaseRewardService.getRewardBreakdown(pubkey);
+      const charityPaymentStatus = new Map<string, CharityPaymentSummary>();
+      for (const item of rewardBreakdown.charityBreakdown) {
+        charityPaymentStatus.set(item.charityId, item);
+      }
+
+      // Aggregate by charity
+      const charityMap = new Map<string, CharityBreakdownItem>();
+      for (const donation of userDonations) {
+        const existing = charityMap.get(donation.charityId);
+        const paymentInfo = charityPaymentStatus.get(donation.charityId);
+
+        if (existing) {
+          existing.total += donation.amount;
+          existing.count += 1;
+        } else {
+          charityMap.set(donation.charityId, {
+            charityId: donation.charityId,
+            charityName: donation.charityName,
+            total: donation.amount,
+            count: 1,
+            status: paymentInfo?.status || 'success',
+            isGeyser: paymentInfo?.isGeyser || SupabaseRewardService.isGeyserCharity(donation.charityId),
+          });
+        }
+      }
+
+      // Sort by amount descending
+      const breakdown = Array.from(charityMap.values())
+        .sort((a, b) => b.total - a.total);
+
       setCharityBreakdown(breakdown);
+      setTotalDonated(userDonations.reduce((sum, d) => sum + d.amount, 0));
     } catch (error) {
       console.error('[PersonalImpactSection] Failed to load data:', error);
     } finally {
       setIsLoading(false);
     }
   };
+
+  const charitiesSupported = charityBreakdown.length;
 
   return (
     <View style={styles.container}>
@@ -81,7 +121,7 @@ export const PersonalImpactSection: React.FC<PersonalImpactSectionProps> = ({
         onPress={() => setIsExpanded(!isExpanded)}
         activeOpacity={0.7}
       >
-        <Text style={styles.headerTitle}>YOUR IMPACT</Text>
+        <Text style={styles.headerTitle}>{t('yourImpact')}</Text>
         <Ionicons
           name={isExpanded ? 'chevron-up' : 'chevron-down'}
           size={18}
@@ -96,60 +136,63 @@ export const PersonalImpactSection: React.FC<PersonalImpactSectionProps> = ({
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color={theme.colors.accent} />
             </View>
-          ) : stats && stats.totalDonations > 0 ? (
+          ) : totalDonated > 0 ? (
             <>
               {/* Summary Stats */}
               <View style={styles.summaryRow}>
                 <View style={styles.summaryItem}>
                   <Text style={styles.summaryValue}>
-                    {stats.totalSatsDonated.toLocaleString()}
+                    {totalDonated.toLocaleString()}
                   </Text>
-                  <Text style={styles.summaryLabel}>sats donated</Text>
+                  <Text style={styles.summaryLabel}>{t('satsDonated')}</Text>
                 </View>
                 <View style={styles.summaryDivider} />
                 <View style={styles.summaryItem}>
-                  <Text style={styles.summaryValue}>{stats.totalDonations}</Text>
-                  <Text style={styles.summaryLabel}>donations</Text>
-                </View>
-                <View style={styles.summaryDivider} />
-                <View style={styles.summaryItem}>
-                  <Text style={styles.summaryValue}>{stats.charitiesSupported}</Text>
-                  <Text style={styles.summaryLabel}>charities</Text>
+                  <Text style={styles.summaryValue}>{charitiesSupported}</Text>
+                  <Text style={styles.summaryLabel}>{charitiesSupported === 1 ? t('charity') : t('charities')}</Text>
                 </View>
               </View>
 
               {/* Charity Breakdown */}
-              {charityBreakdown.length > 0 && (
-                <View style={styles.breakdownSection}>
-                  <Text style={styles.breakdownTitle}>Charity Breakdown</Text>
-                  {charityBreakdown.map((charity, index) => (
-                    <View key={charity.charityId} style={styles.charityRow}>
-                      <View style={styles.charityInfo}>
-                        <View style={styles.rankBadge}>
-                          <Text style={styles.rankText}>{index + 1}</Text>
-                        </View>
-                        <View style={styles.charityDetails}>
-                          <Text style={styles.charityName} numberOfLines={1}>
-                            {charity.charityName}
-                          </Text>
-                          <Text style={styles.donationCount}>
-                            {charity.count} donation{charity.count !== 1 ? 's' : ''}
-                          </Text>
-                        </View>
+              <View style={styles.breakdownSection}>
+                <Text style={styles.breakdownTitle}>{t('charitiesSupported')}</Text>
+                {charityBreakdown.map((item, index) => (
+                  <View key={item.charityId} style={styles.charityRow}>
+                    <View style={styles.charityInfo}>
+                      <View style={styles.rankBadge}>
+                        <Text style={styles.rankText}>#{index + 1}</Text>
                       </View>
-                      <Text style={styles.charityAmount}>
-                        {charity.total.toLocaleString()} sats
-                      </Text>
+                      <View style={styles.charityDetails}>
+                        <View style={styles.charityNameRow}>
+                          <Text style={styles.charityName} numberOfLines={1}>
+                            {item.charityName}
+                          </Text>
+                          {item.status === 'pending' && item.isGeyser && (
+                            <View style={styles.pendingBadge}>
+                              <Ionicons name="time" size={10} color="#FF9D42" />
+                              <Text style={styles.pendingText}>
+                                {t('pending', 'Pending')}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={styles.donationCount}>
+                          {item.count} {item.count === 1 ? t('donation') : t('donations')}
+                        </Text>
+                      </View>
                     </View>
-                  ))}
-                </View>
-              )}
+                    <Text style={item.status === 'pending' ? styles.charityAmountPending : styles.charityAmount}>
+                      {item.total.toLocaleString()} sats
+                    </Text>
+                  </View>
+                ))}
+              </View>
             </>
           ) : (
             <View style={styles.emptyState}>
               <Ionicons name="heart-outline" size={24} color="#444" />
               <Text style={styles.emptyText}>
-                No donations yet. Set a donation percentage to start giving!
+                {t('noCharityImpactYet')}
               </Text>
             </View>
           )}
@@ -283,11 +326,34 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
+  charityNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+
   charityName: {
     fontSize: 14,
     fontWeight: theme.typography.weights.medium,
     color: theme.colors.text,
     marginBottom: 2,
+  },
+
+  pendingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(255, 157, 66, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+
+  pendingText: {
+    fontSize: 9,
+    fontWeight: theme.typography.weights.semiBold,
+    color: '#FF9D42',
   },
 
   donationCount: {
@@ -299,6 +365,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: theme.typography.weights.semiBold,
     color: '#FFB366',
+  },
+
+  charityAmountPending: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
+    color: '#FF9D42',
   },
 
   emptyState: {

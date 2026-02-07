@@ -3,7 +3,7 @@
  * Orange/black theme matching RUNSTR design system
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
@@ -29,18 +29,33 @@ export const DailyLeaderboardCard: React.FC<DailyLeaderboardCardProps> = ({
   entries,
   onPress,
   onShare,
-  currentUserPubkey: _currentUserPubkey, // Reserved for future use
+  currentUserPubkey,
   maxDisplay = 25,
   participantLabel = 'runner',
 }) => {
+  const [showAll, setShowAll] = useState(false);
+  const INITIAL_DISPLAY = 10;
+
   const handleShare = (e: any) => {
     e.stopPropagation(); // Prevent triggering onPress
     onShare?.();
   };
 
-  // Split entries into top N and user position (if outside top N)
-  const topEntries = entries.slice(0, maxDisplay);
-  const userEntryOutsideTopN = entries.length > maxDisplay ? entries[entries.length - 1] : null;
+  const handleToggleShowAll = (e: any) => {
+    e.stopPropagation(); // Prevent triggering onPress
+    setShowAll(!showAll);
+  };
+
+  // Determine how many entries to display (with null guard for safety)
+  const safeEntries = entries || [];
+  const displayLimit = showAll ? maxDisplay : Math.min(INITIAL_DISPLAY, maxDisplay);
+  const topEntries = safeEntries.slice(0, displayLimit);
+  const hasMoreEntries = safeEntries.length > INITIAL_DISPLAY;
+
+  // Find user's entry by matching npub (only show if outside currently displayed entries)
+  const userEntryOutsideTopN = currentUserPubkey
+    ? safeEntries.find((entry, index) => entry.npub === currentUserPubkey && index >= displayLimit)
+    : null;
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
@@ -81,7 +96,10 @@ export const DailyLeaderboardCard: React.FC<DailyLeaderboardCardProps> = ({
 
       {/* Top Runners List */}
       {topEntries.map((entry, index) => (
-        <View key={entry.npub + index} style={styles.runnerRow}>
+        <View
+          key={entry.npub + index}
+          style={styles.runnerRow}
+        >
           <View style={styles.rankBadge}>
             <Text style={styles.rankText}>{entry.rank}</Text>
           </View>
@@ -98,7 +116,25 @@ export const DailyLeaderboardCard: React.FC<DailyLeaderboardCardProps> = ({
         </View>
       ))}
 
-      {/* User position section (if outside top N) */}
+      {/* See More / Show Less Button */}
+      {hasMoreEntries && (
+        <TouchableOpacity
+          style={styles.seeMoreButton}
+          onPress={handleToggleShowAll}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.seeMoreText}>
+            {showAll ? 'Show less' : `See more (${safeEntries.length - INITIAL_DISPLAY})`}
+          </Text>
+          <Ionicons
+            name={showAll ? 'chevron-up' : 'chevron-down'}
+            size={16}
+            color={theme.colors.accent}
+          />
+        </TouchableOpacity>
+      )}
+
+      {/* User position section (if outside displayed entries) */}
       {userEntryOutsideTopN && (
         <>
           {/* Separator */}
@@ -108,8 +144,13 @@ export const DailyLeaderboardCard: React.FC<DailyLeaderboardCardProps> = ({
             <View style={styles.separatorLine} />
           </View>
 
-          {/* User's entry with optional lock icon */}
-          <View style={[styles.runnerRow, styles.userPositionRow]}>
+          {/* User's entry */}
+          <View
+            style={[
+              styles.runnerRow,
+              styles.userPositionRow,
+            ]}
+          >
             {/* Lock icon for private participation */}
             {(userEntryOutsideTopN as any).isPrivate && (
               <Ionicons
@@ -250,5 +291,18 @@ const styles = StyleSheet.create({
   },
   lockIcon: {
     marginRight: 6,
+  },
+  seeMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    marginTop: 8,
+    gap: 6,
+  },
+  seeMoreText: {
+    fontSize: 14,
+    color: theme.colors.accent,
+    fontWeight: '500',
   },
 });

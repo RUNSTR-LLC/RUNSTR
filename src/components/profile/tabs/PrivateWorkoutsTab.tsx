@@ -27,7 +27,8 @@ import type { LocalWorkout } from '../../../services/fitness/LocalWorkoutStorage
 import type { UnifiedWorkout } from '../../../services/fitness/workoutMergeService';
 import type { Workout } from '../../../types/workout';
 import { Ionicons } from '@expo/vector-icons';
-import Toast from 'react-native-toast-message';
+import { WoTService } from '../../../services/wot/WoTService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface PrivateWorkoutsTabProps {
   userId: string;
@@ -39,9 +40,7 @@ interface PrivateWorkoutsTabProps {
 
 export const PrivateWorkoutsTab: React.FC<PrivateWorkoutsTabProps> = ({
   userId,
-  pubkey,
   onRefresh,
-  onPostToNostr,
   onPostToSocial,
 }) => {
   const [workouts, setWorkouts] = useState<LocalWorkout[]>([]);
@@ -65,9 +64,28 @@ export const PrivateWorkoutsTab: React.FC<PrivateWorkoutsTabProps> = ({
     buttons: [],
   });
 
+  // WOT eligibility state
+  const [isWoTEligible, setIsWoTEligible] = useState(false);
+
   useEffect(() => {
     loadPrivateWorkouts();
+    loadWoTEligibility();
   }, []);
+
+  /**
+   * Load WOT eligibility from cached score
+   */
+  const loadWoTEligibility = async () => {
+    try {
+      const pubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+      if (!pubkey) return;
+      const wotService = WoTService.getInstance();
+      const score = await wotService.getCachedScore(pubkey);
+      setIsWoTEligible(score !== null && score > 0);
+    } catch (error) {
+      console.warn('[PrivateWorkouts] WoT eligibility check failed:', error);
+    }
+  };
 
   const loadPrivateWorkouts = async () => {
     try {
@@ -96,43 +114,6 @@ export const PrivateWorkoutsTab: React.FC<PrivateWorkoutsTabProps> = ({
       console.error('Refresh failed:', error);
     } finally {
       setIsRefreshing(false);
-    }
-  };
-
-  const handlePostToNostr = async (workout: LocalWorkout) => {
-    if (!onPostToNostr) {
-      setAlertConfig({
-        title: 'Not Implemented',
-        message: 'Post to Nostr functionality will be available soon',
-        buttons: [{ text: 'OK', style: 'default' }],
-      });
-      setAlertVisible(true);
-      return;
-    }
-
-    try {
-      setPostingWorkoutId(workout.id);
-      setPostingType('nostr');
-
-      await onPostToNostr(workout);
-      // Refresh local workout list
-      await loadPrivateWorkouts();
-      Toast.show({
-        type: 'success',
-        text1: 'Success',
-        text2: 'Workout submitted!',
-      });
-    } catch (error) {
-      console.error('Failed to post workout to Nostr:', error);
-      setAlertConfig({
-        title: 'Error',
-        message: 'Failed to post workout to Nostr',
-        buttons: [{ text: 'OK', style: 'default' }],
-      });
-      setAlertVisible(true);
-    } finally {
-      setPostingWorkoutId(null);
-      setPostingType(null);
     }
   };
 
@@ -226,39 +207,23 @@ export const PrivateWorkoutsTab: React.FC<PrivateWorkoutsTabProps> = ({
           />
 
           <View style={styles.workoutActions}>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.postButton]}
-              onPress={() => handlePostToSocial(localWorkout)}
-              disabled={isPosting && postingType === 'social'}
-            >
-              {isPosting && postingType === 'social' ? (
-                <Text style={styles.postButtonText}>Saving...</Text>
-              ) : (
-                <>
-                  <Ionicons name="bookmark-outline" size={16} color="#000" />
-                  <Text style={styles.postButtonText}>Share</Text>
-                </>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.actionButton, styles.publicButton]}
-              onPress={() => handlePostToNostr(localWorkout)}
-              disabled={isPosting && postingType === 'nostr'}
-            >
-              {isPosting && postingType === 'nostr' ? (
-                <Text style={styles.publicButtonText}>Posting...</Text>
-              ) : (
-                <>
-                  <Ionicons
-                    name="cloud-upload-outline"
-                    size={16}
-                    color="#000"
-                  />
-                  <Text style={styles.publicButtonText}>Compete</Text>
-                </>
-              )}
-            </TouchableOpacity>
+            {/* Post button - WOT gated */}
+            {isWoTEligible && (
+              <TouchableOpacity
+                style={[styles.actionButton, styles.postButton]}
+                onPress={() => handlePostToSocial(localWorkout)}
+                disabled={isPosting && postingType === 'social'}
+              >
+                {isPosting && postingType === 'social' ? (
+                  <Text style={styles.postButtonText}>Posting...</Text>
+                ) : (
+                  <>
+                    <Ionicons name="paper-plane-outline" size={16} color="#000" />
+                    <Text style={styles.postButtonText}>Post</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={[styles.actionButton, styles.deleteButton]}
@@ -274,7 +239,7 @@ export const PrivateWorkoutsTab: React.FC<PrivateWorkoutsTabProps> = ({
         </View>
       );
     },
-    [workouts, postingWorkoutId, postingType]
+    [workouts, postingWorkoutId, postingType, isWoTEligible]
   );
 
   const renderMonthlyGroup = ({ item }: { item: any }) => (
@@ -404,15 +369,6 @@ const styles = StyleSheet.create({
     flex: 1.5,
   },
   postButtonText: {
-    color: '#000',
-    fontSize: 14,
-    fontWeight: theme.typography.weights.semiBold,
-  },
-  publicButton: {
-    backgroundColor: '#FF9D42',
-    flex: 1.5,
-  },
-  publicButtonText: {
     color: '#000',
     fontSize: 14,
     fontWeight: theme.typography.weights.semiBold,

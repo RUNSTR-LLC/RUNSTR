@@ -1,16 +1,23 @@
 /**
  * ZappableUserRow Component
- * Reusable component for displaying users with profile resolution and direct user zapping
+ * Reusable component for displaying users with profile resolution
  * Used across league rankings, team member lists, and competition displays
  *
- * Updated: Lightning button now zaps user directly (RUNSTR Community Rewards)
+ * v3 UPDATE: In-app zaps are DISABLED.
+ * NWC credentials have moved to external reward service (security reasons).
+ * Users can still zap via external wallets using lightning addresses in profiles.
  *
  * PERFORMANCE: Wrapped with React.memo to prevent unnecessary re-renders
  * in FlatLists (e.g., Season 2 leaderboard tab switching)
  */
 
+// v3: In-app zaps disabled - NWC moved to external service
+// Set to true to re-enable when NWC is configured in-app again
+const IN_APP_ZAPS_ENABLED = false;
+
 import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { theme } from '../../styles/theme';
 import { Avatar } from './Avatar';
 import { NWCLightningButton } from '../lightning/NWCLightningButton';
@@ -47,18 +54,20 @@ const ZappableUserRowComponent: React.FC<ZappableUserRowProps> = ({
   recipientLightningAddress,
   skipProfileFetch = false,
 }) => {
+  const { t } = useTranslation('profile');
+
   // Always call hook (React rules), but ignore result if skipProfileFetch is true
   const { profile: fetchedProfile } = useNostrProfile(skipProfileFetch ? null : npub);
   const profile = skipProfileFetch ? null : fetchedProfile;
 
   // Resolve display name with fallback chain (treat empty strings as falsy)
-  // Priority: profile name → profile display_name → fallbackName → "Anonymous Athlete"
+  // Priority: profile name → profile display_name → fallbackName → translated "Anonymous Athlete"
   // When skipProfileFetch=true, profile is null so fallbackName is used directly
   const displayName =
     profile?.name ||
     profile?.display_name ||
     (fallbackName && fallbackName.trim() !== '' ? fallbackName : null) ||
-    'Anonymous Athlete';
+    t('anonymousAthlete');
 
   // Use profile picture with fallback to pre-fetched picture (prevents avatar loading issues)
   // Always include URL as fallback for bundled images that fail (progressive JPEG, large files)
@@ -87,8 +96,10 @@ const ZappableUserRowComponent: React.FC<ZappableUserRowProps> = ({
               {displayName}
             </Text>
 
-            {/* Lightning button zaps user directly (RUNSTR Community Rewards) */}
-            {!hideActionsForCurrentUser && showQuickZap && userLightningAddress && (
+            {/* Lightning button zaps user directly
+                v3: Disabled - NWC moved to external reward service
+                Users can still zap via external wallets using lightning addresses */}
+            {IN_APP_ZAPS_ENABLED && !hideActionsForCurrentUser && showQuickZap && userLightningAddress && (
               <View style={styles.actionButtons}>
                 <NWCLightningButton
                   recipientNpub={npub}

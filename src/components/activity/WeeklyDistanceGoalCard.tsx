@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import type { DistanceGoalProgress } from '../../services/activity/WeeklyDistanceGoalService';
+import { useUnitPreference } from '../../hooks/useUnitPreference';
 
 export type PostingState = 'idle' | 'posting' | 'posted';
 
@@ -38,9 +39,17 @@ export const WeeklyDistanceGoalCard: React.FC<WeeklyDistanceGoalCardProps> = ({
   onSetGoal,
   postingState = 'idle',
 }) => {
+  const { isMetric, distanceLabel } = useUnitPreference();
+
   // Format distance with 2 decimal places
+  // Note: distance prop is already in km, convert if imperial
   const formatDistance = (km: number): string => {
-    return km.toFixed(2);
+    if (isMetric) {
+      return km.toFixed(2);
+    } else {
+      // Convert km to miles
+      return (km * 0.621371).toFixed(2);
+    }
   };
 
   const title = activityType === 'running' ? "This Week's Runs" : "This Week's Rides";
@@ -97,14 +106,14 @@ export const WeeklyDistanceGoalCard: React.FC<WeeklyDistanceGoalCardProps> = ({
             <Text style={styles.distanceValue}>
               {formatDistance(displayDistance)}
             </Text>
-            <Text style={styles.distanceUnit}> km</Text>
+            <Text style={styles.distanceUnit}> {distanceLabel}</Text>
           </View>
           <Text style={styles.goalText}>
-            Goal: {formatDistance(displayProgress.goalDistance)} km
+            Goal: {formatDistance(displayProgress.goalDistance)} {distanceLabel}
           </Text>
           {!displayProgress.achieved && displayDistance > 0 && (
             <Text style={styles.remainingText}>
-              {formatDistance(displayProgress.remaining)} km left
+              {formatDistance(displayProgress.remaining)} {distanceLabel} left
             </Text>
           )}
           {displayDistance === 0 && (

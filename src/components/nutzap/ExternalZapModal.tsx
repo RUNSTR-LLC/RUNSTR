@@ -1,11 +1,11 @@
 /**
  * ExternalZapModal Component
- * Generates and displays Lightning invoice for charity donations
+ * Generates and displays Lightning invoice for donations
  * Allows users to pay from external wallets (Cash App, Strike, etc.)
- * Updated: Removed QR code, added amount selection
+ * For charity donations: Gets invoice directly from charity's Lightning address
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -28,9 +28,7 @@ import {
   getInvoiceTimeRemaining,
 } from '../../utils/bolt11Parser';
 import { openInCashApp } from '../../utils/walletDeepLinks';
-import { NWCGatewayService } from '../../services/rewards/NWCGatewayService';
 import { DonationTrackingService } from '../../services/donation/DonationTrackingService';
-import { ImpactLevelService } from '../../services/impact/ImpactLevelService';
 
 // Storage key for default amount
 const DEFAULT_AMOUNT_KEY = '@runstr:default_zap_amount';
@@ -46,7 +44,7 @@ interface ExternalZapModalProps {
   memo?: string; // Optional - will default to "RUNSTR Community Rewards"
   onClose: () => void;
   onSuccess?: () => void;
-  // Charity donation mode - routes through RUNSTR wallet for verification
+  // Charity donation mode - pays charity directly, records donation locally
   isCharityDonation?: boolean;
   charityId?: string;
   charityLightningAddress?: string;
@@ -80,21 +78,16 @@ export const ExternalZapModal: React.FC<ExternalZapModalProps> = ({
   const [isExpired, setIsExpired] = useState(false);
   const [showInvoice, setShowInvoice] = useState(false);
 
-  // Charity donation verification state
-  // Note: We store paymentHash for potential debugging, but pass it directly to polling
-  const [_paymentHash, setPaymentHash] = useState<string | null>(null);
-  const [_isVerifying, setIsVerifying] = useState(false);
-  const [paymentVerified, setPaymentVerified] = useState(false);
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Suppress unused variable warnings - these are used for debugging
-  void _paymentHash;
-  void _isVerifying;
-
   // Convert npub to hex for API calls (skip for Lightning addresses)
   const recipientHex = React.useMemo(() => {
+    // Guard against undefined/null recipientNpub (e.g., PPQ.AI team has no Lightning address)
+    if (!recipientNpub) {
+      console.warn('[ExternalZapModal] No recipient provided');
+      return '';
+    }
+
     // If it's a Lightning address, don't try to convert it
-    if (recipientNpub && recipientNpub.includes('@')) {
+    if (recipientNpub.includes('@')) {
       console.log(
         '[ExternalZapModal] Lightning address detected, skipping npub conversion'
       );
@@ -143,11 +136,6 @@ export const ExternalZapModal: React.FC<ExternalZapModalProps> = ({
       setCustomAmount('');
       setIsCustom(false);
 
-      // Reset charity verification state
-      setPaymentHash(null);
-      setIsVerifying(false);
-      setPaymentVerified(false);
-
       // If initial amount provided, use it
       if (initialAmount && initialAmount > 0) {
         setSelectedAmount(initialAmount);
@@ -155,18 +143,8 @@ export const ExternalZapModal: React.FC<ExternalZapModalProps> = ({
 
       // Resolve lightning address
       resolveLightningAddress();
-    } else {
-      // Cleanup polling when modal closes
-      stopPaymentPolling();
     }
   }, [visible, initialAmount]);
-
-  // Cleanup polling on unmount
-  useEffect(() => {
-    return () => {
-      stopPaymentPolling();
-    };
-  }, []);
 
   // Countdown timer effect - updates every second
   useEffect(() => {
@@ -247,68 +225,6 @@ export const ExternalZapModal: React.FC<ExternalZapModalProps> = ({
     }
   };
 
-  // Stop payment polling
-  const stopPaymentPolling = () => {
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-      pollIntervalRef.current = null;
-    }
-  };
-
-  // Start payment polling for charity donations
-  const startPaymentPolling = (hash: string) => {
-    if (!isCharityDonation) return;
-
-    console.log('[ExternalZapModal] Starting payment polling for hash:', hash.slice(0, 16) + '...');
-    setIsVerifying(true);
-
-    pollIntervalRef.current = setInterval(async () => {
-      try {
-        const result = await NWCGatewayService.lookupInvoice(hash);
-
-        if (result.success && result.settled) {
-          console.log('[ExternalZapModal] ✅ Payment verified!');
-          stopPaymentPolling();
-
-          // Record donation and forward to charity
-          const amount = getEffectiveAmount();
-
-          // Get donor pubkey from cached storage (reliable source set at login)
-          const storedPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
-          const donorPubkey = storedPubkey || 'anonymous';
-
-          if (!storedPubkey) {
-            console.warn('[ExternalZapModal] No cached pubkey found, donation will be anonymous');
-          }
-
-          await DonationTrackingService.recordAndForward({
-            donorPubkey,
-            amount,
-            charityId: charityId!,
-            charityLightningAddress: charityLightningAddress!,
-          });
-
-          // Clear Impact Level cache so it recalculates immediately with new donation
-          if (donorPubkey !== 'anonymous') {
-            await ImpactLevelService.clearCache(donorPubkey);
-            console.log('[ExternalZapModal] Impact Level cache cleared for immediate update');
-          }
-
-          setPaymentVerified(true);
-          setIsVerifying(false);
-
-          // Brief delay to show success, then close
-          setTimeout(() => {
-            onSuccess?.();
-            onClose();
-          }, 1500);
-        }
-      } catch (err) {
-        console.error('[ExternalZapModal] Payment polling error:', err);
-      }
-    }, 2000); // Poll every 2 seconds
-  };
-
   // Get the effective amount (selected preset or custom)
   const getEffectiveAmount = (): number => {
     if (isCustom && customAmount) {
@@ -371,47 +287,36 @@ export const ExternalZapModal: React.FC<ExternalZapModalProps> = ({
     setIsExpired(false);
     setInvoice('');
     setTimeRemaining(null);
-    setPaymentHash(null);
 
     try {
-      // For charity donations, create invoice from RUNSTR's wallet for verification
-      if (isCharityDonation) {
-        console.log('[ExternalZapModal] 🔄 Creating RUNSTR wallet invoice for charity donation');
+      // For charity donations, get invoice directly from charity's Lightning address
+      if (isCharityDonation && charityLightningAddress) {
+        console.log('[ExternalZapModal] 🔄 Getting invoice directly from charity:', charityLightningAddress);
 
-        const invoiceResult = await NWCGatewayService.createInvoice(
+        const invoiceResult = await getInvoiceFromLightningAddress(
+          charityLightningAddress,
           amount,
-          memo || `Donation to ${recipientName}`
+          memo || `RUNSTR Donation to ${recipientName}`
         );
 
-        if (!invoiceResult.success || !invoiceResult.invoice || !invoiceResult.payment_hash) {
-          throw new Error(invoiceResult.error || 'Failed to create invoice');
+        if (!invoiceResult || !invoiceResult.invoice) {
+          throw new Error('Failed to get invoice from charity');
+        }
+
+        // Validate invoice amount matches requested amount
+        console.log('[ExternalZapModal] Validating invoice amount...');
+        const amountValid = validateInvoiceAmount(invoiceResult.invoice, amount);
+
+        if (!amountValid) {
+          const errorMsg = `Invoice amount mismatch! Expected ${amount} sats. Please try again.`;
+          console.error('[ExternalZapModal] ❌', errorMsg);
+          throw new Error(errorMsg);
         }
 
         setInvoice(invoiceResult.invoice);
-        setPaymentHash(invoiceResult.payment_hash);
-        console.log('[ExternalZapModal] ✅ RUNSTR invoice created');
-
-        // Register donation server-side for auto-forwarding (in case app closes)
-        if (charityId && charityLightningAddress) {
-          const registerResult = await NWCGatewayService.registerDonation({
-            paymentHash: invoiceResult.payment_hash,
-            charityId,
-            charityLightningAddress,
-            amountSats: amount,
-            description: memo || `Donation to ${recipientName}`,
-          });
-
-          if (registerResult.success) {
-            console.log('[ExternalZapModal] ✅ Donation registered server-side');
-          } else {
-            console.warn('[ExternalZapModal] Failed to register donation server-side:', registerResult.error);
-            // Continue anyway - polling will still work for app-side forwarding
-          }
-        }
-
-        // Start polling for payment verification
-        startPaymentPolling(invoiceResult.payment_hash);
-      } else {
+        console.log('[ExternalZapModal] ✅ Direct charity invoice generated!');
+        // No polling needed - user pays charity directly
+      } else if (!isCharityDonation) {
         // Standard flow - get invoice from recipient's Lightning address
         const lnAddress = lightningAddress || recipientNpub;
 
@@ -513,8 +418,36 @@ export const ExternalZapModal: React.FC<ExternalZapModalProps> = ({
     await openInCashApp(invoice);
   };
 
-  const handlePaymentConfirmed = () => {
+  const handlePaymentConfirmed = async () => {
     const paidAmount = getEffectiveAmount();
+
+    // For charity donations, record the donation locally (for donation leaderboards only)
+    // Note: Direct donations do NOT affect Impact Level XP - only workout rewards do
+    if (isCharityDonation && charityId) {
+      try {
+        // Get donor pubkey from cached storage
+        const storedPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+        const donorPubkey = storedPubkey || 'anonymous';
+
+        if (!storedPubkey) {
+          console.warn('[ExternalZapModal] No cached pubkey found, donation will be anonymous');
+        }
+
+        // Record donation (no forwarding needed - user paid directly)
+        await DonationTrackingService.recordDonation({
+          donorPubkey,
+          amount: paidAmount,
+          charityId,
+          charityName: recipientName,
+        });
+
+        console.log('[ExternalZapModal] ✅ Charity donation recorded:', paidAmount, 'sats to', recipientName);
+      } catch (err) {
+        console.error('[ExternalZapModal] Error recording donation:', err);
+        // Don't block - donation was still made to charity
+      }
+    }
+
     Alert.alert(
       '⚡ Zap Sent!',
       `Successfully sent ${paidAmount} sats to ${recipientName}`,
@@ -842,45 +775,20 @@ export const ExternalZapModal: React.FC<ExternalZapModalProps> = ({
             )}
           </ScrollView>
 
-          {/* Footer - Payment Confirmation or Verification Status */}
+          {/* Footer - Payment Confirmation */}
           {showInvoice && invoice && !isLoading && (
             <View style={styles.footer}>
-              {isCharityDonation ? (
-                // Charity mode: Show verification status instead of "I've Paid" button
-                paymentVerified ? (
-                  <View style={styles.verifiedContainer}>
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={24}
-                      color={theme.colors.accent}
-                    />
-                    <Text style={styles.verifiedText}>Payment Verified!</Text>
-                  </View>
-                ) : (
-                  <View style={styles.verifyingContainer}>
-                    <ActivityIndicator
-                      size="small"
-                      color={theme.colors.accent}
-                    />
-                    <Text style={styles.verifyingText}>
-                      Waiting for payment...
-                    </Text>
-                  </View>
-                )
-              ) : (
-                // Standard mode: Show "I've Paid" button
-                <TouchableOpacity
-                  style={styles.confirmButton}
-                  onPress={handlePaymentConfirmed}
-                >
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={20}
-                    color={theme.colors.background}
-                  />
-                  <Text style={styles.confirmButtonText}>I've Paid</Text>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity
+                style={styles.confirmButton}
+                onPress={handlePaymentConfirmed}
+              >
+                <Ionicons
+                  name="checkmark-circle"
+                  size={20}
+                  color={theme.colors.background}
+                />
+                <Text style={styles.confirmButtonText}>I've Paid</Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -1317,42 +1225,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: theme.typography.weights.semiBold,
     color: theme.colors.error,
-  },
-
-  // Charity donation verification styles
-  verifyingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    paddingVertical: 16,
-    backgroundColor: theme.colors.cardBackground,
-    borderRadius: theme.borderRadius.medium,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-
-  verifyingText: {
-    fontSize: 16,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.textMuted,
-  },
-
-  verifiedContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    paddingVertical: 16,
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-    borderRadius: theme.borderRadius.medium,
-    borderWidth: 1,
-    borderColor: theme.colors.accent,
-  },
-
-  verifiedText: {
-    fontSize: 16,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.accent,
   },
 });

@@ -33,6 +33,10 @@ interface DailyStepGoalCardProps {
   showBackgroundBanner?: boolean;
   onEnableBackground?: () => void;
   isBackgroundActive?: boolean;
+  estimatedDistance?: number; // meters - shows estimated distance from steps
+  showCompeteButton?: boolean; // default true - set to false to hide Compete button
+  hasGPSWorkouts?: boolean; // true when GPS workout data is included in distance (removes "~" prefix)
+  onTroubleshootSteps?: () => void; // Navigate to step diagnostics in Settings
 }
 
 export const DailyStepGoalCard: React.FC<DailyStepGoalCardProps> = ({
@@ -50,10 +54,20 @@ export const DailyStepGoalCard: React.FC<DailyStepGoalCardProps> = ({
   showBackgroundBanner = false,
   onEnableBackground,
   isBackgroundActive = false,
+  estimatedDistance,
+  showCompeteButton = true,
+  hasGPSWorkouts = false,
+  onTroubleshootSteps,
 }) => {
   // Format step count with commas
   const formatSteps = (count: number): string => {
     return count.toLocaleString();
+  };
+
+  // Format distance in km
+  const formatDistance = (meters: number): string => {
+    const km = meters / 1000;
+    return `${km.toFixed(2)} km`;
   };
 
   // Title: "Today's Steps" on iOS (auto-counted), "Tracked Steps" on Android (workout-based)
@@ -109,6 +123,11 @@ export const DailyStepGoalCard: React.FC<DailyStepGoalCardProps> = ({
             <Text style={styles.stepCount}>{formatSteps(displaySteps)}</Text>
             <Text style={styles.stepLabel}> steps</Text>
           </View>
+          {estimatedDistance !== undefined && estimatedDistance > 0 && (
+            <Text style={styles.distanceText}>
+              {hasGPSWorkouts ? '' : '~'}{formatDistance(estimatedDistance)}
+            </Text>
+          )}
           <Text style={styles.goalText}>
             Goal: {formatSteps(displayProgress.goalSteps)}
           </Text>
@@ -141,7 +160,7 @@ export const DailyStepGoalCard: React.FC<DailyStepGoalCardProps> = ({
               <Text style={styles.goalButtonText}>Set Goal</Text>
             </TouchableOpacity>
           )}
-          {onCompeteSteps && (
+          {showCompeteButton && onCompeteSteps && (
             <TouchableOpacity
               style={[
                 styles.competeButton,
@@ -249,6 +268,15 @@ export const DailyStepGoalCard: React.FC<DailyStepGoalCardProps> = ({
       {/* Error hint (non-blocking) */}
       {error && !isBackgroundActive && (
         <Text style={styles.errorHint}>{error}</Text>
+      )}
+
+      {/* Step troubleshooting hint - shows when 0 steps on Android */}
+      {displaySteps === 0 && Platform.OS === 'android' && onTroubleshootSteps && !loading && (
+        <TouchableOpacity onPress={onTroubleshootSteps} activeOpacity={0.7}>
+          <Text style={styles.troubleshootHint}>
+            Steps not showing? Tap to troubleshoot
+          </Text>
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -374,6 +402,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
+  },
+  distanceText: {
+    fontSize: 13,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.accent,
+    marginTop: 2,
   },
   goalText: {
     fontSize: 13,
@@ -505,5 +539,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: theme.typography.weights.medium,
     color: theme.colors.textMuted,
+  },
+  troubleshootHint: {
+    marginTop: 8,
+    fontSize: 12,
+    color: theme.colors.accent,
+    textAlign: 'center',
+    textDecorationLine: 'underline',
   },
 });

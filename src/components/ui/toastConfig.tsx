@@ -72,6 +72,28 @@ export const toastConfig = {
       </View>
     </View>
   ),
+
+  // Reward confirmed notification - Orange checkmark for payments to user's wallet
+  rewardConfirmed: ({ text1, text2 }: ToastProps) => (
+    <View style={styles.rewardConfirmedToast}>
+      <Ionicons name="checkmark-circle" size={24} color="#f7931a" />
+      <View style={styles.textContainer}>
+        <Text style={styles.title}>{text1}</Text>
+        {text2 && <Text style={styles.subtitle}>{text2}</Text>}
+      </View>
+    </View>
+  ),
+
+  // Reward donated notification - Orange gift theme for payments to charity
+  rewardDonated: ({ text1, text2 }: ToastProps) => (
+    <View style={styles.rewardDonatedToast}>
+      <Ionicons name="gift" size={24} color="#FF9D42" />
+      <View style={styles.textContainer}>
+        <Text style={styles.title}>{text1}</Text>
+        {text2 && <Text style={styles.subtitle}>{text2}</Text>}
+      </View>
+    </View>
+  ),
 };
 
 const baseToastStyle = {
@@ -111,6 +133,16 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.accent,
   },
   stepRewardToast: {
+    ...baseToastStyle,
+    borderWidth: 1,
+    borderColor: '#FF9D42',
+  },
+  rewardConfirmedToast: {
+    ...baseToastStyle,
+    borderWidth: 1,
+    borderColor: '#f7931a',
+  },
+  rewardDonatedToast: {
     ...baseToastStyle,
     borderWidth: 1,
     borderColor: '#FF9D42',

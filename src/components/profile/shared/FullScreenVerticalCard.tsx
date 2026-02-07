@@ -128,14 +128,16 @@ export const FullScreenVerticalCard: React.FC<FullScreenVerticalCardProps> = ({
   // Get primary stat (hero number)
   const getPrimaryStat = () => {
     // Strength training: show total reps
+    // Note: workout.reps is already the TOTAL reps (sum across all sets), not per-set
     if (workout.type === 'strength_training' || workout.type === 'gym') {
-      const totalReps = (workout.reps || 0) * (workout.sets || 1);
+      const totalReps = workout.reps || 0;
       return { value: totalReps.toString(), label: 'REPS' };
     }
 
-    // Step counter: show steps
-    if (workout.type === 'walking' && workout.distance === 0 && workout.metadata?.steps) {
-      return { value: workout.metadata.steps.toLocaleString(), label: 'STEPS' };
+    // Step counter: show steps (prefer workout.steps, fallback to metadata.steps)
+    const stepCount = workout.steps ?? (workout.metadata as any)?.steps;
+    if (workout.type === 'walking' && stepCount) {
+      return { value: stepCount.toLocaleString(), label: 'STEPS' };
     }
 
     // Cardio with distance: show distance
@@ -153,10 +155,30 @@ export const FullScreenVerticalCard: React.FC<FullScreenVerticalCardProps> = ({
   const getSecondaryStats = () => {
     const stats: Array<{ label: string; value: string }> = [];
 
-    // Strength training: show sets breakdown
+    // Strength training: show sets breakdown with actual per-set reps
     if ((workout.type === 'strength_training' || workout.type === 'gym') && workout.sets) {
+      // Use repsBreakdown if available (array of actual reps per set)
+      const repsPerSet = workout.repsBreakdown as number[] | undefined;
       for (let i = 1; i <= workout.sets; i++) {
-        stats.push({ label: `SET ${i}`, value: `${workout.reps || 0} reps` });
+        const setReps = repsPerSet && repsPerSet[i - 1] !== undefined
+          ? repsPerSet[i - 1]
+          : Math.round((workout.reps || 0) / workout.sets);
+        stats.push({ label: `SET ${i}`, value: `${setReps} reps` });
+      }
+      return stats;
+    }
+
+    // Step workouts: show estimated distance
+    const stepCount = workout.steps ?? (workout.metadata as any)?.steps;
+    if (stepCount) {
+      const estDistKm = workout.distance && workout.distance > 0
+        ? (workout.distance / 1000).toFixed(2)
+        : (stepCount * 0.67 / 1000).toFixed(2);
+      stats.push({ label: 'DISTANCE', value: `~${estDistKm} km` });
+      if (workout.duration > 0) {
+        const mins = Math.floor(workout.duration / 60);
+        const secs = Math.floor(workout.duration % 60);
+        stats.push({ label: 'TIME', value: `${mins}:${secs.toString().padStart(2, '0')}` });
       }
       return stats;
     }

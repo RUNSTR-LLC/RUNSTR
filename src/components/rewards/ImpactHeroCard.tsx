@@ -1,0 +1,311 @@
+/**
+ * ImpactHeroCard Component
+ * Hero card for users WITHOUT lightning address showing donation impact
+ *
+ * Displays:
+ * - Total sats donated (big hero number)
+ * - Ranked list of charities supported
+ * - Workout count source
+ */
+
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+} from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import { theme } from '../../styles/theme';
+import { SupabaseRewardService, RewardBreakdown } from '../../services/rewards/SupabaseRewardService';
+import { getCharityById } from '../../constants/charities';
+
+interface ImpactHeroCardProps {
+  pubkey: string;
+}
+
+export const ImpactHeroCard: React.FC<ImpactHeroCardProps> = ({ pubkey }) => {
+  const { t } = useTranslation('rewards');
+  const [breakdown, setBreakdown] = useState<RewardBreakdown | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadBreakdown();
+  }, [pubkey]);
+
+  // Reload data when screen regains focus
+  useFocusEffect(
+    useCallback(() => {
+      if (pubkey) {
+        loadBreakdown();
+      }
+    }, [pubkey])
+  );
+
+  const loadBreakdown = async () => {
+    try {
+      setIsLoading(true);
+      const data = await SupabaseRewardService.getRewardBreakdown(pubkey);
+      setBreakdown(data);
+    } catch (error) {
+      console.error('[ImpactHeroCard] Failed to load breakdown:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Total donated = sent to charity + pending to charity
+  const totalDonated = breakdown
+    ? breakdown.sentToCharity + breakdown.pendingToCharity
+    : 0;
+
+  // Sort charity breakdown by amount descending
+  const sortedCharities = breakdown?.charityBreakdown
+    ? [...breakdown.charityBreakdown].sort((a, b) => b.amount - a.amount)
+    : [];
+
+  const charitiesCount = sortedCharities.length;
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.accent} />
+        </View>
+      </View>
+    );
+  }
+
+  // Empty state
+  if (!breakdown || totalDonated === 0) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.headerTitle}>
+          {t('impactHero.title', 'YOUR IMPACT')}
+        </Text>
+        <View style={styles.emptyState}>
+          <Ionicons
+            name="heart-outline"
+            size={40}
+            color="#444"
+          />
+          <Text style={styles.emptyText}>
+            {t('impactHero.noImpactYet', 'Complete workouts to support charities!')}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.headerTitle}>
+        {t('impactHero.title', 'YOUR IMPACT')}
+      </Text>
+
+      {/* Hero Number */}
+      <View style={styles.heroSection}>
+        <View style={styles.heroRow}>
+          <Ionicons name="gift" size={28} color={theme.colors.orangeBright} />
+          <Text style={styles.heroNumber}>
+            {totalDonated.toLocaleString()}
+          </Text>
+          <Text style={styles.heroUnit}>sats</Text>
+        </View>
+        <Text style={styles.heroLabel}>
+          {t('impactHero.donated', 'donated')}
+        </Text>
+      </View>
+
+      {/* Charities Supported */}
+      {charitiesCount > 0 && (
+        <View style={styles.charitiesSection}>
+          <Text style={styles.sectionTitle}>
+            {t('impactHero.supporting', 'Supporting {{count}} {{charity}}', {
+              count: charitiesCount,
+              charity: charitiesCount === 1 ? 'charity' : 'charities',
+            })}:
+          </Text>
+
+          <View style={styles.charityList}>
+            {sortedCharities.slice(0, 5).map((item, index) => {
+              const charity = getCharityById(item.charityId);
+              const charityName = charity?.name || item.charityId;
+
+              return (
+                <View key={item.charityId} style={styles.charityRow}>
+                  <View style={styles.charityLeft}>
+                    <Text style={styles.charityRank}>#{index + 1}</Text>
+                    <Text style={styles.charityName} numberOfLines={1}>
+                      {charityName}
+                    </Text>
+                  </View>
+                  <View style={styles.charityRight}>
+                    <Text style={item.status === 'pending' ? styles.amountPending : styles.amount}>
+                      {item.amount.toLocaleString()} sats
+                    </Text>
+                    {item.status === 'pending' && (
+                      <Ionicons name="time" size={12} color="#FF9D42" />
+                    )}
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      )}
+
+      {/* Footer */}
+      <View style={styles.footerSection}>
+        <Text style={styles.workoutCount}>
+          {t('impactHero.fromWorkouts', 'From {{count}} workouts', {
+            count: breakdown.paymentCount || 0,
+          })}
+        </Text>
+      </View>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: '#0a0a0a',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1a1a1a',
+    padding: 16,
+    marginBottom: 12,
+  },
+
+  loadingContainer: {
+    height: 160,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  headerTitle: {
+    fontSize: 12,
+    fontWeight: theme.typography.weights.bold,
+    color: '#FF9D42',
+    letterSpacing: 1,
+    marginBottom: 16,
+  },
+
+  heroSection: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+
+  heroRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+  },
+
+  heroNumber: {
+    fontSize: 42,
+    fontWeight: theme.typography.weights.extraBold,
+    color: '#FFB366',
+  },
+
+  heroUnit: {
+    fontSize: 20,
+    fontWeight: theme.typography.weights.semiBold,
+    color: '#FFB366',
+  },
+
+  heroLabel: {
+    fontSize: 14,
+    color: '#888',
+    marginTop: 4,
+  },
+
+  charitiesSection: {
+    backgroundColor: '#111',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#1a1a1a',
+    padding: 14,
+  },
+
+  sectionTitle: {
+    fontSize: 12,
+    color: '#888',
+    marginBottom: 12,
+  },
+
+  charityList: {
+    gap: 8,
+  },
+
+  charityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1a1a1a',
+  },
+
+  charityLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 10,
+  },
+
+  charityRank: {
+    fontSize: 12,
+    fontWeight: theme.typography.weights.bold,
+    color: '#FF9D42',
+    width: 24,
+  },
+
+  charityName: {
+    fontSize: 14,
+    color: theme.colors.text,
+    flex: 1,
+  },
+
+  charityRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+
+  amount: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
+    color: '#FFB366',
+  },
+
+  amountPending: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
+    color: '#FF9D42',
+  },
+
+  footerSection: {
+    alignItems: 'center',
+    marginTop: 16,
+  },
+
+  workoutCount: {
+    fontSize: 12,
+    color: '#666',
+  },
+
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 32,
+    gap: 12,
+  },
+
+  emptyText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  },
+});

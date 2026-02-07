@@ -7,7 +7,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, FlatList, RefreshControl, Text, StyleSheet } from 'react-native';
 import { theme } from '../../../styles/theme';
 import { Card } from '../../ui/Card';
-import { CustomAlert } from '../../ui/CustomAlert';
 import { LoadingOverlay } from '../../ui/LoadingStates';
 import { EnhancedWorkoutCard } from '../shared/EnhancedWorkoutCard';
 import { EnhancedSocialShareModal } from '../shared/EnhancedSocialShareModal';
@@ -16,14 +15,12 @@ import {
   groupWorkoutsByMonth,
 } from '../shared/MonthlyWorkoutGroup';
 import { Nuclear1301Service } from '../../../services/fitness/Nuclear1301Service';
-import { WorkoutPublishingService } from '../../../services/nostr/workoutPublishingService';
-import { WorkoutStatusTracker } from '../../../services/fitness/WorkoutStatusTracker';
-import { UnifiedSigningService } from '../../../services/auth/UnifiedSigningService';
 import { nostrProfileService } from '../../../services/nostr/NostrProfileService';
-import type { NDKSigner } from '@nostr-dev-kit/ndk';
 import type { NostrWorkout } from '../../../types/nostrWorkout';
 import type { Workout } from '../../../types/workout';
 import type { NostrProfile } from '../../../services/nostr/NostrProfileService';
+import { WoTService } from '../../../services/wot/WoTService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface AllWorkoutsTabProps {
   userId: string;
@@ -41,34 +38,34 @@ export const AllWorkoutsTab: React.FC<AllWorkoutsTabProps> = ({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [shareModalVisible, setShareModalVisible] = useState(false);
   const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null);
-  const [signer, setSigner] = useState<NDKSigner | null>(null);
   const [userProfile, setUserProfile] = useState<NostrProfile | null>(null);
 
-  // Alert state
-  const [alertVisible, setAlertVisible] = useState(false);
-  const [alertConfig, setAlertConfig] = useState<{
-    title: string;
-    message?: string;
-    buttons: Array<{
-      text: string;
-      onPress?: () => void;
-      style?: 'default' | 'cancel' | 'destructive';
-    }>;
-  }>({
-    title: '',
-    message: '',
-    buttons: [],
-  });
+
+  // WOT eligibility state
+  const [isWoTEligible, setIsWoTEligible] = useState(false);
 
   const nuclear1301Service = Nuclear1301Service.getInstance();
-  const publishingService = WorkoutPublishingService.getInstance();
-  const statusTracker = WorkoutStatusTracker.getInstance();
 
   useEffect(() => {
-    loadSigner();
     loadUserProfile();
     loadAllWorkouts();
+    loadWoTEligibility();
   }, []);
+
+  /**
+   * Load WOT eligibility from cached score
+   */
+  const loadWoTEligibility = async () => {
+    try {
+      const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+      if (!hexPubkey) return;
+      const wotService = WoTService.getInstance();
+      const score = await wotService.getCachedScore(hexPubkey);
+      setIsWoTEligible(score !== null && score > 0);
+    } catch (error) {
+      console.warn('[AllWorkouts] WoT eligibility check failed:', error);
+    }
+  };
 
   const loadUserProfile = async () => {
     if (!pubkey) return;
@@ -79,15 +76,6 @@ export const AllWorkoutsTab: React.FC<AllWorkoutsTabProps> = ({
       console.log('✅ User profile loaded for social cards:', profile?.name);
     } catch (error) {
       console.error('Failed to load user profile:', error);
-    }
-  };
-
-  const loadSigner = async () => {
-    try {
-      const userSigner = await UnifiedSigningService.getInstance().getSigner();
-      setSigner(userSigner);
-    } catch (error) {
-      console.error('Failed to load signer:', error);
     }
   };
 
@@ -146,48 +134,6 @@ export const AllWorkoutsTab: React.FC<AllWorkoutsTabProps> = ({
     }
   };
 
-  const handleCompete = async (workout: Workout) => {
-    if (!signer) {
-      setAlertConfig({
-        title: 'Authentication Required',
-        message: 'Please log in with your Nostr key to enter competitions.',
-        buttons: [{ text: 'OK', style: 'default' }],
-      });
-      setAlertVisible(true);
-      return;
-    }
-
-    try {
-      console.log('🏃 Creating competition entry (kind 1301)...');
-      const result = await publishingService.saveWorkoutToNostr(
-        workout,
-        signer,
-        userId
-      );
-
-      if (result.success) {
-        await statusTracker.markAsCompeted(workout.id, result.eventId);
-        setAlertConfig({
-          title: 'Success',
-          message: 'Workout entered into competition!',
-          buttons: [{ text: 'OK', style: 'default' }],
-        });
-        setAlertVisible(true);
-        await handleRefresh();
-      } else {
-        throw new Error(result.error || 'Failed to create competition entry');
-      }
-    } catch (error) {
-      console.error('Failed to compete workout:', error);
-      setAlertConfig({
-        title: 'Error',
-        message: 'Failed to enter competition. Please try again.',
-        buttons: [{ text: 'OK', style: 'default' }],
-      });
-      setAlertVisible(true);
-    }
-  };
-
   const handleSocialShare = (workout: Workout) => {
     setSelectedWorkout(workout);
     setShareModalVisible(true);
@@ -204,12 +150,12 @@ export const AllWorkoutsTab: React.FC<AllWorkoutsTabProps> = ({
     (workout: Workout) => (
       <EnhancedWorkoutCard
         workout={workout}
-        onCompete={handleCompete}
         onSocialShare={handleSocialShare}
         hideActions={workout.source?.toLowerCase() === 'nostr'}
+        isWoTEligible={isWoTEligible}
       />
     ),
-    [signer]
+    [isWoTEligible]
   );
 
   const renderMonthlyGroup = ({ item }: { item: any }) => (
@@ -272,14 +218,6 @@ export const AllWorkoutsTab: React.FC<AllWorkoutsTabProps> = ({
         onSuccess={handleShareSuccess}
       />
 
-      {/* Custom Alert */}
-      <CustomAlert
-        visible={alertVisible}
-        title={alertConfig.title}
-        message={alertConfig.message}
-        buttons={alertConfig.buttons}
-        onClose={() => setAlertVisible(false)}
-      />
     </>
   );
 };

@@ -7,10 +7,12 @@
 import React from 'react';
 import { Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { theme } from '../../styles/theme';
 
 export const FitnessCompetitionsBox: React.FC = () => {
   const navigation = useNavigation<any>();
+  const { t } = useTranslation('profile');
 
   const handlePress = () => {
     // Navigate to Compete screen (CompeteScreen with all events)
@@ -29,7 +31,7 @@ export const FitnessCompetitionsBox: React.FC = () => {
       onPress={handlePress}
       activeOpacity={0.7}
     >
-      <Text style={styles.title}>JOIN EVENTS</Text>
+      <Text style={styles.title}>{t('joinEvents')}</Text>
     </TouchableOpacity>
   );
 };

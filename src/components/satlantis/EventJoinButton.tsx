@@ -34,7 +34,6 @@ import { ExternalZapModal } from '../nutzap/ExternalZapModal';
 import { ProfileService } from '../../services/user/profileService';
 import { PledgeService } from '../../services/pledge/PledgeService';
 import { WoTService } from '../../services/wot/WoTService';
-import { ImpactLevelService } from '../../services/impact/ImpactLevelService';
 import { getNpubFromStorage, getHexPubkeyFromStorage } from '../../utils/nostr';
 import { nip19 } from 'nostr-tools';
 import type { SatlantisEvent } from '../../types/satlantis';
@@ -52,7 +51,6 @@ type ButtonState =
   | 'join_donation' // Legacy donation events
   | 'joined'
   | 'ended'
-  | 'impact_level_required' // User doesn't meet minimum Impact Level (donation-based)
   | 'rank_required' // Legacy: User doesn't meet minimum WoT rank requirement
   | 'error';
 
@@ -66,7 +64,6 @@ export const EventJoinButton: React.FC<EventJoinButtonProps> = ({
   const [optimisticJoined, setOptimisticJoined] = useState(false);
   const [showDonationModal, setShowDonationModal] = useState(false);
   const [creatorLightningAddress, setCreatorLightningAddress] = useState<string>('');
-  const [requiredImpactTier, setRequiredImpactTier] = useState<string>('');
   const [requiredRankTier, setRequiredRankTier] = useState<string>('');
 
   // Check initial state
@@ -90,27 +87,8 @@ export const EventJoinButton: React.FC<EventJoinButtonProps> = ({
 
   const checkJoinStatus = useCallback(async () => {
     try {
-      // Check if event has Impact Level requirement (new donation-based system)
-      if (event.minimumImpactLevel && event.minimumImpactLevel > 0) {
-        const hexPubkey = await getHexPubkeyFromStorage();
-
-        if (hexPubkey) {
-          const impactStats = await ImpactLevelService.getImpactStats(hexPubkey);
-          const userLevel = impactStats.level.level;
-
-          // Check if user meets minimum impact level
-          if (userLevel < event.minimumImpactLevel) {
-            setRequiredImpactTier(event.minimumImpactTier || `Level ${event.minimumImpactLevel}+`);
-            setState('impact_level_required');
-            return;
-          }
-        } else {
-          // Not logged in - can't check impact level
-          setRequiredImpactTier(event.minimumImpactTier || `Level ${event.minimumImpactLevel}+`);
-          setState('impact_level_required');
-          return;
-        }
-      }
+      // Note: Impact Level system has been removed. Events with minimumImpactLevel
+      // requirements are now accessible to all users.
 
       // Legacy: Check if event has rank requirement (for old events)
       if (event.minimumRank && event.minimumRank > 0) {
@@ -375,13 +353,6 @@ export const EventJoinButton: React.FC<EventJoinButtonProps> = ({
       case 'ended':
         return <Text style={styles.endedText}>Event Ended</Text>;
 
-      case 'impact_level_required':
-        return (
-          <Text style={styles.impactLevelRequiredText}>
-            {requiredImpactTier} Impact Level required
-          </Text>
-        );
-
       case 'rank_required':
         return (
           <Text style={styles.rankRequiredText}>
@@ -429,7 +400,6 @@ export const EventJoinButton: React.FC<EventJoinButtonProps> = ({
     state === 'loading' ||
     isJoined ||
     state === 'ended' ||
-    state === 'impact_level_required' ||
     state === 'rank_required' ||
     state === 'error' ||
     isProcessing;
@@ -438,11 +408,10 @@ export const EventJoinButton: React.FC<EventJoinButtonProps> = ({
     styles.button,
     isJoined && styles.buttonJoined,
     state === 'ended' && styles.buttonEnded,
-    state === 'impact_level_required' && styles.buttonImpactLevelRequired,
     state === 'rank_required' && styles.buttonRankRequired,
     state === 'join_pledge' && styles.buttonPledge,
     state === 'join_donation' && styles.buttonDonation,
-    isDisabled && !isJoined && state !== 'impact_level_required' && state !== 'rank_required' && styles.buttonDisabled,
+    isDisabled && !isJoined && state !== 'rank_required' && styles.buttonDisabled,
   ];
 
   return (
@@ -516,11 +485,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  buttonImpactLevelRequired: {
-    backgroundColor: theme.colors.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
   buttonRankRequired: {
     backgroundColor: theme.colors.card,
     borderWidth: 1,
@@ -548,12 +512,6 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: 16,
     fontWeight: theme.typography.weights.medium,
-  },
-  impactLevelRequiredText: {
-    color: theme.colors.textMuted,
-    fontSize: 14,
-    fontWeight: theme.typography.weights.medium,
-    textAlign: 'center',
   },
   rankRequiredText: {
     color: theme.colors.textMuted,

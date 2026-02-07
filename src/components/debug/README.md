@@ -14,6 +14,17 @@ Real-time diagnostic overlay for GPS death diagnosis during workouts. Shows:
 
 Used in RunningTrackerScreen when `DEBUG_MODE = true`.
 
+### StepDebugOverlay.tsx
+Android-only diagnostic overlay for step counting. Shows a small floating bug icon in the top-right corner of tracker screens. Tapping expands a panel with real-time step diagnostic data:
+- Active step source (native / health_connect / none)
+- Native sensor and background tracking status
+- Today's step count and session start time
+- Health Connect SDK availability and permission status
+- ROM type detection (stock, GrapheneOS, CalyxOS, etc.)
+- Android version
+
+Always available (no DEBUG_MODE flag needed). Returns `null` on iOS. Used in all tracker screens: Walking, Running, Cycling, Hiking.
+
 ## Usage
 
 The debug overlay is controlled by the `DEBUG_MODE` constant in the tracker screens:

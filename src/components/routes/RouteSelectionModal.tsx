@@ -21,12 +21,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import routeStorageService, {
   type RouteLabel,
-  RouteStorageService,
 } from '../../services/routes/RouteStorageService';
 import localWorkoutStorageService, {
   type LocalWorkout,
 } from '../../services/fitness/LocalWorkoutStorageService';
 import type { WorkoutType } from '../../types/workout';
+import { useUnitPreference } from '../../hooks/useUnitPreference';
 
 type ModalView = 'browse' | 'create' | 'history';
 
@@ -43,6 +43,7 @@ export const RouteSelectionModal: React.FC<RouteSelectionModalProps> = ({
   onSelectRoute,
   onClose,
 }) => {
+  const { isMetric, distanceLabel, paceLabel } = useUnitPreference();
   const [view, setView] = useState<ModalView>('browse');
   const [routes, setRoutes] = useState<RouteLabel[]>([]);
   const [recentWorkouts, setRecentWorkouts] = useState<LocalWorkout[]>([]);
@@ -209,14 +210,23 @@ export const RouteSelectionModal: React.FC<RouteSelectionModalProps> = ({
   };
 
   const formatDistance = (meters: number | undefined): string => {
-    if (!meters) return '0.00 km';
-    const km = meters / 1000;
-    return `${km.toFixed(2)} km`;
+    if (!meters) return `0.00 ${distanceLabel}`;
+    if (isMetric) {
+      const km = meters / 1000;
+      return `${km.toFixed(2)} ${distanceLabel}`;
+    } else {
+      const miles = meters * 0.000621371;
+      return `${miles.toFixed(2)} ${distanceLabel}`;
+    }
   };
 
-  const formatPace = (pace: number | undefined): string => {
-    if (!pace) return '--:--/km';
-    return RouteStorageService.formatPace(pace);
+  const formatPace = (paceMinPerKm: number | undefined): string => {
+    if (!paceMinPerKm) return `--:--${paceLabel}`;
+    // Convert to minutes per mile if imperial
+    const pace = isMetric ? paceMinPerKm : paceMinPerKm * 1.60934;
+    const mins = Math.floor(pace);
+    const secs = Math.round((pace - mins) * 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}${paceLabel}`;
   };
 
   const getActivityIcon = (): keyof typeof Ionicons.glyphMap => {
