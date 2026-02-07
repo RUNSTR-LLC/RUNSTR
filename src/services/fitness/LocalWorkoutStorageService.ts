@@ -9,6 +9,8 @@ import type { WorkoutType } from '../../types/workout';
 import type { Split } from '../activity/SplitTrackingService';
 import { RunstrContextGenerator } from '../ai/RunstrContextGenerator';
 import { DailyRewardService } from '../rewards/DailyRewardService';
+import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
+import Toast from 'react-native-toast-message';
 
 /**
  * Result returned from saveGPSWorkout including reward info
@@ -110,6 +112,10 @@ export interface LocalWorkout {
 
   // Manual entry flag for competition filtering
   isManualEntry?: boolean; // True for custom/manual workouts (excluded from competitions)
+
+  // Supabase competition submission status
+  supabaseSubmitted?: boolean; // true=success, false=failed, undefined=not attempted
+  supabaseError?: string; // Last error message on failure
 }
 
 const STORAGE_KEYS = {
@@ -353,10 +359,11 @@ export class LocalWorkoutStorageService {
   }
 
   /**
-   * Save daily steps workout to local storage
+   * Save daily steps workout to local storage (used for manual social-post flow)
    */
   async saveDailyStepsWorkout(workout: {
     steps: number;
+    distance?: number; // meters (estimated non-GPS step distance)
     startTime: string; // ISO timestamp (midnight today)
     endTime: string; // ISO timestamp (now)
     duration: number; // seconds from midnight to now
@@ -371,6 +378,7 @@ export class LocalWorkoutStorageService {
         startTime: workout.startTime,
         endTime: workout.endTime,
         duration: workout.duration,
+        distance: workout.distance,
         steps: workout.steps,
         calories: workout.calories,
         source: 'daily_steps',
@@ -380,11 +388,78 @@ export class LocalWorkoutStorageService {
 
       await this.saveWorkout(localWorkout);
       console.log(
-        `✅ Saved daily steps workout locally: ${workoutId} (${workout.steps} steps)`
+        `✅ Saved daily steps workout locally: ${workoutId} (${workout.steps} steps${workout.distance ? `, ~${(workout.distance / 1000).toFixed(2)}km` : ''})`
       );
       return workoutId;
     } catch (error) {
       console.error('❌ Failed to save daily steps workout:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Upsert today's daily step workout entry (create or update)
+   * Uses deterministic ID: steps_YYYY-MM-DD_npub12chars
+   * Called by StepCompetitionService to keep workout history in sync with step count.
+   * Does NOT trigger autoSubmitToSupabase (StepCompetitionService handles Supabase separately).
+   */
+  async upsertDailyStepsWorkout(workout: {
+    steps: number;
+    distance: number; // meters (estimated non-GPS step distance)
+    startTime: string; // ISO timestamp (midnight today)
+    endTime: string; // ISO timestamp (now)
+    duration: number; // seconds from midnight to now
+    calories?: number;
+  }, deterministicId: string): Promise<string> {
+    try {
+      const workouts = await this.getAllWorkouts();
+      const existingIndex = workouts.findIndex(w => w.id === deterministicId);
+
+      if (existingIndex !== -1) {
+        // UPDATE existing entry
+        workouts[existingIndex].steps = workout.steps;
+        workouts[existingIndex].distance = workout.distance;
+        workouts[existingIndex].endTime = workout.endTime;
+        workouts[existingIndex].calories = workout.calories;
+
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.LOCAL_WORKOUTS,
+          JSON.stringify(workouts)
+        );
+        console.log(
+          `✅ Updated daily steps workout: ${deterministicId} (${workout.steps} steps, ~${(workout.distance / 1000).toFixed(2)}km)`
+        );
+      } else {
+        // CREATE new entry - write directly to storage (no saveWorkout to skip autoSubmit/reward)
+        // supabaseSubmitted defaults to false so the Compete button shows if submission failed
+        const localWorkout: LocalWorkout = {
+          id: deterministicId,
+          type: 'walking',
+          startTime: workout.startTime,
+          endTime: workout.endTime,
+          duration: workout.duration,
+          distance: workout.distance,
+          steps: workout.steps,
+          calories: workout.calories,
+          source: 'daily_steps',
+          createdAt: new Date().toISOString(),
+          syncedToNostr: false,
+          supabaseSubmitted: false,
+        };
+
+        workouts.push(localWorkout);
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.LOCAL_WORKOUTS,
+          JSON.stringify(workouts)
+        );
+        console.log(
+          `✅ Created daily steps workout: ${deterministicId} (${workout.steps} steps, ~${(workout.distance / 1000).toFixed(2)}km)`
+        );
+      }
+
+      return deterministicId;
+    } catch (error) {
+      console.error('❌ Failed to upsert daily steps workout:', error);
       throw error;
     }
   }
@@ -453,9 +528,227 @@ export class LocalWorkoutStorageService {
         // Silent failure - never block workout saves for reward issues
         console.warn('[LocalWorkoutStorage] Reward trigger error (silent):', rewardError);
       }
+
+      // AUTO-SUBMIT TO SUPABASE: Fire-and-forget for leaderboard/competition tracking
+      this.autoSubmitToSupabase(workout).catch((err) => {
+        console.warn('[LocalWorkoutStorage] Supabase auto-submit error (silent):', err);
+      });
     } catch (error) {
       console.error('❌ Failed to save workout to storage:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Format seconds into HH:MM:SS string for kind 1301 tags
+   */
+  private formatHHMMSS(totalSeconds: number): string {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  /**
+   * Build kind 1301 tags array from a local workout
+   */
+  private buildWorkoutTags(workout: LocalWorkout): string[][] {
+    const tags: string[][] = [];
+    tags.push(['exercise', workout.type]);
+
+    if (workout.distance) {
+      tags.push(['distance', (workout.distance / 1000).toFixed(2), 'km']);
+    }
+
+    if (workout.duration) {
+      tags.push(['duration', this.formatHHMMSS(workout.duration)]);
+    }
+
+    // Splits — critical for accurate 5K/10K/Half/Marathon target times
+    if (workout.splits && workout.splits.length > 0) {
+      for (const split of workout.splits) {
+        tags.push(['split', String(split.number), this.formatHHMMSS(split.elapsedTime)]);
+      }
+    }
+
+    // Steps (for daily_steps workouts)
+    if (workout.steps) {
+      tags.push(['steps', workout.steps.toString()]);
+      tags.push(['source', 'auto_steps']);
+    }
+
+    return tags;
+  }
+
+  /**
+   * Get cached profile data (name/picture) for the current user
+   */
+  private async getCachedProfile(): Promise<{ name?: string; picture?: string }> {
+    try {
+      const profilesJson = await AsyncStorage.getItem('@runstr:nostr_profiles');
+      if (profilesJson) {
+        const profiles = JSON.parse(profilesJson);
+        const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+        if (hexPubkey && profiles[hexPubkey]) {
+          return {
+            name: profiles[hexPubkey].name || profiles[hexPubkey].displayName,
+            picture: profiles[hexPubkey].picture,
+          };
+        }
+      }
+    } catch { /* non-critical */ }
+    return {};
+  }
+
+  /**
+   * Auto-submit cardio workouts to Supabase for leaderboard tracking.
+   * Fire-and-forget — errors are logged, never block the save path.
+   */
+  private async autoSubmitToSupabase(workout: LocalWorkout): Promise<void> {
+    const CARDIO_TYPES: string[] = ['running', 'walking', 'cycling', 'hiking'];
+    if (!CARDIO_TYPES.includes(workout.type)) return;
+    if (!workout.distance || workout.distance <= 0) return;
+
+    const npub = await AsyncStorage.getItem('@runstr:npub');
+    if (!npub) return;
+
+    console.log(`[LocalWorkoutStorage] Auto-submitting ${workout.type} workout to Supabase...`);
+
+    try {
+      // Build tags with splits, team, and exercise metadata
+      const tags = this.buildWorkoutTags(workout);
+
+      // Include team/charity tag
+      const selectedTeamId = await AsyncStorage.getItem('@runstr:selected_team_id');
+      if (selectedTeamId) {
+        tags.push(['team', selectedTeamId]);
+      }
+
+      // Get profile for leaderboard display
+      const profile = await this.getCachedProfile();
+
+      const result = await SupabaseCompetitionService.submitWorkoutSimple({
+        eventId: workout.id,
+        npub,
+        type: workout.type,
+        distance: workout.distance,
+        duration: workout.duration,
+        calories: workout.calories,
+        startTime: workout.startTime,
+        tags,
+        profileName: profile.name,
+        profilePicture: profile.picture,
+      });
+
+      if (result.success) {
+        await this.updateSupabaseStatus(workout.id, true);
+        Toast.show({
+          type: 'success',
+          text1: 'Workout Submitted',
+          text2: 'Your workout is on the leaderboard',
+          position: 'bottom',
+          visibilityTime: 3000,
+        });
+      } else if (result.flagged) {
+        await this.updateSupabaseStatus(workout.id, true); // Flagged but submitted
+        Toast.show({
+          type: 'error',
+          text1: 'Workout Under Review',
+          text2: 'May take time to appear on leaderboard',
+          position: 'bottom',
+          visibilityTime: 4000,
+        });
+      } else {
+        await this.updateSupabaseStatus(workout.id, false, result.error || 'Submission failed');
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      await this.updateSupabaseStatus(workout.id, false, errorMsg).catch(() => {});
+      console.warn(`[LocalWorkoutStorage] Supabase auto-submit failed for ${workout.id}:`, errorMsg);
+    }
+
+    console.log(`[LocalWorkoutStorage] Supabase auto-submit complete for ${workout.id}`);
+  }
+
+  /**
+   * Update Supabase submission status for a workout
+   */
+  async updateSupabaseStatus(
+    workoutId: string,
+    submitted: boolean,
+    error?: string
+  ): Promise<void> {
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.LOCAL_WORKOUTS);
+      if (!data) return;
+      const workouts: LocalWorkout[] = JSON.parse(data);
+      const workout = workouts.find((w) => w.id === workoutId);
+      if (!workout) return;
+
+      workout.supabaseSubmitted = submitted;
+      workout.supabaseError = submitted ? undefined : error;
+
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.LOCAL_WORKOUTS,
+        JSON.stringify(workouts)
+      );
+    } catch (err) {
+      console.warn('[LocalWorkoutStorage] Failed to update supabase status:', err);
+    }
+  }
+
+  /**
+   * Retry Supabase submission for a failed workout (called by Compete button)
+   */
+  async retrySupabaseSubmission(
+    workoutId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const workout = await this.getWorkoutById(workoutId);
+      if (!workout) return { success: false, error: 'Workout not found' };
+
+      const npub = await AsyncStorage.getItem('@runstr:npub');
+      if (!npub) return { success: false, error: 'Not logged in' };
+
+      // Build full tags (splits, exercise, team) — same logic as autoSubmitToSupabase
+      const tags = this.buildWorkoutTags(workout);
+
+      const selectedTeamId = await AsyncStorage.getItem('@runstr:selected_team_id');
+      if (selectedTeamId) {
+        tags.push(['team', selectedTeamId]);
+      }
+
+      const profile = await this.getCachedProfile();
+
+      // For step workouts (source: 'daily_steps'), send duration as 0
+      // The locally-stored duration is time-since-midnight, not actual workout duration
+      const isStepWorkout = workout.source === 'daily_steps' || workout.id.startsWith('steps_');
+      const duration = isStepWorkout ? 0 : workout.duration;
+
+      const result = await SupabaseCompetitionService.submitWorkoutSimple({
+        eventId: workout.id,
+        npub,
+        type: workout.type,
+        distance: workout.distance ?? 0,
+        duration,
+        calories: workout.calories,
+        startTime: workout.startTime,
+        tags,
+        profileName: profile.name,
+        profilePicture: profile.picture,
+      });
+
+      if (result.success || result.flagged) {
+        await this.updateSupabaseStatus(workoutId, true);
+        return { success: true };
+      }
+
+      await this.updateSupabaseStatus(workoutId, false, result.error || 'Retry failed');
+      return { success: false, error: result.error };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      await this.updateSupabaseStatus(workoutId, false, errorMsg).catch(() => {});
+      return { success: false, error: errorMsg };
     }
   }
 
@@ -905,6 +1198,56 @@ export class LocalWorkoutStorageService {
       );
       return {
         steps: 0,
+        workoutCount: 0,
+      };
+    }
+  }
+
+  /**
+   * Get total GPS-tracked workout distance for today
+   * Returns sum of all GPS workouts (source: 'gps_tracker') completed today
+   * Used to combine with step estimates for accurate daily distance
+   */
+  async getTodayGPSDistance(): Promise<{
+    distanceMeters: number;
+    workoutCount: number;
+  }> {
+    try {
+      const workouts = await this.getAllWorkouts();
+
+      // Get today's date bounds
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      // Filter for GPS-tracked workouts today
+      const todayGPSWorkouts = workouts.filter((workout) => {
+        const workoutDate = new Date(workout.startTime);
+        const isToday = workoutDate >= todayStart;
+        const isGPSTracked = workout.source === 'gps_tracker';
+        const hasDistance = (workout.distance || 0) > 0;
+        return isToday && isGPSTracked && hasDistance;
+      });
+
+      const totalDistance = todayGPSWorkouts.reduce(
+        (sum, w) => sum + (w.distance || 0),
+        0
+      );
+
+      console.log(
+        `[LocalWorkoutStorageService] Today's GPS distance: ${(totalDistance / 1000).toFixed(2)}km from ${todayGPSWorkouts.length} workouts`
+      );
+
+      return {
+        distanceMeters: totalDistance,
+        workoutCount: todayGPSWorkouts.length,
+      };
+    } catch (error) {
+      console.error(
+        '[LocalWorkoutStorageService] Error getting today GPS distance:',
+        error
+      );
+      return {
+        distanceMeters: 0,
         workoutCount: 0,
       };
     }

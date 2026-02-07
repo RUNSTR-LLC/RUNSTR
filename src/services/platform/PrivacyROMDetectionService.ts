@@ -11,7 +11,7 @@
  * - Users must manually enable Sensors in Settings → Apps → RUNSTR → Permissions
  */
 
-import { Platform, NativeModules } from 'react-native';
+import { Platform, NativeModules, Linking } from 'react-native';
 
 export type ROMType = 'grapheneos' | 'calyxos' | 'lineageos' | 'divestos' | 'stock';
 
@@ -77,6 +77,18 @@ class PrivacyROMDetectionService {
         sensorNotes = null; // LineageOS uses standard Android permissions
       }
 
+      // Fallback: GrapheneOS uses stock Google fingerprints for anti-fingerprinting,
+      // so the string "grapheneos" may not appear in build properties.
+      // Check for GrapheneOS-specific apps as a secondary signal.
+      if (romType === 'stock') {
+        const isGraphene = await this.detectGrapheneOSByPackage();
+        if (isGraphene) {
+          romType = 'grapheneos';
+          sensorNotes = 'GrapheneOS: If steps show 0, enable Sensors permission in Settings → Apps → RUNSTR → Permissions → Sensors';
+          console.log('[ROMDetection] GrapheneOS detected via package check (build props used stock fingerprint)');
+        }
+      }
+
       this.cachedResult = {
         romType,
         isPrivacyROM: romType !== 'stock',
@@ -130,6 +142,33 @@ class PrivacyROMDetectionService {
   async getSensorNotes(): Promise<string | null> {
     const result = await this.detectROM();
     return result.sensorNotes;
+  }
+
+  /**
+   * Fallback GrapheneOS detection via known GrapheneOS-specific package URLs.
+   * GrapheneOS ships its own camera, PDF viewer, etc. with unique package names.
+   * Linking.canOpenURL checks if a package intent can be resolved.
+   */
+  private async detectGrapheneOSByPackage(): Promise<boolean> {
+    // GrapheneOS-specific package schemes to check
+    const graphenePackages = [
+      'app.grapheneos.camera',
+      'app.grapheneos.pdfviewer',
+      'app.grapheneos.vanadium',
+    ];
+
+    for (const pkg of graphenePackages) {
+      try {
+        // Android intent URI format: package:<package_name>
+        const canOpen = await Linking.canOpenURL(`package:${pkg}`);
+        if (canOpen) {
+          return true;
+        }
+      } catch {
+        // canOpenURL may throw on some devices, continue checking
+      }
+    }
+    return false;
   }
 
   /**

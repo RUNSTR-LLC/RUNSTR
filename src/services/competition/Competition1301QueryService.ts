@@ -208,6 +208,9 @@ export class Competition1301QueryService {
 
         // 2-second timeout for faster response
         setTimeout(() => {
+          // ✅ MEMORY LEAK FIX: Remove listeners before stopping subscription
+          sub.removeAllListeners('event');
+          sub.removeAllListeners('eose');
           sub.stop();
           resolve();
         }, 2000);
@@ -591,6 +594,9 @@ export class Competition1301QueryService {
 
         // 5-second timeout for open queries (larger result set)
         setTimeout(() => {
+          // ✅ MEMORY LEAK FIX: Remove listeners before stopping subscription
+          sub.removeAllListeners('event');
+          sub.removeAllListeners('eose');
           sub.stop();
           resolve();
         }, 5000);

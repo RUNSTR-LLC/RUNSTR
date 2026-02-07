@@ -20,13 +20,17 @@ import {
   getEinundzwanzigStartTimestamp,
   getEinundzwanzigEndTimestamp,
   calculateSatsFromDistance,
+  EINUNDZWANZIG_COMPETITION_ID,
 } from '../../constants/einundzwanzig';
 import { CHARITIES, getCharityById } from '../../constants/charities';
 import { SEASON_2_PARTICIPANTS } from '../../constants/season2';
 import { ProfileCache } from '../../cache/ProfileCache';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
+import { fetchWithTimeout } from '../../utils/networkUtils';
 
 const JOINED_USERS_KEY = '@runstr:einundzwanzig_joined';
+const SUPABASE_PROFILES_CACHE_KEY = '@runstr:einundzwanzig_supabase_profiles';
+const SUPABASE_FETCH_TIMEOUT = 10000; // 10 seconds
 
 export interface EinundzwanzigJoinRecord {
   pubkey: string;
@@ -121,22 +125,48 @@ class EinundzwanzigServiceClass {
         userCharityMap.set(record.pubkey, record.charityId);
       }
 
-      // Aggregate distance per user
+      // Aggregate distance per user using MAX(steps, GPS) per day
+      // This is simple, fair, and prevents double-counting
       const userStats = new Map<
         string,
         { distance: number; workoutCount: number }
       >();
 
+      // Track GPS distance per user-day: "pubkey:YYYY-MM-DD" -> distance
+      const gpsDistanceByDay = new Map<string, number>();
+
+      // First pass: Process GPS workouts
       for (const w of [...runningWorkouts, ...walkingWorkouts]) {
         if (!joinedPubkeys.has(w.pubkey)) continue;
+        if (w.id?.startsWith('steps_')) continue;
 
-        const existing = userStats.get(w.pubkey) || {
-          distance: 0,
-          workoutCount: 0,
-        };
+        const dateStr = new Date(w.createdAt * 1000).toISOString().split('T')[0];
+        const dayKey = `${w.pubkey}:${dateStr}`;
+        gpsDistanceByDay.set(dayKey, (gpsDistanceByDay.get(dayKey) || 0) + w.distance);
+
+        const existing = userStats.get(w.pubkey) || { distance: 0, workoutCount: 0 };
         existing.distance += w.distance;
         existing.workoutCount += 1;
         userStats.set(w.pubkey, existing);
+      }
+
+      // Second pass: For step workouts, add only if steps > GPS that day
+      for (const w of [...runningWorkouts, ...walkingWorkouts]) {
+        if (!joinedPubkeys.has(w.pubkey)) continue;
+        if (!w.id?.startsWith('steps_')) continue;
+
+        const dateStr = w.id.split('_')[1];
+        const dayKey = `${w.pubkey}:${dateStr}`;
+        const gpsThisDay = gpsDistanceByDay.get(dayKey) || 0;
+
+        // Use steps only if they exceed GPS for this day
+        if (w.distance > gpsThisDay) {
+          const extra = w.distance - gpsThisDay;
+          const existing = userStats.get(w.pubkey) || { distance: 0, workoutCount: 0 };
+          existing.distance += extra;
+          if (gpsThisDay === 0) existing.workoutCount += 1;
+          userStats.set(w.pubkey, existing);
+        }
       }
 
       // Fetch profiles from Supabase for non-Season II users
@@ -351,7 +381,7 @@ class EinundzwanzigServiceClass {
   }
 
   /**
-   * Register user in Supabase competition_participants with profile data
+   * Register user in Supabase for the einundzwanzig competition
    * Fire-and-forget - doesn't block join flow
    */
   async registerInSupabase(npub: string): Promise<boolean> {
@@ -369,19 +399,20 @@ class EinundzwanzigServiceClass {
       const profiles = await ProfileCache.fetchProfiles([pubkey]);
       const profile = profiles.get(pubkey);
       const profileData = profile
-        ? { name: profile.name || profile.display_name, picture: profile.picture }
+        ? { name: profile.name, picture: profile.picture }
         : undefined;
 
-      // Register with profile data
+      // Register for the combined einundzwanzig competition
       const result = await SupabaseCompetitionService.joinCompetition(
-        'einundzwanzig',
+        EINUNDZWANZIG_COMPETITION_ID,
         npub,
         profileData
       );
 
       if (result.success) {
-        console.log(`[Einundzwanzig] ✅ Registered ${npub.slice(0, 12)}... in Supabase`);
+        console.log(`[Einundzwanzig] ✅ Registered ${npub.slice(0, 12)}... for Einundzwanzig Challenge`);
       }
+
       return result.success;
     } catch (error) {
       console.warn('[Einundzwanzig] Failed to register in Supabase:', error);
@@ -392,38 +423,71 @@ class EinundzwanzigServiceClass {
   /**
    * Get participant profiles from Supabase for leaderboard display
    * Returns map of npub → { name, picture }
+   *
+   * NETWORK RESILIENCE:
+   * - Uses timeout to prevent app freeze on slow networks
+   * - Returns cached data on network failure
+   * - Caches successful responses for fallback
    */
   async getParticipantProfilesFromSupabase(): Promise<Map<string, { name?: string; picture?: string }>> {
     const profiles = new Map<string, { name?: string; picture?: string }>();
+
+    // Helper to load cached profiles
+    const loadCachedProfiles = async (): Promise<Map<string, { name?: string; picture?: string }>> => {
+      try {
+        const cached = await AsyncStorage.getItem(SUPABASE_PROFILES_CACHE_KEY);
+        if (cached) {
+          const entries = JSON.parse(cached) as [string, { name?: string; picture?: string }][];
+          return new Map(entries);
+        }
+      } catch {
+        // Ignore cache read errors
+      }
+      return new Map();
+    };
+
+    // Helper to save profiles to cache
+    const saveProfilesToCache = async (profilesMap: Map<string, { name?: string; picture?: string }>): Promise<void> => {
+      try {
+        const entries = Array.from(profilesMap.entries());
+        await AsyncStorage.setItem(SUPABASE_PROFILES_CACHE_KEY, JSON.stringify(entries));
+      } catch {
+        // Ignore cache write errors
+      }
+    };
 
     try {
       const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
       const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
       if (!supabaseUrl || !supabaseKey) {
-        console.warn('[Einundzwanzig] Supabase not configured');
-        return profiles;
+        console.warn('[Einundzwanzig] Supabase not configured, returning cached');
+        return await loadCachedProfiles();
       }
 
       // Get competition ID for einundzwanzig
       const competitionId = await SupabaseCompetitionService.getCompetitionId('einundzwanzig');
       if (!competitionId) {
-        console.warn('[Einundzwanzig] Competition not found in Supabase');
-        return profiles;
+        console.warn('[Einundzwanzig] Competition not found, returning cached');
+        return await loadCachedProfiles();
       }
 
-      // Query participants with profile data
+      // Query participants with profile data (with timeout)
       const url = `${supabaseUrl}/rest/v1/competition_participants?competition_id=eq.${competitionId}&select=npub,name,picture`;
-      const response = await fetch(url, {
-        headers: {
-          apikey: supabaseKey,
-          Authorization: `Bearer ${supabaseKey}`,
+      const response = await fetchWithTimeout(
+        url,
+        {
+          headers: {
+            apikey: supabaseKey,
+            Authorization: `Bearer ${supabaseKey}`,
+          },
         },
-      });
+        SUPABASE_FETCH_TIMEOUT
+      );
 
       if (!response.ok) {
-        console.warn('[Einundzwanzig] Failed to fetch profiles from Supabase');
-        return profiles;
+        console.warn('[Einundzwanzig] Supabase fetch failed, returning cached');
+        return await loadCachedProfiles();
       }
 
       const data = await response.json();
@@ -433,9 +497,14 @@ class EinundzwanzigServiceClass {
         }
       }
 
+      // Cache successful response for future fallback
+      await saveProfilesToCache(profiles);
+
       console.log(`[Einundzwanzig] Loaded ${profiles.size} profiles from Supabase`);
     } catch (error) {
-      console.warn('[Einundzwanzig] Error fetching Supabase profiles:', error);
+      // Network timeout or other failure - return cached data
+      console.warn('[Einundzwanzig] Error fetching Supabase profiles, using cache:', error);
+      return await loadCachedProfiles();
     }
 
     return profiles;

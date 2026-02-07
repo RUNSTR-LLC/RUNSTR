@@ -8,6 +8,10 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// Feature flag: When false, auto-compete is disabled for ALL users regardless of their saved preference
+// This allows us to hide the feature from UI while ensuring no one auto-publishes
+const AUTO_COMPETE_FEATURE_ENABLED = false;
+
 const STORAGE_KEY = '@runstr:auto_compete_enabled';
 
 export class AutoCompetePreferencesService {
@@ -17,6 +21,12 @@ export class AutoCompetePreferencesService {
    * Check if auto-compete is enabled
    */
   static async isAutoCompeteEnabled(): Promise<boolean> {
+    // Feature disabled at app level - always return false regardless of user preference
+    // This ensures no one auto-publishes even if they had it enabled before
+    if (!AUTO_COMPETE_FEATURE_ENABLED) {
+      return false;
+    }
+
     // Return cached value if available
     if (this.cachedValue !== null) {
       return this.cachedValue;

@@ -1,49 +1,52 @@
 /**
- * DailyRewardService - Automated workout rewards
+ * DailyRewardService - Local Tracking for Workout Rewards
  *
- * REWARD FLOW (v2 - Server-Side):
- * 1. User saves qualifying workout locally (≥1km distance)
- * 2. Check eligibility (once per day limit, local check only for UI)
- * 3. Get user's Lightning address (settings first, then profile fallback)
- * 4. Call Supabase claim-reward function (handles eligibility + payment)
- * 5. Server requests invoice via LNURL and pays via NWC
- * 6. User receives 50 sats to their Lightning address
+ * REWARD FLOW (v3 - External Service):
+ * 1. User publishes kind 1301 workout event with reward_destination tag
+ * 2. External service monitors Nostr for kind 1301 events
+ * 3. External service validates workout, checks anti-cheat, reads reward_destination
+ * 4. External service sends 50 sats to user or charity based on tag
+ * 5. This service only tracks rewards LOCALLY for UI display
  *
- * ARCHITECTURE (v2):
- * - NWC credentials stored SERVER-SIDE in Supabase env vars
- * - Rate limiting done SERVER-SIDE by Lightning address hash
- * - Client never sees NWC credentials (more secure)
- * - Can rotate NWC credentials without app update
+ * ARCHITECTURE (v3):
+ * - NWC credentials stored ONLY in external reward service (not Supabase!)
+ * - All reward routing info embedded in kind 1301 tags:
+ *   - ['reward_destination', 'user' | 'charity']
+ *   - ['lightning', 'user@getalby.com']
+ *   - ['charity', 'charity-id', 'Charity Name', 'charity@lightning.address']
+ * - This service tracks local stats (total earned, weekly earned) for UI
+ * - No Supabase calls for payments - external service handles all payments
  *
- * SILENT FAILURE: If any step fails, user never sees error
- * Workout publishing always succeeds regardless of reward status
+ * NOTE: Step rewards (5 sats/1k steps) have been REMOVED to simplify fraud detection.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
 import { REWARD_CONFIG, REWARD_STORAGE_KEYS } from '../../config/rewards';
-import { ProfileService } from '../user/profileService';
-import { RewardLightningAddressService } from './RewardLightningAddressService';
-import { RewardNotificationManager, DonationSplit } from './RewardNotificationManager';
-import { getCharityById, Charity } from '../../constants/charities';
+import { RewardDestinationService } from './RewardDestinationService';
+import { RewardNotificationManager } from './RewardNotificationManager';
 import { DonationTrackingService } from '../donation/DonationTrackingService';
 import { PledgeService } from '../pledge/PledgeService';
-import { supabase } from '../../utils/supabase';
 import { EinundzwanzigService } from '../challenge/EinundzwanzigService';
-import { isEinundzwanzigActive } from '../../constants/einundzwanzig';
+import { isEinundzwanzigActive, EINUNDZWANZIG_REWARD_CONFIG } from '../../constants/einundzwanzig';
+import { nip19 } from '@nostr-dev-kit/ndk';
 
-// Storage keys for donation settings
-// Uses same key as TeamsScreen - teams ARE charities (with lightning addresses)
-const SELECTED_CHARITY_KEY = '@runstr:selected_team_id';
-const DONATION_PERCENTAGE_KEY = '@runstr:donation_percentage';
+// Note: Supabase imports removed - rewards are now handled by external service
+// The external service monitors kind 1301 events and sends rewards based on tags
 
 // DEBUG FLAG: Set to false for production (only shows debug alerts for failures)
 const DEBUG_REWARDS = false;
 
-// Workout sources that count as "user-generated" (not imports/syncs)
-// Only these sources trigger daily rewards
+// Workout sources that count as "reward-eligible"
+// Includes GPS tracking, manual entry, and health app imports
 // Note: 'daily_steps' removed - step rewards come from StepRewardService (5 sats per 1k steps)
-const REWARD_ELIGIBLE_SOURCES = ['gps_tracker', 'manual_entry'];
+// Note: 'imported_nostr' excluded - prevents gaming via Nostr syncs
+const REWARD_ELIGIBLE_SOURCES = [
+  'gps_tracker',
+  'manual_entry',
+  'healthkit',       // Apple Health imports (source set by healthKitService)
+  'health_connect',  // Android Health Connect imports (source set by healthConnectService)
+];
 
 // Cardio activity types that qualify for daily rewards
 // Only these workout types earn the 50 sats daily reward
@@ -107,7 +110,7 @@ export function getRewardDiagnostics(): {
 } {
   return {
     rewardAttempts: [...rewardDiagnosticLog],
-    serverSidePayments: true, // v2: Payments are handled server-side via Supabase
+    serverSidePayments: true, // v3: Payments handled by external service monitoring kind 1301 events
   };
 }
 
@@ -190,109 +193,36 @@ class DailyRewardServiceClass {
   }
 
   /**
-   * Get user's Lightning address for rewards
+   * Get reward destination using unified RewardDestinationService
    *
-   * PRIORITY ORDER:
-   * 1. Settings-stored address (same as embedded in kind 1301 notes)
-   * 2. Nostr profile lud16 field (fallback)
+   * SIMPLIFIED LOGIC:
+   * - If user has toggle ON AND has Lightning address → user's address
+   * - Otherwise → charity's address (charity is always the fallback)
    *
-   * Lightning addresses allow any app to send Bitcoin to users
-   * without requiring them to have NWC wallet setup in our app.
+   * This ensures rewards are never lost - they go to user or their team.
    *
-   * @param userPubkey - User's public key (npub or hex)
-   * @returns Lightning address if found, null otherwise
+   * ERROR HANDLING:
+   * - Returns default charity destination on any error
+   * - Errors are logged but don't block reward flow
    */
-  private async getUserLightningAddress(
-    userPubkey: string
-  ): Promise<string | null> {
-    try {
-      // PRIORITY 1: Check settings-stored address (same as in 1301 notes)
-      const settingsAddress =
-        await RewardLightningAddressService.getRewardLightningAddress();
-      if (settingsAddress) {
-        console.log(
-          '[Reward] Using settings Lightning address:',
-          settingsAddress
-        );
-        return settingsAddress;
-      }
-
-      // PRIORITY 2: Fallback to Nostr profile lud16
-      const profile = await ProfileService.getUserProfile(userPubkey);
-
-      if (!profile || !profile.lud16) {
-        console.log('[Reward] User has no Lightning address in profile');
-        return null;
-      }
-
-      console.log('[Reward] Using profile Lightning address:', profile.lud16);
-      return profile.lud16;
-    } catch (error) {
-      console.error('[Reward] Error getting user Lightning address:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Load donation settings from AsyncStorage
-   * Returns donation percentage and selected charity
-   * Note: Team donations disabled until teams have lightning addresses
-   *
-   * DEFAULT: 100% donation to ALS Network for new users
-   */
-  private async getDonationSettings(): Promise<{
-    donationPercentage: number;
-    charity: Charity | undefined;
+  private async getRewardDestination(): Promise<{
+    address: string;
+    isCharity: boolean;
+    charityName: string;
+    charityId: string;
   }> {
     try {
-      const [donationPctStr, charityId] = await Promise.all([
-        AsyncStorage.getItem(DONATION_PERCENTAGE_KEY),
-        AsyncStorage.getItem(SELECTED_CHARITY_KEY),
-      ]);
-
-      // Default to 100% if never set, otherwise use stored value (even if 0)
-      const donationPercentage = donationPctStr !== null ? parseInt(donationPctStr) : 100;
-      // Default to ALS Network if no charity selected
-      const charity = getCharityById(charityId || 'als-foundation');
-
-      console.log('[Reward] Donation settings:', {
-        donationPercentage,
-        charityId: charity?.id,
-      });
-
-      return { donationPercentage, charity };
+      return await RewardDestinationService.getDestinationAddress();
     } catch (error) {
-      console.error('[Reward] Error loading donation settings:', error);
-      // Default to 100% to ALS Network on error
-      return { donationPercentage: 100, charity: getCharityById('als-foundation') };
-    }
-  }
-
-  /**
-   * Calculate payment split based on donation percentage
-   * All donations go to charity (team donations disabled until teams have lightning addresses)
-   */
-  private calculateSplit(
-    totalAmount: number,
-    donationPercentage: number,
-    charity: Charity | undefined
-  ): DonationSplit {
-    if (donationPercentage === 0 || !charity) {
-      // No donation or no charity selected - user gets everything
+      console.error('[DailyReward] Error getting reward destination, using default:', error);
+      // Return a safe default - charity fallback ensures rewards aren't lost
       return {
-        userAmount: totalAmount,
-        charityAmount: 0,
+        address: '', // Empty address will be handled by external service
+        isCharity: true,
+        charityName: 'RUNSTR',
+        charityId: 'runstr',
       };
     }
-
-    const charityAmount = Math.floor(totalAmount * (donationPercentage / 100));
-    const userAmount = totalAmount - charityAmount;
-
-    return {
-      userAmount,
-      charityAmount,
-      charityName: charity?.name,
-    };
   }
 
   /**
@@ -418,66 +348,21 @@ class DailyRewardServiceClass {
     }
   }
 
-  /**
-   * Call Supabase claim-reward edge function
-   * Server handles: eligibility check, LNURL invoice request, NWC payment
-   *
-   * @param lightningAddress - Recipient's Lightning address
-   * @param rewardType - 'workout' or 'steps'
-   * @param amountSats - For steps, amount being claimed (default: 5)
-   * @param isCharityDonation - If true, skips rate-limiting (for charity payments)
-   * @returns Result with success status and amount paid
-   */
-  private async claimRewardViaSupabase(
-    lightningAddress: string,
-    rewardType: 'workout' | 'steps',
-    amountSats?: number,
-    isCharityDonation?: boolean
-  ): Promise<{
-    success: boolean;
-    amount_paid?: number;
-    reason?: string;
-    remaining_step_allowance?: number;
-  }> {
-    try {
-      if (!supabase) {
-        console.error('[Reward] Supabase not configured');
-        return { success: false, reason: 'supabase_not_configured' };
-      }
-
-      console.log(`[Reward] Calling claim-reward: ${rewardType} to ${lightningAddress}${isCharityDonation ? ' (charity)' : ''}`);
-
-      const { data, error } = await supabase.functions.invoke('claim-reward', {
-        body: {
-          lightning_address: lightningAddress,
-          reward_type: rewardType,
-          amount_sats: amountSats,
-          is_charity_donation: isCharityDonation,
-        },
-      });
-
-      if (error) {
-        console.error('[Reward] Supabase function error:', error);
-        return { success: false, reason: 'supabase_error' };
-      }
-
-      console.log('[Reward] claim-reward response:', data);
-      return data;
-    } catch (error) {
-      console.error('[Reward] Error calling claim-reward:', error);
-      return { success: false, reason: 'network_error' };
-    }
-  }
+  // Note: claimRewardViaSupabase, recordCharityPaymentToSupabase, and logCharityPaymentFailure
+  // methods have been REMOVED. Rewards are now handled by external service monitoring kind 1301 events.
+  // The external service:
+  // - Monitors Nostr relays for new kind 1301 events
+  // - Reads reward_destination, lightning, and charity tags
+  // - Sends 50 sats to appropriate destination (user or charity)
+  // - Handles anti-cheat validation, deduplication, and fraud detection
 
   /**
-   * Send reward to pledge destination (captain or charity)
+   * Track reward for pledge destination (captain or charity)
    * Called when user has an active pledge - bypasses normal charity split
    *
-   * PLEDGE FLOW (v2 - Server-Side):
-   * 1. Call Supabase claim-reward with pledge destination's Lightning address
-   * 2. Server handles invoice request and NWC payment
-   * 3. Increment pledge progress locally
-   * 4. Show pledge-specific notification
+   * PLEDGE FLOW (v3 - External Service):
+   * Note: Actual payment is handled by external service reading kind 1301 tags
+   * This method only handles local tracking and notifications
    *
    * @param userPubkey - User's public key
    * @param pledge - Active pledge from PledgeService
@@ -490,33 +375,22 @@ class DailyRewardServiceClass {
       const totalAmount = REWARD_CONFIG.DAILY_WORKOUT_REWARD;
 
       console.log(
-        `[Reward] Sending ${totalAmount} sats to pledge destination:`,
+        `[Reward] Tracking pledge reward: ${totalAmount} sats to`,
         pledge.destinationName
       );
 
       if (DEBUG_REWARDS) {
         Alert.alert(
           'Pledge Reward Debug',
-          `Routing ${totalAmount} sats to:\n` +
+          `Tracking ${totalAmount} sats to:\n` +
             `Destination: ${pledge.destinationName}\n` +
-            `Address: ${pledge.destinationAddress}\n` +
-            `Progress: ${pledge.completedWorkouts + 1}/${pledge.totalWorkouts}`
+            `Progress: ${pledge.completedWorkouts + 1}/${pledge.totalWorkouts}\n\n` +
+            `Note: Actual payment handled by external service`
         );
       }
 
-      // Call Supabase edge function to handle payment
-      const result = await this.claimRewardViaSupabase(
-        pledge.destinationAddress,
-        'workout'
-      );
-
-      if (!result.success) {
-        console.log('[Reward] Failed to pay pledge via Supabase:', result.reason);
-        return {
-          success: false,
-          reason: 'pledge_payment_failed',
-        };
-      }
+      // External service handles payment via kind 1301 tags
+      // Here we just track locally for UI
 
       // Increment pledge progress
       const updatedPledge = await PledgeService.incrementPledgeProgress(
@@ -545,7 +419,7 @@ class DailyRewardServiceClass {
       );
 
       console.log(
-        `[Reward] ✅ Pledge reward sent:`,
+        `[Reward] Pledge reward tracked locally:`,
         `${totalAmount} sats to ${pledge.destinationName}`,
         `(${newCompletedCount}/${pledge.totalWorkouts})`
       );
@@ -555,7 +429,7 @@ class DailyRewardServiceClass {
         amount: totalAmount,
       };
     } catch (error) {
-      console.error('[Reward] Error sending pledge reward:', error);
+      console.error('[Reward] Error tracking pledge reward:', error);
       return {
         success: false,
         reason: 'pledge_error',
@@ -564,40 +438,260 @@ class DailyRewardServiceClass {
   }
 
   /**
-   * Send reward to user (and optionally team/charity based on donation settings)
-   * Main entry point for reward system
+   * Track reward locally (actual payment handled by external service)
+   * Main entry point for reward tracking
    *
-   * SILENT FAILURE PHILOSOPHY:
-   * - Rewards are a BONUS feature, never a blocker
-   * - If reward fails, user's workout still publishes successfully
-   * - User never sees error messages about reward failures
-   * - Failures are logged for debugging but don't affect user experience
-   * - This ensures workout publishing is reliable regardless of payment status
+   * v3 ARCHITECTURE:
+   * - External service reads reward_destination tag from kind 1301 events
+   * - External service sends 50 sats to user or charity based on tag
+   * - This method ONLY tracks locally for UI display
    *
-   * USER EXPERIENCE:
-   * - Success: User sees "You earned X sats!" popup after workout
-   * - With donation: Shows breakdown (e.g., "25 sats to you, 12 to OpenSats, 13 to team")
-   * - Failure: User sees nothing (workout still posts normally)
-   *
-   * DONATION SPLIT FLOW:
-   * 1. Load donation settings (percentage, team, charity)
-   * 2. Calculate split amounts
-   * 3. Pay user their portion
-   * 4. Pay charity (if selected and donation > 0)
-   * 5. Pay team (if has Lightning address and donation > 0)
+   * SILENT OPERATION:
+   * - Local tracking always succeeds
+   * - User sees notification that workout was published
+   * - External service handles actual payment (user doesn't wait for it)
    *
    * PLEDGE OVERRIDE:
-   * If user has an active pledge, bypasses this flow entirely and calls sendPledgeReward()
+   * If user has an active pledge, bypasses this flow and calls sendPledgeReward()
    */
   async sendReward(userPubkey: string): Promise<RewardResult> {
     try {
       console.log(
-        '[Reward] Checking reward eligibility for',
+        '[Reward] Tracking reward for',
         userPubkey.slice(0, 8) + '...'
       );
 
       if (DEBUG_REWARDS) {
-        Alert.alert('Reward Debug', `🚀 Reward triggered!\n\nUser: ${userPubkey.slice(0, 8)}...`);
+        Alert.alert('Reward Debug', `Tracking reward!\n\nUser: ${userPubkey.slice(0, 8)}...\n\nActual payment handled by external service`);
+      }
+
+      // Check if user already claimed today (one reward per day limit - local check)
+      const canClaim = await this.canClaimToday(userPubkey);
+      if (!canClaim) {
+        console.log('[Reward] User already claimed today');
+        addRewardDiagnostic(userPubkey, 'check', false, 'already_claimed_today');
+        if (DEBUG_REWARDS) {
+          Alert.alert('Reward Debug', 'Already claimed today - only 1 reward per day allowed');
+        }
+        return {
+          success: false,
+          reason: 'already_claimed_today',
+        };
+      }
+
+      // Get unified reward destination (user OR charity)
+      const destination = await this.getRewardDestination();
+
+      // ===== PLEDGE CHECK =====
+      // If user has active pledge, route reward to pledge destination
+      const activePledge = await PledgeService.getActivePledge(userPubkey);
+      if (activePledge) {
+        console.log(
+          '[Reward] Active pledge found, tracking for:',
+          activePledge.destinationName
+        );
+        return this.sendPledgeReward(userPubkey, activePledge);
+      }
+      // ===== END PLEDGE CHECK =====
+
+      // ===== EINUNDZWANZIG DOUBLE REWARDS =====
+      // If user is in Einundzwanzig event and it's active, double the reward
+      let totalAmount: number = REWARD_CONFIG.DAILY_WORKOUT_REWARD; // Default 50 sats
+      if (isEinundzwanzigActive()) {
+        const isInEinundzwanzig = await EinundzwanzigService.hasJoined(userPubkey);
+        if (isInEinundzwanzig) {
+          totalAmount = 100; // Double reward for Einundzwanzig participants
+          console.log('[Reward] Einundzwanzig bonus active: 100 sats');
+        }
+      }
+      // ===== END EINUNDZWANZIG CHECK =====
+
+      console.log('[Reward] Tracking reward locally:', {
+        destination: destination.isCharity ? destination.charityName : 'User',
+        amount: totalAmount,
+      });
+
+      if (DEBUG_REWARDS) {
+        Alert.alert('Reward Debug',
+          `Destination: ${destination.isCharity ? destination.charityName : 'User'}\n` +
+          `Amount: ${totalAmount} sats\n\n` +
+          `Note: Payment handled by external service via kind 1301 tags`
+        );
+      }
+
+      // ===== LOCAL TRACKING (no Supabase calls) =====
+      // External service handles actual payment based on kind 1301 tags
+      // Here we just track locally for UI display
+
+      // Record the reward amount locally (for stats/UI)
+      await this.recordReward(userPubkey, totalAmount);
+
+      // Track charity donations for Impact Level XP
+      if (destination.isCharity) {
+        await DonationTrackingService.recordDonation({
+          donorPubkey: userPubkey,
+          amount: totalAmount,
+          charityId: destination.charityId,
+          charityName: destination.charityName,
+        });
+      }
+
+      // Log success
+      addRewardDiagnostic(userPubkey, 'send', true, undefined, totalAmount);
+      console.log('[Reward] Reward tracked locally');
+
+      return {
+        success: true,
+        amount: totalAmount,
+      };
+    } catch (error) {
+      // SILENT FAILURE - just log error
+      const errorMsg = error instanceof Error ? error.message : 'unknown_error';
+      console.error('[Reward] Error tracking reward (silent):', error);
+      addRewardDiagnostic(userPubkey, 'send', false, errorMsg);
+
+      if (DEBUG_REWARDS) {
+        Alert.alert('Reward Debug', `Unexpected error!\n\n${error instanceof Error ? error.message : String(error)}`);
+      }
+
+      return {
+        success: false,
+        reason: 'error',
+      };
+    }
+  }
+
+  /**
+   * Send reward with workout tags for Einundzwanzig bonus checking
+   * Called from SupabaseCompetitionService after successful submission
+   *
+   * @param npubOrPubkey - User's npub or hex pubkey
+   * @param workoutType - Workout type (running, walking, cycling, etc.)
+   * @param workoutTags - Nostr event tags for team/bonus detection
+   */
+  async sendRewardWithTags(
+    npubOrPubkey: string,
+    workoutType: string,
+    workoutTags: string[][]
+  ): Promise<RewardResult> {
+    // Convert npub to hex pubkey if needed
+    let userPubkey = npubOrPubkey;
+    if (npubOrPubkey.startsWith('npub')) {
+      try {
+        const decoded = nip19.decode(npubOrPubkey);
+        userPubkey = decoded.data as string;
+      } catch (e) {
+        console.error('[Reward] Failed to decode npub:', e);
+        return { success: false, reason: 'invalid_npub' };
+      }
+    }
+
+    // Only cardio activities earn daily rewards
+    if (!CARDIO_ACTIVITY_TYPES.includes(workoutType)) {
+      console.log(`[Reward] Skipping reward for ${workoutType} (not cardio activity)`);
+      return { success: false, reason: 'activity_type_not_eligible' };
+    }
+
+    console.log('[Reward] sendRewardWithTags called:', {
+      pubkey: userPubkey.slice(0, 8) + '...',
+      workoutType,
+      tagsCount: workoutTags.length,
+    });
+
+    // Calculate reward amount (50 sats base, 100 sats for Einundzwanzig bonus)
+    const rewardAmount = await this.getRewardAmount(userPubkey, workoutTags);
+    console.log(`[Reward] Calculated reward amount: ${rewardAmount} sats`);
+
+    // Call the main reward logic with the calculated amount
+    return this.sendRewardWithAmount(userPubkey, rewardAmount);
+  }
+
+  /**
+   * Get the reward amount based on event bonuses
+   * Returns 100 sats for Einundzwanzig participants with featured team tags
+   */
+  private async getRewardAmount(
+    userPubkey: string,
+    workoutTags: string[][]
+  ): Promise<number> {
+    const baseReward = REWARD_CONFIG.DAILY_WORKOUT_REWARD; // 50 sats
+
+    // Check for Einundzwanzig double rewards bonus
+    const hasEinundzwanzigBonus = await this.checkEinundzwanzigBonus(
+      userPubkey,
+      workoutTags
+    );
+
+    if (hasEinundzwanzigBonus) {
+      console.log('[Reward] Einundzwanzig bonus active: 100 sats');
+      return EINUNDZWANZIG_REWARD_CONFIG.bonusRewardSats; // 100 sats
+    }
+
+    return baseReward;
+  }
+
+  /**
+   * Check if workout qualifies for Einundzwanzig double rewards
+   * Requirements:
+   * 1. Challenge dates active (Jan 21 - Feb 21, 2026)
+   * 2. User has joined the Einundzwanzig challenge
+   * 3. Workout has one of the 3 featured team tags
+   */
+  private async checkEinundzwanzigBonus(
+    userPubkey: string,
+    workoutTags: string[][]
+  ): Promise<boolean> {
+    // 1. Check if within challenge dates
+    if (!isEinundzwanzigActive()) {
+      return false;
+    }
+
+    // 2. Check if user has joined the challenge
+    const hasJoined = await EinundzwanzigService.hasJoined(userPubkey);
+    if (!hasJoined) {
+      return false;
+    }
+
+    // 3. Check if workout has one of the 3 featured team tags
+    const teamTag = workoutTags.find(t => t[0] === 'team');
+    const teamId = teamTag?.[1];
+
+    if (!teamId) {
+      console.log('[Reward] No team tag found - no Einundzwanzig bonus');
+      return false;
+    }
+
+    const featuredTeams = EINUNDZWANZIG_REWARD_CONFIG.featuredTeams;
+    const hasFeaturedTeam = featuredTeams.includes(teamId as typeof featuredTeams[number]);
+
+    if (!hasFeaturedTeam) {
+      console.log(`[Reward] Team ${teamId} is not a featured team - no Einundzwanzig bonus`);
+      return false;
+    }
+
+    console.log(`[Reward] Einundzwanzig bonus qualifies: joined + featured team ${teamId}`);
+    return true;
+  }
+
+  /**
+   * Internal method to track reward with a specific amount (local tracking only)
+   * Uses unified binary toggle for destination
+   *
+   * v3: Actual payment handled by external service reading kind 1301 tags
+   */
+  private async sendRewardWithAmount(
+    userPubkey: string,
+    totalAmount: number
+  ): Promise<RewardResult> {
+    try {
+      console.log(
+        '[Reward] Tracking reward for',
+        userPubkey.slice(0, 8) + '...',
+        `(${totalAmount} sats)`
+      );
+
+      if (DEBUG_REWARDS) {
+        Alert.alert('Reward Debug', `Tracking reward!\n\nUser: ${userPubkey.slice(0, 8)}...\nAmount: ${totalAmount} sats\n\nPayment via external service`);
       }
 
       // Check if user already claimed today (one reward per day limit)
@@ -614,162 +708,54 @@ class DailyRewardServiceClass {
         };
       }
 
-      // Get user's Lightning address from their Nostr profile
-      const lightningAddress = await this.getUserLightningAddress(userPubkey);
-      if (!lightningAddress) {
-        console.log(
-          '[Reward] User has no Lightning address in profile, skipping reward'
-        );
-        addRewardDiagnostic(userPubkey, 'check', false, 'no_lightning_address');
-        if (DEBUG_REWARDS) {
-          Alert.alert('Reward Debug', 'No Lightning address found!\n\nSet one in Settings → Rewards, or add lud16 to your Nostr profile');
-        }
-        return {
-          success: false,
-          reason: 'no_lightning_address',
-        };
-      }
+      // Get unified reward destination (user OR charity)
+      const destination = await this.getRewardDestination();
 
       // ===== PLEDGE CHECK =====
       // If user has active pledge, route reward to pledge destination
       const activePledge = await PledgeService.getActivePledge(userPubkey);
       if (activePledge) {
         console.log(
-          '[Reward] Active pledge found, routing to:',
+          '[Reward] Active pledge found, tracking for:',
           activePledge.destinationName
         );
         return this.sendPledgeReward(userPubkey, activePledge);
       }
       // ===== END PLEDGE CHECK =====
 
-      // Load donation settings and calculate split (charity only - no team payments)
-      const { donationPercentage, charity } = await this.getDonationSettings();
+      console.log('[Reward] Tracking reward locally:', {
+        destination: destination.isCharity ? destination.charityName : 'User',
+        amount: totalAmount,
+      });
 
-      // ===== EINUNDZWANZIG DOUBLE REWARDS =====
-      // If user is in Einundzwanzig event and it's active, double the reward
-      let totalAmount: number = REWARD_CONFIG.DAILY_WORKOUT_REWARD; // Default 50 sats
-      if (isEinundzwanzigActive()) {
-        const isInEinundzwanzig = await EinundzwanzigService.hasJoined(userPubkey);
-        if (isInEinundzwanzig) {
-          totalAmount = 100; // Double reward for Einundzwanzig participants
-          console.log('[Reward] Einundzwanzig bonus active: 100 sats');
-        }
-      }
-      // ===== END EINUNDZWANZIG CHECK =====
+      // ===== LOCAL TRACKING (no Supabase calls) =====
+      // External service handles actual payment based on kind 1301 tags
 
-      const split = this.calculateSplit(totalAmount, donationPercentage, charity);
+      // Record the reward amount locally (for stats/UI)
+      await this.recordReward(userPubkey, totalAmount);
 
-      console.log('[Reward] Payment split:', split);
-
-      if (DEBUG_REWARDS) {
-        Alert.alert('Reward Debug',
-          `Split calculation:\n` +
-          `Total: ${totalAmount} sats\n` +
-          `Donation %: ${donationPercentage}%\n` +
-          `User: ${split.userAmount} sats\n` +
-          `Charity: ${split.charityAmount} sats`
-        );
-      }
-
-      // Track payment results
-      let userPaymentSuccess = false;
-      let charityPaymentSuccess = false;
-
-      // 1. Pay user their portion via Supabase (server handles rate limiting)
-      if (split.userAmount > 0) {
-        const result = await this.claimRewardViaSupabase(
-          lightningAddress,
-          'workout',
-          split.userAmount // Pass the actual amount (50 or 100 sats based on event)
-        );
-
-        if (result.success) {
-          userPaymentSuccess = true;
-          console.log('[Reward] User payment: ✅');
-        } else if (result.reason === 'already_claimed') {
-          // Already claimed today via another device or reinstall
-          console.log('[Reward] Already claimed today (server-side check)');
-          return { success: false, reason: 'already_claimed_today' };
-        } else {
-          console.log('[Reward] User payment: ❌', result.reason);
-        }
-      } else {
-        // If user amount is 0 (100% donation), skip user payment
-        userPaymentSuccess = true;
-      }
-
-      // 2. Pay charity (if amount > 0 and user payment succeeded)
-      if (userPaymentSuccess && split.charityAmount > 0 && charity?.lightningAddress) {
-        try {
-          const result = await this.claimRewardViaSupabase(
-            charity.lightningAddress,
-            'workout',
-            split.charityAmount, // Pass charity's portion
-            true // isCharityDonation - skip rate-limiting
-          );
-          charityPaymentSuccess = result.success;
-          console.log(`[Reward] Charity (${charity.name}) payment:`, charityPaymentSuccess ? '✅' : '❌');
-
-          // Track successful charity donations for leaderboard
-          if (charityPaymentSuccess) {
-            await DonationTrackingService.recordDonation({
-              donorPubkey: userPubkey,
-              amount: split.charityAmount,
-              charityId: charity.id,
-              charityName: charity.name,
-            });
-          }
-        } catch (error) {
-          console.error('[Reward] Charity payment error:', error);
-        }
-      }
-
-      // Consider reward successful if user payment worked
-      if (userPaymentSuccess || split.userAmount === 0) {
-        // Record the full reward amount locally (for stats/UI)
-        await this.recordReward(userPubkey, totalAmount);
-
-        console.log(
-          '[Reward] ✅ Reward sent successfully:',
-          `User: ${split.userAmount}, Charity: ${split.charityAmount}`
-        );
-
-        // Log success
-        addRewardDiagnostic(userPubkey, 'send', true, undefined, totalAmount);
-
-        // Show branded reward notification with donation split info
-        const donationSplit: DonationSplit = {
-          userAmount: split.userAmount,
-          charityAmount: charityPaymentSuccess ? split.charityAmount : 0,
-          charityName: charityPaymentSuccess && split.charityAmount > 0 ? charity?.name : undefined,
-        };
-
-        console.log('[Reward] 📢 About to show toast notification:', { totalAmount, donationSplit });
-        RewardNotificationManager.showRewardEarned(totalAmount, donationSplit);
-        console.log('[Reward] ✅ Toast notification triggered');
-
-        return {
-          success: true,
+      // Track charity donations for Impact Level XP
+      if (destination.isCharity) {
+        await DonationTrackingService.recordDonation({
+          donorPubkey: userPubkey,
           amount: totalAmount,
-        };
-      } else {
-        // SILENT FAILURE - just log
-        console.log('[Reward] ❌ User payment failed (silent)');
-        addRewardDiagnostic(userPubkey, 'send', false, 'payment_failed');
-
-        if (DEBUG_REWARDS) {
-          Alert.alert('Reward Debug', 'User payment failed!\n\nPossible causes:\n- Reward service unavailable\n- Lightning address issue');
-        }
-
-        return {
-          success: false,
-          reason: 'payment_failed',
-        };
+          charityId: destination.charityId,
+          charityName: destination.charityName,
+        });
       }
+
+      // Log success
+      addRewardDiagnostic(userPubkey, 'send', true, undefined, totalAmount);
+      console.log('[Reward] Reward tracked locally');
+
+      return {
+        success: true,
+        amount: totalAmount,
+      };
     } catch (error) {
       // SILENT FAILURE - just log error
       const errorMsg = error instanceof Error ? error.message : 'unknown_error';
-      console.error('[Reward] Error sending reward (silent):', error);
+      console.error('[Reward] Error tracking reward (silent):', error);
       addRewardDiagnostic(userPubkey, 'send', false, errorMsg);
 
       if (DEBUG_REWARDS) {
@@ -786,6 +772,9 @@ class DailyRewardServiceClass {
   /**
    * Check reward eligibility without sending
    * Useful for UI to show "Earn X sats" prompts
+   *
+   * Note: With the simplified reward system, there's always a valid destination
+   * (charity fallback), so eligibility is primarily about daily limit.
    */
   async checkEligibility(userPubkey: string): Promise<{
     eligible: boolean;
@@ -794,14 +783,6 @@ class DailyRewardServiceClass {
   }> {
     try {
       const canClaim = await this.canClaimToday(userPubkey);
-      const lightningAddress = await this.getUserLightningAddress(userPubkey);
-
-      if (!lightningAddress) {
-        return {
-          eligible: false,
-          reason: 'no_lightning_address',
-        };
-      }
 
       if (!canClaim) {
         // Calculate next eligible time (tomorrow midnight)

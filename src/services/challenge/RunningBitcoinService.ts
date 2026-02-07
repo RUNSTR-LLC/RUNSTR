@@ -29,6 +29,7 @@ import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
 import { ProfileCache } from '../../cache/ProfileCache';
 import { nip19 } from 'nostr-tools';
+import { PendingSubmissionService, PendingSubmission } from '../competition/PendingSubmissionService';
 
 const JOINED_USERS_KEY = '@runstr:running_bitcoin_joined';
 const REWARDS_CLAIMED_KEY = '@runstr:running_bitcoin_rewards_claimed';
@@ -144,6 +145,41 @@ class RunningBitcoinServiceClass {
         existing.distance += w.distance;
         existing.workoutCount += 1;
         stats.set(pubkey, existing);
+      }
+
+      // LOCAL-FIRST: Merge pending submissions for instant user appearance
+      const pendingSubmissions = await this.getPendingForDateRange(startTs, endTs);
+      const eligiblePending = pendingSubmissions.filter(
+        p => p.submissionData.type?.toLowerCase() === 'running' ||
+             p.submissionData.type?.toLowerCase() === 'walking'
+      );
+
+      if (eligiblePending.length > 0) {
+        console.log(`[RunningBitcoin] Merging ${eligiblePending.length} pending workouts`);
+
+        for (const pending of eligiblePending) {
+          // Convert npub to pubkey
+          let pubkey = '';
+          try {
+            const decoded = nip19.decode(pending.submissionData.npub);
+            pubkey = decoded.data as string;
+          } catch {
+            continue; // Skip invalid npub
+          }
+
+          // Only include if user is eligible (joined)
+          if (!eligiblePubkeys.has(pubkey)) continue;
+
+          // Distance is in meters, convert to km
+          const distanceKm = (pending.submissionData.distance || 0) / 1000;
+
+          if (distanceKm > 0) {
+            const existing = stats.get(pubkey) || { distance: 0, workoutCount: 0 };
+            existing.distance += distanceKm;
+            existing.workoutCount += 1;
+            stats.set(pubkey, existing);
+          }
+        }
       }
 
       console.log(`[RunningBitcoin] ✅ Aggregated stats for ${stats.size} participants`);
@@ -288,6 +324,25 @@ class RunningBitcoinServiceClass {
   }
 
   /**
+   * Get pending submissions for a date range
+   * Used for hybrid leaderboards to merge local pending workouts
+   */
+  private async getPendingForDateRange(startTs: number, endTs: number): Promise<PendingSubmission[]> {
+    try {
+      const allPending = await PendingSubmissionService.getPending();
+
+      // Filter to submissions within the date range (using startTime)
+      return allPending.filter(p => {
+        const submissionTime = new Date(p.submissionData.startTime).getTime() / 1000;
+        return submissionTime >= startTs && submissionTime <= endTs;
+      });
+    } catch (error) {
+      console.warn('[RunningBitcoin] Failed to get pending submissions:', error);
+      return [];
+    }
+  }
+
+  /**
    * Create empty leaderboard structure
    */
   private emptyLeaderboard(): RunningBitcoinLeaderboard {
@@ -321,11 +376,13 @@ class RunningBitcoinServiceClass {
       const endDate = new Date(endTs * 1000).toISOString();
 
       // Query running + walking workouts in date range
+      // Include event_id to filter out step-estimated submissions (steps_ prefix)
       const url = `${supabaseUrl}/rest/v1/workout_submissions?` +
         `activity_type=in.(running,walking)&` +
         `created_at=gte.${startDate}&` +
         `created_at=lte.${endDate}&` +
-        `select=npub,distance_meters,activity_type,created_at`;
+        `select=npub,distance_meters,activity_type,created_at,event_id&` +
+        `limit=10000`;
 
       const response = await fetch(url, {
         headers: {
@@ -342,12 +399,23 @@ class RunningBitcoinServiceClass {
       const data = await response.json();
       console.log(`[RunningBitcoin] Fetched ${data.length} workouts from Supabase`);
 
+      // Filter out step-estimated submissions (event_id starts with "steps_")
+      // These are synthetic walking workouts from StepCompetitionService that
+      // would double-count distance when a user also GPS-tracks a walk/run.
+      const filtered = data.filter((row: { event_id?: string }) =>
+        !row.event_id?.startsWith('steps_')
+      );
+      if (filtered.length < data.length) {
+        console.log(`[RunningBitcoin] Excluded ${data.length - filtered.length} step-estimated submissions`);
+      }
+
       // Transform to internal format
-      return data.map((row: {
+      return filtered.map((row: {
         npub: string;
         distance_meters: number | null;
         activity_type: string;
         created_at: string;
+        event_id?: string;
       }) => {
         // Convert npub to pubkey
         let pubkey = '';
@@ -465,8 +533,8 @@ class RunningBitcoinServiceClass {
       const endDate = RUNNING_BITCOIN_CONFIG.endDate.toISOString();
 
       // Query workout_submissions for this user's running + walking workouts
-      // within the Running Bitcoin date range
-      const url = `${supabaseUrl}/rest/v1/workout_submissions?npub=eq.${npub}&created_at=gte.${startDate}&created_at=lte.${endDate}&activity_type=in.(running,walking)&select=distance_meters`;
+      // within the Running Bitcoin date range (include event_id to filter step submissions)
+      const url = `${supabaseUrl}/rest/v1/workout_submissions?npub=eq.${npub}&created_at=gte.${startDate}&created_at=lte.${endDate}&activity_type=in.(running,walking)&select=distance_meters,event_id`;
 
       const response = await fetch(url, {
         headers: {
@@ -482,8 +550,13 @@ class RunningBitcoinServiceClass {
 
       const workouts = await response.json();
 
+      // Filter out step-estimated submissions to prevent double-counting
+      const gpsWorkouts = workouts.filter(
+        (w: { event_id?: string }) => !w.event_id?.startsWith('steps_')
+      );
+
       // Sum up all distance in km
-      const totalKm = workouts.reduce((sum: number, w: { distance_meters: number | null }) => {
+      const totalKm = gpsWorkouts.reduce((sum: number, w: { distance_meters: number | null }) => {
         return sum + ((w.distance_meters || 0) / 1000);
       }, 0);
 
@@ -700,10 +773,65 @@ class RunningBitcoinServiceClass {
       }
 
       console.log(`[RunningBitcoin] Loaded ${participants.size} joined participants from Supabase`);
+
+      // Enrich participants with Nostr profiles for those with null names
+      await this.enrichParticipantsWithNostrProfiles(participants);
+
       return participants;
     } catch (error) {
       console.warn('[RunningBitcoin] Error fetching Supabase participants:', error);
       return participants;
+    }
+  }
+
+  /**
+   * Enrich participants with Nostr profile data for those with null names
+   * Fetches kind 0 profiles from Nostr as a fallback when Supabase has no profile data
+   */
+  private async enrichParticipantsWithNostrProfiles(
+    participants: Map<string, { npub: string; pubkey: string; name?: string; picture?: string }>
+  ): Promise<void> {
+    // Find participants with null names
+    const pubkeysNeedingProfiles: string[] = [];
+    for (const [pubkey, profile] of participants) {
+      if (!profile.name) {
+        pubkeysNeedingProfiles.push(pubkey);
+      }
+    }
+
+    if (pubkeysNeedingProfiles.length === 0) {
+      return;
+    }
+
+    console.log(`[RunningBitcoin] Fetching Nostr profiles for ${pubkeysNeedingProfiles.length} participants with null names`);
+
+    try {
+      const nostrProfiles = await ProfileCache.fetchProfiles(pubkeysNeedingProfiles);
+
+      // Update participants with Nostr profile data
+      let enrichedCount = 0;
+      for (const [pubkey, nostrProfile] of nostrProfiles) {
+        const participant = participants.get(pubkey);
+        if (participant && !participant.name && nostrProfile.name) {
+          participant.name = nostrProfile.name;
+          participant.picture = participant.picture || nostrProfile.picture;
+          console.log(`[RunningBitcoin] Enriched ${pubkey.slice(0, 8)} with Nostr name: ${nostrProfile.name}`);
+          enrichedCount++;
+
+          // Fire-and-forget: Update Supabase so future loads don't need Nostr fetch
+          SupabaseCompetitionService.updateParticipantProfile(
+            'running-bitcoin',
+            participant.npub,
+            { name: nostrProfile.name, picture: nostrProfile.picture }
+          ).catch(err => {
+            console.warn('[RunningBitcoin] Failed to persist profile to Supabase (non-blocking):', err);
+          });
+        }
+      }
+
+      console.log(`[RunningBitcoin] Enriched ${enrichedCount} participants with Nostr profiles`);
+    } catch (error) {
+      console.warn('[RunningBitcoin] Error fetching Nostr profiles (non-blocking):', error);
     }
   }
 
@@ -739,12 +867,14 @@ class RunningBitcoinServiceClass {
     }
 
     // Filter workouts for Running Bitcoin date range and eligible activities
+    // Also exclude step-estimated submissions (id starts with "steps_") to prevent double-counting
     const eligibleWorkouts = workouts.filter(w => {
       const activityLower = w.activityType?.toLowerCase() || '';
       const isEligibleActivity = activityLower === 'running' || activityLower === 'walking';
       const isInDateRange = w.createdAt >= startTs && w.createdAt <= endTs;
       const isEligibleParticipant = eligiblePubkeys.has(w.pubkey);
-      return isEligibleActivity && isInDateRange && isEligibleParticipant;
+      const isNotStepEstimate = !w.id?.startsWith('steps_');
+      return isEligibleActivity && isInDateRange && isEligibleParticipant && isNotStepEstimate;
     });
 
     console.log(`[RunningBitcoin] Eligible workouts: ${eligibleWorkouts.length}`);

@@ -9,6 +9,7 @@ import { NostrInitializationService } from '../nostr/NostrInitializationService'
 import nostrPrefetchService from '../nostr/NostrPrefetchService';
 import { getUserNostrIdentifiers } from '../../utils/nostr';
 import { LeaderboardBaselineService } from '../season/LeaderboardBaselineService';
+import { WoTService } from '../wot/WoTService';
 
 class AppInitializationService {
   private static instance: AppInitializationService | null = null;
@@ -109,6 +110,19 @@ class AppInitializationService {
             console.warn('Profile fetch failed, using cache')
           );
           console.log('✅ AppInit: Profile loaded');
+
+          // Pre-fetch WoT score for social posting eligibility
+          // This gates Kind 1 posting to users with WoT > 0
+          if (identifiers.hexPubkey) {
+            try {
+              console.log('🔐 AppInit: Pre-fetching WoT score...');
+              const wotService = WoTService.getInstance();
+              await wotService.fetchAndCacheScore(identifiers.hexPubkey);
+              console.log('✅ AppInit: WoT score cached');
+            } catch (error) {
+              console.warn('⚠️ AppInit: WoT pre-fetch failed (non-blocking):', error);
+            }
+          }
 
           // Check if aborted before prefetch
           if (signal.aborted) {

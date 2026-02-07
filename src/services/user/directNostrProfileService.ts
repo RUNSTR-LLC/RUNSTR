@@ -43,8 +43,9 @@ export class DirectNostrProfileService {
   /**
    * Get complete user profile with progressive loading and caching
    * Returns immediately with cached data, then updates with fresh data
+   * @param forceRefresh - When true, clears all caches before fetching fresh data from relays
    */
-  static async getCurrentUserProfile(): Promise<DirectNostrUser | null> {
+  static async getCurrentUserProfile(forceRefresh: boolean = false): Promise<DirectNostrUser | null> {
     try {
       console.log(
         '🔍 DirectNostrProfileService: Getting profile with caching...'
@@ -63,14 +64,37 @@ export class DirectNostrProfileService {
         storedNpub.slice(0, 20) + '...'
       );
 
-      // Try to get cached profile first (instant display)
-      const cachedProfile =
-        await NostrCacheService.getCachedProfile<DirectNostrUser>(storedNpub);
-      if (cachedProfile) {
-        console.log('⚡ DirectNostrProfileService: Using cached profile data');
-        // Start background refresh but return cached data immediately
-        this.backgroundRefreshProfile(storedNpub);
-        return cachedProfile;
+      // Clear all caches if force refresh requested (e.g., pull-to-refresh)
+      if (forceRefresh) {
+        console.log('🗑️ DirectNostrProfileService: Force refresh - clearing all caches');
+
+        // Clear Layer 1: NostrCacheService (memory + persistent)
+        await NostrCacheService.forceRefreshProfile(storedNpub);
+
+        // Clear Layer 2: NostrProfileService memory cache
+        await nostrProfileService.clearCache();
+
+        // Clear Layer 3: UnifiedNostrCache
+        try {
+          const { data: hexPubkey } = nip19.decode(storedNpub);
+          const unifiedCache = UnifiedNostrCache.getInstance();
+          await unifiedCache.invalidate(CacheKeys.USER_PROFILE(hexPubkey as string));
+          console.log('✅ DirectNostrProfileService: All caches cleared');
+        } catch (e) {
+          console.warn('⚠️ DirectNostrProfileService: Failed to clear UnifiedNostrCache:', e);
+        }
+      }
+
+      // Try to get cached profile first (instant display) - skip if force refresh
+      if (!forceRefresh) {
+        const cachedProfile =
+          await NostrCacheService.getCachedProfile<DirectNostrUser>(storedNpub);
+        if (cachedProfile) {
+          console.log('⚡ DirectNostrProfileService: Using cached profile data');
+          // Start background refresh but return cached data immediately
+          this.backgroundRefreshProfile(storedNpub);
+          return cachedProfile;
+        }
       }
 
       // No cache - fetch fresh data (first time or expired)

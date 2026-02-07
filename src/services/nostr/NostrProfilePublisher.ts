@@ -332,6 +332,11 @@ export class NostrProfilePublisher {
       // Also update old NostrCacheService for backward compatibility
       await NostrCacheService.setCachedProfile(npub, updatedUser);
 
+      // CRITICAL: Force refresh NostrProfileService cache
+      // This service has its own 30-min cache that must be invalidated
+      // otherwise getCurrentProfile() returns stale data
+      await nostrProfileService.refreshProfile(npub);
+
       console.log(
         '✅ Profile cache updated with new data - UI will refresh automatically'
       );

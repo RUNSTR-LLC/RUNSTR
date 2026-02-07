@@ -2,19 +2,23 @@
  * RewardNotificationManager - Imperative API for reward notifications
  * Uses Toast for non-blocking notifications that don't conflict with modals
  *
- * Usage:
- *   // From any service:
- *   RewardNotificationManager.showRewardEarned(21);
- *   RewardNotificationManager.showPledgeRewardSent(50, 'Saturday 5K', 'OpenSats', 3, 7);
+ * Only shows CONFIRMED payment notifications from RewardPollingService:
+ * - showRewardConfirmed() — "Reward Received!" (payment sent to user's wallet)
+ * - showRewardDonated() — "Reward Donated!" (payment sent to charity)
+ * - showBatchRewardsConfirmed() — batch notification for 3+ payments
+ * - showPledgeRewardSent() / showPledgeCompleted() — pledge notifications
  */
 
 import Toast from 'react-native-toast-message';
 
+/**
+ * @deprecated Use charityName?: string instead
+ * Kept for backwards compatibility during transition
+ */
 export interface DonationSplit {
   userAmount: number;
   charityAmount: number;
   charityName?: string;
-  // Note: Team donations disabled until teams have lightning addresses configured
 }
 
 /**
@@ -31,7 +35,7 @@ export interface PledgeInfo {
 export interface RewardNotificationState {
   visible: boolean;
   amount: number;
-  donationSplit?: DonationSplit;
+  charityName?: string;
   /** If set, this is a pledge reward notification */
   pledgeInfo?: PledgeInfo;
 }
@@ -42,67 +46,6 @@ class RewardNotificationManagerClass {
   // Keep callback for backwards compatibility with RewardNotificationProvider
   // But Toast is now the primary notification method
   private callback: NotificationCallback | null = null;
-
-  // Store the latest reward so modals can display it
-  private lastReward: { amount: number; donationSplit?: DonationSplit; timestamp: number } | null = null;
-
-  /**
-   * Get the last reward if it was earned recently (within 30 seconds)
-   * Used by workout summary modals to display reward info
-   */
-  getLastReward(): { amount: number; donationSplit?: DonationSplit } | null {
-    if (!this.lastReward) return null;
-
-    // Only return if earned within last 30 seconds
-    const age = Date.now() - this.lastReward.timestamp;
-    if (age > 30000) {
-      this.lastReward = null;
-      return null;
-    }
-
-    return {
-      amount: this.lastReward.amount,
-      donationSplit: this.lastReward.donationSplit,
-    };
-  }
-
-  /**
-   * Clear the last reward (call after displaying in modal)
-   */
-  clearLastReward(): void {
-    this.lastReward = null;
-  }
-
-  /**
-   * Show pending reward toast after a delay (call when modal closes)
-   * The 350ms delay ensures the modal has finished animating out
-   * before the toast appears, preventing it from being obscured
-   */
-  showPendingRewardToast(): void {
-    const reward = this.getLastReward();
-    if (reward) {
-      this.clearLastReward();
-
-      let subtitle = `+${reward.amount} sats earned!`;
-      if (reward.donationSplit?.charityName && reward.donationSplit.charityAmount > 0) {
-        subtitle = `+${reward.donationSplit.userAmount} sats to you, +${reward.donationSplit.charityAmount} to ${reward.donationSplit.charityName}`;
-      } else if (reward.donationSplit?.userAmount) {
-        subtitle = `+${reward.donationSplit.userAmount} sats earned!`;
-      }
-
-      // Delay toast to ensure modal slide-out animation is complete (~300ms)
-      setTimeout(() => {
-        console.log('[RewardNotification] 📢 Showing pending reward toast now');
-        Toast.show({
-          type: 'reward',
-          text1: 'Reward Earned!',
-          text2: subtitle,
-          position: 'top',
-          visibilityTime: 7000,
-        });
-      }, 350);
-    }
-  }
 
   /**
    * Register a callback from the RewardNotificationProvider
@@ -119,33 +62,6 @@ class RewardNotificationManagerClass {
    */
   unregister(): void {
     this.callback = null;
-  }
-
-  /**
-   * Show the reward earned notification as a non-blocking toast
-   * Can be called from anywhere (services, components, etc.)
-   *
-   * @param amount - Amount of sats earned
-   * @param donationSplit - Optional donation breakdown (user, team, charity)
-   */
-  showRewardEarned(amount: number, donationSplit?: DonationSplit): void {
-    console.log('[RewardNotification] 🎉 showRewardEarned called:', { amount, donationSplit });
-
-    // Store reward for modals to display
-    this.lastReward = { amount, donationSplit, timestamp: Date.now() };
-
-    let subtitle = `+${amount} sats earned!`;
-
-    // Show split if charity was included
-    if (donationSplit?.charityName && donationSplit.charityAmount > 0) {
-      subtitle = `+${donationSplit.userAmount} sats to you, +${donationSplit.charityAmount} to ${donationSplit.charityName}`;
-    } else if (donationSplit?.userAmount) {
-      subtitle = `+${donationSplit.userAmount} sats earned!`;
-    }
-
-    // Don't show toast here - it will appear behind modals
-    // Instead, each screen calls showPendingRewardToast() when their modal closes
-    console.log('[RewardNotification] 📢 Reward stored, waiting for modal to close...');
   }
 
   /**
@@ -214,6 +130,81 @@ class RewardNotificationManagerClass {
       1, // Completed
       1 // Of 1 (100%)
     );
+  }
+
+  /**
+   * Show confirmed reward notification (payment received)
+   * Called when Supabase confirms the payment was actually sent to user's wallet
+   *
+   * @param amount - Amount of sats received
+   */
+  showRewardConfirmed(amount: number): void {
+    console.log('[RewardNotification] ✅ showRewardConfirmed called:', { amount });
+
+    Toast.show({
+      type: 'rewardConfirmed',
+      text1: 'Reward Received!',
+      text2: `${amount} sats sent to your wallet`,
+      position: 'top',
+      visibilityTime: 5000,
+    });
+  }
+
+  /**
+   * Show confirmed donation notification (payment sent to charity)
+   * Called when Supabase confirms the payment was actually sent to charity
+   *
+   * @param amount - Amount of sats donated
+   * @param charityName - Name of the charity that received the donation
+   */
+  showRewardDonated(amount: number, charityName: string): void {
+    console.log('[RewardNotification] 💖 showRewardDonated called:', { amount, charityName });
+
+    Toast.show({
+      type: 'rewardDonated',
+      text1: 'Reward Sent!',
+      text2: `${amount} sats sent to ${charityName}`,
+      position: 'top',
+      visibilityTime: 5000,
+    });
+  }
+
+  /**
+   * Show batch donation notification (multiple payments sent to charities)
+   * Called when multiple charity payments are detected at once
+   *
+   * @param count - Number of charity payments
+   * @param totalAmount - Total amount of sats donated
+   */
+  showBatchRewardsDonated(count: number, totalAmount: number): void {
+    console.log('[RewardNotification] showBatchRewardsDonated called:', { count, totalAmount });
+
+    Toast.show({
+      type: 'rewardDonated',
+      text1: 'Rewards Sent!',
+      text2: `${count} payments - ${totalAmount} sats to charities`,
+      position: 'top',
+      visibilityTime: 6000,
+    });
+  }
+
+  /**
+   * Show batch rewards confirmed notification
+   * Called when multiple payments are detected at once (prevents toast spam)
+   *
+   * @param count - Number of payments received
+   * @param totalAmount - Total amount of sats received
+   */
+  showBatchRewardsConfirmed(count: number, totalAmount: number): void {
+    console.log('[RewardNotification] 🎉 showBatchRewardsConfirmed called:', { count, totalAmount });
+
+    Toast.show({
+      type: 'rewardConfirmed',
+      text1: 'Rewards Received!',
+      text2: `${count} payments • ${totalAmount} sats total`,
+      position: 'top',
+      visibilityTime: 6000,
+    });
   }
 }
 

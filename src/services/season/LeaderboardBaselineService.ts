@@ -242,6 +242,9 @@ class LeaderboardBaselineServiceClass {
       const finishEarly = (reason: string) => {
         if (!resolved) {
           resolved = true;
+          // ✅ MEMORY LEAK FIX: Remove listeners before stopping subscription
+          sub.removeAllListeners('event');
+          sub.removeAllListeners('eose');
           sub.stop();
           clearTimeout(timeout);
           console.log(`[BaselineService] Fetch complete: ${reason} (${events.length} events)`);

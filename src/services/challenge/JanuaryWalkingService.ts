@@ -24,6 +24,7 @@ import { getBaselineTotals } from '../../constants/season2Baseline';
 import type { CachedWorkout } from '../cache/UnifiedWorkoutCache';
 import { ProfileCache } from '../../cache/ProfileCache';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
+import { PendingSubmissionService, PendingSubmission } from '../competition/PendingSubmissionService';
 
 // Key for storing ALL joined users (not just current user)
 const JOINED_USERS_KEY = '@runstr:january_walking_joined_users';
@@ -118,6 +119,42 @@ class JanuaryWalkingServiceClass {
         existing.steps += w.steps;
         existing.workoutCount += 1;
         stats.set(pubkey, existing);
+      }
+
+      // LOCAL-FIRST: Merge pending submissions for instant user appearance
+      // Get pending submissions in the January Walking date range
+      const pendingSubmissions = await this.getPendingForDateRange(startTs, endTs);
+      const walkingPending = pendingSubmissions.filter(
+        p => p.submissionData.type?.toLowerCase() === 'walking'
+      );
+
+      if (walkingPending.length > 0) {
+        console.log(`[JanuaryWalking] Merging ${walkingPending.length} pending walking workouts`);
+
+        for (const pending of walkingPending) {
+          // Convert npub to pubkey
+          let pubkey = '';
+          try {
+            const decoded = nip19.decode(pending.submissionData.npub);
+            pubkey = decoded.data as string;
+          } catch {
+            continue; // Skip invalid npub
+          }
+
+          // Only include if user is eligible (joined)
+          if (!eligiblePubkeys.has(pubkey)) continue;
+
+          // Extract steps from tags
+          const stepsTag = pending.submissionData.tags?.find(t => t[0] === 'steps');
+          const steps = stepsTag ? parseInt(stepsTag[1]) || 0 : 0;
+
+          if (steps > 0) {
+            const existing = stats.get(pubkey) || { steps: 0, workoutCount: 0 };
+            existing.steps += steps;
+            existing.workoutCount += 1;
+            stats.set(pubkey, existing);
+          }
+        }
       }
 
       // Build participant entries with profile data from Supabase
@@ -365,6 +402,25 @@ class JanuaryWalkingServiceClass {
   }
 
   /**
+   * Get pending submissions for a date range
+   * Used for hybrid leaderboards to merge local pending workouts
+   */
+  private async getPendingForDateRange(startTs: number, endTs: number): Promise<PendingSubmission[]> {
+    try {
+      const allPending = await PendingSubmissionService.getPending();
+
+      // Filter to submissions within the date range (using startTime)
+      return allPending.filter(p => {
+        const submissionTime = new Date(p.submissionData.startTime).getTime() / 1000;
+        return submissionTime >= startTs && submissionTime <= endTs;
+      });
+    } catch (error) {
+      console.warn('[JanuaryWalking] Failed to get pending submissions:', error);
+      return [];
+    }
+  }
+
+  /**
    * Create empty leaderboard structure
    */
   private emptyLeaderboard(): JanuaryWalkingLeaderboard {
@@ -401,7 +457,8 @@ class JanuaryWalkingServiceClass {
         `activity_type=eq.walking&` +
         `created_at=gte.${startDate}&` +
         `created_at=lte.${endDate}&` +
-        `select=npub,step_count,created_at`;
+        `select=npub,step_count,created_at&` +
+        `limit=10000`;
 
       const response = await fetch(url, {
         headers: {

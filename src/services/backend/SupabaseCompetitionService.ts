@@ -10,6 +10,7 @@
  * by clicking "Join" on a competition or "Compete" on a workout.
  */
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   supabase,
   isSupabaseConfigured,
@@ -19,6 +20,9 @@ import {
   CharityRanking,
 } from '../../utils/supabase';
 import { getCharityById } from '../../constants/charities';
+
+// Local storage key for tracking joined competitions (optimistic join)
+const LOCAL_JOINED_COMPETITIONS_KEY = '@runstr:local_joined_competitions';
 
 // Nostr event type for kind 1301 workouts
 interface NostrEvent {
@@ -44,32 +48,41 @@ interface WorkoutSubmissionData {
   tags?: string[][]; // Nostr event tags for split/step parsing
   profileName?: string; // User's display name for leaderboard caching
   profilePicture?: string; // User's avatar URL for leaderboard caching
+  // PPQ.AI team: Bolt11 invoice for reward topup (instead of Lightning address)
+  ppqBolt11?: string;
+  ppqInvoiceId?: string;
 }
 
 export class SupabaseCompetitionService {
   /**
    * Join a competition - adds user's npub to participant list
+   * Uses optimistic pattern: save locally first for instant UI, then sync to Supabase
    *
    * @param competitionId - The competition UUID or external_id
    * @param npub - User's Nostr public key (npub format)
    * @param profile - Optional profile data (name, picture) to store for leaderboard display
-   * @returns Success status
+   * @returns Success status (always true for optimistic join)
    */
   static async joinCompetition(
     competitionId: string,
     npub: string,
     profile?: { name?: string; picture?: string }
   ): Promise<{ success: boolean; error?: string }> {
+    // OPTIMISTIC: Save locally FIRST for instant UI feedback
+    // This ensures user sees "Joined" state immediately, even if Supabase is slow/fails
+    await this.saveLocalJoin(competitionId, npub);
+
     if (!isSupabaseConfigured()) {
-      console.warn('[SupabaseCompetitionService] Supabase not configured');
-      return { success: false, error: 'Backend not configured' };
+      console.warn('[SupabaseCompetitionService] Supabase not configured - local join only');
+      return { success: true }; // Return success since local join worked
     }
 
     try {
-      // First, resolve competition ID (could be UUID or external_id)
+      // Resolve competition ID (could be UUID or external_id)
       const resolvedId = await this.resolveCompetitionId(competitionId);
       if (!resolvedId) {
-        return { success: false, error: 'Competition not found' };
+        console.warn('[SupabaseCompetitionService] Competition not found in Supabase - local join only');
+        return { success: true }; // Still return success since local join worked
       }
 
       // Build participant data with optional profile fields
@@ -96,20 +109,20 @@ export class SupabaseCompetitionService {
         .upsert(participantData, { onConflict: 'competition_id,npub' });
 
       if (error) {
-        console.error('[SupabaseCompetitionService] Join error:', error);
-        return { success: false, error: error.message };
+        console.warn('[SupabaseCompetitionService] Supabase join error (local join succeeded):', error);
+        // Still return success since local join worked
+        return { success: true };
       }
 
       console.log(
         `[SupabaseCompetitionService] Joined competition: ${competitionId}${profile?.name ? ` (${profile.name})` : ''}`
       );
+
       return { success: true };
     } catch (err) {
-      console.error('[SupabaseCompetitionService] Join exception:', err);
-      return {
-        success: false,
-        error: err instanceof Error ? err.message : 'Unknown error',
-      };
+      console.warn('[SupabaseCompetitionService] Join exception (local join succeeded):', err);
+      // Still return success since local join worked
+      return { success: true };
     }
   }
 
@@ -147,6 +160,10 @@ export class SupabaseCompetitionService {
       console.log(
         `[SupabaseCompetitionService] Left competition: ${competitionId}`
       );
+
+      // Remove from local storage
+      await this.removeLocalJoin(competitionId, npub);
+
       return { success: true };
     } catch (err) {
       console.error('[SupabaseCompetitionService] Leave exception:', err);
@@ -159,6 +176,7 @@ export class SupabaseCompetitionService {
 
   /**
    * Check if a user is participating in a competition
+   * Checks local storage first for instant response, then falls back to Supabase
    *
    * @param competitionId - The competition UUID or external_id
    * @param npub - User's Nostr public key
@@ -168,6 +186,12 @@ export class SupabaseCompetitionService {
     competitionId: string,
     npub: string
   ): Promise<boolean> {
+    // Check local storage first (instant, works offline)
+    const isLocalJoined = await this.isLocallyJoined(competitionId, npub);
+    if (isLocalJoined) {
+      return true;
+    }
+
     if (!isSupabaseConfigured()) {
       return false;
     }
@@ -184,8 +208,61 @@ export class SupabaseCompetitionService {
         .match({ competition_id: resolvedId, npub })
         .single();
 
-      return !error && !!data;
+      const isParticipating = !error && !!data;
+
+      // Sync to local storage if found in Supabase but not locally
+      if (isParticipating) {
+        await this.saveLocalJoin(competitionId, npub);
+      }
+
+      return isParticipating;
     } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Check if a user is in ANY active competition
+   * Used to determine if workouts should be submitted to Supabase
+   *
+   * @param npub - User's Nostr public key (npub format)
+   * @returns true if user is in at least one active competition
+   */
+  static async isInAnyActiveCompetition(npub: string): Promise<boolean> {
+    if (!isSupabaseConfigured()) {
+      return false;
+    }
+
+    try {
+      const now = new Date().toISOString();
+
+      // Query competition_participants joined with competitions
+      // to find any active competition the user is participating in
+      const { data, error } = await supabase!
+        .from('competition_participants')
+        .select(`
+          id,
+          competitions!inner (
+            id,
+            start_date,
+            end_date
+          )
+        `)
+        .eq('npub', npub)
+        .lte('competitions.start_date', now)
+        .gte('competitions.end_date', now)
+        .limit(1);
+
+      if (error) {
+        console.warn('[SupabaseCompetitionService] isInAnyActiveCompetition error:', error);
+        return false;
+      }
+
+      const isActive = data && data.length > 0;
+      console.log(`[SupabaseCompetitionService] User ${npub.slice(0, 12)}... in active competition: ${isActive}`);
+      return isActive;
+    } catch (err) {
+      console.warn('[SupabaseCompetitionService] isInAnyActiveCompetition exception:', err);
       return false;
     }
   }
@@ -237,13 +314,20 @@ export class SupabaseCompetitionService {
             event_id: data.eventId,
             npub: data.npub,
             activity_type: data.type,
-            distance_meters: data.distance || null,
+            distance_meters: data.distance ?? null,
             duration_seconds: data.duration,
             calories: data.calories || null,
             created_at: data.startTime,
+            // TIMEZONE FIX: Send local date for leaderboard grouping
+            // This ensures workouts appear on the correct day in the user's timezone
+            // Without this, late-night workouts appear on "tomorrow's" leaderboard (UTC)
+            leaderboard_date: new Date().toLocaleDateString('en-CA'), // YYYY-MM-DD format
             // Daily leaderboard: Pass profile data for caching
             profile_name: data.profileName || null,
             profile_picture: data.profilePicture || null,
+            // PPQ.AI team: Bolt11 invoice for reward topup
+            ppq_bolt11: data.ppqBolt11 || null,
+            ppq_invoice_id: data.ppqInvoiceId || null,
             raw_event: {
               event_id: data.eventId,
               type: data.type,
@@ -286,6 +370,8 @@ export class SupabaseCompetitionService {
           console.log(
             `[SupabaseCompetitionService] ✅ Submitted workout to competition backend: ${data.eventId}`
           );
+          // Note: Rewards are now triggered from the workout save flow (DailyRewardService)
+          // not from competition submission, to prevent duplicate triggers
         }
         return { success: true };
       } else {
@@ -386,11 +472,15 @@ export class SupabaseCompetitionService {
    *
    * @param competitionId - The competition UUID or external_id
    * @param limit - Maximum number of entries to return (default 100)
+   * @param dateOverride - Optional date range override (for demo mode)
    * @returns Leaderboard entries sorted by rank, plus charity rankings
    */
   static async getLeaderboard(
     competitionId: string,
-    limit: number = 100
+    limit: number = 100,
+    dateOverride?: { startDate: string; endDate: string },
+    activityTypes?: string[], // Optional: override activity types (e.g., ['running', 'walking'] for EIN)
+    requireAppSource: boolean = false // Only include workouts submitted via app (prevents fake terminal submissions)
   ): Promise<{
     leaderboard: LeaderboardEntry[];
     charityRankings: CharityRanking[];
@@ -430,20 +520,77 @@ export class SupabaseCompetitionService {
         return { leaderboard: [], charityRankings: [], competition };
       }
 
+      // DATA QUALITY FIX: Filter out banned users from leaderboard
+      // Banned users are stored in banned_users table with optional expiry
+      const { data: bannedUsers } = await supabase!
+        .from('banned_users')
+        .select('npub')
+        .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
+
+      const bannedSet = new Set((bannedUsers || []).map((b: { npub: string }) => b.npub));
+      const validNpubs = npubs.filter(npub => !bannedSet.has(npub));
+
+      if (bannedSet.size > 0) {
+        console.log(`[SupabaseCompetition] Filtered ${bannedSet.size} banned users from leaderboard`);
+      }
+
+      if (validNpubs.length === 0) {
+        return { leaderboard: [], charityRankings: [], competition };
+      }
+
       // Get workouts for participants within date range
-      const { data: rawWorkouts } = await supabase!
+      // Use dateOverride if provided (for demo mode), otherwise use competition dates
+      const startDate = dateOverride?.startDate || competition.start_date;
+      const endDate = dateOverride?.endDate || competition.end_date;
+
+      // Use activityTypes override if provided, otherwise use single competition type
+      const types = activityTypes || [competition.activity_type];
+
+      // Build query with activity type filter (single or multiple types)
+      // DATA QUALITY FIX: Use validNpubs (banned users filtered)
+      // REMOVED .eq('verified', true) - show all workouts regardless of verification status
+      // Anti-cheat validation already filters out impossible workouts (they go to flagged_workouts table)
+      let workoutQuery = supabase!
         .from('workout_submissions')
         .select('*')
-        .in('npub', npubs)
-        .eq('activity_type', competition.activity_type)
-        .gte('created_at', competition.start_date)
-        .lte('created_at', competition.end_date)
-        .order('created_at', { ascending: false }); // Most recent first
+        .in('npub', validNpubs)
+        .gte('created_at', startDate)
+        .lte('created_at', endDate);
+
+      // Use .in() for multiple types, .eq() for single type
+      if (types.length === 1) {
+        workoutQuery = workoutQuery.eq('activity_type', types[0]);
+      } else {
+        workoutQuery = workoutQuery.in('activity_type', types);
+      }
+
+      // DATA QUALITY FIX: Filter to only app-submitted workouts when required
+      // This prevents fake workouts submitted via terminal from appearing in prize competitions
+      if (requireAppSource) {
+        workoutQuery = workoutQuery.eq('source', 'app');
+      }
+
+      const { data: rawWorkouts } = await workoutQuery.order('created_at', { ascending: false }); // Most recent first
 
       // CRITICAL: Deduplicate workouts by (npub, distance, date) to prevent double-counting
       // Same workout can be submitted multiple times from different sources (GPS, HealthKit, Health Connect)
       const seenWorkoutKeys = new Set<string>();
+      const isDistanceCompetition = competition.scoring_method === 'total_distance';
       const workouts = rawWorkouts?.filter((w: WorkoutSubmission) => {
+        // DATA QUALITY FIX: Exclude step-based workouts with zero distance from distance competitions
+        // Step submissions with estimated non-GPS distance now contribute to distance totals
+        if (isDistanceCompetition) {
+          const rawEvent = w.raw_event as Record<string, unknown> | null;
+          const tags = rawEvent?.tags as string[][] | undefined;
+          if (tags) {
+            const dTag = tags.find((t: string[]) => t[0] === 'd');
+            if (dTag && dTag[1] && dTag[1].startsWith('steps_') && (w.distance_meters || 0) === 0) {
+              console.log(`[SupabaseCompetition] Excluding zero-distance step workout from distance competition: ${w.npub.slice(0, 12)}...`);
+              return false;
+            }
+          }
+        }
+
         // Round distance to nearest 10 meters (or use 0 for null/undefined)
         const roundedDist = Math.round((w.distance_meters || 0) / 10) * 10;
         // Extract date portion from timestamp
@@ -472,58 +619,135 @@ export class SupabaseCompetitionService {
         charityName?: string;
         latestWorkoutTime?: string;
       }>();
-      npubs.forEach((npub) => scores.set(npub, { score: 0, workoutCount: 0 }));
+      validNpubs.forEach((npub) => scores.set(npub, { score: 0, workoutCount: 0 }));
 
       // Track charity totals
       const charityTotals = new Map<string, { totalDistance: number; participants: Set<string> }>();
 
-      workouts?.forEach((w: WorkoutSubmission) => {
-        const current = scores.get(w.npub) || { score: 0, workoutCount: 0 };
-        let scoreIncrement = 0;
+      // For distance competitions, use MAX(steps, GPS) per day to prevent double-counting
+      // Step workouts have event_id starting with "steps_"
+      if (competition.scoring_method === 'total_distance') {
+        // Group workouts by (npub, date) and track step vs GPS distance separately
+        const dailyData = new Map<string, {
+          gpsDistanceKm: number;
+          stepDistanceKm: number;
+          gpsWorkoutCount: number;
+          charityId?: string;
+          charityName?: string;
+          latestWorkoutTime?: string;
+        }>();
 
-        // For baseline rows, workout count is stored in raw_event.workout_count
-        // For new individual workout rows, default to 1
-        const rawEvent = w.raw_event as Record<string, unknown> | null;
-        const rowWorkoutCount = (rawEvent?.workout_count as number) || 1;
+        workouts?.forEach((w: WorkoutSubmission) => {
+          const dateStr = w.created_at ? w.created_at.split('T')[0] : 'unknown';
+          const dayKey = `${w.npub}:${dateStr}`;
+          const distanceKm = (w.distance_meters || 0) / 1000;
+          const isStepWorkout = w.event_id?.startsWith('steps_');
 
-        // Extract charity from raw_event.tags
-        const charityData = this.extractCharityFromRawEvent(rawEvent);
+          const rawEvent = w.raw_event as Record<string, unknown> | null;
+          const charityData = this.extractCharityFromRawEvent(rawEvent);
 
-        switch (competition.scoring_method) {
-          case 'total_distance':
-            scoreIncrement = w.distance_meters || 0;
-            break;
-          case 'total_duration':
-            scoreIncrement = w.duration_seconds || 0;
-            break;
-          case 'workout_count':
-            scoreIncrement = rowWorkoutCount;
-            break;
-        }
+          const current = dailyData.get(dayKey) || {
+            gpsDistanceKm: 0,
+            stepDistanceKm: 0,
+            gpsWorkoutCount: 0,
+          };
 
-        // Track the most recent charity for this user (workouts are ordered desc)
-        const existingCharity = current.charityId;
-        const isNewerWorkout = !current.latestWorkoutTime || w.created_at > current.latestWorkoutTime;
+          if (isStepWorkout) {
+            // Step workout - track separately
+            current.stepDistanceKm += distanceKm;
+          } else {
+            // GPS workout - track distance and count
+            current.gpsDistanceKm += distanceKm;
+            current.gpsWorkoutCount += 1;
+          }
 
-        scores.set(w.npub, {
-          score: current.score + scoreIncrement,
-          workoutCount: current.workoutCount + rowWorkoutCount,
-          charityId: isNewerWorkout && charityData.charityId ? charityData.charityId : existingCharity,
-          charityName: isNewerWorkout && charityData.charityName ? charityData.charityName : current.charityName,
-          latestWorkoutTime: isNewerWorkout ? w.created_at : current.latestWorkoutTime,
+          // Track most recent charity
+          const isNewerWorkout = !current.latestWorkoutTime || w.created_at > current.latestWorkoutTime;
+          if (isNewerWorkout && charityData.charityId) {
+            current.charityId = charityData.charityId;
+            current.charityName = charityData.charityName;
+            current.latestWorkoutTime = w.created_at;
+          } else if (!current.latestWorkoutTime) {
+            current.latestWorkoutTime = w.created_at;
+          }
+
+          dailyData.set(dayKey, current);
         });
 
-        // Aggregate charity totals (only count distance-based activities)
-        if (charityData.charityId && w.distance_meters) {
-          const charityStats = charityTotals.get(charityData.charityId) || {
-            totalDistance: 0,
-            participants: new Set<string>(),
-          };
-          charityStats.totalDistance += w.distance_meters;
-          charityStats.participants.add(w.npub);
-          charityTotals.set(charityData.charityId, charityStats);
+        // Aggregate daily MAX(steps, GPS) into user totals
+        for (const [dayKey, daily] of dailyData) {
+          const npub = dayKey.split(':')[0];
+          const current = scores.get(npub) || { score: 0, workoutCount: 0 };
+
+          // MAX(steps, GPS) per day - simple and fair
+          const dailyDistance = Math.max(daily.stepDistanceKm, daily.gpsDistanceKm);
+          // Workout count: GPS workouts count, step-only days count as 1
+          const dailyWorkoutCount = daily.gpsWorkoutCount > 0 ? daily.gpsWorkoutCount : (daily.stepDistanceKm > 0 ? 1 : 0);
+
+          const isNewerWorkout = !current.latestWorkoutTime || (daily.latestWorkoutTime && daily.latestWorkoutTime > current.latestWorkoutTime);
+
+          scores.set(npub, {
+            score: current.score + dailyDistance,
+            workoutCount: current.workoutCount + dailyWorkoutCount,
+            charityId: isNewerWorkout && daily.charityId ? daily.charityId : current.charityId,
+            charityName: isNewerWorkout && daily.charityName ? daily.charityName : current.charityName,
+            latestWorkoutTime: isNewerWorkout && daily.latestWorkoutTime ? daily.latestWorkoutTime : current.latestWorkoutTime,
+          });
+
+          // Charity totals use the same MAX logic
+          if (daily.charityId && dailyDistance > 0) {
+            const charityStats = charityTotals.get(daily.charityId) || {
+              totalDistance: 0,
+              participants: new Set<string>(),
+            };
+            charityStats.totalDistance += dailyDistance;
+            charityStats.participants.add(npub);
+            charityTotals.set(daily.charityId, charityStats);
+          }
         }
-      });
+
+        console.log(`[SupabaseCompetition] Distance aggregation: ${dailyData.size} user-days processed with MAX(steps, GPS)`);
+      } else {
+        // Non-distance competitions: use original sum logic
+        workouts?.forEach((w: WorkoutSubmission) => {
+          const current = scores.get(w.npub) || { score: 0, workoutCount: 0 };
+          let scoreIncrement = 0;
+
+          const rawEvent = w.raw_event as Record<string, unknown> | null;
+          const rowWorkoutCount = (rawEvent?.workout_count as number) || 1;
+          const charityData = this.extractCharityFromRawEvent(rawEvent);
+
+          switch (competition.scoring_method) {
+            case 'total_duration':
+              scoreIncrement = w.duration_seconds || 0;
+              break;
+            case 'workout_count':
+              scoreIncrement = rowWorkoutCount;
+              break;
+          }
+
+          const existingCharity = current.charityId;
+          const isNewerWorkout = !current.latestWorkoutTime || w.created_at > current.latestWorkoutTime;
+
+          scores.set(w.npub, {
+            score: current.score + scoreIncrement,
+            workoutCount: current.workoutCount + rowWorkoutCount,
+            charityId: isNewerWorkout && charityData.charityId ? charityData.charityId : existingCharity,
+            charityName: isNewerWorkout && charityData.charityName ? charityData.charityName : current.charityName,
+            latestWorkoutTime: isNewerWorkout ? w.created_at : current.latestWorkoutTime,
+          });
+
+          if (charityData.charityId && w.distance_meters) {
+            const charityStats = charityTotals.get(charityData.charityId) || {
+              totalDistance: 0,
+              participants: new Set<string>(),
+            };
+            charityStats.totalDistance += (w.distance_meters / 1000);
+            charityStats.participants.add(w.npub);
+            charityTotals.set(charityData.charityId, charityStats);
+          }
+        });
+      }
 
       // Sort and rank leaderboard
       const leaderboard: LeaderboardEntry[] = Array.from(scores.entries())
@@ -642,6 +866,62 @@ export class SupabaseCompetitionService {
     } catch (err) {
       console.error('[SupabaseCompetitionService] Get competitions exception:', err);
       return [];
+    }
+  }
+
+  /**
+   * Update a participant's profile data (name, picture)
+   * Used to fix participants with null profile data
+   *
+   * @param competitionId - The competition UUID or external_id
+   * @param npub - User's Nostr public key
+   * @param profile - Profile data to update
+   * @returns Success status
+   */
+  static async updateParticipantProfile(
+    competitionId: string,
+    npub: string,
+    profile: { name?: string; picture?: string }
+  ): Promise<{ success: boolean; error?: string }> {
+    if (!isSupabaseConfigured()) {
+      return { success: false, error: 'Backend not configured' };
+    }
+
+    try {
+      const resolvedId = await this.resolveCompetitionId(competitionId);
+      if (!resolvedId) {
+        return { success: false, error: 'Competition not found' };
+      }
+
+      // Build update data (only include non-null values)
+      const updateData: { name?: string; picture?: string } = {};
+      if (profile.name) updateData.name = profile.name;
+      if (profile.picture) updateData.picture = profile.picture;
+
+      if (Object.keys(updateData).length === 0) {
+        return { success: false, error: 'No profile data to update' };
+      }
+
+      const { error } = await supabase!
+        .from('competition_participants')
+        .update(updateData)
+        .match({ competition_id: resolvedId, npub });
+
+      if (error) {
+        console.error('[SupabaseCompetitionService] Update profile error:', error);
+        return { success: false, error: error.message };
+      }
+
+      console.log(
+        `[SupabaseCompetitionService] Updated profile for ${npub.slice(0, 12)}: ${profile.name || 'no name'}`
+      );
+      return { success: true };
+    } catch (err) {
+      console.error('[SupabaseCompetitionService] Update profile exception:', err);
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : 'Unknown error',
+      };
     }
   }
 
@@ -794,6 +1074,88 @@ export class SupabaseCompetitionService {
       durationSeconds,
       calories,
     };
+  }
+
+  // ============================================================================
+  // Local Join Storage (Optimistic UI)
+  // ============================================================================
+
+  /**
+   * Save a local join record for instant UI feedback
+   * Called when user joins a competition (before Supabase confirms)
+   */
+  private static async saveLocalJoin(competitionId: string, npub: string): Promise<void> {
+    try {
+      const stored = await AsyncStorage.getItem(LOCAL_JOINED_COMPETITIONS_KEY);
+      const joins: Record<string, string[]> = stored ? JSON.parse(stored) : {};
+
+      // Add npub to this competition's list (if not already there)
+      if (!joins[competitionId]) {
+        joins[competitionId] = [];
+      }
+      if (!joins[competitionId].includes(npub)) {
+        joins[competitionId].push(npub);
+        await AsyncStorage.setItem(LOCAL_JOINED_COMPETITIONS_KEY, JSON.stringify(joins));
+        console.log(`[SupabaseCompetitionService] Saved local join: ${competitionId} -> ${npub.slice(0, 12)}...`);
+      }
+    } catch (error) {
+      console.warn('[SupabaseCompetitionService] Failed to save local join:', error);
+    }
+  }
+
+  /**
+   * Remove a local join record when user leaves a competition
+   */
+  private static async removeLocalJoin(competitionId: string, npub: string): Promise<void> {
+    try {
+      const stored = await AsyncStorage.getItem(LOCAL_JOINED_COMPETITIONS_KEY);
+      if (!stored) return;
+
+      const joins: Record<string, string[]> = JSON.parse(stored);
+      if (joins[competitionId]) {
+        joins[competitionId] = joins[competitionId].filter((n) => n !== npub);
+        if (joins[competitionId].length === 0) {
+          delete joins[competitionId];
+        }
+        await AsyncStorage.setItem(LOCAL_JOINED_COMPETITIONS_KEY, JSON.stringify(joins));
+        console.log(`[SupabaseCompetitionService] Removed local join: ${competitionId} -> ${npub.slice(0, 12)}...`);
+      }
+    } catch (error) {
+      console.warn('[SupabaseCompetitionService] Failed to remove local join:', error);
+    }
+  }
+
+  /**
+   * Check if user has joined a competition locally (instant, works offline)
+   */
+  private static async isLocallyJoined(competitionId: string, npub: string): Promise<boolean> {
+    try {
+      const stored = await AsyncStorage.getItem(LOCAL_JOINED_COMPETITIONS_KEY);
+      if (!stored) return false;
+
+      const joins: Record<string, string[]> = JSON.parse(stored);
+      return joins[competitionId]?.includes(npub) || false;
+    } catch (error) {
+      console.warn('[SupabaseCompetitionService] Failed to check local join:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get all locally joined users for a competition
+   * Useful for merging with Supabase participants in leaderboard
+   */
+  static async getLocallyJoinedUsers(competitionId: string): Promise<string[]> {
+    try {
+      const stored = await AsyncStorage.getItem(LOCAL_JOINED_COMPETITIONS_KEY);
+      if (!stored) return [];
+
+      const joins: Record<string, string[]> = JSON.parse(stored);
+      return joins[competitionId] || [];
+    } catch (error) {
+      console.warn('[SupabaseCompetitionService] Failed to get local joins:', error);
+      return [];
+    }
   }
 }
 

@@ -15,6 +15,10 @@ export interface ActiveSubscription {
   timeout?: NodeJS.Timeout;
 }
 
+// MEMORY FIX: Limit events per subscription to prevent unbounded memory growth
+// 500 events per subscription is sufficient for most use cases while preventing O(n) search degradation
+const MAX_EVENTS_PER_SUBSCRIPTION = 500;
+
 export class NostrSubscriptionManager {
   private activeSubscriptions: Map<string, ActiveSubscription> = new Map();
 
@@ -71,6 +75,13 @@ export class NostrSubscriptionManager {
     const existingEvent = subscription.events.find((e) => e.id === event.id);
     if (!existingEvent) {
       subscription.events.push(event);
+
+      // MEMORY FIX: Limit events array size to prevent unbounded growth
+      // Remove oldest events when limit exceeded (FIFO)
+      if (subscription.events.length > MAX_EVENTS_PER_SUBSCRIPTION) {
+        subscription.events = subscription.events.slice(-MAX_EVENTS_PER_SUBSCRIPTION);
+      }
+
       try {
         subscription.callback(event, relayUrl);
         return true;

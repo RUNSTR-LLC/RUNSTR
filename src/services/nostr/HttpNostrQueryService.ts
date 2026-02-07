@@ -38,7 +38,6 @@ const HTTP_RELAY_ENDPOINTS = {
   'wss://relay.damus.io': 'https://relay.damus.io/api/v1/req',
   'wss://relay.primal.net': 'https://relay.primal.net/api/query',
   'wss://nos.lol': 'https://nos.lol/api/req',
-  'wss://nostr.wine': 'https://nostr.wine/api/req',
   'wss://relay.nostr.band': 'https://relay.nostr.band/api/req',
   'wss://relay.snort.social': 'https://relay.snort.social/api/req',
   'wss://nostr-pub.wellorder.net': 'https://nostr-pub.wellorder.net/api/req',

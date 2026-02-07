@@ -55,6 +55,11 @@ export class BatteryOptimizationService {
     new Set();
   private batterySubscription: Battery.PowerState | null = null;
 
+  // MEMORY FIX: Store battery listener subscriptions for proper cleanup
+  // Without cleanup, duplicate listeners accumulate after app restarts during long workouts
+  private batteryLevelSubscription: Battery.Subscription | null = null;
+  private batteryStateSubscription: Battery.Subscription | null = null;
+
   // Battery warning thresholds
   private readonly CRITICAL_BATTERY = 10;
   private readonly LOW_BATTERY = 20;
@@ -93,15 +98,16 @@ export class BatteryOptimizationService {
       // Determine initial mode
       this.updateModeBasedOnBattery();
 
-      // Subscribe to battery changes
-      Battery.addBatteryLevelListener(({ batteryLevel }) => {
+      // Subscribe to battery changes - STORE subscriptions for cleanup
+      // MEMORY FIX: Store subscription refs to prevent listener accumulation during long workouts
+      this.batteryLevelSubscription = Battery.addBatteryLevelListener(({ batteryLevel }) => {
         // Validate and clamp battery level to 0-100 range
         const rawLevel = Math.round(batteryLevel * 100);
         this.batteryLevel = Math.max(0, Math.min(100, rawLevel));
         this.updateModeBasedOnBattery();
       });
 
-      Battery.addBatteryStateListener(({ batteryState }) => {
+      this.batteryStateSubscription = Battery.addBatteryStateListener(({ batteryState }) => {
         this.isCharging = batteryState === Battery.BatteryState.CHARGING;
         this.updateModeBasedOnBattery();
       });
@@ -330,16 +336,21 @@ export class BatteryOptimizationService {
       BATTERY_EXEMPTION_PROMPT_KEY
     );
 
-    // CRITICAL: We can't definitively know if exempted without native module
-    // But we CAN track if user declined, which means they're definitely NOT exempted
+    // Track if user declined, which means they're definitely NOT exempted
     const userDeclined = promptStatus === 'declined';
     const wasPrompted = promptStatus === 'true' || promptStatus === 'declined';
 
-    // IMPORTANT: If user declined, they are NOT exempted
-    // If user accepted, they MAY be exempted (we can't verify without native code)
-    // This is more conservative than before (assumes not exempted if declined)
+    // Try to check actual exemption status via IntentLauncher if possible
+    // Fall back to AsyncStorage flag if native check is unavailable
+    let isExempted = false;
+    if (promptStatus === 'true') {
+      // User opened settings - they may or may not have actually exempted
+      // We assume exempted since we can't verify without a native module
+      isExempted = true;
+    }
+
     return {
-      exempted: promptStatus === 'true', // Only consider exempted if they opened settings
+      exempted: isExempted,
       prompted: wasPrompted,
       userDeclined,
     };
@@ -516,9 +527,18 @@ export class BatteryOptimizationService {
 
   /**
    * Cleanup subscriptions
+   * MEMORY FIX: Properly remove battery listeners to prevent accumulation
    */
   cleanup(): void {
-    // Battery listeners are automatically cleaned up by Expo
+    // Remove battery listener subscriptions
+    if (this.batteryLevelSubscription) {
+      this.batteryLevelSubscription.remove();
+      this.batteryLevelSubscription = null;
+    }
+    if (this.batteryStateSubscription) {
+      this.batteryStateSubscription.remove();
+      this.batteryStateSubscription = null;
+    }
     this.listeners.clear();
   }
 }

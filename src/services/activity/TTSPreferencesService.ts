@@ -21,7 +21,7 @@ const DEFAULT_TTS_SETTINGS: TTSSettings = {
   speechRate: 1.0,
   announceOnSummary: true,
   includeSplits: false, // Keep it brief by default
-  announceLiveSplits: false, // Off by default to avoid interruptions
+  announceLiveSplits: true, // On by default - announce each kilometer during run
 };
 
 export class TTSPreferencesService {

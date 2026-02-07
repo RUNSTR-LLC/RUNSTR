@@ -127,13 +127,14 @@ export class ImageUploadService {
         signal: controller.signal,
       });
 
-      clearTimeout(timeoutId);
-
       if (!response.ok) {
+        clearTimeout(timeoutId);
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
+      // JSON parsing is still covered by the timeout (clearTimeout moved after parse)
       const data = await response.json();
+      clearTimeout(timeoutId);
 
       if (data.status === 'success' && data.data?.[0]?.url) {
         const uploadedFile = data.data[0];
@@ -205,13 +206,14 @@ export class ImageUploadService {
         signal: controller.signal,
       });
 
-      clearTimeout(timeoutId);
-
       if (!response.ok) {
+        clearTimeout(timeoutId);
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
+      // JSON parsing is still covered by the timeout (clearTimeout moved after parse)
       const data = await response.json();
+      clearTimeout(timeoutId);
 
       // Blossom returns { url, sha256, size, type, uploaded }
       if (data.url) {

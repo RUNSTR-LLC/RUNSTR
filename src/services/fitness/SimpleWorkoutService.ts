@@ -52,8 +52,6 @@ export class SimpleWorkoutService {
     'wss://relay.damus.io', // Primary: Best performance for 1301 events
     'wss://nos.lol', // Secondary: Good workout coverage
     'wss://relay.primal.net', // Tertiary: Additional coverage
-    'wss://nostr.wine', // Quaternary: Found workout events in test
-    'wss://relay.nostr.band', // Additional coverage
     'wss://relay.snort.social', // Enhanced coverage
     'wss://nostr-pub.wellorder.net', // Backup
   ];

@@ -144,6 +144,11 @@ export class NostrProfileService {
     try {
       const parsed = JSON.parse(content);
 
+      // DEBUG: Log raw kind 0 content to diagnose banner field issues
+      console.log('🔍 [DEBUG] Raw kind 0 content keys:', Object.keys(parsed));
+      console.log('🔍 [DEBUG] Banner field value:', parsed.banner);
+      console.log('🔍 [DEBUG] Raw content (first 500 chars):', content.substring(0, 500));
+
       // Extract and clean profile fields
       const profile: Partial<NostrProfile> = {};
 
@@ -247,6 +252,9 @@ export class NostrProfileService {
 
       // Wait for events (1s is sufficient - profiles typically return in <500ms)
       await new Promise((resolve) => setTimeout(resolve, 1000));
+      // ✅ MEMORY LEAK FIX: Remove listeners before stopping subscription
+      subscription.removeAllListeners('event');
+      subscription.removeAllListeners('eose');
       subscription.stop();
 
       if (profileEvents.length === 0) {

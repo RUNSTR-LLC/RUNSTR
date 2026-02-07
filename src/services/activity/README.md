@@ -38,6 +38,19 @@ Services for managing live workout tracking, location services, and text-to-spee
 - 5-minute caching for performance
 - Integrated with DailyStepGoalCard component
 
+**DefaultActivityService.ts** - Manages user's default workout activity preference
+- Stores/retrieves user's preferred activity for ActivityTrackerScreen
+- Configurable via Settings → Fitness Tracking → Default Activity
+- Defaults to 'run' if no preference is set
+- Supports: run, walk, cycle, hiking, strength, meditation
+
+**StepDiagnosticsService.ts** - Step counting diagnostic aggregation (~110 lines)
+- Gathers status from NativeStepCounterService, HealthConnectService, and PrivacyROMDetectionService
+- Determines active step source (native, health_connect, or none)
+- Detects privacy ROMs (GrapheneOS, CalyxOS, LineageOS, DivestOS)
+- Provides ROM-specific guidance for troubleshooting
+- Used by StepCountDiagnostics component in Settings
+
 ### Text-to-Speech (NEW)
 
 **TTSAnnouncementService.ts** - Voice announcements for workout summaries with audio ducking (~350 lines)
@@ -117,6 +130,24 @@ await TTSPreferencesService.updateTTSSetting('speechRate', 1.2);
 
 // Check if announcements should play
 const shouldAnnounce = await TTSPreferencesService.shouldAnnounceSummary();
+```
+
+### Default Activity Preference
+
+```typescript
+import { defaultActivityService } from '@/services/activity/DefaultActivityService';
+
+// Get user's default activity
+const defaultActivity = await defaultActivityService.getDefault(); // 'run', 'walk', 'cycle', etc.
+
+// Set default activity
+await defaultActivityService.setDefault('walk');
+
+// Get display name
+const displayName = defaultActivityService.getActivityDisplayName('run'); // 'Running'
+
+// Get icon name
+const icon = defaultActivityService.getActivityIcon('cycle'); // 'bicycle'
 ```
 
 ### Split Tracking

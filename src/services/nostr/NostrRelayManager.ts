@@ -50,7 +50,6 @@ export class NostrRelayManager {
       relayUrls: [
         'wss://relay.damus.io',
         'wss://relay.primal.net',
-        'wss://nostr.wine',
         'wss://nos.lol',
       ],
       maxRetries: 5,
@@ -594,5 +593,30 @@ export class NostrRelayManager {
   }
 }
 
-// Singleton instance for app-wide usage
-export const nostrRelayManager = new NostrRelayManager();
+// Lazy singleton instance - only connects when first accessed
+let _nostrRelayManagerInstance: NostrRelayManager | null = null;
+
+/**
+ * Get the singleton NostrRelayManager instance.
+ * Connections are only established on first access, not on import.
+ */
+export function getNostrRelayManager(): NostrRelayManager {
+  if (!_nostrRelayManagerInstance) {
+    console.log('🔄 NostrRelayManager: First access - initializing instance...');
+    _nostrRelayManagerInstance = new NostrRelayManager();
+  }
+  return _nostrRelayManagerInstance;
+}
+
+// For backward compatibility - use a Proxy to lazy-init on property access
+export const nostrRelayManager = new Proxy({} as NostrRelayManager, {
+  get(_target, prop) {
+    const instance = getNostrRelayManager();
+    const value = (instance as any)[prop];
+    // If it's a function, bind it to the instance
+    if (typeof value === 'function') {
+      return value.bind(instance);
+    }
+    return value;
+  },
+});

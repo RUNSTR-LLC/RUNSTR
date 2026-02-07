@@ -1,7 +1,13 @@
 /**
- * WorkoutPublishingService - Nostr Event Creation for HealthKit Workouts
- * Creates both kind 1301 (structured workout data) and kind 1 (social posts) events
- * Integrates with existing NostrProtocolHandler and NostrRelayManager
+ * WorkoutPublishingService - Workout Submission for Competitions
+ *
+ * Simplified flow: Workouts are only submitted to Supabase if user is in an active competition.
+ * Kind 1301 events are created locally (for event structure/signing) but NOT published to Nostr.
+ *
+ * Flow:
+ * - Check if user is in any active competition
+ * - If YES: Submit workout to Supabase (for leaderboards)
+ * - If NO: Workout saved locally only (no backend submission)
  */
 
 import { GlobalNDKService } from './GlobalNDKService';
@@ -15,13 +21,12 @@ import type { Workout } from '../../types/workout';
 import type { WorkoutType } from '../../types/workout';
 import type { NDKSigner } from '@nostr-dev-kit/ndk';
 import { CacheInvalidationService } from '../cache/CacheInvalidationService';
-import { DailyRewardService } from '../rewards/DailyRewardService';
 import { RewardLightningAddressService } from '../rewards/RewardLightningAddressService';
-import { FEATURES } from '../../config/features';
+// Note: DailyRewardService import removed - rewards now trigger from SupabaseCompetitionService
 import { ImageUploadService } from '../media/ImageUploadService';
 import { LocalTeamMembershipService } from '../team/LocalTeamMembershipService';
-import { CharitySelectionService } from '../charity/CharitySelectionService';
-import { CHARITIES, getCharityById, type Charity } from '../../constants/charities';
+import { getCharityById, type Charity, isPPQTeam } from '../../constants/charities';
+import { PPQAccountService } from '../ai/PPQAccountService';
 import { SatlantisEventJoinService } from '../satlantis/SatlantisEventJoinService';
 import { withTimeout, fireAndForget, NOSTR_TIMEOUTS } from '../../utils/nostrTimeout';
 import { RunningBitcoinService } from '../challenge/RunningBitcoinService';
@@ -29,8 +34,12 @@ import { isRunningBitcoinActive, isEligibleActivityType } from '../../constants/
 import Toast from 'react-native-toast-message';
 import { nip19 } from 'nostr-tools';
 import Constants from 'expo-constants';
-import PerWorkoutVerificationService from '../verification/PerWorkoutVerificationService';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
+import { RewardDestinationService } from '../rewards/RewardDestinationService';
+import { EinundzwanzigService } from '../challenge/EinundzwanzigService';
+import { isEinundzwanzigActive } from '../../constants/einundzwanzig';
+import { PendingSubmissionService } from '../competition/PendingSubmissionService';
+import { WoTService } from '../wot/WoTService';
 
 // Import split type for race replay data
 import type { Split } from '../activity/SplitTrackingService';
@@ -188,6 +197,13 @@ export class WorkoutPublishingService {
       const rewardLightningAddress =
         await RewardLightningAddressService.getRewardLightningAddress();
 
+      // Get reward destination for external reward service routing
+      // If user wants rewards AND has a Lightning address → 'user'
+      // Otherwise → 'charity' (charity is always the fallback)
+      const shouldSendToUser = await RewardDestinationService.shouldSendToUser();
+      const hasLightningAddress = rewardLightningAddress && rewardLightningAddress.length > 0;
+      const rewardDestination: 'user' | 'charity' = (shouldSendToUser && hasLightningAddress) ? 'user' : 'charity';
+
       // Create unsigned NDKEvent
       const ndkEvent = new NDKEvent(ndk);
       ndkEvent.kind = 1301;
@@ -196,7 +212,8 @@ export class WorkoutPublishingService {
         workout,
         pubkey,
         selectedCharity, // Charity provides both team ID and charity data
-        rewardLightningAddress
+        rewardLightningAddress,
+        rewardDestination
       );
       ndkEvent.created_at = Math.floor(
         new Date(workout.startTime).getTime() / 1000
@@ -220,63 +237,178 @@ export class WorkoutPublishingService {
                             (signer as any).AMBER_TIMEOUT_MS !== undefined;
       const signTimeout = isAmberSigner ? NOSTR_TIMEOUTS.SIGN_AMBER : NOSTR_TIMEOUTS.SIGN;
 
-      await withTimeout(
-        ndkEvent.sign(signer),
-        signTimeout,
-        'Event signing'
-      );
+      // Logging for debugging signing issues (especially Amber)
+      console.log(`[WorkoutPublishing] 🔐 Signing workout event...`);
+      console.log(`[WorkoutPublishing]    Signer type: ${isAmberSigner ? 'AMBER (external)' : 'NDK (internal)'}`);
+      console.log(`[WorkoutPublishing]    Timeout: ${signTimeout / 1000}s`);
+
+      const signStartTime = Date.now();
+      try {
+        await withTimeout(
+          ndkEvent.sign(signer),
+          signTimeout,
+          'Event signing'
+        );
+        const signDuration = Date.now() - signStartTime;
+        console.log(`[WorkoutPublishing] ✅ Signing succeeded in ${signDuration}ms`);
+      } catch (signError) {
+        const signDuration = Date.now() - signStartTime;
+        console.error(`[WorkoutPublishing] ❌ Signing FAILED after ${signDuration}ms:`, signError);
+        throw signError; // Re-throw to be caught by outer try/catch
+      }
 
       // ============================================================================
-      // NOSTR PUBLISH: Publish to Nostr relays
-      // Supabase sync is now handled by a scheduled edge function (sync-nostr-workouts)
-      // that queries Nostr every 2 minutes - this is more reliable than client-side
-      // submissions which were silently failing
+      // SUPABASE SUBMISSION (ONLY for competition participants)
+      // Workouts are only submitted to Supabase if user is in an active competition
+      // Non-competition users have their workouts saved locally only
       // ============================================================================
       const exerciseType = this.getExerciseVerb(workout.type);
       const npub = nip19.npubEncode(pubkey);
 
-      await withTimeout(
-        ndkEvent.publish(),
-        NOSTR_TIMEOUTS.PUBLISH,
-        'Event publishing'
-      );
+      // Check if user is in any active competition
+      const isInCompetition = await SupabaseCompetitionService.isInAnyActiveCompetition(npub);
 
-      console.log(`✅ Workout saved to Nostr: ${ndkEvent.id}`);
+      if (!isInCompetition) {
+        console.log(`[WorkoutPublishing] ℹ️ User not in any active competition, skipping Supabase submission`);
+        console.log(`[WorkoutPublishing]    Workout saved locally only`);
+      } else {
+        console.log(`[WorkoutPublishing] 🗄️ User in active competition, submitting to Supabase...`);
+        console.log(`[WorkoutPublishing]    npub: ${npub.slice(0, 20)}...`);
+        console.log(`[WorkoutPublishing]    type: ${exerciseType}, distance: ${workout.distance}m, duration: ${workout.duration}s`);
 
-      // ============================================================================
-      // DIRECT SUPABASE SUBMISSION: Submit workout for verification & anti-cheat
-      // This ensures workouts get source='app' and proper verification status
-      // Background sync (nostr_scan) serves as fallback only
-      // ============================================================================
-      fireAndForget(
-        (async () => {
+        // VALIDATION: Ensure we have valid distance/duration before submitting
+        const distanceMeters = workout.distance || 0;
+        const durationSeconds = workout.duration || 0;
+
+        if (distanceMeters === 0 && durationSeconds === 0) {
+          console.warn('[WorkoutPublishing] ⚠️ Skipping Supabase submission: no distance or duration');
+          console.warn('[WorkoutPublishing]    This workout will not appear on leaderboards');
+          // Continue - wellness activities (meditation, etc.) don't need leaderboard entry
+        } else {
+          // PPQ.AI TEAM: Create topup invoice if user's team is PPQ.AI
+          // Rewards will be paid to this invoice instead of user's Lightning address
+          let ppqBolt11: string | undefined;
+          let ppqInvoiceId: string | undefined;
+
+          if (selectedTeamId && isPPQTeam(selectedTeamId)) {
+            console.log('[WorkoutPublishing] 🤖 PPQ.AI team detected, creating topup invoice...');
+            const hasAccount = await PPQAccountService.hasAccount();
+            if (hasAccount) {
+              // Standard daily workout reward is 50 sats
+              const WORKOUT_REWARD_SATS = 50;
+              const invoiceResult = await PPQAccountService.createTopupInvoice(WORKOUT_REWARD_SATS);
+              if (invoiceResult.success && invoiceResult.bolt11) {
+                ppqBolt11 = invoiceResult.bolt11;
+                ppqInvoiceId = invoiceResult.invoiceId;
+                console.log(`[WorkoutPublishing] ✅ PPQ.AI invoice created: ${ppqBolt11.slice(0, 30)}...`);
+              } else {
+                console.warn('[WorkoutPublishing] ⚠️ Failed to create PPQ invoice:', invoiceResult.error);
+                // Continue without invoice - reward will go to Lightning address if set
+              }
+            } else {
+              console.warn('[WorkoutPublishing] ⚠️ PPQ.AI team but no account configured');
+            }
+          }
+
+          // Submit to Supabase SYNCHRONOUSLY - this is the primary save path
+          const supabaseStartTime = Date.now();
           try {
             const submissionResult = await SupabaseCompetitionService.submitWorkoutSimple({
               eventId: ndkEvent.id || workout.id,
               npub: npub,
               type: exerciseType,
-              distance: workout.distance,
-              duration: workout.duration,
+              distance: distanceMeters,
+              duration: durationSeconds,
               calories: workout.calories,
               startTime: workout.startTime,
               tags: ndkEvent.tags,
+              // PPQ.AI: Include invoice for reward topup
+              ppqBolt11,
+              ppqInvoiceId,
             });
+            const supabaseDuration = Date.now() - supabaseStartTime;
+
             if (submissionResult.success) {
-              console.log('[WorkoutPublishing] ✅ Direct Supabase submission successful');
+              console.log(`[WorkoutPublishing] ✅ Supabase submission successful in ${supabaseDuration}ms`);
+              console.log(`[WorkoutPublishing]    Workout will appear on daily leaderboard`);
+            } else if (submissionResult.error?.includes('duplicate')) {
+              console.log(`[WorkoutPublishing] ℹ️ Duplicate workout (already submitted) in ${supabaseDuration}ms`);
             } else {
-              console.warn('[WorkoutPublishing] ⚠️ Direct Supabase submission failed:', submissionResult.error);
-              // Non-blocking - sync-nostr-workouts will pick it up as fallback
+              console.warn(`[WorkoutPublishing] ⚠️ Supabase submission FAILED in ${supabaseDuration}ms:`, submissionResult.error);
+              if (submissionResult.flagged) {
+                Toast.show({
+                  type: 'info',
+                  text1: 'Workout Saved',
+                  text2: 'Under review - may take time to appear on leaderboard',
+                  position: 'bottom',
+                  visibilityTime: 4000,
+                });
+              } else {
+                // Non-flagged failure - queue for retry
+                await PendingSubmissionService.addPending({
+                  id: ndkEvent.id || workout.id,
+                  submissionData: {
+                    eventId: ndkEvent.id || workout.id,
+                    npub,
+                    type: exerciseType,
+                    distance: distanceMeters,
+                    duration: durationSeconds,
+                    calories: workout.calories,
+                    startTime: workout.startTime,
+                    tags: ndkEvent.tags,
+                  },
+                  createdAt: Date.now(),
+                  retryCount: 0,
+                  lastError: submissionResult.error || 'Unknown error',
+                  nextRetryTime: Date.now() + 60000, // 1 minute
+                });
+
+                Toast.show({
+                  type: 'info',
+                  text1: 'Workout Saved Locally',
+                  text2: 'Will sync to leaderboard on next refresh',
+                  position: 'bottom',
+                  visibilityTime: 3000,
+                });
+              }
             }
           } catch (supabaseError) {
-            console.warn('[WorkoutPublishing] ⚠️ Direct Supabase submission error:', supabaseError);
-            // Non-blocking - sync-nostr-workouts will pick it up as fallback
+            const supabaseDuration = Date.now() - supabaseStartTime;
+            console.warn(`[WorkoutPublishing] ⚠️ Supabase ERROR after ${supabaseDuration}ms:`, supabaseError);
+
+            // Queue for retry on network/exception errors
+            await PendingSubmissionService.addPending({
+              id: ndkEvent.id || workout.id,
+              submissionData: {
+                eventId: ndkEvent.id || workout.id,
+                npub,
+                type: exerciseType,
+                distance: distanceMeters,
+                duration: durationSeconds,
+                calories: workout.calories,
+                startTime: workout.startTime,
+                tags: ndkEvent.tags,
+              },
+              createdAt: Date.now(),
+              retryCount: 0,
+              lastError: supabaseError instanceof Error ? supabaseError.message : 'Unknown error',
+              nextRetryTime: Date.now() + 60000, // 1 minute
+            });
+
+            Toast.show({
+              type: 'info',
+              text1: 'Workout Saved Locally',
+              text2: 'Will sync to leaderboard on next refresh',
+              position: 'bottom',
+              visibilityTime: 3000,
+            });
           }
-        })(),
-        'directSupabaseSubmission'
-      );
+        }
+      }
 
       // ============================================================================
       // FIRE-AND-FORGET: Non-critical operations that should NEVER block UI
+      // NOTE: Nostr publishing has been removed - Supabase is the single source of truth
       // ============================================================================
 
       // Cache invalidation (non-blocking)
@@ -285,17 +417,9 @@ export class WorkoutPublishingService {
         'cacheInvalidation'
       );
 
-      // 🎁 Reward check (non-blocking)
-      if (FEATURES.ENABLE_DAILY_REWARDS) {
-        fireAndForget(
-          DailyRewardService.sendReward(pubkey).then((result) => {
-            if (result.success) {
-              console.log(`🎉 User earned ${result.amount} sats reward!`);
-            }
-          }),
-          'rewardCheck'
-        );
-      }
+      // 🎁 Reward trigger MOVED to Supabase submission success
+      // Rewards now require passing anti-cheat validation (see SupabaseCompetitionService)
+      // This gates rewards behind competition submission instead of local save
 
       // 🏃 Running Bitcoin auto-pay check (non-blocking)
       if (isRunningBitcoinActive() && isEligibleActivityType(exerciseType)) {
@@ -323,6 +447,8 @@ export class WorkoutPublishingService {
         );
       }
 
+      // Return success immediately (Supabase is what matters for competitions)
+      // User sees "Workout Saved!" without waiting for Nostr relays
       return {
         success: true,
         eventId: ndkEvent.id,
@@ -339,11 +465,8 @@ export class WorkoutPublishingService {
   }
 
   /**
-   * @deprecated Kind 1 social posting has been removed in v2.0.
-   * Users now save workout cards locally and screenshot to share.
-   * This function is kept for backwards compatibility but will return failure.
-   *
-   * Previously: Posted workout as Kind 1 social event with workout card image
+   * Post workout as Kind 1 social event with workout card image.
+   * WoT eligibility should be checked at UI layer before calling.
    */
   async postWorkoutToSocial(
     workout: PublishableWorkout,
@@ -351,15 +474,6 @@ export class WorkoutPublishingService {
     userId: string,
     options: SocialPostOptions = {}
   ): Promise<WorkoutPublishResult> {
-    console.warn('⚠️ postWorkoutToSocial is deprecated. Kind 1 social posting has been removed.');
-    console.warn('Users now save workout cards locally and screenshot to share.');
-    return {
-      success: false,
-      error: 'Kind 1 social posting has been removed. Save cards locally instead.',
-    };
-
-    // Original implementation below (kept for reference, unreachable code)
-    /* eslint-disable no-unreachable */
     try {
       console.log(`🔄 Creating social post for workout ${workout.id}...`);
 
@@ -516,7 +630,6 @@ export class WorkoutPublishingService {
         error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
-    /* eslint-enable no-unreachable */
   }
 
   /**
@@ -544,12 +657,14 @@ export class WorkoutPublishingService {
    * Matches the exact format used by runstr GitHub implementation
    * ✅ UPDATED: Charity is now the team - adds charity ID to BOTH team AND charity tags
    * ✅ UPDATED: Now includes lightning address tag for external reward scripts
+   * ✅ UPDATED: Now includes reward_destination tag for external reward routing
    */
   private async createNIP101eWorkoutTags(
     workout: PublishableWorkout,
     pubkey: string,
     selectedCharity: Charity | null,
-    rewardLightningAddress: string | null
+    rewardLightningAddress: string | null,
+    rewardDestination: 'user' | 'charity'
   ): Promise<string[][]> {
     // Map workout type to simple exercise verb (run, walk, cycle)
     const exerciseVerb = this.getExerciseVerb(workout.type);
@@ -569,8 +684,10 @@ export class WorkoutPublishingService {
 
     // Determine source tag value based on workout origin
     // Manual entries are tagged differently to exclude from GPS-based competitions
+    // Note: 'manual' is used by WorkoutHistoryScreen for step-based walking imports
     const isManual = (workout as any).isManualEntry === true ||
-                     (workout as any).source === 'manual_entry';
+                     (workout as any).source === 'manual_entry' ||
+                     (workout as any).source === 'manual';
     const sourceTag = isManual ? 'manual' : 'gps';
 
     // Start with required tags (always present)
@@ -580,7 +697,7 @@ export class WorkoutPublishingService {
       ['exercise', exerciseVerb], // Simple activity type: running, yoga, strength, etc.
       ['duration', durationFormatted], // HH:MM:SS format (always included)
       ['source', sourceTag], // Data source: 'gps' for tracked, 'manual' for manual entry
-      ['client', 'RUNSTR', Constants.expoConfig?.version || '1.4.9'], // Client info with version
+      ['client', 'RUNSTR', Constants.expoConfig?.version || '1.6.5'], // Client info with version
       ['t', this.getActivityHashtag(workout.type)], // Primary hashtag
     ];
 
@@ -754,6 +871,11 @@ export class WorkoutPublishingService {
       console.log(`   ✅ Added lightning address tag: ${rewardLightningAddress}`);
     }
 
+    // Add reward_destination tag (for external reward routing)
+    // This tells the external reward service where to send the 50 sats
+    tags.push(['reward_destination', rewardDestination]);
+    console.log(`   ✅ Added reward_destination tag: ${rewardDestination}`);
+
     // Add event tags for active RUNSTR events (workout belongs to these events)
     // This enables event leaderboards to query workouts by event ID without RSVP queries
     try {
@@ -770,33 +892,29 @@ export class WorkoutPublishingService {
       // Non-blocking - workout publishing continues without event tags
     }
 
-    // Add per-workout verification code tag for leaderboard anti-cheat
-    // Code is generated server-side (Supabase) and tied to this specific workout's data
-    // This prevents code reuse - each workout gets a unique verification code
+    // Add challenge tag for Einundzwanzig participants (enables double rewards)
+    // External reward service checks this tag to award 100 sats instead of 50
     try {
-      const npub = nip19.npubEncode(pubkey);
-      const startTimestamp = workout.startTime
-        ? Math.floor(new Date(workout.startTime).getTime() / 1000)
-        : Math.floor(Date.now() / 1000);
-
-      const verificationResult = await PerWorkoutVerificationService.getWorkoutVerificationCode({
-        npub,
-        workoutId: workout.id,
-        exercise: exerciseVerb,
-        distanceMeters: Math.round(workout.distance || 0),
-        durationSeconds: Math.round(workout.duration),
-        startTimestamp,
-      });
-
-      if (verificationResult.code) {
-        tags.push(['v', verificationResult.code]);
-        console.log(`   ✅ Added per-workout verification code (expires in ${verificationResult.expiresIn}s)`);
-      } else {
-        console.log(`   ⚠️ No verification code available: ${verificationResult.error || 'unknown'}`);
+      if (isEinundzwanzigActive() && await EinundzwanzigService.hasJoined(pubkey)) {
+        tags.push(['challenge', 'einundzwanzig']);
+        console.log('   ✅ Added challenge tag: einundzwanzig (double rewards eligible)');
       }
     } catch (error) {
-      console.warn('   ⚠️ Failed to get per-workout verification code:', error);
-      // Non-blocking - workout publishing continues without verification
+      console.warn('   ⚠️ Failed to check Einundzwanzig participation:', error);
+      // Non-blocking - workout publishes without challenge tag
+    }
+
+    // Add WoT score for fraud prevention gating
+    // External reward service uses this to gate rewards for new/low-WoT accounts
+    try {
+      const cachedScore = await WoTService.getInstance().getCachedScore(pubkey);
+      const wotScore = cachedScore ?? 0;
+      tags.push(['wot_score', wotScore.toString()]);
+      console.log(`   ✅ Added wot_score tag: ${wotScore}`);
+    } catch (error) {
+      // Non-blocking - default to 0 if WoT lookup fails
+      tags.push(['wot_score', '0']);
+      console.warn('   ⚠️ Failed to get WoT score, defaulting to 0:', error);
     }
 
     return tags;
@@ -1456,6 +1574,12 @@ export class WorkoutPublishingService {
     }
     if (workout.sets && workout.sets > 0) {
       stats.push(`🔢 Sets: ${workout.sets}`);
+    }
+
+    // Steps (for walking/step-based workouts)
+    const steps = workout.steps ?? (workout.metadata as any)?.steps;
+    if (steps && typeof steps === 'number' && steps > 0) {
+      stats.push(`👟 Steps: ${steps.toLocaleString()}`);
     }
 
     // Duration - format as HH:MM:SS or MM:SS

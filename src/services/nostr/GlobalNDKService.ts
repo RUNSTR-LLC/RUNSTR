@@ -59,7 +59,6 @@ export class GlobalNDKService {
     'wss://relay.damus.io',
     'wss://nos.lol',
     'wss://relay.primal.net',
-    // 'wss://relay.nostr.band', // Removed: SSL failures (-9807) block React for 40+ seconds
   ];
 
   /**
