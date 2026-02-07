@@ -17,29 +17,31 @@ import { WorkoutStatusTracker } from '../../../services/fitness/WorkoutStatusTra
 import { WorkoutDetailModal } from './WorkoutDetailModal';
 import type { Workout } from '../../../types/workout';
 import { formatDistance } from '../../../utils/distanceFormatter';
+import { useUnitPreference } from '../../../hooks/useUnitPreference';
 
 interface EnhancedWorkoutCardProps {
   workout: Workout;
-  onPost?: (workout: Workout) => Promise<void>;
-  onCompete?: (workout: Workout) => Promise<void>;
   onSocialShare?: (workout: Workout) => void;
+  onCompete?: (workoutId: string) => void;
   hideActions?: boolean;
+  isWoTEligible?: boolean;
+  supabaseSubmitted?: boolean;
 }
 
-export const EnhancedWorkoutCard: React.FC<EnhancedWorkoutCardProps> = ({
+export const EnhancedWorkoutCard: React.FC<EnhancedWorkoutCardProps> = React.memo(({
   workout,
-  onPost,
-  onCompete,
   onSocialShare,
+  onCompete,
   hideActions = false,
+  isWoTEligible = false,
+  supabaseSubmitted,
 }) => {
+  const { unitSystem, paceLabel } = useUnitPreference();
   const [status, setStatus] = useState({
     posted: false,
-    competed: false,
   });
   const [loading, setLoading] = useState({
     post: false,
-    compete: false,
   });
   const [showDetailModal, setShowDetailModal] = useState(false);
 
@@ -54,7 +56,6 @@ export const EnhancedWorkoutCard: React.FC<EnhancedWorkoutCardProps> = ({
       const workoutStatus = await statusTracker.getStatus(workout.id);
       setStatus({
         posted: workoutStatus.postedToNostr,
-        competed: workoutStatus.competedInNostr,
       });
     } catch (error) {
       console.error('Failed to load workout status:', error);
@@ -74,21 +75,6 @@ export const EnhancedWorkoutCard: React.FC<EnhancedWorkoutCardProps> = ({
     }
   };
 
-  const handleCompete = async () => {
-    if (!onCompete || status.competed || loading.compete) return;
-
-    try {
-      setLoading((prev) => ({ ...prev, compete: true }));
-      await onCompete(workout);
-      await statusTracker.markAsCompeted(workout.id);
-      setStatus((prev) => ({ ...prev, competed: true }));
-    } catch (error) {
-      console.error('Failed to compete workout:', error);
-    } finally {
-      setLoading((prev) => ({ ...prev, compete: false }));
-    }
-  };
-
   const formatDuration = (seconds: number): string => {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
@@ -99,9 +85,11 @@ export const EnhancedWorkoutCard: React.FC<EnhancedWorkoutCardProps> = ({
   };
 
   // Format pace from seconds per km to MM:SS format
+  // Convert to seconds/mi for imperial users (multiply by 1.60934)
   const formatPace = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
+    const paceSeconds = unitSystem === 'imperial' ? seconds * 1.60934 : seconds;
+    const mins = Math.floor(paceSeconds / 60);
+    const secs = Math.floor(paceSeconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
@@ -250,35 +238,57 @@ export const EnhancedWorkoutCard: React.FC<EnhancedWorkoutCardProps> = ({
             workout.type
           ) && (
             <>
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>
-                  {formatDuration(workout.duration)}
-                </Text>
-                <Text style={styles.statLabel}>Duration</Text>
-              </View>
-              {workout.distance && (
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>
-                    {formatDistance(workout.distance)}
-                  </Text>
-                  <Text style={styles.statLabel}>Distance</Text>
-                </View>
-              )}
-              {workout.pace && (
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>
-                    {formatPace(workout.pace)}
-                  </Text>
-                  <Text style={styles.statLabel}>Pace /km</Text>
-                </View>
-              )}
-              {workout.calories !== undefined && (
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>
-                    {workout.calories.toFixed(0)}
-                  </Text>
-                  <Text style={styles.statLabel}>Calories</Text>
-                </View>
+              {/* Walking with steps: show steps + distance instead of duration */}
+              {workout.steps && workout.steps > 0 ? (
+                <>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statValue}>
+                      {workout.steps.toLocaleString()}
+                    </Text>
+                    <Text style={styles.statLabel}>Steps</Text>
+                  </View>
+                  {workout.distance && (
+                    <View style={styles.statItem}>
+                      <Text style={styles.statValue}>
+                        {formatDistance(workout.distance, unitSystem)}
+                      </Text>
+                      <Text style={styles.statLabel}>Distance</Text>
+                    </View>
+                  )}
+                </>
+              ) : (
+                <>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statValue}>
+                      {formatDuration(workout.duration)}
+                    </Text>
+                    <Text style={styles.statLabel}>Duration</Text>
+                  </View>
+                  {workout.distance && (
+                    <View style={styles.statItem}>
+                      <Text style={styles.statValue}>
+                        {formatDistance(workout.distance, unitSystem)}
+                      </Text>
+                      <Text style={styles.statLabel}>Distance</Text>
+                    </View>
+                  )}
+                  {workout.pace && (
+                    <View style={styles.statItem}>
+                      <Text style={styles.statValue}>
+                        {formatPace(workout.pace)}
+                      </Text>
+                      <Text style={styles.statLabel}>Pace {paceLabel}</Text>
+                    </View>
+                  )}
+                  {workout.calories !== undefined && (
+                    <View style={styles.statItem}>
+                      <Text style={styles.statValue}>
+                        {workout.calories.toFixed(0)}
+                      </Text>
+                      <Text style={styles.statLabel}>Calories</Text>
+                    </View>
+                  )}
+                </>
               )}
             </>
           )}
@@ -432,7 +442,7 @@ export const EnhancedWorkoutCard: React.FC<EnhancedWorkoutCardProps> = ({
                 {workout.distance && (
                   <View style={styles.statItem}>
                     <Text style={styles.statValue}>
-                      {formatDistance(workout.distance)}
+                      {formatDistance(workout.distance, unitSystem)}
                     </Text>
                     <Text style={styles.statLabel}>Distance</Text>
                   </View>
@@ -450,23 +460,16 @@ export const EnhancedWorkoutCard: React.FC<EnhancedWorkoutCardProps> = ({
         </View>
 
         {/* Status Indicators */}
-        {(status.posted || status.competed) && (
+        {status.posted && (
           <View style={styles.statusContainer}>
-            {status.posted && (
-              <View style={styles.statusBadge}>
-                <Text style={styles.statusText}>✓ Posted</Text>
-              </View>
-            )}
-            {status.competed && (
-              <View style={styles.statusBadge}>
-                <Text style={styles.statusText}>🏆 In Competition</Text>
-              </View>
-            )}
+            <View style={styles.statusBadge}>
+              <Text style={styles.statusText}>✓ Posted</Text>
+            </View>
           </View>
         )}
 
-        {/* Action Buttons */}
-        {!hideActions && !isFromNostr && (
+        {/* Action Buttons - Post only, WOT-gated */}
+        {!hideActions && !isFromNostr && isWoTEligible && (
           <View style={styles.actions}>
             <TouchableOpacity
               style={[
@@ -485,7 +488,7 @@ export const EnhancedWorkoutCard: React.FC<EnhancedWorkoutCardProps> = ({
               ) : (
                 <>
                   <Ionicons
-                    name="chatbubble-outline"
+                    name="paper-plane-outline"
                     size={16}
                     color={theme.colors.accentText}
                     style={styles.buttonIcon}
@@ -496,34 +499,23 @@ export const EnhancedWorkoutCard: React.FC<EnhancedWorkoutCardProps> = ({
                 </>
               )}
             </TouchableOpacity>
+          </View>
+        )}
 
+        {/* Compete Button - shown when Supabase submission failed */}
+        {!hideActions && supabaseSubmitted === false && onCompete && (
+          <View style={styles.actions}>
             <TouchableOpacity
-              style={[
-                styles.actionButton,
-                styles.competeButton,
-                status.competed && styles.disabledButton,
-              ]}
-              onPress={handleCompete}
-              disabled={status.competed || loading.compete}
+              style={[styles.actionButton, styles.competeButton]}
+              onPress={() => onCompete(workout.id)}
             >
-              {loading.compete ? (
-                <ActivityIndicator
-                  size="small"
-                  color={theme.colors.accentText}
-                />
-              ) : (
-                <>
-                  <Ionicons
-                    name="cloud-upload-outline"
-                    size={16}
-                    color={theme.colors.accentText}
-                    style={styles.buttonIcon}
-                  />
-                  <Text style={styles.actionButtonText}>
-                    {status.competed ? 'Competing' : 'Compete'}
-                  </Text>
-                </>
-              )}
+              <Ionicons
+                name="trophy-outline"
+                size={16}
+                color="#FF9D42"
+                style={styles.buttonIcon}
+              />
+              <Text style={styles.competeButtonText}>Compete</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -537,7 +529,9 @@ export const EnhancedWorkoutCard: React.FC<EnhancedWorkoutCardProps> = ({
       />
     </>
   );
-};
+});
+
+EnhancedWorkoutCard.displayName = 'EnhancedWorkoutCard';
 
 const styles = StyleSheet.create({
   container: {
@@ -676,9 +670,6 @@ const styles = StyleSheet.create({
   postButton: {
     backgroundColor: theme.colors.accent,
   },
-  competeButton: {
-    backgroundColor: theme.colors.accent,
-  },
   disabledButton: {
     opacity: 0.6,
     backgroundColor: theme.colors.cardBackground,
@@ -687,6 +678,16 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     color: theme.colors.accentText,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  competeButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#FF9D42',
+  },
+  competeButtonText: {
+    color: '#FF9D42',
     fontSize: 14,
     fontWeight: '600',
   },

@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../styles/theme';
+import { TexturedBackground } from '../components/ui/TexturedBackground';
 import { ProfileTab, ProfileScreenData, NotificationSettings } from '../types';
 import { NotificationPreferencesService } from '../services/notifications/NotificationPreferencesService';
 
@@ -33,7 +34,7 @@ import { FitnessCompetitionsBox } from '../components/profile/YourWorkoutsBox';
 import { NotificationBadge } from '../components/profile/NotificationBadge';
 import { NotificationModal } from '../components/profile/NotificationModal';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 // Wallet imports removed - moved to Settings
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { npubEncode } from '../utils/nostrEncoding';
@@ -52,6 +53,9 @@ import { GlobalNDKService } from '../services/nostr/GlobalNDKService';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { Alert } from 'react-native';
 import { NostrFetchLogger } from '../utils/NostrFetchLogger';
+import Toast from 'react-native-toast-message';
+import { MusicPlayerPreferencesService } from '../services/music/MusicPlayerPreferencesService';
+import { HeaderMusicControls } from '../components/music/HeaderMusicControls';
 
 interface ProfileScreenProps {
   data: ProfileScreenData;
@@ -99,6 +103,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [userNpub, setUserNpub] = useState<string>('');
+  const [musicPlayerHeaderEnabled, setMusicPlayerHeaderEnabled] = useState(false);
   const isMountedRef = useRef(true);
 
   // Wallet features moved to Settings screen
@@ -169,6 +174,13 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
       isMountedRef.current = false;
     };
   }, []);
+
+  // Load music player header setting - refresh on every screen focus
+  useFocusEffect(
+    useCallback(() => {
+      MusicPlayerPreferencesService.isMusicPlayerHeaderEnabled().then(setMusicPlayerHeaderEnabled);
+    }, [])
+  );
 
   // ❌ DISABLED: AppState lifecycle management for notification handlers
   // No longer needed since we're not running background subscriptions
@@ -303,10 +315,10 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
         console.warn('[ProfileScreen] Reconnect failed:', err);
       });
 
-      // 2. Refetch profile from Nostr
+      // 2. Refetch profile from Nostr with force refresh (clears all caches)
       const DirectNostrProfileService =
         require('../services/user/directNostrProfileService').DirectNostrProfileService;
-      await DirectNostrProfileService.getCurrentUserProfile().catch(
+      await DirectNostrProfileService.getCurrentUserProfile(true).catch(
         (err: any) => {
           console.warn('[ProfileScreen] Profile refetch failed:', err);
         }
@@ -320,6 +332,13 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
     } catch (error) {
       NostrFetchLogger.error('ProfileScreen.pullToRefresh', error as Error);
       console.error('[ProfileScreen] Pull-to-refresh error:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Refresh failed',
+        text2: 'Check your connection and try again',
+        position: 'bottom',
+        visibilityTime: 3000,
+      });
     } finally {
       setIsRefreshing(false);
     }
@@ -351,17 +370,23 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
   // QR scanner and related functions moved to Settings screen
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header - Settings Button only (no title) */}
+    <TexturedBackground>
+      {/* Header - Music Controls (when enabled) or Settings Button */}
       <View style={styles.header}>
-        <View style={styles.headerSpacer} />
-        <TouchableOpacity
-          style={styles.settingsButton}
-          onPress={handleSettingsPress}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="menu-outline" size={24} color={theme.colors.text} />
-        </TouchableOpacity>
+        {musicPlayerHeaderEnabled ? (
+          <HeaderMusicControls onSettingsPress={handleSettingsPress} />
+        ) : (
+          <>
+            <View style={styles.headerSpacer} />
+            <TouchableOpacity
+              style={styles.headerButton}
+              onPress={handleSettingsPress}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Ionicons name="menu-outline" size={24} color={theme.colors.text} />
+            </TouchableOpacity>
+          </>
+        )}
       </View>
 
       <ScrollView
@@ -422,7 +447,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
         visible={showNotificationModal}
         onClose={() => setShowNotificationModal(false)}
       />
-    </SafeAreaView>
+    </TexturedBackground>
   );
 };
 
@@ -446,6 +471,10 @@ const styles = StyleSheet.create({
 
   headerSpacer: {
     flex: 1,
+  },
+
+  headerButton: {
+    padding: 4,
   },
 
   qrButton: {
