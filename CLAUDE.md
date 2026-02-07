@@ -566,21 +566,30 @@ Pay-per-query via Lightning. No subscription required. Budget-friendly: most ope
 
 📖 **For full workflow details, see**: [docs/GIT_WORKFLOW.md](./docs/GIT_WORKFLOW.md)
 
+### Working Branch Model
+The user works on multiple features simultaneously and tests everything together locally. Use a **single working branch per session** that collects all changes, with individual commits per logical change.
+
 ### Rules (Claude MUST follow these automatically):
-1. **ALWAYS create a branch** before starting work: `git checkout -b <prefix>/<short-description>`
-   - Prefixes: `feature/`, `fix/`, `refactor/`, `docs/`, `chore/`
+1. **At session start**, check if a working branch exists. If not, create one:
+   ```bash
+   git checkout main && git pull origin main
+   git checkout -b dev/<short-description-of-session>
+   ```
+   - Use `dev/` prefix for working branches (e.g., `dev/feb-updates`, `dev/rewards-and-tracking-fixes`)
+   - If the user specifies a focused task, use a specific prefix: `feature/`, `fix/`, `refactor/`, `docs/`, `chore/`
 2. **Commit after every meaningful change** -- don't wait to be asked
    - Run `npm run typecheck` before every commit
    - Stage specific files (`git add src/path/to/file.ts`) -- NEVER use `git add .`
    - Use prefix format: `Fix:`, `Feature:`, `Refactor:`, `Docs:`, `Chore:`
    - ✅ Commit: working fixes, completed feature steps, doc updates
    - ❌ Don't commit: broken code, TypeScript errors, secrets
-3. **Push + open a PR** when the unit of work is complete:
+3. **All changes stay on the same branch** so the user can test everything together locally
+4. **Push + open a PR** when the user says they're done or asks to ship:
    ```bash
-   git push -u origin <branch-name>
-   gh pr create --title "<Prefix>: <description>" --body "..."
+   git push -u origin dev/<branch-name>
+   gh pr create --title "<description>" --body "..."
    ```
-4. **NEVER push directly to main** -- all changes merge via PR after CI passes
+5. **NEVER push directly to main** -- all changes merge via PR after CI passes
 
 ## Folder Documentation Requirements
 **Update folder READMEs when adding/removing/changing files:**

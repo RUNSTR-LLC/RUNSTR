@@ -2,19 +2,30 @@
 
 This document defines the git workflow for RUNSTR. Claude Code follows these rules automatically. Human contributors should follow them too.
 
-## Branch Naming
+## Working Branch Model
 
-Always create a branch before making changes. Never commit directly to `main`.
+The user works on multiple features simultaneously and needs to test them all together locally. Instead of one branch per feature, use a **single working branch per session** that collects all changes.
+
+**Why this model:**
+- All features are available locally for testing at the same time
+- No branch-switching needed during development
+- Individual commits still track what changed and why
+- One PR at the end for review and CI
+
+## Branch Naming
 
 | Prefix | Use when... | Example |
 |--------|-------------|---------|
-| `feature/` | Adding new functionality | `feature/hiking-tracker` |
-| `fix/` | Fixing a bug | `fix/distance-freeze` |
+| `dev/` | Working branch with multiple changes (default) | `dev/feb-updates` |
+| `feature/` | Single focused feature | `feature/hiking-tracker` |
+| `fix/` | Single focused bug fix | `fix/distance-freeze` |
 | `refactor/` | Restructuring without behavior change | `refactor/split-tracking-service` |
 | `docs/` | Documentation-only changes | `docs/update-kind-1301-spec` |
 | `chore/` | Dependencies, config, CI | `chore/upgrade-expo-sdk` |
 
-Keep branch names short, lowercase, kebab-case. Include a ticket/issue number if one exists (e.g., `fix/42-distance-freeze`).
+Keep branch names short, lowercase, kebab-case.
+
+**Default is `dev/`** — use specific prefixes only when the user asks for a single focused task.
 
 ## When to Commit
 
@@ -24,7 +35,7 @@ Commit after every meaningful change:
 - A refactor that passes typecheck
 - A documentation update
 
-**Do NOT batch multiple unrelated changes into one commit.** Each commit should be a single logical unit.
+Each commit should be a single logical unit with a clear message. Multiple features on the same branch is fine — just make each **commit** focused.
 
 **Do NOT commit:**
 - Code with TypeScript errors (`npm run typecheck` must pass)
@@ -51,36 +62,53 @@ Examples:
 
 ## Workflow: Start to Finish
 
-### 1. Create a branch
+### 1. Start a working branch
+
+At the beginning of a session (or when no branch exists yet):
 
 ```bash
 git checkout main && git pull origin main
-git checkout -b feature/my-feature
+git checkout -b dev/feb-updates
 ```
 
 ### 2. Work and commit incrementally
 
+All changes go on the same branch. Each commit is one logical change:
+
 ```bash
-# After each meaningful change:
-npm run typecheck                    # Must pass
-git add <specific-files>             # Stage relevant files only
-git commit -m "Feature: Add X"       # Descriptive message
+# Fix a bug
+npm run typecheck
+git add src/services/activity/SimpleRunTracker.ts
+git commit -m "Fix: Resolve distance freeze after GPS signal loss"
+
+# Add a feature
+npm run typecheck
+git add src/screens/activity/HikingTrackerScreen.tsx src/navigation/AppNavigator.tsx
+git commit -m "Feature: Add hiking tracker screen"
+
+# Update docs
+git add docs/KIND_1301_SPEC.md
+git commit -m "Docs: Add hiking activity type to spec"
 ```
 
-### 3. Push and open a PR
+### 3. Test locally
 
-When the unit of work is complete:
+The user tests all changes together on device. Everything is on one branch, so all features are present.
+
+### 4. Push and open a PR
+
+When the user says "ship it", "let's merge", or the session is done:
 
 ```bash
-git push -u origin feature/my-feature
-gh pr create --title "Feature: Add hiking tracker" --body "$(cat <<'EOF'
+git push -u origin dev/feb-updates
+gh pr create --title "Dev: February updates" --body "$(cat <<'EOF'
 ## Summary
-- Added HikingTrackerScreen with elevation tracking
-- Integrated with kind 1301 publishing
+- Fixed distance freeze after GPS signal loss
+- Added hiking tracker screen
+- Updated KIND_1301_SPEC with hiking type
 
 ## Test plan
-- [ ] Track a hike in simulator
-- [ ] Verify kind 1301 event includes elevation data
+- [ ] Run app in simulator, verify all features work
 - [ ] Check typecheck passes
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
@@ -88,13 +116,13 @@ EOF
 )"
 ```
 
-### 4. CI runs automatically
+### 5. CI runs automatically
 
 GitHub Actions runs typecheck and lint on every PR. The PR cannot be merged if CI fails.
 
-### 5. Merge
+### 6. Merge
 
-After CI passes and review is complete, merge the PR on GitHub. Use "Squash and merge" for feature branches to keep main history clean.
+After CI passes, merge the PR on GitHub. Use "Squash and merge" to keep main history clean — all the individual commits collapse into one clean entry on main.
 
 ## Release Flow
 
@@ -102,36 +130,38 @@ Releases are tagged from `main` after merging PRs:
 
 ```bash
 git checkout main && git pull origin main
-git tag -a v1.7.0 -m "Release: Version 1.7.0 - Hiking Tracker"
+git tag -a v1.7.0 -m "Release: Version 1.7.0 - February Updates"
 git push origin v1.7.0
-gh release create v1.7.0 --title "v1.7.0 - Hiking Tracker" --generate-notes
+gh release create v1.7.0 --title "v1.7.0 - February Updates" --generate-notes
 ```
 
 ## Rules for Claude Code
 
 These rules are enforced via CLAUDE.md and apply to every session:
 
-1. **ALWAYS create a branch** before making any code changes
-2. **NEVER commit directly to main** -- all changes go through PRs
-3. **Commit after every meaningful change** -- don't wait to be asked
-4. **Run `npm run typecheck`** before every commit
-5. **Push and open a PR** when the unit of work is complete
-6. **Stage specific files** -- never use `git add .` or `git add -A`
-7. **Include the co-author trailer** on every commit
+1. **Check for existing working branch** at session start — reuse it if one exists
+2. **If no branch exists**, create a `dev/` branch from latest main
+3. **NEVER commit directly to main** — all changes go through PRs
+4. **Commit after every meaningful change** — don't wait to be asked
+5. **All changes go on the same branch** — the user tests everything together
+6. **Run `npm run typecheck`** before every commit
+7. **Stage specific files** — never use `git add .` or `git add -A`
+8. **Include the co-author trailer** on every commit
+9. **Push + open PR** only when the user asks to ship
 
 ## Quick Reference
 
 ```bash
-# Start work
+# Start of session
 git checkout main && git pull origin main
-git checkout -b fix/my-fix
+git checkout -b dev/session-description
 
 # During work (after each change)
 npm run typecheck
 git add src/path/to/changed-file.ts
 git commit -m "Fix: Description"
 
-# Finish work
-git push -u origin fix/my-fix
-gh pr create --title "Fix: Description" --body "..."
+# When user says ship it
+git push -u origin dev/session-description
+gh pr create --title "Dev: Session description" --body "..."
 ```
