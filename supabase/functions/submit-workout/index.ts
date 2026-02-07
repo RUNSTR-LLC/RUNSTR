@@ -19,31 +19,259 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-// Anti-cheat limits (ported from scripts/generate-season2-baseline.ts)
-const VALIDATION_LIMITS: Record<string, {
-  minPaceSecondsPerKm: number;
+// =============================================
+// ANTI-CHEAT: Distance-Aware Pace Limits
+// =============================================
+
+// Base limits for each activity type (max pace and duration)
+const BASE_LIMITS: Record<string, {
   maxPaceSecondsPerKm: number;
   maxDistanceKm: number;
   maxDurationSeconds: number;
 }> = {
   running: {
-    minPaceSecondsPerKm: 120,    // 2:00/km (world record territory)
     maxPaceSecondsPerKm: 1800,   // 30:00/km (too slow to be running)
     maxDistanceKm: 200,          // Ultra marathon limit
     maxDurationSeconds: 172800,  // 48 hours
   },
   walking: {
-    minPaceSecondsPerKm: 180,    // 3:00/km (that's running, not walking)
     maxPaceSecondsPerKm: 3600,   // 60:00/km (too slow to count)
     maxDistanceKm: 100,          // Max single walk
     maxDurationSeconds: 86400,   // 24 hours
   },
   cycling: {
-    minPaceSecondsPerKm: 30,     // 0:30/km (120 km/h - downhill only)
     maxPaceSecondsPerKm: 600,    // 10:00/km (6 km/h - too slow)
     maxDistanceKm: 500,          // Max single ride
     maxDurationSeconds: 172800,  // 48 hours
   },
+}
+
+/**
+ * Get minimum pace (sec/km) based on distance for running
+ * Uses world record paces as reference, allowing slightly faster to avoid false positives
+ *
+ * World Records (as of 2025):
+ * - 5K: 12:35 (Joshua Cheptegei) = 151 sec/km
+ * - 10K: 26:11 = 157 sec/km
+ * - Half Marathon: 57:30 = 163 sec/km
+ * - Marathon: 2:00:35 = 172 sec/km
+ */
+function getMinPaceForRunning(distanceKm: number): number {
+  if (distanceKm < 1) return 90      // 1:30/km - sprint/interval territory
+  if (distanceKm < 3) return 130     // 2:10/km - faster than 1500m WR pace
+  if (distanceKm < 5) return 145     // 2:25/km - faster than 5K WR (151)
+  if (distanceKm < 10) return 150    // 2:30/km - between 5K and 10K WR
+  if (distanceKm < 21.1) return 155  // 2:35/km - faster than 10K WR (157)
+  if (distanceKm < 42.2) return 160  // 2:40/km - faster than HM WR (163)
+  return 170                          // 2:50/km - faster than marathon WR (172)
+}
+
+/**
+ * Get minimum pace (sec/km) for walking
+ * Below 3:00/km is running, not walking
+ */
+function getMinPaceForWalking(distanceKm: number): number {
+  return 180 // 3:00/km - anything faster is running
+}
+
+/**
+ * Get minimum pace (sec/km) for cycling
+ * Below 30 sec/km = 120 km/h, only possible downhill
+ */
+function getMinPaceForCycling(distanceKm: number): number {
+  if (distanceKm < 1) return 20   // 0:20/km = 180 km/h - very short downhill burst
+  return 30                        // 0:30/km = 120 km/h - max sustained
+}
+
+/**
+ * Get minimum pace for any activity type based on distance
+ */
+function getMinPaceSecondsPerKm(activityType: string, distanceKm: number): number {
+  switch (activityType) {
+    case 'running':
+      return getMinPaceForRunning(distanceKm)
+    case 'walking':
+      return getMinPaceForWalking(distanceKm)
+    case 'cycling':
+      return getMinPaceForCycling(distanceKm)
+    default:
+      return 60 // 1:00/km default for unknown types
+  }
+}
+
+// =============================================
+// ANTI-CHEAT: Target Time Minimums (World Records)
+// =============================================
+
+// Minimum allowed times for each target distance (in seconds)
+// Set slightly below world records to avoid false positives
+const MIN_TARGET_TIMES = {
+  time_5k_seconds: 750,      // 12:30 (WR is 12:35)
+  time_10k_seconds: 1560,    // 26:00 (WR is 26:11)
+  time_half_seconds: 3440,   // 57:20 (WR is 57:30)
+  time_marathon_seconds: 7200, // 2:00:00 (WR is 2:00:35)
+}
+
+/**
+ * Validate target times against world record minimums
+ * Returns validation result with reason if any time is impossibly fast
+ */
+function validateTargetTimes(targetTimes: {
+  time_5k_seconds: number | null
+  time_10k_seconds: number | null
+  time_half_seconds: number | null
+  time_marathon_seconds: number | null
+}): ValidationResult {
+  if (targetTimes.time_5k_seconds !== null && targetTimes.time_5k_seconds < MIN_TARGET_TIMES.time_5k_seconds) {
+    const min = Math.floor(targetTimes.time_5k_seconds / 60)
+    const sec = Math.round(targetTimes.time_5k_seconds % 60)
+    return {
+      valid: false,
+      reason: `5K time of ${min}:${String(sec).padStart(2, '0')} is faster than world record (12:35)`
+    }
+  }
+  if (targetTimes.time_10k_seconds !== null && targetTimes.time_10k_seconds < MIN_TARGET_TIMES.time_10k_seconds) {
+    const min = Math.floor(targetTimes.time_10k_seconds / 60)
+    const sec = Math.round(targetTimes.time_10k_seconds % 60)
+    return {
+      valid: false,
+      reason: `10K time of ${min}:${String(sec).padStart(2, '0')} is faster than world record (26:00)`
+    }
+  }
+  if (targetTimes.time_half_seconds !== null && targetTimes.time_half_seconds < MIN_TARGET_TIMES.time_half_seconds) {
+    const hours = Math.floor(targetTimes.time_half_seconds / 3600)
+    const min = Math.floor((targetTimes.time_half_seconds % 3600) / 60)
+    const sec = Math.round(targetTimes.time_half_seconds % 60)
+    return {
+      valid: false,
+      reason: `Half marathon time of ${hours}:${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')} is faster than world record (57:30)`
+    }
+  }
+  if (targetTimes.time_marathon_seconds !== null && targetTimes.time_marathon_seconds < MIN_TARGET_TIMES.time_marathon_seconds) {
+    const hours = Math.floor(targetTimes.time_marathon_seconds / 3600)
+    const min = Math.floor((targetTimes.time_marathon_seconds % 3600) / 60)
+    return {
+      valid: false,
+      reason: `Marathon time of ${hours}:${String(min).padStart(2, '0')} is faster than world record (2:00:35)`
+    }
+  }
+  return { valid: true }
+}
+
+// =============================================
+// ANTI-CHEAT: Split Consistency Checking
+// =============================================
+
+/**
+ * Validate splits for consistency and realism
+ * Detects:
+ * 1. Individual splits faster than physically possible
+ * 2. Suspicious split patterns (one split way faster than average)
+ * 3. Total time vs splits mismatch
+ */
+function validateSplitConsistency(
+  splits: Record<number, number>,
+  totalDurationSeconds: number,
+  activityType: string
+): ValidationResult {
+  if (Object.keys(splits).length === 0) {
+    return { valid: true } // No splits to validate
+  }
+
+  const sortedKms = Object.keys(splits).map(Number).sort((a, b) => a - b)
+
+  // Calculate individual split times (delta between consecutive splits)
+  const individualSplits: { km: number; deltaSeconds: number; pacePerKm: number }[] = []
+  let prevKm = 0
+  let prevTime = 0
+
+  for (const km of sortedKms) {
+    const deltaKm = km - prevKm
+    const deltaSeconds = splits[km] - prevTime
+
+    if (deltaKm > 0 && deltaSeconds > 0) {
+      const pacePerKm = deltaSeconds / deltaKm
+      individualSplits.push({ km, deltaSeconds, pacePerKm })
+    }
+
+    prevKm = km
+    prevTime = splits[km]
+  }
+
+  if (individualSplits.length === 0) {
+    return { valid: true }
+  }
+
+  // 1. Check individual split pace limits
+  for (const split of individualSplits) {
+    const minPace = getMinPaceSecondsPerKm(activityType, split.km)
+    if (split.pacePerKm < minPace) {
+      const paceMin = Math.floor(split.pacePerKm / 60)
+      const paceSec = Math.round(split.pacePerKm % 60)
+      return {
+        valid: false,
+        reason: `Split at ${split.km}km has impossible pace of ${paceMin}:${String(paceSec).padStart(2, '0')}/km`
+      }
+    }
+  }
+
+  // 2. Check for suspicious variation (one split > 2x faster than average)
+  if (individualSplits.length >= 3) {
+    const avgPace = individualSplits.reduce((sum, s) => sum + s.pacePerKm, 0) / individualSplits.length
+    for (const split of individualSplits) {
+      if (split.pacePerKm < avgPace * 0.5) {
+        const paceMin = Math.floor(split.pacePerKm / 60)
+        const paceSec = Math.round(split.pacePerKm % 60)
+        const avgMin = Math.floor(avgPace / 60)
+        const avgSec = Math.round(avgPace % 60)
+        return {
+          valid: false,
+          reason: `Split at ${split.km}km (${paceMin}:${String(paceSec).padStart(2, '0')}/km) is suspiciously faster than average (${avgMin}:${String(avgSec).padStart(2, '0')}/km)`
+        }
+      }
+    }
+  }
+
+  // 2b. Check for suspiciously LOW variance (car cheating detection)
+  // Real runners have natural pace variation (5-15% typical)
+  // Cars maintain near-constant speed (< 3% variance is suspicious for elite pace)
+  if (individualSplits.length >= 3 && activityType === 'running') {
+    const avgPace = individualSplits.reduce((sum, s) => sum + s.pacePerKm, 0) / individualSplits.length
+
+    // Only check if pace is elite (< 4:00/km = 240 sec/km)
+    // Regular joggers at 6:00/km can have low variance naturally
+    if (avgPace < 240) {
+      // Calculate coefficient of variation (standard deviation / mean)
+      const variance = individualSplits.reduce((sum, s) => sum + Math.pow(s.pacePerKm - avgPace, 2), 0) / individualSplits.length
+      const stdDev = Math.sqrt(variance)
+      const coefficientOfVariation = (stdDev / avgPace) * 100
+
+      // Elite runners typically have 5-15% CV
+      // Car at constant speed would be < 3%
+      const MIN_CV_FOR_ELITE_PACE = 3.0
+
+      if (coefficientOfVariation < MIN_CV_FOR_ELITE_PACE) {
+        const avgMin = Math.floor(avgPace / 60)
+        const avgSec = Math.round(avgPace % 60)
+        return {
+          valid: false,
+          reason: `Suspiciously consistent pace (${coefficientOfVariation.toFixed(1)}% variance) at elite speed (${avgMin}:${String(avgSec).padStart(2, '0')}/km) - real running shows more variation`
+        }
+      }
+    }
+  }
+
+  // 3. Check last split vs total time (allow 10% tolerance for timing differences)
+  const lastKm = sortedKms[sortedKms.length - 1]
+  const lastSplitTime = splits[lastKm]
+  if (lastSplitTime > totalDurationSeconds * 1.1) {
+    return {
+      valid: false,
+      reason: `Split time (${Math.round(lastSplitTime)}s at ${lastKm}km) exceeds total duration (${totalDurationSeconds}s)`
+    }
+  }
+
+  return { valid: true }
 }
 
 interface WorkoutSubmission {
@@ -59,6 +287,11 @@ interface WorkoutSubmission {
   // New fields for daily leaderboard
   profile_name?: string
   profile_picture?: string
+  // TIMEZONE FIX: Client can send local date for correct leaderboard grouping
+  leaderboard_date?: string
+  // PPQ.AI team: Bolt11 invoice for reward topup (instead of Lightning address)
+  ppq_bolt11?: string
+  ppq_invoice_id?: string
 }
 
 // =============================================
@@ -131,6 +364,28 @@ function parseStepCount(rawEvent: Record<string, unknown>): number | null {
   }
 
   return null
+}
+
+/**
+ * Parse WoT score from kind 1301 event tags
+ * Tag format: ["wot_score", "0.000168"]
+ * Used for fraud prevention gating in external reward tool
+ */
+function parseWotScore(rawEvent: Record<string, unknown>): number {
+  const tags = rawEvent.tags as string[][] | undefined
+
+  if (!tags || !Array.isArray(tags)) {
+    return 0
+  }
+
+  for (const tag of tags) {
+    if (tag[0] === 'wot_score' && tag[1]) {
+      const score = parseFloat(tag[1])
+      return !isNaN(score) ? score : 0
+    }
+  }
+
+  return 0
 }
 
 /**
@@ -517,7 +772,7 @@ async function validateVerificationCode(
 }
 
 function validateWorkout(workout: WorkoutSubmission): ValidationResult {
-  const limits = VALIDATION_LIMITS[workout.activity_type]
+  const limits = BASE_LIMITS[workout.activity_type]
 
   // Unknown activity type - allow but skip validation
   if (!limits) {
@@ -526,6 +781,14 @@ function validateWorkout(workout: WorkoutSubmission): ValidationResult {
 
   const distanceKm = (workout.distance_meters || 0) / 1000
   const duration = workout.duration_seconds || 0
+
+  // 0. Empty workout check - both distance and duration are zero/missing
+  if (distanceKm === 0 && duration === 0) {
+    return {
+      valid: false,
+      reason: 'Empty workout - no distance or duration recorded'
+    }
+  }
 
   // 1. Zero distance with significant duration (forgot to end workout?)
   if (distanceKm === 0 && duration > 1800) {
@@ -561,19 +824,22 @@ function validateWorkout(workout: WorkoutSubmission): ValidationResult {
     }
   }
 
-  // 5. Pace validation (only if both distance and duration exist)
+  // 5. Distance-aware pace validation (only if both distance and duration exist)
   if (distanceKm > 0 && duration > 0) {
     const paceSecondsPerKm = duration / distanceKm
 
+    // Get distance-aware minimum pace
+    const minPaceSecondsPerKm = getMinPaceSecondsPerKm(workout.activity_type, distanceKm)
+
     // Too fast (superhuman speed)
-    if (paceSecondsPerKm < limits.minPaceSecondsPerKm) {
+    if (paceSecondsPerKm < minPaceSecondsPerKm) {
       const paceMin = Math.floor(paceSecondsPerKm / 60)
       const paceSec = Math.round(paceSecondsPerKm % 60)
-      const minPaceMin = Math.floor(limits.minPaceSecondsPerKm / 60)
-      const minPaceSec = limits.minPaceSecondsPerKm % 60
+      const minPaceMin = Math.floor(minPaceSecondsPerKm / 60)
+      const minPaceSec = Math.round(minPaceSecondsPerKm % 60)
       return {
         valid: false,
-        reason: `Pace ${paceMin}:${String(paceSec).padStart(2, '0')}/km too fast - minimum allowed is ${minPaceMin}:${String(minPaceSec).padStart(2, '0')}/km for ${workout.activity_type}`
+        reason: `Pace ${paceMin}:${String(paceSec).padStart(2, '0')}/km too fast for ${distanceKm.toFixed(1)}km ${workout.activity_type} - minimum is ${minPaceMin}:${String(minPaceSec).padStart(2, '0')}/km`
       }
     }
 
@@ -618,6 +884,31 @@ serve(async (req) => {
       )
     }
 
+    // Check if user is banned
+    const { data: banned } = await supabase
+      .from('banned_users')
+      .select('id, reason')
+      .eq('npub', workout.npub)
+      .is('expires_at', null) // Permanent ban (no expiry)
+      .single()
+
+    // Also check for temporary bans that haven't expired
+    const { data: tempBanned } = await supabase
+      .from('banned_users')
+      .select('id, reason')
+      .eq('npub', workout.npub)
+      .gt('expires_at', new Date().toISOString())
+      .single()
+
+    if (banned || tempBanned) {
+      const banInfo = banned || tempBanned
+      console.log(`🚫 Banned user attempted submission: ${workout.npub.slice(0, 20)}... - ${banInfo?.reason}`)
+      return new Response(
+        JSON.stringify({ success: false, error: 'User is banned from leaderboards', banned: true }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Check for duplicate event_id (deduplication)
     const { data: existing } = await supabase
       .from('workout_submissions')
@@ -626,6 +917,48 @@ serve(async (req) => {
       .single()
 
     if (existing) {
+      // UPSERT for step submissions: update existing row with latest step count and distance
+      const isStepSubmission = workout.event_id.startsWith('steps_')
+      if (isStepSubmission) {
+        // Basic step validation
+        const stepCount = parseStepCount(workout.raw_event)
+        if (stepCount && stepCount > 200000) {
+          return new Response(
+            JSON.stringify({ success: false, reason: 'Step count exceeds daily maximum (200,000)', flagged: true }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+        if (workout.distance_meters !== null && workout.distance_meters < 0) {
+          return new Response(
+            JSON.stringify({ success: false, reason: 'Negative distance not allowed', flagged: true }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        const { error: updateError } = await supabase
+          .from('workout_submissions')
+          .update({
+            distance_meters: workout.distance_meters,
+            step_count: stepCount,
+            raw_event: workout.raw_event,
+          })
+          .eq('event_id', workout.event_id)
+
+        if (updateError) {
+          console.error('Step upsert error:', updateError)
+          return new Response(
+            JSON.stringify({ success: false, error: updateError.message }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        console.log(`✅ Step submission updated: ${workout.event_id} (${stepCount} steps, ${(workout.distance_meters || 0) / 1000}km)`)
+        return new Response(
+          JSON.stringify({ success: true, message: 'Step submission updated', duplicate: false }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
       return new Response(
         JSON.stringify({ success: true, message: 'Already submitted', duplicate: true }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -690,28 +1023,135 @@ serve(async (req) => {
       activity_type: classifiedActivityType,
     }
 
-    // Validate workout against anti-cheat rules
-    const validation = validateWorkout(workoutWithClassification)
+    // Parse daily leaderboard data from raw_event (needed for all validation paths)
+    const distanceKm = (workout.distance_meters || 0) / 1000
+    const durationSeconds = workout.duration_seconds || 0
+    const splits = parseSplitsFromTags(workout.raw_event)
+    const targetTimes = calculateAllTargetTimes(splits, distanceKm, durationSeconds)
+    const stepCount = parseStepCount(workout.raw_event)
 
-    if (validation.valid) {
-      // Insert valid workout with classified activity type
-      // Source defaults to 'app' but can be overridden (e.g., 'nostr_scan' for transition scripts)
+    // Skip pace/speed anti-cheat for step submissions (duration=0, pace is meaningless)
+    const isStepSubmission = workout.event_id.startsWith('steps_')
 
-      // Parse daily leaderboard data from raw_event
-      const distanceKm = (workout.distance_meters || 0) / 1000
-      const durationSeconds = workout.duration_seconds || 0
-      const splits = parseSplitsFromTags(workout.raw_event)
-      const targetTimes = calculateAllTargetTimes(splits, distanceKm, durationSeconds)
-      const stepCount = parseStepCount(workout.raw_event)
+    if (isStepSubmission) {
+      // Basic step validation for new step submissions
+      if (stepCount && stepCount > 200000) {
+        return new Response(
+          JSON.stringify({ success: false, reason: 'Step count exceeds daily maximum (200,000)', flagged: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      if (workout.distance_meters !== null && workout.distance_meters < 0) {
+        return new Response(
+          JSON.stringify({ success: false, reason: 'Negative distance not allowed', flagged: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
 
-      // Validate verification code for anti-cheat (per-workout first, then legacy)
-      const verificationResult = await validateVerificationCode(workout.npub, workout.raw_event, supabase)
-      console.log(`Verification status: ${verificationResult.status} for ${workout.npub.slice(0, 12)}...`)
+    // Validate workout against anti-cheat rules (basic pace/distance/duration checks)
+    // Skip for step submissions since they have duration=0 and estimated distance
+    const validation = isStepSubmission ? { valid: true } as ValidationResult : validateWorkout(workoutWithClassification)
+    if (!validation.valid) {
+      // Flag and return early
+      const { error: flagError } = await supabase.from('flagged_workouts').insert({
+        event_id: workout.event_id,
+        npub: workout.npub,
+        activity_type: workout.activity_type,
+        distance_meters: workout.distance_meters,
+        duration_seconds: workout.duration_seconds,
+        created_at: workout.created_at,
+        reason: validation.reason,
+        raw_event: workout.raw_event,
+      })
+      if (flagError) console.error('Flag insert error:', flagError)
+      console.log(`🚫 Workout flagged: ${workout.event_id} - ${validation.reason}`)
+      return new Response(
+        JSON.stringify({ success: false, reason: validation.reason, flagged: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
-      // Calculate leaderboard_date from created_at
-      const leaderboardDate = workout.created_at
-        ? new Date(workout.created_at).toISOString().split('T')[0]
-        : new Date().toISOString().split('T')[0]
+    // Validate target times against world records (catches 5K in 11 min etc.)
+    const targetTimeValidation = validateTargetTimes(targetTimes)
+    if (!targetTimeValidation.valid) {
+      const { error: flagError } = await supabase.from('flagged_workouts').insert({
+        event_id: workout.event_id,
+        npub: workout.npub,
+        activity_type: workout.activity_type,
+        distance_meters: workout.distance_meters,
+        duration_seconds: workout.duration_seconds,
+        created_at: workout.created_at,
+        reason: targetTimeValidation.reason,
+        raw_event: workout.raw_event,
+      })
+      if (flagError) console.error('Flag insert error:', flagError)
+      console.log(`🚫 Workout flagged: ${workout.event_id} - ${targetTimeValidation.reason}`)
+      return new Response(
+        JSON.stringify({ success: false, reason: targetTimeValidation.reason, flagged: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Validate split consistency (catches suspicious split patterns)
+    const splitValidation = validateSplitConsistency(splits, durationSeconds, classifiedActivityType)
+    if (!splitValidation.valid) {
+      const { error: flagError } = await supabase.from('flagged_workouts').insert({
+        event_id: workout.event_id,
+        npub: workout.npub,
+        activity_type: workout.activity_type,
+        distance_meters: workout.distance_meters,
+        duration_seconds: workout.duration_seconds,
+        created_at: workout.created_at,
+        reason: splitValidation.reason,
+        raw_event: workout.raw_event,
+      })
+      if (flagError) console.error('Flag insert error:', flagError)
+      console.log(`🚫 Workout flagged: ${workout.event_id} - ${splitValidation.reason}`)
+      return new Response(
+        JSON.stringify({ success: false, reason: splitValidation.reason, flagged: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // All validations passed - insert valid workout
+    // Source defaults to 'app' but can be overridden (e.g., 'nostr_scan' for transition scripts)
+
+    // Validate verification code for anti-cheat (per-workout first, then legacy)
+    const verificationResult = await validateVerificationCode(workout.npub, workout.raw_event, supabase)
+    console.log(`Verification status: ${verificationResult.status} for ${workout.npub.slice(0, 12)}...`)
+
+    // Parse WoT score from tags for fraud prevention gating
+    const wotScore = parseWotScore(workout.raw_event)
+    console.log(`WoT score: ${wotScore} for ${workout.npub.slice(0, 12)}...`)
+
+    // Get first_seen_at for this npub (tracks account age for fraud prevention)
+    // Uses database function to get existing first_seen or current timestamp for new users
+    let firstSeenAt: string
+    try {
+      const { data: firstSeenData, error: firstSeenError } = await supabase
+        .rpc('get_or_create_first_seen_at', { user_npub: workout.npub })
+
+      if (firstSeenError) {
+        console.warn('Failed to get first_seen_at:', firstSeenError.message)
+        firstSeenAt = new Date().toISOString()
+      } else {
+        firstSeenAt = firstSeenData || new Date().toISOString()
+      }
+    } catch (e) {
+      console.warn('Error calling get_or_create_first_seen_at:', e)
+      firstSeenAt = new Date().toISOString()
+    }
+    console.log(`First seen at: ${firstSeenAt} for ${workout.npub.slice(0, 12)}...`)
+
+      // TIMEZONE FIX: Use client-provided leaderboard_date if available
+      // This ensures workouts appear on the correct day in the user's local timezone
+      // Fallback to UTC-based calculation for backwards compatibility (nostr_scan, older clients)
+      const leaderboardDate = workout.leaderboard_date
+        ? workout.leaderboard_date
+        : (workout.created_at
+          ? new Date(workout.created_at).toISOString().split('T')[0]
+          : new Date().toISOString().split('T')[0])
 
       const { error } = await supabase.from('workout_submissions').insert({
         event_id: workout.event_id,
@@ -737,6 +1177,12 @@ serve(async (req) => {
         // Verification fields for anti-cheat leaderboard filtering
         verification_code: verificationResult.code,
         verification_status: verificationResult.status,
+        // PPQ.AI team: Store bolt11 invoice for reward payment
+        ppq_bolt11: workout.ppq_bolt11 || null,
+        ppq_invoice_id: workout.ppq_invoice_id || null,
+        // Fraud prevention fields for external reward gating
+        wot_score: wotScore,
+        first_seen_at: firstSeenAt,
       })
 
       if (error) {
@@ -749,34 +1195,10 @@ serve(async (req) => {
         : classifiedActivityType
       console.log(`✅ Workout accepted: ${workout.event_id} (${typeInfo}, ${(workout.distance_meters || 0) / 1000}km)`)
 
-      return new Response(
-        JSON.stringify({ success: true }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    } else {
-      // Insert into flagged_workouts for admin review
-      const { error: flagError } = await supabase.from('flagged_workouts').insert({
-        event_id: workout.event_id,
-        npub: workout.npub,
-        activity_type: workout.activity_type,
-        distance_meters: workout.distance_meters,
-        duration_seconds: workout.duration_seconds,
-        created_at: workout.created_at,
-        reason: validation.reason,
-        raw_event: workout.raw_event,
-      })
-
-      if (flagError) {
-        console.error('Flag insert error:', flagError)
-      }
-
-      console.log(`🚫 Workout flagged: ${workout.event_id} - ${validation.reason}`)
-
-      return new Response(
-        JSON.stringify({ success: false, reason: validation.reason, flagged: true }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+    return new Response(
+      JSON.stringify({ success: true }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
   } catch (error) {
     console.error('Edge function error:', error)
     return new Response(
