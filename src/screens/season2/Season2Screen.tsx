@@ -110,7 +110,7 @@ export const Season2Screen: React.FC<Season2ScreenProps> = ({ navigation: propNa
         npub: entry.npub,
         name: entry.name,
         picture: entry.picture,
-        totalDistance: entry.score / 1000, // Convert meters to km (Supabase stores meters)
+        totalDistance: entry.score, // Score already in km from SupabaseCompetitionService
         workoutCount: entry.workout_count || 0,
         isLocalJoin: false,
         isPrivateCompetitor: false,

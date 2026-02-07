@@ -13,8 +13,6 @@ import {
   TextInput,
   ScrollView,
   Switch,
-  Modal,
-  ActivityIndicator,
   Keyboard,
   TouchableWithoutFeedback,
 } from 'react-native';
@@ -24,12 +22,15 @@ import { useNavigation } from '@react-navigation/native';
 import { theme } from '../../styles/theme';
 import LocalWorkoutStorageService from '../../services/fitness/LocalWorkoutStorageService';
 import { CustomAlert } from '../../components/ui/CustomAlert';
-import { WorkoutPublishingService } from '../../services/nostr/workoutPublishingService';
+import workoutPublishingService from '../../services/nostr/workoutPublishingService';
 import { UnifiedSigningService } from '../../services/auth/UnifiedSigningService';
 import { EnhancedSocialShareModal } from '../../components/profile/shared/EnhancedSocialShareModal';
 import { nostrProfileService } from '../../services/nostr/NostrProfileService';
-import { RewardNotificationManager } from '../../services/rewards/RewardNotificationManager';
-import type { NDKSigner } from '@nostr-dev-kit/ndk';
+import { AutoCompetePreferencesService } from '../../services/activity/AutoCompetePreferencesService';
+import WorkoutStatusTracker from '../../services/fitness/WorkoutStatusTracker';
+import { WoTService } from '../../services/wot/WoTService';
+import Toast from 'react-native-toast-message';
+import type { PublishableWorkout } from '../../services/nostr/workoutPublishingService';
 import type { Workout, WorkoutType } from '../../types/workout';
 
 export type ManualEntryCategory = 'cardio' | 'strength' | 'diet' | 'wellness';
@@ -83,27 +84,31 @@ export const ManualEntryScreen: React.FC<ManualEntryScreenProps> = ({
 
   // Form state
   const [exerciseName, setExerciseName] = useState(prefillName);
-  const [saveExercise, setSaveExercise] = useState(!prefillName); // Default on for new exercises
+  const [saveExercise, setSaveExercise] = useState(!prefillName);
   const [notes, setNotes] = useState('');
 
   // Category-specific fields
-  const [duration, setDuration] = useState(''); // minutes
-  const [distance, setDistance] = useState(''); // km
+  const [duration, setDuration] = useState('');
+  const [distance, setDistance] = useState('');
   const [calories, setCalories] = useState('');
   const [heartRate, setHeartRate] = useState('');
   const [sets, setSets] = useState('');
   const [reps, setReps] = useState('');
-  const [weight, setWeight] = useState(''); // lbs
+  const [weight, setWeight] = useState('');
 
   // Summary/posting state
   const [showSummary, setShowSummary] = useState(false);
   const [savedWorkout, setSavedWorkout] = useState<Workout | null>(null);
+  const [savedWorkoutId, setSavedWorkoutId] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [userId, setUserId] = useState<string>('');
-  const [signer, setSigner] = useState<NDKSigner | null>(null);
-  const [isCompeting, setIsCompeting] = useState(false);
   const [userAvatar, setUserAvatar] = useState<string | undefined>(undefined);
   const [userName, setUserName] = useState<string | undefined>(undefined);
+
+  // WoT + posting state
+  const [wotScore, setWotScore] = useState<number | null>(null);
+  const [autoCompeteTriggered, setAutoCompeteTriggered] = useState(false);
+  const [postedToNostr, setPostedToNostr] = useState(false);
 
   // Alert state
   const [alertVisible, setAlertVisible] = useState(false);
@@ -125,23 +130,93 @@ export const ManualEntryScreen: React.FC<ManualEntryScreenProps> = ({
   useEffect(() => {
     const initializeData = async () => {
       try {
+        const pubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
         const npub = await AsyncStorage.getItem('@runstr:npub');
-        if (npub) {
-          setUserId(npub);
-          const nostrProfile = await nostrProfileService.getProfile(npub);
+        const activeUserId = npub || pubkey || '';
+        setUserId(activeUserId);
+
+        // Load WoT score
+        if (pubkey) {
+          try {
+            const wotService = WoTService.getInstance();
+            const score = await wotService.getCachedScore(pubkey);
+            setWotScore(score);
+          } catch (e) {
+            console.warn('[ManualEntry] WoT cache read failed:', e);
+          }
+        }
+
+        if (pubkey) {
+          const nostrProfile = await nostrProfileService.getProfile(pubkey);
           if (nostrProfile) {
             setUserAvatar(nostrProfile.picture);
             setUserName(nostrProfile.display_name || nostrProfile.name);
           }
         }
-        const userSigner = await UnifiedSigningService.getInstance().getSigner();
-        if (userSigner) setSigner(userSigner);
       } catch (error) {
         console.warn('[ManualEntry] Failed to initialize:', error);
       }
     };
     initializeData();
   }, []);
+
+  // Auto-compete when summary opens
+  useEffect(() => {
+    const attemptAutoCompete = async () => {
+      if (!showSummary || !savedWorkoutId || autoCompeteTriggered) return;
+
+      const isEnabled = await AutoCompetePreferencesService.isAutoCompeteEnabled();
+      if (!isEnabled) return;
+
+      const status = await WorkoutStatusTracker.getStatus(savedWorkoutId);
+      if (status.competedInNostr) return;
+
+      setAutoCompeteTriggered(true);
+
+      try {
+        const signer = await UnifiedSigningService.getInstance().getSigner();
+        const npub = await AsyncStorage.getItem('@runstr:npub');
+        if (!signer || !savedWorkout) return;
+
+        const publishableWorkout = {
+          ...savedWorkout,
+          source: 'manual' as const,
+        } as PublishableWorkout;
+
+        const result = await workoutPublishingService.saveWorkoutToNostr(
+          publishableWorkout,
+          signer,
+          npub || 'unknown'
+        );
+
+        if (result.success) {
+          await WorkoutStatusTracker.markAsCompeted(savedWorkoutId, result.eventId);
+          if (result.eventId) {
+            await LocalWorkoutStorageService.markAsSynced(savedWorkoutId, result.eventId);
+          }
+          console.log('[ManualEntry] Auto-competed kind 1301');
+        } else {
+          Toast.show({
+            type: 'error',
+            text1: 'Auto-compete failed',
+            text2: 'Tap Post to retry manually.',
+            position: 'top',
+            visibilityTime: 4000,
+          });
+        }
+      } catch (error) {
+        console.error('[ManualEntry] Auto-compete error:', error);
+        Toast.show({
+          type: 'error',
+          text1: 'Auto-compete failed',
+          text2: 'Tap Post to retry manually.',
+          position: 'top',
+          visibilityTime: 4000,
+        });
+      }
+    };
+    attemptAutoCompete();
+  }, [showSummary, savedWorkoutId, autoCompeteTriggered]);
 
   const validateForm = (): boolean => {
     if (!exerciseName.trim()) {
@@ -154,7 +229,6 @@ export const ManualEntryScreen: React.FC<ManualEntryScreenProps> = ({
       return false;
     }
 
-    // Category-specific validation
     if (category === 'cardio' || category === 'wellness') {
       if (!duration.trim()) {
         setAlertConfig({
@@ -209,7 +283,6 @@ export const ManualEntryScreen: React.FC<ManualEntryScreenProps> = ({
         exerciseType: exerciseName.toLowerCase().replace(/\s+/g, '_'),
       };
 
-      // Add category-specific fields
       if (category === 'strength') {
         workoutData.sets = parseInt(sets, 10) || undefined;
         workoutData.reps = parseInt(reps, 10) || undefined;
@@ -217,13 +290,11 @@ export const ManualEntryScreen: React.FC<ManualEntryScreenProps> = ({
       }
 
       if (category === 'cardio' && heartRate) {
-        // Store heart rate in notes for now
         workoutData.notes = `${exerciseName}${heartRate ? ` | Avg HR: ${heartRate} bpm` : ''}${notes ? ` | ${notes}` : ''}`;
       }
 
       const workoutId = await LocalWorkoutStorageService.saveManualWorkout(workoutData);
 
-      // Save exercise name for reuse (if toggle is on)
       if (saveExercise && !prefillName) {
         await LocalWorkoutStorageService.saveCustomExerciseName(
           category,
@@ -231,18 +302,30 @@ export const ManualEntryScreen: React.FC<ManualEntryScreenProps> = ({
         );
       }
 
-      console.log(`[ManualEntry] Saved workout: ${workoutId}`);
+      setSavedWorkoutId(workoutId);
 
-      // Get saved workout for summary
-      const allWorkouts = await LocalWorkoutStorageService.getAllWorkouts();
-      const workout = allWorkouts.find((w) => w.id === workoutId);
+      // Build workout object directly
+      const workout: Workout = {
+        id: workoutId,
+        userId: userId || 'unknown',
+        type: config.workoutType,
+        source: 'manual_entry' as const,
+        startTime: new Date(Date.now() - durationSeconds * 1000).toISOString(),
+        endTime: new Date().toISOString(),
+        duration: durationSeconds,
+        distance: distanceKm,
+        calories: caloriesNum,
+        notes: workoutData.notes,
+        exerciseType: workoutData.exerciseType,
+        sets: workoutData.sets,
+        reps: workoutData.reps,
+        weight: workoutData.weight,
+        syncedAt: new Date().toISOString(),
+      } as any;
 
-      if (workout) {
-        // Mark as manual entry for competition filtering
-        (workout as any).isManualEntry = true;
-        setSavedWorkout(workout as any);
-        setShowSummary(true);
-      }
+      (workout as any).isManualEntry = true;
+      setSavedWorkout(workout);
+      setShowSummary(true);
     } catch (error) {
       console.error('[ManualEntry] Failed to save:', error);
       setAlertConfig({
@@ -254,73 +337,55 @@ export const ManualEntryScreen: React.FC<ManualEntryScreenProps> = ({
     }
   };
 
-  const handlePost = () => {
-    setShowShareModal(true);
-  };
+  const isWoTEligible = wotScore !== null && wotScore > 0;
 
-  const handleCompete = async () => {
-    if (!savedWorkout || !signer || !userId) {
-      setAlertConfig({
-        title: 'Authentication Required',
-        message: 'Please log in to post workouts.',
-        buttons: [{ text: 'OK', style: 'default' }],
-      });
-      setAlertVisible(true);
-      return;
-    }
-
-    setIsCompeting(true);
-
+  const handlePostToNostr = async (cardImageUri?: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const publishingService = WorkoutPublishingService.getInstance();
-      const result = await publishingService.saveWorkoutToNostr(
-        savedWorkout,
+      const signer = await UnifiedSigningService.getInstance().getSigner();
+      const npub = await AsyncStorage.getItem('@runstr:npub');
+      if (!signer) return { success: false, error: 'Not authenticated' };
+      if (!savedWorkout) return { success: false, error: 'No workout data' };
+
+      const publishableWorkout = {
+        ...savedWorkout,
+        source: 'manual' as const,
+      } as PublishableWorkout;
+
+      const result = await workoutPublishingService.postWorkoutToSocial(
+        publishableWorkout,
         signer,
-        userId
+        npub || 'unknown',
+        {
+          includeCard: true,
+          cardImageUri,
+          userAvatar,
+          userName,
+        }
       );
 
-      if (result.success && result.eventId) {
-        await LocalWorkoutStorageService.markAsSynced(
-          savedWorkout.id,
-          result.eventId
-        );
-
-        setShowSummary(false);
-        setTimeout(() => {
-          setAlertConfig({
-            title: 'Success!',
-            message: 'Your workout has been saved!',
-            buttons: [{ text: 'OK', style: 'default', onPress: handleDone }],
-          });
-          setAlertVisible(true);
-        }, 300);
-      } else {
-        throw new Error(result.error || 'Failed to save workout');
+      if (result.success) {
+        setPostedToNostr(true);
       }
+      return result;
     } catch (error) {
-      console.error('[ManualEntry] Compete error:', error);
-      setShowSummary(false);
-      setTimeout(() => {
-        setAlertConfig({
-          title: 'Error',
-          message: 'Failed to publish. Please try again.',
-          buttons: [{ text: 'OK', style: 'default' }],
-        });
-        setAlertVisible(true);
-      }, 300);
-    } finally {
-      setIsCompeting(false);
+      console.error('[ManualEntry] Post to Nostr error:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Post failed' };
     }
+  };
+
+  const handleShowSocialModal = () => {
+    if (!savedWorkout) return;
+    Keyboard.dismiss();
+    setShowShareModal(true);
   };
 
   const handleDone = () => {
     setShowSummary(false);
     setShowShareModal(false);
     setSavedWorkout(null);
-
-    // Show pending reward toast now that modal is closing
-    RewardNotificationManager.showPendingRewardToast();
-
+    setSavedWorkoutId(null);
+    setAutoCompeteTriggered(false);
+    setPostedToNostr(false);
     navigation.goBack();
   };
 
@@ -332,6 +397,119 @@ export const ManualEntryScreen: React.FC<ManualEntryScreenProps> = ({
     }
     return `${mins}m`;
   };
+
+  // Summary screen
+  if (showSummary) {
+    return (
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.summaryScrollContainer}
+      >
+        <View style={styles.summaryIconContainer}>
+          <Ionicons
+            name="checkmark-circle"
+            size={64}
+            color={theme.colors.orangeBright}
+          />
+        </View>
+
+        <Text style={styles.summaryTitle}>Workout Logged</Text>
+
+        <View style={styles.summaryStatsCard}>
+          <Text style={styles.summaryExercise}>{exerciseName}</Text>
+
+          <View style={styles.summaryMainStats}>
+            {duration && (
+              <View style={styles.summaryStatItem}>
+                <Text style={styles.summaryStatValue}>
+                  {formatDuration(parseInt(duration, 10))}
+                </Text>
+                <Text style={styles.summaryStatLabel}>Duration</Text>
+              </View>
+            )}
+            {category === 'strength' && sets && reps && (
+              <View style={styles.summaryStatItem}>
+                <Text style={styles.summaryStatValue}>
+                  {sets}x{reps}
+                  {weight ? ` @${weight}` : ''}
+                </Text>
+                <Text style={styles.summaryStatLabel}>Sets x Reps</Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Post to Nostr - Only visible if WoT > 0 */}
+        {isWoTEligible && !postedToNostr && (
+          <TouchableOpacity style={styles.postButton} onPress={handleShowSocialModal}>
+            <Ionicons
+              name="paper-plane-outline"
+              size={20}
+              color={theme.colors.background}
+              style={{ marginRight: 8 }}
+            />
+            <Text style={styles.postButtonText}>Post to Nostr</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Posted confirmation */}
+        {postedToNostr && (
+          <View style={[styles.postButton, { opacity: 0.5 }]}>
+            <Ionicons
+              name="checkmark-circle"
+              size={20}
+              color={theme.colors.background}
+              style={{ marginRight: 8 }}
+            />
+            <Text style={styles.postButtonText}>Posted</Text>
+          </View>
+        )}
+
+        {/* Discard Button */}
+        <TouchableOpacity
+          style={styles.discardButton}
+          onPress={async () => {
+            if (savedWorkoutId) {
+              await LocalWorkoutStorageService.deleteWorkout(savedWorkoutId);
+            }
+            handleDone();
+          }}
+        >
+          <Text style={styles.discardButtonText}>Discard</Text>
+        </TouchableOpacity>
+
+        {/* Done Button */}
+        <TouchableOpacity style={styles.doneButton} onPress={handleDone}>
+          <Text style={styles.doneButtonText}>Done</Text>
+        </TouchableOpacity>
+
+        {/* Social Share Modal */}
+        {savedWorkout && (
+          <EnhancedSocialShareModal
+            visible={showShareModal}
+            workout={savedWorkout}
+            userId={userId}
+            userAvatar={userAvatar}
+            userName={userName}
+            localWorkoutId={savedWorkoutId || undefined}
+            onPostToNostr={handlePostToNostr}
+            onClose={() => setShowShareModal(false)}
+            onSuccess={() => {
+              setShowShareModal(false);
+            }}
+          />
+        )}
+
+        <CustomAlert
+          visible={alertVisible}
+          title={alertConfig.title}
+          message={alertConfig.message}
+          buttons={alertConfig.buttons}
+          onClose={() => setAlertVisible(false)}
+        />
+      </ScrollView>
+    );
+  }
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
@@ -531,84 +709,6 @@ export const ManualEntryScreen: React.FC<ManualEntryScreenProps> = ({
         </Text>
       </View>
 
-      {/* Summary Modal */}
-      <Modal visible={showSummary} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.summaryContainer}>
-            <Text style={styles.summaryTitle}>Workout Logged</Text>
-
-            <View style={styles.summaryStats}>
-              <Ionicons name={config.icon} size={48} color={theme.colors.text} />
-              <Text style={styles.summaryName}>{exerciseName}</Text>
-              {duration && (
-                <Text style={styles.summaryDetail}>
-                  {formatDuration(parseInt(duration, 10))}
-                </Text>
-              )}
-              {category === 'strength' && sets && reps && (
-                <Text style={styles.summaryDetail}>
-                  {sets} sets x {reps} reps
-                  {weight ? ` @ ${weight} lbs` : ''}
-                </Text>
-              )}
-            </View>
-
-            <View style={styles.summaryButtons}>
-              <TouchableOpacity style={styles.postButton} onPress={handlePost}>
-                <Ionicons
-                  name="bookmark-outline"
-                  size={20}
-                  color={theme.colors.background}
-                />
-                <Text style={styles.postButtonText}>Share</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.competeButton}
-                onPress={handleCompete}
-                disabled={isCompeting}
-              >
-                {isCompeting ? (
-                  <ActivityIndicator size="small" color={theme.colors.background} />
-                ) : (
-                  <>
-                    <Ionicons
-                      name="cloud-upload-outline"
-                      size={20}
-                      color={theme.colors.background}
-                    />
-                    <Text style={styles.competeButtonText}>Compete</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.doneButton} onPress={handleDone}>
-                <Text style={styles.doneButtonText}>Done</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {savedWorkout && (
-            <EnhancedSocialShareModal
-              visible={showShareModal}
-              workout={savedWorkout}
-              userId={userId}
-              userAvatar={userAvatar}
-              userName={userName}
-              onClose={() => setShowShareModal(false)}
-              onSuccess={() => {
-                setAlertConfig({
-                  title: 'Success!',
-                  message: 'Your workout has been shared!',
-                  buttons: [{ text: 'OK', style: 'default', onPress: handleDone }],
-                });
-                setAlertVisible(true);
-              }}
-            />
-          )}
-        </View>
-      </Modal>
-
       {/* Custom Alert */}
       <CustomAlert
         visible={alertVisible}
@@ -724,71 +824,88 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     lineHeight: 20,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    justifyContent: 'center',
+  // Summary styles
+  summaryScrollContainer: {
+    flexGrow: 1,
     padding: 20,
   },
-  summaryContainer: {
+  summaryIconContainer: {
+    alignSelf: 'center',
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  summaryTitle: {
+    fontSize: 28,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+    textAlign: 'center',
+    marginBottom: 32,
+  },
+  summaryStatsCard: {
     backgroundColor: theme.colors.card,
-    borderRadius: 20,
-    padding: 24,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  summaryTitle: {
-    fontSize: 24,
+  summaryExercise: {
+    fontSize: 20,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
     textAlign: 'center',
     marginBottom: 24,
   },
-  summaryStats: {
-    alignItems: 'center',
+  summaryMainStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
     marginBottom: 24,
+    paddingBottom: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
-  summaryName: {
-    fontSize: 20,
+  summaryStatItem: {
+    alignItems: 'center',
+  },
+  summaryStatValue: {
+    fontSize: 28,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
-    marginTop: 12,
+    marginBottom: 4,
   },
-  summaryDetail: {
-    fontSize: 16,
+  summaryStatLabel: {
+    fontSize: 12,
     color: theme.colors.textMuted,
-    marginTop: 8,
-  },
-  summaryButtons: {
-    gap: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   postButton: {
-    flexDirection: 'row',
     backgroundColor: theme.colors.text,
     borderRadius: 12,
-    paddingVertical: 14,
+    paddingVertical: 16,
     alignItems: 'center',
+    flexDirection: 'row',
     justifyContent: 'center',
-    gap: 8,
+    marginBottom: 12,
   },
   postButtonText: {
     color: theme.colors.background,
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
   },
-  competeButton: {
-    flexDirection: 'row',
-    backgroundColor: theme.colors.text,
+  discardButton: {
+    backgroundColor: theme.colors.card,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginBottom: 12,
   },
-  competeButtonText: {
-    color: theme.colors.background,
+  discardButtonText: {
+    color: theme.colors.textMuted,
     fontSize: 16,
-    fontWeight: theme.typography.weights.bold,
+    fontWeight: theme.typography.weights.medium,
   },
   doneButton: {
     backgroundColor: theme.colors.card,

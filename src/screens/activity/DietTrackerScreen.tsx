@@ -12,8 +12,7 @@ import {
   TextInput,
   ScrollView,
   Platform,
-  Modal,
-  ActivityIndicator,
+  Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -21,15 +20,18 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../styles/theme';
 import LocalWorkoutStorageService from '../../services/fitness/LocalWorkoutStorageService';
 import { EnhancedSocialShareModal } from '../../components/profile/shared/EnhancedSocialShareModal';
-import { WorkoutPublishingService } from '../../services/nostr/workoutPublishingService';
+import workoutPublishingService from '../../services/nostr/workoutPublishingService';
 import { UnifiedSigningService } from '../../services/auth/UnifiedSigningService';
 import { CustomAlert } from '../../components/ui/CustomAlert';
 import CalorieEstimationService, {
   type MealSize,
 } from '../../services/fitness/CalorieEstimationService';
 import { nostrProfileService } from '../../services/nostr/NostrProfileService';
-import { RewardNotificationManager } from '../../services/rewards/RewardNotificationManager';
-import type { NDKSigner } from '@nostr-dev-kit/ndk';
+import { AutoCompetePreferencesService } from '../../services/activity/AutoCompetePreferencesService';
+import WorkoutStatusTracker from '../../services/fitness/WorkoutStatusTracker';
+import { WoTService } from '../../services/wot/WoTService';
+import Toast from 'react-native-toast-message';
+import type { PublishableWorkout } from '../../services/nostr/workoutPublishingService';
 import type { Workout } from '../../types/workout';
 
 type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
@@ -67,20 +69,24 @@ export const DietTrackerScreen: React.FC<DietTrackerScreenProps> = ({
   // Intentional fasting state
   const [isFasting, setIsFasting] = useState<boolean>(false);
   const [fastStartTime, setFastStartTime] = useState<Date | null>(null);
-  const [fastingDuration, setFastingDuration] = useState<number>(0); // seconds
+  const [fastingDuration, setFastingDuration] = useState<number>(0);
 
-  // Summary modal state
+  // Summary state
   const [showSummary, setShowSummary] = useState(false);
   const [summaryType, setSummaryType] = useState<'meal' | 'fast'>('meal');
   const [savedWorkout, setSavedWorkout] = useState<Workout | null>(null);
+  const [savedWorkoutId, setSavedWorkoutId] = useState<string | null>(null);
 
   // Posting state
   const [showShareModal, setShowShareModal] = useState(false);
   const [userId, setUserId] = useState<string>('');
-  const [signer, setSigner] = useState<NDKSigner | null>(null);
-  const [isCompeting, setIsCompeting] = useState(false);
   const [userAvatar, setUserAvatar] = useState<string | undefined>(undefined);
   const [userName, setUserName] = useState<string | undefined>(undefined);
+
+  // WoT + posting state
+  const [wotScore, setWotScore] = useState<number | null>(null);
+  const [autoCompeteTriggered, setAutoCompeteTriggered] = useState(false);
+  const [postedToNostr, setPostedToNostr] = useState(false);
 
   // Alert state
   const [alertVisible, setAlertVisible] = useState(false);
@@ -98,30 +104,36 @@ export const DietTrackerScreen: React.FC<DietTrackerScreenProps> = ({
     buttons: [],
   });
 
-  // Load fasting state, userId, and signer on mount
+  // Load fasting state, userId, WoT on mount
   useEffect(() => {
     const initializeData = async () => {
       try {
         await loadFastingState();
 
+        const pubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
         const npub = await AsyncStorage.getItem('@runstr:npub');
-        if (npub) {
-          setUserId(npub);
+        const activeUserId = npub || pubkey || '';
+        setUserId(activeUserId);
 
-          // Load user's Nostr profile (avatar and name)
-          const nostrProfile = await nostrProfileService.getProfile(npub);
-          if (nostrProfile) {
-            setUserAvatar(nostrProfile.picture);
-            setUserName(nostrProfile.display_name || nostrProfile.name);
-            console.log(
-              '[DietTracker] ✅ User profile loaded for social cards'
-            );
+        // Load WoT score
+        if (pubkey) {
+          try {
+            const wotService = WoTService.getInstance();
+            const score = await wotService.getCachedScore(pubkey);
+            setWotScore(score);
+          } catch (e) {
+            console.warn('[DietTracker] WoT cache read failed:', e);
           }
         }
 
-        const userSigner =
-          await UnifiedSigningService.getInstance().getSigner();
-        if (userSigner) setSigner(userSigner);
+        // Load user's Nostr profile
+        if (pubkey) {
+          const nostrProfile = await nostrProfileService.getProfile(pubkey);
+          if (nostrProfile) {
+            setUserAvatar(nostrProfile.picture);
+            setUserName(nostrProfile.display_name || nostrProfile.name);
+          }
+        }
       } catch (error) {
         console.warn('[DietTracker] Failed to initialize:', error);
       }
@@ -136,10 +148,7 @@ export const DietTrackerScreen: React.FC<DietTrackerScreenProps> = ({
     }
   }, [initialMealType]);
 
-  // Note: Removed auto-start behavior - user must click "Start Fasting" button
-  // shouldStartFasting prop now only indicates fasting UI mode should be shown
-
-  // Calculate fasting duration in real-time (only when actively fasting)
+  // Calculate fasting duration in real-time
   useEffect(() => {
     if (!isFasting || !fastStartTime) return;
 
@@ -153,6 +162,64 @@ export const DietTrackerScreen: React.FC<DietTrackerScreenProps> = ({
     return () => clearInterval(interval);
   }, [isFasting, fastStartTime]);
 
+  // Auto-compete: publish kind 1301 when summary opens
+  useEffect(() => {
+    const attemptAutoCompete = async () => {
+      if (!showSummary || !savedWorkoutId || autoCompeteTriggered) return;
+
+      const isEnabled = await AutoCompetePreferencesService.isAutoCompeteEnabled();
+      if (!isEnabled) return;
+
+      const status = await WorkoutStatusTracker.getStatus(savedWorkoutId);
+      if (status.competedInNostr) return;
+
+      setAutoCompeteTriggered(true);
+
+      try {
+        const signer = await UnifiedSigningService.getInstance().getSigner();
+        const npub = await AsyncStorage.getItem('@runstr:npub');
+        if (!signer || !savedWorkout) return;
+
+        const publishableWorkout = {
+          ...savedWorkout,
+          source: 'manual' as const,
+        } as PublishableWorkout;
+
+        const result = await workoutPublishingService.saveWorkoutToNostr(
+          publishableWorkout,
+          signer,
+          npub || 'unknown'
+        );
+
+        if (result.success) {
+          await WorkoutStatusTracker.markAsCompeted(savedWorkoutId, result.eventId);
+          if (result.eventId) {
+            await LocalWorkoutStorageService.markAsSynced(savedWorkoutId, result.eventId);
+          }
+          console.log('[DietTracker] Auto-competed kind 1301');
+        } else {
+          Toast.show({
+            type: 'error',
+            text1: 'Auto-compete failed',
+            text2: 'Tap Post to retry manually.',
+            position: 'top',
+            visibilityTime: 4000,
+          });
+        }
+      } catch (error) {
+        console.error('[DietTracker] Auto-compete error:', error);
+        Toast.show({
+          type: 'error',
+          text1: 'Auto-compete failed',
+          text2: 'Tap Post to retry manually.',
+          position: 'top',
+          visibilityTime: 4000,
+        });
+      }
+    };
+    attemptAutoCompete();
+  }, [showSummary, savedWorkoutId, autoCompeteTriggered]);
+
   const loadFastingState = async () => {
     try {
       const [fastingFlag, startTimeStr] = await Promise.all([
@@ -165,8 +232,7 @@ export const DietTrackerScreen: React.FC<DietTrackerScreenProps> = ({
         const currentDuration = Math.floor((Date.now() - startTime.getTime()) / 1000);
         setIsFasting(true);
         setFastStartTime(startTime);
-        setFastingDuration(Math.max(0, currentDuration)); // Set immediately to avoid 0 flash
-        console.log('[DietTracker] ✅ Restored active fast from storage');
+        setFastingDuration(Math.max(0, currentDuration));
       }
     } catch (error) {
       console.error('[DietTracker] Failed to load fasting state:', error);
@@ -178,15 +244,11 @@ export const DietTrackerScreen: React.FC<DietTrackerScreenProps> = ({
       const startTime = new Date();
       await Promise.all([
         AsyncStorage.setItem(IS_FASTING_KEY, 'true'),
-        AsyncStorage.setItem(
-          ACTIVE_FAST_START_KEY,
-          startTime.getTime().toString()
-        ),
+        AsyncStorage.setItem(ACTIVE_FAST_START_KEY, startTime.getTime().toString()),
       ]);
       setIsFasting(true);
       setFastStartTime(startTime);
       setFastingDuration(0);
-      console.log('[DietTracker] ✅ Started fasting mode');
     } catch (error) {
       console.error('[DietTracker] Failed to start fasting:', error);
       setAlertConfig({
@@ -207,13 +269,12 @@ export const DietTrackerScreen: React.FC<DietTrackerScreenProps> = ({
       setIsFasting(false);
       setFastStartTime(null);
       setFastingDuration(0);
-      console.log('[DietTracker] ✅ Stopped fasting mode');
     } catch (error) {
       console.error('[DietTracker] Failed to stop fasting:', error);
     }
   };
 
-  const handleTimeChange = (event: any, selectedDate?: Date) => {
+  const handleTimeChange = (_event: any, selectedDate?: Date) => {
     setShowTimePicker(Platform.OS === 'ios');
     if (selectedDate) {
       setMealTime(selectedDate);
@@ -229,15 +290,14 @@ export const DietTrackerScreen: React.FC<DietTrackerScreenProps> = ({
         minute: '2-digit',
       });
 
-      // Estimate calories using CalorieEstimationService
       const estimatedCalories = CalorieEstimationService.estimateMealCalories(
         selectedMealSize,
         selectedMealType
       );
 
       const workoutId = await LocalWorkoutStorageService.saveManualWorkout({
-        type: 'diet', // Proper type for diet/meal workouts
-        duration: 0, // Meals don't have duration
+        type: 'diet',
+        duration: 0,
         notes: mealNotes || `${mealTypeLabel} at ${timeString}`,
         mealType: selectedMealType,
         mealTime: mealTime.toISOString(),
@@ -245,23 +305,34 @@ export const DietTrackerScreen: React.FC<DietTrackerScreenProps> = ({
         calories: estimatedCalories,
       });
 
-      console.log(`✅ Meal logged: ${selectedMealType} at ${timeString}`);
+      setSavedWorkoutId(workoutId);
 
-      // Retrieve saved workout for summary modal
-      const allWorkouts = await LocalWorkoutStorageService.getAllWorkouts();
-      const workout = allWorkouts.find((w) => w.id === workoutId);
+      // Build workout object directly
+      const workout: Workout = {
+        id: workoutId,
+        userId: userId || 'unknown',
+        type: 'diet',
+        source: 'manual_entry' as const,
+        startTime: mealTime.toISOString(),
+        endTime: mealTime.toISOString(),
+        duration: 0,
+        calories: estimatedCalories,
+        mealType: selectedMealType,
+        mealTime: mealTime.toISOString(),
+        mealSize: selectedMealSize,
+        notes: mealNotes || `${mealTypeLabel} at ${timeString}`,
+        syncedAt: new Date().toISOString(),
+      } as any;
 
-      if (workout) {
-        setSavedWorkout(workout as any);
-        setSummaryType('meal');
-        setShowSummary(true);
-      }
+      setSavedWorkout(workout);
+      setSummaryType('meal');
+      setShowSummary(true);
 
       // Reset form
       setMealNotes('');
       setMealTime(new Date());
     } catch (error) {
-      console.error('❌ Failed to save meal:', error);
+      console.error('[DietTracker] Failed to save meal:', error);
       setAlertConfig({
         title: 'Error',
         message: 'Failed to save meal. Please try again.',
@@ -272,16 +343,12 @@ export const DietTrackerScreen: React.FC<DietTrackerScreenProps> = ({
   };
 
   const breakFastAndLogMeal = async () => {
-    if (!isFasting || !fastStartTime) {
-      console.warn('[DietTracker] Not currently fasting, cannot break fast');
-      return;
-    }
+    if (!isFasting || !fastStartTime) return;
 
     try {
       const hours = Math.floor(fastingDuration / 3600);
       const minutes = Math.floor((fastingDuration % 3600) / 60);
 
-      // First, save the fasting period
       const fastWorkoutId = await LocalWorkoutStorageService.saveManualWorkout({
         type: 'fasting',
         duration: fastingDuration,
@@ -289,9 +356,7 @@ export const DietTrackerScreen: React.FC<DietTrackerScreenProps> = ({
         fastingDuration,
       });
 
-      console.log(`✅ Fast logged: ${formatDuration(fastingDuration)}`);
-
-      // Then, save the meal that breaks the fast
+      // Save the meal that breaks the fast
       const mealTypeLabel =
         MEAL_TYPES.find((m) => m.value === selectedMealType)?.label || 'Meal';
       const timeString = mealTime.toLocaleTimeString('en-US', {
@@ -314,26 +379,31 @@ export const DietTrackerScreen: React.FC<DietTrackerScreenProps> = ({
         calories: estimatedCalories,
       });
 
-      console.log(`✅ Meal logged: ${selectedMealType} at ${timeString}`);
-
-      // Stop fasting mode
       await stopFastingMode();
 
-      // Retrieve the fast workout for summary modal
-      const allWorkouts = await LocalWorkoutStorageService.getAllWorkouts();
-      const fastWorkout = allWorkouts.find((w) => w.id === fastWorkoutId);
+      setSavedWorkoutId(fastWorkoutId);
 
-      if (fastWorkout) {
-        setSavedWorkout(fastWorkout as any);
-        setSummaryType('fast');
-        setShowSummary(true);
-      }
+      // Build fast workout object directly
+      const fastWorkout: Workout = {
+        id: fastWorkoutId,
+        userId: userId || 'unknown',
+        type: 'fasting' as any,
+        source: 'manual_entry' as const,
+        startTime: fastStartTime.toISOString(),
+        endTime: new Date().toISOString(),
+        duration: fastingDuration,
+        notes: `Completed ${hours}h ${minutes}m fast`,
+        syncedAt: new Date().toISOString(),
+      };
 
-      // Reset form
+      setSavedWorkout(fastWorkout);
+      setSummaryType('fast');
+      setShowSummary(true);
+
       setMealNotes('');
       setMealTime(new Date());
     } catch (error) {
-      console.error('❌ Failed to break fast and log meal:', error);
+      console.error('[DietTracker] Failed to break fast:', error);
       setAlertConfig({
         title: 'Error',
         message: 'Failed to break fast. Please try again.',
@@ -343,162 +413,56 @@ export const DietTrackerScreen: React.FC<DietTrackerScreenProps> = ({
     }
   };
 
-  const handlePost = async () => {
-    console.log('🔍 [DietTracker] handlePost() CALLED - Entry point reached');
-    console.log('🔍 [DietTracker] savedWorkout exists:', !!savedWorkout);
+  const isWoTEligible = wotScore !== null && wotScore > 0;
 
+  /** Handle posting to Nostr (called from EnhancedSocialShareModal) */
+  const handlePostToNostr = async (cardImageUri?: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      // If savedWorkout not in state, try retrieving from storage (like MeditationTracker)
-      if (!savedWorkout) {
-        console.log(
-          '[DietTracker] Workout not in state, retrieving from storage...'
-        );
-        const allWorkouts = await LocalWorkoutStorageService.getAllWorkouts();
-        const latestWorkout = allWorkouts[0]; // Most recent workout
+      const signer = await UnifiedSigningService.getInstance().getSigner();
+      const npub = await AsyncStorage.getItem('@runstr:npub');
+      if (!signer) return { success: false, error: 'Not authenticated' };
+      if (!savedWorkout) return { success: false, error: 'No workout data' };
 
-        if (latestWorkout) {
-          console.log(
-            '[DietTracker] Retrieved latest workout from storage:',
-            latestWorkout.id
-          );
-          setSavedWorkout(latestWorkout as any);
-          console.log(
-            '🔍 [DietTracker] About to set showShareModal = true (from storage)'
-          );
-          setShowShareModal(true);
-        } else {
-          throw new Error('No workout found to share');
+      const publishableWorkout = {
+        ...savedWorkout,
+        source: 'manual' as const,
+      } as PublishableWorkout;
+
+      const result = await workoutPublishingService.postWorkoutToSocial(
+        publishableWorkout,
+        signer,
+        npub || 'unknown',
+        {
+          includeCard: true,
+          cardImageUri,
+          userAvatar,
+          userName,
         }
-      } else {
-        console.log('[DietTracker] Using savedWorkout from state');
-        console.log(
-          '🔍 [DietTracker] About to set showShareModal = true (from state)'
-        );
-        setShowShareModal(true);
+      );
+
+      if (result.success) {
+        setPostedToNostr(true);
       }
+      return result;
     } catch (error) {
-      console.error('❌ Failed to prepare workout for sharing:', error);
-      setAlertConfig({
-        title: 'Error',
-        message:
-          'No workout data available. Please try logging your meal/fast again.',
-        buttons: [{ text: 'OK', style: 'default' }],
-      });
-      setAlertVisible(true);
+      console.error('[DietTracker] Post to Nostr error:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Post failed' };
     }
   };
 
-  const handleCompete = async () => {
-    try {
-      console.log('🔍 [DietTracker] handleCompete() started');
-
-      if (!savedWorkout) {
-        console.log('❌ [DietTracker] No savedWorkout found');
-        return;
-      }
-      console.log('✅ [DietTracker] savedWorkout exists:', {
-        id: savedWorkout.id,
-        type: savedWorkout.type,
-        calories: savedWorkout.calories,
-        hasNotes: !!savedWorkout.notes,
-      });
-
-      if (!signer || !userId) {
-        console.log(
-          '❌ [DietTracker] Authentication missing - signer:',
-          !!signer,
-          'userId:',
-          !!userId
-        );
-        setAlertConfig({
-          title: 'Authentication Required',
-          message: 'Please log in to post workouts.',
-          buttons: [{ text: 'OK', style: 'default' }],
-        });
-        setAlertVisible(true);
-        return;
-      }
-      console.log('✅ [DietTracker] Authentication OK - userId:', userId);
-
-      setIsCompeting(true);
-      console.log('🔄 [DietTracker] Starting kind 1301 publishing...');
-
-      // Publish as kind 1301 (competition data)
-      const publishingService = WorkoutPublishingService.getInstance();
-      console.log('📤 [DietTracker] Calling saveWorkoutToNostr...');
-      const result = await publishingService.saveWorkoutToNostr(
-        savedWorkout,
-        signer,
-        userId
-      );
-      console.log('📥 [DietTracker] Publishing result:', result);
-
-      if (result.success && result.eventId) {
-        console.log(
-          '✅ [DietTracker] Publishing successful! Event ID:',
-          result.eventId
-        );
-
-        // Mark as synced in local storage
-        console.log(
-          '💾 [DietTracker] Marking workout as synced in local storage...'
-        );
-        await LocalWorkoutStorageService.markAsSynced(
-          savedWorkout.id,
-          result.eventId
-        );
-        console.log('✅ [DietTracker] Marked as synced');
-
-        // Close summary modal FIRST to prevent alert appearing behind it
-        setShowSummary(false);
-
-        // Show alert after modal closes
-        setTimeout(() => {
-          setAlertConfig({
-            title: 'Success!',
-            message: `Your ${
-              summaryType === 'meal' ? 'meal' : 'fast'
-            } has been saved!`,
-            buttons: [{ text: 'OK', style: 'default', onPress: handleDone }],
-          });
-          setAlertVisible(true);
-        }, 300);
-      } else {
-        console.error('❌ [DietTracker] Publishing failed:', result.error);
-        throw new Error(result.error || 'Failed to save workout');
-      }
-    } catch (error) {
-      console.error('❌ [DietTracker] handleCompete error:', error);
-      console.error('❌ [DietTracker] Error details:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-
-      // Close summary modal FIRST to prevent alert appearing behind it
-      setShowSummary(false);
-
-      // Show error alert after modal closes
-      setTimeout(() => {
-        setAlertConfig({
-          title: 'Error',
-          message: 'Failed to publish. Please try again.',
-          buttons: [{ text: 'OK', style: 'default' }],
-        });
-        setAlertVisible(true);
-      }, 300);
-    } finally {
-      setIsCompeting(false);
-      console.log('🏁 [DietTracker] handleCompete() finished');
-    }
+  const handleShowSocialModal = () => {
+    if (!savedWorkout) return;
+    Keyboard.dismiss();
+    setShowShareModal(true);
   };
 
   const handleDone = () => {
     setShowSummary(false);
     setShowShareModal(false);
     setSavedWorkout(null);
-
-    // Show pending reward toast now that modal is closing
-    RewardNotificationManager.showPendingRewardToast();
+    setSavedWorkoutId(null);
+    setAutoCompeteTriggered(false);
+    setPostedToNostr(false);
   };
 
   const formatDuration = (seconds: number): string => {
@@ -515,10 +479,6 @@ export const DietTrackerScreen: React.FC<DietTrackerScreenProps> = ({
     }
   };
 
-  /**
-   * Get fasting milestone badge for current duration
-   * Returns milestone info if user has reached a notable fasting duration
-   */
   const getFastingMilestone = (
     seconds: number
   ): {
@@ -527,8 +487,6 @@ export const DietTrackerScreen: React.FC<DietTrackerScreenProps> = ({
     icon: keyof typeof Ionicons.glyphMap;
   } | null => {
     const hours = seconds / 3600;
-
-    // Fasting milestones (ordered from highest to lowest for correct detection)
     const milestones = [
       { hours: 72, label: '72h Extended Fast', icon: 'trophy' as const },
       { hours: 48, label: '48h Extended Fast', icon: 'medal' as const },
@@ -536,413 +494,127 @@ export const DietTrackerScreen: React.FC<DietTrackerScreenProps> = ({
       { hours: 24, label: '24h OMAD', icon: 'star' as const },
       { hours: 20, label: '20h Warrior', icon: 'flash' as const },
       { hours: 18, label: '18h Extended', icon: 'trending-up' as const },
-      {
-        hours: 16,
-        label: '16h Intermittent',
-        icon: 'checkmark-circle' as const,
-      },
+      { hours: 16, label: '16h Intermittent', icon: 'checkmark-circle' as const },
       { hours: 12, label: '12h Circadian', icon: 'moon' as const },
     ];
 
-    // Find the highest milestone reached
     for (const milestone of milestones) {
-      if (hours >= milestone.hours) {
-        return milestone;
-      }
+      if (hours >= milestone.hours) return milestone;
     }
-
     return null;
   };
 
-  return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-    >
-      {/* Dynamic icon and title based on mode */}
-      <View style={styles.iconContainer}>
-        <Ionicons
-          name={shouldStartFasting || isFasting ? 'timer-outline' : (MEAL_TYPES.find(m => m.value === selectedMealType)?.icon || 'restaurant')}
-          size={64}
-          color={theme.colors.text}
-        />
-      </View>
-
-      <Text style={styles.title}>
-        {shouldStartFasting || isFasting
-          ? 'Fasting'
-          : initialMealType
-            ? MEAL_TYPES.find(m => m.value === initialMealType)?.label || 'Diet Tracker'
-            : 'Diet Tracker'}
-      </Text>
-      <Text style={styles.subtitle}>
-        {isFasting
-          ? 'Currently Fasting'
-          : shouldStartFasting
-            ? 'Ready to begin your fast'
-            : initialMealType
-              ? 'Log your meal'
-              : 'Log your meals and track fasting'}
-      </Text>
-
-      {/* Active Fasting Display */}
-      {isFasting && fastStartTime && (
-        <View style={styles.fastingCard}>
-          <View style={styles.fastingHeader}>
-            <Ionicons name="time" size={24} color={theme.colors.orangeBright} />
-            <Text style={styles.fastingTitle}>Fasting in Progress</Text>
-          </View>
-          <Text style={styles.fastingDuration}>
-            {formatDuration(fastingDuration)}
-          </Text>
-
-          {/* Fasting Milestone Badge */}
-          {(() => {
-            const milestone = getFastingMilestone(fastingDuration);
-            if (milestone) {
-              return (
-                <View style={styles.milestoneBadge}>
-                  <Ionicons
-                    name={milestone.icon}
-                    size={18}
-                    color={theme.colors.orangeBright}
-                  />
-                  <Text style={styles.milestoneText}>{milestone.label}</Text>
-                </View>
-              );
-            }
-            return null;
-          })()}
-
-          <Text style={styles.fastingSubtitle}>
-            Started:{' '}
-            {fastStartTime.toLocaleString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </Text>
-        </View>
-      )}
-
-      {/* Pre-Fasting Display - show when user selected Fast but hasn't started yet */}
-      {shouldStartFasting && !isFasting && (
-        <View style={styles.fastingCard}>
-          <View style={styles.fastingHeader}>
-            <Ionicons name="timer-outline" size={24} color={theme.colors.textMuted} />
-            <Text style={styles.fastingTitle}>Ready to Fast</Text>
-          </View>
-          <Text style={styles.fastingDuration}>00:00:00</Text>
-          <Text style={styles.fastingSubtitle}>
-            Tap the button below to begin tracking your fast
-          </Text>
-          <TouchableOpacity
-            style={[styles.startFastingButton, { marginTop: 16 }]}
-            onPress={startFastingMode}
-          >
-            <Ionicons
-              name="play"
-              size={20}
-              color={theme.colors.background}
-            />
-            <Text style={styles.startFastingButtonText}>Start Fasting</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Meal Type Selector - only show if not pre-selected from menu and not in fasting mode */}
-      {!initialMealType && !shouldStartFasting && !isFasting && (
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Meal Type</Text>
-          <View style={styles.mealTypeGrid}>
-            {MEAL_TYPES.map((mealType) => (
-              <TouchableOpacity
-                key={mealType.value}
-                style={[
-                  styles.mealTypeOption,
-                  selectedMealType === mealType.value &&
-                    styles.mealTypeOptionActive,
-                ]}
-                onPress={() => setSelectedMealType(mealType.value)}
-              >
-                <Ionicons
-                  name={mealType.icon}
-                  size={24}
-                  color={
-                    selectedMealType === mealType.value
-                      ? theme.colors.text
-                      : theme.colors.textMuted
-                  }
-                />
-                <Text
-                  style={[
-                    styles.mealTypeLabel,
-                    selectedMealType === mealType.value &&
-                      styles.mealTypeLabelActive,
-                  ]}
-                >
-                  {mealType.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      )}
-
-      {/* Meal Size Selector - hide when in fasting mode */}
-      {!isFasting && !shouldStartFasting && (
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Meal Size (Optional)</Text>
-          <View style={styles.mealSizeGrid}>
-            {(['small', 'medium', 'large', 'xl'] as MealSize[]).map((size) => (
-              <TouchableOpacity
-                key={size}
-                style={[
-                  styles.mealSizeOption,
-                  selectedMealSize === size && styles.mealSizeOptionActive,
-                ]}
-                onPress={() => setSelectedMealSize(size)}
-              >
-                <Text
-                  style={[
-                    styles.mealSizeLabel,
-                    selectedMealSize === size && styles.mealSizeLabelActive,
-                  ]}
-                >
-                  {size.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      )}
-
-      {/* Time Selector - hide when in fasting mode */}
-      {!isFasting && !shouldStartFasting && (
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Time</Text>
-          <TouchableOpacity
-            style={styles.timeButton}
-            onPress={() => setShowTimePicker(true)}
-          >
-            <Ionicons name="time-outline" size={20} color={theme.colors.text} />
-            <Text style={styles.timeButtonText}>
-              {mealTime.toLocaleTimeString('en-US', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </Text>
-          </TouchableOpacity>
-
-          {showTimePicker && (
-            <DateTimePicker
-              value={mealTime}
-              mode="time"
-              is24Hour={false}
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={handleTimeChange}
-              accentColor={theme.colors.orangeBright}
-              themeVariant="dark"
-            />
-          )}
-        </View>
-      )}
-
-      {/* Meal Notes - hide when in fasting mode */}
-      {!isFasting && !shouldStartFasting && (
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>What did you eat? (Optional)</Text>
-          <TextInput
-            style={styles.notesInput}
-            placeholder="E.g., Oatmeal with berries"
-            placeholderTextColor={theme.colors.textMuted}
-            value={mealNotes}
-            onChangeText={setMealNotes}
-            multiline
-            numberOfLines={3}
-          />
-        </View>
-      )}
-
-      {/* Action Buttons - hide when in pre-fasting mode (button is in the card above) */}
-      {!shouldStartFasting && (
-        <View style={styles.buttonGroup}>
-          {!isFasting ? (
-            <>
-              <TouchableOpacity style={styles.saveMealButton} onPress={saveMeal}>
-                <Ionicons
-                  name="restaurant"
-                  size={20}
-                  color={theme.colors.background}
-                />
-                <Text style={styles.saveMealButtonText}>Log Meal</Text>
-              </TouchableOpacity>
-
-              {/* Only show fasting button if no meal type was pre-selected */}
-              {!initialMealType && (
-                <TouchableOpacity
-                  style={styles.startFastingButton}
-                  onPress={startFastingMode}
-                >
-                  <Ionicons
-                    name="timer-outline"
-                    size={20}
-                    color={theme.colors.background}
-                  />
-                  <Text style={styles.startFastingButtonText}>Start Fasting</Text>
-                </TouchableOpacity>
-              )}
-            </>
-          ) : (
-            <TouchableOpacity
-              style={styles.breakFastButton}
-              onPress={breakFastAndLogMeal}
-            >
-              <Ionicons
-                name="checkmark-circle"
-                size={20}
-                color={theme.colors.background}
-              />
-              <Text style={styles.breakFastButtonText}>
-                Break Fast + Log Meal
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-
-      {/* End Fast button when actively fasting (shown even when shouldStartFasting) */}
-      {isFasting && shouldStartFasting && (
-        <View style={styles.buttonGroup}>
-          <TouchableOpacity
-            style={styles.breakFastButton}
-            onPress={breakFastAndLogMeal}
-          >
-            <Ionicons
-              name="checkmark-circle"
-              size={20}
-              color={theme.colors.background}
-            />
-            <Text style={styles.breakFastButtonText}>
-              End Fast
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Hint box - hide in fasting mode */}
-      {!shouldStartFasting && (
-        <View style={styles.hintBox}>
+  // Summary screen (shown after saving meal/fast)
+  if (showSummary) {
+    return (
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.summaryScrollContainer}
+      >
+        <View style={styles.summaryIconContainer}>
           <Ionicons
-            name="information-circle-outline"
-            size={20}
-            color={theme.colors.textMuted}
+            name="checkmark-circle"
+            size={64}
+            color={theme.colors.orangeBright}
           />
-          <Text style={styles.hintText}>
-            {isFasting
-              ? 'Click "Break Fast + Log Meal" to end your fast and record what you eat.'
-              : initialMealType
-                ? `Tap "Log Meal" to save your ${selectedMealType}.`
-                : '"Log Meal" saves your food. "Start Fasting" begins tracking a fasting period.'}
-          </Text>
         </View>
-      )}
 
-      {/* Summary Modal */}
-      <Modal visible={showSummary} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.summaryContainer}>
-            <Text style={styles.summaryTitle}>
-              {summaryType === 'meal' ? 'Meal Logged' : 'Fast Completed'}
-            </Text>
+        <Text style={styles.summaryTitle}>
+          {summaryType === 'meal' ? 'Meal Logged' : 'Fast Completed'}
+        </Text>
 
-            <View style={styles.summaryStats}>
-              <Ionicons
-                name={summaryType === 'meal' ? 'restaurant' : 'timer'}
-                size={48}
-                color={theme.colors.text}
-              />
-              {summaryType === 'meal' && savedWorkout && (
-                <>
-                  <Text style={styles.summaryType}>
-                    {
-                      MEAL_TYPES.find(
-                        (m) => m.value === (savedWorkout as any).mealType
-                      )?.label
-                    }
-                  </Text>
-                  <Text style={styles.summaryTime}>
-                    {new Date(
-                      (savedWorkout as any).mealTime
-                    ).toLocaleTimeString('en-US', {
+        <View style={styles.summaryStatsCard}>
+          {summaryType === 'meal' && savedWorkout && (
+            <>
+              <Text style={styles.summaryExercise}>
+                {MEAL_TYPES.find((m) => m.value === (savedWorkout as any).mealType)?.label}
+              </Text>
+              <View style={styles.summaryMainStats}>
+                <View style={styles.summaryStatItem}>
+                  <Text style={styles.summaryStatValue}>
+                    {new Date((savedWorkout as any).mealTime).toLocaleTimeString('en-US', {
                       hour: '2-digit',
                       minute: '2-digit',
                     })}
                   </Text>
-                </>
-              )}
-              {summaryType === 'fast' && savedWorkout && (
-                <>
-                  <Text style={styles.summaryFastDuration}>
+                  <Text style={styles.summaryStatLabel}>Time</Text>
+                </View>
+                {savedWorkout.calories && savedWorkout.calories > 0 && (
+                  <View style={styles.summaryStatItem}>
+                    <Text style={styles.summaryStatValue}>{savedWorkout.calories}</Text>
+                    <Text style={styles.summaryStatLabel}>Calories</Text>
+                  </View>
+                )}
+              </View>
+            </>
+          )}
+          {summaryType === 'fast' && savedWorkout && (
+            <>
+              <Text style={styles.summaryExercise}>Fasting Period</Text>
+              <View style={styles.summaryMainStats}>
+                <View style={styles.summaryStatItem}>
+                  <Text style={styles.summaryStatValue}>
                     {formatDuration(savedWorkout.duration)}
                   </Text>
-                  <Text style={styles.summaryType}>Fasting Period</Text>
-                </>
-              )}
-            </View>
-
-            {savedWorkout?.notes && (
-              <View style={styles.notesDisplay}>
-                <Text style={styles.notesDisplayLabel}>Notes:</Text>
-                <Text style={styles.notesDisplayText}>
-                  {savedWorkout.notes}
-                </Text>
+                  <Text style={styles.summaryStatLabel}>Duration</Text>
+                </View>
               </View>
-            )}
+            </>
+          )}
 
-            <View style={styles.summaryButtons}>
-              <TouchableOpacity style={styles.postButton} onPress={handlePost}>
-                <Ionicons
-                  name="bookmark-outline"
-                  size={20}
-                  color={theme.colors.background}
-                  style={styles.buttonIcon}
-                />
-                <Text style={styles.postButtonText}>Share</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.competeButton}
-                onPress={handleCompete}
-                disabled={isCompeting}
-              >
-                {isCompeting ? (
-                  <ActivityIndicator
-                    size="small"
-                    color={theme.colors.background}
-                  />
-                ) : (
-                  <>
-                    <Ionicons
-                      name="cloud-upload-outline"
-                      size={20}
-                      color={theme.colors.background}
-                      style={styles.buttonIcon}
-                    />
-                    <Text style={styles.competeButtonText}>Compete</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.doneButton} onPress={handleDone}>
-                <Text style={styles.doneButtonText}>Done</Text>
-              </TouchableOpacity>
+          {savedWorkout?.notes && (
+            <View style={styles.notesDisplay}>
+              <Text style={styles.notesDisplayLabel}>Notes:</Text>
+              <Text style={styles.notesDisplayText}>{savedWorkout.notes}</Text>
             </View>
-          </View>
+          )}
         </View>
 
-        {/* Social Share Modal - Rendered INSIDE summary Modal for proper z-index */}
+        {/* Post to Nostr - Only visible if WoT > 0 */}
+        {isWoTEligible && !postedToNostr && (
+          <TouchableOpacity style={styles.postButton} onPress={handleShowSocialModal}>
+            <Ionicons
+              name="paper-plane-outline"
+              size={20}
+              color={theme.colors.background}
+              style={{ marginRight: 8 }}
+            />
+            <Text style={styles.postButtonText}>Post to Nostr</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Posted confirmation */}
+        {postedToNostr && (
+          <View style={[styles.postButton, { opacity: 0.5 }]}>
+            <Ionicons
+              name="checkmark-circle"
+              size={20}
+              color={theme.colors.background}
+              style={{ marginRight: 8 }}
+            />
+            <Text style={styles.postButtonText}>Posted</Text>
+          </View>
+        )}
+
+        {/* Discard Button */}
+        <TouchableOpacity
+          style={styles.discardButton}
+          onPress={async () => {
+            if (savedWorkoutId) {
+              await LocalWorkoutStorageService.deleteWorkout(savedWorkoutId);
+            }
+            handleDone();
+          }}
+        >
+          <Text style={styles.discardButtonText}>Discard</Text>
+        </TouchableOpacity>
+
+        {/* Done Button */}
+        <TouchableOpacity style={styles.doneButton} onPress={handleDone}>
+          <Text style={styles.doneButtonText}>Done</Text>
+        </TouchableOpacity>
+
+        {/* Social Share Modal */}
         {savedWorkout && (
           <EnhancedSocialShareModal
             visible={showShareModal}
@@ -950,24 +622,231 @@ export const DietTrackerScreen: React.FC<DietTrackerScreenProps> = ({
             userId={userId}
             userAvatar={userAvatar}
             userName={userName}
+            localWorkoutId={savedWorkoutId || undefined}
+            onPostToNostr={handlePostToNostr}
             onClose={() => setShowShareModal(false)}
             onSuccess={() => {
-              setAlertConfig({
-                title: 'Success!',
-                message: `Your ${
-                  summaryType === 'meal' ? 'meal' : 'fast'
-                } has been shared with a beautiful card!`,
-                buttons: [
-                  { text: 'OK', style: 'default', onPress: handleDone },
-                ],
-              });
-              setAlertVisible(true);
+              setShowShareModal(false);
             }}
           />
         )}
-      </Modal>
 
-      {/* Custom Alert */}
+        <CustomAlert
+          visible={alertVisible}
+          title={alertConfig.title}
+          message={alertConfig.message}
+          buttons={alertConfig.buttons}
+          onClose={() => setAlertVisible(false)}
+        />
+      </ScrollView>
+    );
+  }
+
+  // Main form screen - restyled with dark cards
+  return (
+    <View style={styles.container}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.setupContainer}
+      >
+        {/* Muted uppercase label */}
+        <Text style={styles.exerciseNameLabel}>
+          {isFasting ? 'FASTING' : shouldStartFasting ? 'FASTING' : 'DIET TRACKER'}
+        </Text>
+
+        {/* Active Fasting Display */}
+        {isFasting && fastStartTime && (
+          <View style={styles.fastingCard}>
+            <View style={styles.fastingHeader}>
+              <Ionicons name="time" size={24} color={theme.colors.orangeBright} />
+              <Text style={styles.fastingTitle}>Fasting in Progress</Text>
+            </View>
+            <Text style={styles.fastingDuration}>
+              {formatDuration(fastingDuration)}
+            </Text>
+
+            {(() => {
+              const milestone = getFastingMilestone(fastingDuration);
+              if (milestone) {
+                return (
+                  <View style={styles.milestoneBadge}>
+                    <Ionicons name={milestone.icon} size={18} color={theme.colors.orangeBright} />
+                    <Text style={styles.milestoneText}>{milestone.label}</Text>
+                  </View>
+                );
+              }
+              return null;
+            })()}
+
+            <Text style={styles.fastingSubtitle}>
+              Started:{' '}
+              {fastStartTime.toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </Text>
+          </View>
+        )}
+
+        {/* Pre-Fasting Display */}
+        {shouldStartFasting && !isFasting && (
+          <View style={styles.fastingCard}>
+            <View style={styles.fastingHeader}>
+              <Ionicons name="timer-outline" size={24} color={theme.colors.textMuted} />
+              <Text style={styles.fastingTitle}>Ready to Fast</Text>
+            </View>
+            <Text style={styles.fastingDuration}>00:00:00</Text>
+            <Text style={styles.fastingSubtitle}>
+              Tap the button below to begin tracking your fast
+            </Text>
+          </View>
+        )}
+
+        {/* Meal Type - dark card with horizontal chips */}
+        {!initialMealType && !shouldStartFasting && !isFasting && (
+          <View style={styles.setupCard}>
+            <Text style={styles.setupCardLabel}>MEAL TYPE</Text>
+            <View style={styles.exerciseGrid}>
+              {MEAL_TYPES.map((mealType) => (
+                <TouchableOpacity
+                  key={mealType.value}
+                  style={[
+                    styles.exerciseChip,
+                    selectedMealType === mealType.value && styles.exerciseChipActive,
+                  ]}
+                  onPress={() => setSelectedMealType(mealType.value)}
+                >
+                  <Text
+                    style={[
+                      styles.exerciseChipText,
+                      selectedMealType === mealType.value && styles.exerciseChipTextActive,
+                    ]}
+                  >
+                    {mealType.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Meal Size - dark card with horizontal pills */}
+        {!isFasting && !shouldStartFasting && (
+          <View style={styles.setupCard}>
+            <Text style={styles.setupCardLabel}>MEAL SIZE</Text>
+            <View style={styles.mealSizeGrid}>
+              {(['small', 'medium', 'large', 'xl'] as MealSize[]).map((size) => (
+                <TouchableOpacity
+                  key={size}
+                  style={[
+                    styles.mealSizePill,
+                    selectedMealSize === size && styles.mealSizePillActive,
+                  ]}
+                  onPress={() => setSelectedMealSize(size)}
+                >
+                  <Text
+                    style={[
+                      styles.mealSizePillText,
+                      selectedMealSize === size && styles.mealSizePillTextActive,
+                    ]}
+                  >
+                    {size.toUpperCase()}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Time - dark card */}
+        {!isFasting && !shouldStartFasting && (
+          <View style={styles.setupCard}>
+            <View style={styles.setupCardRow}>
+              <Text style={styles.setupCardLabel}>TIME</Text>
+              <TouchableOpacity
+                style={styles.timeButton}
+                onPress={() => setShowTimePicker(true)}
+              >
+                <Ionicons name="time-outline" size={20} color={theme.colors.text} />
+                <Text style={styles.timeButtonText}>
+                  {mealTime.toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {showTimePicker && (
+              <DateTimePicker
+                value={mealTime}
+                mode="time"
+                is24Hour={false}
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={handleTimeChange}
+                accentColor={theme.colors.orangeBright}
+                themeVariant="dark"
+              />
+            )}
+          </View>
+        )}
+
+        {/* Notes - dark card */}
+        {!isFasting && !shouldStartFasting && (
+          <View style={styles.setupCard}>
+            <Text style={styles.setupCardLabel}>NOTES</Text>
+            <TextInput
+              style={styles.notesInput}
+              placeholder="E.g., Oatmeal with berries"
+              placeholderTextColor={theme.colors.textMuted}
+              value={mealNotes}
+              onChangeText={setMealNotes}
+              multiline
+              numberOfLines={3}
+            />
+          </View>
+        )}
+      </ScrollView>
+
+      {/* Fixed bottom - circle action button */}
+      <View style={styles.fixedControlsWrapper}>
+        <View style={styles.controlsContainer}>
+          {shouldStartFasting && !isFasting ? (
+            <>
+              <TouchableOpacity
+                style={styles.circleButton}
+                onPress={startFastingMode}
+              >
+                <Ionicons name="play" size={30} color={theme.colors.text} />
+              </TouchableOpacity>
+            </>
+          ) : isFasting ? (
+            <TouchableOpacity
+              style={styles.circleButton}
+              onPress={breakFastAndLogMeal}
+            >
+              <Ionicons name="checkmark" size={30} color={theme.colors.text} />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.circleButton}
+              onPress={saveMeal}
+            >
+              <Ionicons name="checkmark" size={30} color={theme.colors.text} />
+            </TouchableOpacity>
+          )}
+        </View>
+        <Text style={styles.circleButtonLabel}>
+          {shouldStartFasting && !isFasting
+            ? 'start fast'
+            : isFasting
+              ? 'end fast'
+              : 'log meal'}
+        </Text>
+      </View>
+
       <CustomAlert
         visible={alertVisible}
         title={alertConfig.title}
@@ -975,7 +854,7 @@ export const DietTrackerScreen: React.FC<DietTrackerScreenProps> = ({
         buttons={alertConfig.buttons}
         onClose={() => setAlertVisible(false)}
       />
-    </ScrollView>
+    </View>
   );
 };
 
@@ -984,33 +863,120 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
-  contentContainer: {
+  setupContainer: {
     flexGrow: 1,
-    padding: 20,
+    padding: 16,
+    paddingBottom: 160,
   },
-  iconContainer: {
-    alignSelf: 'center',
-    marginTop: 20,
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
+  exerciseNameLabel: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
     color: theme.colors.textMuted,
     textAlign: 'center',
-    marginBottom: 32,
+    letterSpacing: 2,
+    marginTop: 16,
+    marginBottom: 16,
   },
+  // Setup card styles
+  setupCard: {
+    backgroundColor: theme.colors.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  setupCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  setupCardLabel: {
+    fontSize: 12,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.textMuted,
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  exerciseGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  exerciseChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: theme.colors.background,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  exerciseChipActive: {
+    borderColor: theme.colors.text,
+    backgroundColor: theme.colors.border,
+  },
+  exerciseChipText: {
+    fontSize: 13,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.textMuted,
+  },
+  exerciseChipTextActive: {
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.semiBold,
+  },
+  mealSizeGrid: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  mealSizePill: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: theme.colors.background,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+  },
+  mealSizePillActive: {
+    borderColor: theme.colors.orangeBright,
+    backgroundColor: 'rgba(255, 157, 66, 0.1)',
+  },
+  mealSizePillText: {
+    fontSize: 12,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.textMuted,
+  },
+  mealSizePillTextActive: {
+    color: theme.colors.orangeBright,
+    fontWeight: theme.typography.weights.bold,
+  },
+  timeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  timeButtonText: {
+    fontSize: 18,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.text,
+  },
+  notesInput: {
+    backgroundColor: theme.colors.background,
+    borderRadius: 12,
+    padding: 12,
+    color: theme.colors.text,
+    fontSize: 16,
+    minHeight: 80,
+    textAlignVertical: 'top',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  // Fasting card
   fastingCard: {
     backgroundColor: theme.colors.card,
     borderRadius: 16,
     padding: 20,
-    marginBottom: 32,
+    marginBottom: 16,
     borderWidth: 2,
     borderColor: theme.colors.orangeDeep,
   },
@@ -1055,206 +1021,104 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: theme.colors.textMuted,
   },
-  section: {
-    marginBottom: 24,
-  },
-  sectionLabel: {
-    fontSize: 16,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.text,
-    marginBottom: 12,
-  },
-  mealTypeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  mealTypeOption: {
-    flex: 1,
-    minWidth: '45%',
-    flexDirection: 'row',
+  // Fixed bottom controls
+  fixedControlsWrapper: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingBottom: 24,
+    paddingTop: 16,
+    backgroundColor: theme.colors.background,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
     alignItems: 'center',
-    backgroundColor: theme.colors.card,
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 2,
-    borderColor: theme.colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  mealTypeOptionActive: {
-    borderColor: theme.colors.text,
-    backgroundColor: theme.colors.border,
-  },
-  mealTypeLabel: {
-    fontSize: 14,
-    fontWeight: theme.typography.weights.medium,
-    color: theme.colors.textMuted,
-    marginLeft: 8,
-  },
-  mealTypeLabelActive: {
-    color: theme.colors.text,
-    fontWeight: theme.typography.weights.semiBold,
-  },
-  mealSizeGrid: {
+  controlsContainer: {
     flexDirection: 'row',
-    gap: 12,
+    justifyContent: 'center',
+    gap: 20,
   },
-  mealSizeOption: {
-    flex: 1,
+  circleButton: {
     backgroundColor: theme.colors.card,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderWidth: 2,
-    borderColor: theme.colors.border,
+    borderRadius: 35,
+    width: 70,
+    height: 70,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: theme.colors.border,
   },
-  mealSizeOptionActive: {
-    borderColor: theme.colors.orangeBright,
-    backgroundColor: 'rgba(255, 157, 66, 0.1)',
-  },
-  mealSizeLabel: {
+  circleButtonLabel: {
     fontSize: 12,
     fontWeight: theme.typography.weights.medium,
     color: theme.colors.textMuted,
+    marginTop: 8,
   },
-  mealSizeLabelActive: {
-    color: theme.colors.orangeBright,
-    fontWeight: theme.typography.weights.bold,
-  },
-  timeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.card,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    gap: 12,
-  },
-  timeButtonText: {
-    fontSize: 18,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.text,
-  },
-  notesInput: {
-    backgroundColor: theme.colors.card,
-    borderRadius: 12,
-    padding: 12,
-    color: theme.colors.text,
-    fontSize: 16,
-    minHeight: 80,
-    textAlignVertical: 'top',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  buttonGroup: {
-    gap: 12,
-    marginBottom: 20,
-  },
-  saveMealButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.text,
-    borderRadius: 12,
-    paddingVertical: 16,
-    gap: 8,
-  },
-  saveMealButtonText: {
-    color: theme.colors.background,
-    fontSize: 16,
-    fontWeight: theme.typography.weights.bold,
-  },
-  startFastingButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.text,
-    borderRadius: 12,
-    paddingVertical: 16,
-    gap: 8,
-  },
-  startFastingButtonText: {
-    color: theme.colors.background,
-    fontSize: 16,
-    fontWeight: theme.typography.weights.bold,
-  },
-  breakFastButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.text,
-    borderRadius: 12,
-    paddingVertical: 16,
-    gap: 8,
-  },
-  breakFastButtonText: {
-    color: theme.colors.background,
-    fontSize: 16,
-    fontWeight: theme.typography.weights.bold,
-  },
-  hintBox: {
-    flexDirection: 'row',
-    backgroundColor: theme.colors.card,
-    borderRadius: 12,
-    padding: 16,
-    gap: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  hintText: {
-    flex: 1,
-    fontSize: 14,
-    color: theme.colors.textMuted,
-    lineHeight: 20,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    justifyContent: 'center',
+  // Summary
+  summaryScrollContainer: {
+    flexGrow: 1,
     padding: 20,
   },
-  summaryContainer: {
+  summaryIconContainer: {
+    alignSelf: 'center',
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  summaryTitle: {
+    fontSize: 28,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+    textAlign: 'center',
+    marginBottom: 32,
+  },
+  summaryStatsCard: {
     backgroundColor: theme.colors.card,
-    borderRadius: 20,
-    padding: 24,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  summaryTitle: {
-    fontSize: 24,
+  summaryExercise: {
+    fontSize: 20,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
     textAlign: 'center',
     marginBottom: 24,
   },
-  summaryStats: {
-    alignItems: 'center',
+  summaryMainStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
     marginBottom: 24,
+    paddingBottom: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
-  summaryType: {
-    fontSize: 16,
-    color: theme.colors.textMuted,
-    marginTop: 12,
+  summaryStatItem: {
+    alignItems: 'center',
   },
-  summaryTime: {
-    fontSize: 32,
+  summaryStatValue: {
+    fontSize: 28,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
-    marginTop: 8,
+    marginBottom: 4,
   },
-  summaryFastDuration: {
-    fontSize: 48,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.orangeBright,
-    marginTop: 16,
+  summaryStatLabel: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   notesDisplay: {
     backgroundColor: theme.colors.background,
     borderRadius: 12,
     padding: 12,
-    marginBottom: 24,
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
@@ -1270,37 +1134,33 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     lineHeight: 20,
   },
-  summaryButtons: {
-    gap: 12,
-  },
-  buttonIcon: {
-    marginRight: 8,
-  },
   postButton: {
-    flexDirection: 'row',
     backgroundColor: theme.colors.text,
     borderRadius: 12,
-    paddingVertical: 14,
+    paddingVertical: 16,
     alignItems: 'center',
+    flexDirection: 'row',
     justifyContent: 'center',
+    marginBottom: 12,
   },
   postButtonText: {
     color: theme.colors.background,
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
   },
-  competeButton: {
-    flexDirection: 'row',
-    backgroundColor: theme.colors.text,
+  discardButton: {
+    backgroundColor: theme.colors.card,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
-    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginBottom: 12,
   },
-  competeButtonText: {
-    color: theme.colors.background,
+  discardButtonText: {
+    color: theme.colors.textMuted,
     fontSize: 16,
-    fontWeight: theme.typography.weights.bold,
+    fontWeight: theme.typography.weights.medium,
   },
   doneButton: {
     backgroundColor: theme.colors.card,

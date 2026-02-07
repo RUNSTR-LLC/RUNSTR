@@ -60,10 +60,18 @@ export const HealthProfileScreen: React.FC = () => {
     try {
       const profileData = await AsyncStorage.getItem(HEALTH_PROFILE_KEY);
       if (profileData) {
-        const profile: HealthProfile = JSON.parse(profileData);
-        if (profile.weight) setWeight(profile.weight.toString());
-        if (profile.height) setHeight(profile.height.toString());
-        if (profile.age) setAge(profile.age.toString());
+        let profile: HealthProfile | null = null;
+        try {
+          profile = JSON.parse(profileData);
+        } catch (e) {
+          console.warn('[HealthProfile] Failed to parse stored profile:', e);
+          profile = null;
+        }
+        if (profile) {
+          if (profile.weight) setWeight(profile.weight.toString());
+          if (profile.height) setHeight(profile.height.toString());
+          if (profile.age) setAge(profile.age.toString());
+        }
       }
     } catch (error) {
       console.error('Failed to load health profile:', error);

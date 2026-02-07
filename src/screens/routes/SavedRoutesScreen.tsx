@@ -22,11 +22,13 @@ import routeStorageService, {
   RouteLabel,
 } from '../../services/routes/RouteStorageService';
 import type { WorkoutType } from '../../types/workout';
+import { useUnitPreference } from '../../hooks/useUnitPreference';
 
 type ActivityFilter = 'all' | WorkoutType;
 
 export const SavedRoutesScreen: React.FC = () => {
   const navigation = useNavigation();
+  const { isMetric, paceLabel } = useUnitPreference();
   const [routes, setRoutes] = useState<RouteLabel[]>([]);
   const [filteredRoutes, setFilteredRoutes] = useState<RouteLabel[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -264,9 +266,11 @@ export const SavedRoutesScreen: React.FC = () => {
   };
 
   const formatPace = (paceMinPerKm: number): string => {
-    const mins = Math.floor(paceMinPerKm);
-    const secs = Math.round((paceMinPerKm - mins) * 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}/km`;
+    // Convert to minutes per mile if imperial
+    const pace = isMetric ? paceMinPerKm : paceMinPerKm * 1.60934;
+    const mins = Math.floor(pace);
+    const secs = Math.round((pace - mins) * 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}${paceLabel}`;
   };
 
   const renderFilters = () => {
