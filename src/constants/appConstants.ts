@@ -21,3 +21,9 @@ export const APP_META = {
 } as const;
 
 export type AppMetaKey = keyof typeof APP_META;
+
+/** Average walking stride length in meters (0.67m) - used for step-to-distance estimates */
+export const STRIDE_LENGTH_METERS = 0.67;
+
+/** Average walking stride length in kilometers */
+export const KM_PER_STEP = STRIDE_LENGTH_METERS / 1000;

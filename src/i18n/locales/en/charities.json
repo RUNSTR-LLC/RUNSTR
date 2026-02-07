@@ -1,0 +1,23 @@
+{
+  "teamCharity": "Team Charity",
+  "learnMore": "Learn more",
+  "descriptions": {
+    "als-foundation": "Honoring Hal Finney - Supporting ALS research and patient care",
+    "ashigaru": "Support the Ashigaru developers by contributing donations to ensure their project remains strong, sustainable, and resilient.",
+    "bitcoin-bay": "Bitcoin circular economy in the Bay Area",
+    "bitcoin-ekasi": "Bitcoin circular economy in South Africa",
+    "bitcoin-isla": "Bitcoin circular economy in Isla Mujeres",
+    "bitcoin-district": "Bitcoin circular economy in Washington DC",
+    "bitcoin-yucatan": "Bitcoin circular economy in Mexico",
+    "bitcoin-veterans": "Supporting veterans through Bitcoin",
+    "bitcoin-makueni": "Bitcoin circular economy in Kenya",
+    "bitcoin-house-bali": "Bitcoin circular economy in Bali",
+    "human-rights-foundation": "Defending human rights globally through Bitcoin",
+    "runstr": "Let's Go!",
+    "afribit-kibera": "Bitcoin circular economy in Kibera, Kenya",
+    "bitcoin-basin": "Bitcoin circular economy in Queenstown, New Zealand",
+    "buho-go": "BuhoGO is an open-source, NWC-ready wallet app that makes payments simple and accessible for everyone",
+    "central-pennsylvania-bitcoiners": "A Bitcoin focused group located in Pennsylvania",
+    "wesatoshi": "A Bitcoin-focused Swiss Army knife hardware"
+  }
+}

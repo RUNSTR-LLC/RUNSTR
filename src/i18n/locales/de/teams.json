@@ -1,0 +1,18 @@
+{
+  "title": "Teams",
+  "yourTeam": "DEIN TEAM",
+  "allTeams": "ALLE TEAMS",
+  "selectTeamSubtitle": "Wähle ein Team das du mit deinen Trainings unterstützen möchtest",
+  "noWalletConnected": "Keine Wallet verbunden",
+  "noWalletDescription": "Tippe auf den Zap-Button um externe Wallets wie Cash App oder Strike zu nutzen.",
+  "insufficientBalance": "Nicht genügend Guthaben",
+  "insufficientBalanceDescription": "Du brauchst {{amount}} Sats aber hast nur {{balance}}. Tippe um eine externe Wallet zu nutzen.",
+  "thankYou": "Danke!",
+  "donationVerified": "Spende an {{name}} bestätigt!",
+  "zapped": "Gezappt!",
+  "donated": "{{amount}} Sats an {{name}} gespendet",
+  "failedToGetInvoice": "Invoice vom Team konnte nicht abgerufen werden.",
+  "failedToProcessDonation": "Spende konnte nicht verarbeitet werden.",
+  "failedToProcessDonationExternal": "Spende konnte nicht verarbeitet werden. Tippe um eine externe Wallet zu nutzen.",
+  "error": "Fehler"
+}

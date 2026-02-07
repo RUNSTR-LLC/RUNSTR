@@ -15,6 +15,7 @@ import {
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { theme } from '../styles/theme';
 import { PerformanceLogger } from '../utils/PerformanceLogger';
 
@@ -71,6 +72,9 @@ interface BottomTabNavigatorProps {
 export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
   onSignOut,
 }) => {
+  // i18n hook for tab labels
+  const { t } = useTranslation(['profile', 'teams', 'rewards']);
+
   // Fetch real data for navigation screens
   const {
     user,
@@ -133,7 +137,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
       <Tab.Screen
         name="Profile"
         options={{
-          title: 'Profile',
+          title: t('profile:title'),
           headerShown: false,
         }}
       >
@@ -220,7 +224,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
       <Tab.Screen
         name="Teams"
         options={{
-          title: 'Teams',
+          title: t('teams:title'),
           headerShown: false,
         }}
       >
@@ -235,7 +239,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
       <Tab.Screen
         name="Rewards"
         options={{
-          title: 'Rewards',
+          title: t('rewards:title'),
           headerShown: false,
         }}
       >

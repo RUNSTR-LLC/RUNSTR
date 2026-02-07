@@ -7,13 +7,48 @@ export interface Charity {
   id: string;
   name: string;
   displayName: string; // For button labels (e.g., "Zap OpenSats")
-  lightningAddress: string;
+  lightningAddress?: string; // Optional for special teams like PPQ.AI
   description: string;
   website?: string;
   image?: number; // require() returns a number in React Native
+  isPPQ?: boolean; // Special flag for PPQ.AI team (rewards go to AI credits)
 }
 
+// PPQ.AI team ID constant for easy reference
+export const PPQ_AI_TEAM_ID = 'ppq-ai';
+
 export const CHARITIES: Charity[] = [
+  // PPQ.AI - Special team: Earn AI credits instead of sats
+  {
+    id: 'ppq-ai',
+    name: 'PPQ.AI',
+    displayName: 'PPQ.AI',
+    // No lightningAddress - rewards go to PPQ.AI credits via bolt11 invoice
+    description: 'Earn AI credits for Coach RUNSTR instead of sats',
+    website: 'https://ppq.ai',
+    image: require('../../assets/images/charities/ppq-ai.png'),
+    isPPQ: true,
+  },
+  // ALS Network - Default team (honoring Hal Finney)
+  {
+    id: 'als-foundation',
+    name: 'ALS Network',
+    displayName: 'ALS Network',
+    lightningAddress: 'RunningBTC@primal.net',
+    description: 'Honoring Hal Finney - Supporting ALS research and patient care',
+    website: 'https://secure.alsnetwork.org/site/TR?fr_id=1510&pg=entry',
+    image: require('../../assets/images/running-bitcoin/avatar.jpg'),
+  },
+  {
+    id: 'ashigaru',
+    name: 'Ashigaru',
+    displayName: 'Ashigaru',
+    lightningAddress: 'ashigarufund@geyser.fund',
+    description:
+      'Support the Ashigaru developers by contributing donations to ensure their project remains strong, sustainable, and resilient.',
+    website: 'https://geyser.fund/project/ashigarufund',
+    image: require('../../assets/images/charities/ashigaru.webp'),
+  },
   {
     id: 'bitcoin-bay',
     name: 'Bitcoin Bay',
@@ -92,6 +127,14 @@ export const CHARITIES: Charity[] = [
     image: require('../../assets/images/charities/human-rights-foundation.png'),
   },
   {
+    id: 'runstr',
+    name: 'RUNSTR',
+    displayName: 'RUNSTR',
+    lightningAddress: 'thewildhustle@strike.me',
+    description: 'Lets Go!',
+    image: require('../../assets/images/charities/runstr.png'),
+  },
+  {
     id: 'afribit-kibera',
     name: 'Afribit Kibera',
     displayName: 'Afribit Kibera',
@@ -108,13 +151,13 @@ export const CHARITIES: Charity[] = [
     image: require('../../assets/images/charities/bitcoin-basin.png'),
   },
   {
-    id: 'als-foundation',
-    name: 'ALS Network',
-    displayName: 'ALS Network',
-    lightningAddress: 'RunningBTC@primal.net',
-    description: 'Honoring Hal Finney - Supporting ALS research and patient care',
-    website: 'https://secure.alsnetwork.org/site/TR?fr_id=1510&pg=entry',
-    image: require('../../assets/images/running-bitcoin/avatar.jpg'),
+    id: 'buho-go',
+    name: 'BuhoGO',
+    displayName: 'BuhoGO',
+    lightningAddress: 'buho@lnbits.de',
+    description:
+      'BuhoGO is an open-source, NWC-ready wallet app that makes payments simple and accessible for everyone',
+    image: require('../../assets/images/charities/buho-go.jpeg'),
   },
   {
     id: 'central-pennsylvania-bitcoiners',
@@ -123,6 +166,15 @@ export const CHARITIES: Charity[] = [
     lightningAddress: 'businesscat@getalby.com',
     description: 'A Bitcoin focused group located in Pennsylvania.',
     image: require('../../assets/images/charities/central-pennsylvania-bitcoiners.png'),
+  },
+  {
+    id: 'wesatoshi',
+    name: 'WeSatoshi',
+    displayName: 'WeSatoshi',
+    lightningAddress: 'thefirstbitcointerminalhardware@geyser.fund',
+    description: 'A Bitcoin-focused Swiss Army knife hardware',
+    website: 'https://geyser.fund/project/thefirstbitcointerminalhardware',
+    image: require('../../assets/images/charities/wesatoshi.webp'),
   },
 ];
 
@@ -138,4 +190,23 @@ export const getCharityOptions = () => {
     label: charity.name,
     value: charity.id,
   }));
+};
+
+// Helper function to get charity by Lightning address (case-insensitive)
+export const getCharityByLightningAddress = (address?: string): Charity | undefined => {
+  if (!address) return undefined;
+  return CHARITIES.find(
+    (c) => c.lightningAddress && c.lightningAddress.toLowerCase() === address.toLowerCase()
+  );
+};
+
+// Helper to check if a team is the PPQ.AI team
+export const isPPQTeam = (teamId?: string): boolean => {
+  if (!teamId) return false;
+  return teamId === PPQ_AI_TEAM_ID;
+};
+
+// Helper to get the PPQ.AI team
+export const getPPQTeam = (): Charity | undefined => {
+  return CHARITIES.find((charity) => charity.isPPQ);
 };

@@ -49,6 +49,7 @@ export interface Workout {
   weight?: number; // Average weight in lbs (for single-weight workouts or average of per-set weights)
   weightsPerSet?: number[]; // Weight per set in lbs (for varying weights across sets)
   exerciseType?: string; // Specific exercise (pushups, bench, curls, etc.)
+  repsBreakdown?: number[]; // Array of reps per set
   // Meditation fields
   meditationType?:
     | 'guided'
@@ -70,6 +71,37 @@ export interface Workout {
     icon: string;
     humidity?: number;
     windSpeed?: number;
+  };
+  // GPS tracking fields (from local workout storage)
+  // Splits use the Split interface from SplitTrackingService
+  splits?: Array<{
+    number: number;
+    distanceKm: number;
+    elapsedTime: number;
+    splitTime: number;
+    pace: number;
+    timestamp: number;
+  }>;
+  elevation?: number; // meters
+  speed?: number; // km/h
+  raceDistance?: string; // Race preset (e.g., '5k', '10k', 'half', 'marathon')
+  steps?: number; // Step count
+  // Route fields
+  routeId?: string; // Reference to saved route
+  routeLabel?: string; // Route name for display
+  // Saved card for sharing
+  savedCard?: {
+    templateId: 'achievement' | 'progress' | 'minimal' | 'stats' | 'elegant' | 'custom_photo' | 'vertical';
+    customPhotoUri?: string; // Local file path if user took photo
+    generatedAt: string; // ISO timestamp
+  };
+  // Fitness test fields
+  fitnessTestScore?: number;
+  fitnessTestGrade?: string;
+  fitnessTestComponents?: {
+    pushups: { reps: number; score: number };
+    situps: { reps: number; score: number };
+    run5k: { timeSeconds: number; score: number };
   };
   metadata?: Record<string, any>; // Additional data from source
 }
