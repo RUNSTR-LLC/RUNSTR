@@ -24,7 +24,7 @@ import Toast from 'react-native-toast-message';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../styles/theme';
 import { TexturedBackground } from '../components/ui/TexturedBackground';
-import { CHARITIES, Charity, isPPQTeam } from '../constants/charities';
+import { CHARITIES, Charity, isPPQTeam, isCoinOSTeam } from '../constants/charities';
 import { ExternalZapModal } from '../components/nutzap/ExternalZapModal';
 import { useNWCZap } from '../hooks/useNWCZap';
 import { NWCWalletService } from '../services/wallet/NWCWalletService';
@@ -32,6 +32,9 @@ import { getInvoiceFromLightningAddress } from '../utils/lnurl';
 import { PPQAccountSetupModal } from '../components/ai/PPQAccountSetupModal';
 import { PPQCreditTopupModal } from '../components/ai/PPQCreditTopupModal';
 import { PPQAccountService } from '../services/ai/PPQAccountService';
+import { CoinOSAccountSetupModal } from '../components/wallet/CoinOSAccountSetupModal';
+import { CoinOSWalletModal } from '../components/wallet/CoinOSWalletModal';
+import { CoinOSAccountService } from '../services/wallet/CoinOSAccountService';
 
 // Storage key - charities are now stored as "teams"
 const SELECTED_TEAM_KEY = '@runstr:selected_team_id';
@@ -44,8 +47,9 @@ interface TeamCardProps {
   onZapPress: () => void;
   onZapLongPress: () => void;
   isZapping: boolean;
-  hideZapButton?: boolean; // For PPQ.AI team (no lightning address)
+  hideZapButton?: boolean; // For PPQ.AI / CoinOS teams (no static lightning address)
   onTopUp?: () => void; // For PPQ.AI sparkle badge tap
+  onWallet?: () => void; // For CoinOS wallet badge tap
 }
 
 // ✅ PERFORMANCE: React.memo prevents re-renders when props haven't changed
@@ -58,6 +62,7 @@ const TeamCardComponent: React.FC<TeamCardProps> = ({
   isZapping,
   hideZapButton,
   onTopUp,
+  onWallet,
 }) => {
   const { t } = useTranslation('charities');
   const scaleAnimation = useRef(new Animated.Value(1)).current;
@@ -133,13 +138,23 @@ const TeamCardComponent: React.FC<TeamCardProps> = ({
         </Animated.View>
       )}
       {/* AI Badge for PPQ.AI team - tappable for credit top-up */}
-      {hideZapButton && (
+      {hideZapButton && charity.isPPQ && (
         <TouchableOpacity
           style={styles.aiTeamBadge}
           onPress={onTopUp}
           activeOpacity={0.7}
         >
           <Ionicons name="sparkles" size={14} color="#FF9D42" />
+        </TouchableOpacity>
+      )}
+      {/* Wallet Badge for CoinOS team - tappable for wallet */}
+      {hideZapButton && charity.isCoinOS && (
+        <TouchableOpacity
+          style={styles.aiTeamBadge}
+          onPress={onWallet}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="wallet-outline" size={14} color="#FF9D42" />
         </TouchableOpacity>
       )}
 
@@ -174,6 +189,11 @@ const TeamsScreenComponent: React.FC = () => {
   const [showPPQSetupModal, setShowPPQSetupModal] = useState(false);
   const [showPPQTopupModal, setShowPPQTopupModal] = useState(false);
   const [pendingPPQSelection, setPendingPPQSelection] = useState(false);
+
+  // CoinOS modal state
+  const [showCoinOSSetupModal, setShowCoinOSSetupModal] = useState(false);
+  const [showCoinOSWalletModal, setShowCoinOSWalletModal] = useState(false);
+  const [pendingCoinOSSelection, setPendingCoinOSSelection] = useState(false);
 
   // NWC hook for wallet operations
   const { hasWallet, refreshBalance } = useNWCZap();
@@ -210,16 +230,24 @@ const TeamsScreenComponent: React.FC = () => {
     try {
       // Special handling for PPQ.AI team
       if (isPPQTeam(charityId)) {
-        // Check if user already has a PPQ account
         const hasAccount = await PPQAccountService.hasAccount();
         if (!hasAccount) {
-          // Show setup modal before confirming selection
           setPendingPPQSelection(true);
           setShowPPQSetupModal(true);
           return;
         }
-        // User has account, proceed with selection
         console.log('[TeamsScreen] PPQ.AI team selected (account exists)');
+      }
+
+      // Special handling for CoinOS team
+      if (isCoinOSTeam(charityId)) {
+        const hasAccount = await CoinOSAccountService.hasAccount();
+        if (!hasAccount) {
+          setPendingCoinOSSelection(true);
+          setShowCoinOSSetupModal(true);
+          return;
+        }
+        console.log('[TeamsScreen] CoinOS team selected (account exists)');
       }
 
       // Select the team (no toggle - always keeps a team selected)
@@ -276,6 +304,39 @@ const TeamsScreenComponent: React.FC = () => {
     setShowPPQTopupModal(false);
   }, []);
 
+  // Handle CoinOS setup completion
+  const handleCoinOSSetupSuccess = useCallback(async () => {
+    setShowCoinOSSetupModal(false);
+    if (pendingCoinOSSelection) {
+      await AsyncStorage.setItem(SELECTED_TEAM_KEY, 'coinos');
+      setSelectedTeamId('coinos');
+      setPendingCoinOSSelection(false);
+      Toast.show({
+        type: 'reward',
+        text1: 'Bitcoin Wallet Connected',
+        text2: 'Your workout rewards will go to your wallet',
+        position: 'top',
+        visibilityTime: 3000,
+      });
+      console.log('[TeamsScreen] CoinOS team selected after setup');
+    }
+  }, [pendingCoinOSSelection]);
+
+  const handleCoinOSSetupClose = useCallback(() => {
+    setShowCoinOSSetupModal(false);
+    setPendingCoinOSSelection(false);
+  }, []);
+
+  // Handle CoinOS wallet badge tap - open wallet if account exists, otherwise setup
+  const handleCoinOSWalletPress = useCallback(async () => {
+    const hasAccount = await CoinOSAccountService.hasAccount();
+    if (hasAccount) {
+      setShowCoinOSWalletModal(true);
+    } else {
+      setShowCoinOSSetupModal(true);
+    }
+  }, []);
+
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
@@ -289,8 +350,8 @@ const TeamsScreenComponent: React.FC = () => {
 
   // Single tap - open ExternalZapModal (handles invoice creation and verification)
   const handleZapPress = (charity: Charity) => {
-    // Skip for PPQ.AI team (no lightning address)
-    if (isPPQTeam(charity.id) || !charity.lightningAddress) {
+    // Skip for special teams (no static lightning address)
+    if (isPPQTeam(charity.id) || isCoinOSTeam(charity.id) || !charity.lightningAddress) {
       return;
     }
     console.log(`[TeamsScreen] Opening zap modal for ${charity.name}`);
@@ -300,8 +361,8 @@ const TeamsScreenComponent: React.FC = () => {
 
   // Long press - quick NWC zap
   const handleZapLongPress = async (charity: Charity) => {
-    // Skip for PPQ.AI team (no lightning address)
-    if (isPPQTeam(charity.id) || !charity.lightningAddress) {
+    // Skip for special teams (no static lightning address)
+    if (isPPQTeam(charity.id) || isCoinOSTeam(charity.id) || !charity.lightningAddress) {
       return;
     }
 
@@ -435,8 +496,9 @@ const TeamsScreenComponent: React.FC = () => {
               onZapPress={() => handleZapPress(selectedTeam)}
               onZapLongPress={() => handleZapLongPress(selectedTeam)}
               isZapping={zappingCharityId === selectedTeam.id}
-              hideZapButton={isPPQTeam(selectedTeam.id)}
+              hideZapButton={isPPQTeam(selectedTeam.id) || isCoinOSTeam(selectedTeam.id)}
               onTopUp={isPPQTeam(selectedTeam.id) ? handlePPQSparklePress : undefined}
+              onWallet={isCoinOSTeam(selectedTeam.id) ? handleCoinOSWalletPress : undefined}
             />
           </View>
         )}
@@ -456,8 +518,9 @@ const TeamsScreenComponent: React.FC = () => {
               onZapPress={() => handleZapPress(charity)}
               onZapLongPress={() => handleZapLongPress(charity)}
               isZapping={zappingCharityId === charity.id}
-              hideZapButton={isPPQTeam(charity.id)}
+              hideZapButton={isPPQTeam(charity.id) || isCoinOSTeam(charity.id)}
               onTopUp={isPPQTeam(charity.id) ? handlePPQSparklePress : undefined}
+              onWallet={isCoinOSTeam(charity.id) ? handleCoinOSWalletPress : undefined}
             />
           ))}
         </View>
@@ -496,6 +559,19 @@ const TeamsScreenComponent: React.FC = () => {
         visible={showPPQTopupModal}
         onClose={() => setShowPPQTopupModal(false)}
         onSuccess={handlePPQTopupSuccess}
+      />
+
+      {/* CoinOS Account Setup Modal */}
+      <CoinOSAccountSetupModal
+        visible={showCoinOSSetupModal}
+        onClose={handleCoinOSSetupClose}
+        onSuccess={handleCoinOSSetupSuccess}
+      />
+
+      {/* CoinOS Wallet Modal */}
+      <CoinOSWalletModal
+        visible={showCoinOSWalletModal}
+        onClose={() => setShowCoinOSWalletModal(false)}
       />
     </TexturedBackground>
   );

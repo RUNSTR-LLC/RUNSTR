@@ -29,7 +29,7 @@ import { HistoryModal } from '../components/wallet/HistoryModal';
 import { QRScannerModal } from '../components/qr/QRScannerModal';
 import { NWCQRConfirmationModal } from '../components/wallet/NWCQRConfirmationModal';
 import type { QRData } from '../services/qr/QRCodeService';
-import { getCharityById, isPPQTeam } from '../constants/charities';
+import { getCharityById, isPPQTeam, isCoinOSTeam } from '../constants/charities';
 import { Avatar } from '../components/ui/Avatar';
 import { ExternalZapModal } from '../components/nutzap/ExternalZapModal';
 import Toast from 'react-native-toast-message';
@@ -43,6 +43,7 @@ import { useTranslation } from 'react-i18next';
 import { SupabaseRewardService } from '../services/rewards/SupabaseRewardService';
 import { RewardDestinationService } from '../services/rewards/RewardDestinationService';
 import { PPQCreditTopupModal } from '../components/ai/PPQCreditTopupModal';
+import { CoinOSWalletModal } from '../components/wallet/CoinOSWalletModal';
 
 // Storage keys for donation settings
 // Note: Teams are now charities (rebranded)
@@ -95,6 +96,9 @@ const RewardsScreenComponent: React.FC = () => {
 
   // PPQ.AI credit topup modal state
   const [showPPQTopupModal, setShowPPQTopupModal] = useState(false);
+
+  // CoinOS wallet modal state
+  const [showCoinOSWalletModal, setShowCoinOSWalletModal] = useState(false);
 
   // Alert state
   const [alertVisible, setAlertVisible] = useState(false);
@@ -363,6 +367,16 @@ const RewardsScreenComponent: React.FC = () => {
                 <Ionicons name="sparkles" size={22} color="#FF9D42" />
               </TouchableOpacity>
             )}
+            {/* Wallet button for CoinOS team */}
+            {selectedTeam && isCoinOSTeam(selectedTeam.id) && (
+              <TouchableOpacity
+                style={styles.zapButton}
+                onPress={() => setShowCoinOSWalletModal(true)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="wallet-outline" size={22} color="#FF9D42" />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -457,6 +471,12 @@ const RewardsScreenComponent: React.FC = () => {
         visible={showPPQTopupModal}
         onClose={() => setShowPPQTopupModal(false)}
         onSuccess={handlePPQTopupSuccess}
+      />
+
+      {/* CoinOS Wallet Modal */}
+      <CoinOSWalletModal
+        visible={showCoinOSWalletModal}
+        onClose={() => setShowCoinOSWalletModal(false)}
       />
 
       {showQRScanner && (
