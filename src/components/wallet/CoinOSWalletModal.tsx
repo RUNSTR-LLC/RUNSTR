@@ -40,6 +40,11 @@ export const CoinOSWalletModal: React.FC<CoinOSWalletModalProps> = ({
   const [isLoadingBalance, setIsLoadingBalance] = useState(false);
   const [lightningAddress, setLightningAddress] = useState<string | null>(null);
 
+  // Receive state
+  const [receiveAmount, setReceiveAmount] = useState('');
+  const [receiveInvoice, setReceiveInvoice] = useState('');
+  const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
+
   // Send state
   const [sendTarget, setSendTarget] = useState('');
   const [sendAmount, setSendAmount] = useState('');
@@ -67,6 +72,8 @@ export const CoinOSWalletModal: React.FC<CoinOSWalletModalProps> = ({
   useEffect(() => {
     if (visible) {
       loadWalletData();
+      setReceiveAmount('');
+      setReceiveInvoice('');
       setSendTarget('');
       setSendAmount('');
       setSendError(null);
@@ -80,6 +87,51 @@ export const CoinOSWalletModal: React.FC<CoinOSWalletModalProps> = ({
         type: 'success',
         text1: 'Copied!',
         text2: 'Lightning address copied to clipboard',
+        position: 'top',
+        visibilityTime: 2000,
+      });
+    }
+  };
+
+  const handleCreateInvoice = async () => {
+    const sats = parseInt(receiveAmount, 10);
+    if (isNaN(sats) || sats <= 0) return;
+
+    setIsGeneratingInvoice(true);
+    try {
+      const result = await CoinOSAccountService.createInvoice(sats, 'RUNSTR receive');
+      if (result.success && result.bolt11) {
+        setReceiveInvoice(result.bolt11);
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Invoice Failed',
+          text2: result.error || 'Could not create invoice',
+          position: 'top',
+          visibilityTime: 3000,
+        });
+      }
+    } catch (error) {
+      console.error('[CoinOSWallet] Create invoice error:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Invoice Failed',
+        text2: error instanceof Error ? error.message : 'Could not create invoice',
+        position: 'top',
+        visibilityTime: 3000,
+      });
+    } finally {
+      setIsGeneratingInvoice(false);
+    }
+  };
+
+  const handleCopyInvoice = async () => {
+    if (receiveInvoice) {
+      await Clipboard.setStringAsync(receiveInvoice);
+      Toast.show({
+        type: 'success',
+        text1: 'Copied!',
+        text2: 'Lightning invoice copied to clipboard',
         position: 'top',
         visibilityTime: 2000,
       });
@@ -175,7 +227,11 @@ export const CoinOSWalletModal: React.FC<CoinOSWalletModalProps> = ({
           <View style={styles.tabContainer}>
             <TouchableOpacity
               style={[styles.tab, activeTab === 'receive' && styles.activeTab]}
-              onPress={() => setActiveTab('receive')}
+              onPress={() => {
+                setActiveTab('receive');
+                setReceiveAmount('');
+                setReceiveInvoice('');
+              }}
             >
               <Text style={[styles.tabText, activeTab === 'receive' && styles.activeTabText]}>
                 Receive
@@ -183,7 +239,11 @@ export const CoinOSWalletModal: React.FC<CoinOSWalletModalProps> = ({
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.tab, activeTab === 'send' && styles.activeTab]}
-              onPress={() => setActiveTab('send')}
+              onPress={() => {
+                setActiveTab('send');
+                setReceiveAmount('');
+                setReceiveInvoice('');
+              }}
             >
               <Text style={[styles.tabText, activeTab === 'send' && styles.activeTabText]}>
                 Send
@@ -213,21 +273,86 @@ export const CoinOSWalletModal: React.FC<CoinOSWalletModalProps> = ({
                   </View>
                 </TouchableOpacity>
 
-                {/* QR Code */}
-                {lightningAddress && (
-                  <View style={styles.qrContainer}>
-                    <QRCode
-                      value={lightningAddress}
-                      size={180}
-                      backgroundColor="#0a0a0a"
-                      color="#FFB366"
-                    />
-                  </View>
-                )}
+                {!receiveInvoice ? (
+                  <>
+                    {/* Amount Input */}
+                    <View style={styles.inputContainer}>
+                      <Text style={styles.inputLabel}>Amount to receive (sats)</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="0"
+                        placeholderTextColor={theme.colors.textMuted}
+                        value={receiveAmount}
+                        onChangeText={setReceiveAmount}
+                        keyboardType="numeric"
+                        editable={!isGeneratingInvoice}
+                      />
+                    </View>
 
-                <Text style={styles.receiveHint}>
-                  Share your Lightning address or QR code to receive Bitcoin.
-                </Text>
+                    {/* Create Invoice Button */}
+                    <TouchableOpacity
+                      style={[
+                        styles.sendButton,
+                        (!receiveAmount.trim() || isGeneratingInvoice) && styles.buttonDisabled,
+                      ]}
+                      onPress={handleCreateInvoice}
+                      disabled={!receiveAmount.trim() || isGeneratingInvoice}
+                    >
+                      {isGeneratingInvoice ? (
+                        <ActivityIndicator size="small" color="#000" />
+                      ) : (
+                        <>
+                          <Ionicons name="flash" size={18} color="#000" style={styles.sendIcon} />
+                          <Text style={styles.sendButtonText}>Create Invoice</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+
+                    <Text style={[styles.receiveHint, { marginTop: 16 }]}>
+                      Create a Lightning invoice for a specific amount, or share your address above.
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    {/* Invoice Generated State */}
+                    <Text style={styles.invoiceAmountDisplay}>
+                      {parseInt(receiveAmount, 10).toLocaleString()} sats
+                    </Text>
+
+                    {/* QR Code of bolt11 invoice */}
+                    <View style={styles.qrContainer}>
+                      <QRCode
+                        value={receiveInvoice}
+                        size={180}
+                        backgroundColor="#0a0a0a"
+                        color="#FFB366"
+                      />
+                    </View>
+
+                    {/* Invoice text + copy */}
+                    <TouchableOpacity
+                      style={styles.invoiceRow}
+                      onPress={handleCopyInvoice}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.invoiceText} numberOfLines={2}>
+                        {receiveInvoice}
+                      </Text>
+                      <Ionicons name="copy-outline" size={16} color={theme.colors.textMuted} />
+                    </TouchableOpacity>
+
+                    {/* New Invoice Button */}
+                    <TouchableOpacity
+                      style={styles.newInvoiceButton}
+                      onPress={() => {
+                        setReceiveInvoice('');
+                        setReceiveAmount('');
+                      }}
+                    >
+                      <Text style={styles.newInvoiceButtonText}>New Invoice</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
               </>
             ) : (
               <>
@@ -409,6 +534,40 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     textAlign: 'center',
     lineHeight: 16,
+  },
+  invoiceAmountDisplay: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#FF9D42',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  invoiceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1a1a1a',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 16,
+    gap: 10,
+  },
+  invoiceText: {
+    flex: 1,
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    fontFamily: 'monospace',
+  },
+  newInvoiceButton: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+    borderRadius: 10,
+  },
+  newInvoiceButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: theme.colors.text,
   },
   inputContainer: {
     marginBottom: 14,
