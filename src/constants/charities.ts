@@ -33,13 +33,13 @@ export const CHARITIES: Charity[] = [
     image: require('../../assets/images/charities/ppq-ai.png'),
     isPPQ: true,
   },
-  // CoinOS - Special team: Earn Bitcoin to a custodial Lightning wallet
+  // CoinOS - Special team: Earn sats to a Lightning wallet
   {
     id: 'coinos',
-    name: 'Bitcoin Wallet',
-    displayName: 'Bitcoin Wallet',
+    name: 'CoinOS',
+    displayName: 'CoinOS',
     // No static lightningAddress - set dynamically per user (username@coinos.io)
-    description: 'Earn sats directly to your own Bitcoin Lightning wallet',
+    description: 'A Lightning wallet to send and receive sats',
     website: 'https://coinos.io',
     image: require('../../assets/images/charities/coinos.png'),
     isCoinOS: true,

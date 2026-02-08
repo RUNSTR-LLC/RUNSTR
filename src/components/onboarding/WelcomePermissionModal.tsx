@@ -226,9 +226,9 @@ export const WelcomePermissionModal: React.FC<WelcomePermissionModalProps> = ({
                     <Ionicons name="wallet-outline" size={24} color="#FF9D42" />
                   </View>
                   <View style={styles.optionTextContainer}>
-                    <Text style={styles.optionTitle}>Earn to Bitcoin Wallet</Text>
+                    <Text style={styles.optionTitle}>Earn to CoinOS</Text>
                     <Text style={styles.optionDescription}>
-                      Receive sats directly to a Lightning wallet
+                      Send and receive sats with a Lightning wallet
                     </Text>
                   </View>
                   {selectedOption === 'coinos' && (
