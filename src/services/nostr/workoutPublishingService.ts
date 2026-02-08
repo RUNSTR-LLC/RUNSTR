@@ -35,7 +35,7 @@ import Toast from 'react-native-toast-message';
 import { nip19 } from 'nostr-tools';
 import Constants from 'expo-constants';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
-import { RewardDestinationService } from '../rewards/RewardDestinationService';
+// RewardDestinationService removed - reward routing now uses isPPQTeam() inline
 import { EinundzwanzigService } from '../challenge/EinundzwanzigService';
 import { isEinundzwanzigActive } from '../../constants/einundzwanzig';
 import { PendingSubmissionService } from '../competition/PendingSubmissionService';
@@ -198,11 +198,19 @@ export class WorkoutPublishingService {
         await RewardLightningAddressService.getRewardLightningAddress();
 
       // Get reward destination for external reward service routing
-      // If user wants rewards AND has a Lightning address → 'user'
+      // If user has a Lightning address → 'user'
+      // If PPQ.AI team → 'ppq' (rewards go to bolt11 invoice)
       // Otherwise → 'charity' (charity is always the fallback)
-      const shouldSendToUser = await RewardDestinationService.shouldSendToUser();
       const hasLightningAddress = rewardLightningAddress && rewardLightningAddress.length > 0;
-      const rewardDestination: 'user' | 'charity' = (shouldSendToUser && hasLightningAddress) ? 'user' : 'charity';
+      const isPPQ = selectedTeamId ? isPPQTeam(selectedTeamId) : false;
+      let rewardDestination: 'user' | 'charity' | 'ppq';
+      if (hasLightningAddress) {
+        rewardDestination = 'user';
+      } else if (isPPQ) {
+        rewardDestination = 'ppq';
+      } else {
+        rewardDestination = 'charity';
+      }
 
       // Create unsigned NDKEvent
       const ndkEvent = new NDKEvent(ndk);
@@ -664,7 +672,7 @@ export class WorkoutPublishingService {
     pubkey: string,
     selectedCharity: Charity | null,
     rewardLightningAddress: string | null,
-    rewardDestination: 'user' | 'charity'
+    rewardDestination: 'user' | 'charity' | 'ppq'
   ): Promise<string[][]> {
     // Map workout type to simple exercise verb (run, walk, cycle)
     const exerciseVerb = this.getExerciseVerb(workout.type);
@@ -856,12 +864,21 @@ export class WorkoutPublishingService {
       console.log(`   ✅ Added team tag: ${selectedCharity.id}`);
 
       // Charity tag for external client parsing and donations
-      tags.push([
-        'charity',
-        selectedCharity.id,
-        selectedCharity.name,
-        selectedCharity.lightningAddress,
-      ]);
+      // PPQ.AI has no Lightning address (uses bolt11 invoices instead)
+      if (selectedCharity.lightningAddress) {
+        tags.push([
+          'charity',
+          selectedCharity.id,
+          selectedCharity.name,
+          selectedCharity.lightningAddress,
+        ]);
+      } else {
+        tags.push([
+          'charity',
+          selectedCharity.id,
+          selectedCharity.name,
+        ]);
+      }
       console.log(`   ✅ Added charity tag: ${selectedCharity.name}`);
     }
 
@@ -872,7 +889,9 @@ export class WorkoutPublishingService {
     }
 
     // Add reward_destination tag (for external reward routing)
-    // This tells the external reward service where to send the 50 sats
+    // 'user' = send to user's Lightning address
+    // 'ppq' = send to PPQ.AI bolt11 invoice (AI credits)
+    // 'charity' = send to charity's Lightning address
     tags.push(['reward_destination', rewardDestination]);
     console.log(`   ✅ Added reward_destination tag: ${rewardDestination}`);
 
@@ -1406,12 +1425,21 @@ export class WorkoutPublishingService {
       console.log(`   ✅ Added team tag to kind 1: ${selectedCharity.id}`);
 
       // Charity tag for external client parsing and donations
-      tags.push([
-        'charity',
-        selectedCharity.id,
-        selectedCharity.name,
-        selectedCharity.lightningAddress,
-      ]);
+      // PPQ.AI has no Lightning address (uses bolt11 invoices instead)
+      if (selectedCharity.lightningAddress) {
+        tags.push([
+          'charity',
+          selectedCharity.id,
+          selectedCharity.name,
+          selectedCharity.lightningAddress,
+        ]);
+      } else {
+        tags.push([
+          'charity',
+          selectedCharity.id,
+          selectedCharity.name,
+        ]);
+      }
       console.log(`   ✅ Added charity tag to kind 1: ${selectedCharity.name}`);
     }
 

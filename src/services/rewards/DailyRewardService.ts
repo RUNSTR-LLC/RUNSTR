@@ -208,6 +208,7 @@ class DailyRewardServiceClass {
   private async getRewardDestination(): Promise<{
     address: string;
     isCharity: boolean;
+    isPPQ: boolean;
     charityName: string;
     charityId: string;
   }> {
@@ -219,6 +220,7 @@ class DailyRewardServiceClass {
       return {
         address: '', // Empty address will be handled by external service
         isCharity: true,
+        isPPQ: false,
         charityName: 'RUNSTR',
         charityId: 'runstr',
       };
@@ -506,14 +508,15 @@ class DailyRewardServiceClass {
       }
       // ===== END EINUNDZWANZIG CHECK =====
 
+      const destinationLabel = destination.isPPQ ? 'PPQ.AI' : destination.isCharity ? destination.charityName : 'User';
       console.log('[Reward] Tracking reward locally:', {
-        destination: destination.isCharity ? destination.charityName : 'User',
+        destination: destinationLabel,
         amount: totalAmount,
       });
 
       if (DEBUG_REWARDS) {
         Alert.alert('Reward Debug',
-          `Destination: ${destination.isCharity ? destination.charityName : 'User'}\n` +
+          `Destination: ${destinationLabel}\n` +
           `Amount: ${totalAmount} sats\n\n` +
           `Note: Payment handled by external service via kind 1301 tags`
         );
@@ -526,8 +529,8 @@ class DailyRewardServiceClass {
       // Record the reward amount locally (for stats/UI)
       await this.recordReward(userPubkey, totalAmount);
 
-      // Track charity donations for Impact Level XP
-      if (destination.isCharity) {
+      // Track charity donations for Impact Level XP (PPQ.AI is not a charity donation)
+      if (destination.isCharity && !destination.isPPQ) {
         await DonationTrackingService.recordDonation({
           donorPubkey: userPubkey,
           amount: totalAmount,
@@ -723,8 +726,9 @@ class DailyRewardServiceClass {
       }
       // ===== END PLEDGE CHECK =====
 
+      const destinationLabel = destination.isPPQ ? 'PPQ.AI' : destination.isCharity ? destination.charityName : 'User';
       console.log('[Reward] Tracking reward locally:', {
-        destination: destination.isCharity ? destination.charityName : 'User',
+        destination: destinationLabel,
         amount: totalAmount,
       });
 
@@ -734,8 +738,8 @@ class DailyRewardServiceClass {
       // Record the reward amount locally (for stats/UI)
       await this.recordReward(userPubkey, totalAmount);
 
-      // Track charity donations for Impact Level XP
-      if (destination.isCharity) {
+      // Track charity donations for Impact Level XP (PPQ.AI is not a charity donation)
+      if (destination.isCharity && !destination.isPPQ) {
         await DonationTrackingService.recordDonation({
           donorPubkey: userPubkey,
           amount: totalAmount,
