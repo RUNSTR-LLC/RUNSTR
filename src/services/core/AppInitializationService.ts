@@ -4,6 +4,7 @@
  * Handles initial data prefetching for authenticated users
  */
 
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NostrInitializationService } from '../nostr/NostrInitializationService';
 import nostrPrefetchService from '../nostr/NostrPrefetchService';
@@ -142,6 +143,24 @@ class AppInitializationService {
           // Removed: SatlantisEventService.prefetchEventsForOfflineAccess()
 
           console.log('✅ AppInit: All data loaded!');
+
+          // Step 4: Set up HealthKit background delivery (iOS only)
+          // Must be re-registered every app launch per Apple requirements
+          if (Platform.OS === 'ios') {
+            try {
+              const { HealthKitService } = await import('../fitness/healthKitService');
+              const healthKit = HealthKitService.getInstance();
+              if (healthKit.getStatus().authorized) {
+                const { HealthKitBackgroundService } = await import(
+                  '../fitness/HealthKitBackgroundService'
+                );
+                await HealthKitBackgroundService.getInstance().setupBackgroundDelivery();
+                console.log('✅ AppInit: HealthKit background delivery registered');
+              }
+            } catch (hkError) {
+              console.warn('⚠️ AppInit: HealthKit background setup failed (non-blocking):', hkError);
+            }
+          }
         }
 
         // CRITICAL FIX: Only set flags if not aborted and not already completed

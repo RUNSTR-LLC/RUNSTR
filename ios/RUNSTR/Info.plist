@@ -75,6 +75,7 @@
     <array>
       <string>location</string>
       <string>processing</string>
+      <string>fetch</string>
     </array>
     <key>UILaunchStoryboardName</key>
     <string>SplashScreen</string>
