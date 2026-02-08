@@ -22,4 +22,5 @@ Workout data processing, health platform integrations (HealthKit, Health Connect
 - **WorkoutLevelService.ts** - Universal XP system for all workout types with duration, distance, and streak bonuses driving level progression.
 - **CalorieEstimationService.ts** - Privacy-preserving on-device calorie estimation for all activity types using default assumptions when no user profile is available.
 - **FitnessTestService.ts** - RUNSTR Fitness Test management (pushups, situps, 5K run) with scoring, history, and grade calculation.
-- **backgroundSyncService.ts** - *(Deprecated)* Background workout sync orchestrator. Disabled due to conflicts with active GPS tracking. Do not re-enable without tracking state checks.
+- **HealthSyncManager.ts** - Lightweight foreground sync for HealthKit/Health Connect workouts. Syncs on app foreground and pull-to-refresh with a 5-minute throttle. Replaces the deprecated BackgroundSyncService.
+- **backgroundSyncService.ts** - *(Deprecated)* Background workout sync orchestrator. Disabled due to conflicts with active GPS tracking. Replaced by HealthSyncManager.

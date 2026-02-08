@@ -693,28 +693,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     initializeAuth();
   }, [checkStoredCredentials]);
 
-  // Initialize background services after app is interactive
-  // DISABLED: BackgroundSyncService was causing "Sync already in progress" errors at 30 minutes
-  // during active tracking. The 30-minute interval was conflicting with active workout sessions.
-  // Commenting out until we implement proper tracking state checks.
-  // useEffect(() => {
-  //   if (isAuthenticated && !isInitializing) {
-  //     // Delay background service init to avoid blocking startup
-  //     const timer = setTimeout(async () => {
-  //       try {
-  //         const { BackgroundSyncService } = await import(
-  //           '../services/fitness/backgroundSyncService'
-  //         );
-  //         const syncService = BackgroundSyncService.getInstance();
-  //         await syncService.initialize();
-  //       } catch (bgError) {
-  //         // Silent fail - non-critical
-  //       }
-  //     }, 2000);
+  // Sync health platform workouts on app foreground and cold start
+  // Replaces the disabled BackgroundSyncService (which conflicted with active GPS tracking).
+  // This is safe because it only fires on foreground (user isn't mid-workout) and has a 5-min throttle.
+  useEffect(() => {
+    if (!isAuthenticated || isInitializing) return;
 
-  //     return () => clearTimeout(timer);
-  //   }
-  // }, [isAuthenticated, isInitializing]);
+    const { AppStateManager } = require('../services/core/AppStateManager');
+    const { HealthSyncManager } = require('../services/fitness/HealthSyncManager');
+
+    // Run once on cold start (delayed to avoid blocking startup)
+    const timer = setTimeout(() => {
+      HealthSyncManager.syncTodayToLeaderboard().catch(() => {});
+    }, 3000);
+
+    // Run on each foreground transition
+    const unsubscribe = AppStateManager.onStateChange((isActive: boolean) => {
+      if (isActive) {
+        HealthSyncManager.syncTodayToLeaderboard().catch(() => {});
+      }
+    });
+
+    return () => {
+      clearTimeout(timer);
+      unsubscribe();
+    };
+  }, [isAuthenticated, isInitializing]);
 
   // Context value - memoized to prevent unnecessary re-renders
   // This prevents cascading re-renders when context consumers check for changes
