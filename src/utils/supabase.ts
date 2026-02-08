@@ -56,17 +56,39 @@ export function getSupabaseClient(): SupabaseClient {
   return supabase;
 }
 
+// Template-specific configuration stored in competitions.config JSONB column
+export interface CompetitionConfig {
+  activity_types?: string[];       // ['running', 'walking'] - overrides activity_type
+  score_unit?: string;             // 'km', 'mi', 'steps', 'minutes', 'count'
+  rules?: string;                  // Plain text rules/description
+  winner_count?: number;           // Top N winners (0 = no ranked winners)
+  goal_distance_km?: number;       // For goal_challenge template
+  goal_workout_count?: number;     // For goal_challenge template
+  featured_charities?: string[];   // For fundraiser template
+  prizes?: Array<{
+    place: number | 'finisher';
+    amount_sats: number;
+    label: string;
+  }>;
+}
+
 // Database types for type safety
 export interface Competition {
   id: string;
   external_id: string;
   name: string;
+  description?: string;
   activity_type: string;
   scoring_method: 'total_distance' | 'total_duration' | 'workout_count';
   start_date: string;
   end_date: string;
+  prize_pool_sats?: number;
   created_at: string;
   metadata: Record<string, unknown>;
+  template: 'distance_race' | 'step_challenge' | 'goal_challenge' | 'fundraiser';
+  config: CompetitionConfig;
+  image_url?: string;
+  is_open: boolean;
 }
 
 export interface CompetitionParticipant {

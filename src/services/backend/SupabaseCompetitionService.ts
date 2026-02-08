@@ -53,7 +53,71 @@ interface WorkoutSubmissionData {
   ppqInvoiceId?: string;
 }
 
+// Cache key and TTL for dynamic competitions
+const DYNAMIC_COMPETITIONS_CACHE_KEY = '@runstr:dynamic_competitions';
+const DYNAMIC_COMPETITIONS_TTL = 5 * 60 * 1000; // 5 minutes
+
 export class SupabaseCompetitionService {
+  // Hardcoded events that have dedicated screens - exclude from dynamic list
+  private static HARDCODED_EVENT_IDS = [
+    'season-ii', 'running-bitcoin', 'january-walking',
+    'einundzwanzig', 'einundzwanzig-running', 'einundzwanzig-walking',
+    'season2-running', 'season2-walking', 'season2-cycling',
+  ];
+
+  /**
+   * Fetch dynamic competitions (excludes hardcoded events with dedicated screens)
+   * Results are cached in AsyncStorage for 5 minutes.
+   */
+  static async fetchDynamicCompetitions(): Promise<Competition[]> {
+    if (!isSupabaseConfigured()) {
+      return [];
+    }
+
+    // Check cache first
+    try {
+      const cached = await AsyncStorage.getItem(DYNAMIC_COMPETITIONS_CACHE_KEY);
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < DYNAMIC_COMPETITIONS_TTL) {
+          return data as Competition[];
+        }
+      }
+    } catch {
+      // Cache read failed, continue to fetch
+    }
+
+    try {
+      const { data, error } = await supabase!
+        .from('competitions')
+        .select('*')
+        .not('external_id', 'in', `(${this.HARDCODED_EVENT_IDS.join(',')})`)
+        .order('start_date', { ascending: false });
+
+      if (error) {
+        console.error('[SupabaseCompetitionService] fetchDynamicCompetitions error:', error);
+        return [];
+      }
+
+      const competitions = (data || []) as Competition[];
+
+      // Save to cache
+      try {
+        await AsyncStorage.setItem(
+          DYNAMIC_COMPETITIONS_CACHE_KEY,
+          JSON.stringify({ data: competitions, timestamp: Date.now() })
+        );
+      } catch {
+        // Cache write failed, non-critical
+      }
+
+      return competitions;
+    } catch (err) {
+      console.error('[SupabaseCompetitionService] fetchDynamicCompetitions exception:', err);
+      return [];
+    }
+  }
+
   /**
    * Join a competition - adds user's npub to participant list
    * Uses optimistic pattern: save locally first for instant UI, then sync to Supabase
