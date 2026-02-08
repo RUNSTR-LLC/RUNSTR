@@ -720,6 +720,43 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   }, [isAuthenticated, isInitializing]);
 
+  // Register push token_key so the external zapping tool can send reward notifications.
+  // Fire-and-forget: tagged to the existing broadcast_tokens row via sha256(npub).
+  useEffect(() => {
+    if (!isAuthenticated || isInitializing) return;
+
+    (async () => {
+      try {
+        const npub = await getNpubFromStorage();
+        if (!npub) return;
+
+        const provider = (await import('../services/notifications/ExpoNotificationProvider'))
+          .ExpoNotificationProvider.getInstance();
+        await provider.initialize();
+        const token = provider.getDeviceToken();
+        if (!token) return;
+
+        const Crypto = await import('expo-crypto');
+        const tokenKey = await Crypto.digestStringAsync(
+          Crypto.CryptoDigestAlgorithm.SHA256,
+          npub
+        );
+
+        const { supabase, isSupabaseConfigured } = await import('../utils/supabase');
+        if (!isSupabaseConfigured() || !supabase) return;
+
+        await supabase
+          .from('broadcast_tokens')
+          .update({ token_key: tokenKey })
+          .eq('token', token);
+
+        console.log('[Auth] Push token_key registered for reward notifications');
+      } catch (err) {
+        console.warn('[Auth] token_key registration failed (silent):', err);
+      }
+    })();
+  }, [isAuthenticated, isInitializing]);
+
   // Context value - memoized to prevent unnecessary re-renders
   // This prevents cascading re-renders when context consumers check for changes
   const contextValue = useMemo<AuthContextType>(
