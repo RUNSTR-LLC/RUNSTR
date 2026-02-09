@@ -29,6 +29,8 @@ import { CyclingTrackerScreen } from './CyclingTrackerScreen';
 import { HikingTrackerScreen } from './HikingTrackerScreen';
 import { MeditationTrackerScreen } from './MeditationTrackerScreen';
 import { StrengthTrackerScreen } from './StrengthTrackerScreen';
+import { JournalTrackerScreen } from './JournalTrackerScreen';
+import { HabitTrackerScreen } from './HabitTrackerScreen';
 import { dailyStepCounterService } from '../../services/activity/DailyStepCounterService';
 import { WoTService } from '../../services/wot/WoTService';
 import { EnhancedSocialShareModal } from '../../components/profile/shared/EnhancedSocialShareModal';
@@ -71,12 +73,16 @@ export const ActivityTrackerScreen: React.FC = () => {
   const [hasPostedStepsToday, setHasPostedStepsToday] = useState(false);
   const lastPostDateRef = useRef<string>('');
 
+  // Guard: prevent saving default position before the persisted one is loaded
+  const hasLoadedPositionRef = useRef(false);
+
   // Load saved grid position on mount (deferred to avoid blocking navigation transition)
   useEffect(() => {
     const interaction = InteractionManager.runAfterInteractions(() => {
       const loadPosition = async () => {
         const saved = await activityGridService.loadPosition();
         setGridPosition(saved);
+        hasLoadedPositionRef.current = true;
         console.log('[ActivityTracker] Loaded grid position:', saved);
       };
       loadPosition();
@@ -84,8 +90,9 @@ export const ActivityTrackerScreen: React.FC = () => {
     return () => interaction.cancel();
   }, []);
 
-  // Save position when it changes
+  // Save position when it changes (only after initial load to avoid overwriting with defaults)
   useEffect(() => {
+    if (!hasLoadedPositionRef.current) return;
     activityGridService.savePosition(gridPosition);
   }, [gridPosition]);
 
@@ -345,6 +352,17 @@ export const ActivityTrackerScreen: React.FC = () => {
           ? (activity as MeditationType)
           : 'guided';
         return <MeditationTrackerScreen initialType={meditationType} />;
+      }
+
+      case 'mindfulness': {
+        switch (activity) {
+          case 'journal':
+            return <JournalTrackerScreen />;
+          case 'habits':
+            return <HabitTrackerScreen />;
+          default:
+            return <JournalTrackerScreen />;
+        }
       }
 
       default:

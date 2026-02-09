@@ -1,6 +1,6 @@
 # Activity Services
 
-Services for managing live workout tracking, location services, and text-to-speech announcements.
+Services for managing live workout tracking, location services, text-to-speech announcements, and the 2D activity grid (4 categories: Cardio, Strength, Wellness, Mindfulness).
 
 ## Files
 
