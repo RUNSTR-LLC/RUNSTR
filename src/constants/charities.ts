@@ -142,6 +142,14 @@ export const CHARITIES: Charity[] = [
     image: require('../../assets/images/charities/human-rights-foundation.png'),
   },
   {
+    id: 'lightning-news',
+    name: 'Lightning News',
+    displayName: 'Lightning News',
+    lightningAddress: 'lightningnews@puresignal.news',
+    description: 'Up to date news on Bitcoin and Lightning',
+    image: require('../../assets/images/charities/lightning-news.webp'),
+  },
+  {
     id: 'runstr',
     name: 'RUNSTR',
     displayName: 'RUNSTR',
