@@ -160,7 +160,11 @@ export const JournalEditorModal: React.FC<JournalEditorModalProps> = ({
         month: 'long',
         day: 'numeric',
       })
-    : "Today's Entry";
+    : new Date().toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+      });
 
   return (
     <Modal
@@ -210,7 +214,7 @@ export const JournalEditorModal: React.FC<JournalEditorModalProps> = ({
 
             {/* Content Editor */}
             <View style={styles.editorContainer}>
-              <Text style={styles.label}>What's on your mind?</Text>
+              <Text style={styles.label}>Entry</Text>
               <TextInput
                 style={styles.textInput}
                 value={content}
