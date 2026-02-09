@@ -796,6 +796,51 @@ export class SupabaseCompetitionService {
         }
 
         console.log(`[SupabaseCompetition] Distance aggregation: ${dailyData.size} user-days processed with MAX(steps, GPS)`);
+      } else if (competition.scoring_method === 'fastest_time') {
+        // Fastest time competitions: find each user's fastest qualifying workout
+        const config = competition.config as Record<string, unknown> || {};
+        const targetKm = (config.target_distance_km as number) || 5.0;
+        const toleranceKm = (config.distance_tolerance_km as number) || 0.5;
+        const minKm = targetKm - toleranceKm;
+        const maxKm = targetKm + toleranceKm;
+
+        console.log(`[SupabaseCompetition] Fastest time: target ${targetKm}km ± ${toleranceKm}km (${minKm}-${maxKm}km)`);
+
+        workouts?.forEach((w: WorkoutSubmission) => {
+          const distanceKm = (w.distance_meters || 0) / 1000;
+          const durationSec = w.duration_seconds || 0;
+
+          // Skip workouts outside distance tolerance or with no duration
+          if (distanceKm < minKm || distanceKm > maxKm || durationSec <= 0) return;
+
+          const rawEvent = w.raw_event as Record<string, unknown> | null;
+          const charityData = this.extractCharityFromRawEvent(rawEvent);
+          const current = scores.get(w.npub);
+
+          // Keep only the fastest (minimum duration) qualifying workout per user
+          if (!current || current.score === 0 || durationSec < current.score) {
+            scores.set(w.npub, {
+              score: durationSec,
+              workoutCount: (current?.workoutCount || 0) + 1,
+              charityId: charityData.charityId || current?.charityId,
+              charityName: charityData.charityName || current?.charityName,
+              latestWorkoutTime: w.created_at,
+            });
+          } else {
+            // Not fastest, but still count the workout
+            scores.set(w.npub, {
+              ...current,
+              workoutCount: current.workoutCount + 1,
+            });
+          }
+        });
+
+        // Remove users with no qualifying workouts (score still 0)
+        for (const [npub, data] of scores) {
+          if (data.score === 0) scores.delete(npub);
+        }
+
+        console.log(`[SupabaseCompetition] Fastest time: ${scores.size} users with qualifying workouts`);
       } else {
         // Non-distance competitions: use original sum logic
         workouts?.forEach((w: WorkoutSubmission) => {
@@ -839,6 +884,9 @@ export class SupabaseCompetitionService {
       }
 
       // Sort and rank leaderboard
+      // For fastest_time: ascending (lower time = better rank)
+      // For all others: descending (higher score = better rank)
+      const isFastestTime = competition.scoring_method === 'fastest_time';
       const leaderboard: LeaderboardEntry[] = Array.from(scores.entries())
         .map(([npub, data]) => ({
           npub,
@@ -848,7 +896,7 @@ export class SupabaseCompetitionService {
           charityId: data.charityId,
           charityName: data.charityName,
         }))
-        .sort((a, b) => b.score - a.score)
+        .sort((a, b) => isFastestTime ? a.score - b.score : b.score - a.score)
         .slice(0, limit)
         .map((entry, index) => ({ ...entry, rank: index + 1 }));
 
