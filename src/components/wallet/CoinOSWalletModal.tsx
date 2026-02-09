@@ -44,6 +44,7 @@ export const CoinOSWalletModal: React.FC<CoinOSWalletModalProps> = ({
   const [receiveAmount, setReceiveAmount] = useState('');
   const [receiveInvoice, setReceiveInvoice] = useState('');
   const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
+  const [receiveError, setReceiveError] = useState<string | null>(null);
 
   // Send state
   const [sendTarget, setSendTarget] = useState('');
@@ -74,6 +75,7 @@ export const CoinOSWalletModal: React.FC<CoinOSWalletModalProps> = ({
       loadWalletData();
       setReceiveAmount('');
       setReceiveInvoice('');
+      setReceiveError(null);
       setSendTarget('');
       setSendAmount('');
       setSendError(null);
@@ -95,31 +97,25 @@ export const CoinOSWalletModal: React.FC<CoinOSWalletModalProps> = ({
 
   const handleCreateInvoice = async () => {
     const sats = parseInt(receiveAmount, 10);
-    if (isNaN(sats) || sats <= 0) return;
+    if (isNaN(sats) || sats <= 0) {
+      setReceiveError('Enter a valid amount');
+      return;
+    }
 
     setIsGeneratingInvoice(true);
+    setReceiveError(null);
     try {
+      console.log('[CoinOSWallet] Creating invoice for', sats, 'sats...');
       const result = await CoinOSAccountService.createInvoice(sats, 'RUNSTR receive');
+      console.log('[CoinOSWallet] Invoice result:', JSON.stringify(result));
       if (result.success && result.bolt11) {
         setReceiveInvoice(result.bolt11);
       } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Invoice Failed',
-          text2: result.error || 'Could not create invoice',
-          position: 'top',
-          visibilityTime: 3000,
-        });
+        setReceiveError(result.error || 'Could not create invoice');
       }
     } catch (error) {
       console.error('[CoinOSWallet] Create invoice error:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Invoice Failed',
-        text2: error instanceof Error ? error.message : 'Could not create invoice',
-        position: 'top',
-        visibilityTime: 3000,
-      });
+      setReceiveError(error instanceof Error ? error.message : 'Could not create invoice');
     } finally {
       setIsGeneratingInvoice(false);
     }
@@ -231,6 +227,7 @@ export const CoinOSWalletModal: React.FC<CoinOSWalletModalProps> = ({
                 setActiveTab('receive');
                 setReceiveAmount('');
                 setReceiveInvoice('');
+                setReceiveError(null);
               }}
             >
               <Text style={[styles.tabText, activeTab === 'receive' && styles.activeTabText]}>
@@ -243,6 +240,7 @@ export const CoinOSWalletModal: React.FC<CoinOSWalletModalProps> = ({
                 setActiveTab('send');
                 setReceiveAmount('');
                 setReceiveInvoice('');
+                setReceiveError(null);
               }}
             >
               <Text style={[styles.tabText, activeTab === 'send' && styles.activeTabText]}>
@@ -307,6 +305,14 @@ export const CoinOSWalletModal: React.FC<CoinOSWalletModalProps> = ({
                         </>
                       )}
                     </TouchableOpacity>
+
+                    {/* Receive Error */}
+                    {receiveError && (
+                      <View style={styles.errorContainer}>
+                        <Ionicons name="alert-circle" size={16} color="#ff6b6b" />
+                        <Text style={styles.errorText}>{receiveError}</Text>
+                      </View>
+                    )}
 
                     <Text style={[styles.receiveHint, { marginTop: 16 }]}>
                       Create a Lightning invoice for a specific amount, or share your address above.
@@ -493,7 +499,7 @@ const styles = StyleSheet.create({
     color: '#FF9D42',
   },
   tabContent: {
-    flex: 1,
+    flexShrink: 1,
   },
   tabContentInner: {
     paddingBottom: 8,

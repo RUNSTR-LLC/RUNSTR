@@ -65,6 +65,8 @@ export interface CompetitionConfig {
   goal_distance_km?: number;       // For goal_challenge template
   goal_workout_count?: number;     // For goal_challenge template
   featured_charities?: string[];   // For fundraiser template
+  target_distance_km?: number;     // For fastest_time: target distance (e.g. 5.0 for 5K)
+  distance_tolerance_km?: number;  // For fastest_time: tolerance (e.g. 0.5 = ±500m)
   prizes?: Array<{
     place: number | 'finisher';
     amount_sats: number;
@@ -79,7 +81,7 @@ export interface Competition {
   name: string;
   description?: string;
   activity_type: string;
-  scoring_method: 'total_distance' | 'total_duration' | 'workout_count';
+  scoring_method: 'total_distance' | 'total_duration' | 'workout_count' | 'fastest_time';
   start_date: string;
   end_date: string;
   prize_pool_sats?: number;

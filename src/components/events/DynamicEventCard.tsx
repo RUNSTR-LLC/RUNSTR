@@ -89,13 +89,11 @@ export const DynamicEventCard: React.FC<DynamicEventCardProps> = ({
             resizeMode="cover"
           />
         ) : (
-          <View style={styles.imagePlaceholder}>
-            <Image
-              source={RUNSTR_LOGO}
-              style={{ width: 64, height: 64, borderRadius: 12 }}
-              resizeMode="contain"
-            />
-          </View>
+          <Image
+            source={RUNSTR_LOGO}
+            style={styles.image}
+            resizeMode="contain"
+          />
         )}
       </View>
 
@@ -173,14 +171,7 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: 150,
-    backgroundColor: theme.colors.border,
-  },
-  imagePlaceholder: {
-    width: '100%',
-    height: 150,
-    backgroundColor: theme.colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: '#000000',
   },
   statusBadge: {
     position: 'absolute',

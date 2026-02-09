@@ -199,12 +199,6 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
         </TouchableOpacity>
         <View style={styles.headerSpacer} />
         <TouchableOpacity
-          onPress={() => (navigation as any).navigate('AIHealthDashboard')}
-          style={styles.statsButton}
-        >
-          <Ionicons name="sparkles" size={22} color="#FF9D42" />
-        </TouchableOpacity>
-        <TouchableOpacity
           onPress={() => setShowStatsSheet(true)}
           style={styles.statsButton}
         >

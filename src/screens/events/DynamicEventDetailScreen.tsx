@@ -65,6 +65,15 @@ function getActivityIcon(types: string[]): keyof typeof Ionicons.glyphMap {
 
 function formatScore(score: number, unit?: string): string {
   switch (unit) {
+    case 'seconds': {
+      // Format duration in seconds as mm:ss or H:mm:ss
+      const totalSec = Math.round(score);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      return `${m}:${String(s).padStart(2, '0')}`;
+    }
     case 'steps':
       return `${Math.round(score).toLocaleString()} steps`;
     case 'minutes':
@@ -303,13 +312,11 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
             resizeMode="cover"
           />
         ) : (
-          <View style={[styles.bannerImage, styles.bannerPlaceholder]}>
-            <Image
-              source={RUNSTR_LOGO}
-              style={{ width: 80, height: 80, borderRadius: 16 }}
-              resizeMode="contain"
-            />
-          </View>
+          <Image
+            source={RUNSTR_LOGO}
+            style={[styles.bannerImage, { backgroundColor: '#000000' }]}
+            resizeMode="contain"
+          />
         )}
 
         {/* Event Info */}
@@ -406,7 +413,7 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
           </View>
           <Text style={styles.sectionSubtitle}>
             {activityTypes.map((t) => t.charAt(0).toUpperCase() + t.slice(1)).join(', ')}
-            {scoreUnit ? ` - by ${scoreUnit}` : ''}
+            {scoreUnit === 'seconds' ? ' - Fastest time' : scoreUnit ? ` - by ${scoreUnit}` : ''}
           </Text>
 
           {leaderboardLoading ? (

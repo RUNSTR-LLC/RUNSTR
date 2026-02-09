@@ -7,7 +7,6 @@ Components for the Advanced Analytics Screen (Stats tab).
 - **ActivityStreaksCard.tsx** - Display workout consistency streaks
 - **CalorieBalanceCard.tsx** - Today's caloric balance (intake vs burn)
 - **CalorieTrendChart.tsx** - Visual chart of calorie trends over time
-- **CoachRunstrCard.tsx** - AI coaching insights and recommendations
 - **CorrelationInsightCard.tsx** - Correlations between workout types and performance
 - **GoalsHabitsCard.tsx** - Habit tracking with streak counters and check-ins
 - **HabitModal.tsx** - Modal for creating new habits with templates

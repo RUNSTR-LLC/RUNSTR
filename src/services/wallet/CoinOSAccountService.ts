@@ -303,12 +303,24 @@ export class CoinOSAccountService {
         COINOS_API_TIMEOUT
       );
 
+      if (response.status === 401) {
+        // JWT expired, try re-login and retry once
+        console.log('[CoinOS] Invoice 401 — re-authenticating...');
+        const loginResult = await this.login();
+        if (!loginResult.success) {
+          return { success: false, error: 'Authentication expired' };
+        }
+        return this.createInvoice(amountSats, description);
+      }
+
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('[CoinOS] Invoice creation failed:', response.status, errorText);
         return { success: false, error: `Invoice creation failed: ${response.status} ${errorText}` };
       }
 
       const data = await response.json();
+      console.log('[CoinOS] Invoice response data:', JSON.stringify(data));
       const bolt11 = data.text || data.bolt11 || data.hash;
 
       if (!bolt11) {

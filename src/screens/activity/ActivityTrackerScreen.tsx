@@ -29,6 +29,8 @@ import { CyclingTrackerScreen } from './CyclingTrackerScreen';
 import { HikingTrackerScreen } from './HikingTrackerScreen';
 import { MeditationTrackerScreen } from './MeditationTrackerScreen';
 import { StrengthTrackerScreen } from './StrengthTrackerScreen';
+import { JournalTrackerScreen } from './JournalTrackerScreen';
+import { HabitTrackerScreen } from './HabitTrackerScreen';
 import { dailyStepCounterService } from '../../services/activity/DailyStepCounterService';
 import { WoTService } from '../../services/wot/WoTService';
 import { EnhancedSocialShareModal } from '../../components/profile/shared/EnhancedSocialShareModal';
@@ -71,23 +73,25 @@ export const ActivityTrackerScreen: React.FC = () => {
   const [hasPostedStepsToday, setHasPostedStepsToday] = useState(false);
   const lastPostDateRef = useRef<string>('');
 
-  // Load saved grid position on mount (deferred to avoid blocking navigation transition)
+  // Guard: prevent rendering content (and saving) before persisted position is loaded
+  const [positionLoaded, setPositionLoaded] = useState(false);
+
+  // Load saved grid position on mount
   useEffect(() => {
-    const interaction = InteractionManager.runAfterInteractions(() => {
-      const loadPosition = async () => {
-        const saved = await activityGridService.loadPosition();
-        setGridPosition(saved);
-        console.log('[ActivityTracker] Loaded grid position:', saved);
-      };
-      loadPosition();
-    });
-    return () => interaction.cancel();
+    const loadPosition = async () => {
+      const saved = await activityGridService.loadPosition();
+      setGridPosition(saved);
+      setPositionLoaded(true);
+      console.log('[ActivityTracker] Loaded grid position:', saved);
+    };
+    loadPosition();
   }, []);
 
-  // Save position when it changes
+  // Save position when it changes (only after initial load to avoid overwriting with defaults)
   useEffect(() => {
+    if (!positionLoaded) return;
     activityGridService.savePosition(gridPosition);
-  }, [gridPosition]);
+  }, [gridPosition, positionLoaded]);
 
   // Load step data
   const loadStepData = async () => {
@@ -347,6 +351,17 @@ export const ActivityTrackerScreen: React.FC = () => {
         return <MeditationTrackerScreen initialType={meditationType} />;
       }
 
+      case 'mindfulness': {
+        switch (activity) {
+          case 'journal':
+            return <JournalTrackerScreen />;
+          case 'habits':
+            return <HabitTrackerScreen />;
+          default:
+            return <JournalTrackerScreen />;
+        }
+      }
+
       default:
         return <RunningTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
     }
@@ -381,8 +396,8 @@ export const ActivityTrackerScreen: React.FC = () => {
         <View style={styles.headerSpacer} />
       </View>
 
-      {/* Main content with swipe navigation - gated on permissions to prevent Android freeze */}
-      {permissionsReady ? (
+      {/* Main content - gated on position load (prevents flash) and permissions */}
+      {positionLoaded && permissionsReady ? (
         <SwipeGridNavigator
           onSwipeLeft={handleSwipeLeft}
           onSwipeRight={handleSwipeRight}

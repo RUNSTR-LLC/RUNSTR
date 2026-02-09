@@ -1,7 +1,7 @@
 /**
  * MoodSelector
  *
- * Horizontal mood picker with emoji buttons.
+ * Horizontal text-only mood picker.
  * Used in journal entry editor to select mood state.
  */
 
@@ -13,9 +13,8 @@ import {
   StyleSheet,
   ScrollView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
-import { MOOD_OPTIONS, JournalMood, MoodOption } from '../../types/journal';
+import { MOOD_OPTIONS, JournalMood } from '../../types/journal';
 
 interface MoodSelectorProps {
   value?: JournalMood;
@@ -25,7 +24,6 @@ interface MoodSelectorProps {
 export const MoodSelector: React.FC<MoodSelectorProps> = React.memo(
   ({ value, onChange }) => {
     const handlePress = (mood: JournalMood) => {
-      // Toggle off if same mood is selected
       if (value === mood) {
         onChange(undefined);
       } else {
@@ -35,59 +33,29 @@ export const MoodSelector: React.FC<MoodSelectorProps> = React.memo(
 
     return (
       <View style={styles.container}>
-        <Text style={styles.label}>How are you feeling?</Text>
+        <Text style={styles.label}>Mood</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.moodRow}
+          contentContainerStyle={styles.row}
         >
-          {MOOD_OPTIONS.map((option) => (
-            <MoodButton
-              key={option.value}
-              option={option}
-              isSelected={value === option.value}
-              onPress={() => handlePress(option.value)}
-            />
-          ))}
+          {MOOD_OPTIONS.map((option) => {
+            const isSelected = value === option.value;
+            return (
+              <TouchableOpacity
+                key={option.value}
+                style={[styles.pill, isSelected && styles.pillSelected]}
+                onPress={() => handlePress(option.value)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.pillText, isSelected && styles.pillTextSelected]}>
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </View>
-    );
-  }
-);
-
-interface MoodButtonProps {
-  option: MoodOption;
-  isSelected: boolean;
-  onPress: () => void;
-}
-
-const MoodButton: React.FC<MoodButtonProps> = React.memo(
-  ({ option, isSelected, onPress }) => {
-    const iconColor = isSelected ? theme.colors.orangeBright : theme.colors.textMuted;
-    return (
-      <TouchableOpacity
-        style={[
-          styles.moodButton,
-          isSelected && { borderColor: theme.colors.orangeBright, backgroundColor: '#1a1a1a' },
-        ]}
-        onPress={onPress}
-        activeOpacity={0.7}
-      >
-        <Ionicons
-          name={option.icon as keyof typeof Ionicons.glyphMap}
-          size={24}
-          color={iconColor}
-          style={styles.icon}
-        />
-        <Text
-          style={[
-            styles.moodLabel,
-            isSelected && { color: theme.colors.orangeBright },
-          ]}
-        >
-          {option.label}
-        </Text>
-      </TouchableOpacity>
     );
   }
 );
@@ -97,33 +65,34 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.xxl,
   },
   label: {
-    color: theme.colors.textSecondary,
-    fontSize: theme.typography.body,
+    color: theme.colors.textMuted,
+    fontSize: 13,
     fontWeight: theme.typography.weights.medium,
     marginBottom: theme.spacing.lg,
   },
-  moodRow: {
+  row: {
     flexDirection: 'row',
     gap: theme.spacing.lg,
   },
-  moodButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
+  pill: {
     paddingVertical: theme.spacing.lg,
-    paddingHorizontal: theme.spacing.xl,
+    paddingHorizontal: theme.spacing.xxl,
     borderRadius: theme.borderRadius.medium,
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.cardBackground,
-    minWidth: 60,
   },
-  icon: {
-    marginBottom: theme.spacing.sm,
+  pillSelected: {
+    borderColor: theme.colors.text,
+    backgroundColor: '#1a1a1a',
   },
-  moodLabel: {
-    color: theme.colors.textMuted,
-    fontSize: 11,
+  pillText: {
+    color: theme.colors.textDark,
+    fontSize: 13,
     fontWeight: theme.typography.weights.medium,
+  },
+  pillTextSelected: {
+    color: theme.colors.text,
   },
 });
 

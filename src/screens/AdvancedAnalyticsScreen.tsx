@@ -31,7 +31,6 @@ import { BodyCompositionAnalytics } from '../services/analytics/BodyCompositionA
 import { StreakAnalyticsService } from '../services/analytics/StreakAnalyticsService';
 import { HealthSnapshotCard } from '../components/analytics/HealthSnapshotCard';
 import { LevelCard } from '../components/analytics/LevelCard';
-import { CoachRunstrCard } from '../components/analytics/CoachRunstrCard';
 import { GoalsHabitsCard } from '../components/analytics/GoalsHabitsCard';
 import { CollapsibleAchievementsCard } from '../components/analytics/CollapsibleAchievementsCard';
 import { FitnessTestInstructionsModal } from '../components/fitness/FitnessTestInstructionsModal';
@@ -347,10 +346,6 @@ export const AdvancedAnalyticsScreen: React.FC = () => {
             </>
           )}
         </View>
-        */}
-
-        {/* COACH RUNSTR - AI-Powered Insights - HIDDEN: Coach RUNSTR feature disabled
-        <CoachRunstrCard workouts={workouts} />
         */}
 
         {/* Last Updated */}

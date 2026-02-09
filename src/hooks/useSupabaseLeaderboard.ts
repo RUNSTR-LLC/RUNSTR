@@ -180,6 +180,7 @@ export function useSupabaseLeaderboard(
   const [error, setError] = useState<string | null>(null);
   const [currentUserPubkey, setCurrentUserPubkey] = useState<string | undefined>();
   const [currentUserRank, setCurrentUserRank] = useState<number | undefined>();
+  const [scoringMethod, setScoringMethod] = useState<string>('total_distance');
   const isMounted = useRef(true);
   const lastFetchTime = useRef<number>(0);
   const MIN_REFETCH_INTERVAL = 30000; // 30 seconds minimum between refetches
@@ -357,6 +358,11 @@ export function useSupabaseLeaderboard(
           setCharityRankings([]);
         }
         return;
+      }
+
+      // Track scoring method for sort direction in merged leaderboard
+      if (result.competition?.scoring_method) {
+        setScoringMethod(result.competition.scoring_method);
       }
 
       let enrichedLeaderboard: SupabaseLeaderboardEntry[] = result.leaderboard;
@@ -545,7 +551,9 @@ export function useSupabaseLeaderboard(
     }
 
     // Step 2: Merge local competed workouts for current user
-    if (localCompetedWorkouts.length > 0 && currentUserPubkey) {
+    // Skip local merge for fastest_time (requires distance filtering that's complex to do locally)
+    const isFastestTime = scoringMethod === 'fastest_time';
+    if (!isFastestTime && localCompetedWorkouts.length > 0 && currentUserPubkey) {
       // Calculate local contribution (distance in meters → km for score)
       const localDistanceKm = localCompetedWorkouts.reduce(
         (sum, w) => sum + ((w.distance || 0) / 1000), 0
@@ -584,10 +592,16 @@ export function useSupabaseLeaderboard(
       }
     }
 
-    // Step 3: Re-sort by score (descending) and re-assign ranks
-    result.sort((a, b) => b.score - a.score);
+    // Step 3: Re-sort and re-assign ranks
+    // For fastest_time: ascending (lower time = better rank)
+    // For all others: descending (higher score = better rank)
+    if (isFastestTime) {
+      result.sort((a, b) => a.score - b.score);
+    } else {
+      result.sort((a, b) => b.score - a.score);
+    }
     return result.map((e, i) => ({ ...e, rank: i + 1 }));
-  }, [leaderboard, localCompetedWorkouts, locallyJoinedUsers, currentUserPubkey, isSeason2]);
+  }, [leaderboard, localCompetedWorkouts, locallyJoinedUsers, currentUserPubkey, isSeason2, scoringMethod]);
 
   return {
     leaderboard: mergedLeaderboard, // Return merged leaderboard for instant user appearance
