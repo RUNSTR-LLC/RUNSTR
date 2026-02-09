@@ -303,13 +303,11 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
             resizeMode="cover"
           />
         ) : (
-          <View style={[styles.bannerImage, styles.bannerPlaceholder]}>
-            <Image
-              source={RUNSTR_LOGO}
-              style={{ width: 80, height: 80, borderRadius: 16 }}
-              resizeMode="contain"
-            />
-          </View>
+          <Image
+            source={RUNSTR_LOGO}
+            style={[styles.bannerImage, { backgroundColor: '#000000' }]}
+            resizeMode="contain"
+          />
         )}
 
         {/* Event Info */}
