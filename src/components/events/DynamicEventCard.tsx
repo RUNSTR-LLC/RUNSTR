@@ -17,6 +17,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import type { DynamicCompetition, CompetitionStatus } from '../../hooks/useDynamicCompetitions';
 
+const RUNSTR_LOGO = require('../../../assets/images/icon.png');
+
 interface DynamicEventCardProps {
   competition: DynamicCompetition;
   onPress: () => void;
@@ -28,13 +30,6 @@ const ACTIVITY_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   cycling: 'bicycle-outline',
   hiking: 'trail-sign-outline',
 };
-
-function getActivityIcon(types: string[]): keyof typeof Ionicons.glyphMap {
-  for (const t of types) {
-    if (ACTIVITY_ICONS[t]) return ACTIVITY_ICONS[t];
-  }
-  return 'barbell-outline';
-}
 
 function getStatusBadgeStyle(status: CompetitionStatus) {
   switch (status) {
@@ -82,7 +77,6 @@ export const DynamicEventCard: React.FC<DynamicEventCardProps> = ({
   const config = competition.config || {};
   const activityTypes = config.activity_types || [competition.activity_type];
   const prizePool = competition.prize_pool_sats || 0;
-  const icon = getActivityIcon(activityTypes);
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
@@ -96,7 +90,11 @@ export const DynamicEventCard: React.FC<DynamicEventCardProps> = ({
           />
         ) : (
           <View style={styles.imagePlaceholder}>
-            <Ionicons name={icon} size={32} color={theme.colors.textMuted} />
+            <Image
+              source={RUNSTR_LOGO}
+              style={{ width: 64, height: 64, borderRadius: 12 }}
+              resizeMode="contain"
+            />
           </View>
         )}
       </View>

@@ -29,6 +29,8 @@ import { SupabaseCompetitionService } from '../../services/backend/SupabaseCompe
 import { Avatar } from '../../components/ui/Avatar';
 import type { Competition, CompetitionConfig } from '../../utils/supabase';
 
+const RUNSTR_LOGO = require('../../../assets/images/icon.png');
+
 const BATCH_SIZE = 21;
 
 interface DynamicEventDetailScreenProps {
@@ -302,10 +304,10 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
           />
         ) : (
           <View style={[styles.bannerImage, styles.bannerPlaceholder]}>
-            <Ionicons
-              name={getActivityIcon(activityTypes)}
-              size={48}
-              color={theme.colors.textMuted}
+            <Image
+              source={RUNSTR_LOGO}
+              style={{ width: 80, height: 80, borderRadius: 16 }}
+              resizeMode="contain"
             />
           </View>
         )}
