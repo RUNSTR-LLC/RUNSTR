@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
     color: '#FF9D42',
   },
   tabContent: {
-    flex: 1,
+    flexShrink: 1,
   },
   tabContentInner: {
     paddingBottom: 8,
