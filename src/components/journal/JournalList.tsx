@@ -12,8 +12,8 @@ import {
   FlatList,
   StyleSheet,
   RefreshControl,
-  TouchableOpacity,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { JournalEntry } from '../../types/journal';
 import { JournalService } from '../../services/journal/JournalService';
@@ -91,14 +91,11 @@ export const JournalList: React.FC<JournalListProps> = React.memo(
 
     const renderEmptyState = () => (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyEmoji}>📓</Text>
-        <Text style={styles.emptyTitle}>No Journal Entries Yet</Text>
+        <Ionicons name="book-outline" size={32} color={theme.colors.textDark} />
+        <Text style={styles.emptyTitle}>No entries yet</Text>
         <Text style={styles.emptyText}>
-          Start documenting your fitness journey, thoughts, and reflections.
+          Tap + to write your first entry.
         </Text>
-        <TouchableOpacity style={styles.startButton} onPress={onNewEntry}>
-          <Text style={styles.startButtonText}>Write Your First Entry</Text>
-        </TouchableOpacity>
       </View>
     );
 
@@ -144,7 +141,7 @@ export const JournalList: React.FC<JournalListProps> = React.memo(
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            tintColor={theme.colors.orangeBright}
+            tintColor={theme.colors.text}
           />
         }
       />
@@ -183,34 +180,18 @@ const styles = StyleSheet.create({
     padding: theme.spacing.xxl,
     paddingHorizontal: 40,
   },
-  emptyEmoji: {
-    fontSize: 48,
-    marginBottom: theme.spacing.xxl,
-  },
   emptyTitle: {
-    color: theme.colors.textSecondary,
-    fontSize: theme.typography.leaderboardTitle,
-    fontWeight: theme.typography.weights.semiBold,
-    marginBottom: theme.spacing.xl,
+    color: theme.colors.text,
+    fontSize: theme.typography.body,
+    fontWeight: theme.typography.weights.medium,
+    marginTop: theme.spacing.xl,
     textAlign: 'center',
   },
   emptyText: {
-    color: theme.colors.textMuted,
-    fontSize: theme.typography.body,
+    color: theme.colors.textDark,
+    fontSize: 13,
     textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: theme.spacing.xxxl,
-  },
-  startButton: {
-    backgroundColor: theme.colors.orangeDeep,
-    borderRadius: theme.borderRadius.medium,
-    paddingHorizontal: theme.spacing.xxxl,
-    paddingVertical: theme.spacing.xl,
-  },
-  startButtonText: {
-    color: '#000',
-    fontSize: theme.typography.body,
-    fontWeight: theme.typography.weights.semiBold,
+    marginTop: theme.spacing.lg,
   },
 });
 

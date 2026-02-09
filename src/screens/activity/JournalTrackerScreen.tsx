@@ -1,49 +1,22 @@
 /**
- * JournalTrackerScreen - Journal entry interface within the activity grid
+ * JournalTrackerScreen - Journal interface within the activity grid
  *
- * Renders mood/energy selectors, today's entry preview, and recent entries list.
- * Accessed via Mindfulness row in the swipe grid.
+ * Minimal layout: new entry button + entry list.
+ * Mood/energy selection happens inside the editor modal.
  */
 
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
-import { MoodSelector } from '../../components/journal/MoodSelector';
-import { EnergySelector } from '../../components/journal/EnergySelector';
 import { JournalEditorModal } from '../../components/journal/JournalEditorModal';
-import { JournalEntryCard } from '../../components/journal/JournalEntryCard';
 import { JournalList } from '../../components/journal/JournalList';
-import { JournalService } from '../../services/journal/JournalService';
-import type { JournalEntry, JournalMood, EnergyLevel } from '../../types/journal';
+import type { JournalEntry } from '../../types/journal';
 
 export const JournalTrackerScreen: React.FC = () => {
   const [showEditor, setShowEditor] = useState(false);
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
-  const [todayEntry, setTodayEntry] = useState<JournalEntry | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [quickMood, setQuickMood] = useState<JournalMood | undefined>();
-  const [quickEnergy, setQuickEnergy] = useState<EnergyLevel | undefined>();
-
-  // Load today's entry on mount
-  React.useEffect(() => {
-    loadTodayEntry();
-  }, [refreshTrigger]);
-
-  const loadTodayEntry = async () => {
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const entries = await JournalService.getAllEntries();
-      const found = entries.find((e) => e.date === today);
-      setTodayEntry(found || null);
-      if (found) {
-        setQuickMood(found.mood);
-        setQuickEnergy(found.energy);
-      }
-    } catch (error) {
-      console.error('[JournalTracker] Error loading today entry:', error);
-    }
-  };
 
   const handleNewEntry = useCallback(() => {
     setEditingEntry(null);
@@ -61,32 +34,7 @@ export const JournalTrackerScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      {/* Quick Check-in Header */}
-      <View style={styles.header}>
-        <MoodSelector value={quickMood} onChange={setQuickMood} />
-        <EnergySelector value={quickEnergy} onChange={setQuickEnergy} />
-      </View>
-
-      {/* Today's Entry Preview or Write Button */}
-      <View style={styles.todaySection}>
-        {todayEntry ? (
-          <View>
-            <Text style={styles.sectionLabel}>Today's Entry</Text>
-            <JournalEntryCard
-              entry={todayEntry}
-              onPress={handleEditEntry}
-              compact
-            />
-          </View>
-        ) : (
-          <TouchableOpacity style={styles.writeButton} onPress={handleNewEntry}>
-            <Ionicons name="create-outline" size={20} color="#000" />
-            <Text style={styles.writeButtonText}>Write Entry</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Recent Entries */}
+      {/* Entry list */}
       <View style={styles.listContainer}>
         <JournalList
           onEntryPress={handleEditEntry}
@@ -94,6 +42,15 @@ export const JournalTrackerScreen: React.FC = () => {
           refreshTrigger={refreshTrigger}
         />
       </View>
+
+      {/* Floating new entry button */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={handleNewEntry}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="add" size={24} color="#000" />
+      </TouchableOpacity>
 
       {/* Editor Modal */}
       <JournalEditorModal
@@ -111,38 +68,19 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
-  header: {
-    paddingHorizontal: theme.spacing.xxl,
-    paddingTop: theme.spacing.xl,
-  },
-  todaySection: {
-    paddingHorizontal: theme.spacing.xxl,
-    paddingBottom: theme.spacing.xl,
-  },
-  sectionLabel: {
-    color: theme.colors.textMuted,
-    fontSize: 13,
-    fontWeight: theme.typography.weights.semiBold,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: theme.spacing.xl,
-  },
-  writeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing.lg,
-    backgroundColor: theme.colors.orangeDeep,
-    borderRadius: theme.borderRadius.medium,
-    paddingVertical: theme.spacing.xl,
-  },
-  writeButtonText: {
-    color: '#000',
-    fontSize: theme.typography.body,
-    fontWeight: theme.typography.weights.semiBold,
-  },
   listContainer: {
     flex: 1,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: theme.colors.text,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 
