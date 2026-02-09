@@ -16,7 +16,6 @@ Main application screens for the RUNSTR mobile app's user interface.
 
 - **WorkoutHistoryScreen.tsx** - Workout history with tabs for Local, Apple Health (HealthKit), and Health Connect sources.
 - **AdvancedAnalyticsScreen.tsx** - Privacy-first local analytics dashboard with on-device calculations from local workout data.
-- **AIHealthDashboardScreen.tsx** - Unified AI Health and Fitness Tracker dashboard combining journal, habits, goals, and conversational AI coaching.
 - **HealthProfileScreen.tsx** - Optional on-device health data entry (weight, height, age) for improved analytics.
 - **FitnessTestResultsScreen.tsx** - Displays RUNSTR Fitness Test scores, grade badges, and Nostr publishing options.
 - **JournalHistoryScreen.tsx** - Full journal entry history view grouped by month, with tap-to-edit support.

@@ -188,7 +188,6 @@ import { DonateScreen } from './screens/DonateScreen';
 import { TeamsScreen } from './screens/TeamsScreen';
 import { EventsScreen } from './screens/EventsScreen';
 import { ActivityTrackerScreen } from './screens/activity/ActivityTrackerScreen';
-import { AIHealthDashboardScreen } from './screens/AIHealthDashboardScreen';
 import { JournalHistoryScreen } from './screens/JournalHistoryScreen';
 import { User } from './types';
 import { useWalletStore } from './store/walletStore';
@@ -280,7 +279,6 @@ type AuthenticatedStackParamList = {
   Compete: undefined;
   Leaderboards: undefined;
   DynamicEventDetail: { eventId: string };
-  AIHealthDashboard: undefined;
   JournalHistory: undefined;
   Experimental: undefined;
 };
@@ -1164,15 +1162,6 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
             <DynamicEventDetailScreen route={route} navigation={navigation} />
           )}
         </AuthenticatedStack.Screen>
-
-        {/* AI Health Dashboard - Journal, Habits, Goals + AI Coaching */}
-        <AuthenticatedStack.Screen
-          name="AIHealthDashboard"
-          options={{
-            headerShown: false,
-          }}
-          component={AIHealthDashboardScreen}
-        />
 
         {/* Journal History */}
         <AuthenticatedStack.Screen

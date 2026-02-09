@@ -7,7 +7,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { WorkoutType } from '../../types/workout';
 import type { Split } from '../activity/SplitTrackingService';
-import { RunstrContextGenerator } from '../ai/RunstrContextGenerator';
 import { DailyRewardService } from '../rewards/DailyRewardService';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
 import Toast from 'react-native-toast-message';
@@ -501,14 +500,6 @@ export class LocalWorkoutStorageService {
         STORAGE_KEYS.LOCAL_WORKOUTS,
         JSON.stringify(workouts)
       );
-
-      // Update RUNSTR.md context file for AI coach
-      RunstrContextGenerator.updateContext().catch((error) => {
-        console.warn(
-          'Failed to update RUNSTR context after workout save:',
-          error
-        );
-      });
 
       // REWARD TRIGGER: Only user-generated cardio workouts on a new day trigger rewards
       // Uses checkStreakAndReward() which:

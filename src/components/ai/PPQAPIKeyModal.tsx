@@ -21,7 +21,6 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import Toast from 'react-native-toast-message';
 import { theme } from '../../styles/theme';
-import { useCoachRunstr } from '../../services/ai/useCoachRunstr';
 import { PPQAccountService } from '../../services/ai/PPQAccountService';
 
 interface PPQAPIKeyModalProps {
@@ -52,7 +51,6 @@ export const PPQAPIKeyModal: React.FC<PPQAPIKeyModalProps> = ({
   const [apiKey, setApiKey] = useState('');
   const [creditId, setCreditId] = useState('');
 
-  const { setApiKey: saveApiKey, isUsingDefaultKey } = useCoachRunstr();
 
   // Load account data when modal opens
   const loadAccountData = useCallback(async () => {
@@ -111,8 +109,6 @@ export const PPQAPIKeyModal: React.FC<PPQAPIKeyModalProps> = ({
         setHasAccount(true);
         setBalance(0); // New account starts with 0 balance
 
-        // Also update the useCoachRunstr hook with the new key
-        await saveApiKey(result.apiKey);
 
         console.log('[PPQModal] Account created successfully');
         onSuccess();
@@ -140,8 +136,6 @@ export const PPQAPIKeyModal: React.FC<PPQAPIKeyModalProps> = ({
       const success = await PPQAccountService.setAccount(apiKey.trim(), creditId.trim());
 
       if (success) {
-        // Also update the useCoachRunstr hook
-        await saveApiKey(apiKey.trim());
 
         setApiKey('');
         setCreditId('');
