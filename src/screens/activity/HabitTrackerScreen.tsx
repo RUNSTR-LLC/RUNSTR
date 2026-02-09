@@ -1,24 +1,21 @@
 /**
  * HabitTrackerScreen - Habit tracking interface within the activity grid
  *
- * Renders GoalsHabitsCard which includes habit list, check-ins, streaks, and creation.
- * Accessed via Mindfulness row in the swipe grid.
+ * Non-scrollable wrapper so SwipeGridNavigator can handle vertical swipes.
+ * GoalsHabitsCard has its own internal scroll for long habit lists.
  */
 
 import React from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { theme } from '../../styles/theme';
 import { GoalsHabitsCard } from '../../components/analytics/GoalsHabitsCard';
 
 export const HabitTrackerScreen: React.FC = () => {
   return (
     <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <View style={styles.content}>
         <GoalsHabitsCard />
-      </ScrollView>
+      </View>
     </View>
   );
 };
@@ -28,7 +25,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
-  scrollContent: {
+  content: {
     padding: theme.spacing.xxl,
     paddingTop: theme.spacing.xl,
   },
