@@ -17,9 +17,11 @@ import { EinundzwanzigEventCard } from '../events/EinundzwanzigEventCard';
 import { JanuaryWalkingEventCard } from '../events/JanuaryWalkingEventCard';
 import { Season2EventCard } from '../events/Season2EventCard';
 import { LeaderboardEventCard } from '../events/LeaderboardEventCard';
+import { DynamicEventCard } from '../events/DynamicEventCard';
 import { getRunningBitcoinStatus } from '../../constants/runningBitcoin';
 import { getEinundzwanzigStatus } from '../../constants/einundzwanzig';
 import { getJanuaryWalkingStatus } from '../../constants/januaryWalking';
+import { useDynamicCompetitions } from '../../hooks/useDynamicCompetitions';
 import type { SatlantisEvent } from '../../types/satlantis';
 
 interface EventsContentProps {
@@ -30,6 +32,7 @@ interface EventsContentProps {
   onJanuaryWalkingPress?: () => void;
   onSeason2Press?: () => void;
   onLeaderboardPress?: () => void;
+  onDynamicEventPress?: (eventId: string) => void;
 }
 
 export const EventsContent: React.FC<EventsContentProps> = ({
@@ -39,7 +42,9 @@ export const EventsContent: React.FC<EventsContentProps> = ({
   onJanuaryWalkingPress,
   onSeason2Press,
   onLeaderboardPress,
+  onDynamicEventPress,
 }) => {
+  const { competitions: dynamicCompetitions } = useDynamicCompetitions();
   return (
     <View style={styles.container}>
       {/* Create Event Banner */}
@@ -85,6 +90,16 @@ export const EventsContent: React.FC<EventsContentProps> = ({
           <EinundzwanzigEventCard onPress={onEinundzwanzigPress} />
         </View>
       )}
+
+      {/* Dynamic Supabase Events */}
+      {dynamicCompetitions.map((comp) => (
+        <View key={comp.external_id} style={styles.featuredEvent}>
+          <DynamicEventCard
+            competition={comp}
+            onPress={() => onDynamicEventPress?.(comp.external_id)}
+          />
+        </View>
+      ))}
     </View>
   );
 };

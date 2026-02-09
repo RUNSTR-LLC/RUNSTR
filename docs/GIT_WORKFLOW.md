@@ -1,41 +1,38 @@
 # Git Workflow
 
-This document defines the git workflow for RUNSTR. Claude Code follows these rules automatically. Human contributors should follow them too.
+This document defines the git workflow for RUNSTR. Claude Code follows these rules automatically.
 
-## Working Branch Model
+## Version Branch Model
 
-The user works on multiple features simultaneously and needs to test them all together locally. Instead of one branch per feature, use a **single working branch per session** that collects all changes.
+All work happens on a **version branch** named after the next release (e.g., `v1.6.8`). Every fix, feature, and change goes on this one branch. When it's ready to ship, merge to main, tag it, build the APK.
 
 **Why this model:**
-- All features are available locally for testing at the same time
-- No branch-switching needed during development
-- Individual commits still track what changed and why
-- One PR at the end for review and CI
+- One branch, no confusion — everything is in one place
+- Commit often for good history and backup
+- All features available locally for testing at the same time
+- Clean release process: merge to main, tag, build, ship
 
 ## Branch Naming
 
-| Prefix | Use when... | Example |
-|--------|-------------|---------|
-| `dev/` | Working branch with multiple changes (default) | `dev/feb-updates` |
-| `feature/` | Single focused feature | `feature/hiking-tracker` |
-| `fix/` | Single focused bug fix | `fix/distance-freeze` |
-| `refactor/` | Restructuring without behavior change | `refactor/split-tracking-service` |
-| `docs/` | Documentation-only changes | `docs/update-kind-1301-spec` |
-| `chore/` | Dependencies, config, CI | `chore/upgrade-expo-sdk` |
+The branch name is the version number:
 
-Keep branch names short, lowercase, kebab-case.
+```
+v1.6.8    ← current work
+v1.7.0    ← next major version
+v2.0.0    ← big rewrite
+```
 
-**Default is `dev/`** — use specific prefixes only when the user asks for a single focused task.
+That's it. No prefixes needed. One branch per release cycle.
 
 ## When to Commit
 
-Commit after every meaningful change:
+**Commit early and often.** After every meaningful change:
 - A bug fix that works
 - A feature step that compiles
 - A refactor that passes typecheck
 - A documentation update
 
-Each commit should be a single logical unit with a clear message. Multiple features on the same branch is fine — just make each **commit** focused.
+Each commit should be one logical change with a clear message.
 
 **Do NOT commit:**
 - Code with TypeScript errors (`npm run typecheck` must pass)
@@ -62,18 +59,16 @@ Examples:
 
 ## Workflow: Start to Finish
 
-### 1. Start a working branch
-
-At the beginning of a session (or when no branch exists yet):
+### 1. Create the version branch (once per release cycle)
 
 ```bash
 git checkout main && git pull origin main
-git checkout -b dev/feb-updates
+git checkout -b v1.6.8
 ```
 
-### 2. Work and commit incrementally
+### 2. Work and commit constantly
 
-All changes go on the same branch. Each commit is one logical change:
+Every meaningful change gets its own commit:
 
 ```bash
 # Fix a bug
@@ -86,82 +81,79 @@ npm run typecheck
 git add src/screens/activity/HikingTrackerScreen.tsx src/navigation/AppNavigator.tsx
 git commit -m "Feature: Add hiking tracker screen"
 
-# Update docs
-git add docs/KIND_1301_SPEC.md
-git commit -m "Docs: Add hiking activity type to spec"
+# Push to GitHub for backup (do this often)
+git push -u origin v1.6.8
 ```
 
 ### 3. Test locally
 
-The user tests all changes together on device. Everything is on one branch, so all features are present.
+Test everything on device. All changes are on one branch, so everything is present.
 
-### 4. Push and open a PR
+### 4. Release
 
-When the user says "ship it", "let's merge", or the session is done:
+When the version is ready to ship:
 
 ```bash
-git push -u origin dev/feb-updates
-gh pr create --title "Dev: February updates" --body "$(cat <<'EOF'
+# Push final changes
+git push origin v1.6.8
+
+# Open PR
+gh pr create --title "Release: v1.6.8" --body "$(cat <<'EOF'
 ## Summary
 - Fixed distance freeze after GPS signal loss
 - Added hiking tracker screen
 - Updated KIND_1301_SPEC with hiking type
 
 ## Test plan
-- [ ] Run app in simulator, verify all features work
-- [ ] Check typecheck passes
+- [x] Tested on iOS simulator
+- [x] TypeScript compiles cleanly
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF
 )"
+
+# After PR is merged:
+git checkout main && git pull origin main
+git tag -a v1.6.8 -m "Release: Version 1.6.8"
+git push origin v1.6.8
 ```
 
-### 5. CI runs automatically
-
-GitHub Actions runs typecheck and lint on every PR. The PR cannot be merged if CI fails.
-
-### 6. Merge
-
-After CI passes, merge the PR on GitHub. Use "Squash and merge" to keep main history clean — all the individual commits collapse into one clean entry on main.
-
-## Release Flow
-
-Releases are tagged from `main` after merging PRs:
+### 5. Start next version
 
 ```bash
-git checkout main && git pull origin main
-git tag -a v1.7.0 -m "Release: Version 1.7.0 - February Updates"
-git push origin v1.7.0
-gh release create v1.7.0 --title "v1.7.0 - February Updates" --generate-notes
+git checkout -b v1.6.9
 ```
 
 ## Rules for Claude Code
 
-These rules are enforced via CLAUDE.md and apply to every session:
-
-1. **Check for existing working branch** at session start — reuse it if one exists
-2. **If no branch exists**, create a `dev/` branch from latest main
-3. **NEVER commit directly to main** — all changes go through PRs
-4. **Commit after every meaningful change** — don't wait to be asked
-5. **All changes go on the same branch** — the user tests everything together
-6. **Run `npm run typecheck`** before every commit
-7. **Stage specific files** — never use `git add .` or `git add -A`
-8. **Include the co-author trailer** on every commit
-9. **Push + open PR** only when the user asks to ship
+1. **At session start**, check for the current version branch and switch to it
+2. **If no version branch exists**, ask the user what version to create
+3. **Commit after every meaningful change** — don't wait to be asked
+4. **Push regularly** to back up work on GitHub
+5. **All changes go on the same version branch**
+6. **NEVER commit directly to main** — merge via PR when releasing
+7. **Run `npm run typecheck`** before every commit
+8. **Stage specific files** — never use `git add .` or `git add -A`
+9. **Include the co-author trailer** on every commit
 
 ## Quick Reference
 
 ```bash
-# Start of session
+# Start of release cycle
 git checkout main && git pull origin main
-git checkout -b dev/session-description
+git checkout -b v1.6.8
 
 # During work (after each change)
 npm run typecheck
 git add src/path/to/changed-file.ts
 git commit -m "Fix: Description"
+git push origin v1.6.8   # backup often
 
-# When user says ship it
-git push -u origin dev/session-description
-gh pr create --title "Dev: Session description" --body "..."
+# Ready to release
+gh pr create --title "Release: v1.6.8" --body "..."
+# Merge on GitHub, then:
+git checkout main && git pull origin main
+git tag -a v1.6.8 -m "Release: Version 1.6.8"
+git push origin v1.6.8
+git checkout -b v1.6.9   # start next version
 ```

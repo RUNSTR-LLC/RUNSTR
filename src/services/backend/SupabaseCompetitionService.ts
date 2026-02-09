@@ -19,7 +19,8 @@ import {
   LeaderboardEntry,
   CharityRanking,
 } from '../../utils/supabase';
-import { getCharityById } from '../../constants/charities';
+import { getCharityById, isPPQTeam } from '../../constants/charities';
+import { PPQAccountService } from '../ai/PPQAccountService';
 
 // Local storage key for tracking joined competitions (optimistic join)
 const LOCAL_JOINED_COMPETITIONS_KEY = '@runstr:local_joined_competitions';
@@ -53,7 +54,71 @@ interface WorkoutSubmissionData {
   ppqInvoiceId?: string;
 }
 
+// Cache key and TTL for dynamic competitions
+const DYNAMIC_COMPETITIONS_CACHE_KEY = '@runstr:dynamic_competitions';
+const DYNAMIC_COMPETITIONS_TTL = 5 * 60 * 1000; // 5 minutes
+
 export class SupabaseCompetitionService {
+  // Hardcoded events that have dedicated screens - exclude from dynamic list
+  private static HARDCODED_EVENT_IDS = [
+    'season-ii', 'running-bitcoin', 'january-walking',
+    'einundzwanzig', 'einundzwanzig-running', 'einundzwanzig-walking',
+    'season2-running', 'season2-walking', 'season2-cycling',
+  ];
+
+  /**
+   * Fetch dynamic competitions (excludes hardcoded events with dedicated screens)
+   * Results are cached in AsyncStorage for 5 minutes.
+   */
+  static async fetchDynamicCompetitions(): Promise<Competition[]> {
+    if (!isSupabaseConfigured()) {
+      return [];
+    }
+
+    // Check cache first
+    try {
+      const cached = await AsyncStorage.getItem(DYNAMIC_COMPETITIONS_CACHE_KEY);
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < DYNAMIC_COMPETITIONS_TTL) {
+          return data as Competition[];
+        }
+      }
+    } catch {
+      // Cache read failed, continue to fetch
+    }
+
+    try {
+      const { data, error } = await supabase!
+        .from('competitions')
+        .select('*')
+        .not('external_id', 'in', `(${this.HARDCODED_EVENT_IDS.join(',')})`)
+        .order('start_date', { ascending: false });
+
+      if (error) {
+        console.error('[SupabaseCompetitionService] fetchDynamicCompetitions error:', error);
+        return [];
+      }
+
+      const competitions = (data || []) as Competition[];
+
+      // Save to cache
+      try {
+        await AsyncStorage.setItem(
+          DYNAMIC_COMPETITIONS_CACHE_KEY,
+          JSON.stringify({ data: competitions, timestamp: Date.now() })
+        );
+      } catch {
+        // Cache write failed, non-critical
+      }
+
+      return competitions;
+    } catch (err) {
+      console.error('[SupabaseCompetitionService] fetchDynamicCompetitions exception:', err);
+      return [];
+    }
+  }
+
   /**
    * Join a competition - adds user's npub to participant list
    * Uses optimistic pattern: save locally first for instant UI, then sync to Supabase
@@ -296,6 +361,30 @@ export class SupabaseCompetitionService {
       return { success: false, error: 'Backend not configured' };
     }
 
+    // PPQ.AI: Auto-create bolt11 invoice if user's team is PPQ.AI and no invoice provided
+    // This ensures ALL submission paths (HealthKit, background, manual) get PPQ support
+    let ppqBolt11 = data.ppqBolt11;
+    let ppqInvoiceId = data.ppqInvoiceId;
+    if (!ppqBolt11) {
+      try {
+        const selectedTeamId = await AsyncStorage.getItem('@runstr:selected_team_id');
+        if (selectedTeamId && isPPQTeam(selectedTeamId)) {
+          const hasAccount = await PPQAccountService.hasAccount();
+          if (hasAccount) {
+            const WORKOUT_REWARD_SATS = 50;
+            const invoiceResult = await PPQAccountService.createTopupInvoice(WORKOUT_REWARD_SATS);
+            if (invoiceResult.success && invoiceResult.bolt11) {
+              ppqBolt11 = invoiceResult.bolt11;
+              ppqInvoiceId = invoiceResult.invoiceId;
+              console.log(`[SupabaseCompetition] PPQ.AI invoice auto-created: ${ppqBolt11.slice(0, 30)}...`);
+            }
+          }
+        }
+      } catch (ppqError) {
+        console.warn('[SupabaseCompetition] PPQ.AI invoice creation failed (non-blocking):', ppqError);
+      }
+    }
+
     // CRASH FIX: Add timeout to prevent indefinite hang on network issues
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
@@ -326,8 +415,8 @@ export class SupabaseCompetitionService {
             profile_name: data.profileName || null,
             profile_picture: data.profilePicture || null,
             // PPQ.AI team: Bolt11 invoice for reward topup
-            ppq_bolt11: data.ppqBolt11 || null,
-            ppq_invoice_id: data.ppqInvoiceId || null,
+            ppq_bolt11: ppqBolt11 || null,
+            ppq_invoice_id: ppqInvoiceId || null,
             raw_event: {
               event_id: data.eventId,
               type: data.type,

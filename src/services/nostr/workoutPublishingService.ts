@@ -26,7 +26,7 @@ import { RewardLightningAddressService } from '../rewards/RewardLightningAddress
 import { ImageUploadService } from '../media/ImageUploadService';
 import { LocalTeamMembershipService } from '../team/LocalTeamMembershipService';
 import { getCharityById, type Charity, isPPQTeam } from '../../constants/charities';
-import { PPQAccountService } from '../ai/PPQAccountService';
+// PPQAccountService import removed - PPQ bolt11 now created centrally in submitWorkoutSimple()
 import { SatlantisEventJoinService } from '../satlantis/SatlantisEventJoinService';
 import { withTimeout, fireAndForget, NOSTR_TIMEOUTS } from '../../utils/nostrTimeout';
 import { RunningBitcoinService } from '../challenge/RunningBitcoinService';
@@ -35,7 +35,7 @@ import Toast from 'react-native-toast-message';
 import { nip19 } from 'nostr-tools';
 import Constants from 'expo-constants';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
-import { RewardDestinationService } from '../rewards/RewardDestinationService';
+// RewardDestinationService removed - reward routing now uses isPPQTeam() inline
 import { EinundzwanzigService } from '../challenge/EinundzwanzigService';
 import { isEinundzwanzigActive } from '../../constants/einundzwanzig';
 import { PendingSubmissionService } from '../competition/PendingSubmissionService';
@@ -198,11 +198,19 @@ export class WorkoutPublishingService {
         await RewardLightningAddressService.getRewardLightningAddress();
 
       // Get reward destination for external reward service routing
-      // If user wants rewards AND has a Lightning address → 'user'
+      // If user has a Lightning address → 'user'
+      // If PPQ.AI team → 'ppq' (rewards go to bolt11 invoice)
       // Otherwise → 'charity' (charity is always the fallback)
-      const shouldSendToUser = await RewardDestinationService.shouldSendToUser();
       const hasLightningAddress = rewardLightningAddress && rewardLightningAddress.length > 0;
-      const rewardDestination: 'user' | 'charity' = (shouldSendToUser && hasLightningAddress) ? 'user' : 'charity';
+      const isPPQ = selectedTeamId ? isPPQTeam(selectedTeamId) : false;
+      let rewardDestination: 'user' | 'charity' | 'ppq';
+      if (hasLightningAddress) {
+        rewardDestination = 'user';
+      } else if (isPPQ) {
+        rewardDestination = 'ppq';
+      } else {
+        rewardDestination = 'charity';
+      }
 
       // Create unsigned NDKEvent
       const ndkEvent = new NDKEvent(ndk);
@@ -285,30 +293,8 @@ export class WorkoutPublishingService {
           console.warn('[WorkoutPublishing]    This workout will not appear on leaderboards');
           // Continue - wellness activities (meditation, etc.) don't need leaderboard entry
         } else {
-          // PPQ.AI TEAM: Create topup invoice if user's team is PPQ.AI
-          // Rewards will be paid to this invoice instead of user's Lightning address
-          let ppqBolt11: string | undefined;
-          let ppqInvoiceId: string | undefined;
-
-          if (selectedTeamId && isPPQTeam(selectedTeamId)) {
-            console.log('[WorkoutPublishing] 🤖 PPQ.AI team detected, creating topup invoice...');
-            const hasAccount = await PPQAccountService.hasAccount();
-            if (hasAccount) {
-              // Standard daily workout reward is 50 sats
-              const WORKOUT_REWARD_SATS = 50;
-              const invoiceResult = await PPQAccountService.createTopupInvoice(WORKOUT_REWARD_SATS);
-              if (invoiceResult.success && invoiceResult.bolt11) {
-                ppqBolt11 = invoiceResult.bolt11;
-                ppqInvoiceId = invoiceResult.invoiceId;
-                console.log(`[WorkoutPublishing] ✅ PPQ.AI invoice created: ${ppqBolt11.slice(0, 30)}...`);
-              } else {
-                console.warn('[WorkoutPublishing] ⚠️ Failed to create PPQ invoice:', invoiceResult.error);
-                // Continue without invoice - reward will go to Lightning address if set
-              }
-            } else {
-              console.warn('[WorkoutPublishing] ⚠️ PPQ.AI team but no account configured');
-            }
-          }
+          // PPQ.AI bolt11 creation is now handled inside submitWorkoutSimple()
+          // This ensures ALL submission paths (HealthKit, background, manual) get PPQ support
 
           // Submit to Supabase SYNCHRONOUSLY - this is the primary save path
           const supabaseStartTime = Date.now();
@@ -322,9 +308,6 @@ export class WorkoutPublishingService {
               calories: workout.calories,
               startTime: workout.startTime,
               tags: ndkEvent.tags,
-              // PPQ.AI: Include invoice for reward topup
-              ppqBolt11,
-              ppqInvoiceId,
             });
             const supabaseDuration = Date.now() - supabaseStartTime;
 
@@ -664,7 +647,7 @@ export class WorkoutPublishingService {
     pubkey: string,
     selectedCharity: Charity | null,
     rewardLightningAddress: string | null,
-    rewardDestination: 'user' | 'charity'
+    rewardDestination: 'user' | 'charity' | 'ppq'
   ): Promise<string[][]> {
     // Map workout type to simple exercise verb (run, walk, cycle)
     const exerciseVerb = this.getExerciseVerb(workout.type);
@@ -856,12 +839,21 @@ export class WorkoutPublishingService {
       console.log(`   ✅ Added team tag: ${selectedCharity.id}`);
 
       // Charity tag for external client parsing and donations
-      tags.push([
-        'charity',
-        selectedCharity.id,
-        selectedCharity.name,
-        selectedCharity.lightningAddress,
-      ]);
+      // PPQ.AI has no Lightning address (uses bolt11 invoices instead)
+      if (selectedCharity.lightningAddress) {
+        tags.push([
+          'charity',
+          selectedCharity.id,
+          selectedCharity.name,
+          selectedCharity.lightningAddress,
+        ]);
+      } else {
+        tags.push([
+          'charity',
+          selectedCharity.id,
+          selectedCharity.name,
+        ]);
+      }
       console.log(`   ✅ Added charity tag: ${selectedCharity.name}`);
     }
 
@@ -872,7 +864,9 @@ export class WorkoutPublishingService {
     }
 
     // Add reward_destination tag (for external reward routing)
-    // This tells the external reward service where to send the 50 sats
+    // 'user' = send to user's Lightning address
+    // 'ppq' = send to PPQ.AI bolt11 invoice (AI credits)
+    // 'charity' = send to charity's Lightning address
     tags.push(['reward_destination', rewardDestination]);
     console.log(`   ✅ Added reward_destination tag: ${rewardDestination}`);
 
@@ -1406,12 +1400,21 @@ export class WorkoutPublishingService {
       console.log(`   ✅ Added team tag to kind 1: ${selectedCharity.id}`);
 
       // Charity tag for external client parsing and donations
-      tags.push([
-        'charity',
-        selectedCharity.id,
-        selectedCharity.name,
-        selectedCharity.lightningAddress,
-      ]);
+      // PPQ.AI has no Lightning address (uses bolt11 invoices instead)
+      if (selectedCharity.lightningAddress) {
+        tags.push([
+          'charity',
+          selectedCharity.id,
+          selectedCharity.name,
+          selectedCharity.lightningAddress,
+        ]);
+      } else {
+        tags.push([
+          'charity',
+          selectedCharity.id,
+          selectedCharity.name,
+        ]);
+      }
       console.log(`   ✅ Added charity tag to kind 1: ${selectedCharity.name}`);
     }
 

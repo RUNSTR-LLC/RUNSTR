@@ -18,7 +18,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getCharityById, Charity, CHARITIES } from '../../constants/charities';
+import { getCharityById, Charity, CHARITIES, isPPQTeam } from '../../constants/charities';
 import { RewardLightningAddressService } from './RewardLightningAddressService';
 
 // Storage keys
@@ -28,8 +28,9 @@ const SELECTED_TEAM_KEY = '@runstr:selected_team_id';
 const DEFAULT_CHARITY_ID = 'als-foundation';
 
 export interface RewardDestination {
-  address: string;      // Always valid - charity is fallback
+  address: string;      // Lightning address (empty for PPQ.AI - uses bolt11 instead)
   isCharity: boolean;   // true if going to charity
+  isPPQ: boolean;       // true if PPQ.AI team (rewards go to bolt11 invoice, not Lightning address)
   charityName: string;  // Team name (for toast), empty if going to user
   charityId: string;    // Charity ID for tracking, empty if going to user
 }
@@ -90,8 +91,21 @@ class RewardDestinationServiceClass {
       return {
         address: userAddress,
         isCharity: false,
+        isPPQ: false,
         charityName: '',
         charityId: '',
+      };
+    }
+
+    // PPQ.AI team: no Lightning address, rewards go via bolt11 invoice
+    if (isPPQTeam(charity.id)) {
+      console.log('[RewardDestination] Routing rewards to PPQ.AI (bolt11 invoice)');
+      return {
+        address: '',
+        isCharity: false,
+        isPPQ: true,
+        charityName: charity.name,
+        charityId: charity.id,
       };
     }
 
@@ -100,8 +114,9 @@ class RewardDestinationServiceClass {
       `[RewardDestination] Routing rewards to charity: ${charity.name} (${charity.lightningAddress})`
     );
     return {
-      address: charity.lightningAddress,
+      address: charity.lightningAddress || '',
       isCharity: true,
+      isPPQ: false,
       charityName: charity.name,
       charityId: charity.id,
     };
@@ -114,6 +129,14 @@ class RewardDestinationServiceClass {
   async hasUserLightningAddress(): Promise<boolean> {
     const address = await this.getUserLightningAddress();
     return !!address && address.length > 0;
+  }
+
+  /**
+   * Check if rewards should be sent to user (vs charity/PPQ.AI)
+   * Returns true only if user has a Lightning address configured
+   */
+  async shouldSendToUser(): Promise<boolean> {
+    return this.hasUserLightningAddress();
   }
 }
 

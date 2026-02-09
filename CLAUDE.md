@@ -566,30 +566,36 @@ Pay-per-query via Lightning. No subscription required. Budget-friendly: most ope
 
 📖 **For full workflow details, see**: [docs/GIT_WORKFLOW.md](./docs/GIT_WORKFLOW.md)
 
-### Working Branch Model
-The user works on multiple features simultaneously and tests everything together locally. Use a **single working branch per session** that collects all changes, with individual commits per logical change.
+### Version Branch Model
+All work happens on a **version branch** (e.g., `v1.6.8`). This is the next release. All features, fixes, and changes go here. When it's ready to ship, merge to main, tag the release, build the APK.
 
 ### Rules (Claude MUST follow these automatically):
-1. **At session start**, check if a working branch exists. If not, create one:
+1. **At session start**, check if a version branch exists and switch to it:
    ```bash
-   git checkout main && git pull origin main
-   git checkout -b dev/<short-description-of-session>
+   git checkout v1.6.8  # or whatever the current version branch is
    ```
-   - Use `dev/` prefix for working branches (e.g., `dev/feb-updates`, `dev/rewards-and-tracking-fixes`)
-   - If the user specifies a focused task, use a specific prefix: `feature/`, `fix/`, `refactor/`, `docs/`, `chore/`
-2. **Commit after every meaningful change** -- don't wait to be asked
+   - If no version branch exists, ask the user what version to create
+   - Branch name = version number (e.g., `v1.6.8`, `v1.7.0`)
+2. **Commit early and often** -- after every meaningful change, don't wait to be asked
    - Run `npm run typecheck` before every commit
    - Stage specific files (`git add src/path/to/file.ts`) -- NEVER use `git add .`
    - Use prefix format: `Fix:`, `Feature:`, `Refactor:`, `Docs:`, `Chore:`
    - ✅ Commit: working fixes, completed feature steps, doc updates
    - ❌ Don't commit: broken code, TypeScript errors, secrets
-3. **All changes stay on the same branch** so the user can test everything together locally
-4. **Push + open a PR** when the user says they're done or asks to ship:
+3. **All changes stay on the version branch** so the user can test everything together locally
+4. **Push regularly** to back up work on GitHub:
    ```bash
-   git push -u origin dev/<branch-name>
-   gh pr create --title "<description>" --body "..."
+   git push -u origin v1.6.8
    ```
-5. **NEVER push directly to main** -- all changes merge via PR after CI passes
+5. **When ready to release**, open a PR from the version branch to main, merge, tag, and build:
+   ```bash
+   gh pr create --title "Release: v1.6.8" --body "..."
+   # After merge:
+   git checkout main && git pull origin main
+   git tag -a v1.6.8 -m "Release: Version 1.6.8"
+   git push origin v1.6.8
+   ```
+6. **NEVER push directly to main** -- all changes merge via PR
 
 ## Folder Documentation Requirements
 **Update folder READMEs when adding/removing/changing files:**

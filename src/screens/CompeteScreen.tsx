@@ -71,6 +71,11 @@ const CompeteScreenComponent: React.FC<CompeteScreenProps> = ({ navigation: prop
     navigation.navigate('Leaderboards');
   }, [navigation]);
 
+  // Handle dynamic event card press - navigate to DynamicEventDetailScreen
+  const handleDynamicEventPress = useCallback((eventId: string) => {
+    navigation.navigate('DynamicEventDetail', { eventId });
+  }, [navigation]);
+
   // Handle refresh
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -119,6 +124,7 @@ const CompeteScreenComponent: React.FC<CompeteScreenProps> = ({ navigation: prop
           onJanuaryWalkingPress={handleJanuaryWalkingPress}
           onSeason2Press={handleSeason2Press}
           onLeaderboardPress={handleLeaderboardPress}
+          onDynamicEventPress={handleDynamicEventPress}
         />
       </ScrollView>
 

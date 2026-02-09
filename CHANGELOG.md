@@ -2,6 +2,55 @@
 
 All notable changes to RUNSTR will be documented in this file.
 
+## [1.6.8] - 2026-02-08 - Background Rewards, CoinOS Wallet & Dynamic Events
+
+### HealthKit Background Delivery & Auto-Rewards
+- iOS HealthKit observer queries wake RUNSTR when Apple Watch / Nike Run Club / etc. workouts complete
+- New `HealthKitBackgroundService` registers for HKWorkoutTypeIdentifier with immediate frequency
+- Workouts auto-submitted to Supabase with Lightning address tag for automatic reward payment
+- Postgres AFTER INSERT trigger extracts Lightning address and calls claim-reward edge function
+- End-to-end pipeline: workout completes on watch -> app wakes -> submits -> trigger pays 50 sats via LNURL
+
+### CoinOS Wallet Integration
+- CoinOS added as a team/charity option alongside PPQ.AI
+- Custodial Lightning wallet: users create a `username@coinos.io` address during onboarding
+- `CoinOSAccountService` handles account creation, authentication, balance, send, receive, and invoice creation
+- `CoinOSAccountSetupModal` for wallet creation flow
+- `CoinOSWalletModal` with Send, Receive, and Transactions tabs
+- Receive tab supports bolt11 invoice creation (amount input -> Create Invoice -> QR + copy)
+- `WelcomePermissionModal` updated with 2-step onboarding for team selection
+- Real CoinOS logo and team branding
+
+### Dynamic Supabase Events
+- Data-driven competition system: insert a row in Supabase -> it appears in the app automatically
+- No code changes needed to create new events
+- 4 competition templates: `distance_race`, `step_challenge`, `goal_challenge`, `fundraiser`
+- `DynamicEventCard` component with banner image, status badge, and activity tags
+- `DynamicEventDetailScreen` with full leaderboard, join button, and prize pool display
+- `useDynamicCompetitions` hook with 5-minute cache and status derivation
+
+### Auto-Sync Workouts to Leaderboard
+- HealthKit and Health Connect workouts now auto-sync to competition leaderboards
+- `HealthSyncManager` syncs on app foreground (via AppStateManager) and pull-to-refresh
+- 5-minute throttle prevents excessive queries
+
+### Push Notification Token Registration
+- `token_key` column (sha256 of npub) added to `broadcast_tokens` for reward payment push notifications
+- AuthContext registers token_key after authentication completes
+
+### PPQ.AI Reward Fixes
+- Fixed rewards falling back to ALS Network instead of PPQ.AI bolt11 invoice
+- Added `shouldSendToUser()` method and `isPPQ` flag to reward destination logic
+- Centralized PPQ.AI bolt11 invoice creation in `submitWorkoutSimple()` for all submission paths
+- Updated auto-reward Postgres trigger to support PPQ.AI bolt11 extraction
+
+### Infrastructure
+- Switched to version branch model (v1.6.8, v1.7.0, etc.)
+- 5 new Supabase migrations (127, 128, 130, 131, 132)
+- 8 new source files, 35 files changed, +4,266 / -262 lines
+
+---
+
 ## [1.6.7] - 2026-02-03 - RUNSTR AI & Auto-Compete
 
 ### Automatic Competition Entry

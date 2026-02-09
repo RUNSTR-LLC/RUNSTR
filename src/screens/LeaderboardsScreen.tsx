@@ -91,6 +91,14 @@ export const LeaderboardsScreen: React.FC<LeaderboardsScreenProps> = ({ navigati
       // Non-blocking - continue with refresh even if step sync fails
     }
 
+    // Sync health platform workouts (HealthKit/Health Connect) to leaderboard
+    try {
+      const { HealthSyncManager } = require('../services/fitness/HealthSyncManager');
+      await HealthSyncManager.syncTodayToLeaderboard();
+    } catch (error) {
+      console.warn('[LeaderboardsScreen] Health sync failed:', error);
+    }
+
     // Increment trigger to tell LeaderboardsContent to re-fetch with forceRefresh
     setRefreshTrigger(prev => prev + 1);
   }, []);

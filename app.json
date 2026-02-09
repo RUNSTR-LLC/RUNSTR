@@ -2,7 +2,7 @@
   "expo": {
     "name": "RUNSTR",
     "slug": "runstr.project",
-    "version": "1.6.7",
+    "version": "1.6.8",
     "orientation": "portrait",
     "icon": "./assets/images/adaptive-icon.png",
     "scheme": "runstr",
@@ -52,7 +52,7 @@
       "appleTeamId": "SF8967F5M9"
     },
     "android": {
-      "versionCode": 167,
+      "versionCode": 168,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#000000"

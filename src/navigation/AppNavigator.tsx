@@ -37,6 +37,7 @@ import { SatlantisEventDetailScreen } from '../screens/satlantis/SatlantisEventD
 import { RunningBitcoinDetailScreen } from '../screens/events/RunningBitcoinDetailScreen';
 import { EinundzwanzigDetailScreen } from '../screens/events/EinundzwanzigDetailScreen';
 import { JanuaryWalkingDetailScreen } from '../screens/events/JanuaryWalkingDetailScreen';
+import { DynamicEventDetailScreen } from '../screens/events/DynamicEventDetailScreen';
 import { JournalHistoryScreen } from '../screens/JournalHistoryScreen';
 import { RewardsScreen } from '../screens/RewardsScreen';
 import { DonateScreen } from '../screens/DonateScreen';
@@ -101,6 +102,7 @@ export type RootStackParamList = {
   Settings: undefined;
   Exercise: undefined;
   Compete: undefined;
+  DynamicEventDetail: { eventId: string };
   JournalHistory: undefined;
 };
 
@@ -649,6 +651,16 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
         name="Leaderboards"
         component={LeaderboardsScreen}
         options={defaultScreenOptions}
+      />
+
+      {/* Dynamic Event Detail - Data-driven competitions from Supabase */}
+      <Stack.Screen
+        name="DynamicEventDetail"
+        component={DynamicEventDetailScreen}
+        options={{
+          ...defaultScreenOptions,
+          headerShown: false,
+        }}
       />
     </Stack.Navigator>
   );

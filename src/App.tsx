@@ -179,6 +179,7 @@ import { SatlantisEventDetailScreen } from './screens/satlantis/SatlantisEventDe
 import { RunningBitcoinDetailScreen } from './screens/events/RunningBitcoinDetailScreen';
 import { EinundzwanzigDetailScreen } from './screens/events/EinundzwanzigDetailScreen';
 import { JanuaryWalkingDetailScreen } from './screens/events/JanuaryWalkingDetailScreen';
+import { DynamicEventDetailScreen } from './screens/events/DynamicEventDetailScreen';
 import { Season2Screen } from './screens/season2/Season2Screen';
 import { CompeteScreen } from './screens/CompeteScreen';
 import { LeaderboardsScreen } from './screens/LeaderboardsScreen';
@@ -278,6 +279,7 @@ type AuthenticatedStackParamList = {
   Exercise: undefined;
   Compete: undefined;
   Leaderboards: undefined;
+  DynamicEventDetail: { eventId: string };
   AIHealthDashboard: undefined;
   JournalHistory: undefined;
   Experimental: undefined;
@@ -1149,6 +1151,18 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
           }}
         >
           {({ navigation }) => <LeaderboardsScreen navigation={navigation} />}
+        </AuthenticatedStack.Screen>
+
+        {/* Dynamic Event Detail Screen - Supabase-driven competitions */}
+        <AuthenticatedStack.Screen
+          name="DynamicEventDetail"
+          options={{
+            headerShown: false,
+          }}
+        >
+          {({ navigation, route }) => (
+            <DynamicEventDetailScreen route={route} navigation={navigation} />
+          )}
         </AuthenticatedStack.Screen>
 
         {/* AI Health Dashboard - Journal, Habits, Goals + AI Coaching */}

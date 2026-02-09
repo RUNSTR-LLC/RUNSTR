@@ -1015,6 +1015,9 @@ export class HealthKitService {
     const npub = await AsyncStorage.getItem('@runstr:npub');
     if (!npub) return;
 
+    // Include Lightning address in tags so Supabase trigger can auto-reward
+    const lightningAddress = await AsyncStorage.getItem('@runstr:lightning_address');
+
     const newCardio = workouts.filter((w) => {
       const id = w.UUID || w.id || '';
       if (!id || previousIds.has(id)) return false;
@@ -1026,6 +1029,11 @@ export class HealthKitService {
     for (const w of newCardio) {
       try {
         const eventId = `hk_${w.UUID || w.id}`;
+        const tags: string[][] = [];
+        if (lightningAddress) {
+          tags.push(['lightning', lightningAddress]);
+        }
+
         await SupabaseCompetitionService.submitWorkoutSimple({
           eventId,
           npub,
@@ -1034,6 +1042,7 @@ export class HealthKitService {
           duration: w.duration,
           calories: w.totalEnergyBurned,
           startTime: w.startDate,
+          tags,
         });
         debugLog(`[HealthKit] Auto-submitted ${w.activityType} workout to Supabase: ${eventId}`);
       } catch (err) {

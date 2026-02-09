@@ -12,10 +12,14 @@ export interface Charity {
   website?: string;
   image?: number; // require() returns a number in React Native
   isPPQ?: boolean; // Special flag for PPQ.AI team (rewards go to AI credits)
+  isCoinOS?: boolean; // Special flag for CoinOS team (rewards go to Bitcoin wallet)
 }
 
 // PPQ.AI team ID constant for easy reference
 export const PPQ_AI_TEAM_ID = 'ppq-ai';
+
+// CoinOS team ID constant for easy reference
+export const COINOS_TEAM_ID = 'coinos';
 
 export const CHARITIES: Charity[] = [
   // PPQ.AI - Special team: Earn AI credits instead of sats
@@ -28,6 +32,17 @@ export const CHARITIES: Charity[] = [
     website: 'https://ppq.ai',
     image: require('../../assets/images/charities/ppq-ai.png'),
     isPPQ: true,
+  },
+  // CoinOS - Special team: Earn sats to a Lightning wallet
+  {
+    id: 'coinos',
+    name: 'CoinOS',
+    displayName: 'CoinOS',
+    // No static lightningAddress - set dynamically per user (username@coinos.io)
+    description: 'A Lightning wallet to send and receive sats',
+    website: 'https://coinos.io',
+    image: require('../../assets/images/charities/coinos.png'),
+    isCoinOS: true,
   },
   // ALS Network - Default team (honoring Hal Finney)
   {
@@ -127,6 +142,14 @@ export const CHARITIES: Charity[] = [
     image: require('../../assets/images/charities/human-rights-foundation.png'),
   },
   {
+    id: 'lightning-news',
+    name: 'Lightning News',
+    displayName: 'Lightning News',
+    lightningAddress: 'lightningnews@puresignal.news',
+    description: 'Up to date news on Bitcoin and Lightning',
+    image: require('../../assets/images/charities/lightning-news.webp'),
+  },
+  {
     id: 'runstr',
     name: 'RUNSTR',
     displayName: 'RUNSTR',
@@ -209,4 +232,15 @@ export const isPPQTeam = (teamId?: string): boolean => {
 // Helper to get the PPQ.AI team
 export const getPPQTeam = (): Charity | undefined => {
   return CHARITIES.find((charity) => charity.isPPQ);
+};
+
+// Helper to check if a team is the CoinOS team
+export const isCoinOSTeam = (teamId?: string): boolean => {
+  if (!teamId) return false;
+  return teamId === COINOS_TEAM_ID;
+};
+
+// Helper to get the CoinOS team
+export const getCoinOSTeam = (): Charity | undefined => {
+  return CHARITIES.find((charity) => charity.isCoinOS);
 };

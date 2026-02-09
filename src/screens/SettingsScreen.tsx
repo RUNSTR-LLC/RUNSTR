@@ -1248,7 +1248,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
         {/* App Version Info */}
         <View style={styles.versionContainer}>
-          <Text style={styles.versionText}>Version 1.6.6-debug (Build 166)</Text>
+          <Text style={styles.versionText}>Version 1.6.8 (Build 168)</Text>
         </View>
         </ScrollView>
       </KeyboardAvoidingView>
