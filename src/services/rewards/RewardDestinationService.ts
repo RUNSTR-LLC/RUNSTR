@@ -18,7 +18,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getCharityById, Charity, CHARITIES, isPPQTeam } from '../../constants/charities';
+import { getCharityById, Charity, CHARITIES, isPPQTeam, isSelfTeam } from '../../constants/charities';
 import { RewardLightningAddressService } from './RewardLightningAddressService';
 
 // Storage keys
@@ -85,7 +85,7 @@ class RewardDestinationServiceClass {
     const userAddress = await this.getUserLightningAddress();
     const charity = await this.getSelectedCharity();
 
-    // If user has Lightning address → send to user
+    // If user has Lightning address or self team → send to user
     if (userAddress && userAddress.length > 0) {
       console.log('[RewardDestination] Routing rewards to user:', userAddress);
       return {
@@ -95,6 +95,12 @@ class RewardDestinationServiceClass {
         charityName: '',
         charityId: '',
       };
+    }
+
+    // Self team without Lightning address shouldn't happen (selection requires it),
+    // but handle gracefully by falling through to default charity
+    if (isSelfTeam(charity.id)) {
+      console.warn('[RewardDestination] Self team but no Lightning address - falling to charity');
     }
 
     // PPQ.AI team: no Lightning address, rewards go via bolt11 invoice

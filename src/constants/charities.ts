@@ -12,14 +12,18 @@ export interface Charity {
   website?: string;
   image?: number; // require() returns a number in React Native
   isPPQ?: boolean; // Special flag for PPQ.AI team (rewards go to AI credits)
-  isCoinOS?: boolean; // Special flag for CoinOS team (rewards go to Bitcoin wallet)
+  isCoinOS?: boolean; // Special flag for CoinOS team (rewards go to Bitcoin wallet) - DEPRECATED: kept for migration
+  isSelf?: boolean; // Special flag for "You" team (rewards go to user's Lightning address)
 }
 
 // PPQ.AI team ID constant for easy reference
 export const PPQ_AI_TEAM_ID = 'ppq-ai';
 
-// CoinOS team ID constant for easy reference
+// CoinOS team ID constant - DEPRECATED: kept for migration from CoinOS to self
 export const COINOS_TEAM_ID = 'coinos';
+
+// Self team ID constant - "You" team where rewards go to user's Lightning address
+export const SELF_TEAM_ID = 'self';
 
 export const CHARITIES: Charity[] = [
   // PPQ.AI - Special team: Earn AI credits instead of sats
@@ -28,21 +32,10 @@ export const CHARITIES: Charity[] = [
     name: 'PPQ.AI',
     displayName: 'PPQ.AI',
     // No lightningAddress - rewards go to PPQ.AI credits via bolt11 invoice
-    description: 'Earn AI credits for Coach RUNSTR instead of sats',
+    description: 'Turn sats into AI credits',
     website: 'https://ppq.ai',
     image: require('../../assets/images/charities/ppq-ai.png'),
     isPPQ: true,
-  },
-  // CoinOS - Special team: Earn sats to a Lightning wallet
-  {
-    id: 'coinos',
-    name: 'CoinOS',
-    displayName: 'CoinOS',
-    // No static lightningAddress - set dynamically per user (username@coinos.io)
-    description: 'A Lightning wallet to send and receive sats',
-    website: 'https://coinos.io',
-    image: require('../../assets/images/charities/coinos.png'),
-    isCoinOS: true,
   },
   // ALS Network - Default team (honoring Hal Finney)
   {
@@ -234,13 +227,14 @@ export const getPPQTeam = (): Charity | undefined => {
   return CHARITIES.find((charity) => charity.isPPQ);
 };
 
-// Helper to check if a team is the CoinOS team
+// Helper to check if a team is the CoinOS team - DEPRECATED: kept for migration
 export const isCoinOSTeam = (teamId?: string): boolean => {
   if (!teamId) return false;
   return teamId === COINOS_TEAM_ID;
 };
 
-// Helper to get the CoinOS team
-export const getCoinOSTeam = (): Charity | undefined => {
-  return CHARITIES.find((charity) => charity.isCoinOS);
+// Helper to check if a team is the "You" (self) team
+export const isSelfTeam = (teamId?: string): boolean => {
+  if (!teamId) return false;
+  return teamId === SELF_TEAM_ID;
 };

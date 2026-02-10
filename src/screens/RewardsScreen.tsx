@@ -29,7 +29,7 @@ import { HistoryModal } from '../components/wallet/HistoryModal';
 import { QRScannerModal } from '../components/qr/QRScannerModal';
 import { NWCQRConfirmationModal } from '../components/wallet/NWCQRConfirmationModal';
 import type { QRData } from '../services/qr/QRCodeService';
-import { getCharityById, isPPQTeam, isCoinOSTeam } from '../constants/charities';
+import { getCharityById, isPPQTeam, isSelfTeam, SELF_TEAM_ID } from '../constants/charities';
 import { Avatar } from '../components/ui/Avatar';
 import { ExternalZapModal } from '../components/nutzap/ExternalZapModal';
 import Toast from 'react-native-toast-message';
@@ -43,7 +43,7 @@ import { useTranslation } from 'react-i18next';
 import { SupabaseRewardService } from '../services/rewards/SupabaseRewardService';
 import { RewardDestinationService } from '../services/rewards/RewardDestinationService';
 import { PPQCreditTopupModal } from '../components/ai/PPQCreditTopupModal';
-import { CoinOSWalletModal } from '../components/wallet/CoinOSWalletModal';
+import { DirectNostrProfileService } from '../services/user/directNostrProfileService';
 
 // Storage keys for donation settings
 // Note: Teams are now charities (rebranded)
@@ -97,8 +97,8 @@ const RewardsScreenComponent: React.FC = () => {
   // PPQ.AI credit topup modal state
   const [showPPQTopupModal, setShowPPQTopupModal] = useState(false);
 
-  // CoinOS wallet modal state
-  const [showCoinOSWalletModal, setShowCoinOSWalletModal] = useState(false);
+  // Self team profile state
+  const [selfTeamProfile, setSelfTeamProfile] = useState<{ displayName?: string; picture?: string } | null>(null);
 
   // Alert state
   const [alertVisible, setAlertVisible] = useState(false);
@@ -158,6 +158,17 @@ const RewardsScreenComponent: React.FC = () => {
       // Load selected team for zap modal
       const teamId = await AsyncStorage.getItem(SELECTED_TEAM_KEY);
       if (teamId !== null) setSelectedTeamId(teamId || 'als-foundation');
+
+      // Load user profile for self team display
+      if (isSelfTeam(teamId || '')) {
+        const profile = await DirectNostrProfileService.getCurrentUserProfile();
+        if (profile) {
+          setSelfTeamProfile({
+            displayName: profile.displayName || profile.name,
+            picture: profile.picture,
+          });
+        }
+      }
 
       // Load user pubkey and active pledge
       const pubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
@@ -230,9 +241,19 @@ const RewardsScreenComponent: React.FC = () => {
   };
 
   // Get selected team (charity) data for zap modal
-  const selectedTeam = selectedTeamId
-    ? getCharityById(selectedTeamId)
-    : null;
+  // Self team is dynamic, not in CHARITIES array
+  const selectedTeam = isSelfTeam(selectedTeamId || '')
+    ? {
+        id: SELF_TEAM_ID,
+        name: selfTeamProfile?.displayName || 'You',
+        displayName: selfTeamProfile?.displayName || 'You',
+        description: 'Rewards go to your Lightning address',
+        isSelf: true as const,
+        image: undefined,
+      }
+    : selectedTeamId
+      ? getCharityById(selectedTeamId)
+      : null;
 
   // Handle zap to charity - opens ExternalZapModal
   const handleZapCharity = () => {
@@ -323,15 +344,25 @@ const RewardsScreenComponent: React.FC = () => {
             >
               {selectedTeam ? (
                 <>
-                  <Avatar
-                    name={selectedTeam.name}
-                    size={44}
-                    imageSource={selectedTeam.image}
-                  />
+                  {isSelfTeam(selectedTeam.id) && selfTeamProfile?.picture ? (
+                    <Avatar
+                      name={selectedTeam.name}
+                      size={44}
+                      imageUrl={selfTeamProfile.picture}
+                    />
+                  ) : (
+                    <Avatar
+                      name={selectedTeam.name}
+                      size={44}
+                      imageSource={selectedTeam.image}
+                    />
+                  )}
                   <View style={styles.teamTextSection}>
                     <Text style={styles.teamName}>{selectedTeam.name}</Text>
                     <Text style={styles.teamSupportText}>
-                      {t('allRewardsSupportTeam', { defaultValue: 'All rewards support this team' })}
+                      {isSelfTeam(selectedTeam.id)
+                        ? t('rewardsGoToYou', { defaultValue: 'Rewards go to your Lightning address' })
+                        : t('allRewardsSupportTeam', { defaultValue: 'All rewards support this team' })}
                     </Text>
                   </View>
                 </>
@@ -348,7 +379,7 @@ const RewardsScreenComponent: React.FC = () => {
               )}
             </TouchableOpacity>
             {/* Zap button for charities with Lightning address */}
-            {selectedTeam && !isPPQTeam(selectedTeam.id) && selectedTeam.lightningAddress && (
+            {selectedTeam && !isPPQTeam(selectedTeam.id) && !isSelfTeam(selectedTeam.id) && selectedTeam.lightningAddress && (
               <TouchableOpacity
                 style={styles.zapButton}
                 onPress={handleZapCharity}
@@ -367,14 +398,14 @@ const RewardsScreenComponent: React.FC = () => {
                 <Ionicons name="sparkles" size={22} color="#FF9D42" />
               </TouchableOpacity>
             )}
-            {/* Wallet button for CoinOS team */}
-            {selectedTeam && isCoinOSTeam(selectedTeam.id) && (
+            {/* Flash icon for Self team - navigates to Teams tab */}
+            {selectedTeam && isSelfTeam(selectedTeam.id) && (
               <TouchableOpacity
                 style={styles.zapButton}
-                onPress={() => setShowCoinOSWalletModal(true)}
+                onPress={() => navigation.navigate('Teams')}
                 activeOpacity={0.7}
               >
-                <Ionicons name="wallet-outline" size={22} color="#FF9D42" />
+                <Ionicons name="flash" size={22} color="#FF9D42" />
               </TouchableOpacity>
             )}
           </View>
@@ -471,12 +502,6 @@ const RewardsScreenComponent: React.FC = () => {
         visible={showPPQTopupModal}
         onClose={() => setShowPPQTopupModal(false)}
         onSuccess={handlePPQTopupSuccess}
-      />
-
-      {/* CoinOS Wallet Modal */}
-      <CoinOSWalletModal
-        visible={showCoinOSWalletModal}
-        onClose={() => setShowCoinOSWalletModal(false)}
       />
 
       {showQRScanner && (

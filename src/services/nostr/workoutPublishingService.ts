@@ -25,7 +25,7 @@ import { RewardLightningAddressService } from '../rewards/RewardLightningAddress
 // Note: DailyRewardService import removed - rewards now trigger from SupabaseCompetitionService
 import { ImageUploadService } from '../media/ImageUploadService';
 import { LocalTeamMembershipService } from '../team/LocalTeamMembershipService';
-import { getCharityById, type Charity, isPPQTeam } from '../../constants/charities';
+import { getCharityById, type Charity, isPPQTeam, isSelfTeam, SELF_TEAM_ID } from '../../constants/charities';
 // PPQAccountService import removed - PPQ bolt11 now created centrally in submitWorkoutSimple()
 import { SatlantisEventJoinService } from '../satlantis/SatlantisEventJoinService';
 import { withTimeout, fireAndForget, NOSTR_TIMEOUTS } from '../../utils/nostrTimeout';
@@ -190,21 +190,35 @@ export class WorkoutPublishingService {
       const selectedTeamId = await AsyncStorage.getItem('@runstr:selected_team_id');
 
       // Look up the charity data (team data) from the charity ID
-      // This provides both team ID for the team tag AND full charity data for the charity tag
-      const selectedCharity = selectedTeamId ? getCharityById(selectedTeamId) : null;
+      // Self team is dynamic (not in CHARITIES array), so construct it inline
+      let selectedCharity: Charity | null = null;
+      if (selectedTeamId) {
+        if (isSelfTeam(selectedTeamId)) {
+          selectedCharity = {
+            id: SELF_TEAM_ID,
+            name: 'You',
+            displayName: 'You',
+            description: 'Rewards go to your Lightning address',
+            isSelf: true,
+          };
+        } else {
+          selectedCharity = getCharityById(selectedTeamId) || null;
+        }
+      }
 
       // Get user's reward lightning address for tagging (for external reward scripts)
       const rewardLightningAddress =
         await RewardLightningAddressService.getRewardLightningAddress();
 
       // Get reward destination for external reward service routing
-      // If user has a Lightning address → 'user'
+      // If self team or has a Lightning address → 'user'
       // If PPQ.AI team → 'ppq' (rewards go to bolt11 invoice)
       // Otherwise → 'charity' (charity is always the fallback)
       const hasLightningAddress = rewardLightningAddress && rewardLightningAddress.length > 0;
+      const isSelf = selectedTeamId ? isSelfTeam(selectedTeamId) : false;
       const isPPQ = selectedTeamId ? isPPQTeam(selectedTeamId) : false;
       let rewardDestination: 'user' | 'charity' | 'ppq';
-      if (hasLightningAddress) {
+      if (isSelf || hasLightningAddress) {
         rewardDestination = 'user';
       } else if (isPPQ) {
         rewardDestination = 'ppq';
@@ -553,8 +567,22 @@ export class WorkoutPublishingService {
       }
 
       // Get user's selected team (charity) for tagging
+      // Self team is dynamic (not in CHARITIES array)
       const selectedTeamId = await AsyncStorage.getItem('@runstr:selected_team_id');
-      const selectedCharity = selectedTeamId ? getCharityById(selectedTeamId) : null;
+      let selectedCharity: Charity | null = null;
+      if (selectedTeamId) {
+        if (isSelfTeam(selectedTeamId)) {
+          selectedCharity = {
+            id: SELF_TEAM_ID,
+            name: 'You',
+            displayName: 'You',
+            description: 'Rewards go to your Lightning address',
+            isSelf: true,
+          };
+        } else {
+          selectedCharity = getCharityById(selectedTeamId) || null;
+        }
+      }
 
       // Create unsigned NDKEvent
       const ndkEvent = new NDKEvent(ndk);
@@ -832,29 +860,35 @@ export class WorkoutPublishingService {
     }
 
     // Add team AND charity tags (charities ARE teams now)
-    // Both tags use the same charity data for backwards compatibility
+    // Self team: add team tag but skip charity tag (user isn't supporting a charity)
     if (selectedCharity) {
-      // Team tag for leaderboards and competition filtering
-      tags.push(['team', selectedCharity.id]);
-      console.log(`   ✅ Added team tag: ${selectedCharity.id}`);
-
-      // Charity tag for external client parsing and donations
-      // PPQ.AI has no Lightning address (uses bolt11 invoices instead)
-      if (selectedCharity.lightningAddress) {
-        tags.push([
-          'charity',
-          selectedCharity.id,
-          selectedCharity.name,
-          selectedCharity.lightningAddress,
-        ]);
+      if (selectedCharity.isSelf) {
+        // Self team: tag as 'self', no charity tag
+        tags.push(['team', SELF_TEAM_ID]);
+        console.log('   ✅ Added team tag: self (rewards go to user)');
       } else {
-        tags.push([
-          'charity',
-          selectedCharity.id,
-          selectedCharity.name,
-        ]);
+        // Team tag for leaderboards and competition filtering
+        tags.push(['team', selectedCharity.id]);
+        console.log(`   ✅ Added team tag: ${selectedCharity.id}`);
+
+        // Charity tag for external client parsing and donations
+        // PPQ.AI has no Lightning address (uses bolt11 invoices instead)
+        if (selectedCharity.lightningAddress) {
+          tags.push([
+            'charity',
+            selectedCharity.id,
+            selectedCharity.name,
+            selectedCharity.lightningAddress,
+          ]);
+        } else {
+          tags.push([
+            'charity',
+            selectedCharity.id,
+            selectedCharity.name,
+          ]);
+        }
+        console.log(`   ✅ Added charity tag: ${selectedCharity.name}`);
       }
-      console.log(`   ✅ Added charity tag: ${selectedCharity.name}`);
     }
 
     // Add reward lightning address tag (for external reward scripts)
@@ -1389,33 +1423,38 @@ export class WorkoutPublishingService {
     }
 
     // Add team AND charity tags (charities ARE teams now)
+    // Self team: add team tag but skip charity tag
     if (selectedCharity) {
-      // Team tag for leaderboards and competition filtering
-      tags.push(['team', selectedCharity.id]);
-
-      // Team name hashtag
-      const teamHashtag = selectedCharity.name.replace(/[^a-zA-Z0-9]/g, '');
-      tags.push(['t', teamHashtag]);
-
-      console.log(`   ✅ Added team tag to kind 1: ${selectedCharity.id}`);
-
-      // Charity tag for external client parsing and donations
-      // PPQ.AI has no Lightning address (uses bolt11 invoices instead)
-      if (selectedCharity.lightningAddress) {
-        tags.push([
-          'charity',
-          selectedCharity.id,
-          selectedCharity.name,
-          selectedCharity.lightningAddress,
-        ]);
+      if (selectedCharity.isSelf) {
+        tags.push(['team', SELF_TEAM_ID]);
+        console.log('   ✅ Added team tag to kind 1: self');
       } else {
-        tags.push([
-          'charity',
-          selectedCharity.id,
-          selectedCharity.name,
-        ]);
+        // Team tag for leaderboards and competition filtering
+        tags.push(['team', selectedCharity.id]);
+
+        // Team name hashtag
+        const teamHashtag = selectedCharity.name.replace(/[^a-zA-Z0-9]/g, '');
+        tags.push(['t', teamHashtag]);
+
+        console.log(`   ✅ Added team tag to kind 1: ${selectedCharity.id}`);
+
+        // Charity tag for external client parsing and donations
+        if (selectedCharity.lightningAddress) {
+          tags.push([
+            'charity',
+            selectedCharity.id,
+            selectedCharity.name,
+            selectedCharity.lightningAddress,
+          ]);
+        } else {
+          tags.push([
+            'charity',
+            selectedCharity.id,
+            selectedCharity.name,
+          ]);
+        }
+        console.log(`   ✅ Added charity tag to kind 1: ${selectedCharity.name}`);
       }
-      console.log(`   ✅ Added charity tag to kind 1: ${selectedCharity.name}`);
     }
 
     return tags;
@@ -1436,8 +1475,11 @@ export class WorkoutPublishingService {
     const activityHashtag = this.getActivityHashtag(workout.type);
 
     // Get selected team (charity) from TeamsScreen selection
+    // Self team doesn't have a team name for social posts
     const selectedTeamId = await AsyncStorage.getItem('@runstr:selected_team_id');
-    const selectedCharity = selectedTeamId ? getCharityById(selectedTeamId) : null;
+    const selectedCharity = selectedTeamId && !isSelfTeam(selectedTeamId)
+      ? getCharityById(selectedTeamId)
+      : null;
     const teamName = selectedCharity?.name || null;
 
     // Generate activity-specific team mention (e.g., "Running for Bitcoin Beach!")

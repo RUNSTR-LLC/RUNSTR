@@ -36,7 +36,7 @@ import {
   type TTSSettings,
 } from '../services/activity/TTSPreferencesService';
 import { AutoCompetePreferencesService } from '../services/activity/AutoCompetePreferencesService';
-import { RewardLightningAddressService } from '../services/rewards/RewardLightningAddressService';
+// RewardLightningAddressService removed - Lightning address now managed in Teams tab
 import TTSAnnouncementService from '../services/activity/TTSAnnouncementService';
 import { DeleteAccountService } from '../services/auth/DeleteAccountService';
 import { Card } from '../components/ui/Card';
@@ -154,10 +154,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Rewards settings state
-  const [rewardLightningAddress, setRewardLightningAddress] = useState<string>('');
-  const [isValidLightningAddress, setIsValidLightningAddress] = useState(false);
-  const [isSavingLightningAddress, setIsSavingLightningAddress] = useState(false);
+  // Rewards settings state (Lightning address removed - now in Teams tab)
   const [weeklyRewardsEarned, setWeeklyRewardsEarned] = useState(0);
   const [stepTodaySats, setStepTodaySats] = useState(0);
 
@@ -237,13 +234,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       // Load default activity preference
       const savedDefaultActivity = await defaultActivityService.getDefault();
       setDefaultActivity(savedDefaultActivity);
-
-      // Load rewards settings
-      const savedLightningAddress = await RewardLightningAddressService.getRewardLightningAddress();
-      if (savedLightningAddress) {
-        setRewardLightningAddress(savedLightningAddress);
-        setIsValidLightningAddress(true);
-      }
 
       // Load sats earned data
       const pubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
@@ -377,63 +367,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         type: 'error',
         text1: 'Error',
         text2: 'Failed to save default activity',
-        position: 'top',
-      });
-    }
-  };
-
-  // Rewards settings handlers
-  const handleLightningAddressChange = (text: string) => {
-    setRewardLightningAddress(text);
-    setIsValidLightningAddress(RewardLightningAddressService.isValidLightningAddress(text));
-  };
-
-  const handleSaveLightningAddress = async () => {
-    if (!isValidLightningAddress || !rewardLightningAddress.trim()) {
-      return;
-    }
-
-    setIsSavingLightningAddress(true);
-    try {
-      await RewardLightningAddressService.setRewardLightningAddress(rewardLightningAddress.trim());
-      Toast.show({
-        type: 'success',
-        text1: 'Saved',
-        text2: 'Lightning address saved',
-        position: 'top',
-        visibilityTime: 2000,
-      });
-    } catch (error) {
-      console.error('Error saving lightning address:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Failed to save address',
-        position: 'top',
-      });
-    } finally {
-      setIsSavingLightningAddress(false);
-    }
-  };
-
-  const handleClearLightningAddress = async () => {
-    try {
-      await RewardLightningAddressService.clearRewardLightningAddress();
-      setRewardLightningAddress('');
-      setIsValidLightningAddress(false);
-      Toast.show({
-        type: 'success',
-        text1: 'Cleared',
-        text2: 'Lightning address removed - rewards will go to charity',
-        position: 'top',
-        visibilityTime: 2000,
-      });
-    } catch (error) {
-      console.error('Error clearing lightning address:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Failed to clear address',
         position: 'top',
       });
     }
@@ -1099,40 +1032,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   </View>
                 )}
 
-                {/* Lightning Address Input */}
+                {/* Lightning Address - Managed in Teams tab */}
                 <View style={styles.rewardSettingRow}>
                   <View style={styles.rewardSettingInfo}>
                     <Text style={styles.rewardSettingTitle}>Lightning Address</Text>
-                    <Text style={styles.rewardSettingSubtitle}>Enter to receive rewards (leave empty to donate to your team)</Text>
-                  </View>
-                </View>
-                <View style={styles.lightningAddressRow}>
-                  <View style={styles.lightningInputContainer}>
-                    <Ionicons name="flash" size={16} color="#FF9D42" style={styles.lightningIcon} />
-                    <View style={styles.lightningInputWrapper}>
-                      <TextInput
-                        style={styles.lightningAddressText}
-                        value={rewardLightningAddress}
-                        onChangeText={handleLightningAddressChange}
-                        placeholder="user@getalby.com"
-                        placeholderTextColor={theme.colors.textMuted}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        keyboardType="email-address"
-                        returnKeyType="done"
-                        onSubmitEditing={handleSaveLightningAddress}
-                        onBlur={handleSaveLightningAddress}
-                      />
-                    </View>
-                    {rewardLightningAddress.trim().length > 0 && (
-                      <TouchableOpacity
-                        style={styles.clearAddressButton}
-                        onPress={handleClearLightningAddress}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                      >
-                        <Ionicons name="close-circle" size={20} color={theme.colors.textMuted} />
-                      </TouchableOpacity>
-                    )}
+                    <Text style={styles.rewardSettingSubtitle}>Manage your Lightning address in the Teams tab</Text>
                   </View>
                 </View>
               </View>

@@ -24,7 +24,7 @@ import Toast from 'react-native-toast-message';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../styles/theme';
 import { TexturedBackground } from '../components/ui/TexturedBackground';
-import { CHARITIES, Charity, isPPQTeam, isCoinOSTeam } from '../constants/charities';
+import { CHARITIES, Charity, isPPQTeam, isSelfTeam, SELF_TEAM_ID } from '../constants/charities';
 import { ExternalZapModal } from '../components/nutzap/ExternalZapModal';
 import { useNWCZap } from '../hooks/useNWCZap';
 import { NWCWalletService } from '../services/wallet/NWCWalletService';
@@ -32,9 +32,11 @@ import { getInvoiceFromLightningAddress } from '../utils/lnurl';
 import { PPQAccountSetupModal } from '../components/ai/PPQAccountSetupModal';
 import { PPQCreditTopupModal } from '../components/ai/PPQCreditTopupModal';
 import { PPQAccountService } from '../services/ai/PPQAccountService';
-import { CoinOSAccountSetupModal } from '../components/wallet/CoinOSAccountSetupModal';
 import { CoinOSWalletModal } from '../components/wallet/CoinOSWalletModal';
 import { CoinOSAccountService } from '../services/wallet/CoinOSAccountService';
+import { LightningAddressSetupModal } from '../components/wallet/LightningAddressSetupModal';
+import { DirectNostrProfileService } from '../services/user/directNostrProfileService';
+import { RewardLightningAddressService } from '../services/rewards/RewardLightningAddressService';
 
 // Storage key - charities are now stored as "teams"
 const SELECTED_TEAM_KEY = '@runstr:selected_team_id';
@@ -47,9 +49,11 @@ interface TeamCardProps {
   onZapPress: () => void;
   onZapLongPress: () => void;
   isZapping: boolean;
-  hideZapButton?: boolean; // For PPQ.AI / CoinOS teams (no static lightning address)
+  hideZapButton?: boolean; // For PPQ.AI / Self teams (no static lightning address)
   onTopUp?: () => void; // For PPQ.AI sparkle badge tap
-  onWallet?: () => void; // For CoinOS wallet badge tap
+  onWallet?: () => void; // For CoinOS wallet badge tap (legacy)
+  onLightningSetup?: () => void; // For Self team flash badge tap
+  userAvatarUri?: string; // For Self team - user's profile picture
 }
 
 // ✅ PERFORMANCE: React.memo prevents re-renders when props haven't changed
@@ -63,6 +67,8 @@ const TeamCardComponent: React.FC<TeamCardProps> = ({
   hideZapButton,
   onTopUp,
   onWallet,
+  onLightningSetup,
+  userAvatarUri,
 }) => {
   const { t } = useTranslation('charities');
   const scaleAnimation = useRef(new Animated.Value(1)).current;
@@ -98,7 +104,13 @@ const TeamCardComponent: React.FC<TeamCardProps> = ({
       onPress={onSelect}
       activeOpacity={0.7}
     >
-      {charity.image ? (
+      {charity.isSelf && userAvatarUri ? (
+        <Image source={{ uri: userAvatarUri }} style={styles.cardImage} />
+      ) : charity.isSelf ? (
+        <View style={styles.selfTeamPlaceholder}>
+          <Ionicons name="person" size={24} color="#FF9D42" />
+        </View>
+      ) : charity.image ? (
         <Image source={charity.image} style={styles.cardImage} />
       ) : (
         <View style={styles.cardImagePlaceholder}>
@@ -147,14 +159,14 @@ const TeamCardComponent: React.FC<TeamCardProps> = ({
           <Ionicons name="sparkles" size={14} color="#FF9D42" />
         </TouchableOpacity>
       )}
-      {/* Wallet Badge for CoinOS team - tappable for wallet */}
-      {hideZapButton && charity.isCoinOS && (
+      {/* Flash Badge for Self team - tappable for Lightning address setup */}
+      {hideZapButton && charity.isSelf && (
         <TouchableOpacity
           style={styles.aiTeamBadge}
-          onPress={onWallet}
+          onPress={onLightningSetup}
           activeOpacity={0.7}
         >
-          <Ionicons name="wallet-outline" size={14} color="#FF9D42" />
+          <Ionicons name="flash" size={14} color="#FF9D42" />
         </TouchableOpacity>
       )}
 
@@ -190,16 +202,19 @@ const TeamsScreenComponent: React.FC = () => {
   const [showPPQTopupModal, setShowPPQTopupModal] = useState(false);
   const [pendingPPQSelection, setPendingPPQSelection] = useState(false);
 
-  // CoinOS modal state
-  const [showCoinOSSetupModal, setShowCoinOSSetupModal] = useState(false);
+  // Self team / Lightning address state
+  const [showLightningSetupModal, setShowLightningSetupModal] = useState(false);
+  const [pendingSelfSelection, setPendingSelfSelection] = useState(false);
+  const [userProfile, setUserProfile] = useState<{ displayName?: string; bio?: string; picture?: string; lud16?: string } | null>(null);
+  const [userLightningAddress, setUserLightningAddress] = useState<string | null>(null);
+
+  // CoinOS wallet modal (kept for existing CoinOS users)
   const [showCoinOSWalletModal, setShowCoinOSWalletModal] = useState(false);
-  const [pendingCoinOSSelection, setPendingCoinOSSelection] = useState(false);
 
   // NWC hook for wallet operations
   const { hasWallet, refreshBalance } = useNWCZap();
 
-  // Reload selected team whenever screen gains focus
-  // (e.g., after selecting team on Einundzwanzig screen)
+  // Reload selected team and user profile whenever screen gains focus
   useFocusEffect(
     useCallback(() => {
       const loadState = async () => {
@@ -218,6 +233,21 @@ const TeamsScreenComponent: React.FC = () => {
             await AsyncStorage.setItem(SELECTED_TEAM_KEY, DEFAULT_TEAM_ID);
           }
           if (storedZapAmount) setDefaultZapAmount(parseInt(storedZapAmount, 10) || 21);
+
+          // Load user profile for "You" team card
+          const profile = await DirectNostrProfileService.getCurrentUserProfile();
+          if (profile) {
+            setUserProfile({
+              displayName: profile.displayName || profile.name,
+              bio: profile.bio,
+              picture: profile.picture,
+              lud16: profile.lud16,
+            });
+          }
+
+          // Load user's Lightning address
+          const lnAddr = await RewardLightningAddressService.getRewardLightningAddress();
+          setUserLightningAddress(lnAddr);
         } catch (error) {
           console.error('[TeamsScreen] Error loading state:', error);
         }
@@ -239,15 +269,15 @@ const TeamsScreenComponent: React.FC = () => {
         console.log('[TeamsScreen] PPQ.AI team selected (account exists)');
       }
 
-      // Special handling for CoinOS team
-      if (isCoinOSTeam(charityId)) {
-        const hasAccount = await CoinOSAccountService.hasAccount();
-        if (!hasAccount) {
-          setPendingCoinOSSelection(true);
-          setShowCoinOSSetupModal(true);
+      // Special handling for Self team - requires Lightning address
+      if (isSelfTeam(charityId)) {
+        const hasAddress = await RewardLightningAddressService.hasRewardLightningAddress();
+        if (!hasAddress) {
+          setPendingSelfSelection(true);
+          setShowLightningSetupModal(true);
           return;
         }
-        console.log('[TeamsScreen] CoinOS team selected (account exists)');
+        console.log('[TeamsScreen] Self team selected (Lightning address exists)');
       }
 
       // Select the team (no toggle - always keeps a team selected)
@@ -304,37 +334,33 @@ const TeamsScreenComponent: React.FC = () => {
     setShowPPQTopupModal(false);
   }, []);
 
-  // Handle CoinOS setup completion
-  const handleCoinOSSetupSuccess = useCallback(async () => {
-    setShowCoinOSSetupModal(false);
-    if (pendingCoinOSSelection) {
-      await AsyncStorage.setItem(SELECTED_TEAM_KEY, 'coinos');
-      setSelectedTeamId('coinos');
-      setPendingCoinOSSelection(false);
+  // Handle Lightning address setup completion (Self team)
+  const handleLightningSetupSuccess = useCallback(async (address: string) => {
+    setShowLightningSetupModal(false);
+    setUserLightningAddress(address);
+    if (pendingSelfSelection) {
+      await AsyncStorage.setItem(SELECTED_TEAM_KEY, SELF_TEAM_ID);
+      setSelectedTeamId(SELF_TEAM_ID);
+      setPendingSelfSelection(false);
       Toast.show({
         type: 'reward',
-        text1: 'Bitcoin Wallet Connected',
-        text2: 'Your workout rewards will go to your wallet',
+        text1: 'Rewards go to you!',
+        text2: `Rewards will be sent to ${address}`,
         position: 'top',
         visibilityTime: 3000,
       });
-      console.log('[TeamsScreen] CoinOS team selected after setup');
+      console.log('[TeamsScreen] Self team selected after Lightning setup');
     }
-  }, [pendingCoinOSSelection]);
+  }, [pendingSelfSelection]);
 
-  const handleCoinOSSetupClose = useCallback(() => {
-    setShowCoinOSSetupModal(false);
-    setPendingCoinOSSelection(false);
+  const handleLightningSetupClose = useCallback(() => {
+    setShowLightningSetupModal(false);
+    setPendingSelfSelection(false);
   }, []);
 
-  // Handle CoinOS wallet badge tap - open wallet if account exists, otherwise setup
-  const handleCoinOSWalletPress = useCallback(async () => {
-    const hasAccount = await CoinOSAccountService.hasAccount();
-    if (hasAccount) {
-      setShowCoinOSWalletModal(true);
-    } else {
-      setShowCoinOSSetupModal(true);
-    }
+  // Handle flash badge tap on Self team - open Lightning address setup
+  const handleSelfFlashPress = useCallback(() => {
+    setShowLightningSetupModal(true);
   }, []);
 
   const handleRefresh = useCallback(async () => {
@@ -351,7 +377,7 @@ const TeamsScreenComponent: React.FC = () => {
   // Single tap - open ExternalZapModal (handles invoice creation and verification)
   const handleZapPress = (charity: Charity) => {
     // Skip for special teams (no static lightning address)
-    if (isPPQTeam(charity.id) || isCoinOSTeam(charity.id) || !charity.lightningAddress) {
+    if (isPPQTeam(charity.id) || isSelfTeam(charity.id) || !charity.lightningAddress) {
       return;
     }
     console.log(`[TeamsScreen] Opening zap modal for ${charity.name}`);
@@ -362,7 +388,7 @@ const TeamsScreenComponent: React.FC = () => {
   // Long press - quick NWC zap
   const handleZapLongPress = async (charity: Charity) => {
     // Skip for special teams (no static lightning address)
-    if (isPPQTeam(charity.id) || isCoinOSTeam(charity.id) || !charity.lightningAddress) {
+    if (isPPQTeam(charity.id) || isSelfTeam(charity.id) || !charity.lightningAddress) {
       return;
     }
 
@@ -461,15 +487,29 @@ const TeamsScreenComponent: React.FC = () => {
     setZapTargetCharity(null);
   };
 
-  // Find selected team object
-  const selectedTeam = selectedTeamId
-    ? CHARITIES.find((c) => c.id === selectedTeamId)
-    : null;
+  // Construct dynamic "You" team from user profile
+  const selfTeam: Charity = {
+    id: SELF_TEAM_ID,
+    name: userProfile?.displayName || 'You',
+    displayName: userProfile?.displayName || 'You',
+    description: userLightningAddress
+      ? `Rewards sent to ${userLightningAddress}`
+      : 'Earn rewards to your Lightning address',
+    isSelf: true,
+  };
 
-  // Sort teams alphabetically by name
-  const sortedCharities = [...CHARITIES].sort((a, b) =>
-    a.name.localeCompare(b.name)
-  );
+  // Find selected team object (check self team first, then charities)
+  const selectedTeam = selectedTeamId === SELF_TEAM_ID
+    ? selfTeam
+    : selectedTeamId
+      ? CHARITIES.find((c) => c.id === selectedTeamId)
+      : null;
+
+  // Sort teams alphabetically, pin "You" to top
+  const sortedCharities = [
+    selfTeam,
+    ...[...CHARITIES].sort((a, b) => a.name.localeCompare(b.name)),
+  ];
 
   return (
     <TexturedBackground>
@@ -496,9 +536,10 @@ const TeamsScreenComponent: React.FC = () => {
               onZapPress={() => handleZapPress(selectedTeam)}
               onZapLongPress={() => handleZapLongPress(selectedTeam)}
               isZapping={zappingCharityId === selectedTeam.id}
-              hideZapButton={isPPQTeam(selectedTeam.id) || isCoinOSTeam(selectedTeam.id)}
+              hideZapButton={isPPQTeam(selectedTeam.id) || isSelfTeam(selectedTeam.id)}
               onTopUp={isPPQTeam(selectedTeam.id) ? handlePPQSparklePress : undefined}
-              onWallet={isCoinOSTeam(selectedTeam.id) ? handleCoinOSWalletPress : undefined}
+              onLightningSetup={isSelfTeam(selectedTeam.id) ? handleSelfFlashPress : undefined}
+              userAvatarUri={isSelfTeam(selectedTeam.id) ? userProfile?.picture : undefined}
             />
           </View>
         )}
@@ -518,9 +559,10 @@ const TeamsScreenComponent: React.FC = () => {
               onZapPress={() => handleZapPress(charity)}
               onZapLongPress={() => handleZapLongPress(charity)}
               isZapping={zappingCharityId === charity.id}
-              hideZapButton={isPPQTeam(charity.id) || isCoinOSTeam(charity.id)}
+              hideZapButton={isPPQTeam(charity.id) || isSelfTeam(charity.id)}
               onTopUp={isPPQTeam(charity.id) ? handlePPQSparklePress : undefined}
-              onWallet={isCoinOSTeam(charity.id) ? handleCoinOSWalletPress : undefined}
+              onLightningSetup={isSelfTeam(charity.id) ? handleSelfFlashPress : undefined}
+              userAvatarUri={isSelfTeam(charity.id) ? userProfile?.picture : undefined}
             />
           ))}
         </View>
@@ -561,14 +603,15 @@ const TeamsScreenComponent: React.FC = () => {
         onSuccess={handlePPQTopupSuccess}
       />
 
-      {/* CoinOS Account Setup Modal */}
-      <CoinOSAccountSetupModal
-        visible={showCoinOSSetupModal}
-        onClose={handleCoinOSSetupClose}
-        onSuccess={handleCoinOSSetupSuccess}
+      {/* Lightning Address Setup Modal (for Self team) */}
+      <LightningAddressSetupModal
+        visible={showLightningSetupModal}
+        onClose={handleLightningSetupClose}
+        onSuccess={handleLightningSetupSuccess}
+        prefillAddress={userProfile?.lud16}
       />
 
-      {/* CoinOS Wallet Modal */}
+      {/* CoinOS Wallet Modal (kept for existing CoinOS users) */}
       <CoinOSWalletModal
         visible={showCoinOSWalletModal}
         onClose={() => setShowCoinOSWalletModal(false)}
@@ -624,6 +667,15 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 24,
     backgroundColor: theme.colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  selfTeamPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 157, 66, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
