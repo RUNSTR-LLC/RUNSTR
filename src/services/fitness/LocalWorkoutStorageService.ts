@@ -9,6 +9,7 @@ import type { WorkoutType } from '../../types/workout';
 import type { Split } from '../activity/SplitTrackingService';
 import { DailyRewardService } from '../rewards/DailyRewardService';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
+import { buildRewardTags } from '../../utils/rewardTags';
 import Toast from 'react-native-toast-message';
 
 /**
@@ -609,11 +610,9 @@ export class LocalWorkoutStorageService {
       // Build tags with splits, team, and exercise metadata
       const tags = this.buildWorkoutTags(workout);
 
-      // Include team/charity tag
-      const selectedTeamId = await AsyncStorage.getItem('@runstr:selected_team_id');
-      if (selectedTeamId) {
-        tags.push(['team', selectedTeamId]);
-      }
+      // Include lightning address + charity tags for zapper reward routing
+      const rewardTags = await buildRewardTags();
+      tags.push(...rewardTags);
 
       // Get profile for leaderboard display
       const profile = await this.getCachedProfile();
@@ -701,13 +700,12 @@ export class LocalWorkoutStorageService {
       const npub = await AsyncStorage.getItem('@runstr:npub');
       if (!npub) return { success: false, error: 'Not logged in' };
 
-      // Build full tags (splits, exercise, team) — same logic as autoSubmitToSupabase
+      // Build full tags (splits, exercise, team, lightning, charity) — same logic as autoSubmitToSupabase
       const tags = this.buildWorkoutTags(workout);
 
-      const selectedTeamId = await AsyncStorage.getItem('@runstr:selected_team_id');
-      if (selectedTeamId) {
-        tags.push(['team', selectedTeamId]);
-      }
+      // Include lightning address + charity tags for zapper reward routing
+      const rewardTags = await buildRewardTags();
+      tags.push(...rewardTags);
 
       const profile = await this.getCachedProfile();
 

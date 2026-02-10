@@ -9,6 +9,7 @@ import { Platform, InteractionManager } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { WorkoutData, WorkoutType } from '../../types/workout';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
+import { buildRewardTags } from '../../utils/rewardTags';
 
 // Environment-based logging utility
 const isDevelopment = __DEV__;
@@ -1015,8 +1016,8 @@ export class HealthKitService {
     const npub = await AsyncStorage.getItem('@runstr:npub');
     if (!npub) return;
 
-    // Include Lightning address in tags so Supabase trigger can auto-reward
-    const lightningAddress = await AsyncStorage.getItem('@runstr:lightning_address');
+    // Build lightning address + charity tags for zapper reward routing
+    const rewardTags = await buildRewardTags();
 
     const newCardio = workouts.filter((w) => {
       const id = w.UUID || w.id || '';
@@ -1029,10 +1030,7 @@ export class HealthKitService {
     for (const w of newCardio) {
       try {
         const eventId = `hk_${w.UUID || w.id}`;
-        const tags: string[][] = [];
-        if (lightningAddress) {
-          tags.push(['lightning', lightningAddress]);
-        }
+        const tags: string[][] = [...rewardTags];
 
         await SupabaseCompetitionService.submitWorkoutSimple({
           eventId,

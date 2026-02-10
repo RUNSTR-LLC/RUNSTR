@@ -124,8 +124,9 @@ export class HealthKitBackgroundService {
         return;
       }
 
-      // Get Lightning address for auto-reward trigger
-      const lightningAddress = await AsyncStorage.getItem('@runstr:lightning_address');
+      // Build lightning address + charity tags for zapper reward routing
+      const { buildRewardTags } = await import('../../utils/rewardTags');
+      const rewardTags = await buildRewardTags();
 
       const { SupabaseCompetitionService } = await import(
         '../backend/SupabaseCompetitionService'
@@ -134,10 +135,7 @@ export class HealthKitBackgroundService {
       for (const w of newWorkouts) {
         try {
           const eventId = `hk_bg_${w.id}`;
-          const tags: string[][] = [];
-          if (lightningAddress) {
-            tags.push(['lightning', lightningAddress]);
-          }
+          const tags: string[][] = [...rewardTags];
 
           await SupabaseCompetitionService.submitWorkoutSimple({
             eventId,
