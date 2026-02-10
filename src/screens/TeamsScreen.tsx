@@ -37,6 +37,9 @@ import { CoinOSAccountService } from '../services/wallet/CoinOSAccountService';
 import { LightningAddressSetupModal } from '../components/wallet/LightningAddressSetupModal';
 import { DirectNostrProfileService } from '../services/user/directNostrProfileService';
 import { RewardLightningAddressService } from '../services/rewards/RewardLightningAddressService';
+import { SubscriptionInfoModal } from '../components/subscription/SubscriptionInfoModal';
+import { SimpleTeamCreationModal } from '../components/subscription/SimpleTeamCreationModal';
+import { SubscriptionService } from '../services/backend/SubscriptionService';
 
 // Storage key - charities are now stored as "teams"
 const SELECTED_TEAM_KEY = '@runstr:selected_team_id';
@@ -211,6 +214,11 @@ const TeamsScreenComponent: React.FC = () => {
   // CoinOS wallet modal (kept for existing CoinOS users)
   const [showCoinOSWalletModal, setShowCoinOSWalletModal] = useState(false);
 
+  // Subscription / team creation state
+  const [isSubscriber, setIsSubscriber] = useState(false);
+  const [showSubscriptionInfo, setShowSubscriptionInfo] = useState(false);
+  const [showCreateTeam, setShowCreateTeam] = useState(false);
+
   // NWC hook for wallet operations
   const { hasWallet, refreshBalance } = useNWCZap();
 
@@ -248,6 +256,10 @@ const TeamsScreenComponent: React.FC = () => {
           // Load user's Lightning address
           const lnAddr = await RewardLightningAddressService.getRewardLightningAddress();
           setUserLightningAddress(lnAddr);
+
+          // Check subscriber status
+          const subStatus = await SubscriptionService.getCachedSubscriberStatus();
+          if (subStatus !== null) setIsSubscriber(subStatus);
         } catch (error) {
           console.error('[TeamsScreen] Error loading state:', error);
         }
@@ -513,6 +525,18 @@ const TeamsScreenComponent: React.FC = () => {
 
   return (
     <TexturedBackground>
+      {/* Create Team Header */}
+      <View style={styles.createTeamHeader}>
+        <TouchableOpacity
+          style={styles.createTeamButton}
+          onPress={() => isSubscriber ? setShowCreateTeam(true) : setShowSubscriptionInfo(true)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="add-circle-outline" size={18} color={theme.colors.accent} />
+          <Text style={styles.createTeamButtonText}>Create Team</Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
         style={styles.content}
         contentContainerStyle={styles.scrollContent}
@@ -616,6 +640,19 @@ const TeamsScreenComponent: React.FC = () => {
         visible={showCoinOSWalletModal}
         onClose={() => setShowCoinOSWalletModal(false)}
       />
+
+      {/* Subscription Info Modal (non-subscribers) */}
+      <SubscriptionInfoModal
+        visible={showSubscriptionInfo}
+        onClose={() => setShowSubscriptionInfo(false)}
+        feature="team"
+      />
+
+      {/* Team Creation Modal (subscribers) */}
+      <SimpleTeamCreationModal
+        visible={showCreateTeam}
+        onClose={() => setShowCreateTeam(false)}
+      />
     </TexturedBackground>
   );
 };
@@ -717,6 +754,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
+  },
+  createTeamHeader: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  createTeamButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.card,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    gap: 6,
+  },
+  createTeamButtonText: {
+    fontSize: 13,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.accent,
   },
 });
 

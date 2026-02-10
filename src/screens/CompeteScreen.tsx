@@ -9,7 +9,7 @@
  * - Leaderboards (navigates to LeaderboardsScreen)
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -23,7 +23,9 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 import { EventsContent } from '../components/compete';
-import { HostEventModal } from '../components/events/HostEventModal';
+import { SubscriptionInfoModal } from '../components/subscription/SubscriptionInfoModal';
+import { SimpleEventCreationModal } from '../components/subscription/SimpleEventCreationModal';
+import { SubscriptionService } from '../services/backend/SubscriptionService';
 import type { SatlantisEvent } from '../types/satlantis';
 
 interface CompeteScreenProps {
@@ -36,7 +38,15 @@ const CompeteScreenComponent: React.FC<CompeteScreenProps> = ({ navigation: prop
   const navigation = propNavigation || hookNavigation;
 
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showHostModal, setShowHostModal] = useState(false);
+  const [isSubscriber, setIsSubscriber] = useState(false);
+  const [showSubscriptionInfo, setShowSubscriptionInfo] = useState(false);
+  const [showCreateEvent, setShowCreateEvent] = useState(false);
+
+  useEffect(() => {
+    SubscriptionService.getCachedSubscriberStatus().then((status) => {
+      if (status !== null) setIsSubscriber(status);
+    });
+  }, []);
 
   // Handle event press - navigate to event detail
   const handleEventPress = useCallback((event: SatlantisEvent) => {
@@ -96,11 +106,11 @@ const CompeteScreenComponent: React.FC<CompeteScreenProps> = ({ navigation: prop
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.hostButton}
-          onPress={() => setShowHostModal(true)}
+          onPress={() => isSubscriber ? setShowCreateEvent(true) : setShowSubscriptionInfo(true)}
           activeOpacity={0.7}
         >
           <Ionicons name="add-circle-outline" size={18} color={theme.colors.accent} />
-          <Text style={styles.hostButtonText}>Host Virtual Event</Text>
+          <Text style={styles.hostButtonText}>Create Event</Text>
         </TouchableOpacity>
         <View style={styles.headerSpacer} />
       </View>
@@ -128,10 +138,17 @@ const CompeteScreenComponent: React.FC<CompeteScreenProps> = ({ navigation: prop
         />
       </ScrollView>
 
-      {/* Host Event Modal */}
-      <HostEventModal
-        visible={showHostModal}
-        onClose={() => setShowHostModal(false)}
+      {/* Subscription Info Modal (non-subscribers) */}
+      <SubscriptionInfoModal
+        visible={showSubscriptionInfo}
+        onClose={() => setShowSubscriptionInfo(false)}
+        feature="event"
+      />
+
+      {/* Event Creation Modal (subscribers) */}
+      <SimpleEventCreationModal
+        visible={showCreateEvent}
+        onClose={() => setShowCreateEvent(false)}
       />
     </SafeAreaView>
   );
