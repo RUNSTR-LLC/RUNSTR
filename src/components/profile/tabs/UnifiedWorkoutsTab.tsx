@@ -39,8 +39,6 @@ import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { WoTService } from '../../../services/wot/WoTService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ExportDataModal } from '../../backup/ExportDataModal';
-import { ImportDataModal } from '../../backup/ImportDataModal';
 
 interface UnifiedWorkoutsTabProps {
   userId: string;
@@ -98,10 +96,6 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
     }>;
   }>({ title: '', message: '', buttons: [] });
 
-  // Backup modals
-  const [showExportModal, setShowExportModal] = useState(false);
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [showBackupMenu, setShowBackupMenu] = useState(false);
 
   // Load all data on mount
   useEffect(() => {
@@ -591,49 +585,19 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
         </TouchableOpacity>
       )}
 
-      {/* Filter chips + backup button */}
+      {/* Filter chips */}
       <View style={styles.filterRow}>
-        <View style={styles.filterChips}>
-          {FILTER_OPTIONS.map((opt) => (
-            <TouchableOpacity
-              key={opt.key}
-              style={[styles.filterChip, activeFilter === opt.key && styles.filterChipActive]}
-              onPress={() => setActiveFilter(opt.key)}
-            >
-              <Text style={[styles.filterChipText, activeFilter === opt.key && styles.filterChipTextActive]}>
-                {opt.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <View style={styles.backupButtonContainer}>
+        {FILTER_OPTIONS.map((opt) => (
           <TouchableOpacity
-            style={styles.backupButton}
-            onPress={() => setShowBackupMenu(!showBackupMenu)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            key={opt.key}
+            style={[styles.filterChip, activeFilter === opt.key && styles.filterChipActive]}
+            onPress={() => setActiveFilter(opt.key)}
           >
-            <Ionicons name="cloud-outline" size={20} color="#CC7A33" />
+            <Text style={[styles.filterChipText, activeFilter === opt.key && styles.filterChipTextActive]}>
+              {opt.label}
+            </Text>
           </TouchableOpacity>
-          {showBackupMenu && (
-            <View style={styles.backupMenu}>
-              <TouchableOpacity
-                style={styles.backupMenuItem}
-                onPress={() => { setShowBackupMenu(false); setShowExportModal(true); }}
-              >
-                <Ionicons name="cloud-upload-outline" size={18} color={theme.colors.text} />
-                <Text style={styles.backupMenuText}>Backup</Text>
-              </TouchableOpacity>
-              <View style={styles.backupMenuDivider} />
-              <TouchableOpacity
-                style={styles.backupMenuItem}
-                onPress={() => { setShowBackupMenu(false); setShowImportModal(true); }}
-              >
-                <Ionicons name="cloud-download-outline" size={18} color={theme.colors.text} />
-                <Text style={styles.backupMenuText}>Restore</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
+        ))}
       </View>
 
       <FlatList
@@ -645,7 +609,6 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
         maxToRenderPerBatch={5}
         removeClippedSubviews={true}
         initialNumToRender={3}
-        onScrollBeginDrag={() => showBackupMenu && setShowBackupMenu(false)}
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={theme.colors.text} />
         }
@@ -696,15 +659,6 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
         onClose={() => setAlertVisible(false)}
       />
 
-      {/* Backup modals */}
-      <ExportDataModal
-        visible={showExportModal}
-        onClose={() => setShowExportModal(false)}
-      />
-      <ImportDataModal
-        visible={showImportModal}
-        onClose={() => setShowImportModal(false)}
-      />
     </View>
   );
 };
@@ -721,36 +675,8 @@ const styles = StyleSheet.create({
   bannerRight: { marginRight: 8 },
   dismissButton: { padding: 4 },
   filterRow: {
-    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: theme.colors.border, zIndex: 10,
-  },
-  filterChips: {
-    flexDirection: 'row', flex: 1, gap: 8,
-  },
-  backupButtonContainer: {
-    position: 'relative',
-    marginLeft: 8,
-  },
-  backupButton: {
-    padding: 6,
-  },
-  backupMenu: {
-    position: 'absolute', top: 36, right: 0, zIndex: 100,
-    backgroundColor: theme.colors.cardBackground,
-    borderRadius: 10, borderWidth: 1, borderColor: theme.colors.border,
-    minWidth: 140, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3, shadowRadius: 8, elevation: 8,
-  },
-  backupMenuItem: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 14, paddingVertical: 12,
-  },
-  backupMenuText: {
-    color: theme.colors.text, fontSize: 14, fontWeight: '500',
-  },
-  backupMenuDivider: {
-    height: 1, backgroundColor: theme.colors.border,
+    flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10, gap: 8,
+    borderBottomWidth: 1, borderBottomColor: theme.colors.border,
   },
   filterChip: {
     paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16,

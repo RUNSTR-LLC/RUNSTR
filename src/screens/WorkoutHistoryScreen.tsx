@@ -25,6 +25,10 @@ import { EnhancedSocialShareModal } from '../components/profile/shared/EnhancedS
 import { WorkoutTabNavigator } from '../components/profile/WorkoutTabNavigator';
 import { WorkoutStatsSheet } from '../components/profile/WorkoutStatsSheet';
 
+// Backup modals
+import { ExportDataModal } from '../components/backup/ExportDataModal';
+import { ImportDataModal } from '../components/backup/ImportDataModal';
+
 // Import type from the service file (not from the default export)
 import type { LocalWorkout } from '../services/fitness/LocalWorkoutStorageService';
 
@@ -50,6 +54,9 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
   const [showStatsSheet, setShowStatsSheet] = useState(false);
   const [selectedWorkout, setSelectedWorkout] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<NostrProfile | null>(null);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [showBackupMenu, setShowBackupMenu] = useState(false);
 
   // Load user credentials on mount
   useEffect(() => {
@@ -192,12 +199,39 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header with back button and stats button */}
+      {/* Header with back button, cloud backup, and stats button */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
         <View style={styles.headerSpacer} />
+        <View style={styles.cloudButtonContainer}>
+          <TouchableOpacity
+            onPress={() => setShowBackupMenu(!showBackupMenu)}
+            style={styles.cloudButton}
+          >
+            <Ionicons name="cloud-outline" size={22} color="#CC7A33" />
+          </TouchableOpacity>
+          {showBackupMenu && (
+            <View style={styles.backupMenu}>
+              <TouchableOpacity
+                style={styles.backupMenuItem}
+                onPress={() => { setShowBackupMenu(false); setShowExportModal(true); }}
+              >
+                <Ionicons name="cloud-upload-outline" size={18} color={theme.colors.text} />
+                <Text style={styles.backupMenuText}>Backup</Text>
+              </TouchableOpacity>
+              <View style={styles.backupMenuDivider} />
+              <TouchableOpacity
+                style={styles.backupMenuItem}
+                onPress={() => { setShowBackupMenu(false); setShowImportModal(true); }}
+              >
+                <Ionicons name="cloud-download-outline" size={18} color={theme.colors.text} />
+                <Text style={styles.backupMenuText}>Restore</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
         <TouchableOpacity
           onPress={() => setShowStatsSheet(true)}
           style={styles.statsButton}
@@ -239,6 +273,16 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
         visible={showStatsSheet}
         onClose={() => setShowStatsSheet(false)}
       />
+
+      {/* Backup modals */}
+      <ExportDataModal
+        visible={showExportModal}
+        onClose={() => setShowExportModal(false)}
+      />
+      <ImportDataModal
+        visible={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -257,6 +301,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.cardBackground,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
+    zIndex: 10,
   },
 
   backButton: {
@@ -265,6 +310,51 @@ const styles = StyleSheet.create({
 
   headerSpacer: {
     flex: 1,
+  },
+
+  cloudButtonContainer: {
+    position: 'relative',
+  },
+
+  cloudButton: {
+    padding: 8,
+  },
+
+  backupMenu: {
+    position: 'absolute',
+    top: 40,
+    right: 0,
+    zIndex: 100,
+    backgroundColor: theme.colors.cardBackground,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    minWidth: 140,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+
+  backupMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+
+  backupMenuText: {
+    color: theme.colors.text,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+
+  backupMenuDivider: {
+    height: 1,
+    backgroundColor: theme.colors.border,
   },
 
   statsButton: {
