@@ -1,9 +1,9 @@
 /**
  * SubscriptionInfoModal - Info modal for non-subscribers
- * Explains RUNSTR Creator subscription benefits with a "Coming Soon" CTA
+ * Explains RUNSTR PRO subscription benefits with a "Coming Soon" CTA
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,9 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
+  Linking,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 
@@ -61,11 +63,6 @@ const TEAM_FEATURES = [
     title: 'Appear in the Teams Directory',
     description: 'Your team is visible to all RUNSTR users',
   },
-  {
-    icon: 'stats-chart-outline' as const,
-    title: 'Track Team Stats',
-    description: 'See total workouts, distance, and member activity',
-  },
 ];
 
 export const SubscriptionInfoModal: React.FC<SubscriptionInfoModalProps> = ({
@@ -74,6 +71,14 @@ export const SubscriptionInfoModal: React.FC<SubscriptionInfoModalProps> = ({
   feature,
 }) => {
   const features = feature === 'event' ? EVENT_FEATURES : TEAM_FEATURES;
+
+  const handleSubscribe = useCallback(async () => {
+    const npub = await AsyncStorage.getItem('@runstr:npub');
+    const url = npub
+      ? `https://www.runstr.club/pro/?npub=${encodeURIComponent(npub)}`
+      : 'https://www.runstr.club/pro/';
+    Linking.openURL(url);
+  }, []);
 
   return (
     <Modal
@@ -87,7 +92,7 @@ export const SubscriptionInfoModal: React.FC<SubscriptionInfoModalProps> = ({
           <View style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
-              <Text style={styles.title}>RUNSTR Creator</Text>
+              <Text style={styles.title}>RUNSTR PRO</Text>
               <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                 <Ionicons name="close" size={24} color={theme.colors.text} />
               </TouchableOpacity>
@@ -127,7 +132,7 @@ export const SubscriptionInfoModal: React.FC<SubscriptionInfoModalProps> = ({
 
               {/* Pricing & CTA */}
               <View style={styles.ctaSection}>
-                <Text style={styles.ctaTitle}>RUNSTR Creator</Text>
+                <Text style={styles.ctaTitle}>RUNSTR PRO</Text>
                 <Text style={styles.ctaPrice}>$5/month -- paid with Bitcoin</Text>
                 <Text style={styles.ctaDescription}>
                   Unlock team and event creation. Cancel anytime.
@@ -135,10 +140,10 @@ export const SubscriptionInfoModal: React.FC<SubscriptionInfoModalProps> = ({
 
                 <TouchableOpacity
                   style={styles.ctaButton}
-                  activeOpacity={1}
-                  disabled={true}
+                  onPress={handleSubscribe}
+                  activeOpacity={0.7}
                 >
-                  <Text style={styles.ctaButtonText}>Coming Soon</Text>
+                  <Text style={styles.ctaButtonText}>Subscribe</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -263,16 +268,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   ctaButton: {
-    backgroundColor: theme.colors.border,
+    backgroundColor: theme.colors.accent,
     paddingVertical: 14,
     paddingHorizontal: 32,
     borderRadius: 12,
-    opacity: 0.6,
   },
   ctaButtonText: {
     fontSize: 15,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.textMuted,
+    color: theme.colors.background,
   },
 });
 
