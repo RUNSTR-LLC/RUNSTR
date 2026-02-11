@@ -407,10 +407,13 @@ export class SupabaseCompetitionService {
             duration_seconds: data.duration,
             calories: data.calories || null,
             created_at: data.startTime,
-            // TIMEZONE FIX: Send local date for leaderboard grouping
-            // This ensures workouts appear on the correct day in the user's timezone
-            // Without this, late-night workouts appear on "tomorrow's" leaderboard (UTC)
-            leaderboard_date: new Date().toLocaleDateString('en-CA'), // YYYY-MM-DD format
+            // TIMEZONE FIX: Use getFullYear/getMonth/getDate (always local timezone)
+            // toLocaleDateString('en-CA') can return UTC date in Hermes/React Native
+            // Must match DailyLeaderboardService's date computation exactly
+            leaderboard_date: (() => {
+              const now = new Date();
+              return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            })(),
             // Daily leaderboard: Pass profile data for caching
             profile_name: data.profileName || null,
             profile_picture: data.profilePicture || null,

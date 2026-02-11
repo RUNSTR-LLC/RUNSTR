@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { WorkoutData, WorkoutType } from '../../types/workout';
 import { inferActivityTypeSimple } from '../../utils/activityInference';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
+import { buildRewardTags } from '../../utils/rewardTags';
 
 // Environment-based logging utility
 const isDevelopment = __DEV__;
@@ -807,6 +808,9 @@ export class HealthConnectService {
       return true;
     });
 
+    // Build reward tags once for all workouts (lightning, team, charity, reward_destination)
+    const rewardTags = await buildRewardTags();
+
     for (const w of newCardio) {
       try {
         const eventId = `hc_${w.id}`;
@@ -818,6 +822,7 @@ export class HealthConnectService {
           duration: w.duration,
           calories: w.totalEnergyBurned,
           startTime: w.startTime,
+          tags: [...rewardTags],
         });
         debugLog(`[HealthConnect] Auto-submitted ${w.activityType} workout to Supabase: ${eventId}`);
       } catch (err) {
