@@ -2,6 +2,52 @@
 
 All notable changes to RUNSTR will be documented in this file.
 
+## [1.6.9] - 2026-02-09 - Subscriptions, Leaderboard Fixes & Auto-Submission
+
+### Subscription-Gated Team & Event Creation
+- RUNSTR Pro subscription (7,000 sats/month) unlocks team and event creation
+- Subscribe button links to runstr.club/pro with user's npub for seamless checkout
+- Non-subscribers see locked state with subscribe prompt
+
+### Leaderboard & Competition Fixes
+- Added fastest_time scoring support for February 5K Challenge
+- Fixed missing lightning address and charity tags on all Supabase submission paths
+- Fixed reward routing: 50-sat reward now correctly routes to charity when charity team selected
+- Fixed missing reward tags and timezone bug for Supabase workout submissions
+- Synced Season 2 registration script with correct npubs and competition IDs
+
+### Workout Auto-Submission Fixes
+- Fixed all Supabase submission paths to include lightning address and charity tags
+- Reward tags and timezone data now consistently included in submissions
+- Admin script to credit flagged workouts for affected participants
+
+### Cloud Backup
+- Moved cloud backup button to header bar (next to stats icon) for cleaner UI
+- Fixed green success colors in export modal to match app-wide orange theme
+
+### Teams & Charities
+- Replaced CoinOS team with "You" team for intuitive reward routing
+- Added Lightning News as a team/charity option
+
+### Activity Tracker
+- Added Mindfulness row to activity grid with Journal and Habits
+- Simplified journal editor UI with cleaner mood/energy selectors
+- Fixed swipe navigation on mindfulness screens (removed interfering scroll views)
+- Fixed flash of Run screen before saved tab position loads
+
+### UI Fixes
+- Fixed DynamicEventCard logo style to match Season II card
+- Fixed DynamicEventDetail navigation crash with RUNSTR logo fallback
+- Fixed CoinOS wallet modal ScrollView layout collapse
+- Fixed CoinOS receive invoice errors now visible with 401 retry
+- Converted CoinOS logo from JPEG-as-PNG to real PNG format
+
+### Cleanup
+- Removed AI chat and coaching features, kept PPQ.AI account management
+- CI build fixes (tsconfig, ESLint config, workflow)
+
+---
+
 ## [1.6.8] - 2026-02-08 - Background Rewards, CoinOS Wallet & Dynamic Events
 
 ### HealthKit Background Delivery & Auto-Rewards
