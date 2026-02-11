@@ -133,7 +133,7 @@ export const SubscriptionInfoModal: React.FC<SubscriptionInfoModalProps> = ({
               {/* Pricing & CTA */}
               <View style={styles.ctaSection}>
                 <Text style={styles.ctaTitle}>RUNSTR PRO</Text>
-                <Text style={styles.ctaPrice}>$5/month -- paid with Bitcoin</Text>
+                <Text style={styles.ctaPrice}>7,000 sats/month</Text>
                 <Text style={styles.ctaDescription}>
                   Unlock team and event creation. Cancel anytime.
                 </Text>
