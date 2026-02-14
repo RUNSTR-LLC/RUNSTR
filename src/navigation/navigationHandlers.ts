@@ -453,7 +453,7 @@ export const createNavigationHandlers = (): NavigationHandlers => {
 
     handleNavigateToTeam: (teamId: string, navigation: any) => {
       console.log('NavigationHandlers: Direct navigation to team:', teamId);
-      navigation.navigate('Team', { teamId, refresh: true });
+      navigation.navigate('Clubs', { teamId, refresh: true });
     },
 
     // Onboarding Handlers
@@ -484,7 +484,7 @@ export const createNavigationHandlers = (): NavigationHandlers => {
       CustomAlertManager.alert(
         'Welcome to RUNSTR!',
         'You can join a team anytime from your profile.',
-        [{ text: 'Continue', onPress: () => navigation.navigate('Team') }]
+        [{ text: 'Continue', onPress: () => navigation.navigate('Clubs') }]
       );
     },
 

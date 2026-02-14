@@ -1,51 +1,29 @@
 /**
  * ClubMembershipService - Manages club membership operations
- *
- * Handles joining, leaving, and switching clubs via the club_memberships table.
  * Users can belong to ONE club at a time (enforced by UNIQUE index on member_npub).
- * Follows the static class pattern from UserTeamService/SupabaseCompetitionService.
  */
-
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, isSupabaseConfigured } from '../../utils/supabase';
 import { Club, ClubMembership, ClubJoinResult } from '../../types/club';
 
-// AsyncStorage keys for current club state
+const TAG = '[ClubMembershipService]';
 const CLUB_ID_KEY = '@runstr:club_id';
 const CLUB_NAME_KEY = '@runstr:club_name';
 const CLUB_ROLE_KEY = '@runstr:club_role';
-
-// Cache for club members list
 const MEMBERS_CACHE_KEY_PREFIX = '@runstr:club_members_';
 const MEMBERS_TTL = 5 * 60 * 1000; // 5 minutes
-
-// In-memory cache for members (avoids repeated AsyncStorage reads)
 const membersCache = new Map<string, { members: ClubMembership[]; timestamp: number }>();
-
-// Postgres unique violation error code
 const UNIQUE_VIOLATION_CODE = '23505';
 
 export class ClubMembershipService {
-  /**
-   * Get the user's current club ID from cache or database.
-   * Returns null if user is not in any club.
-   */
+  /** Get the user's current club ID from cache or database. */
   static async getCurrentClub(npub: string): Promise<string | null> {
-    // Check AsyncStorage cache first (instant)
     try {
       const cachedId = await AsyncStorage.getItem(CLUB_ID_KEY);
-      if (cachedId) {
-        console.log(`[ClubMembershipService] Returning cached club ID: ${cachedId}`);
-        return cachedId;
-      }
-    } catch {
-      // Cache read failed, continue to fetch
-    }
+      if (cachedId) return cachedId;
+    } catch { /* continue to fetch */ }
 
-    if (!isSupabaseConfigured()) {
-      console.warn('[ClubMembershipService] Supabase not configured');
-      return null;
-    }
+    if (!isSupabaseConfigured()) return null;
 
     try {
       const { data, error } = await supabase!
@@ -55,75 +33,46 @@ export class ClubMembershipService {
         .single();
 
       if (error) {
-        // PGRST116 = no rows found (not an error, user just isn't in a club)
-        if (error.code === 'PGRST116') {
-          console.log(`[ClubMembershipService] User ${npub.slice(0, 12)}... not in any club`);
-          return null;
-        }
-        console.error('[ClubMembershipService] getCurrentClub error:', error);
+        if (error.code === 'PGRST116') return null; // No rows = not in a club
+        console.error(`${TAG} getCurrentClub error:`, error);
         return null;
       }
 
       const clubId = data?.club_id || null;
-
-      // Cache the result
       if (clubId) {
-        try {
-          await AsyncStorage.setItem(CLUB_ID_KEY, clubId);
-        } catch {
-          // Cache write failed, non-critical
-        }
+        try { await AsyncStorage.setItem(CLUB_ID_KEY, clubId); } catch { /* non-critical */ }
       }
-
-      console.log(`[ClubMembershipService] Current club for ${npub.slice(0, 12)}...: ${clubId || 'none'}`);
       return clubId;
     } catch (err) {
-      console.error('[ClubMembershipService] getCurrentClub exception:', err);
+      console.error(`${TAG} getCurrentClub exception:`, err);
       return null;
     }
   }
 
-  /**
-   * Join a club. Inserts into club_memberships and increments user_teams.member_count.
-   * Fails if user is already in a club (unique constraint on member_npub).
-   *
-   * @param clubId - UUID of the club to join
-   * @param npub - User's Nostr public key
-   * @param role - 'member' (default) or 'captain'
-   * @returns ClubJoinResult with success status and optional club data
-   */
+  /** Join a club. Fails if user is already in a club (unique constraint). */
   static async joinClub(
     clubId: string,
     npub: string,
     role: 'member' | 'captain' = 'member'
   ): Promise<ClubJoinResult> {
     if (!isSupabaseConfigured()) {
-      console.warn('[ClubMembershipService] Supabase not configured');
       return { success: false, error: 'Backend not configured' };
     }
 
     try {
-      // Insert membership row
       const { error: insertError } = await supabase!
         .from('club_memberships')
-        .insert({
-          club_id: clubId,
-          member_npub: npub,
-          role,
-        });
+        .insert({ club_id: clubId, member_npub: npub, role });
 
       if (insertError) {
-        // Unique violation = user is already in a club
         if (insertError.code === UNIQUE_VIOLATION_CODE) {
-          console.warn(`[ClubMembershipService] User ${npub.slice(0, 12)}... already in a club`);
           return { success: false, error: 'Already in a club. Leave your current club first.' };
         }
-        console.error('[ClubMembershipService] joinClub insert error:', insertError);
+        console.error(`${TAG} joinClub insert error:`, insertError);
         return { success: false, error: insertError.message };
       }
 
       // Increment member_count on user_teams
-      // Use raw SQL increment via RPC if available, otherwise read-then-write
       try {
         const { data: clubData } = await supabase!
           .from('user_teams')
@@ -137,16 +86,8 @@ export class ClubMembershipService {
             .update({ member_count: (clubData.member_count || 0) + 1 })
             .eq('id', clubId);
 
-          // Cache club name and role in AsyncStorage for quick access
-          try {
-            await AsyncStorage.setItem(CLUB_ID_KEY, clubId);
-            await AsyncStorage.setItem(CLUB_NAME_KEY, clubData.name || '');
-            await AsyncStorage.setItem(CLUB_ROLE_KEY, role);
-          } catch {
-            // Cache write failed, non-critical
-          }
-
-          console.log(`[ClubMembershipService] Joined club "${clubData.name}" as ${role}`);
+          await this.cacheClubState(clubId, clubData.name || '', role);
+          console.log(`${TAG} Joined club "${clubData.name}" as ${role}`);
 
           return {
             success: true,
@@ -163,58 +104,59 @@ export class ClubMembershipService {
           };
         }
       } catch (countErr) {
-        console.warn('[ClubMembershipService] Failed to increment member_count:', countErr);
-        // Join succeeded even if count update failed
+        console.warn(`${TAG} Failed to increment member_count:`, countErr);
       }
 
-      // Cache the club ID even without full club data
-      try {
-        await AsyncStorage.setItem(CLUB_ID_KEY, clubId);
-        await AsyncStorage.setItem(CLUB_ROLE_KEY, role);
-      } catch {
-        // Cache write failed, non-critical
-      }
-
-      console.log(`[ClubMembershipService] Joined club ${clubId} as ${role}`);
+      await this.cacheClubState(clubId, undefined, role);
+      console.log(`${TAG} Joined club ${clubId} as ${role}`);
       return { success: true };
     } catch (err) {
-      console.error('[ClubMembershipService] joinClub exception:', err);
-      return {
-        success: false,
-        error: err instanceof Error ? err.message : 'Unknown error',
-      };
+      console.error(`${TAG} joinClub exception:`, err);
+      return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
     }
   }
 
   /**
-   * Leave the current club. Deletes from club_memberships and decrements member_count.
-   * Also clears all club-related AsyncStorage keys.
-   *
-   * @param npub - User's Nostr public key
-   * @returns Success status
+   * Leave the current club. Captains with other members must transfer captainship
+   * first. Sole-captain clubs are deactivated automatically on leave.
    */
   static async leaveClub(npub: string): Promise<{ success: boolean; error?: string }> {
     if (!isSupabaseConfigured()) {
-      console.warn('[ClubMembershipService] Supabase not configured');
       return { success: false, error: 'Backend not configured' };
     }
 
     try {
-      // First, get the current club ID so we can decrement its member_count
+      // Get current membership including role
       const { data: membership, error: lookupError } = await supabase!
         .from('club_memberships')
-        .select('club_id')
+        .select('club_id, role')
         .eq('member_npub', npub)
         .single();
 
       if (lookupError || !membership) {
-        console.warn(`[ClubMembershipService] No membership found for ${npub.slice(0, 12)}...`);
-        // Clear local cache anyway in case of stale state
         await this.clearLocalClubState();
         return { success: false, error: 'Not a member of any club' };
       }
 
       const clubId = membership.club_id;
+
+      // Captain-specific leave logic
+      if (membership.role === 'captain') {
+        const members = await this.getClubMembers(clubId);
+        const otherMembers = members.filter((m) => m.member_npub !== npub);
+
+        if (otherMembers.length > 0) {
+          console.warn(
+            `${TAG} Captain cannot leave club ${clubId} with ${otherMembers.length} other member(s)`
+          );
+          return {
+            success: false,
+            error: 'Transfer captainship before leaving. Use transferCaptainship() to promote another member.',
+          };
+        }
+        // Sole member captain -- will deactivate club after deletion
+        console.log(`${TAG} Captain is sole member of ${clubId}, will deactivate club`);
+      }
 
       // Delete the membership row
       const { error: deleteError } = await supabase!
@@ -223,106 +165,92 @@ export class ClubMembershipService {
         .eq('member_npub', npub);
 
       if (deleteError) {
-        console.error('[ClubMembershipService] leaveClub delete error:', deleteError);
+        console.error(`${TAG} leaveClub delete error:`, deleteError);
         return { success: false, error: deleteError.message };
       }
 
-      // Decrement member_count on user_teams
-      try {
-        const { data: clubData } = await supabase!
-          .from('user_teams')
-          .select('member_count')
-          .eq('id', clubId)
-          .single();
+      // Decrement member_count (and deactivate if captain was sole member)
+      await this.decrementMemberCount(clubId, membership.role === 'captain');
 
-        if (clubData) {
-          const newCount = Math.max(0, (clubData.member_count || 1) - 1);
-          await supabase!
-            .from('user_teams')
-            .update({ member_count: newCount })
-            .eq('id', clubId);
-        }
-      } catch (countErr) {
-        console.warn('[ClubMembershipService] Failed to decrement member_count:', countErr);
-        // Leave succeeded even if count update failed
-      }
-
-      // Clear all club-related AsyncStorage keys
       await this.clearLocalClubState();
+      this.invalidateMembersCache(clubId);
 
-      // Clear members cache for this club
-      membersCache.delete(clubId);
-      try {
-        await AsyncStorage.removeItem(`${MEMBERS_CACHE_KEY_PREFIX}${clubId}`);
-      } catch {
-        // Non-critical
-      }
-
-      console.log(`[ClubMembershipService] Left club ${clubId}`);
+      console.log(`${TAG} Left club ${clubId}`);
       return { success: true };
     } catch (err) {
-      console.error('[ClubMembershipService] leaveClub exception:', err);
-      return {
-        success: false,
-        error: err instanceof Error ? err.message : 'Unknown error',
-      };
+      console.error(`${TAG} leaveClub exception:`, err);
+      return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
     }
   }
 
-  /**
-   * Switch from current club to a new club.
-   * Performs leaveClub + joinClub in sequence.
-   *
-   * @param newClubId - UUID of the new club to join
-   * @param npub - User's Nostr public key
-   * @param role - 'member' (default) or 'captain'
-   * @returns ClubJoinResult for the new club
-   */
+  /** Switch clubs with recovery. Re-joins original club if join fails. */
   static async switchClub(
     newClubId: string,
     npub: string,
     role: 'member' | 'captain' = 'member'
   ): Promise<ClubJoinResult> {
-    console.log(`[ClubMembershipService] Switching to club ${newClubId}...`);
+    console.log(`${TAG} Switching to club ${newClubId}...`);
 
-    // Leave current club first
+    // Capture original club ID for recovery
+    let originalClubId: string | null = null;
+    try {
+      const { data: currentMembership } = await supabase!
+        .from('club_memberships')
+        .select('club_id')
+        .eq('member_npub', npub)
+        .single();
+      if (currentMembership) originalClubId = currentMembership.club_id;
+    } catch { /* recovery won't be possible */ }
+
+    // Leave current club
     const leaveResult = await this.leaveClub(npub);
     if (!leaveResult.success) {
-      // If not in a club, that's fine -- just join the new one
       if (leaveResult.error !== 'Not a member of any club') {
-        console.error('[ClubMembershipService] switchClub leave failed:', leaveResult.error);
         return { success: false, error: `Failed to leave current club: ${leaveResult.error}` };
       }
+      originalClubId = null;
     }
 
     // Join new club
     const joinResult = await this.joinClub(newClubId, npub, role);
     if (!joinResult.success) {
-      console.error('[ClubMembershipService] switchClub join failed:', joinResult.error);
+      console.error(`${TAG} switchClub join failed for ${newClubId}: ${joinResult.error}`);
+
+      // RECOVERY: Attempt to re-join the original club
+      if (originalClubId) {
+        console.warn(`${TAG} Attempting recovery: re-joining original club ${originalClubId}`);
+        const recoveryResult = await this.joinClub(originalClubId, npub, 'member');
+        if (recoveryResult.success) {
+          console.log(`${TAG} Recovery successful: re-joined original club ${originalClubId}`);
+          return {
+            success: false,
+            error: `Failed to join new club: ${joinResult.error}. You have been returned to your previous club.`,
+          };
+        }
+        // Recovery also failed -- user is orphaned
+        console.error(
+          `${TAG} CRITICAL: Recovery failed. User ${npub.slice(0, 12)}... is orphaned. ` +
+          `Left ${originalClubId}, failed to join ${newClubId}. Error: ${recoveryResult.error}`
+        );
+        return {
+          success: false,
+          error: 'Failed to join new club and could not re-join previous club. Please try joining a club manually.',
+        };
+      }
       return joinResult;
     }
 
-    console.log(`[ClubMembershipService] Successfully switched to club ${newClubId}`);
+    console.log(`${TAG} Successfully switched to club ${newClubId}`);
     return joinResult;
   }
 
-  /**
-   * Get all members of a club.
-   * Results are cached in-memory and AsyncStorage for 5 minutes.
-   *
-   * @param clubId - UUID of the club
-   * @returns Array of ClubMembership records
-   */
+  /** Get all members of a club. Cached for 5 minutes. */
   static async getClubMembers(clubId: string): Promise<ClubMembership[]> {
-    if (!isSupabaseConfigured()) {
-      console.warn('[ClubMembershipService] Supabase not configured');
-      return [];
-    }
+    if (!isSupabaseConfigured()) return [];
 
-    // Check in-memory cache first
+    // Check in-memory cache
     const memCached = membersCache.get(clubId);
     if (memCached && Date.now() - memCached.timestamp < MEMBERS_TTL) {
-      console.log(`[ClubMembershipService] Returning ${memCached.members.length} cached members for ${clubId}`);
       return memCached.members;
     }
 
@@ -332,24 +260,17 @@ export class ClubMembershipService {
       const cached = await AsyncStorage.getItem(cacheKey);
       if (cached) {
         let parsed;
-        try {
-          parsed = JSON.parse(cached);
-        } catch {
-          console.warn('[ClubMembershipService] Corrupted members cache, removing');
+        try { parsed = JSON.parse(cached); } catch {
           await AsyncStorage.removeItem(cacheKey);
           parsed = null;
         }
         if (parsed && Date.now() - parsed.timestamp < MEMBERS_TTL) {
           const members = parsed.data as ClubMembership[];
-          // Populate in-memory cache
           membersCache.set(clubId, { members, timestamp: parsed.timestamp });
-          console.log(`[ClubMembershipService] Returning ${members.length} cached members (AsyncStorage)`);
           return members;
         }
       }
-    } catch {
-      // Cache read failed, continue to fetch
-    }
+    } catch { /* continue to fetch */ }
 
     try {
       const { data, error } = await supabase!
@@ -359,57 +280,33 @@ export class ClubMembershipService {
         .order('joined_at', { ascending: true });
 
       if (error) {
-        console.error(`[ClubMembershipService] getClubMembers error for ${clubId}:`, error);
+        console.error(`${TAG} getClubMembers error for ${clubId}:`, error);
         return [];
       }
 
       const members = (data || []) as ClubMembership[];
-      console.log(`[ClubMembershipService] Fetched ${members.length} members for club ${clubId}`);
-
-      // Save to both caches
       const now = Date.now();
       membersCache.set(clubId, { members, timestamp: now });
       try {
-        await AsyncStorage.setItem(
-          cacheKey,
-          JSON.stringify({ data: members, timestamp: now })
-        );
-      } catch {
-        // Cache write failed, non-critical
-      }
+        await AsyncStorage.setItem(cacheKey, JSON.stringify({ data: members, timestamp: now }));
+      } catch { /* non-critical */ }
 
       return members;
     } catch (err) {
-      console.error(`[ClubMembershipService] getClubMembers exception for ${clubId}:`, err);
+      console.error(`${TAG} getClubMembers exception for ${clubId}:`, err);
       return [];
     }
   }
 
-  /**
-   * Quick check if a user is a member of a specific club.
-   *
-   * @param clubId - UUID of the club
-   * @param npub - User's Nostr public key
-   * @returns true if user is a member
-   */
+  /** Quick check if a user is a member of a specific club. */
   static async isMember(clubId: string, npub: string): Promise<boolean> {
-    if (!isSupabaseConfigured()) {
-      return false;
-    }
+    if (!isSupabaseConfigured()) return false;
 
-    // Check local cache first for speed
     try {
       const cachedId = await AsyncStorage.getItem(CLUB_ID_KEY);
-      if (cachedId === clubId) {
-        return true;
-      }
-      // If cached club is different, user is not in this club
-      if (cachedId && cachedId !== clubId) {
-        return false;
-      }
-    } catch {
-      // Cache read failed, fall through to DB check
-    }
+      if (cachedId === clubId) return true;
+      if (cachedId && cachedId !== clubId) return false;
+    } catch { /* fall through to DB */ }
 
     try {
       const { data, error } = await supabase!
@@ -420,60 +317,173 @@ export class ClubMembershipService {
         .single();
 
       if (error) {
-        // PGRST116 = no rows found
-        if (error.code === 'PGRST116') {
-          return false;
-        }
-        console.error('[ClubMembershipService] isMember error:', error);
+        if (error.code === 'PGRST116') return false;
+        console.error(`${TAG} isMember error:`, error);
         return false;
       }
-
       return !!data;
     } catch (err) {
-      console.error('[ClubMembershipService] isMember exception:', err);
+      console.error(`${TAG} isMember exception:`, err);
       return false;
     }
   }
 
-  /**
-   * Clear all club membership caches (AsyncStorage and in-memory).
-   * Call after operations that change membership state.
-   */
+  /** Clear all club membership caches (AsyncStorage and in-memory). */
   static async clearCache(): Promise<void> {
     try {
-      // Clear local club state
       await this.clearLocalClubState();
-
-      // Clear in-memory members cache
       membersCache.clear();
-
-      // Clear all AsyncStorage members caches
-      // We can't enumerate all keys efficiently, so clear known ones
       const allKeys = await AsyncStorage.getAllKeys();
       const memberKeys = allKeys.filter((k) => k.startsWith(MEMBERS_CACHE_KEY_PREFIX));
-      if (memberKeys.length > 0) {
-        await AsyncStorage.multiRemove(memberKeys);
+      if (memberKeys.length > 0) await AsyncStorage.multiRemove(memberKeys);
+    } catch { /* non-critical */ }
+  }
+
+  /** Remove a member from a club. Only captains should call this. */
+  static async removeMember(
+    clubId: string,
+    memberNpub: string
+  ): Promise<{ success: boolean; error?: string }> {
+    if (!isSupabaseConfigured()) {
+      return { success: false, error: 'Backend not configured' };
+    }
+
+    try {
+      const { error: deleteError } = await supabase!
+        .from('club_memberships')
+        .delete()
+        .eq('club_id', clubId)
+        .eq('member_npub', memberNpub);
+
+      if (deleteError) {
+        console.error(`${TAG} removeMember delete error:`, deleteError);
+        return { success: false, error: deleteError.message };
       }
 
-      console.log('[ClubMembershipService] All caches cleared');
-    } catch {
-      // Non-critical
+      await this.decrementMemberCount(clubId, false);
+      this.invalidateMembersCache(clubId);
+
+      console.log(`${TAG} Removed member ${memberNpub.slice(0, 12)}... from club ${clubId}`);
+      return { success: true };
+    } catch (err) {
+      console.error(`${TAG} removeMember exception:`, err);
+      return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
     }
   }
 
-  // ============================================================================
-  // Private Helpers
-  // ============================================================================
+  /** Transfer captainship to another member. Validates target before proceeding. */
+  static async transferCaptainship(
+    clubId: string,
+    newCaptainNpub: string
+  ): Promise<{ success: boolean; error?: string }> {
+    if (!isSupabaseConfigured()) {
+      return { success: false, error: 'Backend not configured' };
+    }
 
-  /**
-   * Clear club-related AsyncStorage keys (club_id, club_name, club_role)
-   */
+    try {
+      // Validate target is a member of this club
+      const { data: targetMembership, error: targetErr } = await supabase!
+        .from('club_memberships')
+        .select('role')
+        .eq('club_id', clubId)
+        .eq('member_npub', newCaptainNpub)
+        .single();
+
+      if (targetErr || !targetMembership) {
+        return { success: false, error: 'Target user is not a member of this club' };
+      }
+
+      // Demote current captain(s) to member
+      const { error: demoteError } = await supabase!
+        .from('club_memberships')
+        .update({ role: 'member' })
+        .eq('club_id', clubId)
+        .eq('role', 'captain');
+
+      if (demoteError) {
+        console.error(`${TAG} transferCaptainship demote error:`, demoteError);
+        return { success: false, error: demoteError.message };
+      }
+
+      // Promote the new captain
+      const { error: promoteError } = await supabase!
+        .from('club_memberships')
+        .update({ role: 'captain' })
+        .eq('club_id', clubId)
+        .eq('member_npub', newCaptainNpub);
+
+      if (promoteError) {
+        console.error(`${TAG} transferCaptainship promote error:`, promoteError);
+        console.error(
+          `${TAG} CRITICAL: Club ${clubId} may have no captain after failed promote. ` +
+          `Manual intervention may be needed.`
+        );
+        return { success: false, error: promoteError.message };
+      }
+
+      // Update user_teams.created_by_npub (non-fatal if this fails)
+      const { error: teamUpdateError } = await supabase!
+        .from('user_teams')
+        .update({ created_by_npub: newCaptainNpub })
+        .eq('id', clubId);
+
+      if (teamUpdateError) {
+        console.warn(`${TAG} transferCaptainship team update error:`, teamUpdateError);
+      }
+
+      try { await AsyncStorage.setItem(CLUB_ROLE_KEY, 'member'); } catch { /* non-critical */ }
+      this.invalidateMembersCache(clubId);
+
+      console.log(`${TAG} Captainship transferred to ${newCaptainNpub.slice(0, 12)}... in club ${clubId}`);
+      return { success: true };
+    } catch (err) {
+      console.error(`${TAG} transferCaptainship exception:`, err);
+      return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+    }
+  }
+
+  // --- Private Helpers ---
+
+  /** Clear club-related AsyncStorage keys */
   private static async clearLocalClubState(): Promise<void> {
     try {
       await AsyncStorage.multiRemove([CLUB_ID_KEY, CLUB_NAME_KEY, CLUB_ROLE_KEY]);
-      console.log('[ClubMembershipService] Local club state cleared');
-    } catch {
-      // Non-critical
+    } catch { /* non-critical */ }
+  }
+
+  /** Cache club ID, name, and role in AsyncStorage */
+  private static async cacheClubState(
+    clubId: string,
+    name?: string,
+    role?: string
+  ): Promise<void> {
+    try {
+      await AsyncStorage.setItem(CLUB_ID_KEY, clubId);
+      if (name !== undefined) await AsyncStorage.setItem(CLUB_NAME_KEY, name);
+      if (role) await AsyncStorage.setItem(CLUB_ROLE_KEY, role);
+    } catch { /* non-critical */ }
+  }
+
+  /** Invalidate members cache for a club (both in-memory and AsyncStorage) */
+  private static invalidateMembersCache(clubId: string): void {
+    membersCache.delete(clubId);
+    AsyncStorage.removeItem(`${MEMBERS_CACHE_KEY_PREFIX}${clubId}`).catch(() => {});
+  }
+
+  /** Decrement member_count on user_teams. Deactivate club if sole captain left. */
+  private static async decrementMemberCount(clubId: string, deactivateIfEmpty: boolean): Promise<void> {
+    try {
+      const { data } = await supabase!.from('user_teams').select('member_count').eq('id', clubId).single();
+      if (!data) return;
+      const newCount = Math.max(0, (data.member_count || 1) - 1);
+      const payload: { member_count: number; is_active?: boolean } = { member_count: newCount };
+      if (deactivateIfEmpty && newCount === 0) {
+        payload.is_active = false;
+        console.log(`${TAG} Deactivating club ${clubId} (no members remain)`);
+      }
+      await supabase!.from('user_teams').update(payload).eq('id', clubId);
+    } catch (err) {
+      console.warn(`${TAG} Failed to update member_count for ${clubId}:`, err);
     }
   }
 }

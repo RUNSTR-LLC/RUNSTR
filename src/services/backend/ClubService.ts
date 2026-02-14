@@ -18,6 +18,20 @@ const CLUBS_TTL = 5 * 60 * 1000; // 5 minutes
 const clubByIdCache = new Map<string, { club: Club | null; timestamp: number }>();
 const CLUB_BY_ID_TTL = 10 * 60 * 1000; // 10 minutes
 
+// In-memory cache for club earnings (5 min TTL, same as leaderboard)
+const earningsCache = new Map<string, { data: ClubEarnings; timestamp: number }>();
+const EARNINGS_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Earnings data returned by getClubEarnings
+export interface ClubEarnings {
+  weeklyWorkouts: number;
+  weeklyEarnings: number; // weeklyWorkouts * 10
+  weeklyActiveMembers: number;
+  todayActiveMembers: number;
+  allTimeWorkouts: number;
+  allTimeEarnings: number; // allTimeWorkouts * 10
+}
+
 export class ClubService {
   /**
    * Fetch all active clubs from Supabase user_teams table.
@@ -168,6 +182,141 @@ export class ClubService {
   }
 
   /**
+   * Update club details in the user_teams table.
+   * Only the captain should call this (enforced at the UI level).
+   * Clears caches after a successful update so fresh data is fetched.
+   *
+   * @param clubId - UUID of the club to update
+   * @param updates - Fields to update (description, lightning_address, banner_url)
+   * @returns true if update succeeded
+   */
+  static async updateClub(
+    clubId: string,
+    updates: { description?: string; lightning_address?: string; banner_url?: string }
+  ): Promise<boolean> {
+    if (!isSupabaseConfigured()) {
+      console.warn('[ClubService] Supabase not configured');
+      return false;
+    }
+
+    try {
+      const { error } = await supabase!
+        .from('user_teams')
+        .update(updates)
+        .eq('id', clubId);
+
+      if (error) {
+        console.error(`[ClubService] updateClub error for ${clubId}:`, error);
+        return false;
+      }
+
+      console.log(`[ClubService] Updated club ${clubId}:`, Object.keys(updates));
+
+      // Invalidate caches so next read gets fresh data
+      clubByIdCache.delete(clubId);
+      try {
+        await AsyncStorage.removeItem(CLUBS_CACHE_KEY);
+      } catch {
+        // Non-critical
+      }
+
+      return true;
+    } catch (err) {
+      console.error(`[ClubService] updateClub exception for ${clubId}:`, err);
+      return false;
+    }
+  }
+
+  /**
+   * Get club earnings data from workout_submissions.
+   * Counts qualifying workouts (those with a club_lightning_address) and
+   * multiplies by 10 sats per workout for the earnings totals.
+   * Cached in-memory for 5 minutes.
+   */
+  static async getClubEarnings(clubId: string): Promise<ClubEarnings> {
+    const empty: ClubEarnings = {
+      weeklyWorkouts: 0,
+      weeklyEarnings: 0,
+      weeklyActiveMembers: 0,
+      todayActiveMembers: 0,
+      allTimeWorkouts: 0,
+      allTimeEarnings: 0,
+    };
+
+    if (!isSupabaseConfigured()) {
+      return empty;
+    }
+
+    // Check cache
+    const cached = earningsCache.get(clubId);
+    if (cached && Date.now() - cached.timestamp < EARNINGS_TTL) {
+      return cached.data;
+    }
+
+    try {
+      // Calculate date boundaries
+      const now = new Date();
+      const day = now.getUTCDay(); // 0 = Sunday
+      const diffToMonday = day === 0 ? -6 : 1 - day;
+      const monday = new Date(now);
+      monday.setUTCDate(now.getUTCDate() + diffToMonday);
+      monday.setUTCHours(0, 0, 0, 0);
+      const weekStart = monday.toISOString().split('T')[0];
+      const todayStr = now.toISOString().split('T')[0];
+
+      // Fetch weekly data (includes today)
+      const { data: weekData, error: weekErr } = await supabase!
+        .from('workout_submissions')
+        .select('npub, leaderboard_date')
+        .eq('club_id', clubId)
+        .not('club_lightning_address', 'is', null)
+        .gte('leaderboard_date', weekStart);
+
+      if (weekErr) {
+        console.error('[ClubService] getClubEarnings week query error:', weekErr);
+        return empty;
+      }
+
+      const weekRows = weekData || [];
+      const weeklyWorkouts = weekRows.length;
+      const weekNpubs = new Set(weekRows.map((r: any) => r.npub));
+      const todayNpubs = new Set(
+        weekRows.filter((r: any) => r.leaderboard_date === todayStr).map((r: any) => r.npub)
+      );
+
+      // Fetch all-time count
+      const { count: allTimeCount, error: allErr } = await supabase!
+        .from('workout_submissions')
+        .select('*', { count: 'exact', head: true })
+        .eq('club_id', clubId)
+        .not('club_lightning_address', 'is', null);
+
+      if (allErr) {
+        console.error('[ClubService] getClubEarnings all-time query error:', allErr);
+        return empty;
+      }
+
+      const result: ClubEarnings = {
+        weeklyWorkouts,
+        weeklyEarnings: weeklyWorkouts * 10,
+        weeklyActiveMembers: weekNpubs.size,
+        todayActiveMembers: todayNpubs.size,
+        allTimeWorkouts: allTimeCount || 0,
+        allTimeEarnings: (allTimeCount || 0) * 10,
+      };
+
+      // Cache result
+      earningsCache.set(clubId, { data: result, timestamp: Date.now() });
+      console.log(`[ClubService] Club earnings for ${clubId}: ${result.weeklyEarnings} sats this week`);
+
+      return result;
+    } catch (err) {
+      console.error('[ClubService] getClubEarnings exception:', err);
+      return empty;
+    }
+  }
+
+  /**
    * Clear both AsyncStorage and in-memory caches.
    * Call after creating a new club or when data may be stale.
    */
@@ -175,6 +324,7 @@ export class ClubService {
     try {
       await AsyncStorage.removeItem(CLUBS_CACHE_KEY);
       clubByIdCache.clear();
+      earningsCache.clear();
       console.log('[ClubService] Cache cleared');
     } catch {
       // Non-critical

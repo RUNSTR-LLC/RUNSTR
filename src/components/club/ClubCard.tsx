@@ -12,6 +12,7 @@ import {
   Image,
   StyleSheet,
   TouchableOpacity,
+  Share,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
@@ -40,6 +41,21 @@ const ClubCardComponent: React.FC<ClubCardProps> = ({
   const captainDisplay = club.created_by_npub
     ? `@${club.created_by_npub.slice(0, 12)}...`
     : 'Unknown';
+
+  const showShareButton = isCurrentClub || isCaptain;
+
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        message:
+          `Join my fitness club "${club.name}" on RUNSTR!\n\n` +
+          `Download RUNSTR and search for "${club.name}" in the Clubs tab.\n\n` +
+          `https://runstr.club`,
+      });
+    } catch (err) {
+      // User cancelled or share failed silently
+    }
+  };
 
   const memberText = club.member_count === 1
     ? '1 member'
@@ -78,6 +94,22 @@ const ClubCardComponent: React.FC<ClubCardProps> = ({
           Captain: {captainDisplay}
         </Text>
       </View>
+
+      {/* Share button (members & captains) */}
+      {showShareButton && (
+        <TouchableOpacity
+          style={styles.shareButton}
+          onPress={handleShare}
+          activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons
+            name="share-outline"
+            size={18}
+            color={theme.colors.textMuted}
+          />
+        </TouchableOpacity>
+      )}
 
       {/* Right: Action area */}
       {isCurrentClub ? (
@@ -164,6 +196,15 @@ const styles = StyleSheet.create({
   captain: {
     color: theme.colors.textMuted,
     fontSize: 13,
+  },
+  shareButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: theme.colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 6,
   },
   actionIcon: {
     marginLeft: 8,

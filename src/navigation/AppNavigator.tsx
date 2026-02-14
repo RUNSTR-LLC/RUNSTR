@@ -67,7 +67,7 @@ export type RootStackParamList = {
   Auth: undefined;
   Main: undefined;
   Login: undefined;
-  Team: undefined;
+  Clubs: undefined;
   EnhancedTeamScreen: {
     team: any;
     userIsMember?: boolean;
@@ -225,7 +225,7 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
       />
 
       {/* Main Team Screen - Always shows Team Discovery */}
-      <Stack.Screen name="Team" options={screenConfigurations.Team}>
+      <Stack.Screen name="Clubs" options={screenConfigurations.Team}>
         {({ navigation }) => (
           <TeamDiscoveryScreen
             teams={availableTeams}
@@ -253,11 +253,11 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
           profileData ? (
             <ProfileScreen
               data={profileData}
-              onNavigateToTeam={() => navigation.navigate('Team')}
+              onNavigateToTeam={() => navigation.navigate('Clubs')}
               onNavigateToTeamDiscovery={() =>
                 navigation.navigate('TeamDiscovery')
               }
-              onViewCurrentTeam={() => navigation.navigate('Team')}
+              onViewCurrentTeam={() => navigation.navigate('Clubs')}
               onCaptainDashboard={() =>
                 handlers.handleCaptainDashboard(navigation)
               }
@@ -399,7 +399,7 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
               captainId={user?.npub || user?.id || ''}
               userNpub={user?.npub} // Pass user npub for auth fallback
               navigation={navigation} // Pass navigation prop for re-auth flow
-              onNavigateToTeam={() => navigation.navigate('Team')}
+              onNavigateToTeam={() => navigation.navigate('Clubs')}
               onNavigateToProfile={() => navigation.navigate('Profile')}
               onSettingsPress={handlers.handleSettings}
               onKickMember={handlers.handleKickMember}

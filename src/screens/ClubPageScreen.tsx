@@ -16,6 +16,7 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +28,8 @@ import { ClubMembershipService } from '../services/backend/ClubMembershipService
 import { ClubLeaderboardSection } from '../components/club/ClubLeaderboardSection';
 import { ClubChatSection } from '../components/club/ClubChatSection';
 import { ClubMembersSection } from '../components/club/ClubMembersSection';
+import { ClubEarningsCard } from '../components/club/ClubEarningsCard';
+import { CaptainSettingsModal } from '../components/club/CaptainSettingsModal';
 import type { Club } from '../types/club';
 
 // ---------------------------------------------------------------------------
@@ -61,6 +64,7 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
   const [isJoining, setIsJoining] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showCaptainSettings, setShowCaptainSettings] = useState(false);
 
   // -------------------------------------------------------------------------
   // Data Loading
@@ -159,6 +163,71 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
   };
 
   // -------------------------------------------------------------------------
+  // Share
+  // -------------------------------------------------------------------------
+
+  const handleShareClub = async () => {
+    const name = club?.name || clubName;
+    try {
+      await Share.share({
+        message:
+          `Join my fitness club "${name}" on RUNSTR!\n\n` +
+          `Download RUNSTR and search for "${name}" in the Clubs tab.\n\n` +
+          `https://runstr.club`,
+      });
+    } catch (err) {
+      // User cancelled or share failed silently
+      console.log('[ClubPageScreen] Share dismissed or failed:', err);
+    }
+  };
+
+  // -------------------------------------------------------------------------
+  // Ellipsis Menu
+  // -------------------------------------------------------------------------
+
+  const handleEllipsisMenu = () => {
+    if (isCaptain) {
+      // Captains get the full settings modal
+      setShowCaptainSettings(true);
+    } else if (isMember) {
+      // Regular members get a simple menu
+      Alert.alert(
+        club?.name || clubName,
+        undefined,
+        [
+          { text: 'Share Club', onPress: handleShareClub },
+          {
+            text: 'Leave Club',
+            style: 'destructive',
+            onPress: handleLeaveConfirm,
+          },
+          { text: 'Cancel', style: 'cancel' },
+        ]
+      );
+    } else {
+      // Non-members just get share
+      Alert.alert(
+        club?.name || clubName,
+        undefined,
+        [
+          { text: 'Share Club', onPress: handleShareClub },
+          { text: 'Cancel', style: 'cancel' },
+        ]
+      );
+    }
+  };
+
+  const handleCaptainSettingsClose = () => {
+    setShowCaptainSettings(false);
+  };
+
+  const handleClubUpdated = async () => {
+    // Clear cache and reload club data after captain makes changes
+    await ClubService.clearCache();
+    await loadClubData();
+  };
+
+  // -------------------------------------------------------------------------
   // Pull-to-refresh
   // -------------------------------------------------------------------------
 
@@ -179,6 +248,9 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
   const displayName = club?.name || clubName;
   const memberCountText =
     club?.member_count === 1 ? '1 member' : `${club?.member_count ?? 0} members`;
+  const isCaptain = Boolean(
+    userNpub && club?.created_by_npub && userNpub === club.created_by_npub
+  );
 
   // -------------------------------------------------------------------------
   // Render
@@ -202,6 +274,7 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
 
         <TouchableOpacity
           style={styles.headerButton}
+          onPress={handleEllipsisMenu}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Ionicons
@@ -328,6 +401,46 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
             </View>
           )}
 
+          {/* Invite Members section (captain only) */}
+          {isCaptain && (
+            <View style={styles.inviteCard}>
+              <Text style={styles.inviteTitle}>Invite Members</Text>
+              <Text style={styles.inviteDescription}>
+                Share your club with friends to grow your crew.
+              </Text>
+
+              <View style={styles.inviteStatsRow}>
+                <Ionicons
+                  name="people-outline"
+                  size={16}
+                  color={theme.colors.accent}
+                />
+                <Text style={styles.inviteStatsText}>{memberCountText}</Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.inviteShareButton}
+                onPress={handleShareClub}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="share-outline"
+                  size={20}
+                  color={theme.colors.accentText}
+                />
+                <Text style={styles.inviteShareButtonText}>Share Club</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Earnings card (captain only) */}
+          {isCaptain && (
+            <ClubEarningsCard
+              clubId={clubId}
+              lightningAddress={club.lightning_address}
+            />
+          )}
+
           {/* Leaderboard section */}
           <ClubLeaderboardSection clubId={clubId} />
 
@@ -344,6 +457,17 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
           {/* Bottom spacing */}
           <View style={styles.bottomSpacer} />
         </ScrollView>
+      )}
+
+      {/* Captain Settings Modal */}
+      {club && userNpub && (
+        <CaptainSettingsModal
+          visible={showCaptainSettings}
+          onClose={handleCaptainSettingsClose}
+          club={club}
+          userNpub={userNpub}
+          onClubUpdated={handleClubUpdated}
+        />
       )}
     </SafeAreaView>
   );
@@ -490,6 +614,54 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: theme.typography.weights.medium,
     color: theme.colors.textMuted,
+  },
+
+  // Invite Members card (captain)
+  inviteCard: {
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 16,
+    marginTop: 16,
+  },
+  inviteTitle: {
+    fontSize: 18,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+    marginBottom: 4,
+  },
+  inviteDescription: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  inviteStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 14,
+  },
+  inviteStatsText: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.accent,
+  },
+  inviteShareButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.accent,
+    borderRadius: 12,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  inviteShareButtonText: {
+    fontSize: 15,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.accentText,
   },
 
   bottomSpacer: {
