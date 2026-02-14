@@ -13,6 +13,7 @@ export interface Club {
   member_count: number;
   is_active: boolean;
   created_at: string;
+  banner_url: string | null;
 }
 
 // Club membership - maps to club_memberships table

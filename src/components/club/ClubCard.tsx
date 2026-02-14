@@ -9,6 +9,7 @@ import React from 'react';
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   TouchableOpacity,
 } from 'react-native';
@@ -53,10 +54,17 @@ const ClubCardComponent: React.FC<ClubCardProps> = ({
       onPress={onPress}
       activeOpacity={0.7}
     >
-      {/* Left: Circle icon */}
-      <View style={styles.iconContainer}>
-        <Ionicons name="people" size={22} color={theme.colors.textMuted} />
-      </View>
+      {/* Left: Club avatar (banner image or fallback icon) */}
+      {club.banner_url ? (
+        <Image
+          source={{ uri: club.banner_url }}
+          style={styles.clubImage}
+        />
+      ) : (
+        <View style={styles.iconContainer}>
+          <Ionicons name="people" size={22} color={theme.colors.textMuted} />
+        </View>
+      )}
 
       {/* Center: Club info */}
       <View style={styles.content}>
@@ -122,6 +130,13 @@ const styles = StyleSheet.create({
   cardActive: {
     borderLeftWidth: 3,
     borderLeftColor: theme.colors.accent,
+  },
+  clubImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginRight: 12,
+    backgroundColor: theme.colors.border,
   },
   iconContainer: {
     width: 48,
