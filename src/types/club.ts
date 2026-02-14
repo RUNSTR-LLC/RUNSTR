@@ -1,0 +1,59 @@
+/**
+ * Club Types
+ * TypeScript definitions for fitness clubs, memberships, and club chat
+ */
+
+// Club - maps to user_teams table in Supabase
+export interface Club {
+  id: string;
+  name: string;
+  description: string | null;
+  lightning_address: string | null;
+  created_by_npub: string;
+  member_count: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+// Club membership - maps to club_memberships table
+export interface ClubMembership {
+  id: string;
+  club_id: string;
+  member_npub: string;
+  role: 'member' | 'captain';
+  joined_at: string;
+}
+
+// Club chat message - maps to club_messages table
+export interface ClubMessage {
+  id: string;
+  club_id: string;
+  sender_npub: string;
+  content: string;
+  created_at: string;
+  deleted_at: string | null;
+}
+
+// Result type for join/leave operations
+export interface ClubJoinResult {
+  success: boolean;
+  error?: string;
+  club?: Club;
+}
+
+// User's current club state (cached in AsyncStorage)
+export interface ClubState {
+  clubId: string;
+  clubName: string;
+  role: 'member' | 'captain';
+}
+
+// Club leaderboard entry
+export interface ClubLeaderboardEntry {
+  npub: string;
+  profile_name: string | null;
+  profile_picture: string | null;
+  total_distance_km: number;
+  workout_count: number;
+  rank: number;
+}

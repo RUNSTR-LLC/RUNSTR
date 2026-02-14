@@ -150,14 +150,14 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
 
   const handleViewCompetition = (notification: UnifiedNotification) => {
     onClose();
-    // Navigate to Teams tab to view competitions
-    navigation.navigate('Teams');
+    // Navigate to Clubs tab to view competitions
+    navigation.navigate('Clubs');
   };
 
   const handleViewResults = (notification: UnifiedNotification) => {
     onClose();
-    // Navigate to Teams tab where results would be displayed
-    navigation.navigate('Teams');
+    // Navigate to Clubs tab where results would be displayed
+    navigation.navigate('Clubs');
   };
 
   const handleViewWallet = () => {
@@ -168,8 +168,8 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
 
   const handleViewCaptainDashboard = (notification: UnifiedNotification) => {
     onClose();
-    // Navigate to Teams tab - captain can access dashboard from there
-    navigation.navigate('Teams');
+    // Navigate to Clubs tab - captain can access dashboard from there
+    navigation.navigate('Clubs');
   };
 
   const handleMarkAllAsRead = async () => {

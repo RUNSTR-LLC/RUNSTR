@@ -79,13 +79,21 @@ export class SupabaseCompetitionService {
     try {
       const cached = await AsyncStorage.getItem(DYNAMIC_COMPETITIONS_CACHE_KEY);
       if (cached) {
-        const { data, timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp < DYNAMIC_COMPETITIONS_TTL) {
-          return data as Competition[];
+        let parsed;
+        try {
+          parsed = JSON.parse(cached);
+        } catch {
+          // Corrupted cache (e.g., device reboot mid-write), remove it
+          console.warn('[SupabaseCompetitionService] Corrupted dynamic competitions cache, removing');
+          await AsyncStorage.removeItem(DYNAMIC_COMPETITIONS_CACHE_KEY);
+          parsed = null;
+        }
+        if (parsed && Date.now() - parsed.timestamp < DYNAMIC_COMPETITIONS_TTL) {
+          return parsed.data as Competition[];
         }
       }
     } catch {
-      // Cache read failed, continue to fetch
+      // AsyncStorage read failed, continue to fetch
     }
 
     try {
@@ -420,6 +428,8 @@ export class SupabaseCompetitionService {
             // PPQ.AI team: Bolt11 invoice for reward topup
             ppq_bolt11: ppqBolt11 || null,
             ppq_invoice_id: ppqInvoiceId || null,
+            // Club association (separate from charity/team)
+            club_id: await AsyncStorage.getItem('@runstr:club_id') || null,
             raw_event: {
               event_id: data.eventId,
               type: data.type,
@@ -635,8 +645,10 @@ export class SupabaseCompetitionService {
       const startDate = dateOverride?.startDate || competition.start_date;
       const endDate = dateOverride?.endDate || competition.end_date;
 
-      // Use activityTypes override if provided, otherwise use single competition type
-      const types = activityTypes || [competition.activity_type];
+      // Use activityTypes override if provided, then check config.activity_types array,
+      // and fall back to the single activity_type column for backwards compatibility
+      const configTypes = (competition.config as Record<string, unknown>)?.activity_types as string[] | undefined;
+      const types = activityTypes || (configTypes && configTypes.length > 0 ? configTypes : [competition.activity_type]);
 
       // Build query with activity type filter (single or multiple types)
       // DATA QUALITY FIX: Use validNpubs (banned users filtered)
@@ -1227,7 +1239,15 @@ export class SupabaseCompetitionService {
   private static async saveLocalJoin(competitionId: string, npub: string): Promise<void> {
     try {
       const stored = await AsyncStorage.getItem(LOCAL_JOINED_COMPETITIONS_KEY);
-      const joins: Record<string, string[]> = stored ? JSON.parse(stored) : {};
+      let joins: Record<string, string[]> = {};
+      if (stored) {
+        try {
+          joins = JSON.parse(stored);
+        } catch {
+          console.warn('[SupabaseCompetitionService] Corrupted local joins cache, resetting');
+          await AsyncStorage.removeItem(LOCAL_JOINED_COMPETITIONS_KEY);
+        }
+      }
 
       // Add npub to this competition's list (if not already there)
       if (!joins[competitionId]) {
@@ -1251,7 +1271,14 @@ export class SupabaseCompetitionService {
       const stored = await AsyncStorage.getItem(LOCAL_JOINED_COMPETITIONS_KEY);
       if (!stored) return;
 
-      const joins: Record<string, string[]> = JSON.parse(stored);
+      let joins: Record<string, string[]>;
+      try {
+        joins = JSON.parse(stored);
+      } catch {
+        console.warn('[SupabaseCompetitionService] Corrupted local joins cache, removing');
+        await AsyncStorage.removeItem(LOCAL_JOINED_COMPETITIONS_KEY);
+        return;
+      }
       if (joins[competitionId]) {
         joins[competitionId] = joins[competitionId].filter((n) => n !== npub);
         if (joins[competitionId].length === 0) {
@@ -1273,11 +1300,53 @@ export class SupabaseCompetitionService {
       const stored = await AsyncStorage.getItem(LOCAL_JOINED_COMPETITIONS_KEY);
       if (!stored) return false;
 
-      const joins: Record<string, string[]> = JSON.parse(stored);
+      let joins: Record<string, string[]>;
+      try {
+        joins = JSON.parse(stored);
+      } catch {
+        console.warn('[SupabaseCompetitionService] Corrupted local joins cache, removing');
+        await AsyncStorage.removeItem(LOCAL_JOINED_COMPETITIONS_KEY);
+        return false;
+      }
       return joins[competitionId]?.includes(npub) || false;
     } catch (error) {
       console.warn('[SupabaseCompetitionService] Failed to check local join:', error);
       return false;
+    }
+  }
+
+  /**
+   * Clear the dynamic competitions cache so newly created events appear immediately
+   */
+  static async clearDynamicCompetitionsCache(): Promise<void> {
+    try {
+      await AsyncStorage.removeItem(DYNAMIC_COMPETITIONS_CACHE_KEY);
+      console.log('[SupabaseCompetitionService] Dynamic competitions cache cleared');
+    } catch {
+      // Non-critical
+    }
+  }
+
+  /**
+   * Fetch a single competition by external_id (direct Supabase query, no cache)
+   * Used after event creation to avoid cache staleness
+   */
+  static async fetchCompetitionByExternalId(externalId: string): Promise<any | null> {
+    if (!isSupabaseConfigured()) return null;
+    try {
+      const { data, error } = await supabase!
+        .from('competitions')
+        .select('*')
+        .eq('external_id', externalId)
+        .single();
+      if (error) {
+        console.warn('[SupabaseCompetitionService] fetchByExternalId error:', error.message);
+        return null;
+      }
+      return data;
+    } catch (err) {
+      console.warn('[SupabaseCompetitionService] fetchByExternalId exception:', err);
+      return null;
     }
   }
 
@@ -1290,7 +1359,14 @@ export class SupabaseCompetitionService {
       const stored = await AsyncStorage.getItem(LOCAL_JOINED_COMPETITIONS_KEY);
       if (!stored) return [];
 
-      const joins: Record<string, string[]> = JSON.parse(stored);
+      let joins: Record<string, string[]>;
+      try {
+        joins = JSON.parse(stored);
+      } catch {
+        console.warn('[SupabaseCompetitionService] Corrupted local joins cache, removing');
+        await AsyncStorage.removeItem(LOCAL_JOINED_COMPETITIONS_KEY);
+        return [];
+      }
       return joins[competitionId] || [];
     } catch (error) {
       console.warn('[SupabaseCompetitionService] Failed to get local joins:', error);

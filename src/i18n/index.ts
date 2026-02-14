@@ -23,6 +23,7 @@ import enProfile from './locales/en/profile.json';
 import enRewards from './locales/en/rewards.json';
 import enTeams from './locales/en/teams.json';
 import enCharities from './locales/en/charities.json';
+import enClubs from './locales/en/clubs.json';
 
 // German translations
 import deCommon from './locales/de/common.json';
@@ -31,6 +32,7 @@ import deProfile from './locales/de/profile.json';
 import deRewards from './locales/de/rewards.json';
 import deTeams from './locales/de/teams.json';
 import deCharities from './locales/de/charities.json';
+import deClubs from './locales/de/clubs.json';
 
 export const SUPPORTED_LANGUAGES = [
   { code: 'en', name: 'English', nativeName: 'English' },
@@ -47,6 +49,7 @@ const resources = {
     rewards: enRewards,
     teams: enTeams,
     charities: enCharities,
+    clubs: enClubs,
   },
   de: {
     common: deCommon,
@@ -55,6 +58,7 @@ const resources = {
     rewards: deRewards,
     teams: deTeams,
     charities: deCharities,
+    clubs: deClubs,
   },
 };
 
@@ -81,7 +85,7 @@ i18n
     lng: getDeviceLanguage(),
     fallbackLng: 'en',
     defaultNS: 'common',
-    ns: ['common', 'settings', 'profile', 'rewards', 'teams', 'charities'],
+    ns: ['common', 'settings', 'profile', 'rewards', 'teams', 'charities', 'clubs'],
 
     interpolation: {
       escapeValue: false, // React already handles escaping

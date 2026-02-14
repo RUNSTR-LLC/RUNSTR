@@ -9,6 +9,9 @@ export * from './user';
 // Re-export Team and Competition Types
 export * from './team';
 
+// Re-export Club Types
+export * from './club';
+
 // Re-export Workout and Fitness Types
 export * from './workout';
 

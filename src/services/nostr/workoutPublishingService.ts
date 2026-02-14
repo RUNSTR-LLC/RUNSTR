@@ -25,7 +25,9 @@ import { RewardLightningAddressService } from '../rewards/RewardLightningAddress
 // Note: DailyRewardService import removed - rewards now trigger from SupabaseCompetitionService
 import { ImageUploadService } from '../media/ImageUploadService';
 import { LocalTeamMembershipService } from '../team/LocalTeamMembershipService';
-import { getCharityById, type Charity, isPPQTeam, isSelfTeam, SELF_TEAM_ID } from '../../constants/charities';
+import { getCharityById, type Charity, isPPQTeam, isSelfTeam, isCommunityTeam, extractCommunityTeamUUID, SELF_TEAM_ID } from '../../constants/charities';
+import { UserTeamService } from '../backend/UserTeamService';
+import { isSupabaseConfigured } from '../../utils/supabase';
 // PPQAccountService import removed - PPQ bolt11 now created centrally in submitWorkoutSimple()
 import { SatlantisEventJoinService } from '../satlantis/SatlantisEventJoinService';
 import { withTimeout, fireAndForget, NOSTR_TIMEOUTS } from '../../utils/nostrTimeout';
@@ -191,6 +193,7 @@ export class WorkoutPublishingService {
 
       // Look up the charity data (team data) from the charity ID
       // Self team is dynamic (not in CHARITIES array), so construct it inline
+      // Community teams are fetched from Supabase user_teams table
       let selectedCharity: Charity | null = null;
       if (selectedTeamId) {
         if (isSelfTeam(selectedTeamId)) {
@@ -201,6 +204,26 @@ export class WorkoutPublishingService {
             description: 'Rewards go to your Lightning address',
             isSelf: true,
           };
+        } else if (isCommunityTeam(selectedTeamId)) {
+          // Community team -- look up from Supabase
+          const uuid = extractCommunityTeamUUID(selectedTeamId);
+          let communityTeam = null;
+          if (isSupabaseConfigured()) {
+            try {
+              communityTeam = await UserTeamService.getTeamById(uuid);
+            } catch (err) {
+              console.warn(`[WorkoutPublishing] Failed to fetch community team '${uuid}':`, err);
+            }
+          }
+          if (communityTeam) {
+            selectedCharity = {
+              id: selectedTeamId,
+              name: communityTeam.name,
+              displayName: communityTeam.name,
+              lightningAddress: communityTeam.lightning_address || undefined,
+              description: communityTeam.description || 'Community team',
+            };
+          }
         } else {
           selectedCharity = getCharityById(selectedTeamId) || null;
         }
@@ -211,9 +234,9 @@ export class WorkoutPublishingService {
         await RewardLightningAddressService.getRewardLightningAddress();
 
       // Get reward destination for external reward service routing
-      // If self team or has a Lightning address → 'user'
-      // If PPQ.AI team → 'ppq' (rewards go to bolt11 invoice)
-      // Otherwise → 'charity' (charity is always the fallback)
+      // If self team or has a Lightning address -> 'user'
+      // If PPQ.AI team -> 'ppq' (rewards go to bolt11 invoice)
+      // Otherwise -> 'charity' (charity is always the fallback)
       const hasLightningAddress = rewardLightningAddress && rewardLightningAddress.length > 0;
       const isSelf = selectedTeamId ? isSelfTeam(selectedTeamId) : false;
       const isPPQ = selectedTeamId ? isPPQTeam(selectedTeamId) : false;
@@ -568,6 +591,7 @@ export class WorkoutPublishingService {
 
       // Get user's selected team (charity) for tagging
       // Self team is dynamic (not in CHARITIES array)
+      // Community teams are fetched from Supabase user_teams table
       const selectedTeamId = await AsyncStorage.getItem('@runstr:selected_team_id');
       let selectedCharity: Charity | null = null;
       if (selectedTeamId) {
@@ -579,6 +603,26 @@ export class WorkoutPublishingService {
             description: 'Rewards go to your Lightning address',
             isSelf: true,
           };
+        } else if (isCommunityTeam(selectedTeamId)) {
+          // Community team -- look up from Supabase
+          const uuid = extractCommunityTeamUUID(selectedTeamId);
+          let communityTeam = null;
+          if (isSupabaseConfigured()) {
+            try {
+              communityTeam = await UserTeamService.getTeamById(uuid);
+            } catch (err) {
+              console.warn(`[WorkoutPublishing] Failed to fetch community team for social post:`, err);
+            }
+          }
+          if (communityTeam) {
+            selectedCharity = {
+              id: selectedTeamId,
+              name: communityTeam.name,
+              displayName: communityTeam.name,
+              lightningAddress: communityTeam.lightning_address || undefined,
+              description: communityTeam.description || 'Community team',
+            };
+          }
         } else {
           selectedCharity = getCharityById(selectedTeamId) || null;
         }
@@ -889,6 +933,14 @@ export class WorkoutPublishingService {
         }
         console.log(`   ✅ Added charity tag: ${selectedCharity.name}`);
       }
+    }
+
+    // Add club tag (separate from reward destination)
+    // Club is the user's social club, independent of charity/team selection
+    const clubId = await AsyncStorage.getItem('@runstr:club_id');
+    if (clubId) {
+      tags.push(['club', clubId]);
+      console.log(`   ✅ Added club tag: ${clubId}`);
     }
 
     // Add reward lightning address tag (for external reward scripts)
@@ -1476,11 +1528,26 @@ export class WorkoutPublishingService {
 
     // Get selected team (charity) from TeamsScreen selection
     // Self team doesn't have a team name for social posts
+    // Community teams are fetched from Supabase user_teams table
     const selectedTeamId = await AsyncStorage.getItem('@runstr:selected_team_id');
-    const selectedCharity = selectedTeamId && !isSelfTeam(selectedTeamId)
-      ? getCharityById(selectedTeamId)
-      : null;
-    const teamName = selectedCharity?.name || null;
+    let teamName: string | null = null;
+    if (selectedTeamId && !isSelfTeam(selectedTeamId)) {
+      if (isCommunityTeam(selectedTeamId)) {
+        // Community team -- look up name from Supabase
+        const uuid = extractCommunityTeamUUID(selectedTeamId);
+        if (isSupabaseConfigured()) {
+          try {
+            const communityTeam = await UserTeamService.getTeamById(uuid);
+            teamName = communityTeam?.name || null;
+          } catch (err) {
+            console.warn(`[WorkoutPublishing] Failed to fetch community team name for social post:`, err);
+          }
+        }
+      } else {
+        const selectedCharity = getCharityById(selectedTeamId);
+        teamName = selectedCharity?.name || null;
+      }
+    }
 
     // Generate activity-specific team mention (e.g., "Running for Bitcoin Beach!")
     const getTeamMention = () => {

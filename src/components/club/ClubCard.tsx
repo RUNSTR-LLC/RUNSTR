@@ -1,0 +1,194 @@
+/**
+ * ClubCard - Displays a fitness club in the browse/list view
+ *
+ * Dark card with orange accents. Shows club name, member count, captain name,
+ * and a contextual right-side action (Join button, checkmark, or captain badge).
+ */
+
+import React from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { theme } from '../../styles/theme';
+import { Club } from '../../types/club';
+
+interface ClubCardProps {
+  club: Club;
+  isMember: boolean;
+  isCaptain: boolean;
+  isCurrentClub: boolean;
+  onPress: () => void;
+  onJoinPress: () => void;
+  disabled?: boolean; // when user is in another club
+}
+
+const ClubCardComponent: React.FC<ClubCardProps> = ({
+  club,
+  isMember,
+  isCaptain,
+  isCurrentClub,
+  onPress,
+  onJoinPress,
+  disabled = false,
+}) => {
+  // Derive a captain display name from created_by_npub (truncated)
+  const captainDisplay = club.created_by_npub
+    ? `@${club.created_by_npub.slice(0, 12)}...`
+    : 'Unknown';
+
+  const memberText = club.member_count === 1
+    ? '1 member'
+    : `${club.member_count} members`;
+
+  return (
+    <TouchableOpacity
+      style={[
+        styles.card,
+        isCurrentClub && styles.cardActive,
+      ]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      {/* Left: Circle icon */}
+      <View style={styles.iconContainer}>
+        <Ionicons name="people" size={22} color={theme.colors.textMuted} />
+      </View>
+
+      {/* Center: Club info */}
+      <View style={styles.content}>
+        <Text style={styles.clubName} numberOfLines={1}>
+          {club.name}
+        </Text>
+        <Text style={styles.memberCount} numberOfLines={1}>
+          {memberText}
+        </Text>
+        <Text style={styles.captain} numberOfLines={1}>
+          Captain: {captainDisplay}
+        </Text>
+      </View>
+
+      {/* Right: Action area */}
+      {isCurrentClub ? (
+        <Ionicons
+          name="checkmark-circle"
+          size={24}
+          color={theme.colors.accent}
+          style={styles.actionIcon}
+        />
+      ) : isCaptain ? (
+        <View style={styles.captainBadge}>
+          <Ionicons name="star" size={16} color={theme.colors.accent} />
+          <Text style={styles.captainBadgeText}>Captain</Text>
+        </View>
+      ) : (
+        <TouchableOpacity
+          style={[
+            styles.joinButton,
+            disabled && styles.joinButtonDisabled,
+          ]}
+          onPress={onJoinPress}
+          activeOpacity={0.7}
+          disabled={disabled}
+        >
+          <Text
+            style={[
+              styles.joinButtonText,
+              disabled && styles.joinButtonTextDisabled,
+            ]}
+          >
+            Join
+          </Text>
+        </TouchableOpacity>
+      )}
+    </TouchableOpacity>
+  );
+};
+
+const styles = StyleSheet.create({
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.cardBackground,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  cardActive: {
+    borderLeftWidth: 3,
+    borderLeftColor: theme.colors.accent,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: theme.colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  content: {
+    flex: 1,
+  },
+  clubName: {
+    color: theme.colors.text,
+    fontSize: 16,
+    fontWeight: theme.typography.weights.bold,
+    marginBottom: 2,
+  },
+  memberCount: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
+    marginBottom: 1,
+  },
+  captain: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
+  },
+  actionIcon: {
+    marginLeft: 8,
+  },
+  captainBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 123, 28, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
+    gap: 4,
+  },
+  captainBadgeText: {
+    color: theme.colors.accent,
+    fontSize: 12,
+    fontWeight: theme.typography.weights.semiBold,
+  },
+  joinButton: {
+    borderWidth: 1,
+    borderColor: theme.colors.accent,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    marginLeft: 8,
+  },
+  joinButtonDisabled: {
+    borderColor: theme.colors.textMuted,
+    opacity: 0.4,
+  },
+  joinButtonText: {
+    color: theme.colors.accent,
+    fontSize: 13,
+    fontWeight: theme.typography.weights.semiBold,
+  },
+  joinButtonTextDisabled: {
+    color: theme.colors.textMuted,
+  },
+});
+
+export const ClubCard = React.memo(ClubCardComponent);
+export default ClubCard;

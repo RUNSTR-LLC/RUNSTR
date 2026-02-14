@@ -293,8 +293,8 @@ export const createNavigationHandlers = (): NavigationHandlers => {
             {
               text: 'OK',
               onPress: () => {
-                // Navigate back to team discovery
-                navigation.navigate('Teams');
+                // Navigate back to clubs
+                navigation.navigate('Clubs');
               },
             },
           ]

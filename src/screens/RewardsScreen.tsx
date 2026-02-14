@@ -13,9 +13,8 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { theme } from '../styles/theme';
 import { TexturedBackground } from '../components/ui/TexturedBackground';
 import { CustomAlert } from '../components/ui/CustomAlert';
@@ -30,12 +29,13 @@ import { QRScannerModal } from '../components/qr/QRScannerModal';
 import { NWCQRConfirmationModal } from '../components/wallet/NWCQRConfirmationModal';
 import type { QRData } from '../services/qr/QRCodeService';
 import { getCharityById, isPPQTeam, isSelfTeam, SELF_TEAM_ID } from '../constants/charities';
-import { Avatar } from '../components/ui/Avatar';
 import { ExternalZapModal } from '../components/nutzap/ExternalZapModal';
 import Toast from 'react-native-toast-message';
 import { EarningsHeroCard } from '../components/rewards/EarningsHeroCard';
 import { ImpactHeroCard } from '../components/rewards/ImpactHeroCard';
 import { TransparencyDashboardModal } from '../components/rewards/TransparencyDashboardModal';
+import { RewardDestinationSection } from '../components/rewards/RewardDestinationSection';
+import { RewardDestinationPicker } from '../components/rewards/RewardDestinationPicker';
 import { PledgeService } from '../services/pledge/PledgeService';
 import { ActivePledgeCard } from '../components/pledge/ActivePledgeCard';
 import type { Pledge } from '../types/pledge';
@@ -51,7 +51,6 @@ const SELECTED_TEAM_KEY = '@runstr:selected_team_id';
 
 // ✅ PERFORMANCE: React.memo prevents re-renders when props haven't changed
 const RewardsScreenComponent: React.FC = () => {
-  const navigation = useNavigation<any>();
   const { t } = useTranslation('rewards');
 
   // NWC Wallet state
@@ -96,6 +95,9 @@ const RewardsScreenComponent: React.FC = () => {
 
   // PPQ.AI credit topup modal state
   const [showPPQTopupModal, setShowPPQTopupModal] = useState(false);
+
+  // Reward destination picker modal state
+  const [showDestinationPicker, setShowDestinationPicker] = useState(false);
 
   // Self team profile state
   const [selfTeamProfile, setSelfTeamProfile] = useState<{ displayName?: string; picture?: string } | null>(null);
@@ -248,6 +250,7 @@ const RewardsScreenComponent: React.FC = () => {
         name: selfTeamProfile?.displayName || 'You',
         displayName: selfTeamProfile?.displayName || 'You',
         description: 'Rewards go to your Lightning address',
+        lightningAddress: undefined as string | undefined,
         isSelf: true as const,
         image: undefined,
       }
@@ -333,83 +336,18 @@ const RewardsScreenComponent: React.FC = () => {
           <ImpactHeroCard pubkey={userHexPubkey} />
         )}
 
-        {/* Your Team Card - Always visible */}
-        <View style={styles.teamCard}>
-          <Text style={styles.teamCardTitle}>{t('yourTeam', { defaultValue: 'YOUR TEAM' })}</Text>
-          <View style={styles.teamCardContent}>
-            <TouchableOpacity
-              style={styles.teamInfoRow}
-              onPress={() => navigation.navigate('Teams')}
-              activeOpacity={0.7}
-            >
-              {selectedTeam ? (
-                <>
-                  {isSelfTeam(selectedTeam.id) && selfTeamProfile?.picture ? (
-                    <Avatar
-                      name={selectedTeam.name}
-                      size={44}
-                      imageUrl={selfTeamProfile.picture}
-                    />
-                  ) : (
-                    <Avatar
-                      name={selectedTeam.name}
-                      size={44}
-                      imageSource={selectedTeam.image}
-                    />
-                  )}
-                  <View style={styles.teamTextSection}>
-                    <Text style={styles.teamName}>{selectedTeam.name}</Text>
-                    <Text style={styles.teamSupportText}>
-                      {isSelfTeam(selectedTeam.id)
-                        ? t('rewardsGoToYou', { defaultValue: 'Rewards go to your Lightning address' })
-                        : t('allRewardsSupportTeam', { defaultValue: 'All rewards support this team' })}
-                    </Text>
-                  </View>
-                </>
-              ) : (
-                <>
-                  <View style={styles.emptyAvatarPlaceholder}>
-                    <Ionicons name="add" size={24} color="#666" />
-                  </View>
-                  <View style={styles.teamTextSection}>
-                    <Text style={styles.teamNameEmpty}>{t('selectTeam', { defaultValue: 'Select a team' })}</Text>
-                    <Text style={styles.teamSupportText}>{t('tapToChoose', { defaultValue: 'Tap to choose' })}</Text>
-                  </View>
-                </>
-              )}
-            </TouchableOpacity>
-            {/* Zap button for charities with Lightning address */}
-            {selectedTeam && !isPPQTeam(selectedTeam.id) && !isSelfTeam(selectedTeam.id) && selectedTeam.lightningAddress && (
-              <TouchableOpacity
-                style={styles.zapButton}
-                onPress={handleZapCharity}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="flash" size={22} color="#FF9D42" />
-              </TouchableOpacity>
-            )}
-            {/* Sparkle button for PPQ.AI team (credit topup) */}
-            {selectedTeam && isPPQTeam(selectedTeam.id) && (
-              <TouchableOpacity
-                style={styles.zapButton}
-                onPress={handlePPQTopup}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="sparkles" size={22} color="#FF9D42" />
-              </TouchableOpacity>
-            )}
-            {/* Flash icon for Self team - navigates to Teams tab */}
-            {selectedTeam && isSelfTeam(selectedTeam.id) && (
-              <TouchableOpacity
-                style={styles.zapButton}
-                onPress={() => navigation.navigate('Teams')}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="flash" size={22} color="#FF9D42" />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
+        {/* Reward Destination - Where workout rewards go */}
+        <RewardDestinationSection
+          selectedTeamId={selectedTeamId}
+          onChangePress={() => setShowDestinationPicker(true)}
+          onZapPress={() => {
+            if (selectedTeam && isPPQTeam(selectedTeam.id)) {
+              handlePPQTopup();
+            } else {
+              handleZapCharity();
+            }
+          }}
+        />
 
         {/* How It Works Section */}
         <View style={styles.howItWorksCard}>
@@ -526,6 +464,17 @@ const RewardsScreenComponent: React.FC = () => {
         visible={showTransparencyDashboard}
         onClose={() => setShowTransparencyDashboard(false)}
         initialPoolBalance={poolBalance}
+      />
+
+      {/* Reward Destination Picker Modal */}
+      <RewardDestinationPicker
+        visible={showDestinationPicker}
+        onClose={() => setShowDestinationPicker(false)}
+        selectedDestinationId={selectedTeamId}
+        onSelectDestination={(destinationId) => {
+          setSelectedTeamId(destinationId);
+          setShowDestinationPicker(false);
+        }}
       />
     </TexturedBackground>
   );
@@ -755,61 +704,6 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
 
-  // Donation settings styles - Option B design
-  donationCard: {
-    padding: 14,
-  },
-  teamHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  teamInfoSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: 12,
-  },
-  teamTextSection: {
-    flex: 1,
-  },
-  teamName: {
-    fontSize: 15,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.text,
-    marginBottom: 2,
-  },
-  teamNameEmpty: {
-    fontSize: 15,
-    fontWeight: theme.typography.weights.semiBold,
-    color: '#666',
-    marginBottom: 2,
-  },
-  teamSupportText: {
-    fontSize: 12,
-    color: '#888',
-  },
-  emptyAvatarPlaceholder: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#1a1a1a',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#333',
-    borderStyle: 'dashed',
-  },
-  zapButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
   // Prize Pool card styles
   prizePoolCard: {
     backgroundColor: '#0a0a0a',
@@ -837,42 +731,6 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.orangeBright,
-  },
-
-  // Team card styles
-  teamCard: {
-    backgroundColor: '#0a0a0a',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#1a1a1a',
-    padding: 14,
-    marginBottom: 12,
-  },
-  teamCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  teamCardTitle: {
-    fontSize: 12,
-    fontWeight: theme.typography.weights.bold,
-    color: '#FF9D42',
-    letterSpacing: 1,
-  },
-  teamCardContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#1a1a1a',
-  },
-  teamInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: 12,
   },
 
   // Accordion styles
