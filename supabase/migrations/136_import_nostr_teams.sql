@@ -58,7 +58,7 @@ BEGIN
   -- 3. Bitcoin Runners
   INSERT INTO user_teams (id, name, description, lightning_address, created_by_npub, member_count, is_active, banner_url)
   VALUES (
-    'b1tc01n0-runn-e7s0-0000-000000000001',
+    'b11c0100-4a11-4e50-a000-000000000001',
     'Bitcoin Runners',
     'Bitcoin Runners is an open-source running club at the intersection of two community-led movements enabling sovereignty of one''s wealth, while improving one''s health.',
     NULL,
@@ -68,7 +68,7 @@ BEGIN
   ) ON CONFLICT (id) DO NOTHING;
 
   INSERT INTO club_memberships (club_id, member_npub, role)
-  VALUES ('b1tc01n0-runn-e7s0-0000-000000000001', 'npub1mlq3pk5cp5x5f80d8h6wpy756cmyzxc8vq7mhjf6lrfkg46cdrgqe67u32', 'captain')
+  VALUES ('b11c0100-4a11-4e50-a000-000000000001', 'npub1mlq3pk5cp5x5f80d8h6wpy756cmyzxc8vq7mhjf6lrfkg46cdrgqe67u32', 'captain')
   ON CONFLICT (member_npub) DO NOTHING;
 
   -- 4. BULLISH
@@ -138,7 +138,7 @@ BEGIN
   -- 8. Family Walks & Hikes
   INSERT INTO user_teams (id, name, description, lightning_address, created_by_npub, member_count, is_active, banner_url)
   VALUES (
-    'fa3117a1-1ks0-h1k3-0000-000000000001',
+    'fa3117a1-1a50-4b3e-a000-000000000001',
     'Family Walks & Hikes',
     'Family Walks & hikes around the world.',
     'elsantofrikal@minibits.cash',
@@ -148,7 +148,7 @@ BEGIN
   ) ON CONFLICT (id) DO NOTHING;
 
   INSERT INTO club_memberships (club_id, member_npub, role)
-  VALUES ('fa3117a1-1ks0-h1k3-0000-000000000001', 'npub1wf02ttnmqfmvm63f2cuzgkwrm75gltw88z5uhrhzvl3gaprj248qunget5', 'captain')
+  VALUES ('fa3117a1-1a50-4b3e-a000-000000000001', 'npub1wf02ttnmqfmvm63f2cuzgkwrm75gltw88z5uhrhzvl3gaprj248qunget5', 'captain')
   ON CONFLICT (member_npub) DO NOTHING;
 
   -- 9. Ruckstr
