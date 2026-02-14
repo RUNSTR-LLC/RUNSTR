@@ -137,3 +137,24 @@ export async function buildClubTag(): Promise<string[] | null> {
   if (!clubId) return null;
   return ['club', clubId];
 }
+
+/**
+ * Get the Lightning address of the user's current club.
+ * Used to route 10-sat club rewards per qualified workout.
+ * Returns null if user has no club or club has no Lightning address.
+ */
+export async function getClubLightningAddress(): Promise<string | null> {
+  const clubId = await AsyncStorage.getItem('@runstr:club_id');
+  if (!clubId) return null;
+
+  // Club IDs from AsyncStorage are raw UUIDs (not prefixed)
+  if (!isSupabaseConfigured()) return null;
+
+  try {
+    const team = await UserTeamService.getTeamById(clubId);
+    return team?.lightning_address || null;
+  } catch (err) {
+    console.warn('[getClubLightningAddress] Failed to fetch club:', err);
+    return null;
+  }
+}

@@ -36,6 +36,7 @@ import { ImpactHeroCard } from '../components/rewards/ImpactHeroCard';
 import { TransparencyDashboardModal } from '../components/rewards/TransparencyDashboardModal';
 import { RewardDestinationSection } from '../components/rewards/RewardDestinationSection';
 import { RewardDestinationPicker } from '../components/rewards/RewardDestinationPicker';
+import { SponsorBanner } from '../components/rewards/SponsorBanner';
 import { PledgeService } from '../services/pledge/PledgeService';
 import { ActivePledgeCard } from '../components/pledge/ActivePledgeCard';
 import type { Pledge } from '../types/pledge';
@@ -325,6 +326,9 @@ const RewardsScreenComponent: React.FC = () => {
               : t('loading', { defaultValue: '-- sats' })}
           </Text>
         </TouchableOpacity>
+
+        {/* Sponsor credit line */}
+        <SponsorBanner />
 
         {/* Earnings Hero Card - Only shown when user has Lightning address */}
         {userHexPubkey && hasLightningAddress && (

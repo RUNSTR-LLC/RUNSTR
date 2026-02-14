@@ -33,6 +33,7 @@ import { SatlantisEventJoinService } from '../satlantis/SatlantisEventJoinServic
 import { withTimeout, fireAndForget, NOSTR_TIMEOUTS } from '../../utils/nostrTimeout';
 import { RunningBitcoinService } from '../challenge/RunningBitcoinService';
 import { isRunningBitcoinActive, isEligibleActivityType } from '../../constants/runningBitcoin';
+import { getClubLightningAddress } from '../../utils/rewardTags';
 import Toast from 'react-native-toast-message';
 import { nip19 } from 'nostr-tools';
 import Constants from 'expo-constants';
@@ -202,6 +203,7 @@ export class WorkoutPublishingService {
             name: 'You',
             displayName: 'You',
             description: 'Rewards go to your Lightning address',
+            category: 'service',
             isSelf: true,
           };
         } else if (isCommunityTeam(selectedTeamId)) {
@@ -222,6 +224,7 @@ export class WorkoutPublishingService {
               displayName: communityTeam.name,
               lightningAddress: communityTeam.lightning_address || undefined,
               description: communityTeam.description || 'Community team',
+              category: 'project',
             };
           }
         } else {
@@ -601,6 +604,7 @@ export class WorkoutPublishingService {
             name: 'You',
             displayName: 'You',
             description: 'Rewards go to your Lightning address',
+            category: 'service',
             isSelf: true,
           };
         } else if (isCommunityTeam(selectedTeamId)) {
@@ -621,6 +625,7 @@ export class WorkoutPublishingService {
               displayName: communityTeam.name,
               lightningAddress: communityTeam.lightning_address || undefined,
               description: communityTeam.description || 'Community team',
+              category: 'project',
             };
           }
         } else {
@@ -941,6 +946,13 @@ export class WorkoutPublishingService {
     if (clubId) {
       tags.push(['club', clubId]);
       console.log(`   ✅ Added club tag: ${clubId}`);
+    }
+
+    // Club lightning address for 10-sat club reward
+    const clubLightningAddress = await getClubLightningAddress();
+    if (clubLightningAddress) {
+      tags.push(['club_lightning', clubLightningAddress]);
+      console.log(`   ✅ Added club_lightning tag: ${clubLightningAddress}`);
     }
 
     // Add reward lightning address tag (for external reward scripts)

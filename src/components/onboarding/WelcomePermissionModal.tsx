@@ -117,7 +117,7 @@ export const WelcomePermissionModal: React.FC<WelcomePermissionModalProps> = ({
               onPress={onComplete}
               activeOpacity={0.7}
             >
-              <Text style={styles.primaryButtonText}>Choose a Charity</Text>
+              <Text style={styles.primaryButtonText}>Choose Reward Destination</Text>
               <Ionicons
                 name="arrow-forward"
                 size={20}

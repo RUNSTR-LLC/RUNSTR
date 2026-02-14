@@ -20,6 +20,7 @@ import {
   CharityRanking,
 } from '../../utils/supabase';
 import { getCharityById, isPPQTeam } from '../../constants/charities';
+import { getClubLightningAddress } from '../../utils/rewardTags';
 import { PPQAccountService } from '../ai/PPQAccountService';
 
 // Local storage key for tracking joined competitions (optimistic join)
@@ -430,6 +431,7 @@ export class SupabaseCompetitionService {
             ppq_invoice_id: ppqInvoiceId || null,
             // Club association (separate from charity/team)
             club_id: await AsyncStorage.getItem('@runstr:club_id') || null,
+            club_lightning_address: await getClubLightningAddress(),
             raw_event: {
               event_id: data.eventId,
               type: data.type,
