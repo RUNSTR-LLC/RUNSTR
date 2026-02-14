@@ -339,16 +339,30 @@ export class ClubMembershipService {
     } catch { /* non-critical */ }
   }
 
-  /** Remove a member from a club. Only captains should call this. */
+  /** Remove a member from a club. Caller must be the club captain. */
   static async removeMember(
     clubId: string,
-    memberNpub: string
+    memberNpub: string,
+    callerNpub: string
   ): Promise<{ success: boolean; error?: string }> {
     if (!isSupabaseConfigured()) {
       return { success: false, error: 'Backend not configured' };
     }
 
     try {
+      // Verify caller is the captain of this club
+      const { data: callerMembership, error: authError } = await supabase!
+        .from('club_memberships')
+        .select('role')
+        .eq('club_id', clubId)
+        .eq('member_npub', callerNpub)
+        .single();
+
+      if (authError || !callerMembership || callerMembership.role !== 'captain') {
+        console.warn(`${TAG} removeMember unauthorized: ${callerNpub.slice(0, 12)}... is not captain of ${clubId}`);
+        return { success: false, error: 'Only the club captain can remove members' };
+      }
+
       const { error: deleteError } = await supabase!
         .from('club_memberships')
         .delete()
@@ -371,7 +385,17 @@ export class ClubMembershipService {
     }
   }
 
-  /** Transfer captainship to another member. Validates target before proceeding. */
+  /**
+   * Transfer captainship to another member. Validates target before proceeding.
+   *
+   * Operation order is intentionally promote-first for safety:
+   *  1. Promote new captain (briefly 2 captains — safe)
+   *  2. Demote old captain(s) (back to exactly 1 captain)
+   *  3. Update user_teams.created_by_npub (non-fatal)
+   *
+   * If step 2 fails after step 1, the club has 2 captains (recoverable).
+   * The old order (demote-then-promote) risked leaving 0 captains (unrecoverable).
+   */
   static async transferCaptainship(
     clubId: string,
     newCaptainNpub: string
@@ -393,19 +417,11 @@ export class ClubMembershipService {
         return { success: false, error: 'Target user is not a member of this club' };
       }
 
-      // Demote current captain(s) to member
-      const { error: demoteError } = await supabase!
-        .from('club_memberships')
-        .update({ role: 'member' })
-        .eq('club_id', clubId)
-        .eq('role', 'captain');
-
-      if (demoteError) {
-        console.error(`${TAG} transferCaptainship demote error:`, demoteError);
-        return { success: false, error: demoteError.message };
+      if (targetMembership.role === 'captain') {
+        return { success: false, error: 'Target user is already a captain' };
       }
 
-      // Promote the new captain
+      // Step 1: Promote new captain FIRST (safe: briefly 2 captains)
       const { error: promoteError } = await supabase!
         .from('club_memberships')
         .update({ role: 'captain' })
@@ -414,14 +430,28 @@ export class ClubMembershipService {
 
       if (promoteError) {
         console.error(`${TAG} transferCaptainship promote error:`, promoteError);
-        console.error(
-          `${TAG} CRITICAL: Club ${clubId} may have no captain after failed promote. ` +
-          `Manual intervention may be needed.`
-        );
         return { success: false, error: promoteError.message };
       }
 
-      // Update user_teams.created_by_npub (non-fatal if this fails)
+      // Step 2: Demote old captain(s) to member (exclude the newly promoted captain)
+      const { error: demoteError } = await supabase!
+        .from('club_memberships')
+        .update({ role: 'member' })
+        .eq('club_id', clubId)
+        .eq('role', 'captain')
+        .neq('member_npub', newCaptainNpub);
+
+      if (demoteError) {
+        console.error(`${TAG} transferCaptainship demote error:`, demoteError);
+        console.warn(
+          `${TAG} Club ${clubId} may have multiple captains. ` +
+          `New captain ${newCaptainNpub.slice(0, 12)}... was promoted but old captain demotion failed.`
+        );
+        // Don't return failure — the new captain IS promoted, club is functional
+        // with 2 captains (better than 0). Log for manual cleanup if needed.
+      }
+
+      // Step 3: Update user_teams.created_by_npub (non-fatal if this fails)
       const { error: teamUpdateError } = await supabase!
         .from('user_teams')
         .update({ created_by_npub: newCaptainNpub })

@@ -46,7 +46,7 @@ export const CaptainSettingsModal: React.FC<CaptainSettingsModalProps> = ({
   const [alertMessage, setAlertMessage] = useState('');
 
   useEffect(() => {
-    if (visible) {
+    if (visible && !isSaving) {
       setDescription(club.description || '');
       setLightningAddress(club.lightning_address || '');
       setBannerUrl(club.banner_url || '');
@@ -119,7 +119,7 @@ export const CaptainSettingsModal: React.FC<CaptainSettingsModalProps> = ({
         onPress: async () => {
           setRemovingNpub(npub);
           try {
-            const result = await ClubMembershipService.removeMember(club.id, npub);
+            const result = await ClubMembershipService.removeMember(club.id, npub, userNpub);
             if (result.success) {
               setMembers((prev) => prev.filter((m) => m.member_npub !== npub));
               onClubUpdated?.();

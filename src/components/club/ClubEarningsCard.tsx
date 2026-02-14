@@ -8,7 +8,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { ClubService, ClubEarnings } from '../../services/backend/ClubService';
@@ -32,6 +32,7 @@ const ClubEarningsCardComponent: React.FC<ClubEarningsCardProps> = ({
 }) => {
   const [earnings, setEarnings] = useState<ClubEarnings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const loadEarnings = useCallback(async () => {
     try {
@@ -39,6 +40,7 @@ const ClubEarningsCardComponent: React.FC<ClubEarningsCardProps> = ({
       setEarnings(data);
     } catch (err) {
       console.error('[ClubEarningsCard] Error loading earnings:', err);
+      setError(true);
     } finally {
       setIsLoading(false);
     }
@@ -57,6 +59,27 @@ const ClubEarningsCardComponent: React.FC<ClubEarningsCardProps> = ({
       <View style={styles.card}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator color={theme.colors.accent} size="small" />
+        </View>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.card}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="cloud-offline-outline" size={24} color={theme.colors.textMuted} />
+          <Text style={styles.errorText}>Unable to load earnings</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => {
+              setError(false);
+              setIsLoading(true);
+              loadEarnings();
+            }}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -164,6 +187,28 @@ const styles = StyleSheet.create({
   loadingContainer: {
     alignItems: 'center',
     paddingVertical: 20,
+  },
+  errorContainer: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    gap: 8,
+  },
+  errorText: {
+    fontSize: 13,
+    color: theme.colors.textMuted,
+  },
+  retryButton: {
+    marginTop: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.accent,
+  },
+  retryButtonText: {
+    fontSize: 13,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.accent,
   },
   headerRow: {
     flexDirection: 'row',

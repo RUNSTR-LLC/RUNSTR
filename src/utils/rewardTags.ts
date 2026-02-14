@@ -125,6 +125,14 @@ export async function buildRewardTags(): Promise<string[][]> {
   // 4. Reward destination (for audit trail and external services)
   tags.push(['reward_destination', rewardDestination]);
 
+  // 5. Club tag (for club leaderboard grouping)
+  // GPS workouts add this separately in workoutPublishingService, but HealthKit/
+  // Health Connect/manual submissions go through buildRewardTags() and were missing it.
+  const clubTag = await buildClubTag();
+  if (clubTag) {
+    tags.push(clubTag);
+  }
+
   return tags;
 }
 
