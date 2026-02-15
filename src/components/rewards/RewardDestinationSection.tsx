@@ -5,13 +5,14 @@
  * Tapping "Change" opens the full RewardDestinationPicker modal.
  * Tapping the zap icon opens an alert with the charity's Lightning address.
  *
- * Handles three destination types:
+ * Handles four destination types:
  * - Self: "Rewards go to your Lightning address"
  * - PPQ.AI: "Rewards converted to AI credits"
  * - Charity/Project/Service: "Rewards go to [Name]"
+ * - Community Team: "Rewards go to [Team Name]" (fetched from Supabase)
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
@@ -19,8 +20,11 @@ import {
   getCharityById,
   isSelfTeam,
   isPPQTeam,
+  isCommunityTeam,
+  extractCommunityTeamUUID,
   Charity,
 } from '../../constants/charities';
+import { UserTeamService } from '../../services/backend/UserTeamService';
 
 interface RewardDestinationSectionProps {
   selectedTeamId: string | null;
@@ -35,13 +39,43 @@ export const RewardDestinationSection: React.FC<RewardDestinationSectionProps> =
 }) => {
   const isSelf = isSelfTeam(selectedTeamId ?? undefined);
   const isPPQ = isPPQTeam(selectedTeamId ?? undefined);
+  const isCommunity = isCommunityTeam(selectedTeamId ?? undefined);
   const charity: Charity | undefined = selectedTeamId
     ? getCharityById(selectedTeamId)
     : undefined;
 
+  // Community team state (fetched from Supabase)
+  const [communityTeam, setCommunityTeam] = useState<{
+    name: string;
+    lightningAddress?: string;
+  } | null>(null);
+
+  // Fetch community team data when selectedTeamId changes
+  useEffect(() => {
+    if (!isCommunity || !selectedTeamId) {
+      setCommunityTeam(null);
+      return;
+    }
+
+    const uuid = extractCommunityTeamUUID(selectedTeamId);
+    UserTeamService.getTeamById(uuid)
+      .then((team) => {
+        if (team) {
+          setCommunityTeam({
+            name: team.name,
+            lightningAddress: team.lightning_address || undefined,
+          });
+        } else {
+          setCommunityTeam(null);
+        }
+      })
+      .catch(() => setCommunityTeam(null));
+  }, [selectedTeamId, isCommunity]);
+
   // Determine display values based on destination type
   const getDisplayName = (): string => {
     if (isSelf) return 'You';
+    if (isCommunity && communityTeam) return communityTeam.name;
     if (charity) return charity.name;
     return 'Not selected';
   };
@@ -49,11 +83,13 @@ export const RewardDestinationSection: React.FC<RewardDestinationSectionProps> =
   const getSubtitle = (): string => {
     if (isSelf) return 'Rewards go to your Lightning address';
     if (isPPQ) return 'Rewards converted to AI credits';
+    if (isCommunity && communityTeam) return `Rewards go to ${communityTeam.name}`;
     if (charity) return `Rewards go to ${charity.name}`;
     return 'Tap Change to select a destination';
   };
 
-  const showZapButton = !isSelf && charity?.lightningAddress;
+  const communityHasLightningAddress = isCommunity && communityTeam?.lightningAddress;
+  const showZapButton = !isSelf && (charity?.lightningAddress || communityHasLightningAddress);
 
   const renderAvatar = () => {
     if (isSelf) {
