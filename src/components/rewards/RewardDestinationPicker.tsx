@@ -33,6 +33,8 @@ import {
   isSelfTeam,
   Charity,
 } from '../../constants/charities';
+import { RewardLightningAddressService } from '../../services/rewards/RewardLightningAddressService';
+import { LightningAddressSetupModal } from '../wallet/LightningAddressSetupModal';
 
 const SELECTED_TEAM_KEY = '@runstr:selected_team_id';
 const REWARD_LIGHTNING_ADDRESS_KEY = '@runstr:reward_lightning_address';
@@ -52,6 +54,8 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
 }) => {
   const [userLightningAddress, setUserLightningAddress] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>('You');
+  const [showLightningSetupModal, setShowLightningSetupModal] = useState(false);
+  const [pendingSelfSelection, setPendingSelfSelection] = useState(false);
 
   // Load user data on mount
   useEffect(() => {
@@ -76,6 +80,17 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
   const handleSelect = useCallback(
     async (destinationId: string) => {
       try {
+        // Guard: Self selection requires a Lightning address
+        if (isSelfTeam(destinationId)) {
+          const hasAddress = await RewardLightningAddressService.hasRewardLightningAddress();
+          if (!hasAddress) {
+            setPendingSelfSelection(true);
+            setShowLightningSetupModal(true);
+            return;
+          }
+          console.log('[RewardDestinationPicker] Self selected (Lightning address exists)');
+        }
+
         await AsyncStorage.setItem(SELECTED_TEAM_KEY, destinationId);
         onSelectDestination(destinationId);
       } catch (error) {
@@ -85,6 +100,30 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
     },
     [onSelectDestination]
   );
+
+  // Handle Lightning address setup success - auto-select Self
+  const handleLightningSetupSuccess = useCallback(
+    async (address: string) => {
+      setShowLightningSetupModal(false);
+      setUserLightningAddress(address);
+      if (pendingSelfSelection) {
+        try {
+          await AsyncStorage.setItem(SELECTED_TEAM_KEY, SELF_TEAM_ID);
+          onSelectDestination(SELF_TEAM_ID);
+          setPendingSelfSelection(false);
+          console.log('[RewardDestinationPicker] Self selected after Lightning setup');
+        } catch (error) {
+          console.error('[RewardDestinationPicker] Failed to save Self selection:', error);
+        }
+      }
+    },
+    [pendingSelfSelection, onSelectDestination]
+  );
+
+  const handleLightningSetupClose = useCallback(() => {
+    setShowLightningSetupModal(false);
+    setPendingSelfSelection(false);
+  }, []);
 
   const handleZap = useCallback((charity: Charity) => {
     if (!charity.lightningAddress) return;
@@ -247,6 +286,13 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
           <View style={styles.bottomPadding} />
         </ScrollView>
       </View>
+
+      {/* Lightning Address Setup Modal - shown when Self selected without address */}
+      <LightningAddressSetupModal
+        visible={showLightningSetupModal}
+        onClose={handleLightningSetupClose}
+        onSuccess={handleLightningSetupSuccess}
+      />
     </Modal>
   );
 };

@@ -292,6 +292,9 @@ interface WorkoutSubmission {
   // PPQ.AI team: Bolt11 invoice for reward topup (instead of Lightning address)
   ppq_bolt11?: string
   ppq_invoice_id?: string
+  // Club fields: route captain rewards via club lightning address
+  club_id?: string
+  club_lightning_address?: string
 }
 
 // =============================================
@@ -1183,6 +1186,9 @@ serve(async (req) => {
         // Fraud prevention fields for external reward gating
         wot_score: wotScore,
         first_seen_at: firstSeenAt,
+        // Club fields: captain reward routing
+        club_id: workout.club_id || null,
+        club_lightning_address: workout.club_lightning_address || null,
       })
 
       if (error) {

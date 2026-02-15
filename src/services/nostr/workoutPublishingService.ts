@@ -1,13 +1,14 @@
 /**
- * WorkoutPublishingService - Workout Submission for Competitions
+ * WorkoutPublishingService - Workout Submission to Supabase
  *
- * Simplified flow: Workouts are only submitted to Supabase if user is in an active competition.
- * Kind 1301 events are created locally (for event structure/signing) but NOT published to Nostr.
+ * All workouts are submitted to Supabase unconditionally for leaderboard
+ * tracking and reward eligibility. Kind 1301 events are created locally
+ * (for event structure/signing) but NOT published to Nostr relays.
  *
  * Flow:
- * - Check if user is in any active competition
- * - If YES: Submit workout to Supabase (for leaderboards)
- * - If NO: Workout saved locally only (no backend submission)
+ * - Create and sign a kind 1301 event locally
+ * - Submit workout to Supabase (for leaderboards and rewards)
+ * - Fire-and-forget: cache invalidation, Running Bitcoin checks
  */
 
 import { GlobalNDKService } from './GlobalNDKService';
@@ -138,7 +139,13 @@ export class WorkoutPublishingService {
   }
 
   /**
-   * Save HealthKit workout as Kind 1301 Nostr event (NIP-101e compliant)
+   * Save workout to Supabase for leaderboard tracking and rewards.
+   *
+   * NOTE: This method is named "saveWorkoutToNostr" for historical reasons.
+   * It no longer publishes to Nostr relays -- Supabase is the single source
+   * of truth. The name is kept to avoid breaking the many callers that
+   * reference it (GPS tracker, HealthKit sync, batch save, etc.).
+   *
    * Supports both direct privateKeyHex (nsec users) and NDKSigner (Amber users)
    */
   async saveWorkoutToNostr(
@@ -312,126 +319,123 @@ export class WorkoutPublishingService {
       }
 
       // ============================================================================
-      // SUPABASE SUBMISSION (ONLY for competition participants)
-      // Workouts are only submitted to Supabase if user is in an active competition
-      // Non-competition users have their workouts saved locally only
+      // SUPABASE SUBMISSION (unconditional -- all workouts go to Supabase)
+      // This enables rewards and leaderboard tracking for ALL users,
+      // not just those currently in a competition.
       // ============================================================================
       const exerciseType = this.getExerciseVerb(workout.type);
       const npub = nip19.npubEncode(pubkey);
 
-      // Check if user is in any active competition
-      const isInCompetition = await SupabaseCompetitionService.isInAnyActiveCompetition(npub);
+      console.log(`[WorkoutPublishing] 🗄️ Submitting workout to Supabase...`);
+      console.log(`[WorkoutPublishing]    npub: ${npub.slice(0, 20)}...`);
+      console.log(`[WorkoutPublishing]    type: ${exerciseType}, distance: ${workout.distance}m, duration: ${workout.duration}s`);
 
-      if (!isInCompetition) {
-        console.log(`[WorkoutPublishing] ℹ️ User not in any active competition, skipping Supabase submission`);
-        console.log(`[WorkoutPublishing]    Workout saved locally only`);
+      // VALIDATION: Ensure we have valid distance/duration before submitting
+      const distanceMeters = workout.distance || 0;
+      const durationSeconds = workout.duration || 0;
+
+      // Fetch cached profile for leaderboard display (name/picture)
+      const profile = await this.getCachedProfile();
+
+      if (distanceMeters === 0 && durationSeconds === 0) {
+        console.warn('[WorkoutPublishing] ⚠️ Skipping Supabase submission: no distance or duration');
+        console.warn('[WorkoutPublishing]    This workout will not appear on leaderboards');
+        // Continue - wellness activities (meditation, etc.) don't need leaderboard entry
       } else {
-        console.log(`[WorkoutPublishing] 🗄️ User in active competition, submitting to Supabase...`);
-        console.log(`[WorkoutPublishing]    npub: ${npub.slice(0, 20)}...`);
-        console.log(`[WorkoutPublishing]    type: ${exerciseType}, distance: ${workout.distance}m, duration: ${workout.duration}s`);
+        // PPQ.AI bolt11 creation is now handled inside submitWorkoutSimple()
+        // This ensures ALL submission paths (HealthKit, background, manual) get PPQ support
 
-        // VALIDATION: Ensure we have valid distance/duration before submitting
-        const distanceMeters = workout.distance || 0;
-        const durationSeconds = workout.duration || 0;
+        // Submit to Supabase SYNCHRONOUSLY - this is the primary save path
+        const supabaseStartTime = Date.now();
+        try {
+          const submissionResult = await SupabaseCompetitionService.submitWorkoutSimple({
+            eventId: ndkEvent.id || workout.id,
+            npub: npub,
+            type: exerciseType,
+            distance: distanceMeters,
+            duration: durationSeconds,
+            calories: workout.calories,
+            startTime: workout.startTime,
+            tags: ndkEvent.tags,
+            profileName: profile.name,
+            profilePicture: profile.picture,
+          });
+          const supabaseDuration = Date.now() - supabaseStartTime;
 
-        if (distanceMeters === 0 && durationSeconds === 0) {
-          console.warn('[WorkoutPublishing] ⚠️ Skipping Supabase submission: no distance or duration');
-          console.warn('[WorkoutPublishing]    This workout will not appear on leaderboards');
-          // Continue - wellness activities (meditation, etc.) don't need leaderboard entry
-        } else {
-          // PPQ.AI bolt11 creation is now handled inside submitWorkoutSimple()
-          // This ensures ALL submission paths (HealthKit, background, manual) get PPQ support
+          if (submissionResult.success) {
+            console.log(`[WorkoutPublishing] ✅ Supabase submission successful in ${supabaseDuration}ms`);
+            console.log(`[WorkoutPublishing]    Workout will appear on daily leaderboard`);
+          } else if (submissionResult.error?.includes('duplicate')) {
+            console.log(`[WorkoutPublishing] ℹ️ Duplicate workout (already submitted) in ${supabaseDuration}ms`);
+          } else {
+            console.warn(`[WorkoutPublishing] ⚠️ Supabase submission FAILED in ${supabaseDuration}ms:`, submissionResult.error);
+            if (submissionResult.flagged) {
+              Toast.show({
+                type: 'info',
+                text1: 'Workout Saved',
+                text2: 'Under review - may take time to appear on leaderboard',
+                position: 'bottom',
+                visibilityTime: 4000,
+              });
+            } else {
+              // Non-flagged failure - queue for retry
+              await PendingSubmissionService.addPending({
+                id: ndkEvent.id || workout.id,
+                submissionData: {
+                  eventId: ndkEvent.id || workout.id,
+                  npub,
+                  type: exerciseType,
+                  distance: distanceMeters,
+                  duration: durationSeconds,
+                  calories: workout.calories,
+                  startTime: workout.startTime,
+                  tags: ndkEvent.tags,
+                },
+                createdAt: Date.now(),
+                retryCount: 0,
+                lastError: submissionResult.error || 'Unknown error',
+                nextRetryTime: Date.now() + 60000, // 1 minute
+              });
 
-          // Submit to Supabase SYNCHRONOUSLY - this is the primary save path
-          const supabaseStartTime = Date.now();
-          try {
-            const submissionResult = await SupabaseCompetitionService.submitWorkoutSimple({
+              Toast.show({
+                type: 'info',
+                text1: 'Workout Saved Locally',
+                text2: 'Will sync to leaderboard on next refresh',
+                position: 'bottom',
+                visibilityTime: 3000,
+              });
+            }
+          }
+        } catch (supabaseError) {
+          const supabaseDuration = Date.now() - supabaseStartTime;
+          console.warn(`[WorkoutPublishing] ⚠️ Supabase ERROR after ${supabaseDuration}ms:`, supabaseError);
+
+          // Queue for retry on network/exception errors
+          await PendingSubmissionService.addPending({
+            id: ndkEvent.id || workout.id,
+            submissionData: {
               eventId: ndkEvent.id || workout.id,
-              npub: npub,
+              npub,
               type: exerciseType,
               distance: distanceMeters,
               duration: durationSeconds,
               calories: workout.calories,
               startTime: workout.startTime,
               tags: ndkEvent.tags,
-            });
-            const supabaseDuration = Date.now() - supabaseStartTime;
+            },
+            createdAt: Date.now(),
+            retryCount: 0,
+            lastError: supabaseError instanceof Error ? supabaseError.message : 'Unknown error',
+            nextRetryTime: Date.now() + 60000, // 1 minute
+          });
 
-            if (submissionResult.success) {
-              console.log(`[WorkoutPublishing] ✅ Supabase submission successful in ${supabaseDuration}ms`);
-              console.log(`[WorkoutPublishing]    Workout will appear on daily leaderboard`);
-            } else if (submissionResult.error?.includes('duplicate')) {
-              console.log(`[WorkoutPublishing] ℹ️ Duplicate workout (already submitted) in ${supabaseDuration}ms`);
-            } else {
-              console.warn(`[WorkoutPublishing] ⚠️ Supabase submission FAILED in ${supabaseDuration}ms:`, submissionResult.error);
-              if (submissionResult.flagged) {
-                Toast.show({
-                  type: 'info',
-                  text1: 'Workout Saved',
-                  text2: 'Under review - may take time to appear on leaderboard',
-                  position: 'bottom',
-                  visibilityTime: 4000,
-                });
-              } else {
-                // Non-flagged failure - queue for retry
-                await PendingSubmissionService.addPending({
-                  id: ndkEvent.id || workout.id,
-                  submissionData: {
-                    eventId: ndkEvent.id || workout.id,
-                    npub,
-                    type: exerciseType,
-                    distance: distanceMeters,
-                    duration: durationSeconds,
-                    calories: workout.calories,
-                    startTime: workout.startTime,
-                    tags: ndkEvent.tags,
-                  },
-                  createdAt: Date.now(),
-                  retryCount: 0,
-                  lastError: submissionResult.error || 'Unknown error',
-                  nextRetryTime: Date.now() + 60000, // 1 minute
-                });
-
-                Toast.show({
-                  type: 'info',
-                  text1: 'Workout Saved Locally',
-                  text2: 'Will sync to leaderboard on next refresh',
-                  position: 'bottom',
-                  visibilityTime: 3000,
-                });
-              }
-            }
-          } catch (supabaseError) {
-            const supabaseDuration = Date.now() - supabaseStartTime;
-            console.warn(`[WorkoutPublishing] ⚠️ Supabase ERROR after ${supabaseDuration}ms:`, supabaseError);
-
-            // Queue for retry on network/exception errors
-            await PendingSubmissionService.addPending({
-              id: ndkEvent.id || workout.id,
-              submissionData: {
-                eventId: ndkEvent.id || workout.id,
-                npub,
-                type: exerciseType,
-                distance: distanceMeters,
-                duration: durationSeconds,
-                calories: workout.calories,
-                startTime: workout.startTime,
-                tags: ndkEvent.tags,
-              },
-              createdAt: Date.now(),
-              retryCount: 0,
-              lastError: supabaseError instanceof Error ? supabaseError.message : 'Unknown error',
-              nextRetryTime: Date.now() + 60000, // 1 minute
-            });
-
-            Toast.show({
-              type: 'info',
-              text1: 'Workout Saved Locally',
-              text2: 'Will sync to leaderboard on next refresh',
-              position: 'bottom',
-              visibilityTime: 3000,
-            });
-          }
+          Toast.show({
+            type: 'info',
+            text1: 'Workout Saved Locally',
+            text2: 'Will sync to leaderboard on next refresh',
+            position: 'bottom',
+            visibilityTime: 3000,
+          });
         }
       }
 
@@ -696,6 +700,27 @@ export class WorkoutPublishingService {
         error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
+  }
+
+  /**
+   * Get cached profile data for leaderboard display (name/picture).
+   * Reads from the local Nostr profile cache in AsyncStorage.
+   */
+  private async getCachedProfile(): Promise<{ name?: string; picture?: string }> {
+    try {
+      const profilesJson = await AsyncStorage.getItem('@runstr:nostr_profiles');
+      if (profilesJson) {
+        const profiles = JSON.parse(profilesJson);
+        const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+        if (hexPubkey && profiles[hexPubkey]) {
+          return {
+            name: profiles[hexPubkey].name || profiles[hexPubkey].displayName,
+            picture: profiles[hexPubkey].picture,
+          };
+        }
+      }
+    } catch { /* non-critical */ }
+    return {};
   }
 
   /**
