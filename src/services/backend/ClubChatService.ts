@@ -11,6 +11,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, isSupabaseConfigured } from '../../utils/supabase';
+import { ClubMembershipService } from './ClubMembershipService';
 import type { ClubMessage } from '../../types/club';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -135,6 +136,13 @@ export class ClubChatService {
       console.warn(
         `[ClubChatService] Rate limited. Reset in ${ClubChatService.getRateLimitResetSeconds()}s`
       );
+      return null;
+    }
+
+    // Membership check: only club members can send messages
+    const isMember = await ClubMembershipService.isMember(clubId, senderNpub);
+    if (!isMember) {
+      console.warn(`[ClubChatService] ${senderNpub.slice(0, 12)}... is not a member of club ${clubId}`);
       return null;
     }
 

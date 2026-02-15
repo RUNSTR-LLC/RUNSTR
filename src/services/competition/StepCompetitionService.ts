@@ -18,6 +18,7 @@ import { activityMetricsService } from '../activity/ActivityMetricsService';
 import LocalWorkoutStorageService from '../fitness/LocalWorkoutStorageService';
 import { safeGetItem, safeSetItem } from '../../utils/asyncStorageTimeout';
 import { WoTService } from '../wot/WoTService';
+import { buildRewardTags } from '../../utils/rewardTags';
 import { nip19 } from 'nostr-tools';
 
 // Storage key for tracking last submission timestamp
@@ -205,6 +206,10 @@ export class StepCompetitionService {
         `[StepCompetition] Submitting ${steps} steps (~${stepDistanceKm.toFixed(2)} km, GPS: ${(gpsData.distanceMeters / 1000).toFixed(2)} km) with event_id: ${eventId}`
       );
 
+      // Build reward routing tags (lightning, team, charity, reward_destination)
+      // The external zapper reads the ['lightning', address] tag to send step rewards
+      const rewardTags = await buildRewardTags();
+
       const result = await SupabaseCompetitionService.submitWorkoutSimple({
         eventId,
         npub,
@@ -219,6 +224,7 @@ export class StepCompetitionService {
           ['distance', stepDistanceKm.toFixed(2), 'km'],
           ['source', 'auto_steps'], // Mark as auto-submitted passive steps
           ['wot_score', wotScore.toString()], // WoT score for fraud prevention
+          ...rewardTags, // Lightning address, team, charity, reward_destination
         ],
       });
 

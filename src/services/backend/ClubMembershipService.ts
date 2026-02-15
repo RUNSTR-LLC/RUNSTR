@@ -15,14 +15,89 @@ const MEMBERS_TTL = 5 * 60 * 1000; // 5 minutes
 const membersCache = new Map<string, { members: ClubMembership[]; timestamp: number }>();
 const UNIQUE_VIOLATION_CODE = '23505';
 
+// Reconciliation: track when we last verified membership against Supabase
+const RECONCILIATION_KEY = '@runstr:club_reconciled_at';
+const RECONCILIATION_TTL = 5 * 60 * 1000; // Re-verify every 5 minutes
+
 export class ClubMembershipService {
-  /** Get the user's current club ID from cache or database. */
+  /**
+   * Get the user's current club ID from cache or database.
+   *
+   * Includes RECONCILIATION: If AsyncStorage has a club_id, we periodically
+   * verify the membership still exists in Supabase. This handles:
+   * - Bug #4: Captain removed a member (DB row deleted, member's device still has stale club_id)
+   * - Bug #9: Club was deactivated (all members except captain have stale club_id)
+   * - Bug #13: Resolves itself when stale club_id is cleared (no orphaned club tags)
+   */
   static async getCurrentClub(npub: string): Promise<string | null> {
+    let cachedId: string | null = null;
     try {
-      const cachedId = await AsyncStorage.getItem(CLUB_ID_KEY);
-      if (cachedId) return cachedId;
+      cachedId = await AsyncStorage.getItem(CLUB_ID_KEY);
     } catch { /* continue to fetch */ }
 
+    // If we have a cached club_id, verify it's still valid (reconciliation)
+    if (cachedId) {
+      if (!isSupabaseConfigured()) return cachedId; // Can't verify without Supabase
+
+      const needsReconciliation = await this.needsReconciliation();
+      if (!needsReconciliation) return cachedId; // Recently verified, trust the cache
+
+      // Verify membership still exists in DB
+      try {
+        const { data, error } = await supabase!
+          .from('club_memberships')
+          .select('club_id')
+          .eq('member_npub', npub)
+          .eq('club_id', cachedId)
+          .single();
+
+        if (error && error.code === 'PGRST116') {
+          // Membership row gone -- user was removed or club was deactivated
+          console.warn(
+            `${TAG} Reconciliation: membership for ${npub.slice(0, 12)}... in club ${cachedId} no longer exists. Clearing stale local state.`
+          );
+          await this.clearLocalClubState();
+          return null;
+        }
+
+        if (error) {
+          // Transient error -- don't clear state, just skip reconciliation this time
+          console.warn(`${TAG} Reconciliation check failed (transient), keeping cached club:`, error.message);
+          return cachedId;
+        }
+
+        // Membership exists, but also verify the club is still active
+        const { data: clubData, error: clubError } = await supabase!
+          .from('user_teams')
+          .select('is_active')
+          .eq('id', cachedId)
+          .single();
+
+        if (clubError && clubError.code === 'PGRST116') {
+          // Club row doesn't exist at all
+          console.warn(`${TAG} Reconciliation: club ${cachedId} no longer exists. Clearing stale local state.`);
+          await this.clearLocalClubState();
+          return null;
+        }
+
+        if (!clubError && clubData && !clubData.is_active) {
+          // Club was deactivated
+          console.warn(`${TAG} Reconciliation: club ${cachedId} is deactivated. Clearing stale local state.`);
+          await this.clearLocalClubState();
+          return null;
+        }
+
+        // All good -- membership exists and club is active. Mark reconciliation time.
+        await this.markReconciled();
+        return cachedId;
+      } catch (err) {
+        // Network/unexpected error -- don't clear state, keep cached value
+        console.warn(`${TAG} Reconciliation exception (keeping cached club):`, err);
+        return cachedId;
+      }
+    }
+
+    // No cached club_id -- query Supabase directly
     if (!isSupabaseConfigured()) return null;
 
     try {
@@ -41,6 +116,7 @@ export class ClubMembershipService {
       const clubId = data?.club_id || null;
       if (clubId) {
         try { await AsyncStorage.setItem(CLUB_ID_KEY, clubId); } catch { /* non-critical */ }
+        await this.markReconciled();
       }
       return clubId;
     } catch (err) {
@@ -191,15 +267,19 @@ export class ClubMembershipService {
   ): Promise<ClubJoinResult> {
     console.log(`${TAG} Switching to club ${newClubId}...`);
 
-    // Capture original club ID for recovery
+    // Capture original club ID and role for recovery
     let originalClubId: string | null = null;
+    let originalRole: 'member' | 'captain' = 'member';
     try {
       const { data: currentMembership } = await supabase!
         .from('club_memberships')
-        .select('club_id')
+        .select('club_id, role')
         .eq('member_npub', npub)
         .single();
-      if (currentMembership) originalClubId = currentMembership.club_id;
+      if (currentMembership) {
+        originalClubId = currentMembership.club_id;
+        originalRole = (currentMembership.role as 'member' | 'captain') || 'member';
+      }
     } catch { /* recovery won't be possible */ }
 
     // Leave current club
@@ -218,8 +298,8 @@ export class ClubMembershipService {
 
       // RECOVERY: Attempt to re-join the original club
       if (originalClubId) {
-        console.warn(`${TAG} Attempting recovery: re-joining original club ${originalClubId}`);
-        const recoveryResult = await this.joinClub(originalClubId, npub, 'member');
+        console.warn(`${TAG} Attempting recovery: re-joining original club ${originalClubId} as ${originalRole}`);
+        const recoveryResult = await this.joinClub(originalClubId, npub, originalRole);
         if (recoveryResult.success) {
           console.log(`${TAG} Recovery successful: re-joined original club ${originalClubId}`);
           return {
@@ -398,13 +478,27 @@ export class ClubMembershipService {
    */
   static async transferCaptainship(
     clubId: string,
-    newCaptainNpub: string
+    newCaptainNpub: string,
+    callerNpub: string
   ): Promise<{ success: boolean; error?: string }> {
     if (!isSupabaseConfigured()) {
       return { success: false, error: 'Backend not configured' };
     }
 
     try {
+      // Verify caller is the captain of this club
+      const { data: callerMembership, error: authError } = await supabase!
+        .from('club_memberships')
+        .select('role')
+        .eq('club_id', clubId)
+        .eq('member_npub', callerNpub)
+        .single();
+
+      if (authError || !callerMembership || callerMembership.role !== 'captain') {
+        console.warn(`${TAG} transferCaptainship unauthorized: ${callerNpub.slice(0, 12)}... is not captain of ${clubId}`);
+        return { success: false, error: 'Only the club captain can transfer captainship' };
+      }
+
       // Validate target is a member of this club
       const { data: targetMembership, error: targetErr } = await supabase!
         .from('club_memberships')
@@ -474,10 +568,29 @@ export class ClubMembershipService {
 
   // --- Private Helpers ---
 
-  /** Clear club-related AsyncStorage keys */
+  /** Clear club-related AsyncStorage keys (including reconciliation timestamp) */
   private static async clearLocalClubState(): Promise<void> {
     try {
-      await AsyncStorage.multiRemove([CLUB_ID_KEY, CLUB_NAME_KEY, CLUB_ROLE_KEY]);
+      await AsyncStorage.multiRemove([CLUB_ID_KEY, CLUB_NAME_KEY, CLUB_ROLE_KEY, RECONCILIATION_KEY]);
+    } catch { /* non-critical */ }
+  }
+
+  /** Check whether we need to re-verify membership against Supabase */
+  private static async needsReconciliation(): Promise<boolean> {
+    try {
+      const lastReconciled = await AsyncStorage.getItem(RECONCILIATION_KEY);
+      if (!lastReconciled) return true; // Never reconciled
+      const elapsed = Date.now() - parseInt(lastReconciled, 10);
+      return elapsed >= RECONCILIATION_TTL;
+    } catch {
+      return true; // If we can't read the timestamp, reconcile to be safe
+    }
+  }
+
+  /** Record that we successfully verified membership */
+  private static async markReconciled(): Promise<void> {
+    try {
+      await AsyncStorage.setItem(RECONCILIATION_KEY, Date.now().toString());
     } catch { /* non-critical */ }
   }
 

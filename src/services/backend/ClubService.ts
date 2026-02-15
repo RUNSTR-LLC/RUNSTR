@@ -123,20 +123,28 @@ export class ClubService {
         .single();
 
       if (error) {
-        console.error(`[ClubService] getClubById error for ${clubId}:`, error);
-        // Cache the miss to avoid repeated failed queries
-        clubByIdCache.set(clubId, { club: null, timestamp: Date.now() });
+        // PGRST116 = "no rows found" -- this is a real "not found", safe to cache
+        if (error.code === 'PGRST116') {
+          console.log(`[ClubService] Club ${clubId} not found (or inactive), caching null`);
+          clubByIdCache.set(clubId, { club: null, timestamp: Date.now() });
+          return null;
+        }
+
+        // Any other error (network failure, timeout, 5xx, etc.) is transient.
+        // Do NOT cache null -- next call should retry the query.
+        console.error(`[ClubService] getClubById transient error for ${clubId}:`, error);
         return null;
       }
 
       const club = (data as Club) || null;
       console.log(`[ClubService] Fetched club: ${club?.name || 'not found'}`);
 
-      // Cache the result
+      // Cache successful results
       clubByIdCache.set(clubId, { club, timestamp: Date.now() });
 
       return club;
     } catch (err) {
+      // Exception (network down, etc.) -- do NOT cache, allow retry
       console.error(`[ClubService] getClubById exception for ${clubId}:`, err);
       return null;
     }

@@ -149,7 +149,7 @@ export const CaptainSettingsModal: React.FC<CaptainSettingsModalProps> = ({
           onPress: async () => {
             setIsSaving(true);
             try {
-              const result = await ClubMembershipService.transferCaptainship(club.id, npub);
+              const result = await ClubMembershipService.transferCaptainship(club.id, npub, userNpub);
               if (result.success) {
                 showAlert('Captainship Transferred', `${npub.slice(0, 12)}... is now the captain.`);
                 onClubUpdated?.();

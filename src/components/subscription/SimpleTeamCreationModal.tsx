@@ -3,7 +3,7 @@
  * Inserts into Supabase user_teams table
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../styles/theme';
 import { CustomAlert } from '../ui/CustomAlert';
 import { supabase, isSupabaseConfigured } from '../../utils/supabase';
+import { UserTeamService } from '../../services/backend/UserTeamService';
+import { ClubMembershipService } from '../../services/backend/ClubMembershipService';
 
 interface SimpleTeamCreationModalProps {
   visible: boolean;
@@ -42,6 +44,7 @@ export const SimpleTeamCreationModal: React.FC<SimpleTeamCreationModalProps> = (
   const [description, setDescription] = useState('');
   const [lightningAddress, setLightningAddress] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
 
   // Alert state
   const [alertVisible, setAlertVisible] = useState(false);
@@ -64,7 +67,8 @@ export const SimpleTeamCreationModal: React.FC<SimpleTeamCreationModalProps> = (
     isValidLightningAddress(lightningAddress);
 
   const handleCreate = useCallback(async () => {
-    if (!isValid || isSubmitting) return;
+    if (isSubmittingRef.current) return; // Synchronous check prevents double-submit
+    if (!isValid) return;
     if (!isSupabaseConfigured()) {
       setAlertTitle('Error');
       setAlertMessage('Backend not configured');
@@ -72,6 +76,7 @@ export const SimpleTeamCreationModal: React.FC<SimpleTeamCreationModalProps> = (
       return;
     }
 
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
 
     try {
@@ -80,7 +85,30 @@ export const SimpleTeamCreationModal: React.FC<SimpleTeamCreationModalProps> = (
         setAlertTitle('Error');
         setAlertMessage('Please log in first');
         setAlertVisible(true);
-        setIsSubmitting(false);
+        return;
+      }
+
+      // Spam prevention: limit 1 team per npub
+      const hasTeam = await UserTeamService.hasExistingTeam(npub);
+      if (hasTeam) {
+        setAlertTitle('Error');
+        setAlertMessage('You already have a team');
+        setAlertVisible(true);
+        return;
+      }
+
+      // Duplicate name check (case-insensitive)
+      const { data: existingTeam } = await supabase!
+        .from('user_teams')
+        .select('id')
+        .ilike('name', teamName.trim())
+        .eq('is_active', true)
+        .limit(1);
+
+      if (existingTeam && existingTeam.length > 0) {
+        setAlertTitle('Name Taken');
+        setAlertMessage('A club with this name already exists. Please choose a different name.');
+        setAlertVisible(true);
         return;
       }
 
@@ -96,12 +124,23 @@ export const SimpleTeamCreationModal: React.FC<SimpleTeamCreationModalProps> = (
         setAlertTitle('Error');
         setAlertMessage(error.message);
         setAlertVisible(true);
-        setIsSubmitting(false);
         return;
       }
 
       const teamId = data?.id || '';
       console.log(`[SimpleTeamCreation] Created team: ${teamId}`);
+
+      // Auto-join the creator as captain so they have a membership row,
+      // AsyncStorage state is set, and member_count is incremented.
+      if (teamId) {
+        const joinResult = await ClubMembershipService.joinClub(teamId, npub, 'captain');
+        if (!joinResult.success) {
+          console.error(`[SimpleTeamCreation] Failed to auto-join as captain: ${joinResult.error}`);
+        } else {
+          console.log(`[SimpleTeamCreation] Auto-joined as captain of ${teamId}`);
+        }
+      }
+
       setAlertTitle('Team Created!');
       setAlertMessage('Your team is now live in the RUNSTR directory.');
       setAlertVisible(true);
@@ -112,9 +151,10 @@ export const SimpleTeamCreationModal: React.FC<SimpleTeamCreationModalProps> = (
       setAlertMessage(err instanceof Error ? err.message : 'Unknown error');
       setAlertVisible(true);
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
-  }, [isValid, isSubmitting, teamName, description, lightningAddress, onTeamCreated]);
+  }, [isValid, teamName, description, lightningAddress, onTeamCreated]);
 
   const handleAlertDismiss = useCallback(() => {
     setAlertVisible(false);
@@ -175,6 +215,7 @@ export const SimpleTeamCreationModal: React.FC<SimpleTeamCreationModalProps> = (
                 onChangeText={setDescription}
                 placeholder="Tell people about your team..."
                 placeholderTextColor={theme.colors.textMuted}
+                maxLength={500}
                 multiline
                 numberOfLines={3}
                 textAlignVertical="top"

@@ -236,19 +236,26 @@ export class WorkoutPublishingService {
         await RewardLightningAddressService.getRewardLightningAddress();
 
       // Get reward destination for external reward service routing
-      // If self team or has a Lightning address -> 'user'
-      // If PPQ.AI team -> 'ppq' (rewards go to bolt11 invoice)
-      // Otherwise -> 'charity' (charity is always the fallback)
-      const hasLightningAddress = rewardLightningAddress && rewardLightningAddress.length > 0;
+      // Must match buildRewardTags() logic in src/utils/rewardTags.ts:
+      // - PPQ.AI team -> 'ppq' (rewards go to bolt11 invoice)
+      // - Charity/community team with lightning address -> 'charity' (charity gets 50 sats)
+      // - Self team, no team, or charity without lightning address -> 'user' (user gets 50 sats)
       const isSelf = selectedTeamId ? isSelfTeam(selectedTeamId) : false;
       const isPPQ = selectedTeamId ? isPPQTeam(selectedTeamId) : false;
       let rewardDestination: 'user' | 'charity' | 'ppq';
-      if (isSelf || hasLightningAddress) {
-        rewardDestination = 'user';
-      } else if (isPPQ) {
+      let effectiveLightningAddress: string | null = rewardLightningAddress; // Default: user's address
+
+      if (isPPQ) {
         rewardDestination = 'ppq';
-      } else {
+        // PPQ uses bolt11 invoice, not lightning address
+      } else if (!isSelf && selectedCharity && !selectedCharity.isSelf && selectedCharity.lightningAddress) {
+        // Charity/community team with a lightning address -> route reward to charity
         rewardDestination = 'charity';
+        effectiveLightningAddress = selectedCharity.lightningAddress;
+      } else {
+        // Self team, no team, or charity without lightning address -> reward goes to user
+        rewardDestination = 'user';
+        effectiveLightningAddress = rewardLightningAddress;
       }
 
       // Create unsigned NDKEvent
@@ -259,7 +266,7 @@ export class WorkoutPublishingService {
         workout,
         pubkey,
         selectedCharity, // Charity provides both team ID and charity data
-        rewardLightningAddress,
+        effectiveLightningAddress,
         rewardDestination
       );
       ndkEvent.created_at = Math.floor(

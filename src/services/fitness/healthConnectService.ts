@@ -811,6 +811,9 @@ export class HealthConnectService {
     // Build reward tags once for all workouts (lightning, team, charity, reward_destination)
     const rewardTags = await buildRewardTags();
 
+    // Fetch cached profile for leaderboard display (name/picture)
+    const profile = await this.getCachedProfile();
+
     for (const w of newCardio) {
       try {
         const eventId = `hc_${w.id}`;
@@ -823,12 +826,34 @@ export class HealthConnectService {
           calories: w.totalEnergyBurned,
           startTime: w.startTime,
           tags: [...rewardTags],
+          profileName: profile.name,
+          profilePicture: profile.picture,
         });
         debugLog(`[HealthConnect] Auto-submitted ${w.activityType} workout to Supabase: ${eventId}`);
       } catch (err) {
         console.warn(`[HealthConnect] Failed to submit workout ${w.id}:`, err);
       }
     }
+  }
+
+  /**
+   * Get cached profile data for leaderboard display.
+   */
+  private async getCachedProfile(): Promise<{ name?: string; picture?: string }> {
+    try {
+      const profilesJson = await AsyncStorage.getItem('@runstr:nostr_profiles');
+      if (profilesJson) {
+        const profiles = JSON.parse(profilesJson);
+        const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+        if (hexPubkey && profiles[hexPubkey]) {
+          return {
+            name: profiles[hexPubkey].name || profiles[hexPubkey].displayName,
+            picture: profiles[hexPubkey].picture,
+          };
+        }
+      }
+    } catch { /* non-critical */ }
+    return {};
   }
 
   /**

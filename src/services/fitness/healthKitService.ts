@@ -1019,6 +1019,9 @@ export class HealthKitService {
     // Build lightning address + charity tags for zapper reward routing
     const rewardTags = await buildRewardTags();
 
+    // Fetch cached profile for leaderboard display (name/picture)
+    const profile = await this.getCachedProfile();
+
     const newCardio = workouts.filter((w) => {
       const id = w.UUID || w.id || '';
       if (!id || previousIds.has(id)) return false;
@@ -1041,12 +1044,34 @@ export class HealthKitService {
           calories: w.totalEnergyBurned,
           startTime: w.startDate,
           tags,
+          profileName: profile.name,
+          profilePicture: profile.picture,
         });
         debugLog(`[HealthKit] Auto-submitted ${w.activityType} workout to Supabase: ${eventId}`);
       } catch (err) {
         console.warn(`[HealthKit] Failed to submit workout ${w.UUID}:`, err);
       }
     }
+  }
+
+  /**
+   * Get cached profile data for leaderboard display.
+   */
+  private async getCachedProfile(): Promise<{ name?: string; picture?: string }> {
+    try {
+      const profilesJson = await AsyncStorage.getItem('@runstr:nostr_profiles');
+      if (profilesJson) {
+        const profiles = JSON.parse(profilesJson);
+        const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+        if (hexPubkey && profiles[hexPubkey]) {
+          return {
+            name: profiles[hexPubkey].name || profiles[hexPubkey].displayName,
+            picture: profiles[hexPubkey].picture,
+          };
+        }
+      }
+    } catch { /* non-critical */ }
+    return {};
   }
 
   /**

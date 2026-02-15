@@ -53,14 +53,16 @@ const ClubsScreenComponent: React.FC = () => {
           const currentClub = allClubs.find((c) => c.id === currentClubId);
           setMyClub(currentClub || null);
 
-          // Determine role: if user created the club, they're captain
-          if (currentClub && currentClub.created_by_npub === npub) {
+          // Determine role: membership role is source of truth (survives transferCaptainship),
+          // fall back to created_by_npub if membership lookup fails
+          const members = await ClubMembershipService.getClubMembers(currentClubId);
+          const myMembership = members.find((m) => m.member_npub === npub);
+          if (myMembership) {
+            setMyRole(myMembership.role as 'member' | 'captain');
+          } else if (currentClub && currentClub.created_by_npub === npub) {
             setMyRole('captain');
           } else {
-            // Check members list for role (fallback)
-            const members = await ClubMembershipService.getClubMembers(currentClubId);
-            const myMembership = members.find((m) => m.member_npub === npub);
-            setMyRole(myMembership?.role || 'member');
+            setMyRole('member');
           }
         } else {
           setMyClub(null);
@@ -343,7 +345,6 @@ const ClubsScreenComponent: React.FC = () => {
                   isCurrentClub={isMyClub}
                   onPress={() => handleClubPress(club)}
                   onJoinPress={() => handleJoinPress(club)}
-                  disabled={!!myClub && !isMyClub}
                 />
               );
             })}

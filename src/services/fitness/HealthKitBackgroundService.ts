@@ -128,6 +128,9 @@ export class HealthKitBackgroundService {
       const { buildRewardTags } = await import('../../utils/rewardTags');
       const rewardTags = await buildRewardTags();
 
+      // Fetch cached profile for leaderboard display (name/picture)
+      const profile = await this.getCachedProfile();
+
       const { SupabaseCompetitionService } = await import(
         '../backend/SupabaseCompetitionService'
       );
@@ -146,6 +149,8 @@ export class HealthKitBackgroundService {
             calories: w.calories,
             startTime: w.startTime,
             tags,
+            profileName: profile.name,
+            profilePicture: profile.picture,
           });
 
           submittedIds.add(w.id);
@@ -160,6 +165,24 @@ export class HealthKitBackgroundService {
     } catch (error) {
       console.error('[HKBackground] handleWorkoutUpdate error:', error);
     }
+  }
+
+  /** Get cached profile data for leaderboard display. */
+  private async getCachedProfile(): Promise<{ name?: string; picture?: string }> {
+    try {
+      const profilesJson = await AsyncStorage.getItem('@runstr:nostr_profiles');
+      if (profilesJson) {
+        const profiles = JSON.parse(profilesJson);
+        const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+        if (hexPubkey && profiles[hexPubkey]) {
+          return {
+            name: profiles[hexPubkey].name || profiles[hexPubkey].displayName,
+            picture: profiles[hexPubkey].picture,
+          };
+        }
+      }
+    } catch { /* non-critical */ }
+    return {};
   }
 
   /** Load previously submitted workout IDs from AsyncStorage */

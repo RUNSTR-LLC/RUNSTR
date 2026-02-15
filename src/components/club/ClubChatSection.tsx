@@ -32,6 +32,7 @@ interface ClubChatSectionProps {
   clubId: string;
   clubName: string;
   captainNpub: string;
+  isMember: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -42,6 +43,7 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
   clubId,
   clubName,
   captainNpub,
+  isMember,
 }) => {
   const [userNpub, setUserNpub] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
@@ -181,8 +183,8 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
         )}
       </View>
 
-      {/* Input bar */}
-      {userNpub && (
+      {/* Input bar - only shown to club members */}
+      {userNpub && isMember && (
         <View style={styles.inputBar}>
           <TextInput
             style={[

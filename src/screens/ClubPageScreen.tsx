@@ -60,6 +60,7 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
   const [club, setClub] = useState<Club | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isMember, setIsMember] = useState(false);
+  const [userRole, setUserRole] = useState<'member' | 'captain' | null>(null);
   const [userNpub, setUserNpub] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
@@ -80,10 +81,19 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
       const clubData = await ClubService.getClubById(clubId);
       setClub(clubData);
 
-      // Check membership
+      // Check membership and role
       if (npub) {
         const memberStatus = await ClubMembershipService.isMember(clubId, npub);
         setIsMember(memberStatus);
+
+        if (memberStatus) {
+          // Fetch membership role (source of truth for captain status)
+          const members = await ClubMembershipService.getClubMembers(clubId);
+          const myMembership = members.find((m) => m.member_npub === npub);
+          setUserRole(myMembership?.role as 'member' | 'captain' || null);
+        } else {
+          setUserRole(null);
+        }
       }
     } catch (err) {
       console.error('[ClubPageScreen] Error loading club data:', err);
@@ -103,12 +113,15 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
   // Join / Leave
   // -------------------------------------------------------------------------
 
-  const handleJoin = async () => {
-    if (!userNpub || isJoining) return;
+  const performJoin = async (useSwitchClub: boolean) => {
+    if (!userNpub) return;
     setIsJoining(true);
 
     try {
-      const result = await ClubMembershipService.joinClub(clubId, userNpub);
+      const result = useSwitchClub
+        ? await ClubMembershipService.switchClub(clubId, userNpub)
+        : await ClubMembershipService.joinClub(clubId, userNpub);
+
       if (result.success) {
         setIsMember(true);
         // Refresh club data to get updated member count
@@ -122,6 +135,28 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
       Alert.alert('Error', 'Something went wrong. Please try again.');
     } finally {
       setIsJoining(false);
+    }
+  };
+
+  const handleJoin = async () => {
+    if (!userNpub || isJoining) return;
+
+    // Check if user is already in another club -- offer switch dialog
+    const currentClubId = await ClubMembershipService.getCurrentClub(userNpub);
+    if (currentClubId && currentClubId !== clubId) {
+      Alert.alert(
+        'Switch Clubs?',
+        `You're already in a club. Leave it and join ${club?.name || clubName}?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Leave & Join',
+            onPress: () => performJoin(true),
+          },
+        ]
+      );
+    } else {
+      performJoin(false);
     }
   };
 
@@ -248,8 +283,10 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
   const displayName = club?.name || clubName;
   const memberCountText =
     club?.member_count === 1 ? '1 member' : `${club?.member_count ?? 0} members`;
-  const isCaptain = Boolean(
-    userNpub && club?.created_by_npub && userNpub === club.created_by_npub
+  // Membership role is the source of truth for captain status (survives transferCaptainship).
+  // Fall back to created_by_npub if role lookup hasn't completed yet.
+  const isCaptain = userRole === 'captain' || (
+    userRole === null && Boolean(userNpub && club?.created_by_npub && userNpub === club.created_by_npub)
   );
 
   // -------------------------------------------------------------------------
@@ -449,6 +486,7 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
             clubId={clubId}
             clubName={displayName}
             captainNpub={club.created_by_npub || ''}
+            isMember={isMember}
           />
 
           {/* Members section */}
