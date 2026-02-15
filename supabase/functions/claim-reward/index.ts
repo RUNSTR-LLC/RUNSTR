@@ -1247,7 +1247,7 @@ serve(async (req) => {
         // Determine reward amount: use requested amount if valid, otherwise default
         // Einundzwanzig event participants get 100 sats (double reward)
         const MIN_WORKOUT_SATS = 50
-        const MAX_WORKOUT_SATS = 100
+        const MAX_WORKOUT_SATS = 1000
         let rewardAmount = amount_sats || WORKOUT_REWARD_SATS
         if (rewardAmount < MIN_WORKOUT_SATS || rewardAmount > MAX_WORKOUT_SATS) {
           rewardAmount = WORKOUT_REWARD_SATS // Fall back to default if invalid

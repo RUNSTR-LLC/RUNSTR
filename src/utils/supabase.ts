@@ -72,6 +72,7 @@ export interface CompetitionConfig {
     amount_sats: number;
     label: string;
   }>;
+  requires_subscription?: 'supporter' | 'pro'; // Minimum tier required to join
 }
 
 // Database types for type safety

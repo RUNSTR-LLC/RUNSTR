@@ -31,7 +31,7 @@ const ClubsScreenComponent: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSubscriber, setIsSubscriber] = useState(false);
+  const [isSubscriber, setIsSubscriber] = useState(false); // true for 'pro' tier (gates club creation)
   const [showSubscriptionInfo, setShowSubscriptionInfo] = useState(false);
   const [showCreateClub, setShowCreateClub] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
@@ -69,12 +69,12 @@ const ClubsScreenComponent: React.FC = () => {
           setMyRole(null);
         }
 
-        // Check subscriber status
-        const cachedStatus = await SubscriptionService.getCachedSubscriberStatus();
-        if (cachedStatus !== null) {
-          setIsSubscriber(cachedStatus);
+        // Check subscriber status - only Pro can create clubs
+        const cachedTier = await SubscriptionService.getCachedTier();
+        if (cachedTier !== null) {
+          setIsSubscriber(cachedTier === 'pro');
         } else {
-          const fresh = await SubscriptionService.isSubscriber(npub);
+          const fresh = await SubscriptionService.isProSubscriber(npub);
           setIsSubscriber(fresh);
         }
       } else {

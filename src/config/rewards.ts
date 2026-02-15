@@ -57,6 +57,21 @@ export const REWARD_CONFIG = {
    */
   MAX_RETRY_ATTEMPTS: 0, // 0 = no retries (silent failure)
   RETRY_DELAY_MS: 0,
+
+  /**
+   * Boosted Rewards (Supporter/Pro subscribers)
+   * Subscribers earn 800 sats per qualifying workout instead of 50
+   * Qualifications: cardio, 2km+ distance, 15+ min, non-manual source
+   */
+  BOOSTED_WORKOUT_REWARD: 800,           // sats per boosted workout
+  BOOSTED_MIN_DISTANCE_METERS: 2000,     // 2km minimum for boost
+  BOOSTED_MIN_DURATION: 900,             // 15 minutes minimum (seconds)
+
+  /**
+   * Subscription Pricing (display only - payment via runstr.club/pro/)
+   */
+  SUPPORTER_PRICE_SATS: 10000,           // 10k sats/month
+  PRO_PRICE_SATS: 15000,                 // 15k sats/month
 } as const;
 
 /**

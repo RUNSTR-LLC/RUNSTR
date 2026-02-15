@@ -116,7 +116,7 @@ class AppInitializationService {
           // Prefetch subscriber status (non-blocking)
           if (identifiers.npub) {
             const { SubscriptionService } = await import('../backend/SubscriptionService');
-            SubscriptionService.refreshSubscriberStatus(identifiers.npub).catch(() =>
+            SubscriptionService.refreshSubscriptionTier(identifiers.npub).catch(() =>
               console.warn('AppInit: Subscriber check failed (non-blocking)')
             );
           }

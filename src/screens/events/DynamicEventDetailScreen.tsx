@@ -26,6 +26,9 @@ import {
   SupabaseLeaderboardEntry,
 } from '../../hooks/useSupabaseLeaderboard';
 import { SupabaseCompetitionService } from '../../services/backend/SupabaseCompetitionService';
+import { SubscriptionService, SubscriptionTier } from '../../services/backend/SubscriptionService';
+import { SubscriptionInfoModal } from '../../components/subscription/SubscriptionInfoModal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Avatar } from '../../components/ui/Avatar';
 import type { Competition, CompetitionConfig } from '../../utils/supabase';
 
@@ -116,13 +119,22 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [visibleBatches, setVisibleBatches] = useState(1);
+  const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>('free');
+  const [showSubscriptionInfo, setShowSubscriptionInfo] = useState(false);
 
-  // Fetch competition details
+  // Fetch competition details (try cache first, then direct lookup)
   useEffect(() => {
     const fetchCompetition = async () => {
       try {
+        // Try cached list first
         const comps = await SupabaseCompetitionService.fetchDynamicCompetitions();
-        const found = comps.find((c) => c.external_id === eventId);
+        let found = comps.find((c) => c.external_id === eventId);
+
+        // Fallback: direct query (handles newly created events not yet in cache)
+        if (!found) {
+          found = await SupabaseCompetitionService.fetchCompetitionByExternalId(eventId);
+        }
+
         if (found) {
           setCompetition(found);
         }
@@ -135,8 +147,37 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
     fetchCompetition();
   }, [eventId]);
 
+  // Check subscription tier when competition requires it
+  useEffect(() => {
+    if (!competition) return;
+    const config: CompetitionConfig = competition.config || {};
+    if (!config.requires_subscription) return;
+
+    const checkTier = async () => {
+      const npub = await AsyncStorage.getItem('@runstr:npub');
+      if (npub) {
+        const tier = await SubscriptionService.getSubscriptionTier(npub);
+        setSubscriptionTier(tier);
+      }
+    };
+    checkTier();
+  }, [competition]);
+
   const handleJoin = async () => {
     if (isJoining) return;
+
+    // Check subscription requirement before joining
+    const reqTier = competition?.config?.requires_subscription;
+    if (reqTier) {
+      const meetsRequirement = reqTier === 'supporter'
+        ? (subscriptionTier === 'supporter' || subscriptionTier === 'pro')
+        : subscriptionTier === 'pro';
+      if (!meetsRequirement) {
+        setShowSubscriptionInfo(true);
+        return;
+      }
+    }
+
     setIsJoining(true);
     try {
       await join();
@@ -495,6 +536,14 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
           </Text>
         </View>
       </ScrollView>
+
+      {/* Subscription Info Modal (for gated events) */}
+      <SubscriptionInfoModal
+        visible={showSubscriptionInfo}
+        onClose={() => setShowSubscriptionInfo(false)}
+        feature="season"
+        currentTier={subscriptionTier}
+      />
     </SafeAreaView>
   );
 };

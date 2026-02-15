@@ -5,7 +5,7 @@
  * Features Lightning zap buttons for donations (tap = QR modal, long-press = quick NWC zap)
  */
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -24,7 +24,7 @@ import Toast from 'react-native-toast-message';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../styles/theme';
 import { TexturedBackground } from '../components/ui/TexturedBackground';
-import { CHARITIES, Charity, isPPQTeam, isSelfTeam, SELF_TEAM_ID } from '../constants/charities';
+import { CHARITIES, Charity, isPPQTeam, isSelfTeam, SELF_TEAM_ID, isCommunityTeam, extractCommunityTeamUUID } from '../constants/charities';
 import { ExternalZapModal } from '../components/nutzap/ExternalZapModal';
 import { useNWCZap } from '../hooks/useNWCZap';
 import { NWCWalletService } from '../services/wallet/NWCWalletService';
@@ -32,14 +32,14 @@ import { getInvoiceFromLightningAddress } from '../utils/lnurl';
 import { PPQAccountSetupModal } from '../components/ai/PPQAccountSetupModal';
 import { PPQCreditTopupModal } from '../components/ai/PPQCreditTopupModal';
 import { PPQAccountService } from '../services/ai/PPQAccountService';
-import { CoinOSWalletModal } from '../components/wallet/CoinOSWalletModal';
-import { CoinOSAccountService } from '../services/wallet/CoinOSAccountService';
 import { LightningAddressSetupModal } from '../components/wallet/LightningAddressSetupModal';
 import { DirectNostrProfileService } from '../services/user/directNostrProfileService';
 import { RewardLightningAddressService } from '../services/rewards/RewardLightningAddressService';
 import { SubscriptionInfoModal } from '../components/subscription/SubscriptionInfoModal';
 import { SimpleTeamCreationModal } from '../components/subscription/SimpleTeamCreationModal';
-import { SubscriptionService } from '../services/backend/SubscriptionService';
+import { SubscriptionService, SubscriptionTier } from '../services/backend/SubscriptionService';
+import { CommunityTeamsSection } from '../components/team/CommunityTeamsSection';
+import { UserTeamService } from '../services/backend/UserTeamService';
 
 // Storage key - charities are now stored as "teams"
 const SELECTED_TEAM_KEY = '@runstr:selected_team_id';
@@ -54,7 +54,7 @@ interface TeamCardProps {
   isZapping: boolean;
   hideZapButton?: boolean; // For PPQ.AI / Self teams (no static lightning address)
   onTopUp?: () => void; // For PPQ.AI sparkle badge tap
-  onWallet?: () => void; // For CoinOS wallet badge tap (legacy)
+  onWallet?: () => void;
   onLightningSetup?: () => void; // For Self team flash badge tap
   userAvatarUri?: string; // For Self team - user's profile picture
 }
@@ -162,14 +162,14 @@ const TeamCardComponent: React.FC<TeamCardProps> = ({
           <Ionicons name="sparkles" size={14} color="#FF9D42" />
         </TouchableOpacity>
       )}
-      {/* Flash Badge for Self team - tappable for Lightning address setup */}
+      {/* Wallet Badge for Self team - tappable for Lightning address setup */}
       {hideZapButton && charity.isSelf && (
         <TouchableOpacity
           style={styles.aiTeamBadge}
           onPress={onLightningSetup}
           activeOpacity={0.7}
         >
-          <Ionicons name="flash" size={14} color="#FF9D42" />
+          <Ionicons name="wallet" size={14} color="#FF9D42" />
         </TouchableOpacity>
       )}
 
@@ -211,13 +211,17 @@ const TeamsScreenComponent: React.FC = () => {
   const [userProfile, setUserProfile] = useState<{ displayName?: string; bio?: string; picture?: string; lud16?: string } | null>(null);
   const [userLightningAddress, setUserLightningAddress] = useState<string | null>(null);
 
-  // CoinOS wallet modal (kept for existing CoinOS users)
-  const [showCoinOSWalletModal, setShowCoinOSWalletModal] = useState(false);
 
   // Subscription / team creation state
-  const [isSubscriber, setIsSubscriber] = useState(false);
+  const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>('free');
   const [showSubscriptionInfo, setShowSubscriptionInfo] = useState(false);
   const [showCreateTeam, setShowCreateTeam] = useState(false);
+
+  // Community teams refresh trigger
+  const [communityRefreshTrigger, setCommunityRefreshTrigger] = useState(0);
+
+  // Resolved community team for "YOUR TEAM" section
+  const [selectedCommunityTeam, setSelectedCommunityTeam] = useState<Charity | null>(null);
 
   // NWC hook for wallet operations
   const { hasWallet, refreshBalance } = useNWCZap();
@@ -242,7 +246,7 @@ const TeamsScreenComponent: React.FC = () => {
           }
           if (storedZapAmount) setDefaultZapAmount(parseInt(storedZapAmount, 10) || 21);
 
-          // Load user profile for "You" team card
+          // Load user profile for Solo team card
           const profile = await DirectNostrProfileService.getCurrentUserProfile();
           if (profile) {
             setUserProfile({
@@ -257,9 +261,17 @@ const TeamsScreenComponent: React.FC = () => {
           const lnAddr = await RewardLightningAddressService.getRewardLightningAddress();
           setUserLightningAddress(lnAddr);
 
-          // Check subscriber status
-          const subStatus = await SubscriptionService.getCachedSubscriberStatus();
-          if (subStatus !== null) setIsSubscriber(subStatus);
+          // Check subscription tier (cache first, then fresh check)
+          const cachedTier = await SubscriptionService.getCachedTier();
+          if (cachedTier !== null) {
+            setSubscriptionTier(cachedTier);
+          } else {
+            const userNpub = await AsyncStorage.getItem('@runstr:npub');
+            if (userNpub) {
+              const tier = await SubscriptionService.getSubscriptionTier(userNpub);
+              setSubscriptionTier(tier);
+            }
+          }
         } catch (error) {
           console.error('[TeamsScreen] Error loading state:', error);
         }
@@ -267,6 +279,33 @@ const TeamsScreenComponent: React.FC = () => {
       loadState();
     }, [])
   );
+
+  // Fetch community team data when a community team is selected
+  useEffect(() => {
+    if (!selectedTeamId || !isCommunityTeam(selectedTeamId)) {
+      setSelectedCommunityTeam(null);
+      return;
+    }
+
+    const uuid = extractCommunityTeamUUID(selectedTeamId);
+    UserTeamService.getTeamById(uuid).then((team) => {
+      if (team) {
+        setSelectedCommunityTeam({
+          id: selectedTeamId,
+          name: team.name,
+          displayName: team.name,
+          description: team.description || 'Community team',
+          lightningAddress: team.lightning_address || undefined,
+        });
+      } else {
+        // Team not found (deactivated or deleted)
+        setSelectedCommunityTeam(null);
+      }
+    }).catch((err) => {
+      console.error('[TeamsScreen] Error fetching community team:', err);
+      setSelectedCommunityTeam(null);
+    });
+  }, [selectedTeamId]);
 
   const handleSelectTeam = useCallback(async (charityId: string) => {
     try {
@@ -380,6 +419,9 @@ const TeamsScreenComponent: React.FC = () => {
     try {
       const teamId = await AsyncStorage.getItem(SELECTED_TEAM_KEY);
       if (teamId) setSelectedTeamId(teamId);
+      // Clear community teams cache and trigger refresh
+      await UserTeamService.clearCache();
+      setCommunityRefreshTrigger(prev => prev + 1);
     } catch (error) {
       console.error('[TeamsScreen] Error refreshing:', error);
     }
@@ -397,13 +439,8 @@ const TeamsScreenComponent: React.FC = () => {
     setShowZapModal(true);
   };
 
-  // Long press - quick NWC zap
-  const handleZapLongPress = async (charity: Charity) => {
-    // Skip for special teams (no static lightning address)
-    if (isPPQTeam(charity.id) || isSelfTeam(charity.id) || !charity.lightningAddress) {
-      return;
-    }
-
+  // Shared quick NWC zap helper for both charity and community teams
+  const performQuickZap = async (teamId: string, teamName: string, lightningAddress: string) => {
     if (!hasWallet) {
       Toast.show({
         type: 'error',
@@ -415,7 +452,6 @@ const TeamsScreenComponent: React.FC = () => {
       return;
     }
 
-    // Get FRESH balance directly from service (useNWCZap hook balance can be stale)
     const freshBalance = await NWCWalletService.getBalance();
     if (freshBalance.error || freshBalance.balance < defaultZapAmount) {
       Toast.show({
@@ -428,60 +464,60 @@ const TeamsScreenComponent: React.FC = () => {
       return;
     }
 
-    setZappingCharityId(charity.id);
+    setZappingCharityId(teamId);
     try {
-      console.log(`[TeamsScreen] Quick NWC zap to ${charity.name} with ${defaultZapAmount} sats`);
-
+      console.log(`[TeamsScreen] Quick NWC zap to ${teamName} with ${defaultZapAmount} sats`);
       const { invoice } = await getInvoiceFromLightningAddress(
-        charity.lightningAddress,
+        lightningAddress,
         defaultZapAmount,
-        `Donation to ${charity.name}`
+        `Donation to ${teamName}`
       );
 
       if (!invoice) {
-        Toast.show({
-          type: 'error',
-          text1: t('error'),
-          text2: t('failedToGetInvoice'),
-          position: 'top',
-          visibilityTime: 4000,
-        });
+        Toast.show({ type: 'error', text1: t('error'), text2: t('failedToGetInvoice'), position: 'top', visibilityTime: 4000 });
         return;
       }
 
       const paymentResult = await NWCWalletService.sendPayment(invoice);
-
       if (paymentResult.success) {
         await refreshBalance();
-        Toast.show({
-          type: 'reward',
-          text1: t('zapped'),
-          text2: t('donated', { amount: defaultZapAmount, name: charity.name }),
-          position: 'top',
-          visibilityTime: 3000,
-        });
+        Toast.show({ type: 'reward', text1: t('zapped'), text2: t('donated', { amount: defaultZapAmount, name: teamName }), position: 'top', visibilityTime: 3000 });
       } else {
-        Toast.show({
-          type: 'error',
-          text1: t('error'),
-          text2: paymentResult.error || t('failedToProcessDonation'),
-          position: 'top',
-          visibilityTime: 4000,
-        });
+        Toast.show({ type: 'error', text1: t('error'), text2: paymentResult.error || t('failedToProcessDonation'), position: 'top', visibilityTime: 4000 });
       }
     } catch (error) {
       console.error('[TeamsScreen] Quick zap error:', error);
-      Toast.show({
-        type: 'error',
-        text1: t('error'),
-        text2: t('failedToProcessDonationExternal'),
-        position: 'top',
-        visibilityTime: 4000,
-      });
+      Toast.show({ type: 'error', text1: t('error'), text2: t('failedToProcessDonationExternal'), position: 'top', visibilityTime: 4000 });
     } finally {
       setZappingCharityId(null);
     }
   };
+
+  // Long press - quick NWC zap for charities
+  const handleZapLongPress = async (charity: Charity) => {
+    if (isPPQTeam(charity.id) || isSelfTeam(charity.id) || !charity.lightningAddress) return;
+    await performQuickZap(charity.id, charity.name, charity.lightningAddress);
+  };
+
+  // Community team zap press - opens ExternalZapModal
+  const handleCommunityZapPress = (team: { id: string; name: string; lightningAddress?: string }) => {
+    if (!team.lightningAddress) return;
+    console.log(`[TeamsScreen] Opening zap modal for community team ${team.name}`);
+    setZapTargetCharity({ id: team.id, name: team.name, displayName: team.name, description: '', lightningAddress: team.lightningAddress });
+    setShowZapModal(true);
+  };
+
+  // Community team long press - quick NWC zap
+  const handleCommunityZapLongPress = async (team: { id: string; name: string; lightningAddress?: string }) => {
+    if (!team.lightningAddress) return;
+    await performQuickZap(team.id, team.name, team.lightningAddress);
+  };
+
+  // Handle community team creation - refresh the community teams list
+  const handleTeamCreated = useCallback(async () => {
+    await UserTeamService.clearCache();
+    setCommunityRefreshTrigger(prev => prev + 1);
+  }, []);
 
   // Handle verified payment confirmation (called when payment detected)
   const handleZapSuccess = async () => {
@@ -499,25 +535,27 @@ const TeamsScreenComponent: React.FC = () => {
     setZapTargetCharity(null);
   };
 
-  // Construct dynamic "You" team from user profile
+  // Construct dynamic "Solo" team from user profile
   const selfTeam: Charity = {
     id: SELF_TEAM_ID,
     name: userProfile?.displayName || 'You',
     displayName: userProfile?.displayName || 'You',
     description: userLightningAddress
       ? `Rewards sent to ${userLightningAddress}`
-      : 'Earn rewards to your Lightning address',
+      : 'Keep your rewards — set a Lightning address',
     isSelf: true,
   };
 
-  // Find selected team object (check self team first, then charities)
+  // Find selected team object (check self team, then community teams, then charities)
   const selectedTeam = selectedTeamId === SELF_TEAM_ID
     ? selfTeam
-    : selectedTeamId
-      ? CHARITIES.find((c) => c.id === selectedTeamId)
-      : null;
+    : isCommunityTeam(selectedTeamId ?? undefined)
+      ? selectedCommunityTeam
+      : selectedTeamId
+        ? CHARITIES.find((c) => c.id === selectedTeamId)
+        : null;
 
-  // Sort teams alphabetically, pin "You" to top
+  // Sort teams alphabetically, pin Solo to top
   const sortedCharities = [
     selfTeam,
     ...[...CHARITIES].sort((a, b) => a.name.localeCompare(b.name)),
@@ -529,7 +567,7 @@ const TeamsScreenComponent: React.FC = () => {
       <View style={styles.createTeamHeader}>
         <TouchableOpacity
           style={styles.createTeamButton}
-          onPress={() => isSubscriber ? setShowCreateTeam(true) : setShowSubscriptionInfo(true)}
+          onPress={() => subscriptionTier === 'pro' ? setShowCreateTeam(true) : setShowSubscriptionInfo(true)}
           activeOpacity={0.7}
         >
           <Ionicons name="add-circle-outline" size={18} color={theme.colors.accent} />
@@ -591,6 +629,16 @@ const TeamsScreenComponent: React.FC = () => {
           ))}
         </View>
 
+        {/* Community Teams */}
+        <CommunityTeamsSection
+          selectedTeamId={selectedTeamId}
+          onSelectTeam={handleSelectTeam}
+          onZapPress={handleCommunityZapPress}
+          onZapLongPress={handleCommunityZapLongPress}
+          zappingTeamId={zappingCharityId}
+          refreshTrigger={communityRefreshTrigger}
+        />
+
         {/* Bottom padding */}
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -635,23 +683,20 @@ const TeamsScreenComponent: React.FC = () => {
         prefillAddress={userProfile?.lud16}
       />
 
-      {/* CoinOS Wallet Modal (kept for existing CoinOS users) */}
-      <CoinOSWalletModal
-        visible={showCoinOSWalletModal}
-        onClose={() => setShowCoinOSWalletModal(false)}
-      />
 
       {/* Subscription Info Modal (non-subscribers) */}
       <SubscriptionInfoModal
         visible={showSubscriptionInfo}
         onClose={() => setShowSubscriptionInfo(false)}
         feature="team"
+        currentTier={subscriptionTier}
       />
 
       {/* Team Creation Modal (subscribers) */}
       <SimpleTeamCreationModal
         visible={showCreateTeam}
         onClose={() => setShowCreateTeam(false)}
+        onTeamCreated={handleTeamCreated}
       />
     </TexturedBackground>
   );

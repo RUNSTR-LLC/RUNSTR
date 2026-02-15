@@ -1,6 +1,7 @@
 /**
- * SubscriptionInfoModal - Info modal for non-subscribers
- * Explains RUNSTR PRO subscription benefits with a "Coming Soon" CTA
+ * SubscriptionInfoModal - Two-tier subscription comparison
+ * Shows Supporter (10k sats/mo) and Pro (15k sats/mo) tiers
+ * Contextual messaging based on which feature triggered the modal
  */
 
 import React, { useCallback } from 'react';
@@ -17,68 +18,77 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
+import { REWARD_CONFIG } from '../../config/rewards';
+import type { SubscriptionTier } from '../../services/backend/SubscriptionService';
 
 interface SubscriptionInfoModalProps {
   visible: boolean;
   onClose: () => void;
-  feature: 'event' | 'team';
+  feature: 'event' | 'team' | 'season' | 'general';
+  currentTier?: SubscriptionTier;
 }
 
-const EVENT_FEATURES = [
-  {
-    icon: 'trophy-outline' as const,
-    title: 'Create Custom Events',
-    description: 'Set up competitions for your community with custom rules',
-  },
-  {
-    icon: 'options-outline' as const,
-    title: 'Set Activity Types & Scoring',
-    description: 'Choose running, walking, cycling and how winners are determined',
-  },
-  {
-    icon: 'flash-outline' as const,
-    title: 'Add Prize Pools',
-    description: 'Set Bitcoin prize pools to motivate participants',
-  },
-  {
-    icon: 'podium-outline' as const,
-    title: 'Automatic Leaderboards',
-    description: 'Real-time leaderboards powered by workout submissions',
-  },
+interface TierFeature {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+}
+
+const SUPPORTER_FEATURES: TierFeature[] = [
+  { icon: 'flash-outline', label: `${REWARD_CONFIG.BOOSTED_WORKOUT_REWARD} sats per workout` },
+  { icon: 'trophy-outline', label: 'Season III access' },
+  { icon: 'trending-up-outline', label: 'Break even at 3x/week' },
 ];
 
-const TEAM_FEATURES = [
-  {
-    icon: 'people-outline' as const,
-    title: 'Create Your Own Team',
-    description: 'Build a team around your community, charity, or organization',
-  },
-  {
-    icon: 'flash-outline' as const,
-    title: 'Set a Lightning Address',
-    description: 'Receive donations directly via Lightning Network',
-  },
-  {
-    icon: 'globe-outline' as const,
-    title: 'Appear in the Teams Directory',
-    description: 'Your team is visible to all RUNSTR users',
-  },
+const PRO_FEATURES: TierFeature[] = [
+  { icon: 'flash-outline', label: `${REWARD_CONFIG.BOOSTED_WORKOUT_REWARD} sats per workout` },
+  { icon: 'trophy-outline', label: 'Season III access' },
+  { icon: 'people-outline', label: 'Create clubs' },
+  { icon: 'calendar-outline', label: 'Create events' },
 ];
+
+function getIntroText(feature: string, currentTier?: SubscriptionTier): string {
+  if (currentTier === 'supporter') {
+    if (feature === 'event' || feature === 'team') {
+      return 'Upgrade to Pro to unlock club and event creation. You already get boosted rewards and Season III access!';
+    }
+    return 'You\'re a Supporter! Upgrade to Pro for club and event creation.';
+  }
+
+  switch (feature) {
+    case 'event':
+      return 'Creating events requires a Pro subscription. Choose a plan to get started with boosted rewards and more.';
+    case 'team':
+      return 'Creating clubs requires a Pro subscription. Choose a plan to unlock boosted rewards and more.';
+    case 'season':
+      return 'Season III requires a Supporter subscription or above. Earn 800 sats per qualifying workout!';
+    default:
+      return 'Subscribe to RUNSTR to boost your workout rewards from 50 to 800 sats per workout.';
+  }
+}
 
 export const SubscriptionInfoModal: React.FC<SubscriptionInfoModalProps> = ({
   visible,
   onClose,
   feature,
+  currentTier = 'free',
 }) => {
-  const features = feature === 'event' ? EVENT_FEATURES : TEAM_FEATURES;
-
-  const handleSubscribe = useCallback(async () => {
+  const handleSubscribe = useCallback(async (tier: 'supporter' | 'pro') => {
     const npub = await AsyncStorage.getItem('@runstr:npub');
-    const url = npub
-      ? `https://www.runstr.club/pro/?npub=${encodeURIComponent(npub)}`
-      : 'https://www.runstr.club/pro/';
-    Linking.openURL(url);
+    const base = 'https://www.runstr.club/pro/';
+    const params = npub
+      ? `?npub=${encodeURIComponent(npub)}&tier=${tier}`
+      : `?tier=${tier}`;
+    Linking.openURL(base + params);
   }, []);
+
+  // For supporters, only show the Pro upgrade card
+  const showSupporterCard = currentTier === 'free';
+  const showProCard = true; // Always show Pro
+
+  // Highlight the recommended tier based on context
+  const recommendedTier = (feature === 'season' && currentTier === 'free')
+    ? 'supporter'
+    : 'pro';
 
   return (
     <Modal
@@ -92,7 +102,7 @@ export const SubscriptionInfoModal: React.FC<SubscriptionInfoModalProps> = ({
           <View style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
-              <Text style={styles.title}>RUNSTR PRO</Text>
+              <Text style={styles.title}>RUNSTR Subscriptions</Text>
               <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                 <Ionicons name="close" size={24} color={theme.colors.text} />
               </TouchableOpacity>
@@ -101,50 +111,111 @@ export const SubscriptionInfoModal: React.FC<SubscriptionInfoModalProps> = ({
             <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
               {/* Introduction */}
               <Text style={styles.intro}>
-                {feature === 'event'
-                  ? 'Create and manage your own fitness competitions on RUNSTR. Set custom rules, scoring methods, and prize pools for your community.'
-                  : 'Launch your own team on RUNSTR. Set a Lightning address to receive donations and rally your community around fitness.'}
+                {getIntroText(feature, currentTier)}
               </Text>
 
-              {/* Feature List */}
-              <Text style={styles.sectionTitle}>
-                {feature === 'event' ? 'Event Features' : 'Team Features'}
-              </Text>
-              <View style={styles.featureList}>
-                {features.map((item, index) => (
-                  <View key={index} style={styles.featureItem}>
-                    <View style={styles.featureIcon}>
-                      <Ionicons
-                        name={item.icon}
-                        size={24}
-                        color={theme.colors.accent}
-                      />
-                    </View>
-                    <View style={styles.featureContent}>
-                      <Text style={styles.featureTitle}>{item.title}</Text>
-                      <Text style={styles.featureDescription}>
-                        {item.description}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
+              {/* The Bet */}
+              <View style={styles.betSection}>
+                <Ionicons name="fitness-outline" size={20} color={theme.colors.accent} />
+                <Text style={styles.betText}>
+                  The fitness bet: work out 3x/week to break even, 5x/week to profit. RUNSTR bets you won't.
+                </Text>
               </View>
 
-              {/* Pricing & CTA */}
-              <View style={styles.ctaSection}>
-                <Text style={styles.ctaTitle}>RUNSTR PRO</Text>
-                <Text style={styles.ctaPrice}>7,000 sats/month</Text>
-                <Text style={styles.ctaDescription}>
-                  Unlock team and event creation. Cancel anytime.
-                </Text>
+              {/* Supporter Tier Card */}
+              {showSupporterCard && (
+                <View style={[
+                  styles.tierCard,
+                  recommendedTier === 'supporter' && styles.tierCardHighlighted,
+                ]}>
+                  {recommendedTier === 'supporter' && (
+                    <View style={styles.recommendedBadge}>
+                      <Text style={styles.recommendedText}>RECOMMENDED</Text>
+                    </View>
+                  )}
+                  <Text style={styles.tierName}>Supporter</Text>
+                  <Text style={styles.tierPrice}>
+                    {REWARD_CONFIG.SUPPORTER_PRICE_SATS.toLocaleString()} sats/month
+                  </Text>
 
-                <TouchableOpacity
-                  style={styles.ctaButton}
-                  onPress={handleSubscribe}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.ctaButtonText}>Subscribe</Text>
-                </TouchableOpacity>
+                  <View style={styles.featureList}>
+                    {SUPPORTER_FEATURES.map((f, i) => (
+                      <View key={i} style={styles.featureRow}>
+                        <Ionicons name={f.icon} size={18} color={theme.colors.accent} />
+                        <Text style={styles.featureLabel}>{f.label}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.ctaButton,
+                      recommendedTier === 'supporter' && styles.ctaButtonHighlighted,
+                    ]}
+                    onPress={() => handleSubscribe('supporter')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[
+                      styles.ctaButtonText,
+                      recommendedTier === 'supporter' && styles.ctaButtonTextHighlighted,
+                    ]}>
+                      Subscribe
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* Pro Tier Card */}
+              {showProCard && (
+                <View style={[
+                  styles.tierCard,
+                  recommendedTier === 'pro' && styles.tierCardHighlighted,
+                ]}>
+                  {recommendedTier === 'pro' && (
+                    <View style={styles.recommendedBadge}>
+                      <Text style={styles.recommendedText}>
+                        {currentTier === 'supporter' ? 'UPGRADE' : 'RECOMMENDED'}
+                      </Text>
+                    </View>
+                  )}
+                  <Text style={styles.tierName}>Pro</Text>
+                  <Text style={styles.tierPrice}>
+                    {REWARD_CONFIG.PRO_PRICE_SATS.toLocaleString()} sats/month
+                  </Text>
+
+                  <View style={styles.featureList}>
+                    {PRO_FEATURES.map((f, i) => (
+                      <View key={i} style={styles.featureRow}>
+                        <Ionicons name={f.icon} size={18} color={theme.colors.accent} />
+                        <Text style={styles.featureLabel}>{f.label}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.ctaButton,
+                      recommendedTier === 'pro' && styles.ctaButtonHighlighted,
+                    ]}
+                    onPress={() => handleSubscribe('pro')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[
+                      styles.ctaButtonText,
+                      recommendedTier === 'pro' && styles.ctaButtonTextHighlighted,
+                    ]}>
+                      {currentTier === 'supporter' ? 'Upgrade to Pro' : 'Subscribe'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* Boost Requirements */}
+              <View style={styles.requirementsSection}>
+                <Text style={styles.requirementsTitle}>Boost Requirements</Text>
+                <Text style={styles.requirementsText}>
+                  Qualifying workouts must be cardio (run/walk/cycle), 2km+ distance, 15+ minutes, and tracked via GPS or health app (no manual entry).
+                </Text>
               </View>
             </ScrollView>
           </View>
@@ -196,87 +267,113 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     lineHeight: 22,
     marginTop: 20,
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.text,
     marginBottom: 16,
   },
-  featureList: {
-    gap: 12,
-    marginBottom: 32,
-  },
-  featureItem: {
+  betSection: {
     flexDirection: 'row',
-    backgroundColor: theme.colors.card,
+    alignItems: 'flex-start',
+    backgroundColor: `${theme.colors.accent}15`,
     borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    padding: 14,
+    marginBottom: 20,
+    gap: 10,
   },
-  featureIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 140, 0, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  featureContent: {
+  betText: {
     flex: 1,
+    fontSize: 14,
+    color: theme.colors.accent,
+    fontWeight: theme.typography.weights.medium,
+    lineHeight: 20,
   },
-  featureTitle: {
-    fontSize: 15,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.text,
-    marginBottom: 4,
-  },
-  featureDescription: {
-    fontSize: 13,
-    color: theme.colors.textMuted,
-    lineHeight: 18,
-  },
-  ctaSection: {
+  tierCard: {
     backgroundColor: theme.colors.card,
     borderRadius: 16,
     padding: 20,
-    marginBottom: 40,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    alignItems: 'center',
   },
-  ctaTitle: {
-    fontSize: 17,
-    fontWeight: theme.typography.weights.semiBold,
+  tierCardHighlighted: {
+    borderColor: theme.colors.accent,
+    borderWidth: 2,
+  },
+  recommendedBadge: {
+    backgroundColor: theme.colors.accent,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  recommendedText: {
+    fontSize: 11,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.background,
+    letterSpacing: 0.5,
+  },
+  tierName: {
+    fontSize: 20,
+    fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
     marginBottom: 4,
   },
-  ctaPrice: {
+  tierPrice: {
     fontSize: 15,
     fontWeight: theme.typography.weights.medium,
     color: theme.colors.accent,
-    marginBottom: 8,
-  },
-  ctaDescription: {
-    fontSize: 14,
-    color: theme.colors.textMuted,
-    lineHeight: 20,
     marginBottom: 16,
-    textAlign: 'center',
+  },
+  featureList: {
+    gap: 10,
+    marginBottom: 16,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  featureLabel: {
+    fontSize: 14,
+    color: theme.colors.text,
   },
   ctaButton: {
-    backgroundColor: theme.colors.accent,
     paddingVertical: 14,
     paddingHorizontal: 32,
     borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  ctaButtonHighlighted: {
+    backgroundColor: theme.colors.accent,
+    borderColor: theme.colors.accent,
   },
   ctaButtonText: {
     fontSize: 15,
     fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.text,
+  },
+  ctaButtonTextHighlighted: {
     color: theme.colors.background,
+  },
+  requirementsSection: {
+    backgroundColor: theme.colors.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 40,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  requirementsTitle: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.textMuted,
+    marginBottom: 8,
+  },
+  requirementsText: {
+    fontSize: 13,
+    color: theme.colors.textMuted,
+    lineHeight: 18,
   },
 });
 

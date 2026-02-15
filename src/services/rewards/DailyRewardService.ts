@@ -29,6 +29,7 @@ import { DonationTrackingService } from '../donation/DonationTrackingService';
 import { PledgeService } from '../pledge/PledgeService';
 import { EinundzwanzigService } from '../challenge/EinundzwanzigService';
 import { isEinundzwanzigActive, EINUNDZWANZIG_REWARD_CONFIG } from '../../constants/einundzwanzig';
+import { SubscriptionService } from '../backend/SubscriptionService';
 import { nip19 } from '@nostr-dev-kit/ndk';
 
 // Note: Supabase imports removed - rewards are now handled by external service
@@ -57,6 +58,23 @@ export interface RewardResult {
   success: boolean;
   amount?: number;
   reason?: string;
+}
+
+/**
+ * Check if a workout qualifies for boosted subscriber rewards (800 sats)
+ * Requirements: cardio, 2km+ distance, 15+ min, non-manual source
+ */
+export function isBoostedQualified(
+  activityType: string,
+  distanceMeters: number,
+  durationSeconds: number,
+  source: string,
+): boolean {
+  const isCardio = CARDIO_ACTIVITY_TYPES.includes(activityType);
+  const hasDistance = distanceMeters >= REWARD_CONFIG.BOOSTED_MIN_DISTANCE_METERS;
+  const hasDuration = durationSeconds >= REWARD_CONFIG.BOOSTED_MIN_DURATION;
+  const isNonManual = source !== 'manual_entry';
+  return isCardio && hasDistance && hasDuration && isNonManual;
 }
 
 // Diagnostic entry for reward attempts
@@ -496,9 +514,24 @@ class DailyRewardServiceClass {
       }
       // ===== END PLEDGE CHECK =====
 
-      // ===== EINUNDZWANZIG DOUBLE REWARDS =====
-      // If user is in Einundzwanzig event and it's active, double the reward
+      // ===== SUBSCRIBER BOOSTED REWARDS =====
       let totalAmount: number = REWARD_CONFIG.DAILY_WORKOUT_REWARD; // Default 50 sats
+      try {
+        const npub = await AsyncStorage.getItem('@runstr:npub');
+        if (npub) {
+          const isSub = await SubscriptionService.isSupporterOrAbove(npub);
+          if (isSub) {
+            // Note: sendReward() without tags can't check distance/duration,
+            // so boosted reward only applies via sendRewardWithTags path.
+            // Here we log that subscriber was detected but boost not applicable.
+            console.log('[Reward] Subscriber detected, but boost requires sendRewardWithTags path');
+          }
+        }
+      } catch (err) {
+        console.warn('[Reward] Error checking subscriber status:', err);
+      }
+
+      // ===== EINUNDZWANZIG DOUBLE REWARDS =====
       if (isEinundzwanzigActive()) {
         const isInEinundzwanzig = await EinundzwanzigService.hasJoined(userPubkey);
         if (isInEinundzwanzig) {
@@ -601,7 +634,7 @@ class DailyRewardServiceClass {
       tagsCount: workoutTags.length,
     });
 
-    // Calculate reward amount (50 sats base, 100 sats for Einundzwanzig bonus)
+    // Calculate reward amount (50 sats base, boosted for subscribers, 100 sats for Einundzwanzig)
     const rewardAmount = await this.getRewardAmount(userPubkey, workoutTags);
     console.log(`[Reward] Calculated reward amount: ${rewardAmount} sats`);
 
@@ -610,14 +643,52 @@ class DailyRewardServiceClass {
   }
 
   /**
-   * Get the reward amount based on event bonuses
-   * Returns 100 sats for Einundzwanzig participants with featured team tags
+   * Get the reward amount based on subscription tier and event bonuses
+   * Priority: boosted subscriber (800) > Einundzwanzig bonus (100) > base (50)
    */
   private async getRewardAmount(
     userPubkey: string,
     workoutTags: string[][]
   ): Promise<number> {
     const baseReward = REWARD_CONFIG.DAILY_WORKOUT_REWARD; // 50 sats
+
+    // Check subscriber boosted rewards (highest priority)
+    try {
+      const npub = await AsyncStorage.getItem('@runstr:npub');
+      if (npub) {
+        const isSubscriber = await SubscriptionService.isSupporterOrAbove(npub);
+        if (isSubscriber) {
+          // Extract workout metrics from tags to check boost qualification
+          const distanceTag = workoutTags.find(t => t[0] === 'distance');
+          const durationTag = workoutTags.find(t => t[0] === 'duration');
+          const exerciseTag = workoutTags.find(t => t[0] === 'exercise');
+          const sourceTag = workoutTags.find(t => t[0] === 'source');
+
+          const distanceKm = distanceTag ? parseFloat(distanceTag[1]) : 0;
+          const distanceUnit = distanceTag?.[2] || 'km';
+          const distanceMeters = distanceUnit === 'mi'
+            ? distanceKm * 1609.34
+            : distanceKm * 1000;
+
+          const durationStr = durationTag?.[1] || '00:00:00';
+          const durationParts = durationStr.split(':').map(Number);
+          const durationSeconds = (durationParts[0] || 0) * 3600
+            + (durationParts[1] || 0) * 60
+            + (durationParts[2] || 0);
+
+          const exercise = exerciseTag?.[1] || '';
+          const source = sourceTag?.[1] || '';
+
+          if (isBoostedQualified(exercise, distanceMeters, durationSeconds, source)) {
+            console.log('[Reward] Subscriber boosted reward: 800 sats');
+            return REWARD_CONFIG.BOOSTED_WORKOUT_REWARD; // 800 sats
+          }
+          console.log('[Reward] Subscriber but workout does not qualify for boost');
+        }
+      }
+    } catch (err) {
+      console.warn('[Reward] Error checking subscriber boost:', err);
+    }
 
     // Check for Einundzwanzig double rewards bonus
     const hasEinundzwanzigBonus = await this.checkEinundzwanzigBonus(
