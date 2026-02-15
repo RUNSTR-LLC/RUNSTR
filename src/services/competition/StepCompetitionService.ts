@@ -12,6 +12,7 @@
  * No opt-in required - everyone participates automatically.
  */
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
 import { dailyStepCounterService } from '../activity/DailyStepCounterService';
 import { activityMetricsService } from '../activity/ActivityMetricsService';
@@ -143,6 +144,27 @@ export class StepCompetitionService {
   }
 
   /**
+   * Get cached profile data for leaderboard display (name/picture).
+   * Same pattern used by healthKitService, healthConnectService, etc.
+   */
+  private static async getCachedProfile(): Promise<{ name?: string; picture?: string }> {
+    try {
+      const profilesJson = await AsyncStorage.getItem('@runstr:nostr_profiles');
+      if (profilesJson) {
+        const profiles = JSON.parse(profilesJson);
+        const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+        if (hexPubkey && profiles[hexPubkey]) {
+          return {
+            name: profiles[hexPubkey].name || profiles[hexPubkey].displayName,
+            picture: profiles[hexPubkey].picture,
+          };
+        }
+      }
+    } catch { /* non-critical */ }
+    return {};
+  }
+
+  /**
    * Convert npub to hex pubkey for WoT lookup
    */
   private static npubToHex(npub: string): string | null {
@@ -210,6 +232,9 @@ export class StepCompetitionService {
       // The external zapper reads the ['lightning', address] tag to send step rewards
       const rewardTags = await buildRewardTags();
 
+      // Fetch cached profile for leaderboard display (name/picture)
+      const profile = await this.getCachedProfile();
+
       const result = await SupabaseCompetitionService.submitWorkoutSimple({
         eventId,
         npub,
@@ -226,6 +251,8 @@ export class StepCompetitionService {
           ['wot_score', wotScore.toString()], // WoT score for fraud prevention
           ...rewardTags, // Lightning address, team, charity, reward_destination
         ],
+        profileName: profile.name,
+        profilePicture: profile.picture,
       });
 
       if (result.success) {
