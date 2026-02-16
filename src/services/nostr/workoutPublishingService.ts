@@ -35,7 +35,7 @@ import { withTimeout, fireAndForget, NOSTR_TIMEOUTS } from '../../utils/nostrTim
 import { RunningBitcoinService } from '../challenge/RunningBitcoinService';
 import { isRunningBitcoinActive, isEligibleActivityType } from '../../constants/runningBitcoin';
 import Toast from 'react-native-toast-message';
-import { nip19 } from 'nostr-tools';
+import { nip19 } from '@nostr-dev-kit/ndk';
 import Constants from 'expo-constants';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
 // RewardDestinationService removed - reward routing now uses isPPQTeam() inline
@@ -106,19 +106,6 @@ export interface SocialPostOptions {
   userAvatar?: string; // User's profile picture URL
   userName?: string; // User's display name
   cardImageUri?: string; // Pre-rendered card image URI (optional)
-}
-
-interface WorkoutEventData {
-  type: string;
-  duration: number;
-  distance?: number;
-  calories?: number;
-  pace?: number;
-  elevationGain?: number;
-  averageHeartRate?: number;
-  maxHeartRate?: number;
-  startTime: string;
-  endTime: string;
 }
 
 export class WorkoutPublishingService {
@@ -279,17 +266,6 @@ export class WorkoutPublishingService {
       ndkEvent.created_at = Math.floor(
         new Date(workout.startTime).getTime() / 1000
       );
-
-      // Validate runstr format compliance
-      const eventTemplate = {
-        kind: ndkEvent.kind,
-        content: ndkEvent.content,
-        tags: ndkEvent.tags,
-        created_at: ndkEvent.created_at,
-      };
-      if (!this.validateNIP101eStructure(eventTemplate)) {
-        throw new Error('Event structure does not comply with runstr format');
-      }
 
       // Sign and publish WITH TIMEOUT PROTECTION
       // These operations can hang indefinitely without timeouts
@@ -721,26 +697,6 @@ export class WorkoutPublishingService {
       }
     } catch { /* non-critical */ }
     return {};
-  }
-
-  /**
-   * Convert Workout to Nostr event data format
-   */
-  private convertWorkoutToEventData(
-    workout: PublishableWorkout
-  ): WorkoutEventData {
-    return {
-      type: workout.type,
-      duration: workout.duration,
-      distance: workout.distance,
-      calories: workout.calories,
-      pace: workout.pace,
-      elevationGain: workout.elevationGain,
-      averageHeartRate: workout.heartRate?.avg,
-      maxHeartRate: workout.heartRate?.max,
-      startTime: workout.startTime,
-      endTime: workout.endTime,
-    };
   }
 
   /**
@@ -1374,95 +1330,6 @@ export class WorkoutPublishingService {
   }
 
   /**
-   * Format duration for human-readable description
-   */
-  private formatDurationForDescription(seconds: number): string {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    } else {
-      return `${minutes} minutes`;
-    }
-  }
-
-  /**
-   * Validate that an event template complies with runstr format
-   */
-  private validateNIP101eStructure(eventTemplate: {
-    kind: number;
-    content: string;
-    tags: string[][];
-    created_at?: number;
-  }): boolean {
-    // Check that content is plain text, not JSON
-    if (typeof eventTemplate.content !== 'string') {
-      console.error('Validation failed: content must be a string');
-      return false;
-    }
-
-    // Check for required runstr-compatible tags (distance is optional now)
-    const requiredTags = ['d', 'exercise', 'duration', 'source'];
-    const tagKeys = eventTemplate.tags.map((tag) => tag[0]);
-
-    for (const required of requiredTags) {
-      if (!tagKeys.includes(required)) {
-        console.error(`Validation failed: missing required tag '${required}'`);
-        return false;
-      }
-    }
-
-    // Validate exercise tag is simple (just activity type)
-    const exerciseTag = eventTemplate.tags.find((tag) => tag[0] === 'exercise');
-    if (!exerciseTag || exerciseTag.length !== 2) {
-      console.error(
-        'Validation failed: exercise tag must be simple ["exercise", activityType]'
-      );
-      return false;
-    }
-
-    // Validate exercise type is one of the supported values for in-app competitions
-    const validExerciseTypes = [
-      'running',
-      'walking',
-      'cycling',
-      'hiking',
-      'swimming',
-      'rowing',
-      'strength',
-      'yoga',
-      'meditation',
-      'diet',
-      'fasting',
-      'other',
-    ];
-    if (!validExerciseTypes.includes(exerciseTag[1])) {
-      console.warn(
-        `Exercise type '${exerciseTag[1]}' is non-standard - competitions may not recognize it`
-      );
-    }
-
-    // Validate distance tag if present (optional for wellness activities)
-    const distanceTag = eventTemplate.tags.find((tag) => tag[0] === 'distance');
-    if (distanceTag && distanceTag.length !== 3) {
-      console.error(
-        'Validation failed: distance tag must have value and unit when present'
-      );
-      return false;
-    }
-
-    // Validate duration is HH:MM:SS format (always required)
-    const durationTag = eventTemplate.tags.find((tag) => tag[0] === 'duration');
-    if (!durationTag || !/^\d{2}:\d{2}:\d{2}$/.test(durationTag[1])) {
-      console.error('Validation failed: duration must be in HH:MM:SS format');
-      return false;
-    }
-
-    return true;
-  }
-
-  /**
    * Create tags for kind 1 social posts with NIP-94 image metadata
    * ✅ UPDATED: Charity is now the team - adds charity ID to BOTH team AND charity tags
    */
@@ -1675,42 +1542,6 @@ export class WorkoutPublishingService {
   }
 
   /**
-   * Generate motivational message based on workout
-   */
-  private generateMotivationalMessage(workout: PublishableWorkout): string {
-    const messages = {
-      running: [
-        'Just crushed another run! 🏃‍♂️',
-        'Miles conquered, goals achieved! 🎯',
-        'Every step counts toward greatness! ⚡',
-        'Running toward my best self! 🌟',
-      ],
-      cycling: [
-        'Bike ride complete! 🚴‍♂️',
-        'Pedaling toward my goals! 🎯',
-        'Two wheels, infinite possibilities! ⚡',
-        'Cycling into a stronger me! 💪',
-      ],
-      gym: [
-        'Gym session: COMPLETE! 💪',
-        'Another step closer to my goals! 🎯',
-        'Strength builds character! ⚡',
-        'Iron sharpens iron! 🔥',
-      ],
-      walking: [
-        'Walk complete! One step at a time! 🚶‍♂️',
-        'Movement is medicine! 🌟',
-        'Every step matters! ⚡',
-        'Walking my way to wellness! 💚',
-      ],
-    };
-
-    const typeMessages =
-      messages[workout.type as keyof typeof messages] || messages.gym;
-    return typeMessages[Math.floor(Math.random() * typeMessages.length)];
-  }
-
-  /**
    * Format workout stats for social post in vertical list format
    */
   private formatWorkoutStats(workout: PublishableWorkout): string {
@@ -1771,85 +1602,6 @@ export class WorkoutPublishingService {
     return stats.join('\n');
   }
 
-  /**
-   * Generate achievement callouts
-   */
-  private generateAchievements(workout: PublishableWorkout): string | null {
-    const achievements = [];
-
-    // Distance-based achievements
-    if (workout.distance) {
-      const km = workout.distance / 1000;
-      if (km >= 21.1) achievements.push('🏃‍♂️ Half Marathon Distance!');
-      else if (km >= 10) achievements.push('🎯 10K Achievement!');
-      else if (km >= 5) achievements.push('⭐ 5K Complete!');
-    }
-
-    // Duration-based achievements
-    if (workout.duration >= 3600) {
-      achievements.push('⏰ 1+ Hour Workout!');
-    } else if (workout.duration >= 1800) {
-      achievements.push('💪 30+ Minute Session!');
-    }
-
-    // Calorie achievements
-    if (workout.calories && workout.calories >= 500) {
-      achievements.push('🔥 500+ Calories Burned!');
-    }
-
-    return achievements.length > 0 ? achievements.join(' ') : null;
-  }
-
-  /**
-   * Batch publish multiple workouts
-   * Supports both direct privateKeyHex (nsec users) and NDKSigner (Amber users)
-   */
-  async batchSaveWorkouts(
-    workouts: PublishableWorkout[],
-    privateKeyHexOrSigner: string | NDKSigner,
-    userId: string,
-    onProgress?: (completed: number, total: number) => void
-  ): Promise<{
-    successful: number;
-    failed: number;
-    results: WorkoutPublishResult[];
-  }> {
-    const results: WorkoutPublishResult[] = [];
-    let successful = 0;
-    let failed = 0;
-
-    for (let i = 0; i < workouts.length; i++) {
-      const workout = workouts[i];
-
-      try {
-        const result = await this.saveWorkoutToNostr(
-          workout,
-          privateKeyHexOrSigner,
-          userId
-        );
-        results.push(result);
-
-        if (result.success) {
-          successful++;
-        } else {
-          failed++;
-        }
-
-        onProgress?.(i + 1, workouts.length);
-
-        // Small delay between publishes to avoid overwhelming relays
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      } catch (error) {
-        results.push({
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
-        failed++;
-      }
-    }
-
-    return { successful, failed, results };
-  }
 }
 
 export default WorkoutPublishingService.getInstance();
