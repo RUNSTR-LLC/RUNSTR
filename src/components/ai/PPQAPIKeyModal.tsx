@@ -388,7 +388,7 @@ export const PPQAPIKeyModal: React.FC<PPQAPIKeyModalProps> = ({
                 onPress={handleClearAccount}
                 disabled={isProcessing}
               >
-                <Ionicons name="trash-outline" size={16} color="#ff6b6b" />
+                <Ionicons name="trash-outline" size={16} color="#FF6B00" />
                 <Text style={styles.dangerButtonText}>Clear Account</Text>
               </TouchableOpacity>
             </>
@@ -486,7 +486,7 @@ export const PPQAPIKeyModal: React.FC<PPQAPIKeyModalProps> = ({
           {/* Error Message */}
           {error && (
             <View style={styles.errorContainer}>
-              <Ionicons name="alert-circle" size={16} color="#ff6b6b" />
+              <Ionicons name="alert-circle" size={16} color="#FF6B00" />
               <Text style={styles.errorText}>{error}</Text>
             </View>
           )}
@@ -701,7 +701,7 @@ const styles = StyleSheet.create({
   },
   dangerButtonText: {
     fontSize: 13,
-    color: '#ff6b6b',
+    color: '#FF6B00',
     marginLeft: 6,
   },
   privacyNote: {
@@ -725,7 +725,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 13,
-    color: '#ff6b6b',
+    color: '#FF6B00',
     marginLeft: 8,
     flex: 1,
   },

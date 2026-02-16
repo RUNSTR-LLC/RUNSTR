@@ -35,10 +35,10 @@ interface Platform {
 }
 
 const platforms: Platform[] = [
-  { id: 'nostr', name: 'Nostr', icon: '⚡', available: true },
-  { id: 'twitter', name: 'Twitter', icon: '🐦', available: false },
-  { id: 'instagram', name: 'Instagram', icon: '📸', available: false },
-  { id: 'facebook', name: 'Facebook', icon: '👤', available: false },
+  { id: 'nostr', name: 'Nostr', icon: 'N', available: true },
+  { id: 'twitter', name: 'Twitter', icon: 'X', available: false },
+  { id: 'instagram', name: 'Instagram', icon: 'IG', available: false },
+  { id: 'facebook', name: 'Facebook', icon: 'FB', available: false },
 ];
 
 export const SocialShareModal: React.FC<SocialShareModalProps> = ({

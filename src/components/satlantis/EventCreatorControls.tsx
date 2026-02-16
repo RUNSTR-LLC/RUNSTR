@@ -212,7 +212,7 @@ export const EventCreatorControls: React.FC<EventCreatorControlsProps> = ({
                   <Ionicons
                     name={result.success ? 'checkmark-circle' : 'close-circle'}
                     size={16}
-                    color={result.success ? theme.colors.success : '#FF3B30'}
+                    color={result.success ? theme.colors.success : '#FF6B00'}
                   />
                 </View>
               </View>
@@ -228,7 +228,7 @@ export const EventCreatorControls: React.FC<EventCreatorControlsProps> = ({
     return (
       <View style={styles.container}>
         <View style={styles.warningBox}>
-          <Ionicons name="warning-outline" size={20} color="#FF9500" />
+          <Ionicons name="warning-outline" size={20} color="#FF9D42" />
           <Text style={styles.warningText}>
             Partial payout - some payments failed
           </Text>
@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     padding: 12,
-    backgroundColor: 'rgba(48, 209, 88, 0.1)',
+    backgroundColor: 'rgba(255, 157, 66, 0.1)',
     borderRadius: 8,
     marginBottom: 12,
   },
@@ -389,7 +389,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   warningText: {
-    color: '#FF9500',
+    color: '#FF9D42',
     fontSize: 14,
     flex: 1,
   },
@@ -472,7 +472,7 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.semiBold,
   },
   retryButton: {
-    backgroundColor: '#FF9500',
+    backgroundColor: '#FF9D42',
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',

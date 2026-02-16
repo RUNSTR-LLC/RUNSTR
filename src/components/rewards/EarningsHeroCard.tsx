@@ -148,7 +148,7 @@ export const EarningsHeroCard: React.FC<EarningsHeroCardProps> = ({ pubkey }) =>
           <Text style={styles.splitLabel}>
             {t('earningsHero.toYou', 'to you')}
           </Text>
-          <Ionicons name="checkmark-circle" size={18} color="#4CAF50" style={styles.splitIcon} />
+          <Ionicons name="checkmark-circle" size={18} color="#FF9D42" style={styles.splitIcon} />
         </View>
 
         {/* Divider */}
@@ -162,7 +162,7 @@ export const EarningsHeroCard: React.FC<EarningsHeroCardProps> = ({ pubkey }) =>
           <Text style={styles.splitLabel}>
             {t('earningsHero.toCharity', 'to charity')}
           </Text>
-          <Ionicons name="checkmark-circle" size={18} color="#4CAF50" style={styles.splitIcon} />
+          <Ionicons name="checkmark-circle" size={18} color="#FF9D42" style={styles.splitIcon} />
         </View>
       </View>
 

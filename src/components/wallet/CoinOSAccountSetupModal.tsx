@@ -286,7 +286,7 @@ export const CoinOSAccountSetupModal: React.FC<CoinOSAccountSetupModalProps> = (
           {/* Error Message */}
           {error && (
             <View style={styles.errorContainer}>
-              <Ionicons name="alert-circle" size={16} color="#ff6b6b" />
+              <Ionicons name="alert-circle" size={16} color="#FF6B00" />
               <Text style={styles.errorText}>{error}</Text>
             </View>
           )}
@@ -452,7 +452,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 13,
-    color: '#ff6b6b',
+    color: '#FF6B00',
     marginLeft: 8,
     flex: 1,
   },

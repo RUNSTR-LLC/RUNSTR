@@ -1,11 +1,9 @@
 /**
  * LightningAddressSetupModal - Set up Lightning address for "You" team
  *
- * Shown when user selects "You" as their team. Allows:
- * - Entering a Lightning address (pre-filled from Nostr profile lud16)
- * - Creating a CoinOS wallet as a secondary option
- *
- * After setup, saves the Lightning address via RewardLightningAddressService
+ * Shown when user selects "You" as their team.
+ * Simple flow: enter a Lightning address → save.
+ * Pre-fills from Nostr profile lud16 if available.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -19,9 +17,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../styles/theme';
-import { CoinOSAccountService } from '../../services/wallet/CoinOSAccountService';
 import { RewardLightningAddressService } from '../../services/rewards/RewardLightningAddressService';
 
 interface LightningAddressSetupModalProps {
@@ -40,14 +36,7 @@ export const LightningAddressSetupModal: React.FC<LightningAddressSetupModalProp
   const [address, setAddress] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showCoinOSCreation, setShowCoinOSCreation] = useState(false);
-  const [isCreatingWallet, setIsCreatingWallet] = useState(false);
   const [existingAddress, setExistingAddress] = useState<string | null>(null);
-
-  // CoinOS manual entry state
-  const [showManualEntry, setShowManualEntry] = useState(false);
-  const [coinosUsername, setCoinosUsername] = useState('');
-  const [coinosPassword, setCoinosPassword] = useState('');
 
   useEffect(() => {
     if (visible) {
@@ -68,8 +57,6 @@ export const LightningAddressSetupModal: React.FC<LightningAddressSetupModalProp
       setExistingAddress(null);
     }
     setError(null);
-    setShowCoinOSCreation(false);
-    setShowManualEntry(false);
   };
 
   const isValidAddress = RewardLightningAddressService.isValidLightningAddress(address.trim());
@@ -94,76 +81,10 @@ export const LightningAddressSetupModal: React.FC<LightningAddressSetupModalProp
     }
   };
 
-  const handleCreateCoinOSWallet = async () => {
-    setIsCreatingWallet(true);
-    setError(null);
-
-    try {
-      const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
-      if (!hexPubkey) {
-        setError('No user key found. Please log in first.');
-        setIsCreatingWallet(false);
-        return;
-      }
-
-      const result = await CoinOSAccountService.createAccount(hexPubkey);
-
-      if (result.success && result.lightningAddress) {
-        await RewardLightningAddressService.setRewardLightningAddress(result.lightningAddress);
-        onSuccess(result.lightningAddress);
-      } else {
-        setError(result.error || 'Failed to create wallet');
-      }
-    } catch (err) {
-      console.error('[LightningSetup] CoinOS create error:', err);
-      setError('Failed to create wallet. Please try again.');
-    } finally {
-      setIsCreatingWallet(false);
-    }
-  };
-
-  const handleSaveManualCoinOS = async () => {
-    if (!coinosUsername.trim() || !coinosPassword.trim()) {
-      setError('Please enter both username and password');
-      return;
-    }
-
-    setIsSaving(true);
-    setError(null);
-
-    try {
-      const success = await CoinOSAccountService.setAccount(
-        coinosUsername.trim(),
-        coinosPassword.trim()
-      );
-
-      if (success) {
-        const addr = `${coinosUsername.trim()}@coinos.io`;
-        await RewardLightningAddressService.setRewardLightningAddress(addr);
-        setCoinosUsername('');
-        setCoinosPassword('');
-        onSuccess(addr);
-      } else {
-        setError('Login failed. Check your credentials.');
-      }
-    } catch (err) {
-      console.error('[LightningSetup] CoinOS manual error:', err);
-      setError('Failed to save credentials. Please try again.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const handleClose = () => {
     setError(null);
-    setShowCoinOSCreation(false);
-    setShowManualEntry(false);
-    setCoinosUsername('');
-    setCoinosPassword('');
     onClose();
   };
-
-  const isProcessing = isSaving || isCreatingWallet;
 
   return (
     <Modal
@@ -217,14 +138,14 @@ export const LightningAddressSetupModal: React.FC<LightningAddressSetupModalProp
                   autoCapitalize="none"
                   autoCorrect={false}
                   keyboardType="email-address"
-                  editable={!isProcessing}
+                  editable={!isSaving}
                 />
               </View>
 
               <TouchableOpacity
-                style={[styles.primaryButton, (!isValidAddress || isProcessing) && styles.buttonDisabled]}
+                style={[styles.primaryButton, (!isValidAddress || isSaving) && styles.buttonDisabled]}
                 onPress={handleSave}
-                disabled={!isValidAddress || isProcessing}
+                disabled={!isValidAddress || isSaving}
               >
                 {isSaving ? (
                   <ActivityIndicator size="small" color="#000" />
@@ -233,7 +154,7 @@ export const LightningAddressSetupModal: React.FC<LightningAddressSetupModalProp
                 )}
               </TouchableOpacity>
             </>
-          ) : !showCoinOSCreation ? (
+          ) : (
             <>
               <Text style={styles.description}>
                 Enter your Lightning address to receive workout rewards directly in sats.
@@ -253,16 +174,16 @@ export const LightningAddressSetupModal: React.FC<LightningAddressSetupModalProp
                   autoCapitalize="none"
                   autoCorrect={false}
                   keyboardType="email-address"
-                  editable={!isProcessing}
+                  editable={!isSaving}
                   autoFocus={!prefillAddress}
                 />
               </View>
 
               {/* Save Button */}
               <TouchableOpacity
-                style={[styles.primaryButton, (!isValidAddress || isProcessing) && styles.buttonDisabled]}
+                style={[styles.primaryButton, (!isValidAddress || isSaving) && styles.buttonDisabled]}
                 onPress={handleSave}
-                disabled={!isValidAddress || isProcessing}
+                disabled={!isValidAddress || isSaving}
               >
                 {isSaving ? (
                   <ActivityIndicator size="small" color="#000" />
@@ -271,126 +192,20 @@ export const LightningAddressSetupModal: React.FC<LightningAddressSetupModalProp
                 )}
               </TouchableOpacity>
 
-              {/* Create wallet link */}
-              <TouchableOpacity
-                style={styles.secondaryButton}
-                onPress={() => setShowCoinOSCreation(true)}
-                disabled={isProcessing}
-              >
-                <Ionicons name="wallet-outline" size={18} color={theme.colors.text} />
-                <Text style={styles.secondaryButtonText}>Don't have one? Create a free wallet</Text>
-              </TouchableOpacity>
-            </>
-          ) : !showManualEntry ? (
-            <>
-              <Text style={styles.description}>
-                Create a free Bitcoin Lightning wallet to receive your workout rewards.
-              </Text>
-
-              {/* Create Wallet Button */}
-              <TouchableOpacity
-                style={[styles.primaryButton, isProcessing && styles.buttonDisabled]}
-                onPress={handleCreateCoinOSWallet}
-                disabled={isProcessing}
-              >
-                {isCreatingWallet ? (
-                  <ActivityIndicator size="small" color="#000" />
-                ) : (
-                  <>
-                    <Ionicons name="add-circle" size={20} color="#000" style={styles.buttonIcon} />
-                    <Text style={styles.primaryButtonText}>Create Wallet</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              {/* Manual Entry Toggle */}
-              <TouchableOpacity
-                style={styles.secondaryButton}
-                onPress={() => setShowManualEntry(true)}
-                disabled={isProcessing}
-              >
-                <Ionicons name="log-in-outline" size={18} color={theme.colors.text} />
-                <Text style={styles.secondaryButtonText}>I have a CoinOS account</Text>
-              </TouchableOpacity>
-
-              {/* Back link */}
-              <TouchableOpacity
-                style={styles.backButton}
-                onPress={() => setShowCoinOSCreation(false)}
-                disabled={isProcessing}
-              >
-                <Text style={styles.backButtonText}>Back to Lightning address</Text>
-              </TouchableOpacity>
-
-              {/* Custody Warning */}
+              {/* Hint */}
               <View style={styles.infoBox}>
                 <Ionicons name="information-circle-outline" size={18} color={theme.colors.textMuted} />
                 <Text style={styles.infoText}>
-                  CoinOS holds your Bitcoin. For larger amounts, withdraw to a self-custody wallet.
+                  Get a free Lightning address from Wallet of Satoshi, Strike, Alby, or any Lightning wallet.
                 </Text>
               </View>
-            </>
-          ) : (
-            <>
-              {/* CoinOS Manual Entry */}
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Username</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Your CoinOS username"
-                  placeholderTextColor={theme.colors.textMuted}
-                  value={coinosUsername}
-                  onChangeText={setCoinosUsername}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  editable={!isProcessing}
-                />
-              </View>
-
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Password</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Your CoinOS password"
-                  placeholderTextColor={theme.colors.textMuted}
-                  value={coinosPassword}
-                  onChangeText={setCoinosPassword}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  secureTextEntry
-                  editable={!isProcessing}
-                />
-              </View>
-
-              <TouchableOpacity
-                style={[
-                  styles.primaryButton,
-                  (!coinosUsername.trim() || !coinosPassword.trim() || isProcessing) && styles.buttonDisabled,
-                ]}
-                onPress={handleSaveManualCoinOS}
-                disabled={!coinosUsername.trim() || !coinosPassword.trim() || isProcessing}
-              >
-                {isSaving ? (
-                  <ActivityIndicator size="small" color="#000" />
-                ) : (
-                  <Text style={styles.primaryButtonText}>Log In</Text>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.backButton}
-                onPress={() => setShowManualEntry(false)}
-                disabled={isProcessing}
-              >
-                <Text style={styles.backButtonText}>Back</Text>
-              </TouchableOpacity>
             </>
           )}
 
           {/* Error Message */}
           {error && (
             <View style={styles.errorContainer}>
-              <Ionicons name="alert-circle" size={16} color="#ff6b6b" />
+              <Ionicons name="alert-circle" size={16} color="#FF6B00" />
               <Text style={styles.errorText}>{error}</Text>
             </View>
           )}
@@ -468,12 +283,6 @@ const styles = StyleSheet.create({
   inputContainer: {
     marginBottom: 12,
   },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: theme.colors.text,
-    marginBottom: 8,
-  },
   input: {
     backgroundColor: '#1a1a1a',
     borderWidth: 1,
@@ -494,9 +303,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     minHeight: 48,
   },
-  buttonIcon: {
-    marginRight: 8,
-  },
   primaryButtonText: {
     fontSize: 16,
     fontWeight: '600',
@@ -505,33 +311,6 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     backgroundColor: '#3a3a3a',
     opacity: 0.6,
-  },
-  secondaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1a1a1a',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-  },
-  secondaryButtonText: {
-    fontSize: 14,
-    color: theme.colors.text,
-    marginLeft: 8,
-    fontWeight: '500',
-  },
-  backButton: {
-    alignItems: 'center',
-    paddingVertical: 8,
-    marginTop: 4,
-  },
-  backButtonText: {
-    fontSize: 14,
-    color: theme.colors.textMuted,
   },
   errorContainer: {
     flexDirection: 'row',
@@ -543,7 +322,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 13,
-    color: '#ff6b6b',
+    color: '#FF6B00',
     marginLeft: 8,
     flex: 1,
   },

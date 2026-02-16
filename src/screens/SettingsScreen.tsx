@@ -463,7 +463,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           // Close first alert and show second warning
           setAlertVisible(false);
           setTimeout(() => {
-            setAlertTitle('⚠️ Final Warning');
+            setAlertTitle('Final Warning');
             setAlertMessage(warningDetails);
             setAlertButtons([
               { text: 'Cancel', style: 'cancel' },
@@ -615,10 +615,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     }
 
     // First warning dialog with education
-    setAlertTitle('🔐 Backup Your Password');
+    setAlertTitle('Backup Your Password');
     setAlertMessage(
       'Your password is the master key to your account.\n\n' +
-        '⚠️ IMPORTANT:\n' +
+        'IMPORTANT:\n' +
         '• We do not keep backups of passwords\n' +
         '• Your password is only stored locally on your phone\n' +
         '• If you lose your password, you lose access to your account\n' +
@@ -638,10 +638,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             // Close first alert and show success
             setAlertVisible(false);
             setTimeout(() => {
-              setAlertTitle('✅ Password Copied');
+              setAlertTitle('Password Copied');
               setAlertMessage(
                 'Your password has been copied to your clipboard.\n\n' +
-                  '🔒 Security Tips:\n' +
+                  'Security Tips:\n' +
                   '1. Paste it in a secure password manager NOW\n' +
                   '2. Clear your clipboard after saving it\n' +
                   '3. Never paste it in untrusted apps\n' +
@@ -1715,7 +1715,7 @@ const styles = StyleSheet.create({
   },
 
   lightningAddressInputError: {
-    borderColor: theme.colors.error || '#ff4444',
+    borderColor: theme.colors.error || '#FF6B00',
   },
 
   lightningAddressSaveButton: {
@@ -1734,7 +1734,7 @@ const styles = StyleSheet.create({
   },
 
   lightningAddressError: {
-    color: theme.colors.error || '#ff4444',
+    color: theme.colors.error || '#FF6B00',
     fontSize: 12,
     marginTop: 6,
   },

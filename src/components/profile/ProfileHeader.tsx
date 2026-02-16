@@ -111,7 +111,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           )}
           {lud16 && (
             <Text style={styles.lightningAddress} numberOfLines={1}>
-              ⚡ {lud16}
+              {lud16}
             </Text>
           )}
         </View>

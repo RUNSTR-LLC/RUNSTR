@@ -124,26 +124,26 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
 
   const getWeatherEmoji = (icon: string): string => {
     const iconMap: Record<string, string> = {
-      '01d': '☀️',
-      '01n': '🌙',
-      '02d': '⛅',
-      '02n': '☁️',
-      '03d': '☁️',
-      '03n': '☁️',
-      '04d': '☁️',
-      '04n': '☁️',
-      '09d': '🌧️',
-      '09n': '🌧️',
-      '10d': '🌦️',
-      '10n': '🌧️',
-      '11d': '⛈️',
-      '11n': '⛈️',
-      '13d': '❄️',
-      '13n': '❄️',
-      '50d': '🌫️',
-      '50n': '🌫️',
+      '01d': 'Clear',
+      '01n': 'Clear',
+      '02d': 'Clouds',
+      '02n': 'Cloudy',
+      '03d': 'Cloudy',
+      '03n': 'Cloudy',
+      '04d': 'Cloudy',
+      '04n': 'Cloudy',
+      '09d': 'Rain',
+      '09n': 'Rain',
+      '10d': 'Rain',
+      '10n': 'Rain',
+      '11d': 'Storm',
+      '11n': 'Storm',
+      '13d': 'Snow',
+      '13n': 'Snow',
+      '50d': 'Fog',
+      '50n': 'Fog',
     };
-    return iconMap[icon] || '🌤️';
+    return iconMap[icon] || 'Fair';
   };
 
   const getActivityTypeName = (): string => {

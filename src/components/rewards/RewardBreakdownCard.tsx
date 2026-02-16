@@ -105,7 +105,7 @@ export const RewardBreakdownCard: React.FC<RewardBreakdownCardProps> = ({
                     <Text style={styles.rowValue}>
                       {(breakdown?.sentToUser || 0).toLocaleString()} sats
                     </Text>
-                    <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
+                    <Ionicons name="checkmark-circle" size={14} color="#FF9D42" />
                   </View>
                 </View>
 
@@ -121,7 +121,7 @@ export const RewardBreakdownCard: React.FC<RewardBreakdownCardProps> = ({
                     <Text style={styles.rowValue}>
                       {(breakdown?.sentToCharity || 0).toLocaleString()} sats
                     </Text>
-                    <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
+                    <Ionicons name="checkmark-circle" size={14} color="#FF9D42" />
                   </View>
                 </View>
 

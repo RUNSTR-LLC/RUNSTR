@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
 
   errorText: {
     fontSize: 14,
-    color: '#FF6B6B',
+    color: '#FF6B00',
   },
 
   lastUpdated: {

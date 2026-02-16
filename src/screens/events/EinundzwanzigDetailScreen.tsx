@@ -636,7 +636,7 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
   },
   demoIndicator: {
-    backgroundColor: 'rgba(255, 193, 7, 0.2)',
+    backgroundColor: 'rgba(255, 157, 66, 0.2)',
     paddingVertical: 8,
     paddingHorizontal: 16,
     marginHorizontal: 16,
@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   demoText: {
-    color: '#FFC107',
+    color: '#FF9D42',
     fontSize: 12,
     textAlign: 'center',
     fontWeight: theme.typography.weights.medium,

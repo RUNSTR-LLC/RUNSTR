@@ -155,7 +155,7 @@ export const SavedRoutesScreen: React.FC = () => {
   const getActivityColor = (type: WorkoutType): string => {
     switch (type) {
       case 'running':
-        return '#FF6B6B';
+        return '#FF6B00';
       case 'walking':
         return '#4ECDC4';
       case 'cycling':

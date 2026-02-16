@@ -326,7 +326,7 @@ export class NotificationService {
       body: `They're gaining fast in ${data.competitionName} - defend your position!`,
       liveIndicator: {
         text: 'LIVE',
-        color: '#ff4444',
+        color: '#FF6B00',
         isLive: true,
       },
       miniLeaderboard: data.leaderboard,

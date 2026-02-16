@@ -910,13 +910,13 @@ const styles = StyleSheet.create({
     color: theme.colors.background,
   },
   errorContainer: {
-    backgroundColor: 'rgba(255, 59, 48, 0.1)',
+    backgroundColor: 'rgba(255, 107, 0, 0.1)',
     borderRadius: 8,
     padding: 12,
     marginTop: 8,
   },
   errorText: {
-    color: '#FF3B30',
+    color: '#FF6B00',
     fontSize: 14,
   },
   footer: {

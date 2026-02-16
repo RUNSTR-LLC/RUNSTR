@@ -205,14 +205,14 @@ const styles = StyleSheet.create({
   errorContainer: {
     backgroundColor: '#1a0a0a',
     borderWidth: 1,
-    borderColor: '#ff4444',
+    borderColor: '#FF6B00',
     borderRadius: 8,
     padding: 12,
     marginTop: 12,
   },
   errorText: {
     fontSize: 12,
-    color: '#ff6666',
+    color: '#FF6B00',
     textAlign: 'center',
   },
   buttonContainer: {

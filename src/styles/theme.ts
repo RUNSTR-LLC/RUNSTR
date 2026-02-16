@@ -56,8 +56,8 @@ export const colors = {
   primary: '#FF7B1C', // Primary action color (deep orange)
   textTertiary: '#999999', // For darker text
   gray: '#333333', // For borders and backgrounds
-  error: '#ff4444', // Error messages and validation
-  warning: '#fbbf24', // Warning/security indicators (amber)
+  error: '#FF6B00', // Error messages and validation (vivid orange)
+  warning: '#FF9D42', // Warning/security indicators (bright orange)
   success: '#FF9D42', // Success states - ORANGE not green (matches theme)
 
   // Consolidated button styling - single source of truth

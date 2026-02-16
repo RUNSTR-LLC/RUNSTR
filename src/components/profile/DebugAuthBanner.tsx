@@ -39,8 +39,8 @@ export const DebugAuthBanner: React.FC<DebugAuthBannerProps> = ({ onPress }) => 
     );
   }
 
-  const authIcon = debugInfo.authMethod === 'nostr' ? '🔐' :
-                   debugInfo.authMethod === 'amber' ? '🟠' : '❌';
+  const authIcon = debugInfo.authMethod === 'nostr' ? 'K' :
+                   debugInfo.authMethod === 'amber' ? 'A' : '?';
 
   return (
     <TouchableOpacity

@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
     maxHeight: '60%',
   },
   deadBanner: {
-    backgroundColor: '#dc2626',
+    backgroundColor: '#FF6B00',
     paddingVertical: 8,
     paddingHorizontal: 16,
     flexDirection: 'row',
@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   errorText: {
-    color: '#ef4444',
+    color: '#FF6B00',
     fontSize: 11,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     marginTop: 4,
@@ -457,7 +457,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   copyButtonSuccess: {
-    backgroundColor: '#22c55e',
+    backgroundColor: '#FF9D42',
   },
   copyButtonText: {
     color: '#fff',

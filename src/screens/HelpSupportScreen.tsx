@@ -66,7 +66,7 @@ export const HelpSupportScreen: React.FC<{ navigation: any }> = ({
   const helpSections = [
     {
       id: 'getting-started',
-      title: '🚀 Getting Started',
+      title: 'Getting Started',
       content: `Welcome to RUNSTR! Here's how to get started:
 
 • Nostr Login: Use your nsec (private key) to sign in. Your nsec starts with "nsec1" and should be kept private.
@@ -76,7 +76,7 @@ export const HelpSupportScreen: React.FC<{ navigation: any }> = ({
     },
     {
       id: 'teams',
-      title: '👥 Teams & Membership',
+      title: 'Teams & Membership',
       content: `Teams are the heart of RUNSTR competitions:
 
 • Joining Teams: Browse available teams in the Teams tab. Tap a team to view details, then "Join Team" to request membership.
@@ -87,7 +87,7 @@ export const HelpSupportScreen: React.FC<{ navigation: any }> = ({
     },
     {
       id: 'workouts',
-      title: '💪 Workouts & Competitions',
+      title: 'Workouts & Competitions',
       content: `Track and share your fitness journey:
 
 • HealthKit Import: iOS users can automatically sync Apple Health workouts.
@@ -100,7 +100,7 @@ export const HelpSupportScreen: React.FC<{ navigation: any }> = ({
     },
     {
       id: 'rewards',
-      title: '₿ Sats & Rewards',
+      title: 'Sats & Rewards',
       content: `Earn sats through fitness:
 
 • NutZap Wallet: Your built-in Lightning wallet for instant transactions.
@@ -112,7 +112,7 @@ export const HelpSupportScreen: React.FC<{ navigation: any }> = ({
     },
     {
       id: 'captain',
-      title: '👑 Captain Features',
+      title: 'Captain Features',
       content: `Lead your team to victory:
 
 • Dashboard Access: Captain Dashboard button appears for team creators.
@@ -126,7 +126,7 @@ export const HelpSupportScreen: React.FC<{ navigation: any }> = ({
     },
     {
       id: 'notifications',
-      title: '🔔 Notifications',
+      title: 'Notifications',
       content: `Stay updated with your team:
 
 • Team Notifications: Get alerts for new competitions, results, and team updates.
@@ -137,7 +137,7 @@ export const HelpSupportScreen: React.FC<{ navigation: any }> = ({
     },
     {
       id: 'troubleshooting',
-      title: '🔧 Troubleshooting',
+      title: 'Troubleshooting',
       content: `Common issues and solutions:
 
 • Login Issues: Ensure your nsec starts with "nsec1" and has no spaces.

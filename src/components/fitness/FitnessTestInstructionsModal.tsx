@@ -113,11 +113,11 @@ export const FitnessTestInstructionsModal: React.FC<
                 three (max 300)
               </Text>
               <View style={styles.gradeTable}>
-                <Text style={styles.gradeRow}>270-300: Elite 🏆</Text>
-                <Text style={styles.gradeRow}>240-269: Advanced 💪</Text>
-                <Text style={styles.gradeRow}>210-239: Intermediate ⚡</Text>
-                <Text style={styles.gradeRow}>180-209: Beginner 📈</Text>
-                <Text style={styles.gradeRow}>0-179: Baseline 🎯</Text>
+                <Text style={styles.gradeRow}>270-300: Elite</Text>
+                <Text style={styles.gradeRow}>240-269: Advanced</Text>
+                <Text style={styles.gradeRow}>210-239: Intermediate</Text>
+                <Text style={styles.gradeRow}>180-209: Beginner</Text>
+                <Text style={styles.gradeRow}>0-179: Baseline</Text>
               </View>
             </View>
           </ScrollView>

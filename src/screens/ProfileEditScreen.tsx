@@ -483,7 +483,7 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   error: {
-    color: theme.colors.error || '#ff4444',
+    color: theme.colors.error || '#FF6B00',
     fontSize: 12,
     marginTop: 4,
   },

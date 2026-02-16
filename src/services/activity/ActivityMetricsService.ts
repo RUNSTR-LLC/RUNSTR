@@ -422,15 +422,15 @@ class ActivityMetricsService {
     emoji: string;
   } {
     if (effortScore >= 80) {
-      return { label: 'Extreme', color: '#FF3B30', emoji: '🔥' };
+      return { label: 'Extreme', color: '#E65100', emoji: '' };
     } else if (effortScore >= 60) {
-      return { label: 'Hard', color: '#FF9500', emoji: '💪' };
+      return { label: 'Hard', color: '#FF7B1C', emoji: '' };
     } else if (effortScore >= 40) {
-      return { label: 'Moderate', color: '#FFCC00', emoji: '⚡' };
+      return { label: 'Moderate', color: '#FF9D42', emoji: '' };
     } else if (effortScore >= 20) {
-      return { label: 'Light', color: '#34C759', emoji: '✨' };
+      return { label: 'Light', color: '#FFB366', emoji: '' };
     } else {
-      return { label: 'Easy', color: '#5AC8FA', emoji: '🌟' };
+      return { label: 'Easy', color: '#CC7A33', emoji: '' };
     }
   }
 }

@@ -126,7 +126,7 @@ export class ExpoNotificationProvider {
       description: 'Real-time updates during active competitions',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 100, 150, 100],
-      lightColor: '#ff4444',
+      lightColor: '#FF6B00',
       sound: 'default',
     });
 

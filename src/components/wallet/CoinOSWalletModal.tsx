@@ -309,7 +309,7 @@ export const CoinOSWalletModal: React.FC<CoinOSWalletModalProps> = ({
                     {/* Receive Error */}
                     {receiveError && (
                       <View style={styles.errorContainer}>
-                        <Ionicons name="alert-circle" size={16} color="#ff6b6b" />
+                        <Ionicons name="alert-circle" size={16} color="#FF6B00" />
                         <Text style={styles.errorText}>{receiveError}</Text>
                       </View>
                     )}
@@ -413,7 +413,7 @@ export const CoinOSWalletModal: React.FC<CoinOSWalletModalProps> = ({
                 {/* Send Error */}
                 {sendError && (
                   <View style={styles.errorContainer}>
-                    <Ionicons name="alert-circle" size={16} color="#ff6b6b" />
+                    <Ionicons name="alert-circle" size={16} color="#FF6B00" />
                     <Text style={styles.errorText}>{sendError}</Text>
                   </View>
                 )}
@@ -625,7 +625,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 13,
-    color: '#ff6b6b',
+    color: '#FF6B00',
     marginLeft: 8,
     flex: 1,
   },

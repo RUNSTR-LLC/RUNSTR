@@ -629,7 +629,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     padding: 12,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: 'rgba(255, 107, 0, 0.1)',
     borderRadius: theme.borderRadius.medium,
     borderWidth: 1,
     borderColor: theme.colors.error,
@@ -723,7 +723,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.orangeBright,
   },
   timerBannerUrgent: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: 'rgba(255, 107, 0, 0.1)',
     borderColor: theme.colors.error,
   },
   timerText: {
@@ -741,7 +741,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: 'rgba(255, 107, 0, 0.1)',
     borderRadius: theme.borderRadius.medium,
     borderWidth: 1,
     borderColor: theme.colors.error,

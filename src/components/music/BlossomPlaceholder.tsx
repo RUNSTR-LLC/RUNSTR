@@ -47,10 +47,10 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 182, 193, 0.15)', // Light pink tint
+    backgroundColor: 'rgba(255, 157, 66, 0.15)', // Light pink tint
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255, 182, 193, 0.3)', // Pink border
+    borderColor: 'rgba(255, 157, 66, 0.3)', // Pink border
   },
   flower: {
     textAlign: 'center',

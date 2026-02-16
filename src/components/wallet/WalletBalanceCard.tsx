@@ -41,8 +41,8 @@ export const WalletBalanceCard: React.FC<WalletBalanceCardProps> = ({
     if (!balance.connected) {
       return {
         text: 'Connection Error',
-        color: '#ff6b6b',
-        dotColor: '#ff6b6b',
+        color: '#FF6B00',
+        dotColor: '#FF6B00',
       };
     }
     return {

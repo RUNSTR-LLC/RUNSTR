@@ -520,7 +520,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   errorText: {
-    color: '#FF3B30',
+    color: '#FF6B00',
     fontSize: 16,
     fontWeight: theme.typography.weights.medium,
   },

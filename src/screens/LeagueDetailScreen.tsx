@@ -187,9 +187,9 @@ export const LeagueDetailScreen: React.FC<LeagueDetailScreenProps> = ({
               ]}
             >
               <Text style={styles.statusBadgeText}>
-                {status === 'active' && '🔴 Active'}
-                {status === 'past' && '✓ Completed'}
-                {status === 'upcoming' && '⏰ Upcoming'}
+                {status === 'active' && 'Active'}
+                {status === 'past' && 'Completed'}
+                {status === 'upcoming' && 'Upcoming'}
               </Text>
             </View>
           </View>

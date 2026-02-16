@@ -72,7 +72,7 @@ class AppErrorBoundary extends React.Component<
         <SafeAreaProvider style={{ backgroundColor: '#000' }}>
           <StatusBar barStyle="light-content" backgroundColor="#000000" />
           <View style={errorStyles.container}>
-            <Text style={errorStyles.title}>🚨 App Error</Text>
+            <Text style={errorStyles.title}>App Error</Text>
             <Text style={errorStyles.error}>
               {this.state.error?.message || 'Unknown error occurred'}
             </Text>
@@ -1179,7 +1179,7 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
       <SafeAreaProvider style={{ backgroundColor: '#000' }}>
         <StatusBar barStyle="light-content" backgroundColor="#000000" />
         <View style={errorStyles.container}>
-          <Text style={errorStyles.title}>🚨 Initialization Error</Text>
+          <Text style={errorStyles.title}>Initialization Error</Text>
           <Text style={errorStyles.error}>{initError}</Text>
           <Text style={errorStyles.instruction}>Please restart the app</Text>
         </View>
@@ -1404,7 +1404,7 @@ const errorStyles = StyleSheet.create({
     padding: 20,
   },
   title: {
-    color: '#ff4444',
+    color: '#FF6B00',
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 16,
