@@ -69,6 +69,8 @@ import { ExportDataModal } from '../components/backup/ExportDataModal';
 import { ImportDataModal } from '../components/backup/ImportDataModal';
 import { SecureNsecStorage } from '../services/auth/SecureNsecStorage';
 import { defaultActivityService, type DefaultActivity } from '../services/activity/DefaultActivityService';
+import { SubscriptionService, type SubscriptionTier } from '../services/backend/SubscriptionService';
+import { REWARD_CONFIG } from '../config/rewards';
 // useAuth removed - using direct AsyncStorage.clear() + CommonActions.reset()
 
 interface SettingsScreenProps {
@@ -153,6 +155,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [showDefaultActivityPicker, setShowDefaultActivityPicker] = useState(false);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Subscription tier state
+  const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>('free');
 
   // Rewards settings state (Lightning address removed - now in Teams tab)
   const [weeklyRewardsEarned, setWeeklyRewardsEarned] = useState(0);
@@ -251,6 +256,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           setWotScore(score);
         } catch (wotError) {
           console.warn('[Settings] WoT score load failed:', wotError);
+        }
+      }
+
+      // Load subscription tier
+      if (npub) {
+        try {
+          const tier = await SubscriptionService.getSubscriptionTier(npub);
+          setSubscriptionTier(tier);
+        } catch (subError) {
+          console.warn('[Settings] Subscription tier load failed:', subError);
         }
       }
     } catch (error) {
@@ -1031,6 +1046,22 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     </View>
                   </View>
                 )}
+
+                {/* Subscription Plan */}
+                <View style={styles.rewardSettingRow}>
+                  <View style={styles.rewardSettingInfo}>
+                    <Text style={styles.rewardSettingTitle}>Subscription Plan</Text>
+                    {subscriptionTier === 'free' ? (
+                      <Text style={styles.rewardSettingSubtitle}>
+                        Free — {REWARD_CONFIG.DAILY_WORKOUT_REWARD} sats/workout
+                      </Text>
+                    ) : (
+                      <Text style={[styles.rewardSettingSubtitle, { color: theme.colors.accent }]}>
+                        {subscriptionTier === 'pro' ? 'Pro' : 'Supporter'} — {REWARD_CONFIG.BOOSTED_WORKOUT_REWARD} sats/workout (boosted)
+                      </Text>
+                    )}
+                  </View>
+                </View>
 
                 {/* Lightning Address - Managed in Teams tab */}
                 <View style={styles.rewardSettingRow}>
