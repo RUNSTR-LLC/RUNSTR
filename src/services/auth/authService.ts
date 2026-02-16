@@ -144,6 +144,17 @@ export class AuthService {
         console.warn('⚠️ AuthService: Unified cache clear failed:', err);
       }
 
+      // Clear club membership data (prevent cross-user contamination)
+      try {
+        const { ClubMembershipService } = await import(
+          '../backend/ClubMembershipService'
+        );
+        await ClubMembershipService.clearCache();
+        console.log('✅ AuthService: Club membership cache cleared');
+      } catch (err) {
+        console.warn('⚠️ AuthService: Club membership cache clear failed:', err);
+      }
+
       // Clear all remaining user-specific AsyncStorage keys
       try {
         await AsyncStorage.multiRemove([
@@ -159,6 +170,11 @@ export class AuthService {
           // Challenge join states (prevent cross-user contamination)
           '@runstr:running_bitcoin_joined',
           '@runstr:running_bitcoin_rewards_claimed',
+          // Club state (prevent cross-user contamination)
+          '@runstr:club_id',
+          '@runstr:club_name',
+          '@runstr:club_role',
+          '@runstr:club_reconciled_at',
         ]);
         console.log('✅ AuthService: Additional user data cleared');
       } catch (err) {

@@ -186,16 +186,51 @@ export class ClubChatService {
   }
 
   /**
-   * Soft-delete a message (captain moderation).
+   * Soft-delete a message (sender or captain moderation).
    * Sets deleted_at = NOW() rather than removing the row.
+   * Only the message sender or the club captain may delete a message.
    */
-  static async deleteMessage(messageId: string): Promise<boolean> {
+  static async deleteMessage(messageId: string, callerNpub: string): Promise<boolean> {
     if (!isSupabaseConfigured()) {
       console.warn('[ClubChatService] Supabase not configured');
       return false;
     }
 
     try {
+      // Fetch the message to verify ownership and get club_id
+      const { data: message, error: fetchError } = await supabase!
+        .from('club_messages')
+        .select('sender_npub, club_id')
+        .eq('id', messageId)
+        .single();
+
+      if (fetchError || !message) {
+        console.error('[ClubChatService] deleteMessage: message not found', fetchError);
+        return false;
+      }
+
+      const isSender = message.sender_npub === callerNpub;
+
+      // Check if caller is the captain of the club
+      let isCaptain = false;
+      if (!isSender) {
+        const { data: membership } = await supabase!
+          .from('club_memberships')
+          .select('role')
+          .eq('club_id', message.club_id)
+          .eq('member_npub', callerNpub)
+          .single();
+
+        isCaptain = membership?.role === 'captain';
+      }
+
+      if (!isSender && !isCaptain) {
+        console.warn(
+          `[ClubChatService] deleteMessage unauthorized: ${callerNpub.slice(0, 12)}... is not sender or captain`
+        );
+        return false;
+      }
+
       const { error } = await supabase!
         .from('club_messages')
         .update({ deleted_at: new Date().toISOString() })

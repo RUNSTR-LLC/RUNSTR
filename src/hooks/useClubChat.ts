@@ -236,10 +236,12 @@ export function useClubChat(
   // ------------------------------------------------------------------
   const deleteMessage = useCallback(
     async (messageId: string): Promise<boolean> => {
+      if (!senderNpub) return false;
+
       // Optimistic remove
       setMessages((prev) => prev.filter((m) => m.id !== messageId));
 
-      const success = await ClubChatService.deleteMessage(messageId);
+      const success = await ClubChatService.deleteMessage(messageId, senderNpub);
 
       if (!success && isMounted.current) {
         // Revert: re-fetch to restore state
@@ -251,7 +253,7 @@ export function useClubChat(
 
       return success;
     },
-    [clubId]
+    [clubId, senderNpub]
   );
 
   // ------------------------------------------------------------------
