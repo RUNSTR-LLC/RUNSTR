@@ -2,6 +2,25 @@
 
 All notable changes to RUNSTR will be documented in this file.
 
+## [1.7.0] - 2026-02-16 - Clubs, RLS Fixes & Atomic Operations
+
+### Clubs System
+- User-created clubs with captain/member roles
+- One-club-per-user constraint enforced at database level
+- Club chat with Supabase Realtime
+- Captain tools: transfer captainship, remove members
+- Membership reconciliation detects stale state every 5 minutes
+
+### Database Fixes (Migration 137)
+- Added UPDATE + DELETE RLS policies on user_teams (fixes silent failures on club edits, deactivation)
+- Added UPDATE RLS policy on club_memberships (fixes silent failures on captain transfer)
+- Added atomic adjust_member_count() RPC function (eliminates race conditions)
+
+### Code Improvements
+- ClubMembershipService uses atomic RPC for all member_count changes
+- Promote-first captain transfer order prevents 0-captain states
+- Club switch with recovery re-joins original club on failure
+
 ## [1.6.9] - 2026-02-09 - Subscriptions, Leaderboard Fixes & Auto-Submission
 
 ### Subscription-Gated Team & Event Creation

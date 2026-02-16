@@ -148,20 +148,21 @@ export class ClubMembershipService {
         return { success: false, error: insertError.message };
       }
 
-      // Increment member_count on user_teams
+      // Atomically increment member_count on user_teams
       try {
+        const { data: newCount } = await supabase!.rpc('adjust_member_count', {
+          team_id: clubId,
+          delta: 1,
+        });
+
+        // Fetch club name for caching
         const { data: clubData } = await supabase!
           .from('user_teams')
-          .select('member_count, name')
+          .select('name, member_count')
           .eq('id', clubId)
           .single();
 
         if (clubData) {
-          await supabase!
-            .from('user_teams')
-            .update({ member_count: (clubData.member_count || 0) + 1 })
-            .eq('id', clubId);
-
           await this.cacheClubState(clubId, clubData.name || '', role);
           console.log(`${TAG} Joined club "${clubData.name}" as ${role}`);
 
@@ -173,7 +174,7 @@ export class ClubMembershipService {
               description: null,
               lightning_address: null,
               created_by_npub: '',
-              member_count: (clubData.member_count || 0) + 1,
+              member_count: clubData.member_count ?? (newCount as number) ?? 1,
               is_active: true,
               created_at: '',
             } as Club,
@@ -613,18 +614,23 @@ export class ClubMembershipService {
     AsyncStorage.removeItem(`${MEMBERS_CACHE_KEY_PREFIX}${clubId}`).catch(() => {});
   }
 
-  /** Decrement member_count on user_teams. Deactivate club if sole captain left. */
+  /** Atomically decrement member_count. Optionally deactivate club if empty. */
   private static async decrementMemberCount(clubId: string, deactivateIfEmpty: boolean): Promise<void> {
     try {
-      const { data } = await supabase!.from('user_teams').select('member_count').eq('id', clubId).single();
-      if (!data) return;
-      const newCount = Math.max(0, (data.member_count || 1) - 1);
-      const payload: { member_count: number; is_active?: boolean } = { member_count: newCount };
+      const { data: newCount, error } = await supabase!.rpc('adjust_member_count', {
+        team_id: clubId,
+        delta: -1,
+        deactivate_if_empty: deactivateIfEmpty,
+      });
+
+      if (error) {
+        console.warn(`${TAG} adjust_member_count RPC error for ${clubId}:`, error.message);
+        return;
+      }
+
       if (deactivateIfEmpty && newCount === 0) {
-        payload.is_active = false;
         console.log(`${TAG} Deactivating club ${clubId} (no members remain)`);
       }
-      await supabase!.from('user_teams').update(payload).eq('id', clubId);
     } catch (err) {
       console.warn(`${TAG} Failed to update member_count for ${clubId}:`, err);
     }
