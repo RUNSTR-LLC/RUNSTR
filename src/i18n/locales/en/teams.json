@@ -1,8 +1,8 @@
 {
   "title": "Teams",
-  "yourTeam": "YOUR TEAM",
-  "allTeams": "ALL TEAMS",
-  "selectTeamSubtitle": "Select a team to support with your workouts",
+  "yourTeam": "YOUR DESTINATION",
+  "allTeams": "ALL DESTINATIONS",
+  "selectTeamSubtitle": "Choose where your rewards go",
   "noWalletConnected": "No Wallet Connected",
   "noWalletDescription": "Tap the zap button to use external wallets like Cash App or Strike.",
   "insufficientBalance": "Insufficient Balance",
@@ -11,7 +11,7 @@
   "donationVerified": "Donation to {{name}} verified!",
   "zapped": "Zapped!",
   "donated": "Donated {{amount}} sats to {{name}}",
-  "failedToGetInvoice": "Failed to get invoice from team.",
+  "failedToGetInvoice": "Failed to get invoice from destination.",
   "failedToProcessDonation": "Failed to process donation.",
   "failedToProcessDonationExternal": "Failed to process donation. Tap to use external wallet.",
   "error": "Error"

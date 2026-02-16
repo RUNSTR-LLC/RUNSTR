@@ -180,9 +180,9 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
 
     switch (type) {
       case 'joining':
-        return 'Joining team...';
+        return 'Joining club...';
       case 'leaving':
-        return 'Leaving team...';
+        return 'Leaving club...';
       default:
         return 'Loading...';
     }
