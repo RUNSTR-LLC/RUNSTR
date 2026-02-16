@@ -800,6 +800,10 @@ export class HealthConnectService {
     const npub = await AsyncStorage.getItem('@runstr:npub');
     if (!npub) return;
 
+    // Get Lightning address and team for reward routing tags
+    const lightningAddress = await AsyncStorage.getItem('@runstr:lightning_address');
+    const selectedTeamId = await AsyncStorage.getItem('@runstr:selected_team_id');
+
     const newCardio = workouts.filter((w) => {
       if (!w.id || previousIds.has(w.id)) return false;
       if (!w.activityType || !CARDIO_TYPES.includes(w.activityType)) return false;
@@ -810,6 +814,16 @@ export class HealthConnectService {
     for (const w of newCardio) {
       try {
         const eventId = `hc_${w.id}`;
+
+        // Build tags for reward routing (fixes: rewards going to ALS Network instead of selected team)
+        const tags: string[][] = [];
+        if (selectedTeamId) {
+          tags.push(['team', selectedTeamId]);
+        }
+        if (lightningAddress) {
+          tags.push(['lightning', lightningAddress]);
+        }
+
         await SupabaseCompetitionService.submitWorkoutSimple({
           eventId,
           npub,
@@ -818,6 +832,7 @@ export class HealthConnectService {
           duration: w.duration,
           calories: w.totalEnergyBurned,
           startTime: w.startTime,
+          tags,
         });
         debugLog(`[HealthConnect] Auto-submitted ${w.activityType} workout to Supabase: ${eventId}`);
       } catch (err) {

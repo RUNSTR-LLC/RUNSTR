@@ -127,6 +127,9 @@ export class HealthKitBackgroundService {
       // Get Lightning address for auto-reward trigger
       const lightningAddress = await AsyncStorage.getItem('@runstr:lightning_address');
 
+      // Get selected team for reward routing (fixes: rewards going to ALS Network instead of selected team)
+      const selectedTeamId = await AsyncStorage.getItem('@runstr:selected_team_id');
+
       const { SupabaseCompetitionService } = await import(
         '../backend/SupabaseCompetitionService'
       );
@@ -135,6 +138,12 @@ export class HealthKitBackgroundService {
         try {
           const eventId = `hk_bg_${w.id}`;
           const tags: string[][] = [];
+
+          // Include team tag for reward routing
+          if (selectedTeamId) {
+            tags.push(['team', selectedTeamId]);
+          }
+
           if (lightningAddress) {
             tags.push(['lightning', lightningAddress]);
           }

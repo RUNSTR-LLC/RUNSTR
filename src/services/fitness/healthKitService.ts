@@ -1018,6 +1018,9 @@ export class HealthKitService {
     // Include Lightning address in tags so Supabase trigger can auto-reward
     const lightningAddress = await AsyncStorage.getItem('@runstr:lightning_address');
 
+    // Get selected team for reward routing (fixes: rewards going to ALS Network instead of selected team)
+    const selectedTeamId = await AsyncStorage.getItem('@runstr:selected_team_id');
+
     const newCardio = workouts.filter((w) => {
       const id = w.UUID || w.id || '';
       if (!id || previousIds.has(id)) return false;
@@ -1030,6 +1033,12 @@ export class HealthKitService {
       try {
         const eventId = `hk_${w.UUID || w.id}`;
         const tags: string[][] = [];
+
+        // Include team tag for reward routing
+        if (selectedTeamId) {
+          tags.push(['team', selectedTeamId]);
+        }
+
         if (lightningAddress) {
           tags.push(['lightning', lightningAddress]);
         }
