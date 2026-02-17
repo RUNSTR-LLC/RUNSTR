@@ -22,6 +22,7 @@ import {
 import { getCharityById, isPPQTeam } from '../../constants/charities';
 import { getClubLightningAddress } from '../../utils/rewardTags';
 import { PPQAccountService } from '../ai/PPQAccountService';
+import { SubscriptionService } from './SubscriptionService';
 
 // Local storage key for tracking joined competitions (optimistic join)
 const LOCAL_JOINED_COMPETITIONS_KEY = '@runstr:local_joined_competitions';
@@ -372,6 +373,7 @@ export class SupabaseCompetitionService {
 
     // PPQ.AI: Auto-create bolt11 invoice if user's team is PPQ.AI and no invoice provided
     // This ensures ALL submission paths (HealthKit, background, manual) get PPQ support
+    // Invoice amount matches subscriber tier: 800 sats (supporter/pro) or 50 sats (free)
     let ppqBolt11 = data.ppqBolt11;
     let ppqInvoiceId = data.ppqInvoiceId;
     if (!ppqBolt11) {
@@ -380,12 +382,23 @@ export class SupabaseCompetitionService {
         if (selectedTeamId && isPPQTeam(selectedTeamId)) {
           const hasAccount = await PPQAccountService.hasAccount();
           if (hasAccount) {
-            const WORKOUT_REWARD_SATS = 50;
-            const invoiceResult = await PPQAccountService.createTopupInvoice(WORKOUT_REWARD_SATS);
+            // Determine reward amount: subscribers get 800 for qualifying workouts
+            let rewardSats = 50;
+            const npub = await AsyncStorage.getItem('@runstr:npub');
+            if (npub) {
+              const isSubscriber = await SubscriptionService.isSupporterOrAbove(npub);
+              const isCardio = ['running', 'walking', 'cycling'].includes(data.type);
+              const hasDistance = (data.distance ?? 0) >= 2000;     // 2km+
+              const hasDuration = (data.duration ?? 0) >= 900;      // 15min+
+              if (isSubscriber && isCardio && hasDistance && hasDuration) {
+                rewardSats = 800;
+              }
+            }
+            const invoiceResult = await PPQAccountService.createTopupInvoice(rewardSats);
             if (invoiceResult.success && invoiceResult.bolt11) {
               ppqBolt11 = invoiceResult.bolt11;
               ppqInvoiceId = invoiceResult.invoiceId;
-              console.log(`[SupabaseCompetition] PPQ.AI invoice auto-created: ${ppqBolt11.slice(0, 30)}...`);
+              console.log(`[SupabaseCompetition] PPQ.AI invoice auto-created (${rewardSats} sats): ${ppqBolt11.slice(0, 30)}...`);
             }
           }
         }
