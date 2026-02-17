@@ -519,9 +519,12 @@ export class HealthConnectService {
       let avgHeartRate = 0;
       let maxHeartRate = 0;
 
-      // Fetch distance for this session
+      // Fetch distance for this session using aggregateRecord to avoid double-counting
+      // Per Android docs: "For cumulative types, use aggregate() instead of readRecords()
+      // to avoid double counting from multiple sources"
       try {
-        const distanceRecords = await HealthConnect.readRecords('Distance', {
+        const distanceResult = await HealthConnect.aggregateRecord({
+          recordType: 'Distance',
           timeRangeFilter: {
             operator: 'between',
             startTime: session.startTime,
@@ -529,16 +532,15 @@ export class HealthConnectService {
           },
         });
 
-        for (const record of distanceRecords?.records || []) {
-          totalDistance += record.distance?.inMeters || 0;
-        }
+        totalDistance = distanceResult?.DISTANCE_TOTAL?.inMeters || 0;
       } catch (e) {
         debugLog('Health Connect: Could not fetch distance:', e);
       }
 
-      // Fetch calories for this session
+      // Fetch calories for this session using aggregateRecord to avoid double-counting
       try {
-        const caloriesRecords = await HealthConnect.readRecords('ActiveCaloriesBurned', {
+        const caloriesResult = await HealthConnect.aggregateRecord({
+          recordType: 'ActiveCaloriesBurned',
           timeRangeFilter: {
             operator: 'between',
             startTime: session.startTime,
@@ -546,16 +548,15 @@ export class HealthConnectService {
           },
         });
 
-        for (const record of caloriesRecords?.records || []) {
-          totalCalories += record.energy?.inKilocalories || 0;
-        }
+        totalCalories = caloriesResult?.ENERGY_TOTAL?.inKilocalories || 0;
       } catch (e) {
         debugLog('Health Connect: Could not fetch calories:', e);
       }
 
-      // Fetch steps for this session
+      // Fetch steps for this session using aggregateRecord to avoid double-counting
       try {
-        const stepsRecords = await HealthConnect.readRecords('Steps', {
+        const stepsResult = await HealthConnect.aggregateRecord({
+          recordType: 'Steps',
           timeRangeFilter: {
             operator: 'between',
             startTime: session.startTime,
@@ -563,9 +564,7 @@ export class HealthConnectService {
           },
         });
 
-        for (const record of stepsRecords?.records || []) {
-          steps += record.count || 0;
-        }
+        steps = stepsResult?.COUNT_TOTAL || 0;
       } catch (e) {
         debugLog('Health Connect: Could not fetch steps:', e);
       }
