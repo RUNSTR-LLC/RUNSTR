@@ -3,6 +3,7 @@
  * Tracks user behavior, team selection, and key conversion events
  */
 
+import { Platform } from 'react-native';
 import { DiscoveryTeam, Team } from '../types';
 
 // Analytics event types
@@ -110,7 +111,7 @@ class Analytics {
       userId: this.userId,
       timestamp: new Date().toISOString(),
       sessionId: this.sessionId,
-      platform: 'ios', // TODO: Get from Platform.OS
+      platform: Platform.OS,
       appVersion: '1.0.0', // TODO: Get from package.json or config
     };
   }
