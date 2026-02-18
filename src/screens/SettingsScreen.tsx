@@ -71,6 +71,12 @@ import { SecureNsecStorage } from '../services/auth/SecureNsecStorage';
 import { defaultActivityService, type DefaultActivity } from '../services/activity/DefaultActivityService';
 import { SubscriptionService, type SubscriptionTier } from '../services/backend/SubscriptionService';
 import { REWARD_CONFIG } from '../config/rewards';
+import { NWCStorageService } from '../services/wallet/NWCStorageService';
+import { NWCWalletService } from '../services/wallet/NWCWalletService';
+import { WalletConfigModal } from '../components/wallet/WalletConfigModal';
+import { NWCQRConfirmationModal } from '../components/wallet/NWCQRConfirmationModal';
+import { QRScannerModal } from '../components/qr/QRScannerModal';
+import type { QRData } from '../services/qr/QRCodeService';
 // useAuth removed - using direct AsyncStorage.clear() + CommonActions.reset()
 
 interface SettingsScreenProps {
@@ -158,6 +164,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
   // Subscription tier state
   const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>('free');
+
+  // NWC Wallet state
+  const [hasNWCWallet, setHasNWCWallet] = useState(false);
+  const [showWalletConfigModal, setShowWalletConfigModal] = useState(false);
+  const [showQRScannerModal, setShowQRScannerModal] = useState(false);
+  const [showNWCQRConfirmModal, setShowNWCQRConfirmModal] = useState(false);
+  const [scannedNWCString, setScannedNWCString] = useState('');
 
   // Rewards settings state (Lightning address removed - now in Teams tab)
   const [weeklyRewardsEarned, setWeeklyRewardsEarned] = useState(0);
@@ -259,6 +272,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         }
       }
 
+      // Load NWC wallet state
+      const nwcAvailable = await NWCStorageService.hasNWC();
+      setHasNWCWallet(nwcAvailable);
+
       // Load subscription tier
       if (npub) {
         try {
@@ -271,6 +288,44 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     } catch (error) {
       console.error('Error loading settings:', error);
     }
+  };
+
+  // NWC Wallet handlers
+  const handleDisconnectWallet = () => {
+    setAlertTitle('Disconnect Wallet?');
+    setAlertMessage('This will remove your NWC wallet connection. You can reconnect anytime.');
+    setAlertButtons([
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Disconnect',
+        style: 'destructive',
+        onPress: async () => {
+          NWCWalletService.disconnect();
+          setHasNWCWallet(false);
+          Toast.show({
+            type: 'success',
+            text1: 'Wallet Disconnected',
+            text2: 'NWC connection removed',
+            position: 'top',
+            visibilityTime: 3000,
+          });
+        },
+      },
+    ]);
+    setAlertVisible(true);
+  };
+
+  const handleNWCQRScanned = (data: QRData) => {
+    if (data.type === 'nwc') {
+      setScannedNWCString(data.connectionString);
+      setTimeout(() => setShowNWCQRConfirmModal(true), 50);
+    }
+  };
+
+  const handleNWCConnectSuccess = () => {
+    setHasNWCWallet(true);
+    setShowWalletConfigModal(false);
+    setShowNWCQRConfirmModal(false);
   };
 
   const handleTTSSettingChange = async <K extends keyof TTSSettings>(
@@ -1072,6 +1127,84 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 </View>
               </View>
 
+              {/* Connected Wallet Subsection */}
+              <View style={styles.voiceSubsection}>
+                <Text style={styles.subsectionTitle}>Connected Wallet</Text>
+                {hasNWCWallet ? (
+                  <>
+                    <View style={styles.rewardSettingRow}>
+                      <View style={styles.rewardSettingInfo}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#4CAF50' }} />
+                          <Text style={styles.rewardSettingTitle}>NWC Wallet Connected</Text>
+                        </View>
+                        <Text style={styles.rewardSettingSubtitle}>
+                          Your wallet is connected for in-app zapping
+                        </Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      style={{
+                        paddingVertical: 10,
+                        paddingHorizontal: 16,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: theme.colors.error,
+                        alignItems: 'center',
+                        marginTop: 8,
+                      }}
+                      onPress={handleDisconnectWallet}
+                    >
+                      <Text style={{ fontSize: 14, color: theme.colors.error, fontWeight: '600' }}>
+                        Disconnect Wallet
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.rewardSettingRow}>
+                      <View style={styles.rewardSettingInfo}>
+                        <Text style={styles.rewardSettingTitle}>No wallet connected</Text>
+                        <Text style={styles.rewardSettingSubtitle}>
+                          Connect a wallet to enable in-app zapping
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                      <TouchableOpacity
+                        style={{
+                          flex: 1,
+                          paddingVertical: 12,
+                          borderRadius: 8,
+                          backgroundColor: theme.colors.accent,
+                          alignItems: 'center',
+                        }}
+                        onPress={() => setShowWalletConfigModal(true)}
+                      >
+                        <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.accentText }}>
+                          Paste NWC
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={{
+                          flex: 1,
+                          paddingVertical: 12,
+                          borderRadius: 8,
+                          borderWidth: 1,
+                          borderColor: theme.colors.accent,
+                          alignItems: 'center',
+                        }}
+                        onPress={() => setShowQRScannerModal(true)}
+                      >
+                        <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.accent }}>
+                          Scan QR
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
+              </View>
+
             </Card>
           </SettingsAccordion>
         </View>
@@ -1264,6 +1397,29 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* NWC Wallet Config Modal (paste) */}
+      <WalletConfigModal
+        visible={showWalletConfigModal}
+        onClose={() => setShowWalletConfigModal(false)}
+        onSuccess={handleNWCConnectSuccess}
+        allowSkip={false}
+      />
+
+      {/* NWC QR Scanner Modal */}
+      <QRScannerModal
+        visible={showQRScannerModal}
+        onClose={() => setShowQRScannerModal(false)}
+        onScanned={handleNWCQRScanned}
+      />
+
+      {/* NWC QR Confirmation Modal */}
+      <NWCQRConfirmationModal
+        visible={showNWCQRConfirmModal}
+        onClose={() => setShowNWCQRConfirmModal(false)}
+        connectionString={scannedNWCString}
+        onSuccess={handleNWCConnectSuccess}
+      />
 
     </SafeAreaView>
   );

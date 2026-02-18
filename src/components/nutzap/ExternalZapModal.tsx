@@ -29,6 +29,8 @@ import {
 } from '../../utils/bolt11Parser';
 import { openInCashApp } from '../../utils/walletDeepLinks';
 import { DonationTrackingService } from '../../services/donation/DonationTrackingService';
+import { NWCStorageService } from '../../services/wallet/NWCStorageService';
+import { NWCWalletService } from '../../services/wallet/NWCWalletService';
 
 // Storage key for default amount
 const DEFAULT_AMOUNT_KEY = '@runstr:default_zap_amount';
@@ -77,6 +79,11 @@ export const ExternalZapModal: React.FC<ExternalZapModalProps> = ({
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [isExpired, setIsExpired] = useState(false);
   const [showInvoice, setShowInvoice] = useState(false);
+
+  // NWC wallet state
+  const [hasNWCWallet, setHasNWCWallet] = useState(false);
+  const [isNWCPaying, setIsNWCPaying] = useState(false);
+  const [nwcError, setNwcError] = useState<string | null>(null);
 
   // Convert npub to hex for API calls (skip for Lightning addresses)
   const recipientHex = React.useMemo(() => {
@@ -135,6 +142,11 @@ export const ExternalZapModal: React.FC<ExternalZapModalProps> = ({
       setTimeRemaining(null);
       setCustomAmount('');
       setIsCustom(false);
+
+      // Reset NWC state
+      setIsNWCPaying(false);
+      setNwcError(null);
+      NWCStorageService.hasNWC().then(setHasNWCWallet);
 
       // If initial amount provided, use it
       if (initialAmount && initialAmount > 0) {
@@ -416,6 +428,28 @@ export const ExternalZapModal: React.FC<ExternalZapModalProps> = ({
 
   const handleOpenInCashApp = async () => {
     await openInCashApp(invoice);
+  };
+
+  const handleNWCPayment = async () => {
+    if (!invoice) return;
+    setIsNWCPaying(true);
+    setNwcError(null);
+    try {
+      const result = await NWCWalletService.sendPayment(invoice);
+      if (result.success) {
+        console.log('[ExternalZapModal] NWC payment successful');
+        setIsNWCPaying(false);
+        handlePaymentConfirmed();
+      } else {
+        const errorMsg = result.error || 'Payment failed';
+        setNwcError(errorMsg);
+        setIsNWCPaying(false);
+      }
+    } catch (err) {
+      console.error('[ExternalZapModal] NWC payment error:', err);
+      setNwcError(err instanceof Error ? err.message : 'Payment failed');
+      setIsNWCPaying(false);
+    }
   };
 
   const handlePaymentConfirmed = async () => {
@@ -701,7 +735,37 @@ export const ExternalZapModal: React.FC<ExternalZapModalProps> = ({
                       </View>
                     )}
 
-                    {/* Wallet Selection - Cash App Only */}
+                    {/* NWC Connected Wallet Payment */}
+                    {hasNWCWallet && (
+                      <View style={styles.walletButtonsSection}>
+                        <Text style={styles.walletSectionTitle}>
+                          Connected Wallet
+                        </Text>
+                        <TouchableOpacity
+                          style={[styles.walletButtonFullWidth, { borderColor: theme.colors.accent }]}
+                          onPress={handleNWCPayment}
+                          disabled={isNWCPaying}
+                        >
+                          {isNWCPaying ? (
+                            <ActivityIndicator size="small" color={theme.colors.accent} style={{ marginRight: 8 }} />
+                          ) : (
+                            <View style={styles.walletIconCircleInline}>
+                              <Ionicons name="wallet" size={24} color={theme.colors.accent} />
+                            </View>
+                          )}
+                          <Text style={styles.walletButtonText}>
+                            {isNWCPaying ? 'Paying...' : 'Pay with Connected Wallet'}
+                          </Text>
+                        </TouchableOpacity>
+                        {nwcError && (
+                          <Text style={{ fontSize: 12, color: theme.colors.error, textAlign: 'center', marginTop: 4 }}>
+                            {nwcError}
+                          </Text>
+                        )}
+                      </View>
+                    )}
+
+                    {/* External Wallets */}
                     <View style={styles.walletButtonsSection}>
                       <Text style={styles.walletSectionTitle}>
                         Open in Wallet

@@ -21,9 +21,13 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Toast from 'react-native-toast-message';
 import { theme } from '../../styles/theme';
 import { NWCStorageService } from '../../services/wallet/NWCStorageService';
 import { CustomAlert } from '../ui/CustomAlert';
+
+const NWC_HINT_SHOWN_KEY = '@runstr:nwc_hint_shown';
 
 interface WalletConfigModalProps {
   visible: boolean;
@@ -92,6 +96,25 @@ export const WalletConfigModal: React.FC<WalletConfigModalProps> = ({
       const result = await NWCStorageService.saveNWCString(trimmedNwcString);
 
       if (result.success) {
+        // Show one-time hint toast about long-press zapping
+        try {
+          const hintShown = await AsyncStorage.getItem(NWC_HINT_SHOWN_KEY);
+          if (!hintShown) {
+            await AsyncStorage.setItem(NWC_HINT_SHOWN_KEY, 'true');
+            setTimeout(() => {
+              Toast.show({
+                type: 'success',
+                text1: 'Wallet Connected!',
+                text2: 'Long-press any lightning bolt to quick-zap',
+                position: 'top',
+                visibilityTime: 5000,
+              });
+            }, 500);
+          }
+        } catch (e) {
+          // Non-critical, ignore
+        }
+
         setAlertTitle('Wallet Saved');
         setAlertMessage('Your wallet connection has been saved. It will connect when you use Bitcoin features.');
         setAlertButtons([
