@@ -249,7 +249,7 @@ Main screen showing all teams:
 
 | Key | Purpose |
 |-----|---------|
-| `@runstr:selected_charity_id` | User's selected team |
+| `@runstr:selected_team_id` | User's selected team |
 | `@runstr:lightning_address` | User's Lightning address (if configured) |
 
 ---

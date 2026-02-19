@@ -424,11 +424,15 @@ export class RestoreService {
    * Import preferences (only if not already set)
    */
   private async importPreferences(
-    preferences: { unitSystem?: 'metric' | 'imperial'; selectedCharity?: string }
+    preferences: { unitSystem?: 'metric' | 'imperial'; selectedCharity?: string; ppqApiKey?: string; ppqCreditId?: string }
   ): Promise<void> {
     // Only import if user hasn't set their own preferences
-    const existingUnitSystem = await AsyncStorage.getItem('@runstr:unit_system');
-    const existingCharity = await AsyncStorage.getItem('@runstr:selected_charity');
+    const [existingUnitSystem, existingCharity, existingPpqApiKey, existingPpqCreditId] = await Promise.all([
+      AsyncStorage.getItem('@runstr:unit_system'),
+      AsyncStorage.getItem('@runstr:selected_charity'),
+      AsyncStorage.getItem('@runstr:ppq_api_key'),
+      AsyncStorage.getItem('@runstr:ppq_credit_id'),
+    ]);
 
     if (!existingUnitSystem && preferences.unitSystem) {
       await AsyncStorage.setItem('@runstr:unit_system', preferences.unitSystem);
@@ -436,6 +440,14 @@ export class RestoreService {
 
     if (!existingCharity && preferences.selectedCharity) {
       await AsyncStorage.setItem('@runstr:selected_charity', preferences.selectedCharity);
+    }
+
+    if (!existingPpqApiKey && preferences.ppqApiKey) {
+      await AsyncStorage.setItem('@runstr:ppq_api_key', preferences.ppqApiKey);
+    }
+
+    if (!existingPpqCreditId && preferences.ppqCreditId) {
+      await AsyncStorage.setItem('@runstr:ppq_credit_id', preferences.ppqCreditId);
     }
   }
 }

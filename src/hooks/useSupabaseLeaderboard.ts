@@ -181,6 +181,7 @@ export function useSupabaseLeaderboard(
   const [currentUserPubkey, setCurrentUserPubkey] = useState<string | undefined>();
   const [currentUserRank, setCurrentUserRank] = useState<number | undefined>();
   const [scoringMethod, setScoringMethod] = useState<string>('total_distance');
+  const [competitionActivityTypes, setCompetitionActivityTypes] = useState<string[]>([]);
   const isMounted = useRef(true);
   const lastFetchTime = useRef<number>(0);
   const MIN_REFETCH_INTERVAL = 30000; // 30 seconds minimum between refetches
@@ -241,15 +242,18 @@ export function useSupabaseLeaderboard(
       // Get all local workouts
       const allLocal = await LocalWorkoutStorageService.getAllWorkouts();
 
-      // Determine activity type from competition ID
-      const activityType = getActivityType(competitionId);
+      // Use competition's activity types if available (supports multi-activity events),
+      // otherwise fall back to string-based detection from competition ID
+      const allowedTypes = competitionActivityTypes.length > 0
+        ? competitionActivityTypes
+        : [getActivityType(competitionId)];
 
-      // Filter: competed (syncedToNostr), matching activity type, recent (last 10 min)
+      // Filter: competed (syncedToNostr), matching any allowed activity type, recent (last 10 min)
       // Increased from 5 to 10 minutes to handle network delays and multiple quick workouts
       const tenMinAgo = Date.now() - 10 * 60 * 1000;
       const competed = (allLocal || []).filter(w => {
-        // Must be synced to Nostr and match activity type
-        if (w.syncedToNostr !== true || w.type !== activityType) return false;
+        // Must be synced to Nostr and match one of the allowed activity types
+        if (w.syncedToNostr !== true || !allowedTypes.includes(w.type)) return false;
 
         // Must have valid distance > 0 (filter out zero-distance workouts)
         if (!w.distance || w.distance <= 0) return false;
@@ -265,14 +269,14 @@ export function useSupabaseLeaderboard(
       });
 
       if (competed.length > 0) {
-        console.log(`[useSupabaseLeaderboard] Found ${competed.length} recent local ${activityType} workouts for instant display`);
+        console.log(`[useSupabaseLeaderboard] Found ${competed.length} recent local workouts (types: ${allowedTypes.join(', ')}) for instant display`);
       }
 
       setLocalCompetedWorkouts(competed);
     } catch (e) {
       console.warn('[useSupabaseLeaderboard] Failed to load local workouts:', e);
     }
-  }, [competitionId, currentUserPubkey, getActivityType]);
+  }, [competitionId, currentUserPubkey, getActivityType, competitionActivityTypes]);
 
   // Initial load of local workouts
   useEffect(() => {
@@ -365,6 +369,16 @@ export function useSupabaseLeaderboard(
         setScoringMethod(result.competition.scoring_method);
       }
 
+      // Track activity types from competition config for local workout filtering
+      if (result.competition) {
+        const configTypes = result.competition.config?.activity_types;
+        if (configTypes && configTypes.length > 0) {
+          setCompetitionActivityTypes(configTypes);
+        } else {
+          setCompetitionActivityTypes([result.competition.activity_type]);
+        }
+      }
+
       let enrichedLeaderboard: SupabaseLeaderboardEntry[] = result.leaderboard;
 
       // Enrich with profile data if requested
@@ -453,7 +467,17 @@ export function useSupabaseLeaderboard(
           finalLeaderboard = [
             ...enrichedLeaderboard,
             ...missingParticipants.sort((a, b) => (a.name || '').localeCompare(b.name || '')),
-          ].map((entry, index) => ({ ...entry, rank: index + 1 }));
+          ];
+          // Assign tied ranks: equal scores share the same rank
+          finalLeaderboard.forEach((entry, i) => {
+            if (i === 0) {
+              entry.rank = 1;
+            } else if (entry.score === finalLeaderboard[i - 1].score) {
+              entry.rank = finalLeaderboard[i - 1].rank;
+            } else {
+              entry.rank = i + 1;
+            }
+          });
         }
 
         setLeaderboard(finalLeaderboard);
@@ -600,7 +624,17 @@ export function useSupabaseLeaderboard(
     } else {
       result.sort((a, b) => b.score - a.score);
     }
-    return result.map((e, i) => ({ ...e, rank: i + 1 }));
+    // Assign tied ranks: equal scores share the same rank
+    result.forEach((entry, i) => {
+      if (i === 0) {
+        entry.rank = 1;
+      } else if (entry.score === result[i - 1].score) {
+        entry.rank = result[i - 1].rank;
+      } else {
+        entry.rank = i + 1;
+      }
+    });
+    return result;
   }, [leaderboard, localCompetedWorkouts, locallyJoinedUsers, currentUserPubkey, isSeason2, scoringMethod]);
 
   return {

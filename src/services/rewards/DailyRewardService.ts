@@ -38,6 +38,9 @@ import { nip19 } from '@nostr-dev-kit/ndk';
 // DEBUG FLAG: Set to false for production (only shows debug alerts for failures)
 const DEBUG_REWARDS = false;
 
+// In-memory lock to prevent concurrent reward claims (race condition guard)
+let _rewardClaimLock = false;
+
 // Workout sources that count as "reward-eligible"
 // Includes GPS tracking, manual entry, and health app imports
 // Note: 'daily_steps' removed - step rewards come from StepRewardService (5 sats per 1k steps)
@@ -151,8 +154,8 @@ class DailyRewardServiceClass {
         return true;
       }
 
-      const lastRewardDate = new Date(lastRewardStr).toDateString();
-      const today = new Date().toDateString();
+      const lastRewardDate = new Date(lastRewardStr).toISOString().split('T')[0];
+      const today = new Date().toISOString().split('T')[0];
 
       // Can claim if last reward was on a different day
       return lastRewardDate !== today;
@@ -196,18 +199,28 @@ class DailyRewardServiceClass {
     const streakKey = `@runstr:streak_incremented_today:${today}:${userPubkey}`;
 
     // Rate limit: Only one reward per day per user
-    const alreadyIncremented = await AsyncStorage.getItem(streakKey);
-    if (alreadyIncremented) {
-      console.log('[Reward] Streak already incremented today, skipping reward');
-      return { success: false, reason: 'streak_already_incremented' };
+    // Use in-memory lock to prevent concurrent execution (race condition guard)
+    if (_rewardClaimLock) {
+      console.log('[Reward] Reward claim already in progress, skipping');
+      return { success: false, reason: 'reward_claim_in_progress' };
     }
+    _rewardClaimLock = true;
+    try {
+      const alreadyIncremented = await AsyncStorage.getItem(streakKey);
+      if (alreadyIncremented) {
+        console.log('[Reward] Streak already incremented today, skipping reward');
+        return { success: false, reason: 'streak_already_incremented' };
+      }
 
-    // Step 3: Mark streak as incremented BEFORE sending reward (prevents race condition)
-    await AsyncStorage.setItem(streakKey, new Date().toISOString());
-    console.log('[Reward] Streak incremented! Triggering daily reward...');
+      // Step 3: Mark streak as incremented BEFORE sending reward (prevents race condition)
+      await AsyncStorage.setItem(streakKey, new Date().toISOString());
+      console.log('[Reward] Streak incremented! Triggering daily reward...');
 
-    // Step 4: Send the reward
-    return this.sendReward(userPubkey);
+      // Step 4: Send the reward
+      return this.sendReward(userPubkey);
+    } finally {
+      _rewardClaimLock = false;
+    }
   }
 
   /**

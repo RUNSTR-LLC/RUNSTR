@@ -656,12 +656,13 @@ export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
     const session = simpleRunTracker.getCurrentSession();
     if (session) {
       const distance = session.distance || 0;
-      const calories = activityMetricsService.estimateCalories('walking', distance, elapsedTime);
+      const duration = session.duration || 0;
+      const calories = activityMetricsService.estimateCalories('walking', distance, duration);
 
       setMetrics(prev => ({
         ...prev,
         distance: activityMetricsService.formatDistance(distance),
-        duration: activityMetricsService.formatDuration(elapsedTime),
+        duration: activityMetricsService.formatDuration(duration),
         elevation: activityMetricsService.formatElevation(session.elevationGain || 0),
         calories: calories.toString(),
       }));
@@ -726,10 +727,11 @@ export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
       ? liveStepsRef.current
       : activityMetricsService.estimateSteps(session.distance);
     console.log(`[WalkingTracker] Workout summary steps: ${steps} (live: ${liveStepsRef.current})`);
+    const finalDuration = session.duration || elapsedTime;
     const calories = activityMetricsService.estimateCalories(
       'walking',
       session.distance,
-      elapsedTime
+      finalDuration
     );
 
     // Save workout to local storage BEFORE showing modal
@@ -737,7 +739,7 @@ export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
       const result = await LocalWorkoutStorageService.saveGPSWorkout({
         type: 'walking',
         distance: session.distance,
-        duration: elapsedTime,
+        duration: finalDuration,
         calories,
         elevation: session.elevationGain || 0,
         // Pass route info if selected

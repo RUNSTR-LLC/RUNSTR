@@ -175,6 +175,9 @@ export class AuthService {
           '@runstr:club_name',
           '@runstr:club_role',
           '@runstr:club_reconciled_at',
+          // Team/charity state (prevent cross-user contamination)
+          '@runstr:selected_team_id',
+          '@runstr:charity_stats',
         ]);
         console.log('✅ AuthService: Additional user data cleared');
       } catch (err) {

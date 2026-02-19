@@ -52,6 +52,8 @@ export interface DailyStepSummary {
 export interface BackupPreferences {
   unitSystem: 'metric' | 'imperial';
   selectedCharity?: string;
+  ppqApiKey?: string;
+  ppqCreditId?: string;
 }
 
 /**
@@ -272,12 +274,14 @@ export class BackupService {
   private async collectBackupData(): Promise<WorkoutBackupPayload> {
     const workoutService = LocalWorkoutStorageService.getInstance();
 
-    const [workouts, habits, journalEntries, unitSystem, selectedCharity] = await Promise.all([
+    const [workouts, habits, journalEntries, unitSystem, selectedCharity, ppqApiKey, ppqCreditId] = await Promise.all([
       workoutService.getAllWorkouts(),
       getAllHabits(),
       JournalService.getAllEntries(),
       AsyncStorage.getItem('@runstr:unit_system'),
       AsyncStorage.getItem('@runstr:selected_charity'),
+      AsyncStorage.getItem('@runstr:ppq_api_key'),
+      AsyncStorage.getItem('@runstr:ppq_credit_id'),
     ]);
 
     return {
@@ -290,6 +294,8 @@ export class BackupService {
       preferences: {
         unitSystem: (unitSystem as 'metric' | 'imperial') || 'metric',
         selectedCharity: selectedCharity || undefined,
+        ppqApiKey: ppqApiKey || undefined,
+        ppqCreditId: ppqCreditId || undefined,
       },
     };
   }

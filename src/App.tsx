@@ -8,13 +8,11 @@
 import { initializeWebSocketPolyfill } from './utils/webSocketPolyfill';
 import * as ExpoSplashScreen from 'expo-splash-screen';
 import * as TaskManager from 'expo-task-manager';
+import * as Location from 'expo-location';
 
 // Background location task imported in index.js (before app initialization)
-// Only import the task name - stopTracking is handled by simpleRunTracker
-import {
-  SIMPLE_TRACKER_TASK,
-  simpleRunTracker,
-} from './services/activity/SimpleRunTracker';
+// Only import the task name constant - zombie cleanup calls Location API directly
+import { SIMPLE_TRACKER_TASK } from './services/activity/SimpleRunTracker';
 
 import React from 'react';
 import {
@@ -1325,17 +1323,30 @@ export default function App() {
             );
 
             // 🔧 ZOMBIE SESSION CLEANUP: Stop any registered background tasks from previous sessions
-            // This prevents the activity tracker from appearing to auto-start when navigating to Activity tab
+            // This prevents the activity tracker from appearing to auto-start when navigating to Activity tab.
+            // IMPORTANT: We call Location.stopLocationUpdatesAsync() directly instead of
+            // simpleRunTracker.stopTracking(), because after a crash the singleton is freshly
+            // created with isTracking=false, so stopTracking() returns early at the guard
+            // check without ever stopping the background location task.
+            // NOTE: We intentionally do NOT clear workout recovery checkpoints here so the
+            // user can still recover their workout data from the crashed session.
             if (isTaskRegistered) {
               console.log(
                 '⚠️  Background task registered from previous session - cleaning up zombie session'
               );
               try {
-                // simpleRunTracker.stopTracking() handles both background task and internal state
-                await simpleRunTracker.stopTracking();
+                // Stop the background location task directly — bypasses SimpleRunTracker's
+                // isTracking guard that would cause it to no-op after a fresh restart
+                await Location.stopLocationUpdatesAsync(SIMPLE_TRACKER_TASK);
+                console.log('✅ Zombie background location task stopped');
 
+                // Clear stale session state from AsyncStorage
+                // (recovery checkpoint is preserved for workout recovery)
                 await safeRemoveItem('@runstr:session_state', 2000);
                 await safeRemoveItem('@runstr:gps_points', 2000);
+                await safeRemoveItem('@runstr:active_metrics', 2000);
+                await safeRemoveItem('@runstr:last_gps_point', 2000);
+                await safeRemoveItem('@runstr:last_gps_time', 2000);
                 console.log('✅ Zombie session cleaned up successfully');
               } catch (cleanupError) {
                 console.warn(
@@ -1374,7 +1385,8 @@ export default function App() {
   }, [appIsReady]);
 
   if (!appIsReady) {
-    return null; // Keep showing the native splash screen
+    // Black background prevents white flash between native splash screen dismissal and app ready
+    return <View style={{ flex: 1, backgroundColor: '#000000' }} />;
   }
 
   return (

@@ -326,12 +326,13 @@ export const HikingTrackerScreen: React.FC<HikingTrackerScreenProps> = ({
     const session = simpleRunTracker.getCurrentSession();
     if (session) {
       const distance = session.distance || 0;
-      const calories = activityMetricsService.estimateCalories('walking', distance, elapsedTime);
+      const duration = session.duration || 0;
+      const calories = activityMetricsService.estimateCalories('walking', distance, duration);
 
       setMetrics(prev => ({
         ...prev,
         distance: activityMetricsService.formatDistance(distance),
-        duration: activityMetricsService.formatDuration(elapsedTime),
+        duration: activityMetricsService.formatDuration(duration),
         elevation: activityMetricsService.formatElevation(session.elevationGain || 0),
         calories: calories.toString(),
       }));
@@ -380,13 +381,14 @@ export const HikingTrackerScreen: React.FC<HikingTrackerScreenProps> = ({
 
   const showWorkoutSummary = async (session: RunSession) => {
     const steps = activityMetricsService.estimateSteps(session.distance);
-    const calories = activityMetricsService.estimateCalories('walking', session.distance, elapsedTime);
+    const finalDuration = session.duration || elapsedTime;
+    const calories = activityMetricsService.estimateCalories('walking', session.distance, finalDuration);
 
     try {
       const result = await LocalWorkoutStorageService.saveGPSWorkout({
         type: 'hiking',
         distance: session.distance,
-        duration: elapsedTime,
+        duration: finalDuration,
         calories,
         elevation: session.elevationGain || 0,
         routeId: selectedRoute?.id,

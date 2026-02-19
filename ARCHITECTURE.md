@@ -149,7 +149,7 @@ App.tsx
 |  | @runstr:user_nsec                   |  |
 |  | @runstr:npub                        |  |
 |  | @runstr:hex_pubkey                  |  |
-|  | @runstr:selected_charity_id         |  |
+|  | @runstr:selected_team_id            |  |
 |  | @runstr:reward_lightning_address    |  |
 |  | @runstr:last_reward_date            |  |
 |  | @runstr:total_rewards_earned        |  |
@@ -288,7 +288,7 @@ Hardcoded Challenges:
 
 ```
   Charities are hardcoded in constants/charities.ts (17 organizations)
-  User selects a charity -> stored in AsyncStorage (@runstr:selected_charity_id)
+  User selects a charity -> stored in AsyncStorage (@runstr:selected_team_id)
   Charity tag embedded in workout submissions to Supabase
 
   Service chain:
@@ -609,7 +609,7 @@ Load hardcoded charities from constants/charities.ts
 User selects charity (e.g., "ALS Network")
   |
   v
-Store in AsyncStorage (@runstr:selected_charity_id)
+Store in AsyncStorage (@runstr:selected_team_id)
   |
   v
 On next workout, charity tag embedded in Supabase submission:

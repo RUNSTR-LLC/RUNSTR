@@ -1505,8 +1505,10 @@ export class SimpleRunTracker {
         return { recovered: false };
       }
 
-      // Check if checkpoint is recent enough (< 5 minutes old)
-      const AUTO_RECOVERY_MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes
+      // Check if checkpoint is recent enough (< 15 minutes old)
+      // Extended from 5 min to 15 min to align with WorkoutRecovery's 1-hour window
+      // and give users more time to recover crashed workouts
+      const AUTO_RECOVERY_MAX_AGE_MS = 15 * 60 * 1000; // 15 minutes
       const age = Date.now() - checkpoint.timestamp;
 
       if (age > AUTO_RECOVERY_MAX_AGE_MS) {
