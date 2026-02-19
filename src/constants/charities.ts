@@ -33,7 +33,7 @@ export const CHARITIES: Charity[] = [
     name: 'PPQ.AI',
     displayName: 'PPQ.AI',
     // No lightningAddress - rewards go to PPQ.AI credits via bolt11 invoice
-    description: 'Earn AI credits for every workout',
+    description: 'AI credits',
     website: 'https://ppq.ai',
     image: require('../../assets/images/charities/ppq-ai.png'),
     category: 'service',
