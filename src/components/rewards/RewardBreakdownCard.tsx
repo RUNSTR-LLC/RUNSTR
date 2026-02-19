@@ -26,11 +26,13 @@ import { SupabaseRewardService, RewardBreakdown } from '../../services/rewards/S
 interface RewardBreakdownCardProps {
   pubkey: string;
   defaultExpanded?: boolean;
+  isPPQ?: boolean;
 }
 
 export const RewardBreakdownCard: React.FC<RewardBreakdownCardProps> = ({
   pubkey,
   defaultExpanded = false,
+  isPPQ,
 }) => {
   const { t } = useTranslation('rewards');
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
@@ -172,7 +174,9 @@ export const RewardBreakdownCard: React.FC<RewardBreakdownCardProps> = ({
             <View style={styles.emptyState}>
               <Ionicons name="flash-outline" size={24} color="#444" />
               <Text style={styles.emptyText}>
-                {t('rewardBreakdown.noRewardsYet', 'No verified rewards yet. Complete workouts to earn sats!')}
+                {isPPQ
+                  ? t('rewardBreakdown.noRewardsYetPPQ', 'No verified rewards yet. Complete workouts to earn AI credits!')
+                  : t('rewardBreakdown.noRewardsYet', 'No verified rewards yet. Complete workouts to earn sats!')}
               </Text>
             </View>
           )}

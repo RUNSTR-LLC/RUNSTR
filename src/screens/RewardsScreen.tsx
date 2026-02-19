@@ -332,7 +332,7 @@ const RewardsScreenComponent: React.FC = () => {
 
         {/* Earnings Hero Card - Only shown when user has Lightning address */}
         {userHexPubkey && hasLightningAddress && (
-          <EarningsHeroCard pubkey={userHexPubkey} />
+          <EarningsHeroCard pubkey={userHexPubkey} isPPQ={isPPQTeam(selectedTeamId ?? undefined)} />
         )}
 
         {/* Impact Hero Card - Only shown when user does NOT have Lightning address */}
@@ -344,13 +344,8 @@ const RewardsScreenComponent: React.FC = () => {
         <RewardDestinationSection
           selectedTeamId={selectedTeamId}
           onChangePress={() => setShowDestinationPicker(true)}
-          onZapPress={() => {
-            if (selectedTeam && isPPQTeam(selectedTeam.id)) {
-              handlePPQTopup();
-            } else {
-              handleZapCharity();
-            }
-          }}
+          onPPQTopupPress={handlePPQTopup}
+          onZapPress={() => handleZapCharity()}
         />
 
         {/* How It Works Section */}
@@ -374,9 +369,11 @@ const RewardsScreenComponent: React.FC = () => {
           </View>
 
           <Text style={styles.howItWorksDescription}>
-            {hasLightningAddress
-              ? t('howItWorksDescriptionWithLN', { defaultValue: 'Run, walk, or cycle 3km+ OR hit 10k steps daily to earn real Bitcoin. Rewards are sent directly to your Lightning address.' })
-              : t('howItWorksDescriptionWithoutLN', { defaultValue: "Run, walk, or cycle 3km+ OR hit 10k steps daily to earn rewards for your team's charity." })}
+            {isPPQTeam(selectedTeamId ?? undefined)
+              ? t('howItWorksDescriptionPPQ', { defaultValue: 'Run, walk, or cycle 3km+ OR hit 10k steps daily to earn AI credits. Rewards go directly to your PPQ.AI account.' })
+              : hasLightningAddress
+                ? t('howItWorksDescriptionWithLN', { defaultValue: 'Run, walk, or cycle 3km+ OR hit 10k steps daily to earn real Bitcoin. Rewards are sent directly to your Lightning address.' })
+                : t('howItWorksDescriptionWithoutLN', { defaultValue: "Run, walk, or cycle 3km+ OR hit 10k steps daily to earn rewards for your team's charity." })}
           </Text>
         </View>
 
