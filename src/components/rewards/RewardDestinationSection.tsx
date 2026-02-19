@@ -25,18 +25,22 @@ import {
   Charity,
 } from '../../constants/charities';
 import { UserTeamService } from '../../services/backend/UserTeamService';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface RewardDestinationSectionProps {
   selectedTeamId: string | null;
   onChangePress: () => void;
   onZapPress?: (charityId: string) => void;
+  onPPQTopupPress?: () => void;
 }
 
 export const RewardDestinationSection: React.FC<RewardDestinationSectionProps> = ({
   selectedTeamId,
   onChangePress,
   onZapPress,
+  onPPQTopupPress,
 }) => {
+  const { currentUser } = useAuth();
   const isSelf = isSelfTeam(selectedTeamId ?? undefined);
   const isPPQ = isPPQTeam(selectedTeamId ?? undefined);
   const isCommunity = isCommunityTeam(selectedTeamId ?? undefined);
@@ -74,7 +78,7 @@ export const RewardDestinationSection: React.FC<RewardDestinationSectionProps> =
 
   // Determine display values based on destination type
   const getDisplayName = (): string => {
-    if (isSelf) return 'You';
+    if (isSelf) return currentUser?.displayName || currentUser?.name || 'You';
     if (isCommunity && communityTeam) return communityTeam.name;
     if (charity) return charity.name;
     return 'Not selected';
@@ -82,7 +86,7 @@ export const RewardDestinationSection: React.FC<RewardDestinationSectionProps> =
 
   const getSubtitle = (): string => {
     if (isSelf) return 'Rewards go to your Lightning address';
-    if (isPPQ) return 'Rewards converted to AI credits';
+    if (isPPQ) return 'AI credits';
     if (isCommunity && communityTeam) return `Rewards go to ${communityTeam.name}`;
     if (charity) return `Rewards go to ${charity.name}`;
     return 'Tap Change to select a destination';
@@ -93,9 +97,12 @@ export const RewardDestinationSection: React.FC<RewardDestinationSectionProps> =
 
   const renderAvatar = () => {
     if (isSelf) {
+      if (currentUser?.picture) {
+        return <Image source={{ uri: currentUser.picture }} style={styles.avatarImage} />;
+      }
       return (
         <View style={styles.selfAvatar}>
-          <Ionicons name="person" size={20} color={theme.colors.orangeDeep} />
+          <Ionicons name="person-outline" size={20} color={theme.colors.orangeDeep} />
         </View>
       );
     }
@@ -139,17 +146,23 @@ export const RewardDestinationSection: React.FC<RewardDestinationSectionProps> =
             <Text style={styles.changeButtonText}>Change</Text>
           </TouchableOpacity>
 
+          {isPPQ && onPPQTopupPress && (
+            <TouchableOpacity
+              style={styles.zapButton}
+              onPress={onPPQTopupPress}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="sparkles" size={18} color={theme.colors.orangeDeep} />
+            </TouchableOpacity>
+          )}
+
           {showZapButton && onZapPress && (
             <TouchableOpacity
               style={styles.zapButton}
               onPress={() => onZapPress(charity!.id)}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons
-                name="flash-outline"
-                size={18}
-                color={theme.colors.orangeDeep}
-              />
+              <Ionicons name="flash-outline" size={18} color={theme.colors.orangeDeep} />
             </TouchableOpacity>
           )}
         </View>
