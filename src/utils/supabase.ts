@@ -80,15 +80,15 @@ export interface Competition {
   id: string;
   external_id: string;
   name: string;
-  description?: string;
+  description?: string | null;
   activity_type: string;
-  scoring_method: 'total_distance' | 'total_duration' | 'workout_count' | 'fastest_time';
+  scoring_method: 'total_distance' | 'total_duration' | 'workout_count' | 'fastest_time' | 'total_steps';
   start_date: string;
   end_date: string;
   prize_pool_sats?: number;
   created_at: string;
   metadata: Record<string, unknown>;
-  template: 'distance_race' | 'step_challenge' | 'goal_challenge' | 'fundraiser';
+  template: string;
   config: CompetitionConfig;
   image_url?: string;
   is_open: boolean;

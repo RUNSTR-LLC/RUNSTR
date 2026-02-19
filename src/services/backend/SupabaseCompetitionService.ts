@@ -1517,6 +1517,40 @@ export class SupabaseCompetitionService {
   }
 
   /**
+   * Update a competition's name and/or description.
+   * Only the creator (captain) can update. Clears relevant caches.
+   */
+  static async updateCompetition(
+    competitionId: string,
+    updates: { name?: string; description?: string | null }
+  ): Promise<{ success: boolean; error?: string }> {
+    if (!isSupabaseConfigured()) {
+      return { success: false, error: 'Backend not configured' };
+    }
+
+    try {
+      const { error } = await supabase!
+        .from('competitions')
+        .update(updates)
+        .eq('id', competitionId);
+
+      if (error) {
+        console.error('[SupabaseCompetitionService] updateCompetition error:', error);
+        return { success: false, error: error.message };
+      }
+
+      // Clear caches
+      await this.clearDynamicCompetitionsCache();
+
+      console.log(`[SupabaseCompetitionService] Updated competition ${competitionId}`);
+      return { success: true };
+    } catch (err) {
+      console.error('[SupabaseCompetitionService] updateCompetition exception:', err);
+      return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+    }
+  }
+
+  /**
    * Clear club competitions cache after event creation
    */
   static async clearClubCompetitionsCache(clubId: string): Promise<void> {

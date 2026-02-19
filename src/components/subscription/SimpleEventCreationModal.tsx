@@ -1,71 +1,119 @@
 /**
- * SimpleEventCreationModal - Race event creation with 5K/10K/Half Marathon templates.
- * Inserts directly into Supabase competitions table with spam prevention,
- * auto-join for creators, and streamlined template-based flow.
+ * SimpleEventCreationModal - Event creation/editing for club captains.
+ *
+ * Templates: 5K Race, 10K Race, Half Marathon, Step Challenge
+ * Scoring is auto-set per template:
+ *   - 5K / 10K  → fastest_time
+ *   - Half Marathon → total_distance
+ *   - Step Challenge → total_steps (walking)
+ *
+ * Supports edit mode via `existingEvent` prop to update name/description.
+ * Inserts directly into Supabase competitions table with spam prevention
+ * and auto-join for club members.
  */
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Modal, SafeAreaView,
   ScrollView, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../styles/theme';
 import { CustomAlert } from '../ui/CustomAlert';
 import { supabase, isSupabaseConfigured } from '../../utils/supabase';
 import { SupabaseCompetitionService } from '../../services/backend/SupabaseCompetitionService';
 
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
 interface SimpleEventCreationModalProps {
   visible: boolean;
   onClose: () => void;
   onEventCreated?: (eventId: string) => void;
   clubId?: string;
+  /** Pass to open in edit mode */
+  existingEvent?: {
+    id: string;
+    external_id: string;
+    name: string;
+    description: string | null;
+    template: string | null;
+  };
 }
 
-interface RaceTemplate {
+interface EventTemplate {
   key: string;
   label: string;
   subtitle: string;
+  icon: keyof typeof Ionicons.glyphMap;
   distanceKm: number;
   templateId: string;
+  activityType: string;
+  scoringMethod: string;
   placeholder: string;
 }
 
-const RACE_TEMPLATES: RaceTemplate[] = [
+// ---------------------------------------------------------------------------
+// Templates
+// ---------------------------------------------------------------------------
+
+const EVENT_TEMPLATES: EventTemplate[] = [
   {
     key: '5k',
     label: '5K',
-    subtitle: '5 kilometer race',
+    subtitle: 'Fastest 5 km run',
+    icon: 'fitness-outline',
     distanceKm: 5,
     templateId: '5k_race',
+    activityType: 'running',
+    scoringMethod: 'fastest_time',
     placeholder: 'e.g., Saturday 5K Challenge',
   },
   {
     key: '10k',
     label: '10K',
-    subtitle: '10 kilometer race',
+    subtitle: 'Fastest 10 km run',
+    icon: 'fitness-outline',
     distanceKm: 10,
     templateId: '10k_race',
+    activityType: 'running',
+    scoringMethod: 'fastest_time',
     placeholder: 'e.g., Weekend 10K Showdown',
   },
   {
     key: 'half',
     label: 'Half Marathon',
-    subtitle: '21.1 kilometer race',
+    subtitle: 'Longest total distance',
+    icon: 'fitness-outline',
     distanceKm: 21.1,
     templateId: 'half_marathon',
+    activityType: 'running',
+    scoringMethod: 'total_distance',
     placeholder: 'e.g., Spring Half Marathon',
+  },
+  {
+    key: 'steps',
+    label: 'Step Challenge',
+    subtitle: 'Most steps in a day',
+    icon: 'walk-outline',
+    distanceKm: 0,
+    templateId: 'step_challenge',
+    activityType: 'walking',
+    scoringMethod: 'total_steps',
+    placeholder: 'e.g., 10K Steps Challenge',
   },
 ];
 
 const MAX_ACTIVE_EVENTS_PER_USER = 3;
-
 const EVENT_DURATION_DAYS = 1;
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 function getQuickDateOptions() {
   const now = new Date();
-  // Construct dates in UTC so all users get the same midnight-to-midnight window
-  // regardless of local timezone. A PST user selecting "Today" gets 00:00 UTC,
-  // not 08:00 UTC (which would cause the event to show "UPCOMING" for 8 hours).
   const todayUTC = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
   const tomorrowUTC = new Date(todayUTC);
   tomorrowUTC.setUTCDate(tomorrowUTC.getUTCDate() + 1);
@@ -95,14 +143,19 @@ function randomHex(length: number): string {
 const formatDate = (d: Date) =>
   d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
 export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> = ({
-  visible, onClose, onEventCreated, clubId,
+  visible, onClose, onEventCreated, clubId, existingEvent,
 }) => {
-  const [selectedTemplate, setSelectedTemplate] = useState<RaceTemplate | null>(null);
+  const isEditMode = !!existingEvent;
+
+  const [selectedTemplate, setSelectedTemplate] = useState<EventTemplate | null>(null);
   const [eventName, setEventName] = useState('');
   const [description, setDescription] = useState('');
   const [startDate, setStartDate] = useState<Date | null>(null);
-  const durationDays = EVENT_DURATION_DAYS;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
   const [alertVisible, setAlertVisible] = useState(false);
@@ -110,6 +163,18 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
   const [alertMessage, setAlertMessage] = useState('');
 
   const quickDates = getQuickDateOptions();
+
+  // Pre-fill form in edit mode
+  useEffect(() => {
+    if (visible && existingEvent) {
+      setEventName(existingEvent.name);
+      setDescription(existingEvent.description || '');
+      if (existingEvent.template) {
+        const tmpl = EVENT_TEMPLATES.find((t) => t.templateId === existingEvent.template);
+        if (tmpl) setSelectedTemplate(tmpl);
+      }
+    }
+  }, [visible, existingEvent]);
 
   const resetForm = useCallback(() => {
     setSelectedTemplate(null);
@@ -123,10 +188,9 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
     onClose();
   }, [resetForm, onClose]);
 
-  const isValid =
-    selectedTemplate !== null &&
-    eventName.trim().length > 0 &&
-    startDate !== null;
+  const isValid = isEditMode
+    ? eventName.trim().length > 0
+    : selectedTemplate !== null && eventName.trim().length > 0 && startDate !== null;
 
   const showAlert = useCallback((title: string, message: string) => {
     setAlertTitle(title);
@@ -134,8 +198,45 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
     setAlertVisible(true);
   }, []);
 
+  // -------------------------------------------------------------------------
+  // Edit handler
+  // -------------------------------------------------------------------------
+
+  const handleEdit = useCallback(async () => {
+    if (isSubmittingRef.current || !existingEvent) return;
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+
+    try {
+      const result = await SupabaseCompetitionService.updateCompetition(
+        existingEvent.id,
+        {
+          name: eventName.trim(),
+          description: description.trim() || null,
+        }
+      );
+
+      if (result.success) {
+        showAlert('Event Updated', 'Your changes have been saved.');
+        onEventCreated?.(existingEvent.external_id);
+      } else {
+        showAlert('Error', result.error || 'Failed to update event.');
+      }
+    } catch (err) {
+      console.error('[SimpleEventCreation] Edit exception:', err);
+      showAlert('Error', err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
+    }
+  }, [existingEvent, eventName, description, showAlert, onEventCreated]);
+
+  // -------------------------------------------------------------------------
+  // Create handler
+  // -------------------------------------------------------------------------
+
   const handleCreate = useCallback(async () => {
-    if (isSubmittingRef.current) return; // Synchronous check prevents double-submit
+    if (isSubmittingRef.current) return;
     if (!isValid || !selectedTemplate) return;
     if (!isSupabaseConfigured()) {
       showAlert('Error', 'Unable to connect. Please try again later.');
@@ -151,7 +252,7 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
         return;
       }
 
-      // Spam prevention: limit active events per user
+      // Spam prevention
       const { count, error: countError } = await supabase!
         .from('competitions')
         .select('*', { count: 'exact', head: true })
@@ -159,7 +260,6 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
         .gte('end_date', new Date().toISOString());
 
       if (countError) {
-        console.error('[SimpleEventCreation] Count query error:', countError);
         showAlert('Error', 'Unable to verify event limit. Please try again.');
         return;
       }
@@ -167,14 +267,14 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
       if ((count ?? 0) >= MAX_ACTIVE_EVENTS_PER_USER) {
         showAlert(
           'Event Limit Reached',
-          `You can have at most ${MAX_ACTIVE_EVENTS_PER_USER} active events at a time. Wait for a current event to end or contact support.`
+          `You can have at most ${MAX_ACTIVE_EVENTS_PER_USER} active events at a time. Wait for a current event to end or cancel one.`
         );
         return;
       }
 
       const externalId = `${slugify(eventName)}-${randomHex(4)}`;
       const endDate = new Date(startDate!);
-      endDate.setUTCDate(endDate.getUTCDate() + durationDays);
+      endDate.setUTCDate(endDate.getUTCDate() + EVENT_DURATION_DAYS);
 
       const { data: insertedRows, error } = await supabase!
         .from('competitions')
@@ -182,8 +282,8 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
           external_id: externalId,
           name: eventName.trim(),
           description: description.trim() || null,
-          activity_type: 'running',
-          scoring_method: 'total_distance',
+          activity_type: selectedTemplate.activityType,
+          scoring_method: selectedTemplate.scoringMethod,
           start_date: startDate!.toISOString(),
           end_date: endDate.toISOString(),
           prize_pool_sats: 0,
@@ -192,8 +292,8 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
           created_by_npub: npub,
           club_id: clubId || null,
           config: {
-            activity_types: ['running'],
-            scoring_method: 'total_distance',
+            activity_types: [selectedTemplate.activityType],
+            scoring_method: selectedTemplate.scoringMethod,
             target_distance_km: selectedTemplate.distanceKm,
             template: selectedTemplate.templateId,
             created_via: clubId ? 'club' : 'app',
@@ -207,7 +307,7 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
         return;
       }
 
-      // Auto-join: For club events, join ALL club members. Otherwise just the creator.
+      // Auto-join club members or just the creator
       const competitionId = insertedRows?.[0]?.id;
       let autoJoinCount = 0;
       let autoJoinError: string | undefined;
@@ -215,7 +315,6 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
         const result = await SupabaseCompetitionService.autoJoinClubMembers(competitionId, clubId);
         autoJoinCount = result.joined;
         autoJoinError = result.error;
-        console.log(`[SimpleEventCreation] Auto-joined ${autoJoinCount} club members to event: ${externalId}`);
       } else if (competitionId) {
         const { error: joinError } = await supabase!
           .from('competition_participants')
@@ -224,29 +323,27 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
             { onConflict: 'competition_id,npub' }
           );
         if (joinError) {
-          console.warn('[SimpleEventCreation] Auto-join error (non-blocking):', joinError);
-        } else {
-          console.log(`[SimpleEventCreation] Auto-joined creator to event: ${externalId}`);
+          console.warn('[SimpleEventCreation] Auto-join error:', joinError);
         }
       }
 
-      console.log(`[SimpleEventCreation] Created ${selectedTemplate.label} event: ${externalId}${clubId ? ` (club: ${clubId})` : ''}`);
+      console.log(`[SimpleEventCreation] Created ${selectedTemplate.label}: ${externalId}${clubId ? ` (club: ${clubId})` : ''}`);
 
-      // Clear caches so new event appears immediately
+      // Clear caches
       if (clubId) {
         await SupabaseCompetitionService.clearClubCompetitionsCache(clubId);
       }
       await SupabaseCompetitionService.clearDynamicCompetitionsCache();
 
       showAlert(
-        'Event Created!',
+        'Event Created',
         clubId
           ? autoJoinError
-            ? `Your club event is live, but member enrollment failed: ${autoJoinError}. Members can still join manually.`
+            ? `Event is live, but member enrollment failed: ${autoJoinError}. Members can still join manually.`
             : autoJoinCount > 0
-              ? `Your club event is live! ${autoJoinCount} club member${autoJoinCount === 1 ? '' : 's'} enrolled automatically.`
-              : 'Your club event is live! No club members found to auto-enroll. Members can join manually.'
-          : 'Your event is live and you have been joined automatically. Share it with your community to get participants.'
+              ? `Event is live. ${autoJoinCount} club member${autoJoinCount === 1 ? '' : 's'} enrolled automatically.`
+              : 'Event is live. No club members found to auto-enroll.'
+          : 'Event is live and you have been joined automatically.'
       );
       onEventCreated?.(externalId);
     } catch (err) {
@@ -256,76 +353,92 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
       isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
-  }, [isValid, selectedTemplate, eventName, description, startDate, durationDays, onEventCreated, showAlert, clubId]);
+  }, [isValid, selectedTemplate, eventName, description, startDate, onEventCreated, showAlert, clubId]);
 
   const handleAlertDismiss = useCallback(() => {
     setAlertVisible(false);
-    if (alertTitle === 'Event Created!') handleClose();
+    if (alertTitle === 'Event Created' || alertTitle === 'Event Updated') handleClose();
   }, [alertTitle, handleClose]);
+
+  // -------------------------------------------------------------------------
+  // Render
+  // -------------------------------------------------------------------------
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.closeButton} onPress={handleClose} activeOpacity={0.7}>
-            <Text style={styles.closeButtonText}>X</Text>
+      <SafeAreaView style={s.container}>
+        <View style={s.header}>
+          <TouchableOpacity style={s.closeButton} onPress={handleClose} activeOpacity={0.7}>
+            <Ionicons name="close" size={22} color={theme.colors.text} />
           </TouchableOpacity>
-          <Text style={styles.title}>Create Event</Text>
-          <View style={styles.headerSpacer} />
+          <Text style={s.title}>{isEditMode ? 'Edit Event' : 'Create Event'}</Text>
+          <View style={s.headerSpacer} />
         </View>
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardView}
-        >
-          <ScrollView style={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            {/* Race Template Selection */}
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Race Type</Text>
-              <View style={styles.templateRow}>
-                {RACE_TEMPLATES.map((tmpl) => {
-                  const sel = selectedTemplate?.key === tmpl.key;
-                  return (
-                    <TouchableOpacity
-                      key={tmpl.key}
-                      style={[styles.templateButton, sel && styles.templateButtonSelected]}
-                      onPress={() => setSelectedTemplate(tmpl)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.templateLabel, sel && styles.templateLabelSelected]}>
-                        {tmpl.label}
-                      </Text>
-                      <Text style={[styles.templateSubtitle, sel && styles.templateSubtitleSelected]}>
-                        {tmpl.subtitle}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.keyboardView}>
+          <ScrollView style={s.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+
+            {/* Template Selection (create mode only) */}
+            {!isEditMode && (
+              <View style={s.formGroup}>
+                <Text style={s.label}>Event Type</Text>
+                <View style={s.templateRow}>
+                  {EVENT_TEMPLATES.map((tmpl) => {
+                    const sel = selectedTemplate?.key === tmpl.key;
+                    return (
+                      <TouchableOpacity
+                        key={tmpl.key}
+                        style={[s.templateButton, sel && s.templateButtonSelected]}
+                        onPress={() => setSelectedTemplate(tmpl)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={s.templateLeft}>
+                          <Ionicons
+                            name={tmpl.icon}
+                            size={20}
+                            color={sel ? theme.colors.text : theme.colors.textMuted}
+                          />
+                          <View style={s.templateInfo}>
+                            <Text style={[s.templateLabel, sel && s.templateLabelSelected]}>
+                              {tmpl.label}
+                            </Text>
+                            <Text style={[s.templateSubtitle, sel && s.templateSubtitleSelected]}>
+                              {tmpl.subtitle}
+                            </Text>
+                          </View>
+                        </View>
+                        {sel && (
+                          <Ionicons name="checkmark-circle" size={20} color={theme.colors.text} />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
-            </View>
+            )}
 
             {/* Event Name */}
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Event Name</Text>
+            <View style={s.formGroup}>
+              <Text style={s.label}>Event Name</Text>
               <TextInput
-                style={styles.textInput}
+                style={s.textInput}
                 value={eventName}
                 onChangeText={setEventName}
                 placeholder={selectedTemplate?.placeholder ?? 'e.g., Saturday 5K Challenge'}
-                placeholderTextColor={theme.colors.textMuted}
+                placeholderTextColor={theme.colors.textDark}
                 maxLength={100}
               />
             </View>
 
             {/* Description */}
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Description (optional)</Text>
+            <View style={s.formGroup}>
+              <Text style={s.label}>Description (optional)</Text>
               <TextInput
-                style={[styles.textInput, styles.textArea]}
+                style={[s.textInput, s.textArea]}
                 value={description}
                 onChangeText={setDescription}
                 placeholder="Rules, goals, or details about your event..."
-                placeholderTextColor={theme.colors.textMuted}
+                placeholderTextColor={theme.colors.textDark}
                 maxLength={500}
                 multiline
                 numberOfLines={3}
@@ -333,35 +446,33 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
               />
             </View>
 
-            {/* Start Date */}
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Start Date</Text>
-              <View style={styles.buttonRow}>
-                {quickDates.map((opt) => {
-                  const sel = startDate?.toISOString() === opt.date.toISOString();
-                  return (
-                    <TouchableOpacity
-                      key={opt.label}
-                      style={[styles.optionButton, sel && styles.selectedButton]}
-                      onPress={() => setStartDate(opt.date)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.optionButtonText, sel && styles.selectedText]}>
-                        {opt.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-              {startDate && <Text style={styles.helperBelow}>{formatDate(startDate)}</Text>}
-            </View>
-
-            {/* Duration info */}
-            {startDate && (
-              <View style={styles.formGroup}>
-                <Text style={styles.helperBelow}>
-                  1-day event ending {formatDate((() => { const end = new Date(startDate); end.setUTCDate(end.getUTCDate() + EVENT_DURATION_DAYS); return end; })())}
-                </Text>
+            {/* Start Date (create mode only) */}
+            {!isEditMode && (
+              <View style={s.formGroup}>
+                <Text style={s.label}>Start Date</Text>
+                <View style={s.buttonRow}>
+                  {quickDates.map((opt) => {
+                    const sel = startDate?.toISOString() === opt.date.toISOString();
+                    return (
+                      <TouchableOpacity
+                        key={opt.label}
+                        style={[s.optionButton, sel && s.selectedButton]}
+                        onPress={() => setStartDate(opt.date)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[s.optionButtonText, sel && s.selectedText]}>
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                {startDate && (
+                  <Text style={s.helperBelow}>
+                    {formatDate(startDate)} — 1 day event ending{' '}
+                    {formatDate((() => { const end = new Date(startDate); end.setUTCDate(end.getUTCDate() + EVENT_DURATION_DAYS); return end; })())}
+                  </Text>
+                )}
               </View>
             )}
 
@@ -370,17 +481,19 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
         </KeyboardAvoidingView>
 
         {/* Footer */}
-        <View style={styles.footer}>
+        <View style={s.footer}>
           <TouchableOpacity
-            style={[styles.createButton, (!isValid || isSubmitting) && styles.createButtonDisabled]}
-            onPress={handleCreate}
+            style={[s.submitButton, (!isValid || isSubmitting) && s.submitButtonDisabled]}
+            onPress={isEditMode ? handleEdit : handleCreate}
             disabled={!isValid || isSubmitting}
             activeOpacity={0.7}
           >
             {isSubmitting ? (
-              <ActivityIndicator color={theme.colors.background} />
+              <ActivityIndicator color={theme.colors.text} />
             ) : (
-              <Text style={styles.createButtonText}>Create Event</Text>
+              <Text style={s.submitButtonText}>
+                {isEditMode ? 'Save Changes' : 'Create Event'}
+              </Text>
             )}
           </TouchableOpacity>
         </View>
@@ -397,7 +510,11 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
   );
 };
 
-const styles = StyleSheet.create({
+// ---------------------------------------------------------------------------
+// Styles — dark/black primary, no bright orange
+// ---------------------------------------------------------------------------
+
+const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -405,61 +522,74 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: theme.colors.border,
   },
   closeButton: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  closeButtonText: { fontSize: 20, color: theme.colors.text },
-  title: { fontSize: 18, fontWeight: theme.typography.weights.semiBold, color: theme.colors.accent },
+  title: {
+    fontSize: 18, fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.text,
+  },
   headerSpacer: { width: 32 },
   keyboardView: { flex: 1 },
   content: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },
-  formGroup: { marginBottom: 16 },
+  formGroup: { marginBottom: 20 },
   label: {
-    fontSize: 14, fontWeight: theme.typography.weights.medium,
-    color: theme.colors.accent, marginBottom: 8,
+    fontSize: 13, fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.textMuted, letterSpacing: 0.5,
+    textTransform: 'uppercase', marginBottom: 8,
   },
   textInput: {
-    backgroundColor: theme.colors.card, borderRadius: 8,
-    paddingHorizontal: 12, paddingVertical: 12, fontSize: 16,
+    backgroundColor: theme.colors.card, borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 13, fontSize: 16,
     color: theme.colors.text, borderWidth: 1, borderColor: theme.colors.border,
   },
-  textArea: { minHeight: 72, paddingTop: 10 },
-  helperBelow: { fontSize: 12, color: theme.colors.textMuted, marginTop: 4 },
-  templateRow: { gap: 10 },
+  textArea: { minHeight: 80, paddingTop: 12 },
+  helperBelow: { fontSize: 12, color: theme.colors.textMuted, marginTop: 6 },
+  // Template selection
+  templateRow: { gap: 8 },
   templateButton: {
-    paddingVertical: 16, paddingHorizontal: 16, borderRadius: 12,
+    paddingVertical: 14, paddingHorizontal: 14, borderRadius: 10,
     backgroundColor: theme.colors.card, borderWidth: 1.5,
     borderColor: theme.colors.border,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
   templateButtonSelected: {
-    backgroundColor: `${theme.colors.accent}1F`,
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.text,
+    backgroundColor: '#111111',
   },
+  templateLeft: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1,
+  },
+  templateInfo: { flex: 1 },
   templateLabel: {
-    fontSize: 20, fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
+    fontSize: 16, fontWeight: theme.typography.weights.bold,
+    color: theme.colors.textMuted,
   },
-  templateLabelSelected: { color: theme.colors.accent },
-  templateSubtitle: {
-    fontSize: 14, color: theme.colors.textMuted,
-  },
-  templateSubtitleSelected: { color: theme.colors.textSecondary },
+  templateLabelSelected: { color: theme.colors.text },
+  templateSubtitle: { fontSize: 13, color: theme.colors.textDark, marginTop: 2 },
+  templateSubtitleSelected: { color: theme.colors.textMuted },
+  // Date quick-picks
   buttonRow: { flexDirection: 'row', gap: 8 },
   optionButton: {
-    flex: 1, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 8,
+    flex: 1, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 10,
     backgroundColor: theme.colors.card, borderWidth: 1,
     borderColor: theme.colors.border, alignItems: 'center',
   },
   optionButtonText: {
-    fontSize: 14, fontWeight: theme.typography.weights.medium, color: theme.colors.text,
+    fontSize: 14, fontWeight: theme.typography.weights.medium, color: theme.colors.textMuted,
   },
-  selectedButton: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
+  selectedButton: {
+    backgroundColor: theme.colors.text,
+    borderColor: theme.colors.text,
+  },
   selectedText: { color: theme.colors.background },
+  // Footer
   footer: { padding: 16, borderTopWidth: 1, borderTopColor: theme.colors.border },
-  createButton: {
-    backgroundColor: theme.colors.accent, borderRadius: 8, paddingVertical: 14, alignItems: 'center',
+  submitButton: {
+    backgroundColor: theme.colors.text, borderRadius: 10,
+    paddingVertical: 14, alignItems: 'center',
   },
-  createButtonDisabled: { opacity: 0.5 },
-  createButtonText: {
-    fontSize: 16, fontWeight: theme.typography.weights.semiBold, color: theme.colors.background,
+  submitButtonDisabled: { opacity: 0.35 },
+  submitButtonText: {
+    fontSize: 16, fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.background,
   },
 });
 
