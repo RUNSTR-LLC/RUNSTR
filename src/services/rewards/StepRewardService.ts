@@ -169,11 +169,13 @@ class StepRewardServiceClass {
 
       console.log(`[StepReward] Calling claim-reward: steps ${amountSats} sats`);
 
+      const npub = await AsyncStorage.getItem('@runstr:npub');
       const { data, error } = await supabase.functions.invoke('claim-reward', {
         body: {
           lightning_address: lightningAddress,
           reward_type: 'steps',
           amount_sats: amountSats,
+          npub: npub || undefined,
         },
       });
 

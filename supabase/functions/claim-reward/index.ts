@@ -592,6 +592,7 @@ interface RequestBody {
   reward_type?: 'workout' | 'steps'
   amount_sats?: number
   is_charity_donation?: boolean // Skip rate-limiting for charity donations
+  npub?: string // For push notifications after successful payment
 
   // For PPQ.AI team rewards (pay directly to PPQ bolt11 instead of Lightning address)
   ppq_bolt11?: string
@@ -1181,7 +1182,7 @@ serve(async (req) => {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       )
 
-      const { lightning_address, reward_type, amount_sats, is_charity_donation, ppq_bolt11 } = body
+      const { lightning_address, reward_type, amount_sats, is_charity_donation, ppq_bolt11, npub } = body
 
       // Validate required fields (ppq_bolt11 can substitute for lightning_address)
       if ((!lightning_address && !ppq_bolt11) || !reward_type) {
@@ -1310,6 +1311,28 @@ serve(async (req) => {
 
           const paymentType = isPPQPayment ? 'PPQ.AI credits' : 'Lightning'
           console.log(`[claim-reward] Workout reward paid to ${paymentType}:`, rewardAmount, 'sats', paymentResult.preimage ? '(verified)' : '(no preimage)')
+
+          // Fire-and-forget push notification
+          if (npub) {
+            const supabaseUrl = Deno.env.get('SUPABASE_URL')
+            if (supabaseUrl) {
+              fetch(`${supabaseUrl}/functions/v1/notify-user`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                },
+                body: JSON.stringify({
+                  npub,
+                  title: 'Reward Earned!',
+                  body: `You earned ${rewardAmount} sats for today's workout`,
+                  data: { type: 'reward_earned', sats: rewardAmount },
+                  channelId: 'bitcoin_rewards',
+                }),
+              }).catch(() => {}) // Fire-and-forget
+            }
+          }
+
           return new Response(
             JSON.stringify({
               success: true,
@@ -1392,6 +1415,28 @@ serve(async (req) => {
           }
 
           console.log('[claim-reward] Step reward paid:', amountToPay, 'sats', paymentResult.preimage ? '(verified)' : '(no preimage)')
+
+          // Fire-and-forget push notification
+          if (npub) {
+            const supabaseUrl = Deno.env.get('SUPABASE_URL')
+            if (supabaseUrl) {
+              fetch(`${supabaseUrl}/functions/v1/notify-user`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                },
+                body: JSON.stringify({
+                  npub,
+                  title: 'Steps Rewarded!',
+                  body: `You earned ${amountToPay} sats for your steps today`,
+                  data: { type: 'step_reward_earned', sats: amountToPay },
+                  channelId: 'bitcoin_rewards',
+                }),
+              }).catch(() => {}) // Fire-and-forget
+            }
+          }
+
           return new Response(
             JSON.stringify({
               success: true,
