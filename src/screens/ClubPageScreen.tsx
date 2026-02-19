@@ -24,6 +24,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../styles/theme';
 import { ClubService } from '../services/backend/ClubService';
 import { ClubMembershipService } from '../services/backend/ClubMembershipService';
+import { ClubBannerHeader } from '../components/club/ClubBannerHeader';
+import { ClubInfoSection } from '../components/club/ClubInfoSection';
+import type { CooldownState } from '../components/club/ClubInfoSection';
 import { ClubLeaderboardSection } from '../components/club/ClubLeaderboardSection';
 import { ClubEventsSection } from '../components/club/ClubEventsSection';
 import { ClubChatSection } from '../components/club/ClubChatSection';
@@ -66,7 +69,9 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
   const [isJoining, setIsJoining] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [showCaptainSettings, setShowCaptainSettings] = useState(false);
+  const [cooldown, setCooldown] = useState<CooldownState | null>(null);
   const [alertConfig, setAlertConfig] = useState<{
     visible: boolean;
     title: string;
@@ -84,26 +89,27 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
 
   const loadClubData = useCallback(async () => {
     try {
-      // Get user npub from AsyncStorage
       const npub = await AsyncStorage.getItem('@runstr:npub');
       setUserNpub(npub);
 
-      // Fetch club details
       const clubData = await ClubService.getClubById(clubId);
       setClub(clubData);
 
-      // Check membership and role
       if (npub) {
         const memberStatus = await ClubMembershipService.isMember(clubId, npub);
         setIsMember(memberStatus);
 
         if (memberStatus) {
-          // Fetch membership role (source of truth for captain status)
           const members = await ClubMembershipService.getClubMembers(clubId);
           const myMembership = members.find((m) => m.member_npub === npub);
           setUserRole(myMembership?.role as 'member' | 'captain' || null);
+
+          // Fetch cooldown status
+          const cd = await ClubMembershipService.getCooldownRemaining(npub);
+          setCooldown(cd);
         } else {
           setUserRole(null);
+          setCooldown(null);
         }
       }
     } catch (err) {
@@ -135,9 +141,11 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
 
       if (result.success) {
         setIsMember(true);
-        // Refresh club data to get updated member count
         const updated = await ClubService.getClubById(clubId);
         if (updated) setClub(updated);
+        // Refresh cooldown after joining
+        const cd = await ClubMembershipService.getCooldownRemaining(userNpub);
+        setCooldown(cd);
       } else {
         showAlert('Could not join', result.error || 'Please try again.');
       }
@@ -152,7 +160,6 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
   const handleJoin = async () => {
     if (!userNpub || isJoining) return;
 
-    // Check if user is already in another club -- offer switch dialog
     const currentClubId = await ClubMembershipService.getCurrentClub(userNpub);
     if (currentClubId && currentClubId !== clubId) {
       showAlert(
@@ -187,7 +194,7 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
       const result = await ClubMembershipService.leaveClub(userNpub);
       if (result.success) {
         setIsMember(false);
-        // Refresh club data to get updated member count
+        setCooldown(null);
         const updated = await ClubService.getClubById(clubId);
         if (updated) setClub(updated);
       } else {
@@ -200,6 +207,14 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
       setIsLeaving(false);
     }
   };
+
+  const handleCooldownBlocked = useCallback(() => {
+    showAlert(
+      '7-Day Cooldown',
+      'Clubs have a 7-day cooldown period after joining to keep teams stable. ' +
+        `You can leave in ${cooldown?.remainingText || 'a few days'}.`
+    );
+  }, [showAlert, cooldown]);
 
   // -------------------------------------------------------------------------
   // Share
@@ -215,7 +230,6 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
           `https://runstr.club`,
       });
     } catch (err) {
-      // User cancelled or share failed silently
       console.log('[ClubPageScreen] Share dismissed or failed:', err);
     }
   };
@@ -241,12 +255,7 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
     }
   };
 
-  const handleCaptainSettingsClose = () => {
-    setShowCaptainSettings(false);
-  };
-
   const handleClubUpdated = async () => {
-    // Clear cache and reload club data after captain makes changes
     await ClubService.clearCache();
     await loadClubData();
   };
@@ -257,6 +266,7 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
+    setRefreshKey((k) => k + 1);
     try {
       await ClubService.clearCache();
       await loadClubData();
@@ -270,10 +280,6 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
   // -------------------------------------------------------------------------
 
   const displayName = club?.name || clubName;
-  const memberCountText =
-    club?.member_count === 1 ? '1 member' : `${club?.member_count ?? 0} members`;
-  // Membership role is the source of truth for captain status (survives transferCaptainship).
-  // Fall back to created_by_npub if role lookup hasn't completed yet.
   const isCaptain = userRole === 'captain' || (
     userRole === null && Boolean(userNpub && club?.created_by_npub && userNpub === club.created_by_npub)
   );
@@ -284,32 +290,13 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header bar */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerButton}
-          onPress={() => navigation.goBack()}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="chevron-back" size={24} color={theme.colors.text} />
-        </TouchableOpacity>
-
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {displayName}
-        </Text>
-
-        <TouchableOpacity
-          style={styles.headerButton}
-          onPress={handleEllipsisMenu}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons
-            name="ellipsis-vertical"
-            size={20}
-            color={theme.colors.textMuted}
-          />
-        </TouchableOpacity>
-      </View>
+      {/* Header - banner or plain */}
+      <ClubBannerHeader
+        clubName={displayName}
+        bannerUrl={club?.banner_url}
+        onBack={() => navigation.goBack()}
+        onEllipsis={handleEllipsisMenu}
+      />
 
       {/* Loading state */}
       {isLoading ? (
@@ -345,119 +332,19 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
             />
           }
         >
-          {/* Club info card */}
-          <View style={styles.infoCard}>
-            <Text style={styles.clubTitle}>{club.name}</Text>
-
-            {club.description ? (
-              <Text style={styles.clubDescription}>{club.description}</Text>
-            ) : null}
-
-            <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <Ionicons
-                  name="people-outline"
-                  size={16}
-                  color={theme.colors.textMuted}
-                />
-                <Text style={styles.statText}>{memberCountText}</Text>
-              </View>
-
-              <View style={styles.statItem}>
-                <Ionicons
-                  name="fitness-outline"
-                  size={16}
-                  color={theme.colors.textMuted}
-                />
-                <Text style={styles.statText}>Active this week</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Join / Leave button */}
-          {userNpub && (
-            <View style={styles.actionContainer}>
-              {isMember ? (
-                <TouchableOpacity
-                  style={styles.leaveButton}
-                  onPress={handleLeaveConfirm}
-                  disabled={isLeaving}
-                  activeOpacity={0.7}
-                >
-                  {isLeaving ? (
-                    <ActivityIndicator
-                      size="small"
-                      color={theme.colors.textMuted}
-                    />
-                  ) : (
-                    <>
-                      <Ionicons
-                        name="log-out-outline"
-                        size={20}
-                        color={theme.colors.textMuted}
-                      />
-                      <Text style={styles.leaveButtonText}>Leave Club</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={styles.joinButton}
-                  onPress={handleJoin}
-                  disabled={isJoining}
-                  activeOpacity={0.7}
-                >
-                  {isJoining ? (
-                    <ActivityIndicator
-                      size="small"
-                      color={theme.colors.accentText}
-                    />
-                  ) : (
-                    <>
-                      <Ionicons
-                        name="enter-outline"
-                        size={20}
-                        color={theme.colors.accentText}
-                      />
-                      <Text style={styles.joinButtonText}>Join Club</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-
-          {/* Invite Members section (captain only) */}
-          {isCaptain && (
-            <View style={styles.inviteCard}>
-              <Text style={styles.inviteTitle}>Invite Members</Text>
-              <Text style={styles.inviteDescription}>
-                Share your club with friends to grow your crew.
-              </Text>
-
-              <View style={styles.inviteStatsRow}>
-                <Ionicons
-                  name="people-outline"
-                  size={16}
-                  color={theme.colors.accent}
-                />
-                <Text style={styles.inviteStatsText}>{memberCountText}</Text>
-              </View>
-
-              <TouchableOpacity
-                style={styles.inviteShareButton}
-                onPress={handleShareClub}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name="share-outline"
-                  size={20}
-                  color={theme.colors.accentText}
-                />
-                <Text style={styles.inviteShareButtonText}>Share Club</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+          {/* Club info, join/leave, invite */}
+          <ClubInfoSection
+            club={club}
+            isMember={isMember}
+            isCaptain={isCaptain}
+            userNpub={userNpub}
+            isJoining={isJoining}
+            isLeaving={isLeaving}
+            cooldown={cooldown}
+            onJoin={handleJoin}
+            onLeaveConfirm={handleLeaveConfirm}
+            onCooldownBlocked={handleCooldownBlocked}
+          />
 
           {/* Earnings card (captain only) */}
           {isCaptain && (
@@ -468,10 +355,10 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
           )}
 
           {/* Events section */}
-          <ClubEventsSection clubId={clubId} isCaptain={isCaptain} />
+          <ClubEventsSection clubId={clubId} isCaptain={isCaptain} refreshKey={refreshKey} />
 
           {/* Leaderboard section */}
-          <ClubLeaderboardSection clubId={clubId} />
+          <ClubLeaderboardSection clubId={clubId} leaderboardMetric={club.leaderboard_metric || 'distance'} refreshKey={refreshKey} />
 
           {/* Chat section */}
           <ClubChatSection
@@ -493,14 +380,14 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
       {club && userNpub && (
         <CaptainSettingsModal
           visible={showCaptainSettings}
-          onClose={handleCaptainSettingsClose}
+          onClose={() => setShowCaptainSettings(false)}
           club={club}
           userNpub={userNpub}
           onClubUpdated={handleClubUpdated}
         />
       )}
 
-      {/* Themed alert (replaces default iOS Alert) */}
+      {/* Themed alert */}
       <CustomAlert
         visible={alertConfig.visible}
         title={alertConfig.title}
@@ -520,29 +407,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  headerButton: {
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 17,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.text,
-    textAlign: 'center',
-    marginHorizontal: 8,
   },
   scrollView: {
     flex: 1,
@@ -580,129 +444,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: theme.typography.weights.semiBold,
   },
-
-  // Club info card
-  infoCard: {
-    backgroundColor: theme.colors.cardBackground,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 12,
-    padding: 16,
-    marginHorizontal: 16,
-    marginTop: 16,
-  },
-  clubTitle: {
-    fontSize: 28,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
-    marginBottom: 6,
-  },
-  clubDescription: {
-    fontSize: 14,
-    color: theme.colors.textMuted,
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 20,
-    marginTop: 4,
-  },
-  statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  statText: {
-    fontSize: 13,
-    color: theme.colors.textMuted,
-  },
-
-  // Join / Leave button
-  actionContainer: {
-    paddingHorizontal: 16,
-    marginTop: 12,
-  },
-  joinButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.accent,
-    borderRadius: 12,
-    paddingVertical: 14,
-    gap: 8,
-  },
-  joinButtonText: {
-    fontSize: 16,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.accentText,
-  },
-  leaveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.cardBackground,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    paddingVertical: 14,
-    gap: 8,
-  },
-  leaveButtonText: {
-    fontSize: 16,
-    fontWeight: theme.typography.weights.medium,
-    color: theme.colors.textMuted,
-  },
-
-  // Invite Members card (captain)
-  inviteCard: {
-    backgroundColor: theme.colors.cardBackground,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 12,
-    padding: 16,
-    marginHorizontal: 16,
-    marginTop: 16,
-  },
-  inviteTitle: {
-    fontSize: 18,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
-    marginBottom: 4,
-  },
-  inviteDescription: {
-    fontSize: 14,
-    color: theme.colors.textMuted,
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  inviteStatsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 14,
-  },
-  inviteStatsText: {
-    fontSize: 14,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.accent,
-  },
-  inviteShareButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.accent,
-    borderRadius: 12,
-    paddingVertical: 12,
-    gap: 8,
-  },
-  inviteShareButtonText: {
-    fontSize: 15,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.accentText,
-  },
-
   bottomSpacer: {
     height: 40,
   },

@@ -103,6 +103,8 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
   // Competition data from Supabase
   const [competition, setCompetition] = useState<Competition | null>(null);
   const [compLoading, setCompLoading] = useState(true);
+  const [isEventCreator, setIsEventCreator] = useState(false);
+  const [showCancelAlert, setShowCancelAlert] = useState(false);
 
   // Reuse existing hooks
   const {
@@ -143,6 +145,12 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
 
         if (found) {
           setCompetition(found);
+
+          // Check if current user is the event creator
+          const npub = await AsyncStorage.getItem('@runstr:npub');
+          if (npub && found.created_by_npub === npub) {
+            setIsEventCreator(true);
+          }
         }
       } catch (err) {
         console.error('[DynamicEventDetail] Error fetching competition:', err);
@@ -390,7 +398,7 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
         ) : (
           <Image
             source={RUNSTR_LOGO}
-            style={[styles.bannerImage, { backgroundColor: '#000000' }]}
+            style={[styles.bannerImage, { backgroundColor: theme.colors.background }]}
             resizeMode="contain"
           />
         )}
@@ -507,6 +515,18 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
               <Text style={styles.joinedBadgeText}>You're participating!</Text>
             </View>
           )}
+
+          {/* Cancel Event (creator only) */}
+          {isEventCreator && status !== 'ended' && (
+            <TouchableOpacity
+              style={styles.cancelEventButton}
+              onPress={() => setShowCancelAlert(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close-circle-outline" size={16} color={theme.colors.textMuted} />
+              <Text style={styles.cancelEventText}>Cancel Event</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Leaderboard */}
@@ -612,8 +632,36 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
         visible={showClubGateAlert}
         title="Club Members Only"
         message={`This event is for ${clubName || 'club'} members. Join the club first to participate.`}
-        buttons={[{ text: 'OK', onPress: () => setShowClubGateAlert(false) }]}
+        buttons={[
+          { text: 'Cancel', style: 'cancel', onPress: () => setShowClubGateAlert(false) },
+          { text: 'Go to Club', onPress: () => {
+            setShowClubGateAlert(false);
+            if (competition?.club_id) {
+              navigation.navigate('ClubPage', { clubId: competition.club_id, clubName: clubName || 'Club' });
+            }
+          }},
+        ]}
         onClose={() => setShowClubGateAlert(false)}
+      />
+
+      {/* Cancel event confirmation (creator only) */}
+      <CustomAlert
+        visible={showCancelAlert}
+        title="Cancel Event"
+        message={`Are you sure you want to cancel "${competition?.name}"? This will remove the event and all participants.`}
+        buttons={[
+          { text: 'Keep', style: 'cancel', onPress: () => setShowCancelAlert(false) },
+          { text: 'Cancel Event', style: 'destructive', onPress: async () => {
+            setShowCancelAlert(false);
+            const npub = await AsyncStorage.getItem('@runstr:npub');
+            if (!npub) return;
+            const result = await SupabaseCompetitionService.deleteCompetition(eventId, npub);
+            if (result.success) {
+              navigation.goBack();
+            }
+          }},
+        ]}
+        onClose={() => setShowCancelAlert(false)}
       />
     </SafeAreaView>
   );
@@ -695,7 +743,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   aboutSection: {
-    backgroundColor: 'rgba(255, 157, 66, 0.1)',
+    backgroundColor: `${theme.colors.accent}1A`,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
@@ -718,7 +766,7 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 20,
     fontWeight: theme.typography.weights.bold,
-    color: '#FF9D42',
+    color: theme.colors.accent,
   },
   statLabel: {
     fontSize: 12,
@@ -768,7 +816,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(255, 179, 102, 0.08)',
+    backgroundColor: `${theme.colors.accent}14`,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -885,7 +933,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   top3Distance: {
-    color: '#FF9D42',
+    color: theme.colors.accent,
   },
   currentUserSection: {
     marginTop: 16,
@@ -923,6 +971,18 @@ const styles = StyleSheet.create({
     color: theme.colors.accent,
     fontSize: 14,
     fontWeight: '600',
+  },
+  cancelEventButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  cancelEventText: {
+    fontSize: 13,
+    color: theme.colors.textMuted,
   },
 });
 

@@ -33,6 +33,7 @@ import type { CompetitionStatus, DynamicCompetition } from '../../hooks/useDynam
 interface ClubEventsSectionProps {
   clubId: string;
   isCaptain: boolean;
+  refreshKey?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -68,6 +69,7 @@ const STATUS_ORDER: Record<CompetitionStatus, number> = {
 const ClubEventsSectionComponent: React.FC<ClubEventsSectionProps> = ({
   clubId,
   isCaptain,
+  refreshKey,
 }) => {
   const navigation = useNavigation<any>();
   const [events, setEvents] = useState<DynamicCompetition[]>([]);
@@ -81,12 +83,16 @@ const ClubEventsSectionComponent: React.FC<ClubEventsSectionProps> = ({
   }>({ visible: false, title: '', buttons: [] });
 
   const loadEvents = useCallback(async () => {
-    // Check in-memory cache
-    const cached = cache.get(clubId);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      setEvents(cached.events);
-      setIsLoading(false);
-      return;
+    // Check in-memory cache (skip if forced refresh via refreshKey)
+    if (refreshKey && refreshKey > 0) {
+      cache.delete(clubId);
+    } else {
+      const cached = cache.get(clubId);
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        setEvents(cached.events);
+        setIsLoading(false);
+        return;
+      }
     }
 
     try {
@@ -104,7 +110,7 @@ const ClubEventsSectionComponent: React.FC<ClubEventsSectionProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [clubId]);
+  }, [clubId, refreshKey]);
 
   useEffect(() => {
     loadEvents();
@@ -117,13 +123,15 @@ const ClubEventsSectionComponent: React.FC<ClubEventsSectionProps> = ({
     [navigation]
   );
 
-  const handleEventCreated = useCallback(async () => {
+  const handleEventCreated = useCallback(async (eventId: string) => {
     // Invalidate caches and reload
     cache.delete(clubId);
     await SupabaseCompetitionService.clearClubCompetitionsCache(clubId);
     setIsLoading(true);
     await loadEvents();
-  }, [clubId, loadEvents]);
+    // Navigate to the newly created event
+    navigation.navigate('DynamicEventDetail', { eventId });
+  }, [clubId, loadEvents, navigation]);
 
   const handleCancelEvent = useCallback(
     (event: DynamicCompetition) => {
@@ -194,7 +202,7 @@ const ClubEventsSectionComponent: React.FC<ClubEventsSectionProps> = ({
         <View style={styles.emptyContainer}>
           <Ionicons name="trophy-outline" size={36} color={theme.colors.textMuted} />
           <Text style={styles.emptyText}>
-            {isCaptain ? 'No events yet. Create one for your club!' : 'No club events yet'}
+            {isCaptain ? 'No events yet. Create one for your club!' : 'No events yet. Check back soon!'}
           </Text>
         </View>
       ) : (

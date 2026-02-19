@@ -16,6 +16,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { ClubMembershipService } from '../../services/backend/ClubMembershipService';
+import { nostrProfileService } from '../../services/nostr/NostrProfileService';
+import type { NostrProfile } from '../../services/nostr/NostrProfileService';
 import { Avatar } from '../ui/Avatar';
 import type { ClubMembership } from '../../types/club';
 
@@ -35,12 +37,20 @@ const ClubMembersSectionComponent: React.FC<ClubMembersSectionProps> = ({
   clubId,
 }) => {
   const [members, setMembers] = useState<ClubMembership[]>([]);
+  const [profiles, setProfiles] = useState<Map<string, NostrProfile>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
 
   const loadMembers = useCallback(async () => {
     try {
       const data = await ClubMembershipService.getClubMembers(clubId);
       setMembers(data);
+
+      // Fetch Nostr profiles for all members
+      if (data.length > 0) {
+        const npubs = data.map((m) => m.member_npub);
+        const fetchedProfiles = await nostrProfileService.getProfiles(npubs);
+        setProfiles(fetchedProfiles);
+      }
     } catch (err) {
       console.error('[ClubMembersSection] Error loading members:', err);
     } finally {
@@ -71,7 +81,7 @@ const ClubMembersSectionComponent: React.FC<ClubMembersSectionProps> = ({
             size={36}
             color={theme.colors.textMuted}
           />
-          <Text style={styles.emptyText}>No members found</Text>
+          <Text style={styles.emptyText}>Be the first to invite friends!</Text>
         </View>
       ) : (
         <ScrollView
@@ -81,7 +91,9 @@ const ClubMembersSectionComponent: React.FC<ClubMembersSectionProps> = ({
         >
           {members.map((member) => {
             const isCaptain = member.role === 'captain';
-            const displayName = member.member_npub.slice(0, 8) + '...';
+            const profile = profiles.get(member.member_npub);
+            const displayName = profile?.display_name || profile?.name || member.member_npub.slice(0, 8) + '...';
+            const avatarUrl = profile?.picture;
 
             return (
               <View key={member.id} style={styles.memberItem}>
@@ -89,6 +101,7 @@ const ClubMembersSectionComponent: React.FC<ClubMembersSectionProps> = ({
                   <Avatar
                     name={displayName}
                     size={48}
+                    imageUrl={avatarUrl}
                   />
                   {isCaptain && (
                     <View style={styles.captainBadge}>

@@ -14,6 +14,8 @@ const MEMBERS_CACHE_KEY_PREFIX = '@runstr:club_members_';
 const MEMBERS_TTL = 5 * 60 * 1000; // 5 minutes
 const membersCache = new Map<string, { members: ClubMembership[]; timestamp: number }>();
 const UNIQUE_VIOLATION_CODE = '23505';
+const COOLDOWN_DAYS = 7;
+const COOLDOWN_MS = COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
 
 // Reconciliation: track when we last verified membership against Supabase
 const RECONCILIATION_KEY = '@runstr:club_reconciled_at';
@@ -148,6 +150,29 @@ export class ClubMembershipService {
         return { success: false, error: insertError.message };
       }
 
+      // Auto-join active/upcoming club events so late-joiners aren't blocked
+      try {
+        const { data: activeComps } = await supabase!
+          .from('competitions')
+          .select('id')
+          .eq('club_id', clubId)
+          .gte('end_date', new Date().toISOString());
+
+        if (activeComps && activeComps.length > 0) {
+          const rows = activeComps.map((c) => ({
+            competition_id: c.id,
+            npub,
+          }));
+          await supabase!
+            .from('competition_participants')
+            .upsert(rows, { onConflict: 'competition_id,npub' });
+          console.log(`${TAG} Auto-joined new member in ${activeComps.length} active club events`);
+        }
+      } catch (err) {
+        // Non-blocking: membership succeeded even if event enrollment fails
+        console.warn(`${TAG} Auto-join club events failed (non-blocking):`, err);
+      }
+
       // Atomically increment member_count on user_teams
       try {
         const { data: newCount } = await supabase!.rpc('adjust_member_count', {
@@ -194,8 +219,52 @@ export class ClubMembershipService {
   }
 
   /**
+   * Check 7-day cooldown for club switching. Returns whether the user can leave
+   * and a human-readable remaining time string. Captains are exempt.
+   * Fails open: returns canLeave=true on any error so users aren't locked out.
+   */
+  static async getCooldownRemaining(
+    npub: string
+  ): Promise<{ canLeave: boolean; remainingText: string }> {
+    const CAN_LEAVE = { canLeave: true, remainingText: '' };
+
+    if (!isSupabaseConfigured()) return CAN_LEAVE;
+
+    try {
+      const { data: membership, error } = await supabase!
+        .from('club_memberships')
+        .select('joined_at, role')
+        .eq('member_npub', npub)
+        .single();
+
+      if (error || !membership) return CAN_LEAVE;
+
+      // Captains are exempt from cooldown
+      if (membership.role === 'captain') return CAN_LEAVE;
+
+      const joinedAt = new Date(membership.joined_at).getTime();
+      const cooldownEnd = joinedAt + COOLDOWN_MS;
+      const now = Date.now();
+
+      if (now >= cooldownEnd) return CAN_LEAVE;
+
+      // Calculate remaining time
+      const remainingMs = cooldownEnd - now;
+      const remainingDays = Math.ceil(remainingMs / (24 * 60 * 60 * 1000));
+      const remainingText =
+        remainingDays === 1 ? '1 day' : `${remainingDays} days`;
+
+      return { canLeave: false, remainingText };
+    } catch (err) {
+      console.warn(`${TAG} getCooldownRemaining error (failing open):`, err);
+      return CAN_LEAVE;
+    }
+  }
+
+  /**
    * Leave the current club. Captains with other members must transfer captainship
    * first. Sole-captain clubs are deactivated automatically on leave.
+   * Enforces 7-day cooldown for non-captain members.
    */
   static async leaveClub(npub: string): Promise<{ success: boolean; error?: string }> {
     if (!isSupabaseConfigured()) {
@@ -216,6 +285,17 @@ export class ClubMembershipService {
       }
 
       const clubId = membership.club_id;
+
+      // 7-day cooldown check (captains exempt)
+      if (membership.role !== 'captain') {
+        const cooldown = await this.getCooldownRemaining(npub);
+        if (!cooldown.canLeave) {
+          return {
+            success: false,
+            error: `You must wait ${cooldown.remainingText} before leaving. Clubs have a 7-day cooldown to keep teams stable.`,
+          };
+        }
+      }
 
       // Captain-specific leave logic
       if (membership.role === 'captain') {
@@ -267,6 +347,15 @@ export class ClubMembershipService {
     role: 'member' | 'captain' = 'member'
   ): Promise<ClubJoinResult> {
     console.log(`${TAG} Switching to club ${newClubId}...`);
+
+    // Pre-check cooldown before attempting the switch
+    const cooldown = await this.getCooldownRemaining(npub);
+    if (!cooldown.canLeave) {
+      return {
+        success: false,
+        error: `You must wait ${cooldown.remainingText} before switching clubs. Clubs have a 7-day cooldown to keep teams stable.`,
+      };
+    }
 
     // Capture original club ID and role for recovery
     let originalClubId: string | null = null;

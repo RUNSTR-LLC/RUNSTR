@@ -11,7 +11,7 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
+  ScrollView,
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
@@ -47,7 +47,7 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
 }) => {
   const [userNpub, setUserNpub] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
-  const flatListRef = useRef<FlatList<ClubMessage>>(null);
+  const scrollRef = useRef<ScrollView>(null);
 
   // Load user npub
   useEffect(() => {
@@ -106,17 +106,16 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
   // -------------------------------------------------------------------------
 
   const renderMessage = useCallback(
-    ({ item }: { item: ClubMessage }) => {
-      const isCaptain = item.sender_npub === captainNpub;
+    (item: ClubMessage) => {
+      const isCaptainMsg = item.sender_npub === captainNpub;
       const isOwnMessage = item.sender_npub === userNpub;
-      // Captain can delete any message. Own messages can be deleted by sender.
-      const canDeleteMessage =
-        userNpub === captainNpub || isOwnMessage;
+      const canDeleteMessage = userNpub === captainNpub || isOwnMessage;
 
       return (
         <ChatMessageBubble
+          key={item.id}
           message={item}
-          isCaptain={isCaptain}
+          isCaptain={isCaptainMsg}
           isOwnMessage={isOwnMessage}
           canDelete={canDeleteMessage}
           onDelete={() => handleDelete(item.id)}
@@ -126,10 +125,14 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
     [captainNpub, userNpub, handleDelete]
   );
 
-  const keyExtractor = useCallback(
-    (item: ClubMessage) => item.id,
-    []
-  );
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (messages.length > 0 && scrollRef.current) {
+      setTimeout(() => {
+        scrollRef.current?.scrollToEnd({ animated: false });
+      }, 100);
+    }
+  }, [messages.length]);
 
   // -------------------------------------------------------------------------
   // Input placeholder text
@@ -144,6 +147,26 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
   // -------------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------------
+
+  // Members-only gate: show lock teaser for non-members
+  if (!isMember) {
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>CHAT</Text>
+        <View style={styles.lockedContainer}>
+          <Ionicons
+            name="lock-closed"
+            size={36}
+            color={theme.colors.textDark}
+          />
+          <Text style={styles.lockedTitle}>Members Only</Text>
+          <Text style={styles.lockedSubtitle}>
+            Join {clubName} to access the club chat
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.section}>
@@ -162,24 +185,27 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
               size={36}
               color={theme.colors.textMuted}
             />
-            <Text style={styles.emptyText}>No messages yet</Text>
+            <Text style={styles.emptyText}>No messages yet. Say hello!</Text>
           </View>
         ) : (
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            renderItem={renderMessage}
-            keyExtractor={keyExtractor}
-            inverted={true}
+          <ScrollView
+            ref={scrollRef}
             style={styles.messageList}
             contentContainerStyle={styles.messageListContent}
             showsVerticalScrollIndicator={false}
-            onEndReached={handleEndReached}
-            onEndReachedThreshold={0.3}
-            scrollEnabled={true}
             nestedScrollEnabled={true}
             keyboardShouldPersistTaps="handled"
-          />
+            onScroll={({ nativeEvent }) => {
+              // Load more when scrolled near top
+              if (nativeEvent.contentOffset.y < 20 && hasMore && !isLoading) {
+                loadMore();
+              }
+            }}
+            scrollEventThrottle={200}
+          >
+            {/* Render messages in chronological order (oldest first, newest at bottom) */}
+            {[...messages].reverse().map(renderMessage)}
+          </ScrollView>
         )}
       </View>
 
@@ -256,6 +282,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
     overflow: 'hidden',
+  },
+  lockedContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    backgroundColor: theme.colors.cardBackground,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  lockedTitle: {
+    fontSize: 16,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.textMuted,
+    marginTop: 10,
+  },
+  lockedSubtitle: {
+    fontSize: 14,
+    color: theme.colors.textDark,
+    marginTop: 4,
   },
   emptyContainer: {
     alignItems: 'center',

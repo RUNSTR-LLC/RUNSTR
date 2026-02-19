@@ -138,7 +138,7 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
     if (isSubmittingRef.current) return; // Synchronous check prevents double-submit
     if (!isValid || !selectedTemplate) return;
     if (!isSupabaseConfigured()) {
-      showAlert('Error', 'Backend not configured');
+      showAlert('Error', 'Unable to connect. Please try again later.');
       return;
     }
     isSubmittingRef.current = true;
@@ -203,7 +203,7 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
 
       if (error) {
         console.error('[SimpleEventCreation] Insert error:', error);
-        showAlert('Error', error.message);
+        showAlert('Error', 'Failed to create event. Please try again.');
         return;
       }
 
@@ -406,14 +406,14 @@ const styles = StyleSheet.create({
   },
   closeButton: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   closeButtonText: { fontSize: 20, color: theme.colors.text },
-  title: { fontSize: 18, fontWeight: theme.typography.weights.semiBold, color: '#FFB366' },
+  title: { fontSize: 18, fontWeight: theme.typography.weights.semiBold, color: theme.colors.accent },
   headerSpacer: { width: 32 },
   keyboardView: { flex: 1 },
   content: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },
   formGroup: { marginBottom: 16 },
   label: {
     fontSize: 14, fontWeight: theme.typography.weights.medium,
-    color: '#FFB366', marginBottom: 8,
+    color: theme.colors.accent, marginBottom: 8,
   },
   textInput: {
     backgroundColor: theme.colors.card, borderRadius: 8,
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
   templateButtonSelected: {
-    backgroundColor: 'rgba(255, 123, 28, 0.12)',
+    backgroundColor: `${theme.colors.accent}1F`,
     borderColor: theme.colors.accent,
   },
   templateLabel: {
@@ -451,11 +451,11 @@ const styles = StyleSheet.create({
   optionButtonText: {
     fontSize: 14, fontWeight: theme.typography.weights.medium, color: theme.colors.text,
   },
-  selectedButton: { backgroundColor: '#FFB366', borderColor: '#FFB366' },
+  selectedButton: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
   selectedText: { color: theme.colors.background },
   footer: { padding: 16, borderTopWidth: 1, borderTopColor: theme.colors.border },
   createButton: {
-    backgroundColor: '#FFB366', borderRadius: 8, paddingVertical: 14, alignItems: 'center',
+    backgroundColor: theme.colors.accent, borderRadius: 8, paddingVertical: 14, alignItems: 'center',
   },
   createButtonDisabled: { opacity: 0.5 },
   createButtonText: {

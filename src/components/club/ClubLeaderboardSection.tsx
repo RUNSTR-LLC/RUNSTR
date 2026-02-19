@@ -1,8 +1,9 @@
 /**
- * ClubLeaderboardSection - Weekly leaderboard for a fitness club
+ * ClubLeaderboardSection - Daily leaderboard for a fitness club
  *
- * Queries workout_submissions from Supabase for the current week (Mon-Sun),
- * groups by npub, and shows top 20 ranked by total distance.
+ * Queries workout_submissions from Supabase for today's date,
+ * groups by npub, and shows top 20 ranked by total distance or steps.
+ * Captain can choose 'distance' (shows distance + time) or 'steps' mode.
  * Results are cached in-memory for 5 minutes.
  */
 
@@ -20,6 +21,8 @@ import { Avatar } from '../ui/Avatar';
 
 interface ClubLeaderboardSectionProps {
   clubId: string;
+  leaderboardMetric?: 'distance' | 'steps';
+  refreshKey?: number;
 }
 
 interface LeaderboardEntry {
@@ -27,6 +30,8 @@ interface LeaderboardEntry {
   profileName: string | null;
   profilePicture: string | null;
   totalDistanceKm: number;
+  totalDurationSeconds: number;
+  totalSteps: number;
   workoutCount: number;
 }
 
@@ -41,23 +46,26 @@ const CACHE_TTL = 5 * 60 * 1000;
 // Helpers
 // ---------------------------------------------------------------------------
 
-function getWeekBounds(): { weekStart: string; weekEnd: string } {
-  const now = new Date();
-  const day = now.getUTCDay(); // 0 = Sunday
-  const diffToMonday = day === 0 ? -6 : 1 - day;
+function getTodayDate(): string {
+  return new Date().toISOString().split('T')[0];
+}
 
-  const monday = new Date(now);
-  monday.setUTCDate(now.getUTCDate() + diffToMonday);
-  monday.setUTCHours(0, 0, 0, 0);
+function formatDuration(totalSeconds: number): string {
+  if (totalSeconds <= 0) return '0:00';
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = Math.floor(totalSeconds % 60);
+  if (h > 0) {
+    return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  }
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
 
-  const sunday = new Date(monday);
-  sunday.setUTCDate(monday.getUTCDate() + 6);
-  sunday.setUTCHours(23, 59, 59, 999);
-
-  const weekStart = monday.toISOString().split('T')[0];
-  const weekEnd = sunday.toISOString().split('T')[0];
-
-  return { weekStart, weekEnd };
+function formatSteps(steps: number): string {
+  if (steps >= 1000) {
+    return steps.toLocaleString();
+  }
+  return steps.toString();
 }
 
 // ---------------------------------------------------------------------------
@@ -66,17 +74,24 @@ function getWeekBounds(): { weekStart: string; weekEnd: string } {
 
 const ClubLeaderboardSectionComponent: React.FC<ClubLeaderboardSectionProps> = ({
   clubId,
+  leaderboardMetric = 'distance',
+  refreshKey,
 }) => {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadLeaderboard = useCallback(async () => {
-    // Check cache
-    const cached = cache.get(clubId);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      setEntries(cached.entries);
-      setIsLoading(false);
-      return;
+    // Check cache (skip if forced refresh via refreshKey)
+    if (refreshKey === undefined || refreshKey === 0) {
+      const cached = cache.get(clubId);
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        setEntries(cached.entries);
+        setIsLoading(false);
+        return;
+      }
+    } else {
+      // Force refresh: clear stale cache
+      cache.delete(clubId);
     }
 
     if (!isSupabaseConfigured()) {
@@ -85,10 +100,9 @@ const ClubLeaderboardSectionComponent: React.FC<ClubLeaderboardSectionProps> = (
     }
 
     try {
-      const { weekStart, weekEnd } = getWeekBounds();
+      const today = getTodayDate();
 
-      // Get club member npubs first (more reliable than filtering by workout_submissions.club_id
-      // which depends on AsyncStorage and may be null for many members)
+      // Get club member npubs
       const { data: members, error: membersError } = await supabase!
         .from('club_memberships')
         .select('member_npub')
@@ -103,10 +117,9 @@ const ClubLeaderboardSectionComponent: React.FC<ClubLeaderboardSectionProps> = (
 
       const { data, error } = await supabase!
         .from('workout_submissions')
-        .select('npub, profile_name, profile_picture, distance_meters, leaderboard_date')
+        .select('npub, profile_name, profile_picture, distance_meters, duration_seconds, step_count, leaderboard_date')
         .in('npub', memberNpubs)
-        .gte('leaderboard_date', weekStart)
-        .lte('leaderboard_date', weekEnd);
+        .eq('leaderboard_date', today);
 
       if (error) {
         console.error('[ClubLeaderboardSection] Query error:', error);
@@ -114,7 +127,7 @@ const ClubLeaderboardSectionComponent: React.FC<ClubLeaderboardSectionProps> = (
         return;
       }
 
-      // Deduplicate by (npub, roundedDistance, date) to prevent multi-source double-counting
+      // Deduplicate by (npub, roundedDistance, date)
       const seenKeys = new Set<string>();
       const deduped = (data || []).filter((row) => {
         const roundedDist = Math.round((row.distance_meters || 0) / 10) * 10;
@@ -129,16 +142,21 @@ const ClubLeaderboardSectionComponent: React.FC<ClubLeaderboardSectionProps> = (
         profileName: string | null;
         profilePicture: string | null;
         totalMeters: number;
+        totalSeconds: number;
+        totalSteps: number;
         count: number;
       }>();
 
       for (const row of deduped) {
         const existing = grouped.get(row.npub);
         const meters = row.distance_meters || 0;
+        const seconds = row.duration_seconds || 0;
+        const steps = row.step_count || 0;
         if (existing) {
           existing.totalMeters += meters;
+          existing.totalSeconds += seconds;
+          existing.totalSteps += steps;
           existing.count += 1;
-          // Use the latest non-null profile info
           if (row.profile_name && !existing.profileName) {
             existing.profileName = row.profile_name;
           }
@@ -150,21 +168,33 @@ const ClubLeaderboardSectionComponent: React.FC<ClubLeaderboardSectionProps> = (
             profileName: row.profile_name || null,
             profilePicture: row.profile_picture || null,
             totalMeters: meters,
+            totalSeconds: seconds,
+            totalSteps: steps,
             count: 1,
           });
         }
       }
 
-      // Sort by distance DESC, take top 20
-      const sorted: LeaderboardEntry[] = Array.from(grouped.entries())
+      // Build entries
+      const allEntries: LeaderboardEntry[] = Array.from(grouped.entries())
         .map(([npub, info]) => ({
           npub,
           profileName: info.profileName,
           profilePicture: info.profilePicture,
           totalDistanceKm: info.totalMeters / 1000,
+          totalDurationSeconds: info.totalSeconds,
+          totalSteps: info.totalSteps,
           workoutCount: info.count,
-        }))
-        .sort((a, b) => b.totalDistanceKm - a.totalDistanceKm)
+        }));
+
+      // Sort by the chosen metric DESC, take top 20
+      const sorted = allEntries
+        .sort((a, b) => {
+          if (leaderboardMetric === 'steps') {
+            return b.totalSteps - a.totalSteps;
+          }
+          return b.totalDistanceKm - a.totalDistanceKm;
+        })
         .slice(0, 20);
 
       // Fetch Nostr profiles to fill missing names/avatars
@@ -184,12 +214,10 @@ const ClubLeaderboardSectionComponent: React.FC<ClubLeaderboardSectionProps> = (
             }
           }
         } catch (err) {
-          // Non-critical: leaderboard still works with npub fallback
           console.warn('[ClubLeaderboardSection] Profile fetch failed:', err);
         }
       }
 
-      // Cache result
       cache.set(clubId, { entries: sorted, timestamp: Date.now() });
       setEntries(sorted);
     } catch (err) {
@@ -197,7 +225,7 @@ const ClubLeaderboardSectionComponent: React.FC<ClubLeaderboardSectionProps> = (
     } finally {
       setIsLoading(false);
     }
-  }, [clubId]);
+  }, [clubId, leaderboardMetric, refreshKey]);
 
   useEffect(() => {
     loadLeaderboard();
@@ -206,6 +234,8 @@ const ClubLeaderboardSectionComponent: React.FC<ClubLeaderboardSectionProps> = (
   // -------------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------------
+
+  const isStepsMode = leaderboardMetric === 'steps';
 
   return (
     <View style={styles.section}>
@@ -222,7 +252,7 @@ const ClubLeaderboardSectionComponent: React.FC<ClubLeaderboardSectionProps> = (
             size={36}
             color={theme.colors.textMuted}
           />
-          <Text style={styles.emptyText}>No workouts yet this week</Text>
+          <Text style={styles.emptyText}>No workouts this week yet. Get moving!</Text>
         </View>
       ) : (
         entries.map((entry, index) => {
@@ -244,9 +274,22 @@ const ClubLeaderboardSectionComponent: React.FC<ClubLeaderboardSectionProps> = (
                   {displayName}
                 </Text>
               </View>
-              <Text style={styles.distanceText}>
-                {entry.totalDistanceKm.toFixed(1)} km
-              </Text>
+              {isStepsMode ? (
+                <Text style={styles.primaryMetric}>
+                  {formatSteps(entry.totalSteps)} steps
+                </Text>
+              ) : (
+                <View style={styles.metricsContainer}>
+                  <Text style={styles.primaryMetric}>
+                    {entry.totalDistanceKm.toFixed(1)} km
+                  </Text>
+                  {entry.totalDurationSeconds > 0 && (
+                    <Text style={styles.secondaryMetric}>
+                      {formatDuration(entry.totalDurationSeconds)}
+                    </Text>
+                  )}
+                </View>
+              )}
             </View>
           );
         })
@@ -306,11 +349,20 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.medium,
     color: theme.colors.text,
   },
-  distanceText: {
+  metricsContainer: {
+    alignItems: 'flex-end',
+    marginLeft: 8,
+  },
+  primaryMetric: {
     fontSize: 14,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.textSecondary,
     marginLeft: 8,
+  },
+  secondaryMetric: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginTop: 2,
   },
 });
 
