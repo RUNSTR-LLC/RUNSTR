@@ -33,7 +33,7 @@ export const CHARITIES: Charity[] = [
     name: 'PPQ.AI',
     displayName: 'PPQ.AI',
     // No lightningAddress - rewards go to PPQ.AI credits via bolt11 invoice
-    description: 'Turn sats into AI credits',
+    description: 'Earn AI credits for every workout',
     website: 'https://ppq.ai',
     image: require('../../assets/images/charities/ppq-ai.png'),
     category: 'service',
@@ -118,7 +118,7 @@ export const CHARITIES: Charity[] = [
     description: 'Supporting veterans through Bitcoin',
     website: 'https://geyser.fund/project/operationbitcoin',
     image: require('../../assets/images/charities/bitcoin-veterans.png'),
-    category: 'charity',
+    category: 'project',
   },
   {
     id: 'bitcoin-makueni',
@@ -154,7 +154,7 @@ export const CHARITIES: Charity[] = [
     lightningAddress: 'lightningnews@puresignal.news',
     description: 'Up to date news on Bitcoin and Lightning',
     image: require('../../assets/images/charities/lightning-news.webp'),
-    category: 'service',
+    category: 'project',
   },
   {
     id: 'runstr',
@@ -163,7 +163,7 @@ export const CHARITIES: Charity[] = [
     lightningAddress: 'thewildhustle@strike.me',
     description: 'Lets Go!',
     image: require('../../assets/images/charities/runstr.png'),
-    category: 'service',
+    category: 'project',
   },
   {
     id: 'afribit-kibera',
