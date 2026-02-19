@@ -88,7 +88,7 @@ const ClubLeaderboardSectionComponent: React.FC<ClubLeaderboardSectionProps> = (
 
       const { data, error } = await supabase!
         .from('workout_submissions')
-        .select('npub, profile_name, profile_picture, distance_meters')
+        .select('npub, profile_name, profile_picture, distance_meters, leaderboard_date')
         .eq('club_id', clubId)
         .gte('leaderboard_date', weekStart)
         .lte('leaderboard_date', weekEnd);
@@ -99,6 +99,16 @@ const ClubLeaderboardSectionComponent: React.FC<ClubLeaderboardSectionProps> = (
         return;
       }
 
+      // Deduplicate by (npub, roundedDistance, date) to prevent multi-source double-counting
+      const seenKeys = new Set<string>();
+      const deduped = (data || []).filter((row) => {
+        const roundedDist = Math.round((row.distance_meters || 0) / 10) * 10;
+        const key = `${row.npub}:${roundedDist}:${row.leaderboard_date || 'unknown'}`;
+        if (seenKeys.has(key)) return false;
+        seenKeys.add(key);
+        return true;
+      });
+
       // Group by npub client-side
       const grouped = new Map<string, {
         profileName: string | null;
@@ -107,7 +117,7 @@ const ClubLeaderboardSectionComponent: React.FC<ClubLeaderboardSectionProps> = (
         count: number;
       }>();
 
-      for (const row of data || []) {
+      for (const row of deduped) {
         const existing = grouped.get(row.npub);
         const meters = row.distance_meters || 0;
         if (existing) {

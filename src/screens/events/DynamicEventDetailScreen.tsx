@@ -27,7 +27,10 @@ import {
 } from '../../hooks/useSupabaseLeaderboard';
 import { SupabaseCompetitionService } from '../../services/backend/SupabaseCompetitionService';
 import { SubscriptionService, SubscriptionTier } from '../../services/backend/SubscriptionService';
+import { ClubService } from '../../services/backend/ClubService';
+import { ClubMembershipService } from '../../services/backend/ClubMembershipService';
 import { SubscriptionInfoModal } from '../../components/subscription/SubscriptionInfoModal';
+import { CustomAlert } from '../../components/ui/CustomAlert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Avatar } from '../../components/ui/Avatar';
 import type { Competition, CompetitionConfig } from '../../utils/supabase';
@@ -121,6 +124,9 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
   const [visibleBatches, setVisibleBatches] = useState(1);
   const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>('free');
   const [showSubscriptionInfo, setShowSubscriptionInfo] = useState(false);
+  const [clubName, setClubName] = useState<string | null>(null);
+  const [isClubMember, setIsClubMember] = useState<boolean | null>(null); // null = not checked yet
+  const [showClubGateAlert, setShowClubGateAlert] = useState(false);
 
   // Fetch competition details (try cache first, then direct lookup)
   useEffect(() => {
@@ -147,6 +153,29 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
     fetchCompetition();
   }, [eventId]);
 
+  // Fetch club info when competition belongs to a club
+  useEffect(() => {
+    if (!competition?.club_id) return;
+
+    const fetchClubInfo = async () => {
+      // Fetch club name
+      const club = await ClubService.getClubById(competition.club_id!);
+      if (club) {
+        setClubName(club.name);
+      }
+
+      // Check if current user is a member of this club
+      const npub = await AsyncStorage.getItem('@runstr:npub');
+      if (npub) {
+        const member = await ClubMembershipService.isMember(competition.club_id!, npub);
+        setIsClubMember(member);
+      } else {
+        setIsClubMember(false);
+      }
+    };
+    fetchClubInfo();
+  }, [competition]);
+
   // Check subscription tier when competition requires it
   useEffect(() => {
     if (!competition) return;
@@ -165,6 +194,12 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
 
   const handleJoin = async () => {
     if (isJoining) return;
+
+    // Check club membership gate before joining
+    if (competition?.club_id && isClubMember === false) {
+      setShowClubGateAlert(true);
+      return;
+    }
 
     // Check subscription requirement before joining
     const reqTier = competition?.config?.requires_subscription;
@@ -363,6 +398,15 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
         {/* Event Info */}
         <View style={styles.eventInfo}>
           <Text style={styles.eventTitle}>{competition.name}</Text>
+
+          {/* Club attribution badge */}
+          {clubName && (
+            <View style={styles.clubBadge}>
+              <Ionicons name="people" size={14} color={theme.colors.accent} />
+              <Text style={styles.clubBadgeText}>{clubName} Event</Text>
+            </View>
+          )}
+
           <Text style={styles.statusText}>{getStatusText()}</Text>
 
           {/* Date */}
@@ -544,6 +588,15 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
         feature="season"
         currentTier={subscriptionTier}
       />
+
+      {/* Club membership gate alert */}
+      <CustomAlert
+        visible={showClubGateAlert}
+        title="Club Members Only"
+        message={`This event is for ${clubName || 'club'} members. Join the club first to participate.`}
+        buttons={[{ text: 'OK', onPress: () => setShowClubGateAlert(false) }]}
+        onClose={() => setShowClubGateAlert(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -595,6 +648,17 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
     marginBottom: 4,
+  },
+  clubBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  clubBadgeText: {
+    fontSize: 13,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.accent,
   },
   statusText: {
     fontSize: 14,

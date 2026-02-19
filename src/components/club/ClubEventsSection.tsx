@@ -4,6 +4,7 @@
  * Fetches competitions where club_id matches, enriches with computed status,
  * and renders each as a DynamicEventCard. Captains see a "Create" button
  * that opens SimpleEventCreationModal with the clubId pre-filled.
+ * Captains can also cancel events they created via long-press.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -16,10 +17,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../styles/theme';
 import { SupabaseCompetitionService } from '../../services/backend/SupabaseCompetitionService';
 import { DynamicEventCard } from '../events/DynamicEventCard';
 import { SimpleEventCreationModal } from '../subscription/SimpleEventCreationModal';
+import { CustomAlert } from '../ui/CustomAlert';
 import type { Competition } from '../../utils/supabase';
 import type { CompetitionStatus, DynamicCompetition } from '../../hooks/useDynamicCompetitions';
 
@@ -70,6 +73,12 @@ const ClubEventsSectionComponent: React.FC<ClubEventsSectionProps> = ({
   const [events, setEvents] = useState<DynamicCompetition[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message?: string;
+    buttons: Array<{ text: string; onPress?: () => void; style?: 'default' | 'cancel' | 'destructive' }>;
+  }>({ visible: false, title: '', buttons: [] });
 
   const loadEvents = useCallback(async () => {
     // Check in-memory cache
@@ -116,6 +125,46 @@ const ClubEventsSectionComponent: React.FC<ClubEventsSectionProps> = ({
     await loadEvents();
   }, [clubId, loadEvents]);
 
+  const handleCancelEvent = useCallback(
+    (event: DynamicCompetition) => {
+      setAlertConfig({
+        visible: true,
+        title: 'Cancel Event',
+        message: `Are you sure you want to cancel "${event.name}"? This will remove the event and all participants.`,
+        buttons: [
+          { text: 'Keep', style: 'cancel' },
+          {
+            text: 'Cancel Event',
+            style: 'destructive',
+            onPress: async () => {
+              const npub = await AsyncStorage.getItem('@runstr:npub');
+              if (!npub) return;
+
+              const result = await SupabaseCompetitionService.deleteCompetition(
+                event.external_id,
+                npub
+              );
+
+              if (result.success) {
+                cache.delete(clubId);
+                setIsLoading(true);
+                await loadEvents();
+              } else {
+                setAlertConfig({
+                  visible: true,
+                  title: 'Error',
+                  message: result.error || 'Failed to cancel event',
+                  buttons: [{ text: 'OK' }],
+                });
+              }
+            },
+          },
+        ],
+      });
+    },
+    [clubId, loadEvents]
+  );
+
   // -------------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------------
@@ -150,11 +199,22 @@ const ClubEventsSectionComponent: React.FC<ClubEventsSectionProps> = ({
         </View>
       ) : (
         events.map((event) => (
-          <DynamicEventCard
-            key={event.id}
-            competition={event}
-            onPress={() => handleEventPress(event.external_id)}
-          />
+          <View key={event.id}>
+            <DynamicEventCard
+              competition={event}
+              onPress={() => handleEventPress(event.external_id)}
+            />
+            {isCaptain && event.status !== 'ended' && (
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => handleCancelEvent(event)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="close-circle-outline" size={14} color={theme.colors.textMuted} />
+                <Text style={styles.cancelButtonText}>Cancel Event</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         ))
       )}
 
@@ -164,6 +224,14 @@ const ClubEventsSectionComponent: React.FC<ClubEventsSectionProps> = ({
         onClose={() => setShowCreateModal(false)}
         onEventCreated={handleEventCreated}
         clubId={clubId}
+      />
+
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onClose={() => setAlertConfig((prev) => ({ ...prev, visible: false }))}
       />
     </View>
   );
@@ -215,6 +283,19 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     marginTop: 8,
     textAlign: 'center',
+  },
+  cancelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    marginTop: -8,
+    marginBottom: 8,
+  },
+  cancelButtonText: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
   },
 });
 

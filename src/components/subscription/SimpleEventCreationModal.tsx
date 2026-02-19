@@ -207,9 +207,12 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
         return;
       }
 
-      // Auto-join creator to their own event
+      // Auto-join: For club events, join ALL club members. Otherwise just the creator.
       const competitionId = insertedRows?.[0]?.id;
-      if (competitionId) {
+      if (competitionId && clubId) {
+        const { joined } = await SupabaseCompetitionService.autoJoinClubMembers(competitionId, clubId);
+        console.log(`[SimpleEventCreation] Auto-joined ${joined} club members to event: ${externalId}`);
+      } else if (competitionId) {
         const { error: joinError } = await supabase!
           .from('competition_participants')
           .upsert(
@@ -234,7 +237,7 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
       showAlert(
         'Event Created!',
         clubId
-          ? 'Your club event is live! Members can join from the club page or the Compete tab.'
+          ? 'Your club event is live! All club members have been automatically enrolled.'
           : 'Your event is live and you have been joined automatically. Share it with your community to get participants.'
       );
       onEventCreated?.(externalId);

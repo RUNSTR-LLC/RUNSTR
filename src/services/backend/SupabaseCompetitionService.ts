@@ -1406,6 +1406,117 @@ export class SupabaseCompetitionService {
   }
 
   /**
+   * Auto-join all club members to a competition.
+   * Called after captain creates a club event.
+   */
+  static async autoJoinClubMembers(
+    competitionId: string,
+    clubId: string
+  ): Promise<{ joined: number; error?: string }> {
+    if (!isSupabaseConfigured()) {
+      return { joined: 0, error: 'Backend not configured' };
+    }
+
+    try {
+      // Fetch all club members
+      const { data: members, error: membersError } = await supabase!
+        .from('club_memberships')
+        .select('member_npub')
+        .eq('club_id', clubId);
+
+      if (membersError || !members || members.length === 0) {
+        console.warn('[SupabaseCompetitionService] autoJoinClubMembers: no members found');
+        return { joined: 0 };
+      }
+
+      // Bulk upsert all members as participants
+      const rows = members.map((m) => ({
+        competition_id: competitionId,
+        npub: m.member_npub,
+      }));
+
+      const { error: upsertError } = await supabase!
+        .from('competition_participants')
+        .upsert(rows, { onConflict: 'competition_id,npub' });
+
+      if (upsertError) {
+        console.error('[SupabaseCompetitionService] autoJoinClubMembers upsert error:', upsertError);
+        return { joined: 0, error: upsertError.message };
+      }
+
+      console.log(`[SupabaseCompetitionService] Auto-joined ${members.length} club members to competition ${competitionId}`);
+      return { joined: members.length };
+    } catch (err) {
+      console.error('[SupabaseCompetitionService] autoJoinClubMembers exception:', err);
+      return { joined: 0, error: err instanceof Error ? err.message : 'Unknown error' };
+    }
+  }
+
+  /**
+   * Delete a competition. Only the creator (captain) should call this.
+   * Also removes all participants and clears caches.
+   */
+  static async deleteCompetition(
+    competitionId: string,
+    npub: string
+  ): Promise<{ success: boolean; error?: string }> {
+    if (!isSupabaseConfigured()) {
+      return { success: false, error: 'Backend not configured' };
+    }
+
+    try {
+      const resolvedId = await this.resolveCompetitionId(competitionId);
+      if (!resolvedId) {
+        return { success: false, error: 'Competition not found' };
+      }
+
+      // Verify the caller is the creator
+      const { data: comp, error: fetchError } = await supabase!
+        .from('competitions')
+        .select('created_by_npub, club_id')
+        .eq('id', resolvedId)
+        .single();
+
+      if (fetchError || !comp) {
+        return { success: false, error: 'Competition not found' };
+      }
+
+      if (comp.created_by_npub !== npub) {
+        return { success: false, error: 'Only the event creator can cancel this event' };
+      }
+
+      // Delete participants first (FK constraint)
+      await supabase!
+        .from('competition_participants')
+        .delete()
+        .eq('competition_id', resolvedId);
+
+      // Delete the competition
+      const { error: deleteError } = await supabase!
+        .from('competitions')
+        .delete()
+        .eq('id', resolvedId);
+
+      if (deleteError) {
+        console.error('[SupabaseCompetitionService] deleteCompetition error:', deleteError);
+        return { success: false, error: deleteError.message };
+      }
+
+      // Clear caches
+      if (comp.club_id) {
+        await this.clearClubCompetitionsCache(comp.club_id);
+      }
+      await this.clearDynamicCompetitionsCache();
+
+      console.log(`[SupabaseCompetitionService] Deleted competition ${competitionId}`);
+      return { success: true };
+    } catch (err) {
+      console.error('[SupabaseCompetitionService] deleteCompetition exception:', err);
+      return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+    }
+  }
+
+  /**
    * Clear club competitions cache after event creation
    */
   static async clearClubCompetitionsCache(clubId: string): Promise<void> {
