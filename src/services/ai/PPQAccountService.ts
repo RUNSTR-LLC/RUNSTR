@@ -8,6 +8,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Crypto from 'expo-crypto';
 import { fetchWithTimeout } from '../../utils/networkUtils';
 
 // Storage keys (API key stays local, never sent to backend)
@@ -72,92 +73,107 @@ export class PPQAccountService {
   }
 
   /**
-   * Create a new PPQ.AI account with retry logic
-   * Returns the API key and credit ID for local storage
+   * Create a new PPQ.AI account
+   *
+   * PPQ.AI uses a 2-step account creation flow:
+   * 1. Generate a UUID client-side and register it via /credits/check-or-create
+   * 2. Create an API key via /keys using the credit_id
    */
-  static async createAccount(maxRetries: number = 3): Promise<{
+  static async createAccount(): Promise<{
     success: boolean;
     apiKey?: string;
     creditId?: string;
     error?: string;
-    isServerError?: boolean; // True when PPQ.AI server is having issues
+    isServerError?: boolean;
   }> {
-    let lastError = '';
-    let isServerError = false;
+    try {
+      // Step 1: Generate a credit_id (UUID) and register it
+      const creditId = Crypto.randomUUID();
+      console.log('[PPQAccount] Registering credit_id:', creditId.slice(0, 8) + '...');
 
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        console.log(`[PPQAccount] Creating account (attempt ${attempt}/${maxRetries})...`);
+      const creditResponse = await fetchWithTimeout(
+        `${PPQ_API_BASE}/credits/check-or-create`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ credit_id: creditId }),
+        },
+        PPQ_API_TIMEOUT
+      );
 
-        const response = await fetchWithTimeout(
-          `${PPQ_API_BASE}/accounts/create`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          },
-          PPQ_API_TIMEOUT
-        );
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('[PPQAccount] Account creation failed:', response.status, errorText);
-          isServerError = response.status >= 500;
-          lastError = isServerError
-            ? 'PPQ.AI server is temporarily unavailable'
-            : `Account creation failed (${response.status})`;
-
-          // Only retry on server errors (5xx), not client errors (4xx)
-          if (isServerError && attempt < maxRetries) {
-            const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
-            console.log(`[PPQAccount] Retrying in ${delay}ms...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-            continue;
-          }
-
-          return { success: false, error: lastError, isServerError };
-        }
-
-        const data = await response.json();
-
-        if (!data.credit_id || !data.api_key) {
-          console.error('[PPQAccount] Invalid response:', data);
-          return {
-            success: false,
-            error: 'Invalid response from PPQ.AI',
-            isServerError: false,
-          };
-        }
-
-        // Store credentials locally
-        await AsyncStorage.multiSet([
-          [PPQ_API_KEY, data.api_key],
-          [PPQ_CREDIT_ID, data.credit_id],
-        ]);
-
-        console.log('[PPQAccount] Account created successfully');
+      if (!creditResponse.ok) {
+        const errorText = await creditResponse.text();
+        console.error('[PPQAccount] Credit registration failed:', creditResponse.status, errorText);
         return {
-          success: true,
-          apiKey: data.api_key,
-          creditId: data.credit_id,
+          success: false,
+          error: 'Failed to register credit account',
+          isServerError: creditResponse.status >= 500,
         };
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : 'Unknown error';
-        console.error(`[PPQAccount] Attempt ${attempt} error:`, msg);
-        lastError = msg.includes('timeout') || msg.includes('network')
-          ? 'Network error - check your connection'
-          : msg;
-        isServerError = false;
-
-        if (attempt < maxRetries) {
-          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
       }
-    }
 
-    return { success: false, error: lastError, isServerError };
+      const creditData = await creditResponse.json();
+      console.log('[PPQAccount] Credit registered:', creditData.success ? 'OK' : 'FAIL');
+
+      // Step 2: Create an API key using the credit_id
+      console.log('[PPQAccount] Creating API key...');
+      const keyResponse = await fetchWithTimeout(
+        `${PPQ_API_BASE}/keys`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-credit-id': creditId,
+          },
+          body: JSON.stringify({ name: 'RUNSTR App' }),
+        },
+        PPQ_API_TIMEOUT
+      );
+
+      if (!keyResponse.ok) {
+        const errorText = await keyResponse.text();
+        console.error('[PPQAccount] API key creation failed:', keyResponse.status, errorText);
+        return {
+          success: false,
+          error: 'Credit registered but API key creation failed',
+          isServerError: keyResponse.status >= 500,
+        };
+      }
+
+      const keyData = await keyResponse.json();
+      const apiKey = keyData.data?.api_key;
+
+      if (!apiKey) {
+        console.error('[PPQAccount] No API key in response:', keyData);
+        return {
+          success: false,
+          error: 'Invalid API key response from PPQ.AI',
+          isServerError: false,
+        };
+      }
+
+      // Store credentials locally
+      await AsyncStorage.multiSet([
+        [PPQ_API_KEY, apiKey],
+        [PPQ_CREDIT_ID, creditId],
+      ]);
+
+      console.log('[PPQAccount] Account created successfully');
+      return {
+        success: true,
+        apiKey,
+        creditId,
+      };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[PPQAccount] Error creating account:', msg);
+      return {
+        success: false,
+        error: msg.includes('timeout') || msg.includes('network')
+          ? 'Network error - check your connection'
+          : msg,
+        isServerError: false,
+      };
+    }
   }
 
   /**
