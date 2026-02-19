@@ -14,7 +14,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   RefreshControl,
   Share,
 } from 'react-native';
@@ -26,10 +25,12 @@ import { theme } from '../styles/theme';
 import { ClubService } from '../services/backend/ClubService';
 import { ClubMembershipService } from '../services/backend/ClubMembershipService';
 import { ClubLeaderboardSection } from '../components/club/ClubLeaderboardSection';
+import { ClubEventsSection } from '../components/club/ClubEventsSection';
 import { ClubChatSection } from '../components/club/ClubChatSection';
 import { ClubMembersSection } from '../components/club/ClubMembersSection';
 import { ClubEarningsCard } from '../components/club/ClubEarningsCard';
 import { CaptainSettingsModal } from '../components/club/CaptainSettingsModal';
+import { CustomAlert } from '../components/ui/CustomAlert';
 import type { Club } from '../types/club';
 
 // ---------------------------------------------------------------------------
@@ -66,6 +67,16 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
   const [isLeaving, setIsLeaving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showCaptainSettings, setShowCaptainSettings] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message?: string;
+    buttons: Array<{ text: string; onPress?: () => void; style?: 'default' | 'cancel' | 'destructive' }>;
+  }>({ visible: false, title: '', buttons: [] });
+
+  const showAlert = useCallback((title: string, message?: string, buttons?: Array<{ text: string; onPress?: () => void; style?: 'default' | 'cancel' | 'destructive' }>) => {
+    setAlertConfig({ visible: true, title, message, buttons: buttons || [{ text: 'OK' }] });
+  }, []);
 
   // -------------------------------------------------------------------------
   // Data Loading
@@ -128,11 +139,11 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
         const updated = await ClubService.getClubById(clubId);
         if (updated) setClub(updated);
       } else {
-        Alert.alert('Could not join', result.error || 'Please try again.');
+        showAlert('Could not join', result.error || 'Please try again.');
       }
     } catch (err) {
       console.error('[ClubPageScreen] Join error:', err);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+      showAlert('Error', 'Something went wrong. Please try again.');
     } finally {
       setIsJoining(false);
     }
@@ -144,15 +155,12 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
     // Check if user is already in another club -- offer switch dialog
     const currentClubId = await ClubMembershipService.getCurrentClub(userNpub);
     if (currentClubId && currentClubId !== clubId) {
-      Alert.alert(
+      showAlert(
         'Switch Clubs?',
         `You're already in a club. Leave it and join ${club?.name || clubName}?`,
         [
           { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Leave & Join',
-            onPress: () => performJoin(true),
-          },
+          { text: 'Leave & Join', onPress: () => performJoin(true) },
         ]
       );
     } else {
@@ -161,16 +169,12 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
   };
 
   const handleLeaveConfirm = () => {
-    Alert.alert(
+    showAlert(
       'Leave Club',
       `Are you sure you want to leave ${club?.name || clubName}?`,
       [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Leave',
-          style: 'destructive',
-          onPress: handleLeave,
-        },
+        { text: 'Leave', style: 'destructive', onPress: handleLeave },
       ]
     );
   };
@@ -187,11 +191,11 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
         const updated = await ClubService.getClubById(clubId);
         if (updated) setClub(updated);
       } else {
-        Alert.alert('Could not leave', result.error || 'Please try again.');
+        showAlert('Could not leave', result.error || 'Please try again.');
       }
     } catch (err) {
       console.error('[ClubPageScreen] Leave error:', err);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+      showAlert('Error', 'Something went wrong. Please try again.');
     } finally {
       setIsLeaving(false);
     }
@@ -222,33 +226,18 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
 
   const handleEllipsisMenu = () => {
     if (isCaptain) {
-      // Captains get the full settings modal
       setShowCaptainSettings(true);
     } else if (isMember) {
-      // Regular members get a simple menu
-      Alert.alert(
-        club?.name || clubName,
-        undefined,
-        [
-          { text: 'Share Club', onPress: handleShareClub },
-          {
-            text: 'Leave Club',
-            style: 'destructive',
-            onPress: handleLeaveConfirm,
-          },
-          { text: 'Cancel', style: 'cancel' },
-        ]
-      );
+      showAlert(club?.name || clubName, undefined, [
+        { text: 'Share Club', onPress: handleShareClub },
+        { text: 'Leave Club', style: 'destructive', onPress: handleLeaveConfirm },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
     } else {
-      // Non-members just get share
-      Alert.alert(
-        club?.name || clubName,
-        undefined,
-        [
-          { text: 'Share Club', onPress: handleShareClub },
-          { text: 'Cancel', style: 'cancel' },
-        ]
-      );
+      showAlert(club?.name || clubName, undefined, [
+        { text: 'Share Club', onPress: handleShareClub },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
     }
   };
 
@@ -478,6 +467,9 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
             />
           )}
 
+          {/* Events section */}
+          <ClubEventsSection clubId={clubId} isCaptain={isCaptain} />
+
           {/* Leaderboard section */}
           <ClubLeaderboardSection clubId={clubId} />
 
@@ -507,6 +499,15 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
           onClubUpdated={handleClubUpdated}
         />
       )}
+
+      {/* Themed alert (replaces default iOS Alert) */}
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onClose={() => setAlertConfig((prev) => ({ ...prev, visible: false }))}
+      />
     </SafeAreaView>
   );
 };

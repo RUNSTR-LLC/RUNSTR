@@ -92,6 +92,8 @@ export interface Competition {
   config: CompetitionConfig;
   image_url?: string;
   is_open: boolean;
+  created_by_npub?: string;
+  club_id?: string;
 }
 
 export interface CompetitionParticipant {

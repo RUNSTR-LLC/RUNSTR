@@ -676,11 +676,14 @@ export class SupabaseCompetitionService {
         .gte('created_at', startDate)
         .lte('created_at', endDate);
 
+      // Normalize activity types to lowercase before querying
+      const normalizedTypes = types.map(t => t.toLowerCase());
+
       // Use .in() for multiple types, .eq() for single type
-      if (types.length === 1) {
-        workoutQuery = workoutQuery.eq('activity_type', types[0]);
+      if (normalizedTypes.length === 1) {
+        workoutQuery = workoutQuery.eq('activity_type', normalizedTypes[0]);
       } else {
-        workoutQuery = workoutQuery.in('activity_type', types);
+        workoutQuery = workoutQuery.in('activity_type', normalizedTypes);
       }
 
       // DATA QUALITY FIX: Filter to only app-submitted workouts when required
@@ -927,8 +930,18 @@ export class SupabaseCompetitionService {
           charityName: data.charityName,
         }))
         .sort((a, b) => isFastestTime ? a.score - b.score : b.score - a.score)
-        .slice(0, limit)
-        .map((entry, index) => ({ ...entry, rank: index + 1 }));
+        .slice(0, limit);
+
+      // Assign tied ranks: equal scores share the same rank
+      leaderboard.forEach((entry, i) => {
+        if (i === 0) {
+          entry.rank = 1;
+        } else if (entry.score === leaderboard[i - 1].score) {
+          entry.rank = leaderboard[i - 1].rank;
+        } else {
+          entry.rank = i + 1;
+        }
+      });
 
       // Build charity rankings sorted by total distance
       const charityRankings: CharityRanking[] = Array.from(charityTotals.entries())
@@ -1327,6 +1340,80 @@ export class SupabaseCompetitionService {
     } catch (error) {
       console.warn('[SupabaseCompetitionService] Failed to check local join:', error);
       return false;
+    }
+  }
+
+  /**
+   * Fetch competitions linked to a specific club.
+   * Results are cached in AsyncStorage per club for 3 minutes.
+   */
+  static async fetchCompetitionsByClubId(clubId: string): Promise<Competition[]> {
+    if (!isSupabaseConfigured()) {
+      return [];
+    }
+
+    const cacheKey = `@runstr:club_competitions:${clubId}`;
+    const CLUB_COMP_TTL = 3 * 60 * 1000; // 3 minutes
+
+    // Check cache first
+    try {
+      const cached = await AsyncStorage.getItem(cacheKey);
+      if (cached) {
+        let parsed;
+        try {
+          parsed = JSON.parse(cached);
+        } catch {
+          await AsyncStorage.removeItem(cacheKey);
+          parsed = null;
+        }
+        if (parsed && Date.now() - parsed.timestamp < CLUB_COMP_TTL) {
+          return parsed.data as Competition[];
+        }
+      }
+    } catch {
+      // Cache read failed, continue to fetch
+    }
+
+    try {
+      const { data, error } = await supabase!
+        .from('competitions')
+        .select('*')
+        .eq('club_id', clubId)
+        .order('start_date', { ascending: false });
+
+      if (error) {
+        console.error('[SupabaseCompetitionService] fetchCompetitionsByClubId error:', error);
+        return [];
+      }
+
+      const competitions = (data || []) as Competition[];
+
+      // Save to cache
+      try {
+        await AsyncStorage.setItem(
+          cacheKey,
+          JSON.stringify({ data: competitions, timestamp: Date.now() })
+        );
+      } catch {
+        // Cache write failed, non-critical
+      }
+
+      return competitions;
+    } catch (err) {
+      console.error('[SupabaseCompetitionService] fetchCompetitionsByClubId exception:', err);
+      return [];
+    }
+  }
+
+  /**
+   * Clear club competitions cache after event creation
+   */
+  static async clearClubCompetitionsCache(clubId: string): Promise<void> {
+    try {
+      await AsyncStorage.removeItem(`@runstr:club_competitions:${clubId}`);
+      console.log('[SupabaseCompetitionService] Club competitions cache cleared:', clubId);
+    } catch {
+      // Non-critical
     }
   }
 

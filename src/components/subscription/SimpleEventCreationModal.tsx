@@ -12,11 +12,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../styles/theme';
 import { CustomAlert } from '../ui/CustomAlert';
 import { supabase, isSupabaseConfigured } from '../../utils/supabase';
+import { SupabaseCompetitionService } from '../../services/backend/SupabaseCompetitionService';
 
 interface SimpleEventCreationModalProps {
   visible: boolean;
   onClose: () => void;
   onEventCreated?: (eventId: string) => void;
+  clubId?: string;
 }
 
 interface RaceTemplate {
@@ -94,7 +96,7 @@ const formatDate = (d: Date) =>
   d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 
 export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> = ({
-  visible, onClose, onEventCreated,
+  visible, onClose, onEventCreated, clubId,
 }) => {
   const [selectedTemplate, setSelectedTemplate] = useState<RaceTemplate | null>(null);
   const [eventName, setEventName] = useState('');
@@ -188,12 +190,13 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
           is_open: true,
           template: selectedTemplate.templateId,
           created_by_npub: npub,
+          club_id: clubId || null,
           config: {
             activity_types: ['running'],
             scoring_method: 'total_distance',
             target_distance_km: selectedTemplate.distanceKm,
             template: selectedTemplate.templateId,
-            created_via: 'app',
+            created_via: clubId ? 'club' : 'app',
           },
         })
         .select('id');
@@ -220,10 +223,19 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
         }
       }
 
-      console.log(`[SimpleEventCreation] Created ${selectedTemplate.label} event: ${externalId}`);
+      console.log(`[SimpleEventCreation] Created ${selectedTemplate.label} event: ${externalId}${clubId ? ` (club: ${clubId})` : ''}`);
+
+      // Clear caches so new event appears immediately
+      if (clubId) {
+        await SupabaseCompetitionService.clearClubCompetitionsCache(clubId);
+      }
+      await SupabaseCompetitionService.clearDynamicCompetitionsCache();
+
       showAlert(
         'Event Created!',
-        'Your event is live and you have been joined automatically. Share it with your community to get participants.'
+        clubId
+          ? 'Your club event is live! Members can join from the club page or the Compete tab.'
+          : 'Your event is live and you have been joined automatically. Share it with your community to get participants.'
       );
       onEventCreated?.(externalId);
     } catch (err) {
@@ -233,7 +245,7 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
       isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
-  }, [isValid, selectedTemplate, eventName, description, startDate, durationDays, onEventCreated, showAlert]);
+  }, [isValid, selectedTemplate, eventName, description, startDate, durationDays, onEventCreated, showAlert, clubId]);
 
   const handleAlertDismiss = useCallback(() => {
     setAlertVisible(false);
