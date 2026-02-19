@@ -26,14 +26,6 @@ export const REWARD_CONFIG = {
   DAILY_WORKOUT_REWARD: 50,
 
   /**
-   * Step Milestone Rewards
-   * Automated rewards for reaching step milestones throughout the day
-   */
-  STEP_MILESTONE_REWARD: 5,        // sats per 1k steps milestone
-  STEP_MILESTONE_INCREMENT: 1000,  // reward every 1,000 steps
-  STEP_REWARDS_ENABLED: true,      // toggle to disable step rewards
-
-  /**
    * Minimum Workout Distance for Reward
    * Distance in meters required to qualify for a reward
    */

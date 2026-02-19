@@ -43,7 +43,6 @@ let _rewardClaimLock = false;
 
 // Workout sources that count as "reward-eligible"
 // Includes GPS tracking, manual entry, and health app imports
-// Note: 'daily_steps' removed - step rewards come from StepRewardService (5 sats per 1k steps)
 // Note: 'imported_nostr' excluded - prevents gaming via Nostr syncs
 const REWARD_ELIGIBLE_SOURCES = [
   'gps_tracker',

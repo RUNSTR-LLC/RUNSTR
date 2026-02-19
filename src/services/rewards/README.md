@@ -6,9 +6,7 @@ Services for managing the RUNSTR rewards system, including daily rewards, step t
 
 ### Core Reward Services
 
-- **DailyRewardService.ts** - Manages daily workout rewards (50 sats per workout)
-- **StepRewardService.ts** - Manages step-based rewards (5 sats per 1k steps)
-- **StepPollingService.ts** - Polls step count from HealthKit/Health Connect
+- **DailyRewardService.ts** - Manages daily workout rewards (50 sats per workout, server-side via trigger_auto_reward)
 
 ### Payment & Destination Services
 

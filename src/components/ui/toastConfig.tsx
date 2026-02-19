@@ -62,17 +62,6 @@ export const toastConfig = {
     </View>
   ),
 
-  // Step reward notification - Orange theme matching app style
-  stepReward: ({ text1, text2 }: ToastProps) => (
-    <View style={styles.stepRewardToast}>
-      <Ionicons name="footsteps" size={24} color="#FF9D42" />
-      <View style={styles.textContainer}>
-        <Text style={styles.title}>{text1}</Text>
-        {text2 && <Text style={styles.subtitle}>{text2}</Text>}
-      </View>
-    </View>
-  ),
-
   // Reward confirmed notification - Orange checkmark for payments to user's wallet
   rewardConfirmed: ({ text1, text2 }: ToastProps) => (
     <View style={styles.rewardConfirmedToast}>
@@ -131,11 +120,6 @@ const styles = StyleSheet.create({
     ...baseToastStyle,
     borderWidth: 1,
     borderColor: theme.colors.accent,
-  },
-  stepRewardToast: {
-    ...baseToastStyle,
-    borderWidth: 1,
-    borderColor: '#FF9D42',
   },
   rewardConfirmedToast: {
     ...baseToastStyle,

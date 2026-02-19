@@ -203,7 +203,6 @@ import { appPermissionService } from './services/initialization/AppPermissionSer
 import { PermissionRequestModal } from './components/permissions/PermissionRequestModal';
 import { WelcomePermissionModal } from './components/onboarding/WelcomePermissionModal';
 import AppInitializationService from './services/core/AppInitializationService';
-import { StepPollingService } from './services/rewards/StepPollingService';
 import { StepCompetitionService } from './services/competition/StepCompetitionService';
 import {
   CustomAlertProvider,
@@ -961,9 +960,7 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
         AppInitializationService.initializeInBackground()
           .then(() => {
             console.log('✅ App: Background initialization completed');
-            // v3: Step rewards DISABLED - NWC moved to external service
-            // Step polling no longer triggers rewards, only workout rewards remain
-            // StepPollingService.initialize();
+            // Rewards are now handled server-side via trigger_auto_reward()
           })
           .catch((error) => {
             console.error('❌ Background initialization error:', error);
@@ -973,8 +970,7 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
 
       return () => {
         clearTimeout(timer);
-        // v3: Step polling disabled - cleanup not needed
-        // StepPollingService.cleanup();
+        // Rewards handled server-side, no client cleanup needed
       };
     }
   }, [isAuthenticated, currentUser, hasInitialized]);

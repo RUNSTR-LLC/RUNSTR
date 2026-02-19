@@ -2,15 +2,8 @@
  * SettingsScreen - Consolidated settings for Account, Teams, and Notifications
  * Accessed from Profile screen settings button
  *
- * v3 UPDATE: Step rewards DISABLED - NWC moved to external service
- * Step-related features (background tracking, step rewards display) are hidden
+ * Rewards are handled server-side via trigger_auto_reward() + push notifications.
  */
-
-// v3: Step rewards disabled - NWC moved to external service
-const STEP_REWARDS_ENABLED = false;
-// v3: Hide sats earned display - rewards are now tracked by external service
-// We can't show accurate counts since we don't know if rewards were actually sent
-const SHOW_SATS_EARNED_DISPLAY = false;
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -50,8 +43,6 @@ import * as SecureStore from 'expo-secure-store';
 import * as Clipboard from 'expo-clipboard';
 import RNRestart from 'react-native-restart';
 import { dailyStepCounterService } from '../services/activity/DailyStepCounterService';
-import { DailyRewardService } from '../services/rewards/DailyRewardService';
-import { StepRewardService } from '../services/rewards/StepRewardService';
 import { GPSPermissionsDiagnostics } from '../components/permissions/GPSPermissionsDiagnostics';
 import { StepCountDiagnostics } from '../components/permissions/StepCountDiagnostics';
 import { AntiCheatRequestModal } from '../components/settings/AntiCheatRequestModal';
@@ -173,8 +164,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [scannedNWCString, setScannedNWCString] = useState('');
 
   // Rewards settings state (Lightning address removed - now in Teams tab)
-  const [weeklyRewardsEarned, setWeeklyRewardsEarned] = useState(0);
-  const [stepTodaySats, setStepTodaySats] = useState(0);
 
   // Alert state for CustomAlert
   const [alertVisible, setAlertVisible] = useState(false);
@@ -256,12 +245,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       // Load sats earned data
       const pubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
       if (pubkey) {
-        const weeklyRewards = await DailyRewardService.getWeeklyRewardsEarned(pubkey);
-        setWeeklyRewardsEarned(weeklyRewards);
-
-        const stepStats = await StepRewardService.getStats(pubkey);
-        setStepTodaySats(stepStats.todaySats);
-
         // Load WoT score for feature gating (music, etc.)
         try {
           const wotService = WoTService.getInstance();
@@ -826,24 +809,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         <View style={styles.section}>
           <SettingsAccordion title={t('fitnessTracking')} defaultExpanded={false}>
             <Card style={styles.accordionCard}>
-              {/* Background Step Tracking - v3: Hidden (step rewards disabled) */}
-              {STEP_REWARDS_ENABLED && (
-                <SettingItem
-                  title="Background Step Tracking"
-                  subtitle="Automatically count steps throughout the day"
-                  rightElement={
-                    <Switch
-                      value={backgroundTrackingEnabled}
-                      onValueChange={handleBackgroundTrackingToggle}
-                      trackColor={{
-                        false: theme.colors.warning,
-                        true: theme.colors.accent,
-                      }}
-                      thumbColor={theme.colors.orangeBright}
-                    />
-                  }
-                />
-              )}
 
               {/* Auto-Compete - HIDDEN: Feature temporarily disabled
               <SettingItem
@@ -1079,28 +1044,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               <View style={styles.rewardsSubsection}>
                 <Text style={styles.subsectionTitle}>Rewards</Text>
 
-                {/* Sats Earned Display - v3: Hidden since external service tracks rewards */}
-                {SHOW_SATS_EARNED_DISPLAY && (
-                  <View style={styles.satsEarnedCard}>
-                    <View style={styles.satsEarnedRow}>
-                      <Text style={styles.satsEarnedLabel}>Workout rewards (this week)</Text>
-                      <Text style={styles.satsEarnedValue}>{weeklyRewardsEarned} sats</Text>
-                    </View>
-                    {/* v3: Step rewards hidden - only workout rewards remain */}
-                    {STEP_REWARDS_ENABLED && (
-                      <View style={styles.satsEarnedRow}>
-                        <Text style={styles.satsEarnedLabel}>Step rewards (today)</Text>
-                        <Text style={styles.satsEarnedValue}>{stepTodaySats} sats</Text>
-                      </View>
-                    )}
-                    <View style={[styles.satsEarnedRow, styles.satsEarnedTotalRow]}>
-                      <Text style={styles.satsEarnedTotalLabel}>Total</Text>
-                      <Text style={styles.satsEarnedTotalValue}>
-                        {STEP_REWARDS_ENABLED ? weeklyRewardsEarned + stepTodaySats : weeklyRewardsEarned} sats
-                      </Text>
-                    </View>
-                  </View>
-                )}
 
                 {/* Subscription Plan */}
                 <View style={styles.rewardSettingRow}>
@@ -2037,47 +1980,6 @@ const styles = StyleSheet.create({
   clearAddressButton: {
     padding: 4,
     marginLeft: 8,
-  },
-
-  // Sats Earned Display Styles
-  satsEarnedCard: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-  },
-  satsEarnedRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 6,
-  },
-  satsEarnedLabel: {
-    fontSize: 13,
-    color: theme.colors.textMuted,
-  },
-  satsEarnedValue: {
-    fontSize: 13,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.text,
-  },
-  satsEarnedTotalRow: {
-    marginTop: 6,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#2a2a2a',
-  },
-  satsEarnedTotalLabel: {
-    fontSize: 14,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.text,
-  },
-  satsEarnedTotalValue: {
-    fontSize: 16,
-    fontWeight: theme.typography.weights.bold,
-    color: '#FFB366',
   },
 
   // Language Section Styles

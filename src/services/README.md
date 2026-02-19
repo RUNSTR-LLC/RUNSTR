@@ -14,7 +14,7 @@ Core application services handling business logic and external integrations for 
 - **fitness/** - HealthKit/Health Connect integration, workout processing
 
 ### Rewards & Donations
-- **rewards/** - DailyRewardService, StepRewardService, Lightning address delivery
+- **rewards/** - DailyRewardService, Lightning address delivery, server-side auto-rewards
 - **donation/** - Charity donation splitting and tracking
 - **impact/** - Impact Level XP calculations
 
