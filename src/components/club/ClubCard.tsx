@@ -12,7 +12,6 @@ import {
   Image,
   StyleSheet,
   TouchableOpacity,
-  Share,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
@@ -26,6 +25,8 @@ interface ClubCardProps {
   onPress: () => void;
   onJoinPress: () => void;
   disabled?: boolean; // when user is in another club
+  captainName?: string; // Resolved Nostr display name for captain
+  captainPictureUrl?: string; // Captain's Nostr profile picture (fallback for missing banner)
 }
 
 const ClubCardComponent: React.FC<ClubCardProps> = ({
@@ -36,26 +37,11 @@ const ClubCardComponent: React.FC<ClubCardProps> = ({
   onPress,
   onJoinPress,
   disabled = false,
+  captainName,
+  captainPictureUrl,
 }) => {
-  // Derive a captain display name from created_by_npub (truncated)
-  const captainDisplay = club.created_by_npub
-    ? `@${club.created_by_npub.slice(0, 12)}...`
-    : 'Unknown';
-
-  const showShareButton = isCurrentClub || isCaptain;
-
-  const handleShare = async () => {
-    try {
-      await Share.share({
-        message:
-          `Join my fitness club "${club.name}" on RUNSTR!\n\n` +
-          `Download RUNSTR and search for "${club.name}" in the Clubs tab.\n\n` +
-          `https://runstr.club`,
-      });
-    } catch (err) {
-      // User cancelled or share failed silently
-    }
-  };
+  // Show resolved Nostr name, or "Anonymous" if not available
+  const captainDisplay = captainName || 'Anonymous';
 
   const memberText = club.member_count === 1
     ? '1 member'
@@ -70,10 +56,15 @@ const ClubCardComponent: React.FC<ClubCardProps> = ({
       onPress={onPress}
       activeOpacity={0.7}
     >
-      {/* Left: Club avatar (banner image or fallback icon) */}
+      {/* Left: Club avatar (banner image, captain picture, or fallback icon) */}
       {club.banner_url ? (
         <Image
           source={{ uri: club.banner_url }}
+          style={styles.clubImage}
+        />
+      ) : captainPictureUrl ? (
+        <Image
+          source={{ uri: captainPictureUrl }}
           style={styles.clubImage}
         />
       ) : (
@@ -94,22 +85,6 @@ const ClubCardComponent: React.FC<ClubCardProps> = ({
           Captain: {captainDisplay}
         </Text>
       </View>
-
-      {/* Share button (members & captains) */}
-      {showShareButton && (
-        <TouchableOpacity
-          style={styles.shareButton}
-          onPress={handleShare}
-          activeOpacity={0.7}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Ionicons
-            name="share-outline"
-            size={18}
-            color={theme.colors.textMuted}
-          />
-        </TouchableOpacity>
-      )}
 
       {/* Right: Action area */}
       {isCurrentClub ? (
@@ -196,15 +171,6 @@ const styles = StyleSheet.create({
   captain: {
     color: theme.colors.textMuted,
     fontSize: 13,
-  },
-  shareButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: theme.colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 6,
   },
   actionIcon: {
     marginLeft: 8,
