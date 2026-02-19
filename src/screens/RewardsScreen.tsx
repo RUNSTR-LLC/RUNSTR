@@ -372,7 +372,7 @@ const RewardsScreenComponent: React.FC = () => {
             {isPPQTeam(selectedTeamId ?? undefined)
               ? t('howItWorksDescriptionPPQ', { defaultValue: 'Run, walk, or cycle 3km+ OR hit 5k steps daily to earn AI credits. Rewards go directly to your PPQ.AI account.' })
               : isSelfTeam(selectedTeamId ?? undefined)
-                ? t('howItWorksDescriptionSelf', { defaultValue: 'Run, walk, or cycle 3km+ OR hit 5k steps daily to earn real Bitcoin. Rewards are sent directly to your Lightning address.' })
+                ? t('howItWorksDescriptionSelf', { defaultValue: 'Run, walk, or cycle 3km+ OR hit 5k steps daily. Rewards are sent directly to your Lightning wallet.' })
                 : t('howItWorksDescriptionCharity', { defaultValue: `Run, walk, or cycle 3km+ OR hit 5k steps daily. Micro donations are sent to ${selectedTeam?.name || 'your selected charity'}.` })}
           </Text>
         </View>
