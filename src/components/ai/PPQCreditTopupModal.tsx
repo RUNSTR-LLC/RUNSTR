@@ -16,6 +16,7 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  Linking,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
@@ -59,6 +60,8 @@ export const PPQCreditTopupModal: React.FC<PPQCreditTopupModalProps> = ({
 
   // Account state
   const [hasAccount, setHasAccount] = useState(false);
+  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+  const [accountError, setAccountError] = useState<string>('');
 
   // Check account and load balance on mount
   useEffect(() => {
@@ -233,7 +236,37 @@ export const PPQCreditTopupModal: React.FC<PPQCreditTopupModalProps> = ({
 
   const effectiveAmount = getEffectiveAmount();
 
-  // If no account, show setup prompt
+  // Handle inline account creation
+  const [isAccountServerError, setIsAccountServerError] = useState(false);
+  const handleCreateAccount = async () => {
+    setIsCreatingAccount(true);
+    setAccountError('');
+    setIsAccountServerError(false);
+    try {
+      const result = await PPQAccountService.createAccount();
+      if (result.success) {
+        setHasAccount(true);
+        const balanceResult = await PPQAccountService.getBalance();
+        if (balanceResult.success) {
+          setBalance(balanceResult.balance ?? 0);
+        }
+      } else {
+        setAccountError(result.error || 'Failed to create account');
+        setIsAccountServerError(result.isServerError ?? false);
+      }
+    } catch (err) {
+      console.error('[PPQTopup] Account creation error:', err);
+      setAccountError('Failed to create account. Please try again.');
+    } finally {
+      setIsCreatingAccount(false);
+    }
+  };
+
+  const handleOpenPPQWebsite = () => {
+    Linking.openURL('https://ppq.ai');
+  };
+
+  // If no account, show inline setup
   if (visible && !hasAccount && !isLoadingBalance) {
     return (
       <Modal
@@ -247,7 +280,7 @@ export const PPQCreditTopupModal: React.FC<PPQCreditTopupModalProps> = ({
             <View style={styles.header}>
               <View style={styles.titleContainer}>
                 <Ionicons name="sparkles" size={24} color={theme.colors.accent} />
-                <Text style={styles.title}>Set Up PPQ.AI First</Text>
+                <Text style={styles.title}>Set Up AI Credits</Text>
               </View>
               <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                 <Ionicons name="close" size={24} color={theme.colors.text} />
@@ -255,17 +288,53 @@ export const PPQCreditTopupModal: React.FC<PPQCreditTopupModalProps> = ({
             </View>
 
             <View style={styles.setupPrompt}>
-              <Ionicons name="information-circle-outline" size={48} color={theme.colors.textMuted} />
+              <Ionicons name="sparkles" size={48} color={theme.colors.accent} />
               <Text style={styles.setupPromptText}>
-                You need to set up a PPQ.AI account before you can top up credits.
-              </Text>
-              <Text style={styles.setupPromptSubtext}>
-                Go to Settings → AI Coach to create or connect your PPQ.AI account.
+                Create a PPQ.AI account to earn AI credits for Coach RUNSTR instead of sats.
               </Text>
             </View>
 
+            {accountError ? (
+              <View style={styles.accountErrorBanner}>
+                <Ionicons name="alert-circle" size={16} color={theme.colors.error} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.accountErrorText}>{accountError}</Text>
+                  {isAccountServerError && (
+                    <Text style={styles.accountErrorHint}>
+                      Create an account at ppq.ai and enter your credentials manually.
+                    </Text>
+                  )}
+                </View>
+              </View>
+            ) : null}
+
+            <TouchableOpacity
+              style={[styles.createAccountButton, isCreatingAccount && styles.proceedButtonDisabled]}
+              onPress={handleCreateAccount}
+              disabled={isCreatingAccount}
+            >
+              {isCreatingAccount ? (
+                <ActivityIndicator size="small" color={theme.colors.background} />
+              ) : (
+                <>
+                  <Ionicons name="add-circle" size={20} color={theme.colors.background} />
+                  <Text style={styles.createAccountButtonText}>
+                    {accountError ? 'Retry' : 'Create Account'}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {isAccountServerError && (
+              <TouchableOpacity style={styles.websiteFallback} onPress={handleOpenPPQWebsite}>
+                <Ionicons name="globe-outline" size={18} color={theme.colors.accent} />
+                <Text style={styles.websiteFallbackText}>Create account at ppq.ai</Text>
+                <Ionicons name="open-outline" size={14} color={theme.colors.accent} />
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity style={styles.closeModalButton} onPress={onClose}>
-              <Text style={styles.closeModalButtonText}>Close</Text>
+              <Text style={styles.closeModalButtonText}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -843,6 +912,63 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: theme.colors.textMuted,
     textAlign: 'center',
+  },
+  createAccountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    paddingVertical: 14,
+    borderRadius: theme.borderRadius.medium,
+    backgroundColor: theme.colors.accent,
+  },
+  createAccountButtonText: {
+    fontSize: 16,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.background,
+  },
+  accountErrorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    padding: 12,
+    backgroundColor: 'rgba(255, 107, 0, 0.1)',
+    borderRadius: theme.borderRadius.medium,
+    borderWidth: 1,
+    borderColor: theme.colors.error,
+  },
+  accountErrorText: {
+    fontSize: 14,
+    color: theme.colors.error,
+  },
+  accountErrorHint: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  websiteFallback: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 20,
+    marginBottom: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: theme.borderRadius.medium,
+    backgroundColor: 'rgba(255, 157, 66, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 157, 66, 0.3)',
+    gap: 8,
+  },
+  websiteFallbackText: {
+    fontSize: 14,
+    color: theme.colors.accent,
+    fontWeight: '500',
   },
   closeModalButton: {
     marginHorizontal: 20,

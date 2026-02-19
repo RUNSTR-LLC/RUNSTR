@@ -16,6 +16,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
@@ -98,22 +99,27 @@ export const PPQAPIKeyModal: React.FC<PPQAPIKeyModalProps> = ({
     setIsRefreshing(false);
   };
 
+  const [isServerError, setIsServerError] = useState(false);
+
   const handleCreateAccount = async () => {
     setIsCreating(true);
     setError(null);
+    setIsServerError(false);
 
     try {
       const result = await PPQAccountService.createAccount();
 
       if (result.success && result.apiKey) {
         setHasAccount(true);
-        setBalance(0); // New account starts with 0 balance
-
-
+        setBalance(0);
         console.log('[PPQModal] Account created successfully');
         onSuccess();
       } else {
         setError(result.error || 'Failed to create account');
+        setIsServerError(result.isServerError ?? false);
+        if (result.isServerError) {
+          setShowManualEntry(true);
+        }
       }
     } catch (err) {
       console.error('[PPQModal] Create account error:', err);
@@ -121,6 +127,10 @@ export const PPQAPIKeyModal: React.FC<PPQAPIKeyModalProps> = ({
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const handleOpenPPQWebsite = () => {
+    Linking.openURL('https://ppq.ai');
   };
 
   const handleSaveManualKey = async () => {
@@ -410,10 +420,21 @@ export const PPQAPIKeyModal: React.FC<PPQAPIKeyModalProps> = ({
                 ) : (
                   <>
                     <Ionicons name="add-circle" size={20} color="#000" style={styles.buttonIcon} />
-                    <Text style={styles.primaryButtonText}>Create PPQ.AI Account</Text>
+                    <Text style={styles.primaryButtonText}>
+                      {error ? 'Retry Account Creation' : 'Create PPQ.AI Account'}
+                    </Text>
                   </>
                 )}
               </TouchableOpacity>
+
+              {/* Website fallback when server is down */}
+              {isServerError && (
+                <TouchableOpacity style={styles.websiteFallback} onPress={handleOpenPPQWebsite}>
+                  <Ionicons name="globe-outline" size={18} color="#FF9D42" />
+                  <Text style={styles.websiteFallbackText}>Create account at ppq.ai</Text>
+                  <Ionicons name="open-outline" size={14} color="#FF9D42" />
+                </TouchableOpacity>
+              )}
 
               {/* Manual entry toggle */}
               <TouchableOpacity
@@ -487,7 +508,14 @@ export const PPQAPIKeyModal: React.FC<PPQAPIKeyModalProps> = ({
           {error && (
             <View style={styles.errorContainer}>
               <Ionicons name="alert-circle" size={16} color="#FF6B00" />
-              <Text style={styles.errorText}>{error}</Text>
+              <View style={styles.errorContent}>
+                <Text style={styles.errorText}>{error}</Text>
+                {isServerError && (
+                  <Text style={styles.errorHint}>
+                    You can create an account at ppq.ai and enter your credentials manually.
+                  </Text>
+                )}
+              </View>
             </View>
           )}
         </View>
@@ -715,19 +743,45 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     marginLeft: 6,
   },
-  errorContainer: {
+  websiteFallback: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 157, 66, 0.1)',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 157, 66, 0.3)',
+    gap: 8,
+  },
+  websiteFallbackText: {
+    fontSize: 14,
+    color: '#FF9D42',
+    fontWeight: '500',
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     backgroundColor: '#2a1a1a',
     padding: 12,
     borderRadius: 8,
     marginTop: 12,
   },
+  errorContent: {
+    marginLeft: 8,
+    flex: 1,
+  },
   errorText: {
     fontSize: 13,
     color: '#FF6B00',
-    marginLeft: 8,
-    flex: 1,
+  },
+  errorHint: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginTop: 4,
+    lineHeight: 16,
   },
 });
 
