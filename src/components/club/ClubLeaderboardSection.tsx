@@ -11,6 +11,7 @@ import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { supabase, isSupabaseConfigured } from '../../utils/supabase';
+import { nostrProfileService } from '../../services/nostr/NostrProfileService';
 import { Avatar } from '../ui/Avatar';
 
 // ---------------------------------------------------------------------------
@@ -86,10 +87,24 @@ const ClubLeaderboardSectionComponent: React.FC<ClubLeaderboardSectionProps> = (
     try {
       const { weekStart, weekEnd } = getWeekBounds();
 
+      // Get club member npubs first (more reliable than filtering by workout_submissions.club_id
+      // which depends on AsyncStorage and may be null for many members)
+      const { data: members, error: membersError } = await supabase!
+        .from('club_memberships')
+        .select('member_npub')
+        .eq('club_id', clubId);
+
+      if (membersError || !members || members.length === 0) {
+        setIsLoading(false);
+        return;
+      }
+
+      const memberNpubs = members.map((m) => m.member_npub);
+
       const { data, error } = await supabase!
         .from('workout_submissions')
         .select('npub, profile_name, profile_picture, distance_meters, leaderboard_date')
-        .eq('club_id', clubId)
+        .in('npub', memberNpubs)
         .gte('leaderboard_date', weekStart)
         .lte('leaderboard_date', weekEnd);
 
@@ -151,6 +166,28 @@ const ClubLeaderboardSectionComponent: React.FC<ClubLeaderboardSectionProps> = (
         }))
         .sort((a, b) => b.totalDistanceKm - a.totalDistanceKm)
         .slice(0, 20);
+
+      // Fetch Nostr profiles to fill missing names/avatars
+      if (sorted.length > 0) {
+        try {
+          const npubs = sorted.map((e) => e.npub);
+          const profiles = await nostrProfileService.getProfiles(npubs);
+          for (const entry of sorted) {
+            const profile = profiles.get(entry.npub);
+            if (profile) {
+              if (!entry.profileName) {
+                entry.profileName = profile.display_name || profile.name || null;
+              }
+              if (!entry.profilePicture) {
+                entry.profilePicture = profile.picture || null;
+              }
+            }
+          }
+        } catch (err) {
+          // Non-critical: leaderboard still works with npub fallback
+          console.warn('[ClubLeaderboardSection] Profile fetch failed:', err);
+        }
+      }
 
       // Cache result
       cache.set(clubId, { entries: sorted, timestamp: Date.now() });

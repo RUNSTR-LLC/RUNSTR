@@ -460,10 +460,23 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
             </View>
           )}
 
+          {/* Club membership gate banner (visible before Join button) */}
+          {competition.club_id && isClubMember === false && !isParticipating && status !== 'ended' && (
+            <View style={styles.clubGateBanner}>
+              <Ionicons name="lock-closed" size={16} color={theme.colors.textMuted} />
+              <Text style={styles.clubGateText}>
+                Club members only - Join {clubName || 'the club'} to participate
+              </Text>
+            </View>
+          )}
+
           {/* Join Button */}
           {currentUserPubkey && !isParticipating && status !== 'ended' && competition.is_open && (
             <TouchableOpacity
-              style={styles.joinButton}
+              style={[
+                styles.joinButton,
+                competition.club_id && isClubMember === false && styles.joinButtonDisabled,
+              ]}
               onPress={handleJoin}
               disabled={isJoining}
             >
@@ -472,11 +485,16 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
               ) : (
                 <>
                   <Ionicons
-                    name={getActivityIcon(activityTypes)}
+                    name={competition.club_id && isClubMember === false ? 'lock-closed' : getActivityIcon(activityTypes)}
                     size={20}
-                    color={theme.colors.text}
+                    color={competition.club_id && isClubMember === false ? theme.colors.textMuted : theme.colors.text}
                   />
-                  <Text style={styles.joinButtonText}>Join Event</Text>
+                  <Text style={[
+                    styles.joinButtonText,
+                    competition.club_id && isClubMember === false && styles.joinButtonTextDisabled,
+                  ]}>
+                    {competition.club_id && isClubMember === false ? 'Club Members Only' : 'Join Event'}
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
@@ -738,6 +756,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: theme.typography.weights.semiBold,
     color: theme.colors.text,
+  },
+  joinButtonDisabled: {
+    borderColor: theme.colors.border,
+    opacity: 0.7,
+  },
+  joinButtonTextDisabled: {
+    color: theme.colors.textMuted,
+  },
+  clubGateBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255, 179, 102, 0.08)',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  clubGateText: {
+    flex: 1,
+    fontSize: 13,
+    color: theme.colors.textMuted,
   },
   joinedBadge: {
     flexDirection: 'row',

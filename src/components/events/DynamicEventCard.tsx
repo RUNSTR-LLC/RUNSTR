@@ -102,6 +102,14 @@ export const DynamicEventCard: React.FC<DynamicEventCardProps> = ({
         <Text style={styles.statusText}>{getStatusLabel(competition.status)}</Text>
       </View>
 
+      {/* Club Badge (top-left overlay) */}
+      {competition.club_id && (
+        <View style={styles.clubBadge}>
+          <Ionicons name="people" size={10} color={theme.colors.background} />
+          <Text style={styles.clubBadgeText}>Club</Text>
+        </View>
+      )}
+
       {/* Content */}
       <View style={styles.content}>
         <Text style={styles.title} numberOfLines={2}>
@@ -180,6 +188,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
+  },
+  clubBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    backgroundColor: theme.colors.accent,
+  },
+  clubBadgeText: {
+    fontSize: 10,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.background,
   },
   statusText: {
     fontSize: 10,
