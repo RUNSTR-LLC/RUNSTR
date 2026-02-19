@@ -829,6 +829,16 @@ export class HealthConnectService {
           profilePicture: profile.picture,
         });
         debugLog(`[HealthConnect] Auto-submitted ${w.activityType} workout to Supabase: ${eventId}`);
+
+        // Auto-join RUNSTR competitions for this workout (fire-and-forget)
+        import('../competition/AutoJoinService').then(({ AutoJoinService }) => {
+          AutoJoinService.checkAndAutoJoin(
+            npub,
+            w.activityType || 'running',
+            new Date(w.startTime),
+            profile
+          ).catch(() => {});
+        }).catch(() => {});
       } catch (err) {
         console.warn(`[HealthConnect] Failed to submit workout ${w.id}:`, err);
       }

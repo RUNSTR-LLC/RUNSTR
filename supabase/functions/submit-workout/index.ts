@@ -1201,6 +1201,81 @@ serve(async (req) => {
         : classifiedActivityType
       console.log(`✅ Workout accepted: ${workout.event_id} (${typeInfo}, ${(workout.distance_meters || 0) / 1000}km)`)
 
+      // ================================================================
+      // SERVER-SIDE AUTO-JOIN: Join matching RUNSTR competitions
+      // Fires after successful insert; never blocks the response.
+      // Only joins RUNSTR-wide events (club_id IS NULL), not club events.
+      // ================================================================
+      try {
+        const workoutCreatedAt = workout.created_at || new Date().toISOString()
+
+        const { data: activeCompetitions } = await supabase
+          .from('competitions')
+          .select('id, name, activity_type, config')
+          .is('club_id', null)
+          .lte('start_date', workoutCreatedAt)
+          .gte('end_date', workoutCreatedAt)
+
+        if (activeCompetitions && activeCompetitions.length > 0) {
+          for (const comp of activeCompetitions) {
+            // Check activity type match
+            const compType = (comp.activity_type || '').toLowerCase()
+            const wType = classifiedActivityType.toLowerCase()
+            const configTypes = comp.config?.activity_types as string[] | undefined
+
+            let matches = false
+            if (configTypes && Array.isArray(configTypes)) {
+              matches = configTypes.some((t: string) => t.toLowerCase() === wType)
+            } else if (compType === 'any' || compType === 'all') {
+              matches = true
+            } else {
+              matches = compType === wType
+            }
+
+            if (!matches) continue
+
+            // Upsert into competition_participants (idempotent)
+            const { error: joinErr } = await supabase
+              .from('competition_participants')
+              .upsert(
+                {
+                  competition_id: comp.id,
+                  npub: workout.npub,
+                  name: workout.profile_name || null,
+                  picture: workout.profile_picture || null,
+                },
+                { onConflict: 'competition_id,npub' }
+              )
+
+            if (!joinErr) {
+              console.log(`🤝 Auto-joined ${workout.npub.slice(0, 12)}... into ${comp.name}`)
+
+              // Fire-and-forget push notification via notify-user edge function
+              const supabaseUrl = Deno.env.get('SUPABASE_URL')
+              if (supabaseUrl) {
+                fetch(`${supabaseUrl}/functions/v1/notify-user`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                  },
+                  body: JSON.stringify({
+                    npub: workout.npub,
+                    title: "You're Competing!",
+                    body: `Auto-joined ${comp.name}. Keep going to climb the leaderboard!`,
+                    data: { type: 'auto_joined', competition_id: comp.id },
+                    channelId: 'default',
+                  }),
+                }).catch(() => {}) // Fire-and-forget
+              }
+            }
+          }
+        }
+      } catch (autoJoinErr) {
+        // Auto-join is best-effort; never fail the workout submission
+        console.warn('Auto-join error (non-fatal):', autoJoinErr)
+      }
+
     return new Response(
       JSON.stringify({ success: true }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -180,6 +180,7 @@
           "defaultChannel": "default"
         }
       ],
+      ["expo-background-fetch"],
       ["expo-health-connect", { "requestPermissionsOnLaunch": false }],
       "./plugins/withHealthConnect",
       [

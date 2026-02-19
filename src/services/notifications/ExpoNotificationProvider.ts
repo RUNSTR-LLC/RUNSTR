@@ -94,9 +94,14 @@ export class ExpoNotificationProvider {
       console.log('📱 Device token obtained for local notifications');
       analytics.track('notification_scheduled', { tokenRegistered: true });
 
-      // Register for broadcast community notifications (anonymous - no npub)
-      // This enables server-side push for Daily Running Leaderboard updates
-      BroadcastTokenService.registerToken(this.deviceToken).catch((err) => {
+      // Register for push notifications (community + per-user if logged in)
+      // Per-user targeting enables reward earned / auto-join notifications
+      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+      const npub = await AsyncStorage.getItem('@runstr:npub');
+      BroadcastTokenService.registerToken(
+        this.deviceToken,
+        npub ?? undefined
+      ).catch((err) => {
         console.warn('[ExpoNotificationProvider] Broadcast registration failed:', err);
       });
     } catch (error) {

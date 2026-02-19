@@ -1048,6 +1048,16 @@ export class HealthKitService {
           profilePicture: profile.picture,
         });
         debugLog(`[HealthKit] Auto-submitted ${w.activityType} workout to Supabase: ${eventId}`);
+
+        // Auto-join RUNSTR competitions for this workout (fire-and-forget)
+        import('../competition/AutoJoinService').then(({ AutoJoinService }) => {
+          AutoJoinService.checkAndAutoJoin(
+            npub,
+            w.activityType || 'running',
+            new Date(w.startDate),
+            profile
+          ).catch(() => {});
+        }).catch(() => {});
       } catch (err) {
         console.warn(`[HealthKit] Failed to submit workout ${w.UUID}:`, err);
       }

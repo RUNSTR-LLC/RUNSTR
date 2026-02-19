@@ -4,6 +4,11 @@
  * when new workouts appear (e.g. from Apple Watch, Nike Run Club).
  * On wake, fetches new workouts and submits them to Supabase for
  * leaderboard tracking and auto-rewards.
+ *
+ * Includes:
+ * - GPS session guard (skip sync if active GPS tracking)
+ * - Step sync (query today's steps and submit to Supabase)
+ * - Auto-join RUNSTR competitions on new workout submission
  */
 
 import { Platform } from 'react-native';
@@ -15,6 +20,7 @@ let enableBackgroundDelivery: any;
 let subscribeToQuery: any;
 let unsubscribeFromQuery: any;
 let addQueryUpdateListener: any;
+let queryQuantitySamples: any;
 let HKUpdateFrequency: any;
 let HKWorkoutTypeIdentifier: string;
 
@@ -25,6 +31,7 @@ if (Platform.OS === 'ios') {
     subscribeToQuery = hk.subscribeToQuery;
     unsubscribeFromQuery = hk.unsubscribeFromQuery;
     addQueryUpdateListener = hk.default?.addQueryUpdateListener ?? hk.addQueryUpdateListener;
+    queryQuantitySamples = hk.default?.queryQuantitySamples ?? hk.queryQuantitySamples;
     HKUpdateFrequency = hk.HKUpdateFrequency;
     HKWorkoutTypeIdentifier = 'HKWorkoutTypeIdentifier';
   } catch (e) {
@@ -34,6 +41,7 @@ if (Platform.OS === 'ios') {
 
 const SUBMITTED_IDS_KEY = '@healthkit_bg:submitted_ids';
 const MAX_STORED_IDS = 500;
+const SESSION_STATE_KEY = '@runstr:session_state';
 
 export class HealthKitBackgroundService {
   private static instance: HealthKitBackgroundService;
@@ -53,6 +61,7 @@ export class HealthKitBackgroundService {
   /**
    * Register for HealthKit background delivery.
    * Must be called on every app launch (iOS requirement).
+   * Kept as safety-net backup; HealthKitBackgroundTask.ts provides early registration.
    */
   async setupBackgroundDelivery(): Promise<void> {
     if (Platform.OS !== 'ios') return;
@@ -63,18 +72,15 @@ export class HealthKitBackgroundService {
     }
 
     try {
-      // 1. Enable background delivery for workouts (immediate frequency)
       const enabled = await enableBackgroundDelivery(
         HKWorkoutTypeIdentifier,
         HKUpdateFrequency.immediate,
       );
       console.log(`[HKBackground] enableBackgroundDelivery: ${enabled}`);
 
-      // 2. Subscribe to workout query updates
       this.queryId = await subscribeToQuery(HKWorkoutTypeIdentifier);
       console.log(`[HKBackground] subscribeToQuery: ${this.queryId}`);
 
-      // 3. Listen for query update events
       this.listener = addQueryUpdateListener(this.handleWorkoutUpdate.bind(this));
       console.log('[HKBackground] Background delivery registered');
 
@@ -86,15 +92,30 @@ export class HealthKitBackgroundService {
 
   /**
    * Handle a workout update event from HealthKit observer query.
-   * Fetches recent workouts, deduplicates, and submits new ones to Supabase.
+   * Called by both HealthKitBackgroundTask (early registration) and
+   * setupBackgroundDelivery (safety-net registration).
+   *
+   * Guards:
+   * - Skips if no npub (not logged in)
+   * - Skips if GPS session is active (prevents conflicts)
+   *
+   * After workout sync, also syncs today's step count.
    */
-  private async handleWorkoutUpdate(_event: { typeIdentifier: string }): Promise<void> {
+  async handleWorkoutUpdate(_event: { typeIdentifier: string }): Promise<void> {
     console.log('[HKBackground] Workout update received');
 
     try {
       const npub = await AsyncStorage.getItem('@runstr:npub');
       if (!npub) {
         console.log('[HKBackground] No npub found, skipping');
+        return;
+      }
+
+      // GPS SESSION GUARD: Skip sync if user is actively tracking a workout
+      // This prevents HealthKit background sync from conflicting with live GPS tracking
+      const sessionGuardResult = await this.checkGPSSessionGuard();
+      if (sessionGuardResult) {
+        console.log(`[HKBackground] GPS session active, skipping sync: ${sessionGuardResult}`);
         return;
       }
 
@@ -105,6 +126,8 @@ export class HealthKitBackgroundService {
 
       if (!recentWorkouts || recentWorkouts.length === 0) {
         console.log('[HKBackground] No recent workouts found');
+        // Still sync steps even with no workouts
+        await this.syncTodaySteps(npub);
         return;
       }
 
@@ -121,6 +144,7 @@ export class HealthKitBackgroundService {
 
       if (newWorkouts.length === 0) {
         console.log('[HKBackground] No new cardio workouts to submit');
+        await this.syncTodaySteps(npub);
         return;
       }
 
@@ -155,6 +179,9 @@ export class HealthKitBackgroundService {
 
           submittedIds.add(w.id);
           console.log(`[HKBackground] Submitted ${w.type} workout: ${eventId}`);
+
+          // Auto-join RUNSTR competitions for this workout (fire-and-forget)
+          this.tryAutoJoin(npub, w.type, new Date(w.startTime), profile).catch(() => {});
         } catch (err) {
           console.warn(`[HKBackground] Failed to submit workout ${w.id}:`, err);
         }
@@ -162,8 +189,130 @@ export class HealthKitBackgroundService {
 
       // Persist updated submitted IDs
       await this.saveSubmittedIds(submittedIds);
+
+      // Sync today's step count after workout sync
+      await this.syncTodaySteps(npub);
     } catch (error) {
       console.error('[HKBackground] handleWorkoutUpdate error:', error);
+    }
+  }
+
+  /**
+   * Check if a GPS tracking session is active.
+   * Returns a reason string if sync should be skipped, null if safe to proceed.
+   */
+  private async checkGPSSessionGuard(): Promise<string | null> {
+    try {
+      const sessionStateStr = await AsyncStorage.getItem(SESSION_STATE_KEY);
+      if (!sessionStateStr) return null;
+
+      const sessionState = JSON.parse(sessionStateStr);
+      // Check if session is recent (within last 4 hours)
+      const sessionAge = Date.now() - (sessionState.startTime || 0);
+      if (sessionAge > 14400000) return null; // Stale session, safe to sync
+
+      return `${sessionState.activityType || 'unknown'} session active`;
+    } catch {
+      return null; // Parse error = no valid session, safe to sync
+    }
+  }
+
+  /**
+   * Sync today's step count from HealthKit to Supabase.
+   * Uses upsert via steps_ event ID prefix (server handles dedup).
+   */
+  private async syncTodaySteps(npub: string): Promise<void> {
+    try {
+      if (!queryQuantitySamples) {
+        console.log('[HKBackground] queryQuantitySamples not available, skipping step sync');
+        return;
+      }
+
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      const stepSamples = await queryQuantitySamples(
+        'HKQuantityTypeIdentifierStepCount',
+        {
+          from: startOfDay,
+          to: now,
+        }
+      );
+
+      if (!stepSamples || stepSamples.length === 0) {
+        console.log('[HKBackground] No step data today');
+        return;
+      }
+
+      // Aggregate total steps from all sources
+      let totalSteps = 0;
+      for (const sample of stepSamples) {
+        const qty = sample.quantity ?? sample.value ?? 0;
+        totalSteps += typeof qty === 'number' ? qty : 0;
+      }
+
+      if (totalSteps <= 0) {
+        console.log('[HKBackground] Zero steps today');
+        return;
+      }
+
+      // Estimate distance from steps (avg stride 0.762m)
+      const estimatedDistanceMeters = Math.round(totalSteps * 0.762);
+
+      const dateStr = startOfDay.toISOString().split('T')[0]; // YYYY-MM-DD
+      const eventId = `steps_${npub}_${dateStr}`;
+
+      const { SupabaseCompetitionService } = await import(
+        '../backend/SupabaseCompetitionService'
+      );
+      const { buildRewardTags } = await import('../../utils/rewardTags');
+      const rewardTags = await buildRewardTags();
+      const profile = await this.getCachedProfile();
+
+      await SupabaseCompetitionService.submitWorkoutSimple({
+        eventId,
+        npub,
+        type: 'walking',
+        distance: estimatedDistanceMeters,
+        duration: 0,
+        calories: 0,
+        startTime: startOfDay.toISOString(),
+        tags: [
+          ...rewardTags,
+          ['steps', String(totalSteps)],
+        ],
+        profileName: profile.name,
+        profilePicture: profile.picture,
+      });
+
+      console.log(`[HKBackground] Step sync: ${totalSteps} steps (${eventId})`);
+    } catch (error) {
+      console.warn('[HKBackground] Step sync error:', error);
+    }
+  }
+
+  /**
+   * Try to auto-join RUNSTR competitions for a submitted workout.
+   */
+  private async tryAutoJoin(
+    npub: string,
+    workoutType: string,
+    workoutDate: Date,
+    profile: { name?: string; picture?: string }
+  ): Promise<void> {
+    try {
+      const { AutoJoinService } = await import('../competition/AutoJoinService');
+      const result = await AutoJoinService.checkAndAutoJoin(
+        npub,
+        workoutType,
+        workoutDate,
+        profile
+      );
+      if (result.joined.length > 0) {
+        console.log(`[HKBackground] Auto-joined competitions: ${result.joined.join(', ')}`);
+      }
+    } catch (err) {
+      // Silent - auto-join is best-effort
     }
   }
 
@@ -200,7 +349,6 @@ export class HealthKitBackgroundService {
   private async saveSubmittedIds(ids: Set<string>): Promise<void> {
     try {
       const arr = Array.from(ids);
-      // Keep only the most recent IDs to avoid unbounded storage growth
       const trimmed = arr.slice(-MAX_STORED_IDS);
       await AsyncStorage.setItem(SUBMITTED_IDS_KEY, JSON.stringify(trimmed));
     } catch (error) {

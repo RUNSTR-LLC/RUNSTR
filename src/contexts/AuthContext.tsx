@@ -10,7 +10,9 @@ import React, {
   useEffect,
   useCallback,
   useMemo,
+  useRef,
 } from 'react';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthService } from '../services/auth/authService';
 import { getNpubFromStorage, getUserNostrIdentifiers } from '../utils/nostr';
@@ -67,6 +69,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   );
   const [isConnected, setIsConnected] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
+
+  // Track cache subscription to prevent leaks on repeated calls
+  const cacheUnsubscribeRef = useRef<(() => void) | null>(null);
 
   /**
    * Check for stored credentials (FAST - no network calls)
@@ -144,8 +149,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setConnectionStatus('Connected');
           NostrFetchLogger.end('AuthContext.checkStoredCredentials', 1, 'cached user');
 
-          // Subscribe to profile updates
-          unifiedCache.subscribe(
+          // Subscribe to profile updates (cleanup previous subscription first)
+          cacheUnsubscribeRef.current?.();
+          cacheUnsubscribeRef.current = unifiedCache.subscribe(
             CacheKeys.USER_PROFILE(hexPubkey),
             (updatedUser) => {
               console.log('🔄 AuthContext: User profile updated from cache');
@@ -691,6 +697,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
 
     initializeAuth();
+
+    return () => {
+      // Cleanup cache subscription on unmount
+      cacheUnsubscribeRef.current?.();
+    };
   }, [checkStoredCredentials]);
 
   // Sync health platform workouts on app foreground and cold start
@@ -718,6 +729,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       clearTimeout(timer);
       unsubscribe();
     };
+  }, [isAuthenticated, isInitializing]);
+
+  // Register Android background fetch on login, unregister on logout
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+
+    const { BackgroundSyncRegistration } = require('../services/fitness/BackgroundSyncRegistration');
+
+    if (isAuthenticated && !isInitializing) {
+      BackgroundSyncRegistration.register().catch(() => {});
+    } else if (isAuthenticated === false) {
+      BackgroundSyncRegistration.unregister().catch(() => {});
+    }
   }, [isAuthenticated, isInitializing]);
 
   // Register push token_key so the external zapping tool can send reward notifications.
