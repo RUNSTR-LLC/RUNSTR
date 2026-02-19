@@ -68,6 +68,7 @@ import { WalletConfigModal } from '../components/wallet/WalletConfigModal';
 import { NWCQRConfirmationModal } from '../components/wallet/NWCQRConfirmationModal';
 import { QRScannerModal } from '../components/qr/QRScannerModal';
 import type { QRData } from '../services/qr/QRCodeService';
+import { AgentSkillSetupModal } from '../components/settings/AgentSkillSetupModal';
 // useAuth removed - using direct AsyncStorage.clear() + CommonActions.reset()
 
 interface SettingsScreenProps {
@@ -162,6 +163,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [showQRScannerModal, setShowQRScannerModal] = useState(false);
   const [showNWCQRConfirmModal, setShowNWCQRConfirmModal] = useState(false);
   const [scannedNWCString, setScannedNWCString] = useState('');
+  const [showAgentSkillModal, setShowAgentSkillModal] = useState(false);
 
   // Rewards settings state (Lightning address removed - now in Teams tab)
 
@@ -1192,6 +1194,28 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </SettingsAccordion>
         </View>
 
+        {/* AI Agent Skill */}
+        <View style={styles.section}>
+          <SettingsAccordion title="AI AGENT" defaultExpanded={false}>
+            <Card style={styles.accordionCard}>
+              <SettingItem
+                title="RUNSTR Fitness Skill"
+                subtitle="Connect your AI agent to your fitness data"
+                onPress={() => setShowAgentSkillModal(true)}
+                rightElement={
+                  <View style={styles.securityIcon}>
+                    <Ionicons
+                      name="hardware-chip-outline"
+                      size={20}
+                      color={theme.colors.textMuted}
+                    />
+                  </View>
+                }
+              />
+            </Card>
+          </SettingsAccordion>
+        </View>
+
         {/* Support & Legal Accordion */}
         <View style={styles.section}>
           <SettingsAccordion title={t('supportAndLegal')} defaultExpanded={false}>
@@ -1290,6 +1314,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       <ImportDataModal
         visible={showImportModal}
         onClose={() => setShowImportModal(false)}
+      />
+
+      {/* Agent Skill Setup Modal */}
+      <AgentSkillSetupModal
+        visible={showAgentSkillModal}
+        onClose={() => setShowAgentSkillModal(false)}
       />
 
       {/* Default Activity Picker Modal */}
