@@ -2,7 +2,7 @@
 
 All notable changes to RUNSTR will be documented in this file.
 
-## [1.7.0] - 2026-02-16 - Clubs, RLS Fixes & Atomic Operations
+## [1.7.0] - 2026-02-19 - Clubs, Events, Stability & Audit Fixes
 
 ### Clubs System
 - User-created clubs with captain/member roles
@@ -10,16 +10,67 @@ All notable changes to RUNSTR will be documented in this file.
 - Club chat with Supabase Realtime
 - Captain tools: transfer captainship, remove members
 - Membership reconciliation detects stale state every 5 minutes
+- Club events: captains can create competitions for their club members
+- Club event wizard with activity type selection and prize pool
 
-### Database Fixes (Migration 137)
-- Added UPDATE + DELETE RLS policies on user_teams (fixes silent failures on club edits, deactivation)
-- Added UPDATE RLS policy on club_memberships (fixes silent failures on captain transfer)
+### Club Events
+- Connected clubs and events systems — club captains create events from club page
+- Club event UX hardening: leaderboard query fixes, auto-join feedback, club badges, gate UX
+- Club event creation modal with subscription gating
+- Dynamic event cards show club branding
+
+### Reward Destination & PPQ.AI
+- PPQ.AI reward destination with bolt11 invoice creation for AI credits
+- PPQ.AI account creation resilience with website fallback
+- Reward destination picker redesigned with clearer options
+- "How It Works" section updated with charity-aware descriptions
+- Removed Bitcoin mention in reward UI, says "Lightning wallet" instead
+
+### NWC Wallet
+- Re-enabled NWC wallet connection with 4-layer integration
+- NWC QR code scanning and manual connection string support
+
+### Activity Tracker Stability (Issue #28)
+- Fixed white screen crash during long workouts (~5km / 30+ min)
+- Zombie session cleanup now calls Location API directly instead of no-oping on fresh singleton
+- Background task heartbeat write wrapped in try-catch (prevents JS bridge crash)
+- Auto-recovery window extended from 5 to 15 minutes (aligns with checkpoint window)
+- Black background during app initialization instead of white flash
+- Fixed stale calorie calculations in Walking and Hiking trackers (closure bug)
+
+### Codebase Audit Fixes
+- Logout now clears selected team and charity stats (prevents cross-user contamination)
+- Tied ranking in leaderboards — equal scores share the same rank
+- Case-insensitive activity type matching in competition queries
+- Daily reward race condition lock prevents double-claiming
+- UTC-consistent date comparison for reward eligibility
+- CharitySelectionService aligned with correct AsyncStorage key
+
+### Cloud Backup (Issue #31)
+- PPQ.AI credentials (API key and credit ID) now included in encrypted Nostr backup
+- Credentials restored on device switch (only if not already set locally)
+
+### Push Notifications
+- Wired claim-reward edge function to notify-user push notifications
+- RUNSTR Fitness skill link added to Settings alongside GitHub
+
+### UI & Theme
+- Enforced orange-only dark theme across entire app — removed all off-theme colors
+- AI Agent setup section added to Settings
+- Simplified PPQ.AI descriptions to "AI credits"
+
+### Database Fixes (Migration 137+)
+- Added UPDATE + DELETE RLS policies on user_teams
+- Added UPDATE RLS policy on club_memberships
 - Added atomic adjust_member_count() RPC function (eliminates race conditions)
+- Fixed club image migrations
 
-### Code Improvements
+### Infrastructure
+- Background-first architecture (4 phases) for faster app startup
+- Health Connect double-counting fix + global crash handlers
 - ClubMembershipService uses atomic RPC for all member_count changes
 - Promote-first captain transfer order prevents 0-captain states
-- Club switch with recovery re-joins original club on failure
+- 249 lines of dead code removed from workoutPublishingService
 
 ## [1.6.9] - 2026-02-09 - Subscriptions, Leaderboard Fixes & Auto-Submission
 
