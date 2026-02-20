@@ -24,6 +24,7 @@ import { SecureNsecStorage } from '../../services/auth/SecureNsecStorage';
 import { PPQAccountService } from '../../services/ai/PPQAccountService';
 
 const SKILL_GITHUB_URL = 'https://github.com/RUNSTR-LLC/runstr-fitness-skill';
+const SKILL_CLAWHUB_URL = 'https://clawhub.ai/TheWildHustle/runstr-fitness';
 const SKILL_INSTALL_CMD = 'claude skill install RUNSTR-LLC/runstr-fitness-skill';
 
 interface AgentSkillSetupModalProps {
@@ -150,9 +151,15 @@ export const AgentSkillSetupModal: React.FC<AgentSkillSetupModalProps> = ({
                 <Text style={styles.codeText}>{SKILL_INSTALL_CMD}</Text>
                 <Ionicons name="copy-outline" size={18} color={theme.colors.textMuted} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={openGitHub} activeOpacity={0.7}>
-                <Text style={styles.linkText}>View on GitHub</Text>
-              </TouchableOpacity>
+              <View style={styles.linkRow}>
+                <TouchableOpacity onPress={openGitHub} activeOpacity={0.7}>
+                  <Text style={styles.linkText}>GitHub</Text>
+                </TouchableOpacity>
+                <Text style={styles.linkSeparator}>|</Text>
+                <TouchableOpacity onPress={() => Linking.openURL(SKILL_CLAWHUB_URL)} activeOpacity={0.7}>
+                  <Text style={styles.linkText}>ClawHub</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Step 2: Copy nsec */}
@@ -421,10 +428,19 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 8,
   },
+  linkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 34,
+    gap: 8,
+  },
   linkText: {
     fontSize: 13,
     color: theme.colors.orangeBright,
-    marginLeft: 34,
+  },
+  linkSeparator: {
+    fontSize: 13,
+    color: theme.colors.textMuted,
   },
   credentialContainer: {
     marginLeft: 34,
