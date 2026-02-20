@@ -129,9 +129,10 @@
           },
           "android": {
             "newArchEnabled": true,
-            "compileSdkVersion": 34,
+            "compileSdkVersion": 35,
             "targetSdkVersion": 34,
-            "minSdkVersion": 26
+            "minSdkVersion": 26,
+            "kotlinVersion": "2.0.21"
           }
         }
       ],
@@ -183,6 +184,7 @@
       ["expo-background-fetch"],
       ["expo-health-connect", { "requestPermissionsOnLaunch": false }],
       "./plugins/withHealthConnect",
+      "./plugins/withKspVersion",
       [
         "expo-android-pedometer",
         {
