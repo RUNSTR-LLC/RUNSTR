@@ -473,7 +473,7 @@ const styles = StyleSheet.create({
   launchScannerButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: theme.colors.accentText,
+    color: theme.colors.background,
     textAlign: 'center',
   },
   useFallbackButton: {

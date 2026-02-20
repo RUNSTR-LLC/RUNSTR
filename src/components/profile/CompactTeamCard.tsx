@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
   },
 
   captainBadge: {
-    backgroundColor: theme.colors.accent, // #ffffff
+    backgroundColor: theme.colors.text, // #ffffff
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
   captainBadgeText: {
     fontSize: 9,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.accentText, // #000000
+    color: theme.colors.background, // #000000
     letterSpacing: 0.5,
   },
 
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
   },
 
   memberBadge: {
-    backgroundColor: theme.colors.accent, // #ffffff
+    backgroundColor: theme.colors.text, // #ffffff
     paddingHorizontal: 6,
     paddingVertical: 4,
     borderRadius: 4,
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
   memberBadgeText: {
     fontSize: 9,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.accentText, // #000000
+    color: theme.colors.background, // #000000
     letterSpacing: 0.5,
   },
 });

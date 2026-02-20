@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
   defaultText: {
     fontSize: 16,
     fontWeight: '600',
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
   // Active text style
   activeText: {

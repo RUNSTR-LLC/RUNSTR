@@ -1104,7 +1104,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.accent + '15',
+    backgroundColor: '#111111',
     paddingVertical: 8,
     paddingHorizontal: 16,
     marginHorizontal: 16,

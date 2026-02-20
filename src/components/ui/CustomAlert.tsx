@@ -84,12 +84,19 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
           {/* Message */}
           {message && <Text style={styles.message}>{message}</Text>}
 
-          {/* Buttons */}
-          <View style={styles.buttonContainer}>
+          {/* Buttons - stack vertically for 3+, row for 1-2 */}
+          <View style={[
+            styles.buttonContainer,
+            buttons.length >= 3 && styles.buttonContainerVertical,
+          ]}>
             {buttons.map((button, index) => (
               <TouchableOpacity
                 key={index}
-                style={[styles.button, getButtonStyle(button.style)]}
+                style={[
+                  styles.button,
+                  getButtonStyle(button.style),
+                  buttons.length >= 3 && styles.buttonFullWidth,
+                ]}
                 onPress={() => handleButtonPress(button)}
                 activeOpacity={0.7}
               >
@@ -214,6 +221,10 @@ const styles = StyleSheet.create({
     gap: 12,
     justifyContent: 'center',
   },
+  buttonContainerVertical: {
+    flexDirection: 'column',
+    gap: 10,
+  },
   button: {
     flex: 1,
     paddingVertical: 12,
@@ -221,6 +232,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  buttonFullWidth: {
+    flex: 0,
+    width: '100%',
   },
   defaultButton: {
     backgroundColor: theme.colors.orangeDeep, // Deep orange
@@ -246,6 +261,6 @@ const styles = StyleSheet.create({
     color: theme.colors.text, // Light orange text for visibility on dark background
   },
   destructiveButtonText: {
-    color: theme.colors.accentText, // Black text on orange
+    color: theme.colors.background, // Black text on orange
   },
 });

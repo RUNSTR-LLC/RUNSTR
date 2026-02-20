@@ -20,6 +20,7 @@ import { ClubCard } from '../components/club/ClubCard';
 import { SubscriptionService } from '../services/backend/SubscriptionService';
 import { SubscriptionInfoModal } from '../components/subscription/SubscriptionInfoModal';
 import { SimpleTeamCreationModal } from '../components/subscription/SimpleTeamCreationModal';
+import { nostrProfileService, NostrProfile } from '../services/nostr/NostrProfileService';
 
 const ClubsScreenComponent: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -35,6 +36,7 @@ const ClubsScreenComponent: React.FC = () => {
   const [showSubscriptionInfo, setShowSubscriptionInfo] = useState(false);
   const [showCreateClub, setShowCreateClub] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
+  const [captainProfiles, setCaptainProfiles] = useState<Map<string, NostrProfile>>(new Map());
 
   /** Load all clubs and the user's current club. */
   const loadData = useCallback(async () => {
@@ -45,6 +47,16 @@ const ClubsScreenComponent: React.FC = () => {
       // Fetch all clubs
       const allClubs = await ClubService.fetchActiveClubs();
       setClubs(allClubs);
+
+      // Batch-fetch captain Nostr profiles (non-blocking)
+      const captainNpubs = [...new Set(allClubs.map((c) => c.created_by_npub).filter(Boolean))];
+      if (captainNpubs.length > 0) {
+        nostrProfileService.getProfiles(captainNpubs).then((profiles) => {
+          setCaptainProfiles(profiles);
+        }).catch((err) => {
+          console.warn('[ClubsScreen] Failed to fetch captain profiles:', err);
+        });
+      }
 
       // Get user's current club ID
       if (npub) {
@@ -192,6 +204,15 @@ const ClubsScreenComponent: React.FC = () => {
     await loadData();
   }, [loadData]);
 
+  // Helper to get captain display name and picture from fetched profiles
+  const getCaptainInfo = useCallback((npub: string) => {
+    const profile = captainProfiles.get(npub);
+    return {
+      name: profile?.display_name || profile?.name || undefined,
+      picture: profile?.picture || undefined,
+    };
+  }, [captainProfiles]);
+
   const filteredClubs = searchQuery.trim()
     ? clubs.filter((c) =>
         c.name.toLowerCase().includes(searchQuery.trim().toLowerCase())
@@ -242,6 +263,8 @@ const ClubsScreenComponent: React.FC = () => {
               isCurrentClub={true}
               onPress={() => handleClubPress(myClub)}
               onJoinPress={() => {}}
+              captainName={getCaptainInfo(myClub.created_by_npub).name}
+              captainPictureUrl={getCaptainInfo(myClub.created_by_npub).picture}
             />
             <TouchableOpacity
               style={styles.leaveButton}
@@ -335,6 +358,7 @@ const ClubsScreenComponent: React.FC = () => {
               const isMyClub = myClub?.id === club.id;
               const isCaptain =
                 isMyClub && myRole === 'captain';
+              const captainInfo = getCaptainInfo(club.created_by_npub);
 
               return (
                 <ClubCard
@@ -345,6 +369,8 @@ const ClubsScreenComponent: React.FC = () => {
                   isCurrentClub={isMyClub}
                   onPress={() => handleClubPress(club)}
                   onJoinPress={() => handleJoinPress(club)}
+                  captainName={captainInfo.name}
+                  captainPictureUrl={captainInfo.picture}
                 />
               );
             })}

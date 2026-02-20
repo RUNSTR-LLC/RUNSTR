@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
   },
   joinButton: {
     borderWidth: 1,
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.text,
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 6,

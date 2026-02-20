@@ -272,7 +272,9 @@ const styles = StyleSheet.create({
   betSection: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: `${theme.colors.accent}15`,
+    backgroundColor: '#111111',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     borderRadius: 12,
     padding: 14,
     marginBottom: 20,
@@ -281,7 +283,7 @@ const styles = StyleSheet.create({
   betText: {
     flex: 1,
     fontSize: 14,
-    color: theme.colors.accent,
+    color: theme.colors.textMuted,
     fontWeight: theme.typography.weights.medium,
     lineHeight: 20,
   },
@@ -294,11 +296,11 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   tierCardHighlighted: {
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.text,
     borderWidth: 2,
   },
   recommendedBadge: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     alignSelf: 'flex-start',
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -345,8 +347,8 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   ctaButtonHighlighted: {
-    backgroundColor: theme.colors.accent,
-    borderColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
+    borderColor: theme.colors.text,
   },
   ctaButtonText: {
     fontSize: 15,

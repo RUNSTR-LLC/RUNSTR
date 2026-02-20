@@ -70,11 +70,11 @@ export const RunningBitcoinEventCard: React.FC<RunningBitcoinEventCardProps> = (
   const getStatusStyles = () => {
     switch (status) {
       case 'active':
-        return { backgroundColor: theme.colors.accent };
+        return { backgroundColor: '#111111', borderWidth: 1, borderColor: theme.colors.text };
       case 'upcoming':
-        return { backgroundColor: theme.colors.accent };
+        return { backgroundColor: '#111111', borderWidth: 1, borderColor: theme.colors.textMuted };
       case 'ended':
-        return { backgroundColor: theme.colors.textMuted };
+        return { backgroundColor: '#111111', borderWidth: 1, borderColor: '#333' };
     }
   };
 
@@ -160,7 +160,7 @@ export const RunningBitcoinEventCard: React.FC<RunningBitcoinEventCardProps> = (
           {/* Participant Count */}
           {activeParticipants > 0 && (
             <View style={styles.tag}>
-              <Ionicons name="people-outline" size={12} color={theme.colors.accent} />
+              <Ionicons name="people-outline" size={12} color={theme.colors.textMuted} />
               <Text style={styles.tagText}>{activeParticipants}</Text>
             </View>
           )}
@@ -168,7 +168,7 @@ export const RunningBitcoinEventCard: React.FC<RunningBitcoinEventCardProps> = (
           {/* Finisher Count */}
           {finisherCount > 0 && (
             <View style={styles.tag}>
-              <Ionicons name="trophy" size={12} color={theme.colors.accent} />
+              <Ionicons name="trophy" size={12} color={theme.colors.textMuted} />
               <Text style={styles.tagText}>
                 {finisherCount} Finisher{finisherCount !== 1 ? 's' : ''}
               </Text>
@@ -177,7 +177,7 @@ export const RunningBitcoinEventCard: React.FC<RunningBitcoinEventCardProps> = (
 
           {/* Reward Info */}
           <View style={styles.tag}>
-            <Ionicons name="flash" size={12} color={theme.colors.accent} />
+            <Ionicons name="flash" size={12} color={theme.colors.textMuted} />
             <Text style={styles.tagText}>
               {RUNNING_BITCOIN_CONFIG.finisherRewardSats.toLocaleString()} sats/finisher
             </Text>
@@ -185,7 +185,7 @@ export const RunningBitcoinEventCard: React.FC<RunningBitcoinEventCardProps> = (
 
           {/* Charity Tag */}
           <View style={styles.tag}>
-            <Ionicons name="heart" size={12} color={theme.colors.accent} />
+            <Ionicons name="heart" size={12} color={theme.colors.textMuted} />
             <Text style={styles.tagText}>ALS Network</Text>
           </View>
         </View>
@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 10,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.background,
+    color: theme.colors.text,
   },
   content: {
     padding: 12,
@@ -272,7 +272,9 @@ const styles = StyleSheet.create({
   tag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: `${theme.colors.accent}20`,
+    backgroundColor: '#111111',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
@@ -280,7 +282,7 @@ const styles = StyleSheet.create({
   },
   tagText: {
     fontSize: 12,
-    color: theme.colors.accent,
+    color: theme.colors.textMuted,
     fontWeight: theme.typography.weights.medium,
   },
 });

@@ -293,13 +293,13 @@ export const GarminHealthTab: React.FC<GarminHealthTabProps> = ({
             disabled={isPostingThis}
           >
             {isPostingPost ? (
-              <ActivityIndicator size="small" color={theme.colors.accentText} />
+              <ActivityIndicator size="small" color={theme.colors.background} />
             ) : (
               <>
                 <Ionicons
                   name="bookmark-outline"
                   size={16}
-                  color={theme.colors.accentText}
+                  color={theme.colors.background}
                 />
                 <Text style={styles.postButtonText}>Share</Text>
               </>
@@ -317,13 +317,13 @@ export const GarminHealthTab: React.FC<GarminHealthTabProps> = ({
             disabled={isPostingThis}
           >
             {isPostingCompete ? (
-              <ActivityIndicator size="small" color={theme.colors.accentText} />
+              <ActivityIndicator size="small" color={theme.colors.background} />
             ) : (
               <>
                 <Ionicons
                   name="cloud-upload-outline"
                   size={16}
-                  color={theme.colors.accentText}
+                  color={theme.colors.background}
                 />
                 <Text style={styles.publicButtonText}>Compete</Text>
               </>
@@ -364,7 +364,7 @@ export const GarminHealthTab: React.FC<GarminHealthTabProps> = ({
             <Ionicons
               name="logo-google"
               size={20}
-              color={theme.colors.accentText}
+              color={theme.colors.background}
               style={{ marginRight: 8 }}
             />
             <Text style={styles.connectButtonText}>Connect Garmin</Text>
@@ -390,7 +390,7 @@ export const GarminHealthTab: React.FC<GarminHealthTabProps> = ({
           <Ionicons
             name={isSyncing ? 'sync' : 'cloud-download-outline'}
             size={18}
-            color={theme.colors.accentText}
+            color={theme.colors.background}
           />
           <Text style={styles.syncButtonText}>
             {isSyncing ? 'Syncing...' : 'Sync'}
@@ -473,13 +473,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
   },
   syncButtonText: {
-    color: theme.colors.accentText,
+    color: theme.colors.background,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -509,21 +509,21 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   postButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
   },
   publicButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
   },
   buttonDisabled: {
-    opacity: 0.5,
+    opacity: 0.35,
   },
   postButtonText: {
-    color: theme.colors.accentText,
+    color: theme.colors.background,
     fontSize: 14,
     fontWeight: '600',
   },
   publicButtonText: {
-    color: theme.colors.accentText,
+    color: theme.colors.background,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -552,13 +552,13 @@ const styles = StyleSheet.create({
   connectButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
   },
   connectButtonText: {
-    color: theme.colors.accentText,
+    color: theme.colors.background,
     fontSize: 16,
     fontWeight: '600',
   },

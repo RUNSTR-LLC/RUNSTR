@@ -637,7 +637,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   connectWalletButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     borderRadius: theme.borderRadius.medium,
     paddingVertical: 12,
     paddingHorizontal: 32,
@@ -687,7 +687,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.error || '#FF6B00',
   },
   lightningAddressSaveButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     borderRadius: 8,
     padding: 10,
     alignItems: 'center',

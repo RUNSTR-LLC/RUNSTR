@@ -182,6 +182,6 @@ const styles = StyleSheet.create({
 
   // Completed status (matches HTML mockup .participant-status.completed)
   participantStatusCompleted: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
   },
 });

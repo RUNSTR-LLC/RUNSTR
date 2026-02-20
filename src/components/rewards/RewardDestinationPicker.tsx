@@ -3,8 +3,8 @@
  *
  * Allows users to choose where their 50-sat workout rewards go:
  * - YOU: Keep rewards (sent to user's Lightning address)
- * - SERVICES: PPQ.AI (AI credits), RUNSTR, Lightning News
- * - CHARITIES: ALS Network, HRF, Bitcoin Veterans
+ * - SERVICES: PPQ.AI (AI credits)
+ * - CHARITIES: ALS Network, HRF
  * - PROJECTS: Bitcoin circular economies worldwide
  *
  * Saves selection to @runstr:selected_team_id for backward compatibility.
@@ -25,10 +25,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import {
-  CHARITIES,
   getCharitiesByCategory,
   SELF_TEAM_ID,
-  PPQ_AI_TEAM_ID,
   isPPQTeam,
   isSelfTeam,
   Charity,
@@ -40,6 +38,10 @@ import { WalletConfigModal } from '../wallet/WalletConfigModal';
 import { QRScannerModal } from '../qr/QRScannerModal';
 import { NWCQRConfirmationModal } from '../wallet/NWCQRConfirmationModal';
 import type { QRData } from '../../services/qr/QRCodeService';
+import { useAuth } from '../../contexts/AuthContext';
+import { PPQAccountService } from '../../services/ai/PPQAccountService';
+import { PPQAccountSetupModal } from '../ai/PPQAccountSetupModal';
+import { PPQCreditTopupModal } from '../ai/PPQCreditTopupModal';
 
 const SELECTED_TEAM_KEY = '@runstr:selected_team_id';
 const REWARD_LIGHTNING_ADDRESS_KEY = '@runstr:reward_lightning_address';
@@ -57,10 +59,14 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
   selectedDestinationId,
   onSelectDestination,
 }) => {
+  const { currentUser } = useAuth();
   const [userLightningAddress, setUserLightningAddress] = useState<string | null>(null);
-  const [userName, setUserName] = useState<string>('You');
   const [showLightningSetupModal, setShowLightningSetupModal] = useState(false);
   const [pendingSelfSelection, setPendingSelfSelection] = useState(false);
+
+  // PPQ.AI top-up state
+  const [showPPQSetupModal, setShowPPQSetupModal] = useState(false);
+  const [showPPQTopupModal, setShowPPQTopupModal] = useState(false);
 
   // NWC wallet state
   const [hasNWCWallet, setHasNWCWallet] = useState(false);
@@ -79,13 +85,11 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
 
   const loadUserData = async () => {
     try {
-      const [address, name, nwcAvailable] = await Promise.all([
+      const [address, nwcAvailable] = await Promise.all([
         AsyncStorage.getItem(REWARD_LIGHTNING_ADDRESS_KEY),
-        AsyncStorage.getItem('@runstr:user_display_name'),
         NWCStorageService.hasNWC(),
       ]);
       setUserLightningAddress(address);
-      if (name) setUserName(name);
       setHasNWCWallet(nwcAvailable);
     } catch (error) {
       console.error('[RewardDestinationPicker] Failed to load user data:', error);
@@ -95,16 +99,11 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
   const handleSelect = useCallback(
     async (destinationId: string) => {
       try {
-        // Guard: Self selection requires a Lightning address or NWC wallet
+        // Self selection always shows wallet choice modal so user can set up or change
         if (isSelfTeam(destinationId)) {
-          const hasAddress = await RewardLightningAddressService.hasRewardLightningAddress();
-          const hasNWC = await NWCStorageService.hasNWC();
-          if (!hasAddress && !hasNWC) {
-            setPendingSelfSelection(true);
-            setShowWalletChoiceModal(true);
-            return;
-          }
-          console.log('[RewardDestinationPicker] Self selected (Lightning address or NWC exists)');
+          setPendingSelfSelection(true);
+          setShowWalletChoiceModal(true);
+          return;
         }
 
         await AsyncStorage.setItem(SELECTED_TEAM_KEY, destinationId);
@@ -180,6 +179,21 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
     }
   }, [pendingSelfSelection, onSelectDestination]);
 
+  // PPQ.AI sparkle tap - open top-up if account exists, otherwise setup
+  const handlePPQSparklePress = useCallback(async () => {
+    const hasAccount = await PPQAccountService.hasAccount();
+    if (hasAccount) {
+      setShowPPQTopupModal(true);
+    } else {
+      setShowPPQSetupModal(true);
+    }
+  }, []);
+
+  const handlePPQSetupSuccess = useCallback(() => {
+    setShowPPQSetupModal(false);
+    setShowPPQTopupModal(true);
+  }, []);
+
   const handleZap = useCallback((charity: Charity) => {
     if (!charity.lightningAddress) return;
     Alert.alert(
@@ -194,9 +208,8 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
   const charities = getCharitiesByCategory('charity');
   const projects = getCharitiesByCategory('project');
 
-  // Separate PPQ from other services
+  // PPQ.AI is the only service
   const ppqService = services.find((s) => s.isPPQ);
-  const otherServices = services.filter((s) => !s.isPPQ);
 
   const isSelected = (id: string) => selectedDestinationId === id;
 
@@ -298,12 +311,18 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
             activeOpacity={0.7}
           >
             <View style={styles.avatarContainer}>
-              <View style={styles.selfAvatarFallback}>
-                <Ionicons name="person" size={24} color={theme.colors.orangeDeep} />
-              </View>
+              {currentUser?.picture ? (
+                <Image source={{ uri: currentUser.picture }} style={styles.avatarImage} />
+              ) : (
+                <View style={styles.selfAvatarFallback}>
+                  <Ionicons name="person-outline" size={24} color={theme.colors.orangeDeep} />
+                </View>
+              )}
             </View>
             <View style={styles.destinationInfo}>
-              <Text style={styles.destinationName}>{userName}</Text>
+              <Text style={styles.destinationName}>
+                {currentUser?.displayName || currentUser?.name || 'You'}
+              </Text>
               {userLightningAddress ? (
                 <Text style={styles.destinationDescription} numberOfLines={1}>
                   {userLightningAddress}
@@ -328,10 +347,47 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
             </View>
           </TouchableOpacity>
 
-          {/* SERVICES Section */}
+          {/* SERVICES Section - PPQ.AI only */}
           <Text style={styles.sectionLabel}>SERVICES</Text>
-          {ppqService && renderDestinationCard(ppqService, false)}
-          {otherServices.map((service) => renderDestinationCard(service))}
+          {ppqService && (
+            <TouchableOpacity
+              key={ppqService.id}
+              style={[styles.destinationCard, isSelected(ppqService.id) && styles.destinationCardSelected]}
+              onPress={() => handleSelect(ppqService.id)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.avatarContainer}>
+                {ppqService.image ? (
+                  <Image source={ppqService.image} style={styles.avatarImage} />
+                ) : (
+                  <View style={styles.avatarFallback}>
+                    <Ionicons name="globe-outline" size={24} color={theme.colors.textMuted} />
+                  </View>
+                )}
+              </View>
+              <View style={styles.destinationInfo}>
+                <Text style={styles.destinationName}>{ppqService.name}</Text>
+                <Text style={styles.destinationDescription}>{ppqService.description}</Text>
+              </View>
+              <View style={styles.actionsContainer}>
+                <TouchableOpacity
+                  style={styles.zapButton}
+                  onPress={handlePPQSparklePress}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="sparkles" size={18} color={theme.colors.orangeDeep} />
+                </TouchableOpacity>
+                {isSelected(ppqService.id) && (
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={22}
+                    color={theme.colors.orangeDeep}
+                    style={styles.checkIcon}
+                  />
+                )}
+              </View>
+            </TouchableOpacity>
+          )}
 
           {/* CHARITIES Section */}
           <Text style={styles.sectionLabel}>CHARITIES</Text>
@@ -370,7 +426,7 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
               style={styles.walletChoicePrimaryButton}
               onPress={handleWalletChoiceLightning}
             >
-              <Ionicons name="flash" size={18} color={theme.colors.accentText} style={{ marginRight: 8 }} />
+              <Ionicons name="flash" size={18} color={theme.colors.background} style={{ marginRight: 8 }} />
               <Text style={styles.walletChoicePrimaryText}>Lightning Address</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -418,6 +474,20 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
         onClose={() => { setShowNWCQRConfirmModal(false); setPendingSelfSelection(false); }}
         connectionString={scannedNWCString}
         onSuccess={handleNWCConnectSuccess}
+      />
+
+      {/* PPQ.AI Account Setup Modal */}
+      <PPQAccountSetupModal
+        visible={showPPQSetupModal}
+        onClose={() => setShowPPQSetupModal(false)}
+        onSuccess={handlePPQSetupSuccess}
+      />
+
+      {/* PPQ.AI Credit Top-up Modal */}
+      <PPQCreditTopupModal
+        visible={showPPQTopupModal}
+        onClose={() => setShowPPQTopupModal(false)}
+        onSuccess={() => setShowPPQTopupModal(false)}
       />
     </Modal>
   );
@@ -614,7 +684,7 @@ const styles = StyleSheet.create({
   },
   walletChoicePrimaryButton: {
     flexDirection: 'row' as const,
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center' as const,
@@ -624,12 +694,12 @@ const styles = StyleSheet.create({
   walletChoicePrimaryText: {
     fontSize: 16,
     fontWeight: '600' as const,
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
   walletChoiceSecondaryButton: {
     flexDirection: 'row' as const,
     borderWidth: 1,
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.text,
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center' as const,

@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 4,
     borderWidth: 1,
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.text,
   },
   privateIndicator: {
     flexDirection: 'row',

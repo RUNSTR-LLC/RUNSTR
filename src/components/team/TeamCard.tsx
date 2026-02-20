@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
   captainBadgeText: {
     fontSize: 9,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.accentText, // Black text on orange
+    color: theme.colors.background, // Black text on orange
     letterSpacing: 0.5,
   },
 
@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
   joinButtonText: {
     fontSize: 13,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.accentText, // Black text on orange button
+    color: theme.colors.background, // Black text on orange button
   },
 
   memberButtonText: {

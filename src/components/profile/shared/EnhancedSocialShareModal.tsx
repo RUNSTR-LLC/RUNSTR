@@ -527,7 +527,7 @@ export const EnhancedSocialShareModal: React.FC<EnhancedSocialShareModalProps> =
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator size="small" color={theme.colors.accentText} />
+                <ActivityIndicator size="small" color={theme.colors.background} />
               ) : (
                 <Text style={styles.doneButtonText}>
                   {onPostToNostr ? 'Post to Nostr' : 'Full Screen'}
@@ -784,7 +784,7 @@ const styles = StyleSheet.create({
   },
   // Button styles
   doneButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
@@ -793,7 +793,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   doneButtonText: {
-    color: theme.colors.accentText,
+    color: theme.colors.background,
     fontSize: 16,
     fontWeight: '600',
   },

@@ -500,10 +500,10 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
                 disabled={isPosting && postingType === 'nostr'}
               >
                 {isPosting && postingType === 'nostr' ? (
-                  <ActivityIndicator size="small" color="#FF9D42" />
+                  <ActivityIndicator size="small" color={theme.colors.textMuted} />
                 ) : (
                   <>
-                    <Ionicons name="trophy-outline" size={16} color="#FF9D42" />
+                    <Ionicons name="trophy-outline" size={16} color={theme.colors.text} />
                     <Text style={styles.competeButtonText}>Compete</Text>
                   </>
                 )}
@@ -684,10 +684,10 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: theme.colors.border,
   },
   filterChipActive: {
-    backgroundColor: '#FF9D42', borderColor: '#FF9D42',
+    backgroundColor: theme.colors.text, borderColor: theme.colors.text,
   },
   filterChipText: { color: theme.colors.textMuted, fontSize: 13, fontWeight: '500' },
-  filterChipTextActive: { color: '#000' },
+  filterChipTextActive: { color: theme.colors.background },
   list: { padding: 16, paddingBottom: 100 },
   footer: { marginTop: 16, marginBottom: 16, alignItems: 'center' },
   footerText: { color: theme.colors.text, fontSize: 14, fontWeight: '500' },
@@ -698,16 +698,16 @@ const styles = StyleSheet.create({
     flex: 1, flexDirection: 'row', alignItems: 'center',
     justifyContent: 'center', padding: 12, borderRadius: 8, gap: 8,
   },
-  postButton: { backgroundColor: '#FF9D42', flex: 1.5 },
+  postButton: { backgroundColor: theme.colors.text, flex: 1.5 },
   postButtonText: { color: '#000', fontSize: 14, fontWeight: '600' },
   competeButton: {
     backgroundColor: 'transparent',
-    borderWidth: 1, borderColor: '#FF9D42', flex: 1,
+    borderWidth: 1, borderColor: theme.colors.border, flex: 1,
   },
-  competeButtonText: { color: '#FF9D42', fontSize: 14, fontWeight: '600' },
+  competeButtonText: { color: theme.colors.text, fontSize: 14, fontWeight: '600' },
   deleteButton: {
-    backgroundColor: theme.colors.accent + '20',
-    borderWidth: 1, borderColor: theme.colors.accent, flex: 1,
+    backgroundColor: '#111111',
+    borderWidth: 1, borderColor: theme.colors.border, flex: 1,
   },
   emptyState: { padding: 32, alignItems: 'center', marginTop: 32, margin: 16 },
   emptyStateTitle: { color: theme.colors.text, fontSize: 18, fontWeight: '600', marginTop: 16, marginBottom: 8 },

@@ -200,7 +200,7 @@ export class ClubService {
    */
   static async updateClub(
     clubId: string,
-    updates: { description?: string; lightning_address?: string; banner_url?: string }
+    updates: { description?: string; lightning_address?: string; banner_url?: string; leaderboard_metric?: string }
   ): Promise<boolean> {
     if (!isSupabaseConfigured()) {
       console.warn('[ClubService] Supabase not configured');

@@ -182,14 +182,14 @@ const styles = StyleSheet.create({
   },
 
   refreshButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 6,
   },
 
   refreshButtonText: {
-    color: theme.colors.accentText,
+    color: theme.colors.background,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
   participationBadgeInPerson: {
     backgroundColor: '#000',
     borderWidth: 2,
-    borderColor: theme.colors.accent, // Orange
+    borderColor: theme.colors.text, // Orange
   },
 
   participationBadgeVirtual: {

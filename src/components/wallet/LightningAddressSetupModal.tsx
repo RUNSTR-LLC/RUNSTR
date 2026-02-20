@@ -98,7 +98,7 @@ export const LightningAddressSetupModal: React.FC<LightningAddressSetupModalProp
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerIcon}>
-              <Ionicons name="flash" size={24} color="#FF9D42" />
+              <Ionicons name="flash" size={24} color={theme.colors.text} />
             </View>
             <Text style={styles.title}>Lightning Address</Text>
             <TouchableOpacity
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 20,
     fontWeight: '700',
-    color: '#FFB366',
+    color: theme.colors.text,
   },
   closeButton: {
     padding: 4,
@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FF9D42',
+    backgroundColor: theme.colors.text,
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 10,
@@ -306,11 +306,10 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
+    color: theme.colors.background,
   },
   buttonDisabled: {
-    backgroundColor: '#3a3a3a',
-    opacity: 0.6,
+    opacity: 0.35,
   },
   errorContainer: {
     flexDirection: 'row',

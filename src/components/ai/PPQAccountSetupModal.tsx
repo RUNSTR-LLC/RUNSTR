@@ -145,7 +145,7 @@ export const PPQAccountSetupModal: React.FC<PPQAccountSetupModalProps> = ({
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerIcon}>
-              <Ionicons name="sparkles" size={24} color="#FF9D42" />
+              <Ionicons name="sparkles" size={24} color={theme.colors.text} />
             </View>
             <Text style={styles.title}>Set Up AI Credits</Text>
             <TouchableOpacity
@@ -299,9 +299,9 @@ export const PPQAccountSetupModal: React.FC<PPQAccountSetupModalProps> = ({
               style={styles.websiteFallback}
               onPress={handleOpenPPQWebsite}
             >
-              <Ionicons name="globe-outline" size={18} color="#FF9D42" />
+              <Ionicons name="globe-outline" size={18} color={theme.colors.textMuted} />
               <Text style={styles.websiteFallbackText}>Create account at ppq.ai</Text>
-              <Ionicons name="open-outline" size={14} color="#FF9D42" />
+              <Ionicons name="open-outline" size={14} color={theme.colors.textMuted} />
             </TouchableOpacity>
           )}
 
@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 20,
     fontWeight: '700',
-    color: '#FFB366',
+    color: theme.colors.text,
   },
   closeButton: {
     padding: 4,
@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FF9D42',
+    backgroundColor: theme.colors.text,
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 10,
@@ -400,11 +400,10 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
+    color: theme.colors.background,
   },
   buttonDisabled: {
-    backgroundColor: '#3a3a3a',
-    opacity: 0.6,
+    opacity: 0.35,
   },
   secondaryButton: {
     flexDirection: 'row',
@@ -489,7 +488,7 @@ const styles = StyleSheet.create({
   },
   websiteFallbackText: {
     fontSize: 14,
-    color: '#FF9D42',
+    color: theme.colors.textMuted,
     fontWeight: '500',
   },
   infoBox: {

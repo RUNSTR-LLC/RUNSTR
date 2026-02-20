@@ -70,11 +70,11 @@ export const EinundzwanzigEventCard: React.FC<EinundzwanzigEventCardProps> = ({
   const getStatusStyles = () => {
     switch (status) {
       case 'active':
-        return { backgroundColor: theme.colors.accent };
+        return { backgroundColor: '#111111', borderWidth: 1, borderColor: theme.colors.text };
       case 'upcoming':
-        return { backgroundColor: theme.colors.accent };
+        return { backgroundColor: '#111111', borderWidth: 1, borderColor: theme.colors.textMuted };
       case 'ended':
-        return { backgroundColor: theme.colors.textMuted };
+        return { backgroundColor: '#111111', borderWidth: 1, borderColor: '#333' };
     }
   };
 
@@ -160,14 +160,14 @@ export const EinundzwanzigEventCard: React.FC<EinundzwanzigEventCardProps> = ({
 
           {/* Charity Fundraiser Tag */}
           <View style={styles.tag}>
-            <Ionicons name="heart" size={12} color={theme.colors.accent} />
+            <Ionicons name="heart" size={12} color={theme.colors.textMuted} />
             <Text style={styles.tagText}>Charity Fundraiser</Text>
           </View>
 
           {/* Participant Count */}
           {totalParticipants > 0 && (
             <View style={styles.tag}>
-              <Ionicons name="people-outline" size={12} color={theme.colors.accent} />
+              <Ionicons name="people-outline" size={12} color={theme.colors.textMuted} />
               <Text style={styles.tagText}>{totalParticipants}</Text>
             </View>
           )}
@@ -175,7 +175,7 @@ export const EinundzwanzigEventCard: React.FC<EinundzwanzigEventCardProps> = ({
           {/* Active Charities */}
           {activeCharities > 0 && (
             <View style={styles.tag}>
-              <Ionicons name="heart-outline" size={12} color={theme.colors.accent} />
+              <Ionicons name="heart-outline" size={12} color={theme.colors.textMuted} />
               <Text style={styles.tagText}>
                 {activeCharities} {activeCharities === 1 ? 'Charity' : 'Charities'}
               </Text>
@@ -185,7 +185,7 @@ export const EinundzwanzigEventCard: React.FC<EinundzwanzigEventCardProps> = ({
           {/* Total Distance */}
           {totalDistance > 0 && (
             <View style={styles.tag}>
-              <Ionicons name="walk-outline" size={12} color={theme.colors.accent} />
+              <Ionicons name="walk-outline" size={12} color={theme.colors.textMuted} />
               <Text style={styles.tagText}>{totalDistance.toFixed(1)} km</Text>
             </View>
           )}
@@ -193,7 +193,7 @@ export const EinundzwanzigEventCard: React.FC<EinundzwanzigEventCardProps> = ({
           {/* Estimated Sats */}
           {totalSats > 0 && (
             <View style={styles.tag}>
-              <Ionicons name="flash" size={12} color={theme.colors.accent} />
+              <Ionicons name="flash" size={12} color={theme.colors.textMuted} />
               <Text style={styles.tagText}>
                 {totalSats.toLocaleString()} sats
               </Text>
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 10,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.background,
+    color: theme.colors.text,
   },
   content: {
     padding: 12,
@@ -283,7 +283,9 @@ const styles = StyleSheet.create({
   tag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: `${theme.colors.accent}20`,
+    backgroundColor: '#111111',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
@@ -291,7 +293,7 @@ const styles = StyleSheet.create({
   },
   tagText: {
     fontSize: 12,
-    color: theme.colors.accent,
+    color: theme.colors.textMuted,
     fontWeight: theme.typography.weights.medium,
   },
 });

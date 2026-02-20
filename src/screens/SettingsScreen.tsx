@@ -1121,12 +1121,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                           flex: 1,
                           paddingVertical: 12,
                           borderRadius: 8,
-                          backgroundColor: theme.colors.accent,
+                          backgroundColor: theme.colors.text,
                           alignItems: 'center',
                         }}
                         onPress={() => setShowWalletConfigModal(true)}
                       >
-                        <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.accentText }}>
+                        <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.background }}>
                           Paste NWC
                         </Text>
                       </TouchableOpacity>
@@ -1136,7 +1136,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                           paddingVertical: 12,
                           borderRadius: 8,
                           borderWidth: 1,
-                          borderColor: theme.colors.accent,
+                          borderColor: theme.colors.text,
                           alignItems: 'center',
                         }}
                         onPress={() => setShowQRScannerModal(true)}
@@ -1555,7 +1555,7 @@ const styles = StyleSheet.create({
   signOutButtonText: {
     fontSize: 16,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.accentText, // Black text on orange
+    color: theme.colors.background, // Black text on orange
   },
 
   // Delete Account Button - matches LoginScreen button styling
@@ -1569,7 +1569,7 @@ const styles = StyleSheet.create({
   deleteAccountButtonText: {
     fontSize: 16,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.accentText, // Black text on orange
+    color: theme.colors.background, // Black text on orange
   },
 
   versionContainer: {
@@ -1744,7 +1744,7 @@ const styles = StyleSheet.create({
   disconnectWalletText: {
     fontSize: 14,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
 
   // Connect Wallet Styles
@@ -1770,7 +1770,7 @@ const styles = StyleSheet.create({
   },
 
   connectWalletButton: {
-    backgroundColor: theme.colors.accent, // Orange button
+    backgroundColor: theme.colors.text, // Orange button
     borderRadius: theme.borderRadius.medium,
     paddingVertical: 12,
     paddingHorizontal: 32,
@@ -1848,7 +1848,7 @@ const styles = StyleSheet.create({
   },
 
   lightningAddressSaveButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     borderRadius: 8,
     padding: 10,
     alignItems: 'center',

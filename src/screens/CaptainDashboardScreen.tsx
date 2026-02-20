@@ -1598,7 +1598,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 12,
@@ -1752,7 +1752,7 @@ const styles = StyleSheet.create({
   },
 
   createListButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
@@ -1765,7 +1765,7 @@ const styles = StyleSheet.create({
   createListButtonText: {
     fontSize: 14,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
 
   // Add member button
@@ -1779,7 +1779,7 @@ const styles = StyleSheet.create({
   addMemberButtonText: {
     fontSize: 14,
     fontWeight: theme.typography.weights.medium,
-    color: theme.colors.accentText, // Black text on light orange
+    color: theme.colors.background, // Black text on light orange
   },
 
   // Modal styles
@@ -1891,7 +1891,7 @@ const styles = StyleSheet.create({
   modalButtonText: {
     fontSize: 14,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
 
   modalButtonTextSecondary: {
@@ -2055,7 +2055,7 @@ const styles = StyleSheet.create({
   },
 
   saveButtonText: {
-    color: theme.colors.accentText, // Black text on light orange
+    color: theme.colors.background, // Black text on light orange
     fontSize: 16,
     fontWeight: theme.typography.weights.semiBold,
   },

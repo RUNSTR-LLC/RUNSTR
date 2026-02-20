@@ -120,13 +120,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   retryButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,
   },
   retryButtonText: {
-    color: theme.colors.accentText,
+    color: theme.colors.background,
     fontSize: 14,
     fontWeight: '600',
   },

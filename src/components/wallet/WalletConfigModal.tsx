@@ -295,14 +295,14 @@ export const WalletConfigModal: React.FC<WalletConfigModalProps> = ({
                 >
                   {isValidating ? (
                     <>
-                      <ActivityIndicator color={theme.colors.accentText} size="small" />
+                      <ActivityIndicator color={theme.colors.textMuted} size="small" />
                       <Text style={styles.connectButtonText}>
                         Saving...
                       </Text>
                     </>
                   ) : (
                     <>
-                      <Ionicons name="wallet" size={20} color="#000000" />
+                      <Ionicons name="wallet" size={20} color={theme.colors.background} />
                       <Text style={styles.connectButtonText}>
                         Save Wallet
                       </Text>
@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 2,
     borderLeftWidth: 2,
     borderRightWidth: 2,
-    borderColor: '#FF9D42',
+    borderColor: theme.colors.border,
     paddingTop: 24,
     paddingHorizontal: 24,
     maxHeight: '90%',
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
   explanationBox: {
     backgroundColor: theme.colors.cardBackground,
     borderWidth: 1,
-    borderColor: '#FF9D42',
+    borderColor: theme.colors.border,
     borderRadius: 12,
     padding: 16,
     marginBottom: 24,
@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
   explanationNote: {
     fontSize: 13,
     fontStyle: 'italic',
-    color: '#FF9D42',
+    color: theme.colors.textMuted,
     marginBottom: 0,
   },
   benefitsList: {
@@ -469,18 +469,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#FF9D42',
+    backgroundColor: theme.colors.text,
     paddingVertical: 16,
     borderRadius: 12,
     marginBottom: 12,
   },
   connectButtonDisabled: {
-    opacity: 0.5,
+    opacity: 0.35,
   },
   connectButtonText: {
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
-    color: '#000000',
+    color: theme.colors.background,
   },
   skipButton: {
     paddingVertical: 12,

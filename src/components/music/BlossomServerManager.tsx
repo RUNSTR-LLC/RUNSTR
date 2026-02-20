@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
   addButton: {
     paddingVertical: 8,
     paddingHorizontal: 20,
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     borderRadius: 6,
   },
   addButtonText: {

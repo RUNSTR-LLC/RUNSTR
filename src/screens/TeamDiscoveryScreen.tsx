@@ -729,14 +729,14 @@ const styles = StyleSheet.create({
   captainDashboardBtn: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
   },
 
   captainDashboardLabel: {
-    color: theme.colors.accentText,
+    color: theme.colors.background,
     fontSize: 12,
     fontWeight: theme.typography.weights.semiBold,
   },
@@ -1013,7 +1013,7 @@ const styles = StyleSheet.create({
   },
 
   filterPillTextActive: {
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
 
   // Category Section Styles

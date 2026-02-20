@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     borderRadius: 6,
     minWidth: '2%', // Show at least a small sliver
   },

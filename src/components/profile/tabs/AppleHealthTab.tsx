@@ -363,13 +363,13 @@ const AppleHealthTabContent: React.FC<AppleHealthTabProps> = ({
             disabled={isPostingThis}
           >
             {isPostingPost ? (
-              <ActivityIndicator size="small" color={theme.colors.accentText} />
+              <ActivityIndicator size="small" color={theme.colors.background} />
             ) : (
               <>
                 <Ionicons
                   name="bookmark-outline"
                   size={16}
-                  color={theme.colors.accentText}
+                  color={theme.colors.background}
                 />
                 <Text style={styles.postButtonText}>Share</Text>
               </>
@@ -387,13 +387,13 @@ const AppleHealthTabContent: React.FC<AppleHealthTabProps> = ({
             disabled={isPostingThis}
           >
             {isPostingCompete ? (
-              <ActivityIndicator size="small" color={theme.colors.accentText} />
+              <ActivityIndicator size="small" color={theme.colors.background} />
             ) : (
               <>
                 <Ionicons
                   name="cloud-upload-outline"
                   size={16}
-                  color={theme.colors.accentText}
+                  color={theme.colors.background}
                 />
                 <Text style={styles.publicButtonText}>Compete</Text>
               </>
@@ -505,21 +505,21 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   postButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
   },
   publicButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
   },
   buttonDisabled: {
-    opacity: 0.5,
+    opacity: 0.35,
   },
   postButtonText: {
-    color: theme.colors.accentText,
+    color: theme.colors.background,
     fontSize: 14,
     fontWeight: '600',
   },
   publicButtonText: {
-    color: theme.colors.accentText,
+    color: theme.colors.background,
     fontSize: 14,
     fontWeight: '600',
   },

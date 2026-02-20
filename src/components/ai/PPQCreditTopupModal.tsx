@@ -646,7 +646,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   presetButtonSelected: {
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.text,
     backgroundColor: 'rgba(255, 157, 66, 0.15)',
   },
   presetButtonText: {
@@ -687,7 +687,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   customAmountInputActive: {
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.text,
   },
   satsLabel: {
     fontSize: 16,
@@ -716,7 +716,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 16,
     borderRadius: theme.borderRadius.medium,
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
   },
   proceedButtonDisabled: {
     opacity: 0.5,
@@ -922,7 +922,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingVertical: 14,
     borderRadius: theme.borderRadius.medium,
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
   },
   createAccountButtonText: {
     fontSize: 16,

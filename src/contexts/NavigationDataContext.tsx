@@ -64,7 +64,6 @@ interface NavigationDataProviderProps {
 export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
   children,
 }) => {
-  console.log('🚀 NavigationDataProvider: Initializing...');
   const { currentUser } = useAuth();
   const [user, setUser] = useState<UserWithWallet | null>(null);
   const [teamData, setTeamData] = useState<TeamScreenData | null>(null);
@@ -82,6 +81,11 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
   const [walletLoaded, setWalletLoaded] = useState(false);
   const [isLoadingTeam, setIsLoadingTeam] = useState(false);
   const [leaguesPrefetched, setLeaguesPrefetched] = useState(false);
+
+  // Log only on actual mount, not every re-render
+  useEffect(() => {
+    console.log('🚀 NavigationDataProvider: Initializing...');
+  }, []);
 
   // ✅ ANDROID FIX: Skip redundant fetching if AuthContext already has user
   const fetchUserData = async (): Promise<UserWithWallet | null> => {

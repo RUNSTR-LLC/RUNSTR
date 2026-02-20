@@ -759,7 +759,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
                 <Ionicons
                   name="paper-plane-outline"
                   size={20}
-                  color={theme.colors.accentText}
+                  color={theme.colors.background}
                 />
                 <Text style={styles.postButtonText}>Post to Nostr</Text>
               </TouchableOpacity>
@@ -771,7 +771,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
                 <Ionicons
                   name="checkmark-circle"
                   size={20}
-                  color={theme.colors.accentText}
+                  color={theme.colors.background}
                 />
                 <Text style={styles.postButtonText}>Posted</Text>
               </View>
@@ -914,29 +914,29 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   saveCardButton: {
-    backgroundColor: theme.colors.accent, // #FF7B1C
+    backgroundColor: theme.colors.text,
   },
   saveButton: {
-    backgroundColor: theme.colors.accent, // #FF7B1C
+    backgroundColor: theme.colors.text,
   },
   disabledButton: {
-    opacity: 0.5,
+    opacity: 0.35,
   },
   saveCardButtonText: {
-    color: theme.colors.accentText,
+    color: theme.colors.background,
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
   },
   saveButtonText: {
-    color: theme.colors.accentText,
+    color: theme.colors.background,
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
   },
   postButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
   },
   postButtonText: {
-    color: theme.colors.accentText,
+    color: theme.colors.background,
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
   },
@@ -1033,7 +1033,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.text,
   },
   achievementHeader: {
     flexDirection: 'row',

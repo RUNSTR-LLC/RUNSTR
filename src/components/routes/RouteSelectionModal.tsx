@@ -614,8 +614,8 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   workoutCardSelected: {
-    borderColor: theme.colors.accent,
-    backgroundColor: theme.colors.accent + '10',
+    borderColor: theme.colors.text,
+    backgroundColor: '#111111',
   },
   workoutInfo: {
     flex: 1,
@@ -732,7 +732,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   historyItemPR: {
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.text,
   },
   historyRank: {
     width: 28,
@@ -765,7 +765,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: theme.colors.accent + '20',
+    backgroundColor: '#111111',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,

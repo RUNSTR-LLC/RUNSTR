@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(255, 123, 28, 0.1)',
     borderWidth: 1,
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.text,
     borderRadius: 8,
     padding: 12,
     marginBottom: 16,

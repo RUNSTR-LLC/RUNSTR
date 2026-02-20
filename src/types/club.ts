@@ -14,6 +14,7 @@ export interface Club {
   is_active: boolean;
   created_at: string;
   banner_url: string | null;
+  leaderboard_metric: 'distance' | 'steps';
 }
 
 // Club membership - maps to club_memberships table

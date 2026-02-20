@@ -515,7 +515,7 @@ const styles = StyleSheet.create({
   },
 
   createBtn: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,
@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
   createBtnText: {
     fontSize: 16,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
 
   createBtnTextDisabled: {
@@ -593,8 +593,8 @@ const styles = StyleSheet.create({
   },
 
   optionCardSelected: {
-    borderColor: theme.colors.accent,
-    backgroundColor: `${theme.colors.accent}10`,
+    borderColor: theme.colors.text,
+    backgroundColor: '#111111',
   },
 
   optionContent: {
@@ -633,14 +633,14 @@ const styles = StyleSheet.create({
   },
 
   radioButtonSelected: {
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.text,
   },
 
   radioButtonInner: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
   },
 
   // Goal input
@@ -672,8 +672,8 @@ const styles = StyleSheet.create({
   },
 
   unitOptionSelected: {
-    borderColor: theme.colors.accent,
-    backgroundColor: theme.colors.accent,
+    borderColor: theme.colors.text,
+    backgroundColor: theme.colors.text,
   },
 
   unitOptionText: {
@@ -682,7 +682,7 @@ const styles = StyleSheet.create({
   },
 
   unitOptionTextSelected: {
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
 
   // Info section

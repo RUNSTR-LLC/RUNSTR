@@ -483,14 +483,14 @@ export const EnhancedWorkoutCard: React.FC<EnhancedWorkoutCardProps> = React.mem
               {loading.post ? (
                 <ActivityIndicator
                   size="small"
-                  color={theme.colors.accentText}
+                  color={theme.colors.background}
                 />
               ) : (
                 <>
                   <Ionicons
                     name="paper-plane-outline"
                     size={16}
-                    color={theme.colors.accentText}
+                    color={theme.colors.background}
                     style={styles.buttonIcon}
                   />
                   <Text style={styles.actionButtonText}>
@@ -668,7 +668,7 @@ const styles = StyleSheet.create({
     marginRight: 0,
   },
   postButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
   },
   disabledButton: {
     opacity: 0.6,
@@ -677,7 +677,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   actionButtonText: {
-    color: theme.colors.accentText,
+    color: theme.colors.background,
     fontSize: 14,
     fontWeight: '600',
   },

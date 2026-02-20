@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
   },
   presetActive: {
     backgroundColor: 'rgba(255, 123, 28, 0.2)',
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.text,
   },
   presetText: {
     color: theme.colors.textMuted,
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     borderRadius: 8,
     paddingVertical: 14,
   },

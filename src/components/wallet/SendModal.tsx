@@ -265,13 +265,13 @@ export const SendModal: React.FC<SendModalProps> = ({
             }
           >
             {isSending ? (
-              <ActivityIndicator color={theme.colors.accentText} />
+              <ActivityIndicator color={theme.colors.textMuted} />
             ) : (
               <>
                 <Ionicons
                   name="send"
                   size={20}
-                  color={theme.colors.accentText}
+                  color={theme.colors.background}
                 />
                 <Text style={styles.primaryButtonText}>Send</Text>
               </>
@@ -389,7 +389,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingVertical: 16,
     borderRadius: theme.borderRadius.medium,
     marginTop: 20,
@@ -398,11 +398,11 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: 16,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
 
   buttonDisabled: {
-    opacity: 0.5,
+    opacity: 0.35,
   },
 
   helperText: {

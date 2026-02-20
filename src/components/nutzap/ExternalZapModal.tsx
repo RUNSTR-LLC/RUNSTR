@@ -742,7 +742,7 @@ export const ExternalZapModal: React.FC<ExternalZapModalProps> = ({
                           Connected Wallet
                         </Text>
                         <TouchableOpacity
-                          style={[styles.walletButtonFullWidth, { borderColor: theme.colors.accent }]}
+                          style={[styles.walletButtonFullWidth, { borderColor: theme.colors.text }]}
                           onPress={handleNWCPayment}
                           disabled={isNWCPaying}
                         >
@@ -972,7 +972,7 @@ const styles = StyleSheet.create({
   },
 
   presetButtonSelected: {
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.text,
     backgroundColor: 'rgba(255, 157, 66, 0.15)',
   },
 
@@ -1021,7 +1021,7 @@ const styles = StyleSheet.create({
   },
 
   customAmountInputActive: {
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.text,
   },
 
   satsLabel: {
@@ -1047,8 +1047,8 @@ const styles = StyleSheet.create({
   },
 
   checkboxChecked: {
-    backgroundColor: theme.colors.accent,
-    borderColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
+    borderColor: theme.colors.text,
   },
 
   defaultToggleText: {
@@ -1081,7 +1081,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 16,
     borderRadius: theme.borderRadius.medium,
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
   },
 
   proceedButtonDisabled: {

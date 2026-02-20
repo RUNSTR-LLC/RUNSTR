@@ -194,7 +194,7 @@ export const CoinOSWalletModal: React.FC<CoinOSWalletModalProps> = ({
         <View style={styles.modalContainer}>
           {/* Header */}
           <View style={styles.header}>
-            <Ionicons name="wallet-outline" size={24} color="#FF9D42" />
+            <Ionicons name="wallet-outline" size={24} color={theme.colors.text} />
             <Text style={styles.title}>Bitcoin Wallet</Text>
             <TouchableOpacity
               onPress={onClose}
@@ -208,7 +208,7 @@ export const CoinOSWalletModal: React.FC<CoinOSWalletModalProps> = ({
           {/* Balance */}
           <View style={styles.balanceSection}>
             {isLoadingBalance ? (
-              <ActivityIndicator size="small" color="#FF9D42" />
+              <ActivityIndicator size="small" color={theme.colors.textMuted} />
             ) : (
               <Text style={styles.balanceText}>
                 {balance !== null ? balance.toLocaleString() : '--'} sats
@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 20,
     fontWeight: '700',
-    color: '#FFB366',
+    color: theme.colors.text,
   },
   closeButton: {
     padding: 4,
@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
   balanceText: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#FF9D42',
+    color: theme.colors.text,
   },
   refreshButton: {
     padding: 4,
@@ -496,7 +496,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
   },
   activeTabText: {
-    color: '#FF9D42',
+    color: theme.colors.text,
   },
   tabContent: {
     flexShrink: 1,
@@ -544,7 +544,7 @@ const styles = StyleSheet.create({
   invoiceAmountDisplay: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#FF9D42',
+    color: theme.colors.text,
     textAlign: 'center',
     marginBottom: 16,
   },
@@ -597,7 +597,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FF9D42',
+    backgroundColor: theme.colors.text,
     paddingVertical: 14,
     borderRadius: 10,
     marginTop: 4,
@@ -612,8 +612,7 @@ const styles = StyleSheet.create({
     color: '#000',
   },
   buttonDisabled: {
-    backgroundColor: '#3a3a3a',
-    opacity: 0.6,
+    opacity: 0.35,
   },
   errorContainer: {
     flexDirection: 'row',

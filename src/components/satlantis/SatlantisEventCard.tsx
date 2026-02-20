@@ -28,9 +28,9 @@ export const SatlantisEventCard: React.FC<SatlantisEventCardProps> = ({
   const getStatusStyles = (s: SatlantisEventStatus) => {
     switch (s) {
       case 'live':
-        return { backgroundColor: theme.colors.accent };
+        return { backgroundColor: theme.colors.text };
       case 'upcoming':
-        return { backgroundColor: theme.colors.accent };
+        return { backgroundColor: theme.colors.text };
       case 'ended':
         return { backgroundColor: theme.colors.textMuted };
     }
@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
   tag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: `${theme.colors.accent}20`,
+    backgroundColor: '#111111',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,

@@ -320,12 +320,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 8,
-    backgroundColor: theme.colors.accent + '15',
+    backgroundColor: '#111111',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     gap: 6,
   },
   instantText: {
     fontSize: 11,
-    color: theme.colors.accent,
+    color: theme.colors.textMuted,
     fontWeight: theme.typography.weights.medium,
   },
   list: {
@@ -365,7 +367,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   postButton: {
-    backgroundColor: '#FF9D42',
+    backgroundColor: theme.colors.text,
     flex: 1.5,
   },
   postButtonText: {
@@ -374,9 +376,9 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.semiBold,
   },
   deleteButton: {
-    backgroundColor: theme.colors.accent + '20',
+    backgroundColor: '#111111',
     borderWidth: 1,
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.border,
     flex: 1,
   },
   emptyState: {

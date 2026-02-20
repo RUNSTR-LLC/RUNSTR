@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.accentText, // Black text on orange
+    color: theme.colors.background, // Black text on orange
     letterSpacing: 0.5,
   },
   buttonTextDisabled: {

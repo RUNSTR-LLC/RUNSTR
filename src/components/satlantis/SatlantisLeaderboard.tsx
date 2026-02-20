@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
   },
   userPositionRow: {
     borderWidth: 1,
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.text,
     borderRadius: 8,
     backgroundColor: 'rgba(255, 140, 0, 0.1)',
     paddingHorizontal: 8,

@@ -71,11 +71,11 @@ export const JanuaryWalkingEventCard: React.FC<JanuaryWalkingEventCardProps> = (
   const getStatusStyles = () => {
     switch (status) {
       case 'active':
-        return { backgroundColor: theme.colors.accent };
+        return { backgroundColor: '#111111', borderWidth: 1, borderColor: theme.colors.text };
       case 'upcoming':
-        return { backgroundColor: theme.colors.accent };
+        return { backgroundColor: '#111111', borderWidth: 1, borderColor: theme.colors.textMuted };
       case 'ended':
-        return { backgroundColor: theme.colors.textMuted };
+        return { backgroundColor: '#111111', borderWidth: 1, borderColor: '#333' };
     }
   };
 
@@ -151,14 +151,14 @@ export const JanuaryWalkingEventCard: React.FC<JanuaryWalkingEventCardProps> = (
         <View style={styles.tagsRow}>
           {/* Activity Type Tag */}
           <View style={styles.tag}>
-            <Ionicons name="walk" size={12} color={theme.colors.accent} />
+            <Ionicons name="walk" size={12} color={theme.colors.textMuted} />
             <Text style={styles.tagText}>Walking</Text>
           </View>
 
           {/* Participant Count */}
           {activeParticipants > 0 && (
             <View style={styles.tag}>
-              <Ionicons name="people-outline" size={12} color={theme.colors.accent} />
+              <Ionicons name="people-outline" size={12} color={theme.colors.textMuted} />
               <Text style={styles.tagText}>{activeParticipants}</Text>
             </View>
           )}
@@ -166,14 +166,14 @@ export const JanuaryWalkingEventCard: React.FC<JanuaryWalkingEventCardProps> = (
           {/* Total Steps */}
           {totalSteps > 0 && (
             <View style={styles.tag}>
-              <Ionicons name="footsteps-outline" size={12} color={theme.colors.accent} />
+              <Ionicons name="footsteps-outline" size={12} color={theme.colors.textMuted} />
               <Text style={styles.tagText}>{(totalSteps / 1000).toFixed(0)}k steps</Text>
             </View>
           )}
 
           {/* Prize Info */}
           <View style={styles.tag}>
-            <Ionicons name="flash" size={12} color={theme.colors.accent} />
+            <Ionicons name="flash" size={12} color={theme.colors.textMuted} />
             <Text style={styles.tagText}>
               {(JANUARY_WALKING_CONFIG.prizeAmountSats * JANUARY_WALKING_CONFIG.prizeWinnerCount).toLocaleString()} sats total
             </Text>
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 10,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.background,
+    color: theme.colors.text,
   },
   content: {
     padding: 12,
@@ -262,7 +262,9 @@ const styles = StyleSheet.create({
   tag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: `${theme.colors.accent}20`,
+    backgroundColor: '#111111',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
@@ -270,7 +272,7 @@ const styles = StyleSheet.create({
   },
   tagText: {
     fontSize: 12,
-    color: theme.colors.accent,
+    color: theme.colors.textMuted,
     fontWeight: theme.typography.weights.medium,
   },
 });

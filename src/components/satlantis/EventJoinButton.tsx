@@ -461,7 +461,7 @@ export type EventJoinButtonRef = {
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     borderRadius: 8,
     paddingVertical: 14,
     paddingHorizontal: 24,
@@ -470,7 +470,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   buttonPledge: {
-    backgroundColor: theme.colors.accent, // Orange for pledge/commitment
+    backgroundColor: theme.colors.text, // Orange for pledge/commitment
   },
   buttonDonation: {
     backgroundColor: theme.colors.orangeBright,

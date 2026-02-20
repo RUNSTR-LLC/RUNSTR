@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   progressBarFill: {
     height: '100%',
     borderRadius: 4,
-    backgroundColor: '#FF7B1C', // Orange fill
+    backgroundColor: theme.colors.textMuted, // Orange fill
   },
 
   // Sats info

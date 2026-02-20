@@ -475,7 +475,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#FF9D42' + '15',
+    backgroundColor: '#111111',
     borderWidth: 3,
     borderColor: '#FF9D42',
     alignItems: 'center',
@@ -541,7 +541,7 @@ const styles = StyleSheet.create({
 
   progressFill: {
     height: '100%',
-    backgroundColor: '#FF9D42',
+    backgroundColor: theme.colors.text,
     borderRadius: 4,
   },
 
@@ -690,7 +690,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FF9D42',
+    backgroundColor: theme.colors.text,
     borderRadius: 12,
     padding: 12,
     gap: 8,
@@ -730,7 +730,7 @@ const styles = StyleSheet.create({
 
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#FF9D42',
+    backgroundColor: theme.colors.text,
     borderRadius: 4,
   },
 
@@ -768,7 +768,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#FF9D42',
+    backgroundColor: theme.colors.text,
     paddingVertical: 14,
     borderRadius: 12,
   },

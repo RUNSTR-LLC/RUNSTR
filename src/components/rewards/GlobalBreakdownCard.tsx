@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   progressUser: {
-    backgroundColor: '#FF9D42', // Orange for users
+    backgroundColor: theme.colors.text, // Orange for users
     borderTopLeftRadius: 6,
     borderBottomLeftRadius: 6,
   },
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   legendDotUser: {
-    backgroundColor: '#FF9D42',
+    backgroundColor: theme.colors.text,
   },
   legendDotCharity: {
     backgroundColor: '#CC7A33', // Muted orange for charities

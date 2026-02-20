@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   copyBtnSuccess: {
-    backgroundColor: '#FF9D42',
+    backgroundColor: theme.colors.text,
   },
   panelContent: {
     paddingHorizontal: 12,

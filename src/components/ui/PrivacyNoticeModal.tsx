@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#FF9D42' + '15',
+    backgroundColor: '#111111',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
   },
   primaryButton: {
-    backgroundColor: '#FF9D42',
+    backgroundColor: theme.colors.text,
   },
   primaryButtonText: {
     fontSize: 16,

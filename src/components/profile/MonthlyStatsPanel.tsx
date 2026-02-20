@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
 
   weeklyBarFill: {
     width: '100%',
-    backgroundColor: '#FF7B1C', // Deep orange
+    backgroundColor: theme.colors.textMuted, // Deep orange
     borderRadius: 4,
     minHeight: 4,
   },

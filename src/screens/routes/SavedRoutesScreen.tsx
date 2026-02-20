@@ -436,8 +436,8 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   filterButtonActive: {
-    backgroundColor: theme.colors.accent,
-    borderColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
+    borderColor: theme.colors.text,
   },
   filterButtonText: {
     color: theme.colors.textMuted,
@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.medium,
   },
   filterButtonTextActive: {
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
   summaryContainer: {
     marginBottom: 16,
@@ -529,7 +529,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: theme.colors.accent + '15',
+    backgroundColor: '#111111',
     borderRadius: 8,
   },
   bestPerformanceText: {

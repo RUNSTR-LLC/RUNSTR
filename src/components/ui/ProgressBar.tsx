@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
 
   eventProgressFill: {
     height: '100%',
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
   },
 
   // Competitor-specific progress bar styles (matches HTML mockup)
@@ -156,6 +156,6 @@ const styles = StyleSheet.create({
 
   competitorProgressFill: {
     height: '100%',
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
   },
 });

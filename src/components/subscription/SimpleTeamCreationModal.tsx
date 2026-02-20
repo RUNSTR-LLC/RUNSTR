@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: theme.typography.weights.semiBold,
-    color: '#FFB366',
+    color: theme.colors.text,
   },
   headerSpacer: {
     width: 32,
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: theme.typography.weights.medium,
-    color: '#FFB366',
+    color: theme.colors.textMuted,
     marginBottom: 8,
   },
   textInput: {
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
     borderTopColor: theme.colors.border,
   },
   createButton: {
-    backgroundColor: '#FFB366',
+    backgroundColor: theme.colors.text,
     borderRadius: 8,
     paddingVertical: 14,
     alignItems: 'center',

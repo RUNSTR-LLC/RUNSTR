@@ -143,7 +143,7 @@ export const NWCQRConfirmationModal: React.FC<NWCQRConfirmationModalProps> = ({
               disabled={isConnecting}
             >
               {isConnecting ? (
-                <ActivityIndicator size="small" color={theme.colors.accentText} />
+                <ActivityIndicator size="small" color={theme.colors.background} />
               ) : (
                 <Text style={styles.connectButtonText}>Connect Wallet</Text>
               )}
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
   connectButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
   cancelButton: {
     paddingVertical: 14,

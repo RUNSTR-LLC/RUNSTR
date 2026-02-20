@@ -1148,7 +1148,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   statusBadgeActive: {
-    backgroundColor: '#FF9D42' + '20',
+    backgroundColor: '#111111',
     borderColor: '#FF9D42',
   },
   statusBadgePast: {
@@ -1156,8 +1156,8 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.textMuted,
   },
   statusBadgeUpcoming: {
-    backgroundColor: theme.colors.accent + '20',
-    borderColor: theme.colors.accent,
+    backgroundColor: '#111111',
+    borderColor: theme.colors.text,
   },
   statusBadgeText: {
     fontSize: 12,
@@ -1190,14 +1190,14 @@ const styles = StyleSheet.create({
   charityCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.accent + '15',
+    backgroundColor: '#111111',
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
     marginTop: 8,
     gap: 8,
     borderWidth: 1,
-    borderColor: theme.colors.accent + '30',
+    borderColor: '#111111',
   },
   charityText: {
     fontSize: 14,
@@ -1242,7 +1242,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: 12,
@@ -1313,7 +1313,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   retryButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
@@ -1322,7 +1322,7 @@ const styles = StyleSheet.create({
   retryButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
   backToListButton: {
     backgroundColor: theme.colors.cardBackground,
@@ -1377,7 +1377,7 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.text,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1385,7 +1385,7 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
   },
   radioLabel: {
     fontSize: 15,

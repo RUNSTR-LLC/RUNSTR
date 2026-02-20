@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
   errorToast: {
     ...baseToastStyle,
     borderWidth: 1,
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.text,
   },
   rewardConfirmedToast: {
     ...baseToastStyle,

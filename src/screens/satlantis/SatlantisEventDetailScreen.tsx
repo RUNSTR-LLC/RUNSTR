@@ -157,7 +157,7 @@ const DebugSection: React.FC<{
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={[styles.debugButton, { backgroundColor: theme.colors.accent }]} onPress={handleForceReJoin}>
+      <TouchableOpacity style={[styles.debugButton, { backgroundColor: theme.colors.text }]} onPress={handleForceReJoin}>
         <Text style={[styles.debugButtonText, { fontWeight: 'bold' }]}>🔄 Force Re-Join (Publish RSVP)</Text>
       </TouchableOpacity>
 
@@ -258,9 +258,9 @@ export const SatlantisEventDetailScreen: React.FC<SatlantisEventDetailScreenProp
   const getStatusStyles = () => {
     switch (eventStatus) {
       case 'live':
-        return { backgroundColor: theme.colors.accent };
+        return { backgroundColor: theme.colors.text };
       case 'upcoming':
-        return { backgroundColor: theme.colors.accent };
+        return { backgroundColor: theme.colors.text };
       case 'ended':
         return { backgroundColor: theme.colors.textMuted };
     }
@@ -630,7 +630,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     paddingHorizontal: 20,
     paddingVertical: 10,
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     borderRadius: 8,
   },
   backButtonErrorText: {
@@ -755,7 +755,7 @@ const styles = StyleSheet.create({
   },
   runstrBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     color: theme.colors.background,
     fontSize: 11,
     fontWeight: theme.typography.weights.bold,

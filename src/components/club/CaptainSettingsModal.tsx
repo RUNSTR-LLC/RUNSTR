@@ -37,6 +37,7 @@ export const CaptainSettingsModal: React.FC<CaptainSettingsModalProps> = ({
   const [description, setDescription] = useState(club.description || '');
   const [lightningAddress, setLightningAddress] = useState(club.lightning_address || '');
   const [bannerUrl, setBannerUrl] = useState(club.banner_url || '');
+  const [leaderboardMetric, setLeaderboardMetric] = useState<'distance' | 'steps'>(club.leaderboard_metric || 'distance');
   const [isSaving, setIsSaving] = useState(false);
   const [members, setMembers] = useState<ClubMembership[]>([]);
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
@@ -50,6 +51,7 @@ export const CaptainSettingsModal: React.FC<CaptainSettingsModalProps> = ({
       setDescription(club.description || '');
       setLightningAddress(club.lightning_address || '');
       setBannerUrl(club.banner_url || '');
+      setLeaderboardMetric(club.leaderboard_metric || 'distance');
       loadMembers();
     }
   }, [visible, club]);
@@ -77,7 +79,7 @@ export const CaptainSettingsModal: React.FC<CaptainSettingsModalProps> = ({
     if (isSaving) return;
     setIsSaving(true);
     try {
-      const updates: { description?: string; lightning_address?: string; banner_url?: string } = {};
+      const updates: { description?: string; lightning_address?: string; banner_url?: string; leaderboard_metric?: string } = {};
       const newDesc = description.trim() || null;
       const newLn = lightningAddress.trim() || null;
       const newBanner = bannerUrl.trim() || null;
@@ -85,6 +87,7 @@ export const CaptainSettingsModal: React.FC<CaptainSettingsModalProps> = ({
       if (newDesc !== (club.description || null)) updates.description = newDesc || '';
       if (newLn !== (club.lightning_address || null)) updates.lightning_address = newLn || '';
       if (newBanner !== (club.banner_url || null)) updates.banner_url = newBanner || '';
+      if (leaderboardMetric !== (club.leaderboard_metric || 'distance')) updates.leaderboard_metric = leaderboardMetric;
 
       if (Object.keys(updates).length === 0) {
         showAlert('No Changes', 'Nothing to save.');
@@ -108,7 +111,7 @@ export const CaptainSettingsModal: React.FC<CaptainSettingsModalProps> = ({
     } finally {
       setIsSaving(false);
     }
-  }, [isSaving, description, lightningAddress, bannerUrl, club, onClubUpdated]);
+  }, [isSaving, description, lightningAddress, bannerUrl, leaderboardMetric, club, onClubUpdated]);
 
   const handleRemoveMember = useCallback((member: ClubMembership) => {
     const npub = member.member_npub;
@@ -222,6 +225,29 @@ export const CaptainSettingsModal: React.FC<CaptainSettingsModalProps> = ({
               <Text style={s.helper}>Displayed at the top of your club page</Text>
             </View>
 
+            <View style={s.formGroup}>
+              <Text style={s.label}>Leaderboard Type</Text>
+              <View style={s.toggleRow}>
+                <TouchableOpacity
+                  style={[s.toggleOption, leaderboardMetric === 'distance' && s.toggleOptionActive]}
+                  onPress={() => setLeaderboardMetric('distance')}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="speedometer-outline" size={16} color={leaderboardMetric === 'distance' ? theme.colors.background : theme.colors.textMuted} />
+                  <Text style={[s.toggleOptionText, leaderboardMetric === 'distance' && s.toggleOptionTextActive]}>Distance + Time</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[s.toggleOption, leaderboardMetric === 'steps' && s.toggleOptionActive]}
+                  onPress={() => setLeaderboardMetric('steps')}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="footsteps-outline" size={16} color={leaderboardMetric === 'steps' ? theme.colors.background : theme.colors.textMuted} />
+                  <Text style={[s.toggleOptionText, leaderboardMetric === 'steps' && s.toggleOptionTextActive]}>Step Count</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={s.helper}>Choose how the daily leaderboard ranks members</Text>
+            </View>
+
             <TouchableOpacity
               style={[s.saveButton, isSaving && s.disabled]} onPress={handleSaveDetails}
               disabled={isSaving} activeOpacity={0.7}
@@ -236,7 +262,7 @@ export const CaptainSettingsModal: React.FC<CaptainSettingsModalProps> = ({
             <Text style={[s.sectionLabel, { marginTop: 28 }]}>MEMBERS</Text>
 
             {isLoadingMembers ? (
-              <View style={s.centered}><ActivityIndicator color={theme.colors.accent} /></View>
+              <View style={s.centered}><ActivityIndicator color={theme.colors.textMuted} /></View>
             ) : removableMembers.length === 0 ? (
               <View style={s.centered}>
                 <Ionicons name="people-outline" size={32} color={theme.colors.textMuted} />
@@ -259,7 +285,7 @@ export const CaptainSettingsModal: React.FC<CaptainSettingsModalProps> = ({
                           disabled={isSaving} activeOpacity={0.7}
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         >
-                          <Ionicons name="star-outline" size={16} color={theme.colors.accent} />
+                          <Ionicons name="star-outline" size={16} color={theme.colors.text} />
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={s.removeBtn} onPress={() => handleRemoveMember(member)}
@@ -281,7 +307,7 @@ export const CaptainSettingsModal: React.FC<CaptainSettingsModalProps> = ({
 
             <View style={s.legend}>
               <View style={s.legendItem}>
-                <Ionicons name="star-outline" size={14} color={theme.colors.accent} />
+                <Ionicons name="star-outline" size={14} color={theme.colors.text} />
                 <Text style={s.legendText}>Make captain</Text>
               </View>
               <View style={s.legendItem}>
@@ -328,9 +354,9 @@ const s = StyleSheet.create({
   textArea: { minHeight: 80, paddingTop: 12 },
   helper: { fontSize: 12, color: theme.colors.textMuted, marginTop: 4 },
   errorHelper: { fontSize: 12, color: theme.colors.error, marginTop: 4 },
-  saveButton: { backgroundColor: theme.colors.accent, borderRadius: 8, paddingVertical: 14, alignItems: 'center', marginTop: 4 },
+  saveButton: { backgroundColor: theme.colors.text, borderRadius: 8, paddingVertical: 14, alignItems: 'center', marginTop: 4 },
   disabled: { opacity: 0.5 },
-  saveButtonText: { fontSize: 16, fontWeight: theme.typography.weights.semiBold, color: theme.colors.accentText },
+  saveButtonText: { fontSize: 16, fontWeight: theme.typography.weights.semiBold, color: theme.colors.background },
   centered: { alignItems: 'center', paddingVertical: 24 },
   emptyText: { fontSize: 14, color: theme.colors.textMuted, marginTop: 8 },
   membersList: { gap: 1 },
@@ -344,12 +370,21 @@ const s = StyleSheet.create({
   memberActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   transferBtn: {
     width: 32, height: 32, borderRadius: 16, borderWidth: 1,
-    borderColor: theme.colors.accent, alignItems: 'center', justifyContent: 'center',
+    borderColor: theme.colors.text, alignItems: 'center', justifyContent: 'center',
   },
   removeBtn: {
     width: 32, height: 32, borderRadius: 16, borderWidth: 1,
     borderColor: theme.colors.error, alignItems: 'center', justifyContent: 'center',
   },
+  toggleRow: { flexDirection: 'row', gap: 8 },
+  toggleOption: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 12, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.border,
+    backgroundColor: theme.colors.card,
+  },
+  toggleOptionActive: { backgroundColor: theme.colors.text, borderColor: theme.colors.text },
+  toggleOptionText: { fontSize: 13, fontWeight: theme.typography.weights.medium, color: theme.colors.textMuted },
+  toggleOptionTextActive: { color: theme.colors.background },
   legend: { flexDirection: 'row', gap: 20, marginTop: 8, paddingLeft: 4 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   legendText: { fontSize: 11, color: theme.colors.textMuted },

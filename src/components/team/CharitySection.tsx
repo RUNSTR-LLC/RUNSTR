@@ -440,7 +440,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#FF9D42',
+    backgroundColor: theme.colors.text,
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 8,
@@ -456,7 +456,7 @@ const styles = StyleSheet.create({
   zappedButton: {
     backgroundColor: 'rgba(255, 123, 28, 0.2)', // Light orange when zapped
     borderWidth: 1,
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.text,
   },
 
   zappingButton: {

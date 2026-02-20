@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
     maxHeight: '60%',
   },
   deadBanner: {
-    backgroundColor: '#FF6B00',
+    backgroundColor: theme.colors.textMuted,
     paddingVertical: 8,
     paddingHorizontal: 16,
     flexDirection: 'row',
@@ -457,7 +457,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   copyButtonSuccess: {
-    backgroundColor: '#FF9D42',
+    backgroundColor: theme.colors.text,
   },
   copyButtonText: {
     color: '#fff',

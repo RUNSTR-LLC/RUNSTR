@@ -269,8 +269,8 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   platformSelected: {
-    borderColor: theme.colors.accent,
-    backgroundColor: theme.colors.accent + '10',
+    borderColor: theme.colors.text,
+    backgroundColor: '#111111',
   },
   platformIcon: {
     fontSize: 24,

@@ -329,7 +329,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
                       <View style={styles.loadingContainer}>
                         <ActivityIndicator
                           size="small"
-                          color={theme.colors.accentText}
+                          color={theme.colors.background}
                         />
                         <Text style={styles.submitButtonText}>
                           Authenticating...
@@ -525,7 +525,7 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
   loadingContainer: {
     flexDirection: 'row',
@@ -555,7 +555,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   amberButton: {
-    backgroundColor: '#FFA500', // Amber color
+    backgroundColor: theme.colors.text, // Amber color
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 12,
@@ -568,7 +568,7 @@ const styles = StyleSheet.create({
   amberButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
   amberLoadingContainer: {
     alignItems: 'center',

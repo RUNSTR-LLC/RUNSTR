@@ -5,7 +5,7 @@
  * status badge, and metadata. Clicking navigates to the Season II tab.
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -32,18 +32,17 @@ interface Season2EventCardProps {
 export const Season2EventCard: React.FC<Season2EventCardProps> = ({
   onPress,
 }) => {
-  const [imageLoaded, setImageLoaded] = useState(false);
   const status = getSeason2Status();
   const dateRange = getSeason2DateRange();
 
   const getStatusStyles = () => {
     switch (status) {
       case 'active':
-        return { backgroundColor: theme.colors.accent };
+        return { backgroundColor: '#111111', borderWidth: 1, borderColor: theme.colors.text };
       case 'upcoming':
-        return { backgroundColor: theme.colors.accent };
+        return { backgroundColor: '#111111', borderWidth: 1, borderColor: theme.colors.textMuted };
       case 'ended':
-        return { backgroundColor: theme.colors.textMuted };
+        return { backgroundColor: '#111111', borderWidth: 1, borderColor: '#333' };
     }
   };
 
@@ -64,16 +63,10 @@ export const Season2EventCard: React.FC<Season2EventCardProps> = ({
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
       {/* Event Banner Image */}
       <View style={styles.imageContainer}>
-        {!imageLoaded && (
-          <View style={[styles.imagePlaceholder, styles.imagePlaceholderAbsolute]}>
-            <Ionicons name="trophy" size={32} color={theme.colors.textMuted} />
-          </View>
-        )}
         <Image
           source={RUNSTR_LOGO}
-          style={[styles.image, !imageLoaded && styles.imageHidden]}
+          style={styles.image}
           resizeMode="contain"
-          onLoad={() => setImageLoaded(true)}
         />
       </View>
 
@@ -106,29 +99,29 @@ export const Season2EventCard: React.FC<Season2EventCardProps> = ({
         <View style={styles.tagsRow}>
           {/* Activity Types */}
           <View style={styles.tag}>
-            <Ionicons name="walk-outline" size={12} color={theme.colors.accent} />
+            <Ionicons name="walk-outline" size={12} color={theme.colors.textMuted} />
             <Text style={styles.tagText}>Running</Text>
           </View>
 
           <View style={styles.tag}>
-            <Ionicons name="walk-outline" size={12} color={theme.colors.accent} />
+            <Ionicons name="walk-outline" size={12} color={theme.colors.textMuted} />
             <Text style={styles.tagText}>Walking</Text>
           </View>
 
           <View style={styles.tag}>
-            <Ionicons name="bicycle-outline" size={12} color={theme.colors.accent} />
+            <Ionicons name="bicycle-outline" size={12} color={theme.colors.textMuted} />
             <Text style={styles.tagText}>Cycling</Text>
           </View>
 
           {/* BTC Prizes */}
           <View style={styles.tag}>
-            <Ionicons name="trophy" size={12} color={theme.colors.accent} />
+            <Ionicons name="trophy" size={12} color={theme.colors.textMuted} />
             <Text style={styles.tagText}>BTC Prizes</Text>
           </View>
 
           {/* Charity */}
           <View style={styles.tag}>
-            <Ionicons name="heart" size={12} color={theme.colors.accent} />
+            <Ionicons name="heart" size={12} color={theme.colors.textMuted} />
             <Text style={styles.tagText}>Charity</Text>
           </View>
         </View>
@@ -156,22 +149,6 @@ const styles = StyleSheet.create({
     height: 150,
     backgroundColor: '#000000',
   },
-  imageHidden: {
-    opacity: 0,
-  },
-  imagePlaceholder: {
-    width: '100%',
-    height: 150,
-    backgroundColor: '#000000',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  imagePlaceholderAbsolute: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    zIndex: 1,
-  },
   statusBadge: {
     position: 'absolute',
     top: 12,
@@ -183,7 +160,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 10,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.background,
+    color: theme.colors.text,
   },
   content: {
     padding: 12,
@@ -214,7 +191,9 @@ const styles = StyleSheet.create({
   tag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: `${theme.colors.accent}20`,
+    backgroundColor: '#111111',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
@@ -222,7 +201,7 @@ const styles = StyleSheet.create({
   },
   tagText: {
     fontSize: 12,
-    color: theme.colors.accent,
+    color: theme.colors.textMuted,
     fontWeight: theme.typography.weights.medium,
   },
 });

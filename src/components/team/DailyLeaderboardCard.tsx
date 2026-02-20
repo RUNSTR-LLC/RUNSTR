@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#FF8C00', // Orange - consistent with app theme
+    backgroundColor: theme.colors.textMuted, // Orange - consistent with app theme
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,

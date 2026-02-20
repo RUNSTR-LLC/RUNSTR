@@ -312,8 +312,8 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.textMuted,
   },
   statusBadgeUpcoming: {
-    backgroundColor: theme.colors.accent + '20',
-    borderColor: theme.colors.accent,
+    backgroundColor: '#111111',
+    borderColor: theme.colors.text,
   },
   statusBadgeText: {
     fontSize: 12,
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   retryButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
@@ -368,6 +368,6 @@ const styles = StyleSheet.create({
   retryButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
 });

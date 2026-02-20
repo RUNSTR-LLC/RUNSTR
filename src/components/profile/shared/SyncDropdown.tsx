@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.orangeBurnt, // Burnt orange border
   },
   importText: {
-    color: theme.colors.accentText, // Black text on orange
+    color: theme.colors.background, // Black text on orange
     fontSize: 16,
     fontWeight: '600',
   },

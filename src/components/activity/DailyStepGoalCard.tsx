@@ -80,7 +80,7 @@ export const DailyStepGoalCard: React.FC<DailyStepGoalCardProps> = ({
         <Text style={styles.title}>{stepTitle}</Text>
         <ActivityIndicator
           size="large"
-          color={theme.colors.accent}
+          color={theme.colors.textMuted}
           style={{ marginVertical: 20 }}
         />
         <Text style={styles.loadingText}>Loading step count...</Text>
@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   enableButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,
@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingVertical: 4,
     paddingHorizontal: 6,
     borderRadius: 8,
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingVertical: 5,
     paddingHorizontal: 8,
     borderRadius: 12,
@@ -510,7 +510,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 12,

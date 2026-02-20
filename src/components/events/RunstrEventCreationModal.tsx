@@ -872,7 +872,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   optionButtonSelected: {
-    backgroundColor: '#FFB366',
+    backgroundColor: theme.colors.text,
     borderColor: '#FFB366',
   },
   optionButtonText: {
@@ -898,7 +898,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   charityButtonSelected: {
-    backgroundColor: '#FFB366',
+    backgroundColor: theme.colors.text,
     borderColor: '#FFB366',
   },
   charityButtonText: {
@@ -925,7 +925,7 @@ const styles = StyleSheet.create({
     borderTopColor: theme.colors.border,
   },
   createButton: {
-    backgroundColor: '#FFB366',
+    backgroundColor: theme.colors.text,
     borderRadius: 8,
     paddingVertical: 14,
     alignItems: 'center',
