@@ -1,4 +1,6 @@
-## What's New in v1.6.6-debug
+_Note: These notes are historical. For current release details (including v1.7.0), see `CHANGELOG.md`._
+
+## Release Notes (Archived: v1.6.6-debug)
 
 I've removed the compete button from the post workout stuff so that workouts/steps automatically go into competitions.
 
