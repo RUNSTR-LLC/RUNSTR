@@ -13,6 +13,7 @@ import {
   Modal,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { theme } from '../../styles/theme';

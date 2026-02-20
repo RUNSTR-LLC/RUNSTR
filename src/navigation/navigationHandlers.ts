@@ -13,6 +13,12 @@ import { DirectNostrProfileService } from '../services/user/directNostrProfileSe
 import { CaptainCache } from '../utils/captainCache';
 import { CustomAlertManager } from '../components/ui/CustomAlert';
 
+interface RewardDistribution {
+  recipientPubkey: string;
+  amount: number;
+  reason?: string;
+}
+
 export interface NavigationHandlers {
   handleTeamJoin: (
     team: DiscoveryTeam,
@@ -119,6 +125,16 @@ export const createNavigationHandlers = (): NavigationHandlers => {
             console.log('NavigationHandlers: Data refresh complete');
           }
 
+          // Resolve the user's npub for navigation
+          let resolvedNpub: string | undefined;
+          try {
+            const userData = await AuthService.getCurrentUserWithWallet();
+            resolvedNpub = userData?.npub;
+          } catch {
+            const user = useUserStore.getState().user;
+            resolvedNpub = user?.npub;
+          }
+
           // Show success message
           CustomAlertManager.alert(
             'Welcome to the Team!',
@@ -131,7 +147,7 @@ export const createNavigationHandlers = (): NavigationHandlers => {
                   navigation.navigate('EnhancedTeamScreen', {
                     team,
                     userIsMember: true,
-                    currentUserNpub, // Pass the working npub to avoid component-level AsyncStorage corruption
+                    currentUserNpub: resolvedNpub,
                   });
                 },
               },
@@ -557,7 +573,7 @@ export const createNavigationHandlers = (): NavigationHandlers => {
     handleViewWalletHistory: () => {
       console.log('View wallet history pressed');
       // Transaction history is now integrated in the wallet modals
-      navigation.navigate('Profile' as never);
+      // No navigation needed - wallet modals handle history display
     },
 
     handleViewAllActivity: () => {

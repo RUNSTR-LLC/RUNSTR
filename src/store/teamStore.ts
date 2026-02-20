@@ -184,7 +184,7 @@ export const useTeamStore = create<TeamStoreState>((set: any, get: any) => ({
   },
 
   // Internal helpers
-  setSubscription: (subscription: RealtimeChannel | null) => {
+  setSubscription: (subscription: any | null) => {
     // Clean up existing subscription
     const currentSubscription = get().subscription;
     if (currentSubscription) {

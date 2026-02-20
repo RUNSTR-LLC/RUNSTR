@@ -25,6 +25,7 @@ import { PerformanceLogger } from '../utils/PerformanceLogger';
 import { NostrFetchLogger } from '../utils/NostrFetchLogger';
 import { LocalTeamMembershipService } from '../services/team/LocalTeamMembershipService';
 import VerificationService from '../services/verification/VerificationService';
+import { UnifiedSigningService } from '../services/auth/UnifiedSigningService';
 
 // Authentication state interface
 interface AuthState {

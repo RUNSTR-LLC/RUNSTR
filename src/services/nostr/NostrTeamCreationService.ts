@@ -14,7 +14,16 @@ import { NostrListService } from './NostrListService';
 import { TeamMemberCache } from '../team/TeamMemberCache';
 import { getTeamListDetector } from '../../utils/teamListDetector';
 import { GlobalNDKService } from './GlobalNDKService';
-// NostrEvent type replaced with NDKEvent from NDK library
+// NostrEvent type for raw event data from NDK
+type NostrEvent = {
+  id?: string;
+  pubkey: string;
+  created_at: number;
+  kind: number;
+  tags: string[][];
+  content: string;
+  sig?: string;
+};
 
 export interface TeamCreationData {
   name: string;

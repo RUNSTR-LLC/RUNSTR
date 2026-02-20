@@ -88,25 +88,8 @@ export class AmberAuthProvider {
       await AsyncStorage.setItem('@runstr:npub', npub);
       await AsyncStorage.setItem('@runstr:hex_pubkey', hexPubkey);
 
-      // Initialize NutZap wallet (optional, don't fail auth if it fails)
-      try {
-        console.log('💰 AmberAuthProvider: Initializing NutZap wallet...');
-        // For Amber, we don't have access to nsec, so pass null
-        // NutZap can work with just pubkey for receiving
-        const walletState = await nutzapService.initializeForReceiveOnly(
-          hexPubkey
-        );
-        if (walletState.created) {
-          console.log(
-            '✅ AmberAuthProvider: NutZap wallet configured for receiving'
-          );
-        }
-      } catch (walletError) {
-        console.warn(
-          '⚠️ AmberAuthProvider: NutZap initialization failed (non-fatal):',
-          walletError
-        );
-      }
+      // NutZap wallet initialization removed - service no longer available
+      // Wallet features handled externally via Supabase reward system
 
       // Get profile from Nostr using DirectNostrProfileService
       let directUser = null;

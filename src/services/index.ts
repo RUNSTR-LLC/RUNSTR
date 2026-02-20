@@ -8,7 +8,6 @@ export { NostrRelayManager } from './nostr/NostrRelayManager';
 
 // Team services
 export { NdkTeamService } from './team/NdkTeamService';
-export { TeamMemberService } from './team/TeamMemberService';
 
 // Competition services
 export { SimpleCompetitionService } from './competition/SimpleCompetitionService';
@@ -21,4 +20,4 @@ export { LocalWorkoutStorageService } from './fitness/LocalWorkoutStorageService
 export { notificationService } from './notificationService';
 
 // Cache services
-export { CacheService } from './cache/CacheService';
+export { UnifiedCacheService } from './cache/UnifiedCacheService';

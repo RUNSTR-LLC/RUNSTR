@@ -3,7 +3,13 @@
  * NIP-60/61 ecash wallet types for RUNSTR
  */
 
-import { Proof } from '@cashu/cashu-ts';
+// Cashu proof type (previously imported from @cashu/cashu-ts)
+interface Proof {
+  id: string;
+  amount: number;
+  secret: string;
+  C: string;
+}
 
 // Wallet state returned by service
 export interface NutzapWalletState {

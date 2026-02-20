@@ -714,7 +714,7 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
               text: 'View Team',
               onPress: async () => {
                 // Reload team data
-                await loadTeamCharity();
+                await loadTeamData();
 
                 // Navigate to the team page with updated data
                 if (currentTeamData && navigation) {

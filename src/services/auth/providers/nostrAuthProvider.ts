@@ -147,43 +147,8 @@ export class NostrAuthProvider {
         }
       }
 
-      // Initialize NutZap wallet for user (auto-creates if doesn't exist)
-      try {
-        console.log('💰 NostrAuthProvider: Initializing NutZap wallet...');
-        console.log(
-          '💰 NostrAuthProvider: Wallet will be isolated to pubkey:',
-          hexPubkey?.slice(0, 16) + '...'
-        );
-
-        const walletState = await nutzapService.initialize(nsec);
-
-        if (walletState.created) {
-          console.log(
-            '✅ NostrAuthProvider: New NutZap wallet created for user'
-          );
-          console.log('💰 Initial wallet balance: 0 sats');
-        } else {
-          console.log('✅ NostrAuthProvider: Existing NutZap wallet loaded');
-          console.log(
-            '💰 Current wallet balance:',
-            walletState.balance,
-            'sats'
-          );
-          console.log('💰 Wallet has', walletState.proofCount || 0, 'proofs');
-        }
-
-        // Verify wallet is using correct storage keys
-        const walletProofsKey = `@runstr:wallet_proofs:${hexPubkey}`;
-        const storedProofs = await AsyncStorage.getItem(walletProofsKey);
-        console.log('💰 Wallet storage key:', walletProofsKey);
-        console.log('💰 Wallet has stored proofs:', !!storedProofs);
-      } catch (walletError) {
-        // Don't fail auth if wallet creation fails - wallet can be created later
-        console.warn(
-          '⚠️ NostrAuthProvider: NutZap wallet initialization failed (non-fatal):',
-          walletError
-        );
-      }
+      // NutZap wallet initialization removed - service no longer available
+      // Wallet features handled externally via Supabase reward system
 
       // Get profile using DirectNostrProfileService (pure Nostr)
       const directUser =
@@ -443,34 +408,8 @@ export class NostrAuthProvider {
         '✅ NostrAuthProvider: Current user pubkey stored for wallet verification'
       );
 
-      // Initialize NutZap wallet for new user (auto-creates wallet)
-      try {
-        console.log(
-          '💰 NostrAuthProvider: Creating NutZap wallet for new user...'
-        );
-        const walletState = await nutzapService.initialize(nsec);
-        if (walletState.created) {
-          console.log(
-            '✅ NostrAuthProvider: NutZap wallet created for new user'
-          );
-        } else {
-          console.log(
-            '✅ NostrAuthProvider: NutZap wallet already exists for user'
-          );
-        }
-        console.log(
-          '💰 NostrAuthProvider: Wallet initialization completed successfully'
-        );
-      } catch (walletError) {
-        // Don't fail signup if wallet creation fails - wallet can be created later
-        console.warn(
-          '⚠️ NostrAuthProvider: NutZap wallet initialization failed (non-fatal):',
-          walletError
-        );
-        console.warn(
-          '⚠️ NostrAuthProvider: User can still proceed without wallet - wallet creation will be retried later'
-        );
-      }
+      // NutZap wallet initialization removed - service no longer available
+      // Wallet features handled externally via Supabase reward system
 
       // Publish default profile to Nostr for new user
       try {

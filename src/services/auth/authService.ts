@@ -79,16 +79,7 @@ export class AuthService {
         console.warn('⚠️ AuthService: Competition cache clear failed:', err);
       }
 
-      // Reset nutzap service if initialized
-      try {
-        const nutzapService = (await import('../nutzap/nutzapService')).default;
-        if (nutzapService) {
-          nutzapService.reset();
-        }
-        console.log('✅ AuthService: NutZap service reset');
-      } catch (err) {
-        console.warn('⚠️ AuthService: NutZap service reset skipped:', err);
-      }
+      // NutZap service removed - wallet features handled externally
 
       // Reset wallet store state (Zustand)
       try {
@@ -178,6 +169,9 @@ export class AuthService {
           // Team/charity state (prevent cross-user contamination)
           '@runstr:selected_team_id',
           '@runstr:charity_stats',
+          // Lightning address (CRITICAL: prevent rewards going to wrong user)
+          '@runstr:reward_lightning_address',
+          '@runstr:lightning_address',
         ]);
         console.log('✅ AuthService: Additional user data cleared');
       } catch (err) {

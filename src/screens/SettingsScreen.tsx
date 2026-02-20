@@ -42,6 +42,7 @@ import * as SecureStore from 'expo-secure-store';
 // useAuth no longer needed - using RNRestart for sign out
 import * as Clipboard from 'expo-clipboard';
 import RNRestart from 'react-native-restart';
+import { AuthService } from '../services/auth/authService';
 import { dailyStepCounterService } from '../services/activity/DailyStepCounterService';
 import { GPSPermissionsDiagnostics } from '../components/permissions/GPSPermissionsDiagnostics';
 import { StepCountDiagnostics } from '../components/permissions/StepCountDiagnostics';
@@ -444,16 +445,21 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         onPress: async () => {
           setAlertVisible(false);
 
-          // Clear all auth data
+          // Use AuthService for comprehensive cleanup (caches, wallet, teams, Lightning address, etc.)
+          await AuthService.signOut();
+
+          // Also clear SecureStore nsec and NWC
+          await SecureStore.deleteItemAsync('user_nsec_secure');
+          await SecureStore.deleteItemAsync('nwc_string');
+
+          // Clear core auth keys that AuthService may not cover
           await AsyncStorage.multiRemove([
             '@runstr:user_nsec',
             '@runstr:npub',
             '@runstr:hex_pubkey',
             '@runstr:auth_method',
             '@runstr:amber_pubkey',
-            '@runstr:app_init_completed',
           ]);
-          await SecureStore.deleteItemAsync('nwc_string');
 
           // Restart the app - it will boot fresh and find no auth → show Login
           RNRestart.restart();
@@ -1283,7 +1289,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
         {/* App Version Info */}
         <View style={styles.versionContainer}>
-          <Text style={styles.versionText}>Version 1.6.8 (Build 168)</Text>
+          <Text style={styles.versionText}>Version 1.7.0 (Build 169)</Text>
         </View>
         </ScrollView>
       </KeyboardAvoidingView>
