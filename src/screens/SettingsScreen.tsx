@@ -61,6 +61,7 @@ import Toast from 'react-native-toast-message';
 import { useSeason2Registration } from '../hooks/useSeason2';
 import { useUnitPreference } from '../hooks/useUnitPreference';
 import { useTranslation } from 'react-i18next';
+import Constants from 'expo-constants';
 import { LanguagePreferenceService } from '../services/i18n/LanguagePreferenceService';
 import { SUPPORTED_LANGUAGES, LanguageCode } from '../i18n';
 import { MusicPlayerPreferencesService } from '../services/music/MusicPlayerPreferencesService';
@@ -174,6 +175,18 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       style?: 'default' | 'cancel' | 'destructive';
     }>
   >([]);
+
+  const appVersion = Constants.nativeAppVersion || Constants.expoConfig?.version || 'Unknown';
+  const appBuildVersion =
+    Constants.nativeBuildVersion ||
+    String(
+      Platform.OS === 'android'
+        ? Constants.expoConfig?.android?.versionCode || ''
+        : Constants.expoConfig?.ios?.buildNumber || ''
+    );
+  const versionDisplay = appBuildVersion
+    ? `Version ${appVersion} (Build ${appBuildVersion})`
+    : `Version ${appVersion}`;
 
   useEffect(() => {
     loadSettings();
@@ -1183,7 +1196,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
         {/* App Version Info */}
         <View style={styles.versionContainer}>
-          <Text style={styles.versionText}>Version 1.6.8 (Build 168)</Text>
+          <Text style={styles.versionText}>{versionDisplay}</Text>
         </View>
         </ScrollView>
       </KeyboardAvoidingView>
