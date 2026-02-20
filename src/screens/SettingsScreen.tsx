@@ -1196,7 +1196,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
         {/* AI Agent Skill */}
         <View style={styles.section}>
-          <SettingsAccordion title="AI AGENT" defaultExpanded={false}>
+          <SettingsAccordion title="RUNSTR-FITNESS SKILL" defaultExpanded={false}>
             <Card style={styles.accordionCard}>
               <SettingItem
                 title="RUNSTR Fitness Skill"
