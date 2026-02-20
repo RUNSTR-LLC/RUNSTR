@@ -18,6 +18,7 @@ import { DirectNostrProfileService } from '../services/user/directNostrProfileSe
 import { locationPermissionService } from '../services/activity/LocationPermissionService';
 import unifiedCache from '../services/cache/UnifiedNostrCache';
 import { CacheKeys } from '../constants/cacheTTL';
+import { UnifiedSigningService } from '../services/auth/UnifiedSigningService';
 import type { User } from '../types';
 import { PerformanceLogger } from '../utils/PerformanceLogger';
 import { NostrFetchLogger } from '../utils/NostrFetchLogger';
