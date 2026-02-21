@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "RUNSTR",
-    "slug": "runstr.project",
+    "slug": "runstrproject",
     "version": "1.7.0",
     "orientation": "portrait",
     "icon": "./assets/images/adaptive-icon.png",
@@ -39,7 +39,8 @@
         "UIBackgroundModes": [
           "location",
           "fetch",
-          "processing"
+          "processing",
+          "remote-notification"
         ],
         "UIUserInterfaceStyle": "Dark"
       },
@@ -73,7 +74,10 @@
         "android.permission.health.READ_HEART_RATE",
         "android.permission.health.READ_DISTANCE",
         "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
-        "android.permission.health.READ_TOTAL_CALORIES_BURNED"
+        "android.permission.health.READ_TOTAL_CALORIES_BURNED",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.FOREGROUND_SERVICE_HEALTH",
+        "android.permission.POST_NOTIFICATIONS"
       ],
       "edgeToEdgeEnabled": true,
       "package": "com.anonymous.runstr.project",
@@ -181,8 +185,15 @@
           "defaultChannel": "default"
         }
       ],
-      ["expo-background-fetch"],
-      ["expo-health-connect", { "requestPermissionsOnLaunch": false }],
+      [
+        "expo-background-fetch"
+      ],
+      [
+        "expo-health-connect",
+        {
+          "requestPermissionsOnLaunch": false
+        }
+      ],
       "./plugins/withHealthConnect",
       "./plugins/withKspVersion",
       [
@@ -194,6 +205,12 @@
         }
       ]
     ],
-    "main": "index.js"
+    "main": "index.js",
+    "extra": {
+      "eas": {
+        "projectId": "0cf14da8-49a0-4036-a837-53bd51a3f1c2"
+      }
+    },
+    "owner": "thewildhustle"
   }
 }
