@@ -59,3 +59,25 @@ export interface ClubLeaderboardEntry {
   workout_count: number;
   rank: number;
 }
+
+// Club wallet info (from club-wallet edge function)
+export interface ClubWalletInfo {
+  lightning_address: string;
+  balance_sats: number;
+  has_wallet: boolean;
+}
+
+// Club payout result (from club_payout_log table)
+export interface ClubPayoutResult {
+  competition_id: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'insufficient_funds';
+  total_prize_sats: number;
+  total_paid_sats: number;
+  results: Array<{
+    npub: string;
+    amount: number;
+    rank: number;
+    success: boolean;
+    error?: string;
+  }>;
+}

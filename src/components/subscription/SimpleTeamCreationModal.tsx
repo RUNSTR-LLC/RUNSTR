@@ -23,6 +23,7 @@ import { CustomAlert } from '../ui/CustomAlert';
 import { supabase, isSupabaseConfigured } from '../../utils/supabase';
 import { UserTeamService } from '../../services/backend/UserTeamService';
 import { ClubMembershipService } from '../../services/backend/ClubMembershipService';
+import { ClubWalletService } from '../../services/club/ClubWalletService';
 
 interface SimpleTeamCreationModalProps {
   visible: boolean;
@@ -139,6 +140,17 @@ export const SimpleTeamCreationModal: React.FC<SimpleTeamCreationModalProps> = (
         } else {
           console.log(`[SimpleTeamCreation] Auto-joined as captain of ${teamId}`);
         }
+
+        // Create CoinOS wallet for the club's rewards pool (fire-and-forget)
+        ClubWalletService.createWallet(teamId)
+          .then(result => {
+            if (result.success) {
+              console.log(`[SimpleTeamCreation] Club wallet created: ${result.lightning_address}`);
+            } else {
+              console.error(`[SimpleTeamCreation] Club wallet creation failed: ${result.error}`);
+            }
+          })
+          .catch(err => console.error('[SimpleTeamCreation] Club wallet error:', err));
       }
 
       setAlertTitle('Team Created!');
