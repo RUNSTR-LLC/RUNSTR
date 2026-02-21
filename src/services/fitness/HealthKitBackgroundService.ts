@@ -192,6 +192,14 @@ export class HealthKitBackgroundService {
 
       // Sync today's step count after workout sync
       await this.syncTodaySteps(npub);
+
+      // Trigger background backup to Nostr (nsec: silent, Amber: deferred)
+      try {
+        const { AutoBackupService } = await import('../backup/AutoBackupService');
+        AutoBackupService.getInstance().runBackupInBackground();
+      } catch (err) {
+        console.warn('[HKBackground] Background backup failed (silent):', err);
+      }
     } catch (error) {
       console.error('[HKBackground] handleWorkoutUpdate error:', error);
     }

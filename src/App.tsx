@@ -1021,6 +1021,22 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
           console.warn('[App] Step competition check failed:', error);
           // Non-critical - don't block app functionality
         }
+
+        // Task 3: Fire any pending backup (Amber users deferred from background)
+        try {
+          const { AutoBackupService } = require('./services/backup/AutoBackupService');
+          AutoBackupService.getInstance().onAppForeground();
+        } catch (error) {
+          console.warn('[App] Foreground backup check failed:', error);
+        }
+      } else {
+        // App going to background - flush pending backup
+        try {
+          const { AutoBackupService } = require('./services/backup/AutoBackupService');
+          AutoBackupService.getInstance().onAppBackground();
+        } catch (error) {
+          console.warn('[App] Background backup trigger failed:', error);
+        }
       }
     });
 

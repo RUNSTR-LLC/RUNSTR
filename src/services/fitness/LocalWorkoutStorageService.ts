@@ -10,6 +10,7 @@ import type { Split } from '../activity/SplitTrackingService';
 import { DailyRewardService } from '../rewards/DailyRewardService';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
 import { buildRewardTags } from '../../utils/rewardTags';
+import { AutoBackupService } from '../backup/AutoBackupService';
 import Toast from 'react-native-toast-message';
 
 /**
@@ -426,6 +427,7 @@ export class LocalWorkoutStorageService {
           STORAGE_KEYS.LOCAL_WORKOUTS,
           JSON.stringify(workouts)
         );
+        AutoBackupService.getInstance().scheduleBackup();
         console.log(
           `✅ Updated daily steps workout: ${deterministicId} (${workout.steps} steps, ~${(workout.distance / 1000).toFixed(2)}km)`
         );
@@ -452,6 +454,7 @@ export class LocalWorkoutStorageService {
           STORAGE_KEYS.LOCAL_WORKOUTS,
           JSON.stringify(workouts)
         );
+        AutoBackupService.getInstance().scheduleBackup();
         console.log(
           `✅ Created daily steps workout: ${deterministicId} (${workout.steps} steps, ~${(workout.distance / 1000).toFixed(2)}km)`
         );
@@ -525,6 +528,9 @@ export class LocalWorkoutStorageService {
       this.autoSubmitToSupabase(workout).catch((err) => {
         console.warn('[LocalWorkoutStorage] Supabase auto-submit error (silent):', err);
       });
+
+      // AUTO-BACKUP: Schedule backup to Nostr (3-min debounce collapses rapid saves)
+      AutoBackupService.getInstance().scheduleBackup();
     } catch (error) {
       console.error('❌ Failed to save workout to storage:', error);
       throw error;

@@ -59,6 +59,8 @@ import { MusicPlayerPreferencesService } from '../services/music/MusicPlayerPref
 import { WoTService } from '../services/wot/WoTService';
 import { ExportDataModal } from '../components/backup/ExportDataModal';
 import { ImportDataModal } from '../components/backup/ImportDataModal';
+import { AutoBackupService } from '../services/backup/AutoBackupService';
+import { BackupService } from '../services/backup/BackupService';
 import { SecureNsecStorage } from '../services/auth/SecureNsecStorage';
 import { defaultActivityService, type DefaultActivity } from '../services/activity/DefaultActivityService';
 import { SubscriptionService, type SubscriptionTier } from '../services/backend/SubscriptionService';
@@ -148,6 +150,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   // Backup/Restore state
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [autoBackupEnabled, setAutoBackupEnabled] = useState(true);
+  const [lastBackupTime, setLastBackupTime] = useState<string | null>(null);
 
   // Default activity state
   const [defaultActivity, setDefaultActivity] = useState<DefaultActivity>('run');
@@ -257,6 +261,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           console.warn('[Settings] WoT score load failed:', wotError);
         }
       }
+
+      // Load auto-backup settings
+      const autoBackup = await AutoBackupService.getInstance().isAutoBackupEnabled();
+      setAutoBackupEnabled(autoBackup);
+      const backupTime = await BackupService.getInstance().getLastBackupTime();
+      setLastBackupTime(backupTime);
 
       // Load NWC wallet state
       const nwcAvailable = await NWCStorageService.hasNWC();
@@ -402,6 +412,17 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       // Revert on error
       const current = await MusicPlayerPreferencesService.isMusicPlayerHeaderEnabled();
       setMusicPlayerHeaderEnabled(current);
+    }
+  };
+
+  const handleAutoBackupToggle = async (enabled: boolean) => {
+    try {
+      await AutoBackupService.getInstance().setAutoBackupEnabled(enabled);
+      setAutoBackupEnabled(enabled);
+    } catch (error) {
+      console.error('Error saving auto-backup setting:', error);
+      const current = await AutoBackupService.getInstance().isAutoBackupEnabled();
+      setAutoBackupEnabled(current);
     }
   };
 
@@ -984,6 +1005,36 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         <View style={styles.section}>
           <SettingsAccordion title="Data & Backup" defaultExpanded={false}>
             <Card style={styles.accordionCard}>
+              {/* Auto-Backup */}
+              <SettingItem
+                title="Auto-Backup"
+                subtitle={
+                  autoBackupEnabled
+                    ? lastBackupTime
+                      ? `Last: ${(() => {
+                          const diff = Date.now() - new Date(lastBackupTime).getTime();
+                          const mins = Math.floor(diff / 60000);
+                          if (mins < 1) return 'just now';
+                          if (mins < 60) return `${mins}m ago`;
+                          const hrs = Math.floor(mins / 60);
+                          if (hrs < 24) return `${hrs}h ago`;
+                          return `${Math.floor(hrs / 24)}d ago`;
+                        })()}`
+                      : 'Backs up after each workout'
+                    : 'Disabled'
+                }
+                rightElement={
+                  <Switch
+                    value={autoBackupEnabled}
+                    onValueChange={handleAutoBackupToggle}
+                    trackColor={{
+                      false: theme.colors.warning,
+                      true: theme.colors.accent,
+                    }}
+                    thumbColor={theme.colors.orangeBright}
+                  />
+                }
+              />
               {/* Export Data */}
               <SettingItem
                 title="Export Data"

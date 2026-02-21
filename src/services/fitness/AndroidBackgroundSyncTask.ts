@@ -72,6 +72,14 @@ if (Platform.OS === 'android') {
         console.warn('[AndroidBgSync] Health Connect sync error:', err);
       }
 
+      // Trigger background backup to Nostr (nsec: silent, Amber: deferred)
+      try {
+        const { AutoBackupService } = await import('../backup/AutoBackupService');
+        AutoBackupService.getInstance().runBackupInBackground();
+      } catch (err) {
+        console.warn('[AndroidBgSync] Background backup failed (silent):', err);
+      }
+
       const BackgroundFetch = require('expo-background-fetch');
       return hasNewData
         ? BackgroundFetch.BackgroundFetchResult.NewData
