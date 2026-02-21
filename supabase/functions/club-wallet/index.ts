@@ -2,17 +2,19 @@
  * Supabase Edge Function: club-wallet
  *
  * Manages CoinOS wallets for club rewards pools.
- * All credentials are encrypted in the database — never exposed to clients.
+ * Credentials are AES-256-GCM encrypted in the edge function before storage.
+ * The JWT from registration is stored so we never need to call /login
+ * (CoinOS login requires captcha).
  *
  * Operations:
- * - create_wallet:           Create CoinOS account, encrypt + store credentials
- * - get_balance:             Decrypt credentials, fetch balance from CoinOS
+ * - create_wallet:           Create CoinOS account, store encrypted creds + JWT
+ * - get_balance:             Use stored JWT to fetch balance from CoinOS
  * - get_lightning_address:   Return club's Lightning address from DB
- * - backfill_existing_clubs: Create wallets for all clubs that don't have one yet
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { encode as b64Encode, decode as b64Decode } from 'https://deno.land/std@0.168.0/encoding/base64.ts'
 
 // CoinOS API
 const COINOS_API_BASE = 'https://coinos.io/api'
@@ -22,6 +24,38 @@ const COINOS_TIMEOUT = 15000
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+// ============================================
+// AES-256-GCM Encryption (Deno native crypto)
+// ============================================
+
+async function getEncryptionKey(): Promise<CryptoKey> {
+  const keyB64 = Deno.env.get('CLUB_WALLET_ENCRYPTION_KEY')
+  if (!keyB64) {
+    throw new Error('CLUB_WALLET_ENCRYPTION_KEY env var not set')
+  }
+  const keyMaterial = new TextEncoder().encode(keyB64)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', keyMaterial)
+  return crypto.subtle.importKey('raw', hashBuffer, 'AES-GCM', false, ['encrypt', 'decrypt'])
+}
+
+async function encrypt(plaintext: string): Promise<string> {
+  const key = await getEncryptionKey()
+  const iv = crypto.getRandomValues(new Uint8Array(12))
+  const encoded = new TextEncoder().encode(plaintext)
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded)
+  return b64Encode(iv) + ':' + b64Encode(new Uint8Array(ciphertext))
+}
+
+async function decrypt(encrypted: string): Promise<string> {
+  const key = await getEncryptionKey()
+  const [ivB64, ctB64] = encrypted.split(':')
+  if (!ivB64 || !ctB64) throw new Error('Invalid encrypted format')
+  const iv = b64Decode(ivB64)
+  const ciphertext = b64Decode(ctB64)
+  const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext)
+  return new TextDecoder().decode(decrypted)
 }
 
 // ============================================
@@ -39,10 +73,6 @@ function generatePassword(length = 16): string {
   return result
 }
 
-/**
- * Generate a unique CoinOS username for a club.
- * Format: club{first6_of_club_id}{timestamp8}{random3}
- */
 function generateUsername(clubId: string): string {
   const prefix = clubId.replace(/-/g, '').slice(0, 6)
   const ts = Date.now().toString(36).slice(-8)
@@ -83,34 +113,6 @@ async function coinosRegister(
   }
 }
 
-async function coinosLogin(
-  username: string,
-  password: string
-): Promise<{ success: boolean; token?: string; error?: string }> {
-  try {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), COINOS_TIMEOUT)
-
-    const response = await fetch(`${COINOS_API_BASE}/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
-      signal: controller.signal,
-    })
-
-    clearTimeout(timeout)
-
-    if (!response.ok) {
-      return { success: false, error: `Login failed: ${response.status}` }
-    }
-
-    const data = await response.json()
-    return { success: true, token: data.token }
-  } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
-  }
-}
-
 async function coinosGetBalance(jwt: string): Promise<{ success: boolean; balance?: number; error?: string }> {
   try {
     const controller = new AbortController()
@@ -136,10 +138,55 @@ async function coinosGetBalance(jwt: string): Promise<{ success: boolean; balanc
 }
 
 // ============================================
+// Store / Retrieve credentials (service_role direct table access)
+// ============================================
+
+async function storeWalletCredentials(
+  supabase: ReturnType<typeof createClient>,
+  clubId: string,
+  username: string,
+  password: string,
+  jwt: string,
+  lightningAddress: string
+): Promise<{ success: boolean; error?: string }> {
+  const encryptedPassword = await encrypt(password)
+  const encryptedJwt = await encrypt(jwt)
+
+  const { error } = await supabase
+    .from('club_wallets')
+    .insert({
+      club_id: clubId,
+      coinos_username: username,
+      coinos_password_encrypted: encryptedPassword,
+      coinos_jwt_encrypted: encryptedJwt,
+      lightning_address: lightningAddress,
+    })
+
+  if (error) return { success: false, error: error.message }
+  return { success: true }
+}
+
+async function getWalletJwt(
+  supabase: ReturnType<typeof createClient>,
+  clubId: string
+): Promise<{ jwt: string; lightning_address: string } | null> {
+  const { data, error } = await supabase
+    .from('club_wallets')
+    .select('coinos_jwt_encrypted, lightning_address')
+    .eq('club_id', clubId)
+    .single()
+
+  if (error || !data) return null
+
+  const jwt = await decrypt(data.coinos_jwt_encrypted)
+  return { jwt, lightning_address: data.lightning_address }
+}
+
+// ============================================
 // Request Types
 // ============================================
 
-type Operation = 'create_wallet' | 'get_balance' | 'get_lightning_address' | 'backfill_existing_clubs'
+type Operation = 'create_wallet' | 'get_balance' | 'get_lightning_address'
 
 interface RequestBody {
   operation: Operation
@@ -185,49 +232,33 @@ serve(async (req) => {
         .single()
 
       if (existing) {
-        console.log(`[club-wallet] Wallet already exists for club ${club_id}`)
         return new Response(
-          JSON.stringify({
-            success: true,
-            lightning_address: existing.lightning_address,
-            already_exists: true,
-          }),
+          JSON.stringify({ success: true, lightning_address: existing.lightning_address, already_exists: true }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
 
-      // Generate credentials
       const password = generatePassword()
       let username = generateUsername(club_id)
-      let registered = false
-      let token: string | undefined
+      let regToken: string | undefined
 
-      // Try up to 3 times with different usernames
       for (let attempt = 0; attempt < 3; attempt++) {
         const result = await coinosRegister(username, password)
-
-        if (result.success) {
-          registered = true
-          token = result.token
+        if (result.success && result.token) {
+          regToken = result.token
           break
         }
-
         if (result.error === 'username_taken') {
-          // Append random suffix and retry
           username = generateUsername(club_id)
-          console.log(`[club-wallet] Username taken, trying: ${username}`)
           continue
         }
-
-        // Other error — bail
-        console.error(`[club-wallet] Registration failed: ${result.error}`)
         return new Response(
           JSON.stringify({ success: false, reason: result.error }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
 
-      if (!registered) {
+      if (!regToken) {
         return new Response(
           JSON.stringify({ success: false, reason: 'could_not_register_username' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -236,35 +267,22 @@ serve(async (req) => {
 
       const lightningAddress = `${username}@coinos.io`
 
-      // Store encrypted credentials via RPC
-      const { error: insertError } = await supabase.rpc('insert_club_wallet', {
-        p_club_id: club_id,
-        p_coinos_username: username,
-        p_coinos_password: password,
-        p_lightning_address: lightningAddress,
-      })
-
-      if (insertError) {
-        console.error(`[club-wallet] Failed to store credentials: ${insertError.message}`)
+      // Store encrypted credentials + JWT
+      const storeResult = await storeWalletCredentials(supabase, club_id, username, password, regToken, lightningAddress)
+      if (!storeResult.success) {
         return new Response(
-          JSON.stringify({ success: false, reason: insertError.message }),
+          JSON.stringify({ success: false, reason: storeResult.error }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
 
-      // Also update the club's lightning_address in user_teams
-      await supabase
-        .from('user_teams')
-        .update({ lightning_address: lightningAddress })
-        .eq('id', club_id)
+      // Update lightning_address on user_teams
+      await supabase.from('user_teams').update({ lightning_address: lightningAddress }).eq('id', club_id)
 
       console.log(`[club-wallet] Created wallet for club ${club_id}: ${lightningAddress}`)
 
       return new Response(
-        JSON.stringify({
-          success: true,
-          lightning_address: lightningAddress,
-        }),
+        JSON.stringify({ success: true, lightning_address: lightningAddress }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -282,34 +300,16 @@ serve(async (req) => {
         )
       }
 
-      // Get decrypted credentials via RPC
-      const { data: creds, error: credError } = await supabase.rpc(
-        'get_club_wallet_credentials',
-        { p_club_id: club_id }
-      )
-
-      if (credError || !creds || creds.length === 0) {
-        console.error(`[club-wallet] No wallet found for club ${club_id}:`, credError?.message)
+      const wallet = await getWalletJwt(supabase, club_id)
+      if (!wallet) {
         return new Response(
           JSON.stringify({ success: false, reason: 'no_wallet', balance_sats: 0 }),
           { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
 
-      const { coinos_username, coinos_password, lightning_address } = creds[0]
-
-      // Login to CoinOS
-      const loginResult = await coinosLogin(coinos_username, coinos_password)
-      if (!loginResult.success || !loginResult.token) {
-        console.error(`[club-wallet] CoinOS login failed for ${coinos_username}`)
-        return new Response(
-          JSON.stringify({ success: false, reason: 'coinos_login_failed' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-
-      // Get balance
-      const balanceResult = await coinosGetBalance(loginResult.token)
+      // Use stored JWT directly — no login needed (CoinOS login requires captcha)
+      const balanceResult = await coinosGetBalance(wallet.jwt)
       if (!balanceResult.success) {
         return new Response(
           JSON.stringify({ success: false, reason: balanceResult.error }),
@@ -317,14 +317,8 @@ serve(async (req) => {
         )
       }
 
-      console.log(`[club-wallet] Balance for ${club_id}: ${balanceResult.balance} sats`)
-
       return new Response(
-        JSON.stringify({
-          success: true,
-          balance_sats: balanceResult.balance,
-          lightning_address,
-        }),
+        JSON.stringify({ success: true, balance_sats: balanceResult.balance, lightning_address: wallet.lightning_address }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -342,7 +336,6 @@ serve(async (req) => {
         )
       }
 
-      // Read Lightning address directly (no decryption needed)
       const { data, error } = await supabase
         .from('club_wallets')
         .select('lightning_address')
@@ -357,124 +350,11 @@ serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({
-          success: true,
-          lightning_address: data.lightning_address,
-        }),
+        JSON.stringify({ success: true, lightning_address: data.lightning_address }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // ========================================
-    // Operation: backfill_existing_clubs
-    // Creates wallets for all clubs that don't have one yet.
-    // Call this once after deploying the migration.
-    // ========================================
-    if (operation === 'backfill_existing_clubs') {
-      // Get all active clubs
-      const { data: clubs, error: clubsError } = await supabase
-        .from('user_teams')
-        .select('id, name')
-        .eq('is_active', true)
-
-      if (clubsError || !clubs) {
-        return new Response(
-          JSON.stringify({ success: false, reason: clubsError?.message || 'no_clubs' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-
-      // Get clubs that already have wallets
-      const { data: existingWallets } = await supabase
-        .from('club_wallets')
-        .select('club_id')
-
-      const existingClubIds = new Set((existingWallets || []).map((w: { club_id: string }) => w.club_id))
-
-      const results: Array<{ club_id: string; name: string; success: boolean; lightning_address?: string; error?: string }> = []
-
-      for (const club of clubs) {
-        if (existingClubIds.has(club.id)) {
-          console.log(`[club-wallet] Skipping ${club.name} — wallet already exists`)
-          continue
-        }
-
-        console.log(`[club-wallet] Creating wallet for existing club: ${club.name} (${club.id})`)
-
-        // Generate credentials
-        const password = generatePassword()
-        let username = generateUsername(club.id)
-        let registered = false
-
-        for (let attempt = 0; attempt < 3; attempt++) {
-          const result = await coinosRegister(username, password)
-          if (result.success) {
-            registered = true
-            break
-          }
-          if (result.error === 'username_taken') {
-            username = generateUsername(club.id)
-            continue
-          }
-          results.push({ club_id: club.id, name: club.name, success: false, error: result.error })
-          break
-        }
-
-        if (!registered) {
-          if (!results.find(r => r.club_id === club.id)) {
-            results.push({ club_id: club.id, name: club.name, success: false, error: 'could_not_register' })
-          }
-          continue
-        }
-
-        const lightningAddress = `${username}@coinos.io`
-
-        // Store encrypted credentials
-        const { error: insertError } = await supabase.rpc('insert_club_wallet', {
-          p_club_id: club.id,
-          p_coinos_username: username,
-          p_coinos_password: password,
-          p_lightning_address: lightningAddress,
-        })
-
-        if (insertError) {
-          results.push({ club_id: club.id, name: club.name, success: false, error: insertError.message })
-          continue
-        }
-
-        // Update lightning_address on user_teams
-        await supabase
-          .from('user_teams')
-          .update({ lightning_address: lightningAddress })
-          .eq('id', club.id)
-
-        results.push({ club_id: club.id, name: club.name, success: true, lightning_address: lightningAddress })
-        console.log(`[club-wallet] Created wallet for ${club.name}: ${lightningAddress}`)
-
-        // Small delay to avoid CoinOS rate limiting
-        await new Promise(resolve => setTimeout(resolve, 500))
-      }
-
-      const created = results.filter(r => r.success).length
-      const failed = results.filter(r => !r.success).length
-      const skipped = clubs.length - results.length
-
-      console.log(`[club-wallet] Backfill complete: ${created} created, ${failed} failed, ${skipped} skipped`)
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          created,
-          failed,
-          skipped,
-          total_clubs: clubs.length,
-          results,
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Unknown operation
     return new Response(
       JSON.stringify({ success: false, reason: 'unknown_operation' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -482,10 +362,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('[club-wallet] Error:', error)
     return new Response(
-      JSON.stringify({
-        success: false,
-        reason: error instanceof Error ? error.message : 'internal_error',
-      }),
+      JSON.stringify({ success: false, reason: error instanceof Error ? error.message : 'internal_error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }

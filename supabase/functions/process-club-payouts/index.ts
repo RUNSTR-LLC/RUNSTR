@@ -14,6 +14,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { decode as b64Decode } from 'https://deno.land/std@0.168.0/encoding/base64.ts'
 
 // CoinOS API
 const COINOS_API_BASE = 'https://coinos.io/api'
@@ -27,35 +28,39 @@ const corsHeaders = {
 }
 
 // ============================================
-// CoinOS HTTP Helpers
+// AES-256-GCM Decryption (same key as club-wallet)
 // ============================================
 
-async function coinosLogin(
-  username: string,
-  password: string
-): Promise<{ success: boolean; token?: string; error?: string }> {
-  try {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), COINOS_TIMEOUT)
+async function getEncryptionKey(): Promise<CryptoKey> {
+  const keyB64 = Deno.env.get('CLUB_WALLET_ENCRYPTION_KEY')
+  if (!keyB64) throw new Error('CLUB_WALLET_ENCRYPTION_KEY env var not set')
+  const keyMaterial = new TextEncoder().encode(keyB64)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', keyMaterial)
+  return crypto.subtle.importKey('raw', hashBuffer, 'AES-GCM', false, ['decrypt'])
+}
 
-    const response = await fetch(`${COINOS_API_BASE}/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
-      signal: controller.signal,
-    })
+async function decrypt(encrypted: string): Promise<string> {
+  const key = await getEncryptionKey()
+  const [ivB64, ctB64] = encrypted.split(':')
+  if (!ivB64 || !ctB64) throw new Error('Invalid encrypted format')
+  const iv = b64Decode(ivB64)
+  const ciphertext = b64Decode(ctB64)
+  const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext)
+  return new TextDecoder().decode(decrypted)
+}
 
-    clearTimeout(timeout)
+async function getClubWalletJwt(
+  supabase: ReturnType<typeof createClient>,
+  clubId: string
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('club_wallets')
+    .select('coinos_jwt_encrypted')
+    .eq('club_id', clubId)
+    .single()
 
-    if (!response.ok) {
-      return { success: false, error: `Login failed: ${response.status}` }
-    }
-
-    const data = await response.json()
-    return { success: true, token: data.token }
-  } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
-  }
+  if (error || !data?.coinos_jwt_encrypted) return null
+  return decrypt(data.coinos_jwt_encrypted)
 }
 
 async function coinosGetBalance(jwt: string): Promise<number> {
@@ -316,38 +321,21 @@ serve(async (req) => {
         continue
       }
 
-      // b. Get club wallet credentials
-      const { data: creds, error: credError } = await supabase.rpc(
-        'get_club_wallet_credentials',
-        { p_club_id: comp.club_id }
-      )
-
-      if (credError || !creds || creds.length === 0) {
-        console.error(`[process-club-payouts] No wallet for club ${comp.club_id}`)
+      // b. Get club wallet JWT (stored from registration — no login needed)
+      const clubJwt = await getClubWalletJwt(supabase, comp.club_id)
+      if (!clubJwt) {
+        console.error(`[process-club-payouts] No wallet JWT for club ${comp.club_id}`)
         await supabase
           .from('club_payout_log')
-          .update({ status: 'failed', results: [{ error: 'No wallet found' }] })
+          .update({ status: 'failed', results: [{ error: 'No wallet JWT found' }] })
           .eq('competition_id', comp.id)
         continue
       }
 
-      const { coinos_username, coinos_password } = creds[0]
-
-      // c. Login to CoinOS
-      const loginResult = await coinosLogin(coinos_username, coinos_password)
-      if (!loginResult.success || !loginResult.token) {
-        console.error(`[process-club-payouts] CoinOS login failed for ${coinos_username}`)
-        await supabase
-          .from('club_payout_log')
-          .update({ status: 'failed', results: [{ error: 'CoinOS login failed' }] })
-          .eq('competition_id', comp.id)
-        continue
-      }
-
-      // d. Check balance
+      // c. Check balance using stored JWT
       let balance: number
       try {
-        balance = await coinosGetBalance(loginResult.token)
+        balance = await coinosGetBalance(clubJwt)
       } catch (error) {
         console.error(`[process-club-payouts] Balance check failed:`, error)
         await supabase
@@ -471,7 +459,7 @@ serve(async (req) => {
           )
 
           // Pay from club's CoinOS wallet
-          const payResult = await coinosSendPayment(loginResult.token!, invoice)
+          const payResult = await coinosSendPayment(clubJwt, invoice)
 
           if (payResult.success) {
             console.log(`[process-club-payouts] Paid ${target.amount_sats} sats to rank #${target.rank}`)
