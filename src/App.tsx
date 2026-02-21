@@ -155,6 +155,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NavigationDataProvider } from './contexts/NavigationDataContext';
 import { AppNavigator } from './navigation/AppNavigator';
 import { BottomTabNavigator } from './navigation/BottomTabNavigator';
+import { navigationRef, navigate as navigationRefNavigate } from './navigation/navigationRef';
 import { createStackNavigator } from '@react-navigation/stack';
 import { EventDetailScreen } from './screens/EventDetailScreen';
 import { LeagueDetailScreen } from './screens/LeagueDetailScreen';
@@ -924,7 +925,7 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
   // Event deep link state
   const [pendingEventNavigation, setPendingEventNavigation] =
     React.useState<ParsedEventData | null>(null);
-  const navigationRef = React.useRef<any>(null);
+  // Uses shared navigationRef from './navigation/navigationRef' (imported at top)
 
   // Check for first launch when authenticated
   React.useEffect(() => {
@@ -1093,7 +1094,7 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
   React.useEffect(() => {
     if (
       pendingEventNavigation &&
-      navigationRef.current &&
+      navigationRef.isReady() &&
       isAuthenticated &&
       currentUser
     ) {
@@ -1105,7 +1106,7 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
       // Small delay to ensure navigation stack is ready
       setTimeout(() => {
         try {
-          navigationRef.current?.navigate('EventDetail', {
+          navigationRefNavigate('EventDetail', {
             eventId: pendingEventNavigation.eventId,
           });
           setPendingEventNavigation(null);
@@ -1255,7 +1256,7 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
           console.log('✅ Welcome modal closed - navigating to Reward Destination picker');
           // Send user to Rewards tab and auto-open the destination picker
           setTimeout(() => {
-            navigationRef.current?.navigate('MainTabs', { screen: 'Rewards', params: { openDestinationPicker: true } });
+            navigationRefNavigate('MainTabs', { screen: 'Rewards', params: { openDestinationPicker: true } });
           }, 300);
         }}
       />
