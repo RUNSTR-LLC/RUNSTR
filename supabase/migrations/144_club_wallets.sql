@@ -53,7 +53,7 @@ CREATE OR REPLACE FUNCTION insert_club_wallet(
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   encryption_key TEXT;
@@ -86,7 +86,7 @@ RETURNS TABLE(
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   encryption_key TEXT;
