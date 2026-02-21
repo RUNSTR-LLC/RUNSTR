@@ -12,7 +12,7 @@
 -- 1. TABLE: leaderboard_position_cache
 -- ============================================================================
 
-CREATE TABLE leaderboard_position_cache (
+CREATE TABLE IF NOT EXISTS leaderboard_position_cache (
   competition_id UUID NOT NULL REFERENCES competitions(id) ON DELETE CASCADE,
   npub TEXT NOT NULL,
   position INTEGER NOT NULL,
@@ -23,7 +23,7 @@ CREATE TABLE leaderboard_position_cache (
 );
 
 -- Index for efficient per-competition lookups
-CREATE INDEX idx_leaderboard_position_cache_competition
+CREATE INDEX IF NOT EXISTS idx_leaderboard_position_cache_competition
   ON leaderboard_position_cache(competition_id);
 
 -- ============================================================================
@@ -32,12 +32,19 @@ CREATE INDEX idx_leaderboard_position_cache_competition
 
 ALTER TABLE leaderboard_position_cache ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Service role only on leaderboard_position_cache"
-  ON leaderboard_position_cache
-  FOR ALL
-  TO service_role
-  USING (true)
-  WITH CHECK (true);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'leaderboard_position_cache' AND policyname = 'Service role only on leaderboard_position_cache'
+  ) THEN
+    CREATE POLICY "Service role only on leaderboard_position_cache"
+      ON leaderboard_position_cache
+      FOR ALL
+      TO service_role
+      USING (true)
+      WITH CHECK (true);
+  END IF;
+END $$;
 
 -- ============================================================================
 -- 3. FUNCTION: compute_competition_leaderboard
@@ -55,7 +62,7 @@ CREATE OR REPLACE FUNCTION compute_competition_leaderboard(
 )
 RETURNS TABLE (
   npub TEXT,
-  position INTEGER,
+  "position" INTEGER,
   total_distance_meters BIGINT
 ) AS $$
 BEGIN
@@ -64,7 +71,7 @@ BEGIN
     cp.npub,
     ROW_NUMBER() OVER (
       ORDER BY COALESCE(SUM(ws.distance_meters), 0) DESC
-    )::INTEGER AS position,
+    )::INTEGER AS "position",
     COALESCE(SUM(ws.distance_meters), 0)::BIGINT AS total_distance_meters
   FROM competition_participants cp
   LEFT JOIN workout_submissions ws
