@@ -15,6 +15,8 @@ import { theme } from '../../styles/theme';
 import { CustomAlert } from '../ui/CustomAlert';
 import { ClubService } from '../../services/backend/ClubService';
 import { ClubMembershipService } from '../../services/backend/ClubMembershipService';
+import { nostrProfileService } from '../../services/nostr/NostrProfileService';
+import type { NostrProfile } from '../../services/nostr/NostrProfileService';
 import { Avatar } from '../ui/Avatar';
 import type { Club, ClubMembership } from '../../types/club';
 
@@ -40,6 +42,7 @@ export const CaptainSettingsModal: React.FC<CaptainSettingsModalProps> = ({
   const [leaderboardMetric, setLeaderboardMetric] = useState<'distance' | 'steps'>(club.leaderboard_metric || 'distance');
   const [isSaving, setIsSaving] = useState(false);
   const [members, setMembers] = useState<ClubMembership[]>([]);
+  const [profiles, setProfiles] = useState<Map<string, NostrProfile>>(new Map());
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
   const [removingNpub, setRemovingNpub] = useState<string | null>(null);
   const [alertVisible, setAlertVisible] = useState(false);
@@ -62,6 +65,13 @@ export const CaptainSettingsModal: React.FC<CaptainSettingsModalProps> = ({
       await ClubMembershipService.clearCache();
       const data = await ClubMembershipService.getClubMembers(club.id);
       setMembers(data);
+
+      // Fetch Nostr profiles for all members
+      if (data.length > 0) {
+        const npubs = data.map((m) => m.member_npub);
+        const fetchedProfiles = await nostrProfileService.getProfiles(npubs);
+        setProfiles(fetchedProfiles);
+      }
     } catch (err) {
       console.error('[CaptainSettingsModal] Error loading members:', err);
     } finally {
@@ -113,9 +123,15 @@ export const CaptainSettingsModal: React.FC<CaptainSettingsModalProps> = ({
     }
   }, [isSaving, description, lightningAddress, bannerUrl, leaderboardMetric, club, onClubUpdated]);
 
+  const getDisplayName = useCallback((npub: string) => {
+    const profile = profiles.get(npub);
+    return profile?.display_name || profile?.name || npub.slice(0, 8) + '...';
+  }, [profiles]);
+
   const handleRemoveMember = useCallback((member: ClubMembership) => {
     const npub = member.member_npub;
-    Alert.alert('Remove Member', `Remove ${npub.slice(0, 12)}... from the club?`, [
+    const name = getDisplayName(npub);
+    Alert.alert('Remove Member', `Remove ${name} from the club?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Remove', style: 'destructive',
@@ -138,13 +154,14 @@ export const CaptainSettingsModal: React.FC<CaptainSettingsModalProps> = ({
         },
       },
     ]);
-  }, [club.id, onClubUpdated]);
+  }, [club.id, getDisplayName, onClubUpdated]);
 
   const handleTransferCaptainship = useCallback((member: ClubMembership) => {
     const npub = member.member_npub;
+    const name = getDisplayName(npub);
     Alert.alert(
       'Transfer Captainship',
-      `Make ${npub.slice(0, 12)}... the new captain?\n\nYou will become a regular member.`,
+      `Make ${name} the new captain?\n\nYou will become a regular member.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -154,7 +171,7 @@ export const CaptainSettingsModal: React.FC<CaptainSettingsModalProps> = ({
             try {
               const result = await ClubMembershipService.transferCaptainship(club.id, npub, userNpub);
               if (result.success) {
-                showAlert('Captainship Transferred', `${npub.slice(0, 12)}... is now the captain.`);
+                showAlert('Captainship Transferred', `${name} is now the captain.`);
                 onClubUpdated?.();
               } else {
                 showAlert('Error', result.error || 'Failed to transfer captainship.');
@@ -169,7 +186,7 @@ export const CaptainSettingsModal: React.FC<CaptainSettingsModalProps> = ({
         },
       ]
     );
-  }, [club.id, onClubUpdated]);
+  }, [club.id, getDisplayName, onClubUpdated]);
 
   const handleAlertDismiss = useCallback(() => {
     setAlertVisible(false);
@@ -271,13 +288,14 @@ export const CaptainSettingsModal: React.FC<CaptainSettingsModalProps> = ({
             ) : (
               <View style={s.membersList}>
                 {removableMembers.map((member) => {
-                  const name = member.member_npub.slice(0, 12) + '...';
+                  const profile = profiles.get(member.member_npub);
+                  const displayName = profile?.display_name || profile?.name || member.member_npub.slice(0, 8) + '...';
                   const isRemoving = removingNpub === member.member_npub;
                   return (
                     <View key={member.id} style={s.memberRow}>
                       <View style={s.memberInfo}>
-                        <Avatar name={name} size={36} />
-                        <Text style={s.memberName}>{name}</Text>
+                        <Avatar name={displayName} size={36} imageUrl={profile?.picture} />
+                        <Text style={s.memberName}>{displayName}</Text>
                       </View>
                       <View style={s.memberActions}>
                         <TouchableOpacity

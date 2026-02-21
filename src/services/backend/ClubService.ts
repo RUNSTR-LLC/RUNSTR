@@ -25,11 +25,11 @@ const EARNINGS_TTL = 5 * 60 * 1000; // 5 minutes
 // Earnings data returned by getClubEarnings
 export interface ClubEarnings {
   weeklyWorkouts: number;
-  weeklyEarnings: number; // weeklyWorkouts * 10
+  weeklyEarnings: number; // verified sats from reward_payments
   weeklyActiveMembers: number;
   todayActiveMembers: number;
   allTimeWorkouts: number;
-  allTimeEarnings: number; // allTimeWorkouts * 10
+  allTimeEarnings: number; // verified sats from reward_payments
 }
 
 export class ClubService {
@@ -236,12 +236,12 @@ export class ClubService {
   }
 
   /**
-   * Get club earnings data from workout_submissions.
-   * Counts qualifying workouts (those with a club_lightning_address) and
-   * multiplies by 10 sats per workout for the earnings totals.
+   * Get club earnings data from workout_submissions (activity stats) and
+   * reward_payments (verified sats). Only payments with status='success'
+   * are counted as earnings — never estimates based on workout counts.
    * Cached in-memory for 5 minutes.
    */
-  static async getClubEarnings(clubId: string): Promise<ClubEarnings> {
+  static async getClubEarnings(clubId: string, lightningAddress?: string | null): Promise<ClubEarnings> {
     const empty: ClubEarnings = {
       weeklyWorkouts: 0,
       weeklyEarnings: 0,
@@ -255,8 +255,9 @@ export class ClubService {
       return empty;
     }
 
-    // Check cache
-    const cached = earningsCache.get(clubId);
+    // Check cache (keyed by clubId + lightning address)
+    const cacheKey = `${clubId}:${lightningAddress || ''}`;
+    const cached = earningsCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < EARNINGS_TTL) {
       return cached.data;
     }
@@ -269,16 +270,17 @@ export class ClubService {
       const monday = new Date(now);
       monday.setUTCDate(now.getUTCDate() + diffToMonday);
       monday.setUTCHours(0, 0, 0, 0);
-      const weekStart = monday.toISOString().split('T')[0];
+      const weekStart = monday.toISOString();
+      const weekStartDate = weekStart.split('T')[0];
       const todayStr = now.toISOString().split('T')[0];
 
-      // Fetch weekly data (includes today)
+      // Fetch weekly workout data (includes today)
       const { data: weekData, error: weekErr } = await supabase!
         .from('workout_submissions')
         .select('npub, leaderboard_date')
         .eq('club_id', clubId)
         .not('club_lightning_address', 'is', null)
-        .gte('leaderboard_date', weekStart);
+        .gte('leaderboard_date', weekStartDate);
 
       if (weekErr) {
         console.error('[ClubService] getClubEarnings week query error:', weekErr);
@@ -292,7 +294,7 @@ export class ClubService {
         weekRows.filter((r: any) => r.leaderboard_date === todayStr).map((r: any) => r.npub)
       );
 
-      // Fetch all-time count
+      // Fetch all-time workout count
       const { count: allTimeCount, error: allErr } = await supabase!
         .from('workout_submissions')
         .select('*', { count: 'exact', head: true })
@@ -304,18 +306,47 @@ export class ClubService {
         return empty;
       }
 
+      // Fetch verified earnings from reward_payments
+      let weeklyVerifiedSats = 0;
+      let allTimeVerifiedSats = 0;
+
+      if (lightningAddress) {
+        // Weekly verified payments
+        const { data: weekPayments, error: weekPayErr } = await supabase!
+          .from('reward_payments')
+          .select('amount_sats')
+          .eq('lightning_address', lightningAddress)
+          .eq('status', 'success')
+          .gte('paid_at', weekStart);
+
+        if (!weekPayErr && weekPayments) {
+          weeklyVerifiedSats = weekPayments.reduce((sum: number, r: any) => sum + (r.amount_sats || 0), 0);
+        }
+
+        // All-time verified payments
+        const { data: allPayments, error: allPayErr } = await supabase!
+          .from('reward_payments')
+          .select('amount_sats')
+          .eq('lightning_address', lightningAddress)
+          .eq('status', 'success');
+
+        if (!allPayErr && allPayments) {
+          allTimeVerifiedSats = allPayments.reduce((sum: number, r: any) => sum + (r.amount_sats || 0), 0);
+        }
+      }
+
       const result: ClubEarnings = {
         weeklyWorkouts,
-        weeklyEarnings: weeklyWorkouts * 10,
+        weeklyEarnings: weeklyVerifiedSats,
         weeklyActiveMembers: weekNpubs.size,
         todayActiveMembers: todayNpubs.size,
         allTimeWorkouts: allTimeCount || 0,
-        allTimeEarnings: (allTimeCount || 0) * 10,
+        allTimeEarnings: allTimeVerifiedSats,
       };
 
       // Cache result
-      earningsCache.set(clubId, { data: result, timestamp: Date.now() });
-      console.log(`[ClubService] Club earnings for ${clubId}: ${result.weeklyEarnings} sats this week`);
+      earningsCache.set(cacheKey, { data: result, timestamp: Date.now() });
+      console.log(`[ClubService] Club earnings for ${clubId}: ${result.weeklyEarnings} verified sats this week`);
 
       return result;
     } catch (err) {

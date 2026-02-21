@@ -36,7 +36,7 @@ const ClubEarningsCardComponent: React.FC<ClubEarningsCardProps> = ({
 
   const loadEarnings = useCallback(async () => {
     try {
-      const data = await ClubService.getClubEarnings(clubId);
+      const data = await ClubService.getClubEarnings(clubId, lightningAddress);
       setEarnings(data);
     } catch (err) {
       console.error('[ClubEarningsCard] Error loading earnings:', err);
@@ -44,7 +44,7 @@ const ClubEarningsCardComponent: React.FC<ClubEarningsCardProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [clubId]);
+  }, [clubId, lightningAddress]);
 
   useEffect(() => {
     loadEarnings();
@@ -99,11 +99,18 @@ const ClubEarningsCardComponent: React.FC<ClubEarningsCardProps> = ({
         <Text style={styles.headerTitle}>Club Earnings</Text>
       </View>
 
-      {/* Big weekly number */}
-      <Text style={styles.bigNumber}>
-        {earnings.weeklyEarnings.toLocaleString()} sats
+      {/* Big weekly number — verified payments only */}
+      <View style={styles.verifiedRow}>
+        <Text style={styles.bigNumber}>
+          {earnings.weeklyEarnings.toLocaleString()} sats
+        </Text>
+        {lightningAddress && (
+          <Ionicons name="checkmark-circle" size={18} color={theme.colors.success} style={{ marginLeft: 6, marginTop: 4 }} />
+        )}
+      </View>
+      <Text style={styles.bigLabel}>
+        {lightningAddress ? 'verified this week' : 'this week'}
       </Text>
-      <Text style={styles.bigLabel}>this week</Text>
 
       {/* Stats row */}
       <View style={styles.statsRow}>
@@ -222,6 +229,10 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
+  },
+  verifiedRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
   },
   bigNumber: {
     fontSize: 28,
