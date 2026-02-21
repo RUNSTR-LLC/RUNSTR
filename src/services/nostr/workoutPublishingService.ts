@@ -744,7 +744,7 @@ export class WorkoutPublishingService {
       ['exercise', exerciseVerb], // Simple activity type: running, yoga, strength, etc.
       ['duration', durationFormatted], // HH:MM:SS format (always included)
       ['source', sourceTag], // Data source: 'gps' for tracked, 'manual' for manual entry
-      ['client', 'RUNSTR', Constants.expoConfig?.version || '1.6.5'], // Client info with version
+      ['client', 'RUNSTR', Constants.expoConfig?.version || 'unknown'], // Client info with version
       ['t', this.getActivityHashtag(workout.type)], // Primary hashtag
     ];
 

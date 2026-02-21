@@ -14,6 +14,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import pako from 'pako';
+import Constants from 'expo-constants';
 import { GlobalNDKService } from '../nostr/GlobalNDKService';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import type { NDKSigner } from '@nostr-dev-kit/ndk';
@@ -273,6 +274,7 @@ export class BackupService {
    */
   private async collectBackupData(): Promise<WorkoutBackupPayload> {
     const workoutService = LocalWorkoutStorageService.getInstance();
+    const appVersion = Constants.expoConfig?.version || 'unknown';
 
     const [workouts, habits, journalEntries, unitSystem, selectedCharity, ppqApiKey, ppqCreditId] = await Promise.all([
       workoutService.getAllWorkouts(),
@@ -287,7 +289,7 @@ export class BackupService {
     return {
       version: BACKUP_VERSION,
       exportedAt: new Date().toISOString(),
-      appVersion: '1.6.5', // TODO: Get from app config
+      appVersion,
       workouts,
       habits: habits.length > 0 ? habits : undefined,
       journal: journalEntries.length > 0 ? journalEntries : undefined,
@@ -362,7 +364,7 @@ export class BackupService {
     // Tags (metadata visible to relays, content is encrypted)
     event.tags = [
       ['d', BACKUP_D_TAG], // Replaceable identifier
-      ['client', 'RUNSTR', '1.6.5'],
+      ['client', 'RUNSTR', payload.appVersion || 'unknown'],
       ['encrypted', 'nip44'],
       ['compression', 'gzip'], // Content is gzip compressed before encryption
       ['backup_version', String(BACKUP_VERSION)],
