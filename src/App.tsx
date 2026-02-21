@@ -1236,10 +1236,10 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
         visible={showWelcomeModal}
         onComplete={() => {
           setShowWelcomeModal(false);
-          console.log('✅ Welcome modal closed - navigating to Rewards tab');
-          // Send user to Rewards tab within the bottom tab navigator
+          console.log('✅ Welcome modal closed - navigating to Reward Destination picker');
+          // Send user to Rewards tab and auto-open the destination picker
           setTimeout(() => {
-            navigationRef.current?.navigate('MainTabs', { screen: 'Rewards' });
+            navigationRef.current?.navigate('MainTabs', { screen: 'Rewards', params: { openDestinationPicker: true } });
           }, 300);
         }}
       />

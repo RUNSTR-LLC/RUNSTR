@@ -3,7 +3,7 @@
  * Extracted from SettingsScreen to make wallet features more accessible
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useRoute, useNavigation } from '@react-navigation/native';
 import { theme } from '../styles/theme';
 import { TexturedBackground } from '../components/ui/TexturedBackground';
 import { CustomAlert } from '../components/ui/CustomAlert';
@@ -99,6 +99,17 @@ const RewardsScreenComponent: React.FC = () => {
 
   // Reward destination picker modal state
   const [showDestinationPicker, setShowDestinationPicker] = useState(false);
+
+  // Auto-open destination picker when navigated from onboarding
+  const route = useRoute<any>();
+  const navigation = useNavigation();
+  useEffect(() => {
+    if (route.params?.openDestinationPicker) {
+      setShowDestinationPicker(true);
+      // Clear the param so it doesn't re-trigger on tab switches
+      navigation.setParams({ openDestinationPicker: undefined });
+    }
+  }, [route.params?.openDestinationPicker]);
 
   // Self team profile state
   const [selfTeamProfile, setSelfTeamProfile] = useState<{ displayName?: string; picture?: string } | null>(null);
