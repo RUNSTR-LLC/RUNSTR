@@ -22,6 +22,8 @@ import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { PPQAccountService } from '../../services/ai/PPQAccountService';
+import { NWCStorageService } from '../../services/wallet/NWCStorageService';
+import { NWCWalletService } from '../../services/wallet/NWCWalletService';
 import { openInCashApp } from '../../utils/walletDeepLinks';
 import { getInvoiceTimeRemaining } from '../../utils/bolt11Parser';
 
@@ -58,6 +60,11 @@ export const PPQCreditTopupModal: React.FC<PPQCreditTopupModalProps> = ({
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [isExpired, setIsExpired] = useState(false);
 
+  // NWC wallet state
+  const [hasNWCWallet, setHasNWCWallet] = useState(false);
+  const [isNWCPaying, setIsNWCPaying] = useState(false);
+  const [nwcError, setNwcError] = useState<string | null>(null);
+
   // Account state
   const [hasAccount, setHasAccount] = useState(false);
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
@@ -75,6 +82,10 @@ export const PPQCreditTopupModal: React.FC<PPQCreditTopupModalProps> = ({
       setTimeRemaining(null);
       setCustomAmount('');
       setIsCustom(false);
+      // Check NWC wallet
+      setIsNWCPaying(false);
+      setNwcError(null);
+      NWCStorageService.hasNWC().then(setHasNWCWallet);
     }
   }, [visible]);
 
@@ -208,6 +219,27 @@ export const PPQCreditTopupModal: React.FC<PPQCreditTopupModalProps> = ({
     setShowInvoice(false);
     setInvoice('');
     setError('');
+  };
+
+  const handleNWCPayment = async () => {
+    if (!invoice) return;
+    setIsNWCPaying(true);
+    setNwcError(null);
+    try {
+      const result = await NWCWalletService.sendPayment(invoice);
+      if (result.success) {
+        console.log('[PPQTopup] NWC payment successful');
+        setIsNWCPaying(false);
+        handlePaymentConfirmed();
+      } else {
+        setNwcError(result.error || 'Payment failed');
+        setIsNWCPaying(false);
+      }
+    } catch (err) {
+      console.error('[PPQTopup] NWC payment error:', err);
+      setNwcError(err instanceof Error ? err.message : 'Payment failed');
+      setIsNWCPaying(false);
+    }
   };
 
   const handlePaymentConfirmed = async () => {
@@ -507,7 +539,35 @@ export const PPQCreditTopupModal: React.FC<PPQCreditTopupModalProps> = ({
                       </View>
                     )}
 
-                    {/* Wallet Selection - Cash App Only */}
+                    {/* NWC Connected Wallet Payment */}
+                    {hasNWCWallet && (
+                      <View style={styles.walletButtonsSection}>
+                        <Text style={styles.walletSectionTitle}>Connected Wallet</Text>
+                        <TouchableOpacity
+                          style={[styles.walletButtonFullWidth, { borderColor: theme.colors.text }]}
+                          onPress={handleNWCPayment}
+                          disabled={isNWCPaying}
+                        >
+                          {isNWCPaying ? (
+                            <ActivityIndicator size="small" color={theme.colors.accent} style={{ marginRight: 8 }} />
+                          ) : (
+                            <View style={styles.walletIconCircleInline}>
+                              <Ionicons name="wallet" size={24} color={theme.colors.accent} />
+                            </View>
+                          )}
+                          <Text style={styles.walletButtonText}>
+                            {isNWCPaying ? 'Paying...' : 'Pay with Connected Wallet'}
+                          </Text>
+                        </TouchableOpacity>
+                        {nwcError && (
+                          <Text style={{ fontSize: 12, color: theme.colors.error, textAlign: 'center', marginTop: 4 }}>
+                            {nwcError}
+                          </Text>
+                        )}
+                      </View>
+                    )}
+
+                    {/* External Wallets */}
                     <View style={styles.walletButtonsSection}>
                       <Text style={styles.walletSectionTitle}>Open in Wallet</Text>
                       <TouchableOpacity style={styles.walletButtonFullWidth} onPress={handleOpenInCashApp}>

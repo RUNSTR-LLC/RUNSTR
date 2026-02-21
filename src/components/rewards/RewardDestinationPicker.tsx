@@ -328,7 +328,7 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
                   {userLightningAddress}
                 </Text>
               ) : hasNWCWallet ? (
-                <Text style={[styles.destinationDescription, { color: '#4CAF50' }]} numberOfLines={1}>
+                <Text style={[styles.destinationDescription, { color: theme.colors.textMuted }]} numberOfLines={1}>
                   NWC Wallet Connected
                 </Text>
               ) : (
