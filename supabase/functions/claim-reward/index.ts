@@ -593,6 +593,7 @@ interface RequestBody {
   amount_sats?: number
   is_charity_donation?: boolean // Skip rate-limiting for charity donations
   npub?: string // For push notifications after successful payment
+  team_name?: string // For enriched push notification content (from trigger_auto_reward)
 
   // For PPQ.AI team rewards (pay directly to PPQ bolt11 instead of Lightning address)
   ppq_bolt11?: string
@@ -1182,7 +1183,7 @@ serve(async (req) => {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       )
 
-      const { lightning_address, reward_type, amount_sats, is_charity_donation, ppq_bolt11, npub } = body
+      const { lightning_address, reward_type, amount_sats, is_charity_donation, ppq_bolt11, npub, team_name } = body
 
       // Validate required fields (ppq_bolt11 can substitute for lightning_address)
       if ((!lightning_address && !ppq_bolt11) || !reward_type) {
@@ -1316,6 +1317,9 @@ serve(async (req) => {
           if (npub) {
             const supabaseUrl = Deno.env.get('SUPABASE_URL')
             if (supabaseUrl) {
+              const notificationBody = team_name
+                ? `You earned ${rewardAmount} sats for ${team_name}`
+                : `You earned ${rewardAmount} sats for your workout`
               fetch(`${supabaseUrl}/functions/v1/notify-user`, {
                 method: 'POST',
                 headers: {
@@ -1325,8 +1329,8 @@ serve(async (req) => {
                 body: JSON.stringify({
                   npub,
                   title: 'Reward Earned!',
-                  body: `You earned ${rewardAmount} sats for today's workout`,
-                  data: { type: 'reward_earned', sats: rewardAmount },
+                  body: notificationBody,
+                  data: { type: 'reward_earned', sats: rewardAmount, screen: 'Rewards' },
                   channelId: 'bitcoin_rewards',
                 }),
               }).catch(() => {}) // Fire-and-forget

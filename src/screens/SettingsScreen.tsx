@@ -72,6 +72,7 @@ import { NWCQRConfirmationModal } from '../components/wallet/NWCQRConfirmationMo
 import { QRScannerModal } from '../components/qr/QRScannerModal';
 import type { QRData } from '../services/qr/QRCodeService';
 import { AgentSkillSetupModal } from '../components/settings/AgentSkillSetupModal';
+import Constants from 'expo-constants';
 // useAuth removed - using direct AsyncStorage.clear() + CommonActions.reset()
 
 interface SettingsScreenProps {
@@ -1340,7 +1341,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
         {/* App Version Info */}
         <View style={styles.versionContainer}>
-          <Text style={styles.versionText}>Version 1.7.0 (Build 169)</Text>
+          <Text style={styles.versionText}>
+            {(() => {
+              const ver = Constants.nativeAppVersion || Constants.expoConfig?.version || 'Unknown';
+              const build = Constants.nativeBuildVersion ||
+                String(Platform.OS === 'android'
+                  ? Constants.expoConfig?.android?.versionCode || ''
+                  : Constants.expoConfig?.ios?.buildNumber || '');
+              return build ? `Version ${ver} (Build ${build})` : `Version ${ver}`;
+            })()}
+          </Text>
         </View>
         </ScrollView>
       </KeyboardAvoidingView>
