@@ -310,6 +310,17 @@ export class SupabaseCompetitionService {
       return { success: false, error: 'Backend not configured' };
     }
 
+    // Private Mode: skip all Supabase submissions when enabled
+    try {
+      const privateMode = await AsyncStorage.getItem('@runstr:private_mode');
+      if (privateMode === 'true') {
+        console.log('[SupabaseCompetitionService] Private mode enabled, skipping Supabase submission');
+        return { success: false, error: 'Private mode enabled' };
+      }
+    } catch {
+      // Non-critical — proceed with submission if check fails
+    }
+
     const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
