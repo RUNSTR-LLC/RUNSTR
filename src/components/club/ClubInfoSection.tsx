@@ -165,14 +165,14 @@ export const ClubInfoSection: React.FC<ClubInfoSectionProps> = ({
               {isJoining ? (
                 <ActivityIndicator
                   size="small"
-                  color={theme.colors.background}
+                  color={theme.colors.text}
                 />
               ) : (
                 <>
                   <Ionicons
                     name="enter-outline"
                     size={20}
-                    color={theme.colors.background}
+                    color={theme.colors.text}
                   />
                   <Text style={styles.joinButtonText}>Join Club</Text>
                 </>
@@ -207,7 +207,7 @@ export const ClubInfoSection: React.FC<ClubInfoSectionProps> = ({
             <Ionicons
               name="share-outline"
               size={20}
-              color={theme.colors.background}
+              color={theme.colors.text}
             />
             <Text style={styles.inviteShareButtonText}>Share Club</Text>
           </TouchableOpacity>
@@ -269,15 +269,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.text,
+    backgroundColor: theme.colors.cardBackground,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.text,
     paddingVertical: 14,
     gap: 8,
   },
   joinButtonText: {
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.background,
+    color: theme.colors.text,
   },
   leaveButton: {
     flexDirection: 'row',
@@ -342,15 +344,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.text,
+    backgroundColor: theme.colors.cardBackground,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.text,
     paddingVertical: 12,
     gap: 8,
   },
   inviteShareButtonText: {
     fontSize: 15,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.background,
+    color: theme.colors.text,
   },
 });
 

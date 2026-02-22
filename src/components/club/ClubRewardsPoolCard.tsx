@@ -75,7 +75,7 @@ const ClubRewardsPoolCardComponent: React.FC<ClubRewardsPoolCardProps> = ({
         {/* Left: trophy + balance info */}
         <View style={styles.infoSection}>
           <View style={styles.headerRow}>
-            <Ionicons name="trophy" size={18} color={theme.colors.accent} />
+            <Ionicons name="trophy" size={18} color={theme.colors.textMuted} />
             <Text style={styles.headerTitle}>Rewards Pool</Text>
           </View>
           <Text style={styles.balanceNumber}>
@@ -91,7 +91,7 @@ const ClubRewardsPoolCardComponent: React.FC<ClubRewardsPoolCardProps> = ({
             onPress={handleFundPool}
             activeOpacity={0.7}
           >
-            <Ionicons name="flash" size={24} color={theme.colors.accent} />
+            <Ionicons name="flash" size={24} color={theme.colors.textMuted} />
           </TouchableOpacity>
         )}
       </View>
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
   balanceNumber: {
     fontSize: 28,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.accent,
+    color: theme.colors.text,
   },
   balanceLabel: {
     fontSize: 13,
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 16,

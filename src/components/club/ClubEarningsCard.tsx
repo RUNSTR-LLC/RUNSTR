@@ -95,7 +95,7 @@ const ClubEarningsCardComponent: React.FC<ClubEarningsCardProps> = ({
     <View style={styles.card}>
       {/* Header */}
       <View style={styles.headerRow}>
-        <Ionicons name="flash" size={18} color={theme.colors.accent} />
+        <Ionicons name="flash" size={18} color={theme.colors.textMuted} />
         <Text style={styles.headerTitle}>Club Earnings</Text>
       </View>
 
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
   bigNumber: {
     fontSize: 28,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.accent,
+    color: theme.colors.text,
   },
   bigLabel: {
     fontSize: 13,

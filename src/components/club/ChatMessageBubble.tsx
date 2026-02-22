@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     borderLeftColor: theme.colors.accent,
   },
   ownContainer: {
-    backgroundColor: 'rgba(255, 123, 28, 0.05)',
+    backgroundColor: '#0f0f0f',
   },
   pressedContainer: {
     opacity: 0.7,

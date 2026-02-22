@@ -190,7 +190,7 @@ export const CaptainSettingsModal: React.FC<CaptainSettingsModalProps> = ({
 
   const handleAlertDismiss = useCallback(() => {
     setAlertVisible(false);
-    if (alertTitle === 'Saved' || alertTitle === 'Captainship Transferred') onClose();
+    if (alertTitle === 'Saved' || alertTitle === 'Captainship Transferred' || alertTitle === 'No Changes') onClose();
   }, [alertTitle, onClose]);
 
   const removableMembers = members.filter((m) => m.member_npub !== userNpub);

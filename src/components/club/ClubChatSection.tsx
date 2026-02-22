@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
   },
   sendButtonActive: {
-    backgroundColor: 'rgba(255, 123, 28, 0.1)',
+    backgroundColor: 'rgba(204, 122, 51, 0.1)',
   },
 });
 

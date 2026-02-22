@@ -191,9 +191,9 @@ const ClubLeaderboardSectionComponent: React.FC<ClubLeaderboardSectionProps> = (
       const sorted = allEntries
         .sort((a, b) => {
           if (leaderboardMetric === 'steps') {
-            return b.totalSteps - a.totalSteps;
+            return (b.totalSteps - a.totalSteps) || a.npub.localeCompare(b.npub);
           }
-          return b.totalDistanceKm - a.totalDistanceKm;
+          return (b.totalDistanceKm - a.totalDistanceKm) || a.npub.localeCompare(b.npub);
         })
         .slice(0, 20);
 
@@ -243,7 +243,7 @@ const ClubLeaderboardSectionComponent: React.FC<ClubLeaderboardSectionProps> = (
 
       {isLoading ? (
         <View style={styles.emptyContainer}>
-          <ActivityIndicator color={theme.colors.accent} />
+          <ActivityIndicator color={theme.colors.textMuted} />
         </View>
       ) : entries.length === 0 ? (
         <View style={styles.emptyContainer}>
@@ -252,7 +252,7 @@ const ClubLeaderboardSectionComponent: React.FC<ClubLeaderboardSectionProps> = (
             size={36}
             color={theme.colors.textMuted}
           />
-          <Text style={styles.emptyText}>No workouts this week yet. Get moving!</Text>
+          <Text style={styles.emptyText}>No workouts today yet. Get moving!</Text>
         </View>
       ) : (
         entries.map((entry, index) => {
@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
   primaryMetric: {
     fontSize: 14,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.textSecondary,
+    color: theme.colors.text,
     marginLeft: 8,
   },
   secondaryMetric: {
