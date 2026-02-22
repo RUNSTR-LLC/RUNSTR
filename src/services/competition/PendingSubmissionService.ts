@@ -220,6 +220,10 @@ export class PendingSubmissionService {
             console.log(`[PendingSubmission] ✅ Successfully synced: ${submission.id}`);
             result.succeeded++;
             // Don't add to updatedPending - it's removed from queue
+          } else if (submitResult.error?.includes('Private mode')) {
+            // Private mode enabled - keep in queue but don't count as failure
+            updatedPending.push(submission);
+            result.stillPending++;
           } else if (submitResult.error?.includes('duplicate')) {
             // Already submitted (somehow) - remove from queue
             console.log(`[PendingSubmission] ✅ Already synced (duplicate): ${submission.id}`);

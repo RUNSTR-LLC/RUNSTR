@@ -663,8 +663,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   // };
 
   const handlePrivateModeToggle = async (value: boolean) => {
-    setPrivateModeEnabled(value);
-    await AsyncStorage.setItem('@runstr:private_mode', value ? 'true' : 'false');
+    try {
+      setPrivateModeEnabled(value);
+      await AsyncStorage.setItem('@runstr:private_mode', value ? 'true' : 'false');
+    } catch (error) {
+      console.error('[Settings] Error saving private mode setting:', error);
+      const current = await AsyncStorage.getItem('@runstr:private_mode');
+      setPrivateModeEnabled(current === 'true');
+    }
   };
 
   const handleLanguageChange = async (languageCode: LanguageCode) => {
