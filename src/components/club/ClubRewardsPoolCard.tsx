@@ -1,9 +1,8 @@
 /**
  * ClubRewardsPoolCard - Displays club's rewards pool balance
  *
- * Shows the CoinOS wallet balance, Lightning address, and a button
- * to fund the pool. Visible to all members (balance is public info
- * for transparency). Uses ClubWalletService for data fetching.
+ * Shows the CoinOS wallet balance with a lightning zap button to fund
+ * the pool. Visible to all members. Uses ClubWalletService for data.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -14,7 +13,6 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { ClubWalletService } from '../../services/club/ClubWalletService';
@@ -33,7 +31,6 @@ const ClubRewardsPoolCardComponent: React.FC<ClubRewardsPoolCardProps> = ({
 }) => {
   const [walletInfo, setWalletInfo] = useState<ClubWalletInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
 
   const loadBalance = useCallback(async () => {
     try {
@@ -52,20 +49,12 @@ const ClubRewardsPoolCardComponent: React.FC<ClubRewardsPoolCardProps> = ({
     loadBalance();
   }, [loadBalance, refreshKey]);
 
-  const handleCopyAddress = async () => {
-    if (!walletInfo?.lightning_address) return;
-    await Clipboard.setStringAsync(walletInfo.lightning_address);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   const handleFundPool = () => {
     if (walletInfo?.lightning_address && onFundPool) {
       onFundPool(walletInfo.lightning_address);
     }
   };
 
-  // Loading state
   if (isLoading) {
     return (
       <View style={styles.card}>
@@ -76,56 +65,36 @@ const ClubRewardsPoolCardComponent: React.FC<ClubRewardsPoolCardProps> = ({
     );
   }
 
-  // No wallet
   if (!walletInfo?.has_wallet) {
     return null;
   }
 
   return (
     <View style={styles.card}>
-      {/* Header */}
-      <View style={styles.headerRow}>
-        <Ionicons name="trophy" size={18} color={theme.colors.accent} />
-        <Text style={styles.headerTitle}>Rewards Pool</Text>
+      <View style={styles.row}>
+        {/* Left: trophy + balance info */}
+        <View style={styles.infoSection}>
+          <View style={styles.headerRow}>
+            <Ionicons name="trophy" size={18} color={theme.colors.accent} />
+            <Text style={styles.headerTitle}>Rewards Pool</Text>
+          </View>
+          <Text style={styles.balanceNumber}>
+            {walletInfo.balance_sats.toLocaleString()} sats
+          </Text>
+          <Text style={styles.balanceLabel}>available for prizes</Text>
+        </View>
+
+        {/* Right: lightning zap button */}
+        {onFundPool && (
+          <TouchableOpacity
+            style={styles.zapButton}
+            onPress={handleFundPool}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="flash" size={24} color={theme.colors.accent} />
+          </TouchableOpacity>
+        )}
       </View>
-
-      {/* Balance */}
-      <Text style={styles.balanceNumber}>
-        {walletInfo.balance_sats.toLocaleString()} sats
-      </Text>
-      <Text style={styles.balanceLabel}>available for prizes</Text>
-
-      {/* Lightning address */}
-      <TouchableOpacity style={styles.addressRow} onPress={handleCopyAddress}>
-        <Ionicons
-          name="flash"
-          size={13}
-          color={theme.colors.accent}
-        />
-        <Text style={styles.addressText} numberOfLines={1}>
-          {walletInfo.lightning_address}
-        </Text>
-        <Ionicons
-          name={copied ? 'checkmark' : 'copy-outline'}
-          size={14}
-          color={copied ? theme.colors.success : theme.colors.textMuted}
-        />
-      </TouchableOpacity>
-
-      {/* Fund button */}
-      {onFundPool && (
-        <TouchableOpacity style={styles.fundButton} onPress={handleFundPool}>
-          <Ionicons name="flash" size={16} color="#000" />
-          <Text style={styles.fundButtonText}>Fund Pool</Text>
-        </TouchableOpacity>
-      )}
-
-      {/* Low balance hint */}
-      {walletInfo.balance_sats === 0 && (
-        <Text style={styles.emptyHint}>
-          Zap the pool to fund event prize pools
-        </Text>
-      )}
     </View>
   );
 };
@@ -144,11 +113,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 20,
   },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  infoSection: {
+    flex: 1,
+  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   headerTitle: {
     fontSize: 14,
@@ -165,44 +142,16 @@ const styles = StyleSheet.create({
   balanceLabel: {
     fontSize: 13,
     color: theme.colors.textMuted,
-    marginBottom: 12,
   },
-  addressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#111111',
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    marginBottom: 12,
-  },
-  addressText: {
-    flex: 1,
-    fontSize: 12,
-    color: theme.colors.textMuted,
-    fontFamily: 'monospace',
-  },
-  fundButton: {
-    flexDirection: 'row',
+  zapButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: theme.colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    backgroundColor: theme.colors.accent,
-    borderRadius: 10,
-    paddingVertical: 12,
-  },
-  fundButtonText: {
-    fontSize: 15,
-    fontWeight: theme.typography.weights.bold,
-    color: '#000',
-  },
-  emptyHint: {
-    fontSize: 12,
-    color: theme.colors.textDark,
-    fontStyle: 'italic',
-    textAlign: 'center',
-    marginTop: 8,
+    marginLeft: 16,
   },
 });
 

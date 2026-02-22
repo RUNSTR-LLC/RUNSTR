@@ -134,10 +134,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  cardActive: {
-    borderLeftWidth: 3,
-    borderLeftColor: theme.colors.accent,
-  },
+  cardActive: {},
   clubImage: {
     width: 48,
     height: 48,
