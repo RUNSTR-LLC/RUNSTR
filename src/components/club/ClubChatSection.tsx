@@ -11,7 +11,7 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
+  FlatList,
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
@@ -22,7 +22,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../styles/theme';
 import { useClubChat } from '../../hooks/useClubChat';
 import { ChatMessageBubble } from './ChatMessageBubble';
+import type { SenderProfile } from './ChatMessageBubble';
 import type { ClubMessage } from '../../types/club';
+import { nostrProfileService } from '../../services/nostr/NostrProfileService';
+import type { NostrProfile } from '../../services/nostr/NostrProfileService';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -47,7 +50,9 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
 }) => {
   const [userNpub, setUserNpub] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
-  const scrollRef = useRef<ScrollView>(null);
+  const flatListRef = useRef<FlatList<ClubMessage>>(null);
+  const [profiles, setProfiles] = useState<Map<string, NostrProfile>>(new Map());
+  const fetchedNpubsRef = useRef<Set<string>>(new Set());
 
   // Load user npub
   useEffect(() => {
@@ -69,6 +74,35 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
     loadMore,
     deleteMessage,
   } = useClubChat(clubId, userNpub);
+
+  // Fetch profiles for message senders
+  useEffect(() => {
+    if (messages.length === 0) return;
+
+    const newNpubs = messages
+      .map((m) => m.sender_npub)
+      .filter((npub) => !fetchedNpubsRef.current.has(npub));
+
+    const uniqueNew = [...new Set(newNpubs)];
+    if (uniqueNew.length === 0) return;
+
+    uniqueNew.forEach((npub) => fetchedNpubsRef.current.add(npub));
+
+    const fetchProfiles = async () => {
+      try {
+        const fetched = await nostrProfileService.getProfiles(uniqueNew);
+        setProfiles((prev) => {
+          const merged = new Map(prev);
+          fetched.forEach((profile, npub) => merged.set(npub, profile));
+          return merged;
+        });
+      } catch (err) {
+        console.error('[ClubChatSection] Error fetching profiles:', err);
+      }
+    };
+
+    fetchProfiles();
+  }, [messages]);
 
   // -------------------------------------------------------------------------
   // Handlers
@@ -105,6 +139,15 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
   // Render helpers
   // -------------------------------------------------------------------------
 
+  const getProfileForNpub = useCallback(
+    (npub: string): SenderProfile | undefined => {
+      const p = profiles.get(npub);
+      if (!p) return undefined;
+      return { name: p.name, display_name: p.display_name, picture: p.picture };
+    },
+    [profiles]
+  );
+
   const renderMessage = useCallback(
     (item: ClubMessage) => {
       const isCaptainMsg = item.sender_npub === captainNpub;
@@ -113,26 +156,19 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
 
       return (
         <ChatMessageBubble
-          key={item.id}
           message={item}
           isCaptain={isCaptainMsg}
           isOwnMessage={isOwnMessage}
           canDelete={canDeleteMessage}
           onDelete={() => handleDelete(item.id)}
+          senderProfile={getProfileForNpub(item.sender_npub)}
         />
       );
     },
-    [captainNpub, userNpub, handleDelete]
+    [captainNpub, userNpub, handleDelete, getProfileForNpub]
   );
 
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (messages.length > 0 && scrollRef.current) {
-      setTimeout(() => {
-        scrollRef.current?.scrollToEnd({ animated: false });
-      }, 100);
-    }
-  }, [messages.length]);
+  // No auto-scroll needed - inverted FlatList keeps newest at bottom
 
   // -------------------------------------------------------------------------
   // Input placeholder text
@@ -188,24 +224,24 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
             <Text style={styles.emptyText}>No messages yet. Say hello!</Text>
           </View>
         ) : (
-          <ScrollView
-            ref={scrollRef}
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            renderItem={({ item }) => renderMessage(item)}
+            keyExtractor={(item) => item.id}
+            inverted
             style={styles.messageList}
             contentContainerStyle={styles.messageListContent}
             showsVerticalScrollIndicator={false}
             nestedScrollEnabled={true}
             keyboardShouldPersistTaps="handled"
-            onScroll={({ nativeEvent }) => {
-              // Load more when scrolled near top
-              if (nativeEvent.contentOffset.y < 20 && hasMore && !isLoading) {
-                loadMore();
-              }
-            }}
-            scrollEventThrottle={200}
-          >
-            {/* Render messages in chronological order (oldest first, newest at bottom) */}
-            {[...messages].reverse().map(renderMessage)}
-          </ScrollView>
+            removeClippedSubviews={true}
+            onEndReached={handleEndReached}
+            onEndReachedThreshold={0.1}
+            initialNumToRender={20}
+            maxToRenderPerBatch={10}
+            windowSize={5}
+          />
         )}
       </View>
 

@@ -22,6 +22,7 @@ import {
 import { getCharityById, isPPQTeam } from '../../constants/charities';
 import { getClubLightningAddress } from '../../utils/rewardTags';
 import { PPQAccountService } from '../ai/PPQAccountService';
+import { RewardLightningAddressService } from '../rewards/RewardLightningAddressService';
 import { SubscriptionService } from './SubscriptionService';
 import { callEdgeFunction } from '../../utils/edgeFunctions';
 
@@ -334,6 +335,7 @@ export class SupabaseCompetitionService {
     // Invoice amount matches subscriber tier: 800 sats (supporter/pro) or 50 sats (free)
     let ppqBolt11 = data.ppqBolt11;
     let ppqInvoiceId = data.ppqInvoiceId;
+    let ppqFailed = false;
     if (!ppqBolt11) {
       try {
         const selectedTeamId = await AsyncStorage.getItem('@runstr:selected_team_id');
@@ -357,11 +359,39 @@ export class SupabaseCompetitionService {
               ppqBolt11 = invoiceResult.bolt11;
               ppqInvoiceId = invoiceResult.invoiceId;
               console.log(`[SupabaseCompetition] PPQ.AI invoice auto-created (${rewardSats} sats): ${ppqBolt11.slice(0, 30)}...`);
+            } else {
+              console.warn(`[SupabaseCompetition] PPQ.AI invoice creation returned error: ${invoiceResult.error}`);
+              ppqFailed = true;
             }
+          } else {
+            console.warn('[SupabaseCompetition] PPQ.AI team selected but no account configured');
+            ppqFailed = true;
           }
         }
       } catch (ppqError) {
-        console.warn('[SupabaseCompetition] PPQ.AI invoice creation failed (non-blocking):', ppqError);
+        console.warn('[SupabaseCompetition] PPQ.AI invoice creation failed:', ppqError);
+        ppqFailed = true;
+      }
+    }
+
+    // PPQ.AI FALLBACK: If PPQ invoice failed, inject user's lightning address into tags
+    // so the DB trigger can still route the reward to the user instead of losing it
+    let submissionTags = data.tags || [];
+    if (ppqFailed && !ppqBolt11) {
+      try {
+        const userLnAddress = await RewardLightningAddressService.getRewardLightningAddress();
+        if (userLnAddress) {
+          // Check if tags already have a lightning entry
+          const hasLightningTag = submissionTags.some(
+            (t: string[]) => t[0] === 'lightning'
+          );
+          if (!hasLightningTag) {
+            submissionTags = [...submissionTags, ['lightning', userLnAddress]];
+            console.log(`[SupabaseCompetition] PPQ failed → fallback to user lightning: ${userLnAddress.slice(0, 20)}...`);
+          }
+        }
+      } catch {
+        // Non-critical
       }
     }
 
@@ -412,7 +442,7 @@ export class SupabaseCompetitionService {
               submitted_via: 'runstr_app',
               submitted_at: new Date().toISOString(),
               // Daily leaderboard: Pass tags for split/step parsing
-              tags: data.tags || [],
+              tags: submissionTags,
             },
           }),
           signal: controller.signal,
@@ -789,29 +819,40 @@ export class SupabaseCompetitionService {
         console.log(`[SupabaseCompetition] Distance aggregation: ${dailyData.size} user-days processed with MAX(steps, GPS)`);
       } else if (competition.scoring_method === 'fastest_time') {
         // Fastest time competitions: find each user's fastest qualifying workout
+        // Uses pre-computed time_Xk_seconds when available (more accurate for longer runs)
         const config = competition.config as Record<string, unknown> || {};
         const targetKm = (config.target_distance_km as number) || 5.0;
-        const toleranceKm = (config.distance_tolerance_km as number) || 0.5;
-        const minKm = targetKm - toleranceKm;
-        const maxKm = targetKm + toleranceKm;
+        // Minimum distance: must have run at least 90% of target (allows GPS undershoot)
+        const minKm = targetKm * 0.9;
 
-        console.log(`[SupabaseCompetition] Fastest time: target ${targetKm}km ± ${toleranceKm}km (${minKm}-${maxKm}km)`);
+        // Map target distance to the pre-computed time field
+        const timeFieldMap: Record<number, string> = { 5: 'time_5k_seconds', 10: 'time_10k_seconds', 21.1: 'time_half_seconds', 42.2: 'time_marathon_seconds' };
+        const precomputedTimeField = timeFieldMap[targetKm];
+
+        console.log(`[SupabaseCompetition] Fastest time: target ${targetKm}km, min ${minKm.toFixed(1)}km, timeField=${precomputedTimeField || 'duration'}`);
 
         workouts?.forEach((w: WorkoutSubmission) => {
           const distanceKm = (w.distance_meters || 0) / 1000;
           const durationSec = w.duration_seconds || 0;
 
-          // Skip workouts outside distance tolerance or with no duration
-          if (distanceKm < minKm || distanceKm > maxKm || durationSec <= 0) return;
+          // Must have run at least the minimum distance and have duration
+          if (distanceKm < minKm || durationSec <= 0) return;
+
+          // Use pre-computed target time if available (handles longer runs correctly),
+          // otherwise fall back to raw duration (only valid for runs near exact target distance)
+          let scoreSec = durationSec;
+          if (precomputedTimeField && (w as unknown as Record<string, unknown>)[precomputedTimeField]) {
+            scoreSec = (w as unknown as Record<string, unknown>)[precomputedTimeField] as number;
+          }
 
           const rawEvent = w.raw_event as Record<string, unknown> | null;
           const charityData = this.extractCharityFromRawEvent(rawEvent);
           const current = scores.get(w.npub);
 
-          // Keep only the fastest (minimum duration) qualifying workout per user
-          if (!current || current.score === 0 || durationSec < current.score) {
+          // Keep only the fastest (minimum time) qualifying workout per user
+          if (!current || current.score === 0 || scoreSec < current.score) {
             scores.set(w.npub, {
-              score: durationSec,
+              score: scoreSec,
               workoutCount: (current?.workoutCount || 0) + 1,
               charityId: charityData.charityId || current?.charityId,
               charityName: charityData.charityName || current?.charityName,
@@ -1398,7 +1439,7 @@ export class SupabaseCompetitionService {
    */
   static async updateCompetition(
     competitionId: string,
-    updates: { name?: string; description?: string | null },
+    updates: { name?: string; description?: string | null; image_url?: string | null },
     callerNpub?: string,
   ): Promise<{ success: boolean; error?: string }> {
     const result = await callEdgeFunction('manage-competition', {

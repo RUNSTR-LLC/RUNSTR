@@ -143,6 +143,7 @@ async function handleCreate(
     template,
     club_id,
     config,
+    image_url,
   } = params
 
   if (!npub || !name || !activity_type || !scoring_method || !start_date || !end_date) {
@@ -181,6 +182,7 @@ async function handleCreate(
     template: template || null,
     club_id: club_id || null,
     config: config || null,
+    image_url: image_url || null,
     is_open: true,
     prize_pool_sats: 0,
     external_id,
@@ -266,7 +268,7 @@ async function handleUpdate(
   }
 
   // Whitelist allowed update fields
-  const allowed = ['name', 'description']
+  const allowed = ['name', 'description', 'image_url']
   const safeUpdates: Record<string, unknown> = {}
   for (const key of allowed) {
     if ((updates as Record<string, unknown>)[key] !== undefined) {

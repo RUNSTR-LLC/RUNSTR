@@ -15,7 +15,9 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Modal, SafeAreaView,
   ScrollView, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../styles/theme';
@@ -23,6 +25,8 @@ import { CustomAlert } from '../ui/CustomAlert';
 import { isSupabaseConfigured } from '../../utils/supabase';
 import { callEdgeFunction } from '../../utils/edgeFunctions';
 import { SupabaseCompetitionService } from '../../services/backend/SupabaseCompetitionService';
+import { ImageUploadService } from '../../services/media/ImageUploadService';
+import { UnifiedSigningService } from '../../services/auth/UnifiedSigningService';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -40,6 +44,7 @@ interface SimpleEventCreationModalProps {
     name: string;
     description: string | null;
     template: string | null;
+    image_url?: string | null;
   };
 }
 
@@ -157,6 +162,8 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
   const [eventName, setEventName] = useState('');
   const [description, setDescription] = useState('');
   const [startDate, setStartDate] = useState<Date | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
   const [alertVisible, setAlertVisible] = useState(false);
@@ -170,6 +177,7 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
     if (visible && existingEvent) {
       setEventName(existingEvent.name);
       setDescription(existingEvent.description || '');
+      setImageUrl(existingEvent.image_url || null);
       if (existingEvent.template) {
         const tmpl = EVENT_TEMPLATES.find((t) => t.templateId === existingEvent.template);
         if (tmpl) setSelectedTemplate(tmpl);
@@ -182,6 +190,7 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
     setEventName('');
     setDescription('');
     setStartDate(null);
+    setImageUrl(null);
   }, []);
 
   const handleClose = useCallback(() => {
@@ -200,6 +209,57 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
   }, []);
 
   // -------------------------------------------------------------------------
+  // Image picker
+  // -------------------------------------------------------------------------
+
+  const handlePickImage = useCallback(async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        showAlert('Permission Required', 'Please allow access to your photo library to add an event image.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.8,
+      });
+
+      if (result.canceled || !result.assets?.[0]?.uri) return;
+
+      setIsUploadingImage(true);
+
+      const signingService = UnifiedSigningService.getInstance();
+      const signer = await signingService.getSigner();
+
+      if (!signer) {
+        showAlert('Error', 'Please log in to upload images');
+        setIsUploadingImage(false);
+        return;
+      }
+
+      const uploadResult = await ImageUploadService.getInstance().uploadImage(
+        result.assets[0].uri,
+        'event-banner.png',
+        signer,
+      );
+
+      if (uploadResult.success && uploadResult.url) {
+        setImageUrl(uploadResult.url);
+      } else {
+        showAlert('Upload Failed', uploadResult.error || 'Failed to upload image');
+      }
+    } catch (error) {
+      console.error('[SimpleEventCreation] Image picker error:', error);
+      showAlert('Error', 'Failed to select image');
+    } finally {
+      setIsUploadingImage(false);
+    }
+  }, [showAlert]);
+
+  // -------------------------------------------------------------------------
   // Edit handler
   // -------------------------------------------------------------------------
 
@@ -215,6 +275,7 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
         {
           name: eventName.trim(),
           description: description.trim() || null,
+          image_url: imageUrl,
         },
         npub || undefined,
       );
@@ -232,7 +293,7 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
       isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
-  }, [existingEvent, eventName, description, showAlert, onEventCreated]);
+  }, [existingEvent, eventName, description, imageUrl, showAlert, onEventCreated]);
 
   // -------------------------------------------------------------------------
   // Create handler
@@ -274,6 +335,7 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
         end_date: endDate.toISOString(),
         template: selectedTemplate.templateId,
         club_id: clubId || null,
+        image_url: imageUrl || null,
         config: {
           activity_types: [selectedTemplate.activityType],
           scoring_method: selectedTemplate.scoringMethod,
@@ -317,7 +379,7 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
       isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
-  }, [isValid, selectedTemplate, eventName, description, startDate, onEventCreated, showAlert, clubId]);
+  }, [isValid, selectedTemplate, eventName, description, startDate, imageUrl, onEventCreated, showAlert, clubId]);
 
   const handleAlertDismiss = useCallback(() => {
     setAlertVisible(false);
@@ -408,6 +470,51 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
                 numberOfLines={3}
                 textAlignVertical="top"
               />
+            </View>
+
+            {/* Event Image (optional) */}
+            <View style={s.formGroup}>
+              <Text style={s.label}>Event Image (optional)</Text>
+              {imageUrl ? (
+                <View style={s.imagePreviewContainer}>
+                  <Image source={{ uri: imageUrl }} style={s.imagePreview} />
+                  <View style={s.imageActions}>
+                    <TouchableOpacity
+                      style={s.imageActionButton}
+                      onPress={handlePickImage}
+                      disabled={isUploadingImage}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="swap-horizontal" size={16} color={theme.colors.text} />
+                      <Text style={s.imageActionText}>Replace</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={s.imageActionButton}
+                      onPress={() => setImageUrl(null)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="trash-outline" size={16} color={theme.colors.error || '#ff4444'} />
+                      <Text style={[s.imageActionText, { color: theme.colors.error || '#ff4444' }]}>Remove</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={s.imagePickerButton}
+                  onPress={handlePickImage}
+                  disabled={isUploadingImage}
+                  activeOpacity={0.7}
+                >
+                  {isUploadingImage ? (
+                    <ActivityIndicator color={theme.colors.textMuted} />
+                  ) : (
+                    <>
+                      <Ionicons name="image-outline" size={28} color={theme.colors.textMuted} />
+                      <Text style={s.imagePickerText}>Tap to add a banner image</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Start Date (create mode only) */}
@@ -506,6 +613,18 @@ const s = StyleSheet.create({
   },
   textArea: { minHeight: 80, paddingTop: 12 },
   helperBelow: { fontSize: 12, color: theme.colors.textMuted, marginTop: 6 },
+  // Image picker
+  imagePickerButton: {
+    height: 120, borderRadius: 10, borderWidth: 1, borderStyle: 'dashed',
+    borderColor: theme.colors.border, backgroundColor: theme.colors.card,
+    alignItems: 'center', justifyContent: 'center', gap: 8,
+  },
+  imagePickerText: { fontSize: 14, color: theme.colors.textMuted },
+  imagePreviewContainer: { borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.border },
+  imagePreview: { width: '100%', height: 140, borderRadius: 10 },
+  imageActions: { flexDirection: 'row', justifyContent: 'center', gap: 16, paddingVertical: 8, backgroundColor: theme.colors.card },
+  imageActionButton: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6 },
+  imageActionText: { fontSize: 13, color: theme.colors.text },
   // Template selection
   templateRow: { gap: 8 },
   templateButton: {

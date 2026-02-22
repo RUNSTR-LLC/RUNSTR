@@ -17,12 +17,19 @@ import type { ClubMessage } from '../../types/club';
 // Types
 // ---------------------------------------------------------------------------
 
+export interface SenderProfile {
+  name?: string;
+  display_name?: string;
+  picture?: string;
+}
+
 interface ChatMessageBubbleProps {
   message: ClubMessage;
   isCaptain: boolean;
   isOwnMessage: boolean;
   canDelete: boolean;
   onDelete: () => void;
+  senderProfile?: SenderProfile;
 }
 
 // ---------------------------------------------------------------------------
@@ -65,8 +72,12 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
   isOwnMessage,
   canDelete,
   onDelete,
+  senderProfile,
 }) => {
-  const displayName = message.sender_npub.slice(0, 12) + '...';
+  const displayName =
+    senderProfile?.display_name ||
+    senderProfile?.name ||
+    message.sender_npub.slice(0, 12) + '...';
   const relativeTime = formatRelativeTime(message.created_at);
 
   const handleLongPress = useCallback(() => {
@@ -100,6 +111,7 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
       {/* Avatar */}
       <Avatar
         name={displayName}
+        imageUrl={senderProfile?.picture}
         size={32}
         style={styles.avatar}
       />
