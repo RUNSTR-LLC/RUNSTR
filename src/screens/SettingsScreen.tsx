@@ -170,6 +170,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [showNWCQRConfirmModal, setShowNWCQRConfirmModal] = useState(false);
   const [scannedNWCString, setScannedNWCString] = useState('');
   const [showAgentSkillModal, setShowAgentSkillModal] = useState(false);
+  const [privateModeEnabled, setPrivateModeEnabled] = useState(false);
 
   // Rewards settings state (Lightning address removed - now in Teams tab)
 
@@ -272,6 +273,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       // Load NWC wallet state
       const nwcAvailable = await NWCStorageService.hasNWC();
       setHasNWCWallet(nwcAvailable);
+
+      // Load private mode setting
+      const privateMode = await AsyncStorage.getItem('@runstr:private_mode');
+      setPrivateModeEnabled(privateMode === 'true');
 
       // Load subscription tier
       if (npub) {
@@ -657,6 +662,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   //   setAlertVisible(true);
   // };
 
+  const handlePrivateModeToggle = async (value: boolean) => {
+    setPrivateModeEnabled(value);
+    await AsyncStorage.setItem('@runstr:private_mode', value ? 'true' : 'false');
+  };
+
   const handleLanguageChange = async (languageCode: LanguageCode) => {
     try {
       await LanguagePreferenceService.setLanguage(languageCode);
@@ -793,6 +803,29 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             </Card>
           </View>
         )}
+
+        {/* Privacy Settings */}
+        <View style={styles.section}>
+          <SettingsAccordion title="Privacy" defaultExpanded={false}>
+            <Card style={styles.accordionCard}>
+              <SettingItem
+                title="Private Mode"
+                subtitle="Workouts stay on your device. Competitions and rewards require this to be off."
+                rightElement={
+                  <Switch
+                    value={privateModeEnabled}
+                    onValueChange={handlePrivateModeToggle}
+                    trackColor={{
+                      false: theme.colors.warning,
+                      true: theme.colors.accent,
+                    }}
+                    thumbColor={theme.colors.orangeBright}
+                  />
+                }
+              />
+            </Card>
+          </SettingsAccordion>
+        </View>
 
         {/* Language Selection Accordion */}
         <View style={styles.section}>
