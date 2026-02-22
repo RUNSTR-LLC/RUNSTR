@@ -20,9 +20,8 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../styles/theme';
 import { CustomAlert } from '../ui/CustomAlert';
-import { supabase, isSupabaseConfigured } from '../../utils/supabase';
-import { UserTeamService } from '../../services/backend/UserTeamService';
-import { ClubMembershipService } from '../../services/backend/ClubMembershipService';
+import { isSupabaseConfigured } from '../../utils/supabase';
+import { callEdgeFunction } from '../../utils/edgeFunctions';
 import { ClubWalletService } from '../../services/club/ClubWalletService';
 
 interface SimpleTeamCreationModalProps {
@@ -89,65 +88,41 @@ export const SimpleTeamCreationModal: React.FC<SimpleTeamCreationModalProps> = (
         return;
       }
 
-      // Spam prevention: limit 1 team per npub
-      const hasTeam = await UserTeamService.hasExistingTeam(npub);
-      if (hasTeam) {
-        setAlertTitle('Error');
-        setAlertMessage('You already have a team');
-        setAlertVisible(true);
-        return;
-      }
-
-      // Duplicate name check (case-insensitive)
-      const { data: existingTeam } = await supabase!
-        .from('user_teams')
-        .select('id')
-        .ilike('name', teamName.trim())
-        .eq('is_active', true)
-        .limit(1);
-
-      if (existingTeam && existingTeam.length > 0) {
-        setAlertTitle('Name Taken');
-        setAlertMessage('A club with this name already exists. Please choose a different name.');
-        setAlertVisible(true);
-        return;
-      }
-
-      const { data, error } = await supabase!.from('user_teams').insert({
+      // Create club via Edge Function (handles duplicate name check, membership, member_count)
+      const result = await callEdgeFunction<{ id?: string }>('manage-club', {
+        action: 'create-club',
+        npub,
         name: teamName.trim(),
         description: description.trim() || null,
         lightning_address: lightningAddress.trim() || null,
-        created_by_npub: npub,
-      }).select('id').single();
+      });
 
-      if (error) {
-        console.error('[SimpleTeamCreation] Insert error:', error);
+      if (!result.success) {
+        console.error('[SimpleTeamCreation] Create error:', result.error);
         setAlertTitle('Error');
-        setAlertMessage(error.message);
+        setAlertMessage(result.error || 'Failed to create club');
         setAlertVisible(true);
         return;
       }
 
-      const teamId = data?.id || '';
+      const teamId = (result.data as any)?.id || '';
       console.log(`[SimpleTeamCreation] Created team: ${teamId}`);
 
-      // Auto-join the creator as captain so they have a membership row,
-      // AsyncStorage state is set, and member_count is incremented.
+      // Cache club state locally
       if (teamId) {
-        const joinResult = await ClubMembershipService.joinClub(teamId, npub, 'captain');
-        if (!joinResult.success) {
-          console.error(`[SimpleTeamCreation] Failed to auto-join as captain: ${joinResult.error}`);
-        } else {
-          console.log(`[SimpleTeamCreation] Auto-joined as captain of ${teamId}`);
-        }
+        try {
+          await AsyncStorage.setItem('@runstr:club_id', teamId);
+          await AsyncStorage.setItem('@runstr:club_name', teamName.trim());
+          await AsyncStorage.setItem('@runstr:club_role', 'captain');
+        } catch { /* non-critical */ }
 
         // Create CoinOS wallet for the club's rewards pool (fire-and-forget)
         ClubWalletService.createWallet(teamId)
-          .then(result => {
-            if (result.success) {
-              console.log(`[SimpleTeamCreation] Club wallet created: ${result.lightning_address}`);
+          .then(walletResult => {
+            if (walletResult.success) {
+              console.log(`[SimpleTeamCreation] Club wallet created: ${walletResult.lightning_address}`);
             } else {
-              console.error(`[SimpleTeamCreation] Club wallet creation failed: ${result.error}`);
+              console.error(`[SimpleTeamCreation] Club wallet creation failed: ${walletResult.error}`);
             }
           })
           .catch(err => console.error('[SimpleTeamCreation] Club wallet error:', err));

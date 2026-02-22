@@ -5,6 +5,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, isSupabaseConfigured } from '../../utils/supabase';
 import { Club, ClubMembership, ClubJoinResult } from '../../types/club';
+import { callEdgeFunction } from '../../utils/edgeFunctions';
 
 const TAG = '[ClubMembershipService]';
 const CLUB_ID_KEY = '@runstr:club_id';
@@ -127,95 +128,33 @@ export class ClubMembershipService {
     }
   }
 
-  /** Join a club. Fails if user is already in a club (unique constraint). */
+  /** Join a club via Edge Function. Fails if user is already in a club. */
   static async joinClub(
     clubId: string,
     npub: string,
-    role: 'member' | 'captain' = 'member'
   ): Promise<ClubJoinResult> {
-    if (!isSupabaseConfigured()) {
-      return { success: false, error: 'Backend not configured' };
+    const result = await callEdgeFunction<{ club?: Club }>('manage-club', {
+      action: 'join',
+      npub,
+      club_id: clubId,
+    });
+
+    if (!result.success) {
+      console.error(`${TAG} joinClub error:`, result.error);
+      return { success: false, error: result.error };
     }
 
-    try {
-      const { error: insertError } = await supabase!
-        .from('club_memberships')
-        .insert({ club_id: clubId, member_npub: npub, role });
-
-      if (insertError) {
-        if (insertError.code === UNIQUE_VIOLATION_CODE) {
-          return { success: false, error: 'Already in a club. Leave your current club first.' };
-        }
-        console.error(`${TAG} joinClub insert error:`, insertError);
-        return { success: false, error: insertError.message };
-      }
-
-      // Auto-join active/upcoming club events so late-joiners aren't blocked
-      try {
-        const { data: activeComps } = await supabase!
-          .from('competitions')
-          .select('id')
-          .eq('club_id', clubId)
-          .gte('end_date', new Date().toISOString());
-
-        if (activeComps && activeComps.length > 0) {
-          const rows = activeComps.map((c) => ({
-            competition_id: c.id,
-            npub,
-          }));
-          await supabase!
-            .from('competition_participants')
-            .upsert(rows, { onConflict: 'competition_id,npub' });
-          console.log(`${TAG} Auto-joined new member in ${activeComps.length} active club events`);
-        }
-      } catch (err) {
-        // Non-blocking: membership succeeded even if event enrollment fails
-        console.warn(`${TAG} Auto-join club events failed (non-blocking):`, err);
-      }
-
-      // Atomically increment member_count on user_teams
-      try {
-        const { data: newCount } = await supabase!.rpc('adjust_member_count', {
-          team_id: clubId,
-          delta: 1,
-        });
-
-        // Fetch club name for caching
-        const { data: clubData } = await supabase!
-          .from('user_teams')
-          .select('name, member_count')
-          .eq('id', clubId)
-          .single();
-
-        if (clubData) {
-          await this.cacheClubState(clubId, clubData.name || '', role);
-          console.log(`${TAG} Joined club "${clubData.name}" as ${role}`);
-
-          return {
-            success: true,
-            club: {
-              id: clubId,
-              name: clubData.name,
-              description: null,
-              lightning_address: null,
-              created_by_npub: '',
-              member_count: clubData.member_count ?? (newCount as number) ?? 1,
-              is_active: true,
-              created_at: '',
-            } as Club,
-          };
-        }
-      } catch (countErr) {
-        console.warn(`${TAG} Failed to increment member_count:`, countErr);
-      }
-
-      await this.cacheClubState(clubId, undefined, role);
-      console.log(`${TAG} Joined club ${clubId} as ${role}`);
-      return { success: true };
-    } catch (err) {
-      console.error(`${TAG} joinClub exception:`, err);
-      return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+    // Cache club state locally
+    const club = result.data?.club;
+    if (club) {
+      await this.cacheClubState(clubId, club.name || '', 'member');
+      console.log(`${TAG} Joined club "${club.name}" as member`);
+      return { success: true, club };
     }
+
+    await this.cacheClubState(clubId, undefined, 'member');
+    console.log(`${TAG} Joined club ${clubId} as member`);
+    return { success: true };
   }
 
   /**
@@ -262,89 +201,54 @@ export class ClubMembershipService {
   }
 
   /**
-   * Leave the current club. Captains with other members must transfer captainship
-   * first. Sole-captain clubs are deactivated automatically on leave.
-   * Enforces 7-day cooldown for non-captain members.
+   * Leave the current club via Edge Function.
+   * Server enforces captain checks and 7-day cooldown.
    */
   static async leaveClub(npub: string): Promise<{ success: boolean; error?: string }> {
-    if (!isSupabaseConfigured()) {
-      return { success: false, error: 'Backend not configured' };
-    }
-
+    // Need club_id to send to Edge Function
+    let clubId: string | null = null;
     try {
-      // Get current membership including role
-      const { data: membership, error: lookupError } = await supabase!
-        .from('club_memberships')
-        .select('club_id, role')
-        .eq('member_npub', npub)
-        .single();
+      clubId = await AsyncStorage.getItem(CLUB_ID_KEY);
+    } catch { /* ignore */ }
 
-      if (lookupError || !membership) {
-        await this.clearLocalClubState();
-        return { success: false, error: 'Not a member of any club' };
+    if (!clubId) {
+      // Try to fetch from DB
+      if (isSupabaseConfigured()) {
+        const { data } = await supabase!
+          .from('club_memberships')
+          .select('club_id')
+          .eq('member_npub', npub)
+          .single();
+        clubId = data?.club_id || null;
       }
-
-      const clubId = membership.club_id;
-
-      // 7-day cooldown check (captains exempt)
-      if (membership.role !== 'captain') {
-        const cooldown = await this.getCooldownRemaining(npub);
-        if (!cooldown.canLeave) {
-          return {
-            success: false,
-            error: `You must wait ${cooldown.remainingText} before leaving. Clubs have a 7-day cooldown to keep teams stable.`,
-          };
-        }
-      }
-
-      // Captain-specific leave logic
-      if (membership.role === 'captain') {
-        const members = await this.getClubMembers(clubId);
-        const otherMembers = members.filter((m) => m.member_npub !== npub);
-
-        if (otherMembers.length > 0) {
-          console.warn(
-            `${TAG} Captain cannot leave club ${clubId} with ${otherMembers.length} other member(s)`
-          );
-          return {
-            success: false,
-            error: 'Transfer captainship before leaving. Use transferCaptainship() to promote another member.',
-          };
-        }
-        // Sole member captain -- will deactivate club after deletion
-        console.log(`${TAG} Captain is sole member of ${clubId}, will deactivate club`);
-      }
-
-      // Delete the membership row
-      const { error: deleteError } = await supabase!
-        .from('club_memberships')
-        .delete()
-        .eq('member_npub', npub);
-
-      if (deleteError) {
-        console.error(`${TAG} leaveClub delete error:`, deleteError);
-        return { success: false, error: deleteError.message };
-      }
-
-      // Decrement member_count (and deactivate if captain was sole member)
-      await this.decrementMemberCount(clubId, membership.role === 'captain');
-
-      await this.clearLocalClubState();
-      this.invalidateMembersCache(clubId);
-
-      console.log(`${TAG} Left club ${clubId}`);
-      return { success: true };
-    } catch (err) {
-      console.error(`${TAG} leaveClub exception:`, err);
-      return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
     }
+
+    if (!clubId) {
+      await this.clearLocalClubState();
+      return { success: false, error: 'Not a member of any club' };
+    }
+
+    const result = await callEdgeFunction('manage-club', {
+      action: 'leave',
+      npub,
+      club_id: clubId,
+    });
+
+    if (!result.success) {
+      console.error(`${TAG} leaveClub error:`, result.error);
+      return { success: false, error: result.error };
+    }
+
+    await this.clearLocalClubState();
+    this.invalidateMembersCache(clubId);
+    console.log(`${TAG} Left club ${clubId}`);
+    return { success: true };
   }
 
   /** Switch clubs with recovery. Re-joins original club if join fails. */
   static async switchClub(
     newClubId: string,
     npub: string,
-    role: 'member' | 'captain' = 'member'
   ): Promise<ClubJoinResult> {
     console.log(`${TAG} Switching to club ${newClubId}...`);
 
@@ -357,19 +261,10 @@ export class ClubMembershipService {
       };
     }
 
-    // Capture original club ID and role for recovery
+    // Capture original club ID for recovery
     let originalClubId: string | null = null;
-    let originalRole: 'member' | 'captain' = 'member';
     try {
-      const { data: currentMembership } = await supabase!
-        .from('club_memberships')
-        .select('club_id, role')
-        .eq('member_npub', npub)
-        .single();
-      if (currentMembership) {
-        originalClubId = currentMembership.club_id;
-        originalRole = (currentMembership.role as 'member' | 'captain') || 'member';
-      }
+      originalClubId = await AsyncStorage.getItem(CLUB_ID_KEY);
     } catch { /* recovery won't be possible */ }
 
     // Leave current club
@@ -382,14 +277,14 @@ export class ClubMembershipService {
     }
 
     // Join new club
-    const joinResult = await this.joinClub(newClubId, npub, role);
+    const joinResult = await this.joinClub(newClubId, npub);
     if (!joinResult.success) {
       console.error(`${TAG} switchClub join failed for ${newClubId}: ${joinResult.error}`);
 
       // RECOVERY: Attempt to re-join the original club
       if (originalClubId) {
-        console.warn(`${TAG} Attempting recovery: re-joining original club ${originalClubId} as ${originalRole}`);
-        const recoveryResult = await this.joinClub(originalClubId, npub, originalRole);
+        console.warn(`${TAG} Attempting recovery: re-joining original club ${originalClubId}`);
+        const recoveryResult = await this.joinClub(originalClubId, npub);
         if (recoveryResult.success) {
           console.log(`${TAG} Recovery successful: re-joined original club ${originalClubId}`);
           return {
@@ -397,7 +292,6 @@ export class ClubMembershipService {
             error: `Failed to join new club: ${joinResult.error}. You have been returned to your previous club.`,
           };
         }
-        // Recovery also failed -- user is orphaned
         console.error(
           `${TAG} CRITICAL: Recovery failed. User ${npub.slice(0, 12)}... is orphaned. ` +
           `Left ${originalClubId}, failed to join ${newClubId}. Error: ${recoveryResult.error}`
@@ -509,151 +403,55 @@ export class ClubMembershipService {
     } catch { /* non-critical */ }
   }
 
-  /** Remove a member from a club. Caller must be the club captain. */
+  /** Remove a member from a club via Edge Function. Server verifies captain role. */
   static async removeMember(
     clubId: string,
     memberNpub: string,
     callerNpub: string
   ): Promise<{ success: boolean; error?: string }> {
-    if (!isSupabaseConfigured()) {
-      return { success: false, error: 'Backend not configured' };
+    const result = await callEdgeFunction('manage-club', {
+      action: 'remove-member',
+      npub: callerNpub,
+      club_id: clubId,
+      target_npub: memberNpub,
+    });
+
+    if (!result.success) {
+      console.error(`${TAG} removeMember error:`, result.error);
+      return { success: false, error: result.error };
     }
 
-    try {
-      // Verify caller is the captain of this club
-      const { data: callerMembership, error: authError } = await supabase!
-        .from('club_memberships')
-        .select('role')
-        .eq('club_id', clubId)
-        .eq('member_npub', callerNpub)
-        .single();
-
-      if (authError || !callerMembership || callerMembership.role !== 'captain') {
-        console.warn(`${TAG} removeMember unauthorized: ${callerNpub.slice(0, 12)}... is not captain of ${clubId}`);
-        return { success: false, error: 'Only the club captain can remove members' };
-      }
-
-      const { error: deleteError } = await supabase!
-        .from('club_memberships')
-        .delete()
-        .eq('club_id', clubId)
-        .eq('member_npub', memberNpub);
-
-      if (deleteError) {
-        console.error(`${TAG} removeMember delete error:`, deleteError);
-        return { success: false, error: deleteError.message };
-      }
-
-      await this.decrementMemberCount(clubId, false);
-      this.invalidateMembersCache(clubId);
-
-      console.log(`${TAG} Removed member ${memberNpub.slice(0, 12)}... from club ${clubId}`);
-      return { success: true };
-    } catch (err) {
-      console.error(`${TAG} removeMember exception:`, err);
-      return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
-    }
+    this.invalidateMembersCache(clubId);
+    console.log(`${TAG} Removed member ${memberNpub.slice(0, 12)}... from club ${clubId}`);
+    return { success: true };
   }
 
   /**
-   * Transfer captainship to another member. Validates target before proceeding.
-   *
-   * Operation order is intentionally promote-first for safety:
-   *  1. Promote new captain (briefly 2 captains — safe)
-   *  2. Demote old captain(s) (back to exactly 1 captain)
-   *  3. Update user_teams.created_by_npub (non-fatal)
-   *
-   * If step 2 fails after step 1, the club has 2 captains (recoverable).
-   * The old order (demote-then-promote) risked leaving 0 captains (unrecoverable).
+   * Transfer captainship to another member via Edge Function.
+   * Server handles the promote-first safety pattern.
    */
   static async transferCaptainship(
     clubId: string,
     newCaptainNpub: string,
     callerNpub: string
   ): Promise<{ success: boolean; error?: string }> {
-    if (!isSupabaseConfigured()) {
-      return { success: false, error: 'Backend not configured' };
+    const result = await callEdgeFunction('manage-club', {
+      action: 'transfer-captain',
+      npub: callerNpub,
+      club_id: clubId,
+      target_npub: newCaptainNpub,
+    });
+
+    if (!result.success) {
+      console.error(`${TAG} transferCaptainship error:`, result.error);
+      return { success: false, error: result.error };
     }
 
-    try {
-      // Verify caller is the captain of this club
-      const { data: callerMembership, error: authError } = await supabase!
-        .from('club_memberships')
-        .select('role')
-        .eq('club_id', clubId)
-        .eq('member_npub', callerNpub)
-        .single();
+    try { await AsyncStorage.setItem(CLUB_ROLE_KEY, 'member'); } catch { /* non-critical */ }
+    this.invalidateMembersCache(clubId);
 
-      if (authError || !callerMembership || callerMembership.role !== 'captain') {
-        console.warn(`${TAG} transferCaptainship unauthorized: ${callerNpub.slice(0, 12)}... is not captain of ${clubId}`);
-        return { success: false, error: 'Only the club captain can transfer captainship' };
-      }
-
-      // Validate target is a member of this club
-      const { data: targetMembership, error: targetErr } = await supabase!
-        .from('club_memberships')
-        .select('role')
-        .eq('club_id', clubId)
-        .eq('member_npub', newCaptainNpub)
-        .single();
-
-      if (targetErr || !targetMembership) {
-        return { success: false, error: 'Target user is not a member of this club' };
-      }
-
-      if (targetMembership.role === 'captain') {
-        return { success: false, error: 'Target user is already a captain' };
-      }
-
-      // Step 1: Promote new captain FIRST (safe: briefly 2 captains)
-      const { error: promoteError } = await supabase!
-        .from('club_memberships')
-        .update({ role: 'captain' })
-        .eq('club_id', clubId)
-        .eq('member_npub', newCaptainNpub);
-
-      if (promoteError) {
-        console.error(`${TAG} transferCaptainship promote error:`, promoteError);
-        return { success: false, error: promoteError.message };
-      }
-
-      // Step 2: Demote old captain(s) to member (exclude the newly promoted captain)
-      const { error: demoteError } = await supabase!
-        .from('club_memberships')
-        .update({ role: 'member' })
-        .eq('club_id', clubId)
-        .eq('role', 'captain')
-        .neq('member_npub', newCaptainNpub);
-
-      if (demoteError) {
-        console.error(`${TAG} transferCaptainship demote error:`, demoteError);
-        console.warn(
-          `${TAG} Club ${clubId} may have multiple captains. ` +
-          `New captain ${newCaptainNpub.slice(0, 12)}... was promoted but old captain demotion failed.`
-        );
-        // Don't return failure — the new captain IS promoted, club is functional
-        // with 2 captains (better than 0). Log for manual cleanup if needed.
-      }
-
-      // Step 3: Update user_teams.created_by_npub (non-fatal if this fails)
-      const { error: teamUpdateError } = await supabase!
-        .from('user_teams')
-        .update({ created_by_npub: newCaptainNpub })
-        .eq('id', clubId);
-
-      if (teamUpdateError) {
-        console.warn(`${TAG} transferCaptainship team update error:`, teamUpdateError);
-      }
-
-      try { await AsyncStorage.setItem(CLUB_ROLE_KEY, 'member'); } catch { /* non-critical */ }
-      this.invalidateMembersCache(clubId);
-
-      console.log(`${TAG} Captainship transferred to ${newCaptainNpub.slice(0, 12)}... in club ${clubId}`);
-      return { success: true };
-    } catch (err) {
-      console.error(`${TAG} transferCaptainship exception:`, err);
-      return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
-    }
+    console.log(`${TAG} Captainship transferred to ${newCaptainNpub.slice(0, 12)}... in club ${clubId}`);
+    return { success: true };
   }
 
   // --- Private Helpers ---
@@ -703,27 +501,6 @@ export class ClubMembershipService {
     AsyncStorage.removeItem(`${MEMBERS_CACHE_KEY_PREFIX}${clubId}`).catch(() => {});
   }
 
-  /** Atomically decrement member_count. Optionally deactivate club if empty. */
-  private static async decrementMemberCount(clubId: string, deactivateIfEmpty: boolean): Promise<void> {
-    try {
-      const { data: newCount, error } = await supabase!.rpc('adjust_member_count', {
-        team_id: clubId,
-        delta: -1,
-        deactivate_if_empty: deactivateIfEmpty,
-      });
-
-      if (error) {
-        console.warn(`${TAG} adjust_member_count RPC error for ${clubId}:`, error.message);
-        return;
-      }
-
-      if (deactivateIfEmpty && newCount === 0) {
-        console.log(`${TAG} Deactivating club ${clubId} (no members remain)`);
-      }
-    } catch (err) {
-      console.warn(`${TAG} Failed to update member_count for ${clubId}:`, err);
-    }
-  }
 }
 
 export default ClubMembershipService;

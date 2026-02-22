@@ -376,6 +376,18 @@ verify_jwt = false
 # Requires verify_jwt = false so pg_cron can call it
 verify_jwt = false
 
+[functions.manage-club]
+# Club write operations (join, leave, remove-member, transfer-captain, update, create)
+verify_jwt = false
+
+[functions.manage-competition]
+# Competition write operations (join, leave, create, update, delete, update-profile, auto-join-members)
+verify_jwt = false
+
+[functions.manage-club-chat]
+# Club chat write operations (send, delete)
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

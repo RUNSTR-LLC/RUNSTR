@@ -20,7 +20,8 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../styles/theme';
 import { CustomAlert } from '../ui/CustomAlert';
-import { supabase, isSupabaseConfigured } from '../../utils/supabase';
+import { isSupabaseConfigured } from '../../utils/supabase';
+import { callEdgeFunction } from '../../utils/edgeFunctions';
 import { SupabaseCompetitionService } from '../../services/backend/SupabaseCompetitionService';
 
 // ---------------------------------------------------------------------------
@@ -208,12 +209,14 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
     setIsSubmitting(true);
 
     try {
+      const npub = await AsyncStorage.getItem('@runstr:npub');
       const result = await SupabaseCompetitionService.updateCompetition(
         existingEvent.id,
         {
           name: eventName.trim(),
           description: description.trim() || null,
-        }
+        },
+        npub || undefined,
       );
 
       if (result.success) {
@@ -252,80 +255,43 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
         return;
       }
 
-      // Spam prevention
-      const { count, error: countError } = await supabase!
-        .from('competitions')
-        .select('*', { count: 'exact', head: true })
-        .eq('created_by_npub', npub)
-        .gte('end_date', new Date().toISOString());
-
-      if (countError) {
-        showAlert('Error', 'Unable to verify event limit. Please try again.');
-        return;
-      }
-
-      if ((count ?? 0) >= MAX_ACTIVE_EVENTS_PER_USER) {
-        showAlert(
-          'Event Limit Reached',
-          `You can have at most ${MAX_ACTIVE_EVENTS_PER_USER} active events at a time. Wait for a current event to end or cancel one.`
-        );
-        return;
-      }
-
-      const externalId = `${slugify(eventName)}-${randomHex(4)}`;
       const endDate = new Date(startDate!);
       endDate.setUTCDate(endDate.getUTCDate() + EVENT_DURATION_DAYS);
 
-      const { data: insertedRows, error } = await supabase!
-        .from('competitions')
-        .insert({
-          external_id: externalId,
-          name: eventName.trim(),
-          description: description.trim() || null,
-          activity_type: selectedTemplate.activityType,
+      // Create competition via Edge Function (handles spam prevention, auto-join)
+      const result = await callEdgeFunction<{
+        id?: string;
+        external_id?: string;
+        auto_joined?: number;
+      }>('manage-competition', {
+        action: 'create',
+        npub,
+        name: eventName.trim(),
+        description: description.trim() || null,
+        activity_type: selectedTemplate.activityType,
+        scoring_method: selectedTemplate.scoringMethod,
+        start_date: startDate!.toISOString(),
+        end_date: endDate.toISOString(),
+        template: selectedTemplate.templateId,
+        club_id: clubId || null,
+        config: {
+          activity_types: [selectedTemplate.activityType],
           scoring_method: selectedTemplate.scoringMethod,
-          start_date: startDate!.toISOString(),
-          end_date: endDate.toISOString(),
-          prize_pool_sats: 0,
-          is_open: true,
+          target_distance_km: selectedTemplate.distanceKm,
           template: selectedTemplate.templateId,
-          created_by_npub: npub,
-          club_id: clubId || null,
-          config: {
-            activity_types: [selectedTemplate.activityType],
-            scoring_method: selectedTemplate.scoringMethod,
-            target_distance_km: selectedTemplate.distanceKm,
-            template: selectedTemplate.templateId,
-            created_via: clubId ? 'club' : 'app',
-          },
-        })
-        .select('id');
+          created_via: clubId ? 'club' : 'app',
+        },
+      });
 
-      if (error) {
-        console.error('[SimpleEventCreation] Insert error:', error);
-        showAlert('Error', 'Failed to create event. Please try again.');
+      if (!result.success) {
+        console.error('[SimpleEventCreation] Create error:', result.error);
+        showAlert('Error', result.error || 'Failed to create event. Please try again.');
         return;
       }
 
-      // Auto-join club members or just the creator
-      const competitionId = insertedRows?.[0]?.id;
-      let autoJoinCount = 0;
-      let autoJoinError: string | undefined;
-      if (competitionId && clubId) {
-        const result = await SupabaseCompetitionService.autoJoinClubMembers(competitionId, clubId);
-        autoJoinCount = result.joined;
-        autoJoinError = result.error;
-      } else if (competitionId) {
-        const { error: joinError } = await supabase!
-          .from('competition_participants')
-          .upsert(
-            { competition_id: competitionId, npub },
-            { onConflict: 'competition_id,npub' }
-          );
-        if (joinError) {
-          console.warn('[SimpleEventCreation] Auto-join error:', joinError);
-        }
-      }
+      const data = result.data as any;
+      const externalId = data?.external_id || '';
+      const autoJoinCount = data?.auto_joined ?? 0;
 
       console.log(`[SimpleEventCreation] Created ${selectedTemplate.label}: ${externalId}${clubId ? ` (club: ${clubId})` : ''}`);
 
@@ -338,11 +304,9 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
       showAlert(
         'Event Created',
         clubId
-          ? autoJoinError
-            ? `Event is live, but member enrollment failed: ${autoJoinError}. Members can still join manually.`
-            : autoJoinCount > 0
-              ? `Event is live. ${autoJoinCount} club member${autoJoinCount === 1 ? '' : 's'} enrolled automatically.`
-              : 'Event is live. No club members found to auto-enroll.'
+          ? autoJoinCount > 0
+            ? `Event is live. ${autoJoinCount} club member${autoJoinCount === 1 ? '' : 's'} enrolled automatically.`
+            : 'Event is live. No club members found to auto-enroll.'
           : 'Event is live and you have been joined automatically.'
       );
       onEventCreated?.(externalId);

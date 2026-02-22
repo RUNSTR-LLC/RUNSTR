@@ -9,6 +9,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, isSupabaseConfigured } from '../../utils/supabase';
 import { Club } from '../../types/club';
+import { callEdgeFunction } from '../../utils/edgeFunctions';
 
 // Cache configuration
 const CLUBS_CACHE_KEY = '@runstr:clubs_cache';
@@ -190,49 +191,42 @@ export class ClubService {
   }
 
   /**
-   * Update club details in the user_teams table.
-   * Only the captain should call this (enforced at the UI level).
-   * Clears caches after a successful update so fresh data is fetched.
+   * Update club details via Edge Function.
+   * Server verifies caller is the club captain.
    *
    * @param clubId - UUID of the club to update
-   * @param updates - Fields to update (description, lightning_address, banner_url)
+   * @param updates - Fields to update (description, lightning_address, banner_url, leaderboard_metric)
+   * @param callerNpub - npub of the caller (must be captain)
    * @returns true if update succeeded
    */
   static async updateClub(
     clubId: string,
-    updates: { description?: string; lightning_address?: string; banner_url?: string; leaderboard_metric?: string }
+    updates: { description?: string; lightning_address?: string; banner_url?: string; leaderboard_metric?: string },
+    callerNpub?: string,
   ): Promise<boolean> {
-    if (!isSupabaseConfigured()) {
-      console.warn('[ClubService] Supabase not configured');
+    const result = await callEdgeFunction('manage-club', {
+      action: 'update-club',
+      npub: callerNpub || '',
+      club_id: clubId,
+      updates,
+    });
+
+    if (!result.success) {
+      console.error(`[ClubService] updateClub error for ${clubId}:`, result.error);
       return false;
     }
 
+    console.log(`[ClubService] Updated club ${clubId}:`, Object.keys(updates));
+
+    // Invalidate caches so next read gets fresh data
+    clubByIdCache.delete(clubId);
     try {
-      const { error } = await supabase!
-        .from('user_teams')
-        .update(updates)
-        .eq('id', clubId);
-
-      if (error) {
-        console.error(`[ClubService] updateClub error for ${clubId}:`, error);
-        return false;
-      }
-
-      console.log(`[ClubService] Updated club ${clubId}:`, Object.keys(updates));
-
-      // Invalidate caches so next read gets fresh data
-      clubByIdCache.delete(clubId);
-      try {
-        await AsyncStorage.removeItem(CLUBS_CACHE_KEY);
-      } catch {
-        // Non-critical
-      }
-
-      return true;
-    } catch (err) {
-      console.error(`[ClubService] updateClub exception for ${clubId}:`, err);
-      return false;
+      await AsyncStorage.removeItem(CLUBS_CACHE_KEY);
+    } catch {
+      // Non-critical
     }
+
+    return true;
   }
 
   /**

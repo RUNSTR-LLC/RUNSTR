@@ -108,7 +108,7 @@ export const CaptainSettingsModal: React.FC<CaptainSettingsModalProps> = ({
         return;
       }
 
-      const success = await ClubService.updateClub(club.id, updates);
+      const success = await ClubService.updateClub(club.id, updates, userNpub);
       if (success) {
         showAlert('Saved', 'Club settings updated successfully.');
         onClubUpdated?.();
@@ -121,7 +121,7 @@ export const CaptainSettingsModal: React.FC<CaptainSettingsModalProps> = ({
     } finally {
       setIsSaving(false);
     }
-  }, [isSaving, description, lightningAddress, bannerUrl, leaderboardMetric, club, onClubUpdated]);
+  }, [isSaving, description, lightningAddress, bannerUrl, leaderboardMetric, club, userNpub, onClubUpdated]);
 
   const getDisplayName = useCallback((npub: string) => {
     const profile = profiles.get(npub);

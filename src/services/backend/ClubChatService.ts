@@ -12,6 +12,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, isSupabaseConfigured } from '../../utils/supabase';
 import { ClubMembershipService } from './ClubMembershipService';
+import { callEdgeFunction } from '../../utils/edgeFunctions';
 import type { ClubMessage } from '../../types/club';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -107,20 +108,15 @@ export class ClubChatService {
   }
 
   /**
-   * Send a message to a club chat.
-   * Validates content, checks rate limit, and inserts into Supabase with a timeout.
+   * Send a message to a club chat via Edge Function.
+   * Client-side rate limit kept as UX guard; server enforces the real limit.
    */
   static async sendMessage(
     clubId: string,
     senderNpub: string,
     content: string
   ): Promise<ClubMessage | null> {
-    if (!isSupabaseConfigured()) {
-      console.warn('[ClubChatService] Supabase not configured');
-      return null;
-    }
-
-    // Validate content
+    // Validate content (client-side for instant feedback)
     const trimmed = content.trim();
     if (trimmed.length < MIN_CONTENT_LENGTH) {
       console.warn('[ClubChatService] Message too short');
@@ -131,7 +127,7 @@ export class ClubChatService {
       return null;
     }
 
-    // Rate limit check
+    // Client-side rate limit (UX guard)
     if (!ClubChatService.canSendMessage()) {
       console.warn(
         `[ClubChatService] Rate limited. Reset in ${ClubChatService.getRateLimitResetSeconds()}s`
@@ -139,114 +135,47 @@ export class ClubChatService {
       return null;
     }
 
-    // Membership check: only club members can send messages
-    const isMember = await ClubMembershipService.isMember(clubId, senderNpub);
-    if (!isMember) {
-      console.warn(`[ClubChatService] ${senderNpub.slice(0, 12)}... is not a member of club ${clubId}`);
+    const result = await callEdgeFunction<{ message?: ClubMessage }>(
+      'manage-club-chat',
+      { action: 'send', club_id: clubId, sender_npub: senderNpub, content: trimmed },
+      SEND_TIMEOUT_MS,
+    );
+
+    if (!result.success || !result.data) {
+      console.error('[ClubChatService] sendMessage error:', result.error);
       return null;
     }
 
-    try {
-      // Insert with timeout
-      const insertPromise = supabase!
-        .from('club_messages')
-        .insert({
-          club_id: clubId,
-          sender_npub: senderNpub,
-          content: trimmed,
-        })
-        .select()
-        .single();
+    const message = (result.data as any).message ?? result.data as unknown as ClubMessage;
+    console.log(`[ClubChatService] Message sent: ${message.id}`);
 
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Send timeout')), SEND_TIMEOUT_MS)
-      );
+    // Record timestamp for rate limiting
+    sentTimestamps.push(Date.now());
 
-      const { data, error } = await Promise.race([insertPromise, timeoutPromise]);
+    // Append to cache
+    await ClubChatService.appendToCache(clubId, message);
 
-      if (error) {
-        console.error('[ClubChatService] sendMessage error:', error);
-        return null;
-      }
-
-      const message = data as ClubMessage;
-      console.log(`[ClubChatService] Message sent: ${message.id}`);
-
-      // Record timestamp for rate limiting
-      sentTimestamps.push(Date.now());
-
-      // Append to cache
-      await ClubChatService.appendToCache(clubId, message);
-
-      return message;
-    } catch (err) {
-      console.error('[ClubChatService] sendMessage exception:', err);
-      return null;
-    }
+    return message;
   }
 
   /**
-   * Soft-delete a message (sender or captain moderation).
-   * Sets deleted_at = NOW() rather than removing the row.
-   * Only the message sender or the club captain may delete a message.
+   * Soft-delete a message via Edge Function.
+   * Server verifies caller is sender or captain.
    */
   static async deleteMessage(messageId: string, callerNpub: string): Promise<boolean> {
-    if (!isSupabaseConfigured()) {
-      console.warn('[ClubChatService] Supabase not configured');
+    const result = await callEdgeFunction('manage-club-chat', {
+      action: 'delete',
+      message_id: messageId,
+      caller_npub: callerNpub,
+    });
+
+    if (!result.success) {
+      console.error('[ClubChatService] deleteMessage error:', result.error);
       return false;
     }
 
-    try {
-      // Fetch the message to verify ownership and get club_id
-      const { data: message, error: fetchError } = await supabase!
-        .from('club_messages')
-        .select('sender_npub, club_id')
-        .eq('id', messageId)
-        .single();
-
-      if (fetchError || !message) {
-        console.error('[ClubChatService] deleteMessage: message not found', fetchError);
-        return false;
-      }
-
-      const isSender = message.sender_npub === callerNpub;
-
-      // Check if caller is the captain of the club
-      let isCaptain = false;
-      if (!isSender) {
-        const { data: membership } = await supabase!
-          .from('club_memberships')
-          .select('role')
-          .eq('club_id', message.club_id)
-          .eq('member_npub', callerNpub)
-          .single();
-
-        isCaptain = membership?.role === 'captain';
-      }
-
-      if (!isSender && !isCaptain) {
-        console.warn(
-          `[ClubChatService] deleteMessage unauthorized: ${callerNpub.slice(0, 12)}... is not sender or captain`
-        );
-        return false;
-      }
-
-      const { error } = await supabase!
-        .from('club_messages')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('id', messageId);
-
-      if (error) {
-        console.error('[ClubChatService] deleteMessage error:', error);
-        return false;
-      }
-
-      console.log(`[ClubChatService] Message soft-deleted: ${messageId}`);
-      return true;
-    } catch (err) {
-      console.error('[ClubChatService] deleteMessage exception:', err);
-      return false;
-    }
+    console.log(`[ClubChatService] Message soft-deleted: ${messageId}`);
+    return true;
   }
 
   /**

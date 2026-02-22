@@ -23,6 +23,7 @@ import { getCharityById, isPPQTeam } from '../../constants/charities';
 import { getClubLightningAddress } from '../../utils/rewardTags';
 import { PPQAccountService } from '../ai/PPQAccountService';
 import { SubscriptionService } from './SubscriptionService';
+import { callEdgeFunction } from '../../utils/edgeFunctions';
 
 // Local storage key for tracking joined competitions (optimistic join)
 const LOCAL_JOINED_COMPETITIONS_KEY = '@runstr:local_joined_competitions';
@@ -130,13 +131,8 @@ export class SupabaseCompetitionService {
   }
 
   /**
-   * Join a competition - adds user's npub to participant list
-   * Uses optimistic pattern: save locally first for instant UI, then sync to Supabase
-   *
-   * @param competitionId - The competition UUID or external_id
-   * @param npub - User's Nostr public key (npub format)
-   * @param profile - Optional profile data (name, picture) to store for leaderboard display
-   * @returns Success status (always true for optimistic join)
+   * Join a competition via Edge Function.
+   * Uses optimistic pattern: save locally first for instant UI.
    */
   static async joinCompetition(
     competitionId: string,
@@ -144,109 +140,60 @@ export class SupabaseCompetitionService {
     profile?: { name?: string; picture?: string }
   ): Promise<{ success: boolean; error?: string }> {
     // OPTIMISTIC: Save locally FIRST for instant UI feedback
-    // This ensures user sees "Joined" state immediately, even if Supabase is slow/fails
     await this.saveLocalJoin(competitionId, npub);
 
-    if (!isSupabaseConfigured()) {
-      console.warn('[SupabaseCompetitionService] Supabase not configured - local join only');
-      return { success: true }; // Return success since local join worked
-    }
-
-    try {
-      // Resolve competition ID (could be UUID or external_id)
-      const resolvedId = await this.resolveCompetitionId(competitionId);
-      if (!resolvedId) {
-        console.warn('[SupabaseCompetitionService] Competition not found in Supabase - local join only');
-        return { success: true }; // Still return success since local join worked
-      }
-
-      // Build participant data with optional profile fields
-      const participantData: {
-        competition_id: string;
-        npub: string;
-        name?: string;
-        picture?: string;
-      } = {
-        competition_id: resolvedId,
-        npub,
-      };
-
-      // Only include profile fields if they have values
-      if (profile?.name) {
-        participantData.name = profile.name;
-      }
-      if (profile?.picture) {
-        participantData.picture = profile.picture;
-      }
-
-      const { error } = await supabase!
-        .from('competition_participants')
-        .upsert(participantData, { onConflict: 'competition_id,npub' });
-
-      if (error) {
-        console.warn('[SupabaseCompetitionService] Supabase join error (local join succeeded):', error);
-        // Still return success since local join worked
-        return { success: true };
-      }
-
-      console.log(
-        `[SupabaseCompetitionService] Joined competition: ${competitionId}${profile?.name ? ` (${profile.name})` : ''}`
-      );
-
-      return { success: true };
-    } catch (err) {
-      console.warn('[SupabaseCompetitionService] Join exception (local join succeeded):', err);
-      // Still return success since local join worked
+    // Resolve competition ID (could be UUID or external_id)
+    const resolvedId = await this.resolveCompetitionId(competitionId);
+    if (!resolvedId) {
+      console.warn('[SupabaseCompetitionService] Competition not found - local join only');
       return { success: true };
     }
+
+    const result = await callEdgeFunction('manage-competition', {
+      action: 'join',
+      competition_id: resolvedId,
+      npub,
+      ...(profile?.name ? { name: profile.name } : {}),
+      ...(profile?.picture ? { picture: profile.picture } : {}),
+    });
+
+    if (!result.success) {
+      console.warn('[SupabaseCompetitionService] Edge Function join error (local join succeeded):', result.error);
+      return { success: true }; // Optimistic: local join worked
+    }
+
+    console.log(
+      `[SupabaseCompetitionService] Joined competition: ${competitionId}${profile?.name ? ` (${profile.name})` : ''}`
+    );
+    return { success: true };
   }
 
   /**
-   * Leave a competition - removes user's npub from participant list
-   *
-   * @param competitionId - The competition UUID or external_id
-   * @param npub - User's Nostr public key
-   * @returns Success status
+   * Leave a competition via Edge Function.
    */
   static async leaveCompetition(
     competitionId: string,
     npub: string
   ): Promise<{ success: boolean; error?: string }> {
-    if (!isSupabaseConfigured()) {
-      return { success: false, error: 'Backend not configured' };
+    const resolvedId = await this.resolveCompetitionId(competitionId);
+    if (!resolvedId) {
+      return { success: false, error: 'Competition not found' };
     }
 
-    try {
-      const resolvedId = await this.resolveCompetitionId(competitionId);
-      if (!resolvedId) {
-        return { success: false, error: 'Competition not found' };
-      }
+    const result = await callEdgeFunction('manage-competition', {
+      action: 'leave',
+      competition_id: resolvedId,
+      npub,
+    });
 
-      const { error } = await supabase!
-        .from('competition_participants')
-        .delete()
-        .match({ competition_id: resolvedId, npub });
-
-      if (error) {
-        console.error('[SupabaseCompetitionService] Leave error:', error);
-        return { success: false, error: error.message };
-      }
-
-      console.log(
-        `[SupabaseCompetitionService] Left competition: ${competitionId}`
-      );
-
-      // Remove from local storage
-      await this.removeLocalJoin(competitionId, npub);
-
-      return { success: true };
-    } catch (err) {
-      console.error('[SupabaseCompetitionService] Leave exception:', err);
-      return {
-        success: false,
-        error: err instanceof Error ? err.message : 'Unknown error',
-      };
+    if (!result.success) {
+      console.error('[SupabaseCompetitionService] Leave error:', result.error);
+      return { success: false, error: result.error };
     }
+
+    console.log(`[SupabaseCompetitionService] Left competition: ${competitionId}`);
+    await this.removeLocalJoin(competitionId, npub);
+    return { success: true };
   }
 
   /**
@@ -1050,59 +997,35 @@ export class SupabaseCompetitionService {
   }
 
   /**
-   * Update a participant's profile data (name, picture)
-   * Used to fix participants with null profile data
-   *
-   * @param competitionId - The competition UUID or external_id
-   * @param npub - User's Nostr public key
-   * @param profile - Profile data to update
-   * @returns Success status
+   * Update a participant's profile data via Edge Function.
    */
   static async updateParticipantProfile(
     competitionId: string,
     npub: string,
     profile: { name?: string; picture?: string }
   ): Promise<{ success: boolean; error?: string }> {
-    if (!isSupabaseConfigured()) {
-      return { success: false, error: 'Backend not configured' };
+    const resolvedId = await this.resolveCompetitionId(competitionId);
+    if (!resolvedId) {
+      return { success: false, error: 'Competition not found' };
     }
 
-    try {
-      const resolvedId = await this.resolveCompetitionId(competitionId);
-      if (!resolvedId) {
-        return { success: false, error: 'Competition not found' };
-      }
+    const result = await callEdgeFunction('manage-competition', {
+      action: 'update-profile',
+      competition_id: resolvedId,
+      npub,
+      ...(profile.name ? { name: profile.name } : {}),
+      ...(profile.picture ? { picture: profile.picture } : {}),
+    });
 
-      // Build update data (only include non-null values)
-      const updateData: { name?: string; picture?: string } = {};
-      if (profile.name) updateData.name = profile.name;
-      if (profile.picture) updateData.picture = profile.picture;
-
-      if (Object.keys(updateData).length === 0) {
-        return { success: false, error: 'No profile data to update' };
-      }
-
-      const { error } = await supabase!
-        .from('competition_participants')
-        .update(updateData)
-        .match({ competition_id: resolvedId, npub });
-
-      if (error) {
-        console.error('[SupabaseCompetitionService] Update profile error:', error);
-        return { success: false, error: error.message };
-      }
-
-      console.log(
-        `[SupabaseCompetitionService] Updated profile for ${npub.slice(0, 12)}: ${profile.name || 'no name'}`
-      );
-      return { success: true };
-    } catch (err) {
-      console.error('[SupabaseCompetitionService] Update profile exception:', err);
-      return {
-        success: false,
-        error: err instanceof Error ? err.message : 'Unknown error',
-      };
+    if (!result.success) {
+      console.error('[SupabaseCompetitionService] Update profile error:', result.error);
+      return { success: false, error: result.error };
     }
+
+    console.log(
+      `[SupabaseCompetitionService] Updated profile for ${npub.slice(0, 12)}: ${profile.name || 'no name'}`
+    );
+    return { success: true };
   }
 
   /**
@@ -1406,148 +1329,82 @@ export class SupabaseCompetitionService {
   }
 
   /**
-   * Auto-join all club members to a competition.
-   * Called after captain creates a club event.
+   * Auto-join all club members to a competition via Edge Function.
    */
   static async autoJoinClubMembers(
     competitionId: string,
-    clubId: string
+    clubId: string,
+    callerNpub?: string,
   ): Promise<{ joined: number; error?: string }> {
-    if (!isSupabaseConfigured()) {
-      return { joined: 0, error: 'Backend not configured' };
+    const result = await callEdgeFunction<{ joined?: number }>('manage-competition', {
+      action: 'auto-join-members',
+      competition_id: competitionId,
+      club_id: clubId,
+      npub: callerNpub || '',
+    });
+
+    if (!result.success) {
+      console.error('[SupabaseCompetitionService] autoJoinClubMembers error:', result.error);
+      return { joined: 0, error: result.error };
     }
 
-    try {
-      // Fetch all club members
-      const { data: members, error: membersError } = await supabase!
-        .from('club_memberships')
-        .select('member_npub')
-        .eq('club_id', clubId);
-
-      if (membersError || !members || members.length === 0) {
-        console.warn('[SupabaseCompetitionService] autoJoinClubMembers: no members found');
-        return { joined: 0 };
-      }
-
-      // Bulk upsert all members as participants
-      const rows = members.map((m) => ({
-        competition_id: competitionId,
-        npub: m.member_npub,
-      }));
-
-      const { error: upsertError } = await supabase!
-        .from('competition_participants')
-        .upsert(rows, { onConflict: 'competition_id,npub' });
-
-      if (upsertError) {
-        console.error('[SupabaseCompetitionService] autoJoinClubMembers upsert error:', upsertError);
-        return { joined: 0, error: upsertError.message };
-      }
-
-      console.log(`[SupabaseCompetitionService] Auto-joined ${members.length} club members to competition ${competitionId}`);
-      return { joined: members.length };
-    } catch (err) {
-      console.error('[SupabaseCompetitionService] autoJoinClubMembers exception:', err);
-      return { joined: 0, error: err instanceof Error ? err.message : 'Unknown error' };
-    }
+    const joined = (result.data as any)?.joined ?? 0;
+    console.log(`[SupabaseCompetitionService] Auto-joined ${joined} club members to competition ${competitionId}`);
+    return { joined };
   }
 
   /**
-   * Delete a competition. Only the creator (captain) should call this.
-   * Also removes all participants and clears caches.
+   * Delete a competition via Edge Function. Server verifies creator.
    */
   static async deleteCompetition(
     competitionId: string,
     npub: string
   ): Promise<{ success: boolean; error?: string }> {
-    if (!isSupabaseConfigured()) {
-      return { success: false, error: 'Backend not configured' };
+    const resolvedId = await this.resolveCompetitionId(competitionId);
+    if (!resolvedId) {
+      return { success: false, error: 'Competition not found' };
     }
 
-    try {
-      const resolvedId = await this.resolveCompetitionId(competitionId);
-      if (!resolvedId) {
-        return { success: false, error: 'Competition not found' };
-      }
+    const result = await callEdgeFunction('manage-competition', {
+      action: 'delete',
+      competition_id: resolvedId,
+      npub,
+    });
 
-      // Verify the caller is the creator
-      const { data: comp, error: fetchError } = await supabase!
-        .from('competitions')
-        .select('created_by_npub, club_id')
-        .eq('id', resolvedId)
-        .single();
-
-      if (fetchError || !comp) {
-        return { success: false, error: 'Competition not found' };
-      }
-
-      if (comp.created_by_npub !== npub) {
-        return { success: false, error: 'Only the event creator can cancel this event' };
-      }
-
-      // Delete participants first (FK constraint)
-      await supabase!
-        .from('competition_participants')
-        .delete()
-        .eq('competition_id', resolvedId);
-
-      // Delete the competition
-      const { error: deleteError } = await supabase!
-        .from('competitions')
-        .delete()
-        .eq('id', resolvedId);
-
-      if (deleteError) {
-        console.error('[SupabaseCompetitionService] deleteCompetition error:', deleteError);
-        return { success: false, error: deleteError.message };
-      }
-
-      // Clear caches
-      if (comp.club_id) {
-        await this.clearClubCompetitionsCache(comp.club_id);
-      }
-      await this.clearDynamicCompetitionsCache();
-
-      console.log(`[SupabaseCompetitionService] Deleted competition ${competitionId}`);
-      return { success: true };
-    } catch (err) {
-      console.error('[SupabaseCompetitionService] deleteCompetition exception:', err);
-      return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+    if (!result.success) {
+      console.error('[SupabaseCompetitionService] deleteCompetition error:', result.error);
+      return { success: false, error: result.error };
     }
+
+    // Clear caches
+    await this.clearDynamicCompetitionsCache();
+    console.log(`[SupabaseCompetitionService] Deleted competition ${competitionId}`);
+    return { success: true };
   }
 
   /**
-   * Update a competition's name and/or description.
-   * Only the creator (captain) can update. Clears relevant caches.
+   * Update a competition via Edge Function. Server verifies creator.
    */
   static async updateCompetition(
     competitionId: string,
-    updates: { name?: string; description?: string | null }
+    updates: { name?: string; description?: string | null },
+    callerNpub?: string,
   ): Promise<{ success: boolean; error?: string }> {
-    if (!isSupabaseConfigured()) {
-      return { success: false, error: 'Backend not configured' };
+    const result = await callEdgeFunction('manage-competition', {
+      action: 'update',
+      competition_id: competitionId,
+      npub: callerNpub || '',
+      updates,
+    });
+
+    if (!result.success) {
+      console.error('[SupabaseCompetitionService] updateCompetition error:', result.error);
+      return { success: false, error: result.error };
     }
 
-    try {
-      const { error } = await supabase!
-        .from('competitions')
-        .update(updates)
-        .eq('id', competitionId);
-
-      if (error) {
-        console.error('[SupabaseCompetitionService] updateCompetition error:', error);
-        return { success: false, error: error.message };
-      }
-
-      // Clear caches
-      await this.clearDynamicCompetitionsCache();
-
-      console.log(`[SupabaseCompetitionService] Updated competition ${competitionId}`);
-      return { success: true };
-    } catch (err) {
-      console.error('[SupabaseCompetitionService] updateCompetition exception:', err);
-      return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
-    }
+    await this.clearDynamicCompetitionsCache();
+    console.log(`[SupabaseCompetitionService] Updated competition ${competitionId}`);
+    return { success: true };
   }
 
   /**
