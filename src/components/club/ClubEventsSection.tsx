@@ -198,6 +198,9 @@ const ClubEventsSectionComponent: React.FC<ClubEventsSectionProps> = ({
   // Render
   // -------------------------------------------------------------------------
 
+  // Hide entire section if no events and not captain (captains still see Create button)
+  if (!isLoading && events.length === 0 && !isCaptain) return null;
+
   return (
     <View style={styles.section}>
       <View style={styles.headerRow}>
@@ -222,9 +225,7 @@ const ClubEventsSectionComponent: React.FC<ClubEventsSectionProps> = ({
       ) : events.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="trophy-outline" size={36} color={theme.colors.textDark} />
-          <Text style={styles.emptyText}>
-            {isCaptain ? 'No events yet. Create one for your club!' : 'No events yet. Check back soon!'}
-          </Text>
+          <Text style={styles.emptyText}>No events yet. Create one for your club!</Text>
         </View>
       ) : (
         events.map((event) => (

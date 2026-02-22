@@ -237,24 +237,14 @@ const ClubLeaderboardSectionComponent: React.FC<ClubLeaderboardSectionProps> = (
 
   const isStepsMode = leaderboardMetric === 'steps';
 
+  // Hide entire section while loading or when no entries
+  if (isLoading || entries.length === 0) return null;
+
   return (
     <View style={styles.section}>
       <Text style={styles.sectionLabel}>LEADERBOARD</Text>
 
-      {isLoading ? (
-        <View style={styles.emptyContainer}>
-          <ActivityIndicator color={theme.colors.textMuted} />
-        </View>
-      ) : entries.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Ionicons
-            name="trophy-outline"
-            size={36}
-            color={theme.colors.textMuted}
-          />
-          <Text style={styles.emptyText}>No workouts today yet. Get moving!</Text>
-        </View>
-      ) : (
+      {(
         entries.map((entry, index) => {
           const rank = index + 1;
           const displayName =

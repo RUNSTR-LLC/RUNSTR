@@ -32,9 +32,7 @@ import { ClubEventsSection } from '../components/club/ClubEventsSection';
 import { ClubChatSection } from '../components/club/ClubChatSection';
 import { ClubMembersSection } from '../components/club/ClubMembersSection';
 import { ClubEarningsCard } from '../components/club/ClubEarningsCard';
-import { ClubRewardsPoolCard } from '../components/club/ClubRewardsPoolCard';
 import { CaptainSettingsModal } from '../components/club/CaptainSettingsModal';
-import { ExternalZapModal } from '../components/nutzap/ExternalZapModal';
 import { CustomAlert } from '../components/ui/CustomAlert';
 import type { Club } from '../types/club';
 
@@ -74,8 +72,6 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
   const [refreshKey, setRefreshKey] = useState(0);
   const [showCaptainSettings, setShowCaptainSettings] = useState(false);
   const [cooldown, setCooldown] = useState<CooldownState | null>(null);
-  const [showZapModal, setShowZapModal] = useState(false);
-  const [zapLightningAddress, setZapLightningAddress] = useState('');
   const [alertConfig, setAlertConfig] = useState<{
     visible: boolean;
     title: string;
@@ -259,11 +255,6 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
     }
   };
 
-  const handleFundPool = useCallback((lightningAddress: string) => {
-    setZapLightningAddress(lightningAddress);
-    setShowZapModal(true);
-  }, []);
-
   const handleClubUpdated = async () => {
     await ClubService.clearCache();
     await loadClubData();
@@ -363,14 +354,7 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
             />
           )}
 
-          {/* Rewards Pool card (visible to all members) */}
-          {isMember && (
-            <ClubRewardsPoolCard
-              clubId={clubId}
-              onFundPool={handleFundPool}
-              refreshKey={refreshKey}
-            />
-          )}
+          {/* Rewards Pool card — hidden for now (wallet security review) */}
 
           {/* Events section */}
           <ClubEventsSection clubId={clubId} isCaptain={isCaptain} refreshKey={refreshKey} />
@@ -404,19 +388,6 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
           onClubUpdated={handleClubUpdated}
         />
       )}
-
-      {/* Fund Pool Zap Modal */}
-      <ExternalZapModal
-        visible={showZapModal}
-        recipientNpub={zapLightningAddress}
-        recipientName={displayName + ' Rewards Pool'}
-        memo={`Fund ${displayName} rewards pool`}
-        onClose={() => setShowZapModal(false)}
-        onSuccess={() => {
-          setShowZapModal(false);
-          handleRefresh();
-        }}
-      />
 
       {/* Themed alert */}
       <CustomAlert
