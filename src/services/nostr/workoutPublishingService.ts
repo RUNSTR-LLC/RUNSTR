@@ -241,7 +241,7 @@ export class WorkoutPublishingService {
 
       if (isPPQ) {
         rewardDestination = 'ppq';
-        // PPQ uses bolt11 invoice, not lightning address
+        effectiveLightningAddress = null; // PPQ uses bolt11 invoice, not lightning address
       } else if (!isSelf && selectedCharity && !selectedCharity.isSelf && selectedCharity.lightningAddress) {
         // Charity/community team with a lightning address -> route reward to charity
         rewardDestination = 'charity';
