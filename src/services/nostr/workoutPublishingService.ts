@@ -366,6 +366,8 @@ export class WorkoutPublishingService {
                   calories: workout.calories,
                   startTime: workout.startTime,
                   tags: ndkEvent.tags,
+                  profileName: profile.name,
+                  profilePicture: profile.picture,
                 },
                 createdAt: Date.now(),
                 retryCount: 0,
@@ -373,12 +375,15 @@ export class WorkoutPublishingService {
                 nextRetryTime: Date.now() + 60000, // 1 minute
               });
 
+              const isPrivateMode = submissionResult.error?.includes('Private mode');
               Toast.show({
                 type: 'info',
-                text1: 'Workout Saved Locally',
-                text2: 'Will sync to leaderboard on next refresh',
+                text1: isPrivateMode ? 'Private Mode Active' : 'Workout Saved Locally',
+                text2: isPrivateMode
+                  ? 'Turn off Private Mode to appear on leaderboards'
+                  : 'Will sync to leaderboard on next refresh',
                 position: 'bottom',
-                visibilityTime: 3000,
+                visibilityTime: isPrivateMode ? 5000 : 3000,
               });
             }
           }
@@ -744,7 +749,7 @@ export class WorkoutPublishingService {
       ['exercise', exerciseVerb], // Simple activity type: running, yoga, strength, etc.
       ['duration', durationFormatted], // HH:MM:SS format (always included)
       ['source', sourceTag], // Data source: 'gps' for tracked, 'manual' for manual entry
-      ['client', 'RUNSTR', Constants.expoConfig?.version || 'unknown'], // Client info with version
+      ['client', 'RUNSTR', Constants.expoConfig?.version || '1.6.5'], // Client info with version
       ['t', this.getActivityHashtag(workout.type)], // Primary hashtag
     ];
 
