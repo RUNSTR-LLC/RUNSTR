@@ -2,6 +2,39 @@
 
 All notable changes to RUNSTR will be documented in this file.
 
+## [1.7.1] - 2026-02-22 - Privacy Mode, Anonymous Login & Security Hardening
+
+### Features
+- Anonymous-first login UX — use the app without creating or importing a Nostr identity
+- Private Mode toggle in Settings — prevents workout publishing to Nostr
+- Push notification tap handling with deep-link navigation
+- Leaderboard position change notifications
+- Seamless auto-backup to Nostr after every workout
+- EAS project setup for push notifications
+
+### Security
+- All Supabase writes routed through Edge Functions (no direct client writes)
+- Error handling on Private Mode toggle prevents retry loops
+
+### Bug Fixes
+- Harden background sync reliability for HealthKit and Health Connect
+- Hide wallet card, empty leaderboard, and empty events section when not applicable
+- Polish club page — tone down orange, fix leaderboard and captain display bugs
+- Replace Fund Pool button with lightning zap icon, remove orange border
+- Quote reserved word 'position' in leaderboard SQL function
+- Use runtime app version in Settings instead of hardcoded string
+- Include extensions schema in club wallet RPC search_path
+- Onboarding navigates to Reward Destination picker instead of Rewards tab
+- Captain settings show member profiles, club earnings use verified payments
+- Remove green from NWC status, add NWC payment to PPQ top-up
+- Android APK build — downgrade to Expo SDK 52-compatible deps
+
+### Infrastructure
+- Runtime version fallbacks replace stale hardcoded 1.6.5 values
+- Duplicate TeamMemberCache export removed
+- Android build docs updated with version placeholders
+- Release notes clarified as archived, pointing to CHANGELOG
+
 ## [1.7.0] - 2026-02-19 - Clubs, Events, Stability & Audit Fixes
 
 ### Clubs System
