@@ -121,8 +121,20 @@ async function syncAndroidSteps(npub: string): Promise<void> {
     const { SupabaseCompetitionService } = await import(
       '../backend/SupabaseCompetitionService'
     );
-    const { buildRewardTags } = await import('../../utils/rewardTags');
-    const rewardTags = await buildRewardTags();
+
+    // Build reward tags with timeout protection
+    let rewardTags: string[][] = [];
+    try {
+      const { buildRewardTags } = await import('../../utils/rewardTags');
+      rewardTags = await Promise.race([
+        buildRewardTags(),
+        new Promise<string[][]>((_, reject) =>
+          setTimeout(() => reject(new Error('buildRewardTags timeout')), 8000)
+        ),
+      ]);
+    } catch (err) {
+      console.warn('[AndroidBgSync] buildRewardTags failed, submitting without reward tags:', err);
+    }
 
     // Get cached profile
     let profile: { name?: string; picture?: string } = {};
@@ -150,7 +162,7 @@ async function syncAndroidSteps(npub: string): Promise<void> {
       startTime: new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString(),
       tags: [
         ...rewardTags,
-        ['steps', String(steps)],
+        ['steps', String(Math.floor(steps))],
       ],
       profileName: profile.name,
       profilePicture: profile.picture,

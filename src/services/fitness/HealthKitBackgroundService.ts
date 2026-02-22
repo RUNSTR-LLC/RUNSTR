@@ -48,6 +48,7 @@ export class HealthKitBackgroundService {
   private queryId: string | null = null;
   private listener: EventSubscription | null = null;
   private isSetup = false;
+  private syncInProgress = false;
 
   private constructor() {}
 
@@ -104,6 +105,13 @@ export class HealthKitBackgroundService {
   async handleWorkoutUpdate(_event: { typeIdentifier: string }): Promise<void> {
     console.log('[HKBackground] Workout update received');
 
+    // SYNC MUTEX: Prevent concurrent background wakes from racing
+    if (this.syncInProgress) {
+      console.log('[HKBackground] Sync already in progress, skipping');
+      return;
+    }
+    this.syncInProgress = true;
+
     try {
       const npub = await AsyncStorage.getItem('@runstr:npub');
       if (!npub) {
@@ -112,7 +120,6 @@ export class HealthKitBackgroundService {
       }
 
       // GPS SESSION GUARD: Skip sync if user is actively tracking a workout
-      // This prevents HealthKit background sync from conflicting with live GPS tracking
       const sessionGuardResult = await this.checkGPSSessionGuard();
       if (sessionGuardResult) {
         console.log(`[HKBackground] GPS session active, skipping sync: ${sessionGuardResult}`);
@@ -126,7 +133,6 @@ export class HealthKitBackgroundService {
 
       if (!recentWorkouts || recentWorkouts.length === 0) {
         console.log('[HKBackground] No recent workouts found');
-        // Still sync steps even with no workouts
         await this.syncTodaySteps(npub);
         return;
       }
@@ -139,6 +145,7 @@ export class HealthKitBackgroundService {
         if (submittedIds.has(w.id)) return false;
         if (!CARDIO_TYPES.includes(w.type)) return false;
         if (!w.distance || w.distance <= 0) return false;
+        if (!w.duration || w.duration <= 0) return false;
         return true;
       });
 
@@ -148,9 +155,21 @@ export class HealthKitBackgroundService {
         return;
       }
 
-      // Build lightning address + charity tags for zapper reward routing
-      const { buildRewardTags } = await import('../../utils/rewardTags');
-      const rewardTags = await buildRewardTags();
+      // Build reward tags with timeout and error handling
+      // If buildRewardTags fails (network, Supabase down), submit without reward tags
+      // rather than losing the entire sync
+      let rewardTags: string[][] = [];
+      try {
+        const { buildRewardTags } = await import('../../utils/rewardTags');
+        rewardTags = await Promise.race([
+          buildRewardTags(),
+          new Promise<string[][]>((_, reject) =>
+            setTimeout(() => reject(new Error('buildRewardTags timeout')), 8000)
+          ),
+        ]);
+      } catch (err) {
+        console.warn('[HKBackground] buildRewardTags failed, submitting without reward tags:', err);
+      }
 
       // Fetch cached profile for leaderboard display (name/picture)
       const profile = await this.getCachedProfile();
@@ -180,10 +199,13 @@ export class HealthKitBackgroundService {
           submittedIds.add(w.id);
           console.log(`[HKBackground] Submitted ${w.type} workout: ${eventId}`);
 
-          // Auto-join RUNSTR competitions for this workout (fire-and-forget)
-          this.tryAutoJoin(npub, w.type, new Date(w.startTime), profile).catch(() => {});
+          // Auto-join RUNSTR competitions (fire-and-forget with logging)
+          this.tryAutoJoin(npub, w.type, new Date(w.startTime), profile).catch((err) => {
+            console.warn('[HKBackground] Auto-join error (non-fatal):', err);
+          });
         } catch (err) {
           console.warn(`[HKBackground] Failed to submit workout ${w.id}:`, err);
+          // Don't add to submittedIds - will retry on next sync
         }
       }
 
@@ -193,7 +215,7 @@ export class HealthKitBackgroundService {
       // Sync today's step count after workout sync
       await this.syncTodaySteps(npub);
 
-      // Trigger background backup to Nostr (nsec: silent, Amber: deferred)
+      // Trigger background backup (nsec: silent, Amber: deferred)
       try {
         const { AutoBackupService } = await import('../backup/AutoBackupService');
         AutoBackupService.getInstance().runBackupInBackground();
@@ -202,6 +224,8 @@ export class HealthKitBackgroundService {
       }
     } catch (error) {
       console.error('[HKBackground] handleWorkoutUpdate error:', error);
+    } finally {
+      this.syncInProgress = false;
     }
   }
 
@@ -273,8 +297,21 @@ export class HealthKitBackgroundService {
       const { SupabaseCompetitionService } = await import(
         '../backend/SupabaseCompetitionService'
       );
-      const { buildRewardTags } = await import('../../utils/rewardTags');
-      const rewardTags = await buildRewardTags();
+
+      // Build reward tags with timeout protection
+      let rewardTags: string[][] = [];
+      try {
+        const { buildRewardTags } = await import('../../utils/rewardTags');
+        rewardTags = await Promise.race([
+          buildRewardTags(),
+          new Promise<string[][]>((_, reject) =>
+            setTimeout(() => reject(new Error('buildRewardTags timeout')), 8000)
+          ),
+        ]);
+      } catch (err) {
+        console.warn('[HKBackground] Step sync: buildRewardTags failed:', err);
+      }
+
       const profile = await this.getCachedProfile();
 
       await SupabaseCompetitionService.submitWorkoutSimple({
@@ -287,7 +324,7 @@ export class HealthKitBackgroundService {
         startTime: startOfDay.toISOString(),
         tags: [
           ...rewardTags,
-          ['steps', String(totalSteps)],
+          ['steps', String(Math.floor(totalSteps))],
         ],
         profileName: profile.name,
         profilePicture: profile.picture,
@@ -348,7 +385,8 @@ export class HealthKitBackgroundService {
       const raw = await AsyncStorage.getItem(SUBMITTED_IDS_KEY);
       if (!raw) return new Set();
       return new Set(JSON.parse(raw));
-    } catch {
+    } catch (err) {
+      console.warn('[HKBackground] Failed to load submitted IDs, starting fresh:', err);
       return new Set();
     }
   }

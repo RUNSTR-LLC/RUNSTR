@@ -60,7 +60,8 @@ class HealthSyncManagerClass {
         console.log('[HealthSyncManager] Sync already in progress, skipping');
         return { synced: false };
       }
-      console.warn('[HealthSyncManager] Sync failed:', message);
+      // Don't update lastSyncTime on failure — allow immediate retry
+      console.warn('[HealthSyncManager] Sync failed (will allow retry):', message);
       return { synced: false, error: message };
     }
   }
@@ -80,7 +81,7 @@ class HealthSyncManagerClass {
 
     // fetchWorkoutsProgressive triggers cacheWorkouts → submitNewWorkoutsToSupabase internally
     const workouts = await healthKitService.fetchWorkoutsProgressive(todayStart, new Date());
-    this.lastSyncTime = Date.now();
+    this.lastSyncTime = Date.now(); // Only update on success
     console.log(`[HealthSyncManager] iOS: Synced ${workouts.length} workout(s)`);
     return { synced: true };
   }
@@ -98,7 +99,7 @@ class HealthSyncManagerClass {
 
     // fetchRecentWorkouts(1) fetches last 1 day, triggers auto-submit internally
     const workouts = await healthConnectService.fetchRecentWorkouts(1);
-    this.lastSyncTime = Date.now();
+    this.lastSyncTime = Date.now(); // Only update on success
     console.log(`[HealthSyncManager] Android: Synced ${workouts.length} workout(s)`);
     return { synced: true };
   }
