@@ -44,6 +44,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [amberStage, setAmberStage] = useState<string>('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
   // Always show Amber button on Android - detection not reliable by design
 
   const handleShowInput = () => {
@@ -240,22 +241,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
               {!showInput ? (
                 // Login Options
                 <View style={styles.buttonContainer}>
-                  <TouchableOpacity
-                    style={styles.loginButton}
-                    onPress={handleShowInput}
-                    activeOpacity={0.8}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <ActivityIndicator
-                        size="small"
-                        color={theme.colors.background}
-                      />
-                    ) : (
-                      <Text style={styles.loginButtonText}>Login</Text>
-                    )}
-                  </TouchableOpacity>
-
+                  {/* Start button - hero action, generates anonymous npub */}
                   <TouchableOpacity
                     style={styles.signupButton}
                     onPress={handleSignUp}
@@ -271,6 +257,42 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
                       <Text style={styles.signupButtonText}>Start</Text>
                     )}
                   </TouchableOpacity>
+
+                  {/* Advanced toggle */}
+                  <TouchableOpacity
+                    onPress={() => setShowAdvanced(!showAdvanced)}
+                    activeOpacity={0.7}
+                    style={styles.advancedToggle}
+                  >
+                    <Text style={styles.advancedToggleText}>
+                      Advanced {showAdvanced ? '▲' : '▼'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* Advanced options - hidden by default */}
+                  {showAdvanced && (
+                    <>
+                      <TouchableOpacity
+                        style={styles.loginButton}
+                        onPress={handleShowInput}
+                        activeOpacity={0.8}
+                        disabled={isLoading}
+                      >
+                        <Text style={styles.loginButtonText}>Login</Text>
+                      </TouchableOpacity>
+
+                      {Platform.OS === 'android' && (
+                        <TouchableOpacity
+                          style={[styles.amberButton, { width: '80%', maxWidth: 320 }]}
+                          onPress={handleAmberLogin}
+                          disabled={isLoading}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={styles.amberButtonText}>Login with Amber</Text>
+                        </TouchableOpacity>
+                      )}
+                    </>
+                  )}
 
                   {error && (
                     <View style={styles.errorContainer}>
@@ -429,6 +451,15 @@ const styles = StyleSheet.create({
   buttonContainer: {
     alignItems: 'center',
     gap: 16,
+  },
+  advancedToggle: {
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  advancedToggleText: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    fontWeight: '500',
   },
   loginButton: {
     backgroundColor: theme.colors.orangeBright,
