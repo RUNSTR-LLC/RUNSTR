@@ -49,7 +49,9 @@ type EventStatus = 'active' | 'upcoming' | 'ended';
 function deriveStatus(comp: Competition): EventStatus {
   const now = Date.now();
   const start = new Date(comp.start_date).getTime();
-  const end = new Date(comp.end_date).getTime();
+  const endDate = new Date(comp.end_date);
+  endDate.setUTCHours(23, 59, 59, 999);
+  const end = endDate.getTime();
   if (now < start) return 'upcoming';
   if (now > end) return 'ended';
   return 'active';
