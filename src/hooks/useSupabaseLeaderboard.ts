@@ -571,29 +571,12 @@ export function useSupabaseLeaderboard(
     let result = [...leaderboard];
     const existingNpubs = new Set(result.map(e => e.npub));
 
-    // Step 1: Add locally joined users who aren't in Supabase leaderboard yet (non-Season II only)
-    // These users joined but Supabase hasn't synced yet - show them with 0 score
+    // Step 1: Track locally joined users (non-Season II only)
+    // Only add them to the existing npubs set so Step 2 can merge their workouts
+    // Do NOT add 0-workout entries - users with no workouts should not appear on the leaderboard
     if (!isSeason2 && locallyJoinedUsers.length > 0) {
       for (const npub of locallyJoinedUsers) {
-        if (!existingNpubs.has(npub)) {
-          // Use cached profile for current user instead of generic "You"/"Anonymous"
-          const isCurrentUser = npub === currentUserPubkey;
-          const displayName = isCurrentUser && currentUserProfile.name
-            ? currentUserProfile.name
-            : (isCurrentUser ? 'You' : 'Anonymous');
-          const picture = isCurrentUser ? currentUserProfile.picture : undefined;
-
-          console.log(`[useSupabaseLeaderboard] Adding locally joined user to leaderboard: ${npub.slice(0, 12)}... (${displayName})`);
-          result.push({
-            npub,
-            score: 0,
-            rank: 0, // Will be calculated
-            workout_count: 0,
-            displayName,
-            picture,
-          });
-          existingNpubs.add(npub);
-        }
+        existingNpubs.add(npub);
       }
     }
 
@@ -634,7 +617,8 @@ export function useSupabaseLeaderboard(
           score: localDistanceKm,
           rank: 0,
           workout_count: localCount,
-          displayName: 'You',
+          displayName: currentUserProfile.name || currentUserPubkey.slice(0, 12) + '...',
+          picture: currentUserProfile.picture,
         });
       }
     }
