@@ -207,15 +207,30 @@ export function useSupabaseLeaderboard(
     loadFromCache();
   }, [competitionId, isSeason2, initialLeaderboard]);
 
-  // Get current user pubkey
+  // Get current user pubkey and cached profile (for locally joined user display)
+  const [currentUserProfile, setCurrentUserProfile] = useState<{ name?: string; picture?: string }>({});
   useEffect(() => {
-    const fetchUserPubkey = async () => {
+    const fetchUserPubkeyAndProfile = async () => {
       const npub = await AsyncStorage.getItem('@runstr:npub');
       if (npub && isMounted.current) {
         setCurrentUserPubkey(npub);
       }
+      // Load cached profile for locally-joined user display (name/picture instead of "You")
+      try {
+        const profilesJson = await AsyncStorage.getItem('@runstr:nostr_profiles');
+        const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+        if (profilesJson && hexPubkey) {
+          const profiles = JSON.parse(profilesJson);
+          if (profiles[hexPubkey] && isMounted.current) {
+            setCurrentUserProfile({
+              name: profiles[hexPubkey].name || profiles[hexPubkey].displayName,
+              picture: profiles[hexPubkey].picture,
+            });
+          }
+        }
+      } catch { /* non-critical */ }
     };
-    fetchUserPubkey();
+    fetchUserPubkeyAndProfile();
   }, []);
 
   // LOCAL-FIRST: Track recently competed workouts for instant leaderboard appearance
@@ -561,13 +576,21 @@ export function useSupabaseLeaderboard(
     if (!isSeason2 && locallyJoinedUsers.length > 0) {
       for (const npub of locallyJoinedUsers) {
         if (!existingNpubs.has(npub)) {
-          console.log(`[useSupabaseLeaderboard] Adding locally joined user to leaderboard: ${npub.slice(0, 12)}...`);
+          // Use cached profile for current user instead of generic "You"/"Anonymous"
+          const isCurrentUser = npub === currentUserPubkey;
+          const displayName = isCurrentUser && currentUserProfile.name
+            ? currentUserProfile.name
+            : (isCurrentUser ? 'You' : 'Anonymous');
+          const picture = isCurrentUser ? currentUserProfile.picture : undefined;
+
+          console.log(`[useSupabaseLeaderboard] Adding locally joined user to leaderboard: ${npub.slice(0, 12)}... (${displayName})`);
           result.push({
             npub,
             score: 0,
             rank: 0, // Will be calculated
             workout_count: 0,
-            displayName: npub === currentUserPubkey ? 'You' : 'Anonymous',
+            displayName,
+            picture,
           });
           existingNpubs.add(npub);
         }
@@ -635,7 +658,7 @@ export function useSupabaseLeaderboard(
       }
     });
     return result;
-  }, [leaderboard, localCompetedWorkouts, locallyJoinedUsers, currentUserPubkey, isSeason2, scoringMethod]);
+  }, [leaderboard, localCompetedWorkouts, locallyJoinedUsers, currentUserPubkey, currentUserProfile, isSeason2, scoringMethod]);
 
   return {
     leaderboard: mergedLeaderboard, // Return merged leaderboard for instant user appearance
@@ -689,10 +712,27 @@ export function useCompetitionParticipation(competitionId: string) {
     // OPTIMISTIC: Set participating state immediately for instant UI feedback
     setIsParticipating(true);
 
+    // Fetch cached profile for participant display (name/picture in leaderboard)
+    let profile: { name?: string; picture?: string } | undefined;
+    try {
+      const profilesJson = await AsyncStorage.getItem('@runstr:nostr_profiles');
+      const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+      if (profilesJson && hexPubkey) {
+        const profiles = JSON.parse(profilesJson);
+        if (profiles[hexPubkey]) {
+          profile = {
+            name: profiles[hexPubkey].name || profiles[hexPubkey].displayName,
+            picture: profiles[hexPubkey].picture,
+          };
+        }
+      }
+    } catch { /* non-critical */ }
+
     // Fire-and-forget: Service handles local + Supabase sync
     const result = await SupabaseCompetitionService.joinCompetition(
       competitionId,
-      npub
+      npub,
+      profile
     );
 
     // Service always returns success (optimistic pattern), but handle edge case

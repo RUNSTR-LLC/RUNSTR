@@ -627,6 +627,7 @@ export class WorkoutPublishingService {
   /**
    * Get cached profile data for leaderboard display (name/picture).
    * Reads from the local Nostr profile cache in AsyncStorage.
+   * Falls back to individual profile keys if the main cache misses.
    */
   private async getCachedProfile(): Promise<{ name?: string; picture?: string }> {
     try {
@@ -638,6 +639,18 @@ export class WorkoutPublishingService {
           return {
             name: profiles[hexPubkey].name || profiles[hexPubkey].displayName,
             picture: profiles[hexPubkey].picture,
+          };
+        }
+      }
+      // Fallback: try individual profile keys (populated by some auth flows)
+      const npub = await AsyncStorage.getItem('@runstr:npub');
+      if (npub) {
+        const profileJson = await AsyncStorage.getItem(`@runstr:profile:${npub}`);
+        if (profileJson) {
+          const profile = JSON.parse(profileJson);
+          return {
+            name: profile.name || profile.display_name || profile.displayName,
+            picture: profile.picture || profile.image,
           };
         }
       }

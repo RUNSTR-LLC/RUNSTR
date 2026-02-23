@@ -585,13 +585,30 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
         throw new Error('User npub not found');
       }
 
+      // Fetch cached profile for participant display (name/picture in leaderboard)
+      let profile: { name?: string; picture?: string } | undefined;
+      try {
+        const profilesJson = await AsyncStorage.getItem('@runstr:nostr_profiles');
+        const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+        if (profilesJson && hexPubkey) {
+          const profiles = JSON.parse(profilesJson);
+          if (profiles[hexPubkey]) {
+            profile = {
+              name: profiles[hexPubkey].name || profiles[hexPubkey].displayName,
+              picture: profiles[hexPubkey].picture,
+            };
+          }
+        }
+      } catch { /* non-critical */ }
+
       // Join via SupabaseCompetitionService (the real join system)
       const { SupabaseCompetitionService } = await import(
         '../services/backend/SupabaseCompetitionService'
       );
       const result = await SupabaseCompetitionService.joinCompetition(
         eventData.id,
-        userNpub
+        userNpub,
+        profile
       );
 
       if (result.success) {
@@ -647,13 +664,30 @@ export const EventDetailScreen: React.FC<EventDetailScreenProps> = ({
         throw new Error('User npub not found');
       }
 
+      // Fetch cached profile for participant display (name/picture in leaderboard)
+      let profile: { name?: string; picture?: string } | undefined;
+      try {
+        const profilesJson = await AsyncStorage.getItem('@runstr:nostr_profiles');
+        const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+        if (profilesJson && hexPubkey) {
+          const profiles = JSON.parse(profilesJson);
+          if (profiles[hexPubkey]) {
+            profile = {
+              name: profiles[hexPubkey].name || profiles[hexPubkey].displayName,
+              picture: profiles[hexPubkey].picture,
+            };
+          }
+        }
+      } catch { /* non-critical */ }
+
       // Join via SupabaseCompetitionService
       const { SupabaseCompetitionService } = await import(
         '../services/backend/SupabaseCompetitionService'
       );
       const result = await SupabaseCompetitionService.joinCompetition(
         eventData.id,
-        userNpub
+        userNpub,
+        profile
       );
 
       if (result.success) {
