@@ -2,11 +2,12 @@
  * WorkoutPublishingService - Workout Submission to Supabase
  *
  * All workouts are submitted to Supabase unconditionally for leaderboard
- * tracking and reward eligibility. Kind 1301 events are created locally
- * (for event structure/signing) but NOT published to Nostr relays.
+ * tracking and reward eligibility. Tags are built directly without NDK
+ * event creation or signing.
  *
  * Flow:
- * - Create and sign a kind 1301 event locally
+ * - Get pubkey from AsyncStorage (no NDK signer needed)
+ * - Build kind 1301 tags directly
  * - Submit workout to Supabase (for leaderboards and rewards)
  * - Fire-and-forget: cache invalidation, Running Bitcoin checks
  */
@@ -145,41 +146,12 @@ export class WorkoutPublishingService {
         `🔄 Publishing workout ${workout.id} as kind 1301 event (runstr format)...`
       );
 
-      const ndk = await GlobalNDKService.getInstance();
-      const isSigner = typeof privateKeyHexOrSigner !== 'string';
-
-      // Get signer and pubkey with error handling
-      // CRASH FIX: signer.user() can fail if Amber disconnects or nsec is invalid
-      let signer: NDKSigner;
-      let pubkey: string;
-
-      if (isSigner) {
-        signer = privateKeyHexOrSigner;
-        try {
-          const user = await signer.user();
-          pubkey = user.pubkey;
-        } catch (signerError) {
-          console.warn('[WorkoutPublishing] Failed to get pubkey from signer, using stored fallback:', signerError);
-          const storedPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
-          if (!storedPubkey) {
-            throw new Error('No authentication found. Please log in again.');
-          }
-          pubkey = storedPubkey;
-        }
-      } else {
-        signer = new NDKPrivateKeySigner(privateKeyHexOrSigner);
-        try {
-          const user = await signer.user();
-          pubkey = user.pubkey;
-        } catch (signerError) {
-          console.warn('[WorkoutPublishing] Failed to get pubkey from NDKPrivateKeySigner:', signerError);
-          const storedPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
-          if (!storedPubkey) {
-            throw new Error('No authentication found. Please log in again.');
-          }
-          pubkey = storedPubkey;
-        }
+      // Get pubkey directly from AsyncStorage (no NDK signer needed for Supabase submission)
+      const storedPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+      if (!storedPubkey) {
+        throw new Error('No authentication found. Please log in again.');
       }
+      const pubkey = storedPubkey;
 
       // Get user's selected team from TeamsScreen (charities ARE teams now)
       // The selected_team_id now stores charity ID directly
@@ -252,47 +224,16 @@ export class WorkoutPublishingService {
         effectiveLightningAddress = rewardLightningAddress;
       }
 
-      // Create unsigned NDKEvent
-      const ndkEvent = new NDKEvent(ndk);
-      ndkEvent.kind = 1301;
-      ndkEvent.content = this.generateWorkoutDescription(workout);
-      ndkEvent.tags = await this.createNIP101eWorkoutTags(
+      // Build tags directly (no NDKEvent creation or signing needed)
+      // Signing was vestigial - Nostr publishing was already removed.
+      // Removing it prevents signing failures from blocking Supabase submission.
+      const tags = await this.createNIP101eWorkoutTags(
         workout,
         pubkey,
         selectedCharity, // Charity provides both team ID and charity data
         effectiveLightningAddress,
         rewardDestination
       );
-      ndkEvent.created_at = Math.floor(
-        new Date(workout.startTime).getTime() / 1000
-      );
-
-      // Sign and publish WITH TIMEOUT PROTECTION
-      // These operations can hang indefinitely without timeouts
-      // Use longer timeout for Amber (external signer needs user approval)
-      const isAmberSigner = signer.constructor.name === 'AmberNDKSigner' ||
-                            (signer as any).AMBER_TIMEOUT_MS !== undefined;
-      const signTimeout = isAmberSigner ? NOSTR_TIMEOUTS.SIGN_AMBER : NOSTR_TIMEOUTS.SIGN;
-
-      // Logging for debugging signing issues (especially Amber)
-      console.log(`[WorkoutPublishing] 🔐 Signing workout event...`);
-      console.log(`[WorkoutPublishing]    Signer type: ${isAmberSigner ? 'AMBER (external)' : 'NDK (internal)'}`);
-      console.log(`[WorkoutPublishing]    Timeout: ${signTimeout / 1000}s`);
-
-      const signStartTime = Date.now();
-      try {
-        await withTimeout(
-          ndkEvent.sign(signer),
-          signTimeout,
-          'Event signing'
-        );
-        const signDuration = Date.now() - signStartTime;
-        console.log(`[WorkoutPublishing] ✅ Signing succeeded in ${signDuration}ms`);
-      } catch (signError) {
-        const signDuration = Date.now() - signStartTime;
-        console.error(`[WorkoutPublishing] ❌ Signing FAILED after ${signDuration}ms:`, signError);
-        throw signError; // Re-throw to be caught by outer try/catch
-      }
 
       // ============================================================================
       // SUPABASE SUBMISSION (unconditional -- all workouts go to Supabase)
@@ -325,14 +266,14 @@ export class WorkoutPublishingService {
         const supabaseStartTime = Date.now();
         try {
           const submissionResult = await SupabaseCompetitionService.submitWorkoutSimple({
-            eventId: ndkEvent.id || workout.id,
+            eventId: workout.id,
             npub: npub,
             type: exerciseType,
             distance: distanceMeters,
             duration: durationSeconds,
             calories: workout.calories,
             startTime: workout.startTime,
-            tags: ndkEvent.tags,
+            tags: tags,
             profileName: profile.name,
             profilePicture: profile.picture,
           });
@@ -356,16 +297,16 @@ export class WorkoutPublishingService {
             } else {
               // Non-flagged failure - queue for retry
               await PendingSubmissionService.addPending({
-                id: ndkEvent.id || workout.id,
+                id: workout.id,
                 submissionData: {
-                  eventId: ndkEvent.id || workout.id,
+                  eventId: workout.id,
                   npub,
                   type: exerciseType,
                   distance: distanceMeters,
                   duration: durationSeconds,
                   calories: workout.calories,
                   startTime: workout.startTime,
-                  tags: ndkEvent.tags,
+                  tags: tags,
                   profileName: profile.name,
                   profilePicture: profile.picture,
                 },
@@ -393,16 +334,16 @@ export class WorkoutPublishingService {
 
           // Queue for retry on network/exception errors
           await PendingSubmissionService.addPending({
-            id: ndkEvent.id || workout.id,
+            id: workout.id,
             submissionData: {
-              eventId: ndkEvent.id || workout.id,
+              eventId: workout.id,
               npub,
               type: exerciseType,
               distance: distanceMeters,
               duration: durationSeconds,
               calories: workout.calories,
               startTime: workout.startTime,
-              tags: ndkEvent.tags,
+              tags: tags,
             },
             createdAt: Date.now(),
             retryCount: 0,
@@ -465,7 +406,7 @@ export class WorkoutPublishingService {
       // User sees "Workout Saved!" without waiting for Nostr relays
       return {
         success: true,
-        eventId: ndkEvent.id,
+        eventId: workout.id,
         rewardEarned: false,
         rewardAmount: undefined,
       };
