@@ -1,94 +1,116 @@
 # RUNSTR - Claude Context
 
-## Project Overview
-RUNSTR is an anonymous fitness tracker that rewards cardio workouts with Bitcoin and enables charity donations via the Nostr protocol. Built for Bitcoiners and the Nostr community, the app focuses on running, walking, and cycling.
+## What is RUNSTR
 
-**Core Value:** Fitness earns Bitcoin. Bitcoin supports charities.
+RUNSTR is a fitness app that enters your workouts into virtual competitions and rewards you for working out. Users choose where their rewards go — to their wallet, a charity, an open source project, or a service like PPQ.AI for AI credits. The app works with any device or fitness app connected to Apple Health or Health Connect, syncing workouts automatically in the background. RUNSTR is a fitness company that monetizes through subscriptions, sponsorships, and event ticket sales.
 
-📖 **For workout event specification, see**: [docs/KIND_1301_SPEC.md](./docs/KIND_1301_SPEC.md)
-🔐 **For environment setup, see**: [docs/ENVIRONMENT_SETUP.md](./docs/ENVIRONMENT_SETUP.md)
-🏗️ **For full system architecture, see**: [ARCHITECTURE.md](./ARCHITECTURE.md)
+**Read [North Star.md](./North%20Star.md) for the full product identity and direction.**
 
-## Four Core Pillars
+## Identity & Documentation Map
 
-### 1. **Workouts** - GPS Cardio Tracking
-- Core activities: Running, Walking, Cycling
-- GPS tracking with real-time metrics (pace, distance, elevation, splits)
-- HealthKit (iOS), Health Connect (Android), Garmin sync
-- Experimental features in settings (strength, diet, wellness)
-- Published as kind 1301 Nostr events
+| Document | Purpose |
+|----------|---------|
+| [North Star.md](./North%20Star.md) | Product identity, direction, and terminology guide |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | System architecture and data flow |
+| [USER_FLOW.md](./USER_FLOW.md) | User interaction maps and screen flows |
+| [book/](./book/) | The RUNSTR Book — 30-chapter product documentation |
+| [docs/KIND_1301_SPEC.md](./docs/KIND_1301_SPEC.md) | Workout event specification |
+| [docs/ENVIRONMENT_SETUP.md](./docs/ENVIRONMENT_SETUP.md) | Environment variables and setup |
+| [docs/PERFORMANCE_GUIDE.md](./docs/PERFORMANCE_GUIDE.md) | Caching architecture and optimization |
 
-### 2. **Rewards** - Bitcoin for Fitness
-- **50 sats** per daily workout
-- **5 sats** per 1,000 steps
-- Delivered via Lightning address (LNURL protocol)
-- Real Bitcoin, not points or tokens
-- Creates positive feedback loop for healthy behavior
+## Terminology Rules
 
-### 3. **Donations** - Teams = Charities
-- "Joining" a team means selecting a charity to support
-- Team tag embedded in kind 1301 and kind 1 notes
-- Split a percentage of rewards to your charity
-- Zap charities directly from Lightning wallets (Cash App, Strike, Alby, Zeus)
-- **Impact Level** XP system tracks contributions
+**Use "rewards" everywhere. Avoid "Bitcoin", "sats", "Lightning", "Nostr" in documentation, code comments, and user-facing text except where technically necessary in implementation code.**
 
-### 4. **Events** - Fitness Competitions
-- Hardcoded events (Season II, January Walking Contest)
-- Participation via Supabase database
-- Leaderboards by activity type (Running, Walking, Cycling)
-- Bitcoin prize pools
+- "rewards" — not "sats" or "Bitcoin"
+- "micro donations" — when rewards go to a charity or project
+- "AI credits" — when rewards go to PPQ.AI
+- "wallet" — not "Lightning wallet"
+- "password" — not "nsec" (in user-facing contexts)
+- "Fitness Club" — not "Run Club"
+- Never use "cryptocurrency", "blockchain", or "decentralized" in user-facing contexts
 
-### Target Market: Bitcoin/Nostr Community
-- **50,000+ addressable market** of Bitcoiners and Nostr users
-- Community already understands nsec/npub, Lightning, decentralized protocols
-- Solves cold start problem by targeting knowledgeable users
+## Product Structure
 
-## User Experience
+### Three-Tab Navigation
+- **Profile Tab**: Workout tracking, history, settings
+- **Clubs Tab**: Browse and manage Fitness Clubs
+- **Rewards Tab**: Earnings, reward destination, sponsor attribution
 
-**User Flow:** Nsec login → Profile screen → Select charity → Track workouts → Earn rewards → Join events
+### Activity Categories (Swipeable Grid)
+| Category | Activities |
+|----------|-----------|
+| **Cardio** | Running, Walking, Cycling, Hiking (GPS tracking) |
+| **Strength** | Pushups, Pull-ups, Sit-ups, Squats, Curls, Bench |
+| **Wellness** | Guided meditation, Unguided, Breathwork, Body Scan, Gratitude |
+| **Mindfulness** | Journal, Habits |
+| **Other** | Diet tracking, Water tracking (off-grid) |
 
-**Key Features:**
-- **Nostr Authentication**: Direct nsec login with automatic profile import
-- **Lightning Address Rewards**: Users enter Lightning address to receive sats
-- **Charity Support**: Select a team (charity) to donate portion of rewards
-- **HealthKit/Health Connect Sync**: Import workouts from Apple/Android health apps
-- **Social Posting**: Share workouts as kind 1 posts with achievement cards
-- **Event Participation**: Join competitions via Supabase, workouts count toward leaderboards
+### Reward System
+- Rewards are **funded by sponsors**, not RUNSTR
+- Users choose **one destination** — no splits, no percentages
+- Destinations: charities (20+), open source projects, services (PPQ.AI), or user's own wallet
+- Sponsor attribution shown on Rewards page ("This month's rewards brought to you by [Sponsor]")
+- Zapvertising: branded push notifications ("You received a reward from [Sponsor] for your workout")
+- Free tier: base reward per qualifying daily workout + step rewards
+- Subscriber tier: significantly boosted rewards per qualifying workout
 
-**Authentication:**
-- Show login screen unless npub/nsec found in local storage
-- Manual nsec input only (no platform-specific auth)
-- Nsec login → derive npub → store locally in AsyncStorage
+### Subscription Tiers
+| | Free | Supporter | Pro |
+|---|---|---|---|
+| Rewards per workout | Base | Boosted | Boosted |
+| Premium competitions | No | Yes | Yes |
+| Create Fitness Clubs | No | No | Yes |
+| Create events | No | No | Yes |
+
+### Fitness Clubs (Pro Feature)
+- Club page with member leaderboard, real-time chat, events
+- Captains create competitions from templates (5K, 10K, Half Marathon, Step Challenge)
+- Captains earn rewards per club member workout
+- **Future**: Captains connect NWC wallets for non-custodial reward pools and prize pools
+
+### Competitions
+- **Daily leaderboard** (built-in, permanent): 5K, 10K, Half Marathon, Marathon fastest times + daily steps
+- **Featured events**: Distance challenges, goal completion, team competitions
+- **Club events**: Captain-created competitions, all members auto-entered
+- **Direction**: Moving toward user-created competitions (away from hardcoded events)
+
+### Background Sync (Passive Earning)
+- Users work out with ANY HealthKit/Health Connect compatible app or device
+- iOS: HealthKit background delivery wakes the app automatically
+- Android: Periodic sync every 15 minutes via WorkManager
+- Workouts auto-submitted to Supabase, rewards auto-triggered
+- Users earn and compete without ever opening the app
 
 ## Key Technologies
 - **Frontend**: React Native with TypeScript (Expo framework)
-- **Workout Data**: Nostr kind 1301 events + HealthKit/Health Connect
-- **Event Participation**: Supabase database for joining events and leaderboards
-- **Authentication**: Nostr (nsec) - direct authentication only
-- **Rewards**: Lightning address via LNURL protocol
-- **Nostr Library**: NDK (@nostr-dev-kit/ndk) EXCLUSIVELY - NEVER use nostr-tools
+- **Data Store**: Supabase (workouts, competitions, leaderboards, rewards, clubs, chat)
+- **Identity Layer**: Nostr via NDK (authentication, profile reads, optional social sharing, encrypted backups)
+- **Rewards**: External service monitors submissions, sends rewards via LNURL to chosen destination
+- **Nostr Library**: NDK (@nostr-dev-kit/ndk) EXCLUSIVELY — NEVER use nostr-tools
 - **Global NDK Instance**: Single shared NDK instance via `GlobalNDKService`
-- **Nostr Relays**: Damus, Primal, nos.lol, Nostr.band (4 relays)
+- **State Management**: Zustand stores + AsyncStorage (local-first, cache-first)
 
-## Nostr Event Kinds
+## What Nostr Is Used For
 
-### Core Events
-- **kind 0**: Profile metadata (name, picture, about, Lightning address)
-- **kind 1**: Social posts (workout shares with achievement cards)
-- **kind 1301**: Workout events (distance, duration, calories, team tag)
+Nostr is the **invisible identity layer**. Users never see "Nostr" in the UI.
 
-### Kind 1301 Tags
-Workouts include tags for:
-- `exercise` - Activity type (running, walking, cycling)
-- `distance` - Distance with unit (km or mi)
-- `duration` - Duration in HH:MM:SS format
-- `team` - Charity/team identifier (for donation tracking)
+**Reads from Nostr:**
+- User profiles (kind 0) — names, pictures, Lightning addresses
+- Team/charity data (kind 33404) — for browsing destinations
 
-📖 **For complete specification, see**: [docs/KIND_1301_SPEC.md](./docs/KIND_1301_SPEC.md)
+**Writes to Nostr (all optional, user-initiated):**
+- Social posts (kind 1) — only when user taps "Share to Social"
+- Profile updates (kind 0) — when user edits their profile
+- Encrypted backups (kind 30078) — auto-backup after workouts
 
-## Kind 1301 Workout Event Format
+**NOT published to Nostr:**
+- Workouts — go to Supabase only (kind 1301 is created locally for structure but never sent to relays)
+- Competitions, leaderboards, club data — all Supabase
 
-**Overview**: RUNSTR publishes kind 1301 events for fitness tracking, supporting all activities for in-app competitions.
+### Kind 1301 Workout Event Format
+
+Kind 1301 events are created locally and submitted to Supabase (not Nostr relays).
 
 **Critical Format Rules**:
 - Content must be plain text, NOT JSON
@@ -98,18 +120,16 @@ Workouts include tags for:
 
 **Supported Activities**: running, walking, cycling, hiking, strength, meditation, diet, other
 
-📖 **For complete event specification, tag requirements, and examples, see**: [docs/KIND_1301_SPEC.md](./docs/KIND_1301_SPEC.md)
+For complete specification: [docs/KIND_1301_SPEC.md](./docs/KIND_1301_SPEC.md)
 
 ## Architecture Principles
 - **File Size Limit**: Maximum 500 lines per file for maintainability
-- **Four Core Pillars**: Workouts, Rewards, Donations, Events
-- **Cardio Focus**: Running, Walking, Cycling are core; other features are experimental
-- **Teams = Charities**: Team selection means choosing a charity to support
-- **Lightning Address Rewards**: Users receive sats via LNURL protocol
-- **Supabase for Events**: Event participation and leaderboards via database
-- **Nostr for Workouts**: Kind 1301 events for fitness data
+- **Supabase is the data store**: Workouts, competitions, leaderboards, rewards, clubs, chat
+- **Nostr is the identity layer**: Authentication, profiles, optional social sharing, backups
+- **Rewards are destination-routed**: Users pick one destination, rewards go there entirely
+- **Background-first**: App works passively via HealthKit/Health Connect sync
 - **Performance First**: Aggressive caching eliminates loading states
-- **Local-First**: Store locally, sync to Nostr on user action
+- **Local-First**: Store locally, sync in background
 
 ## Multi-Agent Workflow (MANDATORY)
 
@@ -157,7 +177,7 @@ Workouts include tags for:
 **CRITICAL: The app uses a single global NDK instance for all Nostr operations**
 
 **Why Global NDK?**
-- **Prevents Connection Explosion**: Before global NDK, 9 services × 4 relays = 36 WebSocket connections. After: 1 NDK × 4 relays = 4 connections (90% reduction)
+- **Prevents Connection Explosion**: Before global NDK, 9 services x 4 relays = 36 WebSocket connections. After: 1 NDK x 4 relays = 4 connections (90% reduction)
 - **Eliminates Timing Issues**: New relay managers need 2-3 seconds to connect, causing "No connected relays available" errors
 - **Better Performance**: Reusing one connection pool instead of creating/destroying connections per query
 - **Connection Stability**: Single instance maintains persistent relay connections throughout app lifetime
@@ -172,11 +192,11 @@ const events = await ndk.fetchEvents(filter);
 ```
 
 **IMPORTANT RULES:**
-- ✅ **ALWAYS** use `GlobalNDKService.getInstance()` for Nostr queries
-- ❌ **NEVER** create new `NostrRelayManager()` instances
-- ❌ **NEVER** create new `NDK()` instances (except in GlobalNDKService itself)
-- ✅ **USE** `ndk.fetchEvents()` for direct queries (returns promise)
-- ✅ **USE** `ndk.subscribe()` for real-time subscriptions (returns subscription object)
+- ALWAYS use `GlobalNDKService.getInstance()` for Nostr queries
+- NEVER create new `NostrRelayManager()` instances
+- NEVER create new `NDK()` instances (except in GlobalNDKService itself)
+- USE `ndk.fetchEvents()` for direct queries (returns promise)
+- USE `ndk.subscribe()` for real-time subscriptions (returns subscription object)
 
 **Global NDK Configuration:**
 - **Default Relays**: `wss://relay.damus.io`, `wss://relay.primal.net`, `wss://nos.lol`, `wss://relay.nostr.band`
@@ -184,21 +204,11 @@ const events = await ndk.fetchEvents(filter);
 - **Connection Timeout**: 2 seconds
 - **Auto-reconnect**: Built into NDK
 
-**Services Using Global NDK:**
-- `SimpleCompetitionService` - Fetches leagues/events (kind 30100, 30101)
-- `SimpleLeaderboardService` - Queries workout events (kind 1301)
-- `NdkTeamService` - Team discovery (kind 33404)
-- `JoinRequestService` - Join requests (kind 1104, 1105)
-- All other Nostr-dependent services
-
 **Connection Status:**
 ```typescript
-// Check if NDK is connected
 const status = GlobalNDKService.getStatus();
 console.log(`${status.connectedRelays}/${status.relayCount} relays connected`);
-
-// Force reconnect if needed
-await GlobalNDKService.reconnect();
+await GlobalNDKService.reconnect(); // Force reconnect if needed
 ```
 
 ## Performance Optimization Strategy
@@ -213,69 +223,70 @@ await GlobalNDKService.reconnect();
 - **Smart TTLs**: 24hrs for profiles, 5min for leaderboards, 30sec for wallet balance
 - **Batch Queries**: Combine multiple Nostr filters into single fetchEvents call
 
-**Expected Results**: App startup 2-3 seconds, instant screen navigation, 70% faster perceived performance.
-
-📖 **For complete caching architecture, implementation patterns, and optimization techniques, see**: [docs/PERFORMANCE_GUIDE.md](./docs/PERFORMANCE_GUIDE.md)
+For complete caching architecture: [docs/PERFORMANCE_GUIDE.md](./docs/PERFORMANCE_GUIDE.md)
 
 ## Project Structure
 ```
 src/
 ├── components/        # Reusable UI components (<500 lines each)
-│   ├── ui/           # Basic components (Card, Button, Avatar, StatusBar)  
-│   ├── team/         # Team-specific components
+│   ├── ui/           # Basic components (Card, Button, Avatar, StatusBar)
+│   ├── activity/     # Workout tracking UI (GPS, strength, wellness)
+│   ├── club/         # Fitness Club components (chat, events, leaderboard)
+│   ├── rewards/      # Reward destination, earnings display, sponsor banner
 │   ├── profile/      # Profile-specific components
-│   └── fitness/      # Workout posting and display components
+│   ├── compete/      # Competition and event components
+│   └── subscription/ # Subscription tier and club creation modals
 ├── screens/          # Main app screens
 ├── services/         # External API integrations
-│   └── notifications/ # In-app notification system (no push)
-├── store/           # State management
+│   ├── nostr/        # NDK-based Nostr services (identity layer)
+│   ├── backend/      # Supabase services (data store)
+│   ├── rewards/      # Reward destination and delivery
+│   ├── fitness/      # HealthKit, Health Connect, background sync
+│   ├── activity/     # GPS tracking, step counting
+│   ├── competition/  # Leaderboards and events
+│   └── notifications/# Push and in-app notification system
+├── store/           # Zustand state management
 ├── types/           # TypeScript definitions
 ├── utils/           # Helper functions
-└── styles/          # Theme system matching HTML mockups exactly
+└── styles/          # Theme system
 ```
 
-## App Flow Architecture
+## App Flow
 
-**1. Authentication**:
-- Show login screen unless npub/nsec found in local storage
-- Nsec login imports profile from kind 0 events
-- Derived npub stored locally in AsyncStorage
+**1. Authentication (Anonymous-First)**:
+- Tap "Start" to use immediately — no login required
+- Optional "Advanced" login with nsec (presented as "Password") or Amber
+- Experience is the same whether logged in or not
 
 **2. Three-Tab Navigation**:
-- **Profile Tab**: Workout tracking, history, settings, Lightning address entry
-- **Teams Tab**: Browse/select charities to support
-- **Rewards Tab**: Total earnings, Impact Level XP, donation splits
+- **Profile Tab**: Start workout, workout history, settings
+- **Clubs Tab**: Browse Fitness Clubs, join/create clubs, club chat
+- **Rewards Tab**: Earnings, reward destination picker, sponsor attribution
 
-**3. Workout Flow**:
-- Track cardio via GPS (Running, Walking, Cycling)
-- Sync from HealthKit/Health Connect/Garmin
-- Publish as kind 1301 to Nostr
-- Share as kind 1 social post with achievement card
+**3. Reward Destination Selection**:
+- Choose one destination: charity, project, service (AI credits), or yourself
+- All rewards go to that destination — no splits
+- Change anytime
 
-**4. Rewards Flow**:
-- Complete daily workout → Earn 50 sats
-- Walk 1,000 steps → Earn 5 sats
-- Rewards sent to user's Lightning address via LNURL
+**4. Workout Flow**:
+- Track via GPS (cardio), reps (strength), timer (wellness), or text (mindfulness)
+- Or sync automatically from any HealthKit/Health Connect compatible app
+- Workouts submitted to Supabase
+- Rewards auto-triggered via database trigger
 
-**5. Donation Flow**:
-- Select a team (charity) to support
-- Set donation split percentage
-- Team tag embedded in workout events
-- Zap charities directly from any Lightning wallet
-
-**6. Event Flow**:
-- Join hardcoded events via Supabase
-- Workouts during event period count toward leaderboard
-- Leaderboards organized by activity type
-- Prize pools distributed to winners
+**5. Competition Flow**:
+- Daily leaderboard always active (5K, 10K, Half, Marathon, Steps)
+- Featured events run on schedules
+- Club captains create events for their members
+- Workouts auto-qualify for matching competitions
 
 ## UI Requirements
 Simple three-tab interface with dark theme:
 - **Colors**: Black background (#000), dark cards (#0a0a0a), borders (#1a1a1a)
-- **Navigation**: Bottom tab bar with Profile, Teams, Rewards
-- **Profile Tab**: Start workout, workout history, settings, Lightning address
-- **Teams Tab**: Browse charities, select one to support, zap button
-- **Rewards Tab**: Total sats earned, Impact Level XP, donation split settings
+- **Navigation**: Bottom tab bar with Profile, Clubs, Rewards
+- **Profile Tab**: Start workout, workout history, settings
+- **Clubs Tab**: Browse clubs, club page with chat and events
+- **Rewards Tab**: Earnings, reward destination, sponsor banner
 
 ## Development Workflow & Testing Protocol
 
@@ -335,22 +346,20 @@ Simple three-tab interface with dark theme:
 - `npm run lint` - Code linting
 
 ### **Android APK Build System**
-📖 **For complete Android build instructions, signing configuration, and troubleshooting, see**: [docs/ANDROID_BUILD.md](./docs/ANDROID_BUILD.md)
+For complete Android build instructions: [docs/ANDROID_BUILD.md](./docs/ANDROID_BUILD.md)
 
 ### **Change Types & Required Actions**
 **JavaScript/TypeScript Changes (src/ files):**
-- ✅ **Auto-reload**: Metro handles via Fast Refresh
-- ✅ **No Xcode rebuild needed**
-- 🔄 **If not appearing**: Press Cmd+R in simulator or restart Metro with `--clear`
+- Auto-reload via Fast Refresh, no Xcode rebuild needed
+- If not appearing: Press Cmd+R in simulator or restart Metro with `--clear`
 
-**Native Configuration Changes:**  
-- ❌ **Requires Xcode rebuild**: Changes to `app.json`, iOS permissions, new dependencies
-- ❌ **No auto-reload**: Must rebuild and reinstall via Xcode
-- 🔄 **Process**: Stop Metro → Make changes → Rebuild in Xcode → Restart Metro
+**Native Configuration Changes:**
+- Requires Xcode rebuild: Changes to `app.json`, iOS permissions, new dependencies
+- Process: Stop Metro → Make changes → Rebuild in Xcode → Restart Metro
 
 ### **Common Issues & Solutions**
 - **"No script URL provided"**: Metro not running or wrong port → Start Metro on 8081
-- **"Connection refused [61]"**: App can't reach Metro → Check Metro is on localhost:8081  
+- **"Connection refused [61]"**: App can't reach Metro → Check Metro is on localhost:8081
 - **Changes not appearing**: Fast Refresh failed → Press Cmd+R or restart Metro with `--clear`
 - **App crashes on startup**: Check Metro logs for JavaScript errors, not Xcode logs
 
@@ -361,8 +370,7 @@ Simple three-tab interface with dark theme:
   - `@runstr:user_nsec` - User's private key (nsec)
   - `@runstr:npub` - User's public key (npub)
   - `@runstr:hex_pubkey` - User's hex-encoded public key
-- Lightning address for receiving rewards
-- Selected team/charity
+- Reward destination selection
 - Workout posting status (to prevent duplicates)
 - User preferences and settings
 
@@ -385,7 +393,7 @@ Simple three-tab interface with dark theme:
 - **Automated**: `npm run audit:pre-launch` (generates AUDIT_REPORT.md with categorized issues)
 - **Manual**: Use `docs/CLAUDE_REVIEW_PROMPT.md` for deep Claude analysis
 
-📖 **For complete workflow and usage instructions, see**: [docs/PRE_LAUNCH_REVIEW_GUIDE.md](./docs/PRE_LAUNCH_REVIEW_GUIDE.md)
+For complete workflow: [docs/PRE_LAUNCH_REVIEW_GUIDE.md](./docs/PRE_LAUNCH_REVIEW_GUIDE.md)
 
 ## Script-Based Verification & Debugging
 
@@ -409,19 +417,12 @@ Simple three-tab interface with dark theme:
 3. Make the fix
 4. Re-run the diagnostic script to confirm the fix works
 
-### Examples:
-- "Fixed duration parser" → script tests `parseDuration("01:15:55")` returns 4555
-- "Fixed Nostr query" → script runs the query and prints event count
-- "Added new service method" → script calls the method and prints output
-- "Debugging auth issue" → script reads AsyncStorage keys and prints state
-
 ### Rules:
 - Scripts go in `scripts/verify/` (verification) or `scripts/diagnostics/` (debugging)
 - Scripts must be runnable with `npx tsx <script>` (Node.js, no device needed)
 - For things that NEED a device (GPS, HealthKit, UI), verify what you can in Node and note what must be manually tested
 - Keep scripts small and focused -- throwaway, not a test suite
 - Always run `npm run typecheck` as the baseline check
-- Delete or keep old scripts as needed -- they're not permanent infrastructure
 
 ## Video Creation (Remotion)
 
@@ -458,7 +459,7 @@ Remotion is a React-based video framework. The demo video project lives at:
 
 ## AI Enhancement Layer (PPQ.ai)
 
-PPQ.ai (PayPerQ) provides access to 500+ specialized AI models via an OpenAI-compatible API, paid with Bitcoin over Lightning. Use it to enhance video creation, generate images, create music, and more.
+PPQ.ai (PayPerQ) provides access to 500+ specialized AI models via an OpenAI-compatible API. Use it to enhance video creation, generate images, create music, and more.
 
 **API Key:** Stored in `.env` as `CLAUDE_PPQ_API_KEY` (never hardcode in source files)
 **Base URL:** `https://api.ppq.ai`
@@ -466,9 +467,7 @@ PPQ.ai (PayPerQ) provides access to 500+ specialized AI models via an OpenAI-com
 
 ### Image Generation (Nano Banana)
 
-Use Nano Banana (Gemini image models) for AI-generated images via the chat completions endpoint. These models accept text prompts and return images inline.
-
-**Model IDs (confirmed on PPQ.ai):**
+**Model IDs:**
 - `google/gemini-2.5-flash-image` -- Nano Banana (fast, ~$0.001/image)
 - `google/gemini-3-pro-image-preview` -- Nano Banana Pro (highest quality, ~$0.005/image)
 - `openai/gpt-5-image` -- GPT-5 Image (~$0.025/image)
@@ -485,30 +484,6 @@ curl -X POST https://api.ppq.ai/v1/chat/completions \
   }'
 ```
 
-**For Remotion videos:** Generate images -> save to `runstr-demo-video/public/` -> use with `<Img src={staticFile("generated-bg.png")} />`
-
-### Music Generation (ElevenLabs)
-
-Use ElevenLabs Eleven Music for AI-generated background music and soundtracks.
-
-**Try these endpoints (test in order):**
-```bash
-# Option 1: Dedicated music endpoint
-curl -X POST https://api.ppq.ai/v1/audio/music \
-  -H "Authorization: Bearer $CLAUDE_PPQ_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"model": "elevenlabs/eleven_music", "prompt": "Energetic electronic workout music, 120 BPM, dark atmosphere", "duration_ms": 30000}'
-
-# Option 2: Music via compose endpoint
-curl -X POST https://api.ppq.ai/v1/music/compose \
-  -H "Authorization: Bearer $CLAUDE_PPQ_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "Energetic electronic workout music, 120 BPM", "duration_ms": 30000}'
-```
-Note: The exact endpoint for ElevenLabs Music on PPQ.ai needs testing. If neither works, check PPQ.ai docs or UI for the correct path.
-
-**For Remotion videos:** Generate music -> save MP3 to `public/` -> use with `<Audio src={staticFile("bg-music.mp3")} />`
-
 ### Text-to-Speech (Voiceovers)
 
 **Endpoint:** `POST /v1/audio/speech`
@@ -516,7 +491,7 @@ Note: The exact endpoint for ElevenLabs Music on PPQ.ai needs testing. If neithe
 curl -X POST https://api.ppq.ai/v1/audio/speech \
   -H "Authorization: Bearer $CLAUDE_PPQ_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"input": "RUNSTR. Run. Earn Bitcoin. Support Charities.", "model": "deepgram_aura_2", "voice": "aura-2-apollo-en"}' \
+  -d '{"input": "RUNSTR. Fitness rewards, your way.", "model": "deepgram_aura_2", "voice": "aura-2-apollo-en"}' \
   --output voiceover.mp3
 ```
 Voices: `aura-2-arcas-en`, `aura-2-thalia-en`, `aura-2-andromeda-en`, `aura-2-helena-en`, `aura-2-apollo-en`, `aura-2-aries-en`
@@ -532,20 +507,6 @@ curl -X POST https://api.ppq.ai/v1/audio/transcriptions \
   -F response_format=srt
 ```
 
-### Audio Models
-
-- `openai/gpt-audio` -- GPT Audio (full, ~$0.011/query)
-- `openai/gpt-audio-mini` -- GPT Audio Mini (~$0.003/query)
-
-### Video Enhancement Workflow
-
-When creating enhanced Remotion videos with PPQ.ai:
-1. **Generate background images** via Nano Banana -> save to `public/` -> `<Img>` in scenes
-2. **Generate voiceover** via TTS -> save to `public/` -> `<Audio>` in Remotion
-3. **Generate background music** via ElevenLabs -> save to `public/` -> `<Audio>` in Remotion
-4. **Generate subtitles** via STT on voiceover -> parse SRT -> animate text in scenes
-5. **Write scripts** via chat LLM -> feed into TTS pipeline
-
 ### Recommended Models by Task
 
 | Task | Model | Cost |
@@ -557,44 +518,26 @@ When creating enhanced Remotion videos with PPQ.ai:
 | Script writing | `claude-haiku-4.5` via `/v1/chat/completions` | ~$0.005/query |
 | Background music | `elevenlabs/eleven_music` (test endpoint) | TBD |
 
-### Cost
-Pay-per-query via Lightning. No subscription required. Budget-friendly: most operations cost fractions of a cent. Image generation is the most expensive at ~$0.005/image with Nano Banana Pro.
-
 ## Git Workflow Requirements
 
 **CRITICAL: All code changes go through branches and pull requests. NEVER push directly to main.**
 
-📖 **For full workflow details, see**: [docs/GIT_WORKFLOW.md](./docs/GIT_WORKFLOW.md)
+For full workflow details: [docs/GIT_WORKFLOW.md](./docs/GIT_WORKFLOW.md)
 
 ### Version Branch Model
-All work happens on a **version branch** (e.g., `v1.6.8`). This is the next release. All features, fixes, and changes go here. When it's ready to ship, merge to main, tag the release, build the APK.
+All work happens on a **version branch** (e.g., `v1.7.0`). This is the next release. All features, fixes, and changes go here. When it's ready to ship, merge to main, tag the release, build the APK.
 
 ### Rules (Claude MUST follow these automatically):
-1. **At session start**, check if a version branch exists and switch to it:
-   ```bash
-   git checkout v1.6.8  # or whatever the current version branch is
-   ```
+1. **At session start**, check if a version branch exists and switch to it
    - If no version branch exists, ask the user what version to create
-   - Branch name = version number (e.g., `v1.6.8`, `v1.7.0`)
+   - Branch name = version number (e.g., `v1.7.0`, `v1.8.0`)
 2. **Commit early and often** -- after every meaningful change, don't wait to be asked
    - Run `npm run typecheck` before every commit
    - Stage specific files (`git add src/path/to/file.ts`) -- NEVER use `git add .`
    - Use prefix format: `Fix:`, `Feature:`, `Refactor:`, `Docs:`, `Chore:`
-   - ✅ Commit: working fixes, completed feature steps, doc updates
-   - ❌ Don't commit: broken code, TypeScript errors, secrets
 3. **All changes stay on the version branch** so the user can test everything together locally
-4. **Push regularly** to back up work on GitHub:
-   ```bash
-   git push -u origin v1.6.8
-   ```
-5. **When ready to release**, open a PR from the version branch to main, merge, tag, and build:
-   ```bash
-   gh pr create --title "Release: v1.6.8" --body "..."
-   # After merge:
-   git checkout main && git pull origin main
-   git tag -a v1.6.8 -m "Release: Version 1.6.8"
-   git push origin v1.6.8
-   ```
+4. **Push regularly** to back up work on GitHub
+5. **When ready to release**, open a PR from the version branch to main, merge, tag, and build
 6. **NEVER push directly to main** -- all changes merge via PR
 
 ## Folder Documentation Requirements
@@ -603,26 +546,8 @@ All work happens on a **version branch** (e.g., `v1.6.8`). This is the next rele
 - Keep descriptions concise (1-2 sentences per file)
 - Update READMEs as part of file modification commits
 
-## Current Development Status (Jan 2026)
-✅ Three-tab navigation (Profile, Teams, Rewards)
-✅ Nostr authentication with nsec
-✅ GPS cardio tracking (Running, Walking, Cycling)
-✅ HealthKit, Health Connect, Garmin sync
-✅ Kind 1301 workout publishing
-✅ Kind 1 social posts with achievement cards
-✅ Daily rewards (50 sats/workout)
-✅ Step rewards (5 sats/1k steps)
-✅ Lightning address reward delivery via LNURL
-✅ Teams = Charities with donation splitting
-✅ Impact Level XP system
-✅ Hardcoded events with leaderboards (Season II, January Walking)
-✅ Supabase event participation
-✅ All TypeScript compilation successful
-
-
-
 ## CRITICAL WALLET ARCHITECTURE RULES
-**⚠️ NEVER use nostr-tools in wallet code - Use NDK exclusively**
+**NEVER use nostr-tools in wallet code - Use NDK exclusively**
 - **NDK handles ALL Nostr operations** including key generation, nip19 encoding/decoding
 - **No library mixing** - NDK has everything needed built-in for Nostr functionality
 - **Crypto polyfill**: Must use `react-native-get-random-values` imported FIRST in index.js
@@ -630,15 +555,15 @@ All work happens on a **version branch** (e.g., `v1.6.8`). This is the next rele
 - **Key generation**: Use `NDKPrivateKeySigner.generate()` NOT `generateSecretKey()` from nostr-tools
 
 ## Lessons Learned
-📖 **For detailed troubleshooting history and prevention strategies, see**: [docs/LESSONS_LEARNED.md](./docs/LESSONS_LEARNED.md)
-
+For detailed troubleshooting history and prevention strategies: [docs/LESSONS_LEARNED.md](./docs/LESSONS_LEARNED.md)
 
 ## Important Notes
 - All files must stay under 500 lines of code for maintainability
-- **Core User Journey**: Login → Select charity → Track workouts → Earn rewards → Donate
-- **Three-Tab Focus**: Profile (workouts), Teams (charities), Rewards (earnings)
-- **Teams = Charities**: Always use this framing, not "social groups"
-- **Cardio Focus**: Running, Walking, Cycling are core activities
-- **Bitcoin, not crypto**: Never use "cryptocurrency" - Bitcoin is Bitcoin
-- **Lightning Address**: Users receive rewards via LNURL, no NWC required
-- **Real Data Only**: No mock data - all functionality uses actual Nostr/Supabase
+- **Core User Journey**: Open app → Choose reward destination → Work out → Earn rewards → Compete
+- **Three-Tab Focus**: Profile (workouts), Clubs (community), Rewards (earnings)
+- **Fitness Clubs**: Community feature for Pro subscribers — not "teams" or "charities"
+- **All Activities Matter**: Cardio, Strength, Wellness, Mindfulness — not just running
+- **Background-First**: Most users earn via HealthKit/Health Connect sync, not in-app tracking
+- **Rewards, not Bitcoin**: Never use Bitcoin/crypto terminology in user-facing contexts
+- **Sponsor-Funded**: Rewards come from sponsors, with Zapvertising attribution
+- **Real Data Only**: No mock data — all functionality uses actual Supabase/Nostr data

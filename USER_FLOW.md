@@ -1,28 +1,34 @@
 # RUNSTR User Flow — Complete Interaction Map
 
 > **Purpose**: Documents every user interaction from the user's perspective — what they see, what they tap, what happens next. Complements CLAUDE.md (developer context) and ARCHITECTURE.md (system design).
+> **For product identity and direction, see [North Star.md](./North%20Star.md)**
 
 ---
 
-## 1. Authentication Flow
+## 1. Authentication Flow (Anonymous-First)
 
 ### First Launch
 1. **LoginScreen** appears (dark theme, RUNSTR logo)
-2. User has three options:
-   - **Enter nsec**: Paste existing Nostr private key → derives npub → imports kind 0 profile from relays
-   - **Create New Identity**: Generates new keypair via `NDKPrivateKeySigner.generate()` → user gets fresh npub
+2. User taps **"Start"** — enters the app immediately, no login required
+3. Experience is the same whether logged in or not
+
+### Optional Login (Advanced)
+1. Tap **"Advanced"** toggle on LoginScreen
+2. Three login options:
+   - **Enter nsec**: Paste existing key (presented as "Password") → derives npub → imports kind 0 profile from relays
+   - **Create New Identity**: Generates new keypair via `NDKPrivateKeySigner.generate()`
    - **Amber (Android only)**: External signer app handles key management
 3. On success: nsec stored in SecureStore, npub + hex pubkey in AsyncStorage
 
 ### First-Time Setup
-1. **WelcomePermissionModal** appears after first login
+1. **WelcomePermissionModal** appears after first entry
 2. Requests location permission (required for GPS workout tracking)
 3. On grant → navigates to Profile tab (home screen)
 
 ### Session Persistence
 - On subsequent launches, app checks AsyncStorage for `@runstr:npub`
 - If found → skip login, go straight to Profile tab
-- If not found → show LoginScreen
+- If not found → show LoginScreen with "Start" button
 
 ---
 
@@ -37,20 +43,20 @@ The app uses a bottom tab bar with three tabs. Profile is the default/home tab.
   - **View History** → WorkoutHistoryScreen (past workouts)
   - **Join Events** → LeaderboardsScreen (competitions)
 - **Settings gear icon** (top right) → SettingsScreen
-- **Music controls** (WoT-gated): ProfileMusicBar for Wavlake/Blossom playback, visible only if user has WoT score > 0 and music enabled in Settings
+- **Music controls**: ProfileMusicBar for Wavlake/Blossom playback (if enabled in Settings)
 
-### Teams Tab
-- **Current team card**: Shows selected charity with zap button
-- **17 charities** listed alphabetically (hardcoded in `src/constants/charities.ts`)
-- **Tap a charity** → selects it as your team → saves to AsyncStorage
-- **Zap button** → ExternalZapModal (generates Lightning invoice + QR code for any Lightning wallet)
-- **PPQ.AI special case**: Selecting PPQ.AI as team → PPQAccountSetupModal (creates AI credit account paid via Lightning)
+### Clubs Tab
+- **YOUR CLUB** section: Shows user's current Fitness Club (if joined) with Leave button
+- **BROWSE CLUBS**: Searchable list of all active Fitness Clubs
+- **Create button** (top right): Opens club creation for Pro subscribers, or subscription info modal for others
+- **Tap a club** → ClubPageScreen (member leaderboard, chat, events)
 
 ### Rewards Tab
-- **Rewards Pool card** (tappable → TransparencyDashboardModal showing global reward distribution data)
-- **EarningsHeroCard** (if Lightning address set): Shows total sats earned, weekly earnings
-- **ImpactHeroCard** (if no Lightning address): Shows Impact Level XP, charity contribution stats
-- **Your Team card**: Current charity with zap button
+- **Rewards Pool card** (tappable → TransparencyDashboardModal showing global reward distribution)
+- **SponsorBanner**: "This month's rewards are brought to you by [Sponsor]" (tappable → sponsor website)
+- **EarningsHeroCard** (if Lightning address set): Shows total rewards earned, weekly earnings
+- **ImpactHeroCard** (if no Lightning address): Shows total rewards donated to destinations
+- **RewardDestinationSection**: Current destination with Change button
 - **How It Works**: Explainer section for new users
 
 ---
@@ -61,11 +67,12 @@ The app uses a bottom tab bar with three tabs. Profile is the default/home tab.
 1. Tap **Start Workout** on Profile tab → ActivityTrackerScreen
 2. **SwipeGridNavigator** presents a 2D grid of activities (swipe to navigate):
 
-| | Column 0 | Column 1 | Column 2 | Column 3 |
-|---|---|---|---|---|
-| **Row 0 (Cardio)** | Running | Walking | Cycling | Hiking |
-| **Row 1 (Strength)** | Pushups | Pullups | Situps | Squats |
-| **Row 2 (Wellness)** | Meditation | Breathwork | Body Scan | Gratitude |
+| | Col 0 | Col 1 | Col 2 | Col 3 | Col 4 | Col 5 |
+|---|---|---|---|---|---|---|
+| **Cardio** | Run | Walk | Cycle | Hiking | | |
+| **Strength** | Pushups | Pull-ups | Sit-ups | Squats | Curls | Bench |
+| **Wellness** | Guided | Unguided | Breathwork | Body Scan | Gratitude | |
+| **Mindfulness** | Journal | Habits | | | | |
 
 3. Swipe left/right to change activity within a category
 4. Swipe up/down to change category
@@ -90,131 +97,185 @@ All of the following happen automatically after save:
 
 1. **Local storage**: Workout saved to AsyncStorage as `LocalWorkout`
 2. **Reward check** (fire-and-forget): `DailyRewardService.checkStreakAndReward()` — tracks reward eligibility locally
-3. **Supabase auto-submit** (fire-and-forget): ALL cardio workouts (running, walking, cycling, hiking) with distance > 0 are submitted to `workout_submissions` table via `SupabaseCompetitionService.submitWorkoutSimple()`
-4. **Optional social share**: If user taps Share, opens `EnhancedSocialShareModal` → publishes kind 1 social post with workout achievement card (WoT-gated: requires trust score > 0)
+3. **Supabase auto-submit** (fire-and-forget): ALL cardio workouts with distance > 0 are submitted to `workout_submissions` table via `SupabaseCompetitionService.submitWorkoutSimple()`
+4. **Auto-backup** (fire-and-forget): Encrypted backup to Nostr (kind 30078)
+5. **Optional social share**: If user taps Share, opens `EnhancedSocialShareModal` → publishes kind 1 social post with workout achievement card
 
 ### Important: Kind 1301 Events Are NOT Published to Nostr
-Despite the name "workout publishing service," kind 1301 events are created locally for event structure and signing but are **never published to Nostr relays**. All backend workout tracking goes through Supabase, not Nostr.
+Kind 1301 events are created locally for event structure and signing but are **never published to Nostr relays**. All workout data goes through Supabase.
 
 ---
 
-## 4. Steps Flow
+## 4. Background Sync Flow (Passive Earning)
 
-### No Dedicated Steps Screen
-Steps are **not** a separate screen. They appear as a persistent header on ALL activity tracker screens.
+### How Users Earn Without Opening the App
 
-### What the User Sees
-- **Header text** on ActivityTrackerScreen: `"{steps} steps • {km} km"` (visible on every activity tab — Run, Walk, Cycle, etc.)
-- Steps sourced from HealthKit (iOS) / Health Connect (Android) via `DailyStepCounterService`
-- Estimated distance calculated as: `steps × KM_PER_STEP` (0.00067 km per step, i.e., 0.67m stride)
+**iOS:**
+1. User works out with any HealthKit-connected app (Strava, Nike Run Club, Apple Watch, etc.)
+2. Workout syncs to Apple Health
+3. HealthKit background delivery wakes RUNSTR
+4. `HealthKitBackgroundService` fetches recent workouts
+5. Filters for cardio (running, walking, cycling, hiking)
+6. Auto-submits to Supabase
+7. Database trigger fires reward claim
+8. User auto-joined to matching competitions
 
-### Automatic Step Submission
-- `StepCompetitionService.checkAndSubmitSteps()` fires every 30 minutes on app foreground
-- Submits step count to Supabase for competition leaderboards
-- Uses `LocalWorkoutStorageService.upsertDailyStepsWorkout()` (bypasses reward trigger and auto-submit)
+**Android:**
+1. User works out with any Health Connect-connected app
+2. `AndroidBackgroundSyncTask` runs every 15 minutes via WorkManager
+3. Fetches recent workouts from Health Connect
+4. Same submit → reward → competition flow as iOS
 
-### Step Posting (WoT-Gated)
-- When user has WoT score > 0, tapping the step header triggers `handlePostSteps()`:
-  1. Creates synthetic walking `PublishableWorkout` with step count + estimated distance
-  2. Opens `EnhancedSocialShareModal` (templates, camera, share as kind 1 social post)
+### Step Count Sync
+- Steps are synced automatically during background sync
+- Submitted as walking workouts with step tags
+- Count toward daily step leaderboard
+- One step submission per day (deduplicated by date)
 
-### Dead Code Note
-`StepsDisplayScreen.tsx` still exists in the codebase but is **dead code** — removed from navigation, never reachable.
+### Private Mode Override
+If user enables Private Mode in Settings:
+- NO data submitted to Supabase
+- NO rewards claimed
+- Workouts stay local only
 
 ---
 
 ## 5. Reward Flow
 
 ### Overview
-Users earn 50 sats per daily cardio workout. Bitcoin is sent to their Lightning address (or their selected charity if no Lightning address is set).
+Users earn rewards for qualifying workouts. Rewards are funded by sponsors and sent to the user's chosen destination.
 
 ### Trigger
-`LocalWorkoutStorageService.saveWorkout()` → fire-and-forget call to `DailyRewardService.checkStreakAndReward()`
+Two paths:
+1. **In-app**: `LocalWorkoutStorageService.saveWorkout()` → auto-submit to Supabase → DB trigger
+2. **Background sync**: HealthKit/Health Connect → auto-submit to Supabase → DB trigger
 
 ### Eligibility Rules
-1. Workout source must be: `gps_tracker`, `manual_entry`, `healthkit`, or `health_connect`
-2. Activity must be: `running`, `walking`, or `cycling`
-3. One reward per day per user (atomic flag in AsyncStorage prevents duplicates)
+1. Activity must be cardio: running, walking, cycling, or hiking
+2. Distance > 0
+3. Passes anti-cheat validation (pace limits, distance limits)
+4. One reward per day per user (deduplicated)
 
-### Local Tracking (Instant, In-App)
-On eligible workout save:
-- Records reward amount in AsyncStorage
-- Updates weekly and total counters
-- Tracks charity donation amount for Impact Level XP calculation
-- **Does NOT send Bitcoin** — only updates local UI state
-
-### Actual Bitcoin Payment (External, Async)
-
-> **IMPORTANT: Stale comments exist in the codebase.** `DailyRewardService` header (lines 1-18) says "external service monitors Nostr for kind 1301 events." This is **incorrect** — the external service monitors the **Supabase `workout_submissions` table**, not Nostr relays.
-
-The real flow:
-1. Workout auto-submits to Supabase `workout_submissions` table (see Section 3)
-2. External reward service reads from Supabase, validates workout
-3. Reads `reward_destination` tag to determine recipient
-4. Sends 50 sats via LNURL to the Lightning address (user or charity)
-5. Records payment in Supabase `reward_payments` table with preimage proof
-
-### User Notification (45-Second Polling)
-- `RewardPollingService` polls `reward_payments` table every 45 seconds
-- On new confirmed payment → `RewardNotificationManager` displays toast:
-  - **User reward**: "Reward Received! 50 sats sent to your wallet"
-  - **Charity donation**: "Reward Donated! 50 sats sent to [Charity Name]"
-
-### Destination Logic (Binary)
-| Condition | Destination |
+### Reward Routing (Single Destination)
+| User's Selection | Destination |
 |---|---|
-| User has Lightning address | Send to user's Lightning address |
-| No Lightning address | Send to selected charity (always a fallback) |
+| You (Self) | User's Lightning address |
+| Charity | Charity's Lightning address (micro donation) |
+| Project | Project's Lightning address |
+| PPQ.AI (Service) | Bolt11 invoice for AI credits |
 
-### Special Cases
-- **Einundzwanzig participants**: 100 sats per workout (double reward)
-- **Active pledge**: Routes reward to pledge destination
-- **PPQ.AI team**: Generates bolt11 invoice for AI credits instead of Lightning address payment
+### Actual Payment (External, Async)
+1. Workout submitted to Supabase `workout_submissions` table
+2. Database trigger fires `claim-reward` Edge Function
+3. Edge function reads destination and Lightning address from workout tags
+4. Sends reward via LNURL to destination address
+5. Records payment in `reward_payments` table with preimage proof
 
-### Step Rewards
-Step rewards (5 sats per 1,000 steps) have been **removed** to simplify fraud detection. The `StepRewardService` is dead code.
+### User Notification
+- Push notification: "You received a reward from [Sponsor] for your workout"
+- `RewardPollingService` also polls `reward_payments` for in-app toast notifications
+- Sponsor attribution included in both push and in-app notifications
+
+### Subscriber Boost
+- Free users: base reward per qualifying workout
+- Supporter/Pro subscribers: significantly boosted reward (requires 2km+, 15min+, GPS/health app source)
 
 ---
 
 ## 6. Competition Flow
 
-### Joining an Event
+### Daily Leaderboard (Built-In, Permanent)
+- Always active — no joining required
+- Five boards: 5K, 10K, Half Marathon, Marathon (fastest time), Daily Steps (highest count)
+- Top 25 shown with user's personal position below
+- Queried from Supabase `workout_submissions` for today's date
+
+### Featured Events
 1. Tap **Join Events** on Profile tab → LeaderboardsScreen
-2. Available competitions: Season II, January Walking Contest, Einundzwanzig, Running Bitcoin
-3. Tap event → detail screen showing leaderboard + Join button
-4. Tap Join → saves to Supabase `competition_participants` table
+2. Available competitions: Season II, January Walking, Einundzwanzig, Running Bitcoin
+3. Tap event → detail screen with leaderboard + Join button
+4. Tap Join → saves to Supabase
+
+### Club Events
+- Captains create events from templates (5K, 10K, Half Marathon, Step Challenge)
+- All club members auto-entered
+- Duration: 1 day (24 hours)
+- Max 3 active events per captain
 
 ### How Workouts Count
-- **No opt-in required per workout** — ALL cardio workouts auto-submit to Supabase (see Section 3)
-- If user has joined a competition, their submitted workouts automatically count toward that competition's leaderboard
-- Leaderboards queried from Supabase, ranked by distance, duration, or workout count (depends on competition type)
+- ALL cardio workouts auto-submit to Supabase
+- If user has joined a competition, qualifying workouts count toward that leaderboard
+- Background synced workouts count too — no need to open the app
 
-### Anti-Cheat Measures
+### Anti-Cheat
 - Pace limits (reject impossibly fast workouts)
 - Distance limits per session
-- Split consistency checks (even pacing expected)
-- Car detection (speed anomalies flagged)
+- Split consistency checks
 - Flagged workouts stored but excluded from leaderboards
 
 ---
 
-## 7. AI Coach & Wellness Features
+## 7. Fitness Club Flow
+
+### Joining a Club
+1. Navigate to Clubs tab
+2. Browse or search available clubs
+3. Tap a club → ClubPageScreen
+4. Tap Join → `ClubMembershipService.joinClub()`
+5. 7-day cooldown before leaving/switching
+
+### Club Page Features
+- **Members tab**: Leaderboard ranked by distance or steps
+- **Chat tab**: Real-time messages via Supabase Realtime (5 messages/60s rate limit)
+- **Events tab**: Active, upcoming, and past club competitions
+
+### Creating a Club (Pro Only)
+1. Tap Create button on Clubs tab
+2. If not Pro → SubscriptionInfoModal (upgrade prompt)
+3. If Pro → SimpleTeamCreationModal form (name, description, Lightning address)
+4. Submitted to `manage-club` Edge Function
+5. Creator becomes captain, auto-joined
+
+### Captain Dashboard
+- Member analytics (weekly/all-time activity)
+- Earnings tracking (rewards earned by club members)
+- Event management (create, edit, cancel)
+
+---
+
+## 8. Reward Destination Selection
+
+### Access
+- Rewards tab → RewardDestinationSection → "Change" button
+- Or via onboarding flow
+
+### Selection Flow
+1. **RewardDestinationPicker** modal opens
+2. Four categories displayed:
+   - **YOU** — rewards to your wallet
+   - **CHARITIES** — ALS Network, HRF, Bitcoin Veterans, etc.
+   - **PROJECTS** — Bitcoin Beach, Bitcoin Ekasi, etc.
+   - **SERVICES** — PPQ.AI (AI credits)
+3. Tap to select → saved to AsyncStorage
+4. All future rewards route to this destination
+
+### Wallet Setup (If "You" Selected)
+- Enter Lightning address manually
+- Or connect NWC wallet (scan QR or paste connection string)
+
+---
+
+## 9. AI Coach & Wellness Features
 
 ### Access
 Settings → AI Coach → AIHealthDashboardScreen
 
 ### Requirements
-- PPQ.AI account (Lightning-paid AI credits)
-- Set up via PPQAccountSetupModal or PPQCreditTopupModal
+- PPQ.AI account (set up via PPQAccountSetupModal)
 
 ### Two Modes
-1. **Overview**: Shows today's journal entry + habit check-ins + recent workout summary
-2. **Chat**: Conversational AI health coach
-
-### Chat System
-- `ChatCoachService`: Multi-turn conversation via PPQ.AI API (Claude Haiku 4.5 model)
-- `RunstrContextGenerator`: Feeds workouts, journal entries, habits, and health data as context to the AI
-- Conversations stored locally in AsyncStorage
+1. **Overview**: Today's journal entry + habit check-ins + recent workout summary
+2. **Chat**: Conversational AI health coach (Claude Haiku 4.5 via PPQ.AI)
 
 ### Journal
 - Mood tracking: 5 levels (emoji-based)
@@ -229,30 +290,12 @@ Settings → AI Coach → AIHealthDashboardScreen
 
 ---
 
-## 8. Music Integration
+## 10. Encrypted Backup
 
-### Not a Screen — Embedded in Profile
-Music is a global player embedded in ProfileScreen via **ProfileMusicBar**, not a separate tab or screen.
+### Auto-Backup
+After every workout save, `BackupService` auto-exports to Nostr.
 
-### Sources
-- **Wavlake**: Stream Bitcoin-native music, zap artists via Lightning
-- **Blossom**: Personal audio library from Blossom servers
-
-### UI
-- **ProfileMusicBar**: Compact player on Profile tab (play/pause, track info)
-- **ExpandedMusicPlayer**: Full-screen modal with controls, artwork, zap button
-- **PlaylistBrowser**: Browse available tracks/playlists
-
-### Access Control
-- **WoT-gated**: Requires trust score > 0
-- Must be enabled in Settings
-- Hidden if either condition is not met
-
----
-
-## 9. Encrypted Backup
-
-### Access
+### Manual Export/Import
 Settings → Export Data / Import Data
 
 ### Export Flow
@@ -267,26 +310,20 @@ Settings → Export Data / Import Data
 3. Decompress (gzip)
 4. Restore all data to local AsyncStorage
 
-### What Gets Backed Up
-- Workout history (local workouts)
-- Habit definitions and check-in history
-- Journal entries
-- User preferences and settings
-- Selected team/charity
-
 ---
 
-## 10. Settings
+## 11. Settings
 
 Accessible via gear icon on Profile tab → SettingsScreen.
 
 | Setting | Options |
 |---|---|
-| Language | EN, ES, PT, DE, FR |
+| Language | EN, DE |
 | Voice Announcements | Enable/disable, split details, live splits |
 | Distance Units | km / mi |
 | Default Activity | Running, Walking, Cycling, Hiking |
-| Lightning Address | Text input for LNURL reward delivery |
+| Subscription Plan | Free / Supporter / Pro |
+| Private Mode | Toggle — disables all Supabase submission |
 | AI Coach | Enable/configure PPQ.AI account |
 | Music | Enable/disable Wavlake/Blossom player |
 | Export Data | Encrypted backup to Nostr |
@@ -297,74 +334,25 @@ Accessible via gear icon on Profile tab → SettingsScreen.
 
 ---
 
-## 11. Dead Code & Stale Features
-
-### Dead Screens (Registered in Navigator but Unreachable)
-These screens exist in `AppNavigator.tsx` but have no navigation path leading to them:
-- CompetitionsList
-- MyTeams
-- SavedRoutes
-- HealthProfile
-- SatlantisDiscovery
-- Events
-- Experimental
-- Donate
-- StepsDisplayScreen
-
-### Dead Services (Zero or Minimal Consumers)
-| Service | Status |
-|---|---|
-| `SimpleNostrService` | 1 consumer: DeleteAccountService only |
-| `HttpNostrQueryService` | 0 consumers |
-| `HybridNostrQueryService` | 0 consumers |
-| `NWCGatewayService` | Deprecated — external service handles NWC |
-| `StepRewardService` | Deprecated — step rewards removed |
-
-### Legacy Services with Stale Nostr Query Code
-| Service | Reality |
-|---|---|
-| `SimpleCompetitionService` | Nostr query code unused — competitions are hardcoded |
-| `SimpleLeaderboardService` | Nostr query code unused — leaderboards come from Supabase |
-| `NdkTeamService` | Kind 33404 query disabled — returns hardcoded team list |
-
-### Stale Comments
-| File | What It Says | What's Actually True |
-|---|---|---|
-| `DailyRewardService` (lines 1-18) | "External service monitors Nostr for kind 1301 events" | External service monitors **Supabase `workout_submissions`** table |
-| `DailyRewardService` (line 12) | "NWC credentials stored ONLY in external reward service (not Supabase!)" | May be accurate for the external service, but the in-app comment about Nostr monitoring is wrong |
-| `DailyRewardService` (line 18) | "No Supabase calls for payments" | The external service **does** use Supabase — it reads workouts from and writes payments to Supabase |
-| `workoutPublishingService` (lines 1-11) | "Workouts are only submitted to Supabase if user is in an active competition" | ALL cardio workouts with distance > 0 auto-submit to Supabase, regardless of competition membership |
-
-### Hidden/Disabled Feature Flags
-| Feature | Flag/Constant | Status |
-|---|---|---|
-| Background step tracking | `STEP_REWARDS_ENABLED = false` | Disabled |
-| Auto-compete toggle | Temporarily disabled | Not accessible |
-| Health profile screen | Temporarily disabled | Not in navigation |
-| Sats earned display | `SHOW_SATS_EARNED_DISPLAY = false` | Hidden |
-
----
-
 ## Appendix: Data Flow Summary
 
 ```
-User taps "Save" on workout
-  │
-  ├─→ LocalWorkoutStorageService.saveWorkout()
-  │     ├─→ Save to AsyncStorage (immediate)
-  │     ├─→ DailyRewardService.checkStreakAndReward() (fire-and-forget)
-  │     │     └─→ Update local reward counters in AsyncStorage
-  │     └─→ autoSubmitToSupabase() (fire-and-forget)
-  │           └─→ SupabaseCompetitionService.submitWorkoutSimple()
-  │                 └─→ INSERT into workout_submissions table
-  │
-  ├─→ [External reward service] (async, out-of-band)
-  │     ├─→ Read workout_submissions from Supabase
-  │     ├─→ Validate workout (anti-cheat)
-  │     ├─→ Send 50 sats via LNURL to Lightning address
-  │     └─→ Record in reward_payments table
-  │
-  └─→ [RewardPollingService] (45s polling interval)
-        ├─→ Query reward_payments for new confirmed payments
-        └─→ Show toast notification via RewardNotificationManager
+User works out (in-app GPS or external app via health sync)
+  |
+  +--> LocalWorkoutStorageService.saveWorkout() [if in-app]
+  |    OR
+  +--> HealthKitBackgroundService / AndroidBackgroundSyncTask [if external]
+  |
+  +--> SupabaseCompetitionService.submitWorkoutSimple()
+  |      +-- INSERT into workout_submissions table
+  |      +-- Anti-cheat validation
+  |
+  +--> Database trigger: claim-reward Edge Function
+  |      +-- Read destination tag (user/charity/project/service)
+  |      +-- Send reward via LNURL to destination address
+  |      +-- Record in reward_payments table
+  |
+  +--> Push notification: "You received a reward from [Sponsor]"
+  |
+  +--> Auto-backup to Nostr (kind 30078, encrypted)
 ```

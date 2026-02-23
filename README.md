@@ -1,13 +1,12 @@
 # RUNSTR
 
-**Anonymous fitness tracking meets Bitcoin-powered competitions**
+**Fitness rewards, your way.**
 
-No email. No phone number. No credit card. No account creation. Just tap start, generate a key, and own your data.
+RUNSTR is a fitness app that enters your workouts into virtual competitions and rewards you for working out. Choose where your rewards go — to your wallet, a charity, an open source project, or converted into AI credits.
 
 [![Website](https://img.shields.io/badge/Website-runstr.club-blue)](https://www.runstr.club/)
 [![iOS](https://img.shields.io/badge/iOS-App%20Store-black)](https://apps.apple.com/app/runstr)
 [![Android](https://img.shields.io/badge/Android-Zap.Store-green)](https://zapstore.dev/)
-[![Nostr](https://img.shields.io/badge/Nostr-Follow%20Us-purple)](https://njump.me/npub1vygzr642y6f8gxcjx6auaf2vd25lyzarpjkwx9kr4y752zy6058s8jvy4e)
 
 ---
 
@@ -18,79 +17,54 @@ No email. No phone number. No credit card. No account creation. Just tap start, 
 | Website | [runstr.club](https://www.runstr.club/) |
 | iOS | [App Store](https://apps.apple.com/app/runstr) |
 | Android | [Zap.Store](https://zap.store/) |
-| Nostr | `npub1vygzr642y6f8gxcjx6auaf2vd25lyzarpjkwx9kr4y752zy6058s8jvy4e` |
-
----
-
-## Why RUNSTR?
-
-Traditional fitness apps turn you into a product. They collect your email, phone number, location history, heart rate patterns, sleep schedule, and body weight—then sell it to advertisers.
-
-**RUNSTR knows nothing about you.**
-
-- Your identity is a cryptographic keypair generated on your device
-- Your workout data stays on your phone until you choose to share it
-- Your Apple Watch, Garmin, and Fitbit data belongs to you, not to cloud servers
-- Earn real Bitcoin in competitions, not worthless points
-
----
-
-## Core Features
-
-### Zero-Identity Onboarding
-Tap "Start" and you're in. Your identity is a Nostr keypair you control—no email verification, no phone confirmation, no password managers. For Bitcoiners without Nostr accounts, we auto-generate keys with backup instructions.
-
-### Wearable Integration Without Surveillance
-RUNSTR pulls workout data from HealthKit and other fitness apps, then lets you decide what happens next. Push workouts into competitions. Keep them stored locally. Post them to Nostr for decentralized backup. Your fitness data finally belongs to you.
-
-### Bitcoin-Powered Competitions
-Your daily workout becomes a lottery ticket for satoshis. Join competitions where completing workouts makes you eligible for Bitcoin rewards. Appear on leaderboards and get zapped by community members impressed by your performance. Real money, real athletes, Lightning-fast payments.
-
-### Season II: The Distance Challenge
-**Live now**: A 2-month distance competition with a **1,000,000 satoshi prize pool**. Log your runs, walks, hikes, and cycling sessions to climb the leaderboard. Top performers split the pot. Anonymous athletes from around the world competing for Bitcoin using nothing but movement and commitment.
-
-### Support Charities Through Fitness
-Select a team (charity) to support—Bitcoin Bay, Bitcoin Ekasi, ALS Network, and more. Split a percentage of your workout rewards with your chosen charity, or zap them directly from any Lightning wallet.
-
-### Local-First, Publish-Second
-Every workout lives on your device first. RUNSTR never forces you to upload anything. View your complete training history offline. Then, when you're ready, selectively publish to Nostr for backup, post to competitions for Bitcoin rewards, or share to social media.
 
 ---
 
 ## How It Works
 
-### For Athletes
-1. **Download** → Generate your Nostr identity (or import existing)
-2. **Connect** → Link your Apple Watch, Garmin, or other fitness tracker
-3. **Train** → Your workouts sync automatically and stay on your device
-4. **Compete** → Join competitions to earn Bitcoin rewards
-5. **Publish** → Share achievements to Nostr when you want
+1. **Tap Start** — No account, no email, no sign-up form
+2. **Pick your destination** — Choose where rewards go (your wallet, a charity, a project, or AI credits)
+3. **Work out** — Use RUNSTR's GPS tracker or any app connected to Apple Health / Health Connect
+4. **Earn rewards** — Qualifying workouts automatically trigger sponsor-funded rewards
+5. **Compete** — Your workouts enter daily leaderboards and virtual competitions
+
+Works in the background. Earn rewards without ever opening the app.
 
 ---
 
-## Technical Architecture
+## Core Features
 
-### Decentralized Foundation
-All data lives on the Nostr protocol—no central database, no company that can delete your fitness history, no algorithm hiding your achievements.
+### Competitions
+Daily leaderboards (5K, 10K, Half Marathon, Marathon, Steps), featured events, and captain-created Fitness Club competitions. Your workouts automatically qualify — no opt-in required.
 
-```
-Nostr Relays
-├── Profile Data (Kind 0)
-├── Workout Records (Kind 1301)
-└── Social Posts (Kind 1)
-```
+### Rewards Your Way
+Choose one destination for all your rewards: a charity (ALS Network, HRF, and 15+ more), an open source project (Bitcoin Beach, Bitcoin Ekasi), a service (PPQ.AI for AI credits), or your own wallet. Change anytime.
 
-### Bitcoin Rewards
-Earn satoshis for staying active:
-- **50 sats** per daily workout
-- **5 sats** per 1,000 steps
-- Rewards delivered to your Lightning address via LNURL
+### Works With Everything
+Any device or app connected to Apple Health or Health Connect syncs automatically. Strava, Nike Run Club, Garmin, Apple Watch, Fitbit, Google Fit — whatever you already use.
 
-### Mobile Stack
-- **Framework**: React Native + Expo
-- **Fitness**: Apple HealthKit integration
-- **State**: Zustand
-- **Real-time**: WebSocket connections to multiple Nostr relays
+### Track More Than Running
+Four activity categories: Cardio (run, walk, cycle, hike with GPS), Strength (pushups, pull-ups, sit-ups, squats, curls, bench), Wellness (meditation, breathwork, body scan, gratitude), and Mindfulness (journal, habits).
+
+### Fitness Clubs
+Pro subscribers create clubs with member leaderboards, real-time chat, and captain-hosted events. Captains earn rewards for each club member workout.
+
+### Sponsor-Funded Rewards
+Rewards are funded by sponsors, not RUNSTR. The Rewards page and push notifications show sponsor attribution — "You received a reward from [Sponsor] for your workout."
+
+### Privacy by Default
+No email, no phone number, no real name required. Your identity is a cryptographic keypair on your device. Workout data stays local until submitted for competitions. GPS coordinates are never published.
+
+---
+
+## Technical Stack
+
+- **Framework**: React Native + Expo + TypeScript
+- **Data Store**: Supabase (workouts, competitions, leaderboards, rewards, clubs)
+- **Identity**: Nostr via NDK (authentication, profiles, encrypted backups)
+- **Rewards**: LNURL protocol, sponsor-funded, routed to chosen destination
+- **Health Sync**: Apple HealthKit (background delivery), Google Health Connect (periodic sync), Garmin
+- **State**: Zustand + AsyncStorage (local-first, cache-first)
 
 ---
 
@@ -106,17 +80,14 @@ Earn satoshis for staying active:
 git clone https://github.com/RUNSTR-LLC/RUNSTR.git
 cd RUNSTR
 npm install
-npm run ios
+npx expo start
 ```
 
 ### Commands
 ```bash
-npm run start          # Development server
-npm run ios            # Run on iOS
-npm run android        # Run on Android
+npx expo start         # Start Metro bundler (port 8081)
 npm run typecheck      # TypeScript validation
 npm run lint           # Code linting
-npm test               # Run tests
 ```
 
 ### Project Structure
@@ -128,41 +99,41 @@ src/
 ├── store/          # Zustand state management
 ├── types/          # TypeScript definitions
 └── utils/          # Helper functions
-
-scripts/
-├── testing/        # Test scripts
-├── diagnostics/    # Debugging tools
-└── maintenance/    # Build & audit scripts
 ```
+
+### Documentation
+- [North Star.md](./North%20Star.md) — Product identity and direction
+- [ARCHITECTURE.md](./ARCHITECTURE.md) — System architecture
+- [USER_FLOW.md](./USER_FLOW.md) — User interaction maps
+- [CLAUDE.md](./CLAUDE.md) — Development context
+- [book/](./book/) — The RUNSTR Book (30 chapters)
 
 ---
 
 ## Contributing
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 **Key principles:**
 - Maximum 500 lines per file
-- No mock data—all features use live Nostr data
 - TypeScript compilation required before PR merge
+- All features use live data, no mocks
 
 ---
 
 ## Privacy & Security
 
-- **Your keys, your data**: Nostr private key stored securely on device, never transmitted
-- **Decentralized storage**: Workouts exist as Nostr events across relays you choose
-- **Lightning rewards**: Receive Bitcoin directly to your Lightning address
-- **Full portability**: Export your complete fitness history anytime
+- **Your keys, your data**: Private key stored securely on device, never transmitted
+- **Local-first**: Workouts live on your device until submitted for competitions
+- **Encrypted backups**: Export your data encrypted to Nostr relays (only you can decrypt)
+- **No tracking**: No email, no phone, no ad identifiers
 
 ---
 
 ## Community
 
 - **Website**: [runstr.club](https://www.runstr.club/)
-- **Nostr**: [npub1vygzr6...](https://njump.me/npub1vygzr642y6f8gxcjx6auaf2vd25lyzarpjkwx9kr4y752zy6058s8jvy4e)
 - **GitHub Issues**: Bug reports and feature requests welcome
-- **Lightning Tips**: Support development via Lightning
 
 ---
 
@@ -172,4 +143,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-**RUNSTR** — Your workout should pay you, not the app developer.
+**RUNSTR** — Fitness rewards, your way.

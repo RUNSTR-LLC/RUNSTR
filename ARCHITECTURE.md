@@ -1,5 +1,7 @@
 # RUNSTR Architecture
 
+> **For product identity and direction, see [North Star.md](./North%20Star.md)**
+
 ## System Overview
 
 ```
@@ -9,7 +11,7 @@
 |  React Native (Expo) + TypeScript                                |
 |                                                                   |
 |  +-----------+  +----------+  +---------+                        |
-|  | Profile   |  | Teams    |  | Rewards |   <- 3 Bottom Tabs     |
+|  | Profile   |  | Clubs    |  | Rewards |   <- 3 Bottom Tabs     |
 |  | Tab       |  | Tab      |  | Tab     |                        |
 |  +-----------+  +----------+  +---------+                        |
 |        |              |             |                              |
@@ -41,21 +43,21 @@ AsyncStorage: nsec/npub present?
   |                     |
   v                     v
 LoginScreen         AppInitialization
-  |                     |
-  v                     +---> GlobalNDKService.initialize()  (4 relay connections)
-Enter nsec              +---> Load profile from cache/Nostr  (kind 0)
-  |                     +---> Prefetch charity list, competitions
-  v                     +---> Start step counter
-Derive npub             |
-Store in AsyncStorage   v
-  |                  BottomTabNavigator
-  v                     |
-MainTabs             3 Tabs ready
+(Tap "Start" for     |
+anonymous use, or    +---> GlobalNDKService.initialize()  (4 relay connections)
+"Advanced" to log    +---> Load profile from cache/Nostr  (kind 0)
+in with nsec/Amber)  +---> Prefetch destinations, competitions
+  |                  +---> Start step counter
+  v                  +---> Register background health sync
+MainTabs                |
+                     BottomTabNavigator
+                        |
+                     3 Tabs ready
 ```
 
 ## Navigation Architecture
 
-The runtime navigator is `AuthenticatedNavigator` defined inline in `App.tsx` (lines 672-1169).
+The runtime navigator is `AuthenticatedNavigator` defined inline in `App.tsx`.
 `AppNavigator.tsx` is a legacy file used **only** for the Login screen.
 
 ```
@@ -75,20 +77,19 @@ App.tsx
                                 |
                                 +-- Login (unauthenticated, via AppNavigator)
                                 |
-                                +-- Main (authenticated, via AuthenticatedNavigator in App.tsx)
+                                +-- Main (authenticated, via AuthenticatedNavigator)
                                 |    |
                                 |    +-- BottomTabNavigator
                                 |         |
                                 |         +-- Profile Tab (eager load)
-                                |         +-- Teams Tab   (React.lazy)
+                                |         +-- Clubs Tab   (React.lazy)
                                 |         +-- Rewards Tab (React.lazy)
                                 |
                                 +-- Modal Screens (~21 reachable)
                                      |
                                      +-- Activity Tracking
-                                     |    +-- ActivityTrackerScreen (uses SwipeGridNavigator
-                                     |    |     to switch between running/walking/cycling/
-                                     |    |     hiking/strength inline -- NOT separate routes)
+                                     |    +-- ActivityTrackerScreen (SwipeGridNavigator
+                                     |    |     for cardio/strength/wellness/mindfulness)
                                      |    +-- StepsDisplayScreen
                                      |    +-- ManualEntryScreen
                                      |
@@ -100,22 +101,22 @@ App.tsx
                                      |    +-- JanuaryWalkingDetailScreen
                                      |    +-- RunningBitcoinDetailScreen
                                      |
-                                     +-- User/Settings Screens
-                                     |    +-- SettingsScreen
-                                     |    +-- ProfileEditScreen
-                                     |    +-- WorkoutHistoryScreen
-                                     |    +-- AdvancedAnalyticsScreen
-                                     |    +-- AIHealthDashboardScreen
-                                     |    +-- WalletScreen
-                                     |    +-- JournalHistoryScreen
-                                     |    +-- HelpSupportScreen
-                                     |    +-- ContactSupportScreen
-                                     |    +-- PrivacyPolicyScreen
+                                     +-- Fitness Club Screens
+                                     |    +-- ClubsScreen (browse/join clubs)
+                                     |    +-- ClubPageScreen (club detail + chat)
+                                     |    +-- CaptainDashboardScreen
                                      |
-                                     +-- Dead screens (registered but unreachable)
-                                          CompetitionsList, MyTeams, SavedRoutes,
-                                          HealthProfile, SatlantisDiscovery, Events,
-                                          Experimental, Donate
+                                     +-- User/Settings Screens
+                                          +-- SettingsScreen
+                                          +-- ProfileEditScreen
+                                          +-- WorkoutHistoryScreen
+                                          +-- AdvancedAnalyticsScreen
+                                          +-- AIHealthDashboardScreen
+                                          +-- WalletScreen
+                                          +-- JournalHistoryScreen
+                                          +-- HelpSupportScreen
+                                          +-- ContactSupportScreen
+                                          +-- PrivacyPolicyScreen
 ```
 
 ## State Management
@@ -132,15 +133,15 @@ App.tsx
 |  +------------------------------------+  |
 |  +------------------------------------+  |
 |  | NavigationDataContext               |  |
-|  |   user, teams, competitions,        |  |
+|  |   user, destinations, competitions, |  |
 |  |   wallet, prefetched data           |  |
 |  +------------------------------------+  |
 |                                          |
 |  Zustand Stores (client state)           |
 |  +------------------------------------+  |
 |  | walletStore  - NWC balance, txns    |  |
-|  | userStore    - preferences, team    |  |
-|  | teamStore    - local membership     |  |
+|  | userStore    - preferences, dest    |  |
+|  | teamStore    - club membership      |  |
 |  | musicStore   - Wavlake playback     |  |
 |  +------------------------------------+  |
 |                                          |
@@ -153,6 +154,8 @@ App.tsx
 |  | @runstr:reward_lightning_address    |  |
 |  | @runstr:last_reward_date            |  |
 |  | @runstr:total_rewards_earned        |  |
+|  | @runstr:subscription_tier           |  |
+|  | @runstr:club_id                     |  |
 |  | local_workouts (array)              |  |
 |  | @runstr:event_joins                 |  |
 |  | + cache keys with TTLs             |  |
@@ -171,9 +174,11 @@ App.tsx
 
 ## Service Architecture
 
-Services are organized by domain under `src/services/`. Each service is a singleton or static class. The key principle: **services never import screens or components** -- data flows up via contexts, stores, and callbacks.
+Services are organized by domain under `src/services/`. Each service is a singleton or static class. Key principle: **services never import screens or components** — data flows up via contexts, stores, and callbacks.
 
-### Nostr Services
+### Nostr Services (Identity Layer)
+
+Nostr is the invisible identity layer. Users never see "Nostr" in the UI.
 
 ```
 GlobalNDKService (SINGLETON - one NDK instance for entire app)
@@ -184,22 +189,11 @@ GlobalNDKService (SINGLETON - one NDK instance for entire app)
   |    wss://relay.primal.net
   |    wss://relay.nostr.band
   |
-  +---> NostrProfileService        (fetch/publish kind 0 profiles)
-  +---> NostrProfilePublisher      (update profile metadata)
-  +---> workoutPublishingService   (submit workouts to Supabase, publish kind 1 social posts)
+  +---> NostrProfileService        (fetch kind 0 profiles — read)
+  +---> NostrProfilePublisher      (update profile metadata — write)
+  +---> workoutPublishingService   (submit workouts to Supabase, optional kind 1 social posts)
   +---> NostrSubscriptionManager   (real-time event subscriptions)
 ```
-
-**Dead services** (exist in codebase but have 0-1 real consumers):
-- `SimpleNostrService` -- 1 import (DeleteAccountService only); effectively unused
-- `HttpNostrQueryService` -- Part of dead HybridNostrQueryService chain; 0 real consumers
-- `HybridNostrQueryService` -- 0 real consumers
-
-**Legacy Nostr query paths** (services with many imports but whose Nostr queries are not the active runtime path):
-- `SimpleCompetitionService` (24 imports) -- Has kind 30100/30101 query code, but events are hardcoded
-- `SimpleLeaderboardService` (25 imports) -- Has kind 1301 Nostr query code, but workouts come from Supabase
-- `NdkTeamService` (17 imports) -- Has kind 33404 query code, but returns hardcoded teams
-- `NostrTeamService` (37 imports) -- Wrapper around NdkTeamService
 
 **Rule:** ALL Nostr access goes through `GlobalNDKService.getInstance()`. Never create new NDK or relay manager instances.
 
@@ -211,7 +205,7 @@ BackupService (kind 30078 encrypted export)
   +-- Compresses with gzip (NIP-44 has 64KB limit)
   +-- Encrypts with NIP-44 self-encryption (user's own pubkey)
   +-- Publishes kind 30078 to relays (damus, nos.lol, nostr.band)
-  +-- Tags include metadata (workout_count, date_range) but content is encrypted
+  +-- Auto-triggers after each workout save
 
 RestoreService (kind 30078 encrypted import)
   +-- Fetches kind 30078 from relays by d-tag "runstr-workout-backup"
@@ -236,9 +230,13 @@ Workout Storage:
   LocalWorkoutStorageService   AsyncStorage persistence (primary store)
   SimpleWorkoutService         Workout operations and local management
 
-Health Integrations:
+Health Integrations (Background Sync):
   healthKitService             Apple HealthKit (iOS)
+  HealthKitBackgroundService   Background delivery — wakes app on new workouts
+  HealthKitBackgroundTask      Registered at boot, runs before app initializes
   healthConnectService         Google Health Connect (Android)
+  AndroidBackgroundSyncTask    15-minute periodic sync via WorkManager
+  BackgroundSyncRegistration   Register/unregister on login/logout
   garminAuthService            Garmin OAuth
   garminActivityService        Garmin workout import
 ```
@@ -247,18 +245,31 @@ Health Integrations:
 
 ```
 Reward Flow:
-  DailyRewardService           50 sats/day eligibility tracking
-  StepRewardService            5 sats/1k steps tracking
-  RewardDestinationService     Route to user or charity address
-  NWCGatewayService            Nostr Wallet Connect for payments
-  SupabaseRewardService        Query verified payments from DB + impact data
-  RewardsTransparencyService   Global reward pool + charity leaderboards
+  DailyRewardService           Reward eligibility tracking (one per day)
+  RewardDestinationService     Route to user, charity, project, or service
+  SponsorService               Fetch active sponsor from Supabase (Zapvertising)
+  SupabaseRewardService        Query verified payments from DB
+  RewardsTransparencyService   Global reward pool + destination leaderboards
   RewardPollingService         Poll for confirmed payments
-  RewardNotificationManager    Toast notifications for rewards
+  RewardNotificationManager    Push/toast notifications with sponsor attribution
 
 Note: Actual reward PAYMENTS are processed by an external service
 that monitors Supabase, not by the app itself. The app tracks
-eligibility and displays results.
+eligibility and displays results. Rewards are sponsor-funded.
+```
+
+### Subscription & Club Services
+
+```
+Subscriptions:
+  SubscriptionService          Query tier from Supabase (free/supporter/pro)
+                               1-hour cache, gates club creation and boosted rewards
+
+Fitness Clubs (Supabase-backed):
+  ClubService                  CRUD operations on user_teams table
+  ClubMembershipService        Join/leave clubs, role management (member/captain)
+  ClubChatService              Real-time chat via Supabase Realtime
+  ClubWalletService            Club-level wallet management
 ```
 
 ### Competition & Leaderboard Services
@@ -266,46 +277,43 @@ eligibility and displays results.
 ```
 Competition Management (ALL Supabase-based at runtime):
   SupabaseCompetitionService     Submit workouts, query leaderboards
-  DailyLeaderboardService        Daily workout leaderboards
+  DailyLeaderboardService        Built-in daily leaderboards (5K/10K/Half/Marathon/Steps)
   StepCompetitionService         Step-based competitions
   PendingSubmissionService       Retry failed Supabase submissions
   LeaderboardBaselineService     Pre-compute baselines for long events
+  AutoJoinService                Auto-join matching competitions on workout submit
 
-  Note: SimpleCompetitionService and SimpleLeaderboardService exist with
-  Nostr query code (kinds 30100/30101/1301), but these are legacy paths.
-  All active competition data flows through Supabase.
-
-Hooks:
-  useSupabaseLeaderboard         Primary leaderboard data hook (Supabase queries)
-
-Hardcoded Challenges:
-  EinundzwanzigService           Einundzwanzig challenge (Germany)
+Hardcoded Events:
+  EinundzwanzigService           Einundzwanzig challenge
   JanuaryWalkingService          January Walking contest
   RunningBitcoinService          Running Bitcoin challenge
+
+Direction: Moving toward user-created competitions via Fitness Clubs.
+Daily leaderboard stays built-in.
 ```
 
-### Team & Charity Services
+### Reward Destination Services
 
 ```
-  Charities are hardcoded in constants/charities.ts (17 organizations)
-  User selects a charity -> stored in AsyncStorage (@runstr:selected_team_id)
-  Charity tag embedded in workout submissions to Supabase
+  Destinations are hardcoded in constants/charities.ts (20+ organizations)
+  User selects a destination -> stored in AsyncStorage (@runstr:selected_team_id)
+  Destination tag embedded in workout submissions to Supabase
 
-  Service chain:
-    NdkTeamService (primary)    Returns hardcoded teams (kind 33404 query disabled for performance)
-    NostrTeamService (wrapper)  Compatibility layer, delegates to NdkTeamService
-    charities.ts (constants)    17 charity definitions with Lightning addresses
+  Categories:
+    Charities    - ALS Network, HRF, Bitcoin Veterans, etc.
+    Projects     - Bitcoin Beach, Bitcoin Ekasi, Bitcoin Isla, etc.
+    Services     - PPQ.AI (rewards become AI credits)
+    Self         - User's own wallet
 ```
 
 ### Auth & Identity Services
 
 ```
-  authService                  Nostr login/logout, key management
-  SecureNsecStorage            Secure nsec storage
-  UnifiedSigningService        Unified signing across providers
+  authService                  Login/logout, key management
+  SecureNsecStorage            Secure nsec storage in device keychain
+  UnifiedSigningService        Unified signing across providers (nsec, Amber)
   directNostrProfileService    Fetch profiles directly from Nostr
-  WoTService                   Web of Trust for reputation
-  VerificationService          Workout authenticity verification
+  VerificationService          Per-workout anti-cheat verification
 ```
 
 ### Cache Layer
@@ -321,6 +329,8 @@ Hardcoded Challenges:
     Profiles:     24 hours
     Leaderboards:  5 minutes
     Wallet:       30 seconds
+    Subscriptions: 1 hour
+    Sponsors:     30 minutes
 ```
 
 ## Workout Lifecycle
@@ -332,10 +342,10 @@ This is the most important data flow in the app.
    ProfileScreen -> "Start Workout" button
      |
      v
-   ActivityTrackerScreen (SwipeGridNavigator switches activity type inline)
+   ActivityTrackerScreen (SwipeGridNavigator: cardio/strength/wellness/mindfulness)
      |
      v
-   SimpleRunTracker.startTracking()
+   SimpleRunTracker.startTracking() [for cardio]
      +-- Request location permission
      +-- Start expo-location background updates
      +-- Collect GPS points every 1-3 seconds
@@ -351,7 +361,6 @@ This is the most important data flow in the app.
 
 3. AUTO-SUBMIT TO SUPABASE
    ALL cardio workouts with distance > 0 are automatically submitted.
-   There is no opt-in/opt-out -- every valid workout goes to Supabase.
      |
      v
    SupabaseCompetitionService.submitWorkoutSimple()
@@ -359,28 +368,34 @@ This is the most important data flow in the app.
      +-- Server validates: distance, duration, anti-cheat flags
      +-- Stored in Supabase workouts table
      +-- Leaderboard rankings update automatically
+     +-- Database trigger fires claim-reward Edge Function
 
    Kind 1301 event is created locally for tag structure and signing,
    but is NOT published to Nostr relays. Supabase is the single
    source of truth for competition data.
 
-4. REWARD ELIGIBILITY CHECK
+4. REWARD AUTO-TRIGGERED
      |
      v
-   DailyRewardService.checkRewardEligibility()
-     +-- Is this a cardio workout? (running/walking/cycling)
-     +-- Was a reward already claimed today?
-     +-- Is distance >= 1 km?
-     +-- Set @runstr:last_reward_date BEFORE payment (atomic)
-     |
-     v
-   External reward service reads workout from Supabase
-     +-- Validates workout authenticity
-     +-- Reads reward_destination tag (user or charity)
-     +-- Sends 50 sats via LNURL to Lightning address
+   Database trigger on workout_submissions INSERT:
+     +-- Reads reward destination tag (user, charity, project, or service)
+     +-- Reads Lightning address from tags
+     +-- Calls claim-reward Edge Function
+     +-- Sends reward via LNURL to destination's address
      +-- Records payment in reward_payments table
 
-5. OPTIONAL: SHARE AS SOCIAL POST
+5. BACKGROUND SYNC PATH (No App Interaction Required)
+     |
+     v
+   User works out with ANY HealthKit/Health Connect app
+     +-- iOS: HealthKit background delivery wakes RUNSTR
+     +-- Android: 15-minute periodic sync via WorkManager
+     +-- Fetch recent workouts from health platform
+     +-- Auto-submit to Supabase
+     +-- Auto-join matching competitions
+     +-- Reward auto-triggered via same database trigger
+
+6. OPTIONAL: SHARE AS SOCIAL POST
      |
      v
    workoutPublishingService.publishWorkout()
@@ -388,9 +403,8 @@ This is the most important data flow in the app.
      +-- Generate achievement card image
      +-- Upload card to Blossom
      +-- Publish to relays via GlobalNDKService
-     +-- WoT-gated: requires trust score > 0
 
-6. KIND 1301 EVENT STRUCTURE (created locally, submitted to Supabase)
+7. KIND 1301 EVENT STRUCTURE (created locally, submitted to Supabase)
    {
      kind: 1301,
      content: "Running workout - 5.2 km in 30:45",
@@ -413,10 +427,8 @@ This is the most important data flow in the app.
 
 ## Encrypted Backup System
 
-The app supports encrypted backup and restore of all user data via Nostr kind 30078 events.
-
 ```
-EXPORT (BackupService)
+EXPORT (BackupService — auto-triggers after each workout)
   |
   v
 Collect local data:
@@ -424,7 +436,7 @@ Collect local data:
   +-- Step history
   +-- Habits (with streaks)
   +-- Journal entries
-  +-- User preferences (unit system, selected charity)
+  +-- User preferences (unit system, selected destination)
   |
   v
 Compress with gzip (NIP-44 has 64KB payload limit)
@@ -434,17 +446,6 @@ Encrypt with NIP-44 (self-encryption to user's own pubkey)
   |
   v
 Publish kind 30078 to relays (damus, nos.lol, nostr.band)
-  Tags: [
-    ["d", "runstr-workout-backup"],
-    ["client", "RUNSTR", "<version>"],
-    ["encrypted", "nip44"],
-    ["compression", "gzip"],
-    ["backup_version", "1"],
-    ["workout_count", "<count>"],
-    ["habit_count", "<count>"],
-    ["journal_count", "<count>"],
-    ["date_range", "<oldest>", "<newest>"]
-  ]
   Content: <NIP-44 encrypted + gzipped JSON>
 
 IMPORT (RestoreService)
@@ -464,70 +465,60 @@ Restore to local storage (workouts, habits, journal, preferences)
 
 **Key properties:**
 - Only the user can decrypt their backup (NIP-44 self-encryption)
-- Tags are public metadata (workout count, date range) but content is fully encrypted
-- Kind 30078 is a replaceable parameterized event -- newer backups overwrite older ones
+- Kind 30078 is a replaceable parameterized event — newer backups overwrite older ones
 - Works with both nsec (direct) and Amber (external signer)
-- Export/Import buttons available in Settings screen
+- Auto-backup after every workout save
 
 ## Additional Features
 
-These features are complete and active in the app but sit outside the four core pillars.
-
 ### AI Chat + Journal/Habit Tracker (PPQ.AI)
 
-Claude Haiku 4.5 via PPQ.AI API, pay-per-query via Lightning.
+Claude Haiku 4.5 via PPQ.AI API.
 
 - **AI Chat Coach**: Multi-turn conversational AI with weekly summaries, trend analysis, personalized tips
 - **Journal**: Daily entries with mood (5 levels) and energy (1-5 scale), tag support, streak tracking
 - **Habits**: Check-in system with streaks (abstinence + positive types), 8 predefined templates + custom
 
-Files: `services/ai/`, `services/journal/`, `services/habits/`, `components/ai/`, `components/coach/`, `components/journal/`, `AIHealthDashboardScreen`
-
 ### Music Integration (Wavlake + Blossom)
 
-- **Wavlake**: Stream top tracks, genre browsing, Lightning zaps to artists
+- **Wavlake**: Stream top tracks, genre browsing, tip artists
 - **Blossom**: Personal audio library from Blossom servers
 - Full playback controls, queue management, mini player
-
-Files: `services/music/` (10 services), `components/music/` (14 components), `store/musicStore.ts`
 
 ### Internationalization
 
 - English + German via i18next
 - Device language detection
 
-Files: `i18n/`, `services/i18n/`
-
 ### Transparency Dashboard
 
-- Public rewards pool balance and payout breakdown
-- Charity payout leaderboard, pending batches
+- Public reward pool balance and payout breakdown
+- Destination payout leaderboard, pending batches
 - Period filtering (daily/weekly/monthly/all-time)
 
-Files: `components/rewards/TransparencyDashboardModal.tsx` + 6 sub-components, `services/rewards/RewardsTransparencyService.ts`
-
-### External Wallet Zaps (Nutzap)
-
-- Generate invoices from Lightning addresses
-- Deep links to external wallets (Cash App, Strike, etc.)
-- Direct charity donations
-
-Files: `components/nutzap/`
-
-### Charity Payment Routing
-
-- Route reward payments to user or charity Lightning address
-- Batch accumulation for Geyser.fund addresses (minimum threshold)
-- Retry logic for failed payments
-
-Files: `config/charityPayments.ts`, `services/rewards/RewardDestinationService.ts`
-
-## Feature Flags
+## Sponsor System (Zapvertising)
 
 ```
-AUTO_COMPETE_FEATURE_ENABLED = false    Auto-publish to Nostr disabled; workouts still auto-submit to Supabase
-Kind 33404 team discovery               Disabled in NdkTeamService (returns hardcoded teams for performance)
+Supabase reward_sponsors table
+  +-- name, logo_url, website_url, display_text, is_active
+  |
+  v
+SponsorService.getActiveSponsor()
+  +-- Fetches active sponsor (30-minute cache)
+  +-- Fallback to RUNSTR default if unavailable
+  |
+  v
+SponsorBanner (Rewards page)
+  +-- "This month's rewards are brought to you by [Sponsor]"
+  +-- Tappable link to sponsor website
+  |
+  v
+Push Notifications (Zapvertising)
+  +-- "You received a reward from [Sponsor] for your workout"
+  +-- Branded attribution alongside reward amount
 ```
+
+Sponsors fund the reward pool. Configurable via Supabase — no app rebuild needed.
 
 ## Reward Payment Flow
 
@@ -538,20 +529,21 @@ Kind 33404 team discovery               Disabled in NdkTeamService (returns hard
 +-------------------+     +--------------------+     +------------------+
          |                         |                         |
   User completes workout           |                         |
+  (or background sync)             |                         |
          |                         |                         |
   Save locally ------------------>  |                         |
          |              submit-workout Edge Function          |
          |                    validates + stores              |
          |                         |                         |
-         |                         |    Monitors workouts    |
-         |                         |<------------------------|
+         |                  DB trigger fires                  |
+         |                  claim-reward function             |
          |                         |                         |
+         |                         |  Reads destination tag  |
          |                         |  Reads Lightning addr   |
-         |                         |  Reads reward_dest tag  |
          |                         |------------------------>|
          |                         |                         |
-         |                         |              Sends sats via LNURL
-         |                         |              to user or charity
+         |                         |              Sends reward via LNURL
+         |                         |              to chosen destination
          |                         |                         |
          |                         |  Records payment        |
          |                         |<------------------------|
@@ -560,7 +552,8 @@ Kind 33404 team discovery               Disabled in NdkTeamService (returns hard
   polls for new payments           |                         |
          |<------------------------|                         |
          |                                                   |
-  Show toast: "You earned 50 sats!"                         |
+  Push notification:                                         |
+  "You received a reward from [Sponsor]"                     |
 ```
 
 ## Competition & Leaderboard Flow
@@ -570,7 +563,8 @@ Kind 33404 team discovery               Disabled in NdkTeamService (returns hard
 |   RUNSTR App      |     | Supabase Backend   |
 +-------------------+     +--------------------+
          |                         |
-  User completes cardio workout    |
+  Workout submitted                |
+  (GPS, health sync, or manual)    |
          |                         |
   Auto-submit to Supabase          |
          |   submitWorkoutSimple() |
@@ -578,7 +572,7 @@ Kind 33404 team discovery               Disabled in NdkTeamService (returns hard
          |                         |  updated
          |                         |
          |                         |  Anti-cheat validation:
-         |                         |  max speed, impossible
+         |                         |  pace limits, impossible
          |                         |  distances, duplicate
          |                         |  detection
          |                         |
@@ -588,38 +582,38 @@ Kind 33404 team discovery               Disabled in NdkTeamService (returns hard
          |                         |  for event period
          |<------------------------|  Ranked results
          |                         |
-  Display:                         |
-  #1 Alice  87.1 km  10 runs      |
-  #2 Bob    83.1 km   7 runs      |
-  #3 Carol  45.0 km  15 runs      |
+  Display daily leaderboard:       |
+  5K:    #1 Alice  18:42           |
+  10K:   #1 Bob    41:15           |
+  Steps: #1 Carol  12,450          |
 ```
 
-## Team/Charity Selection Flow
+## Reward Destination Selection Flow
 
 ```
-User opens Teams tab
+User opens Rewards tab or onboarding
   |
   v
-Load hardcoded charities from constants/charities.ts
-  +-- 17 preset organizations with Lightning addresses
-  +-- Includes: ALS Network, HRF, Bitcoin Bay, Afribit Kibera, etc.
-  +-- Special: PPQ.AI team (rewards go to AI credits, not sats)
+RewardDestinationPicker modal
+  +-- YOU (rewards to your wallet)
+  +-- CHARITIES (ALS Network, HRF, etc.)
+  +-- PROJECTS (Bitcoin Beach, Bitcoin Ekasi, etc.)
+  +-- SERVICES (PPQ.AI → AI credits)
   |
   v
-User selects charity (e.g., "ALS Network")
+User selects one destination (e.g., "ALS Network")
   |
   v
 Store in AsyncStorage (@runstr:selected_team_id)
   |
   v
-On next workout, charity tag embedded in Supabase submission:
+On next workout, destination tag embedded in Supabase submission:
   ["team", "als-foundation"]
-  ["charity", "als-foundation", "ALS Network", "RunningBTC@primal.net"]
+  ["reward_destination", "charity"]
   |
   v
-External reward service reads charity tag
-  +-- If reward_destination = "charity" -> pay charity Lightning address
-  +-- If reward_destination = "user" -> pay user Lightning address
+External reward service reads destination tag
+  +-- Routes reward to destination's address
 ```
 
 ## External Systems
@@ -629,45 +623,48 @@ External reward service reads charity tag
 |                     External Dependencies                         |
 +------------------------------------------------------------------+
 |                                                                   |
-|  NOSTR PROTOCOL                                                   |
+|  NOSTR PROTOCOL (Identity Layer — invisible to users)             |
 |  +------------------------------------------------------------+  |
 |  | NDK (@nostr-dev-kit/ndk) - ONLY Nostr library allowed      |  |
 |  | 4 Relays: damus, nos.lol, primal, nostr.band               |  |
 |  | Event Kinds:                                                |  |
 |  |   kind 0     - Profile metadata (read + write)             |  |
 |  |   kind 1     - Social posts for workout shares (write)     |  |
-|  |   kind 5     - Deletion requests (write)                   |  |
 |  |   kind 1301  - Workout structure (local only, NOT          |  |
 |  |                published to relays; submitted to Supabase)  |  |
 |  |   kind 30078 - Encrypted backup (write, NIP-44)            |  |
 |  +------------------------------------------------------------+  |
 |                                                                   |
-|  SUPABASE (PostgreSQL)                                            |
+|  SUPABASE (Primary Data Store)                                    |
 |  +------------------------------------------------------------+  |
 |  | Tables:                                                     |  |
-|  |   workouts             - Submitted competition workouts     |  |
-|  |   event_participants   - Who joined which competition       |  |
+|  |   workout_submissions  - Submitted workouts                 |  |
+|  |   competitions         - Events and competitions            |  |
 |  |   reward_payments      - Verified payment records           |  |
-|  |   charity_payments     - Charity donation tracking          |  |
+|  |   reward_sponsors      - Active sponsor configuration       |  |
+|  |   subscribers          - Subscription tiers (free/sup/pro)  |  |
+|  |   user_teams           - Fitness Clubs                      |  |
+|  |   club_memberships     - Club member/captain roles          |  |
+|  |   club_messages        - Club chat messages                 |  |
 |  |   profiles             - User metadata cache                |  |
 |  | Edge Functions:                                             |  |
 |  |   submit-workout       - Validate + store workouts          |  |
 |  |   claim-reward         - Process reward claims              |  |
-|  |   sync-nostr-workouts  - Mirror Nostr data                  |  |
-|  |   retry-pending-payments - Retry failed payments            |  |
+|  |   manage-club          - Club CRUD operations               |  |
+|  |   manage-competition   - Club event creation                |  |
 |  +------------------------------------------------------------+  |
 |                                                                   |
-|  HEALTH PLATFORMS                                                 |
+|  HEALTH PLATFORMS (Background Sync)                               |
 |  +------------------------------------------------------------+  |
-|  | Apple HealthKit     - Workouts, steps, heart rate (iOS)     |  |
-|  | Google Health Connect - Workouts, steps (Android 14+)       |  |
+|  | Apple HealthKit     - Background delivery on new workouts   |  |
+|  | Google Health Connect - 15-min periodic sync                |  |
 |  | Garmin Connect      - OAuth + activity import               |  |
 |  +------------------------------------------------------------+  |
 |                                                                   |
-|  LIGHTNING NETWORK                                                |
+|  REWARD DELIVERY                                                  |
 |  +------------------------------------------------------------+  |
-|  | LNURL-Pay Protocol  - Reward delivery to Lightning address  |  |
-|  | NWC (optional)      - Wallet balance display in-app         |  |
+|  | LNURL-Pay Protocol  - Reward delivery to destination addr   |  |
+|  | Sponsor-funded      - Rewards come from sponsors, not app   |  |
 |  | Supported wallets: Alby, Strike, Cash App, WoS, Phoenix    |  |
 |  +------------------------------------------------------------+  |
 |                                                                   |
@@ -675,7 +672,7 @@ External reward service reads charity tag
 |  +------------------------------------------------------------+  |
 |  | Blossom             - Image upload for achievement cards     |  |
 |  | PPQ.ai              - AI models (coach, image generation)   |  |
-|  | Wavlake             - Bitcoin-native music streaming         |  |
+|  | Wavlake             - Music streaming                       |  |
 |  +------------------------------------------------------------+  |
 +------------------------------------------------------------------+
 ```
@@ -706,7 +703,19 @@ interface User {
   hexPubkey: string;       // hex public key
   name: string;
   picture?: string;
-  lud16?: string;          // Lightning address
+  lud16?: string;          // Lightning address (for reward delivery)
+}
+
+// Fitness Club
+interface Club {
+  id: string;
+  name: string;
+  description: string | null;
+  lightning_address: string | null;
+  created_by_npub: string;     // Captain
+  member_count: number;
+  is_active: boolean;
+  leaderboard_metric: 'distance' | 'steps';
 }
 
 // Competition structure
@@ -716,160 +725,30 @@ interface Competition {
   activityType: string;    // running, walking, cycling, mixed
   startDate: string;
   endDate: string;
+  scoringType: 'fastest_time' | 'total_distance' | 'completion' | 'total_steps';
 }
-
-// Leaderboard entry
-interface LeaderboardEntry {
-  rank: number;
-  npub: string;
-  name: string;
-  score: number;           // distance in km or count
-  workoutCount: number;
-}
-```
-
-## Project File Structure
-
-```
-runstr.project/
-|
-+-- src/
-|   +-- App.tsx                    Root component, error boundary, auth check
-|   +-- screens/                   Screen components
-|   |   +-- ProfileScreen.tsx      Main profile + workout dashboard
-|   |   +-- TeamsScreen.tsx        Charity/team browser
-|   |   +-- RewardsScreen.tsx      Earnings dashboard
-|   |   +-- LoginScreen.tsx        Nostr nsec authentication
-|   |   +-- SettingsScreen.tsx     App preferences + backup export/import
-|   |   +-- activity/              GPS trackers (running, walking, cycling, etc.)
-|   |   +-- events/                Hardcoded event detail screens
-|   |   +-- season2/               Season II competition
-|   |   +-- routes/                Saved GPS routes
-|   |
-|   +-- components/                Reusable UI (<500 lines each)
-|   |   +-- ui/                    Card, Button, Avatar, BottomNavigation
-|   |   +-- activity/              Workout cards, step rings, hold-to-start
-|   |   +-- profile/               Profile header, workout tabs, workout cards
-|   |   +-- rewards/               Reward cards, earnings display, transparency
-|   |   +-- team/                  Team cards, charity section
-|   |   +-- compete/               Leaderboard content
-|   |   +-- coach/                 AI coaching components
-|   |   +-- backup/                Backup export/import UI
-|   |   +-- routes/                Route selection modal
-|   |
-|   +-- services/                  Services across domains
-|   |   +-- nostr/                 GlobalNDKService, profiles, publishing
-|   |   +-- fitness/               Workout storage, health integrations
-|   |   +-- activity/              GPS tracking, step counting, metrics
-|   |   +-- rewards/               Daily rewards, step rewards, Lightning
-|   |   +-- competition/           Leaderboards, Supabase competition ops
-|   |   +-- backend/               Supabase operations
-|   |   +-- backup/                Encrypted backup (kind 30078, NIP-44)
-|   |   +-- cache/                 Multi-layer caching system
-|   |   +-- auth/                  Authentication providers
-|   |   +-- verification/          Anti-cheat, workout verification
-|   |   +-- challenge/             Hardcoded challenges
-|   |   +-- ai/                    PPQ.ai integration
-|   |   +-- core/                  App initialization, state management
-|   |   +-- i18n/                  Internationalization
-|   |
-|   +-- navigation/                App navigation configuration
-|   |   +-- AppNavigator.tsx       Legacy: Login screen only (runtime nav is in App.tsx)
-|   |   +-- BottomTabNavigator.tsx 3-tab navigation
-|   |   +-- screenConfigurations.ts Screen options and transitions
-|   |   +-- navigationHandlers.ts  Shared navigation callbacks
-|   |
-|   +-- contexts/                  React Context providers
-|   |   +-- AuthContext.tsx         (provided at App.tsx level -- not a file)
-|   |   +-- NavigationDataContext.tsx  Data prefetching context
-|   |
-|   +-- store/                     Zustand state stores
-|   |   +-- walletStore.ts         NWC wallet state
-|   |   +-- userStore.ts           User preferences
-|   |   +-- teamStore.ts           Team membership
-|   |   +-- musicStore.ts          Music playback
-|   |
-|   +-- types/                     TypeScript definitions
-|   |   +-- workout.ts             Workout, WorkoutType, WorkoutSource
-|   |   +-- season2.ts             Competition types
-|   |   +-- transparencyDashboard.ts  Reward transparency types
-|   |
-|   +-- constants/                 Hardcoded configuration
-|   |   +-- appConstants.ts        Feature flags
-|   |   +-- charities.ts           17 charity definitions + Lightning addresses
-|   |   +-- season2.ts             Season II config
-|   |   +-- einundzwanzig.ts       Challenge configs
-|   |
-|   +-- utils/                     Helper functions
-|   |   +-- nostr.ts               npub/hex conversion
-|   |   +-- supabase.ts            Supabase client
-|   |   +-- distanceFormatter.ts   km/mi formatting
-|   |   +-- KalmanFilter.ts        GPS smoothing
-|   |   +-- PerformanceLogger.ts   Startup timing
-|   |
-|   +-- styles/                    Theme system (dark theme)
-|   +-- i18n/                      Translation files
-|
-+-- supabase/
-|   +-- functions/                 Edge Functions (server-side)
-|   |   +-- submit-workout/        Validate + store workouts
-|   |   +-- claim-reward/          Process reward claims
-|   |   +-- sync-nostr-workouts/   Mirror Nostr workout data
-|   |   +-- retry-pending-payments/ Retry failed Lightning payments
-|   +-- migrations/                Database schema (125+ migrations)
-|
-+-- ios/                           iOS native project (Xcode)
-+-- android/                       Android native project (Gradle)
-+-- book/                          Product documentation (16 chapters)
-+-- docs/                          Technical documentation
-+-- scripts/                       Build and diagnostic scripts
-+-- assets/                        Images, fonts, charity logos
 ```
 
 ## Architectural Principles
 
-1. **File size limit: 500 lines** -- Split anything larger into focused modules
-2. **Global NDK singleton** -- One NDK instance, 4 relay connections, used everywhere
-3. **Local-first** -- Save to AsyncStorage immediately, sync to backend in background
-4. **Cache-first rendering** -- Show cached data instantly, refresh in background
-5. **Silent reward failures** -- Rewards never block workout saving or user flow
-6. **Cardio focus** -- Running, walking, cycling are core; strength/diet/meditation are experimental
-7. **Teams = Charities** -- Not social groups; selecting a team means supporting a charity. Charities are hardcoded in `constants/charities.ts`
-8. **Supabase for competitions** -- Nostr for identity/social/backup, Supabase for leaderboards/payments
-9. **NDK only** -- Never use nostr-tools; NDK handles all Nostr operations
-10. **Optimistic updates** -- Update local state before backend confirms, for instant UX
-
-## Supported Charities
-
-17 charities hardcoded in `src/constants/charities.ts` with Lightning addresses for direct zaps and reward routing:
-
-| Charity | Lightning Address |
-|---------|-------------------|
-| PPQ.AI | *(bolt11 invoices -- AI credits)* |
-| ALS Network | RunningBTC@primal.net |
-| Ashigaru | ashigarufund@geyser.fund |
-| Bitcoin Bay | sats@donate.bitcoinbay.foundation |
-| Bitcoin Ekasi | bitcoinekasi@primal.net |
-| Bitcoin Isla | BTCIsla@primal.net |
-| Bitcoin District | bdi@strike.me |
-| Bitcoin Yucatan | bitcoinyucatancommunity@geyser.fund |
-| Bitcoin Veterans | opbitcoin@strike.me |
-| Bitcoin Makueni | rosechicken19@primal.net |
-| Bitcoin House Bali | btchousebali@walletofsatoshi.com |
-| Human Rights Foundation | nostr@btcpay.hrf.org |
-| RUNSTR | thewildhustle@strike.me |
-| Afribit Kibera | afribit@blink.sv |
-| Bitcoin Basin | plasticbowl87@walletofsatoshi.com |
-| BuhoGO | buho@lnbits.de |
-| Central PA Bitcoiners | businesscat@getalby.com |
-| WeSatoshi | thefirstbitcointerminalhardware@geyser.fund |
+1. **File size limit: 500 lines** — Split anything larger into focused modules
+2. **Global NDK singleton** — One NDK instance, 4 relay connections, used everywhere
+3. **Supabase is the data store** — Workouts, competitions, leaderboards, rewards, clubs, chat
+4. **Nostr is the identity layer** — Authentication, profiles, optional social sharing, backups
+5. **Local-first** — Save to AsyncStorage immediately, sync to backend in background
+6. **Cache-first rendering** — Show cached data instantly, refresh in background
+7. **Background-first** — Most users earn via HealthKit/Health Connect sync, not in-app tracking
+8. **Silent reward failures** — Rewards never block workout saving or user flow
+9. **Sponsor-funded rewards** — Rewards come from sponsors, routed to user's chosen destination
+10. **Single destination** — Users pick one destination for all rewards, no splits
+11. **NDK only** — Never use nostr-tools; NDK handles all Nostr operations
+12. **Terminology** — Use "rewards" not "sats/Bitcoin"; see [North Star.md](./North%20Star.md)
 
 ## Nostr Event Kinds Reference
 
 | Kind | Direction | Purpose |
 |------|-----------|---------|
 | 0 | Read + Write | Profile metadata (name, picture, lud16) |
-| 1 | Write (WoT-gated) | Social posts for workout shares |
-| 5 | Write | Deletion requests |
+| 1 | Write (optional) | Social posts for workout shares |
 | 1301 | Local only | Workout event structure (submitted to Supabase, NOT published to relays) |
 | 30078 | Write | Encrypted backup (NIP-44 self-encryption, gzip compressed) |
