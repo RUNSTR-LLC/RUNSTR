@@ -281,7 +281,10 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
   const status = deriveStatus(competition);
   const config: CompetitionConfig = competition.config || {};
   const activityTypes = config.activity_types || [competition.activity_type];
-  const scoreUnit = config.score_unit || 'km';
+  // Infer score_unit from scoring_method when not explicitly set
+  // Existing events created before this fix may be missing score_unit
+  const scoreUnit = config.score_unit
+    || (competition.scoring_method === 'fastest_time' ? 'seconds' : 'km');
   const prizePool = competition.prize_pool_sats || 0;
   const winnerCount = config.winner_count ?? 3;
   const template = competition.template || 'distance_race';

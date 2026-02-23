@@ -342,6 +342,7 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
           target_distance_km: selectedTemplate.distanceKm,
           template: selectedTemplate.templateId,
           created_via: clubId ? 'club' : 'app',
+          score_unit: selectedTemplate.scoringMethod === 'fastest_time' ? 'seconds' : 'km',
         },
       });
 
