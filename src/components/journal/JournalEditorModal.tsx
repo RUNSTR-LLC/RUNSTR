@@ -31,7 +31,13 @@ import { buildRewardTags } from '../../utils/rewardTags';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MoodSelector } from './MoodSelector';
 import { EnergySelector } from './EnergySelector';
-import { VoiceRecordButton } from './VoiceRecordButton';
+
+// Lazy-load VoiceRecordButton so expo-speech-recognition native module
+// is only required on iOS (where it renders). Prevents crash on Android
+// and before expo prebuild --clean has been run.
+const VoiceRecordButton = Platform.OS === 'ios'
+  ? require('./VoiceRecordButton').VoiceRecordButton
+  : null;
 
 interface JournalEditorModalProps {
   visible: boolean;
@@ -270,7 +276,7 @@ export const JournalEditorModal: React.FC<JournalEditorModalProps> = ({
             </View>
 
             {/* Voice Recording (iOS only — Android SpeechRecognizer sends audio to Google) */}
-            {Platform.OS === 'ios' && (
+            {VoiceRecordButton && (
               <VoiceRecordButton
                 onTranscriptionComplete={handleTranscription}
                 disabled={isSaving}

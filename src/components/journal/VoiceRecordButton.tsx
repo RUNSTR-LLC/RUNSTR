@@ -28,9 +28,12 @@ import {
   startRecognition,
   stopRecognition,
   abortRecognition,
-  useSpeechRecognitionEvent,
   MAX_RECORDING_MS,
 } from '../../services/voice/VoiceTranscriptionService';
+
+// Import the hook directly — this file only loads on iOS (lazy-loaded in JournalEditorModal)
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { useSpeechRecognitionEvent } = require('expo-speech-recognition');
 
 interface VoiceRecordButtonProps {
   onTranscriptionComplete: (text: string) => void;
@@ -99,7 +102,7 @@ export const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
   }, [state]);
 
   // Speech recognition result event
-  useSpeechRecognitionEvent('result', (event) => {
+  useSpeechRecognitionEvent('result', (event: { isFinal: boolean; results?: { transcript: string }[] }) => {
     if (event.isFinal && event.results?.[0]?.transcript) {
       const transcript = event.results[0].transcript.trim();
       setState('idle');
@@ -110,7 +113,7 @@ export const VoiceRecordButton: React.FC<VoiceRecordButtonProps> = ({
   });
 
   // Speech recognition error event
-  useSpeechRecognitionEvent('error', (event) => {
+  useSpeechRecognitionEvent('error', (event: { error: string }) => {
     console.warn('[VoiceRecord] Speech recognition error:', event.error);
     setState('idle');
     if (event.error === 'no-speech') {
