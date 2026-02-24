@@ -7,6 +7,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import type { ChallengeMessageMetadata } from '../../types/club';
+import type { ChallengeScoreEntry } from '../../services/challenge/ChallengeService';
 
 function getChallengeLabel(type: string): string {
   switch (type) {
@@ -36,6 +37,23 @@ function formatTimeRemaining(endDateStr: string): string {
   return `${days}d left`;
 }
 
+function formatScore(value: number | null, challengeType: string): string {
+  if (value == null) return '--';
+  if (challengeType === 'fastest_5k' || challengeType === 'fastest_10k') {
+    const mins = Math.floor(value / 60);
+    const secs = Math.floor(value % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+  if (challengeType === 'most_distance') return `${(value / 1000).toFixed(1)} km`;
+  if (challengeType === 'most_steps') return value.toLocaleString() + ' steps';
+  if (challengeType === 'daily_streak') return value === 1 ? '1 workout' : `${value} workouts`;
+  return String(value);
+}
+
+function isLowerBetter(challengeType: string): boolean {
+  return challengeType === 'fastest_5k' || challengeType === 'fastest_10k';
+}
+
 interface ChallengeCardProps {
   challengeMeta: ChallengeMessageMetadata;
   content: string;
@@ -46,6 +64,7 @@ interface ChallengeCardProps {
   userNpub?: string;
   winnerName?: string;
   endDate?: string;
+  challengeScores?: { challengeType: string; entries: ChallengeScoreEntry[] } | null;
   onAcceptChallenge?: () => void;
   onDeclineChallenge?: () => void;
 }
@@ -60,6 +79,7 @@ export const ChallengeCard: React.FC<ChallengeCardProps> = ({
   userNpub,
   winnerName,
   endDate,
+  challengeScores,
   onAcceptChallenge,
   onDeclineChallenge,
 }) => (
@@ -70,6 +90,32 @@ export const ChallengeCard: React.FC<ChallengeCardProps> = ({
       <Text style={styles.challengeDuration}>{getDurationLabel(challengeMeta.duration_days)}</Text>
     </View>
     <Text style={styles.messageText}>{content}</Text>
+    {challengeScores && challengeScores.entries.length === 2 && (liveStatus === 'active' || liveStatus === 'completed') && (
+      <View style={styles.miniLeaderboard}>
+        {[...challengeScores.entries]
+          .sort((a, b) => {
+            if (a.value == null && b.value == null) return 0;
+            if (a.value == null) return 1;
+            if (b.value == null) return -1;
+            return isLowerBetter(challengeScores.challengeType) ? a.value - b.value : b.value - a.value;
+          })
+          .map((entry, idx) => {
+            const isYou = entry.npub === userNpub;
+            const name = isYou ? 'You' : (entry.profileName || entry.npub.slice(0, 8) + '...');
+            const isLeader = idx === 0 && entry.value != null;
+            return (
+              <View key={entry.npub} style={styles.scoreRow}>
+                <Text style={[styles.scoreName, isYou && styles.scoreNameYou]}>
+                  {liveStatus === 'completed' && isLeader ? '\u{1F3C6} ' : ''}{name}
+                </Text>
+                <Text style={[styles.scoreValue, isYou && styles.scoreValueYou]}>
+                  {formatScore(entry.value, challengeScores.challengeType)}
+                </Text>
+              </View>
+            );
+          })}
+      </View>
+    )}
     {isChallenged && challengeIsPending && (
       <View style={styles.challengeActions}>
         <TouchableOpacity style={styles.acceptButton} onPress={onAcceptChallenge}>
@@ -108,6 +154,12 @@ const styles = StyleSheet.create({
   declineButton: { flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 6, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: theme.colors.border },
   declineButtonText: { fontSize: 13, fontWeight: theme.typography.weights.semiBold, color: theme.colors.textMuted },
   challengeStatusText: { fontSize: 12, color: theme.colors.accent, fontWeight: theme.typography.weights.semiBold, marginTop: 6 },
+  miniLeaderboard: { marginTop: 8, backgroundColor: 'rgba(255, 255, 255, 0.03)', borderRadius: 6, paddingVertical: 4, paddingHorizontal: 8 },
+  scoreRow: { flexDirection: 'row' as const, justifyContent: 'space-between' as const, alignItems: 'center' as const, paddingVertical: 3 },
+  scoreName: { fontSize: 13, color: theme.colors.textMuted },
+  scoreNameYou: { color: theme.colors.text, fontWeight: theme.typography.weights.semiBold },
+  scoreValue: { fontSize: 13, color: theme.colors.textMuted, fontFamily: 'monospace' },
+  scoreValueYou: { color: theme.colors.accent, fontWeight: theme.typography.weights.semiBold },
 });
 
 export default ChallengeCard;
