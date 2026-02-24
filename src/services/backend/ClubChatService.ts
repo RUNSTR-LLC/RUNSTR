@@ -223,6 +223,45 @@ export class ClubChatService {
   }
 
   /**
+   * Pin a message in a club (captain only).
+   */
+  static async pinMessage(clubId: string, messageId: string, callerNpub: string): Promise<boolean> {
+    const result = await callEdgeFunction('manage-club-chat', {
+      action: 'pin',
+      club_id: clubId,
+      message_id: messageId,
+      caller_npub: callerNpub,
+    });
+
+    if (!result.success) {
+      console.error('[ClubChatService] pinMessage error:', result.error);
+      return false;
+    }
+
+    console.log(`[ClubChatService] Message pinned: ${messageId}`);
+    return true;
+  }
+
+  /**
+   * Unpin the pinned message in a club (captain only).
+   */
+  static async unpinMessage(clubId: string, callerNpub: string): Promise<boolean> {
+    const result = await callEdgeFunction('manage-club-chat', {
+      action: 'unpin',
+      club_id: clubId,
+      caller_npub: callerNpub,
+    });
+
+    if (!result.success) {
+      console.error('[ClubChatService] unpinMessage error:', result.error);
+      return false;
+    }
+
+    console.log(`[ClubChatService] Message unpinned in club ${clubId}`);
+    return true;
+  }
+
+  /**
    * Subscribe to new messages for a club via Supabase Realtime.
    * Cleans up any existing subscription for a different club.
    * Returns an unsubscribe function.
