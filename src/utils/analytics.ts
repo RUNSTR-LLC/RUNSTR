@@ -3,6 +3,8 @@
  * Tracks user behavior, team selection, and key conversion events
  */
 
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 import { DiscoveryTeam, Team } from '../types';
 
 // Analytics event types
@@ -106,12 +108,18 @@ class Analytics {
 
   // Get base properties for all events
   private getBaseProperties(): BaseAnalyticsProperties {
+    const platform: BaseAnalyticsProperties['platform'] =
+      Platform.OS === 'android' ? 'android' : 'ios';
+
+    const appVersion =
+      Constants.expoConfig?.version || Constants.nativeAppVersion || undefined;
+
     return {
       userId: this.userId,
       timestamp: new Date().toISOString(),
       sessionId: this.sessionId,
-      platform: 'ios', // TODO: Get from Platform.OS
-      appVersion: '1.0.0', // TODO: Get from package.json or config
+      platform,
+      appVersion,
     };
   }
 
