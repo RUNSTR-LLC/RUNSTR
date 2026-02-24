@@ -300,6 +300,7 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
             clubName={displayName}
             captainNpub={club.created_by_npub || ''}
             isMember={isMember}
+            pinnedMessageId={club.pinned_message_id}
           />
         </View>
       )}

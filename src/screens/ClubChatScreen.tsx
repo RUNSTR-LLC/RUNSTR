@@ -22,9 +22,11 @@ import { theme } from '../styles/theme';
 import { useClubChat } from '../hooks/useClubChat';
 import { ChatMessageBubble } from '../components/club/ChatMessageBubble';
 import type { SenderProfile } from '../components/club/ChatMessageBubble';
+import { PinnedMessageBanner } from '../components/club/PinnedMessageBanner';
 import type { ClubMessage, ReplyContext } from '../types/club';
 import { nostrProfileService } from '../services/nostr/NostrProfileService';
 import type { NostrProfile } from '../services/nostr/NostrProfileService';
+import { ClubChatService } from '../services/backend/ClubChatService';
 
 interface ClubChatScreenProps {
   navigation: any;
@@ -33,6 +35,7 @@ interface ClubChatScreenProps {
       clubId: string;
       clubName: string;
       captainNpub: string;
+      pinnedMessageId?: string;
     };
   };
 }
@@ -41,7 +44,7 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
   navigation,
   route,
 }) => {
-  const { clubId, clubName, captainNpub } = route.params;
+  const { clubId, clubName, captainNpub, pinnedMessageId } = route.params;
 
   const [userNpub, setUserNpub] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
@@ -51,6 +54,7 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
   const fetchedNpubsRef = useRef<Set<string>>(new Set());
 
   const isCaptain = userNpub === captainNpub;
+  const [pinnedMessage, setPinnedMessage] = useState<ClubMessage | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -96,7 +100,24 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
     fetchProfiles();
   }, [messages]);
 
-  // Handlers
+  // Resolve pinned message from the loaded messages list
+  useEffect(() => {
+    if (!pinnedMessageId) { setPinnedMessage(null); return; }
+    const found = messages.find((m) => m.id === pinnedMessageId);
+    if (found) setPinnedMessage(found);
+  }, [pinnedMessageId, messages]);
+
+  const handlePin = useCallback(async (messageId: string) => {
+    if (!userNpub) return;
+    await ClubChatService.pinMessage(clubId, messageId, userNpub);
+  }, [clubId, userNpub]);
+
+  const handleUnpin = useCallback(async () => {
+    if (!userNpub) return;
+    await ClubChatService.unpinMessage(clubId, userNpub);
+    setPinnedMessage(null);
+  }, [clubId, userNpub]);
+
   const handleSend = useCallback(async () => {
     const trimmed = inputText.trim();
     if (trimmed.length === 0 || !canSend || isSending) return;
@@ -158,13 +179,14 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
         canDelete={canDeleteMessage}
         onDelete={() => handleDelete(item.id)}
         onReply={() => handleReply(item)}
+        onPin={isCaptain ? () => handlePin(item.id) : undefined}
         onReact={(emoji) => handleReact(item.id, emoji)}
         replyContext={getReplyContext(item.reply_to_id)}
         userNpub={userNpub ?? undefined}
         senderProfile={getProfileForNpub(item.sender_npub)}
       />
     );
-  }, [captainNpub, userNpub, handleDelete, handleReply, handleReact, getProfileForNpub, getReplyContext]);
+  }, [captainNpub, userNpub, isCaptain, handleDelete, handleReply, handlePin, handleReact, getProfileForNpub, getReplyContext]);
 
   const placeholderText = !canSend
     ? 'Rate limited...'
@@ -187,6 +209,14 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
         <Text style={styles.headerTitle} numberOfLines={1}>{clubName}</Text>
         <View style={{ width: 28 }} />
       </View>
+
+      {pinnedMessage && (
+        <PinnedMessageBanner
+          content={pinnedMessage.content}
+          senderName={getProfileForNpub(pinnedMessage.sender_npub)?.display_name || pinnedMessage.sender_npub.slice(0, 12) + '...'}
+          onUnpin={isCaptain ? handleUnpin : undefined}
+        />
+      )}
 
       <KeyboardAvoidingView
         style={styles.content}

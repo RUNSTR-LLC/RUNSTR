@@ -1,9 +1,4 @@
-/**
- * ClubChatSection - Embedded chat for club page
- *
- * Inverted ScrollView (not FlatList) to avoid VirtualizedList-in-ScrollView warning.
- * Supports replies, announcements (captain-only), and reactions.
- */
+/** ClubChatSection - Embedded chat for club page (inverted ScrollView). */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
@@ -23,30 +18,26 @@ import { theme } from '../../styles/theme';
 import { useClubChat } from '../../hooks/useClubChat';
 import { ChatMessageBubble } from './ChatMessageBubble';
 import type { SenderProfile } from './ChatMessageBubble';
+import { PinnedMessageBanner } from './PinnedMessageBanner';
 import type { ClubMessage, ReplyContext } from '../../types/club';
 import { nostrProfileService } from '../../services/nostr/NostrProfileService';
 import type { NostrProfile } from '../../services/nostr/NostrProfileService';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+import { ClubChatService } from '../../services/backend/ClubChatService';
 
 interface ClubChatSectionProps {
   clubId: string;
   clubName: string;
   captainNpub: string;
   isMember: boolean;
+  pinnedMessageId?: string | null;
 }
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
 
 const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
   clubId,
   clubName,
   captainNpub,
   isMember,
+  pinnedMessageId,
 }) => {
   const [userNpub, setUserNpub] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
@@ -58,6 +49,7 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
 
   const navigation = useNavigation<any>();
   const isCaptain = userNpub === captainNpub;
+  const [pinnedMessage, setPinnedMessage] = useState<ClubMessage | null>(null);
 
   // Load user npub
   useEffect(() => {
@@ -110,96 +102,81 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
     fetchProfiles();
   }, [messages]);
 
-  // Handlers
+  // Resolve pinned message from the loaded messages list
+  useEffect(() => {
+    if (!pinnedMessageId) { setPinnedMessage(null); return; }
+    const found = messages.find((m) => m.id === pinnedMessageId);
+    if (found) setPinnedMessage(found);
+  }, [pinnedMessageId, messages]);
+
+  const handlePin = useCallback(async (messageId: string) => {
+    if (!userNpub) return;
+    await ClubChatService.pinMessage(clubId, messageId, userNpub);
+  }, [clubId, userNpub]);
+
+  const handleUnpin = useCallback(async () => {
+    if (!userNpub) return;
+    await ClubChatService.unpinMessage(clubId, userNpub);
+    setPinnedMessage(null);
+  }, [clubId, userNpub]);
 
   const handleSend = useCallback(async () => {
     const trimmed = inputText.trim();
     if (trimmed.length === 0 || !canSend || isSending) return;
-
     setInputText('');
     Keyboard.dismiss();
-
     const options: Parameters<typeof sendMessage>[1] = {};
     if (replyingTo) options.replyToId = replyingTo.id;
     if (isAnnouncementMode && isCaptain) options.messageType = 'announcement';
-
     const success = await sendMessage(trimmed, Object.keys(options).length > 0 ? options : undefined);
-    if (success) {
-      setReplyingTo(null);
-      setIsAnnouncementMode(false);
-    } else {
-      setInputText(trimmed);
-    }
+    if (success) { setReplyingTo(null); setIsAnnouncementMode(false); }
+    else { setInputText(trimmed); }
   }, [inputText, canSend, isSending, sendMessage, replyingTo, isAnnouncementMode, isCaptain]);
 
-  const handleDelete = useCallback(
-    async (messageId: string) => {
-      await deleteMessage(messageId);
-    },
-    [deleteMessage]
-  );
+  const handleDelete = useCallback(async (messageId: string) => {
+    await deleteMessage(messageId);
+  }, [deleteMessage]);
 
-  const handleReply = useCallback((item: ClubMessage) => {
-    setReplyingTo(item);
-  }, []);
+  const handleReply = useCallback((item: ClubMessage) => { setReplyingTo(item); }, []);
 
-  const handleReact = useCallback(
-    (messageId: string, emoji: string) => {
-      toggleReaction(messageId, emoji);
-    },
-    [toggleReaction]
-  );
+  const handleReact = useCallback((messageId: string, emoji: string) => {
+    toggleReaction(messageId, emoji);
+  }, [toggleReaction]);
 
-  // Render helpers
+  const getProfileForNpub = useCallback((npub: string): SenderProfile | undefined => {
+    const p = profiles.get(npub);
+    if (!p) return undefined;
+    return { name: p.name, display_name: p.display_name, picture: p.picture };
+  }, [profiles]);
 
-  const getProfileForNpub = useCallback(
-    (npub: string): SenderProfile | undefined => {
-      const p = profiles.get(npub);
-      if (!p) return undefined;
-      return { name: p.name, display_name: p.display_name, picture: p.picture };
-    },
-    [profiles]
-  );
+  const getReplyContext = useCallback((replyToId: string | null): ReplyContext | undefined => {
+    if (!replyToId) return undefined;
+    const target = messages.find((m) => m.id === replyToId);
+    if (!target) return undefined;
+    const p = profiles.get(target.sender_npub);
+    return { id: target.id, sender_npub: target.sender_npub, content: target.content.slice(0, 80), sender_name: p?.display_name || p?.name };
+  }, [messages, profiles]);
 
-  const getReplyContext = useCallback(
-    (replyToId: string | null): ReplyContext | undefined => {
-      if (!replyToId) return undefined;
-      const target = messages.find((m) => m.id === replyToId);
-      if (!target) return undefined;
-      const p = profiles.get(target.sender_npub);
-      return {
-        id: target.id,
-        sender_npub: target.sender_npub,
-        content: target.content.slice(0, 80),
-        sender_name: p?.display_name || p?.name,
-      };
-    },
-    [messages, profiles]
-  );
-
-  const renderMessage = useCallback(
-    (item: ClubMessage) => {
-      const isCaptainMsg = item.sender_npub === captainNpub;
-      const isOwnMessage = item.sender_npub === userNpub;
-      const canDeleteMessage = userNpub === captainNpub || isOwnMessage;
-
-      return (
-        <ChatMessageBubble
-          message={item}
-          isCaptain={isCaptainMsg}
-          isOwnMessage={isOwnMessage}
-          canDelete={canDeleteMessage}
-          onDelete={() => handleDelete(item.id)}
-          onReply={() => handleReply(item)}
-          onReact={(emoji) => handleReact(item.id, emoji)}
-          replyContext={getReplyContext(item.reply_to_id)}
-          userNpub={userNpub ?? undefined}
-          senderProfile={getProfileForNpub(item.sender_npub)}
-        />
-      );
-    },
-    [captainNpub, userNpub, handleDelete, handleReply, handleReact, getProfileForNpub, getReplyContext]
-  );
+  const renderMessage = useCallback((item: ClubMessage) => {
+    const isCaptainMsg = item.sender_npub === captainNpub;
+    const isOwnMessage = item.sender_npub === userNpub;
+    const canDeleteMessage = userNpub === captainNpub || isOwnMessage;
+    return (
+      <ChatMessageBubble
+        message={item}
+        isCaptain={isCaptainMsg}
+        isOwnMessage={isOwnMessage}
+        canDelete={canDeleteMessage}
+        onDelete={() => handleDelete(item.id)}
+        onReply={() => handleReply(item)}
+        onPin={isCaptain ? () => handlePin(item.id) : undefined}
+        onReact={(emoji) => handleReact(item.id, emoji)}
+        replyContext={getReplyContext(item.reply_to_id)}
+        userNpub={userNpub ?? undefined}
+        senderProfile={getProfileForNpub(item.sender_npub)}
+      />
+    );
+  }, [captainNpub, userNpub, isCaptain, handleDelete, handleReply, handlePin, handleReact, getProfileForNpub, getReplyContext]);
 
   const placeholderText = !canSend
     ? 'Rate limited...'
@@ -229,15 +206,21 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
         <Text style={styles.sectionLabel}>CHAT</Text>
         <TouchableOpacity
           onPress={() => navigation.navigate('ClubChat', {
-            clubId,
-            clubName,
-            captainNpub,
+            clubId, clubName, captainNpub, pinnedMessageId,
           })}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Ionicons name="expand-outline" size={18} color={theme.colors.textMuted} />
         </TouchableOpacity>
       </View>
+
+      {pinnedMessage && (
+        <PinnedMessageBanner
+          content={pinnedMessage.content}
+          senderName={getProfileForNpub(pinnedMessage.sender_npub)?.display_name || pinnedMessage.sender_npub.slice(0, 12) + '...'}
+          onUnpin={isCaptain ? handleUnpin : undefined}
+        />
+      )}
 
       {/* Messages list */}
       <View style={styles.chatContainer}>
@@ -343,10 +326,6 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
   );
 };
 
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
-
 const styles = StyleSheet.create({
   section: {
     flex: 1,
@@ -415,7 +394,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 8,
   },
-  // Reply bar
   replyBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -444,7 +422,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: theme.colors.textMuted,
   },
-  // Input bar
   inputBar: {
     flexDirection: 'row',
     alignItems: 'center',

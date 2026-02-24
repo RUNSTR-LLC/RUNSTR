@@ -279,7 +279,7 @@ type AuthenticatedStackParamList = {
   JournalHistory: undefined;
   Experimental: undefined;
   ClubPage: { clubId: string; clubName: string };
-  ClubChat: { clubId: string; clubName: string; captainNpub: string };
+  ClubChat: { clubId: string; clubName: string; captainNpub: string; pinnedMessageId?: string };
 };
 
 const AuthenticatedStack = createStackNavigator<AuthenticatedStackParamList>();
