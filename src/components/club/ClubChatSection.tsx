@@ -19,7 +19,9 @@ import { useClubChat } from '../../hooks/useClubChat';
 import { ChatMessageBubble } from './ChatMessageBubble';
 import type { SenderProfile } from './ChatMessageBubble';
 import { PinnedMessageBanner } from './PinnedMessageBanner';
-import type { ClubMessage, ReplyContext } from '../../types/club';
+import type { ClubMessage, ReplyContext, ChallengeMessageMetadata } from '../../types/club';
+import { ChallengeWizardModal } from './ChallengeWizardModal';
+import type { ChallengeType } from './ChallengeWizardModal';
 import { nostrProfileService } from '../../services/nostr/NostrProfileService';
 import type { NostrProfile } from '../../services/nostr/NostrProfileService';
 import { ClubChatService } from '../../services/backend/ClubChatService';
@@ -43,6 +45,7 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
   const [inputText, setInputText] = useState('');
   const [replyingTo, setReplyingTo] = useState<ClubMessage | null>(null);
   const [isAnnouncementMode, setIsAnnouncementMode] = useState(false);
+  const [challengeTarget, setChallengeTarget] = useState<ClubMessage | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const [profiles, setProfiles] = useState<Map<string, NostrProfile>>(new Map());
   const fetchedNpubsRef = useRef<Set<string>>(new Set());
@@ -139,6 +142,8 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
 
   const handleReply = useCallback((item: ClubMessage) => { setReplyingTo(item); }, []);
 
+  const handleChallenge = useCallback((item: ClubMessage) => { setChallengeTarget(item); }, []);
+
   const handleReact = useCallback((messageId: string, emoji: string) => {
     toggleReaction(messageId, emoji);
   }, [toggleReaction]);
@@ -148,6 +153,28 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
     if (!p) return undefined;
     return { name: p.name, display_name: p.display_name, picture: p.picture };
   }, [profiles]);
+
+  const handleSendChallenge = useCallback(async (type: ChallengeType, durationDays: 1 | 3 | 7) => {
+    if (!challengeTarget || !userNpub) return;
+    const challengedNpub = challengeTarget.sender_npub;
+    const challengedName = getProfileForNpub(challengedNpub)?.display_name || challengedNpub.slice(0, 12) + '...';
+    const typeLabels: Record<string, string> = {
+      fastest_5k: 'Fastest 5K', fastest_10k: 'Fastest 10K',
+      daily_streak: 'Daily Streak', most_distance: 'Most Distance', most_steps: 'Most Steps',
+    };
+    const durLabels: Record<number, string> = { 1: '24 hours', 3: '3 days', 7: '1 week' };
+    const content = `challenged ${challengedName} to ${typeLabels[type]} for ${durLabels[durationDays]}!`;
+    const metadata: ChallengeMessageMetadata = {
+      competition_id: '',
+      challenge_type: type,
+      duration_days: durationDays,
+      challenged_npub: challengedNpub,
+      challenger_npub: userNpub,
+      challenge_status: 'pending',
+    };
+    await sendMessage(content, { messageType: 'challenge', metadata: metadata as any });
+    setChallengeTarget(null);
+  }, [challengeTarget, userNpub, sendMessage, getProfileForNpub]);
 
   const getReplyContext = useCallback((replyToId: string | null): ReplyContext | undefined => {
     if (!replyToId) return undefined;
@@ -174,9 +201,10 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
         replyContext={getReplyContext(item.reply_to_id)}
         userNpub={userNpub ?? undefined}
         senderProfile={getProfileForNpub(item.sender_npub)}
+        onChallenge={!isOwnMessage ? () => handleChallenge(item) : undefined}
       />
     );
-  }, [captainNpub, userNpub, isCaptain, handleDelete, handleReply, handlePin, handleReact, getProfileForNpub, getReplyContext]);
+  }, [captainNpub, userNpub, isCaptain, handleDelete, handleReply, handlePin, handleReact, handleChallenge, getProfileForNpub, getReplyContext]);
 
   const placeholderText = !canSend
     ? 'Rate limited...'
@@ -322,6 +350,17 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
           </TouchableOpacity>
         </View>
       )}
+      {challengeTarget && (
+        <ChallengeWizardModal
+          visible={!!challengeTarget}
+          onClose={() => setChallengeTarget(null)}
+          onSend={handleSendChallenge}
+          opponentName={
+            getProfileForNpub(challengeTarget.sender_npub)?.display_name ||
+            challengeTarget.sender_npub.slice(0, 12) + '...'
+          }
+        />
+      )}
     </View>
   );
 };
@@ -374,26 +413,11 @@ const styles = StyleSheet.create({
     color: theme.colors.textDark,
     marginTop: 4,
   },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: theme.colors.textMuted,
-    marginTop: 8,
-  },
-  messageList: {
-    flex: 1,
-  },
-  invertedScroll: {
-    transform: [{ scaleY: -1 }],
-  },
-  messageListContent: {
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-  },
+  emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
+  emptyText: { fontSize: 14, color: theme.colors.textMuted, marginTop: 8 },
+  messageList: { flex: 1 },
+  invertedScroll: { transform: [{ scaleY: -1 }] },
+  messageListContent: { paddingVertical: 8, paddingHorizontal: 8 },
   replyBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -408,20 +432,9 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     borderLeftColor: theme.colors.accent,
   },
-  replyBarContent: {
-    flex: 1,
-    marginRight: 8,
-  },
-  replyBarLabel: {
-    fontSize: 11,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.accent,
-    marginBottom: 1,
-  },
-  replyBarText: {
-    fontSize: 13,
-    color: theme.colors.textMuted,
-  },
+  replyBarContent: { flex: 1, marginRight: 8 },
+  replyBarLabel: { fontSize: 11, fontWeight: theme.typography.weights.semiBold, color: theme.colors.accent, marginBottom: 1 },
+  replyBarText: { fontSize: 13, color: theme.colors.textMuted },
   inputBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -434,38 +447,13 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     gap: 8,
   },
-  inputBarAnnouncement: {
-    borderColor: 'rgba(204, 122, 51, 0.3)',
-  },
-  announcementButton: {
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 16,
-  },
-  announcementButtonActive: {
-    backgroundColor: 'rgba(204, 122, 51, 0.12)',
-  },
-  textInput: {
-    flex: 1,
-    fontSize: 15,
-    color: theme.colors.text,
-    paddingVertical: 8,
-  },
-  textInputDisabled: {
-    opacity: 0.5,
-  },
-  sendButton: {
-    width: 36,
-    height: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 18,
-  },
-  sendButtonActive: {
-    backgroundColor: 'rgba(204, 122, 51, 0.1)',
-  },
+  inputBarAnnouncement: { borderColor: 'rgba(204, 122, 51, 0.3)' },
+  announcementButton: { width: 32, height: 32, justifyContent: 'center', alignItems: 'center', borderRadius: 16 },
+  announcementButtonActive: { backgroundColor: 'rgba(204, 122, 51, 0.12)' },
+  textInput: { flex: 1, fontSize: 15, color: theme.colors.text, paddingVertical: 8 },
+  textInputDisabled: { opacity: 0.5 },
+  sendButton: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center', borderRadius: 18 },
+  sendButtonActive: { backgroundColor: 'rgba(204, 122, 51, 0.1)' },
 });
 
 export const ClubChatSection = React.memo(ClubChatSectionComponent);
