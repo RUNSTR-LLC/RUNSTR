@@ -17,6 +17,7 @@ import {
   Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../styles/theme';
 import { useClubChat } from '../../hooks/useClubChat';
@@ -55,6 +56,7 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
   const [profiles, setProfiles] = useState<Map<string, NostrProfile>>(new Map());
   const fetchedNpubsRef = useRef<Set<string>>(new Set());
 
+  const navigation = useNavigation<any>();
   const isCaptain = userNpub === captainNpub;
 
   // Load user npub
@@ -211,17 +213,11 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
   if (!isMember) {
     return (
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>CHAT</Text>
+        <Text style={[styles.sectionLabel, { marginBottom: 6 }]}>CHAT</Text>
         <View style={styles.lockedContainer}>
-          <Ionicons
-            name="lock-closed"
-            size={36}
-            color={theme.colors.textDark}
-          />
+          <Ionicons name="lock-closed" size={36} color={theme.colors.textDark} />
           <Text style={styles.lockedTitle}>Members Only</Text>
-          <Text style={styles.lockedSubtitle}>
-            Join {clubName} to access the club chat
-          </Text>
+          <Text style={styles.lockedSubtitle}>Join {clubName} to access the club chat</Text>
         </View>
       </View>
     );
@@ -229,7 +225,19 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionLabel}>CHAT</Text>
+      <View style={styles.chatHeaderRow}>
+        <Text style={styles.sectionLabel}>CHAT</Text>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('ClubChat', {
+            clubId,
+            clubName,
+            captainNpub,
+          })}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="expand-outline" size={18} color={theme.colors.textMuted} />
+        </TouchableOpacity>
+      </View>
 
       {/* Messages list */}
       <View style={styles.chatContainer}>
@@ -239,11 +247,7 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
           </View>
         ) : messages.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Ionicons
-              name="chatbubbles-outline"
-              size={36}
-              color={theme.colors.textMuted}
-            />
+            <Ionicons name="chatbubbles-outline" size={36} color={theme.colors.textMuted} />
             <Text style={styles.emptyText}>No messages yet. Say hello!</Text>
           </View>
         ) : (
@@ -309,10 +313,7 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
           )}
 
           <TextInput
-            style={[
-              styles.textInput,
-              !canSend && styles.textInputDisabled,
-            ]}
+            style={[styles.textInput, !canSend && styles.textInputDisabled]}
             value={inputText}
             onChangeText={setInputText}
             placeholder={placeholderText}
@@ -325,10 +326,7 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
             blurOnSubmit={true}
           />
           <TouchableOpacity
-            style={[
-              styles.sendButton,
-              canSendNow && styles.sendButtonActive,
-            ]}
+            style={[styles.sendButton, canSendNow && styles.sendButtonActive]}
             onPress={handleSend}
             disabled={!canSendNow}
             activeOpacity={0.7}
@@ -336,15 +334,7 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
             {isSending ? (
               <ActivityIndicator size="small" color={theme.colors.accent} />
             ) : (
-              <Ionicons
-                name="send"
-                size={20}
-                color={
-                  canSendNow
-                    ? theme.colors.accent
-                    : theme.colors.textDark
-                }
-              />
+              <Ionicons name="send" size={20} color={canSendNow ? theme.colors.accent : theme.colors.textDark} />
             )}
           </TouchableOpacity>
         </View>
@@ -364,12 +354,17 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingBottom: 8,
   },
+  chatHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
   sectionLabel: {
     fontSize: 12,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.textMuted,
     letterSpacing: 1,
-    marginBottom: 6,
     textTransform: 'uppercase',
   },
   chatContainer: {
