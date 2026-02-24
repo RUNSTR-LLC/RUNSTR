@@ -224,10 +224,7 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
         delayLongPress={500}
         style={({ pressed }) => [
           styles.container,
-          isCaptain && styles.captainContainer,
-          isOwnMessage && styles.ownContainer,
           isAnnouncement && styles.announcementContainer,
-          isChallenge && styles.challengeContainer,
           pressed && (canDelete || !!onReply) && styles.pressedContainer,
         ]}
       >
@@ -284,7 +281,6 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
               <Text
                 style={[
                   styles.senderName,
-                  isCaptain && styles.captainName,
                   isAnnouncement && styles.announcementName,
                 ]}
                 numberOfLines={1}
@@ -383,10 +379,7 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
 
 const styles = StyleSheet.create({
   container: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: theme.colors.cardBackground, borderRadius: 8, padding: 10, marginBottom: 4, borderWidth: 1, borderColor: theme.colors.border },
-  captainContainer: { borderLeftWidth: 3, borderLeftColor: theme.colors.accent },
-  ownContainer: { backgroundColor: 'rgba(204, 122, 51, 0.05)', borderRightWidth: 3, borderRightColor: theme.colors.accent },
   announcementContainer: { backgroundColor: 'rgba(204, 122, 51, 0.08)', borderColor: 'rgba(204, 122, 51, 0.25)' },
-  challengeContainer: { borderLeftWidth: 3, borderLeftColor: theme.colors.accent },
   pressedContainer: { opacity: 0.7 },
   avatar: { marginRight: 10, marginTop: 2 },
   content: { flex: 1 },
@@ -394,7 +387,6 @@ const styles = StyleSheet.create({
   announcementIcon: { marginRight: 4 },
   announcementName: { color: theme.colors.accent },
   senderName: { fontSize: 13, fontWeight: theme.typography.weights.semiBold, color: theme.colors.textMuted, flex: 1, marginRight: 8 },
-  captainName: { color: theme.colors.accent },
   timestamp: { fontSize: 11, color: theme.colors.textDark },
   messageText: { fontSize: 14, color: theme.colors.text, lineHeight: 20 },
   replyQuote: { borderLeftWidth: 2, borderLeftColor: theme.colors.accent, paddingLeft: 8, marginBottom: 6, paddingVertical: 2 },

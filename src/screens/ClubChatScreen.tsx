@@ -1,7 +1,7 @@
 /**
  * ClubChatScreen - Full-screen club chat pushed from club page
  */
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -60,6 +60,7 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
   const [challengeStatuses, setChallengeStatuses] = useState<Map<string, ChallengeStatus>>(new Map());
   const [challengeScoresMap, setChallengeScoresMap] = useState<Map<string, ChallengeScores>>(new Map());
   const fetchedNpubsRef = useRef<Set<string>>(new Set());
+  const flatListRef = useRef<FlatList>(null);
 
   const isCaptain = userNpub === captainNpub;
   const [pinnedMessage, setPinnedMessage] = useState<ClubMessage | null>(null);
@@ -328,6 +329,9 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
 
   const canSendNow = canSend && !isSending && inputText.trim().length > 0;
 
+  // Reverse messages so oldest appear at top (messages come newest-first from Supabase)
+  const orderedMessages = useMemo(() => [...messages].reverse(), [messages]);
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* Header */}
@@ -367,17 +371,25 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
           </View>
         ) : (
           <FlatList
-            data={messages}
+            ref={flatListRef}
+            data={orderedMessages}
             renderItem={renderMessage}
             keyExtractor={(item) => item.id}
-            inverted
-            contentContainerStyle={styles.messageList}
+            contentContainerStyle={[
+              styles.messageList,
+              messages.length > 0 && styles.messageListGrow,
+            ]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
-            onEndReached={() => {
-              if (hasMore && !isLoading) loadMore();
+            onScroll={({ nativeEvent }) => {
+              if (nativeEvent.contentOffset.y < 50 && hasMore && !isLoading) {
+                loadMore();
+              }
             }}
-            onEndReachedThreshold={0.3}
+            scrollEventThrottle={400}
+            onContentSizeChange={() => {
+              flatListRef.current?.scrollToEnd({ animated: false });
+            }}
           />
         )}
 
@@ -470,6 +482,7 @@ const styles = StyleSheet.create({
   emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyText: { fontSize: 14, color: theme.colors.textMuted, marginTop: 8 },
   messageList: { paddingVertical: 8, paddingHorizontal: 12 },
+  messageListGrow: { flexGrow: 0 },
   replyBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 12, marginBottom: 6, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: theme.colors.cardBackground, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.border, borderLeftWidth: 3, borderLeftColor: theme.colors.accent },
   replyBarContent: { flex: 1, marginRight: 8 },
   replyBarLabel: { fontSize: 11, fontWeight: theme.typography.weights.semiBold, color: theme.colors.accent, marginBottom: 1 },

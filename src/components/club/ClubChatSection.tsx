@@ -1,5 +1,5 @@
-/** ClubChatSection - Embedded chat for club page (inverted ScrollView). */
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+/** ClubChatSection - Embedded chat for club page. */
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -316,6 +316,9 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
 
   const canSendNow = canSend && !isSending && inputText.trim().length > 0;
 
+  // Reverse messages so oldest appear at top (messages come newest-first from Supabase)
+  const orderedMessages = useMemo(() => [...messages].reverse(), [messages]);
+
   // Members-only gate
   if (!isMember) {
     return (
@@ -366,22 +369,23 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
         ) : (
           <ScrollView
             ref={scrollViewRef}
-            style={[styles.messageList, styles.invertedScroll]}
+            style={styles.messageList}
             contentContainerStyle={styles.messageListContent}
             showsVerticalScrollIndicator={false}
             nestedScrollEnabled={true}
             keyboardShouldPersistTaps="handled"
             onScroll={({ nativeEvent }) => {
-              const { layoutMeasurement, contentSize, contentOffset } = nativeEvent;
-              const distanceFromEnd = contentSize.height - layoutMeasurement.height - contentOffset.y;
-              if (distanceFromEnd < 50 && hasMore && !isLoading) {
+              if (nativeEvent.contentOffset.y < 50 && hasMore && !isLoading) {
                 loadMore();
               }
             }}
             scrollEventThrottle={400}
+            onContentSizeChange={() => {
+              scrollViewRef.current?.scrollToEnd({ animated: false });
+            }}
           >
-            {messages.map((item) => (
-              <View key={item.id} style={styles.invertedScroll}>
+            {orderedMessages.map((item) => (
+              <View key={item.id}>
                 {renderMessage(item)}
               </View>
             ))}
@@ -478,7 +482,6 @@ const styles = StyleSheet.create({
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
   emptyText: { fontSize: 14, color: theme.colors.textMuted, marginTop: 8 },
   messageList: { flex: 1 },
-  invertedScroll: { transform: [{ scaleY: -1 }] },
   messageListContent: { paddingVertical: 8, paddingHorizontal: 8 },
   replyBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: theme.colors.cardBackground, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.border, borderLeftWidth: 3, borderLeftColor: theme.colors.accent },
   replyBarContent: { flex: 1, marginRight: 8 },
