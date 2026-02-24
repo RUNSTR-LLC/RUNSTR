@@ -29,6 +29,16 @@ function getDurationLabel(days: number): string {
   if (days === 7) return '1 Week';
   return `${days} Days`;
 }
+function formatTimeRemaining(endDateStr: string): string {
+  const now = Date.now();
+  const end = new Date(endDateStr).getTime();
+  const diffMs = end - now;
+  if (diffMs <= 0) return 'Ended';
+  const hours = Math.floor(diffMs / (1000 * 60 * 60));
+  if (hours < 24) return `${hours}h left`;
+  const days = Math.floor(hours / 24);
+  return `${days}d left`;
+}
 
 const REACTION_ICONS: Record<string, { name: string; label: string }> = {
   flame: { name: 'flame-outline', label: 'Fire' },
@@ -57,6 +67,11 @@ interface ChatMessageBubbleProps {
   onReact?: (emoji: string) => void;
   onAcceptChallenge?: () => void;
   onDeclineChallenge?: () => void;
+  liveChallengeStatus?: {
+    challenge_status: string;
+    winner_npub?: string | null;
+    end_date?: string;
+  } | null;
   replyContext?: ReplyContext;
   userNpub?: string;
   senderProfile?: SenderProfile;
@@ -122,6 +137,7 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
   onReact,
   onAcceptChallenge,
   onDeclineChallenge,
+  liveChallengeStatus,
   replyContext,
   userNpub,
   senderProfile,
@@ -137,8 +153,10 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
   const isChallenge = message.message_type === 'challenge';
   const workoutMeta = isWorkout && isWorkoutMetadata(message.metadata) ? message.metadata : null;
   const challengeMeta = isChallenge && isChallengeMetadata(message.metadata) ? message.metadata : null;
+  const liveStatus = liveChallengeStatus?.challenge_status || challengeMeta?.challenge_status;
+  const liveWinner = liveChallengeStatus?.winner_npub || challengeMeta?.winner_npub;
   const isChallenged = isChallenge && challengeMeta?.challenged_npub === userNpub;
-  const challengeIsPending = challengeMeta?.challenge_status === 'pending';
+  const challengeIsPending = liveStatus === 'pending';
   const reactions = message.reactions || {};
 
   const handleLongPress = useCallback(() => {
@@ -340,15 +358,17 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
                   </TouchableOpacity>
                 </View>
               )}
-              {challengeMeta.challenge_status === 'active' && (
-                <Text style={styles.challengeStatusText}>Challenge Active</Text>
-              )}
-              {challengeMeta.challenge_status === 'completed' && (
+              {liveStatus === 'active' && (
                 <Text style={styles.challengeStatusText}>
-                  Winner: {challengeMeta.winner_npub?.slice(0, 12) || 'TBD'}
+                  Challenge Active{liveChallengeStatus?.end_date ? ` — ${formatTimeRemaining(liveChallengeStatus.end_date)}` : ''}
                 </Text>
               )}
-              {challengeMeta.challenge_status === 'declined' && (
+              {liveStatus === 'completed' && (
+                <Text style={styles.challengeStatusText}>
+                  Winner: {liveWinner === userNpub ? 'You!' : displayName}
+                </Text>
+              )}
+              {liveStatus === 'declined' && (
                 <Text style={[styles.challengeStatusText, { color: theme.colors.textDark }]}>
                   Declined
                 </Text>

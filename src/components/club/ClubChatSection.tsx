@@ -26,6 +26,7 @@ import { nostrProfileService } from '../../services/nostr/NostrProfileService';
 import type { NostrProfile } from '../../services/nostr/NostrProfileService';
 import { ClubChatService } from '../../services/backend/ClubChatService';
 import { ChallengeService } from '../../services/challenge/ChallengeService';
+import type { ChallengeStatus } from '../../services/challenge/ChallengeService';
 
 interface ClubChatSectionProps {
   clubId: string;
@@ -49,6 +50,7 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
   const [challengeTarget, setChallengeTarget] = useState<ClubMessage | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const [profiles, setProfiles] = useState<Map<string, NostrProfile>>(new Map());
+  const [challengeStatuses, setChallengeStatuses] = useState<Map<string, ChallengeStatus>>(new Map());
   const fetchedNpubsRef = useRef<Set<string>>(new Set());
 
   const navigation = useNavigation<any>();
@@ -113,6 +115,31 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
     if (found) setPinnedMessage(found);
   }, [pinnedMessageId, messages]);
 
+  // Fetch live challenge statuses
+  useEffect(() => {
+    const challengeMessages = messages.filter(
+      (m) => m.message_type === 'challenge' && m.metadata && 'competition_id' in m.metadata
+    );
+    if (challengeMessages.length === 0) return;
+    const fetchStatuses = async () => {
+      const newStatuses = new Map<string, ChallengeStatus>();
+      for (const msg of challengeMessages) {
+        const meta = msg.metadata as ChallengeMessageMetadata;
+        if (!meta.competition_id) continue;
+        const status = await ChallengeService.getChallengeStatus(meta.competition_id);
+        if (status) {
+          if (status.challenge_status === 'active' && status.end_date && new Date(status.end_date) < new Date()) {
+            const completed = await ChallengeService.checkAndComplete(meta.competition_id);
+            if (completed) { newStatuses.set(meta.competition_id, completed); continue; }
+          }
+          newStatuses.set(meta.competition_id, status);
+        }
+      }
+      if (newStatuses.size > 0) setChallengeStatuses(newStatuses);
+    };
+    fetchStatuses();
+  }, [messages]);
+
   const handlePin = useCallback(async (messageId: string) => {
     if (!userNpub) return;
     await ClubChatService.pinMessage(clubId, messageId, userNpub);
@@ -154,6 +181,31 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
     if (!p) return undefined;
     return { name: p.name, display_name: p.display_name, picture: p.picture };
   }, [profiles]);
+
+  const handleAcceptChallenge = useCallback(async (competitionId: string) => {
+    if (!userNpub) return;
+    const myProfile = getProfileForNpub(userNpub);
+    const success = await ChallengeService.acceptChallenge(competitionId, userNpub, {
+      name: myProfile?.display_name || myProfile?.name, picture: myProfile?.picture,
+    });
+    if (success) {
+      const status = await ChallengeService.getChallengeStatus(competitionId);
+      if (status) {
+        setChallengeStatuses(prev => { const next = new Map(prev); next.set(competitionId, status); return next; });
+      }
+    }
+  }, [userNpub, getProfileForNpub]);
+
+  const handleDeclineChallenge = useCallback(async (competitionId: string) => {
+    if (!userNpub) return;
+    const success = await ChallengeService.declineChallenge(competitionId, userNpub);
+    if (success) {
+      const status = await ChallengeService.getChallengeStatus(competitionId);
+      if (status) {
+        setChallengeStatuses(prev => { const next = new Map(prev); next.set(competitionId, status); return next; });
+      }
+    }
+  }, [userNpub]);
 
   const handleSendChallenge = useCallback(async (type: ChallengeType, durationDays: 1 | 3 | 7) => {
     if (!challengeTarget || !userNpub) return;
@@ -211,6 +263,8 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
     const isCaptainMsg = item.sender_npub === captainNpub;
     const isOwnMessage = item.sender_npub === userNpub;
     const canDeleteMessage = userNpub === captainNpub || isOwnMessage;
+    const isChMsg = item.message_type === 'challenge' && item.metadata && 'competition_id' in item.metadata;
+    const compId = isChMsg ? (item.metadata as ChallengeMessageMetadata).competition_id : '';
     return (
       <ChatMessageBubble
         message={item}
@@ -225,9 +279,12 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
         userNpub={userNpub ?? undefined}
         senderProfile={getProfileForNpub(item.sender_npub)}
         onChallenge={!isOwnMessage ? () => handleChallenge(item) : undefined}
+        liveChallengeStatus={isChMsg ? challengeStatuses.get(compId) || null : null}
+        onAcceptChallenge={isChMsg ? () => handleAcceptChallenge(compId) : undefined}
+        onDeclineChallenge={isChMsg ? () => handleDeclineChallenge(compId) : undefined}
       />
     );
-  }, [captainNpub, userNpub, isCaptain, handleDelete, handleReply, handlePin, handleReact, handleChallenge, getProfileForNpub, getReplyContext]);
+  }, [captainNpub, userNpub, isCaptain, handleDelete, handleReply, handlePin, handleReact, handleChallenge, getProfileForNpub, getReplyContext, challengeStatuses, handleAcceptChallenge, handleDeclineChallenge]);
 
   const placeholderText = !canSend
     ? 'Rate limited...'
@@ -389,87 +446,23 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
 };
 
 const styles = StyleSheet.create({
-  section: {
-    flex: 1,
-    paddingHorizontal: 16,
-    marginTop: 12,
-    paddingBottom: 8,
-  },
-  chatHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.textMuted,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  chatContainer: {
-    flex: 1,
-    backgroundColor: theme.colors.cardBackground,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    overflow: 'hidden',
-  },
-  lockedContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
-    backgroundColor: theme.colors.cardBackground,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  lockedTitle: {
-    fontSize: 16,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.textMuted,
-    marginTop: 10,
-  },
-  lockedSubtitle: {
-    fontSize: 14,
-    color: theme.colors.textDark,
-    marginTop: 4,
-  },
+  section: { flex: 1, paddingHorizontal: 16, marginTop: 12, paddingBottom: 8 },
+  chatHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  sectionLabel: { fontSize: 12, fontWeight: theme.typography.weights.bold, color: theme.colors.textMuted, letterSpacing: 1, textTransform: 'uppercase' },
+  chatContainer: { flex: 1, backgroundColor: theme.colors.cardBackground, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.border, overflow: 'hidden' },
+  lockedContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40, backgroundColor: theme.colors.cardBackground, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.border },
+  lockedTitle: { fontSize: 16, fontWeight: theme.typography.weights.semiBold, color: theme.colors.textMuted, marginTop: 10 },
+  lockedSubtitle: { fontSize: 14, color: theme.colors.textDark, marginTop: 4 },
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
   emptyText: { fontSize: 14, color: theme.colors.textMuted, marginTop: 8 },
   messageList: { flex: 1 },
   invertedScroll: { transform: [{ scaleY: -1 }] },
   messageListContent: { paddingVertical: 8, paddingHorizontal: 8 },
-  replyBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: theme.colors.cardBackground,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderLeftWidth: 3,
-    borderLeftColor: theme.colors.accent,
-  },
+  replyBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: theme.colors.cardBackground, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.border, borderLeftWidth: 3, borderLeftColor: theme.colors.accent },
   replyBarContent: { flex: 1, marginRight: 8 },
   replyBarLabel: { fontSize: 11, fontWeight: theme.typography.weights.semiBold, color: theme.colors.accent, marginBottom: 1 },
   replyBarText: { fontSize: 13, color: theme.colors.textMuted },
-  inputBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    backgroundColor: theme.colors.cardBackground,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    gap: 8,
-  },
+  inputBar: { flexDirection: 'row', alignItems: 'center', marginTop: 8, backgroundColor: theme.colors.cardBackground, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.border, paddingHorizontal: 12, paddingVertical: 6, gap: 8 },
   inputBarAnnouncement: { borderColor: 'rgba(204, 122, 51, 0.3)' },
   announcementButton: { width: 32, height: 32, justifyContent: 'center', alignItems: 'center', borderRadius: 16 },
   announcementButtonActive: { backgroundColor: 'rgba(204, 122, 51, 0.12)' },
