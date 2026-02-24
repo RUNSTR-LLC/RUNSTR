@@ -279,6 +279,7 @@ type AuthenticatedStackParamList = {
   JournalHistory: undefined;
   Experimental: undefined;
   ClubPage: { clubId: string; clubName: string };
+  ClubChat: { clubId: string; clubName: string; captainNpub: string };
 };
 
 const AuthenticatedStack = createStackNavigator<AuthenticatedStackParamList>();
@@ -881,6 +882,17 @@ const AuthenticatedNavigator: React.FC = () => {
         }}
         component={AdvancedAnalyticsScreen}
       />
+
+      {/* Club Chat Screen - Full-screen chat view */}
+      <AuthenticatedStack.Screen
+        name="ClubChat"
+        options={{ headerShown: false }}
+      >
+        {({ navigation, route }) => {
+          const ClubChatScreen = require('./screens/ClubChatScreen').ClubChatScreen;
+          return <ClubChatScreen route={route} navigation={navigation} />;
+        }}
+      </AuthenticatedStack.Screen>
 
       {/* Club Page Screen - Individual club detail view */}
       <AuthenticatedStack.Screen
