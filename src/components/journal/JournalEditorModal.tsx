@@ -31,6 +31,7 @@ import { buildRewardTags } from '../../utils/rewardTags';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MoodSelector } from './MoodSelector';
 import { EnergySelector } from './EnergySelector';
+import { VoiceRecordButton } from './VoiceRecordButton';
 
 interface JournalEditorModalProps {
   visible: boolean;
@@ -80,6 +81,15 @@ export const JournalEditorModal: React.FC<JournalEditorModalProps> = ({
 
   const handleRemoveTag = useCallback((tagToRemove: string) => {
     setTags((prev) => prev.filter((t) => t !== tagToRemove));
+  }, []);
+
+  const handleTranscription = useCallback((text: string) => {
+    setContent((prev) => {
+      if (prev.trim()) {
+        return prev.trimEnd() + '\n\n' + text;
+      }
+      return text;
+    });
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -258,6 +268,12 @@ export const JournalEditorModal: React.FC<JournalEditorModalProps> = ({
                 autoFocus={!entry}
               />
             </View>
+
+            {/* Voice Recording */}
+            <VoiceRecordButton
+              onTranscriptionComplete={handleTranscription}
+              disabled={isSaving}
+            />
 
             {/* Tags */}
             <View style={styles.tagsSection}>
