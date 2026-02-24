@@ -6,7 +6,7 @@ No email. No phone number. No credit card. No account creation. Just tap start, 
 
 [![Website](https://img.shields.io/badge/Website-runstr.club-blue)](https://www.runstr.club/)
 [![iOS](https://img.shields.io/badge/iOS-App%20Store-black)](https://apps.apple.com/app/runstr)
-[![Android](https://img.shields.io/badge/Android-Zap.Store-green)](https://zapstore.dev/)
+[![Android](https://img.shields.io/badge/Android-Zap.Store-green)](https://zap.store/)
 [![Nostr](https://img.shields.io/badge/Nostr-Follow%20Us-purple)](https://njump.me/npub1vygzr642y6f8gxcjx6auaf2vd25lyzarpjkwx9kr4y752zy6058s8jvy4e)
 
 ---
