@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.textMuted,
     letterSpacing: 1,
-    marginBottom: 12,
+    marginBottom: 6,
     textTransform: 'uppercase',
   },
   chatContainer: {

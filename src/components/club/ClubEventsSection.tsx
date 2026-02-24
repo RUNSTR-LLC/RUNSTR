@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 6,
   },
   sectionLabel: {
     fontSize: 12,
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.textDark,
   },
   statusDotActive: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: theme.colors.accent,
   },
   statusDotUpcoming: {
     backgroundColor: theme.colors.accent,

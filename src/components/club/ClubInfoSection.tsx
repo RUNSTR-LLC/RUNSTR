@@ -106,17 +106,6 @@ export const ClubInfoSection: React.FC<ClubInfoSectionProps> = ({
     }
   };
 
-  const handleLeavePress = () => {
-    // If in cooldown (and not captain), show the blocked message
-    if (cooldown && !cooldown.canLeave && !isCaptain) {
-      onCooldownBlocked();
-    } else {
-      onLeaveConfirm();
-    }
-  };
-
-  // Build leave button label + icon
-  const leaveInCooldown = cooldown && !cooldown.canLeave && !isCaptain;
 
   return (
     <>
@@ -178,70 +167,31 @@ export const ClubInfoSection: React.FC<ClubInfoSectionProps> = ({
         </ScrollView>
       )}
 
-      {/* Join / Leave button */}
-      {userNpub && (
+      {/* Join button (only shown when NOT a member) */}
+      {userNpub && !isMember && (
         <View style={styles.actionContainer}>
-          {isMember ? (
-            <TouchableOpacity
-              style={[
-                styles.leaveButton,
-                leaveInCooldown && styles.leaveButtonCooldown,
-              ]}
-              onPress={handleLeavePress}
-              disabled={isLeaving}
-              activeOpacity={0.7}
-            >
-              {isLeaving ? (
-                <ActivityIndicator
-                  size="small"
-                  color={theme.colors.textMuted}
-                />
-              ) : leaveInCooldown ? (
-                <>
-                  <Ionicons
-                    name="time-outline"
-                    size={20}
-                    color={theme.colors.textDark}
-                  />
-                  <Text style={styles.leaveButtonCooldownText}>
-                    Leave in {cooldown.remainingText}
-                  </Text>
-                </>
-              ) : (
-                <>
-                  <Ionicons
-                    name="log-out-outline"
-                    size={20}
-                    color={theme.colors.textMuted}
-                  />
-                  <Text style={styles.leaveButtonText}>Leave Club</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={styles.joinButton}
-              onPress={onJoin}
-              disabled={isJoining}
-              activeOpacity={0.7}
-            >
-              {isJoining ? (
-                <ActivityIndicator
-                  size="small"
+          <TouchableOpacity
+            style={styles.joinButton}
+            onPress={onJoin}
+            disabled={isJoining}
+            activeOpacity={0.7}
+          >
+            {isJoining ? (
+              <ActivityIndicator
+                size="small"
+                color={theme.colors.text}
+              />
+            ) : (
+              <>
+                <Ionicons
+                  name="enter-outline"
+                  size={20}
                   color={theme.colors.text}
                 />
-              ) : (
-                <>
-                  <Ionicons
-                    name="enter-outline"
-                    size={20}
-                    color={theme.colors.text}
-                  />
-                  <Text style={styles.joinButtonText}>Join Club</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          )}
+                <Text style={styles.joinButtonText}>Join Club</Text>
+              </>
+            )}
+          </TouchableOpacity>
         </View>
       )}
 
@@ -343,31 +293,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
-  },
-  leaveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.cardBackground,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    paddingVertical: 14,
-    gap: 8,
-  },
-  leaveButtonText: {
-    fontSize: 16,
-    fontWeight: theme.typography.weights.medium,
-    color: theme.colors.textMuted,
-  },
-  leaveButtonCooldown: {
-    borderColor: theme.colors.border,
-    opacity: 0.7,
-  },
-  leaveButtonCooldownText: {
-    fontSize: 16,
-    fontWeight: theme.typography.weights.medium,
-    color: theme.colors.textDark,
   },
 
   // Invite Members card (captain)
