@@ -27,7 +27,7 @@ import { nostrProfileService } from '../../services/nostr/NostrProfileService';
 import type { NostrProfile } from '../../services/nostr/NostrProfileService';
 import { ClubChatService } from '../../services/backend/ClubChatService';
 import { ChallengeService } from '../../services/challenge/ChallengeService';
-import type { ChallengeStatus } from '../../services/challenge/ChallengeService';
+import type { ChallengeStatus, ChallengeScores } from '../../services/challenge/ChallengeService';
 
 interface ClubChatSectionProps {
   clubId: string;
@@ -52,6 +52,7 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
   const scrollViewRef = useRef<ScrollView>(null);
   const [profiles, setProfiles] = useState<Map<string, NostrProfile>>(new Map());
   const [challengeStatuses, setChallengeStatuses] = useState<Map<string, ChallengeStatus>>(new Map());
+  const [challengeScoresMap, setChallengeScoresMap] = useState<Map<string, ChallengeScores>>(new Map());
   const fetchedNpubsRef = useRef<Set<string>>(new Set());
 
   const navigation = useNavigation<any>();
@@ -116,7 +117,7 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
     if (found) setPinnedMessage(found);
   }, [pinnedMessageId, messages]);
 
-  // Fetch live challenge statuses (parallel)
+  // Fetch live challenge statuses and scores (parallel)
   useEffect(() => {
     const challengeMessages = messages.filter(
       (m) => m.message_type === 'challenge' && m.metadata && 'competition_id' in m.metadata
@@ -132,14 +133,20 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
             const completed = await ChallengeService.checkAndComplete(meta.competition_id);
             if (completed) status = completed;
           }
-          return status ? [meta.competition_id, status] as const : null;
+          const scores = status ? await ChallengeService.getChallengeScores(meta.competition_id, status) : null;
+          return status ? { id: meta.competition_id, status, scores } : null;
         })
       );
       const newStatuses = new Map<string, ChallengeStatus>();
+      const newScores = new Map<string, ChallengeScores>();
       for (const entry of entries) {
-        if (entry.status === 'fulfilled' && entry.value) newStatuses.set(entry.value[0], entry.value[1]);
+        if (entry.status === 'fulfilled' && entry.value) {
+          newStatuses.set(entry.value.id, entry.value.status);
+          if (entry.value.scores) newScores.set(entry.value.id, entry.value.scores);
+        }
       }
       if (newStatuses.size > 0) setChallengeStatuses(newStatuses);
+      if (newScores.size > 0) setChallengeScoresMap(newScores);
     };
     fetchStatuses();
   }, [messages]);
@@ -277,6 +284,7 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
     const liveStatus = isChMsg ? challengeStatuses.get(compId) : undefined;
     const winnerProfile = liveStatus?.winner_npub ? getProfileForNpub(liveStatus.winner_npub) : undefined;
     const resolvedWinnerName = winnerProfile?.display_name || winnerProfile?.name || liveStatus?.winner_npub?.slice(0, 12);
+    const challengeScores = isChMsg ? challengeScoresMap.get(compId) || null : null;
     return (
       <ChatMessageBubble
         message={item}
@@ -293,11 +301,12 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
         onChallenge={!isOwnMessage ? () => handleChallenge(item) : undefined}
         liveChallengeStatus={isChMsg ? liveStatus || null : null}
         winnerName={resolvedWinnerName}
+        challengeScores={challengeScores}
         onAcceptChallenge={isChMsg ? () => handleAcceptChallenge(compId) : undefined}
         onDeclineChallenge={isChMsg ? () => handleDeclineChallenge(compId) : undefined}
       />
     );
-  }, [captainNpub, userNpub, isCaptain, handleDelete, handleReply, handlePin, handleReact, handleChallenge, getProfileForNpub, getReplyContext, challengeStatuses, handleAcceptChallenge, handleDeclineChallenge]);
+  }, [captainNpub, userNpub, isCaptain, handleDelete, handleReply, handlePin, handleReact, handleChallenge, getProfileForNpub, getReplyContext, challengeStatuses, challengeScoresMap, handleAcceptChallenge, handleDeclineChallenge]);
 
   const placeholderText = !canSend
     ? 'Rate limited...'

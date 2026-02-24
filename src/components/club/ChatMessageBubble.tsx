@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { Avatar } from '../ui/Avatar';
 import { ChallengeCard } from './ChallengeCard';
+import type { ChallengeScoreEntry } from '../../services/challenge/ChallengeService';
 import type { ClubMessage, ReplyContext, WorkoutMessageMetadata, ChallengeMessageMetadata } from '../../types/club';
 
 function isWorkoutMetadata(meta: unknown): meta is WorkoutMessageMetadata {
@@ -48,6 +49,7 @@ interface ChatMessageBubbleProps {
     end_date?: string;
   } | null;
   winnerName?: string;
+  challengeScores?: { challengeType: string; entries: ChallengeScoreEntry[] } | null;
   replyContext?: ReplyContext;
   userNpub?: string;
   senderProfile?: SenderProfile;
@@ -115,6 +117,7 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
   onDeclineChallenge,
   liveChallengeStatus,
   winnerName,
+  challengeScores,
   replyContext,
   userNpub,
   senderProfile,
@@ -317,6 +320,7 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
               challengeIsPending={challengeIsPending}
               userNpub={userNpub}
               winnerName={winnerName}
+              challengeScores={challengeScores}
               endDate={liveChallengeStatus?.end_date}
               onAcceptChallenge={onAcceptChallenge}
               onDeclineChallenge={onDeclineChallenge}
