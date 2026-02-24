@@ -13,6 +13,10 @@
  *   delete           - Delete a competition (owner only)
  *   update-profile   - Update participant display name/picture
  *   auto-join-members - Bulk-join all club members (captain only)
+ *   create-challenge  - Create a 1v1 challenge (pending until accepted)
+ *   accept-challenge  - Accept a pending challenge (starts the timer)
+ *   decline-challenge - Decline a pending challenge
+ *   complete-challenge - Finalize an active challenge after end_date
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
@@ -59,6 +63,14 @@ function errorResponse(message: string, status = 400): Response {
 // =============================================
 
 type SupabaseClient = ReturnType<typeof createClient>
+
+const CHALLENGE_SCORING: Record<string, { scoring_method: string; activity_type: string; config_extras?: Record<string, unknown> }> = {
+  fastest_5k: { scoring_method: 'fastest_time', activity_type: 'running', config_extras: { target_distance_km: 5, distance_tolerance_km: 0.5 } },
+  fastest_10k: { scoring_method: 'fastest_time', activity_type: 'running', config_extras: { target_distance_km: 10, distance_tolerance_km: 1.0 } },
+  daily_streak: { scoring_method: 'workout_count', activity_type: 'running' },
+  most_distance: { scoring_method: 'total_distance', activity_type: 'running' },
+  most_steps: { scoring_method: 'total_steps', activity_type: 'walking' },
+}
 
 async function handleJoin(
   supabase: SupabaseClient,
@@ -445,6 +457,378 @@ async function handleAutoJoinMembers(
   return jsonResponse({ success: true, data: { joined_count: rows.length } })
 }
 
+async function handleCreateChallenge(
+  supabase: SupabaseClient,
+  params: Record<string, unknown>,
+): Promise<Response> {
+  const { npub, challenged_npub, challenge_type, duration_days, club_id, name, picture } = params
+
+  if (!npub || !challenged_npub || !challenge_type || !duration_days) {
+    return errorResponse('Missing required fields: npub, challenged_npub, challenge_type, duration_days')
+  }
+
+  if (npub === challenged_npub) {
+    return errorResponse('Cannot challenge yourself')
+  }
+
+  const scoring = CHALLENGE_SCORING[challenge_type as string]
+  if (!scoring) {
+    return errorResponse(`Invalid challenge_type: ${challenge_type}. Valid types: ${Object.keys(CHALLENGE_SCORING).join(', ')}`)
+  }
+
+  const validDurations = [1, 3, 7]
+  if (!validDurations.includes(duration_days as number)) {
+    return errorResponse(`Invalid duration_days: ${duration_days}. Must be 1, 3, or 7`)
+  }
+
+  const external_id = `challenge-${randomHex(8)}`
+  const challengeName = (name as string) || `${challenge_type} Challenge`
+
+  const config: Record<string, unknown> = {
+    challenger_npub: npub,
+    challenged_npub,
+    challenge_type,
+    challenge_status: 'pending',
+    duration_days,
+    ...(scoring.config_extras || {}),
+  }
+
+  const insertData: Record<string, unknown> = {
+    created_by_npub: npub,
+    name: challengeName,
+    activity_type: scoring.activity_type,
+    scoring_method: scoring.scoring_method,
+    start_date: '2099-01-01T00:00:00Z',
+    end_date: '2099-01-01T00:00:00Z',
+    template: 'challenge',
+    club_id: club_id || null,
+    config,
+    is_open: false,
+    prize_pool_sats: 0,
+    external_id,
+  }
+
+  const { data: newComp, error: insertErr } = await supabase
+    .from('competitions')
+    .insert(insertData)
+    .select('id, external_id')
+    .single()
+
+  if (insertErr) {
+    console.error('Create challenge insert error:', insertErr)
+    return errorResponse(insertErr.message, 500)
+  }
+
+  // Auto-join the challenger as participant
+  const { error: joinErr } = await supabase
+    .from('competition_participants')
+    .upsert(
+      {
+        competition_id: newComp.id,
+        npub,
+        name: name || null,
+        picture: picture || null,
+      },
+      { onConflict: 'competition_id,npub' },
+    )
+
+  if (joinErr) {
+    console.warn('Challenger auto-join error (non-fatal):', joinErr)
+  }
+
+  console.log(`Created challenge: ${newComp.id} (${external_id}) by ${(npub as string).slice(0, 12)}... -> ${(challenged_npub as string).slice(0, 12)}...`)
+  return jsonResponse({
+    success: true,
+    data: { id: newComp.id, external_id: newComp.external_id },
+  })
+}
+
+async function handleAcceptChallenge(
+  supabase: SupabaseClient,
+  params: Record<string, unknown>,
+): Promise<Response> {
+  const { competition_id, npub, name, picture } = params
+
+  if (!competition_id || !npub) {
+    return errorResponse('Missing required fields: competition_id, npub')
+  }
+
+  // Fetch the competition
+  const { data: comp, error: compErr } = await supabase
+    .from('competitions')
+    .select('id, template, config')
+    .eq('id', competition_id)
+    .single()
+
+  if (compErr || !comp) {
+    return errorResponse('Competition not found', 404)
+  }
+  if (comp.template !== 'challenge') {
+    return errorResponse('Competition is not a challenge')
+  }
+
+  const config = comp.config as Record<string, unknown>
+  if (config.challenged_npub !== npub) {
+    return errorResponse('You are not the challenged user', 403)
+  }
+  if (config.challenge_status !== 'pending') {
+    return errorResponse(`Challenge is not pending (current status: ${config.challenge_status})`)
+  }
+
+  // Calculate start and end dates
+  const startDate = new Date()
+  const endDate = new Date()
+  endDate.setDate(endDate.getDate() + (config.duration_days as number))
+
+  const updatedConfig = {
+    ...config,
+    challenge_status: 'active',
+  }
+
+  const { error: updateErr } = await supabase
+    .from('competitions')
+    .update({
+      config: updatedConfig,
+      start_date: startDate.toISOString(),
+      end_date: endDate.toISOString(),
+    })
+    .eq('id', competition_id)
+
+  if (updateErr) {
+    console.error('Accept challenge update error:', updateErr)
+    return errorResponse(updateErr.message, 500)
+  }
+
+  // Join the challenged user as participant
+  const { error: joinErr } = await supabase
+    .from('competition_participants')
+    .upsert(
+      {
+        competition_id,
+        npub,
+        name: name || null,
+        picture: picture || null,
+      },
+      { onConflict: 'competition_id,npub' },
+    )
+
+  if (joinErr) {
+    console.warn('Challenged user join error (non-fatal):', joinErr)
+  }
+
+  console.log(`Accepted challenge: ${competition_id} by ${(npub as string).slice(0, 12)}...`)
+  return jsonResponse({
+    success: true,
+    data: {
+      challenge_status: 'active',
+      start_date: startDate.toISOString(),
+      end_date: endDate.toISOString(),
+    },
+  })
+}
+
+async function handleDeclineChallenge(
+  supabase: SupabaseClient,
+  params: Record<string, unknown>,
+): Promise<Response> {
+  const { competition_id, npub } = params
+
+  if (!competition_id || !npub) {
+    return errorResponse('Missing required fields: competition_id, npub')
+  }
+
+  // Fetch the competition
+  const { data: comp, error: compErr } = await supabase
+    .from('competitions')
+    .select('id, template, config')
+    .eq('id', competition_id)
+    .single()
+
+  if (compErr || !comp) {
+    return errorResponse('Competition not found', 404)
+  }
+  if (comp.template !== 'challenge') {
+    return errorResponse('Competition is not a challenge')
+  }
+
+  const config = comp.config as Record<string, unknown>
+  if (config.challenged_npub !== npub) {
+    return errorResponse('You are not the challenged user', 403)
+  }
+  if (config.challenge_status !== 'pending') {
+    return errorResponse(`Challenge is not pending (current status: ${config.challenge_status})`)
+  }
+
+  const updatedConfig = {
+    ...config,
+    challenge_status: 'declined',
+  }
+
+  const { error: updateErr } = await supabase
+    .from('competitions')
+    .update({ config: updatedConfig })
+    .eq('id', competition_id)
+
+  if (updateErr) {
+    console.error('Decline challenge update error:', updateErr)
+    return errorResponse(updateErr.message, 500)
+  }
+
+  console.log(`Declined challenge: ${competition_id} by ${(npub as string).slice(0, 12)}...`)
+  return jsonResponse({
+    success: true,
+    data: { challenge_status: 'declined' },
+  })
+}
+
+async function handleCompleteChallenge(
+  supabase: SupabaseClient,
+  params: Record<string, unknown>,
+): Promise<Response> {
+  const { competition_id } = params
+
+  if (!competition_id) {
+    return errorResponse('Missing required field: competition_id')
+  }
+
+  // Fetch the competition
+  const { data: comp, error: compErr } = await supabase
+    .from('competitions')
+    .select('id, template, config, scoring_method, start_date, end_date')
+    .eq('id', competition_id)
+    .single()
+
+  if (compErr || !comp) {
+    return errorResponse('Competition not found', 404)
+  }
+  if (comp.template !== 'challenge') {
+    return errorResponse('Competition is not a challenge')
+  }
+
+  const config = comp.config as Record<string, unknown>
+  if (config.challenge_status !== 'active') {
+    return errorResponse(`Challenge is not active (current status: ${config.challenge_status})`)
+  }
+
+  const now = new Date()
+  const endDate = new Date(comp.end_date)
+  if (now < endDate) {
+    return errorResponse('Challenge has not ended yet')
+  }
+
+  // Fetch participants
+  const { data: participants, error: partErr } = await supabase
+    .from('competition_participants')
+    .select('npub')
+    .eq('competition_id', competition_id)
+
+  if (partErr) {
+    console.error('Fetch participants error:', partErr)
+    return errorResponse(partErr.message, 500)
+  }
+
+  if (!participants || participants.length === 0) {
+    return errorResponse('No participants found')
+  }
+
+  const participantNpubs = participants.map((p: { npub: string }) => p.npub)
+  const startDate = comp.start_date
+
+  // Determine winner based on scoring method
+  let winnerNpub: string | null = null
+
+  if (comp.scoring_method === 'fastest_time') {
+    // Pick the correct time column based on target distance
+    const targetKm = config.target_distance_km as number
+    const timeColumn = targetKm === 5 ? 'time_5k_seconds' : 'time_10k_seconds'
+
+    const { data: workouts, error: workoutErr } = await supabase
+      .from('workout_submissions')
+      .select(`npub, ${timeColumn}`)
+      .eq('competition_id', competition_id)
+      .gte('submitted_at', startDate)
+      .lte('submitted_at', comp.end_date)
+      .in('npub', participantNpubs)
+      .not(timeColumn, 'is', null)
+      .order(timeColumn, { ascending: true })
+      .limit(1)
+
+    if (!workoutErr && workouts && workouts.length > 0) {
+      winnerNpub = workouts[0].npub
+    }
+  } else if (comp.scoring_method === 'total_distance') {
+    const { data: workouts, error: workoutErr } = await supabase
+      .from('workout_submissions')
+      .select('npub, distance_meters')
+      .eq('competition_id', competition_id)
+      .gte('submitted_at', startDate)
+      .lte('submitted_at', comp.end_date)
+      .in('npub', participantNpubs)
+
+    if (!workoutErr && workouts && workouts.length > 0) {
+      const totals: Record<string, number> = {}
+      for (const w of workouts) {
+        totals[w.npub] = (totals[w.npub] || 0) + (w.distance_meters || 0)
+      }
+      winnerNpub = Object.entries(totals).sort((a, b) => b[1] - a[1])[0][0]
+    }
+  } else if (comp.scoring_method === 'workout_count') {
+    const { data: workouts, error: workoutErr } = await supabase
+      .from('workout_submissions')
+      .select('npub')
+      .eq('competition_id', competition_id)
+      .gte('submitted_at', startDate)
+      .lte('submitted_at', comp.end_date)
+      .in('npub', participantNpubs)
+
+    if (!workoutErr && workouts && workouts.length > 0) {
+      const counts: Record<string, number> = {}
+      for (const w of workouts) {
+        counts[w.npub] = (counts[w.npub] || 0) + 1
+      }
+      winnerNpub = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0]
+    }
+  } else if (comp.scoring_method === 'total_steps') {
+    const { data: workouts, error: workoutErr } = await supabase
+      .from('workout_submissions')
+      .select('npub, step_count')
+      .eq('competition_id', competition_id)
+      .gte('submitted_at', startDate)
+      .lte('submitted_at', comp.end_date)
+      .in('npub', participantNpubs)
+
+    if (!workoutErr && workouts && workouts.length > 0) {
+      const totals: Record<string, number> = {}
+      for (const w of workouts) {
+        totals[w.npub] = (totals[w.npub] || 0) + (w.step_count || 0)
+      }
+      winnerNpub = Object.entries(totals).sort((a, b) => b[1] - a[1])[0][0]
+    }
+  }
+
+  const updatedConfig = {
+    ...config,
+    challenge_status: 'completed',
+    winner_npub: winnerNpub,
+  }
+
+  const { error: updateErr } = await supabase
+    .from('competitions')
+    .update({ config: updatedConfig })
+    .eq('id', competition_id)
+
+  if (updateErr) {
+    console.error('Complete challenge update error:', updateErr)
+    return errorResponse(updateErr.message, 500)
+  }
+
+  console.log(`Completed challenge: ${competition_id}, winner: ${winnerNpub ? (winnerNpub as string).slice(0, 12) + '...' : 'none (tie/no workouts)'}`)
+  return jsonResponse({
+    success: true,
+    data: { challenge_status: 'completed', winner_npub: winnerNpub },
+  })
+}
+
 // =============================================
 // Main Handler
 // =============================================
@@ -483,6 +867,14 @@ serve(async (req) => {
         return await handleUpdateProfile(supabase, params)
       case 'auto-join-members':
         return await handleAutoJoinMembers(supabase, params)
+      case 'create-challenge':
+        return await handleCreateChallenge(supabase, params)
+      case 'accept-challenge':
+        return await handleAcceptChallenge(supabase, params)
+      case 'decline-challenge':
+        return await handleDeclineChallenge(supabase, params)
+      case 'complete-challenge':
+        return await handleCompleteChallenge(supabase, params)
       default:
         return errorResponse(`Unknown action: ${action}`)
     }
