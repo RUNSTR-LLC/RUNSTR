@@ -26,6 +26,9 @@ export interface ClubMembership {
   joined_at: string;
 }
 
+// Message types for club chat
+export type ClubMessageType = 'message' | 'announcement' | 'workout';
+
 // Club chat message - maps to club_messages table
 export interface ClubMessage {
   id: string;
@@ -34,6 +37,26 @@ export interface ClubMessage {
   content: string;
   created_at: string;
   deleted_at: string | null;
+  reply_to_id: string | null;
+  message_type: ClubMessageType;
+  metadata: WorkoutMessageMetadata | null;
+  reactions: Record<string, string[]>; // emoji -> [npub1, npub2, ...]
+}
+
+// Metadata attached to workout auto-share messages
+export interface WorkoutMessageMetadata {
+  exercise_type: string;
+  distance_meters?: number;
+  duration_seconds: number;
+  profile_name?: string;
+}
+
+// Context for rendering reply quote blocks in the UI
+export interface ReplyContext {
+  id: string;
+  sender_npub: string;
+  content: string;
+  sender_name?: string;
 }
 
 // Result type for join/leave operations

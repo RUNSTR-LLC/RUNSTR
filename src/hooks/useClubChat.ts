@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ClubChatService } from '../services/backend/ClubChatService';
+import type { SendMessageOptions } from '../services/backend/ClubChatService';
 import type { ClubMessage } from '../types/club';
 
 const PAGE_SIZE = 20;
@@ -22,9 +23,10 @@ interface UseClubChatReturn {
   error: string | null;
   canSend: boolean;
   hasMore: boolean;
-  sendMessage: (content: string) => Promise<boolean>;
+  sendMessage: (content: string, options?: SendMessageOptions) => Promise<boolean>;
   loadMore: () => Promise<void>;
   deleteMessage: (messageId: string) => Promise<boolean>;
+  toggleReaction: (messageId: string, emoji: string) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -97,17 +99,27 @@ export function useClubChat(
   useEffect(() => {
     if (!clubId) return;
 
-    // Subscribe to new messages
-    const unsub = ClubChatService.subscribeToMessages(clubId, (newMessage) => {
-      if (!isMounted.current) return;
+    // Subscribe to new messages and updates (reactions)
+    const unsub = ClubChatService.subscribeToMessages(
+      clubId,
+      (newMessage) => {
+        if (!isMounted.current) return;
 
-      setMessages((prev) => {
-        // Dedup: the optimistic insert may already have this message
-        if (prev.some((m) => m.id === newMessage.id)) return prev;
-        // Prepend (newest first)
-        return [newMessage, ...prev];
-      });
-    });
+        setMessages((prev) => {
+          // Dedup: the optimistic insert may already have this message
+          if (prev.some((m) => m.id === newMessage.id)) return prev;
+          // Prepend (newest first)
+          return [newMessage, ...prev];
+        });
+      },
+      (updatedMessage) => {
+        if (!isMounted.current) return;
+
+        setMessages((prev) =>
+          prev.map((m) => (m.id === updatedMessage.id ? updatedMessage : m))
+        );
+      }
+    );
 
     unsubscribeRef.current = unsub;
 
@@ -136,13 +148,13 @@ export function useClubChat(
   // Send message (optimistic)
   // ------------------------------------------------------------------
   const sendMessage = useCallback(
-    async (content: string): Promise<boolean> => {
+    async (content: string, options?: SendMessageOptions): Promise<boolean> => {
       if (!clubId || !senderNpub) return false;
 
       const trimmed = content.trim();
       if (trimmed.length === 0 || trimmed.length > 1000) return false;
 
-      if (!ClubChatService.canSendMessage()) {
+      if (options?.messageType !== 'workout' && !ClubChatService.canSendMessage()) {
         setCanSend(false);
         return false;
       }
@@ -159,12 +171,16 @@ export function useClubChat(
         content: trimmed,
         created_at: new Date().toISOString(),
         deleted_at: null,
+        reply_to_id: options?.replyToId ?? null,
+        message_type: options?.messageType ?? 'message',
+        metadata: options?.metadata ?? null,
+        reactions: {},
       };
 
       setMessages((prev) => [optimisticMessage, ...prev]);
 
       try {
-        const sent = await ClubChatService.sendMessage(clubId, senderNpub, trimmed);
+        const sent = await ClubChatService.sendMessage(clubId, senderNpub, trimmed, options);
 
         if (sent && isMounted.current) {
           // Replace optimistic message with real one from Supabase
@@ -257,6 +273,47 @@ export function useClubChat(
   );
 
   // ------------------------------------------------------------------
+  // Toggle reaction (optimistic)
+  // ------------------------------------------------------------------
+  const toggleReaction = useCallback(
+    async (messageId: string, emoji: string): Promise<void> => {
+      if (!senderNpub) return;
+
+      // Optimistic update
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== messageId) return m;
+          const reactions = { ...m.reactions };
+          const users = [...(reactions[emoji] || [])];
+          const index = users.indexOf(senderNpub);
+          if (index === -1) {
+            users.push(senderNpub);
+          } else {
+            users.splice(index, 1);
+          }
+          if (users.length > 0) {
+            reactions[emoji] = users;
+          } else {
+            delete reactions[emoji];
+          }
+          return { ...m, reactions };
+        })
+      );
+
+      const updated = await ClubChatService.toggleReaction(messageId, senderNpub, emoji);
+
+      if (!updated && isMounted.current) {
+        // Revert: re-fetch to restore state
+        if (clubId) {
+          const fresh = await ClubChatService.getMessages(clubId, PAGE_SIZE);
+          setMessages(fresh);
+        }
+      }
+    },
+    [clubId, senderNpub]
+  );
+
+  // ------------------------------------------------------------------
   // Refresh (full reload)
   // ------------------------------------------------------------------
   const refresh = useCallback(async () => {
@@ -294,6 +351,7 @@ export function useClubChat(
     sendMessage,
     loadMore,
     deleteMessage,
+    toggleReaction,
     refresh,
   };
 }

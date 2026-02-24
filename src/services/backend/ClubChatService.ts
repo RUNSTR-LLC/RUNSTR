@@ -13,7 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, isSupabaseConfigured } from '../../utils/supabase';
 import { ClubMembershipService } from './ClubMembershipService';
 import { callEdgeFunction } from '../../utils/edgeFunctions';
-import type { ClubMessage } from '../../types/club';
+import type { ClubMessage, ClubMessageType, WorkoutMessageMetadata } from '../../types/club';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 // Cache configuration
@@ -32,6 +32,12 @@ const MAX_CONTENT_LENGTH = 1000;
 
 // Send timeout
 const SEND_TIMEOUT_MS = 10_000;
+
+export interface SendMessageOptions {
+  replyToId?: string;
+  messageType?: ClubMessageType;
+  metadata?: WorkoutMessageMetadata;
+}
 
 interface CachedChat {
   messages: ClubMessage[];
@@ -114,7 +120,8 @@ export class ClubChatService {
   static async sendMessage(
     clubId: string,
     senderNpub: string,
-    content: string
+    content: string,
+    options?: SendMessageOptions
   ): Promise<ClubMessage | null> {
     // Validate content (client-side for instant feedback)
     const trimmed = content.trim();
@@ -127,17 +134,27 @@ export class ClubChatService {
       return null;
     }
 
-    // Client-side rate limit (UX guard)
-    if (!ClubChatService.canSendMessage()) {
+    // Client-side rate limit (UX guard) — skip for workout messages
+    if (options?.messageType !== 'workout' && !ClubChatService.canSendMessage()) {
       console.warn(
         `[ClubChatService] Rate limited. Reset in ${ClubChatService.getRateLimitResetSeconds()}s`
       );
       return null;
     }
 
+    const body: Record<string, unknown> = {
+      action: 'send',
+      club_id: clubId,
+      sender_npub: senderNpub,
+      content: trimmed,
+    };
+    if (options?.replyToId) body.reply_to_id = options.replyToId;
+    if (options?.messageType) body.message_type = options.messageType;
+    if (options?.metadata) body.metadata = options.metadata;
+
     const result = await callEdgeFunction<{ message?: ClubMessage }>(
       'manage-club-chat',
-      { action: 'send', club_id: clubId, sender_npub: senderNpub, content: trimmed },
+      body,
       SEND_TIMEOUT_MS,
     );
 
@@ -149,8 +166,10 @@ export class ClubChatService {
     const message = (result.data as any).message ?? result.data as unknown as ClubMessage;
     console.log(`[ClubChatService] Message sent: ${message.id}`);
 
-    // Record timestamp for rate limiting
-    sentTimestamps.push(Date.now());
+    // Record timestamp for rate limiting (skip for workout)
+    if (options?.messageType !== 'workout') {
+      sentTimestamps.push(Date.now());
+    }
 
     // Append to cache
     await ClubChatService.appendToCache(clubId, message);
@@ -179,13 +198,39 @@ export class ClubChatService {
   }
 
   /**
+   * Toggle an emoji reaction on a message via Edge Function.
+   */
+  static async toggleReaction(
+    messageId: string,
+    callerNpub: string,
+    emoji: string
+  ): Promise<ClubMessage | null> {
+    const result = await callEdgeFunction<ClubMessage>('manage-club-chat', {
+      action: 'react',
+      message_id: messageId,
+      caller_npub: callerNpub,
+      emoji,
+    });
+
+    if (!result.success || !result.data) {
+      console.error('[ClubChatService] toggleReaction error:', result.error);
+      return null;
+    }
+
+    const updated = (result.data as any).message ?? result.data as unknown as ClubMessage;
+    console.log(`[ClubChatService] Reaction toggled: ${emoji} on ${messageId}`);
+    return updated;
+  }
+
+  /**
    * Subscribe to new messages for a club via Supabase Realtime.
    * Cleans up any existing subscription for a different club.
    * Returns an unsubscribe function.
    */
   static subscribeToMessages(
     clubId: string,
-    onNewMessage: (message: ClubMessage) => void
+    onNewMessage: (message: ClubMessage) => void,
+    onMessageUpdated?: (message: ClubMessage) => void
   ): () => void {
     if (!isSupabaseConfigured()) {
       console.warn('[ClubChatService] Supabase not configured');
@@ -232,6 +277,25 @@ export class ClubChatService {
           ClubChatService.appendToCache(clubId, newMessage).catch(() => {});
 
           onNewMessage(newMessage);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'club_messages',
+          filter: `club_id=eq.${clubId}`,
+        },
+        (payload) => {
+          if (!onMessageUpdated) return;
+          const updatedMessage = payload.new as ClubMessage;
+          if (updatedMessage.deleted_at) return;
+
+          console.log(
+            `[ClubChatService] Realtime message updated: ${updatedMessage.id}`
+          );
+          onMessageUpdated(updatedMessage);
         }
       )
       .subscribe((status) => {

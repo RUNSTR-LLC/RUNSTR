@@ -1,21 +1,20 @@
 /**
- * ClubChatSection - Embedded chat section for the club page
+ * ClubChatSection - Embedded chat for club page
  *
- * Uses the useClubChat hook for state, messaging, realtime, and rate limiting.
- * Shows messages in an inverted FlatList (newest at bottom).
- * Captain messages get a left orange border and name in accent color.
+ * Inverted ScrollView (not FlatList) to avoid VirtualizedList-in-ScrollView warning.
+ * Supports replies, announcements (captain-only), and reactions.
  */
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
+  ScrollView,
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
   Keyboard,
+  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -23,7 +22,7 @@ import { theme } from '../../styles/theme';
 import { useClubChat } from '../../hooks/useClubChat';
 import { ChatMessageBubble } from './ChatMessageBubble';
 import type { SenderProfile } from './ChatMessageBubble';
-import type { ClubMessage } from '../../types/club';
+import type { ClubMessage, ReplyContext } from '../../types/club';
 import { nostrProfileService } from '../../services/nostr/NostrProfileService';
 import type { NostrProfile } from '../../services/nostr/NostrProfileService';
 
@@ -50,9 +49,13 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
 }) => {
   const [userNpub, setUserNpub] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
-  const flatListRef = useRef<FlatList<ClubMessage>>(null);
+  const [replyingTo, setReplyingTo] = useState<ClubMessage | null>(null);
+  const [isAnnouncementMode, setIsAnnouncementMode] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
   const [profiles, setProfiles] = useState<Map<string, NostrProfile>>(new Map());
   const fetchedNpubsRef = useRef<Set<string>>(new Set());
+
+  const isCaptain = userNpub === captainNpub;
 
   // Load user npub
   useEffect(() => {
@@ -73,6 +76,7 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
     sendMessage,
     loadMore,
     deleteMessage,
+    toggleReaction,
   } = useClubChat(clubId, userNpub);
 
   // Fetch profiles for message senders
@@ -104,9 +108,7 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
     fetchProfiles();
   }, [messages]);
 
-  // -------------------------------------------------------------------------
   // Handlers
-  // -------------------------------------------------------------------------
 
   const handleSend = useCallback(async () => {
     const trimmed = inputText.trim();
@@ -115,12 +117,18 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
     setInputText('');
     Keyboard.dismiss();
 
-    const success = await sendMessage(trimmed);
-    if (!success) {
-      // Restore text if send failed
+    const options: Parameters<typeof sendMessage>[1] = {};
+    if (replyingTo) options.replyToId = replyingTo.id;
+    if (isAnnouncementMode && isCaptain) options.messageType = 'announcement';
+
+    const success = await sendMessage(trimmed, Object.keys(options).length > 0 ? options : undefined);
+    if (success) {
+      setReplyingTo(null);
+      setIsAnnouncementMode(false);
+    } else {
       setInputText(trimmed);
     }
-  }, [inputText, canSend, isSending, sendMessage]);
+  }, [inputText, canSend, isSending, sendMessage, replyingTo, isAnnouncementMode, isCaptain]);
 
   const handleDelete = useCallback(
     async (messageId: string) => {
@@ -129,15 +137,18 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
     [deleteMessage]
   );
 
-  const handleEndReached = useCallback(() => {
-    if (hasMore && !isLoading) {
-      loadMore();
-    }
-  }, [hasMore, isLoading, loadMore]);
+  const handleReply = useCallback((item: ClubMessage) => {
+    setReplyingTo(item);
+  }, []);
 
-  // -------------------------------------------------------------------------
+  const handleReact = useCallback(
+    (messageId: string, emoji: string) => {
+      toggleReaction(messageId, emoji);
+    },
+    [toggleReaction]
+  );
+
   // Render helpers
-  // -------------------------------------------------------------------------
 
   const getProfileForNpub = useCallback(
     (npub: string): SenderProfile | undefined => {
@@ -146,6 +157,22 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
       return { name: p.name, display_name: p.display_name, picture: p.picture };
     },
     [profiles]
+  );
+
+  const getReplyContext = useCallback(
+    (replyToId: string | null): ReplyContext | undefined => {
+      if (!replyToId) return undefined;
+      const target = messages.find((m) => m.id === replyToId);
+      if (!target) return undefined;
+      const p = profiles.get(target.sender_npub);
+      return {
+        id: target.id,
+        sender_npub: target.sender_npub,
+        content: target.content.slice(0, 80),
+        sender_name: p?.display_name || p?.name,
+      };
+    },
+    [messages, profiles]
   );
 
   const renderMessage = useCallback(
@@ -161,30 +188,26 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
           isOwnMessage={isOwnMessage}
           canDelete={canDeleteMessage}
           onDelete={() => handleDelete(item.id)}
+          onReply={() => handleReply(item)}
+          onReact={(emoji) => handleReact(item.id, emoji)}
+          replyContext={getReplyContext(item.reply_to_id)}
+          userNpub={userNpub ?? undefined}
           senderProfile={getProfileForNpub(item.sender_npub)}
         />
       );
     },
-    [captainNpub, userNpub, handleDelete, getProfileForNpub]
+    [captainNpub, userNpub, handleDelete, handleReply, handleReact, getProfileForNpub, getReplyContext]
   );
-
-  // No auto-scroll needed - inverted FlatList keeps newest at bottom
-
-  // -------------------------------------------------------------------------
-  // Input placeholder text
-  // -------------------------------------------------------------------------
 
   const placeholderText = !canSend
     ? 'Rate limited...'
+    : isAnnouncementMode
+    ? 'Write an announcement...'
     : `Message ${clubName}`;
 
   const canSendNow = canSend && !isSending && inputText.trim().length > 0;
 
-  // -------------------------------------------------------------------------
-  // Render
-  // -------------------------------------------------------------------------
-
-  // Members-only gate: show lock teaser for non-members
+  // Members-only gate
   if (!isMember) {
     return (
       <View style={styles.section}>
@@ -224,30 +247,67 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
             <Text style={styles.emptyText}>No messages yet. Say hello!</Text>
           </View>
         ) : (
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            renderItem={({ item }) => renderMessage(item)}
-            keyExtractor={(item) => item.id}
-            inverted
-            style={styles.messageList}
+          <ScrollView
+            ref={scrollViewRef}
+            style={[styles.messageList, styles.invertedScroll]}
             contentContainerStyle={styles.messageListContent}
             showsVerticalScrollIndicator={false}
             nestedScrollEnabled={true}
             keyboardShouldPersistTaps="handled"
-            removeClippedSubviews={true}
-            onEndReached={handleEndReached}
-            onEndReachedThreshold={0.1}
-            initialNumToRender={20}
-            maxToRenderPerBatch={10}
-            windowSize={5}
-          />
+            onScroll={({ nativeEvent }) => {
+              const { layoutMeasurement, contentSize, contentOffset } = nativeEvent;
+              const distanceFromEnd = contentSize.height - layoutMeasurement.height - contentOffset.y;
+              if (distanceFromEnd < 50 && hasMore && !isLoading) {
+                loadMore();
+              }
+            }}
+            scrollEventThrottle={400}
+          >
+            {messages.map((item) => (
+              <View key={item.id} style={styles.invertedScroll}>
+                {renderMessage(item)}
+              </View>
+            ))}
+          </ScrollView>
         )}
       </View>
 
-      {/* Input bar - only shown to club members */}
+      {/* Reply bar */}
+      {replyingTo && (
+        <View style={styles.replyBar}>
+          <View style={styles.replyBarContent}>
+            <Text style={styles.replyBarLabel}>Replying to:</Text>
+            <Text style={styles.replyBarText} numberOfLines={1}>
+              {replyingTo.content.slice(0, 60)}
+            </Text>
+          </View>
+          <Pressable onPress={() => setReplyingTo(null)} hitSlop={8}>
+            <Ionicons name="close" size={18} color={theme.colors.textMuted} />
+          </Pressable>
+        </View>
+      )}
+
+      {/* Input bar */}
       {userNpub && isMember && (
-        <View style={styles.inputBar}>
+        <View style={[styles.inputBar, isAnnouncementMode && styles.inputBarAnnouncement]}>
+          {/* Announcement toggle (captain only) */}
+          {isCaptain && (
+            <TouchableOpacity
+              onPress={() => setIsAnnouncementMode((prev) => !prev)}
+              style={[
+                styles.announcementButton,
+                isAnnouncementMode && styles.announcementButtonActive,
+              ]}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name="megaphone"
+                size={18}
+                color={isAnnouncementMode ? theme.colors.accent : theme.colors.textDark}
+              />
+            </TouchableOpacity>
+          )}
+
           <TextInput
             style={[
               styles.textInput,
@@ -352,10 +412,43 @@ const styles = StyleSheet.create({
   messageList: {
     flex: 1,
   },
+  invertedScroll: {
+    transform: [{ scaleY: -1 }],
+  },
   messageListContent: {
     paddingVertical: 8,
     paddingHorizontal: 8,
   },
+  // Reply bar
+  replyBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: theme.colors.cardBackground,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderLeftWidth: 3,
+    borderLeftColor: theme.colors.accent,
+  },
+  replyBarContent: {
+    flex: 1,
+    marginRight: 8,
+  },
+  replyBarLabel: {
+    fontSize: 11,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.accent,
+    marginBottom: 1,
+  },
+  replyBarText: {
+    fontSize: 13,
+    color: theme.colors.textMuted,
+  },
+  // Input bar
   inputBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -367,6 +460,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     gap: 8,
+  },
+  inputBarAnnouncement: {
+    borderColor: 'rgba(204, 122, 51, 0.3)',
+  },
+  announcementButton: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 16,
+  },
+  announcementButtonActive: {
+    backgroundColor: 'rgba(204, 122, 51, 0.12)',
   },
   textInput: {
     flex: 1,

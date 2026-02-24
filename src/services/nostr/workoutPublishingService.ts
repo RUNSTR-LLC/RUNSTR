@@ -44,6 +44,7 @@ import { EinundzwanzigService } from '../challenge/EinundzwanzigService';
 import { isEinundzwanzigActive } from '../../constants/einundzwanzig';
 import { PendingSubmissionService } from '../competition/PendingSubmissionService';
 import { WoTService } from '../wot/WoTService';
+import { shareWorkoutToClubChat } from '../club/ClubChatAutoShare';
 
 // Import split type for race replay data
 import type { Split } from '../activity/SplitTrackingService';
@@ -370,6 +371,18 @@ export class WorkoutPublishingService {
       fireAndForget(
         CacheInvalidationService.invalidateWorkout(pubkey),
         'cacheInvalidation'
+      );
+
+      // Club chat auto-share (non-blocking)
+      fireAndForget(
+        shareWorkoutToClubChat({
+          senderNpub: npub,
+          exerciseType,
+          distanceMeters,
+          durationSeconds,
+          profileName: profile.name,
+        }),
+        'clubChatAutoShare'
       );
 
       // 🎁 Reward trigger MOVED to Supabase submission success
