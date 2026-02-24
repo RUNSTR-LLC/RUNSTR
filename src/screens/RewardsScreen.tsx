@@ -375,7 +375,7 @@ const RewardsScreenComponent: React.FC = () => {
             <Ionicons name="footsteps-outline" size={20} color="#FF9D42" />
             <View style={styles.rewardTextSection}>
               <Text style={styles.rewardLabel}>{t('fiveKSteps', { defaultValue: '5,000 Steps' })}</Text>
-              <Text style={styles.rewardValue}>100 sats</Text>
+              <Text style={styles.rewardValue}>50 sats</Text>
             </View>
           </View>
 
