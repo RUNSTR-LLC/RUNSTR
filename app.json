@@ -203,6 +203,13 @@
           "notificationContent": "Counting your steps...",
           "notificationIcon": "@mipmap/ic_launcher"
         }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "RUNSTR needs microphone access for voice journal entries.",
+          "speechRecognitionPermission": "RUNSTR needs speech recognition to transcribe your voice journal entries."
+        }
       ]
     ],
     "main": "index.js",
