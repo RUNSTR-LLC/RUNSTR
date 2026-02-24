@@ -29,6 +29,7 @@ import type { ChallengeType } from '../components/club/ChallengeWizardModal';
 import { nostrProfileService } from '../services/nostr/NostrProfileService';
 import type { NostrProfile } from '../services/nostr/NostrProfileService';
 import { ClubChatService } from '../services/backend/ClubChatService';
+import { ChallengeService } from '../services/challenge/ChallengeService';
 
 interface ClubChatScreenProps {
   navigation: any;
@@ -165,23 +166,45 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
     if (!challengeTarget || !userNpub) return;
     const challengedNpub = challengeTarget.sender_npub;
     const challengedName = getProfileForNpub(challengedNpub)?.display_name || challengedNpub.slice(0, 12) + '...';
+    const myProfile = getProfileForNpub(userNpub);
+
+    // Create competition first
+    const result = await ChallengeService.createChallenge({
+      challengerNpub: userNpub,
+      challengedNpub,
+      challengeType: type,
+      durationDays,
+      clubId: clubId,
+      name: myProfile?.display_name || myProfile?.name,
+      picture: myProfile?.picture,
+    });
+
+    if (!result) {
+      console.error('[ClubChatScreen] Failed to create challenge competition');
+      setChallengeTarget(null);
+      return;
+    }
+
+    // Send chat message with real competition_id
     const typeLabels: Record<string, string> = {
       fastest_5k: 'Fastest 5K', fastest_10k: 'Fastest 10K',
       daily_streak: 'Daily Streak', most_distance: 'Most Distance', most_steps: 'Most Steps',
     };
     const durLabels: Record<number, string> = { 1: '24 hours', 3: '3 days', 7: '1 week' };
     const content = `challenged ${challengedName} to ${typeLabels[type]} for ${durLabels[durationDays]}!`;
+
     const metadata: ChallengeMessageMetadata = {
-      competition_id: '',
+      competition_id: result.competitionId,
       challenge_type: type,
       duration_days: durationDays,
       challenged_npub: challengedNpub,
       challenger_npub: userNpub,
       challenge_status: 'pending',
     };
-    await sendMessage(content, { messageType: 'challenge', metadata: metadata as any });
+
+    await sendMessage(content, { messageType: 'challenge', metadata });
     setChallengeTarget(null);
-  }, [challengeTarget, userNpub, sendMessage, getProfileForNpub]);
+  }, [challengeTarget, userNpub, clubId, sendMessage, getProfileForNpub]);
 
   const getReplyContext = useCallback((replyToId: string | null): ReplyContext | undefined => {
     if (!replyToId) return undefined;
@@ -444,16 +467,8 @@ const styles = StyleSheet.create({
   inputBarAnnouncement: {
     borderColor: 'rgba(204, 122, 51, 0.3)',
   },
-  announcementButton: {
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 16,
-  },
-  announcementButtonActive: {
-    backgroundColor: 'rgba(204, 122, 51, 0.12)',
-  },
+  announcementButton: { width: 32, height: 32, justifyContent: 'center', alignItems: 'center', borderRadius: 16 },
+  announcementButtonActive: { backgroundColor: 'rgba(204, 122, 51, 0.12)' },
   textInput: {
     flex: 1,
     fontSize: 15,
