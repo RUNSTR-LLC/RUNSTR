@@ -646,7 +646,14 @@ export class SupabaseCompetitionService {
       // Get workouts for participants within date range
       // Use dateOverride if provided (for demo mode), otherwise use competition dates
       const startDate = dateOverride?.startDate || competition.start_date;
-      const endDate = dateOverride?.endDate || competition.end_date;
+      // Extend end_date to end-of-day (23:59:59.999Z) so workouts from the
+      // final day are included regardless of timezone. Without this, users
+      // west of UTC who work out in the evening get excluded because their
+      // created_at timestamp falls after midnight UTC.
+      const rawEndDate = dateOverride?.endDate || competition.end_date;
+      const endDateObj = new Date(rawEndDate);
+      endDateObj.setUTCHours(23, 59, 59, 999);
+      const endDate = endDateObj.toISOString();
 
       // Use activityTypes override if provided, then check config.activity_types array,
       // and fall back to the single activity_type column for backwards compatibility

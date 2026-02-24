@@ -316,8 +316,12 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
         return;
       }
 
+      // Set end date to end-of-day on the final day (not start of next day).
+      // This ensures workouts from users west of UTC aren't excluded when
+      // their evening workout's created_at falls after midnight UTC.
       const endDate = new Date(startDate!);
-      endDate.setUTCDate(endDate.getUTCDate() + EVENT_DURATION_DAYS);
+      endDate.setUTCDate(endDate.getUTCDate() + EVENT_DURATION_DAYS - 1);
+      endDate.setUTCHours(23, 59, 59, 999);
 
       // Create competition via Edge Function (handles spam prevention, auto-join)
       const result = await callEdgeFunction<{
