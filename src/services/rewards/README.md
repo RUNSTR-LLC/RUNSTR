@@ -6,7 +6,7 @@ Services for managing the RUNSTR rewards system, including daily rewards, step t
 
 ### Core Reward Services
 
-- **DailyRewardService.ts** - Manages daily workout rewards (50 sats per workout, server-side via trigger_auto_reward)
+- **DailyRewardService.ts** - Manages daily workout rewards (100 sats per workout, server-side via trigger_auto_reward)
 
 ### Payment & Destination Services
 

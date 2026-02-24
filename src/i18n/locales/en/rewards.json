@@ -49,7 +49,7 @@
     "distributed": "distributed daily",
     "payoutTime": "Payouts processed ~10pm EST daily",
     "competeToEarn": "Compete to Earn:",
-    "perWorkout": "50 sats per workout submitted to competition",
+    "perWorkout": "100 sats per workout submitted to competition",
     "sentToLightning": "Rewards sent directly to your Lightning address",
     "enterLightningAddress": "Enter your Lightning address in Settings → Advanced Features",
     "gotIt": "Got it"

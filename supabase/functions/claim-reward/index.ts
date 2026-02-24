@@ -11,8 +11,8 @@
  * - get_balance: Get wallet balance (for monitoring)
  *
  * Rate Limits (for claim_reward only):
- * - Workout reward: 1 per Lightning address per day (50 sats)
- * - Step reward: Max 50 sats per Lightning address per day
+ * - Workout reward: 1 per Lightning address per day (100 sats)
+ * - Step reward: Max 100 sats per Lightning address per day
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
@@ -22,7 +22,7 @@ import { bytesToHex, hexToBytes } from 'https://esm.sh/@noble/hashes@1.3.2/utils
 import { sha256 } from 'https://esm.sh/@noble/hashes@1.3.2/sha256'
 
 // Constants
-const WORKOUT_REWARD_SATS = 50
+const WORKOUT_REWARD_SATS = 100
 const STEP_SATS_PER_MILESTONE = 5
 const MAX_DAILY_STEP_SATS = 50
 const NWC_TIMEOUT_MS = 30000
@@ -1248,7 +1248,7 @@ serve(async (req) => {
 
         // Determine reward amount: use requested amount if valid, otherwise default
         // Einundzwanzig event participants get 100 sats (double reward)
-        const MIN_WORKOUT_SATS = 50
+        const MIN_WORKOUT_SATS = 100
         const MAX_WORKOUT_SATS = 1000
         let rewardAmount = amount_sats || WORKOUT_REWARD_SATS
         if (rewardAmount < MIN_WORKOUT_SATS || rewardAmount > MAX_WORKOUT_SATS) {

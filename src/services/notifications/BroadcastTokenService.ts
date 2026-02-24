@@ -13,7 +13,7 @@
  *
  * NOTIFICATIONS SENT:
  * - Community: "Daily Running: First 5K time today - 24:32!"
- * - Per-user: "You earned 50 sats for today's workout!"
+ * - Per-user: "You earned 100 sats for today's workout!"
  * - Per-user: "Auto-joined Season II Running! Keep going!"
  */
 

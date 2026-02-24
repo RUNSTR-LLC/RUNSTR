@@ -26,6 +26,9 @@ import {
   EnergyLevel,
 } from '../../types/journal';
 import { JournalService } from '../../services/journal/JournalService';
+import { SupabaseCompetitionService } from '../../services/backend/SupabaseCompetitionService';
+import { buildRewardTags } from '../../utils/rewardTags';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MoodSelector } from './MoodSelector';
 import { EnergySelector } from './EnergySelector';
 
@@ -106,6 +109,35 @@ export const JournalEditorModal: React.FC<JournalEditorModalProps> = ({
       }
 
       onSave(savedEntry);
+
+      // Fire-and-forget: submit new journal entries to Supabase to trigger reward
+      if (!isEditing) {
+        (async () => {
+          try {
+            const npub = await AsyncStorage.getItem('@runstr:npub');
+            if (!npub) return;
+            const rewardTags = await buildRewardTags();
+            rewardTags.push(['exercise', 'journal']);
+            const profileName = await AsyncStorage.getItem('@runstr:profile_name');
+            const profilePicture = await AsyncStorage.getItem('@runstr:profile_picture');
+            await SupabaseCompetitionService.submitWorkoutSimple({
+              eventId: `journal_${savedEntry.id}`,
+              npub,
+              type: 'journal',
+              distance: 0,
+              duration: 0,
+              startTime: new Date().toISOString(),
+              tags: rewardTags,
+              profileName: profileName || undefined,
+              profilePicture: profilePicture || undefined,
+            });
+            console.log('[JournalEditor] Journal submitted to Supabase for reward');
+          } catch (err) {
+            console.warn('[JournalEditor] Failed to submit journal for reward:', err);
+          }
+        })();
+      }
+
       onClose();
     } catch (error) {
       console.error('[JournalEditor] Save error:', error);

@@ -205,8 +205,8 @@ export class WorkoutPublishingService {
       // Get reward destination for external reward service routing
       // Must match buildRewardTags() logic in src/utils/rewardTags.ts:
       // - PPQ.AI team -> 'ppq' (rewards go to bolt11 invoice)
-      // - Charity/community team with lightning address -> 'charity' (charity gets 50 sats)
-      // - Self team, no team, or charity without lightning address -> 'user' (user gets 50 sats)
+      // - Charity/community team with lightning address -> 'charity' (charity gets 100 sats)
+      // - Self team, no team, or charity without lightning address -> 'user' (user gets 100 sats)
       const isSelf = selectedTeamId ? isSelfTeam(selectedTeamId) : false;
       const isPPQ = selectedTeamId ? isPPQTeam(selectedTeamId) : false;
       let rewardDestination: 'user' | 'charity' | 'ppq';

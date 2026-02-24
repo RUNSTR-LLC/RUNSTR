@@ -2,16 +2,16 @@
  * rewardTags - Shared helper for building reward routing tags
  *
  * Called by ALL Supabase submission paths (GPS, HealthKit, HealthConnect, manual)
- * to ensure the DB auto-reward trigger sends 50 sats to the right address.
+ * to ensure the DB auto-reward trigger sends 100 sats to the right address.
  *
  * Routing logic:
- * - "Self" team → ["lightning", userAddress] → user gets 50 sats
- * - Charity team → ["lightning", charityAddress] → charity gets 50 sats
+ * - "Self" team → ["lightning", userAddress] → user gets 100 sats
+ * - Charity team → ["lightning", charityAddress] → charity gets 100 sats
  * - PPQ.AI team → handled separately via ppq_bolt11 field
- * - No team selected → ["lightning", userAddress] → user gets 50 sats (default)
+ * - No team selected → ["lightning", userAddress] → user gets 100 sats (default)
  *
  * The PostgreSQL trigger (migration 132) extracts ["lightning", "..."] from
- * raw_event.tags and sends 50 sats to that address. Missing tag = no reward.
+ * raw_event.tags and sends 100 sats to that address. Missing tag = no reward.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -91,7 +91,7 @@ export async function buildRewardTags(): Promise<string[][]> {
     rewardLightningAddress = userLightningAddress;
   }
 
-  // 1. Lightning address (CRITICAL: DB trigger extracts this tag to send 50 sats)
+  // 1. Lightning address (CRITICAL: DB trigger extracts this tag to send 100 sats)
   if (rewardLightningAddress) {
     tags.push(['lightning', rewardLightningAddress]);
   } else if (!isPPQ) {

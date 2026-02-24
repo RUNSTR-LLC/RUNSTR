@@ -55,7 +55,7 @@ export function getValidPayoutSchemes(scoringType: RunstrScoringType): RunstrPay
 /**
  * Pledge cost options for event entry
  * Users pledge X daily workout rewards to join an event
- * Each workout = 50 sats, so 5 workouts = 250 sats pledged
+ * Each workout = 100 sats, so 5 workouts = 500 sats pledged
  */
 export type RunstrPledgeCost = 1 | 3 | 5 | 7;
 
@@ -254,7 +254,7 @@ export const DEFAULT_FORM_STATE: RunstrEventFormState = {
   scoringType: 'fastest_time',
   targetDistance: '5',
   duration: '1d',
-  pledgeCost: 1, // Default: 1 daily workout pledge (50 sats)
+  pledgeCost: 1, // Default: 1 daily workout pledge (100 sats)
   pledgeDestination: 'captain', // Default: rewards go to event creator
   pledgeCharityId: null, // No charity selected by default
   payoutScheme: 'winner_takes_all',

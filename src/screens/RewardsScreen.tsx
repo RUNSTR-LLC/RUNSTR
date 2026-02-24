@@ -366,8 +366,8 @@ const RewardsScreenComponent: React.FC = () => {
           <View style={styles.rewardRow}>
             <Ionicons name="fitness-outline" size={20} color="#FF9D42" />
             <View style={styles.rewardTextSection}>
-              <Text style={styles.rewardLabel}>{t('dailyWorkout', { defaultValue: '3km+ Cardio' })}</Text>
-              <Text style={styles.rewardValue}>50 sats</Text>
+              <Text style={styles.rewardLabel}>{t('dailyWorkout', { defaultValue: 'Daily Activity' })}</Text>
+              <Text style={styles.rewardValue}>100 sats</Text>
             </View>
           </View>
 
@@ -375,16 +375,16 @@ const RewardsScreenComponent: React.FC = () => {
             <Ionicons name="footsteps-outline" size={20} color="#FF9D42" />
             <View style={styles.rewardTextSection}>
               <Text style={styles.rewardLabel}>{t('fiveKSteps', { defaultValue: '5,000 Steps' })}</Text>
-              <Text style={styles.rewardValue}>50 sats</Text>
+              <Text style={styles.rewardValue}>100 sats</Text>
             </View>
           </View>
 
           <Text style={styles.howItWorksDescription}>
             {isPPQTeam(selectedTeamId ?? undefined)
-              ? t('howItWorksDescriptionPPQ', { defaultValue: 'Run, walk, or cycle 3km+ OR hit 5k steps daily to earn AI credits. Rewards go directly to your PPQ.AI account.' })
+              ? t('howItWorksDescriptionPPQ', { defaultValue: 'Cardio, strength, journal, or 5k steps daily to earn AI credits. Rewards go directly to your PPQ.AI account.' })
               : isSelfTeam(selectedTeamId ?? undefined)
-                ? t('howItWorksDescriptionSelf', { defaultValue: 'Run, walk, or cycle 3km+ OR hit 5k steps daily. Rewards are sent directly to your Lightning wallet.' })
-                : t('howItWorksDescriptionCharity', { defaultValue: `Run, walk, or cycle 3km+ OR hit 5k steps daily. Micro donations are sent to ${selectedTeam?.name || 'your selected charity'}.` })}
+                ? t('howItWorksDescriptionSelf', { defaultValue: 'Cardio, strength, journal, or 5k steps daily. Rewards are sent directly to your Lightning wallet.' })
+                : t('howItWorksDescriptionCharity', { defaultValue: `Cardio, strength, journal, or 5k steps daily. Micro donations are sent to ${selectedTeam?.name || 'your selected charity'}.` })}
           </Text>
         </View>
 

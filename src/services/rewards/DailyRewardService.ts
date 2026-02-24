@@ -5,7 +5,7 @@
  * 1. User publishes kind 1301 workout event with reward_destination tag
  * 2. External service monitors Nostr for kind 1301 events
  * 3. External service validates workout, checks anti-cheat, reads reward_destination
- * 4. External service sends 50 sats to user or charity based on tag
+ * 4. External service sends 100 sats to user or charity based on tag
  * 5. This service only tracks rewards LOCALLY for UI display
  *
  * ARCHITECTURE (v3):
@@ -51,9 +51,11 @@ const REWARD_ELIGIBLE_SOURCES = [
   'health_connect',  // Android Health Connect imports (source set by healthConnectService)
 ];
 
-// Cardio activity types that qualify for daily rewards
-// Only these workout types earn the 50 sats daily reward
-// Non-cardio activities (strength, diet, meditation) do NOT earn rewards
+// Activity types that qualify for daily rewards
+// Cardio, strength, and journal entries earn the daily reward
+const REWARD_ELIGIBLE_ACTIVITY_TYPES = ['running', 'walking', 'cycling', 'strength', 'journal'];
+
+// Cardio-only subset used for boosted subscriber rewards (800 sats)
 const CARDIO_ACTIVITY_TYPES = ['running', 'walking', 'cycling'];
 
 export interface RewardResult {
@@ -187,9 +189,9 @@ class DailyRewardServiceClass {
       return { success: false, reason: 'source_not_eligible' };
     }
 
-    // Step 1.5: Filter by activity type - only cardio workouts earn rewards
-    if (workoutType && !CARDIO_ACTIVITY_TYPES.includes(workoutType)) {
-      console.log(`[Reward] Skipping reward for ${workoutType} (not cardio activity)`);
+    // Step 1.5: Filter by activity type - only eligible types earn rewards
+    if (workoutType && !REWARD_ELIGIBLE_ACTIVITY_TYPES.includes(workoutType)) {
+      console.log(`[Reward] Skipping reward for ${workoutType} (not reward-eligible activity)`);
       return { success: false, reason: 'activity_type_not_eligible' };
     }
 
@@ -385,7 +387,7 @@ class DailyRewardServiceClass {
   // The external service:
   // - Monitors Nostr relays for new kind 1301 events
   // - Reads reward_destination, lightning, and charity tags
-  // - Sends 50 sats to appropriate destination (user or charity)
+  // - Sends 100 sats to appropriate destination (user or charity)
   // - Handles anti-cheat validation, deduplication, and fraud detection
 
   /**
@@ -475,7 +477,7 @@ class DailyRewardServiceClass {
    *
    * v3 ARCHITECTURE:
    * - External service reads reward_destination tag from kind 1301 events
-   * - External service sends 50 sats to user or charity based on tag
+   * - External service sends 100 sats to user or charity based on tag
    * - This method ONLY tracks locally for UI display
    *
    * SILENT OPERATION:
@@ -527,7 +529,7 @@ class DailyRewardServiceClass {
       // ===== END PLEDGE CHECK =====
 
       // ===== SUBSCRIBER BOOSTED REWARDS =====
-      let totalAmount: number = REWARD_CONFIG.DAILY_WORKOUT_REWARD; // Default 50 sats
+      let totalAmount: number = REWARD_CONFIG.DAILY_WORKOUT_REWARD; // Default 100 sats
       try {
         const npub = await AsyncStorage.getItem('@runstr:npub');
         if (npub) {
@@ -634,9 +636,9 @@ class DailyRewardServiceClass {
       }
     }
 
-    // Only cardio activities earn daily rewards
-    if (!CARDIO_ACTIVITY_TYPES.includes(workoutType)) {
-      console.log(`[Reward] Skipping reward for ${workoutType} (not cardio activity)`);
+    // Only eligible activity types earn daily rewards
+    if (!REWARD_ELIGIBLE_ACTIVITY_TYPES.includes(workoutType)) {
+      console.log(`[Reward] Skipping reward for ${workoutType} (not reward-eligible activity)`);
       return { success: false, reason: 'activity_type_not_eligible' };
     }
 
@@ -646,7 +648,7 @@ class DailyRewardServiceClass {
       tagsCount: workoutTags.length,
     });
 
-    // Calculate reward amount (50 sats base, boosted for subscribers, 100 sats for Einundzwanzig)
+    // Calculate reward amount (100 sats base, boosted for subscribers)
     const rewardAmount = await this.getRewardAmount(userPubkey, workoutTags);
     console.log(`[Reward] Calculated reward amount: ${rewardAmount} sats`);
 
@@ -662,7 +664,7 @@ class DailyRewardServiceClass {
     userPubkey: string,
     workoutTags: string[][]
   ): Promise<number> {
-    const baseReward = REWARD_CONFIG.DAILY_WORKOUT_REWARD; // 50 sats
+    const baseReward = REWARD_CONFIG.DAILY_WORKOUT_REWARD; // 100 sats
 
     // Check subscriber boosted rewards (highest priority)
     try {

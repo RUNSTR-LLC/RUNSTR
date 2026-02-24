@@ -2,7 +2,7 @@
  * Pledge System Types
  *
  * Defines the data structures for the workout pledge system.
- * Users pledge future daily rewards (50 sats each) to join events.
+ * Users pledge future daily rewards (100 sats each) to join events.
  * Pledges route rewards to event creators or charities instead of user's wallet.
  */
 

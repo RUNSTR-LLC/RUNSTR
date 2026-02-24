@@ -167,7 +167,7 @@ export interface NostrEventDefinition {
   location?: string; // Optional: Event location (e.g., "Central Park, NYC")
 
   // Pledge System (costs X daily workouts to join)
-  pledgeCost?: number; // Number of daily workouts required (e.g., 5 = 250 sats worth)
+  pledgeCost?: number; // Number of daily workouts required (e.g., 5 = 500 sats worth)
   pledgeDestination?: 'captain' | 'charity'; // Where pledged rewards go
   pledgeCharityId?: string; // If destination is charity, the charity ID
   pledgeCharityName?: string; // Charity name for display

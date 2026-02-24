@@ -23,7 +23,7 @@ export const REWARD_CONFIG = {
    * Daily Workout Reward Amount
    * Amount in satoshis sent for first workout of the day
    */
-  DAILY_WORKOUT_REWARD: 50,
+  DAILY_WORKOUT_REWARD: 100,
 
   /**
    * Minimum Workout Distance for Reward
@@ -52,7 +52,7 @@ export const REWARD_CONFIG = {
 
   /**
    * Boosted Rewards (Supporter/Pro subscribers)
-   * Subscribers earn 800 sats per qualifying workout instead of 50
+   * Subscribers earn 800 sats per qualifying workout instead of 100
    * Qualifications: cardio, 2km+ distance, 15+ min, non-manual source
    */
   BOOSTED_WORKOUT_REWARD: 800,           // sats per boosted workout
