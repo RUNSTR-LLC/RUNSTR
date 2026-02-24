@@ -279,8 +279,8 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
               </View>
             ) : isChallenge ? (
               <View style={styles.workoutHeader}>
-                <Ionicons name="flash" size={16} color="#FFD700" style={styles.workoutIcon} />
-                <Text style={[styles.workoutLabel, { color: '#FFD700' }]}>Challenge</Text>
+                <Ionicons name="flash" size={16} color={theme.colors.accent} style={styles.workoutIcon} />
+                <Text style={[styles.workoutLabel, { color: theme.colors.accent }]}>Challenge</Text>
               </View>
             ) : (
               <Text
@@ -315,7 +315,7 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
           ) : isChallenge && challengeMeta ? (
             <View style={styles.challengeCard}>
               <View style={styles.challengeInfoRow}>
-                <Ionicons name="flash" size={14} color="#FFD700" />
+                <Ionicons name="flash" size={14} color={theme.colors.accent} />
                 <Text style={styles.challengeType}>
                   {getChallengeLabel(challengeMeta.challenge_type)}
                 </Text>
@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
   captainContainer: { borderLeftWidth: 3, borderLeftColor: theme.colors.accent },
   ownContainer: { backgroundColor: 'rgba(204, 122, 51, 0.05)', borderRightWidth: 3, borderRightColor: theme.colors.accent },
   announcementContainer: { backgroundColor: 'rgba(204, 122, 51, 0.08)', borderColor: 'rgba(204, 122, 51, 0.25)' },
-  challengeContainer: { borderLeftWidth: 3, borderLeftColor: '#FFD700' },
+  challengeContainer: { borderLeftWidth: 3, borderLeftColor: theme.colors.accent },
   pressedContainer: { opacity: 0.7 },
   avatar: { marginRight: 10, marginTop: 2 },
   content: { flex: 1 },
@@ -437,7 +437,7 @@ const styles = StyleSheet.create({
   workoutStat: { fontSize: 12, color: theme.colors.textMuted, fontWeight: theme.typography.weights.semiBold },
   challengeCard: { marginTop: 2 },
   challengeInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
-  challengeType: { fontSize: 13, fontWeight: theme.typography.weights.semiBold, color: '#FFD700' },
+  challengeType: { fontSize: 13, fontWeight: theme.typography.weights.semiBold, color: theme.colors.accent },
   challengeDuration: { fontSize: 11, color: theme.colors.textMuted, marginLeft: 'auto' as any },
   challengeActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
   acceptButton: { flex: 1, backgroundColor: theme.colors.accent, borderRadius: 6, paddingVertical: 8, alignItems: 'center' },
