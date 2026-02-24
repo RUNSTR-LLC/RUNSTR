@@ -15,9 +15,8 @@ export interface WeatherConditions {
 class WeatherService {
   private static instance: WeatherService;
 
-  // OpenWeather API key - should be in environment variables
-  // For MVP, using a placeholder - replace with actual key
-  private readonly API_KEY = 'YOUR_OPENWEATHER_API_KEY'; // TODO: Move to env
+  // OpenWeather API key - configured via Expo public env vars
+  private readonly API_KEY = process.env.EXPO_PUBLIC_OPENWEATHER_API_KEY || '';
   private readonly BASE_URL = 'https://api.openweathermap.org/data/2.5/weather';
 
   private constructor() {}
@@ -40,8 +39,8 @@ class WeatherService {
     timestamp?: number // Optional - for future historical data support
   ): Promise<WeatherConditions | null> {
     try {
-      // For MVP, check if API key is configured
-      if (!this.API_KEY || this.API_KEY === 'YOUR_OPENWEATHER_API_KEY') {
+      // Check if API key is configured
+      if (!this.API_KEY) {
         console.warn(
           '[WeatherService] API key not configured, skipping weather fetch'
         );
