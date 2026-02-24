@@ -10,11 +10,9 @@ import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  RefreshControl,
   Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -66,8 +64,6 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
   const [userNpub, setUserNpub] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
   const [showCaptainSettings, setShowCaptainSettings] = useState(false);
   const [cooldown, setCooldown] = useState<CooldownState | null>(null);
   const [alertConfig, setAlertConfig] = useState<{
@@ -259,21 +255,6 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
   };
 
   // -------------------------------------------------------------------------
-  // Pull-to-refresh
-  // -------------------------------------------------------------------------
-
-  const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    setRefreshKey((k) => k + 1);
-    try {
-      await ClubService.clearCache();
-      await loadClubData();
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [loadClubData]);
-
-  // -------------------------------------------------------------------------
   // Derived values
   // -------------------------------------------------------------------------
 
@@ -318,18 +299,7 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
           </TouchableOpacity>
         </View>
       ) : (
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={handleRefresh}
-              tintColor={theme.colors.accent}
-            />
-          }
-        >
+        <View style={styles.mainContent}>
           {/* Club info, join/leave, invite */}
           <ClubInfoSection
             club={club}
@@ -356,7 +326,7 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
           {/* Rewards Pool card — hidden for now (wallet security review) */}
 
           {/* Events section */}
-          <ClubEventsSection clubId={clubId} isCaptain={isCaptain} refreshKey={refreshKey} />
+          <ClubEventsSection clubId={clubId} isCaptain={isCaptain} />
 
           <ClubChatSection
             clubId={clubId}
@@ -364,7 +334,7 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
             captainNpub={club.created_by_npub || ''}
             isMember={isMember}
           />
-        </ScrollView>
+        </View>
       )}
 
       {/* Captain Settings Modal */}
@@ -399,11 +369,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
-  scrollView: {
+  mainContent: {
     flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 32,
   },
   loadingContainer: {
     flex: 1,
