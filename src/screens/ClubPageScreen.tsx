@@ -2,11 +2,11 @@
  * ClubPageScreen - Full club detail page
  *
  * Stack screen pushed from ClubsScreen. Shows club info, join/leave button,
- * leaderboard, chat, and members sections. Uses route params for instant
+ * chat, and members sections. Uses route params for instant
  * header render while club details load from Supabase.
  */
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,9 +16,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   Share,
-  LayoutChangeEvent,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,7 +27,6 @@ import { ClubMembershipService } from '../services/backend/ClubMembershipService
 import { ClubBannerHeader } from '../components/club/ClubBannerHeader';
 import { ClubInfoSection } from '../components/club/ClubInfoSection';
 import type { CooldownState } from '../components/club/ClubInfoSection';
-import { ClubLeaderboardSection } from '../components/club/ClubLeaderboardSection';
 import { ClubEventsSection } from '../components/club/ClubEventsSection';
 import { ClubChatSection } from '../components/club/ClubChatSection';
 import { ClubMembersSection } from '../components/club/ClubMembersSection';
@@ -81,24 +77,6 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
     message?: string;
     buttons: Array<{ text: string; onPress?: () => void; style?: 'default' | 'cancel' | 'destructive' }>;
   }>({ visible: false, title: '', buttons: [] });
-
-  // Lazy loading: only render below-fold sections after first scroll
-  const [belowFoldVisible, setBelowFoldVisible] = useState(false);
-  const belowFoldTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Auto-reveal after 600ms even without scroll (ensures content appears)
-  useEffect(() => {
-    if (!isLoading && club && !belowFoldVisible) {
-      belowFoldTimer.current = setTimeout(() => setBelowFoldVisible(true), 600);
-    }
-    return () => { if (belowFoldTimer.current) clearTimeout(belowFoldTimer.current); };
-  }, [isLoading, club, belowFoldVisible]);
-
-  const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (!belowFoldVisible && e.nativeEvent.contentOffset.y > 50) {
-      setBelowFoldVisible(true);
-    }
-  }, [belowFoldVisible]);
 
   const showAlert = useCallback((title: string, message?: string, buttons?: Array<{ text: string; onPress?: () => void; style?: 'default' | 'cancel' | 'destructive' }>) => {
     setAlertConfig({ visible: true, title, message, buttons: buttons || [{ text: 'OK' }] });
@@ -345,8 +323,6 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
-          onScroll={handleScroll}
-          scrollEventThrottle={200}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
@@ -382,26 +358,13 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
           {/* Events section */}
           <ClubEventsSection clubId={clubId} isCaptain={isCaptain} refreshKey={refreshKey} />
 
-          {/* Below-fold sections: lazy loaded on scroll or after 600ms */}
-          {belowFoldVisible ? (
-            <>
-              <ClubLeaderboardSection clubId={clubId} leaderboardMetric={club.leaderboard_metric || 'distance'} refreshKey={refreshKey} />
-              <ClubChatSection
-                clubId={clubId}
-                clubName={displayName}
-                captainNpub={club.created_by_npub || ''}
-                isMember={isMember}
-              />
-              <ClubMembersSection clubId={clubId} />
-            </>
-          ) : (
-            <View style={styles.lazyPlaceholder}>
-              <ActivityIndicator color={theme.colors.accent} size="small" />
-            </View>
-          )}
-
-          {/* Bottom spacing */}
-          <View style={styles.bottomSpacer} />
+          <ClubChatSection
+            clubId={clubId}
+            clubName={displayName}
+            captainNpub={club.created_by_npub || ''}
+            isMember={isMember}
+          />
+          <ClubMembersSection clubId={clubId} />
         </ScrollView>
       )}
 
@@ -472,13 +435,6 @@ const styles = StyleSheet.create({
     color: theme.colors.accent,
     fontSize: 14,
     fontWeight: theme.typography.weights.semiBold,
-  },
-  lazyPlaceholder: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  bottomSpacer: {
-    height: 40,
   },
 });
 
