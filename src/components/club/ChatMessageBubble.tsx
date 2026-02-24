@@ -30,6 +30,8 @@ interface ChatMessageBubbleProps {
   canDelete: boolean;
   onDelete: () => void;
   onReply?: () => void;
+  onPin?: () => void;
+  onChallenge?: () => void;
   onReact?: (emoji: string) => void;
   replyContext?: ReplyContext;
   userNpub?: string;
@@ -91,6 +93,8 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
   canDelete,
   onDelete,
   onReply,
+  onPin,
+  onChallenge,
   onReact,
   replyContext,
   userNpub,
@@ -115,6 +119,16 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
     if (onReply) {
       options.push('Reply');
       actions.push(onReply);
+    }
+
+    if (onPin) {
+      options.push('Pin');
+      actions.push(onPin);
+    }
+
+    if (onChallenge && !isOwnMessage) {
+      options.push('Challenge');
+      actions.push(onChallenge);
     }
 
     if (canDelete) {
@@ -158,7 +172,7 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
       buttons.push({ text: 'Cancel', onPress: () => {}, style: 'default' as const });
       Alert.alert('Message Options', undefined, buttons);
     }
-  }, [canDelete, onDelete, onReply]);
+  }, [canDelete, onDelete, onReply, onPin, onChallenge, isOwnMessage]);
 
   const handleTap = useCallback(() => {
     if (onReact) {
