@@ -1,12 +1,34 @@
 /**
- * ChatMessageBubble - Chat message with replies, reactions, announcements, workout cards.
+ * ChatMessageBubble - Chat message with replies, reactions, announcements, workout/challenge cards.
  */
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, Alert, Pressable, ActionSheetIOS, Platform } from 'react-native';
+import { View, Text, StyleSheet, Alert, Pressable, ActionSheetIOS, Platform, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { Avatar } from '../ui/Avatar';
-import type { ClubMessage, ReplyContext } from '../../types/club';
+import type { ClubMessage, ReplyContext, WorkoutMessageMetadata, ChallengeMessageMetadata } from '../../types/club';
+
+function isWorkoutMetadata(meta: unknown): meta is WorkoutMessageMetadata {
+  return meta != null && typeof meta === 'object' && 'duration_seconds' in meta;
+}
+function isChallengeMetadata(meta: unknown): meta is ChallengeMessageMetadata {
+  return meta != null && typeof meta === 'object' && 'challenge_type' in meta;
+}
+function getChallengeLabel(type: string): string {
+  switch (type) {
+    case 'fastest_5k': return 'Fastest 5K';
+    case 'fastest_10k': return 'Fastest 10K';
+    case 'daily_streak': return 'Daily Streak';
+    case 'most_distance': return 'Most Distance';
+    case 'most_steps': return 'Most Steps';
+    default: return 'Challenge';
+  }
+}
+function getDurationLabel(days: number): string {
+  if (days === 1) return '24 Hours';
+  if (days === 7) return '1 Week';
+  return `${days} Days`;
+}
 
 const REACTION_ICONS: Record<string, { name: string; label: string }> = {
   flame: { name: 'flame-outline', label: 'Fire' },
@@ -33,6 +55,8 @@ interface ChatMessageBubbleProps {
   onPin?: () => void;
   onChallenge?: () => void;
   onReact?: (emoji: string) => void;
+  onAcceptChallenge?: () => void;
+  onDeclineChallenge?: () => void;
   replyContext?: ReplyContext;
   userNpub?: string;
   senderProfile?: SenderProfile;
@@ -96,20 +120,25 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
   onPin,
   onChallenge,
   onReact,
+  onAcceptChallenge,
+  onDeclineChallenge,
   replyContext,
   userNpub,
   senderProfile,
 }) => {
   const [showReactionPicker, setShowReactionPicker] = useState(false);
-
   const displayName =
     senderProfile?.display_name ||
     senderProfile?.name ||
     message.sender_npub.slice(0, 12) + '...';
   const relativeTime = formatRelativeTime(message.created_at);
-
   const isAnnouncement = message.message_type === 'announcement';
   const isWorkout = message.message_type === 'workout';
+  const isChallenge = message.message_type === 'challenge';
+  const workoutMeta = isWorkout && isWorkoutMetadata(message.metadata) ? message.metadata : null;
+  const challengeMeta = isChallenge && isChallengeMetadata(message.metadata) ? message.metadata : null;
+  const isChallenged = isChallenge && challengeMeta?.challenged_npub === userNpub;
+  const challengeIsPending = challengeMeta?.challenge_status === 'pending';
   const reactions = message.reactions || {};
 
   const handleLongPress = useCallback(() => {
@@ -200,11 +229,12 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
           isCaptain && styles.captainContainer,
           isOwnMessage && styles.ownContainer,
           isAnnouncement && styles.announcementContainer,
+          isChallenge && styles.challengeContainer,
           pressed && (canDelete || !!onReply) && styles.pressedContainer,
         ]}
       >
         {/* Avatar */}
-        {!isWorkout && (
+        {!isWorkout && !isChallenge && (
           <Avatar
             name={displayName}
             imageUrl={senderProfile?.picture}
@@ -240,12 +270,17 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
             {isWorkout ? (
               <View style={styles.workoutHeader}>
                 <Ionicons
-                  name={getActivityIcon(message.metadata?.exercise_type || '') as any}
+                  name={getActivityIcon(workoutMeta?.exercise_type || '') as any}
                   size={16}
                   color={theme.colors.accent}
                   style={styles.workoutIcon}
                 />
                 <Text style={styles.workoutLabel}>Workout</Text>
+              </View>
+            ) : isChallenge ? (
+              <View style={styles.workoutHeader}>
+                <Ionicons name="flash" size={16} color="#FFD700" style={styles.workoutIcon} />
+                <Text style={[styles.workoutLabel, { color: '#FFD700' }]}>Challenge</Text>
               </View>
             ) : (
               <Text
@@ -262,20 +297,62 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
             <Text style={styles.timestamp}>{relativeTime}</Text>
           </View>
 
-          {/* Message body — workout card or text */}
-          {isWorkout && message.metadata ? (
+          {/* Message body — workout card, challenge card, or text */}
+          {isWorkout && workoutMeta ? (
             <View style={styles.workoutCard}>
               <Text style={styles.messageText}>{message.content}</Text>
               <View style={styles.workoutStats}>
                 <Text style={styles.workoutStat}>
-                  {formatDuration(message.metadata.duration_seconds)}
+                  {formatDuration(workoutMeta.duration_seconds)}
                 </Text>
-                {message.metadata.distance_meters != null && message.metadata.distance_meters > 0 && (
+                {workoutMeta.distance_meters != null && workoutMeta.distance_meters > 0 && (
                   <Text style={styles.workoutStat}>
-                    {(message.metadata.distance_meters / 1000).toFixed(2)} km
+                    {(workoutMeta.distance_meters / 1000).toFixed(2)} km
                   </Text>
                 )}
               </View>
+            </View>
+          ) : isChallenge && challengeMeta ? (
+            <View style={styles.challengeCard}>
+              <View style={styles.challengeInfoRow}>
+                <Ionicons name="flash" size={14} color="#FFD700" />
+                <Text style={styles.challengeType}>
+                  {getChallengeLabel(challengeMeta.challenge_type)}
+                </Text>
+                <Text style={styles.challengeDuration}>
+                  {getDurationLabel(challengeMeta.duration_days)}
+                </Text>
+              </View>
+              <Text style={styles.messageText}>{message.content}</Text>
+              {isChallenged && challengeIsPending && (
+                <View style={styles.challengeActions}>
+                  <TouchableOpacity
+                    style={styles.acceptButton}
+                    onPress={onAcceptChallenge}
+                  >
+                    <Text style={styles.acceptButtonText}>Accept</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.declineButton}
+                    onPress={onDeclineChallenge}
+                  >
+                    <Text style={styles.declineButtonText}>Decline</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              {challengeMeta.challenge_status === 'active' && (
+                <Text style={styles.challengeStatusText}>Challenge Active</Text>
+              )}
+              {challengeMeta.challenge_status === 'completed' && (
+                <Text style={styles.challengeStatusText}>
+                  Winner: {challengeMeta.winner_npub?.slice(0, 12) || 'TBD'}
+                </Text>
+              )}
+              {challengeMeta.challenge_status === 'declined' && (
+                <Text style={[styles.challengeStatusText, { color: theme.colors.textDark }]}>
+                  Declined
+                </Text>
+              )}
             </View>
           ) : (
             <Text style={styles.messageText}>{message.content}</Text>
@@ -334,164 +411,48 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: theme.colors.cardBackground,
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 4,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  captainContainer: {
-    borderLeftWidth: 3,
-    borderLeftColor: theme.colors.accent,
-  },
-  ownContainer: {
-    backgroundColor: 'rgba(204, 122, 51, 0.05)',
-    borderRightWidth: 3,
-    borderRightColor: theme.colors.accent,
-  },
-  announcementContainer: {
-    backgroundColor: 'rgba(204, 122, 51, 0.08)',
-    borderColor: 'rgba(204, 122, 51, 0.25)',
-  },
-  pressedContainer: {
-    opacity: 0.7,
-  },
-  avatar: {
-    marginRight: 10,
-    marginTop: 2,
-  },
-  content: {
-    flex: 1,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 3,
-  },
-  announcementIcon: {
-    marginRight: 4,
-  },
-  announcementName: {
-    color: theme.colors.accent,
-  },
-  senderName: {
-    fontSize: 13,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.textMuted,
-    flex: 1,
-    marginRight: 8,
-  },
-  captainName: {
-    color: theme.colors.accent,
-  },
-  timestamp: {
-    fontSize: 11,
-    color: theme.colors.textDark,
-  },
-  messageText: {
-    fontSize: 14,
-    color: theme.colors.text,
-    lineHeight: 20,
-  },
-  // Reply quote
-  replyQuote: {
-    borderLeftWidth: 2,
-    borderLeftColor: theme.colors.accent,
-    paddingLeft: 8,
-    marginBottom: 6,
-    paddingVertical: 2,
-  },
-  replyName: {
-    fontSize: 11,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.textMuted,
-  },
-  replyContent: {
-    fontSize: 12,
-    color: theme.colors.textDark,
-  },
-  // Workout card
-  workoutHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: 8,
-  },
-  workoutIcon: {
-    marginRight: 4,
-  },
-  workoutLabel: {
-    fontSize: 11,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.accent,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  workoutCard: {
-    marginTop: 2,
-  },
-  workoutStats: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 4,
-  },
-  workoutStat: {
-    fontSize: 12,
-    color: theme.colors.textMuted,
-    fontWeight: theme.typography.weights.semiBold,
-  },
-  // Reactions
-  reactionRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 4,
-    marginTop: 6,
-  },
-  reactionPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  reactionPillOwn: {
-    backgroundColor: 'rgba(204, 122, 51, 0.12)',
-    borderColor: 'rgba(204, 122, 51, 0.3)',
-  },
-  reactionIcon: {
-    marginRight: 3,
-  },
-  reactionCount: {
-    fontSize: 12,
-    color: theme.colors.textMuted,
-  },
-  reactionCountOwn: {
-    color: theme.colors.accent,
-  },
-  // Reaction picker
-  reactionPicker: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 6,
-    marginBottom: 4,
-    backgroundColor: theme.colors.cardBackground,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginHorizontal: 40,
-  },
-  reactionPickerButton: {
-    padding: 6,
-  },
+  container: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: theme.colors.cardBackground, borderRadius: 8, padding: 10, marginBottom: 4, borderWidth: 1, borderColor: theme.colors.border },
+  captainContainer: { borderLeftWidth: 3, borderLeftColor: theme.colors.accent },
+  ownContainer: { backgroundColor: 'rgba(204, 122, 51, 0.05)', borderRightWidth: 3, borderRightColor: theme.colors.accent },
+  announcementContainer: { backgroundColor: 'rgba(204, 122, 51, 0.08)', borderColor: 'rgba(204, 122, 51, 0.25)' },
+  challengeContainer: { borderLeftWidth: 3, borderLeftColor: '#FFD700' },
+  pressedContainer: { opacity: 0.7 },
+  avatar: { marginRight: 10, marginTop: 2 },
+  content: { flex: 1 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 },
+  announcementIcon: { marginRight: 4 },
+  announcementName: { color: theme.colors.accent },
+  senderName: { fontSize: 13, fontWeight: theme.typography.weights.semiBold, color: theme.colors.textMuted, flex: 1, marginRight: 8 },
+  captainName: { color: theme.colors.accent },
+  timestamp: { fontSize: 11, color: theme.colors.textDark },
+  messageText: { fontSize: 14, color: theme.colors.text, lineHeight: 20 },
+  replyQuote: { borderLeftWidth: 2, borderLeftColor: theme.colors.accent, paddingLeft: 8, marginBottom: 6, paddingVertical: 2 },
+  replyName: { fontSize: 11, fontWeight: theme.typography.weights.semiBold, color: theme.colors.textMuted },
+  replyContent: { fontSize: 12, color: theme.colors.textDark },
+  workoutHeader: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 },
+  workoutIcon: { marginRight: 4 },
+  workoutLabel: { fontSize: 11, fontWeight: theme.typography.weights.semiBold, color: theme.colors.accent, textTransform: 'uppercase', letterSpacing: 0.5 },
+  workoutCard: { marginTop: 2 },
+  workoutStats: { flexDirection: 'row', gap: 12, marginTop: 4 },
+  workoutStat: { fontSize: 12, color: theme.colors.textMuted, fontWeight: theme.typography.weights.semiBold },
+  challengeCard: { marginTop: 2 },
+  challengeInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+  challengeType: { fontSize: 13, fontWeight: theme.typography.weights.semiBold, color: '#FFD700' },
+  challengeDuration: { fontSize: 11, color: theme.colors.textMuted, marginLeft: 'auto' as any },
+  challengeActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  acceptButton: { flex: 1, backgroundColor: theme.colors.accent, borderRadius: 6, paddingVertical: 8, alignItems: 'center' },
+  acceptButtonText: { fontSize: 13, fontWeight: theme.typography.weights.semiBold, color: '#FFFFFF' },
+  declineButton: { flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 6, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: theme.colors.border },
+  declineButtonText: { fontSize: 13, fontWeight: theme.typography.weights.semiBold, color: theme.colors.textMuted },
+  challengeStatusText: { fontSize: 12, color: theme.colors.accent, fontWeight: theme.typography.weights.semiBold, marginTop: 6 },
+  reactionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 6 },
+  reactionPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: theme.colors.border },
+  reactionPillOwn: { backgroundColor: 'rgba(204, 122, 51, 0.12)', borderColor: 'rgba(204, 122, 51, 0.3)' },
+  reactionIcon: { marginRight: 3 },
+  reactionCount: { fontSize: 12, color: theme.colors.textMuted },
+  reactionCountOwn: { color: theme.colors.accent },
+  reactionPicker: { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingVertical: 6, marginBottom: 4, backgroundColor: theme.colors.cardBackground, borderRadius: 20, borderWidth: 1, borderColor: theme.colors.border, marginHorizontal: 40 },
+  reactionPickerButton: { padding: 6 },
 });
 
 export const ChatMessageBubble = React.memo(ChatMessageBubbleComponent);
