@@ -29,7 +29,6 @@ import { ClubInfoSection } from '../components/club/ClubInfoSection';
 import type { CooldownState } from '../components/club/ClubInfoSection';
 import { ClubEventsSection } from '../components/club/ClubEventsSection';
 import { ClubChatSection } from '../components/club/ClubChatSection';
-import { ClubMembersSection } from '../components/club/ClubMembersSection';
 import { ClubEarningsCard } from '../components/club/ClubEarningsCard';
 import { CaptainSettingsModal } from '../components/club/CaptainSettingsModal';
 import { CustomAlert } from '../components/ui/CustomAlert';
@@ -334,6 +333,7 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
           {/* Club info, join/leave, invite */}
           <ClubInfoSection
             club={club}
+            clubId={clubId}
             isMember={isMember}
             isCaptain={isCaptain}
             userNpub={userNpub}
@@ -364,7 +364,6 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
             captainNpub={club.created_by_npub || ''}
             isMember={isMember}
           />
-          <ClubMembersSection clubId={clubId} />
         </ScrollView>
       )}
 

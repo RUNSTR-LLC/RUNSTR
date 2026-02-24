@@ -5,7 +5,7 @@
  * Includes 7-day cooldown UI for the leave button.
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,10 +13,15 @@ import {
   StyleSheet,
   ActivityIndicator,
   Share,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
-import type { Club } from '../../types/club';
+import { ClubMembershipService } from '../../services/backend/ClubMembershipService';
+import { nostrProfileService } from '../../services/nostr/NostrProfileService';
+import type { NostrProfile } from '../../services/nostr/NostrProfileService';
+import { Avatar } from '../ui/Avatar';
+import type { Club, ClubMembership } from '../../types/club';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -29,6 +34,7 @@ export interface CooldownState {
 
 interface ClubInfoSectionProps {
   club: Club;
+  clubId: string;
   isMember: boolean;
   isCaptain: boolean;
   userNpub: string | null;
@@ -46,6 +52,7 @@ interface ClubInfoSectionProps {
 
 export const ClubInfoSection: React.FC<ClubInfoSectionProps> = ({
   club,
+  clubId,
   isMember,
   isCaptain,
   userNpub,
@@ -58,6 +65,33 @@ export const ClubInfoSection: React.FC<ClubInfoSectionProps> = ({
 }) => {
   const memberCountText =
     club.member_count === 1 ? '1 member' : `${club.member_count} members`;
+
+  // Member avatars state
+  const [members, setMembers] = useState<ClubMembership[]>([]);
+  const [memberProfiles, setMemberProfiles] = useState<Map<string, NostrProfile>>(new Map());
+  const [membersLoading, setMembersLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const data = await ClubMembershipService.getClubMembers(clubId);
+        if (cancelled) return;
+        setMembers(data);
+        if (data.length > 0) {
+          const npubs = data.map((m) => m.member_npub);
+          const fetched = await nostrProfileService.getProfiles(npubs);
+          if (!cancelled) setMemberProfiles(fetched);
+        }
+      } catch (err) {
+        console.error('[ClubInfoSection] Error loading members:', err);
+      } finally {
+        if (!cancelled) setMembersLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [clubId]);
 
   const handleShareClub = async () => {
     try {
@@ -114,6 +148,35 @@ export const ClubInfoSection: React.FC<ClubInfoSectionProps> = ({
           </View>
         </View>
       </View>
+
+      {/* Member avatars */}
+      {!membersLoading && members.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.membersScroll}
+          style={styles.membersContainer}
+        >
+          {members.map((member) => {
+            const memberIsCaptain = member.role === 'captain';
+            const profile = memberProfiles.get(member.member_npub);
+            const name = profile?.display_name || profile?.name || member.member_npub.slice(0, 8) + '...';
+            return (
+              <View key={member.id} style={styles.memberItem}>
+                <View style={styles.avatarWrapper}>
+                  <Avatar name={name} size={36} imageUrl={profile?.picture} />
+                  {memberIsCaptain && (
+                    <View style={styles.captainBadge}>
+                      <Ionicons name="star-outline" size={10} color={theme.colors.accent} />
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.memberName} numberOfLines={1}>{name}</Text>
+              </View>
+            );
+          })}
+        </ScrollView>
+      )}
 
       {/* Join / Leave button */}
       {userNpub && (
@@ -355,6 +418,42 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
+  },
+
+  // Member avatars
+  membersContainer: {
+    marginHorizontal: 16,
+    marginTop: 10,
+  },
+  membersScroll: {
+    gap: 12,
+    paddingRight: 16,
+  },
+  memberItem: {
+    alignItems: 'center',
+    width: 52,
+  },
+  avatarWrapper: {
+    position: 'relative',
+  },
+  captainBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: theme.colors.cardBackground,
+    borderRadius: 8,
+    width: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.text,
+  },
+  memberName: {
+    fontSize: 10,
+    color: theme.colors.textMuted,
+    marginTop: 4,
+    textAlign: 'center',
   },
 });
 
