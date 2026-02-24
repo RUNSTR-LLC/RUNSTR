@@ -23,7 +23,9 @@ import { useClubChat } from '../hooks/useClubChat';
 import { ChatMessageBubble } from '../components/club/ChatMessageBubble';
 import type { SenderProfile } from '../components/club/ChatMessageBubble';
 import { PinnedMessageBanner } from '../components/club/PinnedMessageBanner';
-import type { ClubMessage, ReplyContext } from '../types/club';
+import type { ClubMessage, ReplyContext, ChallengeMessageMetadata } from '../types/club';
+import { ChallengeWizardModal } from '../components/club/ChallengeWizardModal';
+import type { ChallengeType } from '../components/club/ChallengeWizardModal';
 import { nostrProfileService } from '../services/nostr/NostrProfileService';
 import type { NostrProfile } from '../services/nostr/NostrProfileService';
 import { ClubChatService } from '../services/backend/ClubChatService';
@@ -50,6 +52,7 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
   const [inputText, setInputText] = useState('');
   const [replyingTo, setReplyingTo] = useState<ClubMessage | null>(null);
   const [isAnnouncementMode, setIsAnnouncementMode] = useState(false);
+  const [challengeTarget, setChallengeTarget] = useState<ClubMessage | null>(null);
   const [profiles, setProfiles] = useState<Map<string, NostrProfile>>(new Map());
   const fetchedNpubsRef = useRef<Set<string>>(new Set());
 
@@ -154,6 +157,32 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
     return { name: p.name, display_name: p.display_name, picture: p.picture };
   }, [profiles]);
 
+  const handleChallenge = useCallback((item: ClubMessage) => {
+    setChallengeTarget(item);
+  }, []);
+
+  const handleSendChallenge = useCallback(async (type: ChallengeType, durationDays: 1 | 3 | 7) => {
+    if (!challengeTarget || !userNpub) return;
+    const challengedNpub = challengeTarget.sender_npub;
+    const challengedName = getProfileForNpub(challengedNpub)?.display_name || challengedNpub.slice(0, 12) + '...';
+    const typeLabels: Record<string, string> = {
+      fastest_5k: 'Fastest 5K', fastest_10k: 'Fastest 10K',
+      daily_streak: 'Daily Streak', most_distance: 'Most Distance', most_steps: 'Most Steps',
+    };
+    const durLabels: Record<number, string> = { 1: '24 hours', 3: '3 days', 7: '1 week' };
+    const content = `challenged ${challengedName} to ${typeLabels[type]} for ${durLabels[durationDays]}!`;
+    const metadata: ChallengeMessageMetadata = {
+      competition_id: '',
+      challenge_type: type,
+      duration_days: durationDays,
+      challenged_npub: challengedNpub,
+      challenger_npub: userNpub,
+      challenge_status: 'pending',
+    };
+    await sendMessage(content, { messageType: 'challenge', metadata: metadata as any });
+    setChallengeTarget(null);
+  }, [challengeTarget, userNpub, sendMessage, getProfileForNpub]);
+
   const getReplyContext = useCallback((replyToId: string | null): ReplyContext | undefined => {
     if (!replyToId) return undefined;
     const target = messages.find((m) => m.id === replyToId);
@@ -184,9 +213,10 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
         replyContext={getReplyContext(item.reply_to_id)}
         userNpub={userNpub ?? undefined}
         senderProfile={getProfileForNpub(item.sender_npub)}
+        onChallenge={!isOwnMessage ? () => handleChallenge(item) : undefined}
       />
     );
-  }, [captainNpub, userNpub, isCaptain, handleDelete, handleReply, handlePin, handleReact, getProfileForNpub, getReplyContext]);
+  }, [captainNpub, userNpub, isCaptain, handleDelete, handleReply, handlePin, handleReact, handleChallenge, getProfileForNpub, getReplyContext]);
 
   const placeholderText = !canSend
     ? 'Rate limited...'
@@ -315,6 +345,17 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
           </View>
         )}
       </KeyboardAvoidingView>
+      {challengeTarget && (
+        <ChallengeWizardModal
+          visible={!!challengeTarget}
+          onClose={() => setChallengeTarget(null)}
+          onSend={handleSendChallenge}
+          opponentName={
+            getProfileForNpub(challengeTarget.sender_npub)?.display_name ||
+            challengeTarget.sender_npub.slice(0, 12) + '...'
+          }
+        />
+      )}
     </SafeAreaView>
   );
 };
