@@ -13,6 +13,7 @@ import {
   Modal,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { theme } from '../../styles/theme';
@@ -42,7 +43,7 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const [hasNWC, setHasNWC] = useState(false);
   const [isReady, setIsReady] = useState(false);
-  const checkIntervalRef = React.useRef<NodeJS.Timeout>();
+  const checkIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
 
   // Check NWC availability when modal opens
   useEffect(() => {
