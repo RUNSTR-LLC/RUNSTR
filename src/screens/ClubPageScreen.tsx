@@ -24,10 +24,8 @@ import { ClubService } from '../services/backend/ClubService';
 import { ClubMembershipService } from '../services/backend/ClubMembershipService';
 import { ClubBannerHeader } from '../components/club/ClubBannerHeader';
 import { ClubInfoSection } from '../components/club/ClubInfoSection';
-import type { CooldownState } from '../components/club/ClubInfoSection';
 import { ClubEventsSection } from '../components/club/ClubEventsSection';
 import { ClubChatSection } from '../components/club/ClubChatSection';
-import { ClubEarningsCard } from '../components/club/ClubEarningsCard';
 import { CaptainSettingsModal } from '../components/club/CaptainSettingsModal';
 import { CustomAlert } from '../components/ui/CustomAlert';
 import type { Club } from '../types/club';
@@ -65,7 +63,6 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
   const [isJoining, setIsJoining] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const [showCaptainSettings, setShowCaptainSettings] = useState(false);
-  const [cooldown, setCooldown] = useState<CooldownState | null>(null);
   const [alertConfig, setAlertConfig] = useState<{
     visible: boolean;
     title: string;
@@ -98,12 +95,8 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
           const myMembership = members.find((m) => m.member_npub === npub);
           setUserRole(myMembership?.role as 'member' | 'captain' || null);
 
-          // Fetch cooldown status
-          const cd = await ClubMembershipService.getCooldownRemaining(npub);
-          setCooldown(cd);
         } else {
           setUserRole(null);
-          setCooldown(null);
         }
       }
     } catch (err) {
@@ -137,9 +130,6 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
         setIsMember(true);
         const updated = await ClubService.getClubById(clubId);
         if (updated) setClub(updated);
-        // Refresh cooldown after joining
-        const cd = await ClubMembershipService.getCooldownRemaining(userNpub);
-        setCooldown(cd);
       } else {
         showAlert('Could not join', result.error || 'Please try again.');
       }
@@ -188,7 +178,6 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
       const result = await ClubMembershipService.leaveClub(userNpub);
       if (result.success) {
         setIsMember(false);
-        setCooldown(null);
         const updated = await ClubService.getClubById(clubId);
         if (updated) setClub(updated);
       } else {
@@ -202,13 +191,6 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
     }
   };
 
-  const handleCooldownBlocked = useCallback(() => {
-    showAlert(
-      '7-Day Cooldown',
-      'Clubs have a 7-day cooldown period after joining to keep teams stable. ' +
-        `You can leave in ${cooldown?.remainingText || 'a few days'}.`
-    );
-  }, [showAlert, cooldown]);
 
   // -------------------------------------------------------------------------
   // Share
@@ -305,25 +287,10 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
             club={club}
             clubId={clubId}
             isMember={isMember}
-            isCaptain={isCaptain}
             userNpub={userNpub}
             isJoining={isJoining}
-            isLeaving={isLeaving}
-            cooldown={cooldown}
             onJoin={handleJoin}
-            onLeaveConfirm={handleLeaveConfirm}
-            onCooldownBlocked={handleCooldownBlocked}
           />
-
-          {/* Earnings card (captain only) */}
-          {isCaptain && (
-            <ClubEarningsCard
-              clubId={clubId}
-              lightningAddress={club.lightning_address}
-            />
-          )}
-
-          {/* Rewards Pool card — hidden for now (wallet security review) */}
 
           {/* Events section */}
           <ClubEventsSection clubId={clubId} isCaptain={isCaptain} />

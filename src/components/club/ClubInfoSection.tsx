@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Share,
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,14 +35,9 @@ interface ClubInfoSectionProps {
   club: Club;
   clubId: string;
   isMember: boolean;
-  isCaptain: boolean;
   userNpub: string | null;
   isJoining: boolean;
-  isLeaving: boolean;
-  cooldown: CooldownState | null;
   onJoin: () => void;
-  onLeaveConfirm: () => void;
-  onCooldownBlocked: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -54,14 +48,9 @@ export const ClubInfoSection: React.FC<ClubInfoSectionProps> = ({
   club,
   clubId,
   isMember,
-  isCaptain,
   userNpub,
   isJoining,
-  isLeaving,
-  cooldown,
   onJoin,
-  onLeaveConfirm,
-  onCooldownBlocked,
 }) => {
   const memberCountText =
     club.member_count === 1 ? '1 member' : `${club.member_count} members`;
@@ -93,19 +82,6 @@ export const ClubInfoSection: React.FC<ClubInfoSectionProps> = ({
     return () => { cancelled = true; };
   }, [clubId]);
 
-  const handleShareClub = async () => {
-    try {
-      await Share.share({
-        message:
-          `Join my fitness club "${club.name}" on RUNSTR!\n\n` +
-          `Download RUNSTR and search for "${club.name}" in the Clubs tab.\n\n` +
-          `https://runstr.club`,
-      });
-    } catch {
-      // User cancelled or share failed silently
-    }
-  };
-
 
   return (
     <>
@@ -121,51 +97,42 @@ export const ClubInfoSection: React.FC<ClubInfoSectionProps> = ({
           <View style={styles.statItem}>
             <Ionicons
               name="people-outline"
-              size={16}
+              size={14}
               color={theme.colors.textMuted}
             />
             <Text style={styles.statText}>{memberCountText}</Text>
           </View>
-
-          <View style={styles.statItem}>
-            <Ionicons
-              name="fitness-outline"
-              size={16}
-              color={theme.colors.textMuted}
-            />
-            <Text style={styles.statText}>Active this week</Text>
-          </View>
         </View>
-      </View>
 
-      {/* Member avatars */}
-      {!membersLoading && members.length > 0 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.membersScroll}
-          style={styles.membersContainer}
-        >
-          {members.map((member) => {
-            const memberIsCaptain = member.role === 'captain';
-            const profile = memberProfiles.get(member.member_npub);
-            const name = profile?.display_name || profile?.name || member.member_npub.slice(0, 8) + '...';
-            return (
-              <View key={member.id} style={styles.memberItem}>
-                <View style={styles.avatarWrapper}>
-                  <Avatar name={name} size={36} imageUrl={profile?.picture} />
-                  {memberIsCaptain && (
-                    <View style={styles.captainBadge}>
-                      <Ionicons name="star-outline" size={10} color={theme.colors.accent} />
-                    </View>
-                  )}
+        {/* Member avatars */}
+        {!membersLoading && members.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.membersScroll}
+            style={styles.membersContainer}
+          >
+            {members.map((member) => {
+              const memberIsCaptain = member.role === 'captain';
+              const profile = memberProfiles.get(member.member_npub);
+              const name = profile?.display_name || profile?.name || member.member_npub.slice(0, 8) + '...';
+              return (
+                <View key={member.id} style={styles.memberItem}>
+                  <View style={styles.avatarWrapper}>
+                    <Avatar name={name} size={32} imageUrl={profile?.picture} />
+                    {memberIsCaptain && (
+                      <View style={styles.captainBadge}>
+                        <Ionicons name="star-outline" size={10} color={theme.colors.accent} />
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.memberName} numberOfLines={1}>{name}</Text>
                 </View>
-                <Text style={styles.memberName} numberOfLines={1}>{name}</Text>
-              </View>
-            );
-          })}
-        </ScrollView>
-      )}
+              );
+            })}
+          </ScrollView>
+        )}
+      </View>
 
       {/* Join button (only shown when NOT a member) */}
       {userNpub && !isMember && (
@@ -195,37 +162,6 @@ export const ClubInfoSection: React.FC<ClubInfoSectionProps> = ({
         </View>
       )}
 
-      {/* Invite Members card (captain only) */}
-      {isCaptain && (
-        <View style={styles.inviteCard}>
-          <Text style={styles.inviteTitle}>Invite Members</Text>
-          <Text style={styles.inviteDescription}>
-            Share your club with friends to grow your crew.
-          </Text>
-
-          <View style={styles.inviteStatsRow}>
-            <Ionicons
-              name="people-outline"
-              size={16}
-              color={theme.colors.textMuted}
-            />
-            <Text style={styles.inviteStatsText}>{memberCountText}</Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.inviteShareButton}
-            onPress={handleShareClub}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name="share-outline"
-              size={20}
-              color={theme.colors.text}
-            />
-            <Text style={styles.inviteShareButtonText}>Share Club</Text>
-          </TouchableOpacity>
-        </View>
-      )}
     </>
   );
 };
@@ -241,27 +177,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: 12,
-    padding: 16,
+    padding: 12,
     marginHorizontal: 16,
-    marginTop: 16,
+    marginTop: 12,
   },
   clubTitle: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   clubDescription: {
-    fontSize: 15,
+    fontSize: 14,
     color: theme.colors.text,
-    lineHeight: 22,
-    marginBottom: 12,
+    lineHeight: 20,
+    marginBottom: 8,
   },
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 20,
-    marginTop: 4,
+    gap: 16,
   },
   statItem: {
     flexDirection: 'row',
@@ -295,68 +230,17 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
   },
 
-  // Invite Members card (captain)
-  inviteCard: {
-    backgroundColor: theme.colors.cardBackground,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 12,
-    padding: 16,
-    marginHorizontal: 16,
-    marginTop: 16,
-  },
-  inviteTitle: {
-    fontSize: 18,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
-    marginBottom: 4,
-  },
-  inviteDescription: {
-    fontSize: 14,
-    color: theme.colors.textMuted,
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  inviteStatsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 14,
-  },
-  inviteStatsText: {
-    fontSize: 14,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.text,
-  },
-  inviteShareButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.cardBackground,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.text,
-    paddingVertical: 12,
-    gap: 8,
-  },
-  inviteShareButtonText: {
-    fontSize: 15,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
-  },
 
   // Member avatars
   membersContainer: {
-    marginHorizontal: 16,
     marginTop: 10,
   },
   membersScroll: {
-    gap: 12,
-    paddingRight: 16,
+    gap: 10,
   },
   memberItem: {
     alignItems: 'center',
-    width: 52,
+    width: 48,
   },
   avatarWrapper: {
     position: 'relative',
