@@ -359,8 +359,10 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
 
 const styles = StyleSheet.create({
   section: {
+    flex: 1,
     paddingHorizontal: 16,
-    marginTop: 20,
+    marginTop: 12,
+    paddingBottom: 8,
   },
   sectionLabel: {
     fontSize: 12,
@@ -371,8 +373,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   chatContainer: {
-    minHeight: 200,
-    maxHeight: 400,
+    flex: 1,
     backgroundColor: theme.colors.cardBackground,
     borderRadius: 12,
     borderWidth: 1,
