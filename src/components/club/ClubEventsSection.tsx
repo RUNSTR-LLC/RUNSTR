@@ -2,8 +2,8 @@
  * ClubEventsSection - Events linked to a club
  *
  * Fetches competitions where club_id matches, enriches with computed status,
- * and renders each as a DynamicEventCard. Captains see Create, Edit, and
- * Cancel controls. Uses dark theme — no bright orange.
+ * and renders each as a compact single-line row with status dot, name, and date.
+ * Captains see a "..." button that opens an action sheet for Edit/Cancel.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -19,7 +19,6 @@ import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../styles/theme';
 import { SupabaseCompetitionService } from '../../services/backend/SupabaseCompetitionService';
-import { DynamicEventCard } from '../events/DynamicEventCard';
 import { SimpleEventCreationModal } from '../subscription/SimpleEventCreationModal';
 import { CustomAlert } from '../ui/CustomAlert';
 import type { Competition } from '../../utils/supabase';
@@ -49,7 +48,9 @@ const CACHE_TTL = 3 * 60 * 1000;
 function deriveStatus(comp: Competition): CompetitionStatus {
   const now = Date.now();
   const start = new Date(comp.start_date).getTime();
-  const end = new Date(comp.end_date).getTime();
+  const endDate = new Date(comp.end_date);
+  endDate.setUTCHours(23, 59, 59, 999);
+  const end = endDate.getTime();
   if (now < start) return 'upcoming';
   if (now > end) return 'ended';
   return 'active';
@@ -60,6 +61,11 @@ const STATUS_ORDER: Record<CompetitionStatus, number> = {
   upcoming: 1,
   ended: 2,
 };
+
+function formatShortDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -139,11 +145,6 @@ const ClubEventsSectionComponent: React.FC<ClubEventsSectionProps> = ({
     await loadEvents();
   }, [clubId, loadEvents]);
 
-  const handleEditPress = useCallback((event: DynamicCompetition) => {
-    setEditingEvent(event);
-    setShowModal(true);
-  }, []);
-
   const handleCreatePress = useCallback(() => {
     setEditingEvent(null);
     setShowModal(true);
@@ -194,6 +195,18 @@ const ClubEventsSectionComponent: React.FC<ClubEventsSectionProps> = ({
     [clubId, loadEvents]
   );
 
+  const handleEventOptions = useCallback((event: DynamicCompetition) => {
+    setAlertConfig({
+      visible: true,
+      title: event.name,
+      buttons: [
+        { text: 'Edit', onPress: () => { setEditingEvent(event); setShowModal(true); } },
+        { text: 'Cancel Event', style: 'destructive', onPress: () => handleCancelEvent(event) },
+        { text: 'Dismiss', style: 'cancel' },
+      ],
+    });
+  }, [handleCancelEvent]);
+
   // -------------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------------
@@ -208,53 +221,47 @@ const ClubEventsSectionComponent: React.FC<ClubEventsSectionProps> = ({
 
         {isCaptain && (
           <TouchableOpacity
-            style={styles.createButton}
             onPress={handleCreatePress}
             activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="add-circle-outline" size={16} color={theme.colors.textMuted} />
-            <Text style={styles.createButtonText}>Create</Text>
+            <Ionicons name="add" size={20} color={theme.colors.textMuted} />
           </TouchableOpacity>
         )}
       </View>
 
       {isLoading ? (
-        <View style={styles.emptyContainer}>
-          <ActivityIndicator color={theme.colors.textMuted} />
-        </View>
+        <ActivityIndicator color={theme.colors.textMuted} />
       ) : events.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="trophy-outline" size={36} color={theme.colors.textDark} />
-          <Text style={styles.emptyText}>No events yet. Create one for your club!</Text>
-        </View>
+        <Text style={styles.emptyText}>No events yet</Text>
       ) : (
         events.map((event) => (
-          <View key={event.id}>
-            <DynamicEventCard
-              competition={event}
-              onPress={() => handleEventPress(event.external_id)}
-            />
+          <TouchableOpacity
+            key={event.id}
+            style={styles.eventRow}
+            onPress={() => handleEventPress(event.external_id)}
+            activeOpacity={0.7}
+          >
+            <View style={[
+              styles.statusDot,
+              event.status === 'active' && styles.statusDotActive,
+              event.status === 'upcoming' && styles.statusDotUpcoming,
+              event.status === 'ended' && styles.statusDotEnded,
+            ]} />
+            <Text style={styles.eventName} numberOfLines={1}>{event.name}</Text>
+            <Text style={styles.eventMeta}>
+              {formatShortDate(event.start_date)}
+            </Text>
             {isCaptain && event.status !== 'ended' && (
-              <View style={styles.captainActions}>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => handleEditPress(event)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="pencil-outline" size={13} color={theme.colors.textMuted} />
-                  <Text style={styles.actionButtonText}>Edit</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => handleCancelEvent(event)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="close-circle-outline" size={13} color={theme.colors.textMuted} />
-                  <Text style={styles.actionButtonText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                onPress={() => handleEventOptions(event)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={styles.eventEditButton}
+              >
+                <Ionicons name="ellipsis-horizontal" size={16} color={theme.colors.textDark} />
+              </TouchableOpacity>
             )}
-          </View>
+          </TouchableOpacity>
         ))
       )}
 
@@ -270,6 +277,7 @@ const ClubEventsSectionComponent: React.FC<ClubEventsSectionProps> = ({
           name: editingEvent.name,
           description: editingEvent.description ?? null,
           template: editingEvent.template ?? null,
+          image_url: editingEvent.image_url ?? null,
         } : undefined}
       />
 
@@ -291,7 +299,7 @@ const ClubEventsSectionComponent: React.FC<ClubEventsSectionProps> = ({
 const styles = StyleSheet.create({
   section: {
     paddingHorizontal: 16,
-    marginTop: 20,
+    marginTop: 12,
   },
   headerRow: {
     flexDirection: 'row',
@@ -306,48 +314,48 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
-  createButton: {
+  eventRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+    gap: 8,
   },
-  createButtonText: {
-    fontSize: 13,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.textMuted,
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: theme.colors.textDark,
   },
-  emptyContainer: {
-    alignItems: 'center',
-    paddingVertical: 24,
+  statusDotActive: {
+    backgroundColor: '#4CAF50',
   },
-  emptyText: {
+  statusDotUpcoming: {
+    backgroundColor: theme.colors.accent,
+  },
+  statusDotEnded: {
+    backgroundColor: theme.colors.textDark,
+  },
+  eventName: {
+    flex: 1,
     fontSize: 14,
-    color: theme.colors.textMuted,
-    marginTop: 8,
-    textAlign: 'center',
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.text,
   },
-  captainActions: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 16,
-    marginTop: -6,
-    marginBottom: 8,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-  },
-  actionButtonText: {
+  eventMeta: {
     fontSize: 12,
     color: theme.colors.textMuted,
+  },
+  eventEditButton: {
+    paddingLeft: 8,
+  },
+  emptyText: {
+    fontSize: 13,
+    color: theme.colors.textDark,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
   },
 });
 
