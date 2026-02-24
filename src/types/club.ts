@@ -59,7 +59,7 @@ export interface ChallengeMessageMetadata {
   duration_days: 1 | 3 | 7;
   challenged_npub: string;
   challenger_npub: string;
-  challenge_status: 'pending' | 'accepted' | 'declined' | 'active' | 'completed';
+  challenge_status: 'pending' | 'declined' | 'active' | 'completed';
   winner_npub?: string;
 }
 

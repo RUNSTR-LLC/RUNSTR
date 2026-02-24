@@ -7,7 +7,7 @@ import { callEdgeFunction } from '../../utils/edgeFunctions';
 import { supabase } from '../../utils/supabase';
 
 export interface ChallengeStatus {
-  challenge_status: 'pending' | 'accepted' | 'declined' | 'active' | 'completed';
+  challenge_status: 'pending' | 'declined' | 'active' | 'completed';
   challenger_npub: string;
   challenged_npub: string;
   challenge_type: string;

@@ -482,7 +482,8 @@ async function handleCreateChallenge(
   }
 
   const external_id = `challenge-${randomHex(8)}`
-  const challengeName = (name as string) || `${challenge_type} Challenge`
+  const typeLabel = CHALLENGE_SCORING[challenge_type as string]?.scoring_method || challenge_type
+  const challengeName = `Challenge: ${challenge_type}`
 
   const config: Record<string, unknown> = {
     challenger_npub: npub,
@@ -519,15 +520,15 @@ async function handleCreateChallenge(
     return errorResponse(insertErr.message, 500)
   }
 
-  // Auto-join the challenger as participant
+  // Auto-join the challenger as participant (name/picture are profile fields)
   const { error: joinErr } = await supabase
     .from('competition_participants')
     .upsert(
       {
         competition_id: newComp.id,
         npub,
-        name: name || null,
-        picture: picture || null,
+        name: (name as string) || null,
+        picture: (picture as string) || null,
       },
       { onConflict: 'competition_id,npub' },
     )
@@ -694,7 +695,7 @@ async function handleCompleteChallenge(
   // Fetch the competition
   const { data: comp, error: compErr } = await supabase
     .from('competitions')
-    .select('id, template, config, scoring_method, start_date, end_date')
+    .select('id, template, config, scoring_method, activity_type, start_date, end_date')
     .eq('id', competition_id)
     .single()
 
@@ -738,17 +739,16 @@ async function handleCompleteChallenge(
   let winnerNpub: string | null = null
 
   if (comp.scoring_method === 'fastest_time') {
-    // Pick the correct time column based on target distance
     const targetKm = config.target_distance_km as number
     const timeColumn = targetKm === 5 ? 'time_5k_seconds' : 'time_10k_seconds'
 
     const { data: workouts, error: workoutErr } = await supabase
       .from('workout_submissions')
       .select(`npub, ${timeColumn}`)
-      .eq('competition_id', competition_id)
-      .gte('submitted_at', startDate)
-      .lte('submitted_at', comp.end_date)
       .in('npub', participantNpubs)
+      .eq('activity_type', comp.activity_type)
+      .gte('created_at', startDate)
+      .lte('created_at', comp.end_date)
       .not(timeColumn, 'is', null)
       .order(timeColumn, { ascending: true })
       .limit(1)
@@ -760,10 +760,10 @@ async function handleCompleteChallenge(
     const { data: workouts, error: workoutErr } = await supabase
       .from('workout_submissions')
       .select('npub, distance_meters')
-      .eq('competition_id', competition_id)
-      .gte('submitted_at', startDate)
-      .lte('submitted_at', comp.end_date)
       .in('npub', participantNpubs)
+      .eq('activity_type', comp.activity_type)
+      .gte('created_at', startDate)
+      .lte('created_at', comp.end_date)
 
     if (!workoutErr && workouts && workouts.length > 0) {
       const totals: Record<string, number> = {}
@@ -776,10 +776,10 @@ async function handleCompleteChallenge(
     const { data: workouts, error: workoutErr } = await supabase
       .from('workout_submissions')
       .select('npub')
-      .eq('competition_id', competition_id)
-      .gte('submitted_at', startDate)
-      .lte('submitted_at', comp.end_date)
       .in('npub', participantNpubs)
+      .eq('activity_type', comp.activity_type)
+      .gte('created_at', startDate)
+      .lte('created_at', comp.end_date)
 
     if (!workoutErr && workouts && workouts.length > 0) {
       const counts: Record<string, number> = {}
@@ -792,10 +792,10 @@ async function handleCompleteChallenge(
     const { data: workouts, error: workoutErr } = await supabase
       .from('workout_submissions')
       .select('npub, step_count')
-      .eq('competition_id', competition_id)
-      .gte('submitted_at', startDate)
-      .lte('submitted_at', comp.end_date)
       .in('npub', participantNpubs)
+      .eq('activity_type', comp.activity_type)
+      .gte('created_at', startDate)
+      .lte('created_at', comp.end_date)
 
     if (!workoutErr && workouts && workouts.length > 0) {
       const totals: Record<string, number> = {}

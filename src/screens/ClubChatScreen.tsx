@@ -14,6 +14,7 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -113,25 +114,28 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
     if (found) setPinnedMessage(found);
   }, [pinnedMessageId, messages]);
 
-  // Fetch live challenge statuses
+  // Fetch live challenge statuses (parallel)
   useEffect(() => {
     const challengeMessages = messages.filter(
       (m) => m.message_type === 'challenge' && m.metadata && 'competition_id' in m.metadata
     );
     if (challengeMessages.length === 0) return;
     const fetchStatuses = async () => {
-      const newStatuses = new Map<string, ChallengeStatus>();
-      for (const msg of challengeMessages) {
-        const meta = msg.metadata as ChallengeMessageMetadata;
-        if (!meta.competition_id) continue;
-        const status = await ChallengeService.getChallengeStatus(meta.competition_id);
-        if (status) {
-          if (status.challenge_status === 'active' && status.end_date && new Date(status.end_date) < new Date()) {
+      const entries = await Promise.allSettled(
+        challengeMessages.map(async (msg) => {
+          const meta = msg.metadata as ChallengeMessageMetadata;
+          if (!meta.competition_id) return null;
+          let status = await ChallengeService.getChallengeStatus(meta.competition_id);
+          if (status?.challenge_status === 'active' && status.end_date && new Date(status.end_date) < new Date()) {
             const completed = await ChallengeService.checkAndComplete(meta.competition_id);
-            if (completed) { newStatuses.set(meta.competition_id, completed); continue; }
+            if (completed) status = completed;
           }
-          newStatuses.set(meta.competition_id, status);
-        }
+          return status ? [meta.competition_id, status] as const : null;
+        })
+      );
+      const newStatuses = new Map<string, ChallengeStatus>();
+      for (const entry of entries) {
+        if (entry.status === 'fulfilled' && entry.value) newStatuses.set(entry.value[0], entry.value[1]);
       }
       if (newStatuses.size > 0) setChallengeStatuses(newStatuses);
     };
@@ -200,6 +204,8 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
       if (status) {
         setChallengeStatuses(prev => { const next = new Map(prev); next.set(competitionId, status); return next; });
       }
+    } else {
+      Alert.alert('Challenge Error', 'Could not accept challenge. Please try again.');
     }
   }, [userNpub, getProfileForNpub]);
 
@@ -211,6 +217,8 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
       if (status) {
         setChallengeStatuses(prev => { const next = new Map(prev); next.set(competitionId, status); return next; });
       }
+    } else {
+      Alert.alert('Challenge Error', 'Could not decline challenge. Please try again.');
     }
   }, [userNpub]);
 
@@ -233,6 +241,7 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
 
     if (!result) {
       console.error('[ClubChatScreen] Failed to create challenge competition');
+      Alert.alert('Challenge Error', 'Could not create challenge. Please try again.');
       setChallengeTarget(null);
       return;
     }
@@ -277,6 +286,9 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
     const canDeleteMessage = userNpub === captainNpub || isOwnMessage;
     const isChMsg = item.message_type === 'challenge' && item.metadata && 'competition_id' in item.metadata;
     const compId = isChMsg ? (item.metadata as ChallengeMessageMetadata).competition_id : '';
+    const liveStatus = isChMsg ? challengeStatuses.get(compId) : undefined;
+    const winnerProfile = liveStatus?.winner_npub ? getProfileForNpub(liveStatus.winner_npub) : undefined;
+    const resolvedWinnerName = winnerProfile?.display_name || winnerProfile?.name || liveStatus?.winner_npub?.slice(0, 12);
     return (
       <ChatMessageBubble
         message={item}
@@ -291,7 +303,8 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
         userNpub={userNpub ?? undefined}
         senderProfile={getProfileForNpub(item.sender_npub)}
         onChallenge={!isOwnMessage ? () => handleChallenge(item) : undefined}
-        liveChallengeStatus={isChMsg ? challengeStatuses.get(compId) || null : null}
+        liveChallengeStatus={isChMsg ? liveStatus || null : null}
+        winnerName={resolvedWinnerName}
         onAcceptChallenge={isChMsg ? () => handleAcceptChallenge(compId) : undefined}
         onDeclineChallenge={isChMsg ? () => handleDeclineChallenge(compId) : undefined}
       />

@@ -72,6 +72,7 @@ interface ChatMessageBubbleProps {
     winner_npub?: string | null;
     end_date?: string;
   } | null;
+  winnerName?: string;
   replyContext?: ReplyContext;
   userNpub?: string;
   senderProfile?: SenderProfile;
@@ -138,6 +139,7 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
   onAcceptChallenge,
   onDeclineChallenge,
   liveChallengeStatus,
+  winnerName,
   replyContext,
   userNpub,
   senderProfile,
@@ -365,7 +367,7 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
               )}
               {liveStatus === 'completed' && (
                 <Text style={styles.challengeStatusText}>
-                  Winner: {liveWinner === userNpub ? 'You!' : displayName}
+                  Winner: {liveWinner === userNpub ? 'You!' : (winnerName || 'Unknown')}
                 </Text>
               )}
               {liveStatus === 'declined' && (
