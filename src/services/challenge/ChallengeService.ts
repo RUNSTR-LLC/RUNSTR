@@ -15,6 +15,8 @@ export interface ChallengeStatus {
   winner_npub?: string | null;
   start_date?: string;
   end_date?: string;
+  activity_type?: string;
+  scoring_method?: string;
 }
 
 interface CachedStatus {
@@ -24,6 +26,19 @@ interface CachedStatus {
 
 const CACHE_TTL = 30_000; // 30 seconds
 const statusCache = new Map<string, CachedStatus>();
+
+export interface ChallengeScoreEntry {
+  npub: string;
+  profileName?: string;
+  value: number | null;
+}
+
+export interface ChallengeScores {
+  challengeType: string;
+  entries: ChallengeScoreEntry[];
+}
+
+const scoresCache = new Map<string, { scores: ChallengeScores; fetchedAt: number }>();
 
 export class ChallengeService {
   /**
@@ -120,7 +135,7 @@ export class ChallengeService {
 
     const { data, error } = await supabase
       .from('competitions')
-      .select('config, start_date, end_date')
+      .select('config, start_date, end_date, activity_type, scoring_method')
       .eq('id', competitionId)
       .single();
 
@@ -139,6 +154,8 @@ export class ChallengeService {
       winner_npub: (config.winner_npub as string) || null,
       start_date: data.start_date,
       end_date: data.end_date,
+      activity_type: data.activity_type,
+      scoring_method: data.scoring_method,
     };
 
     statusCache.set(competitionId, { status, fetchedAt: Date.now() });
@@ -164,8 +181,64 @@ export class ChallengeService {
     return this.getChallengeStatus(competitionId);
   }
 
-  /** Clear the status cache. */
+  /**
+   * Fetch both participants' workout scores for a challenge period.
+   * Cached for 30 seconds.
+   */
+  static async getChallengeScores(
+    competitionId: string,
+    status: ChallengeStatus,
+  ): Promise<ChallengeScores | null> {
+    if (!status.start_date || !status.end_date || !status.activity_type || !status.scoring_method) return null;
+    if (status.challenge_status !== 'active' && status.challenge_status !== 'completed') return null;
+
+    const cached = scoresCache.get(competitionId);
+    if (cached && Date.now() - cached.fetchedAt < CACHE_TTL) return cached.scores;
+
+    const npubs = [status.challenger_npub, status.challenged_npub];
+    const { data: rows, error } = await supabase
+      .from('workout_submissions')
+      .select('npub, profile_name, distance_meters, duration_seconds, time_5k_seconds, time_10k_seconds, step_count')
+      .in('npub', npubs)
+      .eq('activity_type', status.activity_type)
+      .gte('created_at', status.start_date)
+      .lte('created_at', status.end_date);
+
+    if (error || !rows) {
+      console.warn('[ChallengeService] getChallengeScores error:', error?.message);
+      return null;
+    }
+
+    const entries: ChallengeScoreEntry[] = npubs.map((npub) => {
+      const myRows = rows.filter((r: any) => r.npub === npub);
+      const profileName = myRows[0]?.profile_name || undefined;
+      let value: number | null = null;
+
+      if (status.scoring_method === 'fastest_time') {
+        const col = status.challenge_type === 'fastest_5k' ? 'time_5k_seconds' : 'time_10k_seconds';
+        const times = myRows.map((r: any) => r[col]).filter((t: any) => t != null && t > 0);
+        value = times.length > 0 ? Math.min(...times) : null;
+      } else if (status.scoring_method === 'total_distance') {
+        const sum = myRows.reduce((acc: number, r: any) => acc + (r.distance_meters || 0), 0);
+        value = sum > 0 ? sum : null;
+      } else if (status.scoring_method === 'workout_count') {
+        value = myRows.length > 0 ? myRows.length : null;
+      } else if (status.scoring_method === 'total_steps') {
+        const sum = myRows.reduce((acc: number, r: any) => acc + (r.step_count || 0), 0);
+        value = sum > 0 ? sum : null;
+      }
+
+      return { npub, profileName, value };
+    });
+
+    const scores: ChallengeScores = { challengeType: status.challenge_type, entries };
+    scoresCache.set(competitionId, { scores, fetchedAt: Date.now() });
+    return scores;
+  }
+
+  /** Clear all caches. */
   static clearCache(): void {
     statusCache.clear();
+    scoresCache.clear();
   }
 }
