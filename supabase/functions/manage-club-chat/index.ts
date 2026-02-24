@@ -8,6 +8,8 @@
  *   send   - Send a message to a club chat (membership required, rate-limited)
  *   delete - Soft-delete a message (sender or captain only)
  *   react  - Toggle an emoji reaction on a message (membership required)
+ *   pin    - Pin a message to the club (captain only)
+ *   unpin  - Unpin the current pinned message (captain only)
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
@@ -37,7 +39,7 @@ function errorResponse(error: string, status = 400) {
 // Action handlers
 // ---------------------------------------------------------------------------
 
-const ALLOWED_MESSAGE_TYPES = ['message', 'announcement', 'workout'] as const
+const ALLOWED_MESSAGE_TYPES = ['message', 'announcement', 'workout', 'challenge'] as const
 const ALLOWED_REACTIONS = ['flame', 'fitness', 'thumbs', 'heart', 'happy'] as const
 
 async function handleSend(
@@ -281,6 +283,104 @@ async function handleReact(
   return jsonResponse({ success: true, data: updated })
 }
 
+async function handlePin(
+  supabase: ReturnType<typeof createClient>,
+  params: Record<string, unknown>,
+) {
+  const { club_id, caller_npub, message_id } = params as {
+    club_id?: string
+    caller_npub?: string
+    message_id?: string
+  }
+
+  // --- Validate required params ---
+  if (!club_id || !caller_npub || !message_id) {
+    return errorResponse('Missing required fields: club_id, caller_npub, message_id')
+  }
+
+  // --- Auth: caller must be club captain ---
+  const { data: captainship, error: capErr } = await supabase
+    .from('club_memberships')
+    .select('id')
+    .eq('club_id', club_id)
+    .eq('member_npub', caller_npub)
+    .eq('role', 'captain')
+    .single()
+
+  if (capErr || !captainship) {
+    return errorResponse('Only the club captain can pin messages', 403)
+  }
+
+  // --- Verify message exists in this club ---
+  const { data: msg, error: msgErr } = await supabase
+    .from('club_messages')
+    .select('id')
+    .eq('id', message_id)
+    .eq('club_id', club_id)
+    .is('deleted_at', null)
+    .single()
+
+  if (msgErr || !msg) {
+    return errorResponse('Message not found in this club', 404)
+  }
+
+  // --- Update pinned message on the club ---
+  const { error: updateErr } = await supabase
+    .from('user_teams')
+    .update({ pinned_message_id: message_id })
+    .eq('id', club_id)
+
+  if (updateErr) {
+    console.error('Pin message error:', updateErr)
+    return errorResponse(updateErr.message, 500)
+  }
+
+  console.log(`Message ${message_id} pinned in club ${club_id} by ${caller_npub.slice(0, 12)}...`)
+  return jsonResponse({ success: true, data: { pinned_message_id: message_id } })
+}
+
+async function handleUnpin(
+  supabase: ReturnType<typeof createClient>,
+  params: Record<string, unknown>,
+) {
+  const { club_id, caller_npub } = params as {
+    club_id?: string
+    caller_npub?: string
+  }
+
+  // --- Validate required params ---
+  if (!club_id || !caller_npub) {
+    return errorResponse('Missing required fields: club_id, caller_npub')
+  }
+
+  // --- Auth: caller must be club captain ---
+  const { data: captainship, error: capErr } = await supabase
+    .from('club_memberships')
+    .select('id')
+    .eq('club_id', club_id)
+    .eq('member_npub', caller_npub)
+    .eq('role', 'captain')
+    .single()
+
+  if (capErr || !captainship) {
+    return errorResponse('Only the club captain can unpin messages', 403)
+  }
+
+  // --- Clear pinned message on the club ---
+  const { error: updateErr } = await supabase
+    .from('user_teams')
+    .update({ pinned_message_id: null })
+    .eq('id', club_id)
+
+  if (updateErr) {
+    console.error('Unpin message error:', updateErr)
+    return errorResponse(updateErr.message, 500)
+  }
+
+  console.log(`Pinned message cleared in club ${club_id} by ${caller_npub.slice(0, 12)}...`)
+  return jsonResponse({ success: true, data: { pinned_message_id: null } })
+}
+
 // ---------------------------------------------------------------------------
 // Main handler
 // ---------------------------------------------------------------------------
@@ -307,6 +407,10 @@ serve(async (req) => {
         return await handleDelete(supabase, params)
       case 'react':
         return await handleReact(supabase, params)
+      case 'pin':
+        return await handlePin(supabase, params)
+      case 'unpin':
+        return await handleUnpin(supabase, params)
       default:
         return errorResponse(`Unknown action: ${action}`)
     }
