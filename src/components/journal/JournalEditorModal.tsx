@@ -269,11 +269,13 @@ export const JournalEditorModal: React.FC<JournalEditorModalProps> = ({
               />
             </View>
 
-            {/* Voice Recording */}
-            <VoiceRecordButton
-              onTranscriptionComplete={handleTranscription}
-              disabled={isSaving}
-            />
+            {/* Voice Recording (iOS only — Android SpeechRecognizer sends audio to Google) */}
+            {Platform.OS === 'ios' && (
+              <VoiceRecordButton
+                onTranscriptionComplete={handleTranscription}
+                disabled={isSaving}
+              />
+            )}
 
             {/* Tags */}
             <View style={styles.tagsSection}>
