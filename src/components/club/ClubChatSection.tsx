@@ -472,7 +472,7 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
 };
 
 const styles = StyleSheet.create({
-  section: { flex: 1, paddingHorizontal: 16, marginTop: 12, paddingBottom: 8 },
+  section: { flex: 1, minHeight: 340, paddingHorizontal: 16, marginTop: 12, paddingBottom: 8 },
   chatHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
   sectionLabel: { fontSize: 12, fontWeight: theme.typography.weights.bold, color: theme.colors.textMuted, letterSpacing: 1, textTransform: 'uppercase' },
   chatContainer: { flex: 1, backgroundColor: theme.colors.cardBackground, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.border, overflow: 'hidden' },

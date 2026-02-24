@@ -248,7 +248,12 @@ const ClubEventsSectionComponent: React.FC<ClubEventsSectionProps> = ({
               event.status === 'upcoming' && styles.statusDotUpcoming,
               event.status === 'ended' && styles.statusDotEnded,
             ]} />
-            <Text style={styles.eventName} numberOfLines={1}>{event.name}</Text>
+            <Text style={[styles.eventName, event.status === 'ended' && styles.eventNameEnded]} numberOfLines={1}>{event.name}</Text>
+            {event.status === 'ended' && (
+              <View style={styles.endedBadge}>
+                <Text style={styles.endedBadgeText}>ENDED</Text>
+              </View>
+            )}
             <Text style={styles.eventMeta}>
               {formatShortDate(event.start_date)}
             </Text>
@@ -343,6 +348,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: theme.typography.weights.medium,
     color: theme.colors.text,
+  },
+  eventNameEnded: {
+    color: theme.colors.textDark,
+  },
+  endedBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: 'rgba(153, 102, 51, 0.15)',
+  },
+  endedBadgeText: {
+    fontSize: 10,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.textDark,
+    letterSpacing: 0.5,
   },
   eventMeta: {
     fontSize: 12,
