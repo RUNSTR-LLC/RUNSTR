@@ -335,7 +335,9 @@ const styles = StyleSheet.create({
     borderLeftColor: theme.colors.accent,
   },
   ownContainer: {
-    backgroundColor: '#0f0f0f',
+    backgroundColor: 'rgba(204, 122, 51, 0.05)',
+    borderRightWidth: 3,
+    borderRightColor: theme.colors.accent,
   },
   announcementContainer: {
     backgroundColor: 'rgba(204, 122, 51, 0.08)',
