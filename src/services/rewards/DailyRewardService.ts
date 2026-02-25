@@ -66,19 +66,15 @@ export interface RewardResult {
 
 /**
  * Check if a workout qualifies for boosted subscriber rewards (800 sats)
- * Requirements: cardio, 2km+ distance, 15+ min, non-manual source
+ * Requirements: cardio activity, non-manual source
  */
 export function isBoostedQualified(
   activityType: string,
-  distanceMeters: number,
-  durationSeconds: number,
   source: string,
 ): boolean {
   const isCardio = CARDIO_ACTIVITY_TYPES.includes(activityType);
-  const hasDistance = distanceMeters >= REWARD_CONFIG.BOOSTED_MIN_DISTANCE_METERS;
-  const hasDuration = durationSeconds >= REWARD_CONFIG.BOOSTED_MIN_DURATION;
   const isNonManual = source !== 'manual_entry';
-  return isCardio && hasDistance && hasDuration && isNonManual;
+  return isCardio && isNonManual;
 }
 
 // Diagnostic entry for reward attempts
@@ -672,28 +668,14 @@ class DailyRewardServiceClass {
       if (npub) {
         const isSubscriber = await SubscriptionService.isSupporterOrAbove(npub);
         if (isSubscriber) {
-          // Extract workout metrics from tags to check boost qualification
-          const distanceTag = workoutTags.find(t => t[0] === 'distance');
-          const durationTag = workoutTags.find(t => t[0] === 'duration');
+          // Extract workout metadata from tags to check boost qualification
           const exerciseTag = workoutTags.find(t => t[0] === 'exercise');
           const sourceTag = workoutTags.find(t => t[0] === 'source');
-
-          const distanceKm = distanceTag ? parseFloat(distanceTag[1]) : 0;
-          const distanceUnit = distanceTag?.[2] || 'km';
-          const distanceMeters = distanceUnit === 'mi'
-            ? distanceKm * 1609.34
-            : distanceKm * 1000;
-
-          const durationStr = durationTag?.[1] || '00:00:00';
-          const durationParts = durationStr.split(':').map(Number);
-          const durationSeconds = (durationParts[0] || 0) * 3600
-            + (durationParts[1] || 0) * 60
-            + (durationParts[2] || 0);
 
           const exercise = exerciseTag?.[1] || '';
           const source = sourceTag?.[1] || '';
 
-          if (isBoostedQualified(exercise, distanceMeters, durationSeconds, source)) {
+          if (isBoostedQualified(exercise, source)) {
             console.log('[Reward] Subscriber boosted reward: 800 sats');
             return REWARD_CONFIG.BOOSTED_WORKOUT_REWARD; // 800 sats
           }
