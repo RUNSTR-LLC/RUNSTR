@@ -61,6 +61,8 @@ const DURATION_PRESETS: { value: number | null; label: string }[] = [
   { value: 20 * 60, label: '20m' },
 ];
 
+const MILESTONE_SECONDS = [5 * 60, 10 * 60, 15 * 60, 20 * 60, 30 * 60];
+
 interface MeditationTrackerScreenProps {
   initialType?: MeditationType;
 }
@@ -122,6 +124,7 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
   const isPausedRef = useRef<boolean>(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const autoStopFiredRef = useRef<boolean>(false);
+  const firedMilestonesRef = useRef<Set<number>>(new Set());
 
   // Load userId, health profile, and WoT score on mount
   useEffect(() => {
@@ -199,6 +202,17 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
           (now - startTimeRef.current - totalPausedTime) / 1000
         );
         setElapsedSeconds(elapsed);
+
+        // Milestone haptics (open mode only)
+        if (targetDuration === null) {
+          for (const milestone of MILESTONE_SECONDS) {
+            if (elapsed >= milestone && !firedMilestonesRef.current.has(milestone)) {
+              firedMilestonesRef.current.add(milestone);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              break;
+            }
+          }
+        }
 
         // Auto-stop when countdown reaches zero
         if (targetDuration !== null && elapsed >= targetDuration && !autoStopFiredRef.current) {
@@ -310,6 +324,7 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
     totalPausedTimeRef.current = 0;
     setElapsedSeconds(0);
     autoStopFiredRef.current = false;
+    firedMilestonesRef.current.clear();
   };
 
   const pauseMeditation = () => {
