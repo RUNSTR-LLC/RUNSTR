@@ -62,7 +62,7 @@ function getIntroText(feature: string, currentTier?: SubscriptionTier): string {
     case 'season':
       return 'Season III requires a Supporter subscription or above. Earn 800 sats per qualifying workout!';
     default:
-      return 'Subscribe to RUNSTR to boost your workout rewards from 50 to 800 sats per workout.';
+      return `Subscribe to RUNSTR to boost your workout rewards from ${REWARD_CONFIG.DAILY_WORKOUT_REWARD} to ${REWARD_CONFIG.BOOSTED_WORKOUT_REWARD} sats per workout.`;
   }
 }
 
