@@ -25,6 +25,7 @@ import CalorieEstimationService from '../../services/fitness/CalorieEstimationSe
 import { nostrProfileService } from '../../services/nostr/NostrProfileService';
 import { HoldToStartButton } from '../../components/activity/HoldToStartButton';
 import { CountdownOverlay } from '../../components/activity/CountdownOverlay';
+import { BreathingCircle } from '../../components/activity/BreathingCircle';
 import { AutoCompetePreferencesService } from '../../services/activity/AutoCompetePreferencesService';
 import WorkoutStatusTracker from '../../services/fitness/WorkoutStatusTracker';
 import { WoTService } from '../../services/wot/WoTService';
@@ -591,6 +592,11 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
 
   // Active meditation screen
   if (phase === 'active') {
+    const isBreathwork = selectedType === 'breathwork';
+    const displayTime = targetDuration !== null
+      ? formatTime(Math.max(0, targetDuration - elapsedSeconds))
+      : formatTime(elapsedSeconds);
+
     return (
       <View style={styles.container}>
         <View style={styles.activeContainer}>
@@ -598,16 +604,19 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
             {MEDITATION_TYPES.find((t) => t.value === selectedType)?.label}
           </Text>
 
-          <View style={styles.timerContainer}>
-            <Text style={styles.timerText}>
-              {targetDuration !== null
-                ? formatTime(Math.max(0, targetDuration - elapsedSeconds))
-                : formatTime(elapsedSeconds)}
-            </Text>
-            <Text style={styles.timerLabel}>
-              {isPaused ? 'Paused' : 'Meditating'}
-            </Text>
-          </View>
+          {isBreathwork ? (
+            <>
+              <Text style={styles.breathworkTimer}>{displayTime}</Text>
+              <BreathingCircle isPaused={isPaused} />
+            </>
+          ) : (
+            <View style={styles.timerContainer}>
+              <Text style={styles.timerText}>{displayTime}</Text>
+              <Text style={styles.timerLabel}>
+                {isPaused ? 'Paused' : 'Meditating'}
+              </Text>
+            </View>
+          )}
 
           <View style={styles.controlButtons}>
             {!isPaused ? (
@@ -921,6 +930,12 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.semiBold,
     color: theme.colors.textMuted,
     marginBottom: 40,
+  },
+  breathworkTimer: {
+    fontSize: 36,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.textMuted,
+    marginBottom: 8,
   },
   timerContainer: {
     alignItems: 'center',
