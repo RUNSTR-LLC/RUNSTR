@@ -32,12 +32,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MoodSelector } from './MoodSelector';
 import { EnergySelector } from './EnergySelector';
 
-// Lazy-load VoiceRecordButton so expo-speech-recognition native module
-// is only required on iOS (where it renders). Prevents crash on Android
-// and before expo prebuild --clean has been run.
-const VoiceRecordButton = Platform.OS === 'ios'
-  ? require('./VoiceRecordButton').VoiceRecordButton
-  : null;
+// Lazy-load VoiceRecordButton — wrapped in try/catch because
+// expo-speech-recognition requires a native rebuild (expo prebuild --clean).
+// If the native module isn't linked yet, we gracefully hide the button.
+let VoiceRecordButton: React.ComponentType<{ onTranscriptionComplete: (text: string) => void; disabled?: boolean }> | null = null;
+if (Platform.OS === 'ios') {
+  try {
+    VoiceRecordButton = require('./VoiceRecordButton').VoiceRecordButton;
+  } catch {
+    // Native module not available — needs expo prebuild --clean
+  }
+}
 
 interface JournalEditorModalProps {
   visible: boolean;
