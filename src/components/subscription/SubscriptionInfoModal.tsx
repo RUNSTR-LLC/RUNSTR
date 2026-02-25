@@ -1,6 +1,6 @@
 /**
  * SubscriptionInfoModal - Two-tier subscription comparison
- * Shows Supporter (10k sats/mo) and Pro (15k sats/mo) tiers
+ * Shows Supporter (15k sats/mo) and Pro (21k sats/mo) tiers
  * Contextual messaging based on which feature triggered the modal
  */
 
@@ -34,14 +34,15 @@ interface TierFeature {
 }
 
 const SUPPORTER_FEATURES: TierFeature[] = [
-  { icon: 'flash-outline', label: `${REWARD_CONFIG.BOOSTED_WORKOUT_REWARD} sats per workout` },
-  { icon: 'trophy-outline', label: 'Season III access' },
-  { icon: 'trending-up-outline', label: 'Break even at 3x/week' },
+  { icon: 'flash-outline', label: `${REWARD_CONFIG.BOOSTED_WORKOUT_REWARD.toLocaleString()} rewards per workout (10x boost)` },
+  { icon: 'calendar-outline', label: `Up to ${REWARD_CONFIG.BOOSTED_MAX_PER_WEEK} boosted workouts per week` },
+  { icon: 'trophy-outline', label: 'Season access' },
 ];
 
 const PRO_FEATURES: TierFeature[] = [
-  { icon: 'flash-outline', label: `${REWARD_CONFIG.BOOSTED_WORKOUT_REWARD} sats per workout` },
-  { icon: 'trophy-outline', label: 'Season III access' },
+  { icon: 'flash-outline', label: `${REWARD_CONFIG.BOOSTED_WORKOUT_REWARD.toLocaleString()} rewards per workout (10x boost)` },
+  { icon: 'calendar-outline', label: `Up to ${REWARD_CONFIG.BOOSTED_MAX_PER_WEEK} boosted workouts per week` },
+  { icon: 'trophy-outline', label: 'Season access' },
   { icon: 'people-outline', label: 'Create clubs' },
   { icon: 'calendar-outline', label: 'Create events' },
 ];
@@ -49,7 +50,7 @@ const PRO_FEATURES: TierFeature[] = [
 function getIntroText(feature: string, currentTier?: SubscriptionTier): string {
   if (currentTier === 'supporter') {
     if (feature === 'event' || feature === 'team') {
-      return 'Upgrade to Pro to unlock club and event creation. You already get boosted rewards and Season III access!';
+      return 'Upgrade to Pro to unlock club and event creation. You already get 10x boosted rewards and season access!';
     }
     return 'You\'re a Supporter! Upgrade to Pro for club and event creation.';
   }
@@ -60,9 +61,9 @@ function getIntroText(feature: string, currentTier?: SubscriptionTier): string {
     case 'team':
       return 'Creating clubs requires a Pro subscription. Choose a plan to unlock boosted rewards and more.';
     case 'season':
-      return `Season III requires a Supporter subscription or above. Earn ${REWARD_CONFIG.BOOSTED_WORKOUT_REWARD} sats per qualifying workout!`;
+      return `Season access requires a Supporter subscription or above. Earn ${REWARD_CONFIG.BOOSTED_WORKOUT_REWARD.toLocaleString()} rewards per qualifying workout!`;
     default:
-      return `Subscribe to RUNSTR to boost your workout rewards from ${REWARD_CONFIG.DAILY_WORKOUT_REWARD} to ${REWARD_CONFIG.BOOSTED_WORKOUT_REWARD} sats per workout.`;
+      return 'Subscribe and earn 10x more rewards per workout. Perfect for anyone who works out 3-4 times a week.';
   }
 }
 
@@ -113,14 +114,6 @@ export const SubscriptionInfoModal: React.FC<SubscriptionInfoModalProps> = ({
               <Text style={styles.intro}>
                 {getIntroText(feature, currentTier)}
               </Text>
-
-              {/* The Bet */}
-              <View style={styles.betSection}>
-                <Ionicons name="fitness-outline" size={20} color={theme.colors.accent} />
-                <Text style={styles.betText}>
-                  The fitness bet: work out 3x/week to break even, 5x/week to profit. RUNSTR bets you won't.
-                </Text>
-              </View>
 
               {/* Supporter Tier Card */}
               {showSupporterCard && (
@@ -210,13 +203,6 @@ export const SubscriptionInfoModal: React.FC<SubscriptionInfoModalProps> = ({
                 </View>
               )}
 
-              {/* Boost Requirements */}
-              <View style={styles.requirementsSection}>
-                <Text style={styles.requirementsTitle}>Boost Requirements</Text>
-                <Text style={styles.requirementsText}>
-                  Qualifying workouts must be cardio (run/walk/cycle), 2km+ distance, 15+ minutes, and tracked via GPS or health app (no manual entry).
-                </Text>
-              </View>
             </ScrollView>
           </View>
         </SafeAreaView>
@@ -268,24 +254,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginTop: 20,
     marginBottom: 16,
-  },
-  betSection: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#111111',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 20,
-    gap: 10,
-  },
-  betText: {
-    flex: 1,
-    fontSize: 14,
-    color: theme.colors.textMuted,
-    fontWeight: theme.typography.weights.medium,
-    lineHeight: 20,
   },
   tierCard: {
     backgroundColor: theme.colors.card,
@@ -357,25 +325,6 @@ const styles = StyleSheet.create({
   },
   ctaButtonTextHighlighted: {
     color: theme.colors.background,
-  },
-  requirementsSection: {
-    backgroundColor: theme.colors.card,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 40,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  requirementsTitle: {
-    fontSize: 14,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.textMuted,
-    marginBottom: 8,
-  },
-  requirementsText: {
-    fontSize: 13,
-    color: theme.colors.textMuted,
-    lineHeight: 18,
   },
 });
 
