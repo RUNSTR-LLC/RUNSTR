@@ -13,24 +13,18 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
-import { RunningBitcoinEventCard } from '../events/RunningBitcoinEventCard';
 import { EinundzwanzigEventCard } from '../events/EinundzwanzigEventCard';
-import { JanuaryWalkingEventCard } from '../events/JanuaryWalkingEventCard';
 import { Season2EventCard } from '../events/Season2EventCard';
 import { LeaderboardEventCard } from '../events/LeaderboardEventCard';
 import { DynamicEventCard } from '../events/DynamicEventCard';
-import { shouldShowRunningBitcoin } from '../../constants/runningBitcoin';
 import { shouldShowEinundzwanzig } from '../../constants/einundzwanzig';
-import { shouldShowJanuaryWalking } from '../../constants/januaryWalking';
 import { useDynamicCompetitions } from '../../hooks/useDynamicCompetitions';
 import type { SatlantisEvent } from '../../types/satlantis';
 
 interface EventsContentProps {
   onEventPress: (event: SatlantisEvent) => void;
   onCreateEvent?: () => void;
-  onRunningBitcoinPress?: () => void;
   onEinundzwanzigPress?: () => void;
-  onJanuaryWalkingPress?: () => void;
   onSeason2Press?: () => void;
   onLeaderboardPress?: () => void;
   onDynamicEventPress?: (eventId: string) => void;
@@ -38,9 +32,7 @@ interface EventsContentProps {
 
 export const EventsContent: React.FC<EventsContentProps> = ({
   onCreateEvent,
-  onRunningBitcoinPress,
   onEinundzwanzigPress,
-  onJanuaryWalkingPress,
   onSeason2Press,
   onLeaderboardPress,
   onDynamicEventPress,
@@ -62,31 +54,17 @@ export const EventsContent: React.FC<EventsContentProps> = ({
         </TouchableOpacity>
       )}
 
-      {/* 1. Running Bitcoin Challenge - show during event + 7 days after for results */}
-      {shouldShowRunningBitcoin() && (
-        <View style={styles.featuredEvent}>
-          <RunningBitcoinEventCard onPress={onRunningBitcoinPress} />
-        </View>
-      )}
-
-      {/* 2. RUNSTR Season II */}
+      {/* 1. RUNSTR Season II */}
       <View style={styles.featuredEvent}>
         <Season2EventCard onPress={onSeason2Press} />
       </View>
 
-      {/* 3. Daily Leaderboards */}
+      {/* 2. Daily Leaderboards */}
       <View style={styles.featuredEvent}>
         <LeaderboardEventCard onPress={onLeaderboardPress} />
       </View>
 
-      {/* 4. January Walking Contest - show during event + 7 days after for results */}
-      {shouldShowJanuaryWalking() && (
-        <View style={styles.featuredEvent}>
-          <JanuaryWalkingEventCard onPress={onJanuaryWalkingPress} />
-        </View>
-      )}
-
-      {/* 5. Einundzwanzig Fitness Challenge - show during event + 7 days after for results */}
+      {/* 3. Einundzwanzig Fitness Challenge - show during event + 7 days after for results */}
       {shouldShowEinundzwanzig() && (
         <View style={styles.featuredEvent}>
           <EinundzwanzigEventCard onPress={onEinundzwanzigPress} />

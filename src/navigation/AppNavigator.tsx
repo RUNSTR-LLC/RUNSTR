@@ -31,9 +31,7 @@ import { HealthProfileScreen } from '../screens/HealthProfileScreen';
 import { FitnessTestResultsScreen } from '../screens/FitnessTestResultsScreen';
 import { SatlantisDiscoveryScreen } from '../screens/satlantis/SatlantisDiscoveryScreen';
 import { SatlantisEventDetailScreen } from '../screens/satlantis/SatlantisEventDetailScreen';
-import { RunningBitcoinDetailScreen } from '../screens/events/RunningBitcoinDetailScreen';
 import { EinundzwanzigDetailScreen } from '../screens/events/EinundzwanzigDetailScreen';
-import { JanuaryWalkingDetailScreen } from '../screens/events/JanuaryWalkingDetailScreen';
 import { DynamicEventDetailScreen } from '../screens/events/DynamicEventDetailScreen';
 import { JournalHistoryScreen } from '../screens/JournalHistoryScreen';
 import { RewardsScreen } from '../screens/RewardsScreen';
@@ -76,9 +74,7 @@ export type RootStackParamList = {
   FitnessTestResults: { testId: string };
   SatlantisDiscovery: undefined;
   SatlantisEventDetail: { eventId: string; eventPubkey: string };
-  RunningBitcoinDetail: undefined;
   EinundzwanzigDetail: undefined;
-  JanuaryWalkingDetail: undefined;
   Teams: undefined;
   Rewards: undefined;
   Donate: undefined;
@@ -405,30 +401,10 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
         }}
       />
 
-      {/* Running Bitcoin Challenge Detail Screen */}
-      <Stack.Screen
-        name="RunningBitcoinDetail"
-        component={RunningBitcoinDetailScreen}
-        options={{
-          ...defaultScreenOptions,
-          headerShown: false,
-        }}
-      />
-
       {/* Einundzwanzig Fitness Challenge Detail Screen */}
       <Stack.Screen
         name="EinundzwanzigDetail"
         component={EinundzwanzigDetailScreen}
-        options={{
-          ...defaultScreenOptions,
-          headerShown: false,
-        }}
-      />
-
-      {/* January Walking Contest Detail Screen */}
-      <Stack.Screen
-        name="JanuaryWalkingDetail"
-        component={JanuaryWalkingDetailScreen}
         options={{
           ...defaultScreenOptions,
           headerShown: false,

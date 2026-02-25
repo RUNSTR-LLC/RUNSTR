@@ -3,7 +3,7 @@
  *
  * CONSOLIDATED BASELINE NOTE ARCHITECTURE:
  * - Server-side script publishes kind 30078 note with ALL leaderboards 2x/day
- * - Single note contains: Season 2, Running Bitcoin, January Walking
+ * - Single note contains: Season 2
  * - App fetches 1 note (instant) + subscribes to ONLY logged-in user
  * - User's workouts update in real-time when they post
  *
@@ -22,17 +22,8 @@ import type {
   Season2Participant,
   CharityRanking,
 } from '../../types/season2';
-import type {
-  RunningBitcoinParticipant,
-  RunningBitcoinLeaderboard,
-} from '../challenge/RunningBitcoinService';
-import type {
-  JanuaryWalkingParticipant,
-  JanuaryWalkingLeaderboard,
-} from '../challenge/JanuaryWalkingService';
 import { SEASON_2_PARTICIPANTS } from '../../constants/season2';
 import { getCharityById } from '../../constants/charities';
-import { RUNNING_BITCOIN_CONFIG } from '../../constants/runningBitcoin';
 import { nip19 } from 'nostr-tools';
 
 // RUNSTR admin pubkey (publishes baseline notes)
@@ -68,20 +59,6 @@ interface BaselineCharityRanking {
   participantCount: number;
 }
 
-interface BaselineRunningBitcoinParticipant {
-  pubkey: string;
-  distance: number; // km (running + walking combined)
-  count: number;
-  isFinisher: boolean;
-  finisherRank?: number;
-}
-
-interface BaselineJanuaryWalkingParticipant {
-  pubkey: string;
-  totalSteps: number; // total steps (not distance)
-  workoutCount: number;
-}
-
 interface BaselineContent {
   season2: {
     running: {
@@ -97,14 +74,6 @@ interface BaselineContent {
       charityRankings: BaselineCharityRanking[];
     };
   };
-  runningBitcoin: {
-    participants: BaselineRunningBitcoinParticipant[];
-    totalDistanceKm: number;
-  };
-  januaryWalking: {
-    participants: BaselineJanuaryWalkingParticipant[];
-    totalSteps: number;
-  };
 }
 
 // ============================================================================
@@ -119,8 +88,6 @@ export interface ConsolidatedBaseline {
     walking: Season2Leaderboard;
     cycling: Season2Leaderboard;
   };
-  runningBitcoin: RunningBitcoinLeaderboard;
-  januaryWalking: JanuaryWalkingLeaderboard;
 }
 
 // ============================================================================
@@ -215,8 +182,6 @@ class LeaderboardBaselineServiceClass {
         console.log(`[BaselineService]   - Updated: ${new Date(baseline.updatedAt * 1000).toISOString()}`);
         console.log(`[BaselineService]   - Cutoff: ${new Date(baseline.cutoffTimestamp * 1000).toISOString()}`);
         console.log(`[BaselineService]   - Season2 Running: ${baseline.season2.running.participants.length}`);
-        console.log(`[BaselineService]   - Running Bitcoin: ${baseline.runningBitcoin.participants.length}`);
-        console.log(`[BaselineService]   - January Walking: ${baseline.januaryWalking.participants.length}`);
       }
 
       console.log(`[BaselineService] Duration: ${Date.now() - t0}ms`);
@@ -354,72 +319,6 @@ class LeaderboardBaselineServiceClass {
         };
       };
 
-      // ========== RUNNING BITCOIN ==========
-      const buildRunningBitcoinLeaderboard = (
-        data: BaselineContent['runningBitcoin']
-      ): RunningBitcoinLeaderboard => {
-        const participants: RunningBitcoinParticipant[] = data.participants.map((p) => {
-          const profile = profileLookup.get(p.pubkey);
-          return {
-            pubkey: p.pubkey,
-            npub: profile?.npub || getNpub(p.pubkey),
-            name: profile?.name || `User ${p.pubkey.slice(0, 8)}`,
-            picture: profile?.picture,
-            totalDistanceKm: p.distance,
-            workoutCount: p.count,
-            isFinisher: p.isFinisher,
-            finisherRank: p.finisherRank,
-            isSeasonParticipant: SEASON_2_PARTICIPANTS.some((s) => s.pubkey === p.pubkey),
-            isLocalJoin: !SEASON_2_PARTICIPANTS.some((s) => s.pubkey === p.pubkey),
-          };
-        });
-
-        participants.sort((a, b) => b.totalDistanceKm - a.totalDistanceKm);
-        const finishers = participants.filter((p) => p.isFinisher);
-
-        return {
-          participants,
-          finishers,
-          totalParticipants: SEASON_2_PARTICIPANTS.length,
-          totalDistanceKm: data.totalDistanceKm,
-          lastUpdated: Date.now(),
-        };
-      };
-
-      // ========== JANUARY WALKING (Steps-based) ==========
-      // NOTE: totalDistanceKm field is repurposed to hold STEPS for this challenge
-      const buildJanuaryWalkingLeaderboard = (
-        data: BaselineContent['januaryWalking']
-      ): JanuaryWalkingLeaderboard => {
-        const participants: JanuaryWalkingParticipant[] = data.participants.map((p, index) => {
-          const profile = profileLookup.get(p.pubkey);
-          return {
-            pubkey: p.pubkey,
-            npub: profile?.npub || getNpub(p.pubkey),
-            name: profile?.name || `User ${p.pubkey.slice(0, 8)}`,
-            picture: profile?.picture,
-            totalDistanceKm: p.totalSteps, // Actually STEPS, not km
-            workoutCount: p.workoutCount,
-            isSeasonParticipant: true,
-            isLocalJoin: false,
-            rank: index + 1,
-          };
-        });
-
-        // Sort by steps (stored in totalDistanceKm) descending
-        participants.sort((a, b) => b.totalDistanceKm - a.totalDistanceKm);
-        participants.forEach((p, index) => {
-          p.rank = index + 1;
-        });
-
-        return {
-          participants,
-          totalParticipants: participants.length,
-          totalDistanceKm: data.totalSteps, // Actually total STEPS
-          lastUpdated: Date.now(),
-        };
-      };
-
       return {
         updatedAt,
         cutoffTimestamp,
@@ -428,8 +327,6 @@ class LeaderboardBaselineServiceClass {
           walking: buildSeason2Leaderboard('walking', content.season2.walking),
           cycling: buildSeason2Leaderboard('cycling', content.season2.cycling),
         },
-        runningBitcoin: buildRunningBitcoinLeaderboard(content.runningBitcoin),
-        januaryWalking: buildJanuaryWalkingLeaderboard(content.januaryWalking),
       };
     } catch (error) {
       console.error(`[BaselineService] Parse error:`, error);
@@ -488,118 +385,6 @@ class LeaderboardBaselineServiceClass {
     return {
       ...baseline,
       participants: updatedParticipants,
-      lastUpdated: Date.now(),
-    };
-  }
-
-  /**
-   * Merge user's fresh workouts with Running Bitcoin baseline
-   */
-  mergeRunningBitcoinUserWorkouts(
-    baseline: RunningBitcoinLeaderboard,
-    userWorkouts: Array<{ distance: number }>,
-    userPubkey: string
-  ): RunningBitcoinLeaderboard {
-    if (userWorkouts.length === 0) return baseline;
-
-    const freshDistance = userWorkouts.reduce((sum, w) => sum + w.distance, 0);
-    const freshCount = userWorkouts.length;
-
-    const updatedParticipants = [...baseline.participants];
-    const userIndex = updatedParticipants.findIndex((p) => p.pubkey === userPubkey);
-
-    if (userIndex >= 0) {
-      const userEntry = { ...updatedParticipants[userIndex] };
-      userEntry.totalDistanceKm += freshDistance;
-      userEntry.workoutCount += freshCount;
-      userEntry.isFinisher = userEntry.totalDistanceKm >= RUNNING_BITCOIN_CONFIG.goalDistanceKm;
-      updatedParticipants[userIndex] = userEntry;
-    } else {
-      const profile = SEASON_2_PARTICIPANTS.find((p) => p.pubkey === userPubkey);
-      updatedParticipants.push({
-        pubkey: userPubkey,
-        npub: profile?.npub,
-        name: profile?.name || `User ${userPubkey.slice(0, 8)}`,
-        picture: profile?.picture,
-        totalDistanceKm: freshDistance,
-        workoutCount: freshCount,
-        isFinisher: freshDistance >= RUNNING_BITCOIN_CONFIG.goalDistanceKm,
-        isSeasonParticipant: SEASON_2_PARTICIPANTS.some((p) => p.pubkey === userPubkey),
-        isLocalJoin: !SEASON_2_PARTICIPANTS.some((p) => p.pubkey === userPubkey),
-      });
-    }
-
-    updatedParticipants.sort((a, b) => b.totalDistanceKm - a.totalDistanceKm);
-
-    // Reassign finisher ranks
-    let finisherRank = 1;
-    for (const p of updatedParticipants) {
-      if (p.isFinisher) {
-        p.finisherRank = finisherRank++;
-      }
-    }
-
-    const finishers = updatedParticipants.filter((p) => p.isFinisher);
-    const totalDistanceKm = updatedParticipants.reduce((sum, p) => sum + p.totalDistanceKm, 0);
-
-    return {
-      ...baseline,
-      participants: updatedParticipants,
-      finishers,
-      totalDistanceKm,
-      lastUpdated: Date.now(),
-    };
-  }
-
-  /**
-   * Merge user's fresh workouts with January Walking baseline (STEPS-based)
-   * NOTE: totalDistanceKm field holds STEPS, not km for this challenge
-   */
-  mergeJanuaryWalkingUserWorkouts(
-    baseline: JanuaryWalkingLeaderboard,
-    userWorkouts: Array<{ steps: number }>,
-    userPubkey: string
-  ): JanuaryWalkingLeaderboard {
-    if (userWorkouts.length === 0) return baseline;
-
-    const freshSteps = userWorkouts.reduce((sum, w) => sum + w.steps, 0);
-    const freshCount = userWorkouts.length;
-
-    const updatedParticipants = [...baseline.participants];
-    const userIndex = updatedParticipants.findIndex((p) => p.pubkey === userPubkey);
-
-    if (userIndex >= 0) {
-      const userEntry = { ...updatedParticipants[userIndex] };
-      userEntry.totalDistanceKm += freshSteps; // Actually steps
-      userEntry.workoutCount += freshCount;
-      updatedParticipants[userIndex] = userEntry;
-    } else {
-      const profile = SEASON_2_PARTICIPANTS.find((p) => p.pubkey === userPubkey);
-      updatedParticipants.push({
-        pubkey: userPubkey,
-        npub: profile?.npub,
-        name: profile?.name || `User ${userPubkey.slice(0, 8)}`,
-        picture: profile?.picture,
-        totalDistanceKm: freshSteps, // Actually steps
-        workoutCount: freshCount,
-        isSeasonParticipant: SEASON_2_PARTICIPANTS.some((p) => p.pubkey === userPubkey),
-        isLocalJoin: !SEASON_2_PARTICIPANTS.some((p) => p.pubkey === userPubkey),
-        rank: 0,
-      });
-    }
-
-    // Sort by steps (stored in totalDistanceKm) descending
-    updatedParticipants.sort((a, b) => b.totalDistanceKm - a.totalDistanceKm);
-    updatedParticipants.forEach((p, index) => {
-      p.rank = index + 1;
-    });
-
-    const totalSteps = updatedParticipants.reduce((sum, p) => sum + p.totalDistanceKm, 0);
-
-    return {
-      ...baseline,
-      participants: updatedParticipants,
-      totalDistanceKm: totalSteps, // Actually total steps
       lastUpdated: Date.now(),
     };
   }

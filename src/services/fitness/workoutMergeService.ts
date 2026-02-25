@@ -6,8 +6,6 @@
  * Manages NDK subscriptions to prevent memory leaks
  */
 
-import { NostrWorkoutService } from './nostrWorkoutService';
-import { NostrCacheService } from '../cache/NostrCacheService';
 import { HealthKitService } from './healthKitService';
 import LocalWorkoutStorageService from './LocalWorkoutStorageService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -75,13 +73,11 @@ const STORAGE_KEYS = {
 
 export class WorkoutMergeService {
   private static instance: WorkoutMergeService;
-  private nostrWorkoutService: NostrWorkoutService;
   private healthKitService: HealthKitService;
   private subscriptions: Set<any> = new Set();
   private ndk: any = null;
 
   private constructor() {
-    this.nostrWorkoutService = NostrWorkoutService.getInstance();
     this.healthKitService = HealthKitService.getInstance();
     this.initializeNDK();
   }
@@ -255,7 +251,6 @@ export class WorkoutMergeService {
       // Cache the results (non-blocking - don't fail if caching fails)
       if (nostrWorkouts.length > 0) {
         try {
-          await NostrCacheService.setCachedWorkouts(pubkey, nostrWorkouts);
           await this.setCacheTimestamp(pubkey);
         } catch (cacheError) {
           console.warn(
@@ -1062,7 +1057,6 @@ export class WorkoutMergeService {
       try {
         const freshWorkouts = await this.fetchNostrWorkouts(pubkey);
         if (freshWorkouts.length > 0) {
-          await NostrCacheService.setCachedWorkouts(pubkey, freshWorkouts);
           await this.setCacheTimestamp(pubkey);
           console.log(
             `✅ Background refresh completed: ${freshWorkouts.length} workouts cached`
@@ -1079,9 +1073,7 @@ export class WorkoutMergeService {
    * Pure Nostr implementation - uses only pubkey
    */
   async forceRefreshWorkouts(pubkey: string): Promise<WorkoutMergeResult> {
-    console.log('🔄 Force refresh requested - clearing cache first');
-
-    await NostrCacheService.forceRefreshWorkouts(pubkey);
+    console.log('🔄 Force refresh requested');
 
     return this.getMergedWorkouts(pubkey);
   }
@@ -1122,11 +1114,8 @@ export class WorkoutMergeService {
       console.log(
         `🔍 Fetching older Nostr workouts before timestamp: ${untilTimestamp}`
       );
-      const olderNostrWorkouts =
-        await NostrWorkoutService.getWorkoutsWithPagination(
-          hexPubkey,
-          untilTimestamp
-        );
+      // TODO: Re-implement pagination without deleted NostrWorkoutService
+      const olderNostrWorkouts: NostrWorkout[] = [];
 
       console.log(
         `📊 Pagination results: ${olderNostrWorkouts.length} Nostr workouts`

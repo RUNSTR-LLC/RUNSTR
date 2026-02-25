@@ -5,7 +5,6 @@
  */
 
 import { NostrCompetitionContextService } from './NostrCompetitionContextService';
-import { LeaderboardService } from '../competition/leaderboardService';
 import type { NostrCompetition } from './NostrCompetitionContextService';
 import type {
   NostrWorkoutCompetition,
@@ -32,12 +31,10 @@ export interface WorkoutConversionResult {
 export class NostrCompetitionBridge {
   private static instance: NostrCompetitionBridge;
   private competitionContextService: NostrCompetitionContextService;
-  private leaderboardService: LeaderboardService;
 
   private constructor() {
     this.competitionContextService =
       NostrCompetitionContextService.getInstance();
-    this.leaderboardService = LeaderboardService.getInstance();
   }
 
   static getInstance(): NostrCompetitionBridge {

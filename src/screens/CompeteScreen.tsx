@@ -3,7 +3,6 @@
  *
  * Shows all competition events with cards for:
  * - Satlantis events
- * - Running Bitcoin Challenge
  * - Einundzwanzig Fitness
  * - Season II (navigates to Season2Screen)
  * - Leaderboards (navigates to LeaderboardsScreen)
@@ -70,19 +69,9 @@ const CompeteScreenComponent: React.FC<CompeteScreenProps> = ({ navigation: prop
     });
   }, [navigation]);
 
-  // Handle Running Bitcoin event press
-  const handleRunningBitcoinPress = useCallback(() => {
-    navigation.navigate('RunningBitcoinDetail');
-  }, [navigation]);
-
   // Handle Einundzwanzig event press
   const handleEinundzwanzigPress = useCallback(() => {
     navigation.navigate('EinundzwanzigDetail');
-  }, [navigation]);
-
-  // Handle January Walking event press
-  const handleJanuaryWalkingPress = useCallback(() => {
-    navigation.navigate('JanuaryWalkingDetail');
   }, [navigation]);
 
   // Handle Season II card press - navigate to Season2Screen
@@ -150,9 +139,7 @@ const CompeteScreenComponent: React.FC<CompeteScreenProps> = ({ navigation: prop
       >
         <EventsContent
           onEventPress={handleEventPress}
-          onRunningBitcoinPress={handleRunningBitcoinPress}
           onEinundzwanzigPress={handleEinundzwanzigPress}
-          onJanuaryWalkingPress={handleJanuaryWalkingPress}
           onSeason2Press={handleSeason2Press}
           onLeaderboardPress={handleLeaderboardPress}
           onDynamicEventPress={handleDynamicEventPress}

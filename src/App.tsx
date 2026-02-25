@@ -173,9 +173,7 @@ import { AdvancedAnalyticsScreen } from './screens/AdvancedAnalyticsScreen';
 import { HealthProfileScreen } from './screens/HealthProfileScreen';
 import { SatlantisDiscoveryScreen } from './screens/satlantis/SatlantisDiscoveryScreen';
 import { SatlantisEventDetailScreen } from './screens/satlantis/SatlantisEventDetailScreen';
-import { RunningBitcoinDetailScreen } from './screens/events/RunningBitcoinDetailScreen';
 import { EinundzwanzigDetailScreen } from './screens/events/EinundzwanzigDetailScreen';
-import { JanuaryWalkingDetailScreen } from './screens/events/JanuaryWalkingDetailScreen';
 import { DynamicEventDetailScreen } from './screens/events/DynamicEventDetailScreen';
 import { Season2Screen } from './screens/season2/Season2Screen';
 import { CompeteScreen } from './screens/CompeteScreen';
@@ -263,9 +261,7 @@ type AuthenticatedStackParamList = {
   HealthProfile: undefined;
   SatlantisDiscovery: undefined;
   SatlantisEventDetail: { eventId: string; eventPubkey: string };
-  RunningBitcoinDetail: undefined;
   EinundzwanzigDetail: undefined;
-  JanuaryWalkingDetail: undefined;
   Season2: undefined;
   Teams: undefined;
   Rewards: undefined;
@@ -639,15 +635,6 @@ const AuthenticatedNavigator: React.FC = () => {
         )}
       </AuthenticatedStack.Screen>
 
-      {/* Running Bitcoin Challenge Detail Screen */}
-      <AuthenticatedStack.Screen
-        name="RunningBitcoinDetail"
-        options={{
-          headerShown: false,
-        }}
-        component={RunningBitcoinDetailScreen}
-      />
-
       {/* Einundzwanzig Fitness Challenge Detail Screen */}
       <AuthenticatedStack.Screen
         name="EinundzwanzigDetail"
@@ -655,15 +642,6 @@ const AuthenticatedNavigator: React.FC = () => {
           headerShown: false,
         }}
         component={EinundzwanzigDetailScreen}
-      />
-
-      {/* January Walking Contest Detail Screen */}
-      <AuthenticatedStack.Screen
-        name="JanuaryWalkingDetail"
-        options={{
-          headerShown: false,
-        }}
-        component={JanuaryWalkingDetailScreen}
       />
 
       {/* RUNSTR Season 2 Competition Screen */}

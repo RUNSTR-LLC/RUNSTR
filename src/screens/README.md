@@ -22,7 +22,7 @@ Main application screens for the RUNSTR mobile app's user interface.
 
 ## Events and Competitions
 
-- **CompeteScreen.tsx** - Main competitions/events hub with cards for Satlantis, Running Bitcoin, Einundzwanzig, Season II, and Leaderboards.
+- **CompeteScreen.tsx** - Main competitions/events hub with cards for Satlantis, Einundzwanzig, Season II, and Leaderboards.
 - **CompetitionsListScreen.tsx** - Global daily leaderboards (5K, 10K, Half Marathon, Marathon, Steps) backed by Supabase.
 - **EventsScreen.tsx** - My Events screen showing daily leaderboards from all teams the user has joined.
 - **EventDetailScreen.tsx** - *(Legacy/unused)* Event detail view using SimpleCompetitionService and SimpleLeaderboardService. Not actively consumed.
@@ -74,8 +74,6 @@ Activity tracking screens for GPS-tracked and manual workouts.
 Detail screens for specific hardcoded competition events.
 
 - **EinundzwanzigDetailScreen.tsx** - Einundzwanzig Fitness Challenge detail screen with combined running+walking leaderboard and featured charities via Supabase.
-- **JanuaryWalkingDetailScreen.tsx** - January Walking Contest detail screen with event info, leaderboard, and join functionality.
-- **RunningBitcoinDetailScreen.tsx** - Running Bitcoin Challenge detail screen with event info, leaderboard, and donate button.
 
 ### routes/
 

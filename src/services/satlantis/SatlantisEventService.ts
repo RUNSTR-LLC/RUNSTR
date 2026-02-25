@@ -72,7 +72,7 @@ class SatlantisEventServiceClass {
    * Discover sports events - RETURNS EMPTY (events are hardcoded in UI)
    *
    * NOTE: Satlantis events are NOT fetched from Nostr.
-   * The app uses hardcoded event cards (RunningBitcoinEventCard, EinundzwanzigEventCard, etc.)
+   * The app uses hardcoded event cards (EinundzwanzigEventCard, Season2EventCard, etc.)
    * displayed directly in EventsContent.tsx.
    *
    * This method returns an empty array to avoid unnecessary Nostr queries.

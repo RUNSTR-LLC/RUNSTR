@@ -33,8 +33,6 @@ import { isSupabaseConfigured } from '../../utils/supabase';
 // PPQAccountService import removed - PPQ bolt11 now created centrally in submitWorkoutSimple()
 import { SatlantisEventJoinService } from '../satlantis/SatlantisEventJoinService';
 import { withTimeout, fireAndForget, NOSTR_TIMEOUTS } from '../../utils/nostrTimeout';
-import { RunningBitcoinService } from '../challenge/RunningBitcoinService';
-import { isRunningBitcoinActive, isEligibleActivityType } from '../../constants/runningBitcoin';
 import Toast from 'react-native-toast-message';
 import { nip19 } from '@nostr-dev-kit/ndk';
 import Constants from 'expo-constants';
@@ -388,32 +386,6 @@ export class WorkoutPublishingService {
       // 🎁 Reward trigger MOVED to Supabase submission success
       // Rewards now require passing anti-cheat validation (see SupabaseCompetitionService)
       // This gates rewards behind competition submission instead of local save
-
-      // 🏃 Running Bitcoin auto-pay check (non-blocking)
-      if (isRunningBitcoinActive() && isEligibleActivityType(exerciseType)) {
-        fireAndForget(
-          (async () => {
-            console.log('[WorkoutPublishing] Checking Running Bitcoin auto-pay...');
-            try {
-              const autoPayResult = await RunningBitcoinService.checkAndAutoPayReward(npub);
-              if (autoPayResult.paid) {
-                console.log('🏃⚡ Running Bitcoin: Auto-paid 1000 sats for 21km completion!');
-                // Show toast notification so user knows they got paid
-                Toast.show({
-                  type: 'success',
-                  text1: '🏃 21km Complete!',
-                  text2: '1,000 sats sent to your Lightning address!',
-                  position: 'bottom',
-                  visibilityTime: 5000,
-                });
-              }
-            } catch (rbError) {
-              console.error('[WorkoutPublishing] Running Bitcoin auto-pay failed:', rbError);
-            }
-          })(),
-          'runningBitcoinAutoPay'
-        );
-      }
 
       // Return success immediately (Supabase is what matters for competitions)
       // User sees "Workout Saved!" without waiting for Nostr relays

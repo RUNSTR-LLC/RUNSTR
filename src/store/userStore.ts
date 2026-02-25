@@ -1,6 +1,6 @@
 /**
  * RUNSTR User Store
- * Zustand store for user state management including team membership and preferences
+ * Zustand store for user state management
  */
 
 import { create } from 'zustand';
@@ -10,15 +10,9 @@ import {
   ProfileService,
   type UserProfile,
 } from '../services/user/profileService';
-import {
-  TeamMembershipService,
-  type TeamSwitchResult,
-} from '../services/team/teamMembershipService';
 import { AuthService } from '../services/auth/authService';
 import { TeamMatchingAlgorithm } from '../utils/teamMatching';
 import type {
-  DiscoveryTeam,
-  TeamMatch,
   Workout,
   UserPreferences,
   UserFitnessProfile,
@@ -45,20 +39,6 @@ interface UserStoreState {
   isLoadingUser: boolean;
   userError: string | null;
 
-  // Team Discovery & Recommendations
-  recommendedTeams: TeamMatch[];
-  isLoadingRecommendations: boolean;
-  recommendationsError: string | null;
-
-  // Team Switching
-  switchCooldown: {
-    isActive: boolean;
-    endsAt?: string;
-    hoursRemaining?: number;
-  };
-  isSwitchingTeams: boolean;
-  switchError: string | null;
-
   // Fitness Profile
   fitnessProfile: UserFitnessProfile | null;
   fitnessImprovement: {
@@ -71,36 +51,13 @@ interface UserStoreState {
     };
   } | null;
 
-  // Participation Stats
-  participationStats: {
-    totalEvents: number;
-    eventsWon: number;
-    totalChallenges: number;
-    challengesWon: number;
-    totalEarnings: number;
-    currentStreak: number;
-    winRate: number;
-  } | null;
-
   // Actions
   loadUser: (userId: string) => Promise<void>;
   updateUserPreferences: (
     preferences: Partial<UserPreferences>
   ) => Promise<void>;
-  loadRecommendedTeams: (availableTeams: DiscoveryTeam[]) => Promise<void>;
-  switchTeams: (
-    fromTeamId: string,
-    toTeamId: string
-  ) => Promise<TeamSwitchResult>;
-  loadSwitchCooldown: () => Promise<void>;
   loadFitnessImprovement: (days?: number) => Promise<void>;
-  loadParticipationStats: () => Promise<void>;
   updateFitnessProfile: (workouts: Workout[]) => void;
-  initializeForTeamDiscovery: (basicInfo: {
-    experienceLevel: UserPreferences['experienceLevel'];
-    primaryGoal: UserPreferences['primaryGoal'];
-    timeCommitment: UserPreferences['timeCommitment'];
-  }) => Promise<void>;
 
   // Helpers
   clearErrors: () => void;
@@ -117,15 +74,8 @@ export const useUserStore = create<UserStoreState>()(
     user: null,
     isLoadingUser: false,
     userError: null,
-    recommendedTeams: [],
-    isLoadingRecommendations: false,
-    recommendationsError: null,
-    switchCooldown: { isActive: false },
-    isSwitchingTeams: false,
-    switchError: null,
     fitnessProfile: null,
     fitnessImprovement: null,
-    participationStats: null,
 
     // Actions
     loadUser: async (userId: string) => {
@@ -177,11 +127,6 @@ export const useUserStore = create<UserStoreState>()(
             user: userProfile,
             fitnessProfile: userProfile.fitnessProfile || undefined,
           });
-
-          // Skip additional data loading for now to avoid legacy service calls
-          console.log(
-            'ℹ️  UserStore: Skipping additional data loading to avoid legacy service calls'
-          );
         } else {
           set({ userError: 'Failed to load user profile from Nostr' });
         }
@@ -209,7 +154,6 @@ export const useUserStore = create<UserStoreState>()(
         );
 
         if (result.success) {
-          // Update local state
           set({
             user: {
               ...user,
@@ -219,11 +163,6 @@ export const useUserStore = create<UserStoreState>()(
               } as UserPreferences,
             },
           });
-
-          // Reload recommendations if they exist
-          if (get().recommendedTeams.length > 0) {
-            // This would need access to available teams - handled by parent component
-          }
         } else {
           set({ userError: result.error || 'Failed to update preferences' });
         }
@@ -235,92 +174,12 @@ export const useUserStore = create<UserStoreState>()(
       }
     },
 
-    loadRecommendedTeams: async (availableTeams: DiscoveryTeam[]) => {
-      const user = get().user;
-      if (!user) return;
-
-      set({ isLoadingRecommendations: true, recommendationsError: null });
-
-      try {
-        const recommendations = await TeamMembershipService.getRecommendedTeams(
-          user.id
-        );
-
-        set({ recommendedTeams: recommendations });
-      } catch (error) {
-        console.error('Error loading recommendations:', error);
-        set({ recommendationsError: 'Failed to load team recommendations' });
-      } finally {
-        set({ isLoadingRecommendations: false });
-      }
-    },
-
-    switchTeams: async (
-      fromTeamId: string,
-      toTeamId: string
-    ): Promise<TeamSwitchResult> => {
-      const user = get().user;
-      if (!user) {
-        return { success: false, error: 'User not loaded' };
-      }
-
-      set({ isSwitchingTeams: true, switchError: null });
-
-      try {
-        const result = await TeamMembershipService.switchTeams(
-          user.id,
-          toTeamId
-        );
-
-        if (result.success) {
-          // Update user's team info
-          set({
-            user: {
-              ...user,
-              teamId: toTeamId,
-              teamJoinedAt: new Date().toISOString(),
-              teamSwitchCooldownUntil: result.cooldownUntil,
-            },
-          });
-
-          // Update cooldown info
-          await get().loadSwitchCooldown();
-        } else {
-          set({ switchError: result.error || 'Failed to switch teams' });
-        }
-
-        return result;
-      } catch (error) {
-        console.error('Error switching teams:', error);
-        const errorResult = { success: false, error: 'Failed to switch teams' };
-        set({ switchError: errorResult.error });
-        return errorResult;
-      } finally {
-        set({ isSwitchingTeams: false });
-      }
-    },
-
-    loadSwitchCooldown: async () => {
-      const user = get().user;
-      if (!user) return;
-
-      try {
-        const cooldownInfo = await TeamMembershipService.getTeamSwitchCooldown(
-          user.id
-        );
-        set({ switchCooldown: cooldownInfo });
-      } catch (error) {
-        console.error('Error loading switch cooldown:', error);
-      }
-    },
-
     loadFitnessImprovement: async (days: number = 30) => {
       const user = get().user;
       if (!user) return;
 
       try {
         // TODO: Implement calculateFitnessImprovement in ProfileService
-        // For now, use placeholder data
         const improvement = 0;
         set({
           fitnessImprovement: {
@@ -334,25 +193,10 @@ export const useUserStore = create<UserStoreState>()(
       }
     },
 
-    loadParticipationStats: async () => {
-      const user = get().user;
-      if (!user) return;
-
-      try {
-        const stats = await TeamMembershipService.getTeamParticipationStats(
-          user.id
-        );
-        set({ participationStats: stats });
-      } catch (error) {
-        console.error('Error loading participation stats:', error);
-      }
-    },
-
     updateFitnessProfile: (workouts: Workout[]) => {
       const newProfile = TeamMatchingAlgorithm.generateFitnessProfile(workouts);
       set({ fitnessProfile: newProfile });
 
-      // Update user profile
       const user = get().user;
       if (user) {
         set({
@@ -364,38 +208,9 @@ export const useUserStore = create<UserStoreState>()(
       }
     },
 
-    initializeForTeamDiscovery: async (basicInfo) => {
-      const user = get().user;
-      if (!user) return;
-
-      set({ isLoadingUser: true, userError: null });
-
-      try {
-        const result =
-          await TeamMembershipService.initializeUserForTeamDiscovery(
-            user.id,
-            basicInfo
-          );
-
-        if (result.success) {
-          // Reload user to get updated preferences
-          await get().loadUser(user.id);
-        } else {
-          set({ userError: result.error || 'Failed to initialize user' });
-        }
-      } catch (error) {
-        console.error('Error initializing user:', error);
-        set({ userError: 'Failed to initialize user for team discovery' });
-      } finally {
-        set({ isLoadingUser: false });
-      }
-    },
-
     clearErrors: () => {
       set({
         userError: null,
-        recommendationsError: null,
-        switchError: null,
       });
     },
 
@@ -404,15 +219,8 @@ export const useUserStore = create<UserStoreState>()(
         user: null,
         isLoadingUser: false,
         userError: null,
-        recommendedTeams: [],
-        isLoadingRecommendations: false,
-        recommendationsError: null,
-        switchCooldown: { isActive: false },
-        isSwitchingTeams: false,
-        switchError: null,
         fitnessProfile: null,
         fitnessImprovement: null,
-        participationStats: null,
       });
       // Clear persisted data so next launch starts fresh
       AsyncStorage.removeItem(USER_STORE_KEY).catch((err) =>
@@ -423,7 +231,6 @@ export const useUserStore = create<UserStoreState>()(
     signOut: async () => {
       try {
         await AuthService.signOut();
-        // Clear all user state after successful sign out
         get().reset();
       } catch (error) {
         console.error('Error during sign out:', error);
@@ -451,7 +258,6 @@ export const useUserStore = create<UserStoreState>()(
                 state?.user?.name ?? 'no user cached'
               );
             }
-            // Mark hydration complete regardless of success/failure
             useUserStore.setState({ _hasHydrated: true });
           };
         },
@@ -460,7 +266,7 @@ export const useUserStore = create<UserStoreState>()(
   )
 );
 
-// Utility hooks for specific functionality
+// Utility hooks
 export const useUserProfile = () => {
   const store = useUserStore();
   return {
@@ -473,49 +279,13 @@ export const useUserProfile = () => {
   };
 };
 
-export const useTeamRecommendations = () => {
-  const store = useUserStore();
-  return {
-    recommendations: store.recommendedTeams,
-    isLoading: store.isLoadingRecommendations,
-    error: store.recommendationsError,
-    loadRecommendations: store.loadRecommendedTeams,
-  };
-};
-
-export const useTeamSwitching = () => {
-  const store = useUserStore();
-  return {
-    cooldown: store.switchCooldown,
-    isSwitching: store.isSwitchingTeams,
-    error: store.switchError,
-    switchTeams: store.switchTeams,
-    loadCooldown: store.loadSwitchCooldown,
-    canSwitch: !store.switchCooldown.isActive,
-  };
-};
-
 export const useFitnessProfile = () => {
   const store = useUserStore();
   return {
     profile: store.fitnessProfile,
     improvement: store.fitnessImprovement,
-    participationStats: store.participationStats,
     updateProfile: store.updateFitnessProfile,
     loadImprovement: store.loadFitnessImprovement,
-    loadStats: store.loadParticipationStats,
-  };
-};
-
-export const useUserInitialization = () => {
-  const store = useUserStore();
-  return {
-    user: store.user,
-    isLoading: store.isLoadingUser,
-    error: store.userError,
-    initializeForDiscovery: store.initializeForTeamDiscovery,
-    hasPreferences: !!store.user?.preferences,
-    isNewUser: !store.user?.teamId && !store.user?.preferences,
   };
 };
 

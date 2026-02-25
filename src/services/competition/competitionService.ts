@@ -10,7 +10,6 @@ import {
   NostrRelayManager,
   nostrRelayManager,
 } from '../nostr/NostrRelayManager';
-import EventEligibilityService from './eventEligibilityService';
 import type { NostrFilter } from '../nostr/NostrProtocolHandler';
 
 interface NostrTeam {
@@ -20,11 +19,6 @@ interface NostrTeam {
   memberListEventId?: string;
   [key: string]: any;
 }
-import type {
-  EligibleEvent,
-  EventAutoEntryResult,
-} from './eventEligibilityService';
-import type { NostrWorkout } from '../../types/nostrWorkout';
 
 export interface Competition {
   id: string;
