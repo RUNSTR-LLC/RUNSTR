@@ -13,6 +13,7 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRoute, useNavigation } from '@react-navigation/native';
 import { theme } from '../styles/theme';
@@ -322,7 +323,8 @@ const RewardsScreenComponent: React.FC = () => {
   };
 
   return (
-    <TexturedBackground>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <TexturedBackground edges={[]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -528,7 +530,8 @@ const RewardsScreenComponent: React.FC = () => {
         feature="general"
         currentTier={subscriptionTier}
       />
-    </TexturedBackground>
+      </TexturedBackground>
+    </SafeAreaView>
   );
 };
 

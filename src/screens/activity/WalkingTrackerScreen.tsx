@@ -294,6 +294,14 @@ export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
     };
 
     checkAutoRecovery();
+
+    return () => {
+      // Clean up any interval started by auto-recovery
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
   }, []);
 
   // Helper function for time formatting

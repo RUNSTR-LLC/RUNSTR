@@ -788,9 +788,19 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
         </View>
 
         {/* Reps & Weight Input Modal */}
-        <Modal visible={showRepsModal} animationType="fade" transparent>
-          <View style={styles.modalOverlay}>
-            <View style={styles.repsModalContainer}>
+        <Modal
+          visible={showRepsModal}
+          animationType="fade"
+          transparent
+          onRequestClose={() => setShowRepsModal(false)}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowRepsModal(false)}
+          >
+            <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+              <View style={styles.repsModalContainer}>
               <Text style={styles.repsModalTitle}>
                 Set {currentSet} Complete
               </Text>
@@ -829,8 +839,16 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
               >
                 <Text style={styles.confirmButtonText}>Save Set</Text>
               </TouchableOpacity>
-            </View>
-          </View>
+
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setShowRepsModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          </TouchableOpacity>
         </Modal>
 
         {/* Custom Alert */}
@@ -970,7 +988,7 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
           </View>
         </View>
 
-        {/* Post to Nostr - Only visible if WoT > 0 */}
+        {/* Share - Only visible if WoT > 0 */}
         {isWoTEligible && !postedToNostr && (
           <TouchableOpacity style={styles.postButton} onPress={handleShowSocialModal}>
             <Ionicons
@@ -979,7 +997,7 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
               color={theme.colors.background}
               style={{ marginRight: 8 }}
             />
-            <Text style={styles.postButtonText}>Post to Nostr</Text>
+            <Text style={styles.postButtonText}>Share</Text>
           </TouchableOpacity>
         )}
 
@@ -996,6 +1014,24 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
           </View>
         )}
 
+        {/* Done Button - keeps workout, returns to setup */}
+        <TouchableOpacity
+          style={styles.doneButton}
+          onPress={() => {
+            setPhase('setup');
+            setRepsCompleted([]);
+            setWeightsCompleted([]);
+            setCurrentSet(1);
+            setSavedWorkoutId(null);
+            setSavedWorkout(null);
+            setAutoCompeteTriggered(false);
+            setPostedToNostr(false);
+            setShowShareModal(false);
+          }}
+        >
+          <Text style={styles.doneButtonText}>Done</Text>
+        </TouchableOpacity>
+
         {/* Discard Button */}
         <TouchableOpacity
           style={styles.discardButton}
@@ -1006,11 +1042,13 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
             }
             setPhase('setup');
             setRepsCompleted([]);
+            setWeightsCompleted([]);
             setCurrentSet(1);
             setSavedWorkoutId(null);
             setSavedWorkout(null);
             setAutoCompeteTriggered(false);
             setPostedToNostr(false);
+            setShowShareModal(false);
           }}
         >
           <Text style={styles.discardButtonText}>Discard</Text>
@@ -1321,6 +1359,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
   },
+  cancelButton: {
+    marginTop: 10,
+    paddingVertical: 14,
+    alignItems: 'center' as const,
+  },
+  cancelButtonText: {
+    color: theme.colors.textMuted,
+    fontSize: 16,
+    fontWeight: theme.typography.weights.semiBold,
+  },
   restTimerCircle: {
     width: 200,
     height: 200,
@@ -1456,6 +1504,18 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   postButtonText: {
+    color: theme.colors.background,
+    fontSize: 16,
+    fontWeight: theme.typography.weights.bold,
+  },
+  doneButton: {
+    backgroundColor: theme.colors.orangeBright,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  doneButtonText: {
     color: theme.colors.background,
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,

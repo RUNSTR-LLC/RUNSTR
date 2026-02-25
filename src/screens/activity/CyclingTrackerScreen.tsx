@@ -281,6 +281,14 @@ export const CyclingTrackerScreen: React.FC<CyclingTrackerScreenProps> = ({
     };
 
     checkAutoRecovery();
+
+    return () => {
+      // Clean up any interval started by auto-recovery
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
   }, []);
 
   // Helper function for time formatting

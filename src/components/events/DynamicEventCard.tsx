@@ -6,12 +6,13 @@
  * Uses dark theme — no bright orange.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -133,6 +134,7 @@ export const DynamicEventCard: React.FC<DynamicEventCardProps> = ({
   competition,
   onPress,
 }) => {
+  const [imageError, setImageError] = useState(false);
   const config = competition.config || {};
   const activityTypes: string[] = (config as any).activity_types || [competition.activity_type];
   const template = competition.template;
@@ -143,7 +145,14 @@ export const DynamicEventCard: React.FC<DynamicEventCardProps> = ({
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
       {/* Banner */}
       <View style={styles.bannerContainer}>
-        {banner ? (
+        {competition.image_url && !imageError ? (
+          <Image
+            source={{ uri: competition.image_url }}
+            style={styles.bannerImage}
+            resizeMode="cover"
+            onError={() => setImageError(true)}
+          />
+        ) : banner ? (
           <LinearGradient
             colors={banner.gradientColors}
             style={styles.bannerGradient}
@@ -247,6 +256,10 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.bold,
     color: '#333333',
     letterSpacing: 2,
+  },
+  bannerImage: {
+    width: '100%',
+    height: '100%',
   },
   bannerFallback: {
     flex: 1,

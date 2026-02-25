@@ -210,6 +210,14 @@ export const HikingTrackerScreen: React.FC<HikingTrackerScreenProps> = ({
     };
 
     checkAutoRecovery();
+
+    return () => {
+      // Clean up any interval started by auto-recovery
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
   }, []);
 
   const formatElapsedTime = (seconds: number): string => {

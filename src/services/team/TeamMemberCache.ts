@@ -336,7 +336,15 @@ export class TeamMemberCache {
       0,
       this.memoryCache.size - this.MAX_CACHE_SIZE
     );
-    toRemove.forEach(([key]) => {
+    toRemove.forEach(([key, entry]) => {
+      // Clean up any active Nostr subscription for the evicted team
+      const subscriptionId = this.subscriptions.get(entry.teamId);
+      if (subscriptionId) {
+        this.listService.unsubscribeFromList(subscriptionId);
+        this.subscriptions.delete(entry.teamId);
+        console.log(`🔕 Unsubscribed evicted team: ${entry.teamId}`);
+      }
+
       this.memoryCache.delete(key);
       console.log(`🗑️ Evicted old cache: ${key}`);
     });
@@ -359,3 +367,4 @@ export class TeamMemberCache {
 // Export class as default (not instance) to prevent blocking module initialization
 // Also keep named export for compatibility
 export default TeamMemberCache;
+export { TeamMemberCache };
