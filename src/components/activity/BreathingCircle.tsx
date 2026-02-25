@@ -11,7 +11,8 @@ import Animated, {
   withSequence,
   withTiming,
   withRepeat,
-  withDelay,
+  cancelAnimation,
+  runOnJS,
   Easing,
 } from 'react-native-reanimated';
 import { theme } from '../../styles/theme';
@@ -20,7 +21,6 @@ import { theme } from '../../styles/theme';
 const INHALE_MS = 4000;
 const HOLD_MS = 4000;
 const EXHALE_MS = 6000;
-const CYCLE_MS = INHALE_MS + HOLD_MS + EXHALE_MS; // 14000ms
 
 const MIN_SCALE = 0.4;
 const MAX_SCALE = 1.0;
@@ -34,39 +34,31 @@ export const BreathingCircle: React.FC<BreathingCircleProps> = ({ isPaused }) =>
   const [phaseLabel, setPhaseLabel] = React.useState('Inhale...');
 
   useEffect(() => {
-    if (isPaused) return;
+    if (isPaused) {
+      cancelAnimation(scale);
+      return;
+    }
 
     // Animate: inhale (expand) → hold (stay) → exhale (contract), repeat
+    // Phase labels are driven by runOnJS callbacks within the animation sequence
+    // so they stay perfectly in sync with the native animation.
     scale.value = withRepeat(
       withSequence(
         // Inhale: scale from MIN to MAX over 4s
         withTiming(MAX_SCALE, { duration: INHALE_MS, easing: Easing.inOut(Easing.ease) }),
-        // Hold: stay at MAX for 4s
-        withDelay(HOLD_MS, withTiming(MAX_SCALE, { duration: 0 })),
-        // Exhale: scale from MAX to MIN over 6s
-        withTiming(MIN_SCALE, { duration: EXHALE_MS, easing: Easing.inOut(Easing.ease) }),
+        // Hold: stay at MAX for 4s, update label at transition
+        withTiming(MAX_SCALE, { duration: HOLD_MS }, () => runOnJS(setPhaseLabel)('Hold...')),
+        // Exhale: scale from MAX to MIN over 6s, update label at start
+        withTiming(MIN_SCALE, { duration: EXHALE_MS, easing: Easing.inOut(Easing.ease) }, () => runOnJS(setPhaseLabel)('Exhale...')),
+        // Reset label for next cycle
+        withTiming(MIN_SCALE, { duration: 0 }, () => runOnJS(setPhaseLabel)('Inhale...')),
       ),
       -1, // infinite repeat
       false, // don't reverse
     );
 
-    // Phase label tracking — use a JS interval synced to the cycle
-    let elapsed = 0;
-    const interval = setInterval(() => {
-      elapsed += 100;
-      const cyclePos = elapsed % CYCLE_MS;
-
-      if (cyclePos < INHALE_MS) {
-        setPhaseLabel('Inhale...');
-      } else if (cyclePos < INHALE_MS + HOLD_MS) {
-        setPhaseLabel('Hold...');
-      } else {
-        setPhaseLabel('Exhale...');
-      }
-    }, 100);
-
     return () => {
-      clearInterval(interval);
+      cancelAnimation(scale);
     };
   }, [isPaused]);
 
