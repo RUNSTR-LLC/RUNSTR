@@ -395,7 +395,7 @@ const RewardsScreenComponent: React.FC = () => {
             <>
               <View style={styles.subscriptionDivider} />
               <Text style={styles.subscriptionUpsellText}>
-                Supporters earn {REWARD_CONFIG.BOOSTED_WORKOUT_REWARD} rewards per workout — 8x more for every session.
+                Supporters earn {REWARD_CONFIG.BOOSTED_WORKOUT_REWARD} rewards per workout — 10x more for every session.
               </Text>
               <TouchableOpacity
                 style={styles.learnMoreButton}
@@ -406,7 +406,7 @@ const RewardsScreenComponent: React.FC = () => {
             </>
           ) : (
             <Text style={styles.subscriptionConfirmText}>
-              {subscriptionTier === 'pro' ? 'Pro' : 'Supporter'} plan active. You earn 8x more rewards for every workout.
+              {subscriptionTier === 'pro' ? 'Pro' : 'Supporter'} plan active. You earn 10x more rewards for every workout.
             </Text>
           )}
         </View>
