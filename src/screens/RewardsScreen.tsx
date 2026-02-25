@@ -373,34 +373,52 @@ const RewardsScreenComponent: React.FC = () => {
           onZapPress={() => handleZapCharity()}
         />
 
-        {/* How It Works Section */}
-        <View style={styles.howItWorksCard}>
-          <Text style={styles.howItWorksTitle}>{t('howItWorks', { defaultValue: 'HOW IT WORKS' })}</Text>
+        {/* Subscription Status Card */}
+        <View style={styles.subscriptionCard}>
+          <Text style={styles.subscriptionCardTitle}>YOUR REWARDS</Text>
 
-          <View style={styles.rewardRow}>
-            <Ionicons name="fitness-outline" size={20} color="#FF9D42" />
-            <View style={styles.rewardTextSection}>
-              <Text style={styles.rewardLabel}>{t('dailyWorkout', { defaultValue: 'Daily Activity' })}</Text>
-              <Text style={styles.rewardValue}>100 sats</Text>
-            </View>
+          <View style={styles.subscriptionRateRow}>
+            <Ionicons name="flash" size={18} color="#FF9D42" />
+            <Text style={styles.subscriptionRateText}>
+              {subscriptionTier !== 'free'
+                ? `${REWARD_CONFIG.BOOSTED_WORKOUT_REWARD} rewards per workout`
+                : `${REWARD_CONFIG.DAILY_WORKOUT_REWARD} rewards per workout`}
+            </Text>
+            {subscriptionTier !== 'free' && (
+              <View style={styles.boostedBadge}>
+                <Text style={styles.boostedBadgeText}>Boosted</Text>
+              </View>
+            )}
           </View>
 
-          <View style={styles.rewardRow}>
-            <Ionicons name="footsteps-outline" size={20} color="#FF9D42" />
-            <View style={styles.rewardTextSection}>
-              <Text style={styles.rewardLabel}>{t('fiveKSteps', { defaultValue: '5,000 Steps' })}</Text>
-              <Text style={styles.rewardValue}>50 sats</Text>
-            </View>
-          </View>
-
-          <Text style={styles.howItWorksDescription}>
-            {isPPQTeam(selectedTeamId ?? undefined)
-              ? t('howItWorksDescriptionPPQ', { defaultValue: 'Cardio, strength, journal, or 5k steps daily to earn AI credits. Rewards go directly to your PPQ.AI account.' })
-              : isSelfTeam(selectedTeamId ?? undefined)
-                ? t('howItWorksDescriptionSelf', { defaultValue: 'Cardio, strength, journal, or 5k steps daily. Rewards are sent directly to your Lightning wallet.' })
-                : t('howItWorksDescriptionCharity', { defaultValue: `Cardio, strength, journal, or 5k steps daily. Micro donations are sent to ${selectedTeam?.name || 'your selected charity'}.` })}
-          </Text>
+          {subscriptionTier === 'free' ? (
+            <>
+              <View style={styles.subscriptionDivider} />
+              <Text style={styles.subscriptionUpsellText}>
+                Supporters earn {REWARD_CONFIG.BOOSTED_WORKOUT_REWARD} rewards per workout — 8x more for every session.
+              </Text>
+              <TouchableOpacity
+                style={styles.learnMoreButton}
+                onPress={() => setShowSubscriptionModal(true)}
+              >
+                <Text style={styles.learnMoreText}>Learn More</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <Text style={styles.subscriptionConfirmText}>
+              {subscriptionTier === 'pro' ? 'Pro' : 'Supporter'} plan active. You earn 8x more rewards for every workout.
+            </Text>
+          )}
         </View>
+
+        {/* Reward description */}
+        <Text style={styles.rewardDescription}>
+          {isPPQTeam(selectedTeamId ?? undefined)
+            ? t('howItWorksDescriptionPPQ', { defaultValue: 'Cardio, strength, journal, or 5k steps daily to earn AI credits. Rewards go directly to your PPQ.AI account.' })
+            : isSelfTeam(selectedTeamId ?? undefined)
+              ? t('howItWorksDescriptionSelf', { defaultValue: 'Cardio, strength, journal, or 5k steps daily. Rewards are sent directly to your Lightning wallet.' })
+              : t('howItWorksDescriptionCharity', { defaultValue: `Cardio, strength, journal, or 5k steps daily. Micro donations are sent to ${selectedTeam?.name || 'your selected charity'}.` })}
+        </Text>
 
         {/* Active Pledge Section (only shown if user has active pledge) */}
         {activePledge && (
@@ -501,6 +519,14 @@ const RewardsScreenComponent: React.FC = () => {
           setSelectedTeamId(destinationId);
           setShowDestinationPicker(false);
         }}
+      />
+
+      {/* Subscription Info Modal */}
+      <SubscriptionInfoModal
+        visible={showSubscriptionModal}
+        onClose={() => setShowSubscriptionModal(false)}
+        feature="general"
+        currentTier={subscriptionTier}
       />
     </TexturedBackground>
   );
@@ -794,48 +820,80 @@ const styles = StyleSheet.create({
     borderTopColor: '#1a1a1a',
   },
 
-  // How It Works card styles
-  howItWorksCard: {
+  // Subscription status card styles
+  subscriptionCard: {
     backgroundColor: '#0a0a0a',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#1a1a1a',
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 8,
   },
-  howItWorksTitle: {
+  subscriptionCardTitle: {
     fontSize: 12,
     fontWeight: theme.typography.weights.bold,
     color: '#FF9D42',
     letterSpacing: 1,
-    marginBottom: 16,
+    marginBottom: 14,
   },
-  rewardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
+  subscriptionRateRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
   },
-  rewardTextSection: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  rewardLabel: {
-    fontSize: 14,
+  subscriptionRateText: {
+    fontSize: 16,
+    fontWeight: theme.typography.weights.semiBold,
     color: '#fff',
+    flex: 1,
   },
-  rewardValue: {
-    fontSize: 14,
+  boostedBadge: {
+    backgroundColor: 'rgba(255, 157, 66, 0.15)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  boostedBadgeText: {
+    fontSize: 12,
     fontWeight: theme.typography.weights.bold,
     color: '#FF9D42',
   },
-  howItWorksDescription: {
-    fontSize: 12,
+  subscriptionDivider: {
+    height: 1,
+    backgroundColor: '#1a1a1a',
+    marginVertical: 14,
+  },
+  subscriptionUpsellText: {
+    fontSize: 13,
+    color: '#888',
+    lineHeight: 19,
+    marginBottom: 12,
+  },
+  learnMoreButton: {
+    alignSelf: 'center' as const,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FF9D42',
+  },
+  learnMoreText: {
+    fontSize: 13,
+    fontWeight: theme.typography.weights.semiBold,
+    color: '#FF9D42',
+  },
+  subscriptionConfirmText: {
+    fontSize: 13,
     color: '#888',
     marginTop: 8,
+    lineHeight: 19,
+  },
+  rewardDescription: {
+    fontSize: 12,
+    color: '#888',
+    marginBottom: 12,
     lineHeight: 18,
+    paddingHorizontal: 4,
   },
 });
 
