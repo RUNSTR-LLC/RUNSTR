@@ -29,6 +29,7 @@ import { AutoCompetePreferencesService } from '../../services/activity/AutoCompe
 import WorkoutStatusTracker from '../../services/fitness/WorkoutStatusTracker';
 import { WoTService } from '../../services/wot/WoTService';
 import Toast from 'react-native-toast-message';
+import * as Haptics from 'expo-haptics';
 import type { HealthProfile } from '../HealthProfileScreen';
 import type { PublishableWorkout } from '../../services/nostr/workoutPublishingService';
 import type { Workout } from '../../types/workout';
@@ -120,6 +121,7 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
   const pauseStartTimeRef = useRef<number>(0);
   const isPausedRef = useRef<boolean>(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const autoStopFiredRef = useRef<boolean>(false);
 
   // Load userId, health profile, and WoT score on mount
   useEffect(() => {
@@ -197,13 +199,20 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
           (now - startTimeRef.current - totalPausedTime) / 1000
         );
         setElapsedSeconds(elapsed);
+
+        // Auto-stop when countdown reaches zero
+        if (targetDuration !== null && elapsed >= targetDuration && !autoStopFiredRef.current) {
+          autoStopFiredRef.current = true;
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          setTimeout(() => endSession(), 0);
+        }
       }, 1000);
     }
 
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [phase, isActive, isPaused]);
+  }, [phase, isActive, isPaused, targetDuration]);
 
   // Auto-compete: publish kind 1301 when summary phase starts
   useEffect(() => {
@@ -300,6 +309,7 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
     pauseStartTimeRef.current = 0;
     totalPausedTimeRef.current = 0;
     setElapsedSeconds(0);
+    autoStopFiredRef.current = false;
   };
 
   const pauseMeditation = () => {
@@ -339,21 +349,23 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
         MEDITATION_TYPES.find((t) => t.value === selectedType)?.label ||
         'Meditation';
 
+      const finalDuration = targetDuration !== null ? targetDuration : elapsedSeconds;
+
       const calories = CalorieEstimationService.estimateMeditationCalories(
-        elapsedSeconds,
+        finalDuration,
         userWeight
       );
       setEstimatedCalories(calories);
 
       const workoutId = await LocalWorkoutStorageService.saveManualWorkout({
         type: 'meditation',
-        duration: elapsedSeconds,
+        duration: finalDuration,
         notes:
           sessionNotes ||
           `${
-            elapsedSeconds >= 60
-              ? Math.floor(elapsedSeconds / 60) + ' minute'
-              : elapsedSeconds + ' second'
+            finalDuration >= 60
+              ? Math.floor(finalDuration / 60) + ' minute'
+              : finalDuration + ' second'
           } ${meditationTypeLabel.toLowerCase()} session`,
         meditationType: selectedType,
         calories,
@@ -366,9 +378,9 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
         userId: userId || 'unknown',
         type: 'meditation',
         source: 'manual_entry' as const,
-        startTime: new Date(Date.now() - elapsedSeconds * 1000).toISOString(),
+        startTime: new Date(Date.now() - finalDuration * 1000).toISOString(),
         endTime: new Date().toISOString(),
-        duration: elapsedSeconds,
+        duration: finalDuration,
         calories,
         meditationType: selectedType,
         syncedAt: new Date().toISOString(),
@@ -567,7 +579,11 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
           </Text>
 
           <View style={styles.timerContainer}>
-            <Text style={styles.timerText}>{formatTime(elapsedSeconds)}</Text>
+            <Text style={styles.timerText}>
+              {targetDuration !== null
+                ? formatTime(Math.max(0, targetDuration - elapsedSeconds))
+                : formatTime(elapsedSeconds)}
+            </Text>
             <Text style={styles.timerLabel}>
               {isPaused ? 'Paused' : 'Meditating'}
             </Text>
