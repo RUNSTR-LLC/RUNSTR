@@ -215,12 +215,17 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
         }
 
         // Auto-stop when countdown reaches zero
-        if (targetDuration !== null && elapsed >= targetDuration && !autoStopFiredRef.current) {
+        if (targetDuration !== null && elapsed >= targetDuration && !autoStopFiredRef.current && !isPausedRef.current) {
           autoStopFiredRef.current = true;
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           setTimeout(() => endSession(), 0);
         }
       }, 1000);
+      timerRef.current = interval;
     }
 
     return () => {
