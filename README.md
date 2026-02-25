@@ -109,6 +109,15 @@ npm install
 npm run ios
 ```
 
+### Environment
+Create a `.env` file (or set Expo public vars in your environment) when running locally:
+
+```bash
+EXPO_PUBLIC_OPENWEATHER_API_KEY=your_openweather_key
+```
+
+This enables weather data used by the app's weather service.
+
 ### Commands
 ```bash
 npm run start          # Development server
