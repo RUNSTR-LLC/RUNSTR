@@ -60,7 +60,7 @@ function getIntroText(feature: string, currentTier?: SubscriptionTier): string {
     case 'team':
       return 'Creating clubs requires a Pro subscription. Choose a plan to unlock boosted rewards and more.';
     case 'season':
-      return 'Season III requires a Supporter subscription or above. Earn 800 sats per qualifying workout!';
+      return `Season III requires a Supporter subscription or above. Earn ${REWARD_CONFIG.BOOSTED_WORKOUT_REWARD} sats per qualifying workout!`;
     default:
       return `Subscribe to RUNSTR to boost your workout rewards from ${REWARD_CONFIG.DAILY_WORKOUT_REWARD} to ${REWARD_CONFIG.BOOSTED_WORKOUT_REWARD} sats per workout.`;
   }

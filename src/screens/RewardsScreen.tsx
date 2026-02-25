@@ -837,8 +837,8 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   subscriptionRateRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
   subscriptionRateText: {
@@ -870,7 +870,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   learnMoreButton: {
-    alignSelf: 'center' as const,
+    alignSelf: 'center',
     paddingVertical: 8,
     paddingHorizontal: 20,
     borderRadius: 8,
