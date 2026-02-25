@@ -14,7 +14,6 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import pako from 'pako';
-import Constants from 'expo-constants';
 import { GlobalNDKService } from '../nostr/GlobalNDKService';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import type { NDKSigner } from '@nostr-dev-kit/ndk';
@@ -274,7 +273,6 @@ export class BackupService {
    */
   private async collectBackupData(): Promise<WorkoutBackupPayload> {
     const workoutService = LocalWorkoutStorageService.getInstance();
-    const appVersion = Constants.expoConfig?.version || 'unknown';
 
     const [workouts, habits, journalEntries, unitSystem, selectedCharity, ppqApiKey, ppqCreditId] = await Promise.all([
       workoutService.getAllWorkouts(),
@@ -289,7 +287,7 @@ export class BackupService {
     return {
       version: BACKUP_VERSION,
       exportedAt: new Date().toISOString(),
-      appVersion,
+      appVersion: '1.6.5', // TODO: Get from app config
       workouts,
       habits: habits.length > 0 ? habits : undefined,
       journal: journalEntries.length > 0 ? journalEntries : undefined,
@@ -323,10 +321,26 @@ export class BackupService {
     payload: WorkoutBackupPayload,
     signer: NDKSigner
   ): Promise<string> {
+    // Stringify then release the payload reference to free memory sooner.
+    // Users with many GPS workouts can have large payloads; releasing the
+    // original object before compression reduces peak memory on mobile.
     const plaintext = JSON.stringify(payload);
+    // payload is still referenced by the caller, but we avoid holding
+    // any additional references inside this method from here on.
 
     // Compress with gzip to handle large payloads (NIP-44 has 64KB limit)
     const compressed = pako.gzip(plaintext);
+
+    // NIP-44 has a ~65KB plaintext limit. After compression, the base64-encoded
+    // data will be ~33% larger, so check compressed size against a safe threshold.
+    const MAX_COMPRESSED_BYTES = 64000;
+    if (compressed.length > MAX_COMPRESSED_BYTES) {
+      throw new Error(
+        `Backup too large for encryption: ${compressed.length} bytes compressed ` +
+          `(limit: ${MAX_COMPRESSED_BYTES}). Try removing old workouts or GPS data to reduce size.`
+      );
+    }
+
     const compressedBase64 = this.uint8ArrayToBase64(compressed);
 
     // Log compression ratio for debugging
@@ -364,7 +378,7 @@ export class BackupService {
     // Tags (metadata visible to relays, content is encrypted)
     event.tags = [
       ['d', BACKUP_D_TAG], // Replaceable identifier
-      ['client', 'RUNSTR', payload.appVersion || 'unknown'],
+      ['client', 'RUNSTR', '1.6.5'],
       ['encrypted', 'nip44'],
       ['compression', 'gzip'], // Content is gzip compressed before encryption
       ['backup_version', String(BACKUP_VERSION)],

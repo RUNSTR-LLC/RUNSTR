@@ -3,7 +3,6 @@
   "learnMore": "Learn more",
   "descriptions": {
     "als-foundation": "Honoring Hal Finney - Supporting ALS research and patient care",
-    "ashigaru": "Support the Ashigaru developers by contributing donations to ensure their project remains strong, sustainable, and resilient.",
     "bitcoin-bay": "Bitcoin circular economy in the Bay Area",
     "bitcoin-ekasi": "Bitcoin circular economy in South Africa",
     "bitcoin-isla": "Bitcoin circular economy in Isla Mujeres",
@@ -18,6 +17,7 @@
     "bitcoin-basin": "Bitcoin circular economy in Queenstown, New Zealand",
     "buho-go": "BuhoGO is an open-source, NWC-ready wallet app that makes payments simple and accessible for everyone",
     "central-pennsylvania-bitcoiners": "A Bitcoin focused group located in Pennsylvania",
-    "wesatoshi": "A Bitcoin-focused Swiss Army knife hardware"
+    "ppq-ai": "AI credits for your workouts",
+    "lightning-news": "Up to date news on Bitcoin and Lightning"
   }
 }

@@ -10,6 +10,7 @@ import {
   StyleSheet,
   TouchableOpacity,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { RunningBitcoinEventCard } from '../events/RunningBitcoinEventCard';
@@ -18,9 +19,9 @@ import { JanuaryWalkingEventCard } from '../events/JanuaryWalkingEventCard';
 import { Season2EventCard } from '../events/Season2EventCard';
 import { LeaderboardEventCard } from '../events/LeaderboardEventCard';
 import { DynamicEventCard } from '../events/DynamicEventCard';
-import { getRunningBitcoinStatus } from '../../constants/runningBitcoin';
-import { getEinundzwanzigStatus } from '../../constants/einundzwanzig';
-import { getJanuaryWalkingStatus } from '../../constants/januaryWalking';
+import { shouldShowRunningBitcoin } from '../../constants/runningBitcoin';
+import { shouldShowEinundzwanzig } from '../../constants/einundzwanzig';
+import { shouldShowJanuaryWalking } from '../../constants/januaryWalking';
 import { useDynamicCompetitions } from '../../hooks/useDynamicCompetitions';
 import type { SatlantisEvent } from '../../types/satlantis';
 
@@ -44,6 +45,7 @@ export const EventsContent: React.FC<EventsContentProps> = ({
   onLeaderboardPress,
   onDynamicEventPress,
 }) => {
+  const { t } = useTranslation('events');
   const { competitions: dynamicCompetitions } = useDynamicCompetitions();
   return (
     <View style={styles.container}>
@@ -55,13 +57,13 @@ export const EventsContent: React.FC<EventsContentProps> = ({
           activeOpacity={0.7}
         >
           <Ionicons name="add-circle-outline" size={20} color={theme.colors.text} />
-          <Text style={styles.createEventText}>Create Event</Text>
+          <Text style={styles.createEventText}>{t('createEvent', { defaultValue: 'Create Event' })}</Text>
           <Ionicons name="chevron-forward" size={18} color={theme.colors.textMuted} />
         </TouchableOpacity>
       )}
 
-      {/* 1. Running Bitcoin Challenge - show when upcoming or active */}
-      {getRunningBitcoinStatus() !== 'ended' && (
+      {/* 1. Running Bitcoin Challenge - show during event + 7 days after for results */}
+      {shouldShowRunningBitcoin() && (
         <View style={styles.featuredEvent}>
           <RunningBitcoinEventCard onPress={onRunningBitcoinPress} />
         </View>
@@ -77,15 +79,15 @@ export const EventsContent: React.FC<EventsContentProps> = ({
         <LeaderboardEventCard onPress={onLeaderboardPress} />
       </View>
 
-      {/* 4. January Walking Contest - show when upcoming or active */}
-      {getJanuaryWalkingStatus() !== 'ended' && (
+      {/* 4. January Walking Contest - show during event + 7 days after for results */}
+      {shouldShowJanuaryWalking() && (
         <View style={styles.featuredEvent}>
           <JanuaryWalkingEventCard onPress={onJanuaryWalkingPress} />
         </View>
       )}
 
-      {/* 5. Einundzwanzig Fitness Challenge - show when upcoming or active */}
-      {getEinundzwanzigStatus() !== 'ended' && (
+      {/* 5. Einundzwanzig Fitness Challenge - show during event + 7 days after for results */}
+      {shouldShowEinundzwanzig() && (
         <View style={styles.featuredEvent}>
           <EinundzwanzigEventCard onPress={onEinundzwanzigPress} />
         </View>

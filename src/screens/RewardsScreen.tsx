@@ -296,7 +296,7 @@ const RewardsScreenComponent: React.FC = () => {
     if (selectedTeam) {
       Toast.show({
         type: 'success',
-        text1: 'Zapped!',
+        text1: 'Donated!',
         text2: `Donation to ${selectedTeam.name} verified!`,
         position: 'top',
         visibilityTime: 3000,
@@ -349,8 +349,8 @@ const RewardsScreenComponent: React.FC = () => {
           </View>
           <Text style={styles.prizePoolAmount}>
             {poolBalance !== null
-              ? `${poolBalance.toLocaleString()} sats`
-              : t('loading', { defaultValue: '-- sats' })}
+              ? `${poolBalance.toLocaleString()} rewards`
+              : t('loading', { defaultValue: '-- rewards' })}
           </Text>
         </TouchableOpacity>
 

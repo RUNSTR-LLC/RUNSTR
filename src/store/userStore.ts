@@ -4,7 +4,8 @@
  */
 
 import { create } from 'zustand';
-import { subscribeWithSelector } from 'zustand/middleware';
+import { subscribeWithSelector, persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ProfileService,
   type UserProfile,
@@ -23,7 +24,22 @@ import type {
   UserFitnessProfile,
 } from '../types';
 
+/** Storage key for persisted user store data */
+const USER_STORE_KEY = '@runstr:user-store';
+
+/** Current schema version — bump when persisted shape changes */
+const USER_STORE_VERSION = 1;
+
+/** Fields that get persisted to AsyncStorage */
+type PersistedUserState = {
+  user: UserProfile | null;
+  fitnessProfile: UserFitnessProfile | null;
+};
+
 interface UserStoreState {
+  // Hydration flag — true once persisted data has been loaded from AsyncStorage
+  _hasHydrated: boolean;
+
   // User Data
   user: UserProfile | null;
   isLoadingUser: boolean;
@@ -93,8 +109,11 @@ interface UserStoreState {
 }
 
 export const useUserStore = create<UserStoreState>()(
-  subscribeWithSelector((set, get) => ({
+  subscribeWithSelector(
+    persist(
+      (set, get) => ({
     // Initial State
+    _hasHydrated: false,
     user: null,
     isLoadingUser: false,
     userError: null,
@@ -395,6 +414,10 @@ export const useUserStore = create<UserStoreState>()(
         fitnessImprovement: null,
         participationStats: null,
       });
+      // Clear persisted data so next launch starts fresh
+      AsyncStorage.removeItem(USER_STORE_KEY).catch((err) =>
+        console.warn('[UserStore] Failed to clear persisted data:', err)
+      );
     },
 
     signOut: async () => {
@@ -407,7 +430,34 @@ export const useUserStore = create<UserStoreState>()(
         set({ userError: 'Failed to sign out' });
       }
     },
-  }))
+  }),
+      // persist middleware options
+      {
+        name: USER_STORE_KEY,
+        version: USER_STORE_VERSION,
+        storage: createJSONStorage(() => AsyncStorage),
+        partialize: (state): PersistedUserState => ({
+          user: state.user,
+          fitnessProfile: state.fitnessProfile,
+        }),
+        onRehydrateStorage: () => {
+          console.log('[UserStore] Hydrating from AsyncStorage...');
+          return (state, error) => {
+            if (error) {
+              console.warn('[UserStore] Hydration failed:', error);
+            } else {
+              console.log(
+                '[UserStore] Hydrated successfully:',
+                state?.user?.name ?? 'no user cached'
+              );
+            }
+            // Mark hydration complete regardless of success/failure
+            useUserStore.setState({ _hasHydrated: true });
+          };
+        },
+      },
+    )
+  )
 );
 
 // Utility hooks for specific functionality
@@ -479,6 +529,10 @@ export const useUserAuth = () => {
     clearErrors: store.clearErrors,
   };
 };
+
+/** Returns true once persisted data has been loaded from AsyncStorage */
+export const useUserStoreHydrated = () =>
+  useUserStore((state) => state._hasHydrated);
 
 // Subscribe to user changes for analytics/logging
 if (typeof window !== 'undefined') {

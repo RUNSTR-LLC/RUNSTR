@@ -68,12 +68,6 @@ export type RootStackParamList = {
   Main: undefined;
   Login: undefined;
   Clubs: undefined;
-  EnhancedTeamScreen: {
-    team: any;
-    userIsMember?: boolean;
-    currentUserNpub?: string;
-    userIsCaptain?: boolean;
-  }; // Individual team dashboard
   Profile: undefined;
   ProfileEdit: undefined;
   Wallet: undefined;
@@ -102,6 +96,8 @@ export type RootStackParamList = {
   Settings: undefined;
   Exercise: undefined;
   Compete: undefined;
+  Season2: undefined;
+  Leaderboards: undefined;
   DynamicEventDetail: { eventId: string };
   JournalHistory: undefined;
 };

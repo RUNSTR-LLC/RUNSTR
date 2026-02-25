@@ -332,7 +332,7 @@ export class SupabaseCompetitionService {
 
     // PPQ.AI: Auto-create bolt11 invoice if user's team is PPQ.AI and no invoice provided
     // This ensures ALL submission paths (HealthKit, background, manual) get PPQ support
-    // Invoice amount matches subscriber tier: 800 sats (supporter/pro) or 50 sats (free)
+    // Invoice amount matches subscriber tier: 800 sats (supporter/pro) or 100 sats (free, PPQ API minimum)
     let ppqBolt11 = data.ppqBolt11;
     let ppqInvoiceId = data.ppqInvoiceId;
     let ppqFailed = false;
@@ -343,7 +343,8 @@ export class SupabaseCompetitionService {
           const hasAccount = await PPQAccountService.hasAccount();
           if (hasAccount) {
             // Determine reward amount: subscribers get 800 for qualifying workouts
-            let rewardSats = 50;
+            // PPQ.AI API minimum is 100 sats
+            let rewardSats = 100;
             const npub = await AsyncStorage.getItem('@runstr:npub');
             if (npub) {
               const isSubscriber = await SubscriptionService.isSupporterOrAbove(npub);
@@ -602,22 +603,32 @@ export class SupabaseCompetitionService {
         return { leaderboard: [], charityRankings: [], error: 'Competition not found' };
       }
 
-      // Get competition details
-      const { data: competition, error: compError } = await supabase!
-        .from('competitions')
-        .select('*')
-        .eq('id', resolvedId)
-        .single();
+      // Fetch competition details, participants, and banned users concurrently
+      // All three queries only depend on resolvedId, not on each other
+      const [compResult, participantsResult, bannedResult] = await Promise.all([
+        supabase!
+          .from('competitions')
+          .select('*')
+          .eq('id', resolvedId)
+          .single(),
+        supabase!
+          .from('competition_participants')
+          .select('npub')
+          .eq('competition_id', resolvedId)
+          .limit(1000),
+        supabase!
+          .from('banned_users')
+          .select('npub')
+          .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`),
+      ]);
+
+      const { data: competition, error: compError } = compResult;
+      const { data: participants } = participantsResult;
+      const { data: bannedUsers } = bannedResult;
 
       if (compError || !competition) {
         return { leaderboard: [], charityRankings: [], error: 'Competition not found' };
       }
-
-      // Get participants
-      const { data: participants } = await supabase!
-        .from('competition_participants')
-        .select('npub')
-        .eq('competition_id', resolvedId);
 
       const npubs = participants?.map((p) => p.npub) || [];
 
@@ -627,10 +638,6 @@ export class SupabaseCompetitionService {
 
       // DATA QUALITY FIX: Filter out banned users from leaderboard
       // Banned users are stored in banned_users table with optional expiry
-      const { data: bannedUsers } = await supabase!
-        .from('banned_users')
-        .select('npub')
-        .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
 
       const bannedSet = new Set((bannedUsers || []).map((b: { npub: string }) => b.npub));
       const validNpubs = npubs.filter(npub => !bannedSet.has(npub));
@@ -687,7 +694,7 @@ export class SupabaseCompetitionService {
         workoutQuery = workoutQuery.eq('source', 'app');
       }
 
-      const { data: rawWorkouts } = await workoutQuery.order('created_at', { ascending: false }); // Most recent first
+      const { data: rawWorkouts } = await workoutQuery.order('created_at', { ascending: false }).limit(5000); // Most recent first, bounded for mobile safety
 
       // CRITICAL: Deduplicate workouts by (npub, distance, date) to prevent double-counting
       // Same workout can be submitted multiple times from different sources (GPS, HealthKit, Health Connect)
@@ -896,6 +903,9 @@ export class SupabaseCompetitionService {
               break;
             case 'workout_count':
               scoreIncrement = rowWorkoutCount;
+              break;
+            case 'total_steps':
+              scoreIncrement = w.step_count || 0;
               break;
           }
 

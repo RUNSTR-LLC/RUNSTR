@@ -14,6 +14,7 @@ import {
   StyleSheet,
   Image,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../../styles/theme';
@@ -63,11 +64,11 @@ const ACTIVITY_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   hiking: 'trail-sign-outline',
 };
 
-function getStatusLabel(status: CompetitionStatus): string {
+function getStatusLabel(status: CompetitionStatus, t: (key: string, opts?: Record<string, string>) => string): string {
   switch (status) {
-    case 'active': return 'LIVE';
-    case 'upcoming': return 'UPCOMING';
-    case 'ended': return 'ENDED';
+    case 'active': return t('live', { defaultValue: 'LIVE' });
+    case 'upcoming': return t('upcoming', { defaultValue: 'UPCOMING' });
+    case 'ended': return t('ended', { defaultValue: 'ENDED' });
   }
 }
 
@@ -92,31 +93,31 @@ function getStatusTextColor(status: CompetitionStatus): string {
 
 function formatDateRange(start: string, end: string): string {
   const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', timeZone: 'UTC' };
-  const s = new Date(start).toLocaleDateString('en-US', opts);
-  const e = new Date(end).toLocaleDateString('en-US', opts);
+  const s = new Date(start).toLocaleDateString(undefined, opts);
+  const e = new Date(end).toLocaleDateString(undefined, opts);
   return `${s} — ${e}`;
 }
 
-function getDaysInfo(comp: DynamicCompetition): string {
+function getDaysInfo(comp: DynamicCompetition, t: (key: string, opts?: Record<string, unknown>) => string): string {
   const now = Date.now();
   if (comp.status === 'active') {
     const daysLeft = Math.ceil((new Date(comp.end_date).getTime() - now) / 86400000);
-    return daysLeft > 0 ? ` (${daysLeft}d left)` : '';
+    return daysLeft > 0 ? ` (${t('daysLeft', { days: daysLeft, defaultValue: '{{days}}d left' })})` : '';
   }
   if (comp.status === 'upcoming') {
     const daysUntil = Math.ceil((new Date(comp.start_date).getTime() - now) / 86400000);
-    return daysUntil > 0 ? ` (starts in ${daysUntil}d)` : '';
+    return daysUntil > 0 ? ` (${t('startsIn', { days: daysUntil, defaultValue: 'starts in {{days}}d' })})` : '';
   }
   return '';
 }
 
-function getScoringLabel(method: string): string {
+function getScoringLabel(method: string, t: (key: string, opts?: Record<string, string>) => string): string {
   switch (method) {
-    case 'fastest_time': return 'Fastest Time';
-    case 'total_distance': return 'Longest Distance';
-    case 'total_steps': return 'Most Steps';
-    case 'total_duration': return 'Longest Duration';
-    case 'workout_count': return 'Most Workouts';
+    case 'fastest_time': return t('fastestTime', { defaultValue: 'Fastest Time' });
+    case 'total_distance': return t('longestDistance', { defaultValue: 'Longest Distance' });
+    case 'total_steps': return t('mostSteps', { defaultValue: 'Most Steps' });
+    case 'total_duration': return t('longestDuration', { defaultValue: 'Longest Duration' });
+    case 'workout_count': return t('mostWorkouts', { defaultValue: 'Most Workouts' });
     default: return '';
   }
 }
@@ -134,6 +135,7 @@ export const DynamicEventCard: React.FC<DynamicEventCardProps> = ({
   competition,
   onPress,
 }) => {
+  const { t } = useTranslation('events');
   const [imageError, setImageError] = useState(false);
   const config = competition.config || {};
   const activityTypes: string[] = (config as any).activity_types || [competition.activity_type];
@@ -171,7 +173,7 @@ export const DynamicEventCard: React.FC<DynamicEventCardProps> = ({
         {/* Status Badge */}
         <View style={[styles.statusBadge, getStatusStyle(competition.status)]}>
           <Text style={[styles.statusText, { color: getStatusTextColor(competition.status) }]}>
-            {getStatusLabel(competition.status)}
+            {getStatusLabel(competition.status, t)}
           </Text>
         </View>
 
@@ -179,7 +181,7 @@ export const DynamicEventCard: React.FC<DynamicEventCardProps> = ({
         {competition.club_id && (
           <View style={styles.clubBadge}>
             <Ionicons name="people" size={10} color={theme.colors.textMuted} />
-            <Text style={styles.clubBadgeText}>Club</Text>
+            <Text style={styles.clubBadgeText}>{t('club', { defaultValue: 'Club' })}</Text>
           </View>
         )}
       </View>
@@ -195,7 +197,7 @@ export const DynamicEventCard: React.FC<DynamicEventCardProps> = ({
           <Ionicons name="calendar-outline" size={14} color={theme.colors.textDark} />
           <Text style={styles.metaText}>
             {formatDateRange(competition.start_date, competition.end_date)}
-            {getDaysInfo(competition)}
+            {getDaysInfo(competition, t)}
           </Text>
         </View>
 
@@ -217,7 +219,7 @@ export const DynamicEventCard: React.FC<DynamicEventCardProps> = ({
           {scoringMethod ? (
             <View style={styles.tag}>
               <Ionicons name="podium-outline" size={12} color={theme.colors.textMuted} />
-              <Text style={styles.tagText}>{getScoringLabel(scoringMethod)}</Text>
+              <Text style={styles.tagText}>{getScoringLabel(scoringMethod, t)}</Text>
             </View>
           ) : null}
         </View>

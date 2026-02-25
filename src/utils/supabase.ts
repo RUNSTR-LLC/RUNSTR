@@ -111,6 +111,7 @@ export interface WorkoutSubmission {
   distance_meters: number | null;
   duration_seconds: number | null;
   calories: number | null;
+  step_count: number | null;
   created_at: string;
   submitted_at: string;
   raw_event: Record<string, unknown>;

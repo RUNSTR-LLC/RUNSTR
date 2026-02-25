@@ -1,0 +1,21 @@
+{
+  "createEvent": "Create Event",
+  "live": "LIVE",
+  "upcoming": "UPCOMING",
+  "ended": "ENDED",
+  "finalResults": "FINAL RESULTS",
+  "startsIn": "starts in {{days}}d",
+  "daysLeft": "{{days}}d left",
+  "fastestTime": "Fastest Time",
+  "longestDistance": "Longest Distance",
+  "mostSteps": "Most Steps",
+  "mostWorkouts": "Most Workouts",
+  "longestDuration": "Longest Duration",
+  "club": "Club",
+  "einundzwanzigCommunity": "Einundzwanzig Community",
+  "runningAndWalking": "Running + Walking",
+  "charityFundraiser": "Charity Fundraiser",
+  "charity_one": "{{count}} Charity",
+  "charity_other": "{{count}} Charities",
+  "rewards": "{{amount}} rewards"
+}

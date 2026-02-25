@@ -657,6 +657,8 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.summaryScrollContainer}
+      keyboardDismissMode="on-drag"
+      keyboardShouldPersistTaps="handled"
     >
       <View style={styles.summaryIconContainer}>
         <Ionicons
@@ -710,7 +712,7 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
         />
       </View>
 
-      {/* Post to Nostr - Only visible if WoT > 0 */}
+      {/* Share - Only visible if WoT > 0 */}
       {isWoTEligible && !postedToNostr && (
         <TouchableOpacity style={styles.postButton} onPress={handleShowSocialModal}>
           <Ionicons
@@ -719,7 +721,7 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
             color={theme.colors.background}
             style={{ marginRight: 8 }}
           />
-          <Text style={styles.postButtonText}>Post to Nostr</Text>
+          <Text style={styles.postButtonText}>Share</Text>
         </TouchableOpacity>
       )}
 

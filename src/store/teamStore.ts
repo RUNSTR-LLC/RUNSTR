@@ -1,9 +1,12 @@
 /**
  * RUNSTR Team Discovery Store
  * Zustand store for team discovery state management
+ * Persists userTeam to AsyncStorage so the Clubs tab renders instantly on launch
  */
 
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   TeamDiscoveryState,
   DiscoveryTeam,
@@ -11,7 +14,21 @@ import type {
   TeamJoinResult,
 } from '../types';
 
+/** Storage key for persisted team store data */
+const TEAM_STORE_KEY = '@runstr:team-store';
+
+/** Current schema version — bump when persisted shape changes */
+const TEAM_STORE_VERSION = 1;
+
+/** Fields that get persisted to AsyncStorage */
+type PersistedTeamState = {
+  userTeam: DiscoveryTeam | null;
+};
+
 interface TeamStoreState extends TeamDiscoveryState {
+  // Hydration flag — true once persisted data has been loaded from AsyncStorage
+  _hasHydrated: boolean;
+
   // Real-time subscription (disabled to prevent bundle failure)
   subscription: any | null;
   setSubscription: (subscription: any | null) => void;
@@ -24,8 +41,11 @@ interface TeamStoreState extends TeamDiscoveryState {
   _setUserTeam: (team: DiscoveryTeam | null) => void;
 }
 
-export const useTeamStore = create<TeamStoreState>((set: any, get: any) => ({
+export const useTeamStore = create<TeamStoreState>()(
+  persist(
+    (set, get) => ({
   // Initial State
+  _hasHydrated: false,
   teams: [],
   featuredTeams: [],
   userTeam: null,
@@ -213,7 +233,37 @@ export const useTeamStore = create<TeamStoreState>((set: any, get: any) => ({
   _setUserTeam: (team: DiscoveryTeam | null) => {
     set({ userTeam: team });
   },
-}));
+}),
+    // persist middleware options
+    {
+      name: TEAM_STORE_KEY,
+      version: TEAM_STORE_VERSION,
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state): PersistedTeamState => ({
+        userTeam: state.userTeam,
+      }),
+      onRehydrateStorage: () => {
+        console.log('[TeamStore] Hydrating from AsyncStorage...');
+        return (state, error) => {
+          if (error) {
+            console.warn('[TeamStore] Hydration failed:', error);
+          } else {
+            console.log(
+              '[TeamStore] Hydrated successfully:',
+              state?.userTeam?.name ?? 'no team cached'
+            );
+          }
+          // Mark hydration complete regardless of success/failure
+          useTeamStore.setState({ _hasHydrated: true });
+        };
+      },
+    },
+  )
+);
+
+/** Returns true once persisted data has been loaded from AsyncStorage */
+export const useTeamStoreHydrated = () =>
+  useTeamStore((state) => state._hasHydrated);
 
 // Utility hook for team discovery specific functionality
 export const useTeamDiscovery = () => {

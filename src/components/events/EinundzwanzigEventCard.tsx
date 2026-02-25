@@ -13,6 +13,7 @@ import {
   StyleSheet,
   Image,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
@@ -38,6 +39,7 @@ type NavigationProp = {
 export const EinundzwanzigEventCard: React.FC<EinundzwanzigEventCardProps> = ({
   onPress,
 }) => {
+  const { t } = useTranslation('events');
   const navigation = useNavigation<NavigationProp>();
   const [leaderboard, setLeaderboard] = useState<EinundzwanzigLeaderboard | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -81,11 +83,11 @@ export const EinundzwanzigEventCard: React.FC<EinundzwanzigEventCardProps> = ({
   const getStatusText = () => {
     switch (status) {
       case 'active':
-        return 'LIVE';
+        return t('live', { defaultValue: 'LIVE' });
       case 'upcoming':
-        return 'UPCOMING';
+        return t('upcoming', { defaultValue: 'UPCOMING' });
       case 'ended':
-        return 'ENDED';
+        return t('finalResults', { defaultValue: 'FINAL RESULTS' });
     }
   };
 
@@ -97,11 +99,11 @@ export const EinundzwanzigEventCard: React.FC<EinundzwanzigEventCardProps> = ({
       day: 'numeric',
       timeZone: 'UTC',
     };
-    return `${start.toLocaleDateString('en-US', options)} - ${end.toLocaleDateString('en-US', options)}`;
+    return `${start.toLocaleDateString(undefined, options)} - ${end.toLocaleDateString(undefined, options)}`;
   };
 
   const activeCharities = leaderboard?.charityTeams.filter(
-    (t) => t.totalDistanceKm > 0
+    (team) => team.totalDistanceKm > 0
   ).length || 0;
   const totalParticipants = leaderboard?.totalParticipants || 0;
   const totalDistance = leaderboard?.totalDistanceKm || 0;
@@ -140,28 +142,28 @@ export const EinundzwanzigEventCard: React.FC<EinundzwanzigEventCardProps> = ({
           <Ionicons name="calendar-outline" size={14} color={theme.colors.textMuted} />
           <Text style={styles.metaText}>
             {formatDateRange()}
-            {status === 'active' && daysRemaining > 0 && ` (${daysRemaining}d left)`}
-            {status === 'upcoming' && daysUntilStart > 0 && ` (starts in ${daysUntilStart}d)`}
+            {status === 'active' && daysRemaining > 0 && ` (${t('daysLeft', { days: daysRemaining, defaultValue: '{{days}}d left' })})`}
+            {status === 'upcoming' && daysUntilStart > 0 && ` (${t('startsIn', { days: daysUntilStart, defaultValue: 'starts in {{days}}d' })})`}
           </Text>
         </View>
 
         {/* Community Row */}
         <View style={styles.metaRow}>
           <Ionicons name="globe-outline" size={14} color={theme.colors.textMuted} />
-          <Text style={styles.metaText}>Einundzwanzig Community</Text>
+          <Text style={styles.metaText}>{t('einundzwanzigCommunity', { defaultValue: 'Einundzwanzig Community' })}</Text>
         </View>
 
         {/* Tags Row */}
         <View style={styles.tagsRow}>
           {/* Sport Type Tag */}
           <View style={styles.tag}>
-            <Text style={styles.tagText}>Running + Walking</Text>
+            <Text style={styles.tagText}>{t('runningAndWalking', { defaultValue: 'Running + Walking' })}</Text>
           </View>
 
           {/* Charity Fundraiser Tag */}
           <View style={styles.tag}>
             <Ionicons name="heart" size={12} color={theme.colors.textMuted} />
-            <Text style={styles.tagText}>Charity Fundraiser</Text>
+            <Text style={styles.tagText}>{t('charityFundraiser', { defaultValue: 'Charity Fundraiser' })}</Text>
           </View>
 
           {/* Participant Count */}
@@ -177,7 +179,7 @@ export const EinundzwanzigEventCard: React.FC<EinundzwanzigEventCardProps> = ({
             <View style={styles.tag}>
               <Ionicons name="heart-outline" size={12} color={theme.colors.textMuted} />
               <Text style={styles.tagText}>
-                {activeCharities} {activeCharities === 1 ? 'Charity' : 'Charities'}
+                {t('charity', { count: activeCharities, defaultValue: '{{count}} Charities' })}
               </Text>
             </View>
           )}
@@ -190,12 +192,12 @@ export const EinundzwanzigEventCard: React.FC<EinundzwanzigEventCardProps> = ({
             </View>
           )}
 
-          {/* Estimated Sats */}
+          {/* Estimated Rewards */}
           {totalSats > 0 && (
             <View style={styles.tag}>
               <Ionicons name="flash" size={12} color={theme.colors.textMuted} />
               <Text style={styles.tagText}>
-                {totalSats.toLocaleString()} sats
+                {t('rewards', { amount: totalSats.toLocaleString(), defaultValue: '{{amount}} rewards' })}
               </Text>
             </View>
           )}
