@@ -52,6 +52,14 @@ const MEDITATION_TYPES: {
   { value: 'gratitude', label: 'Gratitude', icon: 'heart-outline' },
 ];
 
+const DURATION_PRESETS: { value: number | null; label: string }[] = [
+  { value: null, label: 'Open' },
+  { value: 5 * 60, label: '5m' },
+  { value: 10 * 60, label: '10m' },
+  { value: 15 * 60, label: '15m' },
+  { value: 20 * 60, label: '20m' },
+];
+
 interface MeditationTrackerScreenProps {
   initialType?: MeditationType;
 }
@@ -64,6 +72,7 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
   const [isPaused, setIsPaused] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [selectedType, setSelectedType] = useState<MeditationType>(initialType || 'unguided');
+  const [targetDuration, setTargetDuration] = useState<number | null>(null);
   const [userWeight, setUserWeight] = useState<number | undefined>(undefined);
   const [estimatedCalories, setEstimatedCalories] = useState<number>(0);
 
@@ -421,6 +430,7 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
     setPhase('setup');
     setSessionNotes('');
     setElapsedSeconds(0);
+    setTargetDuration(null);
     setSavedWorkout(null);
     setSavedWorkoutId(null);
     setAutoCompeteTriggered(false);
@@ -465,6 +475,32 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
                     ]}
                   >
                     {type.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Duration Preset Card */}
+          <View style={styles.setupCard}>
+            <Text style={styles.setupCardLabel}>DURATION</Text>
+            <View style={styles.durationOptions}>
+              {DURATION_PRESETS.map((preset) => (
+                <TouchableOpacity
+                  key={preset.label}
+                  style={[
+                    styles.durationOption,
+                    targetDuration === preset.value && styles.durationOptionActive,
+                  ]}
+                  onPress={() => setTargetDuration(preset.value)}
+                >
+                  <Text
+                    style={[
+                      styles.durationOptionText,
+                      targetDuration === preset.value && styles.durationOptionTextActive,
+                    ]}
+                  >
+                    {preset.label}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -769,6 +805,32 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
   },
   exerciseChipTextActive: {
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.semiBold,
+  },
+  durationOptions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  durationOption: {
+    flex: 1,
+    backgroundColor: theme.colors.card,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+  },
+  durationOptionActive: {
+    borderColor: theme.colors.text,
+    backgroundColor: theme.colors.border,
+  },
+  durationOptionText: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.textMuted,
+  },
+  durationOptionTextActive: {
     color: theme.colors.text,
     fontWeight: theme.typography.weights.semiBold,
   },
