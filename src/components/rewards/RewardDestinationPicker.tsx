@@ -1,7 +1,7 @@
 /**
  * RewardDestinationPicker - Full-screen modal for selecting reward destination
  *
- * Allows users to choose where their 100-sat workout rewards go:
+ * Allows users to choose where their workout rewards go:
  * - YOU: Keep rewards (sent to user's Lightning address)
  * - SERVICES: PPQ.AI (AI credits)
  * - CHARITIES: ALS Network, HRF
@@ -283,7 +283,7 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
           <View style={styles.headerTitleContainer}>
             <Text style={styles.headerTitle}>Reward Destination</Text>
             <Text style={styles.headerSubtitle}>
-              Choose where your 100-sat workout rewards go
+              Choose where your rewards go
             </Text>
           </View>
           <TouchableOpacity
