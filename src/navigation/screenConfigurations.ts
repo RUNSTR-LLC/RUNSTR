@@ -30,27 +30,6 @@ export const screenConfigurations = {
     contentStyle: { backgroundColor: '#000' },
   } as NativeStackNavigationOptions,
 
-  // Captain Dashboard - slide from right
-  CaptainDashboard: {
-    animation: 'slide_from_right',
-    headerShown: false,
-    contentStyle: { backgroundColor: '#000' },
-  } as NativeStackNavigationOptions,
-
-  // Team Discovery Modal - slide from bottom
-  TeamDiscovery: {
-    presentation: 'modal',
-    animation: 'slide_from_bottom',
-    headerShown: false,
-    contentStyle: { backgroundColor: '#000' },
-  } as NativeStackNavigationOptions,
-
-  // Event Detail Screen - slide from right
-  EventDetail: {
-    animation: 'slide_from_right',
-    headerShown: false,
-    contentStyle: { backgroundColor: '#000' },
-  } as NativeStackNavigationOptions,
 };
 
 // Default navigator options for native stack

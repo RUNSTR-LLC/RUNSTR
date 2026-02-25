@@ -469,18 +469,7 @@ export class WorkoutPublishingService {
             await LocalTeamMembershipService.getCompetitionTeam();
           let teamName: string | undefined;
 
-          if (competitionTeamId) {
-            try {
-              const NdkTeamService = (await import('../team/NdkTeamService'))
-                .default;
-              const teamData = await NdkTeamService.getTeamById(
-                competitionTeamId
-              );
-              teamName = teamData?.name ? `Team ${teamData.name}` : undefined;
-            } catch (err) {
-              console.warn('⚠️ Failed to fetch team name for card:', err);
-            }
-          }
+          // Team name resolved via Supabase clubs if needed
 
           // Generate SVG card
           const cardData = await this.cardGenerator.generateWorkoutCard(

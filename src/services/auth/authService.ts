@@ -57,16 +57,6 @@ export class AuthService {
         console.warn('⚠️ AuthService: Captain cache clear failed:', err);
       }
 
-      // Clear team cache service
-      try {
-        const { TeamCacheService } = await import('../cache/TeamCacheService');
-        const teamCache = TeamCacheService.getInstance();
-        await teamCache.clearCache();
-        console.log('✅ AuthService: Team cache cleared');
-      } catch (err) {
-        console.warn('⚠️ AuthService: Team cache clear failed:', err);
-      }
-
       // Clear competition cache service
       try {
         const { CompetitionCacheService } = await import(

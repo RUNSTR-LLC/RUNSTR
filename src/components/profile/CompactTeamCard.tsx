@@ -15,7 +15,7 @@ import {
 import { theme } from '../../styles/theme';
 import { Team } from '../../types';
 import { isTeamCaptain } from '../../utils/teamUtils';
-import { TeamMemberCache } from '../../services/team/TeamMemberCache';
+import { ClubMembershipService } from '../../services/backend/ClubMembershipService';
 import leagueRankingService from '../../services/competition/leagueRankingService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -57,15 +57,11 @@ export const CompactTeamCard: React.FC<CompactTeamCardProps> = ({
           scoringFrequency: 'daily' as const,
         };
 
-        // Get team members
-        const memberCache = TeamMemberCache.getInstance();
-        const members = await memberCache.getTeamMembers(
-          team.id,
-          team.captainId
-        );
-        const participants = members.map((pubkey) => ({
-          npub: pubkey,
-          name: pubkey.slice(0, 8) + '...',
+        // Get club members from Supabase
+        const clubMembers = await ClubMembershipService.getClubMembers(team.id);
+        const participants = clubMembers.map((m) => ({
+          npub: m.member_npub,
+          name: m.member_npub.slice(0, 8) + '...',
           isActive: true,
         }));
 

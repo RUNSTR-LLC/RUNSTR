@@ -175,8 +175,7 @@ export class AppInitializationService {
     try {
       console.log('[AppInit] 👥 Warming up team data...');
 
-      // TODO: Add team cache warming when TeamCacheService is enhanced
-      // For now, just log that it's a placeholder
+      // Team data now comes from Supabase clubs — no cache warming needed
 
       console.log(
         '[AppInit] ℹ️ Team data warm-up placeholder (no action needed)'

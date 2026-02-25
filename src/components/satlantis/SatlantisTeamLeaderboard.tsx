@@ -10,8 +10,6 @@ import { View, Text, StyleSheet, ActivityIndicator, Image } from 'react-native';
 import { theme } from '../../styles/theme';
 import type { TeamLeaderboardEntry } from '../../types/runstrEvent';
 import type { SatlantisEventStatus } from '../../types/satlantis';
-import { HARDCODED_TEAMS } from '../../constants/hardcodedTeams';
-
 interface SatlantisTeamLeaderboardProps {
   entries: TeamLeaderboardEntry[];
   isLoading: boolean;
@@ -25,16 +23,9 @@ export const SatlantisTeamLeaderboard: React.FC<SatlantisTeamLeaderboardProps> =
   eventStatus,
   scoringType,
 }) => {
-  // Get team image from hardcoded teams
-  const getTeamImage = (teamId: string): string | undefined => {
-    const team = HARDCODED_TEAMS.find((t) => t.id === teamId);
-    const rawEvent = team?.rawEvent;
-    if (!rawEvent?.tags) return undefined;
-
-    const imageTag = rawEvent.tags.find(
-      (t: string[]) => t[0] === 'image' || t[0] === 'banner'
-    );
-    return imageTag?.[1];
+  // Team images now come from Supabase club data
+  const getTeamImage = (_teamId: string): string | undefined => {
+    return undefined;
   };
 
   // Upcoming events - show placeholder

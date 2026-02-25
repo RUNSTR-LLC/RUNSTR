@@ -110,9 +110,6 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
       case 'view_wallet':
         handleViewWallet();
         break;
-      case 'view_captain_dashboard':
-        handleViewCaptainDashboard(notification);
-        break;
       default:
         console.log('Unhandled action type:', action.type);
     }
@@ -135,7 +132,8 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
         handleViewWallet();
         break;
       case 'team_join_request':
-        handleViewCaptainDashboard(notification);
+        onClose();
+        navigation.navigate('Clubs');
         break;
       default:
         console.log('No default action for type:', notification.type);
@@ -166,11 +164,6 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
     navigation.navigate('Profile');
   };
 
-  const handleViewCaptainDashboard = (notification: UnifiedNotification) => {
-    onClose();
-    // Navigate to Clubs tab - captain can access dashboard from there
-    navigation.navigate('Clubs');
-  };
 
   const handleMarkAllAsRead = async () => {
     await unifiedNotificationStore.markAllAsRead();

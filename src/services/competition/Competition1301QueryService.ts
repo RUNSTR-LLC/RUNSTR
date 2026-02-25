@@ -6,8 +6,7 @@
 
 import type { NostrWorkout } from '../../types/nostrWorkout';
 import type { NostrActivityType } from '../../types/nostrCompetition';
-import { getTeamListDetector } from '../../utils/teamListDetector';
-import { TeamMemberCache } from '../team/TeamMemberCache';
+import { ClubMembershipService } from '../backend/ClubMembershipService';
 import { GlobalNDKService } from '../nostr/GlobalNDKService';
 
 export interface WorkoutMetrics {
@@ -67,45 +66,22 @@ export class Competition1301QueryService {
     // Get member list from kind 30000 if not provided
     let memberNpubs = query.memberNpubs;
 
-    if (!memberNpubs && query.teamId && query.captainPubkey) {
-      // Try to fetch from kind 30000 list
-      const detector = getTeamListDetector();
-      const haslist = await detector.hasKind30000List(
-        query.teamId,
-        query.captainPubkey
-      );
+    if (!memberNpubs && query.teamId) {
+      // Fetch members from Supabase club_memberships
+      const clubMembers = await ClubMembershipService.getClubMembers(query.teamId);
 
-      if (!haslist) {
-        console.warn(`❌ Team ${query.teamId} has no kind 30000 member list`);
+      if (!clubMembers || clubMembers.length === 0) {
+        console.warn(`⚠️ Club ${query.teamId} has no members`);
         return {
           metrics: new Map(),
           totalWorkouts: 0,
           queryTime: Date.now() - startTime,
           fromCache: false,
-          error:
-            'Team member list not found. Captain must create member list first.',
+          error: 'Club has no members.',
         };
       }
 
-      // Get members from cache or fetch from relays
-      const memberCache = TeamMemberCache.getInstance();
-      const members = await memberCache.getTeamMembers(
-        query.teamId,
-        query.captainPubkey
-      );
-
-      if (!members || members.length === 0) {
-        console.warn(`⚠️ Team ${query.teamId} has empty member list`);
-        return {
-          metrics: new Map(),
-          totalWorkouts: 0,
-          queryTime: Date.now() - startTime,
-          fromCache: false,
-          error: 'Team has no members. Add members to the team first.',
-        };
-      }
-
-      memberNpubs = members.map((m) => m.npub || m.pubkey);
+      memberNpubs = clubMembers.map((m) => m.member_npub);
     }
 
     if (!memberNpubs || memberNpubs.length === 0) {

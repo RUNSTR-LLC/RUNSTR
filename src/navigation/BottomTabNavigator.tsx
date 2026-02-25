@@ -79,12 +79,10 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
   const {
     user,
     profileData,
-    availableTeams,
     isLoading,
     isLoadingTeam,
     error,
     refresh,
-    loadTeams,
     loadWallet,
     prefetchLeaguesInBackground,
   } = useNavigationData();
@@ -188,9 +186,6 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
                   });
                 }
               }}
-              onCaptainDashboard={() =>
-                handlers.handleCaptainDashboard(navigation)
-              }
               onEditProfile={handlers.handleEditProfile}
               onSend={handlers.handleWalletSend}
               onReceive={handlers.handleWalletReceive}

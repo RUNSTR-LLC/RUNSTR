@@ -20,7 +20,6 @@
  */
 
 import { DirectNostrProfileService } from '../user/directNostrProfileService';
-import { getNostrTeamService } from './NostrTeamService';
 import { TeamMembershipService } from '../team/teamMembershipService';
 import { getUserNostrIdentifiers } from '../../utils/nostr';
 import unifiedCache from '../cache/UnifiedNostrCache';
@@ -180,101 +179,42 @@ export class NostrPrefetchService {
         CacheKeys.USER_TEAMS(hexPubkey),
         async () => {
           const membershipService = TeamMembershipService.getInstance();
-          const teamService = getNostrTeamService();
-
-          // Get local memberships (teams the user belongs to)
           const memberships = await membershipService.getLocalMemberships(
             hexPubkey
           );
 
-          // Get discovered teams for enrichment
-          let discoveredTeams = teamService.getDiscoveredTeams();
-
-          // Ensure discovered teams exist
-          if (discoveredTeams.size === 0) {
-            await teamService.discoverFitnessTeams();
-            discoveredTeams = teamService.getDiscoveredTeams();
-          }
-
-          // Get user identifiers for captain detection
-          const identifiers = await getUserNostrIdentifiers();
-          const userNpub = identifiers?.npub || '';
-
-          // Initialize user teams array
           const userTeams: any[] = [];
 
           // 1. Get teams where user is captain
           const captainTeams = await CaptainCache.getCaptainTeams();
-          console.log(
-            `[Prefetch] Found ${captainTeams.length} captain teams in cache`
-          );
-
           for (const teamId of captainTeams) {
-            const team = discoveredTeams.get(teamId);
-            if (team) {
-              console.log(`[Prefetch] ✅ Found captain's team: ${team.name}`);
-              userTeams.push({
-                id: team.id,
-                name: team.name,
-                description: team.description || '',
-                prizePool: 0,
-                memberCount: team.memberCount || 0,
-                isActive: true,
-                role: 'captain',
-                bannerImage: team.bannerImage,
-                captainId: team.captainId,
-                charityId: team.charityId,
-              });
-            }
+            userTeams.push({
+              id: teamId,
+              name: 'Team',
+              description: '',
+              prizePool: 0,
+              memberCount: 0,
+              isActive: true,
+              role: 'captain',
+            });
           }
 
-          // 2. Get all local memberships and enrich with discovered team data
-          console.log(
-            `[Prefetch] Found ${memberships.length} local memberships`
-          );
-
+          // 2. Get all local memberships
           for (const membership of memberships) {
-            // Skip if already added as captain
-            if (userTeams.some((t) => t.id === membership.teamId)) {
-              continue;
-            }
-
-            const team = discoveredTeams.get(membership.teamId);
-
-            if (team) {
-              // Enrich with discovered team data
-              const isCaptain =
-                team.captainId === hexPubkey || team.captainId === userNpub;
-              userTeams.push({
-                id: team.id,
-                name: team.name,
-                description: team.description || '',
-                prizePool: 0,
-                memberCount: team.memberCount || 0,
-                isActive: true,
-                role: isCaptain ? 'captain' : 'member',
-                bannerImage: team.bannerImage,
-                captainId: team.captainId,
-                charityId: team.charityId,
-              });
-            } else {
-              // Team not in discovered teams, use membership data
-              userTeams.push({
-                id: membership.teamId,
-                name: membership.teamName,
-                description: '',
-                prizePool: 0,
-                memberCount: 0,
-                isActive: true,
-                role: membership.status === 'official' ? 'member' : 'pending',
-                captainId: membership.captainPubkey,
-              });
-            }
+            if (userTeams.some((t) => t.id === membership.teamId)) continue;
+            userTeams.push({
+              id: membership.teamId,
+              name: membership.teamName,
+              description: '',
+              prizePool: 0,
+              memberCount: 0,
+              isActive: true,
+              role: membership.status === 'official' ? 'member' : 'pending',
+              captainId: membership.captainPubkey,
+            });
           }
 
-          console.log(
-            `[Prefetch] ✅ Built ${userTeams.length} enriched teams for user`
-          );
+          console.log(`[Prefetch] ✅ Built ${userTeams.length} teams for user`);
           return userTeams;
         },
         { ttl: CacheTTL.USER_TEAMS }
@@ -285,7 +225,6 @@ export class NostrPrefetchService {
       );
     } catch (error) {
       console.error('[Prefetch] User teams failed:', error);
-      // Set empty array as fallback
       await unifiedCache.set(
         CacheKeys.USER_TEAMS(hexPubkey),
         [],
@@ -324,70 +263,8 @@ export class NostrPrefetchService {
    * PERFORMANCE: With 5-second timeout to prevent blocking
    */
   private async prefetchDiscoveredTeams(): Promise<void> {
-    try {
-      // PERFORMANCE FIX: Add timeout to prevent indefinite blocking
-      const teams = await Promise.race([
-        unifiedCache.get(
-          CacheKeys.DISCOVERED_TEAMS,
-          async () => {
-            const teamService = getNostrTeamService();
-
-            // Trigger team discovery if not already done
-            const cachedTeams = teamService.getDiscoveredTeams();
-            if (cachedTeams.size === 0) {
-              await teamService.discoverFitnessTeams();
-            }
-
-            // Convert Map to array
-            return Array.from(teamService.getDiscoveredTeams().values());
-          },
-          { ttl: CacheTTL.DISCOVERED_TEAMS }
-        ),
-        new Promise<any[]>((_, reject) =>
-          setTimeout(() => reject(new Error('Team discovery timeout')), 5000)
-        ),
-      ]);
-
-      // Populate CaptainCache for all discovered teams
-      // This ensures captain status is detected during prefetch
-      const identifiers = await getUserNostrIdentifiers();
-      if (identifiers && teams && teams.length > 0) {
-        const { hexPubkey, npub } = identifiers;
-        console.log(
-          '[Prefetch] Checking captain status for',
-          teams.length,
-          'teams'
-        );
-
-        for (const team of teams) {
-          const teamCaptain =
-            team.captain || team.captainId || team.captainNpub;
-          if (teamCaptain) {
-            const isCaptain = teamCaptain === hexPubkey || teamCaptain === npub;
-            if (isCaptain) {
-              await CaptainCache.setCaptainStatus(team.id, true);
-              console.log(
-                `[Prefetch] ✅ User is captain of team: ${team.name}`
-              );
-            }
-          }
-        }
-      }
-
-      console.log('[Prefetch] Discovered teams cached:', teams?.length || 0);
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message === 'Team discovery timeout'
-      ) {
-        console.warn(
-          '[Prefetch] Team discovery timed out - teams will load on demand'
-        );
-      } else {
-        console.error('[Prefetch] Discovered teams failed:', error);
-      }
-      // Continue without blocking - teams will load on demand
-    }
+    // Teams/clubs now loaded from Supabase via ClubService — no relay prefetch needed
+    console.log('[Prefetch] Teams loaded from Supabase (no relay prefetch)');
   }
 
   /**

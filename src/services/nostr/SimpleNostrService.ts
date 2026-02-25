@@ -13,11 +13,10 @@
  */
 
 import { SimplePool, type Event, type Filter } from 'nostr-tools';
-import type {
-  NostrTeam,
-  NostrTeamEvent,
-  TeamDiscoveryFilters,
-} from './NostrTeamService';
+// Types previously imported from NostrTeamService (now deleted)
+interface NostrTeam { id: string; name: string; [key: string]: any; }
+interface NostrTeamEvent { id: string; [key: string]: any; }
+interface TeamDiscoveryFilters { limit?: number; [key: string]: any; }
 
 export interface SimpleQueryResult {
   success: boolean;

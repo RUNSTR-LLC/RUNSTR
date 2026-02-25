@@ -23,7 +23,6 @@ export * from './PerformanceLogger';
 export * from './profileValidation';
 export * from './progressiveLoader';
 export * from './storage';
-export * from './teamListDetector';
 export * from './teamMatching';
 export * from './teamUtils';
 export * from './TTLDeduplicator';

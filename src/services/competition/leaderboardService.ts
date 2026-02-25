@@ -7,8 +7,13 @@
 import type { Event } from 'nostr-tools';
 import { GlobalNDKService } from '../nostr/GlobalNDKService';
 import type { NDKFilter, NDKEvent, NDKSubscription } from '@nostr-dev-kit/ndk';
-import { NostrTeamService } from '../nostr/NostrTeamService';
-import type { NostrTeam } from '../nostr/NostrTeamService';
+interface NostrTeam {
+  id: string;
+  name: string;
+  captainId: string;
+  memberListEventId?: string;
+  [key: string]: any;
+}
 import type { NostrCompetition } from '../integrations/NostrCompetitionContextService';
 import type { CompetitionGoalType } from '../../types/nostrCompetition';
 
@@ -65,13 +70,10 @@ export interface CompetitionStats {
 }
 
 export class LeaderboardService {
-  private teamService: NostrTeamService;
   private cachedLeaderboards: Map<string, CompetitionLeaderboard> = new Map();
   private static instance: LeaderboardService;
 
-  constructor() {
-    this.teamService = new NostrTeamService();
-  }
+  constructor() {}
 
   static getInstance(): LeaderboardService {
     if (!LeaderboardService.instance) {
@@ -96,8 +98,10 @@ export class LeaderboardService {
     );
 
     try {
-      // Get team members (fast list query)
-      const teamMembers = await this.teamService.getTeamMembers(team);
+      // Get team members via Supabase
+      const { ClubMembershipService } = await import('../../services/backend/ClubMembershipService');
+      const clubMembers = await ClubMembershipService.getClubMembers(team.id);
+      const teamMembers = clubMembers.map((m) => m.member_npub);
       console.log(
         `👥 Found ${teamMembers.length} team members for competition`
       );
@@ -242,8 +246,10 @@ export class LeaderboardService {
       `🔔 Subscribing to leaderboard updates for: ${competition.name}`
     );
 
-    // Get team members for targeted subscription
-    const teamMembers = await this.teamService.getTeamMembers(team);
+    // Get team members via Supabase
+    const { ClubMembershipService } = await import('../../services/backend/ClubMembershipService');
+    const clubMembers = await ClubMembershipService.getClubMembers(team.id);
+    const teamMembers = clubMembers.map((m) => m.member_npub);
 
     // Determine competition time range for subscription
     let startTime: number, endTime: number;

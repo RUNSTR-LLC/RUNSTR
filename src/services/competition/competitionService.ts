@@ -10,10 +10,16 @@ import {
   NostrRelayManager,
   nostrRelayManager,
 } from '../nostr/NostrRelayManager';
-import { NostrTeamService } from '../nostr/NostrTeamService';
 import EventEligibilityService from './eventEligibilityService';
 import type { NostrFilter } from '../nostr/NostrProtocolHandler';
-import type { NostrTeam } from '../nostr/NostrTeamService';
+
+interface NostrTeam {
+  id: string;
+  name: string;
+  captainId: string;
+  memberListEventId?: string;
+  [key: string]: any;
+}
 import type {
   EligibleEvent,
   EventAutoEntryResult,
@@ -93,13 +99,11 @@ export interface CompetitionLeaderboard {
 
 export class CompetitionService {
   private relayManager: NostrRelayManager;
-  private teamService: NostrTeamService;
   private activeCompetitions: Map<string, Competition> = new Map();
   private static instance: CompetitionService;
 
   constructor(relayManager?: NostrRelayManager) {
     this.relayManager = relayManager || nostrRelayManager;
-    this.teamService = new NostrTeamService();
   }
 
   static getInstance(relayManager?: NostrRelayManager): CompetitionService {

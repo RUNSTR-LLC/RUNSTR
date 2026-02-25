@@ -6,10 +6,7 @@
 import { DiscoveryTeam } from '../types';
 import { useUserStore } from '../store/userStore';
 import { AuthService } from '../services/auth/authService';
-import { getNostrTeamService } from '../services/nostr/NostrTeamService';
-import { CaptainDetectionService } from '../services/team/captainDetectionService';
 import { isTeamMember, isTeamCaptain } from '../utils/teamUtils';
-import { DirectNostrProfileService } from '../services/user/directNostrProfileService';
 import { CaptainCache } from '../utils/captainCache';
 import { CustomAlertManager } from '../components/ui/CustomAlert';
 
@@ -31,7 +28,6 @@ export interface NavigationHandlers {
     navigation: any,
     userNpub?: string
   ) => Promise<void>;
-  handleTeamDiscoveryClose: () => void;
   handleMenuPress: (navigation: any) => void;
   handleLeaveTeam: (
     navigation: any,
@@ -41,11 +37,6 @@ export interface NavigationHandlers {
   handleAnnouncements: () => void;
   handleAddEvent: (navigation: any) => void;
   handleAddChallenge: (navigation: any) => void;
-  handleCaptainDashboard: (
-    navigation: any,
-    teamId?: string,
-    teamName?: string
-  ) => void;
   handleNavigateToTeam: (teamId: string, navigation: any) => void;
   handleOnboardingComplete: (
     data: {
@@ -81,97 +72,19 @@ export interface NavigationHandlers {
 
 export const createNavigationHandlers = (): NavigationHandlers => {
   return {
-    // Team Discovery Handlers
+    // Team Join - handled via Supabase ClubMembershipService in club pages
     handleTeamJoin: async (
       team: DiscoveryTeam,
       navigation: any,
       refreshData?: () => Promise<void>
     ) => {
-      try {
-        console.log(
-          'NavigationHandlers: User attempting to join team:',
-          team.name
-        );
-
-        // Use NostrTeamService for pure Nostr joining
-        const nostrTeamService = getNostrTeamService();
-        const cachedTeams = Array.from(
-          nostrTeamService.getDiscoveredTeams().values()
-        );
-        const nostrTeam = cachedTeams.find((t) => t.id === team.id);
-
-        if (!nostrTeam) {
-          CustomAlertManager.alert(
-            'Error',
-            'Team not found. Please refresh and try again.'
-          );
-          return;
-        }
-
-        const joinResult = await nostrTeamService.joinTeam(nostrTeam);
-
-        if (joinResult.success) {
-          console.log(
-            'NavigationHandlers: Successfully joined team:',
-            team.name
-          );
-
-          // Refresh data if callback provided
-          if (refreshData) {
-            console.log(
-              'NavigationHandlers: Refreshing app data after team join...'
-            );
-            await refreshData();
-            console.log('NavigationHandlers: Data refresh complete');
-          }
-
-          // Resolve the user's npub for navigation
-          let resolvedNpub: string | undefined;
-          try {
-            const userData = await AuthService.getCurrentUserWithWallet();
-            resolvedNpub = userData?.npub;
-          } catch {
-            const user = useUserStore.getState().user;
-            resolvedNpub = user?.npub;
-          }
-
-          // Show success message
-          CustomAlertManager.alert(
-            'Welcome to the Team!',
-            `You've successfully joined ${team.name}! Start earning Bitcoin through fitness challenges.`,
-            [
-              {
-                text: 'OK',
-                onPress: () => {
-                  // Navigate to team dashboard to show the joined team
-                  navigation.navigate('EnhancedTeamScreen', {
-                    team,
-                    userIsMember: true,
-                    currentUserNpub: resolvedNpub,
-                  });
-                },
-              },
-            ]
-          );
-        } else {
-          console.error(
-            'NavigationHandlers: Team join failed:',
-            joinResult.error
-          );
-          CustomAlertManager.alert(
-            'Join Failed',
-            joinResult.error || 'Unable to join team. Please try again.'
-          );
-        }
-      } catch (error) {
-        console.error(
-          'NavigationHandlers: Unexpected error joining team:',
-          error
-        );
-        CustomAlertManager.alert(
-          'Error',
-          'An unexpected error occurred while joining the team'
-        );
+      console.log(
+        'NavigationHandlers: Team join via clubs page:',
+        team.name
+      );
+      // Club joining is now handled directly in the club page via Supabase
+      if (refreshData) {
+        await refreshData();
       }
     },
 
@@ -282,11 +195,6 @@ export const createNavigationHandlers = (): NavigationHandlers => {
       });
     },
 
-    handleTeamDiscoveryClose: () => {
-      console.log('Team discovery closed');
-      // TODO: Analytics for abandonment tracking
-    },
-
     // Team Screen Handlers
     handleMenuPress: (navigation: any) => {
       console.log('Menu pressed');
@@ -353,118 +261,6 @@ export const createNavigationHandlers = (): NavigationHandlers => {
         'Challenge creation is being optimized for Nostr workflows. Available in next update!',
         [{ text: 'OK' }]
       );
-    },
-
-    // Profile Screen Handlers
-    handleCaptainDashboard: async (
-      navigation: any,
-      teamId?: string,
-      teamName?: string
-    ) => {
-      try {
-        console.log(
-          '🎖️ NavigationHandlers: Captain dashboard access requested'
-        );
-        console.log('🎖️ NavigationHandlers: Parameters received:', {
-          teamId,
-          teamName,
-          hasNavigation: !!navigation,
-        });
-
-        // Get current user from store
-        const user = useUserStore.getState().user;
-        if (!user) {
-          console.error('❌ NavigationHandlers: No user in store');
-          CustomAlertManager.alert(
-            'Access Denied',
-            'Please sign in to access the captain dashboard'
-          );
-          return;
-        }
-
-        console.log(
-          '✅ NavigationHandlers: User found:',
-          user.npub?.slice(0, 8) + '...'
-        );
-
-        // First check cached captain status
-        let isCaptain = false;
-        let captainTeamId = teamId;
-        let captainTeamName = teamName;
-
-        if (teamId) {
-          // Check specific team
-          const cachedStatus = await CaptainCache.getCaptainStatus(teamId);
-          isCaptain = cachedStatus === true;
-        } else {
-          // Check if captain of any team
-          const captainTeams = await CaptainCache.getCaptainTeams();
-          if (captainTeams.length > 0) {
-            isCaptain = true;
-            captainTeamId = captainTeams[0]; // Use first team for now
-          }
-        }
-
-        // If no cached data, try captain detection service
-        if (!isCaptain) {
-          const captainService = CaptainDetectionService.getInstance();
-          const captainStatus = await captainService.getCaptainStatus(user.id);
-
-          if (
-            captainStatus.isCaptain &&
-            captainStatus.captainOfTeams.length > 0
-          ) {
-            isCaptain = true;
-            captainTeamId = captainStatus.captainOfTeams[0];
-            // Cache for next time
-            await CaptainCache.setCaptainStatus(captainTeamId, true);
-          }
-        }
-
-        if (!isCaptain) {
-          console.log(
-            '❌ NavigationHandlers: User is not a captain of any team'
-          );
-          CustomAlertManager.alert(
-            'Access Denied',
-            'Only team captains can access the dashboard. Create a team to become a captain.'
-          );
-          return;
-        }
-
-        console.log(
-          `✅ NavigationHandlers: Captain access granted for team ${captainTeamId}`
-        );
-
-        // Navigate to captain dashboard with team information
-        console.log(
-          '🚀 NavigationHandlers: Attempting navigation with params:',
-          {
-            teamId: captainTeamId,
-            teamName: captainTeamName || 'Team',
-            isCaptain: true,
-            userNpub: user.npub,
-          }
-        );
-
-        navigation.navigate('CaptainDashboard', {
-          teamId: captainTeamId,
-          teamName: captainTeamName || 'Team',
-          isCaptain: true,
-          userNpub: user.npub, // Pass userNpub for authentication
-        });
-
-        console.log('✅ NavigationHandlers: Navigation call completed');
-      } catch (error) {
-        console.error(
-          '❌ NavigationHandlers: Error checking captain dashboard access:',
-          error
-        );
-        CustomAlertManager.alert(
-          'Error',
-          'Unable to verify captain permissions. Please try again.'
-        );
-      }
     },
 
     handleNavigateToTeam: (teamId: string, navigation: any) => {

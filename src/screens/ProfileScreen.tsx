@@ -64,7 +64,6 @@ interface ProfileScreenProps {
   onNavigateToTeam: () => void;
   onNavigateToTeamDiscovery?: () => void;
   onViewCurrentTeam?: () => void;
-  onCaptainDashboard?: () => void;
   onEditProfile?: () => void;
   onSend?: () => void;
   onReceive?: () => void;
@@ -86,7 +85,6 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
   onNavigateToTeam,
   onNavigateToTeamDiscovery,
   onViewCurrentTeam,
-  onCaptainDashboard,
   onEditProfile,
   onSend,
   onReceive,
@@ -349,7 +347,6 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
       currentTeam: data.currentTeam,
       onNavigateToTeamDiscovery,
       onViewCurrentTeam,
-      onCaptainDashboard,
       onHelp,
       onContactSupport,
       onPrivacyPolicy,
@@ -360,7 +357,6 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
     data.currentTeam,
     onNavigateToTeamDiscovery,
     onViewCurrentTeam,
-    onCaptainDashboard,
     onHelp,
     onContactSupport,
     onPrivacyPolicy,

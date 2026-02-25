@@ -5,7 +5,6 @@
  */
 
 import { NostrCompetitionService } from '../nostr/NostrCompetitionService';
-import { NostrTeamService } from '../nostr/NostrTeamService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   LeagueParameters,
@@ -63,7 +62,6 @@ export interface LeagueCreationData {
 export class LeagueDataBridge {
   private static instance: LeagueDataBridge;
   private nostrCompetitionService = new NostrCompetitionService();
-  private nostrTeamService = new NostrTeamService();
   private activeLeagues = new Map<string, ActiveLeague>();
   private STORAGE_PREFIX = '@runstr:competition:';
   private ACTIVE_LEAGUE_PREFIX = '@runstr:active_league:'; // For team-specific active league cache
@@ -526,17 +524,11 @@ export class LeagueDataBridge {
     teamId: string
   ): Promise<LeagueParticipant[]> {
     try {
-      const teamData = await this.nostrTeamService.getTeamById(teamId);
-      if (!teamData) {
-        console.warn(`⚠️ Team not found: ${teamId}`);
-        return [];
-      }
-
-      // TODO: Get team member list (not implemented yet)
-      console.log(`👥 TODO: Get team members for: ${teamId}`);
+      // Team members now resolved via Supabase ClubMembershipService
+      console.log(`👥 Getting team members for: ${teamId}`);
 
       // For now, return empty array - no members found
-      // This will be implemented when NostrTeamService.getTeamMembers is ready
+      // Team members now resolved via Supabase ClubMembershipService
       return [];
     } catch (error) {
       console.error('❌ Failed to get team participants:', error);

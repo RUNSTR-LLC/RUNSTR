@@ -1,26 +1,21 @@
 /**
  * Navigation Data Hook - OPTIMIZED
  * Lazy-loads data per tab/screen for fast startup
+ * Uses Supabase for clubs/teams (no Nostr relay queries)
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import { AuthService } from '../services/auth/authService';
-import { getNostrTeamService } from '../services/nostr/NostrTeamService';
 import { DirectNostrProfileService } from '../services/user/directNostrProfileService';
 import { appCache } from '../utils/cache';
 import { CaptainCache } from '../utils/captainCache';
 import { TeamMembershipService } from '../services/team/teamMembershipService';
-import { TeamMemberCache } from '../services/team/TeamMemberCache';
-import { isTeamCaptainEnhanced } from '../utils/teamUtils';
 import { getUserNostrIdentifiers } from '../utils/nostr';
-import { CompetitionService } from '../services/competition/competitionService';
 import type {
   TeamScreenData,
   ProfileScreenData,
   UserWithWallet,
-  DiscoveryTeam,
 } from '../types';
-import type { CaptainDashboardData } from '../screens/CaptainDashboardScreen';
 import type { WalletData } from '../screens/WalletScreen';
 
 export interface NavigationData {
@@ -28,15 +23,10 @@ export interface NavigationData {
   teamData: TeamScreenData | null;
   profileData: ProfileScreenData | null;
   walletData: WalletData | null;
-  captainDashboardData: CaptainDashboardData | null;
-  availableTeams: DiscoveryTeam[];
   isLoading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
-  // New lazy-load methods
-  loadTeams: () => Promise<void>;
   loadWallet: () => Promise<void>;
-  loadCaptainDashboard: () => Promise<void>;
 }
 
 export const useNavigationData = (): NavigationData => {
@@ -46,89 +36,9 @@ export const useNavigationData = (): NavigationData => {
     null
   );
   const [walletData, setWalletData] = useState<WalletData | null>(null);
-  const [captainDashboardData, setCaptainDashboardData] =
-    useState<CaptainDashboardData | null>(null);
-  const [availableTeams, setAvailableTeams] = useState<DiscoveryTeam[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [teamsLoaded, setTeamsLoaded] = useState(false);
   const [walletLoaded, setWalletLoaded] = useState(false);
-
-  const fetchTeamData = async (teamId: string): Promise<void> => {
-    try {
-      console.log(`📊 Loading team data for: ${teamId}`);
-
-      // Get team from NostrTeamService
-      const teamService = getNostrTeamService();
-      let discoveredTeams = teamService.getDiscoveredTeams();
-      let team = discoveredTeams.get(teamId);
-
-      // If team not found, try to discover teams first
-      if (!team) {
-        console.log('⚠️ Team not found in cache, discovering teams...');
-        await loadTeams();
-        discoveredTeams = teamService.getDiscoveredTeams();
-        team = discoveredTeams.get(teamId);
-      }
-
-      if (!team) {
-        console.log('⚠️ Team not found even after discovery');
-        return;
-      }
-
-      // Get competitions for this team
-      const competitionService = CompetitionService.getInstance();
-      const allCompetitions = competitionService.getAllCompetitions();
-
-      // Filter for this team's competitions that haven't ended
-      const now = Date.now() / 1000;
-      const teamCompetitions = allCompetitions.filter((comp) => {
-        return comp.teamId === teamId && comp.endTime >= now;
-      });
-
-      console.log(
-        `📊 Found ${teamCompetitions.length} active/upcoming competitions for team`
-      );
-
-      // Convert competitions to events format
-      const events = teamCompetitions.map((comp) => ({
-        id: comp.id,
-        name: comp.name,
-        startDate: new Date(comp.startTime * 1000).toISOString(),
-        endDate: new Date(comp.endTime * 1000).toISOString(),
-        type: comp.type as 'event' | 'challenge',
-        description: comp.description,
-        prizePool: 0,
-        participantCount: 0,
-        status: comp.startTime > now ? 'upcoming' : 'active',
-      }));
-
-      // Create team data structure
-      const teamData: TeamScreenData = {
-        team: {
-          id: team.id,
-          name: team.name,
-          description: team.description || '',
-          memberCount: team.memberCount || 0,
-          captainId: team.captainId,
-          createdAt: new Date(team.createdAt * 1000).toISOString(),
-          activityType: team.activityType || 'Running',
-          stats: {
-            totalEvents: events.length,
-            totalPrizePool: 0,
-            averagePace: 'N/A',
-          },
-        },
-        leaderboard: [],
-        events,
-        challenges: [],
-      };
-
-      setTeamData(teamData);
-    } catch (error) {
-      console.error('Error fetching team data:', error);
-    }
-  };
 
   const fetchUserData = async (): Promise<UserWithWallet | null> => {
     try {
@@ -157,7 +67,6 @@ export const useNavigationData = (): NavigationData => {
       const fallbackUser = await DirectNostrProfileService.getFallbackProfile();
       if (fallbackUser) {
         setUser(fallbackUser);
-        // Don't set loading false yet - we're still fetching
       }
 
       // Step 2: Try direct Nostr profile
@@ -199,12 +108,10 @@ export const useNavigationData = (): NavigationData => {
   };
 
   /**
-   * Get user's team from cache and existing data sources
-   * Uses CaptainCache, TeamMembershipService, and discovered teams
+   * Get user's team from local cache (no Nostr relay queries)
    */
   const getUserTeamFromCache = async (user: UserWithWallet): Promise<any> => {
     try {
-      // Get user's Nostr identifiers for proper comparison
       const userIdentifiers = await getUserNostrIdentifiers();
       if (!userIdentifiers) {
         console.log('No user identifiers found for team detection');
@@ -213,29 +120,16 @@ export const useNavigationData = (): NavigationData => {
 
       // 1. Check CaptainCache for captain teams
       const captainTeams = await CaptainCache.getCaptainTeams();
-      console.log(`Found ${captainTeams.length} captain teams in cache`);
-
       if (captainTeams.length > 0) {
-        // User is captain of at least one team
-        // Try to get the team details from discovered teams
-        const teamService = getNostrTeamService();
-        const discoveredTeams = teamService.getDiscoveredTeams();
-
-        for (const teamId of captainTeams) {
-          const team = discoveredTeams.get(teamId);
-          if (team) {
-            console.log(`✅ Found captain's team from cache: ${team.name}`);
-            return {
-              id: team.id,
-              name: team.name,
-              description: team.description || '',
-              prizePool: 0,
-              memberCount: team.memberCount || 0,
-              isActive: true,
-              role: 'captain',
-            };
-          }
-        }
+        return {
+          id: captainTeams[0],
+          name: 'Team',
+          description: '',
+          prizePool: 0,
+          memberCount: 0,
+          isActive: true,
+          role: 'captain',
+        };
       }
 
       // 2. Check TeamMembershipService for local memberships
@@ -245,30 +139,7 @@ export const useNavigationData = (): NavigationData => {
       );
 
       if (localMemberships.length > 0) {
-        const membership = localMemberships[0]; // Use first membership
-        console.log(`✅ Found local membership: ${membership.teamName}`);
-
-        // Try to get full team details
-        const teamService = getNostrTeamService();
-        const discoveredTeams = teamService.getDiscoveredTeams();
-        const team = discoveredTeams.get(membership.teamId);
-
-        if (team) {
-          // Check if user is captain using enhanced detection
-          const isCaptain = isTeamCaptainEnhanced(userIdentifiers, team);
-
-          return {
-            id: team.id,
-            name: team.name,
-            description: team.description || '',
-            prizePool: 0,
-            memberCount: team.memberCount || 0,
-            isActive: true,
-            role: isCaptain ? 'captain' : 'member',
-          };
-        }
-
-        // Return basic membership info if team not found in discovered teams
+        const membership = localMemberships[0];
         return {
           id: membership.teamId,
           name: membership.teamName,
@@ -278,29 +149,6 @@ export const useNavigationData = (): NavigationData => {
           isActive: true,
           role: membership.status === 'official' ? 'member' : 'pending',
         };
-      }
-
-      // 3. Search discovered teams for captain match as last resort
-      const teamService = getNostrTeamService();
-      const discoveredTeams = teamService.getDiscoveredTeams();
-
-      for (const [teamId, team] of discoveredTeams) {
-        const isCaptain = isTeamCaptainEnhanced(userIdentifiers, team);
-        if (isCaptain) {
-          console.log(`✅ Found team where user is captain: ${team.name}`);
-          // Cache this for future use
-          await CaptainCache.setCaptainStatus(teamId, true);
-
-          return {
-            id: team.id,
-            name: team.name,
-            description: team.description || '',
-            prizePool: 0,
-            memberCount: team.memberCount || 0,
-            isActive: true,
-            role: 'captain',
-          };
-        }
       }
 
       console.log('No team found for user in any data source');
@@ -313,28 +161,20 @@ export const useNavigationData = (): NavigationData => {
 
   const fetchProfileData = async (user: UserWithWallet): Promise<void> => {
     try {
-      // For members, use cached balance (no real-time fetch needed)
       let realWalletBalance = user.walletBalance || 0;
 
-      // Fetch user's current team membership using cache-based approach
       let currentTeam = undefined;
       try {
-        // Use our new cache-based function instead of non-existent getUserTeams
         currentTeam = await getUserTeamFromCache(user);
-
         if (currentTeam) {
           console.log(
             `✅ Profile: Found user's team - ${currentTeam.name} (${currentTeam.role})`
           );
-        } else {
-          console.log('ℹ️ Profile: User has no team membership');
         }
       } catch (teamError) {
         console.log('Could not fetch user team:', teamError);
-        // Continue without team data
       }
 
-      // Build profile data without heavy operations
       const profileData: ProfileScreenData = {
         user: {
           id: user.id,
@@ -367,8 +207,8 @@ export const useNavigationData = (): NavigationData => {
             permissions: [],
           },
         ],
-        recentWorkouts: [], // Loaded separately by WorkoutsTab
-        currentTeam, // Now populated with real team data
+        recentWorkouts: [],
+        currentTeam,
         subscription: {
           type: user.role,
           status: 'active',
@@ -390,82 +230,14 @@ export const useNavigationData = (): NavigationData => {
     }
   };
 
-  const loadTeams = useCallback(async (): Promise<void> => {
-    if (teamsLoaded) return;
-
-    try {
-      // Check cache first
-      const cachedTeams = await appCache.get<DiscoveryTeam[]>(
-        'available_teams'
-      );
-      if (cachedTeams) {
-        setAvailableTeams(cachedTeams);
-        setTeamsLoaded(true);
-        // Refresh in background
-        fetchTeamsFresh();
-        return;
-      }
-
-      await fetchTeamsFresh();
-    } catch (error) {
-      console.error('Error loading teams:', error);
-      setError('Failed to load teams');
-    }
-  }, [teamsLoaded]);
-
-  const fetchTeamsFresh = async (): Promise<void> => {
-    try {
-      const nostrTeamService = getNostrTeamService();
-      const nostrTeams = await nostrTeamService.discoverFitnessTeams({
-        limit: 20, // Reduced from 50 for faster load
-      });
-
-      const discoveryTeams: DiscoveryTeam[] = nostrTeams.map((team) => ({
-        id: team.id,
-        name: team.name,
-        description: team.description,
-        about: team.description,
-        captainId: team.captainId,
-        prizePool: 0,
-        memberCount: team.memberCount,
-        joinReward: 0,
-        exitFee: 0,
-        isActive: team.isPublic,
-        avatar: '',
-        createdAt: new Date(team.createdAt * 1000).toISOString(),
-        difficulty: 'intermediate' as const,
-        stats: {
-          memberCount: team.memberCount,
-          avgPace: 'N/A',
-          activeEvents: 0,
-          activeChallenges: 0,
-        },
-        recentActivities: [],
-        recentPayout: undefined,
-        isFeatured: false,
-      }));
-
-      setAvailableTeams(discoveryTeams);
-      setTeamsLoaded(true);
-
-      // Cache for 5 minutes
-      await appCache.set('available_teams', discoveryTeams, 5 * 60 * 1000);
-    } catch (error) {
-      console.error('Error fetching teams:', error);
-      throw error;
-    }
-  };
-
   const loadWallet = useCallback(async (): Promise<void> => {
     if (walletLoaded || !user) return;
 
     try {
-      // Only fetch real-time balance for captains
       let realWalletBalance = user.walletBalance || 0;
 
       if (user.role === 'captain' && user.hasWalletCredentials) {
         try {
-          // Team wallets deprecated - use P2P NIP-60/61 payments
           const walletBalance = {
             lightning: 0,
             onchain: 0,
@@ -474,7 +246,6 @@ export const useNavigationData = (): NavigationData => {
           };
           realWalletBalance = walletBalance.total;
         } catch (error) {
-          // Use cached balance on error
           realWalletBalance = user.walletBalance || 0;
         }
       }
@@ -504,64 +275,15 @@ export const useNavigationData = (): NavigationData => {
     }
   }, [user, walletLoaded]);
 
-  const loadCaptainDashboard = useCallback(async (): Promise<void> => {
-    if (!user || user.role !== 'captain') return;
-
-    try {
-      // Get captain's team info from local storage or context
-      const teamId = user.currentTeamId || user.teamId || 'team_default';
-      const captainHexPubkey = user.pubkey || user.id;
-
-      // Try to load members from kind 30000 list
-      let members: string[] = [];
-      try {
-        const memberCache = TeamMemberCache.getInstance();
-        members = await memberCache.getTeamMembers(teamId, captainHexPubkey);
-        console.log(`Loaded ${members.length} members for captain dashboard`);
-      } catch (error) {
-        console.log('Could not load members from cache:', error);
-      }
-
-      const dashboardData: CaptainDashboardData = {
-        team: {
-          id: teamId,
-          name: user.teamName || 'My Team',
-          memberCount: members.length,
-          activeEvents: 0,
-          activeChallenges: 0,
-          prizePool: 0,
-        },
-        members: members.map((pubkey, index) => ({
-          id: pubkey,
-          name: pubkey.slice(0, 8) + '...',
-          status: 'active' as const,
-          eventCount: 0,
-          inactiveDays: 0,
-        })),
-        recentActivity: [],
-      };
-
-      setCaptainDashboardData(dashboardData);
-    } catch (error) {
-      console.error('Error loading captain dashboard:', error);
-    }
-  }, [user]);
-
   const refresh = async (): Promise<void> => {
     setIsLoading(true);
     setError(null);
-    setTeamsLoaded(false);
     setWalletLoaded(false);
 
     try {
       const userData = await fetchUserDataFresh();
       if (userData) {
         await fetchProfileData(userData);
-
-        // Refresh team data if user has a team
-        if (userData.currentTeamId || userData.teamId) {
-          await fetchTeamData(userData.currentTeamId || userData.teamId || '');
-        }
       }
     } catch (error) {
       console.error('Error refreshing navigation data:', error);
@@ -571,21 +293,12 @@ export const useNavigationData = (): NavigationData => {
     }
   };
 
-  // Initial load - user, profile data, and teams for captain detection
+  // Initial load
   useEffect(() => {
     const init = async () => {
       const userData = await fetchUserData();
       if (userData) {
-        // Load teams in parallel with profile data for better captain detection
-        await Promise.all([
-          fetchProfileData(userData),
-          loadTeams(), // Ensure teams are discovered for captain detection
-        ]);
-
-        // Load team data if user has a team
-        if (userData.currentTeamId || userData.teamId) {
-          await fetchTeamData(userData.currentTeamId || userData.teamId || '');
-        }
+        await fetchProfileData(userData);
       }
       setIsLoading(false);
     };
@@ -597,14 +310,9 @@ export const useNavigationData = (): NavigationData => {
     teamData,
     profileData,
     walletData,
-    captainDashboardData,
-    availableTeams,
     isLoading,
     error,
     refresh,
-    // Lazy load methods
-    loadTeams,
     loadWallet,
-    loadCaptainDashboard,
   };
 };

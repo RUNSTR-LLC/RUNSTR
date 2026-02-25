@@ -76,7 +76,6 @@ import Constants from 'expo-constants';
 // useAuth removed - using direct AsyncStorage.clear() + CommonActions.reset()
 
 interface SettingsScreenProps {
-  onCaptainDashboard?: () => void;
   onHelp?: () => void;
   onContactSupport?: () => void;
   onPrivacyPolicy?: () => void;
@@ -114,7 +113,6 @@ const SettingItem: React.FC<SettingItemProps> = ({
 };
 
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({
-  onCaptainDashboard,
   onHelp,
   onContactSupport,
   onPrivacyPolicy,
@@ -796,20 +794,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           />
         }
       >
-        {/* Captain Dashboard Access */}
-        {userRole === 'captain' && onCaptainDashboard && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>TEAM MANAGEMENT</Text>
-            <Card style={styles.card}>
-              <SettingItem
-                title="Captain Dashboard"
-                subtitle="Manage your team, events, and members"
-                onPress={onCaptainDashboard}
-              />
-            </Card>
-          </View>
-        )}
-
         {/* Privacy Settings */}
         <View style={styles.section}>
           <SettingsAccordion title="Privacy" defaultExpanded={false}>

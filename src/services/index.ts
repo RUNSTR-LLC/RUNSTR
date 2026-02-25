@@ -6,9 +6,6 @@ export { GlobalNDKService } from './nostr/GlobalNDKService';
 export { NostrProfileService } from './nostr/NostrProfileService';
 export { NostrRelayManager } from './nostr/NostrRelayManager';
 
-// Team services
-export { NdkTeamService } from './team/NdkTeamService';
-
 // Competition services
 export { SimpleCompetitionService } from './competition/SimpleCompetitionService';
 export { SimpleLeaderboardService } from './competition/SimpleLeaderboardService';

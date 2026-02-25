@@ -3,7 +3,15 @@
  * Simple utility functions for common team operations
  */
 
-import type { NostrTeam } from '../services/nostr/NostrTeamService';
+// Minimal team type for captain detection (replaces deleted NostrTeamService type)
+interface NostrTeam {
+  id: string;
+  name: string;
+  captainId?: string;
+  captainHex?: string;
+  members?: string[];
+  [key: string]: any;
+}
 import type { DiscoveryTeam } from '../types';
 import { nip19 } from 'nostr-tools';
 

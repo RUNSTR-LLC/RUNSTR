@@ -70,16 +70,16 @@ export const LeagueDetailScreen: React.FC<LeagueDetailScreenProps> = ({
       console.log('✅ League loaded:', league.name);
       setLeagueData(league);
 
-      // Get team members
-      const TeamMemberCache = (
-        await import('../services/team/TeamMemberCache')
-      ).TeamMemberCache.getInstance();
-      const members = await TeamMemberCache.getTeamMembers(
-        league.teamId,
-        league.captainPubkey
+      // Get club members from Supabase
+      const { ClubMembershipService } = await import(
+        '../services/backend/ClubMembershipService'
       );
+      const clubMembers = await ClubMembershipService.getClubMembers(
+        league.teamId
+      );
+      const members = clubMembers.map((m) => m.member_npub);
 
-      console.log(`Found ${members.length} team members`);
+      console.log(`Found ${members.length} club members`);
 
       // Calculate leaderboard
       const SimpleLeaderboardService = (

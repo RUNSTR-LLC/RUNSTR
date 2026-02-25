@@ -1,9 +1,7 @@
 import NDK, { NDKEvent, NDKFilter } from '@nostr-dev-kit/ndk';
-import { getNostrTeamService } from './NostrTeamService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { appCache } from '../../utils/cache';
 import { getNpubFromStorage } from '../../utils/nostr';
-import { TeamCacheService } from '../cache/TeamCacheService';
 import { GlobalNDKService } from './GlobalNDKService';
 
 interface InitializationProgress {
@@ -17,11 +15,8 @@ export class NostrInitializationService {
   private ndk: NDK | null = null;
   private isInitialized = false;
   private prefetchedTeams: any[] = [];
-  private teamService: ReturnType<typeof getNostrTeamService>;
 
-  private constructor() {
-    this.teamService = getNostrTeamService();
-  }
+  private constructor() {}
 
   static getInstance(): NostrInitializationService {
     if (!NostrInitializationService.instance) {
@@ -89,27 +84,8 @@ export class NostrInitializationService {
   }
 
   async prefetchTeams(): Promise<void> {
-    console.log(
-      '🏃 Pre-fetching teams using TeamCacheService (30-min cache)...'
-    );
-
-    try {
-      // Use TeamCacheService as single source of truth (30-min TTL + 5-min background refresh)
-      const cacheService = TeamCacheService.getInstance();
-      const teams = await cacheService.getTeams();
-
-      if (teams && teams.length > 0) {
-        this.prefetchedTeams = teams;
-        console.log(
-          `✅ Pre-fetched and cached ${teams.length} teams via TeamCacheService`
-        );
-      } else {
-        console.log('⚠️ No teams found during prefetch');
-      }
-    } catch (error) {
-      console.error('❌ Team pre-fetch failed:', error);
-      // Don't throw - this is non-critical
-    }
+    // Teams/clubs now loaded from Supabase via ClubService — no relay prefetch needed
+    console.log('⚡ Teams loaded from Supabase (no relay prefetch needed)');
   }
 
   async prefetchWorkouts(): Promise<void> {

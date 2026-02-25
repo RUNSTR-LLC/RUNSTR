@@ -40,7 +40,6 @@ interface SimpleTeamScreenProps {
     challenges?: any[];
   };
   onBack: () => void;
-  onCaptainDashboard: () => void;
   onAddChallenge?: () => void;
   onAddEvent?: () => void;
   onEventPress?: (eventId: string, eventData?: any) => void;
@@ -55,7 +54,6 @@ interface SimpleTeamScreenProps {
 export const SimpleTeamScreen: React.FC<SimpleTeamScreenProps> = ({
   data,
   onBack,
-  onCaptainDashboard,
   onEventPress,
   showJoinButton = false,
   userIsMemberProp = false,
@@ -397,17 +395,6 @@ export const SimpleTeamScreen: React.FC<SimpleTeamScreenProps> = ({
 
           {/* Action Buttons */}
           <View style={styles.actionButtons}>
-            {/* Captain Dashboard Button */}
-            {userIsCaptain && (
-              <TouchableOpacity
-                style={styles.captainButton}
-                onPress={onCaptainDashboard}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.captainButtonText}>Captain Dashboard</Text>
-              </TouchableOpacity>
-            )}
-
             {/* Competition Team Button */}
             {showJoinButton && !isCompetitionTeam && (
               <TouchableOpacity
@@ -723,21 +710,6 @@ const styles = StyleSheet.create({
   // Action Buttons
   actionButtons: {
     gap: 12,
-  },
-  captainButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.text,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    gap: 8,
-  },
-  captainButtonText: {
-    color: theme.colors.background,
-    fontSize: 16,
-    fontWeight: '600',
   },
   joinButton: {
     backgroundColor: theme.colors.text,

@@ -157,11 +157,9 @@ import { AppNavigator } from './navigation/AppNavigator';
 import { BottomTabNavigator } from './navigation/BottomTabNavigator';
 import { navigationRef, navigate as navigationRefNavigate } from './navigation/navigationRef';
 import { createStackNavigator } from '@react-navigation/stack';
-import { EventDetailScreen } from './screens/EventDetailScreen';
 import { LeagueDetailScreen } from './screens/LeagueDetailScreen';
 // Use SimpleTeamScreen instead of EnhancedTeamScreen to avoid freeze issues
 const SimpleTeamScreen = React.lazy(() => import('./screens/SimpleTeamScreen'));
-import { CaptainDashboardScreen } from './screens/CaptainDashboardScreen';
 import { HelpSupportScreen } from './screens/HelpSupportScreen';
 import { ContactSupportScreen } from './screens/ContactSupportScreen';
 import { PrivacyPolicyScreen } from './screens/PrivacyPolicyScreen';
@@ -480,75 +478,6 @@ const AuthenticatedNavigator: React.FC = () => {
                     events: [],
                   }}
                   onBack={() => navigation.goBack()}
-                  onCaptainDashboard={() => {
-                    console.log('Captain dashboard from EnhancedTeamScreen');
-                    console.log(
-                      'Navigating to CaptainDashboard with team:',
-                      team?.id
-                    );
-                    console.log(
-                      'Team object has captainId field:',
-                      'captainId' in (team || {})
-                    );
-                    console.log('Team captainId value:', team?.captainId);
-                    console.log(
-                      'Team captainId length:',
-                      team?.captainId?.length
-                    );
-                    console.log(
-                      'Team captainId format:',
-                      team?.captainId?.startsWith('npub')
-                        ? 'npub'
-                        : team?.captainId?.length === 64
-                        ? 'hex'
-                        : 'other'
-                    );
-                    console.log(
-                      'Passing userNpub:',
-                      currentUserNpub?.slice(0, 20) + '...'
-                    );
-
-                    // Ensure we pass the captain ID in hex format
-                    const teamCaptainIdToPass = team?.captainId || '';
-                    console.log(
-                      'Final teamCaptainId being passed:',
-                      teamCaptainIdToPass?.slice(0, 20) + '...'
-                    );
-
-                    navigation.navigate('CaptainDashboard', {
-                      teamId: team?.id,
-                      teamName: team?.name,
-                      teamCaptainId: teamCaptainIdToPass,
-                      isCaptain: true,
-                      userNpub: currentUserNpub,
-                    });
-                  }}
-                  onEventPress={(eventId, eventData) => {
-                    console.log('📍 Navigation: Team → Event Detail');
-                    console.log('  eventId:', eventId);
-                    console.log(
-                      '  eventData:',
-                      eventData ? 'provided' : 'not provided'
-                    );
-                    console.log('  team context:', {
-                      teamId: team?.id,
-                      captainId: team?.captainId?.slice(0, 20) + '...',
-                    });
-                    navigation.navigate('EventDetail', {
-                      eventId,
-                      eventData,
-                      teamId: team?.id,
-                      captainPubkey: team?.captainId,
-                    });
-                  }}
-                  onLeaguePress={(leagueId, leagueData) => {
-                    console.log('📍 Navigation: Team → League Detail');
-                    console.log('  leagueId:', leagueId);
-                    navigation.navigate('LeagueDetail', {
-                      leagueId,
-                      leagueData,
-                    });
-                  }}
                   showJoinButton={!userIsMember}
                   userIsMemberProp={userIsMember}
                   currentUserNpub={currentUserNpub}
@@ -558,18 +487,6 @@ const AuthenticatedNavigator: React.FC = () => {
             </ScreenErrorBoundary>
           );
         }}
-      </AuthenticatedStack.Screen>
-
-      {/* Event Detail Screen */}
-      <AuthenticatedStack.Screen
-        name="EventDetail"
-        options={{
-          headerShown: false,
-        }}
-      >
-        {({ navigation, route }) => (
-          <EventDetailScreen route={route} navigation={navigation} />
-        )}
       </AuthenticatedStack.Screen>
 
       {/* League Detail Screen */}
@@ -584,44 +501,6 @@ const AuthenticatedNavigator: React.FC = () => {
         )}
       </AuthenticatedStack.Screen>
 
-      {/* Captain Dashboard Screen */}
-      <AuthenticatedStack.Screen
-        name="CaptainDashboard"
-        options={{
-          headerShown: false,
-        }}
-      >
-        {({ navigation, route }) => {
-          const { teamId, teamName, teamCaptainId, isCaptain, userNpub } =
-            route.params || {};
-          return (
-            <CaptainDashboardScreen
-              data={{
-                team: {
-                  id: teamId || '',
-                  name: teamName || 'Team',
-                  memberCount: 0,
-                  activeEvents: 0,
-                  prizePool: 0,
-                },
-                members: [],
-                recentActivity: [],
-              }}
-              teamId={teamId || ''}
-              captainId={teamCaptainId || currentUser?.npub || currentUser?.id || ''}
-              userNpub={userNpub}
-              onNavigateToTeam={() => navigation.goBack()}
-              onNavigateToProfile={() => navigation.goBack()}
-              onSettingsPress={() => console.log('Settings')}
-              onKickMember={(memberId) =>
-                console.log('Kick member:', memberId)
-              }
-              onViewAllActivity={() => console.log('View all activity')}
-            />
-          );
-        }}
-      </AuthenticatedStack.Screen>
-
       {/* Settings Screen */}
       <AuthenticatedStack.Screen
         name="Settings"
@@ -631,7 +510,6 @@ const AuthenticatedNavigator: React.FC = () => {
       >
         {({ navigation, route }) => (
           <SettingsScreen
-            onCaptainDashboard={route.params?.onCaptainDashboard}
             onHelp={() => navigation.navigate('HelpSupport')}
             onContactSupport={() => navigation.navigate('ContactSupport')}
             onPrivacyPolicy={() => navigation.navigate('PrivacyPolicy')}

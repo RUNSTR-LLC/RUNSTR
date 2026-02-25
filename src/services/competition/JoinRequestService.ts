@@ -6,7 +6,6 @@
 
 import NDK, { NDKEvent, NDKFilter, NDKSubscription } from '@nostr-dev-kit/ndk';
 import { NostrInitializationService } from '../nostr/NostrInitializationService';
-import { NostrListService } from '../nostr/NostrListService';
 import { CacheInvalidationService } from '../cache/CacheInvalidationService';
 import { CacheKeys } from '../../constants/cacheTTL';
 import unifiedCache from '../cache/UnifiedNostrCache';
@@ -148,11 +147,7 @@ export class JoinRequestService {
       throw new Error('NDK not initialized');
     }
 
-    // Add to kind 30000 participant list
-    await NostrListService.getInstance().addMember(
-      request.competitionId,
-      request.requesterPubkey
-    );
+    // Participation managed in Supabase competition_participants
 
     // Publish acceptance notification (kind 1102)
     const acceptEvent = new NDKEvent(ndk);

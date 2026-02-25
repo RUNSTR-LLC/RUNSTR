@@ -22,9 +22,6 @@ import { theme } from '../styles/theme';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { ProfileEditScreen } from '../screens/ProfileEditScreen';
 import { WalletScreen } from '../screens/WalletScreen';
-import { TeamDiscoveryScreen } from '../screens/TeamDiscoveryScreen';
-import { CaptainDashboardScreen } from '../screens/CaptainDashboardScreen';
-import { EventDetailScreen } from '../screens/EventDetailScreen';
 import { LeagueDetailScreen } from '../screens/LeagueDetailScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { CompetitionsListScreen } from '../screens/CompetitionsListScreen';
@@ -71,12 +68,6 @@ export type RootStackParamList = {
   Profile: undefined;
   ProfileEdit: undefined;
   Wallet: undefined;
-  CaptainDashboard: { teamId?: string; teamName?: string; isCaptain?: boolean };
-  TeamDiscovery: {
-    isOnboarding?: boolean;
-    currentTeamId?: string;
-  };
-  EventDetail: { eventId: string; eventData?: any };
   LeagueDetail: { leagueId: string; leagueData?: any };
   CompetitionsList: undefined;
   WorkoutHistory: { userId: string; pubkey: string };
@@ -119,8 +110,6 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
     teamData,
     profileData,
     walletData,
-    captainDashboardData,
-    availableTeams,
     isLoading,
     error,
     refresh,
@@ -220,29 +209,6 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
         options={{ headerShown: false }}
       />
 
-      {/* Main Team Screen - Always shows Team Discovery */}
-      <Stack.Screen name="Clubs" options={screenConfigurations.Team}>
-        {({ navigation }) => (
-          <TeamDiscoveryScreen
-            teams={availableTeams}
-            isLoading={isLoading}
-            onClose={() => navigation.navigate('Profile')}
-            onTeamJoin={(team) =>
-              handlers.handleTeamJoin(team, navigation, refresh)
-            }
-            onTeamSelect={(team) => handlers.handleTeamView(team, navigation)}
-            onRefresh={refresh}
-            showHeader={true}
-            showCloseButton={false}
-            currentUserPubkey={user?.npub}
-            navigation={navigation}
-          />
-        )}
-      </Stack.Screen>
-
-      {/* REMOVED: EnhancedTeamScreen route - dead code, not used in authenticated flow */}
-      {/* Authenticated users use AuthenticatedNavigator in App.tsx which renders SimpleTeamScreen */}
-
       {/* Profile Screen */}
       <Stack.Screen name="Profile" options={screenConfigurations.Profile}>
         {({ navigation }) =>
@@ -250,13 +216,7 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
             <ProfileScreen
               data={profileData}
               onNavigateToTeam={() => navigation.navigate('Clubs')}
-              onNavigateToTeamDiscovery={() =>
-                navigation.navigate('TeamDiscovery')
-              }
               onViewCurrentTeam={() => navigation.navigate('Clubs')}
-              onCaptainDashboard={() =>
-                handlers.handleCaptainDashboard(navigation)
-              }
               onEditProfile={() => navigation.navigate('ProfileEdit')}
               onSyncSourcePress={handlers.handleSyncSourcePress}
               onManageSubscription={handlers.handleManageSubscription}
@@ -364,76 +324,6 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
           );
         }}
       </Stack.Screen>
-
-      {/* Captain Dashboard Screen */}
-      <Stack.Screen
-        name="CaptainDashboard"
-        options={screenConfigurations.CaptainDashboard}
-      >
-        {({ navigation, route }) => {
-          // Get team and captain data from route params if passed
-          const { teamId, teamName, isCaptain } = route.params || {};
-
-          // Use captain dashboard data or create a minimal version
-          const dashboardData = captainDashboardData || {
-            team: {
-              id: teamId || 'unknown',
-              name: teamName || 'Team',
-              memberCount: 0,
-              activeEvents: 0,
-              prizePool: 0,
-            },
-            members: [],
-            recentActivity: [],
-          };
-
-          // Always render the screen - let it handle its own authorization
-          return (
-            <CaptainDashboardScreen
-              data={dashboardData}
-              teamId={dashboardData.team.id}
-              captainId={user?.npub || user?.id || ''}
-              userNpub={user?.npub} // Pass user npub for auth fallback
-              navigation={navigation} // Pass navigation prop for re-auth flow
-              onNavigateToTeam={() => navigation.navigate('Clubs')}
-              onNavigateToProfile={() => navigation.navigate('Profile')}
-              onSettingsPress={handlers.handleSettings}
-              onKickMember={handlers.handleKickMember}
-              onViewAllActivity={handlers.handleViewAllActivity}
-            />
-          );
-        }}
-      </Stack.Screen>
-
-      {/* Team Discovery Modal */}
-      <Stack.Screen
-        name="TeamDiscovery"
-        options={screenConfigurations.TeamDiscovery}
-      >
-        {({ navigation, route }) => (
-          <TeamDiscoveryScreen
-            teams={availableTeams}
-            isLoading={isLoading}
-            onClose={() => {
-              handlers.handleTeamDiscoveryClose();
-              navigation.goBack();
-            }}
-            onTeamJoin={(team) =>
-              handlers.handleTeamJoin(team, navigation, refresh)
-            }
-            onTeamSelect={(team) => handlers.handleTeamView(team, navigation)}
-            onRefresh={refresh}
-            navigation={navigation}
-          />
-        )}
-      </Stack.Screen>
-
-      {/* Event Detail Screen */}
-      <Stack.Screen
-        name="EventDetail"
-        options={screenConfigurations.EventDetail}
-        component={EventDetailScreen}
-      />
 
       {/* League Detail Screen */}
       <Stack.Screen

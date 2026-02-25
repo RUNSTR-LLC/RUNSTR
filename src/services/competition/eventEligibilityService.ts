@@ -5,7 +5,6 @@
  */
 
 import { NostrCompetitionService } from '../nostr/NostrCompetitionService';
-import { NostrTeamService } from '../nostr/NostrTeamService';
 import type { NostrWorkout } from '../../types/nostrWorkout';
 import type { WorkoutType } from '../../types/workout';
 import type {
@@ -49,13 +48,11 @@ export interface EventAutoEntryResult {
 export class EventEligibilityService {
   private static instance: EventEligibilityService;
   private nostrCompetitionService: NostrCompetitionService;
-  private nostrTeamService: NostrTeamService;
   private eligibilityCache: Map<string, WorkoutEligibilityResult> = new Map();
   private cacheExpiryMs = 10 * 60 * 1000; // 10 minutes
 
   constructor() {
     this.nostrCompetitionService = new NostrCompetitionService();
-    this.nostrTeamService = new NostrTeamService();
   }
 
   static getInstance(): EventEligibilityService {

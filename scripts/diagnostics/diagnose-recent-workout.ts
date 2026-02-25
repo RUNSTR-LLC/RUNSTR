@@ -15,7 +15,7 @@
 import NDK, { NDKEvent, NDKFilter } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
 
-// RUNSTR Team ID (from hardcodedTeams.ts)
+// RUNSTR Team ID
 const RUNSTR_TEAM_ID = '87d30c8b-aa18-4424-a629-d41ea7f89078';
 
 // User's npub

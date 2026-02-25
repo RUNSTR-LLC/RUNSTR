@@ -9,7 +9,7 @@ import type { NDKFilter, NDKEvent } from '@nostr-dev-kit/ndk';
 import unifiedCache from '../cache/UnifiedNostrCache';
 import { CacheKeys, CacheTTL } from '../../constants/cacheTTL';
 import type { NostrChallengeDefinition } from '../../types/nostrCompetition';
-import NdkTeamService from '../team/NdkTeamService';
+import { ClubMembershipService } from '../backend/ClubMembershipService';
 
 export interface League {
   id: string; // d tag
@@ -467,20 +467,9 @@ export class SimpleCompetitionService {
         return { captainId: cached.captainId };
       }
 
-      // Try discovering teams from Nostr - using static import
-      console.log(`🔍 Fetching team ${teamId} from Nostr to get captain...`);
-      const teams = await NdkTeamService.getInstance().discoverAllTeams();
-      const team = teams.find((t) => t.id === teamId);
-
-      if (team?.captainId) {
-        console.log(
-          `✅ Found team captain from Nostr: ${team.captainId.substring(
-            0,
-            16
-          )}...`
-        );
-        return { captainId: team.captainId };
-      }
+      // Team captain now resolved via Supabase clubs
+      console.log(`🔍 Team ${teamId} captain not found in cache`);
+      // Captain info comes from Supabase ClubService, not Nostr relay discovery
 
       console.warn(`⚠️ Team ${teamId} not found or has no captain`);
       return null;
