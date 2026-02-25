@@ -112,9 +112,9 @@ export class AutoBackupService {
   async isAutoBackupEnabled(): Promise<boolean> {
     try {
       const val = await AsyncStorage.getItem(PREF_KEY);
-      return val !== 'false'; // default true
+      return val === 'true'; // default false — users must opt in
     } catch {
-      return true;
+      return false;
     }
   }
 
