@@ -49,6 +49,9 @@ CoinOS Lightning API base URL (legacy, may not be needed)
 ### EXPO_PUBLIC_RUNSTR_LIGHTNING_ADDRESS
 Lightning address for RUNSTR operations
 
+### EXPO_PUBLIC_OPENWEATHER_API_KEY
+OpenWeather API key used for weather-based activity context (client-side key, expected by current weather service).
+
 ### OAuth Configuration (Future Use)
 - `EXPO_PUBLIC_APPLE_CLIENT_ID`
 - `EXPO_PUBLIC_GOOGLE_CLIENT_ID_IOS`
