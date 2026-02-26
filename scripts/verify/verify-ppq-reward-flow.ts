@@ -113,8 +113,16 @@ function isBoostedQualified(activityType: string, source: string): boolean {
   return isCardio && isNonManual;
 }
 
+// ---- Inline reward config (from src/config/rewards.ts) ----
+
+const REWARD_CONFIG = {
+  DAILY_WORKOUT_REWARD: 100,
+  BOOSTED_WORKOUT_REWARD: 1000,
+} as const;
+
 // ---- Inline PPQ auto-invoice logic from submitWorkoutSimple ----
 // (from src/services/backend/SupabaseCompetitionService.ts lines 333-397)
+// Now uses shared isBoostedQualified() + REWARD_CONFIG (same criteria as non-PPQ path)
 
 interface WorkoutSubmissionData {
   eventId: string;
@@ -147,15 +155,13 @@ function simulatePPQAutoInvoice(data: WorkoutSubmissionData): {
     if (selectedTeamId && isPPQTeam(selectedTeamId)) {
       const hasAccount = ppqHasAccount();
       if (hasAccount) {
-        // Determine reward amount
-        rewardSats = 100; // PPQ API minimum (free users)
+        // Determine reward amount using shared boost logic (matches non-PPQ path)
+        // Source is 'gps_tracker' since submitWorkoutSimple callers are all non-manual
+        rewardSats = REWARD_CONFIG.DAILY_WORKOUT_REWARD;
         const npub = getMockStorage('@runstr:npub');
         if (npub) {
-          const isCardio = ['running', 'walking', 'cycling'].includes(data.type);
-          const hasDistance = (data.distance ?? 0) >= 2000;    // 2km+
-          const hasDuration = (data.duration ?? 0) >= 900;     // 15min+
-          if (mockIsSubscriber && isCardio && hasDistance && hasDuration) {
-            rewardSats = 800;
+          if (mockIsSubscriber && isBoostedQualified(data.type, 'gps_tracker')) {
+            rewardSats = REWARD_CONFIG.BOOSTED_WORKOUT_REWARD;
           }
         }
         const invoiceResult = ppqCreateTopupInvoice(rewardSats);
@@ -270,9 +276,10 @@ async function runTests() {
   assert('bolt11 contains "100sats"', result.ppqBolt11?.includes('100sats') === true);
 
   // ========================================
-  // PPQ auto-invoice: subscriber with qualifying workout (800 sats)
+  // PPQ auto-invoice: subscriber with qualifying cardio workout (1000 sats)
+  // Now uses isBoostedQualified() — same criteria as non-PPQ path
   // ========================================
-  console.log('\n=== PPQ auto-invoice: subscriber + cardio + 2km+ + 15min+ → 800 sats ===');
+  console.log('\n=== PPQ auto-invoice: subscriber + cardio → 1000 sats (boosted) ===');
 
   resetMockStorage();
   mockIsSubscriber = true;
@@ -285,14 +292,14 @@ async function runTests() {
   result = simulatePPQAutoInvoice({
     eventId: 'test_2',
     npub: 'npub1testuser',
-    type: 'running',       // cardio
-    distance: 5000,         // 5km (>= 2km)
-    duration: 1800,         // 30min (>= 15min)
+    type: 'running',       // cardio → boosted
+    distance: 5000,         // 5km
+    duration: 1800,         // 30min
     tags: [['reward_destination', 'ppq']],
   });
 
-  assert('rewardSats = 800 (subscriber + qualifying)', result.rewardSats === 800, `got ${result.rewardSats}`);
-  assert('bolt11 contains "800sats"', result.ppqBolt11?.includes('800sats') === true);
+  assert('rewardSats = 1000 (subscriber + cardio)', result.rewardSats === 1000, `got ${result.rewardSats}`);
+  assert('bolt11 contains "1000sats"', result.ppqBolt11?.includes('1000sats') === true);
 
   // ========================================
   // PPQ auto-invoice: subscriber but non-cardio (100 sats)
@@ -319,9 +326,11 @@ async function runTests() {
   assert('rewardSats = 100 (strength is not cardio)', result.rewardSats === 100, `got ${result.rewardSats}`);
 
   // ========================================
-  // PPQ auto-invoice: subscriber + cardio but distance too short (100 sats)
+  // PPQ auto-invoice: subscriber + short cardio still gets boost (no distance/duration gate)
+  // Previously this was 100 sats (distance < 2km). Now uses isBoostedQualified() which
+  // only checks cardio type + non-manual source, matching the non-PPQ path.
   // ========================================
-  console.log('\n=== PPQ auto-invoice: subscriber + cardio but <2km → 100 sats ===');
+  console.log('\n=== PPQ auto-invoice: subscriber + short cardio → 1000 sats (no distance gate) ===');
 
   resetMockStorage();
   mockIsSubscriber = true;
@@ -335,17 +344,18 @@ async function runTests() {
     eventId: 'test_4',
     npub: 'npub1testuser',
     type: 'running',
-    distance: 1500,     // 1.5km — below 2km threshold
+    distance: 1500,     // 1.5km — was below old 2km threshold, now doesn't matter
     duration: 1800,
     tags: [],
   });
 
-  assert('rewardSats = 100 (distance < 2km)', result.rewardSats === 100, `got ${result.rewardSats}`);
+  assert('rewardSats = 1000 (cardio subscriber, no distance gate)', result.rewardSats === 1000, `got ${result.rewardSats}`);
 
   // ========================================
-  // PPQ auto-invoice: subscriber + cardio but duration too short (100 sats)
+  // PPQ auto-invoice: subscriber + cardio with short duration still gets boost
+  // Previously 100 sats (duration < 15min). Now uses isBoostedQualified() — no duration gate.
   // ========================================
-  console.log('\n=== PPQ auto-invoice: subscriber + cardio but <15min → 100 sats ===');
+  console.log('\n=== PPQ auto-invoice: subscriber + short duration cardio → 1000 sats (no duration gate) ===');
 
   resetMockStorage();
   mockIsSubscriber = true;
@@ -360,16 +370,16 @@ async function runTests() {
     npub: 'npub1testuser',
     type: 'cycling',
     distance: 10000,    // 10km
-    duration: 600,      // 10min — below 15min threshold
+    duration: 600,      // 10min — was below old 15min threshold, now doesn't matter
     tags: [],
   });
 
-  assert('rewardSats = 100 (duration < 15min)', result.rewardSats === 100, `got ${result.rewardSats}`);
+  assert('rewardSats = 1000 (cardio subscriber, no duration gate)', result.rewardSats === 1000, `got ${result.rewardSats}`);
 
   // ========================================
-  // PPQ auto-invoice: exact thresholds (2000m, 900s)
+  // PPQ auto-invoice: subscriber + walking (any distance/duration) → boosted
   // ========================================
-  console.log('\n=== PPQ auto-invoice: exact threshold (2000m, 900s) → 800 sats ===');
+  console.log('\n=== PPQ auto-invoice: subscriber + walking → 1000 sats ===');
 
   resetMockStorage();
   mockIsSubscriber = true;
@@ -383,12 +393,12 @@ async function runTests() {
     eventId: 'test_6',
     npub: 'npub1testuser',
     type: 'walking',
-    distance: 2000,     // Exactly 2km
-    duration: 900,      // Exactly 15min
+    distance: 2000,
+    duration: 900,
     tags: [],
   });
 
-  assert('rewardSats = 800 (exact threshold met)', result.rewardSats === 800, `got ${result.rewardSats}`);
+  assert('rewardSats = 1000 (walking subscriber)', result.rewardSats === 1000, `got ${result.rewardSats}`);
 
   // ========================================
   // PPQ failure: no account configured

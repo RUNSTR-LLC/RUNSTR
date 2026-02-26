@@ -25,6 +25,8 @@ import { PPQAccountService } from '../ai/PPQAccountService';
 import { RewardLightningAddressService } from '../rewards/RewardLightningAddressService';
 import { SubscriptionService } from './SubscriptionService';
 import { callEdgeFunction } from '../../utils/edgeFunctions';
+import { isBoostedQualified } from '../rewards/DailyRewardService';
+import { REWARD_CONFIG } from '../../config/rewards';
 
 // Local storage key for tracking joined competitions (optimistic join)
 const LOCAL_JOINED_COMPETITIONS_KEY = '@runstr:local_joined_competitions';
@@ -332,7 +334,7 @@ export class SupabaseCompetitionService {
 
     // PPQ.AI: Auto-create bolt11 invoice if user's team is PPQ.AI and no invoice provided
     // This ensures ALL submission paths (HealthKit, background, manual) get PPQ support
-    // Invoice amount matches subscriber tier: 800 sats (supporter/pro) or 100 sats (free, PPQ API minimum)
+    // Invoice amount matches subscriber tier using shared isBoostedQualified() + REWARD_CONFIG
     let ppqBolt11 = data.ppqBolt11;
     let ppqInvoiceId = data.ppqInvoiceId;
     let ppqFailed = false;
@@ -342,17 +344,14 @@ export class SupabaseCompetitionService {
         if (selectedTeamId && isPPQTeam(selectedTeamId)) {
           const hasAccount = await PPQAccountService.hasAccount();
           if (hasAccount) {
-            // Determine reward amount: subscribers get 800 for qualifying workouts
-            // PPQ.AI API minimum is 100 sats
-            let rewardSats = 100;
+            // Determine reward amount using shared boost logic (same criteria as non-PPQ path)
+            // Source is 'gps_tracker' since submitWorkoutSimple callers are all non-manual
+            let rewardSats = REWARD_CONFIG.DAILY_WORKOUT_REWARD;
             const npub = await AsyncStorage.getItem('@runstr:npub');
             if (npub) {
               const isSubscriber = await SubscriptionService.isSupporterOrAbove(npub);
-              const isCardio = ['running', 'walking', 'cycling'].includes(data.type);
-              const hasDistance = (data.distance ?? 0) >= 2000;     // 2km+
-              const hasDuration = (data.duration ?? 0) >= 900;      // 15min+
-              if (isSubscriber && isCardio && hasDistance && hasDuration) {
-                rewardSats = 800;
+              if (isSubscriber && isBoostedQualified(data.type, 'gps_tracker')) {
+                rewardSats = REWARD_CONFIG.BOOSTED_WORKOUT_REWARD;
               }
             }
             const invoiceResult = await PPQAccountService.createTopupInvoice(rewardSats);
