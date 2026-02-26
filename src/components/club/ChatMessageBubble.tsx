@@ -9,6 +9,7 @@ import { Avatar } from '../ui/Avatar';
 import { ChallengeCard } from './ChallengeCard';
 import type { ChallengeScoreEntry } from '../../services/challenge/ChallengeService';
 import type { ClubMessage, ReplyContext, WorkoutMessageMetadata, ChallengeMessageMetadata } from '../../types/club';
+import { FEATURE_FLAGS } from '../../constants/featureFlags';
 
 function isWorkoutMetadata(meta: unknown): meta is WorkoutMessageMetadata {
   return meta != null && typeof meta === 'object' && 'duration_seconds' in meta;
@@ -153,7 +154,7 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
       actions.push(onPin);
     }
 
-    if (onChallenge && !isOwnMessage) {
+    if (FEATURE_FLAGS.ENABLE_1V1_CHALLENGES && onChallenge && !isOwnMessage) {
       options.push('Challenge');
       actions.push(onChallenge);
     }

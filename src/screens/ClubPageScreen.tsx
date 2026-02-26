@@ -13,7 +13,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,9 +23,9 @@ import { ClubService } from '../services/backend/ClubService';
 import { ClubMembershipService } from '../services/backend/ClubMembershipService';
 import { ClubBannerHeader } from '../components/club/ClubBannerHeader';
 import { ClubInfoSection } from '../components/club/ClubInfoSection';
-import { ClubEventsSection } from '../components/club/ClubEventsSection';
 import { ClubChatSection } from '../components/club/ClubChatSection';
 import { CaptainSettingsModal } from '../components/club/CaptainSettingsModal';
+import { SimpleEventCreationModal } from '../components/subscription/SimpleEventCreationModal';
 import { CustomAlert } from '../components/ui/CustomAlert';
 import type { Club } from '../types/club';
 
@@ -63,6 +62,7 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
   const [isJoining, setIsJoining] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const [showCaptainSettings, setShowCaptainSettings] = useState(false);
+  const [showCreateEvent, setShowCreateEvent] = useState(false);
   const [alertConfig, setAlertConfig] = useState<{
     visible: boolean;
     title: string;
@@ -196,19 +196,6 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
   // Share
   // -------------------------------------------------------------------------
 
-  const handleShareClub = async () => {
-    const name = club?.name || clubName;
-    try {
-      await Share.share({
-        message:
-          `Join my fitness club "${name}" on RUNSTR!\n\n` +
-          `Download RUNSTR and search for "${name}" in the Clubs tab.\n\n` +
-          `https://runstr.club`,
-      });
-    } catch (err) {
-      console.log('[ClubPageScreen] Share dismissed or failed:', err);
-    }
-  };
 
   // -------------------------------------------------------------------------
   // Ellipsis Menu
@@ -216,16 +203,14 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
 
   const handleEllipsisMenu = () => {
     if (isCaptain) {
-      setShowCaptainSettings(true);
-    } else if (isMember) {
       showAlert(club?.name || clubName, undefined, [
-        { text: 'Share Club', onPress: handleShareClub },
-        { text: 'Leave Club', style: 'destructive', onPress: handleLeaveConfirm },
+        { text: 'Create Event', onPress: () => setShowCreateEvent(true) },
+        { text: 'Club Settings', onPress: () => setShowCaptainSettings(true) },
         { text: 'Cancel', style: 'cancel' },
       ]);
-    } else {
+    } else if (isMember) {
       showAlert(club?.name || clubName, undefined, [
-        { text: 'Share Club', onPress: handleShareClub },
+        { text: 'Leave Club', style: 'destructive', onPress: handleLeaveConfirm },
         { text: 'Cancel', style: 'cancel' },
       ]);
     }
@@ -292,9 +277,6 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
             onJoin={handleJoin}
           />
 
-          {/* Events section */}
-          <ClubEventsSection clubId={clubId} isCaptain={isCaptain} />
-
           <ClubChatSection
             clubId={clubId}
             clubName={displayName}
@@ -315,6 +297,17 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
           onClubUpdated={handleClubUpdated}
         />
       )}
+
+      {/* Event Creation Modal (captain only) */}
+      <SimpleEventCreationModal
+        visible={showCreateEvent}
+        onClose={() => setShowCreateEvent(false)}
+        onEventCreated={(eventId) => {
+          setShowCreateEvent(false);
+          navigation.navigate('DynamicEventDetail', { eventId });
+        }}
+        clubId={clubId}
+      />
 
       {/* Themed alert */}
       <CustomAlert

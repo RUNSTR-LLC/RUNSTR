@@ -413,15 +413,6 @@ const RewardsScreenComponent: React.FC = () => {
           )}
         </View>
 
-        {/* Reward description */}
-        <Text style={styles.rewardDescription}>
-          {isPPQTeam(selectedTeamId ?? undefined)
-            ? t('howItWorksDescriptionPPQ', { defaultValue: 'Cardio, strength, journal, or 5k steps daily to earn AI credits. Rewards go directly to your PPQ.AI account.' })
-            : isSelfTeam(selectedTeamId ?? undefined)
-              ? t('howItWorksDescriptionSelf', { defaultValue: 'Cardio, strength, journal, or 5k steps daily. Rewards are sent directly to your Lightning wallet.' })
-              : t('howItWorksDescriptionCharity', { defaultValue: `Cardio, strength, journal, or 5k steps daily. Micro donations are sent to ${selectedTeam?.name || 'your selected charity'}.` })}
-        </Text>
-
         {/* Active Pledge Section (only shown if user has active pledge) */}
         {activePledge && (
           <View style={styles.section}>
@@ -890,13 +881,6 @@ const styles = StyleSheet.create({
     color: '#888',
     marginTop: 8,
     lineHeight: 19,
-  },
-  rewardDescription: {
-    fontSize: 12,
-    color: '#888',
-    marginBottom: 12,
-    lineHeight: 18,
-    paddingHorizontal: 4,
   },
 });
 

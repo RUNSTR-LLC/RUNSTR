@@ -44,9 +44,12 @@ const ClubsScreenComponent: React.FC = () => {
       const npub = await AsyncStorage.getItem('@runstr:npub');
       setUserNpub(npub);
 
-      // Fetch all clubs
+      // Fetch all clubs — clear loading spinner as soon as clubs arrive
       const allClubs = await ClubService.fetchActiveClubs();
       setClubs(allClubs);
+      setIsLoading(false);
+
+      // Everything below runs after the list is already visible
 
       // Batch-fetch captain Nostr profiles (non-blocking)
       const captainNpubs = [...new Set(allClubs.map((c) => c.created_by_npub).filter(Boolean))];
@@ -95,7 +98,6 @@ const ClubsScreenComponent: React.FC = () => {
       }
     } catch (error) {
       console.error('[ClubsScreen] Error loading data:', error);
-    } finally {
       setIsLoading(false);
     }
   }, []);

@@ -13,6 +13,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { FEATURE_FLAGS } from '../../constants/featureFlags';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../styles/theme';
@@ -462,7 +463,7 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
           </TouchableOpacity>
         </View>
       )}
-      {challengeTarget && (
+      {FEATURE_FLAGS.ENABLE_1V1_CHALLENGES && challengeTarget && (
         <ChallengeWizardModal
           visible={!!challengeTarget}
           onClose={() => setChallengeTarget(null)}

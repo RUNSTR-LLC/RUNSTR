@@ -16,6 +16,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
+import { FEATURE_FLAGS } from '../constants/featureFlags';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -465,7 +466,7 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
           </View>
         )}
       </KeyboardAvoidingView>
-      {challengeTarget && (
+      {FEATURE_FLAGS.ENABLE_1V1_CHALLENGES && challengeTarget && (
         <ChallengeWizardModal
           visible={!!challengeTarget}
           onClose={() => setChallengeTarget(null)}

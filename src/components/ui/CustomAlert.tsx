@@ -192,11 +192,11 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.cardBackground, // #0a0a0a
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: theme.colors.orangeDeep, // Orange border
+    borderColor: 'rgba(255, 157, 66, 0.3)',
     padding: 24,
     width: '100%',
     maxWidth: 320,
-    shadowColor: theme.colors.orangeDeep,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -238,9 +238,9 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   defaultButton: {
-    backgroundColor: theme.colors.orangeDeep, // Deep orange
+    backgroundColor: 'rgba(255, 157, 66, 0.12)',
     borderWidth: 1,
-    borderColor: theme.colors.orangeBright,
+    borderColor: 'rgba(255, 157, 66, 0.3)',
   },
   cancelButton: {
     backgroundColor: 'transparent',
@@ -248,19 +248,19 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   destructiveButton: {
-    backgroundColor: theme.colors.orangeBright, // Orange theme, not red
+    backgroundColor: 'rgba(255, 157, 66, 0.12)',
     borderWidth: 1,
-    borderColor: theme.colors.orangeDeep,
+    borderColor: 'rgba(255, 157, 66, 0.3)',
   },
   buttonText: {
     fontSize: 15,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.background, // Black text on orange
+    color: theme.colors.orangeBright,
   },
   cancelButtonText: {
-    color: theme.colors.text, // Light orange text for visibility on dark background
+    color: theme.colors.textMuted,
   },
   destructiveButtonText: {
-    color: theme.colors.background, // Black text on orange
+    color: theme.colors.orangeBright,
   },
 });
