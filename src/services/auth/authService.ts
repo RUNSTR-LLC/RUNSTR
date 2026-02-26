@@ -22,6 +22,16 @@ export class AuthService {
       // Clear Nostr keys and data
       await clearNostrStorage();
 
+      // CRITICAL: Clear GlobalNDK signer to prevent stale signing identity after logout
+      try {
+        const { GlobalNDKService } = await import('../nostr/GlobalNDKService');
+        const ndk = await GlobalNDKService.getInstance();
+        ndk.signer = undefined;
+        console.log('✅ AuthService: GlobalNDK signer cleared');
+      } catch (err) {
+        console.warn('⚠️ AuthService: Failed to clear GlobalNDK signer:', err);
+      }
+
       // Import AsyncStorage for wallet cleanup
       const AsyncStorage = (
         await import('@react-native-async-storage/async-storage')
