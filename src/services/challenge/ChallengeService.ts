@@ -82,43 +82,43 @@ export class ChallengeService {
     competitionId: string,
     npub: string,
     profile?: { name?: string; picture?: string }
-  ): Promise<boolean> {
+  ): Promise<{ success: boolean; error?: string }> {
     const result = await callEdgeFunction('manage-competition', {
       action: 'accept-challenge',
       competition_id: competitionId,
       npub,
       name: profile?.name,
       picture: profile?.picture,
-    });
+    }, 15_000);
 
     if (!result.success) {
       console.error('[ChallengeService] acceptChallenge error:', result.error);
-      return false;
+      return { success: false, error: result.error };
     }
 
     statusCache.delete(competitionId);
     console.log(`[ChallengeService] Challenge accepted: ${competitionId}`);
-    return true;
+    return { success: true };
   }
 
   /**
    * Decline a challenge.
    */
-  static async declineChallenge(competitionId: string, npub: string): Promise<boolean> {
+  static async declineChallenge(competitionId: string, npub: string): Promise<{ success: boolean; error?: string }> {
     const result = await callEdgeFunction('manage-competition', {
       action: 'decline-challenge',
       competition_id: competitionId,
       npub,
-    });
+    }, 15_000);
 
     if (!result.success) {
       console.error('[ChallengeService] declineChallenge error:', result.error);
-      return false;
+      return { success: false, error: result.error };
     }
 
     statusCache.delete(competitionId);
     console.log(`[ChallengeService] Challenge declined: ${competitionId}`);
-    return true;
+    return { success: true };
   }
 
   /**

@@ -23,6 +23,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
 import { theme } from '../../styles/theme';
 import {
   getCharitiesByCategory,
@@ -191,6 +192,13 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
 
   const handlePPQSetupSuccess = useCallback(() => {
     setShowPPQSetupModal(false);
+    Toast.show({
+      type: 'success',
+      text1: 'Account Created',
+      text2: 'Your PPQ.AI account is ready',
+      position: 'top',
+      visibilityTime: 2500,
+    });
     setShowPPQTopupModal(true);
   }, []);
 

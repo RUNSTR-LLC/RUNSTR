@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
 import { theme } from '../../styles/theme';
 import { PPQAccountService } from '../../services/ai/PPQAccountService';
 import { NWCStorageService } from '../../services/wallet/NWCStorageService';
@@ -278,6 +279,13 @@ export const PPQCreditTopupModal: React.FC<PPQCreditTopupModalProps> = ({
       const result = await PPQAccountService.createAccount();
       if (result.success) {
         setHasAccount(true);
+        Toast.show({
+          type: 'success',
+          text1: 'Account Created',
+          text2: 'Your PPQ.AI account is ready',
+          position: 'top',
+          visibilityTime: 2500,
+        });
         const balanceResult = await PPQAccountService.getBalance();
         if (balanceResult.success) {
           setBalance(balanceResult.balance ?? 0);

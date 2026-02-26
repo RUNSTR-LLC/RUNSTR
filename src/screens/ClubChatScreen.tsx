@@ -204,29 +204,35 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
   const handleAcceptChallenge = useCallback(async (competitionId: string) => {
     if (!userNpub) return;
     const myProfile = getProfileForNpub(userNpub);
-    const success = await ChallengeService.acceptChallenge(competitionId, userNpub, {
+    const result = await ChallengeService.acceptChallenge(competitionId, userNpub, {
       name: myProfile?.display_name || myProfile?.name, picture: myProfile?.picture,
     });
-    if (success) {
+    if (result.success) {
       const status = await ChallengeService.getChallengeStatus(competitionId);
       if (status) {
         setChallengeStatuses(prev => { const next = new Map(prev); next.set(competitionId, status); return next; });
       }
     } else {
-      Alert.alert('Challenge Error', 'Could not accept challenge. Please try again.');
+      const detail = result.error?.includes('403') ? 'You may not be the challenged user.'
+        : result.error?.includes('timed out') ? 'Request timed out. Check your connection.'
+        : result.error || 'Unknown error';
+      Alert.alert('Challenge Error', `Could not accept challenge: ${detail}`);
     }
   }, [userNpub, getProfileForNpub]);
 
   const handleDeclineChallenge = useCallback(async (competitionId: string) => {
     if (!userNpub) return;
-    const success = await ChallengeService.declineChallenge(competitionId, userNpub);
-    if (success) {
+    const result = await ChallengeService.declineChallenge(competitionId, userNpub);
+    if (result.success) {
       const status = await ChallengeService.getChallengeStatus(competitionId);
       if (status) {
         setChallengeStatuses(prev => { const next = new Map(prev); next.set(competitionId, status); return next; });
       }
     } else {
-      Alert.alert('Challenge Error', 'Could not decline challenge. Please try again.');
+      const detail = result.error?.includes('403') ? 'You may not be the challenged user.'
+        : result.error?.includes('timed out') ? 'Request timed out. Check your connection.'
+        : result.error || 'Unknown error';
+      Alert.alert('Challenge Error', `Could not decline challenge: ${detail}`);
     }
   }, [userNpub]);
 
