@@ -45,11 +45,6 @@ export const BATCH_PAYMENT_CHARITIES: Record<string, BatchPaymentConfig> = {
     address: 'bitcoinyucatancommunity@geyser.fund',
     note: 'Geyser.fund enforces 1000 sat minimum invoice amount',
   },
-  'ashigaru': {
-    minAmount: 2000, // Geyser.fund requires 1000 sat minimum, using 2000 for efficiency
-    address: 'ashigarufund@geyser.fund',
-    note: 'Geyser.fund enforces 1000 sat minimum, using 2000 for efficiency',
-  },
 };
 
 /**

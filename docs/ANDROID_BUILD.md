@@ -127,7 +127,7 @@ Version is defined in two places:
    ```json
    {
      "expo": {
-       "version": "X.Y.Z"
+       "version": "0.1.8"
      }
    }
    ```
@@ -136,7 +136,7 @@ Version is defined in two places:
    ```gradle
    android {
      defaultConfig {
-       versionCode <increment-by-1>
+       versionCode 8
        versionName "0.1.8"
      }
    }

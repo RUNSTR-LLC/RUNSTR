@@ -282,6 +282,7 @@ export class PPQAccountService {
             'Authorization': `Bearer ${account.apiKey}`,
           },
           body: JSON.stringify({
+            credit_id: account.creditId,
             amount: sats,
             currency: 'SATS',
           }),

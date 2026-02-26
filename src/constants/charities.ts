@@ -51,17 +51,6 @@ export const CHARITIES: Charity[] = [
     category: 'charity',
   },
   {
-    id: 'ashigaru',
-    name: 'Ashigaru',
-    displayName: 'Ashigaru',
-    lightningAddress: 'ashigarufund@geyser.fund',
-    description:
-      'Support the Ashigaru developers by contributing donations to ensure their project remains strong, sustainable, and resilient.',
-    website: 'https://geyser.fund/project/ashigarufund',
-    image: require('../../assets/images/charities/ashigaru.webp'),
-    category: 'project',
-  },
-  {
     id: 'bitcoin-bay',
     name: 'Bitcoin Bay',
     displayName: 'Bitcoin Bay',
@@ -200,16 +189,6 @@ export const CHARITIES: Charity[] = [
     lightningAddress: 'businesscat@getalby.com',
     description: 'A Bitcoin focused group located in Pennsylvania.',
     image: require('../../assets/images/charities/central-pennsylvania-bitcoiners.png'),
-    category: 'project',
-  },
-  {
-    id: 'wesatoshi',
-    name: 'WeSatoshi',
-    displayName: 'WeSatoshi',
-    lightningAddress: 'thefirstbitcointerminalhardware@geyser.fund',
-    description: 'A Bitcoin-focused Swiss Army knife hardware',
-    website: 'https://geyser.fund/project/thefirstbitcointerminalhardware',
-    image: require('../../assets/images/charities/wesatoshi.webp'),
     category: 'project',
   },
 ];
