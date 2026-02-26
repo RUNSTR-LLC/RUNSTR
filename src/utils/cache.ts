@@ -55,6 +55,11 @@ class SimpleCache {
     });
   }
 
+  async delete(key: string): Promise<void> {
+    this.memoryCache.delete(key);
+    await AsyncStorage.removeItem(`cache_${key}`);
+  }
+
   async clear(pattern?: string): Promise<void> {
     if (!pattern) {
       this.memoryCache.clear();
