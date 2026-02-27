@@ -6,13 +6,14 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, RefreshControl, Alert, ActivityIndicator,
+  TextInput, RefreshControl, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../styles/theme';
+import { CustomAlert } from '../components/ui/CustomAlert';
 import { Club } from '../types/club';
 import { ClubService } from '../services/backend/ClubService';
 import { ClubMembershipService } from '../services/backend/ClubMembershipService';
@@ -37,6 +38,9 @@ const ClubsScreenComponent: React.FC = () => {
   const [showCreateClub, setShowCreateClub] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [captainProfiles, setCaptainProfiles] = useState<Map<string, NostrProfile>>(new Map());
+  const [alertConfig, setAlertConfig] = useState<{visible: boolean; title: string; message: string; buttons: any[]}>({
+    visible: false, title: '', message: '', buttons: []
+  });
 
   /** Load all clubs and the user's current club. */
   const loadData = useCallback(async () => {
@@ -134,11 +138,21 @@ const ClubsScreenComponent: React.FC = () => {
           await ClubMembershipService.clearCache();
           await loadData();
         } else {
-          Alert.alert('Error', result.error || `Failed to ${label}.`);
+          setAlertConfig({
+            visible: true,
+            title: 'Error',
+            message: result.error || `Failed to ${label}.`,
+            buttons: [{ text: 'OK', onPress: () => setAlertConfig(prev => ({...prev, visible: false})) }]
+          });
         }
       } catch (error) {
         console.error(`[ClubsScreen] ${label} error:`, error);
-        Alert.alert('Error', 'Something went wrong. Try again.');
+        setAlertConfig({
+          visible: true,
+          title: 'Error',
+          message: 'Something went wrong. Try again.',
+          buttons: [{ text: 'OK', onPress: () => setAlertConfig(prev => ({...prev, visible: false})) }]
+        });
       } finally {
         setIsJoining(false);
       }
@@ -150,25 +164,41 @@ const ClubsScreenComponent: React.FC = () => {
     (club: Club) => {
       if (!userNpub) return;
       if (myClub) {
-        Alert.alert('Switch Clubs?', `Leave ${myClub.name} and join ${club.name}?`, [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Leave & Join',
-            onPress: () => performClubAction(
-              () => ClubMembershipService.switchClub(club.id, userNpub), 'switch clubs'
-            ),
-          },
-        ]);
+        setAlertConfig({
+          visible: true,
+          title: 'Switch Clubs?',
+          message: `Leave ${myClub.name} and join ${club.name}?`,
+          buttons: [
+            { text: 'Cancel', style: 'cancel', onPress: () => setAlertConfig(prev => ({...prev, visible: false})) },
+            {
+              text: 'Leave & Join',
+              onPress: () => {
+                setAlertConfig(prev => ({...prev, visible: false}));
+                performClubAction(
+                  () => ClubMembershipService.switchClub(club.id, userNpub), 'switch clubs'
+                );
+              },
+            },
+          ]
+        });
       } else {
-        Alert.alert(`Join ${club.name}?`, "You'll appear on their leaderboard.", [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Join',
-            onPress: () => performClubAction(
-              () => ClubMembershipService.joinClub(club.id, userNpub), 'join club'
-            ),
-          },
-        ]);
+        setAlertConfig({
+          visible: true,
+          title: `Join ${club.name}?`,
+          message: "You'll appear on their leaderboard.",
+          buttons: [
+            { text: 'Cancel', style: 'cancel', onPress: () => setAlertConfig(prev => ({...prev, visible: false})) },
+            {
+              text: 'Join',
+              onPress: () => {
+                setAlertConfig(prev => ({...prev, visible: false}));
+                performClubAction(
+                  () => ClubMembershipService.joinClub(club.id, userNpub), 'join club'
+                );
+              },
+            },
+          ]
+        });
       }
     },
     [myClub, userNpub, performClubAction]
@@ -176,20 +206,26 @@ const ClubsScreenComponent: React.FC = () => {
 
   const handleLeavePress = useCallback(() => {
     if (!myClub || !userNpub) return;
-    Alert.alert(`Leave ${myClub.name}?`, "You'll be removed from the leaderboard.", [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Leave',
-        style: 'destructive',
-        onPress: async () => {
-          await performClubAction(
-            () => ClubMembershipService.leaveClub(userNpub), 'leave club'
-          );
-          setMyClub(null);
-          setMyRole(null);
+    setAlertConfig({
+      visible: true,
+      title: `Leave ${myClub.name}?`,
+      message: "You'll be removed from the leaderboard.",
+      buttons: [
+        { text: 'Cancel', style: 'cancel', onPress: () => setAlertConfig(prev => ({...prev, visible: false})) },
+        {
+          text: 'Leave',
+          style: 'destructive',
+          onPress: async () => {
+            setAlertConfig(prev => ({...prev, visible: false}));
+            await performClubAction(
+              () => ClubMembershipService.leaveClub(userNpub), 'leave club'
+            );
+            setMyClub(null);
+            setMyRole(null);
+          },
         },
-      },
-    ]);
+      ]
+    });
   }, [myClub, userNpub, performClubAction]);
 
   const handleCreatePress = useCallback(() => {
@@ -400,6 +436,14 @@ const ClubsScreenComponent: React.FC = () => {
         visible={showCreateClub}
         onClose={() => setShowCreateClub(false)}
         onTeamCreated={handleClubCreated}
+      />
+
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onClose={() => setAlertConfig(prev => ({...prev, visible: false}))}
       />
     </SafeAreaView>
   );

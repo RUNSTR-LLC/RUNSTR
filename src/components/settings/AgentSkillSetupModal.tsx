@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#fff',
+    color: theme.colors.text,
     marginBottom: 8,
   },
   subtitle: {
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: theme.colors.text,
   },
   stepDescription: {
     fontSize: 14,
@@ -532,7 +532,7 @@ const styles = StyleSheet.create({
   closeButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: theme.colors.text,
   },
 });
 

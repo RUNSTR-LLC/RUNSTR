@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 12,
     fontWeight: theme.typography.weights.bold,
-    color: '#fff', // White text on black badge
+    color: theme.colors.text,
   },
 
   badgeTextOrange: {

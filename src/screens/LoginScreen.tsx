@@ -606,7 +606,7 @@ const styles = StyleSheet.create({
   },
   amberStageText: {
     fontSize: 14,
-    color: '#FFFFFF',
+    color: theme.colors.text,
     marginTop: 8,
   },
 

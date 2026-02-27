@@ -838,7 +838,7 @@ const styles = StyleSheet.create({
   subscriptionRateText: {
     fontSize: 16,
     fontWeight: theme.typography.weights.semiBold,
-    color: '#fff',
+    color: theme.colors.text,
     flex: 1,
   },
   boostedBadge: {

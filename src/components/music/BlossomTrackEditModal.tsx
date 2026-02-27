@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   artworkOverlayText: {
-    color: '#fff',
+    color: theme.colors.text,
     fontSize: 13,
     fontWeight: '500',
   },

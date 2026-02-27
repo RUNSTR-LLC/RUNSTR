@@ -1161,7 +1161,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     <View style={styles.rewardSettingRow}>
                       <View style={styles.rewardSettingInfo}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff' }} />
+                          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: theme.colors.statusConnected }} />
                           <Text style={styles.rewardSettingTitle}>NWC Wallet Connected</Text>
                         </View>
                         <Text style={styles.rewardSettingSubtitle}>
@@ -1714,7 +1714,7 @@ const styles = StyleSheet.create({
   },
 
   disconnectButtonText: {
-    color: '#fff',
+    color: theme.colors.accentText,
     fontSize: 13,
     fontWeight: '600',
   },

@@ -48,7 +48,7 @@ export const WalletBalanceCard: React.FC<WalletBalanceCardProps> = ({
     return {
       text: 'Connected',
       color: theme.colors.textMuted,
-      dotColor: '#fff',
+      dotColor: theme.colors.statusConnected,
     };
   };
 

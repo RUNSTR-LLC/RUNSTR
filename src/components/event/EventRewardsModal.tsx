@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
   rankNumber: {
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
-    color: '#fff',
+    color: theme.colors.text,
   },
 
   distributionDetails: {

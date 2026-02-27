@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: theme.colors.text,
     textAlign: 'center',
     marginBottom: 16,
   },
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   stepsTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: theme.colors.text,
     marginBottom: 12,
   },
   stepText: {

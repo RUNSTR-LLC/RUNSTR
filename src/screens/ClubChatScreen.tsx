@@ -14,8 +14,8 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
+import { CustomAlert } from '../components/ui/CustomAlert';
 import { FEATURE_FLAGS } from '../constants/featureFlags';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -62,6 +62,9 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
   const [challengeScoresMap, setChallengeScoresMap] = useState<Map<string, ChallengeScores>>(new Map());
   const fetchedNpubsRef = useRef<Set<string>>(new Set());
   const flatListRef = useRef<FlatList>(null);
+  const [alertConfig, setAlertConfig] = useState<{visible: boolean; title: string; message: string; buttons: any[]}>({
+    visible: false, title: '', message: '', buttons: []
+  });
 
   const isCaptain = userNpub === captainNpub;
   const [pinnedMessage, setPinnedMessage] = useState<ClubMessage | null>(null);
@@ -217,7 +220,12 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
       const detail = result.error?.includes('403') ? 'You may not be the challenged user.'
         : result.error?.includes('timed out') ? 'Request timed out. Check your connection.'
         : result.error || 'Unknown error';
-      Alert.alert('Challenge Error', `Could not accept challenge: ${detail}`);
+      setAlertConfig({
+        visible: true,
+        title: 'Challenge Error',
+        message: `Could not accept challenge: ${detail}`,
+        buttons: [{ text: 'OK', onPress: () => setAlertConfig(prev => ({...prev, visible: false})) }]
+      });
     }
   }, [userNpub, getProfileForNpub]);
 
@@ -233,7 +241,12 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
       const detail = result.error?.includes('403') ? 'You may not be the challenged user.'
         : result.error?.includes('timed out') ? 'Request timed out. Check your connection.'
         : result.error || 'Unknown error';
-      Alert.alert('Challenge Error', `Could not decline challenge: ${detail}`);
+      setAlertConfig({
+        visible: true,
+        title: 'Challenge Error',
+        message: `Could not decline challenge: ${detail}`,
+        buttons: [{ text: 'OK', onPress: () => setAlertConfig(prev => ({...prev, visible: false})) }]
+      });
     }
   }, [userNpub]);
 
@@ -256,7 +269,12 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
 
     if (!result) {
       console.error('[ClubChatScreen] Failed to create challenge competition');
-      Alert.alert('Challenge Error', 'Could not create challenge. Please try again.');
+      setAlertConfig({
+        visible: true,
+        title: 'Challenge Error',
+        message: 'Could not create challenge. Please try again.',
+        buttons: [{ text: 'OK', onPress: () => setAlertConfig(prev => ({...prev, visible: false})) }]
+      });
       setChallengeTarget(null);
       return;
     }
@@ -477,6 +495,13 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
           }
         />
       )}
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onClose={() => setAlertConfig(prev => ({...prev, visible: false}))}
+      />
     </SafeAreaView>
   );
 };

@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 20,
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: theme.colors.orangeBright,
     overflow: 'hidden',
   },
 

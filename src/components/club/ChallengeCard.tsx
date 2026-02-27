@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
   messageText: { fontSize: 14, color: theme.colors.text, lineHeight: 20 },
   challengeActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
   acceptButton: { flex: 1, backgroundColor: theme.colors.accent, borderRadius: 6, paddingVertical: 8, alignItems: 'center' },
-  acceptButtonText: { fontSize: 13, fontWeight: theme.typography.weights.semiBold, color: '#FFFFFF' },
+  acceptButtonText: { fontSize: 13, fontWeight: theme.typography.weights.semiBold, color: theme.colors.accentText },
   declineButton: { flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 6, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: theme.colors.border },
   declineButtonText: { fontSize: 13, fontWeight: theme.typography.weights.semiBold, color: theme.colors.textMuted },
   challengeStatusText: { fontSize: 12, color: theme.colors.accent, fontWeight: theme.typography.weights.semiBold, marginTop: 6 },

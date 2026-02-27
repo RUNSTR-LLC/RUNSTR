@@ -21,7 +21,7 @@ export const toastConfig = {
   // Reward notification - Bitcoin orange theme
   reward: ({ text1, text2 }: ToastProps) => (
     <View style={styles.rewardToast}>
-      <Ionicons name="flash" size={24} color="#f7931a" />
+      <Ionicons name="flash" size={24} color={theme.colors.orangeDeep} />
       <View style={styles.textContainer}>
         <Text style={styles.title}>{text1}</Text>
         {text2 && <Text style={styles.subtitle}>{text2}</Text>}
@@ -32,7 +32,7 @@ export const toastConfig = {
   // Pledge reward notification - Shows progress
   pledge: ({ text1, text2 }: ToastProps) => (
     <View style={styles.pledgeToast}>
-      <Ionicons name="trophy" size={24} color="#f7931a" />
+      <Ionicons name="trophy" size={24} color={theme.colors.orangeDeep} />
       <View style={styles.textContainer}>
         <Text style={styles.title}>{text1}</Text>
         {text2 && <Text style={styles.subtitle}>{text2}</Text>}
@@ -65,7 +65,7 @@ export const toastConfig = {
   // Reward confirmed notification - Orange checkmark for payments to user's wallet
   rewardConfirmed: ({ text1, text2 }: ToastProps) => (
     <View style={styles.rewardConfirmedToast}>
-      <Ionicons name="checkmark-circle" size={24} color="#f7931a" />
+      <Ionicons name="checkmark-circle" size={24} color={theme.colors.orangeDeep} />
       <View style={styles.textContainer}>
         <Text style={styles.title}>{text1}</Text>
         {text2 && <Text style={styles.subtitle}>{text2}</Text>}
@@ -104,12 +104,12 @@ const styles = StyleSheet.create({
   rewardToast: {
     ...baseToastStyle,
     borderWidth: 1,
-    borderColor: '#f7931a',
+    borderColor: theme.colors.orangeDeep,
   },
   pledgeToast: {
     ...baseToastStyle,
     borderWidth: 1,
-    borderColor: '#f7931a',
+    borderColor: theme.colors.orangeDeep,
   },
   successToast: {
     ...baseToastStyle,
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
   rewardConfirmedToast: {
     ...baseToastStyle,
     borderWidth: 1,
-    borderColor: '#f7931a',
+    borderColor: theme.colors.orangeDeep,
   },
   rewardDonatedToast: {
     ...baseToastStyle,
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    color: '#ffffff',
+    color: theme.colors.text,
     fontSize: 16,
     fontWeight: '600',
   },
