@@ -11,7 +11,6 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -249,15 +248,17 @@ const RewardsScreenComponent: React.FC = () => {
         setScannedNWCString(qrData.connectionString);
         setShowNWCConfirmation(true);
       } else {
-        Alert.alert(
-          'Wrong QR Code Type',
-          'Please scan an NWC wallet connection QR code.',
-          [{ text: 'OK' }]
-        );
+        setAlertTitle('Wrong QR Code Type');
+        setAlertMessage('Please scan an NWC wallet connection QR code.');
+        setAlertButtons([{ text: 'OK', onPress: () => setAlertVisible(false) }]);
+        setAlertVisible(true);
       }
     } catch (error) {
       console.error('[RewardsScreen] QR scan error:', error);
-      Alert.alert('Error', 'Failed to process QR code. Please try again.', [{ text: 'OK' }]);
+      setAlertTitle('Error');
+      setAlertMessage('Failed to process QR code. Please try again.');
+      setAlertButtons([{ text: 'OK', onPress: () => setAlertVisible(false) }]);
+      setAlertVisible(true);
     }
   };
 

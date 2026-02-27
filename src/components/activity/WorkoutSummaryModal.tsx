@@ -529,7 +529,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
               <Ionicons name="flash" size={24} color="#f7931a" />
               <View style={styles.rewardTextContainer}>
                 <Text style={styles.rewardTitle}>Reward Earned!</Text>
-                <Text style={styles.rewardAmount}>+{workout.rewardAmount} sats</Text>
+                <Text style={styles.rewardAmount}>+{workout.rewardAmount} rewards</Text>
               </View>
             </View>
           )}
@@ -750,7 +750,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
 
           {/* Action Buttons */}
           <View style={styles.actionButtons}>
-            {/* Post to Nostr - Only visible if WoT > 0 */}
+            {/* Share Workout - Only visible if WoT > 0 */}
             {isWoTEligible && !postedToNostr && (
               <TouchableOpacity
                 style={[styles.actionButton, styles.postButton]}
@@ -761,7 +761,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
                   size={20}
                   color={theme.colors.background}
                 />
-                <Text style={styles.postButtonText}>Post to Nostr</Text>
+                <Text style={styles.postButtonText}>Share Workout</Text>
               </TouchableOpacity>
             )}
 

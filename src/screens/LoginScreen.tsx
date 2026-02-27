@@ -319,7 +319,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
                       style={[styles.textInput, error && styles.textInputError]}
                       value={nsecInput}
                       onChangeText={handleNsecChange}
-                      placeholder="nsec..."
+                      placeholder="Enter your password..."
                       placeholderTextColor={theme.colors.textOrange}
                       secureTextEntry={true}
                       autoCapitalize="none"

@@ -1062,7 +1062,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               {/* Export Data */}
               <SettingItem
                 title="Export Data"
-                subtitle="Backup workouts, habits & journal to Nostr"
+                subtitle="Backup workouts, habits & journal"
                 onPress={() => setShowExportModal(true)}
                 rightElement={
                   <View style={styles.securityIcon}>
@@ -1077,7 +1077,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               {/* Import Data */}
               <SettingItem
                 title="Import Data"
-                subtitle="Restore from Nostr backup"
+                subtitle="Restore from backup"
                 onPress={() => setShowImportModal(true)}
                 rightElement={
                   <View style={styles.securityIcon}>
@@ -1134,11 +1134,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     <Text style={styles.rewardSettingTitle}>Subscription Plan</Text>
                     {subscriptionTier === 'free' ? (
                       <Text style={styles.rewardSettingSubtitle}>
-                        Free — {REWARD_CONFIG.DAILY_WORKOUT_REWARD} sats/workout
+                        Free — {REWARD_CONFIG.DAILY_WORKOUT_REWARD} rewards/workout
                       </Text>
                     ) : (
                       <Text style={[styles.rewardSettingSubtitle, { color: theme.colors.accent }]}>
-                        {subscriptionTier === 'pro' ? 'Pro' : 'Supporter'} — {REWARD_CONFIG.BOOSTED_WORKOUT_REWARD} sats/workout (boosted)
+                        {subscriptionTier === 'pro' ? 'Pro' : 'Supporter'} — {REWARD_CONFIG.BOOSTED_WORKOUT_REWARD} rewards/workout (boosted)
                       </Text>
                     )}
                   </View>
@@ -1165,7 +1165,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                           <Text style={styles.rewardSettingTitle}>NWC Wallet Connected</Text>
                         </View>
                         <Text style={styles.rewardSettingSubtitle}>
-                          Your wallet is connected for in-app zapping
+                          Your wallet is connected for in-app payments
                         </Text>
                       </View>
                     </View>
@@ -1192,7 +1192,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                       <View style={styles.rewardSettingInfo}>
                         <Text style={styles.rewardSettingTitle}>No wallet connected</Text>
                         <Text style={styles.rewardSettingSubtitle}>
-                          Connect a wallet to enable in-app zapping
+                          Connect a wallet to enable in-app payments
                         </Text>
                       </View>
                     </View>
@@ -1259,7 +1259,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               {/* Copy Nostr ID */}
               <SettingItem
                 title="Copy ID"
-                subtitle="Copy your public Nostr identifier"
+                subtitle="Copy your public identifier"
                 onPress={handleCopyNpub}
                 rightElement={
                   <View style={styles.securityIcon}>
@@ -1318,7 +1318,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               />
               <SettingItem
                 title="Anti-Cheat Verification"
-                subtitle="Request cheater investigation (5,000 sats)"
+                subtitle="Request cheater investigation (5,000 rewards)"
                 onPress={() => setShowAntiCheatModal(true)}
               />
             </Card>

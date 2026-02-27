@@ -14,11 +14,11 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
+import { CustomAlert } from '../components/ui/CustomAlert';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useUserStore } from '../store/userStore';
@@ -40,6 +40,9 @@ export const ContactSupportScreen: React.FC<{ navigation: any }> = ({
   const [userEmail, setUserEmail] = useState('');
   const [debugInfo, setDebugInfo] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<{visible: boolean; title: string; message: string; buttons: any[]}>({
+    visible: false, title: '', message: '', buttons: []
+  });
 
   const user = useUserStore((state) => state.user);
 
@@ -85,22 +88,39 @@ Team: ${teamInfo}`;
   const handleSubmit = async () => {
     // Validate form
     if (!selectedCategory) {
-      Alert.alert('Missing Information', 'Please select an issue category');
+      setAlertConfig({
+        visible: true,
+        title: 'Missing Information',
+        message: 'Please select an issue category',
+        buttons: [{ text: 'OK', onPress: () => setAlertConfig(prev => ({...prev, visible: false})) }]
+      });
       return;
     }
     if (!subject.trim()) {
-      Alert.alert('Missing Information', 'Please enter a subject');
+      setAlertConfig({
+        visible: true,
+        title: 'Missing Information',
+        message: 'Please enter a subject',
+        buttons: [{ text: 'OK', onPress: () => setAlertConfig(prev => ({...prev, visible: false})) }]
+      });
       return;
     }
     if (!message.trim()) {
-      Alert.alert('Missing Information', 'Please describe your issue');
+      setAlertConfig({
+        visible: true,
+        title: 'Missing Information',
+        message: 'Please describe your issue',
+        buttons: [{ text: 'OK', onPress: () => setAlertConfig(prev => ({...prev, visible: false})) }]
+      });
       return;
     }
     if (!userEmail.trim() || !userEmail.includes('@')) {
-      Alert.alert(
-        'Invalid Email',
-        'Please enter a valid email address for responses'
-      );
+      setAlertConfig({
+        visible: true,
+        title: 'Invalid Email',
+        message: 'Please enter a valid email address for responses',
+        buttons: [{ text: 'OK', onPress: () => setAlertConfig(prev => ({...prev, visible: false})) }]
+      });
       return;
     }
 
@@ -134,16 +154,20 @@ Team: ${teamInfo}`;
       await AsyncStorage.setItem('supportRequests', JSON.stringify(requests));
 
       // Show success message
-      Alert.alert(
-        'Request Submitted',
-        "Your support request has been received. We'll respond within 24-48 hours to the email provided.",
-        [
+      setAlertConfig({
+        visible: true,
+        title: 'Request Submitted',
+        message: "Your support request has been received. We'll respond within 24-48 hours to the email provided.",
+        buttons: [
           {
             text: 'OK',
-            onPress: () => navigation.goBack(),
+            onPress: () => {
+              setAlertConfig(prev => ({...prev, visible: false}));
+              navigation.goBack();
+            },
           },
         ]
-      );
+      });
 
       // Reset form
       setSelectedCategory('');
@@ -152,11 +176,12 @@ Team: ${teamInfo}`;
       setUserEmail('');
     } catch (error) {
       console.error('Error submitting support request:', error);
-      Alert.alert(
-        'Submission Failed',
-        'Unable to submit your request. Please try again.',
-        [{ text: 'OK' }]
-      );
+      setAlertConfig({
+        visible: true,
+        title: 'Submission Failed',
+        message: 'Unable to submit your request. Please try again.',
+        buttons: [{ text: 'OK', onPress: () => setAlertConfig(prev => ({...prev, visible: false})) }]
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -320,6 +345,14 @@ Team: ${teamInfo}`;
           <View style={styles.bottomPadding} />
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onClose={() => setAlertConfig(prev => ({...prev, visible: false}))}
+      />
     </SafeAreaView>
   );
 };
