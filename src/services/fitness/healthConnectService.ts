@@ -21,6 +21,9 @@ const errorLog = (message: string, ...args: any[]) => {
   console.error(message, ...args);
 };
 
+const SUBMITTED_IDS_KEY = '@healthconnect:submitted_workout_ids';
+const MAX_SUBMITTED_IDS = 500;
+
 // Import react-native-health-connect for Android only
 let HealthConnect: any = null;
 let ExerciseType: any = null;
@@ -800,8 +803,10 @@ export class HealthConnectService {
     const npub = await AsyncStorage.getItem('@runstr:npub');
     if (!npub) return;
 
+    const submittedIds = await this.getSubmittedIds();
+
     const newCardio = workouts.filter((w) => {
-      if (!w.id || previousIds.has(w.id)) return false;
+      if (!w.id || previousIds.has(w.id) || submittedIds.has(w.id)) return false;
       if (!w.activityType || !CARDIO_TYPES.includes(w.activityType)) return false;
       if (!w.totalDistance || w.totalDistance <= 0) return false;
       return true;
@@ -819,10 +824,33 @@ export class HealthConnectService {
           calories: w.totalEnergyBurned,
           startTime: w.startTime,
         });
+
+        submittedIds.add(w.id);
         debugLog(`[HealthConnect] Auto-submitted ${w.activityType} workout to Supabase: ${eventId}`);
       } catch (err) {
         console.warn(`[HealthConnect] Failed to submit workout ${w.id}:`, err);
       }
+    }
+
+    await this.saveSubmittedIds(submittedIds);
+  }
+
+  private async getSubmittedIds(): Promise<Set<string>> {
+    try {
+      const raw = await AsyncStorage.getItem(SUBMITTED_IDS_KEY);
+      if (!raw) return new Set();
+      return new Set(JSON.parse(raw));
+    } catch {
+      return new Set();
+    }
+  }
+
+  private async saveSubmittedIds(ids: Set<string>): Promise<void> {
+    try {
+      const trimmed = Array.from(ids).slice(-MAX_SUBMITTED_IDS);
+      await AsyncStorage.setItem(SUBMITTED_IDS_KEY, JSON.stringify(trimmed));
+    } catch (error) {
+      console.warn('[HealthConnect] Failed to save submitted workout IDs:', error);
     }
   }
 

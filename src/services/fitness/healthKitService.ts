@@ -21,6 +21,9 @@ const errorLog = (message: string, ...args: any[]) => {
   console.error(message, ...args); // Always log errors
 };
 
+const SUBMITTED_IDS_KEY = '@healthkit:submitted_workout_ids';
+const MAX_SUBMITTED_IDS = 500;
+
 // Import @yzlin/expo-healthkit for iOS only
 let ExpoHealthKit: any = null;
 
@@ -1017,10 +1020,11 @@ export class HealthKitService {
 
     // Include Lightning address in tags so Supabase trigger can auto-reward
     const lightningAddress = await AsyncStorage.getItem('@runstr:lightning_address');
+    const submittedIds = await this.getSubmittedIds();
 
     const newCardio = workouts.filter((w) => {
       const id = w.UUID || w.id || '';
-      if (!id || previousIds.has(id)) return false;
+      if (!id || previousIds.has(id) || submittedIds.has(id)) return false;
       if (!w.activityType || !CARDIO_TYPES.includes(w.activityType)) return false;
       if (!w.totalDistance || w.totalDistance <= 0) return false;
       return true;
@@ -1028,7 +1032,8 @@ export class HealthKitService {
 
     for (const w of newCardio) {
       try {
-        const eventId = `hk_${w.UUID || w.id}`;
+        const workoutId = w.UUID || w.id || '';
+        const eventId = `hk_${workoutId}`;
         const tags: string[][] = [];
         if (lightningAddress) {
           tags.push(['lightning', lightningAddress]);
@@ -1044,10 +1049,35 @@ export class HealthKitService {
           startTime: w.startDate,
           tags,
         });
+
+        if (workoutId) {
+          submittedIds.add(workoutId);
+        }
         debugLog(`[HealthKit] Auto-submitted ${w.activityType} workout to Supabase: ${eventId}`);
       } catch (err) {
         console.warn(`[HealthKit] Failed to submit workout ${w.UUID}:`, err);
       }
+    }
+
+    await this.saveSubmittedIds(submittedIds);
+  }
+
+  private async getSubmittedIds(): Promise<Set<string>> {
+    try {
+      const raw = await AsyncStorage.getItem(SUBMITTED_IDS_KEY);
+      if (!raw) return new Set();
+      return new Set(JSON.parse(raw));
+    } catch {
+      return new Set();
+    }
+  }
+
+  private async saveSubmittedIds(ids: Set<string>): Promise<void> {
+    try {
+      const trimmed = Array.from(ids).slice(-MAX_SUBMITTED_IDS);
+      await AsyncStorage.setItem(SUBMITTED_IDS_KEY, JSON.stringify(trimmed));
+    } catch (error) {
+      console.warn('[HealthKit] Failed to save submitted workout IDs:', error);
     }
   }
 
