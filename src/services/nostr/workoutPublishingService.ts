@@ -395,8 +395,10 @@ export class WorkoutPublishingService {
       // ============================================================================
 
       // Cache invalidation (non-blocking)
+      // Pass competition team so leaderboard/team feed caches are invalidated too.
+      const teamIds = workout.competitionTeam ? [workout.competitionTeam] : undefined;
       fireAndForget(
-        CacheInvalidationService.invalidateWorkout(pubkey),
+        CacheInvalidationService.invalidateWorkout(pubkey, teamIds),
         'cacheInvalidation'
       );
 
