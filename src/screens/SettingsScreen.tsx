@@ -69,14 +69,13 @@ import { ExportDataModal } from '../components/backup/ExportDataModal';
 import { ImportDataModal } from '../components/backup/ImportDataModal';
 import { SecureNsecStorage } from '../services/auth/SecureNsecStorage';
 import { defaultActivityService, type DefaultActivity } from '../services/activity/DefaultActivityService';
-// useAuth removed - using direct AsyncStorage.clear() + CommonActions.reset()
 
 interface SettingsScreenProps {
   onCaptainDashboard?: () => void;
   onHelp?: () => void;
   onContactSupport?: () => void;
   onPrivacyPolicy?: () => void;
-  onSignOut?: () => void;
+  onSignOut?: () => void | Promise<void>;
 }
 
 interface SettingItemProps {
@@ -456,7 +455,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         onPress: async () => {
           setAlertVisible(false);
 
-          // Clear all auth data
+          // Prefer centralized sign-out path when provided by AuthContext/App
+          if (onSignOut) {
+            await onSignOut();
+            return;
+          }
+
+          // Fallback for legacy callers: clear local auth data and restart
           await AsyncStorage.multiRemove([
             '@runstr:user_nsec',
             '@runstr:npub',
@@ -466,8 +471,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             '@runstr:app_init_completed',
           ]);
           await SecureStore.deleteItemAsync('nwc_string');
-
-          // Restart the app - it will boot fresh and find no auth → show Login
           RNRestart.restart();
         },
       },
