@@ -22,11 +22,26 @@ const COINOS_JWT = '@runstr:coinos_jwt';
 const COINOS_API_BASE = 'https://coinos.io/api';
 const COINOS_API_TIMEOUT = 15000;
 
+function secureRandomInt(maxExclusive: number): number {
+  if (maxExclusive <= 0) {
+    throw new Error('maxExclusive must be greater than 0');
+  }
+
+  // react-native-get-random-values polyfills global crypto.getRandomValues
+  if (typeof global.crypto !== 'undefined' && global.crypto?.getRandomValues) {
+    const random = new Uint32Array(1);
+    global.crypto.getRandomValues(random);
+    return random[0] % maxExclusive;
+  }
+
+  throw new Error('Secure RNG unavailable: crypto.getRandomValues is required');
+}
+
 function generatePassword(length: number = 16): string {
   const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let result = '';
   for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
+    result += chars.charAt(secureRandomInt(chars.length));
   }
   return result;
 }
@@ -121,9 +136,7 @@ export class CoinOSAccountService {
 
         if (response.status === 409) {
           // Username taken — append random suffix
-          const suffix = Math.floor(Math.random() * 1000)
-            .toString()
-            .padStart(3, '0');
+          const suffix = secureRandomInt(1000).toString().padStart(3, '0');
           username = `${baseUsername}${suffix}`;
           attempts++;
           console.log('[CoinOS] Username taken, trying:', username);

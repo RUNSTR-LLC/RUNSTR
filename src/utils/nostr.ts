@@ -73,11 +73,18 @@ export interface NostrKeyPair {
  */
 export function generateNostrKeyPair(): NostrKeyPair {
   try {
-    // Generate 32 bytes of random data for private key
+    // Generate 32 bytes of cryptographically secure random data for private key
     const privateKeyBytes = new Uint8Array(32);
-    for (let i = 0; i < 32; i++) {
-      privateKeyBytes[i] = Math.floor(Math.random() * 256);
+
+    const cryptoObj = globalThis.crypto as
+      | { getRandomValues: (array: Uint8Array) => Uint8Array }
+      | undefined;
+
+    if (!cryptoObj?.getRandomValues) {
+      throw new Error('Secure RNG unavailable: crypto.getRandomValues is required');
     }
+
+    cryptoObj.getRandomValues(privateKeyBytes);
 
     const privateKeyHex = Array.from(privateKeyBytes)
       .map((byte) => byte.toString(16).padStart(2, '0'))

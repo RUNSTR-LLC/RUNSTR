@@ -89,14 +89,14 @@ class RewardsTransparencyServiceClass {
       return {
         periodType: data.period_type,
         periodStart: data.period_start,
-        totalPaidSats: data.total_paid_sats,
-        totalRecipients: data.total_recipients,
-        directToUsersSats: data.direct_to_users_sats,
-        directToUsersCount: data.direct_to_users_count,
-        donatedToCharitySats: data.donated_to_charity_sats,
-        donatedToCharityCount: data.donated_to_charity_count,
-        failedPaymentSats: data.failed_payment_sats,
-        failedPaymentCount: data.failed_payment_count,
+        totalPaidSats: data.total_paid_sats ?? 0,
+        totalRecipients: data.total_recipients ?? 0,
+        directToUsersSats: data.direct_to_users_sats ?? 0,
+        directToUsersCount: data.direct_to_users_count ?? 0,
+        donatedToCharitySats: data.donated_to_charity_sats ?? 0,
+        donatedToCharityCount: data.donated_to_charity_count ?? 0,
+        failedPaymentSats: data.failed_payment_sats ?? 0,
+        failedPaymentCount: data.failed_payment_count ?? 0,
         updatedAt: data.updated_at,
       };
     } catch (error) {

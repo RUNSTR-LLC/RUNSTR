@@ -73,13 +73,12 @@ import { QRScannerModal } from '../components/qr/QRScannerModal';
 import type { QRData } from '../services/qr/QRCodeService';
 import { AgentSkillSetupModal } from '../components/settings/AgentSkillSetupModal';
 import Constants from 'expo-constants';
-// useAuth removed - using direct AsyncStorage.clear() + CommonActions.reset()
 
 interface SettingsScreenProps {
   onHelp?: () => void;
   onContactSupport?: () => void;
   onPrivacyPolicy?: () => void;
-  onSignOut?: () => void;
+  onSignOut?: () => void | Promise<void>;
 }
 
 interface SettingItemProps {
@@ -470,7 +469,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         onPress: async () => {
           setAlertVisible(false);
 
-          // Use AuthService for comprehensive cleanup (caches, wallet, teams, Lightning address, etc.)
+          // Prefer centralized sign-out path when provided by AuthContext/App
+          if (onSignOut) {
+            await onSignOut();
+            return;
+          }
+
+          // Fallback: Use AuthService for comprehensive cleanup (caches, wallet, teams, Lightning address, etc.)
           await AuthService.signOut();
 
           // Also clear SecureStore nsec and NWC
