@@ -568,11 +568,26 @@ export class WorkoutPublishingService {
         signTimeout,
         'Social post signing'
       );
-      await withTimeout(
+
+      // Ensure at least 1 relay is connected before publishing
+      // This was removed in commit 3f84367 and caused silent zero-relay publishes
+      const relaysReady = await GlobalNDKService.waitForMinimumConnection(1, 5000);
+      if (!relaysReady) {
+        console.warn('[WorkoutPublishing] No relays connected — attempting publish anyway');
+      }
+
+      const publishResult = await withTimeout(
         ndkEvent.publish(),
         NOSTR_TIMEOUTS.PUBLISH,
         'Social post publishing'
       );
+
+      // Check that at least one relay accepted the event
+      const relayCount = publishResult?.size ?? 0;
+      if (relayCount === 0) {
+        throw new Error('Published to 0 relays — no relay connections available');
+      }
+      console.log(`📡 Published to ${relayCount} relay(s)`);
 
       console.log(`✅ Workout posted to social: ${ndkEvent.id}`);
 
