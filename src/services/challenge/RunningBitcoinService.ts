@@ -30,6 +30,7 @@ import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionServic
 import { ProfileCache } from '../../cache/ProfileCache';
 import { nip19 } from 'nostr-tools';
 import { PendingSubmissionService, PendingSubmission } from '../competition/PendingSubmissionService';
+import { SecureNsecStorage } from '../auth/SecureNsecStorage';
 
 const JOINED_USERS_KEY = '@runstr:running_bitcoin_joined';
 const REWARDS_CLAIMED_KEY = '@runstr:running_bitcoin_rewards_claimed';
@@ -1063,10 +1064,10 @@ class RunningBitcoinServiceClass {
   private async postCompletionToNostr(_pubkey: string, progress: RunningBitcoinProgress): Promise<string> {
     const ndk = await GlobalNDKService.getInstance();
 
-    // Get user's nsec from storage for signing
-    const nsec = await AsyncStorage.getItem('@runstr:user_nsec');
+    // Get user's nsec from secure storage for signing (with legacy migration fallback)
+    const nsec = await SecureNsecStorage.getNsec();
     if (!nsec) {
-      throw new Error('No nsec found - cannot sign event');
+      throw new Error('No nsec found in secure storage - cannot sign event');
     }
 
     // Create the completion post content
