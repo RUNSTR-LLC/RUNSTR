@@ -2,6 +2,36 @@
 
 All notable changes to RUNSTR will be documented in this file.
 
+## [1.7.3] - 2026-02-28 - Security Hardening & Branch Unification
+
+### Security
+- Secure RNG for Nostr key generation (crypto.getRandomValues replaces Math.random)
+- Secure RNG for CoinOS credential generation
+- SecureNsecStorage used consistently in Running Bitcoin post flow
+- Centralized sign-out flow via AuthContext prevents partial state cleanup
+- GlobalNDK signer cleared on sign-out to prevent stale identity
+
+### Bug Fixes
+- Cache crash fix: SimpleCache.delete prevents TeamCacheService crash
+- Workout invalidation now passes competition team IDs correctly
+- Health auto-submit retries on transient failures instead of silently dropping
+- Reward summary defaults nullable totals to zero (prevents NaN display)
+- Team join resolves current user npub correctly
+- Manual entry range validation enforced
+
+### Improvements
+- Subscription status card on Rewards page (10x boost, clean framing)
+- Subscription economics updated — 10x boost, 15k/21k pricing, 5/week cap
+- Terminology cleanup — rewards everywhere, no Bitcoin/sats/Nostr in user-facing text
+- SafeAreaView migrated to react-native-safe-area-context (12 screens)
+- ~12K lines of dead code removed
+- Nostr club/team relay queries replaced with Supabase-only
+
+### Infrastructure
+- Merged v1.7.0 (clubs) + v1.7.2 (security fixes) into unified branch
+- 4 critical-path verification scripts (216 assertions)
+- Pre-release audit fixes (performance, i18n, UX, data integrity)
+
 ## [1.7.1] - 2026-02-24 - Club Chat, Challenges, Meditation & Voice Journal
 
 ### Club Chat
