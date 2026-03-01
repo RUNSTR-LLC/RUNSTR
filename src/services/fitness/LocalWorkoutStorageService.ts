@@ -604,11 +604,20 @@ export class LocalWorkoutStorageService {
    */
   private async autoSubmitToSupabase(workout: LocalWorkout): Promise<void> {
     const CARDIO_TYPES: string[] = ['running', 'walking', 'cycling', 'hiking'];
-    if (!CARDIO_TYPES.includes(workout.type)) return;
-    if (!workout.distance || workout.distance <= 0) return;
+    if (!CARDIO_TYPES.includes(workout.type)) {
+      console.log(`[LocalWorkoutStorage] Skipping Supabase submit: type '${workout.type}' is not cardio`);
+      return;
+    }
+    if (!workout.distance || workout.distance <= 0) {
+      console.warn(`[LocalWorkoutStorage] Skipping Supabase submit: distance is ${workout.distance} for ${workout.type} workout ${workout.id}`);
+      return;
+    }
 
     const npub = await AsyncStorage.getItem('@runstr:npub');
-    if (!npub) return;
+    if (!npub) {
+      console.warn('[LocalWorkoutStorage] Skipping Supabase submit: no npub in AsyncStorage');
+      return;
+    }
 
     console.log(`[LocalWorkoutStorage] Auto-submitting ${workout.type} workout to Supabase...`);
 
