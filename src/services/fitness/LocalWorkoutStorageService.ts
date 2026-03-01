@@ -610,12 +610,14 @@ export class LocalWorkoutStorageService {
     }
     if (!workout.distance || workout.distance <= 0) {
       console.warn(`[LocalWorkoutStorage] Skipping Supabase submit: distance is ${workout.distance} for ${workout.type} workout ${workout.id}`);
+      await this.updateSupabaseStatus(workout.id, false, `Distance is ${workout.distance}`).catch(() => {});
       return;
     }
 
     const npub = await AsyncStorage.getItem('@runstr:npub');
     if (!npub) {
       console.warn('[LocalWorkoutStorage] Skipping Supabase submit: no npub in AsyncStorage');
+      await this.updateSupabaseStatus(workout.id, false, 'No npub in AsyncStorage').catch(() => {});
       return;
     }
 
@@ -626,7 +628,14 @@ export class LocalWorkoutStorageService {
       const tags = this.buildWorkoutTags(workout);
 
       // Include lightning address + charity tags for zapper reward routing
-      const rewardTags = await buildRewardTags();
+      // 10s timeout prevents entire submission from hanging if AsyncStorage or Supabase stalls
+      const rewardTags = await Promise.race([
+        buildRewardTags(),
+        new Promise<string[][]>((resolve) => setTimeout(() => {
+          console.warn('[LocalWorkoutStorage] buildRewardTags timed out after 10s, submitting without reward tags');
+          resolve([]);
+        }, 10000)),
+      ]);
       tags.push(...rewardTags);
 
       // Get profile for leaderboard display

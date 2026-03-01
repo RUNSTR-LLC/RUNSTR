@@ -335,50 +335,65 @@ export class SupabaseCompetitionService {
     // PPQ.AI: Auto-create bolt11 invoice if user's team is PPQ.AI and no invoice provided
     // This ensures ALL submission paths (HealthKit, background, manual) get PPQ support
     // Invoice amount matches subscriber tier using shared isBoostedQualified() + REWARD_CONFIG
+    // Total timeout of 12s prevents SubscriptionService (5s) + PPQ invoice (15s) from
+    // accumulating 20+ seconds before the fetch even starts
     let ppqBolt11 = data.ppqBolt11;
     let ppqInvoiceId = data.ppqInvoiceId;
     let ppqFailed = false;
     if (!ppqBolt11) {
-      try {
-        const selectedTeamId = await AsyncStorage.getItem('@runstr:selected_team_id');
-        if (selectedTeamId && isPPQTeam(selectedTeamId)) {
-          const hasAccount = await PPQAccountService.hasAccount();
-          if (hasAccount) {
-            // Determine reward amount using shared boost logic (same criteria as non-PPQ path)
-            // Source is 'gps_tracker' since submitWorkoutSimple callers are all non-manual
-            let rewardSats = REWARD_CONFIG.DAILY_WORKOUT_REWARD;
-            const npub = await AsyncStorage.getItem('@runstr:npub');
-            if (npub) {
-              // 5s timeout prevents hanging if Supabase is slow (same pattern as club lookups)
-              const isSubscriber = await Promise.race([
-                SubscriptionService.isSupporterOrAbove(npub),
-                new Promise<boolean>((resolve) => setTimeout(() => {
-                  console.warn('[SupabaseCompetition] Subscription check timed out, defaulting to non-boosted');
-                  resolve(false);
-                }, 5000)),
-              ]);
-              if (isSubscriber && isBoostedQualified(data.type, 'gps_tracker')) {
-                rewardSats = REWARD_CONFIG.BOOSTED_WORKOUT_REWARD;
+      const ppqResult = await Promise.race([
+        (async () => {
+          try {
+            const selectedTeamId = await AsyncStorage.getItem('@runstr:selected_team_id');
+            if (selectedTeamId && isPPQTeam(selectedTeamId)) {
+              const hasAccount = await PPQAccountService.hasAccount();
+              if (hasAccount) {
+                // Determine reward amount using shared boost logic (same criteria as non-PPQ path)
+                // Source is 'gps_tracker' since submitWorkoutSimple callers are all non-manual
+                let rewardSats = REWARD_CONFIG.DAILY_WORKOUT_REWARD;
+                const npub = await AsyncStorage.getItem('@runstr:npub');
+                if (npub) {
+                  // 5s timeout prevents hanging if Supabase is slow (same pattern as club lookups)
+                  const isSubscriber = await Promise.race([
+                    SubscriptionService.isSupporterOrAbove(npub),
+                    new Promise<boolean>((resolve) => setTimeout(() => {
+                      console.warn('[SupabaseCompetition] Subscription check timed out, defaulting to non-boosted');
+                      resolve(false);
+                    }, 5000)),
+                  ]);
+                  if (isSubscriber && isBoostedQualified(data.type, 'gps_tracker')) {
+                    rewardSats = REWARD_CONFIG.BOOSTED_WORKOUT_REWARD;
+                  }
+                }
+                const invoiceResult = await PPQAccountService.createTopupInvoice(rewardSats);
+                if (invoiceResult.success && invoiceResult.bolt11) {
+                  return { bolt11: invoiceResult.bolt11, invoiceId: invoiceResult.invoiceId, failed: false };
+                } else {
+                  console.warn(`[SupabaseCompetition] PPQ.AI invoice creation returned error: ${invoiceResult.error}`);
+                  return { bolt11: undefined, invoiceId: undefined, failed: true };
+                }
+              } else {
+                console.warn('[SupabaseCompetition] PPQ.AI team selected but no account configured');
+                return { bolt11: undefined, invoiceId: undefined, failed: true };
               }
             }
-            const invoiceResult = await PPQAccountService.createTopupInvoice(rewardSats);
-            if (invoiceResult.success && invoiceResult.bolt11) {
-              ppqBolt11 = invoiceResult.bolt11;
-              ppqInvoiceId = invoiceResult.invoiceId;
-              console.log(`[SupabaseCompetition] PPQ.AI invoice auto-created (${rewardSats} sats): ${ppqBolt11.slice(0, 30)}...`);
-            } else {
-              console.warn(`[SupabaseCompetition] PPQ.AI invoice creation returned error: ${invoiceResult.error}`);
-              ppqFailed = true;
-            }
-          } else {
-            console.warn('[SupabaseCompetition] PPQ.AI team selected but no account configured');
-            ppqFailed = true;
+            return { bolt11: undefined, invoiceId: undefined, failed: false };
+          } catch (ppqError) {
+            console.warn('[SupabaseCompetition] PPQ.AI invoice creation failed:', ppqError);
+            return { bolt11: undefined, invoiceId: undefined, failed: true };
           }
-        }
-      } catch (ppqError) {
-        console.warn('[SupabaseCompetition] PPQ.AI invoice creation failed:', ppqError);
-        ppqFailed = true;
+        })(),
+        new Promise<{ bolt11: undefined; invoiceId: undefined; failed: true }>((resolve) => setTimeout(() => {
+          console.warn('[SupabaseCompetition] PPQ prep timed out after 12s, proceeding without PPQ invoice');
+          resolve({ bolt11: undefined, invoiceId: undefined, failed: true });
+        }, 12000)),
+      ]);
+      if (ppqResult.bolt11) {
+        ppqBolt11 = ppqResult.bolt11;
+        ppqInvoiceId = ppqResult.invoiceId;
+        console.log(`[SupabaseCompetition] PPQ.AI invoice auto-created: ${ppqBolt11.slice(0, 30)}...`);
       }
+      ppqFailed = ppqResult.failed;
     }
 
     // PPQ.AI FALLBACK: If PPQ invoice failed, inject user's lightning address into tags

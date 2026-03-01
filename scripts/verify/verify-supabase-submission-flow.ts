@@ -133,7 +133,38 @@ check(
   'Must detect Amber signer and serialize uploads instead of racing'
 );
 
-// --- 7. Kind 1 flow uses NDK not nostr-tools ---
+// --- 7. autoSubmitToSupabase: early returns mark supabaseSubmitted = false ---
+
+check(
+  'Distance early return calls updateSupabaseStatus',
+  localWorkoutStorage.includes('updateSupabaseStatus(workout.id, false') &&
+    localWorkoutStorage.includes('distance is'),
+  'Zero distance early return must call updateSupabaseStatus(id, false, reason)'
+);
+
+check(
+  'No-npub early return calls updateSupabaseStatus',
+  localWorkoutStorage.includes("updateSupabaseStatus(workout.id, false, 'No npub"),
+  'Missing npub early return must call updateSupabaseStatus(id, false, reason)'
+);
+
+// --- 8. buildRewardTags() has top-level timeout in autoSubmitToSupabase ---
+
+check(
+  'buildRewardTags() wrapped with timeout in autoSubmitToSupabase',
+  localWorkoutStorage.includes('buildRewardTags timed out after'),
+  'buildRewardTags() call must be wrapped with Promise.race timeout'
+);
+
+// --- 9. PPQ prep block has total timeout ---
+
+check(
+  'PPQ prep block has total timeout',
+  supabaseCompetition.includes('PPQ prep timed out after'),
+  'Entire PPQ prep block must be wrapped with a total timeout'
+);
+
+// --- 10. Kind 1 flow uses NDK not nostr-tools ---
 
 check(
   'workoutPublishingService does NOT import nostr-tools',
