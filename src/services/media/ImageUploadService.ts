@@ -7,6 +7,7 @@
 import type { NDKSigner } from '@nostr-dev-kit/ndk';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { GlobalNDKService } from '../nostr/GlobalNDKService';
+import { withTimeout } from '../../utils/nostrTimeout';
 
 export interface ImageUploadResult {
   success: boolean;
@@ -56,21 +57,46 @@ export class ImageUploadService {
 
     console.log('🏁 Racing image upload to multiple hosts...');
 
-    // Create upload promises for all hosts
+    // Detect Amber signer — Amber can only process one signing dialog at a time
+    // Racing 3 hosts creates 3 competing Amber prompts, causing timeouts
+    const isAmberSigner = (signer as any)?.AMBER_TIMEOUT_MS !== undefined;
+
+    if (isAmberSigner) {
+      // Serialize: try hosts one at a time to avoid competing Amber dialogs
+      console.log('🔐 Amber signer detected — serializing uploads to avoid competing prompts');
+      const hosts: Array<() => Promise<ImageUploadResult>> = [
+        () => this.uploadToNostrBuild(imageUri, filename, signer!),
+        ...BLOSSOM_SERVERS.map((server) =>
+          () => this.uploadToBlossom(server, imageUri, filename, signer!)
+        ),
+      ];
+      for (const tryHost of hosts) {
+        try {
+          const result = await tryHost();
+          if (result.success) {
+            console.log(`✅ Upload succeeded via: ${result.host}`);
+            return result;
+          }
+        } catch (err) {
+          console.warn('⚠️ Host failed, trying next...', err instanceof Error ? err.message : err);
+        }
+      }
+      return { success: false, error: 'All image hosts failed — please try again' };
+    }
+
+    // Non-Amber: race all hosts in parallel (fastest wins)
     const uploadPromises: Promise<ImageUploadResult>[] = [
-      this.uploadToNostrBuild(imageUri, filename, signer),
+      this.uploadToNostrBuild(imageUri, filename, signer!),
       ...BLOSSOM_SERVERS.map((server) =>
-        this.uploadToBlossom(server, imageUri, filename, signer)
+        this.uploadToBlossom(server, imageUri, filename, signer!)
       ),
     ];
 
     try {
-      // Promise.any() resolves with first success, ignores failures
       const result = await Promise.any(uploadPromises);
       console.log(`✅ Upload won by: ${result.host}`);
       return result;
     } catch (aggregateError) {
-      // All uploads failed
       console.error('❌ All image hosts failed:', aggregateError);
       return {
         success: false,
@@ -262,7 +288,12 @@ export class ImageUploadService {
     authEvent.created_at = Math.floor(Date.now() / 1000);
     authEvent.pubkey = user.pubkey;
 
-    await authEvent.sign(signer);
+    // Timeout protects against Amber signer hangs (60s internal timeout)
+    await withTimeout(
+      authEvent.sign(signer),
+      15000,
+      'NIP-98 auth signing'
+    );
 
     return {
       id: authEvent.id,
@@ -296,7 +327,12 @@ export class ImageUploadService {
     authEvent.created_at = Math.floor(Date.now() / 1000);
     authEvent.pubkey = user.pubkey;
 
-    await authEvent.sign(signer);
+    // Timeout protects against Amber signer hangs (60s internal timeout)
+    await withTimeout(
+      authEvent.sign(signer),
+      15000,
+      'Blossom auth signing'
+    );
 
     return {
       id: authEvent.id,
