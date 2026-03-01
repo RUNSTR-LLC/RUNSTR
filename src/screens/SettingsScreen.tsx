@@ -68,6 +68,7 @@ import { WoTService } from '../services/wot/WoTService';
 import { ExportDataModal } from '../components/backup/ExportDataModal';
 import { ImportDataModal } from '../components/backup/ImportDataModal';
 import { SecureNsecStorage } from '../services/auth/SecureNsecStorage';
+import { AuthService } from '../services/auth/authService';
 import { defaultActivityService, type DefaultActivity } from '../services/activity/DefaultActivityService';
 
 interface SettingsScreenProps {
@@ -461,16 +462,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             return;
           }
 
-          // Fallback for legacy callers: clear local auth data and restart
-          await AsyncStorage.multiRemove([
-            '@runstr:user_nsec',
-            '@runstr:npub',
-            '@runstr:hex_pubkey',
-            '@runstr:auth_method',
-            '@runstr:amber_pubkey',
-            '@runstr:app_init_completed',
-          ]);
-          await SecureStore.deleteItemAsync('nwc_string');
+          // Fallback for legacy callers: still use centralized sign-out
+          // so SecureStore nsec + app caches/stores are fully cleared.
+          await AuthService.signOut();
           RNRestart.restart();
         },
       },
