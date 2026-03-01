@@ -56,7 +56,13 @@ export async function buildRewardTags(): Promise<string[][]> {
     let team = null;
     if (isSupabaseConfigured()) {
       try {
-        team = await UserTeamService.getTeamById(uuid);
+        team = await Promise.race([
+          UserTeamService.getTeamById(uuid),
+          new Promise<null>((resolve) => setTimeout(() => {
+            console.warn(`[buildRewardTags] Timed out fetching community team '${uuid}'`);
+            resolve(null);
+          }, 5000)),
+        ]);
       } catch (err) {
         console.warn(`[buildRewardTags] Failed to fetch community team '${uuid}':`, err);
       }
@@ -155,11 +161,17 @@ export async function getClubLightningAddress(): Promise<string | null> {
   const clubId = await AsyncStorage.getItem('@runstr:club_id');
   if (!clubId) return null;
 
-  // Club IDs from AsyncStorage are raw UUIDs (not prefixed)
   if (!isSupabaseConfigured()) return null;
 
   try {
-    const team = await UserTeamService.getTeamById(clubId);
+    // 5s timeout prevents hanging the entire workout submission
+    const team = await Promise.race([
+      UserTeamService.getTeamById(clubId),
+      new Promise<null>((resolve) => setTimeout(() => {
+        console.warn(`[getClubLightningAddress] Timed out fetching club ${clubId}`);
+        resolve(null);
+      }, 5000)),
+    ]);
     return team?.lightning_address || null;
   } catch (err) {
     console.warn('[getClubLightningAddress] Failed to fetch club:', err);
