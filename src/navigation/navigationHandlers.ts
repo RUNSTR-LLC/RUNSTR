@@ -110,6 +110,19 @@ export const createNavigationHandlers = (): NavigationHandlers => {
             team.name
           );
 
+          // Resolve current user npub for downstream captain/member logic
+          let currentUserNpub: string | undefined;
+          try {
+            const userData = await AuthService.getCurrentUserWithWallet();
+            currentUserNpub = userData?.npub;
+          } catch (error) {
+            console.warn(
+              'NavigationHandlers: Failed to resolve npub from AuthService, falling back to store:',
+              error
+            );
+            currentUserNpub = useUserStore.getState().user?.npub;
+          }
+
           // Refresh data if callback provided
           if (refreshData) {
             console.log(
@@ -557,7 +570,7 @@ export const createNavigationHandlers = (): NavigationHandlers => {
     handleViewWalletHistory: () => {
       console.log('View wallet history pressed');
       // Transaction history is now integrated in the wallet modals
-      navigation.navigate('Profile' as never);
+      // Keep this as a no-op to avoid referencing out-of-scope navigation.
     },
 
     handleViewAllActivity: () => {
