@@ -395,6 +395,17 @@ export class SupabaseCompetitionService {
       }
     }
 
+    // Resolve club data BEFORE starting the fetch timeout
+    // These were previously inside JSON.stringify body where they bypassed the AbortController
+    let clubId: string | null = null;
+    let clubLightningAddress: string | null = null;
+    try {
+      clubId = await AsyncStorage.getItem('@runstr:club_id') || null;
+      clubLightningAddress = await getClubLightningAddress();
+    } catch (clubErr) {
+      console.warn('[SupabaseCompetitionService] Club data lookup failed (non-blocking):', clubErr);
+    }
+
     // CRASH FIX: Add timeout to prevent indefinite hang on network issues
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
@@ -431,8 +442,8 @@ export class SupabaseCompetitionService {
             ppq_bolt11: ppqBolt11 || null,
             ppq_invoice_id: ppqInvoiceId || null,
             // Club association (separate from charity/team)
-            club_id: await AsyncStorage.getItem('@runstr:club_id') || null,
-            club_lightning_address: await getClubLightningAddress(),
+            club_id: clubId,
+            club_lightning_address: clubLightningAddress,
             raw_event: {
               event_id: data.eventId,
               type: data.type,
