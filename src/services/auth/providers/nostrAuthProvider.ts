@@ -353,10 +353,7 @@ export class NostrAuthProvider {
       const npub = ndkUser.npub;
       const hexPubkey = ndkUser.pubkey;
 
-      console.log(
-        '🔑 Generated nsec using custom encoder:',
-        nsec ? nsec.slice(0, 10) + '...' : 'null'
-      );
+      console.log('🔑 Generated nsec using custom encoder:', !!nsec);
       console.log(
         '🔑 NDK provided npub:',
         npub ? npub.slice(0, 20) + '...' : 'null'
@@ -365,8 +362,8 @@ export class NostrAuthProvider {
       // Validate all generated values
       if (!nsec || !nsec.startsWith('nsec1')) {
         console.error(
-          '❌ NostrAuthProvider: Invalid nsec generated:',
-          nsec?.slice(0, 10) || 'null'
+          '❌ NostrAuthProvider: Invalid nsec generated (present):',
+          !!nsec
         );
         console.error(
           '❌ NostrAuthProvider: hex private key was:',
@@ -392,7 +389,7 @@ export class NostrAuthProvider {
       }
 
       console.log('✅ NostrAuthProvider: Generated new Nostr identity:', {
-        nsec: nsec.slice(0, 10) + '...',
+        hasNsec: !!nsec,
         npub: npub.slice(0, 20) + '...',
         hexPubkey: hexPubkey.slice(0, 16) + '...',
       });
@@ -405,8 +402,8 @@ export class NostrAuthProvider {
           '❌ NostrAuthProvider: Failed to store generated authentication data'
         );
         console.error(
-          '❌ NostrAuthProvider: Storage failed for nsec:',
-          nsec.slice(0, 10) + '...'
+          '❌ NostrAuthProvider: Storage failed for nsec (present):',
+          !!nsec
         );
         console.error(
           '❌ NostrAuthProvider: Storage failed for npub:',

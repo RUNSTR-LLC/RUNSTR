@@ -44,7 +44,7 @@ export async function storeAuthenticationData(
     console.log('[Auth] nsec format check:', {
       startsWithNsec: nsec?.startsWith('nsec1'),
       length: nsec?.length,
-      sample: nsec ? nsec.slice(0, 10) + '...' : 'null',
+      present: !!nsec,
     });
 
     // Validate nsec format first
@@ -52,7 +52,7 @@ export async function storeAuthenticationData(
       console.error('[Auth] Invalid nsec format:', {
         startsWithNsec: nsec?.startsWith('nsec1'),
         length: nsec?.length,
-        sample: nsec ? nsec.slice(0, 10) + '...' : 'null',
+        present: !!nsec,
       });
       return false;
     }
@@ -345,16 +345,16 @@ export async function migrateAuthenticationStorage(
         // Try npub as key (old broken method)
         nsec = decryptNsec(encrypted, userNpub);
         console.log(
-          '[Auth] Decrypted with npub:',
-          nsec?.slice(0, 10) || 'failed'
+          '[Auth] Decrypted with npub (valid):',
+          !!nsec?.startsWith('nsec1')
         );
 
         if (!nsec?.startsWith('nsec1')) {
           // Try userId as key (correct method)
           nsec = decryptNsec(encrypted, userId);
           console.log(
-            '[Auth] Decrypted with userId:',
-            nsec?.slice(0, 10) || 'failed'
+            '[Auth] Decrypted with userId (valid):',
+            !!nsec?.startsWith('nsec1')
           );
         }
 
@@ -364,8 +364,8 @@ export async function migrateAuthenticationStorage(
           if (hexPubkey) {
             nsec = decryptNsec(encrypted, hexPubkey);
             console.log(
-              '[Auth] Decrypted with hexPubkey:',
-              nsec?.slice(0, 10) || 'failed'
+              '[Auth] Decrypted with hexPubkey (valid):',
+              !!nsec?.startsWith('nsec1')
             );
           }
         }
