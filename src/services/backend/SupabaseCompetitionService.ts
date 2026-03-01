@@ -349,7 +349,14 @@ export class SupabaseCompetitionService {
             let rewardSats = REWARD_CONFIG.DAILY_WORKOUT_REWARD;
             const npub = await AsyncStorage.getItem('@runstr:npub');
             if (npub) {
-              const isSubscriber = await SubscriptionService.isSupporterOrAbove(npub);
+              // 5s timeout prevents hanging if Supabase is slow (same pattern as club lookups)
+              const isSubscriber = await Promise.race([
+                SubscriptionService.isSupporterOrAbove(npub),
+                new Promise<boolean>((resolve) => setTimeout(() => {
+                  console.warn('[SupabaseCompetition] Subscription check timed out, defaulting to non-boosted');
+                  resolve(false);
+                }, 5000)),
+              ]);
               if (isSubscriber && isBoostedQualified(data.type, 'gps_tracker')) {
                 rewardSats = REWARD_CONFIG.BOOSTED_WORKOUT_REWARD;
               }
