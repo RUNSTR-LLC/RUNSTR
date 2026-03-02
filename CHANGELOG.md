@@ -2,7 +2,7 @@
 
 All notable changes to RUNSTR will be documented in this file.
 
-## [1.7.3] - 2026-02-28 - Security Hardening & Branch Unification
+## [1.7.3] - 2026-03-02 - Security Hardening, Submission Reliability & Branch Unification
 
 ### Security
 - Secure RNG for Nostr key generation (crypto.getRandomValues replaces Math.random)
@@ -11,6 +11,16 @@ All notable changes to RUNSTR will be documented in this file.
 - Centralized sign-out flow via AuthContext prevents partial state cleanup
 - GlobalNDK signer cleared on sign-out to prevent stale identity
 
+### Submission Pipeline Reliability
+- 5-second timeouts on club/team Supabase queries during reward tag building
+- 5-second timeout on SubscriptionService tier check prevents hangs
+- Timeout on image upload auth signing with Amber signer serialization
+- Restored relay minimum connection check before publishing
+- Hoisted async club lookups out of JSON.stringify to prevent silent failures
+- Diagnostic logging for silent early returns in auto-submit pipeline
+- Hardened early return status reporting in submission pipeline
+- PPQ total timeout and buildRewardTags timeout protection
+
 ### Bug Fixes
 - Cache crash fix: SimpleCache.delete prevents TeamCacheService crash
 - Workout invalidation now passes competition team IDs correctly
@@ -18,6 +28,9 @@ All notable changes to RUNSTR will be documented in this file.
 - Reward summary defaults nullable totals to zero (prevents NaN display)
 - Team join resolves current user npub correctly
 - Manual entry range validation enforced
+- Removed broken ChallengeService import
+- Fixed chat double-submit on rapid taps
+- Fixed German translation string
 
 ### Improvements
 - Subscription status card on Rewards page (10x boost, clean framing)
