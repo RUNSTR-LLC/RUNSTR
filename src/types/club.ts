@@ -28,7 +28,7 @@ export interface ClubMembership {
 }
 
 // Message types for club chat
-export type ClubMessageType = 'message' | 'announcement' | 'workout' | 'challenge';
+export type ClubMessageType = 'message' | 'announcement' | 'workout';
 
 // Club chat message - maps to club_messages table
 export interface ClubMessage {
@@ -40,7 +40,7 @@ export interface ClubMessage {
   deleted_at: string | null;
   reply_to_id: string | null;
   message_type: ClubMessageType;
-  metadata: WorkoutMessageMetadata | ChallengeMessageMetadata | null;
+  metadata: WorkoutMessageMetadata | null;
   reactions: Record<string, string[]>; // emoji -> [npub1, npub2, ...]
 }
 
@@ -50,17 +50,6 @@ export interface WorkoutMessageMetadata {
   distance_meters?: number;
   duration_seconds: number;
   profile_name?: string;
-}
-
-// Metadata attached to 1v1 challenge messages
-export interface ChallengeMessageMetadata {
-  competition_id: string;
-  challenge_type: 'fastest_5k' | 'fastest_10k' | 'daily_streak' | 'most_distance' | 'most_steps';
-  duration_days: 1 | 3 | 7;
-  challenged_npub: string;
-  challenger_npub: string;
-  challenge_status: 'pending' | 'declined' | 'active' | 'completed';
-  winner_npub?: string;
 }
 
 // Context for rendering reply quote blocks in the UI

@@ -43,6 +43,8 @@ export function useClubChat(
 
   const isMounted = useRef(true);
   const unsubscribeRef = useRef<(() => void) | null>(null);
+  // Track server IDs of messages we sent, so Realtime INSERT doesn't duplicate them
+  const sentMessageIdsRef = useRef<Set<string>>(new Set());
 
   // ------------------------------------------------------------------
   // Initial load: cache -> show -> fetch fresh -> update
@@ -105,8 +107,18 @@ export function useClubChat(
       (newMessage) => {
         if (!isMounted.current) return;
 
+        // Skip messages we sent ourselves — the optimistic update already
+        // added them and the sendMessage callback replaces the optimistic
+        // entry with the real server response. Without this check, the
+        // Realtime INSERT arrives while the optimistic message still has
+        // a temp ID, so the ID-based dedup below doesn't catch it.
+        if (sentMessageIdsRef.current.has(newMessage.id)) {
+          sentMessageIdsRef.current.delete(newMessage.id);
+          return;
+        }
+
         setMessages((prev) => {
-          // Dedup: the optimistic insert may already have this message
+          // Dedup: check by server ID in case of race
           if (prev.some((m) => m.id === newMessage.id)) return prev;
           // Prepend (newest first)
           return [newMessage, ...prev];
@@ -183,6 +195,8 @@ export function useClubChat(
         const sent = await ClubChatService.sendMessage(clubId, senderNpub, trimmed, options);
 
         if (sent && isMounted.current) {
+          // Track the real server ID so the Realtime INSERT callback skips it
+          sentMessageIdsRef.current.add(sent.id);
           // Replace optimistic message with real one from Supabase
           setMessages((prev) =>
             prev.map((m) => (m.id === optimisticId ? sent : m))

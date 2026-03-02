@@ -13,7 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, isSupabaseConfigured } from '../../utils/supabase';
 import { ClubMembershipService } from './ClubMembershipService';
 import { callEdgeFunction } from '../../utils/edgeFunctions';
-import type { ClubMessage, ClubMessageType, WorkoutMessageMetadata, ChallengeMessageMetadata } from '../../types/club';
+import type { ClubMessage, ClubMessageType, WorkoutMessageMetadata } from '../../types/club';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 // Cache configuration
@@ -36,7 +36,7 @@ const SEND_TIMEOUT_MS = 10_000;
 export interface SendMessageOptions {
   replyToId?: string;
   messageType?: ClubMessageType;
-  metadata?: WorkoutMessageMetadata | ChallengeMessageMetadata;
+  metadata?: WorkoutMessageMetadata;
 }
 
 interface CachedChat {

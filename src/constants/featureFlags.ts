@@ -32,11 +32,6 @@ export const FEATURE_FLAGS = {
    */
   TWO_TAB_WORKOUTS: true,
 
-  /**
-   * 1v1 Challenges
-   * When false: Hides challenge option in chat long-press menu and challenge wizard
-   */
-  ENABLE_1V1_CHALLENGES: false,
 } as const;
 
 export default FEATURE_FLAGS;

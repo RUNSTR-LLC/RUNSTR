@@ -16,7 +16,6 @@ import {
   Platform,
 } from 'react-native';
 import { CustomAlert } from '../components/ui/CustomAlert';
-import { FEATURE_FLAGS } from '../constants/featureFlags';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -25,14 +24,10 @@ import { useClubChat } from '../hooks/useClubChat';
 import { ChatMessageBubble } from '../components/club/ChatMessageBubble';
 import type { SenderProfile } from '../components/club/ChatMessageBubble';
 import { PinnedMessageBanner } from '../components/club/PinnedMessageBanner';
-import type { ClubMessage, ReplyContext, ChallengeMessageMetadata } from '../types/club';
-import { ChallengeWizardModal } from '../components/club/ChallengeWizardModal';
-import type { ChallengeType } from '../components/club/ChallengeWizardModal';
+import type { ClubMessage, ReplyContext } from '../types/club';
 import { nostrProfileService } from '../services/nostr/NostrProfileService';
 import type { NostrProfile } from '../services/nostr/NostrProfileService';
 import { ClubChatService } from '../services/backend/ClubChatService';
-import { ChallengeService } from '../services/challenge/ChallengeService';
-import type { ChallengeStatus, ChallengeScores } from '../services/challenge/ChallengeService';
 
 interface ClubChatScreenProps {
   navigation: any;
@@ -56,10 +51,7 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
   const [inputText, setInputText] = useState('');
   const [replyingTo, setReplyingTo] = useState<ClubMessage | null>(null);
   const [isAnnouncementMode, setIsAnnouncementMode] = useState(false);
-  const [challengeTarget, setChallengeTarget] = useState<ClubMessage | null>(null);
   const [profiles, setProfiles] = useState<Map<string, NostrProfile>>(new Map());
-  const [challengeStatuses, setChallengeStatuses] = useState<Map<string, ChallengeStatus>>(new Map());
-  const [challengeScoresMap, setChallengeScoresMap] = useState<Map<string, ChallengeScores>>(new Map());
   const fetchedNpubsRef = useRef<Set<string>>(new Set());
   const flatListRef = useRef<FlatList>(null);
   const [alertConfig, setAlertConfig] = useState<{visible: boolean; title: string; message: string; buttons: any[]}>({
@@ -120,40 +112,6 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
     if (found) setPinnedMessage(found);
   }, [pinnedMessageId, messages]);
 
-  // Fetch live challenge statuses and scores (parallel)
-  useEffect(() => {
-    const challengeMessages = messages.filter(
-      (m) => m.message_type === 'challenge' && m.metadata && 'competition_id' in m.metadata
-    );
-    if (challengeMessages.length === 0) return;
-    const fetchStatuses = async () => {
-      const entries = await Promise.allSettled(
-        challengeMessages.map(async (msg) => {
-          const meta = msg.metadata as ChallengeMessageMetadata;
-          if (!meta.competition_id) return null;
-          let status = await ChallengeService.getChallengeStatus(meta.competition_id);
-          if (status?.challenge_status === 'active' && status.end_date && new Date(status.end_date) < new Date()) {
-            const completed = await ChallengeService.checkAndComplete(meta.competition_id);
-            if (completed) status = completed;
-          }
-          const scores = status ? await ChallengeService.getChallengeScores(meta.competition_id, status) : null;
-          return status ? { id: meta.competition_id, status, scores } : null;
-        })
-      );
-      const newStatuses = new Map<string, ChallengeStatus>();
-      const newScores = new Map<string, ChallengeScores>();
-      for (const entry of entries) {
-        if (entry.status === 'fulfilled' && entry.value) {
-          newStatuses.set(entry.value.id, entry.value.status);
-          if (entry.value.scores) newScores.set(entry.value.id, entry.value.scores);
-        }
-      }
-      if (newStatuses.size > 0) setChallengeStatuses(newStatuses);
-      if (newScores.size > 0) setChallengeScoresMap(newScores);
-    };
-    fetchStatuses();
-  }, [messages]);
-
   const handlePin = useCallback(async (messageId: string) => {
     if (!userNpub) return;
     await ClubChatService.pinMessage(clubId, messageId, userNpub);
@@ -201,105 +159,6 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
     return { name: p.name, display_name: p.display_name, picture: p.picture };
   }, [profiles]);
 
-  const handleChallenge = useCallback((item: ClubMessage) => {
-    setChallengeTarget(item);
-  }, []);
-
-  const handleAcceptChallenge = useCallback(async (competitionId: string) => {
-    if (!userNpub) return;
-    const myProfile = getProfileForNpub(userNpub);
-    const result = await ChallengeService.acceptChallenge(competitionId, userNpub, {
-      name: myProfile?.display_name || myProfile?.name, picture: myProfile?.picture,
-    });
-    if (result.success) {
-      const status = await ChallengeService.getChallengeStatus(competitionId);
-      if (status) {
-        setChallengeStatuses(prev => { const next = new Map(prev); next.set(competitionId, status); return next; });
-      }
-    } else {
-      const detail = result.error?.includes('403') ? 'You may not be the challenged user.'
-        : result.error?.includes('timed out') ? 'Request timed out. Check your connection.'
-        : result.error || 'Unknown error';
-      setAlertConfig({
-        visible: true,
-        title: 'Challenge Error',
-        message: `Could not accept challenge: ${detail}`,
-        buttons: [{ text: 'OK', onPress: () => setAlertConfig(prev => ({...prev, visible: false})) }]
-      });
-    }
-  }, [userNpub, getProfileForNpub]);
-
-  const handleDeclineChallenge = useCallback(async (competitionId: string) => {
-    if (!userNpub) return;
-    const result = await ChallengeService.declineChallenge(competitionId, userNpub);
-    if (result.success) {
-      const status = await ChallengeService.getChallengeStatus(competitionId);
-      if (status) {
-        setChallengeStatuses(prev => { const next = new Map(prev); next.set(competitionId, status); return next; });
-      }
-    } else {
-      const detail = result.error?.includes('403') ? 'You may not be the challenged user.'
-        : result.error?.includes('timed out') ? 'Request timed out. Check your connection.'
-        : result.error || 'Unknown error';
-      setAlertConfig({
-        visible: true,
-        title: 'Challenge Error',
-        message: `Could not decline challenge: ${detail}`,
-        buttons: [{ text: 'OK', onPress: () => setAlertConfig(prev => ({...prev, visible: false})) }]
-      });
-    }
-  }, [userNpub]);
-
-  const handleSendChallenge = useCallback(async (type: ChallengeType, durationDays: 1 | 3 | 7) => {
-    if (!challengeTarget || !userNpub) return;
-    const challengedNpub = challengeTarget.sender_npub;
-    const challengedName = getProfileForNpub(challengedNpub)?.display_name || challengedNpub.slice(0, 12) + '...';
-    const myProfile = getProfileForNpub(userNpub);
-
-    // Create competition first
-    const result = await ChallengeService.createChallenge({
-      challengerNpub: userNpub,
-      challengedNpub,
-      challengeType: type,
-      durationDays,
-      clubId: clubId,
-      name: myProfile?.display_name || myProfile?.name,
-      picture: myProfile?.picture,
-    });
-
-    if (!result) {
-      console.error('[ClubChatScreen] Failed to create challenge competition');
-      setAlertConfig({
-        visible: true,
-        title: 'Challenge Error',
-        message: 'Could not create challenge. Please try again.',
-        buttons: [{ text: 'OK', onPress: () => setAlertConfig(prev => ({...prev, visible: false})) }]
-      });
-      setChallengeTarget(null);
-      return;
-    }
-
-    // Send chat message with real competition_id
-    const typeLabels: Record<string, string> = {
-      fastest_5k: 'Fastest 5K', fastest_10k: 'Fastest 10K',
-      daily_streak: 'Daily Streak', most_distance: 'Most Distance', most_steps: 'Most Steps',
-    };
-    const durLabels: Record<number, string> = { 1: '24 hours', 3: '3 days', 7: '1 week' };
-    const content = `challenged ${challengedName} to ${typeLabels[type]} for ${durLabels[durationDays]}!`;
-
-    const metadata: ChallengeMessageMetadata = {
-      competition_id: result.competitionId,
-      challenge_type: type,
-      duration_days: durationDays,
-      challenged_npub: challengedNpub,
-      challenger_npub: userNpub,
-      challenge_status: 'pending',
-    };
-
-    await sendMessage(content, { messageType: 'challenge', metadata });
-    setChallengeTarget(null);
-  }, [challengeTarget, userNpub, clubId, sendMessage, getProfileForNpub]);
-
   const getReplyContext = useCallback((replyToId: string | null): ReplyContext | undefined => {
     if (!replyToId) return undefined;
     const target = messages.find((m) => m.id === replyToId);
@@ -317,12 +176,6 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
     const isCaptainMsg = item.sender_npub === captainNpub;
     const isOwnMessage = item.sender_npub === userNpub;
     const canDeleteMessage = userNpub === captainNpub || isOwnMessage;
-    const isChMsg = item.message_type === 'challenge' && item.metadata && 'competition_id' in item.metadata;
-    const compId = isChMsg ? (item.metadata as ChallengeMessageMetadata).competition_id : '';
-    const liveStatus = isChMsg ? challengeStatuses.get(compId) : undefined;
-    const winnerProfile = liveStatus?.winner_npub ? getProfileForNpub(liveStatus.winner_npub) : undefined;
-    const resolvedWinnerName = winnerProfile?.display_name || winnerProfile?.name || liveStatus?.winner_npub?.slice(0, 12);
-    const challengeScores = isChMsg ? challengeScoresMap.get(compId) || null : null;
     return (
       <ChatMessageBubble
         message={item}
@@ -336,15 +189,9 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
         replyContext={getReplyContext(item.reply_to_id)}
         userNpub={userNpub ?? undefined}
         senderProfile={getProfileForNpub(item.sender_npub)}
-        onChallenge={!isOwnMessage ? () => handleChallenge(item) : undefined}
-        liveChallengeStatus={isChMsg ? liveStatus || null : null}
-        winnerName={resolvedWinnerName}
-        challengeScores={challengeScores}
-        onAcceptChallenge={isChMsg ? () => handleAcceptChallenge(compId) : undefined}
-        onDeclineChallenge={isChMsg ? () => handleDeclineChallenge(compId) : undefined}
       />
     );
-  }, [captainNpub, userNpub, isCaptain, handleDelete, handleReply, handlePin, handleReact, handleChallenge, getProfileForNpub, getReplyContext, challengeStatuses, challengeScoresMap, handleAcceptChallenge, handleDeclineChallenge]);
+  }, [captainNpub, userNpub, isCaptain, handleDelete, handleReply, handlePin, handleReact, getProfileForNpub, getReplyContext]);
 
   const placeholderText = !canSend
     ? 'Rate limited...'
@@ -484,17 +331,6 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
           </View>
         )}
       </KeyboardAvoidingView>
-      {FEATURE_FLAGS.ENABLE_1V1_CHALLENGES && challengeTarget && (
-        <ChallengeWizardModal
-          visible={!!challengeTarget}
-          onClose={() => setChallengeTarget(null)}
-          onSend={handleSendChallenge}
-          opponentName={
-            getProfileForNpub(challengeTarget.sender_npub)?.display_name ||
-            challengeTarget.sender_npub.slice(0, 12) + '...'
-          }
-        />
-      )}
       <CustomAlert
         visible={alertConfig.visible}
         title={alertConfig.title}

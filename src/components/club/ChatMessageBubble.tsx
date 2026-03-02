@@ -1,21 +1,15 @@
 /**
- * ChatMessageBubble - Chat message with replies, reactions, announcements, workout/challenge cards.
+ * ChatMessageBubble - Chat message with replies, reactions, announcements, workout cards.
  */
 import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, Alert, Pressable, ActionSheetIOS, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { Avatar } from '../ui/Avatar';
-import { ChallengeCard } from './ChallengeCard';
-import type { ChallengeScoreEntry } from '../../services/challenge/ChallengeService';
-import type { ClubMessage, ReplyContext, WorkoutMessageMetadata, ChallengeMessageMetadata } from '../../types/club';
-import { FEATURE_FLAGS } from '../../constants/featureFlags';
+import type { ClubMessage, ReplyContext, WorkoutMessageMetadata } from '../../types/club';
 
 function isWorkoutMetadata(meta: unknown): meta is WorkoutMessageMetadata {
   return meta != null && typeof meta === 'object' && 'duration_seconds' in meta;
-}
-function isChallengeMetadata(meta: unknown): meta is ChallengeMessageMetadata {
-  return meta != null && typeof meta === 'object' && 'challenge_type' in meta;
 }
 const REACTION_ICONS: Record<string, { name: string; label: string }> = {
   flame: { name: 'flame-outline', label: 'Fire' },
@@ -40,17 +34,7 @@ interface ChatMessageBubbleProps {
   onDelete: () => void;
   onReply?: () => void;
   onPin?: () => void;
-  onChallenge?: () => void;
   onReact?: (emoji: string) => void;
-  onAcceptChallenge?: () => void;
-  onDeclineChallenge?: () => void;
-  liveChallengeStatus?: {
-    challenge_status: string;
-    winner_npub?: string | null;
-    end_date?: string;
-  } | null;
-  winnerName?: string;
-  challengeScores?: { challengeType: string; entries: ChallengeScoreEntry[] } | null;
   replyContext?: ReplyContext;
   userNpub?: string;
   senderProfile?: SenderProfile;
@@ -112,13 +96,7 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
   onDelete,
   onReply,
   onPin,
-  onChallenge,
   onReact,
-  onAcceptChallenge,
-  onDeclineChallenge,
-  liveChallengeStatus,
-  winnerName,
-  challengeScores,
   replyContext,
   userNpub,
   senderProfile,
@@ -131,13 +109,7 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
   const relativeTime = formatRelativeTime(message.created_at);
   const isAnnouncement = message.message_type === 'announcement';
   const isWorkout = message.message_type === 'workout';
-  const isChallenge = message.message_type === 'challenge';
   const workoutMeta = isWorkout && isWorkoutMetadata(message.metadata) ? message.metadata : null;
-  const challengeMeta = isChallenge && isChallengeMetadata(message.metadata) ? message.metadata : null;
-  const liveStatus = liveChallengeStatus?.challenge_status || challengeMeta?.challenge_status;
-  const liveWinner = liveChallengeStatus?.winner_npub || challengeMeta?.winner_npub;
-  const isChallenged = isChallenge && challengeMeta?.challenged_npub === userNpub;
-  const challengeIsPending = liveStatus === 'pending';
   const reactions = message.reactions || {};
 
   const handleLongPress = useCallback(() => {
@@ -152,11 +124,6 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
     if (onPin) {
       options.push('Pin');
       actions.push(onPin);
-    }
-
-    if (FEATURE_FLAGS.ENABLE_1V1_CHALLENGES && onChallenge && !isOwnMessage) {
-      options.push('Challenge');
-      actions.push(onChallenge);
     }
 
     if (canDelete) {
@@ -200,7 +167,7 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
       buttons.push({ text: 'Cancel', onPress: () => {}, style: 'default' as const });
       Alert.alert('Message Options', undefined, buttons);
     }
-  }, [canDelete, onDelete, onReply, onPin, onChallenge, isOwnMessage]);
+  }, [canDelete, onDelete, onReply, onPin, isOwnMessage]);
 
   const handleTap = useCallback(() => {
     if (onReact) {
@@ -230,7 +197,7 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
         ]}
       >
         {/* Avatar */}
-        {!isWorkout && !isChallenge && (
+        {!isWorkout && (
           <Avatar
             name={displayName}
             imageUrl={senderProfile?.picture}
@@ -273,11 +240,6 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
                 />
                 <Text style={styles.workoutLabel}>Workout</Text>
               </View>
-            ) : isChallenge ? (
-              <View style={styles.workoutHeader}>
-                <Ionicons name="flash" size={16} color={theme.colors.accent} style={styles.workoutIcon} />
-                <Text style={[styles.workoutLabel, { color: theme.colors.accent }]}>Challenge</Text>
-              </View>
             ) : (
               <Text
                 style={[
@@ -292,7 +254,7 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
             <Text style={styles.timestamp}>{relativeTime}</Text>
           </View>
 
-          {/* Message body — workout card, challenge card, or text */}
+          {/* Message body — workout card or text */}
           {isWorkout && workoutMeta ? (
             <View style={styles.workoutCard}>
               <Text style={styles.messageText}>{message.content}</Text>
@@ -307,21 +269,6 @@ const ChatMessageBubbleComponent: React.FC<ChatMessageBubbleProps> = ({
                 )}
               </View>
             </View>
-          ) : isChallenge && challengeMeta ? (
-            <ChallengeCard
-              challengeMeta={challengeMeta}
-              content={message.content}
-              liveStatus={liveStatus}
-              liveWinner={liveWinner}
-              isChallenged={isChallenged}
-              challengeIsPending={challengeIsPending}
-              userNpub={userNpub}
-              winnerName={winnerName}
-              challengeScores={challengeScores}
-              endDate={liveChallengeStatus?.end_date}
-              onAcceptChallenge={onAcceptChallenge}
-              onDeclineChallenge={onDeclineChallenge}
-            />
           ) : (
             <Text style={styles.messageText}>{message.content}</Text>
           )}

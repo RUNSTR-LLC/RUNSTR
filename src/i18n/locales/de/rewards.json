@@ -49,7 +49,7 @@
     "distributed": "täglich verteilt",
     "payoutTime": "Auszahlungen werden täglich ~22 Uhr EST verarbeitet",
     "competeToEarn": "Mitmachen und verdienen:",
-    "perWorkout": "50 Sats pro eingereichten Wettbewerbstraining",
+    "perWorkout": "100 Sats pro eingereichten Wettbewerbstraining",
     "sentToLightning": "Belohnungen werden direkt an deine Lightning-Adresse gesendet",
     "enterLightningAddress": "Gib deine Lightning-Adresse unter Einstellungen → Erweiterte Funktionen ein",
     "gotIt": "Verstanden"

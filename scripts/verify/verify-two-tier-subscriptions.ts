@@ -27,12 +27,12 @@ console.log('1. Reward Config Constants:');
 const fs = require('fs');
 const configContent = fs.readFileSync('src/config/rewards.ts', 'utf8');
 
-assert(configContent.includes('BOOSTED_WORKOUT_REWARD: 800'), 'BOOSTED_WORKOUT_REWARD = 800');
-assert(configContent.includes('BOOSTED_MIN_DISTANCE_METERS: 2000'), 'BOOSTED_MIN_DISTANCE_METERS = 2000');
-assert(configContent.includes('BOOSTED_MIN_DURATION: 900'), 'BOOSTED_MIN_DURATION = 900');
-assert(configContent.includes('SUPPORTER_PRICE_SATS: 10000'), 'SUPPORTER_PRICE_SATS = 10000');
-assert(configContent.includes('PRO_PRICE_SATS: 15000'), 'PRO_PRICE_SATS = 15000');
-assert(configContent.includes('DAILY_WORKOUT_REWARD: 50'), 'DAILY_WORKOUT_REWARD = 50 (unchanged)');
+assert(configContent.includes('BOOSTED_WORKOUT_REWARD: 1000'), 'BOOSTED_WORKOUT_REWARD = 1000');
+assert(configContent.includes('BOOSTED_MAX_PER_WEEK: 5'), 'BOOSTED_MAX_PER_WEEK = 5');
+assert(configContent.includes('MIN_WORKOUT_DISTANCE_METERS: 1000'), 'MIN_WORKOUT_DISTANCE_METERS = 1000');
+assert(configContent.includes('SUPPORTER_PRICE_SATS: 15000'), 'SUPPORTER_PRICE_SATS = 15000');
+assert(configContent.includes('PRO_PRICE_SATS: 21000'), 'PRO_PRICE_SATS = 21000');
+assert(configContent.includes('DAILY_WORKOUT_REWARD: 100'), 'DAILY_WORKOUT_REWARD = 100');
 
 // --- Test 2: isBoostedQualified logic (inline replica to avoid RN) ---
 console.log('\n2. isBoostedQualified() logic:');
