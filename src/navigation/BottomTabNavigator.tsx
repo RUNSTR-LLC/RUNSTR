@@ -180,12 +180,8 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
                     userIsCaptain: profileData.currentTeam.role === 'captain',
                   });
 
-                  navigation.navigate('EnhancedTeamScreen', {
-                    team,
-                    userIsMember: true,
-                    userIsCaptain: profileData.currentTeam.role === 'captain',
-                    currentUserNpub, // Pass npub to ensure proper competition loading
-                  });
+                  // EnhancedTeamScreen route was removed; navigate to active Teams route.
+                  navigation.navigate('Teams');
                 }
               }}
               onCaptainDashboard={() =>

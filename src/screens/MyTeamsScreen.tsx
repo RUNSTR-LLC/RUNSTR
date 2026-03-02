@@ -130,13 +130,8 @@ export const MyTeamsScreen: React.FC = () => {
       userIsCaptain: isCaptain,
     });
 
-    // Navigate to EnhancedTeamScreen with team data and captain status
-    navigation.navigate('EnhancedTeamScreen', {
-      team,
-      userIsMember: true,
-      currentUserNpub: userNpub,
-      userIsCaptain: isCaptain, // Pass captain status for captain dashboard access
-    });
+    // EnhancedTeamScreen route was removed; navigate to active Teams route.
+    navigation.navigate('Teams');
 
     console.log(
       '[MyTeamsScreen] 📍 AFTER navigation.navigate call - this should not print if frozen'

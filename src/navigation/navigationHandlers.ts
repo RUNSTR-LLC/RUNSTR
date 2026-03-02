@@ -140,12 +140,9 @@ export const createNavigationHandlers = (): NavigationHandlers => {
               {
                 text: 'OK',
                 onPress: () => {
-                  // Navigate to team dashboard to show the joined team
-                  navigation.navigate('EnhancedTeamScreen', {
-                    team,
-                    userIsMember: true,
-                    currentUserNpub, // Pass the working npub to avoid component-level AsyncStorage corruption
-                  });
+                  // EnhancedTeamScreen route was removed from AppNavigator.
+                  // Route users to Teams so navigation succeeds in current app flow.
+                  navigation.navigate('Teams');
                 },
               },
             ]
@@ -271,12 +268,9 @@ export const createNavigationHandlers = (): NavigationHandlers => {
         finalUserIsMember: userIsMember,
       });
 
-      navigation.navigate('EnhancedTeamScreen', {
-        team,
-        userIsMember,
-        currentUserNpub, // Pass the working npub to avoid component-level AsyncStorage corruption
-        userIsCaptain, // Pass the correctly calculated captain status
-      });
+      // EnhancedTeamScreen route was removed from AppNavigator.
+      // Route users to Teams so navigation succeeds in current app flow.
+      navigation.navigate('Teams');
     },
 
     handleTeamDiscoveryClose: () => {

@@ -725,20 +725,8 @@ export const CaptainDashboardScreen: React.FC<CaptainDashboardScreenProps> = ({
                     updatedBannerUrl || 'none'
                   );
 
-                  navigation.navigate('EnhancedTeamScreen', {
-                    team: {
-                      ...currentTeamData,
-                      name: editedTeamName.trim(),
-                      description: editedTeamDescription.trim(),
-                      location: editedTeamLocation.trim(),
-                      bannerImage: updatedBannerUrl,
-                      // Include nostrEvent for fallback banner extraction
-                      nostrEvent: currentTeamData.nostrEvent,
-                    },
-                    userIsMember: true,
-                    userIsCaptain: true,
-                    currentUserNpub: userNpub,
-                  });
+                  // EnhancedTeamScreen route was removed; navigate to active Teams route.
+                  navigation.navigate('Teams');
                 }
               },
             },
