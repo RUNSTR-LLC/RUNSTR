@@ -238,7 +238,7 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
             onRefresh={refresh}
             showHeader={true}
             showCloseButton={false}
-            currentUserPubkey={currentUserNpub}
+            currentUserPubkey={user?.npub}
             navigation={navigation}
           />
         )}
