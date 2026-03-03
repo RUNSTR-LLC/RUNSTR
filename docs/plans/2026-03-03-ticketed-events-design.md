@@ -1,106 +1,103 @@
-# Ticketed Events with Lightning Entry Fees
+# Ticketed Events with Pledge-Based Entry
 
 **Date:** 2026-03-03
 **Status:** Approved
-**First use case:** 21K Race on March 11 — 210 sat ticket, 21,000 sat prize to one random finisher
+**First use case:** 21K Race on March 11 — 2-day pledge entry, 21,000 sat prize to one random finisher
 
 ## Overview
 
-Add Lightning invoice-based ticket payments to the RUNSTR event system. Any Pro user with NWC can create ticketed events with configurable ticket prices, qualifying criteria, and prize pools. Winners can be selected by rank or random draw from qualifying finishers.
+Add pledge-based ticketing to the RUNSTR event system. Captains set a workout-day entry fee (1-7 days). Users join by pledging that many days of rewards to the captain. The existing pledge/reward-routing system handles all payment mechanics — no new payment infrastructure needed.
 
-## Security Principle
+## The Model
 
-**No NWC strings stored server-side.** NWC strings are wallet keys — storing them in Supabase would let anyone with DB access drain organizer wallets. Instead:
+**The ticket IS the pledge.** When a captain creates a ticketed event:
 
-- **Ticket collection:** LNURL-pay via organizer's Lightning address (public, no secrets)
-- **Ticket payment:** User pays in-app via their own NWC (preimage returned automatically)
-- **Payment verification:** Cryptographic — SHA256(preimage) === payment_hash
-- **Prize payout:** Organizer-initiated from their device using their local NWC
+1. Captain selects entry fee: 1-7 workout days
+2. User taps "Join" → pledges N days of rewards to the captain
+3. User's next N daily workout rewards route to the captain instead of themselves
+4. Pledge = registered. User is in the event.
 
-## Data Model
+**Economics:**
+- Free user pledge: 100 sats/workout × N days → captain
+- Subscriber pledge: 800 sats/workout × N days → captain
+- Captains earn more from subscriber entrants (8x)
+- Incentivizes captains to host events + attract subscribers
+- Captains use collected rewards to fund prize pools
 
-### New Type Extensions (`src/types/runstrEvent.ts`)
+**Example — 21K Race:**
+- Entry: 2-day pledge
+- 15 subscribers join → captain collects 2 × 800 × 15 = 24,000 sats
+- Captain funds 21,000 sat prize from collected rewards
+- One random finisher wins the prize
+
+## Data Model Changes
+
+### Type Extensions (`src/types/runstrEvent.ts`)
 
 ```typescript
 // Add to RunstrPayoutScheme
 type RunstrPayoutScheme = ... | 'random_winner';
 
 // Add to RunstrEventConfig
-ticketPriceSats?: number;                  // Lightning invoice amount to join (e.g., 210)
+ticketPledgeDays?: number;                 // 1-7 workout days as entry fee
 winnerSelection?: 'ranked' | 'random';     // How winner is picked (default: 'ranked')
 qualifyingDistance?: number;                // km — minimum to qualify as finisher (e.g., 21.0)
 ```
 
-### New Form State Fields (`RunstrEventFormState`)
+### Form State Fields (`RunstrEventFormState`)
 
 ```typescript
-ticketPrice: string;          // Input field for ticket price
+ticketPledgeDays: number;          // 1-7 selector
 winnerSelection: 'ranked' | 'random';
-qualifyingDistance: string;    // Input field for qualifying distance
-```
-
-### New Supabase Table: `event_tickets`
-
-```sql
-CREATE TABLE event_tickets (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  competition_id UUID REFERENCES competitions(id),
-  npub TEXT NOT NULL,
-  payment_hash TEXT NOT NULL,
-  amount_sats INTEGER NOT NULL,
-  preimage TEXT,                      -- Stored after verification as proof
-  status TEXT DEFAULT 'pending',      -- pending | paid | expired
-  created_at TIMESTAMPTZ DEFAULT now(),
-  paid_at TIMESTAMPTZ,
-  UNIQUE(competition_id, npub)
-);
+qualifyingDistance: string;         // Input field for qualifying distance
 ```
 
 ### Extended `competitions.config` JSONB
 
 ```json
 {
-  "ticket_price_sats": 210,
+  "ticket_pledge_days": 2,
   "winner_selection": "random",
   "qualifying_distance_km": 21.0
 }
 ```
 
-## Ticket Purchase Flow
+### Nostr Tags (NIP-52 Extensions)
+
+New tags on kind 31923 events:
+
+```
+['ticket_pledge_days', '2']          // Workout days required to enter
+['winner_selection', 'random']       // ranked | random
+['qualifying_distance', '21.0']      // km minimum to qualify
+```
+
+## Join Flow
 
 ```
 User taps "Join Race" (ticketed event)
   │
-  ├─ 1. App detects ticketPriceSats on event config
+  ├─ 1. App detects ticketPledgeDays on event config
   │
-  ├─ 2. App requests invoice via LNURL-pay:
-  │     → Fetch organizer's Lightning address from event/Nostr profile
-  │     → GET https://{domain}/.well-known/lnurlp/{user}
-  │     → POST callback URL with amount=210000 (millisats)
-  │     → Returns { pr: "lnbc...", routes: [] }
-  │     → Extract payment_hash from invoice
-  │     → Insert event_tickets row (status: 'pending', payment_hash)
+  ├─ 2. App shows pledge confirmation:
+  │     "Pledge 2 workout days to enter"
+  │     "Your next 2 daily rewards will go to the captain"
   │
-  ├─ 3. App pays invoice via user's NWC:
-  │     → NWCWalletService.sendPayment(invoice)
-  │     → Returns { success: true, preimage: "abc123..." }
+  ├─ 3. User confirms → PledgeService.createPledge():
+  │     → pledgeCost = event.ticketPledgeDays
+  │     → pledgeDestination = 'captain'
+  │     → Stored in AsyncStorage
   │
-  ├─ 4. App verifies and registers:
-  │     → Submit preimage to Edge Function: verify-ticket-payment
-  │     → Edge Function: SHA256(preimage) === stored payment_hash?
-  │     → YES: event_tickets.status → 'paid', store preimage
-  │     → Insert competition_participants row
-  │     → Return { registered: true }
+  ├─ 4. User registered as participant:
+  │     → SupabaseCompetitionService.joinCompetition()
+  │     → competition_participants row inserted
   │
-  └─ 5. App shows "You're in!" → navigates to event detail
+  └─ 5. Reward routing active:
+        → User completes workout → DailyRewardService checks active pledge
+        → Reward routed to captain instead of user
+        → Pledge progress incremented (1/2, 2/2)
+        → After N workouts, pledge completed, rewards return to normal
 ```
-
-**Key points:**
-- Invoice created via LNURL-pay (organizer's Lightning address, public, no secrets)
-- Payment made via user's local NWC (never leaves their device)
-- Verification is cryptographic: SHA256(preimage) === payment_hash
-- No NWC strings stored in Supabase — zero secrets server-side
-- Users must have NWC configured to join ticketed events
 
 ## Random Winner Selection
 
@@ -131,73 +128,70 @@ Race ends (e.g., March 11, 23:59 UTC)
 
 ## Prize Funding
 
-- Ticket revenue (210 sats x N entrants) goes directly to organizer via LNURL-pay
-- Prize pool (21,000 sats) is funded by the organizer from their wallet
-- Organizer sends prize from their device using their local NWC
-- No escrow, no custodial intermediary
+- Pledge revenue (N days × reward amount × entrants) goes to captain via reward routing
+- Prize pool funded by captain from collected pledge revenue
+- Captain sends prize from their device using their local NWC
+- No escrow, no custodial intermediary, no secrets stored
 
-## New Services
+## What Already Exists (No Changes Needed)
 
-### `TicketService` (`src/services/events/TicketService.ts`)
+- **PledgeService** — create/track/complete pledges
+- **DailyRewardService** — routes rewards to pledge destination
+- **Reward routing** — captain/charity destination switching
+- **SupabaseCompetitionService** — join/leave/participant tracking
+- **RunstrEventPublishService** — publish NIP-52 events with custom tags
 
-- `requestInvoice(lightningAddress, amountSats)` — LNURL-pay invoice request
-- `purchaseTicket(eventId, npub)` — full flow: get invoice → pay via NWC → verify
-- `verifyTicket(eventId, preimage)` — submit preimage to Edge Function
-- `hasValidTicket(eventId, npub)` — boolean gate check
+## What's New
 
-### `EventFinalizationService` (`src/services/events/EventFinalizationService.ts`)
+### Event Creation Changes
 
-- `finalizeEvent(eventId)` — query finishers, select winner, store result
+**`SimpleEventCreationModal`** — Add new fields:
+- Ticket pledge days selector (1-7 slider or picker)
+- Winner selection toggle: "Top Ranked" vs "Random Draw"
+- Qualifying distance field (km, for participation/random events)
+
+**`RunstrEventPublishService`** — Add new tags:
+- `ticket_pledge_days`, `winner_selection`, `qualifying_distance`
+
+### Event Display Changes
+
+**`DynamicEventCard`** — Show pledge entry badge (e.g., "2-day pledge to enter")
+**`DynamicEventDetail`** — Show entry requirements, qualifying criteria, "Random Draw" indicator
+
+### Join Flow Changes
+
+**`DynamicEventDetail` join button** — When event has ticketPledgeDays:
+- Show pledge confirmation instead of direct join
+- Create pledge + join competition in one flow
+- Show pledge progress on event detail page
+
+### New: Random Winner + Payout
+
+**`EventFinalizationService`** (`src/services/events/EventFinalizationService.ts`):
+- `finalizeEvent(eventId)` — query finishers, select winner
 - `getFinishers(eventId, qualifyingDistance)` — query workout submissions
-- `selectRandomWinner(eventId, finishers)` — deterministic random using SHA256 seed
-- `payWinner(winnerNpub, amountSats)` — organizer-initiated NWC payment
+- `selectRandomWinner(eventId, finishers)` — deterministic SHA256-based random
+- Prize payout UI on organizer's event detail screen
 
-### New Edge Functions
-
-- `verify-ticket-payment` — verify preimage against payment_hash, register participant
-- `finalize-ticketed-event` — query finishers, compute winner, store result
-
-## New Components
-
-### `TicketPaymentModal` (`src/components/compete/TicketPaymentModal.tsx`)
-
-- Shows ticket price and event name
-- "Pay {X} sats to enter" button
-- Payment progress indicator (paying → verifying → registered)
-- Error handling with retry
-- NWC required gate (prompt to set up if not configured)
-
-### Updated Components
-
-- **`SimpleEventCreationModal`** — Add ticket price, winner selection, qualifying distance fields
-- **`DynamicEventDetail`** — Show ticket price badge, qualifying criteria, "Random Draw" indicator
-- **`DynamicEventCard`** — Show ticket price badge on event cards
-
-## Nostr Tags (NIP-52 Extensions)
-
-New tags on kind 31923 events:
-
-```
-['ticket_price', '210']              // Ticket price in sats
-['winner_selection', 'random']       // ranked | random
-['qualifying_distance', '21.0']      // km minimum to qualify
-```
+**Edge Function: `finalize-ticketed-event`:**
+- Query finishers meeting qualifying distance
+- Compute deterministic winner
+- Store result in Supabase
 
 ## Architecture Alignment
 
-- **LNURL-pay for invoice creation** — Uses organizer's public Lightning address, no secrets
-- **User's NWC for payment** — Pays from user's device, preimage returned automatically
-- **Cryptographic verification** — SHA256(preimage) === payment_hash, trustless
-- **Supabase for state** — event_tickets tracks payment lifecycle (no secrets stored)
-- **Nostr for event publishing** — Extends existing NIP-52 tags
-- **Organizer-initiated payout** — Prize sent from organizer's device, no server-side wallet access
+- **Pledge system for entry** — extends existing PledgeService (no new payment rails)
+- **Reward routing for payment** — extends existing DailyRewardService
+- **Supabase for state** — competitions, participants, workout submissions
+- **Nostr for event publishing** — extends existing NIP-52 tags
+- **Organizer-initiated payout** — NWC stays on organizer's device only
+- **No secrets server-side** — zero wallet keys in Supabase
 
 ## Constraints
 
-- Event creator MUST have a Lightning address (for LNURL-pay ticket collection)
-- Ticket purchaser MUST have NWC configured (for in-app payment)
-- One ticket per user per event (UNIQUE constraint)
-- Invoice expiry: 10 minutes (standard Lightning)
-- Qualifying distance validated against workout_submissions in Supabase
-- Random winner seed is deterministic and verifiable by anyone
+- One active pledge per user (existing constraint) — can only enter one pledged event at a time
+- Pledge = entry. User is registered immediately on pledge, not after completion.
+- Captain must have Lightning address (for reward routing)
+- Qualifying distance validated against workout_submissions
+- Random winner seed is deterministic and verifiable
 - Prize payout requires organizer to open app and confirm
