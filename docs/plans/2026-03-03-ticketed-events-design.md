@@ -8,6 +8,15 @@
 
 Add Lightning invoice-based ticket payments to the RUNSTR event system. Any Pro user with NWC can create ticketed events with configurable ticket prices, qualifying criteria, and prize pools. Winners can be selected by rank or random draw from qualifying finishers.
 
+## Security Principle
+
+**No NWC strings stored server-side.** NWC strings are wallet keys — storing them in Supabase would let anyone with DB access drain organizer wallets. Instead:
+
+- **Ticket collection:** LNURL-pay via organizer's Lightning address (public, no secrets)
+- **Ticket payment:** User pays in-app via their own NWC (preimage returned automatically)
+- **Payment verification:** Cryptographic — SHA256(preimage) === payment_hash
+- **Prize payout:** Organizer-initiated from their device using their local NWC
+
 ## Data Model
 
 ### New Type Extensions (`src/types/runstrEvent.ts`)
@@ -38,9 +47,9 @@ CREATE TABLE event_tickets (
   competition_id UUID REFERENCES competitions(id),
   npub TEXT NOT NULL,
   payment_hash TEXT NOT NULL,
-  invoice TEXT NOT NULL,
   amount_sats INTEGER NOT NULL,
-  status TEXT DEFAULT 'pending',    -- pending | paid | expired
+  preimage TEXT,                      -- Stored after verification as proof
+  status TEXT DEFAULT 'pending',      -- pending | paid | expired
   created_at TIMESTAMPTZ DEFAULT now(),
   paid_at TIMESTAMPTZ,
   UNIQUE(competition_id, npub)
@@ -64,30 +73,34 @@ User taps "Join Race" (ticketed event)
   │
   ├─ 1. App detects ticketPriceSats on event config
   │
-  ├─ 2. Calls Edge Function: create-event-ticket
-  │     → Creates invoice via organizer's NWC wallet
-  │     → Inserts event_tickets row (status: 'pending')
-  │     → Returns { invoice, paymentHash }
+  ├─ 2. App requests invoice via LNURL-pay:
+  │     → Fetch organizer's Lightning address from event/Nostr profile
+  │     → GET https://{domain}/.well-known/lnurlp/{user}
+  │     → POST callback URL with amount=210000 (millisats)
+  │     → Returns { pr: "lnbc...", routes: [] }
+  │     → Extract payment_hash from invoice
+  │     → Insert event_tickets row (status: 'pending', payment_hash)
   │
-  ├─ 3. App shows TicketPaymentModal:
-  │     - QR code of Lightning invoice
-  │     - Copy invoice button
-  │     - "Pay with wallet" (if user has NWC)
-  │     - Expiry countdown
+  ├─ 3. App pays invoice via user's NWC:
+  │     → NWCWalletService.sendPayment(invoice)
+  │     → Returns { success: true, preimage: "abc123..." }
   │
-  ├─ 4. User pays via any Lightning wallet
+  ├─ 4. App verifies and registers:
+  │     → Submit preimage to Edge Function: verify-ticket-payment
+  │     → Edge Function: SHA256(preimage) === stored payment_hash?
+  │     → YES: event_tickets.status → 'paid', store preimage
+  │     → Insert competition_participants row
+  │     → Return { registered: true }
   │
-  ├─ 5. App polls verify-ticket-payment every 3s:
-  │     → lookupInvoice via organizer's NWC
-  │     → When settled:
-  │       - event_tickets.status → 'paid'
-  │       - Insert competition_participants row
-  │       - Return { registered: true }
-  │
-  └─ 6. App shows confirmation → navigates to event detail
+  └─ 5. App shows "You're in!" → navigates to event detail
 ```
 
-**Key:** Invoice goes to organizer's NWC wallet. Organizer receives ticket revenue directly. No escrow.
+**Key points:**
+- Invoice created via LNURL-pay (organizer's Lightning address, public, no secrets)
+- Payment made via user's local NWC (never leaves their device)
+- Verification is cryptographic: SHA256(preimage) === payment_hash
+- No NWC strings stored in Supabase — zero secrets server-side
+- Users must have NWC configured to join ticketed events
 
 ## Random Winner Selection
 
@@ -105,52 +118,54 @@ Race ends (e.g., March 11, 23:59 UTC)
   ├─ 3. Deterministic random selection:
   │     seed = SHA256(event_id + sorted_finisher_npubs)
   │     winner_index = seed_as_int % finisher_count
+  │     (Anyone can verify independently)
   │
-  ├─ 4. Prize payout via organizer's NWC:
-  │     → Fetch winner's Lightning address
-  │     → Send prize_pool_sats to winner
-  │     → Record in event_payouts
+  ├─ 4. Prize payout (organizer-initiated):
+  │     → Organizer opens app, sees winner + "Pay Winner" button
+  │     → App fetches winner's Lightning address from Nostr profile
+  │     → Organizer's local NWC sends prize_pool_sats to winner
+  │     → Record payout in Supabase
   │
   └─ 5. Announce winner in-app
 ```
 
 ## Prize Funding
 
-- Ticket revenue (210 sats x N entrants) goes to organizer's wallet
-- Prize pool (21,000 sats) is funded separately by the organizer
-- Organizer's NWC wallet sends the prize to the winner
-- No escrow mechanism needed
+- Ticket revenue (210 sats x N entrants) goes directly to organizer via LNURL-pay
+- Prize pool (21,000 sats) is funded by the organizer from their wallet
+- Organizer sends prize from their device using their local NWC
+- No escrow, no custodial intermediary
 
 ## New Services
 
 ### `TicketService` (`src/services/events/TicketService.ts`)
 
-- `createTicket(eventId, npub)` — calls Edge Function, returns invoice
-- `checkTicketStatus(eventId, npub)` — polls payment status
+- `requestInvoice(lightningAddress, amountSats)` — LNURL-pay invoice request
+- `purchaseTicket(eventId, npub)` — full flow: get invoice → pay via NWC → verify
+- `verifyTicket(eventId, preimage)` — submit preimage to Edge Function
 - `hasValidTicket(eventId, npub)` — boolean gate check
 
 ### `EventFinalizationService` (`src/services/events/EventFinalizationService.ts`)
 
-- `finalizeEvent(eventId)` — orchestrates finisher query + winner selection + payout
+- `finalizeEvent(eventId)` — query finishers, select winner, store result
 - `getFinishers(eventId, qualifyingDistance)` — query workout submissions
 - `selectRandomWinner(eventId, finishers)` — deterministic random using SHA256 seed
-- `payoutWinner(winnerNpub, amountSats)` — NWC payment to winner
+- `payWinner(winnerNpub, amountSats)` — organizer-initiated NWC payment
 
 ### New Edge Functions
 
-- `create-event-ticket` — create invoice via organizer NWC, insert pending ticket
-- `verify-ticket-payment` — check invoice paid, register participant
-- `finalize-ticketed-event` — pick winner, send prize
+- `verify-ticket-payment` — verify preimage against payment_hash, register participant
+- `finalize-ticketed-event` — query finishers, compute winner, store result
 
 ## New Components
 
 ### `TicketPaymentModal` (`src/components/compete/TicketPaymentModal.tsx`)
 
-- Lightning invoice QR code display
-- Copy invoice button
-- "Pay with wallet" button (user's NWC)
-- Payment status indicator (waiting / paid / registered)
-- Expiry countdown timer
+- Shows ticket price and event name
+- "Pay {X} sats to enter" button
+- Payment progress indicator (paying → verifying → registered)
+- Error handling with retry
+- NWC required gate (prompt to set up if not configured)
 
 ### Updated Components
 
@@ -170,16 +185,19 @@ New tags on kind 31923 events:
 
 ## Architecture Alignment
 
-- **NWC for payments** — Uses existing `NWCWalletService` (createInvoice, lookupInvoice, sendPayment)
-- **Supabase for state** — event_tickets table tracks payment lifecycle
-- **Edge Functions for orchestration** — Server-side invoice creation and verification
+- **LNURL-pay for invoice creation** — Uses organizer's public Lightning address, no secrets
+- **User's NWC for payment** — Pays from user's device, preimage returned automatically
+- **Cryptographic verification** — SHA256(preimage) === payment_hash, trustless
+- **Supabase for state** — event_tickets tracks payment lifecycle (no secrets stored)
 - **Nostr for event publishing** — Extends existing NIP-52 tags
-- **No escrow** — Organizer funds prize pool from their wallet
+- **Organizer-initiated payout** — Prize sent from organizer's device, no server-side wallet access
 
 ## Constraints
 
-- Event creator MUST have NWC configured (checked during creation)
+- Event creator MUST have a Lightning address (for LNURL-pay ticket collection)
+- Ticket purchaser MUST have NWC configured (for in-app payment)
 - One ticket per user per event (UNIQUE constraint)
 - Invoice expiry: 10 minutes (standard Lightning)
 - Qualifying distance validated against workout_submissions in Supabase
-- Random winner seed is deterministic and verifiable
+- Random winner seed is deterministic and verifiable by anyone
+- Prize payout requires organizer to open app and confirm
