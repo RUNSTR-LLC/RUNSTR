@@ -5,7 +5,7 @@
  * Features Lightning zap buttons for donations (tap = QR modal, long-press = quick NWC zap)
  */
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -461,14 +461,16 @@ const TeamsScreenComponent: React.FC = () => {
     setZapTargetCharity(null);
   };
 
-  // Find selected team object
-  const selectedTeam = selectedTeamId
-    ? CHARITIES.find((c) => c.id === selectedTeamId)
-    : null;
+  // Find selected team object (memoized to avoid repeated linear scans)
+  const selectedTeam = useMemo(
+    () => (selectedTeamId ? CHARITIES.find((c) => c.id === selectedTeamId) : null),
+    [selectedTeamId]
+  );
 
-  // Sort teams alphabetically by name
-  const sortedCharities = [...CHARITIES].sort((a, b) =>
-    a.name.localeCompare(b.name)
+  // Sort teams alphabetically by name once (CHARITIES is static)
+  const sortedCharities = useMemo(
+    () => [...CHARITIES].sort((a, b) => a.name.localeCompare(b.name)),
+    []
   );
 
   return (
