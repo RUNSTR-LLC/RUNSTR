@@ -64,7 +64,6 @@ interface NavigationDataProviderProps {
 export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
   children,
 }) => {
-  console.log('🚀 NavigationDataProvider: Initializing...');
   const { currentUser } = useAuth();
   const [user, setUser] = useState<UserWithWallet | null>(null);
   const [teamData, setTeamData] = useState<TeamScreenData | null>(null);
@@ -941,11 +940,5 @@ export const useNavigationData = (): NavigationData => {
       'useNavigationData must be used within a NavigationDataProvider'
     );
   }
-  console.log(
-    '✅ useNavigationData: Context found, isLoading:',
-    context.isLoading,
-    'profileData:',
-    !!context.profileData
-  );
   return context;
 };
