@@ -16,7 +16,6 @@ The profile section uses a unified workout view with enhanced workout management
 - **CompactTeamCard.tsx** - 72px compact team card for multi-team display with avatar, badges, and rank.
 - **DebugAuthBanner.tsx** - Shows current auth state for debugging, only visible in debug builds to help diagnose signing issues.
 - **MonthlyStatsPanel.tsx** - Monthly statistics panel.
-- **MyTeamsBox.tsx** - Displays user's team memberships.
 - **NotificationBadge.tsx** - Red notification badge with unread count.
 - **NotificationItem.tsx** - Individual notification card component.
 - **NotificationModal.tsx** - Full-screen notification feed modal.
@@ -28,8 +27,6 @@ The profile section uses a unified workout view with enhanced workout management
 - **WorkoutsTab.tsx** - Public/All tab navigation with sync dropdown.
 - **WorkoutStatsSheet.tsx** - Bottom sheet displaying workout statistics with This Week/Month summaries and Personal Records.
 - **WorkoutTabNavigator.tsx** - Unified workout view that shows all workouts from all sources via UnifiedWorkoutsTab.
-- **YourCompetitionsBox.tsx** - Shows user's active competitions.
-- **YourWorkoutsBox.tsx** - Displays user's recent workouts.
 
 ## Subdirectories
 

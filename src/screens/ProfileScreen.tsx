@@ -16,6 +16,14 @@ import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/nativ
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { npubEncode } from '../utils/nostrEncoding';
 import Toast from 'react-native-toast-message';
+import {
+  getCharityById,
+  isSelfTeam,
+  isPPQTeam,
+  isCommunityTeam,
+  extractCommunityTeamUUID,
+} from '../constants/charities';
+import { UserTeamService } from '../services/backend/UserTeamService';
 import { NostrFetchLogger } from '../utils/NostrFetchLogger';
 import { MusicPlayerPreferencesService } from '../services/music/MusicPlayerPreferencesService';
 import { HeaderMusicControls } from '../components/music/HeaderMusicControls';
@@ -71,6 +79,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
   const [recentWorkouts, setRecentWorkouts] = useState<RecentWorkout[]>([]);
   const [clubs, setClubs] = useState<ClubAffiliation[]>([]);
   const [isLoadingSections, setIsLoadingSections] = useState(true);
+  const [rewardDestination, setRewardDestination] = useState<string | null>(null);
 
   const isOwner = !pubkey || pubkey === userNpub;
   const targetNpub = pubkey || userNpub;
@@ -102,6 +111,29 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
       }
     })();
   }, [data.user.id]);
+
+  // Load reward destination (owner only)
+  useEffect(() => {
+    if (!isOwner) { setRewardDestination(null); return; }
+    (async () => {
+      try {
+        const teamId = await AsyncStorage.getItem('@runstr:selected_team_id');
+        if (!teamId) { setRewardDestination(null); return; }
+        if (isSelfTeam(teamId)) { setRewardDestination('You'); return; }
+        if (isPPQTeam(teamId)) { setRewardDestination('PPQ.AI'); return; }
+        if (isCommunityTeam(teamId)) {
+          const uuid = extractCommunityTeamUUID(teamId);
+          const team = await UserTeamService.getTeamById(uuid);
+          setRewardDestination(team?.name || 'Community Team');
+          return;
+        }
+        const charity = getCharityById(teamId);
+        setRewardDestination(charity?.name || null);
+      } catch {
+        setRewardDestination(null);
+      }
+    })();
+  }, [isOwner]);
 
   // Load profile sections via ProfileDataService
   const loadProfileSections = useCallback(async (npub: string) => {
@@ -208,7 +240,9 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
 
         <View style={styles.sectionGap}>
           <ProfileBadgesRow subscriptionTier={subscriptionTier} clubs={clubs}
-            isOwner={isOwner} onClubPress={handleClubPress} />
+            isOwner={isOwner} onClubPress={handleClubPress}
+            rewardDestination={isOwner ? rewardDestination : null}
+            onDestinationPress={isOwner ? () => navigation.navigate('Rewards' as any) : undefined} />
         </View>
 
         <View style={styles.sectionGap}>
