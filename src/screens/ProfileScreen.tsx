@@ -251,7 +251,6 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
         {isOwner && (
           <View style={styles.sectionGap}>
             <TouchableOpacity style={styles.startWorkoutBtn} onPress={handleStartWorkout} activeOpacity={0.7}>
-              <Ionicons name="fitness-outline" size={20} color={theme.colors.accentText} />
               <Text style={styles.startWorkoutText}>Start Workout</Text>
             </TouchableOpacity>
           </View>
@@ -303,13 +302,14 @@ const styles = StyleSheet.create({
   scrollContent: { flexGrow: 1, paddingHorizontal: 16, paddingBottom: 32 },
   sectionGap: { marginBottom: 16 },
   startWorkoutBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: theme.colors.buttonPrimary, borderRadius: 12,
-    paddingVertical: 14, gap: 8,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: theme.colors.cardBackground, borderRadius: 12,
+    borderWidth: 1, borderColor: theme.colors.accent,
+    paddingVertical: 14,
   },
   startWorkoutText: {
     fontSize: 16, fontWeight: theme.typography.weights.semiBold as any,
-    color: theme.colors.accentText,
+    color: theme.colors.accent,
   },
 });
 

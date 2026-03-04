@@ -36,8 +36,8 @@ export const ProfileBadgesRow: React.FC<ProfileBadgesRowProps> = ({
   const hasDestination = !!rewardDestination;
   const hasClubs = clubs && clubs.length > 0;
 
-  // Nothing to show
-  if (!hasDestination && !hasTierBadge && !hasClubs) {
+  // Owner always sees at least a destination badge
+  if (!isOwner && !hasDestination && !hasTierBadge && !hasClubs) {
     return null;
   }
 
@@ -48,10 +48,10 @@ export const ProfileBadgesRow: React.FC<ProfileBadgesRowProps> = ({
       contentContainerStyle={styles.scrollContent}
       style={styles.scrollView}
     >
-      {/* Reward destination badge */}
-      {hasDestination && (
+      {/* Reward destination badge — always visible for owner */}
+      {(hasDestination || isOwner) && (
         <BadgeChip
-          label={`Supporting ${rewardDestination}`}
+          label={hasDestination ? `Supporting ${rewardDestination}` : 'Set Destination'}
           onPress={isOwner ? onDestinationPress : undefined}
         />
       )}
