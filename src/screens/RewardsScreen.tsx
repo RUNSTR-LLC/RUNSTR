@@ -326,6 +326,14 @@ const RewardsScreenComponent: React.FC = () => {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <TexturedBackground edges={[]}>
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Rewards</Text>
+        <View style={styles.headerSpacer} />
+      </View>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
