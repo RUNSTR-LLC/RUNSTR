@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { theme } from '../styles/theme';
 import { TexturedBackground } from '../components/ui/TexturedBackground';
 import { ProfileScreenData } from '../types';
@@ -199,6 +199,16 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
     (parent || navigation).navigate('ProfileEdit' as any);
   }, [navigation]);
 
+  const handleStartWorkout = useCallback(() => {
+    const parent = navigation.getParent();
+    (parent || navigation).navigate('Exercise');
+  }, [navigation]);
+
+  const handleDestinationPress = useCallback(() => {
+    const parent = navigation.getParent();
+    (parent || navigation).navigate('Rewards');
+  }, [navigation]);
+
   const subscriptionTier: 'free' | 'supporter' | 'pro' = (() => {
     if (!data.subscription || data.subscription.status !== 'active') return 'free';
     return data.subscription.type === 'captain' ? 'pro' : 'supporter';
@@ -238,11 +248,20 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
           </View>
         )}
 
+        {isOwner && (
+          <View style={styles.sectionGap}>
+            <TouchableOpacity style={styles.startWorkoutBtn} onPress={handleStartWorkout} activeOpacity={0.7}>
+              <Ionicons name="fitness-outline" size={20} color={theme.colors.accentText} />
+              <Text style={styles.startWorkoutText}>Start Workout</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         <View style={styles.sectionGap}>
           <ProfileBadgesRow subscriptionTier={subscriptionTier} clubs={clubs}
             isOwner={isOwner} onClubPress={handleClubPress}
             rewardDestination={isOwner ? rewardDestination : null}
-            onDestinationPress={isOwner ? () => navigation.navigate('Rewards' as any) : undefined} />
+            onDestinationPress={isOwner ? handleDestinationPress : undefined} />
         </View>
 
         <View style={styles.sectionGap}>
@@ -283,6 +302,15 @@ const styles = StyleSheet.create({
   content: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: 16, paddingBottom: 32 },
   sectionGap: { marginBottom: 16 },
+  startWorkoutBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: theme.colors.buttonPrimary, borderRadius: 12,
+    paddingVertical: 14, gap: 8,
+  },
+  startWorkoutText: {
+    fontSize: 16, fontWeight: theme.typography.weights.semiBold as any,
+    color: theme.colors.accentText,
+  },
 });
 
 export const ProfileScreen = React.memo(ProfileScreenComponent);
