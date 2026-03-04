@@ -63,7 +63,7 @@ export type RootStackParamList = {
   Main: undefined;
   Login: undefined;
   Clubs: undefined;
-  Profile: undefined;
+  Profile: { pubkey?: string } | undefined;
   ProfileEdit: undefined;
   Wallet: undefined;
   LeagueDetail: { leagueId: string; leagueData?: any };

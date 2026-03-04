@@ -107,13 +107,7 @@ const CompeteScreenComponent: React.FC<CompeteScreenProps> = ({ navigation: prop
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-        </TouchableOpacity>
+        <View style={styles.headerSpacer} />
         <TouchableOpacity
           style={styles.hostButton}
           onPress={() => subscriptionTier === 'pro' ? setShowCreateEvent(true) : setShowSubscriptionInfo(true)}
@@ -122,7 +116,6 @@ const CompeteScreenComponent: React.FC<CompeteScreenProps> = ({ navigation: prop
           <Ionicons name="add-circle-outline" size={18} color={theme.colors.accent} />
           <Text style={styles.hostButtonText}>Create Event</Text>
         </TouchableOpacity>
-        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView
@@ -177,9 +170,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
-  },
-  backButton: {
-    padding: 4,
   },
   hostButton: {
     flexDirection: 'row',

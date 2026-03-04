@@ -23,16 +23,16 @@ import { PerformanceLogger } from '../utils/PerformanceLogger';
 // FIX: Loading multiple lazy screens simultaneously was causing freeze on first launch
 import { ProfileScreen } from '../screens/ProfileScreen';
 
-// Lazy load Clubs and Rewards since they're not the initial tab
+// Lazy load Clubs and Events since they're not the initial tab
 const ClubsScreen = React.lazy(() =>
   import('../screens/ClubsScreen').then((m) => ({
     default: m.ClubsScreen,
   }))
 );
 
-const RewardsScreen = React.lazy(() =>
-  import('../screens/RewardsScreen').then((m) => ({
-    default: m.RewardsScreen,
+const CompeteScreen = React.lazy(() =>
+  import('../screens/CompeteScreen').then((m) => ({
+    default: m.CompeteScreen,
   }))
 );
 
@@ -60,7 +60,7 @@ import { createNavigationHandlers } from './navigationHandlers';
 export type BottomTabParamList = {
   Profile: undefined;
   Clubs: undefined;
-  Rewards: undefined;
+  Events: undefined;
 };
 
 const Tab = createBottomTabNavigator<BottomTabParamList>();
@@ -73,7 +73,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
   onSignOut,
 }) => {
   // i18n hook for tab labels
-  const { t } = useTranslation(['profile', 'clubs', 'rewards']);
+  const { t } = useTranslation(['profile', 'clubs']);
 
   // Fetch real data for navigation screens
   const {
@@ -115,8 +115,8 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
             iconName = focused ? 'person' : 'person-outline';
           } else if (route.name === 'Clubs') {
             iconName = focused ? 'people' : 'people-outline';
-          } else if (route.name === 'Rewards') {
-            iconName = focused ? 'wallet' : 'wallet-outline';
+          } else if (route.name === 'Events') {
+            iconName = focused ? 'trophy' : 'trophy-outline';
           }
 
           return (
@@ -230,17 +230,17 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
         )}
       </Tab.Screen>
 
-      {/* Rewards Tab - Wallet & Earnings */}
+      {/* Events Tab - Competitions & Events */}
       <Tab.Screen
-        name="Rewards"
+        name="Events"
         options={{
-          title: t('rewards:title'),
+          title: 'Events',
           headerShown: false,
         }}
       >
         {() => (
           <Suspense fallback={<LoadingFallback />}>
-            <RewardsScreen />
+            <CompeteScreen />
           </Suspense>
         )}
       </Tab.Screen>
