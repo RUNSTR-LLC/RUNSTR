@@ -32,7 +32,7 @@ export type {
 export interface RootStackParamList extends Record<string, object | undefined> {
   Home: undefined;
   Team: undefined;
-  Profile: undefined;
+  Profile: { pubkey?: string } | undefined;
   Wallet: undefined;
   EventDetail: {
     eventId: string;

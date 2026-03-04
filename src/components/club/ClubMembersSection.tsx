@@ -12,7 +12,9 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { ClubMembershipService } from '../../services/backend/ClubMembershipService';
@@ -36,6 +38,7 @@ interface ClubMembersSectionProps {
 const ClubMembersSectionComponent: React.FC<ClubMembersSectionProps> = ({
   clubId,
 }) => {
+  const navigation = useNavigation<any>();
   const [members, setMembers] = useState<ClubMembership[]>([]);
   const [profiles, setProfiles] = useState<Map<string, NostrProfile>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
@@ -96,7 +99,12 @@ const ClubMembersSectionComponent: React.FC<ClubMembersSectionProps> = ({
             const avatarUrl = profile?.picture;
 
             return (
-              <View key={member.id} style={styles.memberItem}>
+              <TouchableOpacity
+                key={member.id}
+                style={styles.memberItem}
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate('Profile', { pubkey: member.member_npub })}
+              >
                 <View style={styles.avatarWrapper}>
                   <Avatar
                     name={displayName}
@@ -119,7 +127,7 @@ const ClubMembersSectionComponent: React.FC<ClubMembersSectionProps> = ({
                 {isCaptain && (
                   <Text style={styles.captainLabel}>Captain</Text>
                 )}
-              </View>
+              </TouchableOpacity>
             );
           })}
         </ScrollView>
