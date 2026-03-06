@@ -68,7 +68,8 @@ class SupabaseRewardServiceClass {
         .from('reward_payments')
         .select('*')
         .eq('npub', npub)
-        .order('paid_at', { ascending: false });
+        .order('paid_at', { ascending: false })
+        .limit(500);
 
       if (error) {
         console.error('[SupabaseRewardService] Error fetching payment history:', error);
