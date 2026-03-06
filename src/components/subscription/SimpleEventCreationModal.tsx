@@ -170,6 +170,11 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
   const [alertTitle, setAlertTitle] = useState('');
   const [alertMessage, setAlertMessage] = useState('');
 
+  // Ticketing fields
+  const [ticketPledgeDays, setTicketPledgeDays] = useState(0);
+  const [winnerSelection, setWinnerSelection] = useState<'top_ranked' | 'random'>('top_ranked');
+  const [qualifyingDistance, setQualifyingDistance] = useState('');
+
   const quickDates = getQuickDateOptions();
 
   // Pre-fill form in edit mode
@@ -191,6 +196,9 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
     setDescription('');
     setStartDate(null);
     setImageUrl(null);
+    setTicketPledgeDays(0);
+    setWinnerSelection('top_ranked');
+    setQualifyingDistance('');
   }, []);
 
   const handleClose = useCallback(() => {
@@ -347,6 +355,9 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
           template: selectedTemplate.templateId,
           created_via: clubId ? 'club' : 'app',
           score_unit: selectedTemplate.scoringMethod === 'fastest_time' ? 'seconds' : 'km',
+          ticket_pledge_days: ticketPledgeDays,
+          winner_selection: winnerSelection,
+          qualifying_distance_km: qualifyingDistance ? parseFloat(qualifyingDistance) : null,
         },
       });
 
@@ -384,7 +395,7 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
       isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
-  }, [isValid, selectedTemplate, eventName, description, startDate, imageUrl, onEventCreated, showAlert, clubId]);
+  }, [isValid, selectedTemplate, eventName, description, startDate, imageUrl, onEventCreated, showAlert, clubId, ticketPledgeDays, winnerSelection, qualifyingDistance]);
 
   const handleAlertDismiss = useCallback(() => {
     setAlertVisible(false);
@@ -552,6 +563,84 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
               </View>
             )}
 
+            {/* Entry Fee (create mode only) */}
+            {!isEditMode && (
+              <View style={s.formGroup}>
+                <Text style={s.label}>Entry Fee</Text>
+                <View style={s.pledgeDaysRow}>
+                  {[0, 1, 2, 3, 4, 5, 6, 7].map((days) => {
+                    const sel = ticketPledgeDays === days;
+                    return (
+                      <TouchableOpacity
+                        key={days}
+                        style={[s.pledgeDayChip, sel && s.pledgeDayChipSelected]}
+                        onPress={() => setTicketPledgeDays(days)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[s.pledgeDayChipText, sel && s.pledgeDayChipTextSelected]}>
+                          {days === 0 ? 'Free' : `${days}d`}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                {ticketPledgeDays > 0 && (
+                  <Text style={s.helperBelow}>
+                    Participants pledge {ticketPledgeDays} workout day{ticketPledgeDays === 1 ? '' : 's'} to enter
+                  </Text>
+                )}
+              </View>
+            )}
+
+            {/* Winner Selection (create mode, participation/workout_count scoring) */}
+            {!isEditMode && selectedTemplate != null && (
+              selectedTemplate.scoringMethod === 'total_steps' ||
+              selectedTemplate.scoringMethod === 'total_distance'
+            ) ? (
+              <View style={s.formGroup}>
+                <Text style={s.label}>Winner Selection</Text>
+                <View style={s.toggleRow}>
+                  <TouchableOpacity
+                    style={[s.toggleOption, winnerSelection === 'top_ranked' && s.toggleOptionSelected]}
+                    onPress={() => setWinnerSelection('top_ranked')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[s.toggleOptionText, winnerSelection === 'top_ranked' && s.toggleOptionTextSelected]}>
+                      Top Ranked
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[s.toggleOption, winnerSelection === 'random' && s.toggleOptionSelected]}
+                    onPress={() => setWinnerSelection('random')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[s.toggleOptionText, winnerSelection === 'random' && s.toggleOptionTextSelected]}>
+                      Random Draw
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : null}
+
+            {/* Qualifying Distance (create mode, random winner selection) */}
+            {!isEditMode && winnerSelection === 'random' && (
+              <View style={s.formGroup}>
+                <Text style={s.label}>Qualifying Distance (km)</Text>
+                <TextInput
+                  style={s.textInput}
+                  value={qualifyingDistance}
+                  onChangeText={setQualifyingDistance}
+                  placeholder="e.g., 5"
+                  placeholderTextColor={theme.colors.textDark}
+                  keyboardType="decimal-pad"
+                  maxLength={6}
+                />
+                <Text style={s.helperBelow}>
+                  Minimum distance to qualify for the random draw
+                </Text>
+              </View>
+            )}
+
             <View style={{ height: 100 }} />
           </ScrollView>
         </KeyboardAvoidingView>
@@ -668,6 +757,36 @@ const s = StyleSheet.create({
     borderColor: theme.colors.text,
   },
   selectedText: { color: theme.colors.background },
+  // Ticketing — pledge days chip row
+  pledgeDaysRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  pledgeDayChip: {
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8,
+    borderWidth: 1, borderColor: theme.colors.border,
+    backgroundColor: theme.colors.card,
+  },
+  pledgeDayChipSelected: {
+    backgroundColor: theme.colors.text, borderColor: theme.colors.text,
+  },
+  pledgeDayChipText: {
+    fontSize: 14, fontWeight: theme.typography.weights.semiBold as '600',
+    color: theme.colors.textMuted,
+  },
+  pledgeDayChipTextSelected: { color: theme.colors.background },
+  // Ticketing — winner selection toggle
+  toggleRow: { flexDirection: 'row', gap: 8, marginBottom: 0 },
+  toggleOption: {
+    flex: 1, paddingVertical: 10, borderRadius: 8, borderWidth: 1,
+    borderColor: theme.colors.border, alignItems: 'center' as const,
+    backgroundColor: theme.colors.card,
+  },
+  toggleOptionSelected: {
+    backgroundColor: theme.colors.text, borderColor: theme.colors.text,
+  },
+  toggleOptionText: {
+    fontSize: 14, fontWeight: theme.typography.weights.medium,
+    color: theme.colors.textMuted,
+  },
+  toggleOptionTextSelected: { color: theme.colors.background },
   // Footer
   footer: { padding: 16, borderTopWidth: 1, borderTopColor: theme.colors.border },
   submitButton: {
