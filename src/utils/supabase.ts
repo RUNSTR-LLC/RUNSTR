@@ -73,6 +73,8 @@ export interface CompetitionConfig {
     label: string;
   }>;
   requires_subscription?: 'supporter' | 'pro'; // Minimum tier required to join
+  ticket_pledge_days?: number;                 // Days of rewards pledged to enter event
+  captain_lightning_address?: string;           // Captain's lightning address for pledge rewards
 }
 
 // Database types for type safety

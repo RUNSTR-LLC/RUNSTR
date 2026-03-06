@@ -16,6 +16,7 @@ import {
   Image,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -31,6 +32,7 @@ import { ClubService } from '../../services/backend/ClubService';
 import { ClubMembershipService } from '../../services/backend/ClubMembershipService';
 import { SubscriptionInfoModal } from '../../components/subscription/SubscriptionInfoModal';
 import { CustomAlert } from '../../components/ui/CustomAlert';
+import { PledgeService } from '../../services/pledge/PledgeService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Avatar } from '../../components/ui/Avatar';
 import type { Competition, CompetitionConfig } from '../../utils/supabase';
@@ -202,6 +204,47 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
     checkTier();
   }, [competition]);
 
+  const handlePledgeAndJoin = async () => {
+    setIsJoining(true);
+    try {
+      const userPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+      if (!userPubkey) return;
+
+      // Check for existing active pledge
+      const existingPledge = await PledgeService.getActivePledge(userPubkey);
+      if (existingPledge) {
+        Alert.alert('Active Pledge', 'You already have an active pledge. Complete it before joining a new ticketed event.');
+        return;
+      }
+
+      // Get captain's lightning address from competition config
+      const captainAddress = competition?.config?.captain_lightning_address || '';
+      const captainName = competition?.name || 'Event Captain';
+
+      // Create the pledge
+      await PledgeService.createPledge({
+        eventId: competition!.id,
+        eventName: competition!.name,
+        totalWorkouts: competition!.config!.ticket_pledge_days!,
+        destination: {
+          type: 'captain',
+          lightningAddress: captainAddress,
+          name: captainName,
+        },
+        userPubkey,
+      });
+
+      // Join the competition
+      await join();
+      await refreshLeaderboard();
+    } catch (error) {
+      console.error('[DynamicEventDetail] Pledge + join error:', error);
+      Alert.alert('Error', 'Failed to join event. Please try again.');
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
   const handleJoin = async () => {
     if (isJoining) return;
 
@@ -221,6 +264,20 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
         setShowSubscriptionInfo(true);
         return;
       }
+    }
+
+    // Pledge gate for ticketed events
+    const pledgeDays = competition?.config?.ticket_pledge_days;
+    if (pledgeDays && pledgeDays > 0) {
+      Alert.alert(
+        'Entry Fee Required',
+        `This event requires pledging ${pledgeDays} workout day${pledgeDays > 1 ? 's' : ''} to enter. Your next ${pledgeDays} daily reward${pledgeDays > 1 ? 's' : ''} will go to the event captain.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Pledge & Join', onPress: handlePledgeAndJoin },
+        ]
+      );
+      return;
     }
 
     setIsJoining(true);
