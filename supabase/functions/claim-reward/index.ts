@@ -27,6 +27,23 @@ const STEP_SATS_PER_MILESTONE = 5
 const MAX_DAILY_STEP_SATS = 50
 const NWC_TIMEOUT_MS = 30000
 
+/**
+ * Fetch the active reward sponsor name from the database.
+ * Returns 'RUNSTR' as fallback if no active sponsor found.
+ */
+async function getActiveSponsorName(supabase: any): Promise<string> {
+  try {
+    const { data } = await supabase
+      .from('reward_sponsors')
+      .select('name')
+      .eq('is_active', true)
+      .maybeSingle()
+    return data?.name || 'RUNSTR'
+  } catch {
+    return 'RUNSTR'
+  }
+}
+
 // CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -1183,6 +1200,8 @@ serve(async (req) => {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       )
 
+      const sponsorName = await getActiveSponsorName(supabase)
+
       const { lightning_address, reward_type, amount_sats, is_charity_donation, ppq_bolt11, npub, team_name } = body
 
       // Validate required fields (ppq_bolt11 can substitute for lightning_address)
@@ -1318,8 +1337,8 @@ serve(async (req) => {
             const supabaseUrl = Deno.env.get('SUPABASE_URL')
             if (supabaseUrl) {
               const notificationBody = team_name
-                ? `You earned ${rewardAmount} sats for ${team_name}`
-                : `You earned ${rewardAmount} sats for your workout`
+                ? `You earned ${rewardAmount} sats from ${sponsorName} for ${team_name}`
+                : `You earned ${rewardAmount} sats from ${sponsorName} for your workout`
               fetch(`${supabaseUrl}/functions/v1/notify-user`, {
                 method: 'POST',
                 headers: {
@@ -1328,7 +1347,7 @@ serve(async (req) => {
                 },
                 body: JSON.stringify({
                   npub,
-                  title: 'Reward Earned!',
+                  title: `Reward from ${sponsorName}!`,
                   body: notificationBody,
                   data: { type: 'reward_earned', sats: rewardAmount, screen: 'Rewards' },
                   channelId: 'bitcoin_rewards',
@@ -1432,8 +1451,8 @@ serve(async (req) => {
                 },
                 body: JSON.stringify({
                   npub,
-                  title: 'Steps Rewarded!',
-                  body: `You earned ${amountToPay} sats for your steps today`,
+                  title: `Steps Rewarded by ${sponsorName}!`,
+                  body: `You earned ${amountToPay} sats from ${sponsorName} for your steps today`,
                   data: { type: 'step_reward_earned', sats: amountToPay },
                   channelId: 'bitcoin_rewards',
                 }),
