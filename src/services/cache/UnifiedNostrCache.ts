@@ -50,7 +50,7 @@ interface CacheOptions {
 // Subscriber callback type
 type SubscriberCallback<T = any> = (data: T) => void;
 
-const STORAGE_PREFIX = '@runstr:unified_cache:';
+const STORAGE_PREFIX = '@runstr:unified_nostr_cache:';
 
 /**
  * UnifiedNostrCache - Centralized cache for all Nostr data
