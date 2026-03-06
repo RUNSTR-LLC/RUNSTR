@@ -33,6 +33,8 @@ import { ClubMembershipService } from '../../services/backend/ClubMembershipServ
 import { SubscriptionInfoModal } from '../../components/subscription/SubscriptionInfoModal';
 import { CustomAlert } from '../../components/ui/CustomAlert';
 import { PledgeService } from '../../services/pledge/PledgeService';
+import { EventFinalizationService, FinalizationResult } from '../../services/events/EventFinalizationService';
+import NWCWalletService from '../../services/wallet/NWCWalletService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Avatar } from '../../components/ui/Avatar';
 import type { Competition, CompetitionConfig } from '../../utils/supabase';
@@ -124,6 +126,10 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
     isParticipating,
     join,
   } = useCompetitionParticipation(eventId);
+
+  const [finalizationResult, setFinalizationResult] = useState<FinalizationResult | null>(null);
+  const [isFinalizing, setIsFinalizing] = useState(false);
+  const [isPaying, setIsPaying] = useState(false);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
@@ -297,6 +303,72 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
       setImmediate(() => setIsRefreshing(false));
     }
   }, [refreshLeaderboard]);
+
+  const handleFinalize = async () => {
+    if (!competition?.config) return;
+    setIsFinalizing(true);
+    try {
+      const result = await EventFinalizationService.finalizeEvent(
+        competition.id,
+        (competition.config.winner_selection as 'ranked' | 'random') || 'ranked',
+        competition.config.qualifying_distance_km || 0,
+        competition.prize_pool_sats || 0,
+      );
+      setFinalizationResult(result);
+    } catch (error) {
+      console.error('[DynamicEventDetail] Finalization error:', error);
+      Alert.alert('Error', 'Failed to finalize event. Please try again.');
+    } finally {
+      setIsFinalizing(false);
+    }
+  };
+
+  const handlePayWinner = async () => {
+    if (!finalizationResult?.winner) return;
+    setIsPaying(true);
+    try {
+      const winnerAddress = finalizationResult.winner.lightningAddress;
+      if (!winnerAddress) {
+        Alert.alert('No Address', 'Winner does not have a rewards address set in their profile.');
+        setIsPaying(false);
+        return;
+      }
+
+      // Request invoice from winner's rewards address
+      const response = await fetch(`https://${winnerAddress.split('@')[1]}/.well-known/lnurlp/${winnerAddress.split('@')[0]}`);
+      const lnurlData = await response.json();
+
+      if (!lnurlData.callback) {
+        Alert.alert('Error', 'Could not reach winner\'s wallet.');
+        setIsPaying(false);
+        return;
+      }
+
+      // Request invoice for prize amount
+      const callbackUrl = `${lnurlData.callback}?amount=${finalizationResult.prizePoolSats * 1000}`;
+      const invoiceResponse = await fetch(callbackUrl);
+      const invoiceData = await invoiceResponse.json();
+
+      if (!invoiceData.pr) {
+        Alert.alert('Error', 'Could not create invoice for winner.');
+        setIsPaying(false);
+        return;
+      }
+
+      // Pay via organizer's connected wallet
+      const payResult = await NWCWalletService.sendPayment(invoiceData.pr);
+      if (payResult.success) {
+        Alert.alert('Prize Sent!', `${finalizationResult.prizePoolSats} rewards sent to the winner!`);
+      } else {
+        Alert.alert('Payment Failed', payResult.error || 'Unknown error');
+      }
+    } catch (error) {
+      console.error('[DynamicEventDetail] Pay winner error:', error);
+      Alert.alert('Error', 'Failed to send prize. Please try again.');
+    } finally {
+      setIsPaying(false);
+    }
+  };
 
   // Loading state
   if (compLoading) {
@@ -696,6 +768,56 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
           </View>
         )}
 
+        {/* Event Finalization (Creator Only, Event Ended) */}
+        {isEventCreator && status === 'ended' && competition?.config?.winner_selection === 'random' && (
+          <View style={[styles.finalizationSection, { backgroundColor: theme.colors.cardBackground }]}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text, marginBottom: 12 }]}>Event Finalization</Text>
+            {!finalizationResult ? (
+              <TouchableOpacity
+                style={[styles.finalizeButton, { backgroundColor: theme.colors.accent }]}
+                onPress={handleFinalize}
+                disabled={isFinalizing}
+              >
+                {isFinalizing ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.finalizeButtonText}>Draw Random Winner</Text>
+                )}
+              </TouchableOpacity>
+            ) : (
+              <View>
+                <Text style={[styles.finalizationSubtitle, { color: theme.colors.textMuted }]}>
+                  {finalizationResult.finishers.length} finisher{finalizationResult.finishers.length !== 1 ? 's' : ''} qualified
+                </Text>
+                {finalizationResult.winner ? (
+                  <>
+                    <Text style={[styles.winnerText, { color: theme.colors.accent }]}>
+                      Winner: {finalizationResult.winner.name || finalizationResult.winner.npub.slice(0, 16) + '...'}
+                    </Text>
+                    <TouchableOpacity
+                      style={[styles.payButton, { backgroundColor: theme.colors.accent }]}
+                      onPress={handlePayWinner}
+                      disabled={isPaying}
+                    >
+                      {isPaying ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Text style={styles.payButtonText}>
+                          Send {finalizationResult.prizePoolSats} rewards to Winner
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <Text style={[styles.noFinishersText, { color: theme.colors.textMuted }]}>
+                    No finishers met the qualifying distance.
+                  </Text>
+                )}
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Note Section */}
         <View style={styles.noteSection}>
           <Ionicons name="information-circle-outline" size={16} color={theme.colors.textMuted} />
@@ -1089,6 +1211,46 @@ const styles = StyleSheet.create({
   cancelEventText: {
     fontSize: 13,
     color: theme.colors.textMuted,
+  },
+  finalizationSection: {
+    padding: 16,
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginTop: 16,
+  },
+  finalizeButton: {
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  finalizeButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  finalizationSubtitle: {
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  winnerText: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  payButton: {
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  payButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  noFinishersText: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 8,
   },
 });
 
