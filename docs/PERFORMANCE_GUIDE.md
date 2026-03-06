@@ -397,4 +397,4 @@ console.log(`Cache fetch took ${duration}ms`);
 
 - 📖 **For caching implementation**: See `src/utils/cache/UnifiedNostrCache.ts`
 - 📖 **For data architecture**: [DATA_ARCHITECTURE_AND_CACHING_STRATEGY.md](./DATA_ARCHITECTURE_AND_CACHING_STRATEGY.md)
-- 📖 **For Nostr optimization**: [nostr-native-fitness-competitions.md](./nostr-native-fitness-competitions.md)
+- 📖 **For Nostr competition architecture**: [events-and-leagues.md](./events-and-leagues.md)

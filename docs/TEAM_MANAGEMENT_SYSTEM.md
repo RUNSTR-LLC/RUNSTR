@@ -277,6 +277,6 @@ All member displays throughout the app now use the `ZappableUserRow` component w
 - League Rankings: `src/components/team/LeagueRankingsSection.tsx:388-400`
 
 ## Related Documentation
-- [App User Flow Documentation](./APP_USER_FLOW_AND_CAPTAIN_EXPERIENCE.md)
-- [Competition System Documentation](./COMPETITION_SYSTEM.md)
-- [Nostr Protocol Integration](./NOSTR_PROTOCOL.md)
+- [RUNSTR Project Overview](./internal/PROJECT_OVERVIEW.md)
+- [Events and Leagues Documentation](./events-and-leagues.md)
+- [Kind 1301 Specification](./KIND_1301_SPEC.md)

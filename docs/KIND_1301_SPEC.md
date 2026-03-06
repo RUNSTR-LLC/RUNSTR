@@ -527,6 +527,6 @@ const runningWorkouts = await ndk.fetchEvents(filter);
 
 ## Related Documentation
 
-- 📖 **For competition architecture**: [nostr-native-fitness-competitions.md](./nostr-native-fitness-competitions.md)
+- 📖 **For competition architecture**: [events-and-leagues.md](./events-and-leagues.md)
 - 📖 **For HealthKit integration**: [HEALTHKIT_IMPLEMENTATION_GUIDE.md](./HEALTHKIT_IMPLEMENTATION_GUIDE.md)
 - 📖 **For workout publishing**: See main CLAUDE.md App Flow Architecture section
