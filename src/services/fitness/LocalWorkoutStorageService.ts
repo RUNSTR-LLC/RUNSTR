@@ -9,6 +9,7 @@ import type { WorkoutType } from '../../types/workout';
 import type { Split } from '../activity/SplitTrackingService';
 import { DailyRewardService } from '../rewards/DailyRewardService';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
+import { PendingSubmissionService } from '../competition/PendingSubmissionService';
 import Toast from 'react-native-toast-message';
 
 /**
@@ -591,6 +592,36 @@ export class LocalWorkoutStorageService {
     return {};
   }
 
+  private async queuePendingSupabaseSubmission(
+    workout: LocalWorkout,
+    npub: string,
+    tags: string[][],
+    profile: { name?: string; picture?: string },
+    error: string
+  ): Promise<void> {
+    const now = Date.now();
+
+    await PendingSubmissionService.addPending({
+      id: workout.id,
+      submissionData: {
+        eventId: workout.id,
+        npub,
+        type: workout.type,
+        distance: workout.distance || 0,
+        duration: workout.duration || 0,
+        calories: workout.calories,
+        startTime: workout.startTime,
+        tags,
+        profileName: profile.name,
+        profilePicture: profile.picture,
+      },
+      createdAt: now,
+      retryCount: 0,
+      lastError: error,
+      nextRetryTime: now,
+    });
+  }
+
   /**
    * Auto-submit cardio workouts to Supabase for leaderboard tracking.
    * Fire-and-forget — errors are logged, never block the save path.
@@ -650,11 +681,28 @@ export class LocalWorkoutStorageService {
           visibilityTime: 4000,
         });
       } else {
-        await this.updateSupabaseStatus(workout.id, false, result.error || 'Submission failed');
+        const failureReason = result.error || 'Submission failed';
+        await this.updateSupabaseStatus(workout.id, false, failureReason);
+        await this.queuePendingSupabaseSubmission(
+          workout,
+          npub,
+          tags,
+          profile,
+          failureReason
+        );
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       await this.updateSupabaseStatus(workout.id, false, errorMsg).catch(() => {});
+      await this.queuePendingSupabaseSubmission(
+        workout,
+        npub,
+        this.buildWorkoutTags(workout),
+        await this.getCachedProfile(),
+        errorMsg
+      ).catch((queueError) => {
+        console.warn('[LocalWorkoutStorage] Failed to queue pending submission:', queueError);
+      });
       console.warn(`[LocalWorkoutStorage] Supabase auto-submit failed for ${workout.id}:`, errorMsg);
     }
 
