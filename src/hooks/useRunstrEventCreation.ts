@@ -186,10 +186,14 @@ export const DURATION_OPTIONS: { value: RunstrDuration; label: string }[] = [
 ];
 
 export const PLEDGE_COST_OPTIONS = [
-  { value: 1, label: '1' },
-  { value: 3, label: '3' },
-  { value: 5, label: '5' },
-  { value: 7, label: '7' },
+  { value: 0, label: 'Free' },
+  { value: 1, label: '1 day' },
+  { value: 2, label: '2 days' },
+  { value: 3, label: '3 days' },
+  { value: 4, label: '4 days' },
+  { value: 5, label: '5 days' },
+  { value: 6, label: '6 days' },
+  { value: 7, label: '7 days' },
 ];
 
 export const PLEDGE_DESTINATION_OPTIONS = [
