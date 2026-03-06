@@ -530,6 +530,30 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
             </View>
           )}
 
+          {/* Ticketing Info */}
+          {competition?.config?.ticket_pledge_days != null && competition.config.ticket_pledge_days > 0 && (
+            <View style={[styles.infoRow, { backgroundColor: '#111111' }]}>
+              <Text style={[styles.infoLabel, { color: theme.colors.textMuted }]}>Entry Fee</Text>
+              <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+                {competition.config.ticket_pledge_days} workout day{competition.config.ticket_pledge_days > 1 ? 's' : ''} pledged to captain
+              </Text>
+            </View>
+          )}
+          {competition?.config?.winner_selection === 'random' && (
+            <View style={[styles.infoRow, { backgroundColor: '#111111' }]}>
+              <Text style={[styles.infoLabel, { color: theme.colors.textMuted }]}>Winner</Text>
+              <Text style={[styles.infoValue, { color: theme.colors.text }]}>Random draw from finishers</Text>
+            </View>
+          )}
+          {competition?.config?.qualifying_distance_km != null && competition.config.qualifying_distance_km > 0 && (
+            <View style={[styles.infoRow, { backgroundColor: '#111111' }]}>
+              <Text style={[styles.infoLabel, { color: theme.colors.textMuted }]}>Qualifying</Text>
+              <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+                {competition.config.qualifying_distance_km} km minimum
+              </Text>
+            </View>
+          )}
+
           {/* Club membership gate banner (visible before Join button) */}
           {competition.club_id && isClubMember === false && !isParticipating && status !== 'ended' && (
             <View style={styles.clubGateBanner}>
@@ -1033,6 +1057,26 @@ const styles = StyleSheet.create({
     color: theme.colors.accent,
     fontSize: 14,
     fontWeight: '600',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  infoLabel: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.medium,
+  },
+  infoValue: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
+    textAlign: 'right',
+    flex: 1,
+    marginLeft: 12,
   },
   cancelEventButton: {
     flexDirection: 'row',

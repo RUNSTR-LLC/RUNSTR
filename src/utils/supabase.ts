@@ -75,6 +75,8 @@ export interface CompetitionConfig {
   requires_subscription?: 'supporter' | 'pro'; // Minimum tier required to join
   ticket_pledge_days?: number;                 // Days of rewards pledged to enter event
   captain_lightning_address?: string;           // Captain's lightning address for pledge rewards
+  winner_selection?: 'top_ranked' | 'random';  // How winner is selected
+  qualifying_distance_km?: number;             // Minimum km to qualify
 }
 
 // Database types for type safety

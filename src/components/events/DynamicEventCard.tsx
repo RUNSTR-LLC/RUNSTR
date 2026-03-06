@@ -223,6 +223,15 @@ export const DynamicEventCard: React.FC<DynamicEventCardProps> = ({
             </View>
           ) : null}
         </View>
+
+        {/* Ticket Pledge Badge */}
+        {(config as any).ticket_pledge_days > 0 && (
+          <View style={[styles.ticketBadge, { backgroundColor: theme.colors.accent + '20' }]}>
+            <Text style={[styles.ticketBadgeText, { color: theme.colors.accent }]}>
+              {(config as any).ticket_pledge_days}-day pledge to enter
+            </Text>
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -343,6 +352,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: theme.colors.textMuted,
     fontWeight: theme.typography.weights.medium,
+  },
+  ticketBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginTop: 4,
+    alignSelf: 'flex-start',
+  },
+  ticketBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
 });
 
