@@ -9,6 +9,7 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { EventSubscription } from 'expo-modules-core';
+import { SubmittedIdStore } from '../../utils/SubmittedIdStore';
 
 // Only import HealthKit APIs on iOS
 let enableBackgroundDelivery: any;
@@ -32,8 +33,10 @@ if (Platform.OS === 'ios') {
   }
 }
 
-const SUBMITTED_IDS_KEY = '@healthkit_bg:submitted_ids';
-const MAX_STORED_IDS = 500;
+const submittedIdStore = new SubmittedIdStore({
+  storageKey: '@healthkit_bg:submitted_ids',
+  maxIds: 500,
+});
 
 export class HealthKitBackgroundService {
   private static instance: HealthKitBackgroundService;
@@ -109,7 +112,7 @@ export class HealthKitBackgroundService {
       }
 
       // Load previously submitted IDs for dedup
-      const submittedIds = await this.getSubmittedIds();
+      const submittedIds = await submittedIdStore.get();
       const CARDIO_TYPES = ['running', 'walking', 'cycling', 'hiking'];
 
       const newWorkouts = recentWorkouts.filter((w) => {
@@ -158,32 +161,13 @@ export class HealthKitBackgroundService {
       }
 
       // Persist updated submitted IDs
-      await this.saveSubmittedIds(submittedIds);
+      try {
+        await submittedIdStore.save(submittedIds);
+      } catch (error) {
+        console.warn('[HKBackground] Failed to save submitted IDs:', error);
+      }
     } catch (error) {
       console.error('[HKBackground] handleWorkoutUpdate error:', error);
-    }
-  }
-
-  /** Load previously submitted workout IDs from AsyncStorage */
-  private async getSubmittedIds(): Promise<Set<string>> {
-    try {
-      const raw = await AsyncStorage.getItem(SUBMITTED_IDS_KEY);
-      if (!raw) return new Set();
-      return new Set(JSON.parse(raw));
-    } catch {
-      return new Set();
-    }
-  }
-
-  /** Persist submitted workout IDs, capping at MAX_STORED_IDS */
-  private async saveSubmittedIds(ids: Set<string>): Promise<void> {
-    try {
-      const arr = Array.from(ids);
-      // Keep only the most recent IDs to avoid unbounded storage growth
-      const trimmed = arr.slice(-MAX_STORED_IDS);
-      await AsyncStorage.setItem(SUBMITTED_IDS_KEY, JSON.stringify(trimmed));
-    } catch (error) {
-      console.warn('[HKBackground] Failed to save submitted IDs:', error);
     }
   }
 
