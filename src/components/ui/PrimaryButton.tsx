@@ -1,5 +1,5 @@
 /**
- * PrimaryButton - Reusable orange button with white text
+ * PrimaryButton - Reusable orange button using theme-tokenized accent text
  * Consistent styling across the app for primary actions
  */
 
