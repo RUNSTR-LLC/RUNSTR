@@ -81,7 +81,7 @@ export const EventsCard: React.FC<EventsCardProps> = ({
     const loadCurrentUser = async () => {
       try {
         const hexPubkey =
-          await UnifiedSigningService.getInstance().getHexPubkey();
+          await UnifiedSigningService.getInstance().getUserPubkey();
         if (hexPubkey) {
           setCurrentUserHex(hexPubkey);
           // Note: We only need hex pubkey for event status checking
@@ -374,7 +374,7 @@ export const EventsCard: React.FC<EventsCardProps> = ({
 
       // Get user's hex pubkey
       const userHexPubkey =
-        await UnifiedSigningService.getInstance().getHexPubkey();
+        await UnifiedSigningService.getInstance().getUserPubkey();
       if (!userHexPubkey) {
         CustomAlert.alert('Error', 'Could not determine user public key', [
           { text: 'OK' },
