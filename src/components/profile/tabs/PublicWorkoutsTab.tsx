@@ -67,7 +67,9 @@ export const PublicWorkoutsTab: React.FC<PublicWorkoutsTabProps> = ({
       }
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+    };
   }, [navigation, pubkey]);
 
   const loadNostrWorkouts = async (forceRefresh: boolean = false) => {
