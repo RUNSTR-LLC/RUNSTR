@@ -19,6 +19,9 @@ import { getCharityByLightningAddress } from '../../constants/charities';
 // Geyser Fund charity IDs (payments to these may be pending)
 const GEYSER_CHARITY_IDS = ['ashigaru', 'bitcoin-yucatan', 'buho-go', 'wesatoshi'];
 
+// Bound history queries to avoid unbounded payloads on high-activity accounts
+const MAX_PAYMENT_HISTORY_ROWS = 200;
+
 export interface PaymentRecord {
   id: string;
   npub: string;
@@ -68,7 +71,8 @@ class SupabaseRewardServiceClass {
         .from('reward_payments')
         .select('*')
         .eq('npub', npub)
-        .order('paid_at', { ascending: false });
+        .order('paid_at', { ascending: false })
+        .limit(MAX_PAYMENT_HISTORY_ROWS);
 
       if (error) {
         console.error('[SupabaseRewardService] Error fetching payment history:', error);
@@ -247,7 +251,8 @@ class SupabaseRewardServiceClass {
         .eq('npub', npub)
         .eq('status', 'success')
         .gt('paid_at', sinceTimestamp)
-        .order('paid_at', { ascending: false });
+        .order('paid_at', { ascending: false })
+        .limit(MAX_PAYMENT_HISTORY_ROWS);
 
       if (error) {
         console.error('[SupabaseRewardService] Error fetching new payments:', error);
