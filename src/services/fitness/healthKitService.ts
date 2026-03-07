@@ -186,6 +186,7 @@ export class HealthKitService {
   private readonly PERMISSION_TIMEOUT = 30000; // 30 seconds for permissions (increased for careful users)
   private abortController: AbortController | null = null;
   private isModuleAvailable: boolean = false;
+  private autoSubmitInProgress = false;
 
   private constructor() {
     this.initializeModule();
@@ -1014,52 +1015,63 @@ export class HealthKitService {
     workouts: HealthKitWorkout[],
     previousIds: Set<string>
   ): Promise<void> {
-    const CARDIO_TYPES = ['running', 'walking', 'cycling', 'hiking'];
-    const npub = await AsyncStorage.getItem('@runstr:npub');
-    if (!npub) return;
-
-    // Include Lightning address in tags so Supabase trigger can auto-reward
-    const lightningAddress = await AsyncStorage.getItem('@runstr:lightning_address');
-    const submittedIds = await this.getSubmittedIds();
-
-    const newCardio = workouts.filter((w) => {
-      const id = w.UUID || w.id || '';
-      if (!id || previousIds.has(id) || submittedIds.has(id)) return false;
-      if (!w.activityType || !CARDIO_TYPES.includes(w.activityType)) return false;
-      if (!w.totalDistance || w.totalDistance <= 0) return false;
-      return true;
-    });
-
-    for (const w of newCardio) {
-      try {
-        const workoutId = w.UUID || w.id || '';
-        const eventId = `hk_${workoutId}`;
-        const tags: string[][] = [];
-        if (lightningAddress) {
-          tags.push(['lightning', lightningAddress]);
-        }
-
-        await SupabaseCompetitionService.submitWorkoutSimple({
-          eventId,
-          npub,
-          type: w.activityType || 'running',
-          distance: w.totalDistance,
-          duration: w.duration,
-          calories: w.totalEnergyBurned,
-          startTime: w.startDate,
-          tags,
-        });
-
-        if (workoutId) {
-          submittedIds.add(workoutId);
-        }
-        debugLog(`[HealthKit] Auto-submitted ${w.activityType} workout to Supabase: ${eventId}`);
-      } catch (err) {
-        console.warn(`[HealthKit] Failed to submit workout ${w.UUID}:`, err);
-      }
+    if (this.autoSubmitInProgress) {
+      debugLog('[HealthKit] Auto-submit already in progress, skipping duplicate run');
+      return;
     }
 
-    await this.saveSubmittedIds(submittedIds);
+    this.autoSubmitInProgress = true;
+
+    try {
+      const CARDIO_TYPES = ['running', 'walking', 'cycling', 'hiking'];
+      const npub = await AsyncStorage.getItem('@runstr:npub');
+      if (!npub) return;
+
+      // Include Lightning address in tags so Supabase trigger can auto-reward
+      const lightningAddress = await AsyncStorage.getItem('@runstr:lightning_address');
+      const submittedIds = await this.getSubmittedIds();
+
+      const newCardio = workouts.filter((w) => {
+        const id = w.UUID || w.id || '';
+        if (!id || previousIds.has(id) || submittedIds.has(id)) return false;
+        if (!w.activityType || !CARDIO_TYPES.includes(w.activityType)) return false;
+        if (!w.totalDistance || w.totalDistance <= 0) return false;
+        return true;
+      });
+
+      for (const w of newCardio) {
+        try {
+          const workoutId = w.UUID || w.id || '';
+          const eventId = `hk_${workoutId}`;
+          const tags: string[][] = [];
+          if (lightningAddress) {
+            tags.push(['lightning', lightningAddress]);
+          }
+
+          await SupabaseCompetitionService.submitWorkoutSimple({
+            eventId,
+            npub,
+            type: w.activityType || 'running',
+            distance: w.totalDistance,
+            duration: w.duration,
+            calories: w.totalEnergyBurned,
+            startTime: w.startDate,
+            tags,
+          });
+
+          if (workoutId) {
+            submittedIds.add(workoutId);
+          }
+          debugLog(`[HealthKit] Auto-submitted ${w.activityType} workout to Supabase: ${eventId}`);
+        } catch (err) {
+          console.warn(`[HealthKit] Failed to submit workout ${w.UUID}:`, err);
+        }
+      }
+
+      await this.saveSubmittedIds(submittedIds);
+    } finally {
+      this.autoSubmitInProgress = false;
+    }
   }
 
   private async getSubmittedIds(): Promise<Set<string>> {
