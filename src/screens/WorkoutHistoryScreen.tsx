@@ -78,7 +78,8 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
       }
 
       if (!activeUserId) {
-        activeUserId = activePubkey; // Use pubkey as userId fallback
+        // Allow guest/local users to view timeline without requiring Nostr login
+        activeUserId = activePubkey || 'local-device';
       }
 
       setPubkey(activePubkey);
@@ -86,7 +87,11 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
 
       // Note: Signer is now loaded fresh at publish time (not cached here)
       // This ensures we always use current auth state after sign out/sign in
-      console.log('[WorkoutHistory] ✅ User data loaded (signer loaded at publish time)');
+      if (!activePubkey) {
+        console.log('[WorkoutHistory] ✅ Guest/local mode enabled (no pubkey found)');
+      } else {
+        console.log('[WorkoutHistory] ✅ User data loaded (signer loaded at publish time)');
+      }
     } catch (error) {
       console.error('[WorkoutHistory] ❌ Failed to load user data:', error);
     } finally {
@@ -165,27 +170,6 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
     return (
       <SafeAreaView style={styles.container}>
         <LoadingOverlay message="Loading..." visible={true} />
-      </SafeAreaView>
-    );
-  }
-
-  if (!pubkey) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.errorContainer}>
-          <Ionicons
-            name="alert-circle-outline"
-            size={64}
-            color={theme.colors.error}
-          />
-          <Text style={styles.errorTitle}>No User Found</Text>
-          <Text style={styles.errorMessage}>
-            Please log in to view your workouts
-          </Text>
-          <TouchableOpacity style={styles.errorButton} onPress={handleGoBack}>
-            <Text style={styles.errorButtonText}>Go Back</Text>
-          </TouchableOpacity>
-        </View>
       </SafeAreaView>
     );
   }
@@ -271,38 +255,4 @@ const styles = StyleSheet.create({
     padding: 8,
   },
 
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-
-  errorTitle: {
-    marginTop: 16,
-    fontSize: 18,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.text,
-  },
-
-  errorMessage: {
-    marginTop: 8,
-    fontSize: 14,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-  },
-
-  errorButton: {
-    marginTop: 24,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    backgroundColor: theme.colors.accent,
-    borderRadius: 8,
-  },
-
-  errorButtonText: {
-    fontSize: 14,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.accentText,
-  },
 });
