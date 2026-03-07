@@ -124,8 +124,9 @@ export class HealthKitBackgroundService {
         return;
       }
 
-      // Get Lightning address for auto-reward trigger
+      // Get reward + team context tags for Supabase trigger parsing
       const lightningAddress = await AsyncStorage.getItem('@runstr:lightning_address');
+      const selectedTeamId = await AsyncStorage.getItem('@runstr:selected_team_id');
 
       const { SupabaseCompetitionService } = await import(
         '../backend/SupabaseCompetitionService'
@@ -137,6 +138,9 @@ export class HealthKitBackgroundService {
           const tags: string[][] = [];
           if (lightningAddress) {
             tags.push(['lightning', lightningAddress]);
+          }
+          if (selectedTeamId) {
+            tags.push(['team', selectedTeamId]);
           }
 
           await SupabaseCompetitionService.submitWorkoutSimple({

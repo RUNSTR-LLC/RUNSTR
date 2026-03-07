@@ -1018,8 +1018,9 @@ export class HealthKitService {
     const npub = await AsyncStorage.getItem('@runstr:npub');
     if (!npub) return;
 
-    // Include Lightning address in tags so Supabase trigger can auto-reward
+    // Include reward + team context tags so Supabase can route rewards/charity attribution
     const lightningAddress = await AsyncStorage.getItem('@runstr:lightning_address');
+    const selectedTeamId = await AsyncStorage.getItem('@runstr:selected_team_id');
     const submittedIds = await this.getSubmittedIds();
 
     const newCardio = workouts.filter((w) => {
@@ -1037,6 +1038,9 @@ export class HealthKitService {
         const tags: string[][] = [];
         if (lightningAddress) {
           tags.push(['lightning', lightningAddress]);
+        }
+        if (selectedTeamId) {
+          tags.push(['team', selectedTeamId]);
         }
 
         await SupabaseCompetitionService.submitWorkoutSimple({

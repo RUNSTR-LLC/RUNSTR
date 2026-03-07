@@ -803,6 +803,7 @@ export class HealthConnectService {
     const npub = await AsyncStorage.getItem('@runstr:npub');
     if (!npub) return;
 
+    const selectedTeamId = await AsyncStorage.getItem('@runstr:selected_team_id');
     const submittedIds = await this.getSubmittedIds();
 
     const newCardio = workouts.filter((w) => {
@@ -815,6 +816,11 @@ export class HealthConnectService {
     for (const w of newCardio) {
       try {
         const eventId = `hc_${w.id}`;
+        const tags: string[][] = [];
+        if (selectedTeamId) {
+          tags.push(['team', selectedTeamId]);
+        }
+
         await SupabaseCompetitionService.submitWorkoutSimple({
           eventId,
           npub,
@@ -823,6 +829,7 @@ export class HealthConnectService {
           duration: w.duration,
           calories: w.totalEnergyBurned,
           startTime: w.startTime,
+          tags,
         });
 
         submittedIds.add(w.id);
