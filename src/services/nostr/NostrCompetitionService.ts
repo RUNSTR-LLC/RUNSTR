@@ -199,7 +199,7 @@ export class NostrCompetitionService {
   static async createEvent(
     eventData: Omit<
       NostrEventDefinition,
-      'captainPubkey' | 'createdAt' | 'updatedAt' | 'status'
+      'id' | 'captainPubkey' | 'createdAt' | 'updatedAt' | 'status'
     > & { id?: string }, // ✅ FIX: Allow optional id from wizard
     captainPrivateKeyOrSigner: string | NDKSigner
   ): Promise<CompetitionPublishResult> {

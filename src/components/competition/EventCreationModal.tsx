@@ -21,7 +21,7 @@ import { NostrListService } from '../../services/nostr/NostrListService';
 import { GlobalNDKService } from '../../services/nostr/GlobalNDKService';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import UnifiedSigningService from '../../services/auth/UnifiedSigningService';
-import { CustomAlert } from '../ui/CustomAlert';
+import { CustomAlertManager as CustomAlert } from '../ui/CustomAlert';
 import type { NostrTeam } from '../../services/nostr/NostrTeamService';
 
 interface EventCreationModalProps {
@@ -206,7 +206,7 @@ export const EventCreationModal: React.FC<EventCreationModalProps> = ({
           const listService = NostrListService.getInstance();
 
           // Get captain's hex pubkey
-          const captainHexPubkey = await signingService.getHexPubkey();
+          const captainHexPubkey = await signingService.getUserPubkey();
           if (!captainHexPubkey) {
             throw new Error('Could not determine captain public key');
           }
