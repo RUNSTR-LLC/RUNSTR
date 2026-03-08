@@ -35,6 +35,7 @@ import {
 import { nativeStepCounterService } from '../../services/activity/NativeStepCounterService';
 
 const POLL_INTERVAL_MS = 2000;
+const STEP_DEBUG_OVERLAY_ENABLED = false;
 
 const STATUS_COLORS = {
   good: theme.colors.success,
@@ -82,19 +83,33 @@ interface DiagSnapshot extends StepDiagnosticStatus {
   lastPollTime: Date;
 }
 
+const createInitialSnapshot = (): DiagSnapshot => ({
+  activeSource: 'none',
+  nativeSensorRunning: false,
+  backgroundTrackingEnabled: false,
+  healthConnectSdkAvailable: false,
+  healthConnectSdkStatus: 1,
+  stepsPermissionGranted: false,
+  romType: 'stock',
+  isPrivacyROM: false,
+  sensorNotes: null,
+  androidVersion: 0,
+  isLoading: false,
+  todaySteps: 0,
+  trackingStartTime: null,
+  lastPollTime: new Date(0),
+});
+
 export const StepDebugOverlay: React.FC = () => {
-  // Disabled for production - uncomment below for debug builds
-  return null;
-
-  // Android-only component
-  if (Platform.OS !== 'android') return null;
-
+  const isEnabled = STEP_DEBUG_OVERLAY_ENABLED && Platform.OS === 'android';
   const [isExpanded, setIsExpanded] = useState(false);
-  const [snapshot, setSnapshot] = useState<DiagSnapshot | null>(null);
+  const [snapshot, setSnapshot] = useState<DiagSnapshot>(() => createInitialSnapshot());
   const [copyFeedback, setCopyFeedback] = useState(false);
 
   // Poll diagnostics
   useEffect(() => {
+    if (!isEnabled) return;
+
     let mounted = true;
 
     const poll = async () => {
@@ -128,11 +143,9 @@ export const StepDebugOverlay: React.FC = () => {
       mounted = false;
       clearInterval(interval);
     };
-  }, []);
+  }, [isEnabled]);
 
   const copyToClipboard = useCallback(async () => {
-    if (!snapshot) return;
-
     const text = `
 RUNSTR Step Debug - ${new Date().toISOString()}
 
@@ -180,6 +193,8 @@ Last Poll: ${snapshot.lastPollTime.toISOString()}
   const boolColor = (val: boolean): string =>
     val ? STATUS_COLORS.good : STATUS_COLORS.bad;
 
+  if (!isEnabled) return null;
+
   return (
     <View style={styles.container}>
       {/* Floating bug icon */}
@@ -196,7 +211,7 @@ Last Poll: ${snapshot.lastPollTime.toISOString()}
       </TouchableOpacity>
 
       {/* Expanded panel */}
-      {isExpanded && snapshot && (
+      {isExpanded && (
         <View style={styles.panel}>
           {/* Header */}
           <View style={styles.panelHeader}>
