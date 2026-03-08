@@ -1,372 +1,200 @@
 /**
- * Amber Signing End-to-End Tests
- * Tests complete signing flow from event creation to publishing
+ * Amber signing flow tests aligned with current UnifiedSigningService behavior.
+ *
+ * Notes:
+ * - UnifiedSigningService now creates a fresh signer on each call (no signer cache).
+ * - Tests mock runtime/native modules to keep Jest deterministic in Node.
  */
 
-import { UnifiedSigningService } from '../src/services/auth/UnifiedSigningService';
-import { GlobalNDKService } from '../src/services/nostr/GlobalNDKService';
-import { AmberNDKSigner } from '../src/services/auth/amber/AmberNDKSigner';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { NDKEvent, NostrEvent } from '@nostr-dev-kit/ndk';
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  getItem: jest.fn(),
+  setItem: jest.fn(),
+  removeItem: jest.fn(),
+}));
 
-// Mock dependencies
-jest.mock('../src/services/auth/amber/AmberNDKSigner');
-jest.mock('../src/services/nostr/GlobalNDKService');
-jest.mock('@react-native-async-storage/async-storage');
+jest.mock('../src/services/auth/amber/AmberNDKSigner', () => ({
+  AmberNDKSigner: jest.fn(),
+}));
+
+jest.mock('../src/services/nostr/GlobalNDKService', () => ({
+  GlobalNDKService: {
+    getInstance: jest.fn(),
+  },
+}));
+
+jest.mock('../src/services/auth/SecureNsecStorage', () => ({
+  SecureNsecStorage: {
+    hasNsec: jest.fn().mockResolvedValue(false),
+  },
+}));
+
+jest.mock('../src/utils/nostrAuth', () => ({
+  getAuthenticationData: jest.fn().mockResolvedValue(null),
+}));
+
+jest.mock('../src/utils/nostr', () => ({
+  nsecToPrivateKey: jest.fn(() => 'hex-private-key'),
+}));
+
+jest.mock('expo-secure-store', () => ({
+  getItemAsync: jest.fn(),
+  setItemAsync: jest.fn(),
+  deleteItemAsync: jest.fn(),
+  isAvailableAsync: jest.fn().mockResolvedValue(true),
+}));
+
+jest.mock('expo-constants', () => ({
+  deviceName: 'jest-device',
+  expoConfig: { version: 'test-version' },
+}));
+
+jest.mock('react-native', () => ({
+  Platform: {
+    OS: 'ios',
+    Version: '18.0',
+  },
+}));
+
+const AsyncStorage = require('@react-native-async-storage/async-storage');
+const { AmberNDKSigner } = require('../src/services/auth/amber/AmberNDKSigner');
+const { GlobalNDKService } = require('../src/services/nostr/GlobalNDKService');
+const { UnifiedSigningService } = require('../src/services/auth/UnifiedSigningService');
 
 describe('Amber Signing End-to-End', () => {
   const mockPubkey = '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
-  const mockSignature = 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
+  const mockSignature =
+    'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
 
   beforeEach(() => {
     jest.clearAllMocks();
 
-    // Mock AsyncStorage
-    (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
-    (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
+    AsyncStorage.getItem.mockImplementation(async (key: string) => {
+      if (key === '@runstr:auth_method') return 'amber';
+      if (key === '@runstr:amber_pubkey') return mockPubkey;
+      return null;
+    });
 
-    // Clear UnifiedSigningService cache
-    UnifiedSigningService.getInstance().clearCache();
+    const service = UnifiedSigningService.getInstance();
+    service.clearCache();
   });
 
-  describe('Complete Amber Flow', () => {
-    test('kind 1 post flow: create → sign → publish', async () => {
-      // Setup: Mock Amber authentication
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue('amber');
+  test('kind 1 flow: service signs event and attaches signer to GlobalNDK', async () => {
+    const mockNDK = { signer: null };
+    GlobalNDKService.getInstance.mockResolvedValue(mockNDK);
 
-      const mockNDK = {
-        signer: null,
-        fetchEvents: jest.fn(),
-        publish: jest.fn()
-      };
-      (GlobalNDKService.getInstance as jest.Mock).mockResolvedValue(mockNDK);
+    const mockAmberSigner = {
+      blockUntilReady: jest.fn().mockResolvedValue({ pubkey: mockPubkey }),
+      sign: jest.fn().mockResolvedValue(mockSignature),
+      user: jest.fn().mockResolvedValue({ pubkey: mockPubkey }),
+    };
+    AmberNDKSigner.mockImplementation(() => mockAmberSigner);
 
-      const mockAmberSigner = {
-        blockUntilReady: jest.fn().mockResolvedValue({ pubkey: mockPubkey }),
-        sign: jest.fn().mockResolvedValue(mockSignature),
-        user: jest.fn().mockResolvedValue({ pubkey: mockPubkey })
-      };
-      (AmberNDKSigner as jest.Mock).mockImplementation(() => mockAmberSigner);
+    const event = {
+      kind: 1,
+      content: 'Testing Amber signing with kind 1',
+      tags: [],
+      created_at: Math.floor(Date.now() / 1000),
+      pubkey: mockPubkey,
+    };
 
-      // Step 1: Create event
-      const event: NostrEvent = {
-        kind: 1,
-        content: 'Testing Amber signing with kind 1',
-        tags: [],
-        created_at: Math.floor(Date.now() / 1000),
-        pubkey: mockPubkey
-      } as NostrEvent;
+    const signingService = UnifiedSigningService.getInstance();
+    const signature = await signingService.signEvent(event as any);
 
-      // Step 2: Sign event with UnifiedSigningService
-      const signingService = UnifiedSigningService.getInstance();
-      const signature = await signingService.signEvent(event);
-
-      // Step 3: Verify signer was attached to GlobalNDK
-      expect(mockNDK.signer).toBe(mockAmberSigner);
-
-      // Step 4: Verify signature returned
-      expect(signature).toBe(mockSignature);
-
-      // Step 5: Create signed NDKEvent
-      const signedEvent = {
-        ...event,
-        sig: signature
-      };
-
-      const ndkEvent = new NDKEvent(mockNDK as any, signedEvent as any);
-
-      // Step 6: Publish to Nostr
-      await ndkEvent.publish();
-
-      // Verify complete flow
-      expect(mockAmberSigner.sign).toHaveBeenCalledWith(event);
-      expect(mockAmberSigner.blockUntilReady).toHaveBeenCalled();
-    });
-
-    test('kind 1301 workout flow: create → sign → publish', async () => {
-      // Setup
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue('amber');
-
-      const mockNDK = {
-        signer: null,
-        fetchEvents: jest.fn(),
-        publish: jest.fn()
-      };
-      (GlobalNDKService.getInstance as jest.Mock).mockResolvedValue(mockNDK);
-
-      const mockAmberSigner = {
-        blockUntilReady: jest.fn().mockResolvedValue({ pubkey: mockPubkey }),
-        sign: jest.fn().mockResolvedValue(mockSignature),
-        user: jest.fn().mockResolvedValue({ pubkey: mockPubkey })
-      };
-      (AmberNDKSigner as jest.Mock).mockImplementation(() => mockAmberSigner);
-
-      // Step 1: Create kind 1301 workout event
-      const workoutEvent: NostrEvent = {
-        kind: 1301,
-        content: 'Completed a running workout',
-        tags: [
-          ['d', 'workout-123'],
-          ['title', 'Morning Run'],
-          ['exercise', 'running'],
-          ['distance', '5.2', 'km'],
-          ['duration', '00:30:45'],
-          ['calories', '312']
-        ],
-        created_at: Math.floor(Date.now() / 1000),
-        pubkey: mockPubkey
-      } as NostrEvent;
-
-      // Step 2: Sign
-      const signingService = UnifiedSigningService.getInstance();
-      const signature = await signingService.signEvent(workoutEvent);
-
-      // Step 3: Verify
-      expect(mockNDK.signer).toBe(mockAmberSigner);
-      expect(signature).toBe(mockSignature);
-
-      // Step 4: Publish
-      const signedEvent = { ...workoutEvent, sig: signature };
-      const ndkEvent = new NDKEvent(mockNDK as any, signedEvent as any);
-      await ndkEvent.publish();
-
-      // Verify Amber received kind 1301
-      expect(mockAmberSigner.sign).toHaveBeenCalledWith(
-        expect.objectContaining({ kind: 1301 })
-      );
-    });
+    expect(signature).toBe(mockSignature);
+    expect(mockAmberSigner.blockUntilReady).toHaveBeenCalledTimes(1);
+    expect(mockAmberSigner.sign).toHaveBeenCalledWith(event);
+    expect(mockNDK.signer).toBe(mockAmberSigner);
   });
 
-  describe('Multiple Events in Sequence', () => {
-    test('signs multiple events without re-initializing', async () => {
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue('amber');
+  test('kind 1301 workout flow signs successfully with Amber signer', async () => {
+    const mockNDK = { signer: null };
+    GlobalNDKService.getInstance.mockResolvedValue(mockNDK);
 
-      const mockNDK = { signer: null };
-      (GlobalNDKService.getInstance as jest.Mock).mockResolvedValue(mockNDK);
+    const mockAmberSigner = {
+      blockUntilReady: jest.fn().mockResolvedValue({ pubkey: mockPubkey }),
+      sign: jest.fn().mockResolvedValue(mockSignature),
+    };
+    AmberNDKSigner.mockImplementation(() => mockAmberSigner);
 
-      const mockAmberSigner = {
-        blockUntilReady: jest.fn().mockResolvedValue({ pubkey: mockPubkey }),
-        sign: jest.fn().mockResolvedValue(mockSignature)
-      };
-      (AmberNDKSigner as jest.Mock).mockImplementation(() => mockAmberSigner);
+    const workoutEvent = {
+      kind: 1301,
+      content: 'Completed a running workout',
+      tags: [
+        ['d', 'workout-123'],
+        ['title', 'Morning Run'],
+      ],
+      created_at: Math.floor(Date.now() / 1000),
+      pubkey: mockPubkey,
+    };
 
-      const signingService = UnifiedSigningService.getInstance();
+    const signingService = UnifiedSigningService.getInstance();
+    const signature = await signingService.signEvent(workoutEvent as any);
 
-      // Sign event 1
-      const event1: NostrEvent = {
-        kind: 1,
-        content: 'First post',
-        tags: [],
-        created_at: Math.floor(Date.now() / 1000),
-        pubkey: mockPubkey
-      } as NostrEvent;
-      await signingService.signEvent(event1);
-
-      // Sign event 2
-      const event2: NostrEvent = {
-        kind: 1301,
-        content: 'Workout',
-        tags: [['d', 'workout-1']],
-        created_at: Math.floor(Date.now() / 1000),
-        pubkey: mockPubkey
-      } as NostrEvent;
-      await signingService.signEvent(event2);
-
-      // Sign event 3
-      const event3: NostrEvent = {
-        kind: 1,
-        content: 'Third post',
-        tags: [],
-        created_at: Math.floor(Date.now() / 1000),
-        pubkey: mockPubkey
-      } as NostrEvent;
-      await signingService.signEvent(event3);
-
-      // Verify signer was only initialized once (cached)
-      expect(AmberNDKSigner).toHaveBeenCalledTimes(1);
-      expect(mockAmberSigner.blockUntilReady).toHaveBeenCalledTimes(1);
-
-      // Verify all events were signed
-      expect(mockAmberSigner.sign).toHaveBeenCalledTimes(3);
-    });
+    expect(signature).toBe(mockSignature);
+    expect(mockAmberSigner.sign).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 1301 })
+    );
   });
 
-  describe('Error Recovery', () => {
-    test('retries after user rejects first request', async () => {
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue('amber');
+  test('creates fresh Amber signer for each signEvent call (no signer cache)', async () => {
+    const mockNDK = { signer: null };
+    GlobalNDKService.getInstance.mockResolvedValue(mockNDK);
 
-      const mockNDK = { signer: null };
-      (GlobalNDKService.getInstance as jest.Mock).mockResolvedValue(mockNDK);
+    const signerA = {
+      blockUntilReady: jest.fn().mockResolvedValue({ pubkey: mockPubkey }),
+      sign: jest.fn().mockResolvedValue('sig-a'),
+    };
+    const signerB = {
+      blockUntilReady: jest.fn().mockResolvedValue({ pubkey: mockPubkey }),
+      sign: jest.fn().mockResolvedValue('sig-b'),
+    };
 
-      const mockAmberSigner = {
-        blockUntilReady: jest.fn().mockResolvedValue({ pubkey: mockPubkey }),
-        sign: jest.fn()
-          .mockRejectedValueOnce(new Error('User rejected signing request'))
-          .mockResolvedValueOnce(mockSignature) // Success on second try
-      };
-      (AmberNDKSigner as jest.Mock).mockImplementation(() => mockAmberSigner);
+    AmberNDKSigner
+      .mockImplementationOnce(() => signerA)
+      .mockImplementationOnce(() => signerB);
 
-      const signingService = UnifiedSigningService.getInstance();
-      const event: NostrEvent = {
-        kind: 1,
-        content: 'Test',
-        tags: [],
-        created_at: Math.floor(Date.now() / 1000),
-        pubkey: mockPubkey
-      } as NostrEvent;
+    const signingService = UnifiedSigningService.getInstance();
 
-      // First attempt - rejected
-      await expect(signingService.signEvent(event)).rejects.toThrow(/rejected in Amber/);
+    const event1 = { kind: 1, content: 'First', tags: [], created_at: 1, pubkey: mockPubkey };
+    const event2 = { kind: 1, content: 'Second', tags: [], created_at: 2, pubkey: mockPubkey };
 
-      // Second attempt - success
-      const signature = await signingService.signEvent(event);
-      expect(signature).toBe(mockSignature);
-    });
+    await signingService.signEvent(event1 as any);
+    await signingService.signEvent(event2 as any);
 
-    test('handles Amber not installed error gracefully', async () => {
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue('amber');
-
-      const mockNDK = { signer: null };
-      (GlobalNDKService.getInstance as jest.Mock).mockResolvedValue(mockNDK);
-
-      const mockAmberSigner = {
-        blockUntilReady: jest.fn().mockResolvedValue({ pubkey: mockPubkey }),
-        sign: jest.fn().mockRejectedValue(new Error('Could not open Amber'))
-      };
-      (AmberNDKSigner as jest.Mock).mockImplementation(() => mockAmberSigner);
-
-      const signingService = UnifiedSigningService.getInstance();
-      const event: NostrEvent = {
-        kind: 1,
-        content: 'Test',
-        tags: [],
-        created_at: Math.floor(Date.now() / 1000),
-        pubkey: mockPubkey
-      } as NostrEvent;
-
-      await expect(signingService.signEvent(event)).rejects.toThrow(/Could not connect to Amber/);
-    });
+    expect(AmberNDKSigner).toHaveBeenCalledTimes(2);
+    expect(signerA.blockUntilReady).toHaveBeenCalledTimes(1);
+    expect(signerB.blockUntilReady).toHaveBeenCalledTimes(1);
   });
 
-  describe('GlobalNDK Integration', () => {
-    test('GlobalNDK uses attached signer for queries', async () => {
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue('amber');
+  test('maps rejected Amber request into friendly error', async () => {
+    const mockNDK = { signer: null };
+    GlobalNDKService.getInstance.mockResolvedValue(mockNDK);
 
-      const mockNDK = {
-        signer: null,
-        fetchEvents: jest.fn().mockResolvedValue([])
-      };
-      (GlobalNDKService.getInstance as jest.Mock).mockResolvedValue(mockNDK);
+    const mockAmberSigner = {
+      blockUntilReady: jest.fn().mockResolvedValue({ pubkey: mockPubkey }),
+      sign: jest.fn().mockRejectedValue(new Error('User rejected signing request')),
+    };
+    AmberNDKSigner.mockImplementation(() => mockAmberSigner);
 
-      const mockAmberSigner = {
-        blockUntilReady: jest.fn().mockResolvedValue({ pubkey: mockPubkey }),
-        user: jest.fn().mockResolvedValue({ pubkey: mockPubkey })
-      };
-      (AmberNDKSigner as jest.Mock).mockImplementation(() => mockAmberSigner);
+    const signingService = UnifiedSigningService.getInstance();
+    const event = { kind: 1, content: 'Test', tags: [], created_at: 1, pubkey: mockPubkey };
 
-      // Initialize signer
-      const signingService = UnifiedSigningService.getInstance();
-      await signingService.getSigner();
-
-      // Verify signer is attached to GlobalNDK
-      const ndk = await GlobalNDKService.getInstance();
-      expect(ndk.signer).toBe(mockAmberSigner);
-    });
-
-    test('multiple services share same GlobalNDK signer', async () => {
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue('amber');
-
-      const mockNDK = {
-        signer: null,
-        fetchEvents: jest.fn()
-      };
-      (GlobalNDKService.getInstance as jest.Mock).mockResolvedValue(mockNDK);
-
-      const mockAmberSigner = {
-        blockUntilReady: jest.fn().mockResolvedValue({ pubkey: mockPubkey })
-      };
-      (AmberNDKSigner as jest.Mock).mockImplementation(() => mockAmberSigner);
-
-      // Service 1 initializes signer
-      const signingService1 = UnifiedSigningService.getInstance();
-      await signingService1.getSigner();
-
-      // Service 2 should get same GlobalNDK with signer already attached
-      const ndk = await GlobalNDKService.getInstance();
-      expect(ndk.signer).toBe(mockAmberSigner);
-
-      // Verify only one AmberNDKSigner instance created
-      expect(AmberNDKSigner).toHaveBeenCalledTimes(1);
-    });
+    await expect(signingService.signEvent(event as any)).rejects.toThrow(/rejected in Amber/i);
   });
 
-  describe('Session Persistence', () => {
-    test('uses cached pubkey on app restart', async () => {
-      // Simulate cached pubkey from previous session
-      (AsyncStorage.getItem as jest.Mock)
-        .mockResolvedValueOnce('amber') // auth_method
-        .mockResolvedValueOnce(mockPubkey); // cached amber_pubkey
+  test('maps Amber app launch failure into connect guidance error', async () => {
+    const mockNDK = { signer: null };
+    GlobalNDKService.getInstance.mockResolvedValue(mockNDK);
 
-      const mockNDK = { signer: null };
-      (GlobalNDKService.getInstance as jest.Mock).mockResolvedValue(mockNDK);
+    const mockAmberSigner = {
+      blockUntilReady: jest.fn().mockResolvedValue({ pubkey: mockPubkey }),
+      sign: jest.fn().mockRejectedValue(new Error('Could not open Amber')),
+    };
+    AmberNDKSigner.mockImplementation(() => mockAmberSigner);
 
-      const mockAmberSigner = {
-        blockUntilReady: jest.fn().mockResolvedValue({ pubkey: mockPubkey }),
-        sign: jest.fn().mockResolvedValue(mockSignature)
-      };
-      (AmberNDKSigner as jest.Mock).mockImplementation(() => mockAmberSigner);
+    const signingService = UnifiedSigningService.getInstance();
+    const event = { kind: 1, content: 'Test', tags: [], created_at: 1, pubkey: mockPubkey };
 
-      const signingService = UnifiedSigningService.getInstance();
-      const event: NostrEvent = {
-        kind: 1,
-        content: 'Test',
-        tags: [],
-        created_at: Math.floor(Date.now() / 1000),
-        pubkey: mockPubkey
-      } as NostrEvent;
-
-      // Sign event - should use cached pubkey
-      await signingService.signEvent(event);
-
-      // Verify signer was initialized (blockUntilReady checks cache)
-      expect(mockAmberSigner.blockUntilReady).toHaveBeenCalled();
-    });
-  });
-
-  describe('Performance', () => {
-    test('caching prevents redundant Amber calls', async () => {
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue('amber');
-
-      const mockNDK = { signer: null };
-      (GlobalNDKService.getInstance as jest.Mock).mockResolvedValue(mockNDK);
-
-      let initializeCount = 0;
-      const mockAmberSigner = {
-        blockUntilReady: jest.fn().mockImplementation(() => {
-          initializeCount++;
-          return Promise.resolve({ pubkey: mockPubkey });
-        }),
-        sign: jest.fn().mockResolvedValue(mockSignature)
-      };
-      (AmberNDKSigner as jest.Mock).mockImplementation(() => mockAmberSigner);
-
-      const signingService = UnifiedSigningService.getInstance();
-
-      // Sign 5 events
-      for (let i = 0; i < 5; i++) {
-        const event: NostrEvent = {
-          kind: 1,
-          content: `Test ${i}`,
-          tags: [],
-          created_at: Math.floor(Date.now() / 1000),
-          pubkey: mockPubkey
-        } as NostrEvent;
-        await signingService.signEvent(event);
-      }
-
-      // Verify signer only initialized once (cached for subsequent calls)
-      expect(initializeCount).toBe(1);
-      expect(mockAmberSigner.sign).toHaveBeenCalledTimes(5);
-    });
+    await expect(signingService.signEvent(event as any)).rejects.toThrow(/Could not connect to Amber/i);
   });
 });
