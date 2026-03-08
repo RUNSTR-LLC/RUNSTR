@@ -188,9 +188,9 @@ describe('AmberNDKSigner', () => {
 
       await signer.sign(event);
 
-      // Verify event is URI-encoded in data field
+      // Verify NIP-55 raw JSON payload (no URL-encoding) in data field
       expect(capturedIntent.data).toContain('nostrsigner:');
-      expect(capturedIntent.data).toContain('%7B'); // URL-encoded JSON
+      expect(capturedIntent.data).toContain('{"pubkey"');
     });
 
     test('unsigned event does NOT include id or sig fields', async () => {
