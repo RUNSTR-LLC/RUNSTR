@@ -25,6 +25,10 @@ export interface TestResult {
 export class AuthFlowTester {
   private results: TestResult[] = [];
 
+  private createValidTestNsec(): string {
+    return generateNostrKeyPair().nsec;
+  }
+
   private logResult(
     step: string,
     success: boolean,
@@ -85,7 +89,7 @@ export class AuthFlowTester {
       // Test nsec validation
       const testCases = [
         {
-          nsec: 'nsec1vl029mgpspedva04g90vltkh6fvh240zqtv9k0t9af8935ke9laqsnlfe5f',
+          nsec: this.createValidTestNsec(),
           expected: true,
         },
         { nsec: 'invalid-nsec', expected: false },
@@ -117,8 +121,7 @@ export class AuthFlowTester {
 
     try {
       // Test nsec to npub conversion
-      const testNsec =
-        'nsec1vl029mgpspedva04g90vltkh6fvh240zqtv9k0t9af8935ke9laqsnlfe5f';
+      const testNsec = this.createValidTestNsec();
       const npub = nsecToNpub(testNsec);
 
       this.logResult(
@@ -208,9 +211,6 @@ export class AuthFlowTester {
   async testAuthenticationService(): Promise<void> {
     console.log('\n🔐 Testing Authentication Service...');
 
-    const testNsec =
-      'nsec1vl029mgpspedva04g90vltkh6fvh240zqtv9k0t9af8935ke9laqsnlfe5f';
-
     try {
       // Test invalid nsec handling
       const invalidResult = await AuthService.signInWithNostr('invalid-nsec');
@@ -258,8 +258,7 @@ export class AuthFlowTester {
     console.log('\n💾 Testing Local Storage...');
 
     const testUserId = 'test-user-' + Date.now();
-    const testNsec =
-      'nsec1vl029mgpspedva04g90vltkh6fvh240zqtv9k0t9af8935ke9laqsnlfe5f';
+    const testNsec = this.createValidTestNsec();
 
     try {
       // Clear any existing storage
@@ -309,7 +308,7 @@ export class AuthFlowTester {
           if (!testCase.expectedToFail) {
             errorHandlingPassed++;
           }
-        } catch (error) {
+        } catch {
           if (testCase.expectedToFail) {
             errorHandlingPassed++;
           }
