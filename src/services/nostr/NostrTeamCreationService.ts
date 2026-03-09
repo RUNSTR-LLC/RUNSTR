@@ -85,7 +85,16 @@ export class NostrTeamCreationService {
     privateKeyOrSigner: string | NDKSigner
   ): Promise<TeamCreationResult> {
     try {
-      console.log('NostrTeamCreationService: Creating team', data.name);
+      const validated = this.validateTeamCreationData(data);
+      if (!validated.valid) {
+        return {
+          success: false,
+          error: validated.error,
+        };
+      }
+
+      const normalizedData = validated.data;
+      console.log('NostrTeamCreationService: Creating team', normalizedData.name);
 
       // Ensure NDK is initialized and connected
       const ndk = await this.ensureNDK();
@@ -97,16 +106,16 @@ export class NostrTeamCreationService {
           : privateKeyOrSigner;
 
       // Generate unique team ID
-      const teamId = this.generateTeamId(data.name);
+      const teamId = this.generateTeamId(normalizedData.name);
 
       // Step 1: Create kind 33404 team event using NDK
       const teamEvent = new NDKEvent(ndk);
       teamEvent.kind = 33404;
-      teamEvent.tags = this.prepareTeamTags(teamId, data);
+      teamEvent.tags = this.prepareTeamTags(teamId, normalizedData);
       teamEvent.content = JSON.stringify({
-        name: data.name,
-        about: data.about,
-        captain: data.captainNpub,
+        name: normalizedData.name,
+        about: normalizedData.about,
+        captain: normalizedData.captainNpub,
         createdAt: Date.now(),
         version: '1.0.0',
       });
@@ -116,10 +125,13 @@ export class NostrTeamCreationService {
       await teamEvent.sign(signer);
 
       // Step 2: Create kind 30000 member list with captain as first member
-      const members = [data.captainHexPubkey, ...(data.initialMembers || [])];
+      const members = [
+        normalizedData.captainHexPubkey,
+        ...(normalizedData.initialMembers || []),
+      ];
       const listTags = this.listDetector.prepareListTags(
         teamId,
-        data.name,
+        normalizedData.name,
         members
       );
 
@@ -150,8 +162,8 @@ export class NostrTeamCreationService {
         const chatEvent = new NDKEvent(ndk);
         chatEvent.kind = 40; // NIP-28 Channel Creation
         chatEvent.content = JSON.stringify({
-          name: `${data.name} Chat`,
-          about: `Team chat for ${data.name}. ⚠️ Messages are public on Nostr.`,
+          name: `${normalizedData.name} Chat`,
+          about: `Team chat for ${normalizedData.name}. ⚠️ Messages are public on Nostr.`,
           relays: [],
         });
         chatEvent.tags = [
@@ -179,7 +191,7 @@ export class NostrTeamCreationService {
       // Step 4: Cache the member list locally for immediate access
       await TeamMemberCache.getInstance().setTeamMembers(
         teamId,
-        data.captainHexPubkey,
+        normalizedData.captainHexPubkey,
         members.map((pubkey) => ({ pubkey, npub: pubkey })) // Simplified for now
       );
 
@@ -288,6 +300,81 @@ export class NostrTeamCreationService {
         error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
+  }
+
+  private validateTeamCreationData(
+    data: TeamCreationData
+  ):
+    | { valid: true; data: TeamCreationData }
+    | { valid: false; error: string } {
+    const MAX_NAME_LENGTH = 60;
+    const MAX_ABOUT_LENGTH = 500;
+    const MAX_ACTIVITY_LENGTH = 32;
+    const MAX_LOCATION_LENGTH = 80;
+    const MAX_INITIAL_MEMBERS = 100;
+
+    const normalizedName = data.name.trim().replace(/\s+/g, ' ');
+    const normalizedAbout = data.about.trim();
+    const normalizedActivityType = data.activityType?.trim();
+    const normalizedLocation = data.location?.trim();
+
+    if (!normalizedName) {
+      return { valid: false, error: 'Team name is required' };
+    }
+
+    if (normalizedName.length > MAX_NAME_LENGTH) {
+      return {
+        valid: false,
+        error: `Team name must be ${MAX_NAME_LENGTH} characters or less`,
+      };
+    }
+
+    if (normalizedAbout.length > MAX_ABOUT_LENGTH) {
+      return {
+        valid: false,
+        error: `Team description must be ${MAX_ABOUT_LENGTH} characters or less`,
+      };
+    }
+
+    if (
+      normalizedActivityType &&
+      normalizedActivityType.length > MAX_ACTIVITY_LENGTH
+    ) {
+      return {
+        valid: false,
+        error: `Activity type must be ${MAX_ACTIVITY_LENGTH} characters or less`,
+      };
+    }
+
+    if (normalizedLocation && normalizedLocation.length > MAX_LOCATION_LENGTH) {
+      return {
+        valid: false,
+        error: `Location must be ${MAX_LOCATION_LENGTH} characters or less`,
+      };
+    }
+
+    if ((data.initialMembers?.length || 0) > MAX_INITIAL_MEMBERS) {
+      return {
+        valid: false,
+        error: `Initial members are capped at ${MAX_INITIAL_MEMBERS}`,
+      };
+    }
+
+    const normalizedMembers = Array.from(
+      new Set((data.initialMembers || []).map((member) => member.trim()))
+    ).filter(Boolean);
+
+    return {
+      valid: true,
+      data: {
+        ...data,
+        name: normalizedName,
+        about: normalizedAbout,
+        activityType: normalizedActivityType,
+        location: normalizedLocation,
+        initialMembers: normalizedMembers,
+      },
+    };
   }
 
   /**
