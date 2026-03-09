@@ -518,31 +518,34 @@ export class SupabaseCompetitionService {
     }
 
     try {
-      // Parse workout data from event tags
-      const workoutData = this.parseWorkoutEvent(event);
-
-      const { error } = await supabase!.from('workout_submissions').upsert(
-        {
-          npub,
-          event_id: event.id,
-          activity_type: workoutData.activityType,
-          distance_meters: workoutData.distanceMeters,
-          duration_seconds: workoutData.durationSeconds,
-          calories: workoutData.calories,
-          created_at: new Date(event.created_at * 1000).toISOString(),
-          raw_event: event,
-        },
-        { onConflict: 'event_id' }
-      );
-
-      if (error) {
-        console.error('[SupabaseCompetitionService] Submit workout error:', error);
-        return { success: false, error: error.message };
+      const authenticatedNpub = await this.resolveAuthenticatedNpub(npub);
+      if (!authenticatedNpub) {
+        return { success: false, error: 'Not authenticated' };
       }
 
-      console.log(
-        `[SupabaseCompetitionService] Submitted workout: ${event.id}`
-      );
+      // Parse workout data from event tags
+      const workoutData = this.parseWorkoutEvent(event);
+      if (!workoutData.durationSeconds || workoutData.durationSeconds <= 0) {
+        return { success: false, error: 'Invalid workout duration' };
+      }
+
+      // SECURITY: route raw-event submissions through Edge Function validation
+      // instead of direct workout_submissions upsert.
+      const edgeResult = await this.submitWorkoutSimple({
+        eventId: event.id,
+        npub: authenticatedNpub,
+        type: workoutData.activityType,
+        distance: workoutData.distanceMeters ?? undefined,
+        duration: workoutData.durationSeconds,
+        calories: workoutData.calories ?? undefined,
+        startTime: new Date(event.created_at * 1000).toISOString(),
+        tags: event.tags || [],
+      });
+
+      if (!edgeResult.success) {
+        return { success: false, error: edgeResult.error || 'Failed to submit workout' };
+      }
+
       return { success: true };
     } catch (err) {
       console.error('[SupabaseCompetitionService] Submit workout exception:', err);
