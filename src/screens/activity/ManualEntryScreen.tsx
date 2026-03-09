@@ -79,6 +79,15 @@ export const ManualEntryScreen: React.FC<ManualEntryScreenProps> = ({
   category,
   prefillName = '',
 }) => {
+  const MAX_DURATION_MINUTES = 24 * 60;
+  const MAX_DISTANCE_KM = 500;
+  const MAX_CALORIES = 10000;
+  const MAX_HEART_RATE = 260;
+  const MIN_HEART_RATE = 30;
+  const MAX_SETS = 100;
+  const MAX_REPS = 1000;
+  const MAX_WEIGHT_LBS = 2000;
+
   const navigation = useNavigation();
   const config = CATEGORY_CONFIG[category];
 
@@ -266,13 +275,131 @@ export const ManualEntryScreen: React.FC<ManualEntryScreenProps> = ({
     return true;
   };
 
+  const parseNumericInput = (value: string): number | null => {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : Number.NaN;
+  };
+
+  const showValidationAlert = (title: string, message: string): void => {
+    setAlertConfig({
+      title,
+      message,
+      buttons: [{ text: 'OK', style: 'default' }],
+    });
+    setAlertVisible(true);
+  };
+
   const handleSave = async () => {
     if (!validateForm()) return;
 
     try {
-      const durationSeconds = duration ? parseInt(duration, 10) * 60 : 0;
-      const distanceKm = distance ? parseFloat(distance) : undefined;
-      const caloriesNum = calories ? parseInt(calories, 10) : undefined;
+      const parsedDuration = parseNumericInput(duration);
+      const parsedDistance = parseNumericInput(distance);
+      const parsedCalories = parseNumericInput(calories);
+      const parsedHeartRate = parseNumericInput(heartRate);
+      const parsedSets = parseNumericInput(sets);
+      const parsedReps = parseNumericInput(reps);
+      const parsedWeight = parseNumericInput(weight);
+
+      if (
+        parsedDuration !== null &&
+        (!Number.isInteger(parsedDuration) ||
+          parsedDuration <= 0 ||
+          parsedDuration > MAX_DURATION_MINUTES)
+      ) {
+        showValidationAlert(
+          'Invalid Duration',
+          `Duration must be a whole number between 1 and ${MAX_DURATION_MINUTES} minutes.`
+        );
+        return;
+      }
+
+      if (
+        parsedDistance !== null &&
+        (!Number.isFinite(parsedDistance) ||
+          parsedDistance < 0 ||
+          parsedDistance > MAX_DISTANCE_KM)
+      ) {
+        showValidationAlert(
+          'Invalid Distance',
+          `Distance must be between 0 and ${MAX_DISTANCE_KM} km.`
+        );
+        return;
+      }
+
+      if (
+        parsedCalories !== null &&
+        (!Number.isInteger(parsedCalories) ||
+          parsedCalories < 0 ||
+          parsedCalories > MAX_CALORIES)
+      ) {
+        showValidationAlert(
+          'Invalid Calories',
+          `Calories must be a whole number between 0 and ${MAX_CALORIES}.`
+        );
+        return;
+      }
+
+      if (
+        parsedHeartRate !== null &&
+        (!Number.isInteger(parsedHeartRate) ||
+          parsedHeartRate < MIN_HEART_RATE ||
+          parsedHeartRate > MAX_HEART_RATE)
+      ) {
+        showValidationAlert(
+          'Invalid Heart Rate',
+          `Heart rate must be a whole number between ${MIN_HEART_RATE} and ${MAX_HEART_RATE} bpm.`
+        );
+        return;
+      }
+
+      if (category === 'strength') {
+        if (
+          parsedSets === null ||
+          !Number.isInteger(parsedSets) ||
+          parsedSets <= 0 ||
+          parsedSets > MAX_SETS
+        ) {
+          showValidationAlert(
+            'Invalid Sets',
+            `Sets must be a whole number between 1 and ${MAX_SETS}.`
+          );
+          return;
+        }
+
+        if (
+          parsedReps === null ||
+          !Number.isInteger(parsedReps) ||
+          parsedReps <= 0 ||
+          parsedReps > MAX_REPS
+        ) {
+          showValidationAlert(
+            'Invalid Reps',
+            `Reps must be a whole number between 1 and ${MAX_REPS}.`
+          );
+          return;
+        }
+
+        if (
+          parsedWeight !== null &&
+          (!Number.isFinite(parsedWeight) ||
+            parsedWeight < 0 ||
+            parsedWeight > MAX_WEIGHT_LBS)
+        ) {
+          showValidationAlert(
+            'Invalid Weight',
+            `Weight must be between 0 and ${MAX_WEIGHT_LBS} lbs.`
+          );
+          return;
+        }
+      }
+
+      const durationMinutes = parsedDuration ?? 0;
+      const durationSeconds = Math.round(durationMinutes * 60);
+      const distanceKm = parsedDistance ?? undefined;
+      const caloriesNum = parsedCalories ?? undefined;
 
       const workoutData: any = {
         type: config.workoutType,
@@ -284,13 +411,13 @@ export const ManualEntryScreen: React.FC<ManualEntryScreenProps> = ({
       };
 
       if (category === 'strength') {
-        workoutData.sets = parseInt(sets, 10) || undefined;
-        workoutData.reps = parseInt(reps, 10) || undefined;
-        workoutData.weight = weight ? parseInt(weight, 10) : undefined;
+        workoutData.sets = parsedSets ?? undefined;
+        workoutData.reps = parsedReps ?? undefined;
+        workoutData.weight = parsedWeight ?? undefined;
       }
 
-      if (category === 'cardio' && heartRate) {
-        workoutData.notes = `${exerciseName}${heartRate ? ` | Avg HR: ${heartRate} bpm` : ''}${notes ? ` | ${notes}` : ''}`;
+      if (category === 'cardio' && parsedHeartRate !== null) {
+        workoutData.notes = `${exerciseName} | Avg HR: ${parsedHeartRate} bpm${notes ? ` | ${notes}` : ''}`;
       }
 
       const workoutId = await LocalWorkoutStorageService.saveManualWorkout(workoutData);
