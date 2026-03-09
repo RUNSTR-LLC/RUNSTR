@@ -391,18 +391,26 @@ export async function clearNostrStorage(): Promise<void> {
 }
 
 /**
- * Check if user has stored Nostr keys
- * Checks SecureStore for nsec (primary) or AsyncStorage for npub (fallback)
+ * Check if user has valid stored Nostr credentials
+ * - Nostr auth requires SecureStore nsec
+ * - Amber auth requires explicit auth_method=amber + amber_pubkey
+ *
+ * NOTE: npub-only fallback was removed because it can leave users in a
+ * phantom-auth state (appears logged in but cannot sign).
  */
 export async function hasStoredNostrKeys(): Promise<boolean> {
   try {
-    // Check SecureStore first (primary source)
+    // Primary source for Nostr auth users
     const hasNsec = await SecureNsecStorage.hasNsec();
     if (hasNsec) return true;
 
-    // Fallback to npub in AsyncStorage (for migration scenarios)
-    const npub = await getNpubFromStorage();
-    return !!npub;
+    // Amber users have no local nsec; require explicit amber state instead
+    const [authMethod, amberPubkey] = await AsyncStorage.multiGet([
+      '@runstr:auth_method',
+      '@runstr:amber_pubkey',
+    ]).then((pairs) => [pairs[0][1], pairs[1][1]]);
+
+    return authMethod === 'amber' && !!amberPubkey;
   } catch (error) {
     return false;
   }
