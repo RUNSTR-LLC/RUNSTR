@@ -111,36 +111,27 @@ export function generateNostrKeyPair(): NostrKeyPair {
  */
 export function validateNsec(nsec: string): boolean {
   try {
-    console.log('validateNsec: Input received:', {
-      nsec: nsec.slice(0, 20) + '...',
-      length: nsec.length,
-      startsWithNsec1: nsec.startsWith('nsec1'),
-    });
-
     if (!nsec.startsWith('nsec1')) {
       console.log('validateNsec: Failed - does not start with nsec1');
       return false;
     }
 
     const decoded = nip19.decode(nsec);
-    console.log('validateNsec: Decoded successfully:', {
-      type: decoded.type,
-      dataLength:
-        decoded.data instanceof Uint8Array ? decoded.data.length : 'unknown',
-    });
-
     const isValid =
       decoded.type === 'nsec' &&
       decoded.data instanceof Uint8Array &&
       decoded.data.length === 32;
-    console.log('validateNsec: Result:', isValid);
+
+    console.log('validateNsec: Result:', {
+      isValid,
+      decodedType: decoded.type,
+      decodedLength:
+        decoded.data instanceof Uint8Array ? decoded.data.length : 'unknown',
+    });
 
     return isValid;
-  } catch (error) {
-    console.log(
-      'validateNsec: Decode error:',
-      error instanceof Error ? error.message : String(error)
-    );
+  } catch {
+    console.log('validateNsec: Decode error');
     return false;
   }
 }
@@ -425,49 +416,29 @@ export function generateDisplayName(npub: string): string {
  * Validate and normalize user input nsec
  */
 export function normalizeNsecInput(input: string): string {
-  console.log('normalizeNsecInput: Raw input received:', {
-    input: input.slice(0, 20) + '...',
-    length: input.length,
-  });
-
   // Remove whitespace
-  let normalized = input.trim();
-  console.log('normalizeNsecInput: After trim:', {
-    normalized: normalized.slice(0, 20) + '...',
-    length: normalized.length,
-  });
+  const normalized = input.trim();
 
   // Handle various input formats
   if (normalized.startsWith('nsec1')) {
-    console.log('normalizeNsecInput: Input already nsec1 format');
     return normalized;
   }
 
   // If it's hex (64 characters), convert to nsec
   if (normalized.length === 64 && /^[0-9a-fA-F]+$/.test(normalized)) {
-    console.log('normalizeNsecInput: Converting hex to nsec');
     try {
       // Convert hex string to Uint8Array
       const privateKeyBytes = new Uint8Array(32);
       for (let i = 0; i < 32; i++) {
         privateKeyBytes[i] = parseInt(normalized.slice(i * 2, i * 2 + 2), 16);
       }
-      const nsec = nip19.nsecEncode(privateKeyBytes);
-      console.log(
-        'normalizeNsecInput: Hex conversion successful:',
-        nsec.slice(0, 20) + '...'
-      );
-      return nsec;
-    } catch (error) {
-      console.log(
-        'normalizeNsecInput: Hex conversion failed:',
-        error instanceof Error ? error.message : String(error)
-      );
+      return nip19.nsecEncode(privateKeyBytes);
+    } catch {
+      console.log('normalizeNsecInput: Hex conversion failed');
       throw new Error('Invalid private key hex format');
     }
   }
 
-  console.log('normalizeNsecInput: Input format not recognized');
   throw new Error(
     'Invalid nsec format. Please enter a valid nsec1... key or hex private key.'
   );
