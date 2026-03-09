@@ -8,14 +8,12 @@ export const REWARD_CONFIG = {
    * Sender NWC Connection String (Fallback only)
    * This is the wallet that sends automated rewards to users
    *
-   * SECURITY: For production builds, use encrypted NWC:
-   * 1. Set REWARD_SENDER_NWC in .env (plaintext)
-   * 2. Run: node scripts/encrypt-nwc-openssl.cjs
-   * 3. Add ENCRYPTED_REWARD_NWC to .env
-   * 4. The app will decrypt it at runtime using crypto-js
+   * SECURITY: Keep plaintext NWC values out of source.
+   * Use the encrypted-secrets pipeline (`npm run prebuild:secrets`)
+   * and runtime `secretDecryptor` flow instead of client-side env decrypt helpers.
    *
-   * This fallback is only used if ENCRYPTED_REWARD_NWC is not set.
-   * Never commit actual NWC strings to this file!
+   * This fallback is for local/dev scaffolding only.
+   * Never commit actual NWC strings to this file.
    */
   SENDER_NWC: 'nostr+walletconnect://YOUR_NWC_STRING_HERE',
 
