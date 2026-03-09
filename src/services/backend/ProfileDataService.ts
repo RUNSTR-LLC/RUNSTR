@@ -7,6 +7,7 @@
  */
 
 import { supabase, isSupabaseConfigured } from '../../utils/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const TAG = '[ProfileDataService]';
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -49,6 +50,28 @@ export interface ClubAffiliation {
   name: string;
   role: 'member' | 'captain';
   memberCount: number;
+  imageUrl?: string;
+}
+
+export interface ActivityBreakdownData {
+  cardio: number;
+  strength: number;
+  wellness: number;
+  total: number;
+  cardioPercent: number;
+  strengthPercent: number;
+  wellnessPercent: number;
+}
+
+export interface ProfileLevelData {
+  level: number;
+  title: string;
+  currentXP: number;
+  xpForNextLevel: number;
+  progress: number; // 0-1
+  totalXP: number;
+  currentStreak: number;
+  bestStreak: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -85,6 +108,18 @@ const DEFAULT_STATS: ProfileStats = {
   totalDistanceKm: 0,
   longestStreakDays: 0,
   currentStreakDays: 0,
+};
+
+// Activity category mapping
+const ACTIVITY_CATEGORY_MAP: Record<string, 'cardio' | 'strength' | 'wellness'> = {
+  running: 'cardio', run: 'cardio', walking: 'cardio', walk: 'cardio',
+  cycling: 'cardio', cycle: 'cardio', hiking: 'cardio', hike: 'cardio',
+  pushups: 'strength', pullups: 'strength', situps: 'strength',
+  squats: 'strength', curls: 'strength', bench: 'strength',
+  gym: 'strength', strength: 'strength', strength_training: 'strength',
+  guided: 'wellness', unguided: 'wellness', breathwork: 'wellness',
+  body_scan: 'wellness', gratitude: 'wellness', meditation: 'wellness',
+  journal: 'wellness', habits: 'wellness', diet: 'wellness', fasting: 'wellness',
 };
 
 // PR distance targets in meters with a tolerance band
@@ -347,51 +382,199 @@ export class ProfileDataService {
     const cached = getCached<ClubAffiliation[]>(cacheKey);
     if (cached) return cached;
 
-    if (!isSupabaseConfigured()) return [];
+    // Try Supabase first
+    if (isSupabaseConfigured()) {
+      try {
+        const { data, error } = await supabase!
+          .from('club_memberships')
+          .select(`
+            role,
+            user_teams!inner (
+              id,
+              name,
+              member_count,
+              is_active,
+              banner_url
+            )
+          `)
+          .eq('member_npub', npub);
+
+        if (!error && data) {
+          const clubs: ClubAffiliation[] = [];
+
+          for (const row of data) {
+            const club = row.user_teams as unknown as {
+              id: string;
+              name: string;
+              member_count: number;
+              is_active: boolean;
+              banner_url: string | null;
+            };
+            if (!club || !club.is_active) continue;
+
+            clubs.push({
+              id: club.id,
+              name: club.name,
+              role: row.role as 'member' | 'captain',
+              memberCount: club.member_count,
+              imageUrl: club.banner_url || undefined,
+            });
+          }
+
+          if (clubs.length > 0) {
+            setCache(cacheKey, clubs);
+            return clubs;
+          }
+        } else {
+          console.warn(TAG, 'getUserClubs Supabase error:', error?.message);
+        }
+      } catch (err) {
+        console.warn(TAG, 'getUserClubs Supabase exception:', err);
+      }
+    }
+
+    // Fallback: read local club cache from ClubMembershipService
+    try {
+      const [clubId, clubName, clubRole] = await Promise.all([
+        AsyncStorage.getItem('@runstr:club_id'),
+        AsyncStorage.getItem('@runstr:club_name'),
+        AsyncStorage.getItem('@runstr:club_role'),
+      ]);
+      if (clubId && clubName) {
+        const localClub: ClubAffiliation = {
+          id: clubId,
+          name: clubName,
+          role: (clubRole as 'member' | 'captain') || 'member',
+          memberCount: 0,
+        };
+        return [localClub];
+      }
+    } catch {
+      // No local cache either
+    }
+
+    return [];
+  }
+
+  // -----------------------------------------------------------------------
+  // getActivityBreakdown
+  // -----------------------------------------------------------------------
+
+  static async getActivityBreakdown(npub: string): Promise<ActivityBreakdownData> {
+    const defaultData: ActivityBreakdownData = {
+      cardio: 0, strength: 0, wellness: 0, total: 0,
+      cardioPercent: 0, strengthPercent: 0, wellnessPercent: 0,
+    };
+
+    const cacheKey = `profile_breakdown_${npub}`;
+    const cached = getCached<ActivityBreakdownData>(cacheKey);
+    if (cached) return cached;
+
+    if (!isSupabaseConfigured()) return defaultData;
 
     try {
       const { data, error } = await supabase!
-        .from('club_memberships')
-        .select(`
-          role,
-          user_teams!inner (
-            id,
-            name,
-            member_count,
-            is_active
-          )
-        `)
-        .eq('member_npub', npub);
+        .from('workout_submissions')
+        .select('activity_type')
+        .eq('npub', npub);
 
       if (error || !data) {
-        console.warn(TAG, 'getUserClubs error:', error?.message);
-        return [];
+        console.warn(TAG, 'getActivityBreakdown error:', error?.message);
+        return defaultData;
       }
 
-      const clubs: ClubAffiliation[] = [];
+      let cardio = 0, strength = 0, wellness = 0;
 
       for (const row of data) {
-        const club = row.user_teams as unknown as {
-          id: string;
-          name: string;
-          member_count: number;
-          is_active: boolean;
-        };
-        if (!club || !club.is_active) continue;
-
-        clubs.push({
-          id: club.id,
-          name: club.name,
-          role: row.role as 'member' | 'captain',
-          memberCount: club.member_count,
-        });
+        const type = (row.activity_type || '').toLowerCase();
+        const category = ACTIVITY_CATEGORY_MAP[type];
+        if (category === 'cardio') cardio++;
+        else if (category === 'strength') strength++;
+        else if (category === 'wellness') wellness++;
+        else cardio++; // Default unknown types to cardio
       }
 
-      setCache(cacheKey, clubs);
-      return clubs;
+      const total = cardio + strength + wellness;
+      const result: ActivityBreakdownData = {
+        cardio, strength, wellness, total,
+        cardioPercent: total > 0 ? Math.round((cardio / total) * 100) : 0,
+        strengthPercent: total > 0 ? Math.round((strength / total) * 100) : 0,
+        wellnessPercent: total > 0 ? Math.round((wellness / total) * 100) : 0,
+      };
+
+      setCache(cacheKey, result);
+      return result;
     } catch (err) {
-      console.warn(TAG, 'getUserClubs exception:', err);
-      return [];
+      console.warn(TAG, 'getActivityBreakdown exception:', err);
+      return defaultData;
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // getLevelData
+  // -----------------------------------------------------------------------
+
+  static async getLevelData(npub: string): Promise<ProfileLevelData> {
+    const defaultData: ProfileLevelData = {
+      level: 0, title: 'Beginner', currentXP: 0, xpForNextLevel: 100,
+      progress: 0, totalXP: 0, currentStreak: 0, bestStreak: 0,
+    };
+
+    const cacheKey = `profile_level_${npub}`;
+    const cached = getCached<ProfileLevelData>(cacheKey);
+    if (cached) return cached;
+
+    if (!isSupabaseConfigured()) return defaultData;
+
+    try {
+      const { data, error } = await supabase!
+        .from('workout_submissions')
+        .select('id, activity_type, distance_meters, duration_seconds, created_at')
+        .eq('npub', npub)
+        .order('created_at', { ascending: false });
+
+      if (error || !data || data.length === 0) {
+        if (error) console.warn(TAG, 'getLevelData error:', error?.message);
+        return defaultData;
+      }
+
+      // Map to LocalWorkout format for WorkoutLevelService
+      const workouts = data.map((w) => ({
+        id: w.id,
+        type: (w.activity_type || 'unknown').toLowerCase(),
+        distance: w.distance_meters ?? undefined,
+        duration: w.duration_seconds ?? undefined,
+        startTime: w.created_at,
+      }));
+
+      const { WorkoutLevelService } = require('../../services/fitness/WorkoutLevelService');
+      const levelService = WorkoutLevelService.getInstance();
+      const stats = levelService.calculateLevelStats(workouts);
+
+      // Compute best streak from unique dates
+      const uniqueDates = [
+        ...new Set(
+          data.map((w) => w.created_at?.slice(0, 10)).filter(Boolean),
+        ),
+      ].sort((a, b) => (b > a ? 1 : -1));
+      const { longestStreakDays } = computeStreaks(uniqueDates);
+
+      const result: ProfileLevelData = {
+        level: stats.level.level,
+        title: stats.level.title,
+        currentXP: stats.level.currentXP,
+        xpForNextLevel: stats.level.xpForNextLevel,
+        progress: stats.level.progress,
+        totalXP: stats.level.totalXP,
+        currentStreak: stats.currentStreak ?? 0,
+        bestStreak: longestStreakDays,
+      };
+
+      setCache(cacheKey, result);
+      return result;
+    } catch (err) {
+      console.warn(TAG, 'getLevelData exception:', err);
+      return defaultData;
     }
   }
 

@@ -40,6 +40,7 @@ import { TeamsScreen } from '../screens/TeamsScreen';
 import { AdvancedAnalyticsScreen } from '../screens/AdvancedAnalyticsScreen';
 import { EventsScreen } from '../screens/EventsScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { StatsDetailScreen } from '../screens/StatsDetailScreen';
 import { ActivityTrackerScreen } from '../screens/activity/ActivityTrackerScreen';
 import { Season2Screen } from '../screens/season2/Season2Screen';
 import { CompeteScreen } from '../screens/CompeteScreen';
@@ -81,6 +82,7 @@ export type RootStackParamList = {
   AdvancedAnalytics: undefined;
   Events: undefined;
   Settings: undefined;
+  StatsDetail: { npub: string };
   Exercise: undefined;
   Compete: undefined;
   Season2: undefined;
@@ -465,6 +467,16 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
       <Stack.Screen
         name="Settings"
         component={SettingsScreen}
+        options={{
+          ...defaultScreenOptions,
+          headerShown: false,
+        }}
+      />
+
+      {/* Stats Detail Screen - Level + Activity Breakdown */}
+      <Stack.Screen
+        name="StatsDetail"
+        component={StatsDetailScreen}
         options={{
           ...defaultScreenOptions,
           headerShown: false,

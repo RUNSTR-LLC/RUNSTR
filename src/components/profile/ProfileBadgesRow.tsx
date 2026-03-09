@@ -16,7 +16,6 @@ import type { ClubAffiliation } from '../../services/backend/ProfileDataService'
 
 interface ProfileBadgesRowProps {
   rewardDestination?: string | null;
-  subscriptionTier?: 'free' | 'supporter' | 'pro';
   clubs?: ClubAffiliation[];
   isOwner: boolean;
   onDestinationPress?: () => void;
@@ -25,19 +24,16 @@ interface ProfileBadgesRowProps {
 
 export const ProfileBadgesRow: React.FC<ProfileBadgesRowProps> = ({
   rewardDestination,
-  subscriptionTier,
   clubs,
   isOwner,
   onDestinationPress,
   onClubPress,
 }) => {
-  const hasTierBadge =
-    subscriptionTier === 'supporter' || subscriptionTier === 'pro';
   const hasDestination = !!rewardDestination;
   const hasClubs = clubs && clubs.length > 0;
 
   // Owner always sees at least a destination badge
-  if (!isOwner && !hasDestination && !hasTierBadge && !hasClubs) {
+  if (!isOwner && !hasDestination && !hasClubs) {
     return null;
   }
 
@@ -53,14 +49,6 @@ export const ProfileBadgesRow: React.FC<ProfileBadgesRowProps> = ({
         <BadgeChip
           label={hasDestination ? `Supporting ${rewardDestination}` : 'Set Destination'}
           onPress={isOwner ? onDestinationPress : undefined}
-        />
-      )}
-
-      {/* Subscription tier badge */}
-      {hasTierBadge && (
-        <BadgeChip
-          label={subscriptionTier === 'supporter' ? 'Supporter' : 'Pro'}
-          accent
         />
       )}
 

@@ -74,61 +74,63 @@ export const RecentWorkoutsSection: React.FC<RecentWorkoutsSectionProps> = ({
   isOwner,
   onViewAllPress,
 }) => {
-  if (!workouts || workouts.length === 0) {
-    return null;
-  }
+  const hasWorkouts = workouts && workouts.length > 0;
 
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>RECENT WORKOUTS</Text>
       <View style={styles.card}>
-        {workouts.map((workout, index) => {
-          const isLast = index === workouts.length - 1;
-          const metric = workout.distanceKm
-            ? formatDistance(workout.distanceKm)
-            : workout.reps
-              ? `${workout.reps} reps`
-              : null;
+        {hasWorkouts ? (
+          workouts.map((workout, index) => {
+            const isLast = index === workouts.length - 1;
+            const showBorder = !isLast || (isOwner && onViewAllPress);
+            const metric = workout.distanceKm
+              ? formatDistance(workout.distanceKm)
+              : workout.reps
+                ? `${workout.reps} reps`
+                : null;
 
-          return (
-            <View
-              key={workout.id}
-              style={[styles.row, !isLast && styles.rowBorder]}
-            >
-              {/* Left: activity + date */}
-              <View style={styles.rowLeft}>
-                <Text style={styles.activityType}>
-                  {capitalize(workout.activityType)}
-                </Text>
-                <Text style={styles.date}>
-                  {relativeDate(workout.createdAt)}
-                </Text>
-              </View>
-
-              {/* Right: metric + duration */}
-              <View style={styles.rowRight}>
-                {metric && (
-                  <Text style={styles.metric}>{metric}</Text>
-                )}
-                {workout.durationSeconds != null &&
-                  workout.durationSeconds > 0 && (
-                    <Text style={styles.duration}>
-                      {formatDuration(workout.durationSeconds)}
-                    </Text>
+            return (
+              <View
+                key={workout.id}
+                style={[styles.row, showBorder && styles.rowBorder]}
+              >
+                <View style={styles.rowLeft}>
+                  <Text style={styles.activityType}>
+                    {capitalize(workout.activityType)}
+                  </Text>
+                  <Text style={styles.date}>
+                    {relativeDate(workout.createdAt)}
+                  </Text>
+                </View>
+                <View style={styles.rowRight}>
+                  {metric && (
+                    <Text style={styles.metric}>{metric}</Text>
                   )}
+                  {workout.durationSeconds != null &&
+                    workout.durationSeconds > 0 && (
+                      <Text style={styles.duration}>
+                        {formatDuration(workout.durationSeconds)}
+                      </Text>
+                    )}
+                </View>
               </View>
-            </View>
-          );
-        })}
+            );
+          })
+        ) : (
+          <View style={[styles.row, isOwner && onViewAllPress && styles.rowBorder]}>
+            <Text style={styles.emptyText}>No workouts yet</Text>
+          </View>
+        )}
 
-        {/* View All History — owner only */}
+        {/* View History — always visible for owner */}
         {isOwner && onViewAllPress && (
           <TouchableOpacity
             style={styles.viewAllRow}
             onPress={onViewAllPress}
             activeOpacity={0.6}
           >
-            <Text style={styles.viewAllText}>View All History</Text>
+            <Text style={styles.viewAllText}>View History</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -202,7 +204,13 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
   },
 
-  // View All History button
+  emptyText: {
+    fontSize: 13,
+    color: theme.colors.textMuted,
+    fontStyle: 'italic',
+  },
+
+  // View History button
   viewAllRow: {
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,

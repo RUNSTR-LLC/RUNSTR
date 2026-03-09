@@ -28,16 +28,14 @@ import { NostrFetchLogger } from '../utils/NostrFetchLogger';
 import { MusicPlayerPreferencesService } from '../services/music/MusicPlayerPreferencesService';
 import { HeaderMusicControls } from '../components/music/HeaderMusicControls';
 import { ProfileHero } from '../components/profile/ProfileHero';
-import { ProfileBadgesRow } from '../components/profile/ProfileBadgesRow';
-import { ProfileStatsGrid } from '../components/profile/ProfileStatsGrid';
-import { PersonalRecordsSection } from '../components/profile/PersonalRecordsSection';
-import { ActiveCompetitionsSection } from '../components/profile/ActiveCompetitionsSection';
-import { RecentWorkoutsSection } from '../components/profile/RecentWorkoutsSection';
+import { ProfileDashboardGrid } from '../components/profile/ProfileDashboardGrid';
+import { LevelCard } from '../components/profile/LevelCard';
+import { ActivityBreakdown } from '../components/profile/ActivityBreakdown';
 import { ClubAffiliationsSection } from '../components/profile/ClubAffiliationsSection';
 import { NotificationBadge } from '../components/profile/NotificationBadge';
 import { NotificationModal } from '../components/profile/NotificationModal';
 import { ProfileDataService } from '../services/backend/ProfileDataService';
-import type { ProfileStats, PersonalRecord, ActiveCompetition, RecentWorkout, ClubAffiliation } from '../services/backend/ProfileDataService';
+import type { RecentWorkout, ClubAffiliation, ProfileLevelData, ActivityBreakdownData } from '../services/backend/ProfileDataService';
 import { useNostrProfile } from '../hooks/useCachedData';
 
 interface ProfileScreenProps {
@@ -73,13 +71,13 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [musicPlayerHeaderEnabled, setMusicPlayerHeaderEnabled] = useState(false);
   const isMountedRef = useRef(true);
-  const [stats, setStats] = useState<ProfileStats | null>(null);
-  const [prs, setPrs] = useState<PersonalRecord[]>([]);
-  const [competitions, setCompetitions] = useState<ActiveCompetition[]>([]);
+  const [levelData, setLevelData] = useState<ProfileLevelData | null>(null);
+  const [activityBreakdown, setActivityBreakdown] = useState<ActivityBreakdownData | null>(null);
   const [recentWorkouts, setRecentWorkouts] = useState<RecentWorkout[]>([]);
   const [clubs, setClubs] = useState<ClubAffiliation[]>([]);
   const [isLoadingSections, setIsLoadingSections] = useState(true);
   const [rewardDestination, setRewardDestination] = useState<string | null>(null);
+  const [rewardDestinationImage, setRewardDestinationImage] = useState<number | undefined>(undefined);
 
   const isOwner = !pubkey || pubkey === userNpub;
   const targetNpub = pubkey || userNpub;
@@ -113,41 +111,57 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
   }, [data.user.id]);
 
   // Load reward destination (owner only)
-  useEffect(() => {
-    if (!isOwner) { setRewardDestination(null); return; }
-    (async () => {
-      try {
-        const teamId = await AsyncStorage.getItem('@runstr:selected_team_id');
-        if (!teamId) { setRewardDestination(null); return; }
-        if (isSelfTeam(teamId)) { setRewardDestination('You'); return; }
-        if (isPPQTeam(teamId)) { setRewardDestination('PPQ.AI'); return; }
-        if (isCommunityTeam(teamId)) {
-          const uuid = extractCommunityTeamUUID(teamId);
-          const team = await UserTeamService.getTeamById(uuid);
-          setRewardDestination(team?.name || 'Community Team');
-          return;
-        }
-        const charity = getCharityById(teamId);
-        setRewardDestination(charity?.name || null);
-      } catch {
-        setRewardDestination(null);
+  const loadRewardDestination = useCallback(async () => {
+    if (!isOwner) { setRewardDestination(null); setRewardDestinationImage(undefined); return; }
+    try {
+      const teamId = await AsyncStorage.getItem('@runstr:selected_team_id');
+      if (!teamId) {
+        const defaultCharity = getCharityById('als-foundation');
+        setRewardDestination(defaultCharity?.name || 'ALS Foundation');
+        setRewardDestinationImage(defaultCharity?.image);
+        return;
       }
-    })();
+      if (isSelfTeam(teamId)) { setRewardDestination('You'); setRewardDestinationImage(undefined); return; }
+      if (isPPQTeam(teamId)) {
+        const ppq = getCharityById('ppq-ai');
+        setRewardDestination('PPQ.AI');
+        setRewardDestinationImage(ppq?.image);
+        return;
+      }
+      if (isCommunityTeam(teamId)) {
+        const uuid = extractCommunityTeamUUID(teamId);
+        const team = await UserTeamService.getTeamById(uuid);
+        setRewardDestination(team?.name || 'Community Team');
+        setRewardDestinationImage(undefined);
+        return;
+      }
+      const charity = getCharityById(teamId);
+      setRewardDestination(charity?.name || null);
+      setRewardDestinationImage(charity?.image);
+    } catch {
+      setRewardDestination(null);
+      setRewardDestinationImage(undefined);
+    }
   }, [isOwner]);
+
+  useEffect(() => { loadRewardDestination(); }, [loadRewardDestination]);
 
   // Load profile sections via ProfileDataService
   const loadProfileSections = useCallback(async (npub: string) => {
     setIsLoadingSections(true);
     try {
-      const [s, p, c, w, cl] = await Promise.all([
-        ProfileDataService.getUserStats(npub),
-        ProfileDataService.getUserPRs(npub),
-        ProfileDataService.getUserActiveCompetitions(npub),
+      // Use allSettled so one failing query doesn't block others
+      const [ldR, abR, wR, clR] = await Promise.allSettled([
+        ProfileDataService.getLevelData(npub),
+        ProfileDataService.getActivityBreakdown(npub),
         ProfileDataService.getUserRecentWorkouts(npub, 5),
         ProfileDataService.getUserClubs(npub),
       ]);
       if (!isMountedRef.current) return;
-      setStats(s); setPrs(p); setCompetitions(c); setRecentWorkouts(w); setClubs(cl);
+      if (ldR.status === 'fulfilled') setLevelData(ldR.value);
+      if (abR.status === 'fulfilled') setActivityBreakdown(abR.value);
+      if (wR.status === 'fulfilled') setRecentWorkouts(wR.value);
+      if (clR.status === 'fulfilled') setClubs(clR.value);
     } catch (err) {
       console.error('[ProfileScreen] Failed to load profile sections:', err);
     } finally {
@@ -155,12 +169,21 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
     }
   }, []);
 
-  useEffect(() => { if (targetNpub) loadProfileSections(targetNpub); }, [targetNpub, loadProfileSections]);
+  // Load sections when targetNpub is available; if empty, stop loading
+  useEffect(() => {
+    if (targetNpub) { loadProfileSections(targetNpub); }
+    else { setIsLoadingSections(false); }
+  }, [targetNpub, loadProfileSections]);
 
-  // Music player header — refresh on focus
+  // Refresh reward destination + clubs + music header on focus
   useFocusEffect(useCallback(() => {
     MusicPlayerPreferencesService.isMusicPlayerHeaderEnabled().then(setMusicPlayerHeaderEnabled);
-  }, []));
+    loadRewardDestination();
+    if (targetNpub) {
+      ProfileDataService.clearProfileCache(targetNpub);
+      ProfileDataService.getUserClubs(targetNpub).then(setClubs).catch(() => {});
+    }
+  }, [loadRewardDestination, targetNpub]));
 
   const handleSettingsPress = useCallback(() => {
     navigation.navigate('Settings', {
@@ -186,12 +209,9 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
     } finally { setIsRefreshing(false); }
   }, [onRefresh, targetNpub, loadProfileSections]);
 
-  const handleCompetitionPress = useCallback((id: string) => {
-    navigation.navigate('DynamicEventDetail', { eventId: id });
-  }, [navigation]);
-
-  const handleClubPress = useCallback((id: string) => {
-    navigation.navigate('EnhancedTeamScreen', { team: { id }, userIsMember: true });
+  const handleClubPress = useCallback((id: string, name: string) => {
+    const parent = navigation.getParent();
+    (parent || navigation).navigate('ClubPage' as any, { clubId: id, clubName: name });
   }, [navigation]);
 
   const handleEditPress = useCallback(() => {
@@ -209,10 +229,10 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
     (parent || navigation).navigate('Rewards');
   }, [navigation]);
 
-  const subscriptionTier: 'free' | 'supporter' | 'pro' = (() => {
-    if (!data.subscription || data.subscription.status !== 'active') return 'free';
-    return data.subscription.type === 'captain' ? 'pro' : 'supporter';
-  })();
+  const handleStatsPress = useCallback(() => {
+    const parent = navigation.getParent();
+    (parent || navigation).navigate('StatsDetail' as any, { npub: targetNpub });
+  }, [navigation, targetNpub]);
 
   return (
     <TexturedBackground>
@@ -248,39 +268,48 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
           </View>
         )}
 
-        {isOwner && (
-          <View style={styles.sectionGap}>
-            <TouchableOpacity style={styles.startWorkoutBtn} onPress={handleStartWorkout} activeOpacity={0.7}>
-              <Text style={styles.startWorkoutText}>Start Workout</Text>
-            </TouchableOpacity>
-          </View>
+        {isOwner ? (
+          <>
+            <View style={styles.sectionGap}>
+              <TouchableOpacity style={styles.startWorkoutBtn} onPress={handleStartWorkout} activeOpacity={0.7}>
+                <Text style={styles.startWorkoutText}>Start Workout</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.gridContainer}>
+              <ProfileDashboardGrid
+                levelData={levelData}
+                clubs={clubs}
+                recentWorkouts={recentWorkouts}
+                rewardDestination={rewardDestination}
+                rewardDestinationImage={rewardDestinationImage}
+                isLoading={isLoadingSections}
+                onLevelPress={handleStatsPress}
+                onClubPress={handleClubPress}
+                onEmptyClubPress={undefined}
+                onRewardsPress={handleDestinationPress}
+                onWorkoutsPress={() => navigation.navigate('WorkoutHistory', { userId: targetNpub, pubkey: targetNpub })}
+              />
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={styles.sectionGap}>
+              <LevelCard levelData={levelData} isLoading={isLoadingSections} />
+            </View>
+
+            <View style={styles.sectionGap}>
+              <ActivityBreakdown breakdown={activityBreakdown} isLoading={isLoadingSections} />
+            </View>
+
+            <View style={styles.sectionGap}>
+              <ClubAffiliationsSection clubs={clubs} onClubPress={(id) => {
+                const club = clubs.find(c => c.id === id);
+                handleClubPress(id, club?.name || '');
+              }} />
+            </View>
+          </>
         )}
-
-        <View style={styles.sectionGap}>
-          <ProfileBadgesRow subscriptionTier={subscriptionTier} clubs={clubs}
-            isOwner={isOwner} onClubPress={handleClubPress}
-            rewardDestination={isOwner ? rewardDestination : null}
-            onDestinationPress={isOwner ? handleDestinationPress : undefined} />
-        </View>
-
-        <View style={styles.sectionGap}>
-          <ProfileStatsGrid stats={stats} isLoading={isLoadingSections} />
-        </View>
-
-        <View style={styles.sectionGap}><PersonalRecordsSection records={prs} /></View>
-
-        <View style={styles.sectionGap}>
-          <ActiveCompetitionsSection competitions={competitions} onCompetitionPress={handleCompetitionPress} />
-        </View>
-
-        <View style={styles.sectionGap}>
-          <RecentWorkoutsSection workouts={recentWorkouts} isOwner={isOwner}
-            onViewAllPress={() => navigation.navigate('WorkoutHistory', { userId: targetNpub, pubkey: targetNpub })} />
-        </View>
-
-        <View style={styles.sectionGap}>
-          <ClubAffiliationsSection clubs={clubs} onClubPress={handleClubPress} />
-        </View>
       </ScrollView>
 
       {isOwner && (
@@ -303,13 +332,17 @@ const styles = StyleSheet.create({
   sectionGap: { marginBottom: 16 },
   startWorkoutBtn: {
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: theme.colors.cardBackground, borderRadius: 12,
-    borderWidth: 1, borderColor: theme.colors.accent,
-    paddingVertical: 14,
+    borderRadius: 12, borderWidth: 1,
+    borderColor: theme.colors.text,
+    backgroundColor: 'transparent',
+    paddingVertical: 13,
   },
   startWorkoutText: {
     fontSize: 16, fontWeight: theme.typography.weights.semiBold as any,
-    color: theme.colors.accent,
+    color: theme.colors.text,
+  },
+  gridContainer: {
+    marginBottom: 16,
   },
 });
 

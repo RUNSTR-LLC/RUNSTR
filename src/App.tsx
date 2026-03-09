@@ -158,8 +158,7 @@ import { BottomTabNavigator } from './navigation/BottomTabNavigator';
 import { navigationRef, navigate as navigationRefNavigate } from './navigation/navigationRef';
 import { createStackNavigator } from '@react-navigation/stack';
 import { LeagueDetailScreen } from './screens/LeagueDetailScreen';
-// Use SimpleTeamScreen instead of EnhancedTeamScreen to avoid freeze issues
-const SimpleTeamScreen = React.lazy(() => import('./screens/SimpleTeamScreen'));
+// SimpleTeamScreen loaded via inline require() to avoid circular dependency
 import { HelpSupportScreen } from './screens/HelpSupportScreen';
 import { ContactSupportScreen } from './screens/ContactSupportScreen';
 import { PrivacyPolicyScreen } from './screens/PrivacyPolicyScreen';
@@ -184,6 +183,7 @@ import { TeamsScreen } from './screens/TeamsScreen';
 import { EventsScreen } from './screens/EventsScreen';
 import { ActivityTrackerScreen } from './screens/activity/ActivityTrackerScreen';
 import { JournalHistoryScreen } from './screens/JournalHistoryScreen';
+import { StatsDetailScreen } from './screens/StatsDetailScreen';
 import { useWalletStore } from './store/walletStore';
 import { theme } from './styles/theme';
 import unifiedCache from './services/cache/UnifiedNostrCache';
@@ -271,6 +271,7 @@ type AuthenticatedStackParamList = {
   Leaderboards: undefined;
   DynamicEventDetail: { eventId: string };
   JournalHistory: undefined;
+  StatsDetail: { npub: string };
   Experimental: undefined;
   ClubPage: { clubId: string; clubName: string };
   ClubChat: { clubId: string; clubName: string; captainNpub: string; pinnedMessageId?: string };
@@ -445,41 +446,21 @@ const AuthenticatedNavigator: React.FC = () => {
             );
           }
 
-          console.log(
-            '[App.tsx] ⏳ SUSPENSE FALLBACK RENDERING - Waiting for lazy component'
-          );
+          const STS = require('./screens/SimpleTeamScreen').default || require('./screens/SimpleTeamScreen').SimpleTeamScreen;
           return (
             <ScreenErrorBoundary navigation={navigation}>
-              <React.Suspense
-                fallback={
-                  <View
-                    style={{
-                      flex: 1,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      backgroundColor: theme.colors.background,
-                    }}
-                  >
-                    <ActivityIndicator
-                      size="large"
-                      color={theme.colors.text}
-                    />
-                  </View>
-                }
-              >
-                <SimpleTeamScreen
-                  data={{
-                    team: team,
-                    leaderboard: [],
-                    events: [],
-                  }}
-                  onBack={() => navigation.goBack()}
-                  showJoinButton={!userIsMember}
-                  userIsMemberProp={userIsMember}
-                  currentUserNpub={currentUserNpub}
-                  userIsCaptain={userIsCaptain}
-                />
-              </React.Suspense>
+              <STS
+                data={{
+                  team: team,
+                  leaderboard: [],
+                  events: [],
+                }}
+                onBack={() => navigation.goBack()}
+                showJoinButton={!userIsMember}
+                userIsMemberProp={userIsMember}
+                currentUserNpub={currentUserNpub}
+                userIsCaptain={userIsCaptain}
+              />
             </ScreenErrorBoundary>
           );
         }}
@@ -728,6 +709,15 @@ const AuthenticatedNavigator: React.FC = () => {
           headerShown: false,
         }}
         component={JournalHistoryScreen}
+      />
+
+      {/* Stats Detail - Level + Activity Breakdown */}
+      <AuthenticatedStack.Screen
+        name="StatsDetail"
+        options={{
+          headerShown: false,
+        }}
+        component={StatsDetailScreen}
       />
 
       {/* Experimental Features (alias for AdvancedAnalytics) */}
