@@ -7,7 +7,7 @@
  * Tabs are displayed in the header row next to the back button.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -51,12 +51,7 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
   const [selectedWorkout, setSelectedWorkout] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<NostrProfile | null>(null);
 
-  // Load user credentials on mount
-  useEffect(() => {
-    loadUserData();
-  }, []);
-
-  const loadUserData = async () => {
+  const loadUserData = useCallback(async () => {
     try {
       console.log('[WorkoutHistory] Loading user data...');
 
@@ -92,7 +87,12 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
     } finally {
       setIsInitializing(false);
     }
-  };
+  }, [route?.params?.pubkey, route?.params?.userId]);
+
+  // Load user credentials on mount and when route params change
+  useEffect(() => {
+    loadUserData();
+  }, [loadUserData]);
 
   // Load user profile in background (non-blocking, for social cards only)
   useEffect(() => {
