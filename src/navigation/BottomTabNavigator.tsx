@@ -9,12 +9,10 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
-  InteractionManager,
   ActivityIndicator,
 } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../styles/theme';
 import { PerformanceLogger } from '../utils/PerformanceLogger';
@@ -79,14 +77,10 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
   const {
     user,
     profileData,
-    availableTeams,
     isLoading,
     isLoadingTeam,
     error,
     refresh,
-    loadTeams,
-    loadWallet,
-    prefetchLeaguesInBackground,
   } = useNavigationData();
 
   // Create navigation handlers
