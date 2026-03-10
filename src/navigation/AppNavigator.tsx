@@ -49,7 +49,6 @@ import { ActivityTrackerScreen } from '../screens/activity/ActivityTrackerScreen
 import { Season2Screen } from '../screens/season2/Season2Screen';
 import { CompeteScreen } from '../screens/CompeteScreen';
 import { LeaderboardsScreen } from '../screens/LeaderboardsScreen';
-import type { DiscoveredNostrUser } from '../services/user/UserDiscoveryService';
 
 // Navigation Configuration
 import {
@@ -120,7 +119,6 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
   // Fetch real data instead of using mock data
   const {
     user,
-    teamData,
     profileData,
     walletData,
     captainDashboardData,
@@ -376,7 +374,7 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
       >
         {({ navigation, route }) => {
           // Get team and captain data from route params if passed
-          const { teamId, teamName, isCaptain } = route.params || {};
+          const { teamId, teamName } = route.params || {};
 
           // Use captain dashboard data or create a minimal version
           const dashboardData = captainDashboardData || {
