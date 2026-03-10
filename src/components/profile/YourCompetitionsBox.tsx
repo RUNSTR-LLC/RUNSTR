@@ -5,24 +5,29 @@
  */
 
 import React from 'react';
-import { Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../../styles/theme';
+import { findNavigatorWithRoute } from '../../navigation/findNavigatorWithRoute';
 
 export const FitnessHistoryBox: React.FC = () => {
   const navigation = useNavigation<any>();
   const { t } = useTranslation('profile');
 
   const handlePress = () => {
-    // Navigate to WorkoutHistory screen (workout history/stats)
-    // Use parent navigator since WorkoutHistory is in the stack, not the tab navigator
-    const parentNav = navigation.getParent();
-    if (parentNav) {
-      parentNav.navigate('WorkoutHistory');
-    } else {
-      navigation.navigate('WorkoutHistory');
+    const navigatorWithHistory = findNavigatorWithRoute(
+      navigation,
+      'WorkoutHistory'
+    );
+
+    if (navigatorWithHistory) {
+      navigatorWithHistory.navigate('WorkoutHistory');
+      return;
     }
+
+    console.warn('[FitnessHistoryBox] WorkoutHistory route not available');
+    Alert.alert('History unavailable', 'Please sign in to view workout history.');
   };
 
   return (
