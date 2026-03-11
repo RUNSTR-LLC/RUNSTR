@@ -545,6 +545,8 @@ export class Nuclear1301Service {
           // Parse workout data from event
           const tags = event.tags || [];
           const exerciseTag = tags.find((tag: any[]) => tag[0] === 'exercise');
+          const typeTag = tags.find((tag: any[]) => tag[0] === 'type');
+          const activityTag = tags.find((tag: any[]) => tag[0] === 'activity');
           const distanceTag = tags.find((tag: any[]) => tag[0] === 'distance');
           const durationTag = tags.find((tag: any[]) => tag[0] === 'duration');
           const caloriesTag = tags.find((tag: any[]) => tag[0] === 'calories');
@@ -555,14 +557,27 @@ export class Nuclear1301Service {
           const mealTypeTag = tags.find((tag: any[]) => tag[0] === 'meal_type');
           const mealSizeTag = tags.find((tag: any[]) => tag[0] === 'meal_size');
 
+          const durationSeconds = durationTag ? parseInt(durationTag[1]) || 0 : 0;
+          const distanceMeters = distanceTag ? parseFloat(distanceTag[1]) || 0 : 0;
+          const rawWorkoutType =
+            exerciseTag?.[1] || typeTag?.[1] || activityTag?.[1] || 'unknown';
+          const normalizedType = normalizeActivityType(rawWorkoutType);
+          const finalType =
+            normalizedType === 'unknown' || normalizedType === 'other'
+              ? inferActivityTypeSimple({
+                  distance: distanceMeters,
+                  duration: durationSeconds,
+                })
+              : normalizedType;
+
           const workout: NostrWorkout = {
             id: event.id,
             userId: 'nostr_user',
-            type: exerciseTag?.[1] || 'other',
+            type: finalType as any,
             startTime: new Date(event.created_at * 1000).toISOString(),
             endTime: new Date((event.created_at + 60) * 1000).toISOString(),
-            duration: durationTag ? parseInt(durationTag[1]) : 0,
-            distance: distanceTag ? parseFloat(distanceTag[1]) : 0,
+            duration: durationSeconds,
+            distance: distanceMeters,
             calories: caloriesTag ? parseInt(caloriesTag[1]) : 0,
             sets: setsTag ? parseInt(setsTag[1]) : undefined, // Strength training
             reps: repsTag ? parseInt(repsTag[1]) : undefined, // Strength training
