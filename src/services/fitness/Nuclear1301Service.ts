@@ -21,6 +21,26 @@ export class Nuclear1301Service {
     return Nuclear1301Service.instance;
   }
 
+  private parseDurationSeconds(value?: string): number {
+    if (!value) return 0;
+
+    const trimmed = value.trim();
+    if (!trimmed) return 0;
+
+    if (trimmed.includes(':')) {
+      const parts = trimmed.split(':').map((p: string) => parseInt(p, 10) || 0);
+      if (parts.length === 3) {
+        return parts[0] * 3600 + parts[1] * 60 + parts[2];
+      }
+      if (parts.length === 2) {
+        return parts[0] * 60 + parts[1];
+      }
+      return 0;
+    }
+
+    return parseInt(trimmed, 10) || 0;
+  }
+
   /**
    * Get ALL 1301 events for user - NUCLEAR APPROACH (same as team discovery)
    * Uses proven 3-second timeout and NDK singleton pattern
@@ -190,21 +210,7 @@ export class Nuclear1301Service {
 
             // Duration - support both HH:MM:SS string and raw seconds
             if (tag[0] === 'duration' && tag[1]) {
-              const timeStr = tag[1];
-              // Check if it's HH:MM:SS format (runstr style)
-              if (timeStr.includes(':')) {
-                const parts = timeStr
-                  .split(':')
-                  .map((p: string) => parseInt(p) || 0);
-                if (parts.length === 3) {
-                  duration = parts[0] * 3600 + parts[1] * 60 + parts[2]; // HH:MM:SS to seconds
-                } else if (parts.length === 2) {
-                  duration = parts[0] * 60 + parts[1]; // MM:SS to seconds
-                }
-              } else {
-                // Raw seconds value
-                duration = parseInt(timeStr) || 0;
-              }
+              duration = this.parseDurationSeconds(tag[1]);
             }
 
             // Distance - support with or without unit (tag[2])
@@ -555,13 +561,15 @@ export class Nuclear1301Service {
           const mealTypeTag = tags.find((tag: any[]) => tag[0] === 'meal_type');
           const mealSizeTag = tags.find((tag: any[]) => tag[0] === 'meal_size');
 
+          const durationSeconds = this.parseDurationSeconds(durationTag?.[1]);
+
           const workout: NostrWorkout = {
             id: event.id,
             userId: 'nostr_user',
             type: exerciseTag?.[1] || 'other',
             startTime: new Date(event.created_at * 1000).toISOString(),
-            endTime: new Date((event.created_at + 60) * 1000).toISOString(),
-            duration: durationTag ? parseInt(durationTag[1]) : 0,
+            endTime: new Date((event.created_at + Math.max(durationSeconds, 60)) * 1000).toISOString(),
+            duration: durationSeconds,
             distance: distanceTag ? parseFloat(distanceTag[1]) : 0,
             calories: caloriesTag ? parseInt(caloriesTag[1]) : 0,
             sets: setsTag ? parseInt(setsTag[1]) : undefined, // Strength training
