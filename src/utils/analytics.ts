@@ -3,6 +3,9 @@
  * Tracks user behavior, team selection, and key conversion events
  */
 
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+
 import { DiscoveryTeam, Team } from '../types';
 
 // Analytics event types
@@ -90,8 +93,17 @@ class Analytics {
 
   // Initialize analytics with user context
   initialize(userId: string) {
-    this.userId = userId;
-    console.log('Analytics initialized for user:', userId);
+    const normalizedUserId = userId?.trim();
+
+    if (!normalizedUserId) {
+      console.warn(
+        '⚠️ Analytics initialize skipped: userId is required for user-scoped events.'
+      );
+      return;
+    }
+
+    this.userId = normalizedUserId;
+    console.log('Analytics initialized for user:', normalizedUserId);
   }
 
   // Enable/disable analytics
@@ -104,20 +116,44 @@ class Analytics {
     return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
+  private getRuntimePlatform(): BaseAnalyticsProperties['platform'] {
+    return Platform.OS === 'android' ? 'android' : 'ios';
+  }
+
+  private getRuntimeAppVersion(): string | undefined {
+    return Constants.expoConfig?.version;
+  }
+
+  private requiresInitializedUser(event: AnalyticsEvent): boolean {
+    return (
+      event.startsWith('team_') ||
+      event.startsWith('user_') ||
+      event.startsWith('profile_') ||
+      event.startsWith('notification_')
+    );
+  }
+
   // Get base properties for all events
   private getBaseProperties(): BaseAnalyticsProperties {
     return {
       userId: this.userId,
       timestamp: new Date().toISOString(),
       sessionId: this.sessionId,
-      platform: 'ios', // TODO: Get from Platform.OS
-      appVersion: '1.0.0', // TODO: Get from package.json or config
+      platform: this.getRuntimePlatform(),
+      appVersion: this.getRuntimeAppVersion(),
     };
   }
 
   // Track generic event
   track(event: AnalyticsEvent, properties?: Record<string, any>) {
     if (!this.isEnabled) return;
+
+    if (this.requiresInitializedUser(event) && !this.userId) {
+      console.warn(
+        `⚠️ Analytics skipped for "${event}": call analytics.initialize(userId) before user-scoped tracking.`
+      );
+      return;
+    }
 
     const eventData = {
       event,
