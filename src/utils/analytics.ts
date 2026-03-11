@@ -3,6 +3,8 @@
  * Tracks user behavior, team selection, and key conversion events
  */
 
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 import { DiscoveryTeam, Team } from '../types';
 
 // Analytics event types
@@ -82,6 +84,12 @@ class Analytics {
   private isEnabled: boolean = true;
   private userId?: string;
   private sessionId: string;
+  private readonly anonymousAllowedEvents = new Set<AnalyticsEvent>([
+    'onboarding_started',
+    'onboarding_step_completed',
+    'onboarding_abandoned',
+    'onboarding_skipped',
+  ]);
 
   constructor() {
     this.sessionId = this.generateSessionId();
@@ -90,6 +98,15 @@ class Analytics {
 
   // Initialize analytics with user context
   initialize(userId: string) {
+    if (!userId) {
+      console.warn('[Analytics] initialize called without userId');
+      return;
+    }
+
+    if (this.userId === userId) {
+      return;
+    }
+
     this.userId = userId;
     console.log('Analytics initialized for user:', userId);
   }
@@ -110,14 +127,21 @@ class Analytics {
       userId: this.userId,
       timestamp: new Date().toISOString(),
       sessionId: this.sessionId,
-      platform: 'ios', // TODO: Get from Platform.OS
-      appVersion: '1.0.0', // TODO: Get from package.json or config
+      platform: Platform.OS === 'android' ? 'android' : 'ios',
+      appVersion: Constants.expoConfig?.version || 'unknown',
     };
   }
 
   // Track generic event
   track(event: AnalyticsEvent, properties?: Record<string, any>) {
     if (!this.isEnabled) return;
+
+    if (!this.userId && !this.anonymousAllowedEvents.has(event)) {
+      console.warn(
+        `[Analytics] Skipping ${event}: analytics.initialize(userId) has not been called yet`
+      );
+      return;
+    }
 
     const eventData = {
       event,
