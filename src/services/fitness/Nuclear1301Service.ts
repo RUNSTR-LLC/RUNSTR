@@ -21,6 +21,29 @@ export class Nuclear1301Service {
     return Nuclear1301Service.instance;
   }
 
+  private parseDistanceMeters(distanceValue?: string, unitValue?: string): number {
+    if (!distanceValue) {
+      return 0;
+    }
+
+    const value = parseFloat(distanceValue);
+    if (isNaN(value)) {
+      return 0;
+    }
+
+    const unit = (unitValue || 'km').toLowerCase();
+    if (unit === 'm') {
+      return value;
+    }
+
+    if (unit === 'mi' || unit === 'mile' || unit === 'miles') {
+      return value * 1609.344;
+    }
+
+    // Default to km for unknown or omitted units
+    return value * 1000;
+  }
+
   /**
    * Get ALL 1301 events for user - NUCLEAR APPROACH (same as team discovery)
    * Uses proven 3-second timeout and NDK singleton pattern
@@ -209,19 +232,7 @@ export class Nuclear1301Service {
 
             // Distance - support with or without unit (tag[2])
             if (tag[0] === 'distance' && tag[1]) {
-              const distValue = parseFloat(tag[1]) || 0;
-              const unit = tag[2] || 'km';
-              // Convert to meters for internal storage
-              if (unit === 'km') {
-                distance = distValue * 1000;
-              } else if (unit === 'mi' || unit === 'miles') {
-                distance = distValue * 1609.344;
-              } else if (unit === 'm') {
-                distance = distValue;
-              } else {
-                // Assume km if no unit specified
-                distance = distValue * 1000;
-              }
+              distance = this.parseDistanceMeters(tag[1], tag[2]);
             }
 
             // Calories
@@ -562,7 +573,7 @@ export class Nuclear1301Service {
             startTime: new Date(event.created_at * 1000).toISOString(),
             endTime: new Date((event.created_at + 60) * 1000).toISOString(),
             duration: durationTag ? parseInt(durationTag[1]) : 0,
-            distance: distanceTag ? parseFloat(distanceTag[1]) : 0,
+            distance: this.parseDistanceMeters(distanceTag?.[1], distanceTag?.[2]),
             calories: caloriesTag ? parseInt(caloriesTag[1]) : 0,
             sets: setsTag ? parseInt(setsTag[1]) : undefined, // Strength training
             reps: repsTag ? parseInt(repsTag[1]) : undefined, // Strength training
