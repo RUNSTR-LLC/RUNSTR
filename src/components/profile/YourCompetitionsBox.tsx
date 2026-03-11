@@ -16,13 +16,26 @@ export const FitnessHistoryBox: React.FC = () => {
 
   const handlePress = () => {
     // Navigate to WorkoutHistory screen (workout history/stats)
-    // Use parent navigator since WorkoutHistory is in the stack, not the tab navigator
-    const parentNav = navigation.getParent();
-    if (parentNav) {
-      parentNav.navigate('WorkoutHistory');
-    } else {
-      navigation.navigate('WorkoutHistory');
+    // Walk up the full navigator chain and navigate from the first navigator
+    // that actually owns the WorkoutHistory route.
+    let currentNav: any = navigation;
+
+    while (currentNav) {
+      const routeNames = currentNav.getState?.()?.routeNames;
+      if (
+        Array.isArray(routeNames) &&
+        routeNames.includes('WorkoutHistory')
+      ) {
+        currentNav.navigate('WorkoutHistory');
+        return;
+      }
+
+      currentNav = currentNav.getParent?.();
     }
+
+    console.warn(
+      '[FitnessHistoryBox] WorkoutHistory route not found in navigator chain'
+    );
   };
 
   return (
