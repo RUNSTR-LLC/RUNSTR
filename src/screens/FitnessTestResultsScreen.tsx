@@ -124,8 +124,9 @@ export const FitnessTestResultsScreen: React.FC = () => {
   };
 
   const handleViewHistory = () => {
-    // TODO: Navigate to test history screen
-    console.log('View test history');
+    // Fitness test history is surfaced within WorkoutHistory for now.
+    // Use root stack route instead of a no-op so users can actually access history.
+    (navigation as any).navigate('WorkoutHistory');
   };
 
   const formatTime = (seconds: number): string => {
