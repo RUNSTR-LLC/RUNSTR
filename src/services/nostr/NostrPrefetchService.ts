@@ -1,22 +1,8 @@
 /**
- * NostrPrefetchService - Comprehensive data prefetching for app initialization
+ * NostrPrefetchService - Essential data prefetching for app initialization
  *
- * Loads ALL necessary data before app becomes interactive:
- * - User profile
- * - User teams
- * - All discovered teams
- * - User workouts
- * - Wallet info
- * - Competitions
- *
- * This eliminates loading states throughout the app by ensuring
- * all data is cached before screens render.
- *
- * Usage:
- * ```typescript
- * const prefetch = NostrPrefetchService.getInstance();
- * await prefetch.prefetchAllUserData(userPubkey);
- * ```
+ * Loads only the user profile before app becomes interactive.
+ * All other data (teams, workouts, competitions) loads on-demand.
  */
 
 import { DirectNostrProfileService } from '../user/directNostrProfileService';
@@ -25,8 +11,6 @@ import { getUserNostrIdentifiers } from '../../utils/nostr';
 import unifiedCache from '../cache/UnifiedNostrCache';
 import { CacheTTL, CacheKeys } from '../../constants/cacheTTL';
 import { CaptainCache } from '../../utils/captainCache';
-// NOTE: WorkoutEventStore import removed - deprecated, using UnifiedWorkoutCache instead
-import { UnifiedWorkoutCache } from '../cache/UnifiedWorkoutCache';
 import { FrozenEventStore } from '../cache/FrozenEventStore';
 import { NostrFetchLogger } from '../../utils/NostrFetchLogger';
 
@@ -64,16 +48,13 @@ export class NostrPrefetchService {
     };
 
     try {
-      // ✅ PERFORMANCE: Skip cache initialization - lazy load on demand
-      // await unifiedCache.initialize(); // REMOVED
-
       // Get user identifiers
       const identifiers = await getUserNostrIdentifiers();
       if (!identifiers) {
         throw new Error('No user identifiers found');
       }
 
-      const { npub, hexPubkey } = identifiers;
+      const { hexPubkey } = identifiers;
 
       console.log(
         '🚀 [Prefetch] Starting ESSENTIAL-ONLY prefetch (profile only)...'
@@ -97,16 +78,6 @@ export class NostrPrefetchService {
         console.warn('[Prefetch] FrozenEventStore init failed:', err?.message);
       });
 
-      // ❌ DISABLED FOR TESTING: Baseline-only mode
-      // UnifiedWorkoutCache.initialize(hexPubkey || undefined).catch((err) => {
-      //   console.warn('[Prefetch] UnifiedWorkoutCache init failed:', err?.message);
-      // });
-      console.log('📦 Prefetch: Skipping UnifiedWorkoutCache (baseline-only mode)');
-
-      // NOTE: WorkoutEventStore init removed - it's deprecated, UnifiedWorkoutCache is the single source of truth
-
-      // Season 2 avatars are now bundled with the app (no prefetch needed)
-
       NostrFetchLogger.end('Prefetch.prefetchAllUserData', 1, 'essential only');
       console.log(
         '✅ Prefetch complete (<1s) - non-essential data loads on-demand'
@@ -117,9 +88,6 @@ export class NostrPrefetchService {
       // Don't throw - app should still work with partial data
     }
   }
-
-  // NOTE: initializeWorkoutStore method removed - WorkoutEventStore is deprecated
-  // UnifiedWorkoutCache is now the single source of truth for 1301 events
 
   /**
    * Prefetch user profile (kind 0)
@@ -258,166 +226,6 @@ export class NostrPrefetchService {
     }
   }
 
-  /**
-   * Prefetch all discovered teams
-   * PERFORMANCE: With 5-second timeout to prevent blocking
-   */
-  private async prefetchDiscoveredTeams(): Promise<void> {
-    // Teams/clubs now loaded from Supabase via ClubService — no relay prefetch needed
-    console.log('[Prefetch] Teams loaded from Supabase (no relay prefetch)');
-  }
-
-  /**
-   * Prefetch user's recent workouts (kind 1301)
-   * ✅ OPTIMIZED: Now fetches only LAST 20 WORKOUTS for faster startup
-   * With 5-second timeout to prevent blocking
-   */
-  private async prefetchUserWorkouts(hexPubkey: string): Promise<void> {
-    try {
-      // ✅ Check cache first - avoid redundant fetch if already prefetched
-      const cachedWorkouts = unifiedCache.getCached<any[]>(
-        CacheKeys.USER_WORKOUTS(hexPubkey)
-      );
-      if (cachedWorkouts && cachedWorkouts.length > 0) {
-        console.log(
-          `[Prefetch] Workouts already cached (${cachedWorkouts.length} workouts), skipping fetch`
-        );
-        return;
-      }
-
-      console.log('[Prefetch] Fetching last 20 user workouts (kind 1301)...');
-
-      // ✅ OPTIMIZED: Fetch with limit for faster performance
-      const workoutFetchPromise = (async () => {
-        const { Nuclear1301Service } = await import(
-          '../fitness/Nuclear1301Service'
-        );
-        const nuclear1301 = Nuclear1301Service.getInstance();
-
-        // Fetch only last 20 Nostr 1301 events (limited for performance)
-        const nostrWorkouts = await nuclear1301.getUserWorkoutsWithLimit(
-          hexPubkey,
-          20
-        );
-
-        // Cache in UnifiedNostrCache for instant access
-        await unifiedCache.set(
-          CacheKeys.USER_WORKOUTS(hexPubkey),
-          nostrWorkouts,
-          CacheTTL.USER_WORKOUTS
-        );
-
-        console.log(
-          `[Prefetch] ✅ Cached ${nostrWorkouts.length} recent workouts (limited to 20)`
-        );
-        return nostrWorkouts;
-      })();
-
-      // ✅ 3-second timeout for even faster startup
-      await Promise.race([
-        workoutFetchPromise,
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Workout fetch timeout')), 3000)
-        ),
-      ]);
-    } catch (error) {
-      if (error instanceof Error && error.message === 'Workout fetch timeout') {
-        console.warn(
-          '[Prefetch] Workout fetch timed out after 3s - workouts will load on demand'
-        );
-      } else {
-        console.error('[Prefetch] User workouts prefetch failed:', error);
-      }
-      // Non-blocking - workouts will load on demand if prefetch fails
-    }
-  }
-
-  /**
-   * DEPRECATED: NIP60 wallet prefetch removed - using NWC instead
-   * Keeping method for reference but no longer called during startup
-   *
-   * Prefetch wallet info (kind 37375)
-   * NON-BLOCKING: Wallet loads in background, doesn't block app startup
-   *
-   * @deprecated NIP60/Cashu wallet disabled, using NWC instead
-   */
-  // private async prefetchWalletInfo(hexPubkey: string): Promise<void> {
-  //   try {
-  //     // PERFORMANCE FIX: Don't block on wallet initialization
-  //     // Wallet will initialize lazily when user accesses wallet features
-  //     console.log('[Prefetch] Wallet will initialize on-demand (non-blocking)');
-
-  //     // Start wallet initialization in background without waiting
-  //     setTimeout(async () => {
-  //       try {
-  //         const WalletCore = (await import('../nutzap/WalletCore')).WalletCore;
-  //         const core = WalletCore.getInstance();
-  //         const state = await core.initialize(hexPubkey);
-
-  //         await unifiedCache.set(
-  //           CacheKeys.WALLET_INFO(hexPubkey),
-  //           {
-  //             balance: state.balance,
-  //             mint: state.mint,
-  //             isOnline: state.isOnline,
-  //             pubkey: state.pubkey,
-  //           },
-  //           CacheTTL.WALLET_INFO
-  //         );
-
-  //         console.log(
-  //           '[Prefetch] Wallet initialized in background, balance:',
-  //           state.balance
-  //         );
-  //       } catch (bgError) {
-  //         console.warn('[Prefetch] Background wallet init failed:', bgError);
-  //       }
-  //     }, 0);
-  //   } catch (error) {
-  //     console.error('[Prefetch] Wallet info failed:', error);
-  //   }
-  // }
-
-  /**
-   * Prefetch team events (kind 30101)
-   * OPTIMIZED: 5-second timeout to prevent blocking
-   * NOTE: Leagues (kind 30100) removed - app only uses Season 1 global league
-   */
-  private async prefetchCompetitions(): Promise<void> {
-    try {
-      // ✅ Fetch team events only (leagues no longer used)
-      const eventsFetchPromise = unifiedCache.get(
-        CacheKeys.COMPETITIONS,
-        async () => {
-          const SimpleCompetitionService = (
-            await import('../competition/SimpleCompetitionService')
-          ).default;
-          return await SimpleCompetitionService.getInstance().getAllEvents();
-        },
-        { ttl: CacheTTL.COMPETITIONS }
-      );
-
-      // ✅ PERFORMANCE: 5-second timeout for events
-      const events = await Promise.race([
-        eventsFetchPromise,
-        new Promise<any[]>((_, reject) =>
-          setTimeout(() => reject(new Error('Events fetch timeout')), 5000)
-        ),
-      ]);
-
-      console.log(
-        `[Prefetch] Events cached: ${events?.length || 0} team events`
-      );
-    } catch (error) {
-      if (error instanceof Error && error.message === 'Events fetch timeout') {
-        console.warn(
-          '[Prefetch] Events fetch timed out after 5s - events will load on demand'
-        );
-      } else {
-        console.error('[Prefetch] Events fetch failed:', error);
-      }
-    }
-  }
 }
 
 export default NostrPrefetchService.getInstance();

@@ -525,9 +525,7 @@ export const NavigationDataProvider: React.FC<NavigationDataProviderProps> = ({
         return;
       }
 
-      // Note: Competitions are already prefetched by NostrPrefetchService in SplashInit
-      // This is just a fallback check. The actual prefetching happens in:
-      // src/services/nostr/NostrPrefetchService.ts -> prefetchCompetitions()
+      // Competitions load on-demand — no longer prefetched at startup
 
       console.log(
         '⚠️ Competitions not in cache - should have been prefetched by SplashInit'
