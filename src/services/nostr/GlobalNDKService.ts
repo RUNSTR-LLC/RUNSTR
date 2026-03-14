@@ -544,14 +544,16 @@ export class GlobalNDKService {
 
       await this.instance.connect(2000);
 
-      // ✅ NEW: Re-setup monitoring and keepalive after reconnection
+      // ⚠️ Keepalive/monitoring remain intentionally disabled (see connectInBackground)
+      // to avoid timer/listener accumulation crash. Rely on NDK native reconnection.
       const status = this.getStatus();
       if (status.connectedRelays > 0) {
-        this.setupConnectionMonitoring();
-        this.startKeepalive();
+        console.log(
+          '✅ GlobalNDK: Reconnected successfully (keepalive/monitoring disabled)'
+        );
+      } else {
+        console.warn('⚠️ GlobalNDK: Reconnect completed but no relays connected');
       }
-
-      console.log('✅ GlobalNDK: Reconnected successfully');
     } catch (error) {
       console.error('❌ GlobalNDK: Reconnection failed:', error);
       throw error;
