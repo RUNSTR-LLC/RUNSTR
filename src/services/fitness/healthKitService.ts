@@ -977,18 +977,6 @@ export class HealthKitService {
     try {
       const cacheKey = 'healthkit_workouts_cache';
 
-      // Identify new workouts by comparing with previous cache
-      const previousCache = await AsyncStorage.getItem(cacheKey);
-      const previousIds = new Set<string>();
-      if (previousCache) {
-        try {
-          const parsed = JSON.parse(previousCache);
-          (parsed.workouts || []).forEach((w: HealthKitWorkout) => {
-            previousIds.add(w.UUID || w.id || '');
-          });
-        } catch { /* ignore parse errors */ }
-      }
-
       const cacheData = {
         workouts,
         timestamp: Date.now(),
@@ -999,7 +987,7 @@ export class HealthKitService {
       debugLog(`HealthKit: Cached ${workouts.length} workouts`);
 
       // Auto-submit new cardio workouts to Supabase (fire-and-forget)
-      this.submitNewWorkoutsToSupabase(workouts, previousIds).catch((err) => {
+      this.submitNewWorkoutsToSupabase(workouts).catch((err) => {
         console.warn('[HealthKit] Supabase auto-submit error (silent):', err);
       });
     } catch (error) {
@@ -1011,8 +999,7 @@ export class HealthKitService {
    * Submit newly discovered cardio workouts to Supabase for leaderboard tracking.
    */
   private async submitNewWorkoutsToSupabase(
-    workouts: HealthKitWorkout[],
-    previousIds: Set<string>
+    workouts: HealthKitWorkout[]
   ): Promise<void> {
     const CARDIO_TYPES = ['running', 'walking', 'cycling', 'hiking'];
     const npub = await AsyncStorage.getItem('@runstr:npub');
@@ -1024,7 +1011,11 @@ export class HealthKitService {
 
     const newCardio = workouts.filter((w) => {
       const id = w.UUID || w.id || '';
-      if (!id || previousIds.has(id) || submittedIds.has(id)) return false;
+
+      // Only suppress workouts that are already confirmed submitted.
+      // Do NOT suppress by previous cache presence: if a prior submit failed,
+      // the workout can exist in cache but still needs retry.
+      if (!id || submittedIds.has(id)) return false;
       if (!w.activityType || !CARDIO_TYPES.includes(w.activityType)) return false;
       if (!w.totalDistance || w.totalDistance <= 0) return false;
       return true;
