@@ -120,6 +120,8 @@ interface WorkoutEventData {
 
 export class WorkoutPublishingService {
   private static instance: WorkoutPublishingService;
+  private static readonly MAX_WORKOUT_DISTANCE_METERS = 300000; // 300km hard cap
+  private static readonly MAX_WORKOUT_DURATION_SECONDS = 86400; // 24h hard cap
   private cardGenerator: WorkoutCardGenerator;
   private imageUploadService: ImageUploadService;
 
@@ -284,11 +286,20 @@ export class WorkoutPublishingService {
         console.log(`[WorkoutPublishing]    npub: ${npub.slice(0, 20)}...`);
         console.log(`[WorkoutPublishing]    type: ${exerciseType}, distance: ${workout.distance}m, duration: ${workout.duration}s`);
 
-        // VALIDATION: Ensure we have valid distance/duration before submitting
-        const distanceMeters = workout.distance || 0;
-        const durationSeconds = workout.duration || 0;
+        // VALIDATION: reject malformed/extreme values before backend submission
+        const {
+          distanceMeters,
+          durationSeconds,
+          hasInvalidValues,
+          invalidReasons,
+        } = this.getValidatedSubmissionMetrics(workout);
 
-        if (distanceMeters === 0 && durationSeconds === 0) {
+        if (hasInvalidValues) {
+          console.warn('[WorkoutPublishing] ⚠️ Skipping Supabase submission: invalid workout metrics');
+          console.warn(`[WorkoutPublishing]    ${invalidReasons.join(' | ')}`);
+          console.warn('[WorkoutPublishing]    Workout kept local-only to avoid polluted leaderboard data');
+          // Continue - workout still exists locally, but we do not submit invalid values
+        } else if (distanceMeters === 0 && durationSeconds === 0) {
           console.warn('[WorkoutPublishing] ⚠️ Skipping Supabase submission: no distance or duration');
           console.warn('[WorkoutPublishing]    This workout will not appear on leaderboards');
           // Continue - wellness activities (meditation, etc.) don't need leaderboard entry
@@ -914,6 +925,60 @@ export class WorkoutPublishingService {
     }
 
     return tags;
+  }
+
+  /**
+   * Validate/sanitize metrics before leaderboard submission.
+   * Keeps malformed or extreme values from entering Supabase mutation paths.
+   */
+  private getValidatedSubmissionMetrics(workout: PublishableWorkout): {
+    distanceMeters: number;
+    durationSeconds: number;
+    hasInvalidValues: boolean;
+    invalidReasons: string[];
+  } {
+    const distanceMeters = Number.isFinite(workout.distance)
+      ? Math.max(0, Number(workout.distance))
+      : 0;
+
+    const durationSeconds = Number.isFinite(workout.duration)
+      ? Math.max(0, Number(workout.duration))
+      : 0;
+
+    const invalidReasons: string[] = [];
+
+    if (workout.distance !== undefined) {
+      if (!Number.isFinite(workout.distance)) {
+        invalidReasons.push('distance is non-finite');
+      } else if (workout.distance < 0) {
+        invalidReasons.push(`distance negative (${workout.distance})`);
+      } else if (
+        workout.distance > WorkoutPublishingService.MAX_WORKOUT_DISTANCE_METERS
+      ) {
+        invalidReasons.push(
+          `distance exceeds max ${WorkoutPublishingService.MAX_WORKOUT_DISTANCE_METERS}m (${workout.distance})`
+        );
+      }
+    }
+
+    if (!Number.isFinite(workout.duration)) {
+      invalidReasons.push('duration is non-finite');
+    } else if (workout.duration < 0) {
+      invalidReasons.push(`duration negative (${workout.duration})`);
+    } else if (
+      workout.duration > WorkoutPublishingService.MAX_WORKOUT_DURATION_SECONDS
+    ) {
+      invalidReasons.push(
+        `duration exceeds max ${WorkoutPublishingService.MAX_WORKOUT_DURATION_SECONDS}s (${workout.duration})`
+      );
+    }
+
+    return {
+      distanceMeters,
+      durationSeconds,
+      hasInvalidValues: invalidReasons.length > 0,
+      invalidReasons,
+    };
   }
 
   /**
