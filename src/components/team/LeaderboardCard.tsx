@@ -27,6 +27,14 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
   const handleCharityZap = async () => {
     try {
       const charity = await CharitySelectionService.getSelectedCharity();
+
+      if (!charity?.lightningAddress) {
+        console.warn(
+          '[LeaderboardCard] Charity zap requested without a selected charity'
+        );
+        return;
+      }
+
       setSelectedCharity({
         name: charity.name,
         address: charity.lightningAddress,
