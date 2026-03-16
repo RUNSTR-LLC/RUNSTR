@@ -1387,12 +1387,14 @@ export class HealthKitService {
           );
 
           // Return in format expected by AppleHealthTab (simplified Workout interface)
+          // Use extracted distance/calories as fallback when normalizeWorkout returns null
+          // (e.g. workouts under 60s) so background sync doesn't reject valid workouts
           return {
             id: workoutData?.id || `healthkit_${workout.uuid}`,
             type: workoutData?.type || 'running',
-            duration: workoutData?.duration || 0,
-            distance: workoutData?.distance || 0,
-            calories: workoutData?.calories || 0,
+            duration: workoutData?.duration || (Math.round(workout.duration || 0)),
+            distance: workoutData?.distance || distance,
+            calories: workoutData?.calories || calories,
             startTime: workout.startDate,
             endTime: workout.endDate,
             source: 'healthkit',

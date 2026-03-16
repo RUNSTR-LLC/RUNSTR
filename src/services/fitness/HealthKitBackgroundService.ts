@@ -143,9 +143,18 @@ export class HealthKitBackgroundService {
 
       const newWorkouts = recentWorkouts.filter((w) => {
         if (submittedIds.has(w.id)) return false;
-        if (!CARDIO_TYPES.includes(w.type)) return false;
-        if (!w.distance || w.distance <= 0) return false;
-        if (!w.duration || w.duration <= 0) return false;
+        if (!CARDIO_TYPES.includes(w.type)) {
+          console.log(`[HKBackground] Skipping ${w.id}: type '${w.type}' not in CARDIO_TYPES`);
+          return false;
+        }
+        if (!w.distance || w.distance <= 0) {
+          console.log(`[HKBackground] Skipping ${w.id}: distance=${w.distance}`);
+          return false;
+        }
+        if (!w.duration || w.duration <= 0) {
+          console.log(`[HKBackground] Skipping ${w.id}: duration=${w.duration}`);
+          return false;
+        }
         return true;
       });
 

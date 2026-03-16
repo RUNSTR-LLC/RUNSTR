@@ -2,6 +2,36 @@
 
 All notable changes to RUNSTR will be documented in this file.
 
+## [1.7.4] - 2026-03-16 - Unified Profile, Ticketed Events & HealthKit Fix
+
+### Profile Redesign
+- Unified profile page replaces separate screens — workouts, stats, and settings in one view
+- Restructured bottom tabs to Profile | Clubs | Events
+- Tap-to-profile navigation on leaderboard entries and club member circles
+- Reward destination badge always visible on profile
+- Start Workout button on profile page
+
+### Ticketed Events
+- Pledge-based event entry — organizers set pledge days (0-7) and qualifying distance
+- Random winner selection with deterministic draw for prize payouts
+- Event finalization UI for organizers with winner draw and payout
+- Ticket badge and event info displayed on ticketed events
+- Finalize-ticketed-event Edge Function and get_competition_finishers RPC
+
+### Bug Fixes
+- Fixed HealthKit background import rejecting valid cardio workouts (distance fallback was always 0)
+- Fixed app freeze when opening event creation from club menu
+- Fixed undefined startTime crash in workout timeline
+- Added back button header to Rewards screen
+- Profile theme fixes — outlined Start Workout button, always-visible destination badge
+- Sponsor name now included in all reward notifications
+
+### Improvements
+- Removed dead prefetch methods from NostrPrefetchService
+- Added diagnostic logging for HealthKit background sync rejections
+- Added /vibes skill for Nostr community sentiment monitoring
+- Added /prs skill for PR triage dashboard
+
 ## [1.7.3] - 2026-03-02 - Security Hardening, Submission Reliability & Branch Unification
 
 ### Security
