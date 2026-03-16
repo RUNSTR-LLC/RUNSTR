@@ -204,8 +204,8 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
   const handleEllipsisMenu = () => {
     if (isCaptain) {
       showAlert(club?.name || clubName, undefined, [
-        { text: 'Create Event', onPress: () => setShowCreateEvent(true) },
-        { text: 'Club Settings', onPress: () => setShowCaptainSettings(true) },
+        { text: 'Create Event', onPress: () => setTimeout(() => setShowCreateEvent(true), 400) },
+        { text: 'Club Settings', onPress: () => setTimeout(() => setShowCaptainSettings(true), 400) },
         { text: 'Cancel', style: 'cancel' },
       ]);
     } else if (isMember) {
