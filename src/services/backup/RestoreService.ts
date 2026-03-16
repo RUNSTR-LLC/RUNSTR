@@ -141,7 +141,14 @@ export class RestoreService {
    * Convert base64 string to Uint8Array (React Native compatible)
    */
   private base64ToUint8Array(base64: string): Uint8Array {
-    const binaryString = atob(base64);
+    // Strip whitespace/newlines that may be introduced during encrypt/decrypt
+    let cleaned = base64.replace(/\s/g, '');
+    // Ensure proper padding — some signers (e.g. Amber) strip trailing '='
+    const remainder = cleaned.length % 4;
+    if (remainder > 0) {
+      cleaned += '='.repeat(4 - remainder);
+    }
+    const binaryString = atob(cleaned);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
       bytes[i] = binaryString.charCodeAt(i);
