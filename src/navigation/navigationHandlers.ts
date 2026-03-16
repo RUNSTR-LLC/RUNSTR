@@ -9,7 +9,6 @@ import { AuthService } from '../services/auth/authService';
 import { getNostrTeamService } from '../services/nostr/NostrTeamService';
 import { CaptainDetectionService } from '../services/team/captainDetectionService';
 import { isTeamMember, isTeamCaptain } from '../utils/teamUtils';
-import { DirectNostrProfileService } from '../services/user/directNostrProfileService';
 import { CaptainCache } from '../utils/captainCache';
 import { CustomAlertManager } from '../components/ui/CustomAlert';
 
