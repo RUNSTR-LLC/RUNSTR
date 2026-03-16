@@ -238,6 +238,7 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
     // Add workouts (always, unless filtered to journal/habits only)
     if (activeFilter === 'all' || activeFilter === 'workouts') {
       mergedWorkouts.forEach((w) => {
+        if (!w.startTime) return; // Skip corrupted entries without a timestamp
         items.push({
           type: 'workout', id: `w_${w.id}`,
           date: w.startTime.split('T')[0],

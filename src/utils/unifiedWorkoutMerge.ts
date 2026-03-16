@@ -170,7 +170,7 @@ export function mergeWorkoutsWithDeduplication(
 
   // Merge and sort by startTime (newest first)
   const merged = [...convertedLocalWorkouts, ...uniqueHealthWorkouts].sort(
-    (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+    (a, b) => (new Date(b.startTime || 0).getTime()) - (new Date(a.startTime || 0).getTime())
   );
 
   return {
