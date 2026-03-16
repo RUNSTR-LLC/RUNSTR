@@ -131,12 +131,10 @@ await tester.testNostrUtilities();
 
 ### Sample Test Keys
 ```typescript
-// Valid test nsec (use for testing only)
-const testNsec = 'nsec1vl029mgpspedva04g90vltkh6fvh240zqtv9k0t9af8935ke9laqsnlfe5f';
-const expectedNpub = 'npub1yx5cw0xrx6mc8vjpdnvl3lnvvkr2ce9g98x9w2l2qdtdgstz3tkqxyxk5l';
-
-// Generate fresh keys for testing
+// Generate fresh keys for testing (preferred)
 const keyPair = generateNostrKeyPair();
+const testNsec = keyPair.nsec;
+const expectedNpub = keyPair.npub;
 ```
 
 ### Mock Responses
