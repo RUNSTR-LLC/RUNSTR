@@ -12,6 +12,7 @@ import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionServic
 import { buildRewardTags } from '../../utils/rewardTags';
 import { AutoBackupService } from '../backup/AutoBackupService';
 import Toast from 'react-native-toast-message';
+import type { VerificationReceipt } from '../../types/verification';
 
 /**
  * Result returned from saveGPSWorkout including reward info
@@ -73,6 +74,8 @@ export interface LocalWorkout {
   weightsPerSet?: number[]; // Array of weights per set (e.g., [135, 145, 155])
   restTime?: number; // Rest between sets in seconds
   weight?: number; // Average weight used in pounds or kilograms
+  // Verification (camera-verified workouts)
+  verificationReceipt?: VerificationReceipt;
 
   // Fitness test-specific fields
   fitnessTestScore?: number; // Composite score 0-300
