@@ -397,6 +397,7 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
         restTime: restDuration,
         weight: averageWeight, // Average weight across all sets
         weightsPerSet: completedWeights, // Individual weights per set
+        verificationReceipt: verificationReceipt ?? undefined,
       });
 
       console.log(
@@ -423,6 +424,7 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
         exerciseType: selectedExercise, // Specific exercise (pushups, bench, etc.) for social cards
         repsBreakdown: completedReps, // Per-set reps for detailed social cards
         syncedAt: new Date().toISOString(),
+        verificationReceipt: verificationReceipt ?? undefined,
       };
 
       setSavedWorkout(workout);

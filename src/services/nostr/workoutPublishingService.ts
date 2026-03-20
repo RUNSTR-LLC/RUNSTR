@@ -939,6 +939,16 @@ export class WorkoutPublishingService {
       console.warn('   ⚠️ Failed to get WoT score, defaulting to 0:', error);
     }
 
+    // Verification receipt — add tags if workout was camera-verified
+    if ((workout as any).verificationReceipt) {
+      const receipt = (workout as any).verificationReceipt;
+      tags.push(['verified', 'true']);
+      tags.push(['verification_method', receipt.method]);
+      tags.push(['verification_confidence', String(receipt.confidence)]);
+      tags.push(['verification_reps', String(receipt.reps)]);
+      tags.push(['verification_algorithm', String(receipt.algorithmVersion)]);
+    }
+
     return tags;
   }
 
