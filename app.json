@@ -30,6 +30,7 @@
         "NSHealthShareUsageDescription": "RUNSTR needs access to your workout data to automatically sync your fitness activities and calculate team rankings for Bitcoin rewards.",
         "NSHealthUpdateUsageDescription": "RUNSTR needs to read your workout data to track your fitness progress and team contributions.",
         "NSMotionUsageDescription": "RUNSTR needs access to your motion data to count your daily steps and track walking activities.",
+        "NSCameraUsageDescription": "RUNSTR uses the camera to verify your reps during workouts.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "RUNSTR needs location access to track your running, walking, and cycling activities accurately, even when the app is in the background.",
         "NSLocationWhenInUseUsageDescription": "RUNSTR needs location access to track your running, walking, and cycling activities.",
         "NSLocationAlwaysUsageDescription": "RUNSTR needs location access to continue tracking your workout when the app is in the background.",
@@ -209,6 +210,12 @@
         {
           "microphonePermission": "RUNSTR needs microphone access for voice journal entries.",
           "speechRecognitionPermission": "RUNSTR needs speech recognition to transcribe your voice journal entries."
+        }
+      ],
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "RUNSTR uses the camera to verify your reps during workouts."
         }
       ]
     ],
