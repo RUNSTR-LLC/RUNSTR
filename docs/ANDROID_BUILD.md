@@ -338,5 +338,5 @@ jobs:
 ## Related Documentation
 
 - 📖 **For iOS builds**: See main CLAUDE.md Development Workflow section
-- 📖 **For app distribution**: [ZAPSTORE_PUBLISHING.md](./ZAPSTORE_PUBLISHING.md)
+- 📖 **For app distribution**: [ZAPSTORE_PUBLISHING.md](./archive/ZAPSTORE_PUBLISHING.md)
 - 📖 **For version management**: See CHANGELOG.md

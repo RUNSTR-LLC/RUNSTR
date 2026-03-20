@@ -142,4 +142,4 @@ RUNSTR represents a paradigm shift in fitness app design—combining decentraliz
 - **Bitcoin-native**: Lightning payments integrated throughout for instant global transactions
 - **Open ecosystem**: Workouts published as Nostr events, interoperable with any Nostr client
 
-For technical implementation details, architecture patterns, and development guidelines, see [CLAUDE.md](./CLAUDE.md).
+For technical implementation details, architecture patterns, and development guidelines, see [CLAUDE.md](../../CLAUDE.md).
