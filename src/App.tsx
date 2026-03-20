@@ -208,6 +208,7 @@ import { WelcomePermissionModal } from './components/onboarding/WelcomePermissio
 import AppInitializationService from './services/core/AppInitializationService';
 import { StepPollingService } from './services/rewards/StepPollingService';
 import { StepCompetitionService } from './services/competition/StepCompetitionService';
+import { analytics } from './utils/analytics';
 import {
   CustomAlertProvider,
   CustomAlertManager,
@@ -335,6 +336,21 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
         }
       });
     }
+  }, [isAuthenticated, currentUser]);
+
+  // Initialize analytics context for authenticated sessions
+  React.useEffect(() => {
+    if (!isAuthenticated || !currentUser) {
+      return;
+    }
+
+    const analyticsUserId = currentUser.npub || currentUser.id;
+    if (!analyticsUserId) {
+      console.warn('[App] Analytics init skipped: missing user identifier');
+      return;
+    }
+
+    analytics.initialize(analyticsUserId);
   }, [isAuthenticated, currentUser]);
 
   // Initialize app after authentication
