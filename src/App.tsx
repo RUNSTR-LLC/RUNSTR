@@ -40,6 +40,45 @@ LogBox.ignoreLogs([
   // Normal Nostr relay responses during connection/query - not errors
   'Error from relay',
 ]);
+
+let globalJsExceptionHandlerInstalled = false;
+
+function installGlobalJsExceptionHandler(): void {
+  if (globalJsExceptionHandlerInstalled) {
+    return;
+  }
+
+  const errorUtils = (globalThis as any)?.ErrorUtils;
+  if (
+    !errorUtils ||
+    typeof errorUtils.getGlobalHandler !== 'function' ||
+    typeof errorUtils.setGlobalHandler !== 'function'
+  ) {
+    console.warn('[App] ErrorUtils global handler unavailable; skipping install');
+    return;
+  }
+
+  const defaultHandler = errorUtils.getGlobalHandler();
+  errorUtils.setGlobalHandler((error: Error, isFatal?: boolean) => {
+    console.error('🚨 Global JS exception captured:', {
+      message: error?.message,
+      isFatal: Boolean(isFatal),
+      stack: error?.stack,
+    });
+
+    if (typeof defaultHandler === 'function') {
+      try {
+        defaultHandler(error, isFatal);
+      } catch (handlerError) {
+        console.error('🚨 Default global error handler failed:', handlerError);
+      }
+    }
+  });
+
+  globalJsExceptionHandlerInstalled = true;
+  console.log('[App] ✅ Installed global JS exception handler');
+}
+
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Linking from 'expo-linking';
 
@@ -1291,6 +1330,8 @@ export default function App() {
   React.useEffect(() => {
     async function prepare() {
       try {
+        installGlobalJsExceptionHandler();
+
         // SENIOR DEVELOPER FIX: Initialize WebSocket polyfill immediately with error handling
         try {
           initializeWebSocketPolyfill();
