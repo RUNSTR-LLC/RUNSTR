@@ -13,6 +13,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import pako from 'pako';
 import { GlobalNDKService } from '../nostr/GlobalNDKService';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
@@ -29,6 +30,7 @@ import type { JournalEntry } from '../../types/journal';
 const BACKUP_EVENT_KIND = 30078;
 const BACKUP_D_TAG = 'runstr-workout-backup';
 const BACKUP_VERSION = 1;
+const RUNSTR_APP_VERSION = Constants.expoConfig?.version ?? 'unknown';
 
 // Default relays for backup (reliable, high-availability)
 export const DEFAULT_BACKUP_RELAYS = [
@@ -283,7 +285,7 @@ export class BackupService {
     return {
       version: BACKUP_VERSION,
       exportedAt: new Date().toISOString(),
-      appVersion: '1.6.5', // TODO: Get from app config
+      appVersion: RUNSTR_APP_VERSION,
       workouts,
       habits: habits.length > 0 ? habits : undefined,
       journal: journalEntries.length > 0 ? journalEntries : undefined,
@@ -356,7 +358,7 @@ export class BackupService {
     // Tags (metadata visible to relays, content is encrypted)
     event.tags = [
       ['d', BACKUP_D_TAG], // Replaceable identifier
-      ['client', 'RUNSTR', '1.6.5'],
+      ['client', 'RUNSTR', RUNSTR_APP_VERSION],
       ['encrypted', 'nip44'],
       ['compression', 'gzip'], // Content is gzip compressed before encryption
       ['backup_version', String(BACKUP_VERSION)],
