@@ -237,7 +237,7 @@ When adding a new script:
 ## Related Documentation
 
 - [Pre-Launch Review Guide](../docs/PRE_LAUNCH_REVIEW_GUIDE.md)
-- [Testing Guide](../docs/PHASE_1_2_TESTING_GUIDE.md)
+- [Testing Guide](../docs/archive/PHASE_1_2_TESTING_GUIDE.md)
 - [Amber Integration](../docs/AMBER_INTEGRATION.md)
 
 ---
