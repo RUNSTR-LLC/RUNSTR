@@ -619,15 +619,35 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
 
   const pauseTracking = async () => {
     if (!isPaused) {
-      await simpleRunTracker.pauseTracking();
-      setIsPaused(true);
+      try {
+        await simpleRunTracker.pauseTracking();
+        setIsPaused(true);
+      } catch (error) {
+        console.error('[RunningTrackerScreen] Failed to pause tracking:', error);
+        setAlertConfig({
+          title: 'Pause Failed',
+          message: 'Could not pause tracking. Please try again.',
+          buttons: [{ text: 'OK', style: 'default' }],
+        });
+        setAlertVisible(true);
+      }
     }
   };
 
   const resumeTracking = async () => {
     if (isPaused) {
-      await simpleRunTracker.resumeTracking();
-      setIsPaused(false);
+      try {
+        await simpleRunTracker.resumeTracking();
+        setIsPaused(false);
+      } catch (error) {
+        console.error('[RunningTrackerScreen] Failed to resume tracking:', error);
+        setAlertConfig({
+          title: 'Resume Failed',
+          message: 'Could not resume tracking. Please try again.',
+          buttons: [{ text: 'OK', style: 'default' }],
+        });
+        setAlertVisible(true);
+      }
     }
   };
 
@@ -638,27 +658,39 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
       metricsUpdateRef.current = null;
     }
 
-    const session = await simpleRunTracker.stopTracking();
-    setIsTracking(false);
-    setIsPaused(false);
+    try {
+      const session = await simpleRunTracker.stopTracking();
+      setIsTracking(false);
+      setIsPaused(false);
 
-    if (
-      session &&
-      session.distance !== undefined &&
-      session.distance > MIN_WORKOUT_DISTANCE_METERS
-    ) {
-      // Only show summary if moved at least 10 meters
-      showWorkoutSummary(session as RunSession);
-    } else {
-      // Reset metrics
-      setMetrics({
-        distance: '0.00 km',
-        duration: '0:00',
-        pace: '--:--',
-        elevation: '0 m',
+      if (
+        session &&
+        session.distance !== undefined &&
+        session.distance > MIN_WORKOUT_DISTANCE_METERS
+      ) {
+        // Only show summary if moved at least 10 meters
+        showWorkoutSummary(session as RunSession);
+      } else {
+        // Reset metrics
+        setMetrics({
+          distance: '0.00 km',
+          duration: '0:00',
+          pace: '--:--',
+          elevation: '0 m',
+        });
+        setElapsedTime(0);
+        setSelectedRoute(null); // Clear selected route
+      }
+    } catch (error) {
+      console.error('[RunningTrackerScreen] Failed to stop tracking:', error);
+      setAlertConfig({
+        title: 'Stop Failed',
+        message: 'Could not stop tracking safely. Your run is still active.',
+        buttons: [{ text: 'OK', style: 'default' }],
       });
-      setElapsedTime(0);
-      setSelectedRoute(null); // Clear selected route
+      setAlertVisible(true);
+      // Ensure UI remains in active state when stop fails
+      setIsTracking(true);
     }
   };
 
