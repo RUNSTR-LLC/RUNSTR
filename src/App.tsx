@@ -307,6 +307,11 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
       '[App] 🎯 Initializing AppStateManager - Single source of truth'
     );
     AppStateManager.initialize();
+
+    return () => {
+      console.log('[App] 🧹 Cleaning up AppStateManager listener');
+      AppStateManager.cleanup();
+    };
   }, []);
 
   const [showWelcomeModal, setShowWelcomeModal] = React.useState(false);
