@@ -20,6 +20,7 @@ import type { Workout } from '../../../types/workout';
 import type { PublishableWorkout } from '../../../services/nostr/workoutPublishingService';
 import { FullScreenCardModal } from './FullScreenCardModal';
 import { useUnitPreference } from '../../../hooks/useUnitPreference';
+import { VerifiedCheckmark } from '../../activity/VerifiedCheckmark';
 
 interface WorkoutDetailModalProps {
   visible: boolean;
@@ -388,7 +389,10 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
       <View style={styles.section}>
         <View style={styles.strengthSummary}>
           <View style={styles.strengthStat}>
-            <Text style={styles.strengthStatValue}>{totalReps}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={styles.strengthStatValue}>{totalReps}</Text>
+              {(workout as any).verificationReceipt && <VerifiedCheckmark />}
+            </View>
             <Text style={styles.strengthStatLabel}>Total Reps</Text>
           </View>
           <View style={styles.strengthStat}>

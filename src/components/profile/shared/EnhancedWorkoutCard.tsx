@@ -18,6 +18,7 @@ import { WorkoutDetailModal } from './WorkoutDetailModal';
 import type { Workout } from '../../../types/workout';
 import { formatDistance } from '../../../utils/distanceFormatter';
 import { useUnitPreference } from '../../../hooks/useUnitPreference';
+import { VerifiedCheckmark } from '../../activity/VerifiedCheckmark';
 
 interface EnhancedWorkoutCardProps {
   workout: Workout;
@@ -207,7 +208,10 @@ export const EnhancedWorkoutCard: React.FC<EnhancedWorkoutCardProps> = React.mem
           <View style={styles.headerLeft}>
             {/* Activity icon removed */}
             <View style={styles.headerInfo}>
-              <Text style={styles.activityType}>{getActivityTypeName()}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={styles.activityType}>{getActivityTypeName()}</Text>
+                {(workout as any).verificationReceipt && <VerifiedCheckmark />}
+              </View>
               <Text style={styles.date}>{formatDate(workout.startTime)}</Text>
             </View>
           </View>
