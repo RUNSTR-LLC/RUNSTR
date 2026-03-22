@@ -6,28 +6,30 @@ import * as Haptics from 'expo-haptics';
 import { theme } from '../../styles/theme';
 import { RepCountingService } from '../../services/verification/RepCountingService';
 import { convertLandmarks } from '../../services/verification/PoseDetectionService';
-import type { SetVerificationData } from '../../types/verification';
+import type { SetVerificationData, PoseLandmark } from '../../types/verification';
 
-// Conditional imports for camera and pose detection
+// Conditional imports — these packages require native modules
 let VisionCamera: any = null;
-let useCameraDevice: any = null;
-let useFrameProcessor: any = null;
+let useCameraDeviceHook: any = null;
+let usePoseDetectionHook: any = null;
+let RunningMode: any = null;
+let Delegate: any = null;
 
 try {
   const vc = require('react-native-vision-camera');
   VisionCamera = vc.Camera;
-  useCameraDevice = vc.useCameraDevice;
-  useFrameProcessor = vc.useFrameProcessor;
+  useCameraDeviceHook = vc.useCameraDevice;
 } catch {
-  // Camera not available
+  // react-native-vision-camera not available
 }
 
-let usePoseDetection: any = null;
 try {
   const mp = require('react-native-mediapipe');
-  usePoseDetection = mp.usePoseDetection ?? mp.usePoseLandmarker ?? mp.usePoseEstimation;
+  usePoseDetectionHook = mp.usePoseDetection;
+  RunningMode = mp.RunningMode;
+  Delegate = mp.Delegate;
 } catch {
-  // MediaPipe not available
+  // react-native-mediapipe not available
 }
 
 export interface CameraPositionGuideRef {
@@ -50,6 +52,8 @@ export const CameraPositionGuide = forwardRef<CameraPositionGuideRef, CameraPosi
   const repCounterRef = useRef(new RepCountingService());
   const lastRepCountRef = useRef(0);
   const landmarkLostTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
 
   // Expose completeSet to parent via ref
   useImperativeHandle(ref, () => ({
@@ -68,17 +72,17 @@ export const CameraPositionGuide = forwardRef<CameraPositionGuideRef, CameraPosi
     };
   }, []);
 
-  // Get camera device — prefer back camera for full-body view
-  const device = useCameraDevice?.('back');
+  // Handle pose detection results — called by mediapipe's onResults callback
+  const handlePoseResults = useCallback((result: any) => {
+    // result.results[0].landmarks is Landmark[][] (one array per detected pose)
+    const poseResults = result?.results?.[0];
+    const poseLandmarks = poseResults?.landmarks?.[0]; // First pose, first set of landmarks
 
-  // Handle landmarks from frame processor
-  const handleLandmarks = useCallback((rawLandmarks: any[] | null) => {
-    if (!rawLandmarks || rawLandmarks.length === 0) {
-      // Start nudge timer if landmarks lost during active tracking
-      if (mode === 'active' && !landmarkLostTimerRef.current) {
+    if (!poseLandmarks || poseLandmarks.length === 0) {
+      // No landmarks detected
+      if (modeRef.current === 'active' && !landmarkLostTimerRef.current) {
         landmarkLostTimerRef.current = setTimeout(() => {
           setShowNudge(true);
-          // Auto-hide nudge after 3 seconds
           setTimeout(() => setShowNudge(false), 3000);
         }, 2000);
       }
@@ -89,7 +93,7 @@ export const CameraPositionGuide = forwardRef<CameraPositionGuideRef, CameraPosi
       return;
     }
 
-    // Clear nudge timer — landmarks found
+    // Landmarks found — clear nudge
     if (landmarkLostTimerRef.current) {
       clearTimeout(landmarkLostTimerRef.current);
       landmarkLostTimerRef.current = null;
@@ -102,41 +106,40 @@ export const CameraPositionGuide = forwardRef<CameraPositionGuideRef, CameraPosi
     }
 
     // Count reps only in active mode
-    if (mode === 'active') {
-      const landmarks = convertLandmarks(rawLandmarks);
-      const result = repCounterRef.current.processLandmarks(landmarks);
+    if (modeRef.current === 'active') {
+      const landmarks: PoseLandmark[] = convertLandmarks(poseLandmarks);
+      const countResult = repCounterRef.current.processLandmarks(landmarks);
 
-      if (result.repCount > lastRepCountRef.current) {
-        lastRepCountRef.current = result.repCount;
+      if (countResult.repCount > lastRepCountRef.current) {
+        lastRepCountRef.current = countResult.repCount;
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        onRepCounted?.(result.repCount);
+        onRepCounted?.(countResult.repCount);
       }
     }
-  }, [mode, landmarksVisible, onRepCounted, onLandmarksDetected]);
+  }, [landmarksVisible, onRepCounted, onLandmarksDetected]);
 
-  // Build frame processor using react-native-mediapipe
-  const poseDetector = usePoseDetection?.({
-    modelPath: 'pose_landmarker_lite',
-    delegate: 'GPU',
-    numPoses: 1,
-  });
+  const handlePoseError = useCallback((error: any) => {
+    console.warn('[CameraPositionGuide] Pose detection error:', error);
+  }, []);
 
-  const frameProcessor = useFrameProcessor?.((frame: any) => {
-    'worklet';
-    if (poseDetector?.detect) {
-      const result = poseDetector.detect(frame);
-      if (result?.landmarks && result.landmarks.length > 0) {
-        const { runOnJS } = require('react-native-vision-camera');
-        runOnJS(handleLandmarks)(result.landmarks[0]);
-      } else {
-        const { runOnJS } = require('react-native-vision-camera');
-        runOnJS(handleLandmarks)(null);
-      }
+  // Get camera device
+  const device = useCameraDeviceHook?.('back');
+
+  // Initialize pose detection with correct API:
+  // usePoseDetection(callbacks, runningMode, model, options?)
+  // Returns MediaPipeSolution with .frameProcessor
+  const poseDetection = usePoseDetectionHook?.(
+    { onResults: handlePoseResults, onError: handlePoseError },
+    RunningMode?.LIVE_STREAM ?? 'LIVE_STREAM',
+    'pose_landmarker_lite',
+    {
+      delegate: Delegate?.GPU ?? 'GPU',
+      numPoses: 1,
     }
-  }, [poseDetector, handleLandmarks]);
+  );
 
   // Fallback if camera or MediaPipe unavailable
-  if (!VisionCamera || !device || !usePoseDetection) {
+  if (!VisionCamera || !device || !usePoseDetectionHook || !poseDetection) {
     return (
       <View style={styles.container}>
         <Text style={styles.unavailableText}>
@@ -148,15 +151,18 @@ export const CameraPositionGuide = forwardRef<CameraPositionGuideRef, CameraPosi
 
   return (
     <View style={styles.container}>
-      {/* Camera preview */}
+      {/* Camera preview with mediapipe's built-in frame processor */}
       <View style={styles.cameraWrapper}>
         <VisionCamera
           device={device}
           isActive={true}
           style={styles.camera}
-          frameProcessor={frameProcessor}
+          frameProcessor={poseDetection.frameProcessor}
           fps={15}
           pixelFormat="yuv"
+          onLayout={poseDetection.cameraViewLayoutChangeHandler}
+          outputOrientation="device"
+          onOutputOrientationChanged={poseDetection.cameraOrientationChangedHandler}
         />
       </View>
 
@@ -199,12 +205,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   statusDetected: {
-    color: theme.colors.accent, // #FF7B1C deep orange
+    color: theme.colors.accent,
     fontSize: 14,
     fontWeight: '500',
   },
   statusSearching: {
-    color: theme.colors.textMuted, // #CC7A33 muted orange
+    color: theme.colors.textMuted,
     fontSize: 14,
   },
   nudgeText: {

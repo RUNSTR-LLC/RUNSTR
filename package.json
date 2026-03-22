@@ -113,6 +113,7 @@
     "react-native-web": "~0.19.13",
     "react-native-webview": "13.12.5",
     "react-native-webview-crypto": "^0.0.27",
+    "react-native-worklets-core": "^1.6.3",
     "text-encoding": "^0.7.0",
     "text-encoding-polyfill": "^0.6.7",
     "websocket-polyfill": "^1.0.0",

@@ -11,9 +11,10 @@ export function useVerification(exerciseType: string) {
   const [verificationEnabled, setVerificationEnabled] = useState(false);
   const [landmarksDetected, setLandmarksDetected] = useState(false);
   const [verifiedRepCount, setVerifiedRepCount] = useState(0);
-  const [setVerificationDataList, setSetVerificationDataList] = useState<SetVerificationData[]>([]);
   const [verificationReceipt, setVerificationReceipt] = useState<VerificationReceipt | null>(null);
   const cameraRef = useRef<CameraPositionGuideRef>(null);
+  // Use ref for set data list to avoid stale closure in generateReceipt
+  const setVerificationDataListRef = useRef<SetVerificationData[]>([]);
 
   const handleToggleVerification = useCallback(async (enabled: boolean) => {
     if (!enabled) {
@@ -55,7 +56,7 @@ export function useVerification(exerciseType: string) {
   const completeVerifiedSet = useCallback(() => {
     if (cameraRef.current) {
       const data = cameraRef.current.completeSet();
-      setSetVerificationDataList(prev => [...prev, data]);
+      setVerificationDataListRef.current = [...setVerificationDataListRef.current, data];
       setVerifiedRepCount(0);
       return data.reps;
     }
@@ -63,23 +64,27 @@ export function useVerification(exerciseType: string) {
   }, []);
 
   const generateReceipt = useCallback((restDurationMs: number) => {
-    if (setVerificationDataList.length > 0) {
+    const dataList = setVerificationDataListRef.current;
+    if (dataList.length > 0) {
       const receipt = VerificationReceiptService.generate(
-        setVerificationDataList,
+        dataList,
         exerciseType,
         restDurationMs
       );
       setVerificationReceipt(receipt);
+      if (!receipt) {
+        Toast.show({ type: 'info', text1: 'Not enough clear frames for verification' });
+      }
       return receipt;
     }
     return null;
-  }, [setVerificationDataList, exerciseType]);
+  }, [exerciseType]);
 
   const resetVerification = useCallback(() => {
     setVerificationEnabled(false);
     setLandmarksDetected(false);
     setVerifiedRepCount(0);
-    setSetVerificationDataList([]);
+    setVerificationDataListRef.current = [];
     setVerificationReceipt(null);
   }, []);
 
