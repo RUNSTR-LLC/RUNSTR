@@ -2,6 +2,32 @@
 
 All notable changes to RUNSTR will be documented in this file.
 
+## [1.7.5] - 2026-03-22 - Pushup Verification, Android Sync Reliability & Backup Fixes
+
+### Pushup Verification (Camera)
+- On-device camera verification for pushup workouts using MediaPipe pose estimation
+- Optional "Verify with Camera" toggle in pushup setup — always opt-in, never required
+- Real-time rep counting via elbow angle tracking (shoulder/elbow/wrist landmarks)
+- Privacy-preserving: video frames processed in memory and discarded — only a lightweight verification receipt is stored
+- Verified workouts display an orange checkmark in workout history and detail views
+- Verification receipt sent to Supabase with workout submission (no video, just metadata)
+- Haptic feedback on each detected rep
+
+### Android Sync Reliability
+- Re-validate Health Connect permissions before background sync (detect revocation)
+- Extended background sync lookback to 7 days to catch missed syncs
+- Smart lookback in HealthSyncManager — 7 days if >1hr since last sync, 1 day otherwise
+- Handle submission failures properly — flagged workouts skip retries, transient failures retry
+
+### Bug Fixes
+- Fixed base64 padding handling in backup restore
+- Fixed club chat keyboard offset using safe area insets
+- Fixed missing base64 padding in encrypted backup restore
+
+### Improvements
+- Added react-native-vision-camera and camera permissions for future verification features
+- Added pre-release audit infrastructure
+
 ## [1.7.4] - 2026-03-16 - Unified Profile, Ticketed Events & HealthKit Fix
 
 ### Profile Redesign
