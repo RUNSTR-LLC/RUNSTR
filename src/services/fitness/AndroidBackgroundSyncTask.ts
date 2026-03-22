@@ -58,8 +58,26 @@ if (Platform.OS === 'android') {
         const hcService = HealthConnectService.getInstance();
 
         if (hcService.isAvailable()) {
+          // Re-validate permissions before syncing (detect revocation)
+          try {
+            const HealthConnect = require('react-native-health-connect');
+            const permissions = await HealthConnect.getGrantedPermissions();
+            const hasExercise = permissions.some(
+              (p: any) => p.recordType === 'ExerciseSession' && p.accessType === 'read'
+            );
+            if (!hasExercise) {
+              console.warn('[AndroidBgSync] HC permissions revoked, updating auth status');
+              await AsyncStorage.setItem('@healthconnect:authorized', 'false');
+              const BackgroundFetch = require('expo-background-fetch');
+              return BackgroundFetch.BackgroundFetchResult.NoData;
+            }
+          } catch (permErr) {
+            console.warn('[AndroidBgSync] Permission check failed, proceeding anyway:', permErr);
+          }
+
           // fetchRecentWorkouts triggers submitNewWorkoutsToSupabase internally
-          const workouts = await hcService.getRecentWorkouts(npub, 1); // last 24h
+          // 7-day lookback catches workouts missed during background task gaps
+          const workouts = await hcService.getRecentWorkouts(npub, 7);
           if (workouts && workouts.length > 0) {
             hasNewData = true;
             console.log(`[AndroidBgSync] Synced ${workouts.length} workouts`);

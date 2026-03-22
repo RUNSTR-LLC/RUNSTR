@@ -16,7 +16,7 @@ import {
   Platform,
 } from 'react-native';
 import { CustomAlert } from '../components/ui/CustomAlert';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../styles/theme';
@@ -60,6 +60,7 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
 
   const isCaptain = userNpub === captainNpub;
   const [pinnedMessage, setPinnedMessage] = useState<ClubMessage | null>(null);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     const load = async () => {
@@ -229,7 +230,7 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
       <KeyboardAvoidingView
         style={styles.content}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={0}
+        keyboardVerticalOffset={insets.top + 44}
       >
         {/* Messages */}
         {isLoading && messages.length === 0 ? (

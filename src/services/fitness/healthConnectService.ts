@@ -821,7 +821,7 @@ export class HealthConnectService {
     for (const w of newCardio) {
       try {
         const eventId = `hc_${w.id}`;
-        await SupabaseCompetitionService.submitWorkoutSimple({
+        const result = await SupabaseCompetitionService.submitWorkoutSimple({
           eventId,
           npub,
           type: w.activityType || 'running',
@@ -833,6 +833,18 @@ export class HealthConnectService {
           profileName: profile.name,
           profilePicture: profile.picture,
         });
+
+        if (!result.success) {
+          // Permanent rejections (anti-cheat flagged): mark as submitted to avoid infinite retries
+          if (result.flagged) {
+            submittedIds.add(w.id);
+            console.warn(`[HealthConnect] Workout flagged by anti-cheat, skipping: ${eventId} - ${result.error}`);
+          } else {
+            // Transient failure (network, timeout): leave unmarked so next sync retries
+            console.warn(`[HealthConnect] Submission failed (will retry): ${eventId} - ${result.error}`);
+          }
+          continue;
+        }
 
         submittedIds.add(w.id);
         debugLog(`[HealthConnect] Auto-submitted ${w.activityType} workout to Supabase: ${eventId}`);

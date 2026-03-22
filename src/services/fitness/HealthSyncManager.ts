@@ -95,10 +95,14 @@ class HealthSyncManagerClass {
       return { synced: false };
     }
 
-    console.log('[HealthSyncManager] Android: Syncing recent Health Connect workouts...');
+    // Use wider lookback if last sync was >1 hour ago to catch missed background syncs
+    const hoursSinceLastSync = this.lastSyncTime > 0
+      ? (Date.now() - this.lastSyncTime) / (1000 * 60 * 60)
+      : Infinity;
+    const lookbackDays = hoursSinceLastSync > 1 ? 7 : 1;
+    console.log(`[HealthSyncManager] Android: Syncing Health Connect workouts (${lookbackDays}d lookback, ${hoursSinceLastSync.toFixed(1)}h since last sync)...`);
 
-    // fetchRecentWorkouts(1) fetches last 1 day, triggers auto-submit internally
-    const workouts = await healthConnectService.fetchRecentWorkouts(1);
+    const workouts = await healthConnectService.fetchRecentWorkouts(lookbackDays);
     this.lastSyncTime = Date.now(); // Only update on success
     console.log(`[HealthSyncManager] Android: Synced ${workouts.length} workout(s)`);
     return { synced: true };
