@@ -1,0 +1,103 @@
+diff --git a/node_modules/react-native-mediapipe/ReactNativeMediaPipe.podspec b/node_modules/react-native-mediapipe/ReactNativeMediaPipe.podspec
+index 19e8425..20dc1e2 100644
+--- a/node_modules/react-native-mediapipe/ReactNativeMediaPipe.podspec
++++ b/node_modules/react-native-mediapipe/ReactNativeMediaPipe.podspec
+@@ -16,6 +16,11 @@ Pod::Spec.new do |s|
+ 
+   s.source_files = "ios/**/*.{h,m,mm,swift}"
+ 
++  s.pod_target_xcconfig = {
++    "DEFINES_MODULE" => "YES",
++    "SWIFT_OBJC_INTERFACE_HEADER_NAME" => "ReactNativeMediaPipe-Swift.h"
++  }
++
+   s.dependency "MediaPipeTasksVision", "0.10.12"
+   s.dependency "VisionCamera"
+ 
+diff --git a/node_modules/react-native-mediapipe/ios/Mediapipe-Bridging-Header.h b/node_modules/react-native-mediapipe/ios/Mediapipe-Bridging-Header.h
+index a9312db..b21cc45 100644
+--- a/node_modules/react-native-mediapipe/ios/Mediapipe-Bridging-Header.h
++++ b/node_modules/react-native-mediapipe/ios/Mediapipe-Bridging-Header.h
+@@ -1,5 +1,5 @@
+ #import <React/RCTBridgeModule.h>
+ #import <React/RCTViewManager.h>
+ 
+-#import <VisionCamera/FrameProcessorPlugin.h>
+-#import <VisionCamera/Frame.h>
++#import "FrameProcessorPlugin.h"
++#import "Frame.h"
+diff --git a/node_modules/react-native-mediapipe/ios/facelandmarkdetection/FaceLandmarkDetectionFrameProcessorPlugin.m b/node_modules/react-native-mediapipe/ios/facelandmarkdetection/FaceLandmarkDetectionFrameProcessorPlugin.m
+index 3223639..ea0d590 100644
+--- a/node_modules/react-native-mediapipe/ios/facelandmarkdetection/FaceLandmarkDetectionFrameProcessorPlugin.m
++++ b/node_modules/react-native-mediapipe/ios/facelandmarkdetection/FaceLandmarkDetectionFrameProcessorPlugin.m
+@@ -7,10 +7,18 @@
+ 
+ #import <Foundation/Foundation.h>
+ 
+-#import <VisionCamera/FrameProcessorPlugin.h>
+-#import <VisionCamera/FrameProcessorPluginRegistry.h>
++#import "FrameProcessorPlugin.h"
++#import "FrameProcessorPluginRegistry.h"
+ 
++#if __has_include("ReactNativeMediaPipe-Swift.h")
++#if __has_include("ReactNativeMediaPipe-Swift.h")
+ #import "ReactNativeMediaPipe-Swift.h"
++#else
++#import <ReactNativeMediaPipe/ReactNativeMediaPipe-Swift.h>
++#endif
++#else
++#import <ReactNativeMediaPipe/ReactNativeMediaPipe-Swift.h>
++#endif
+ 
+ @interface FaceLandmarkDetectionFrameProcessorPlugin (FrameProcessorPluginLoader)
+ @end
+diff --git a/node_modules/react-native-mediapipe/ios/objectdetection/ObjectDetectionFrameProcessorPlugin.m b/node_modules/react-native-mediapipe/ios/objectdetection/ObjectDetectionFrameProcessorPlugin.m
+index 54079cb..b5d4fb9 100644
+--- a/node_modules/react-native-mediapipe/ios/objectdetection/ObjectDetectionFrameProcessorPlugin.m
++++ b/node_modules/react-native-mediapipe/ios/objectdetection/ObjectDetectionFrameProcessorPlugin.m
+@@ -7,10 +7,18 @@
+ 
+ #import <Foundation/Foundation.h>
+ 
+-#import <VisionCamera/FrameProcessorPlugin.h>
+-#import <VisionCamera/FrameProcessorPluginRegistry.h>
++#import "FrameProcessorPlugin.h"
++#import "FrameProcessorPluginRegistry.h"
+ 
++#if __has_include("ReactNativeMediaPipe-Swift.h")
++#if __has_include("ReactNativeMediaPipe-Swift.h")
+ #import "ReactNativeMediaPipe-Swift.h"
++#else
++#import <ReactNativeMediaPipe/ReactNativeMediaPipe-Swift.h>
++#endif
++#else
++#import <ReactNativeMediaPipe/ReactNativeMediaPipe-Swift.h>
++#endif
+ 
+ @interface ObjectDetectionFrameProcessorPlugin (FrameProcessorPluginLoader)
+ @end
+diff --git a/node_modules/react-native-mediapipe/ios/posedetection/PoseDetectionFrameProcessorPlugin.m b/node_modules/react-native-mediapipe/ios/posedetection/PoseDetectionFrameProcessorPlugin.m
+index 2e67dae..295ad5b 100644
+--- a/node_modules/react-native-mediapipe/ios/posedetection/PoseDetectionFrameProcessorPlugin.m
++++ b/node_modules/react-native-mediapipe/ios/posedetection/PoseDetectionFrameProcessorPlugin.m
+@@ -7,10 +7,18 @@
+ 
+ #import <Foundation/Foundation.h>
+ 
+-#import <VisionCamera/FrameProcessorPlugin.h>
+-#import <VisionCamera/FrameProcessorPluginRegistry.h>
++#import "FrameProcessorPlugin.h"
++#import "FrameProcessorPluginRegistry.h"
+ 
++#if __has_include("ReactNativeMediaPipe-Swift.h")
++#if __has_include("ReactNativeMediaPipe-Swift.h")
+ #import "ReactNativeMediaPipe-Swift.h"
++#else
++#import <ReactNativeMediaPipe/ReactNativeMediaPipe-Swift.h>
++#endif
++#else
++#import <ReactNativeMediaPipe/ReactNativeMediaPipe-Swift.h>
++#endif
+ 
+ @interface PoseDetectionFrameProcessorPlugin (FrameProcessorPluginLoader)
+ @end

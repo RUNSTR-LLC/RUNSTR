@@ -18,6 +18,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { RewardLightningAddressService } from '../services/rewards/RewardLightningAddressService';
 import { getCharityById, isSelfTeam, isPPQTeam, isCommunityTeam, extractCommunityTeamUUID } from '../constants/charities';
 import { UserTeamService } from '../services/backend/UserTeamService';
+import { PledgeService } from '../services/pledge/PledgeService';
 import { isSupabaseConfigured } from './supabase';
 
 /**
@@ -95,6 +96,21 @@ export async function buildRewardTags(): Promise<string[][]> {
     // Self team, no team, or unknown -- reward goes to user
     rewardDestination = 'user';
     rewardLightningAddress = userLightningAddress;
+  }
+
+  // PLEDGE OVERRIDE: If user has an active pledge, route reward to captain's address
+  const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+  if (hexPubkey) {
+    try {
+      const activePledge = await PledgeService.getActivePledge(hexPubkey);
+      if (activePledge && activePledge.destinationAddress) {
+        console.log(`[buildRewardTags] Active pledge: routing to ${activePledge.destinationName} (${activePledge.destinationAddress})`);
+        rewardLightningAddress = activePledge.destinationAddress;
+        rewardDestination = 'charity'; // captain treated as charity for routing purposes
+      }
+    } catch (err) {
+      console.warn('[buildRewardTags] Pledge check failed (non-blocking):', err);
+    }
   }
 
   // 1. Lightning address (CRITICAL: DB trigger extracts this tag to send 100 sats)

@@ -249,10 +249,22 @@ async function handleCreate(
     }
   }
 
-  console.log(`Created competition: ${newComp.id} (${external_id}) by ${(npub as string).slice(0, 12)}...`)
+  // Count auto-joined members for UI feedback
+  let autoJoinedCount = 0
+  if (club_id) {
+    const { count } = await supabase
+      .from('competition_participants')
+      .select('*', { count: 'exact', head: true })
+      .eq('competition_id', newComp.id)
+    autoJoinedCount = count ?? 0
+  } else {
+    autoJoinedCount = 1 // Creator was auto-joined
+  }
+
+  console.log(`Created competition: ${newComp.id} (${external_id}) by ${(npub as string).slice(0, 12)}... (${autoJoinedCount} auto-joined)`)
   return jsonResponse({
     success: true,
-    data: { id: newComp.id, external_id: newComp.external_id },
+    data: { id: newComp.id, external_id: newComp.external_id, auto_joined: autoJoinedCount },
   })
 }
 

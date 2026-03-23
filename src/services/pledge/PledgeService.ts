@@ -27,6 +27,9 @@ const STORAGE_KEYS = {
   PLEDGE_HISTORY: (pubkey: string) => `@runstr:pledge_history:${pubkey}`,
 } as const;
 
+// Pledges expire after 30 days to prevent permanent blocking
+const PLEDGE_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000;
+
 class PledgeServiceClass {
   /**
    * Get the user's active pledge (if any)
@@ -45,6 +48,16 @@ class PledgeServiceClass {
       // Verify pledge is still active
       if (pledge.status !== 'active') {
         // Clean up stale active pledge
+        await AsyncStorage.removeItem(key);
+        return null;
+      }
+
+      // Auto-expire pledges older than 30 days
+      if (Date.now() - pledge.createdAt > PLEDGE_EXPIRY_MS) {
+        console.log('[PledgeService] Pledge expired after 30 days:', pledge.id);
+        pledge.status = 'completed';
+        pledge.completedAt = Date.now();
+        await this.addToHistory(userPubkey, pledge);
         await AsyncStorage.removeItem(key);
         return null;
       }
@@ -302,6 +315,18 @@ class PledgeServiceClass {
     }
 
     return total;
+  }
+
+  /**
+   * Remove the active pledge only (used for rollback when join fails)
+   */
+  async clearActivePledge(userPubkey: string): Promise<void> {
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEYS.ACTIVE_PLEDGE(userPubkey));
+      console.log('[PledgeService] Cleared active pledge for', userPubkey.slice(0, 8) + '...');
+    } catch (error) {
+      console.error('[PledgeService] Error clearing active pledge:', error);
+    }
   }
 
   /**

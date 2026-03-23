@@ -216,19 +216,26 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
       const userPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
       if (!userPubkey) return;
 
-      // Check for existing active pledge
-      const existingPledge = await PledgeService.getActivePledge(userPubkey);
-      if (existingPledge) {
-        Alert.alert('Active Pledge', 'You already have an active pledge. Complete it before joining a new ticketed event.');
+      // Check eligibility (active pledge, Lightning address, etc.)
+      const eligibility = await PledgeService.canCreatePledge(userPubkey);
+      if (!eligibility.allowed) {
+        Alert.alert(
+          eligibility.reason === 'active_pledge_exists' ? 'Active Pledge' : 'Cannot Join',
+          eligibility.message || 'Unable to create pledge.',
+        );
         return;
       }
 
       // Get captain's lightning address from competition config
       const captainAddress = competition?.config?.captain_lightning_address || '';
+      if (!captainAddress) {
+        Alert.alert('Event Error', 'This event is missing a reward destination. Contact the event captain.');
+        return;
+      }
       const captainName = competition?.name || 'Event Captain';
 
       // Create the pledge
-      await PledgeService.createPledge({
+      const pledge = await PledgeService.createPledge({
         eventId: competition!.id,
         eventName: competition!.name,
         totalWorkouts: competition!.config!.ticket_pledge_days!,
@@ -240,9 +247,21 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
         userPubkey,
       });
 
-      // Join the competition
-      await join();
-      await refreshLeaderboard();
+      if (!pledge) {
+        Alert.alert('Error', 'Failed to create pledge. Please try again.');
+        return;
+      }
+
+      // Join the competition — roll back pledge if this fails
+      try {
+        await join();
+        await refreshLeaderboard();
+      } catch (joinError) {
+        console.error('[DynamicEventDetail] Join failed after pledge, rolling back:', joinError);
+        await PledgeService.clearActivePledge(userPubkey);
+        Alert.alert('Error', 'Failed to join event. Your pledge has been cancelled. Please try again.');
+        return;
+      }
     } catch (error) {
       console.error('[DynamicEventDetail] Pledge + join error:', error);
       Alert.alert('Error', 'Failed to join event. Please try again.');

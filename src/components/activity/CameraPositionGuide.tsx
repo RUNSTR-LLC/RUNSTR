@@ -131,7 +131,7 @@ export const CameraPositionGuide = forwardRef<CameraPositionGuideRef, CameraPosi
   const poseDetection = usePoseDetectionHook?.(
     { onResults: handlePoseResults, onError: handlePoseError },
     RunningMode?.LIVE_STREAM ?? 'LIVE_STREAM',
-    'pose_landmarker_lite',
+    'pose_landmarker_lite.task',
     {
       delegate: Delegate?.GPU ?? 'GPU',
       numPoses: 1,

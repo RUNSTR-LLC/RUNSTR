@@ -27,6 +27,8 @@ import { callEdgeFunction } from '../../utils/edgeFunctions';
 import { SupabaseCompetitionService } from '../../services/backend/SupabaseCompetitionService';
 import { ImageUploadService } from '../../services/media/ImageUploadService';
 import { UnifiedSigningService } from '../../services/auth/UnifiedSigningService';
+import { RewardLightningAddressService } from '../../services/rewards/RewardLightningAddressService';
+import { ProfileCache } from '../../cache/ProfileCache';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -331,6 +333,32 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
       endDate.setUTCDate(endDate.getUTCDate() + EVENT_DURATION_DAYS - 1);
       endDate.setUTCHours(23, 59, 59, 999);
 
+      // For ticketed events, resolve the captain's Lightning address
+      let captainLightningAddress: string | null = null;
+      if (ticketPledgeDays > 0) {
+        // Try stored reward address first (most reliable)
+        captainLightningAddress = await RewardLightningAddressService.getRewardLightningAddress();
+
+        // Fall back to Nostr kind 0 profile lud16
+        if (!captainLightningAddress && npub) {
+          try {
+            const profiles = await Promise.race([
+              ProfileCache.fetchProfiles([npub]),
+              new Promise<Map<string, unknown>>((resolve) => setTimeout(() => resolve(new Map()), 5000)),
+            ]);
+            const profile = profiles.get(npub) as { lud16?: string } | undefined;
+            captainLightningAddress = profile?.lud16 || null;
+          } catch {
+            // Non-fatal — will be caught by the check below
+          }
+        }
+
+        if (!captainLightningAddress) {
+          showAlert('Lightning Address Required', 'Set a Lightning address in Rewards settings before creating a ticketed event. Members\' pledged rewards need a destination.');
+          return;
+        }
+      }
+
       // Create competition via Edge Function (handles spam prevention, auto-join)
       const result = await callEdgeFunction<{
         id?: string;
@@ -358,6 +386,7 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
           ticket_pledge_days: ticketPledgeDays,
           winner_selection: winnerSelection,
           qualifying_distance_km: qualifyingDistance ? parseFloat(qualifyingDistance) : null,
+          captain_lightning_address: captainLightningAddress,
         },
       });
 

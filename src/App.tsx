@@ -1114,7 +1114,7 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
           console.log('✅ Welcome modal closed - navigating to Reward Destination picker');
           // Send user to Rewards tab and auto-open the destination picker
           setTimeout(() => {
-            navigationRefNavigate('MainTabs', { screen: 'Rewards', params: { openDestinationPicker: true } });
+            navigationRefNavigate('Rewards', { openDestinationPicker: true });
           }, 300);
         }}
       />

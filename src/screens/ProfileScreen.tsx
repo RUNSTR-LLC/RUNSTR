@@ -13,6 +13,7 @@ import { ProfileScreenData } from '../types';
 import type { User } from '../types';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
+import { navigate } from '../navigation/navigationRef';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { npubEncode } from '../utils/nostrEncoding';
 import Toast from 'react-native-toast-message';
@@ -225,9 +226,9 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
   }, [navigation]);
 
   const handleDestinationPress = useCallback(() => {
-    const parent = navigation.getParent();
-    (parent || navigation).navigate('Rewards');
-  }, [navigation]);
+    console.log('[ProfileScreen] handleDestinationPress fired!');
+    navigate('Rewards', { openDestinationPicker: true });
+  }, []);
 
   const handleStatsPress = useCallback(() => {
     const parent = navigation.getParent();
