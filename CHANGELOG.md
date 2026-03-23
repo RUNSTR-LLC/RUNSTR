@@ -19,14 +19,22 @@ All notable changes to RUNSTR will be documented in this file.
 - Smart lookback in HealthSyncManager — 7 days if >1hr since last sync, 1 day otherwise
 - Handle submission failures properly — flagged workouts skip retries, transient failures retry
 
+### Pledge System & Rewards
+- Pledge rewards now route to captain's Lightning address during active pledge period
+- Push notifications delivered for rewards even when app is backgrounded (npub passed to auto_reward trigger)
+- Fixed Rewards screen navigation from welcome modal destination picker
+
 ### Bug Fixes
 - Fixed base64 padding handling in backup restore
 - Fixed club chat keyboard offset using safe area insets
-- Fixed missing base64 padding in encrypted backup restore
+- Fixed app freeze when opening event creation from club menu
+- Patched react-native-mediapipe for VisionCamera v4 header compatibility
+- Patched react-native glog crash triggered by MediaPipe initialization
+- Fixed undefined startTime crash in workout timeline
 
 ### Improvements
-- Added react-native-vision-camera and camera permissions for future verification features
-- Added pre-release audit infrastructure
+- Lazy-loaded camera verification component for faster screen load
+- Added react-native-vision-camera and react-native-worklets-core for frame processor support
 
 ## [1.7.4] - 2026-03-16 - Unified Profile, Ticketed Events & HealthKit Fix
 
