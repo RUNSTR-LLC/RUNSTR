@@ -27,9 +27,11 @@ export interface CompetitionEvent {
   id: string; // d tag
   teamId: string;
   captainPubkey: string;
+  pubkey?: string; // Raw Nostr event pubkey (backwards-compat lookups)
   name: string;
   description?: string;
   activityType: string;
+  location?: string;
   scoringType?: string; // NEW: 'completion' | 'fastest_time'
   metric: string; // Deprecated: Use scoringType instead
   eventDate: string; // ISO date
