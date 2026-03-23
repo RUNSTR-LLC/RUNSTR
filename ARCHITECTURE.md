@@ -42,7 +42,7 @@ AsyncStorage: nsec/npub present?
   v                     v
 LoginScreen         AppInitialization
   |                     |
-  v                     +---> GlobalNDKService.initialize()  (4 relay connections)
+  v                     +---> GlobalNDKService.initialize()  (3 active default relay connections)
 Enter nsec              +---> Load profile from cache/Nostr  (kind 0)
   |                     +---> Prefetch charity list, competitions
   v                     +---> Start step counter
@@ -178,11 +178,10 @@ Services are organized by domain under `src/services/`. Each service is a single
 ```
 GlobalNDKService (SINGLETON - one NDK instance for entire app)
   |
-  |  4 WebSocket connections to relays:
+  |  3 WebSocket connections to default relays:
   |    wss://relay.damus.io
   |    wss://nos.lol
   |    wss://relay.primal.net
-  |    wss://relay.nostr.band
   |
   +---> NostrProfileService        (fetch/publish kind 0 profiles)
   +---> NostrProfilePublisher      (update profile metadata)
@@ -761,7 +760,7 @@ runstr.project/
 |   |   +-- nostr/                 GlobalNDKService, profiles, publishing
 |   |   +-- fitness/               Workout storage, health integrations
 |   |   +-- activity/              GPS tracking, step counting, metrics
-|   |   +-- rewards/               Daily rewards, step rewards, Lightning
+|   |   +-- rewards/               Daily rewards, paused step-reward pipeline, Lightning
 |   |   +-- competition/           Leaderboards, Supabase competition ops
 |   |   +-- backend/               Supabase operations
 |   |   +-- backup/                Encrypted backup (kind 30078, NIP-44)
@@ -829,14 +828,14 @@ runstr.project/
 ## Architectural Principles
 
 1. **File size limit: 500 lines** -- Split anything larger into focused modules
-2. **Global NDK singleton** -- One NDK instance, 4 relay connections, used everywhere
+2. **Global NDK singleton** -- One NDK instance, 3 active default relay connections, used everywhere
 3. **Local-first** -- Save to AsyncStorage immediately, sync to backend in background
 4. **Cache-first rendering** -- Show cached data instantly, refresh in background
 5. **Silent reward failures** -- Rewards never block workout saving or user flow
 6. **Cardio focus** -- Running, walking, cycling are core; strength/diet/meditation are experimental
 7. **Teams = Charities** -- Not social groups; selecting a team means supporting a charity. Charities are hardcoded in `constants/charities.ts`
 8. **Supabase for competitions** -- Nostr for identity/social/backup, Supabase for leaderboards/payments
-9. **NDK only** -- Never use nostr-tools; NDK handles all Nostr operations
+9. **NDK-first runtime** -- Global NDK is the required relay/query backbone; `nostr-tools` still exists in helper/legacy paths, but avoid adding new non-NDK runtime relay flows
 10. **Optimistic updates** -- Update local state before backend confirms, for instant UX
 
 ## Supported Charities
