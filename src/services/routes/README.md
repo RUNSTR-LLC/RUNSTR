@@ -2,7 +2,7 @@
 
 Services for managing GPS routes and course comparison functionality.
 
-## Files
+## Current Files
 
 ### `RouteStorageService.ts`
 Persistent storage service for saved GPS routes. Allows users to:
@@ -51,50 +51,10 @@ await routeStorage.updateRouteStats(routeId, {
 });
 ```
 
-### `RouteMatchingService.ts`
-GPS-based route comparison and matching service. Provides:
-- **Automatic Route Detection**: Matches current workout GPS track against saved routes
-- **Fuzzy GPS Matching**: Handles GPS drift with 50m distance threshold
-- **Confidence Scoring**: 0-1 score based on match percentage and points matched
-- **PR Comparison**: Real-time progress tracking vs personal record
-- **Progress Messages**: User-friendly "ahead/behind PR" feedback
-- **Target Pace Calculation**: Recommended pace to match PR time
-
-**Key Features:**
-- Haversine formula for accurate GPS distance calculation
-- Sequential point matching with expected index optimization
-- Minimum 70% match threshold to prevent false positives
-- Requires 10+ GPS points before attempting match
-- Activity-type filtering (only matches same activity)
-
-**Usage:**
-```typescript
-import routeMatchingService from '../services/routes/RouteMatchingService';
-
-// During workout: Check if we're on a saved route
-const match = await routeMatchingService.findMatchingRoute(
-  gpsPoints,
-  'running'
-);
-
-if (match && match.confidence > 0.8) {
-  console.log(`On route: ${match.routeName} (${match.matchPercentage}% match)`);
-
-  // Compare with PR
-  const comparison = await routeMatchingService.compareWithPR(
-    match.routeId,
-    currentDistance,
-    currentTime
-  );
-
-  if (comparison) {
-    const message = routeMatchingService.formatProgressMessage(comparison);
-    // Show: "🔥 1:30 ahead of PR!" or "💪 0:45 behind PR - push harder!"
-  }
-}
-```
-
 ## Planned Files
+
+### `RouteMatchingService.ts` (Future)
+GPS-based route comparison and matching helper for route detection and PR pacing feedback.
 
 ### `RouteSimplificationService.ts` (Future)
 GPS track optimization. Will reduce storage size by:
