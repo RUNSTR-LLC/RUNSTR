@@ -35,16 +35,25 @@ export class DefaultActivityService {
    * Returns 'run' if no preference is saved
    */
   async getDefault(): Promise<DefaultActivity> {
+    const savedDefault = await this.getSavedDefault();
+    return savedDefault ?? 'run';
+  }
+
+  /**
+   * Get the user's saved default preference without fallback.
+   * Returns null if missing or invalid.
+   */
+  async getSavedDefault(): Promise<DefaultActivity | null> {
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
       if (stored && this.isValidActivity(stored)) {
         console.log('[DefaultActivityService] Loaded default activity:', stored);
         return stored as DefaultActivity;
       }
-      return 'run';
+      return null;
     } catch (error) {
       console.error('[DefaultActivityService] Error loading default activity:', error);
-      return 'run';
+      return null;
     }
   }
 
