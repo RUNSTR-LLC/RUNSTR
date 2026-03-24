@@ -23,6 +23,7 @@ import {
   activityGridService,
   type GridPosition,
 } from '../../services/activity/ActivityGridService';
+import { defaultActivityService } from '../../services/activity/DefaultActivityService';
 import { RunningTrackerScreen } from './RunningTrackerScreen';
 import { WalkingTrackerScreen } from './WalkingTrackerScreen';
 import { CyclingTrackerScreen } from './CyclingTrackerScreen';
@@ -80,9 +81,20 @@ export const ActivityTrackerScreen: React.FC = () => {
   useEffect(() => {
     const loadPosition = async () => {
       const saved = await activityGridService.loadPosition();
-      setGridPosition(saved);
+      let initialPosition = saved;
+
+      // Apply saved default activity for cardio trackers on entry.
+      const defaultActivity = await defaultActivityService.getSavedDefault();
+      if (defaultActivity) {
+        const defaultPosition = activityGridService.getPositionForActivity(defaultActivity);
+        if (defaultPosition && defaultPosition.row === 0) {
+          initialPosition = defaultPosition;
+        }
+      }
+
+      setGridPosition(initialPosition);
       setPositionLoaded(true);
-      console.log('[ActivityTracker] Loaded grid position:', saved);
+      console.log('[ActivityTracker] Loaded grid position:', initialPosition);
     };
     loadPosition();
   }, []);
