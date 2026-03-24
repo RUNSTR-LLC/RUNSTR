@@ -155,11 +155,13 @@ class DailyRewardServiceClass {
    * @param userPubkey - User's public key
    * @param workoutSource - The workout.source field (e.g., 'gps_tracker', 'imported_nostr')
    * @param workoutType - The workout.type field (e.g., 'running', 'strength')
+   * @param workoutId - Optional local workout id for idempotency guard
    */
   async checkStreakAndReward(
     userPubkey: string,
     workoutSource: string,
-    workoutType?: string
+    workoutType?: string,
+    workoutId?: string
   ): Promise<RewardResult> {
     // Step 1: Filter by source - only user-generated workouts
     if (!REWARD_ELIGIBLE_SOURCES.includes(workoutSource)) {
@@ -173,7 +175,19 @@ class DailyRewardServiceClass {
       return { success: false, reason: 'activity_type_not_eligible' };
     }
 
-    // Step 2: Atomic streak check - only first workout of the day PER USER
+    // Step 2: Workout idempotency guard (same workout should never trigger twice)
+    if (workoutId) {
+      const workoutRewardKey = `@runstr:reward_processed_workout:${userPubkey}:${workoutId}`;
+      const alreadyProcessed = await AsyncStorage.getItem(workoutRewardKey);
+      if (alreadyProcessed) {
+        console.log(`[Reward] Workout ${workoutId} already processed, skipping reward`);
+        return { success: false, reason: 'workout_already_processed' };
+      }
+      // Mark before downstream checks to avoid duplicate triggers in concurrent save paths
+      await AsyncStorage.setItem(workoutRewardKey, new Date().toISOString());
+    }
+
+    // Step 3: Atomic streak check - only first workout of the day PER USER
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     const streakKey = `@runstr:streak_incremented_today:${today}:${userPubkey}`;
 
@@ -184,11 +198,11 @@ class DailyRewardServiceClass {
       return { success: false, reason: 'streak_already_incremented' };
     }
 
-    // Step 3: Mark streak as incremented BEFORE sending reward (prevents race condition)
+    // Step 4: Mark streak as incremented BEFORE sending reward (prevents race condition)
     await AsyncStorage.setItem(streakKey, new Date().toISOString());
     console.log('[Reward] Streak incremented! Triggering daily reward...');
 
-    // Step 4: Send the reward
+    // Step 5: Send the reward
     return this.sendReward(userPubkey);
   }
 

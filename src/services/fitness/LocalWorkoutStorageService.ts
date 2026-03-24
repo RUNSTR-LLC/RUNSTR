@@ -511,7 +511,7 @@ export class LocalWorkoutStorageService {
         if (pubkey) {
           console.log(`[LocalWorkoutStorage] Checking streak reward for ${workout.source} ${workout.type} workout...`);
           // Fire and forget - don't block workout save for reward
-          DailyRewardService.checkStreakAndReward(pubkey, workout.source, workout.type).catch((rewardError) => {
+          DailyRewardService.checkStreakAndReward(pubkey, workout.source, workout.type, workout.id).catch((rewardError) => {
             console.warn('[LocalWorkoutStorage] Reward error (silent):', rewardError);
           });
         }
