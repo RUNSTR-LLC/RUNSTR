@@ -83,77 +83,77 @@ const HK_WORKOUT_TYPE_MAP: Record<string, WorkoutType> = {
   50: 'strength_training', // traditionalStrengthTraining
   59: 'strength_training', // coreTraining
 
-  // Cardio machines → map to running
-  16: 'running', // elliptical
-  35: 'running', // rowing
-  44: 'running', // stairClimbing
-  63: 'running', // highIntensityIntervalTraining
-  11: 'running', // crossTraining
-  25: 'running', // mixedCardio
+  // Cardio machines and mixed modalities (keep distinct from outdoor cardio rewards)
+  16: 'gym', // elliptical
+  35: 'gym', // rowing
+  44: 'gym', // stairClimbing
+  63: 'gym', // highIntensityIntervalTraining
+  11: 'gym', // crossTraining
+  25: 'gym', // mixedCardio
 
-  // Other activities → map to running (never 'other')
-  46: 'running', // swimming
-  57: 'running', // yoga
-  66: 'running', // pilates
-  58: 'running', // flexibility
-  45: 'running', // dance
-  60: 'running', // kickboxing
-  62: 'running', // jumpRope
+  // Other activities (avoid forcing to running)
+  46: 'other', // swimming
+  57: 'other', // yoga
+  66: 'other', // pilates
+  58: 'other', // flexibility
+  45: 'other', // dance
+  60: 'other', // kickboxing
+  62: 'other', // jumpRope
 
-  // Sports → map to running as cardio fallback
-  1: 'running', // americanFootball
-  2: 'running', // archery
-  3: 'running', // australianFootball
-  4: 'running', // badminton
-  5: 'running', // baseball
-  6: 'running', // basketball
-  7: 'running', // bowling
-  8: 'running', // boxing
-  9: 'running', // climbing
-  10: 'running', // cricket
-  14: 'running', // crossCountrySkiing
-  15: 'running', // curling
-  17: 'running', // downhillSkiing
-  18: 'running', // equestrianSports
-  19: 'running', // fencing
-  21: 'running', // fishing
-  22: 'running', // golf
-  23: 'running', // gymnastics
-  26: 'running', // handball
-  27: 'running', // hockey
-  28: 'running', // hunting
-  29: 'running', // lacrosse
-  30: 'running', // martialArts
-  31: 'running', // mindAndBody
-  32: 'running', // paddleSports
-  33: 'running', // play
-  34: 'running', // preparationAndRecovery
-  36: 'running', // racquetball
-  38: 'running', // sailingSports
-  39: 'running', // skatingSports
-  40: 'running', // snowSports
-  41: 'running', // soccer
-  42: 'running', // softball
-  43: 'running', // squash
-  47: 'running', // surfingSports
-  48: 'running', // tableTennis
-  49: 'running', // tennis
-  51: 'running', // trackAndField
-  53: 'running', // volleyball
-  54: 'running', // waterFitness
-  55: 'running', // waterPolo
-  56: 'running', // waterSports
-  61: 'running', // wrestling
-  64: 'running', // wheelchairWalkPace
-  65: 'running', // wheelchairRunPace
-  67: 'running', // barre
-  68: 'running', // cardioDance
-  69: 'running', // socialDance
-  70: 'running', // pickleball
-  71: 'running', // cooldown
-  72: 'running', // swimBikeRun
-  73: 'running', // transition
-  74: 'running', // underwaterDiving
+  // Sports and non-cardio-specific activities
+  1: 'other', // americanFootball
+  2: 'other', // archery
+  3: 'other', // australianFootball
+  4: 'other', // badminton
+  5: 'other', // baseball
+  6: 'other', // basketball
+  7: 'other', // bowling
+  8: 'other', // boxing
+  9: 'other', // climbing
+  10: 'other', // cricket
+  14: 'other', // crossCountrySkiing
+  15: 'other', // curling
+  17: 'other', // downhillSkiing
+  18: 'other', // equestrianSports
+  19: 'other', // fencing
+  21: 'other', // fishing
+  22: 'other', // golf
+  23: 'other', // gymnastics
+  26: 'other', // handball
+  27: 'other', // hockey
+  28: 'other', // hunting
+  29: 'other', // lacrosse
+  30: 'other', // martialArts
+  31: 'other', // mindAndBody
+  32: 'other', // paddleSports
+  33: 'other', // play
+  34: 'other', // preparationAndRecovery
+  36: 'other', // racquetball
+  38: 'other', // sailingSports
+  39: 'other', // skatingSports
+  40: 'other', // snowSports
+  41: 'other', // soccer
+  42: 'other', // softball
+  43: 'other', // squash
+  47: 'other', // surfingSports
+  48: 'other', // tableTennis
+  49: 'other', // tennis
+  51: 'other', // trackAndField
+  53: 'other', // volleyball
+  54: 'other', // waterFitness
+  55: 'other', // waterPolo
+  56: 'other', // waterSports
+  61: 'other', // wrestling
+  64: 'other', // wheelchairWalkPace
+  65: 'other', // wheelchairRunPace
+  67: 'other', // barre
+  68: 'other', // cardioDance
+  69: 'other', // socialDance
+  70: 'other', // pickleball
+  71: 'other', // cooldown
+  72: 'other', // swimBikeRun
+  73: 'other', // transition
+  74: 'other', // underwaterDiving
 };
 
 export interface HealthKitWorkout {
