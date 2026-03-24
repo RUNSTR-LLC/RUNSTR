@@ -2,29 +2,58 @@
 
 Core application services handling business logic and external integrations for RUNSTR.
 
-## Key Subdirectories
+## Current Subdirectory Index
 
-### Core Infrastructure
-- **auth/** - Nostr nsec authentication and key management
-- **nostr/** - GlobalNDKService, relay management, event publishing
-- **cache/** - Unified caching for Nostr data and performance
+This index is the source of truth for `src/services/` and intentionally mirrors the live folder structure.
 
-### Fitness & Workouts
-- **activity/** - GPS tracking, step counting, workout timers
-- **fitness/** - HealthKit/Health Connect integration, workout processing
+### Activity, Fitness, and Tracking
+- `activity/`
+- `fitness/`
+- `habits/`
+- `journal/`
+- `media/`
+- `music/`
+- `routes/`
+- `watch/`
 
-### Rewards & Donations
-- **rewards/** - DailyRewardService, StepRewardService, Lightning address delivery
-- **donation/** - Charity donation splitting and tracking
-- **impact/** - Impact Level XP calculations
+### Rewards, Value Flow, and Wallet
+- `charity/`
+- `donation/`
+- `ai/`
+- `nutzap/`
+- `pledge/`
+- `rewards/`
+- `wallet/`
 
-### Events & Competitions
-- **season/** - Season2Service, leaderboard calculations
-- **satlantis/** - Satlantis event integration
-- **scoring/** - Event scoring algorithms
+### Events, Competition, and Scoring
+- `challenge/`
+- `competition/`
+- `event/`
+- `events/`
+- `satlantis/`
+- `scoring/`
+- `season/`
+- `team/`
 
-### Other Services
-- **ai/** - Coach Runstr AI assistant
-- **wallet/** - Lightning address storage and NWC utilities
-- **team/** - Charity (team) selection and display
-- **notifications/** - In-app notification system
+### Infrastructure and Platform
+- `analytics/`
+- `anticheat/`
+- `auth/`
+- `backend/`
+- `backup/`
+- `cache/`
+- `core/`
+- `i18n/`
+- `initialization/`
+- `integrations/`
+- `nostr/`
+- `notifications/`
+- `platform/`
+- `qr/`
+- `user/`
+- `verification/`
+- `wot/`
+
+## Maintenance Note
+
+When adding, deleting, or renaming service folders, update this file in the same PR so docs stay aligned with runtime structure.
