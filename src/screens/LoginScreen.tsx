@@ -490,7 +490,7 @@ const styles = StyleSheet.create({
     minHeight: 50,
   },
   textInputError: {
-    borderColor: theme.colors.error || '#ff4444',
+    borderColor: theme.colors.error,
   },
   inputHelper: {
     fontSize: 12,
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 14,
-    color: theme.colors.error || '#ff4444',
+    color: theme.colors.error,
     textAlign: 'center',
     padding: 12,
     backgroundColor: 'rgba(255, 68, 68, 0.1)',
