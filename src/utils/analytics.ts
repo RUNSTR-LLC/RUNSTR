@@ -288,6 +288,18 @@ class Analytics {
     });
   }
 
+  private getSafeConversionRate(
+    viewedTeamsCount: number,
+    selectedTeamsCount: number
+  ): number | null {
+    if (viewedTeamsCount <= 0) {
+      return null;
+    }
+
+    const conversionRate = selectedTeamsCount / viewedTeamsCount;
+    return Number.isFinite(conversionRate) ? conversionRate : null;
+  }
+
   // Conversion funnel tracking
   trackTeamDiscoveryConversion(
     viewedTeamsCount: number,
@@ -301,7 +313,10 @@ class Analytics {
       conversionTime,
       joinedTeamId: joinedTeam.id,
       joinedTeamName: joinedTeam.name,
-      conversionRate: selectedTeamsCount / viewedTeamsCount,
+      conversionRate: this.getSafeConversionRate(
+        viewedTeamsCount,
+        selectedTeamsCount
+      ),
     });
   }
 
