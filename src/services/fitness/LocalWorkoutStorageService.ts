@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { WorkoutType } from '../../types/workout';
 import type { Split } from '../activity/SplitTrackingService';
 import { DailyRewardService } from '../rewards/DailyRewardService';
+import { RewardDestinationService } from '../rewards/RewardDestinationService';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
 import Toast from 'react-native-toast-message';
 
@@ -592,6 +593,29 @@ export class LocalWorkoutStorageService {
   }
 
   /**
+   * Add reward-routing audit tags without leaking user Lightning addresses.
+   */
+  private async appendRewardDestinationTags(tags: string[][]): Promise<void> {
+    try {
+      const destination = await RewardDestinationService.getDestinationAddress();
+
+      if (destination.isPPQ) {
+        tags.push(['reward_destination', 'ppq']);
+      } else if (destination.isCharity) {
+        tags.push(['reward_destination', 'charity']);
+      } else {
+        tags.push(['reward_destination', 'user']);
+      }
+
+      if (destination.charityId) {
+        tags.push(['reward_charity_id', destination.charityId]);
+      }
+    } catch (error) {
+      console.warn('[LocalWorkoutStorage] Failed to add reward destination tags:', error);
+    }
+  }
+
+  /**
    * Auto-submit cardio workouts to Supabase for leaderboard tracking.
    * Fire-and-forget — errors are logged, never block the save path.
    */
@@ -614,6 +638,9 @@ export class LocalWorkoutStorageService {
       if (selectedTeamId) {
         tags.push(['team', selectedTeamId]);
       }
+
+      // Include reward routing audit tags (user/charity/ppq)
+      await this.appendRewardDestinationTags(tags);
 
       // Get profile for leaderboard display
       const profile = await this.getCachedProfile();
@@ -708,6 +735,8 @@ export class LocalWorkoutStorageService {
       if (selectedTeamId) {
         tags.push(['team', selectedTeamId]);
       }
+
+      await this.appendRewardDestinationTags(tags);
 
       const profile = await this.getCachedProfile();
 
