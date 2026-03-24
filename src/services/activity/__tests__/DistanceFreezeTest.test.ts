@@ -37,14 +37,6 @@ jest.mock('expo-keep-awake', () => ({
   deactivateKeepAwake: jest.fn(),
 }));
 
-jest.mock('../BackgroundLocationTask', () => ({
-  startBackgroundLocationTracking: jest.fn(() => Promise.resolve()),
-  stopBackgroundLocationTracking: jest.fn(() => Promise.resolve()),
-  pauseBackgroundTracking: jest.fn(() => Promise.resolve()),
-  resumeBackgroundTracking: jest.fn(() => Promise.resolve()),
-  getAndClearBackgroundLocations: jest.fn(() => Promise.resolve([])),
-}));
-
 // Type definitions
 type DistanceUpdate = {
   timestamp: number;
