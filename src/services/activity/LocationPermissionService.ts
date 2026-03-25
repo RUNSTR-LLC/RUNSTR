@@ -247,10 +247,20 @@ class LocationPermissionService {
    * Open device settings for location permissions
    */
   async openLocationSettings(): Promise<void> {
-    if (Platform.OS === 'ios') {
-      Linking.openURL('app-settings:');
-    } else {
-      Linking.openSettings();
+    try {
+      if (Platform.OS === 'ios') {
+        const settingsUrl = 'app-settings:';
+        const canOpenSettingsUrl = await Linking.canOpenURL(settingsUrl);
+
+        if (canOpenSettingsUrl) {
+          await Linking.openURL(settingsUrl);
+          return;
+        }
+      }
+
+      await Linking.openSettings();
+    } catch (error) {
+      console.error('Error opening location settings:', error);
     }
   }
 
