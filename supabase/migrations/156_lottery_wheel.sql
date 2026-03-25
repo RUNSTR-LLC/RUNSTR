@@ -49,8 +49,14 @@ CREATE TABLE IF NOT EXISTS lottery_spins (
 );
 
 -- Enforce one spin per user per calendar day (UTC)
+-- Use date_trunc with 'day' at UTC — wrapped in immutable function for index
+CREATE OR REPLACE FUNCTION lottery_spin_day(ts TIMESTAMPTZ)
+RETURNS DATE AS $$
+  SELECT (ts AT TIME ZONE 'UTC')::date;
+$$ LANGUAGE sql IMMUTABLE;
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_lottery_spins_one_per_day
-  ON lottery_spins (npub, (spun_at::date));
+  ON lottery_spins (npub, lottery_spin_day(spun_at));
 
 CREATE INDEX IF NOT EXISTS idx_lottery_spins_npub ON lottery_spins(npub);
 CREATE INDEX IF NOT EXISTS idx_lottery_spins_spun_at ON lottery_spins(spun_at DESC);
