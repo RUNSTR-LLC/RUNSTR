@@ -72,18 +72,9 @@ export function useLeagueRankings(
 
                 // Compute rankings locally
                 const result = await leagueRankingService
-                  .getInstance()
-                  .getRankings(
-                    competitionId,
-                    memberList.map((npub) => ({
-                      npub,
-                      name: npub.slice(0, 8) + '...',
-                      isActive: true,
-                    })),
-                    parameters
-                  );
+                  .getCurrentRankings(competitionId);
 
-                return result.rankings;
+                return result?.rankings ?? [];
               },
               'leaderboards'
             )
@@ -94,14 +85,15 @@ export function useLeagueRankings(
 
                 if (
                   !participants &&
-                  parameters.teamId
+                  (parameters as any).teamId
                 ) {
-                  const membersCacheKey = `members:${parameters.teamId}`;
+                  const teamId = (parameters as any).teamId as string;
+                  const membersCacheKey = `members:${teamId}`;
                   const { ClubMembershipService } = await import('../services/backend/ClubMembershipService');
                   const cachedMembers = await UnifiedCacheService.fetch(
                     membersCacheKey,
                     async () => {
-                      const clubMembers = await ClubMembershipService.getClubMembers(parameters.teamId!);
+                      const clubMembers = await ClubMembershipService.getClubMembers(teamId);
                       return clubMembers.map((m) => m.member_npub);
                     },
                     'members'
@@ -110,18 +102,9 @@ export function useLeagueRankings(
                 }
 
                 const result = await leagueRankingService
-                  .getInstance()
-                  .getRankings(
-                    competitionId,
-                    memberList.map((npub) => ({
-                      npub,
-                      name: npub.slice(0, 8) + '...',
-                      isActive: true,
-                    })),
-                    parameters
-                  );
+                  .getCurrentRankings(competitionId);
 
-                return result.rankings;
+                return result?.rankings ?? [];
               },
               'leaderboards'
             );

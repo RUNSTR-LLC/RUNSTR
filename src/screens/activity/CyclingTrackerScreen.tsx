@@ -152,7 +152,7 @@ export const CyclingTrackerScreen: React.FC<CyclingTrackerScreenProps> = ({
       e.preventDefault();
 
       // Show confirmation dialog
-      CustomAlert.show({
+      (CustomAlert as any).show({
         title: 'Stop Tracking?',
         message: 'You have an active workout. Do you want to stop and discard it?',
         buttons: [

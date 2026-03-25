@@ -28,8 +28,8 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
     try {
       const charity = await CharitySelectionService.getSelectedCharity();
       setSelectedCharity({
-        name: charity.name,
-        address: charity.lightningAddress,
+        name: charity?.name || '',
+        address: charity?.lightningAddress || '',
       });
       setCharityModalVisible(true);
     } catch (error) {

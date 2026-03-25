@@ -16,6 +16,7 @@ export type WorkoutType =
   | 'strength_training'
   | 'strength' // For imported Nostr workouts
   | 'meditation'
+  | 'yoga'
   | 'diet'
   | 'fasting';
 export type WorkoutSource =

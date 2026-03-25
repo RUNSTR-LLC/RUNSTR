@@ -386,6 +386,8 @@ export class Nuclear1301Service {
             source: 'nostr',
             nostrEventId: event.id,
             nostrPubkey: event.pubkey,
+            nostrCreatedAt: event.created_at,
+            unitSystem: 'metric' as const,
             syncedAt: new Date().toISOString(),
           };
 
@@ -413,6 +415,8 @@ export class Nuclear1301Service {
             source: 'nostr',
             nostrEventId: event.id,
             nostrPubkey: event.pubkey,
+            nostrCreatedAt: event.created_at,
+            unitSystem: 'metric' as const,
             syncedAt: new Date().toISOString(),
           };
           workouts.push(fallbackWorkout);
@@ -572,6 +576,8 @@ export class Nuclear1301Service {
             source: 'nostr',
             nostrEventId: event.id,
             nostrPubkey: event.pubkey,
+            nostrCreatedAt: event.created_at,
+            unitSystem: 'metric' as const,
             syncedAt: new Date().toISOString(),
           };
           workouts.push(workout);

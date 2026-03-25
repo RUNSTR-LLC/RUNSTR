@@ -35,7 +35,8 @@ export type RunstrPayoutScheme =
   | 'top_3_split'
   | 'top_5_split'
   | 'fixed_amount'
-  | 'random_winner';
+  | 'random_winner'
+  | 'random_lottery';
 
 /**
  * Get valid payout schemes for a scoring type

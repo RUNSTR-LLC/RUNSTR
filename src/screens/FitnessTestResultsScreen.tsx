@@ -82,9 +82,9 @@ export const FitnessTestResultsScreen: React.FC = () => {
           grade: testResult.grade,
           duration: testResult.testDuration,
           components: {
-            pushups: testResult.pushups,
-            situps: testResult.situps,
-            run5k: testResult.run,
+            pushups: testResult.pushups as { reps: number; score: number; } | null,
+            situps: testResult.situps as { reps: number; score: number; } | null,
+            run5k: testResult.run as { timeSeconds: number; score: number; } | null,
           },
         });
 
@@ -92,7 +92,7 @@ export const FitnessTestResultsScreen: React.FC = () => {
         console.log('📤 Publishing fitness test card to Nostr...');
         const publishingService = WorkoutPublishingService;
 
-        const eventId = await publishingService.uploadCardAndPublish(
+        const eventId = await (publishingService as any).uploadCardAndPublish(
           cardData.svgContent,
           `RUNSTR Fitness Test - ${testResult.compositeScore}/300 (${testResult.grade})`,
           {

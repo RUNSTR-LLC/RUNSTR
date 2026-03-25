@@ -222,7 +222,7 @@ export class Competition1301QueryService {
 
       const normalizedQueryType = query.activityType.toLowerCase();
       const filteredWorkouts = competitiveWorkouts.filter(
-        (workout) => (workout.activityType || '').toLowerCase() === normalizedQueryType
+        (workout) => ((workout as any).activityType || '').toLowerCase() === normalizedQueryType
       );
       console.log(
         `📦 Filtered ${competitiveWorkouts.length} → ${filteredWorkouts.length} ${query.activityType} workouts (case-insensitive)`
@@ -339,7 +339,7 @@ export class Competition1301QueryService {
 
     // Parse distance - look for tag with unit
     let distance = 0; // in meters
-    const distanceTagIndex = tags.findIndex((t) => t[0] === 'distance');
+    const distanceTagIndex = tags.findIndex((t: string[]) => t[0] === 'distance');
     if (distanceTagIndex !== -1) {
       const distanceTag = tags[distanceTagIndex];
       const distValue = parseFloat(distanceTag[1]) || 0;
@@ -378,8 +378,9 @@ export class Competition1301QueryService {
       }
     }
 
-    const workout: NostrWorkout = {
+    const workout: NostrWorkout & { activityType?: string } = {
       id: event.id,
+      userId: event.pubkey,
       source: 'nostr',
       type: workoutType as any,
       activityType: workoutType,
@@ -388,12 +389,15 @@ export class Competition1301QueryService {
       duration: duration, // in seconds
       distance: distance, // in meters
       calories: parseInt(this.extractTag(tags, 'calories') || '0'),
-      averageHeartRate: parseInt(this.extractTag(tags, 'avg_hr') || '0'),
-      maxHeartRate: parseInt(this.extractTag(tags, 'max_hr') || '0'),
+      heartRate: {
+        avg: parseInt(this.extractTag(tags, 'avg_hr') || '0'),
+        max: parseInt(this.extractTag(tags, 'max_hr') || '0'),
+      },
       nostrEventId: event.id,
       nostrPubkey: event.pubkey,
       nostrCreatedAt: event.created_at,
-      unitSystem: 'metric' as any, // Default to metric since we store in meters
+      unitSystem: 'metric' as const,
+      syncedAt: new Date().toISOString(),
       dataSource: dataSource, // For filtering manual entries from competitions
     };
 
@@ -490,7 +494,7 @@ export class Competition1301QueryService {
    * Generate cache key for query
    */
   private getCacheKey(query: CompetitionQuery): string {
-    return `${query.memberNpubs.sort().join(',')}:${
+    return `${(query.memberNpubs || []).sort().join(',')}:${
       query.activityType
     }:${query.startDate.getTime()}:${query.endDate.getTime()}`;
   }
@@ -615,13 +619,13 @@ export class Competition1301QueryService {
 
         // Filter by activity type (case-insensitive comparison)
         // mapSportToActivityType returns 'Running' but kind 1301 uses 'running'
-        const normalizedWorkoutType = (workout.activityType || '').toLowerCase();
+        const normalizedWorkoutType = ((workout as any).activityType || '').toLowerCase();
         const normalizedQueryType = activityType.toLowerCase();
         if (normalizedQueryType !== 'any' && normalizedWorkoutType !== normalizedQueryType) {
           filteredByActivity++;
           // DEBUG: Log first few filtered-by-activity
           if (filteredByActivity <= 3) {
-            console.log(`   ❌ Filtered by activity: got "${workout.activityType}" (${normalizedWorkoutType}), wanted "${activityType}" (${normalizedQueryType})`);
+            console.log(`   ❌ Filtered by activity: got "${(workout as any).activityType}" (${normalizedWorkoutType}), wanted "${activityType}" (${normalizedQueryType})`);
           }
           continue;
         }
@@ -650,7 +654,7 @@ export class Competition1301QueryService {
         }
 
         // DEBUG: Log qualifying workouts
-        console.log(`   ✅ QUALIFYING: pubkey ${event.pubkey?.substring(0, 8)}..., activity: ${workout.activityType}, distance: ${distanceKm.toFixed(2)}km, splits: ${splitCount}`);
+        console.log(`   ✅ QUALIFYING: pubkey ${event.pubkey?.substring(0, 8)}..., activity: ${(workout as any).activityType}, distance: ${distanceKm.toFixed(2)}km, splits: ${splitCount}`);
 
         // Add to metrics (keyed by pubkey/npub)
         const npub = workout.nostrPubkey || event.pubkey;

@@ -284,7 +284,7 @@ export class NostrProfilePublisher {
   ): Promise<void> {
     try {
       const npub = await getNpub();
-      const hexPubkey = npubToHex(npub);
+      const hexPubkey = npubToHex(npub || '');
 
       if (!npub || !hexPubkey) {
         console.warn('⚠️ Cannot update cache: missing npub or hexPubkey');
@@ -294,7 +294,7 @@ export class NostrProfilePublisher {
       // Get existing user data from cache to preserve fields like role, teamId, etc.
       const existingUser = unifiedCache.getCached(
         CacheKeys.USER_PROFILE(hexPubkey)
-      );
+      ) as any;
 
       // Merge existing data with new profile fields
       const updatedUser = {

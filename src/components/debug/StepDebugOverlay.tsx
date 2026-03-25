@@ -86,6 +86,9 @@ export const StepDebugOverlay: React.FC = () => {
   // Disabled for production - uncomment below for debug builds
   return null;
 
+  // All debug UI code below is disabled for production.
+  // To re-enable, remove the early return above and uncomment the code below.
+  /*
   // Android-only component
   if (Platform.OS !== 'android') return null;
 
@@ -104,7 +107,7 @@ export const StepDebugOverlay: React.FC = () => {
         try {
           todaySteps = await nativeStepCounterService.getTodaySteps();
         } catch {
-          // ignore – may not be initialized
+          // ignore - may not be initialized
         }
         const trackingStartTime = nativeStepCounterService.getTrackingStartTime();
 
@@ -182,7 +185,6 @@ Last Poll: ${snapshot.lastPollTime.toISOString()}
 
   return (
     <View style={styles.container}>
-      {/* Floating bug icon */}
       <TouchableOpacity
         style={styles.iconButton}
         onPress={() => setIsExpanded(!isExpanded)}
@@ -195,10 +197,8 @@ Last Poll: ${snapshot.lastPollTime.toISOString()}
         />
       </TouchableOpacity>
 
-      {/* Expanded panel */}
       {isExpanded && snapshot && (
         <View style={styles.panel}>
-          {/* Header */}
           <View style={styles.panelHeader}>
             <Text style={styles.panelTitle}>STEP DEBUG</Text>
             <TouchableOpacity
@@ -218,77 +218,56 @@ Last Poll: ${snapshot.lastPollTime.toISOString()}
             style={styles.panelContent}
             showsVerticalScrollIndicator={false}
           >
-            {/* Active Source */}
             <StatusRow
               label="Active Source"
               value={snapshot.activeSource}
               color={sourceColor(snapshot.activeSource)}
             />
-
-            {/* Native Sensor */}
             <StatusRow
               label="Native Sensor"
               value={snapshot.nativeSensorRunning ? 'Running' : 'Stopped'}
               color={boolColor(snapshot.nativeSensorRunning)}
             />
-
-            {/* BG Tracking */}
             <StatusRow
               label="BG Tracking"
               value={snapshot.backgroundTrackingEnabled ? 'Enabled' : 'Disabled'}
               color={boolColor(snapshot.backgroundTrackingEnabled)}
             />
-
-            {/* Today's Steps */}
             <StatusRow
               label="Today's Steps"
               value={snapshot.todaySteps.toLocaleString()}
               color={STATUS_COLORS.neutral}
             />
-
-            {/* Session Start */}
             <StatusRow
               label="Session Start"
               value={formatTime(snapshot.trackingStartTime)}
               color={STATUS_COLORS.neutral}
             />
-
-            {/* HC SDK */}
             <StatusRow
               label="HC SDK"
               value={sdkStatusLabel(snapshot.healthConnectSdkStatus)}
               color={sdkStatusColor(snapshot.healthConnectSdkStatus)}
             />
-
-            {/* HC Permission */}
             <StatusRow
               label="HC Permission"
               value={snapshot.stepsPermissionGranted ? 'Granted' : 'Denied'}
               color={boolColor(snapshot.stepsPermissionGranted)}
             />
-
-            {/* ROM Type */}
             <StatusRow
               label="ROM Type"
               value={`${snapshot.romType}${snapshot.isPrivacyROM ? ' *' : ''}`}
               color={STATUS_COLORS.neutral}
             />
-
-            {/* Android Version */}
             <StatusRow
               label="Android"
               value={`${snapshot.androidVersion}`}
               color={STATUS_COLORS.neutral}
             />
-
-            {/* Last Poll */}
             <StatusRow
               label="Last Poll"
               value={`${Math.round((Date.now() - snapshot.lastPollTime.getTime()) / 1000)}s ago`}
               color={STATUS_COLORS.neutral}
             />
-
-            {/* Sensor Notes */}
             {snapshot.sensorNotes && (
               <Text style={styles.noteText} numberOfLines={2}>
                 {snapshot.sensorNotes}
@@ -299,6 +278,7 @@ Last Poll: ${snapshot.lastPollTime.toISOString()}
       )}
     </View>
   );
+  */
 };
 
 /** Single diagnostic row */

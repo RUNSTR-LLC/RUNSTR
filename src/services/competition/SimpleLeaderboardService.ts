@@ -467,7 +467,7 @@ export class SimpleLeaderboardService {
 
     // ✅ NEW: Check cache first
     const cachedWorkouts =
-      await this.cacheService.getCachedLeaderboardWorkouts<Workout>(
+      await (this.cacheService as any).getCachedLeaderboardWorkouts?.(
         memberNpubs,
         activityType,
         startDate,
@@ -509,7 +509,7 @@ export class SimpleLeaderboardService {
         if (pubkey.startsWith('npub1')) {
           // Convert npub to hex
           try {
-            const decoded = ndk.nip19.decode(pubkey);
+            const decoded = nip19.decode(pubkey);
             hexPubkeys.push(decoded.data as string);
             console.log(
               `🔄 Converted npub to hex: ${pubkey.slice(0, 12)}... → ${(
@@ -542,7 +542,7 @@ export class SimpleLeaderboardService {
       );
 
       const filter: NDKFilter = {
-        kinds: [1301],
+        kinds: [1301 as any],
         authors: hexPubkeys, // Use validated hex pubkeys
         since: startTimestamp,
         until: endTimestamp,
@@ -626,7 +626,7 @@ export class SimpleLeaderboardService {
 
       // ✅ NEW: Cache the results for 5 minutes
       if (workouts.length > 0) {
-        await this.cacheService.cacheLeaderboardWorkouts(
+        await (this.cacheService as any).cacheLeaderboardWorkouts?.(
           memberNpubs,
           activityType,
           startDate,
@@ -726,7 +726,7 @@ export class SimpleLeaderboardService {
         distance,
         duration,
         calories: caloriesStr ? parseInt(caloriesStr) : undefined,
-        timestamp: event.created_at,
+        timestamp: event.created_at ?? 0,
         splits: splits.size > 0 ? splits : undefined,
         splitPaces: splitPaces.size > 0 ? splitPaces : undefined,
         lightningAddress,
@@ -983,13 +983,13 @@ export class SimpleLeaderboardService {
     if (forceRefresh) {
       console.log(`📊 [Leaderboard] 🔄 FORCE REFRESH: Bypassing cache for ${teamId}`);
       // Clear existing cache entry
-      await this.cacheService.invalidate(cacheKey);
+      await (this.cacheService as any).invalidate(cacheKey);
     } else {
-      const cached = await this.cacheService.get(cacheKey);
+      const cached = await (this.cacheService as any).get(cacheKey);
       if (cached) {
         console.log(`📊 [Leaderboard] ✅ CACHE HIT - Returning cached data`);
         console.log(`📊 [Leaderboard] ========== QUERY END (cached) ==========`);
-        return cached;
+        return cached as any;
       }
       console.log(`📊 [Leaderboard] ❌ CACHE MISS - Querying relays`);
     }
@@ -1003,7 +1003,7 @@ export class SimpleLeaderboardService {
     console.log(`📊 [Leaderboard] Relay Status: ${relayStatus.connectedRelays}/${relayStatus.relayCount} connected`);
 
     const filter: NDKFilter = {
-      kinds: [1301],
+      kinds: [1301 as any],
       since: todayMidnight,
       limit: 100, // Reasonable limit to prevent excessive data
     };
@@ -1188,7 +1188,7 @@ export class SimpleLeaderboardService {
 
       // Cache with smart TTL (5min for today, 24hr for historical)
       const ttl = this.getSmartTTL(todayDate);
-      await this.cacheService.setWithCustomTTL(cacheKey, result, ttl);
+      await (this.cacheService as any).setWithCustomTTL(cacheKey, result, ttl);
       const totalDuration = Date.now() - queryStartTime;
       console.log(`📊 [Leaderboard] 💾 Cached with ${ttl === 300 ? '5min' : '24hr'} TTL`);
       console.log(`📊 [Leaderboard] ========== QUERY END (${totalDuration}ms) ==========`);
@@ -1205,7 +1205,7 @@ export class SimpleLeaderboardService {
 
     // Cache with smart TTL (5min for today, 24hr for historical)
     const ttl = this.getSmartTTL(todayDate);
-    await this.cacheService.setWithCustomTTL(cacheKey, result, ttl);
+    await (this.cacheService as any).setWithCustomTTL(cacheKey, result, ttl);
     const totalDuration = Date.now() - queryStartTime;
     console.log(`📊 [Leaderboard] 💾 Cached with ${ttl === 300 ? '5min' : '24hr'} TTL`);
     console.log(`📊 [Leaderboard] ========== QUERY END (${totalDuration}ms) ==========`);
@@ -1246,13 +1246,13 @@ export class SimpleLeaderboardService {
 
     if (forceRefresh) {
       console.log(`📊 [GlobalLeaderboard] 🔄 FORCE REFRESH: Bypassing cache`);
-      await this.cacheService.invalidate(cacheKey);
+      await (this.cacheService as any).invalidate(cacheKey);
     } else {
-      const cached = await this.cacheService.get(cacheKey);
+      const cached = await (this.cacheService as any).get(cacheKey);
       if (cached) {
         console.log(`📊 [GlobalLeaderboard] ✅ CACHE HIT - Returning cached data`);
         console.log(`📊 [GlobalLeaderboard] ========== QUERY END (cached) ==========`);
-        return cached;
+        return cached as any;
       }
       console.log(`📊 [GlobalLeaderboard] ❌ CACHE MISS - Querying relays`);
     }
@@ -1265,7 +1265,7 @@ export class SimpleLeaderboardService {
     console.log(`📊 [GlobalLeaderboard] Relay Status: ${relayStatus.connectedRelays}/${relayStatus.relayCount} connected`);
 
     const filter: NDKFilter = {
-      kinds: [1301],
+      kinds: [1301 as any],
       since: todayMidnight,
     };
 
@@ -1384,7 +1384,7 @@ export class SimpleLeaderboardService {
     };
 
     // Cache for 5 minutes
-    await this.cacheService.set(cacheKey, result, 300);
+    await (this.cacheService as any).set(cacheKey, result, 300);
     const totalDuration = Date.now() - queryStartTime;
     console.log(`📊 [GlobalLeaderboard] 💾 Cached with 5min TTL`);
     console.log(`📊 [GlobalLeaderboard] ========== QUERY END (${totalDuration}ms) ==========`);

@@ -322,7 +322,7 @@ export class SimpleNostrService {
     return new Promise((resolve) => {
       console.log(`📡 SimplePool query: ${strategy}`);
 
-      const sub = this.pool.subscribeMany(this.relayUrls, [filter], {
+      const sub = this.pool.subscribeMany(this.relayUrls, [filter] as any, {
         onevent: (event: Event) => {
           // COMPREHENSIVE EVENT LOGGING (senior developer fix)
           console.log(`📥 RAW EVENT RECEIVED:`, {
@@ -361,17 +361,17 @@ export class SimpleNostrService {
    */
   private parseTeamEvent(event: NostrTeamEvent): NostrTeam | null {
     try {
-      const tags = new Map(event.tags.map((tag) => [tag[0], tag.slice(1)]));
+      const tags = new Map((event.tags as string[][]).map((tag: string[]) => [tag[0], tag.slice(1)]));
 
       const name = tags.get('name')?.[0] || 'Unnamed Team';
       const captain = tags.get('captain')?.[0] || event.pubkey;
       const teamUUID = tags.get('d')?.[0];
 
-      const memberTags = event.tags.filter((tag) => tag[0] === 'member');
+      const memberTags = (event.tags as string[][]).filter((tag: string[]) => tag[0] === 'member');
       const memberCount = memberTags.length + 1; // +1 for captain
 
-      const activityTags = event.tags.filter((tag) => tag[0] === 't');
-      const activityTypes = activityTags.map((tag) => tag[1]).filter(Boolean);
+      const activityTags = (event.tags as string[][]).filter((tag: string[]) => tag[0] === 't');
+      const activityTypes = activityTags.map((tag: string[]) => tag[1]).filter(Boolean);
 
       return {
         id: `${captain}:${teamUUID || event.id}`,
@@ -400,7 +400,7 @@ export class SimpleNostrService {
    * Public team check (preserved logic)
    */
   private isTeamPublic(event: NostrTeamEvent): boolean {
-    const publicTag = event.tags.find((tag) => tag[0] === 'public');
+    const publicTag = (event.tags as string[][]).find((tag: string[]) => tag[0] === 'public');
     return publicTag ? publicTag[1]?.toLowerCase() === 'true' : false;
   }
 

@@ -43,7 +43,11 @@ export type NostrLeagueCompetitionType =
   | 'Nutrition Score'
   | 'Calorie Consistency'
   | 'Macro Balance'
-  | 'Meal Logging';
+  | 'Meal Logging'
+  | '5K Race'
+  | '10K Race'
+  | 'Half Marathon'
+  | 'Marathon';
 
 export type NostrEventCompetitionType =
   | '5K Race'

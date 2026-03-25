@@ -599,10 +599,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       const result = await Nostr1301ImportService.importUserHistory(pubkey);
 
       if (result.success) {
-        console.log(`[Settings] ✅ Imported ${result.imported} workouts`);
+        console.log(`[Settings] ✅ Imported ${result.totalImported} workouts`);
         CustomAlertManager.alert(
           'Import Complete',
-          `Successfully imported ${result.imported} workout${result.imported !== 1 ? 's' : ''}.`
+          `Successfully imported ${result.totalImported} workout${result.totalImported !== 1 ? 's' : ''}.`
         );
       } else {
         throw new Error(result.error || 'Import failed');

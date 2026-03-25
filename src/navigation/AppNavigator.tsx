@@ -398,7 +398,7 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
       {/* Satlantis Event Detail Screen */}
       <Stack.Screen
         name="SatlantisEventDetail"
-        component={SatlantisEventDetailScreen}
+        component={SatlantisEventDetailScreen as any}
         options={{
           ...defaultScreenOptions,
           headerShown: false,
@@ -532,7 +532,7 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
       {/* Dynamic Event Detail - Data-driven competitions from Supabase */}
       <Stack.Screen
         name="DynamicEventDetail"
-        component={DynamicEventDetailScreen}
+        component={DynamicEventDetailScreen as any}
         options={{
           ...defaultScreenOptions,
           headerShown: false,

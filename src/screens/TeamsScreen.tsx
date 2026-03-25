@@ -296,6 +296,7 @@ const TeamsScreenComponent: React.FC = () => {
           displayName: team.name,
           description: team.description || 'Community team',
           lightningAddress: team.lightning_address || undefined,
+          category: 'project' as const,
         });
       } else {
         // Team not found (deactivated or deleted)
@@ -503,7 +504,7 @@ const TeamsScreenComponent: React.FC = () => {
   const handleCommunityZapPress = (team: { id: string; name: string; lightningAddress?: string }) => {
     if (!team.lightningAddress) return;
     console.log(`[TeamsScreen] Opening zap modal for community team ${team.name}`);
-    setZapTargetCharity({ id: team.id, name: team.name, displayName: team.name, description: '', lightningAddress: team.lightningAddress });
+    setZapTargetCharity({ id: team.id, name: team.name, displayName: team.name, description: '', lightningAddress: team.lightningAddress, category: 'project' as const });
     setShowZapModal(true);
   };
 
@@ -544,6 +545,7 @@ const TeamsScreenComponent: React.FC = () => {
       ? `Rewards sent to ${userLightningAddress}`
       : 'Keep your rewards — set a Lightning address',
     isSelf: true,
+    category: 'service' as const,
   };
 
   // Find selected team object (check self team, then community teams, then charities)

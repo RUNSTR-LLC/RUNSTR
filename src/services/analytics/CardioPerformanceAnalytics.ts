@@ -34,7 +34,7 @@ export class CardioPerformanceAnalytics {
       paceImprovement: this.calculatePaceTrend(cardioWorkouts),
       distanceProgression: this.calculateDistanceTrend(cardioWorkouts),
       // TODO: Heart rate data not available in LocalWorkout - requires HealthKit integration
-      heartRateEfficiency: undefined,
+      heartRateEfficiency: undefined as unknown as HeartRateTrend,
       vo2MaxEstimate: healthProfile
         ? this.estimateVO2Max(cardioWorkouts, healthProfile)
         : undefined,
@@ -282,7 +282,7 @@ export class CardioPerformanceAnalytics {
   private static calculateHeartRateTrend(
     workouts: LocalWorkout[]
   ): HeartRateTrend {
-    const workoutsWithHR = workouts.filter((w) => w.heartRate?.avg);
+    const workoutsWithHR = workouts.filter((w) => (w as any).heartRate?.avg);
 
     if (workoutsWithHR.length === 0) {
       return {
@@ -340,7 +340,7 @@ export class CardioPerformanceAnalytics {
     if (workouts.length === 0) return 0;
 
     const totalHR = workouts.reduce(
-      (sum, w) => sum + (w.heartRate?.avg || 0),
+      (sum, w) => sum + ((w as any).heartRate?.avg || 0),
       0
     );
     return totalHR / workouts.length;
@@ -357,7 +357,7 @@ export class CardioPerformanceAnalytics {
       new Map();
 
     workouts.forEach((w) => {
-      if (!w.distance || !w.heartRate?.avg) return;
+      if (!w.distance || !(w as any).heartRate?.avg) return;
 
       const pace = w.duration / (w.distance / 1000); // seconds per km
       const paceBucket = Math.floor(pace / 30) * 30; // 30-second buckets
@@ -367,7 +367,7 @@ export class CardioPerformanceAnalytics {
       }
 
       const bucket = paceBuckets.get(paceBucket)!;
-      bucket.totalHR += w.heartRate.avg;
+      bucket.totalHR += (w as any).heartRate.avg;
       bucket.count += 1;
     });
 

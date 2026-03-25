@@ -115,7 +115,7 @@ export const HikingTrackerScreen: React.FC<HikingTrackerScreenProps> = ({
 
       e.preventDefault();
 
-      CustomAlert.show({
+      setAlertConfig({
         title: 'Stop Tracking?',
         message: 'You have an active hike. Do you want to stop and discard it?',
         buttons: [
@@ -133,6 +133,7 @@ export const HikingTrackerScreen: React.FC<HikingTrackerScreenProps> = ({
           },
         ],
       });
+      setAlertVisible(true);
     });
 
     return unsubscribe;
@@ -528,7 +529,7 @@ export const HikingTrackerScreen: React.FC<HikingTrackerScreenProps> = ({
               setSummaryModalVisible(false);
               setWorkoutData(null);
             }}
-            workout={workoutData}
+            workout={workoutData as any}
           />
         )}
 

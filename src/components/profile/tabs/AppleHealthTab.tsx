@@ -137,7 +137,7 @@ const AppleHealthTabContent: React.FC<AppleHealthTabProps> = ({
         timeoutPromise,
       ]);
 
-      if (permissionResult.success) {
+      if ((permissionResult as { success: boolean; error?: string }).success) {
         // Use getStatusWithRealCheck for accurate post-permission status
         // This performs a real iOS check instead of using cached value
         const status = await healthKitService.getStatusWithRealCheck();
@@ -155,7 +155,7 @@ const AppleHealthTabContent: React.FC<AppleHealthTabProps> = ({
       } else {
         setHasPermission(false);
         const errorMessage =
-          permissionResult.error || 'Permission request failed';
+          (permissionResult as { success: boolean; error?: string }).error || 'Permission request failed';
 
         if (errorMessage.includes('not available')) {
           CustomAlertManager.alert(
@@ -229,9 +229,9 @@ const AppleHealthTabContent: React.FC<AppleHealthTabProps> = ({
         timeoutPromise,
       ]);
 
-      setWorkouts(healthKitWorkouts || []);
+      setWorkouts((healthKitWorkouts as any[]) || []);
       console.log(
-        `✅ Loaded ${healthKitWorkouts?.length || 0} Apple Health workouts`
+        `✅ Loaded ${(healthKitWorkouts as any[])?.length || 0} Apple Health workouts`
       );
     } catch (error) {
       console.error('❌ Failed to load Apple Health workouts:', error);

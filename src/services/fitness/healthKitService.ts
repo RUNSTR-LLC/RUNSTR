@@ -48,7 +48,7 @@ if (Platform.OS === 'ios') {
   } catch (e) {
     errorLog(
       'HealthKit Service: Failed to import @yzlin/expo-healthkit:',
-      e.message
+      (e as Error).message
     );
     ExpoHealthKit = null;
   }
@@ -360,7 +360,7 @@ export class HealthKitService {
     success: boolean;
     error?: string;
   }> {
-    return this.executeWithTimeout(
+    return this.executeWithTimeout<{ success: boolean; error?: string }>(
       async () => {
         // Run after interactions to prevent UI blocking
         return new Promise((resolve, reject) => {
@@ -1411,7 +1411,7 @@ export class HealthKitService {
       errorLog('HealthKit: Error in getRecentWorkouts:', error);
 
       console.error('❌ HealthKit getRecentWorkouts failed:', {
-        error: error.message,
+        error: (error as Error).message,
         userId,
         days,
         authorized: this.isAuthorized,
