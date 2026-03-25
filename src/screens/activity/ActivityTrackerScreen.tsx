@@ -19,6 +19,7 @@ import { theme } from '../../styles/theme';
 import { PermissionRequestModal } from '../../components/permissions/PermissionRequestModal';
 import { appPermissionService } from '../../services/initialization/AppPermissionService';
 import { SwipeGridNavigator } from '../../components/activity/SwipeGridNavigator';
+import { ActivityCategoryBar } from '../../components/activity/ActivityCategoryBar';
 import {
   activityGridService,
   type GridPosition,
@@ -262,6 +263,11 @@ export const ActivityTrackerScreen: React.FC = () => {
     }
   };
 
+  const handleActivitySelect = (row: number, column: number) => {
+    // Just update state — existing useEffect auto-saves to AsyncStorage
+    setGridPosition({ row, column });
+  };
+
   // Handle step post button tap
   const handlePostSteps = () => {
     if (!canPostSteps) return;
@@ -344,21 +350,18 @@ export const ActivityTrackerScreen: React.FC = () => {
       }
 
       case 'wellness': {
-        const validMeditations: MeditationType[] = ['guided', 'unguided', 'breathwork', 'body_scan', 'gratitude'];
-        const meditationType = validMeditations.includes(activity as MeditationType)
-          ? (activity as MeditationType)
-          : 'guided';
-        return <MeditationTrackerScreen initialType={meditationType} />;
-      }
-
-      case 'mindfulness': {
+        const meditationTypes = ['guided', 'unguided', 'breathwork', 'body_scan', 'gratitude'];
+        if (meditationTypes.includes(activity)) {
+          const meditationType = activity as MeditationType;
+          return <MeditationTrackerScreen initialType={meditationType} />;
+        }
         switch (activity) {
           case 'journal':
             return <JournalTrackerScreen />;
           case 'habits':
             return <HabitTrackerScreen />;
           default:
-            return <JournalTrackerScreen />;
+            return <MeditationTrackerScreen initialType="guided" />;
         }
       }
 
@@ -395,6 +398,13 @@ export const ActivityTrackerScreen: React.FC = () => {
 
         <View style={styles.headerSpacer} />
       </View>
+
+      {/* Category navigation bar */}
+      <ActivityCategoryBar
+        gridPosition={gridPosition}
+        onActivitySelect={handleActivitySelect}
+        isWorkoutActive={isWorkoutActive}
+      />
 
       {/* Main content - gated on position load (prevents flash) and permissions */}
       {positionLoaded && permissionsReady ? (
