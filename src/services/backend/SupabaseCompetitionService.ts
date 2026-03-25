@@ -20,6 +20,7 @@ import {
   CharityRanking,
 } from '../../utils/supabase';
 import { getCharityById, isPPQTeam } from '../../constants/charities';
+import { getNpubFromStorage } from '../../utils/nostr';
 import { PPQAccountService } from '../ai/PPQAccountService';
 
 // Local storage key for tracking joined competitions (optimistic join)
@@ -123,19 +124,28 @@ export class SupabaseCompetitionService {
    * Join a competition - adds user's npub to participant list
    * Uses optimistic pattern: save locally first for instant UI, then sync to Supabase
    *
+   * SECURITY: The authenticated npub is derived from local auth storage.
+   * Any caller-provided npub is treated as untrusted and only used for mismatch diagnostics.
+   *
    * @param competitionId - The competition UUID or external_id
-   * @param npub - User's Nostr public key (npub format)
+   * @param npub - Caller-provided npub (untrusted; service resolves authenticated npub)
    * @param profile - Optional profile data (name, picture) to store for leaderboard display
-   * @returns Success status (always true for optimistic join)
+   * @returns Success status
    */
   static async joinCompetition(
     competitionId: string,
     npub: string,
     profile?: { name?: string; picture?: string }
   ): Promise<{ success: boolean; error?: string }> {
+    const authenticatedNpub = await this.resolveAuthenticatedNpub(npub);
+    if (!authenticatedNpub) {
+      console.warn('[SupabaseCompetitionService] joinCompetition blocked: no authenticated npub in local storage');
+      return { success: false, error: 'Not authenticated' };
+    }
+
     // OPTIMISTIC: Save locally FIRST for instant UI feedback
     // This ensures user sees "Joined" state immediately, even if Supabase is slow/fails
-    await this.saveLocalJoin(competitionId, npub);
+    await this.saveLocalJoin(competitionId, authenticatedNpub);
 
     if (!isSupabaseConfigured()) {
       console.warn('[SupabaseCompetitionService] Supabase not configured - local join only');
@@ -158,7 +168,7 @@ export class SupabaseCompetitionService {
         picture?: string;
       } = {
         competition_id: resolvedId,
-        npub,
+        npub: authenticatedNpub,
       };
 
       // Only include profile fields if they have values
@@ -194,14 +204,22 @@ export class SupabaseCompetitionService {
   /**
    * Leave a competition - removes user's npub from participant list
    *
+   * SECURITY: The authenticated npub is derived from local auth storage.
+   * Any caller-provided npub is treated as untrusted and only used for mismatch diagnostics.
+   *
    * @param competitionId - The competition UUID or external_id
-   * @param npub - User's Nostr public key
+   * @param npub - Caller-provided npub (untrusted; service resolves authenticated npub)
    * @returns Success status
    */
   static async leaveCompetition(
     competitionId: string,
     npub: string
   ): Promise<{ success: boolean; error?: string }> {
+    const authenticatedNpub = await this.resolveAuthenticatedNpub(npub);
+    if (!authenticatedNpub) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
     if (!isSupabaseConfigured()) {
       return { success: false, error: 'Backend not configured' };
     }
@@ -215,7 +233,7 @@ export class SupabaseCompetitionService {
       const { error } = await supabase!
         .from('competition_participants')
         .delete()
-        .match({ competition_id: resolvedId, npub });
+        .match({ competition_id: resolvedId, npub: authenticatedNpub });
 
       if (error) {
         console.error('[SupabaseCompetitionService] Leave error:', error);
@@ -227,7 +245,7 @@ export class SupabaseCompetitionService {
       );
 
       // Remove from local storage
-      await this.removeLocalJoin(competitionId, npub);
+      await this.removeLocalJoin(competitionId, authenticatedNpub);
 
       return { success: true };
     } catch (err) {
@@ -1112,6 +1130,29 @@ export class SupabaseCompetitionService {
   // ============================================================================
   // Private Helper Methods
   // ============================================================================
+
+  /**
+   * Resolve authenticated npub from local auth storage.
+   * Caller-provided npub is treated as untrusted and used only for mismatch diagnostics.
+   */
+  private static async resolveAuthenticatedNpub(providedNpub?: string): Promise<string | null> {
+    const storedNpub = await getNpubFromStorage();
+    if (!storedNpub) {
+      return null;
+    }
+
+    if (providedNpub && providedNpub !== storedNpub) {
+      console.warn(
+        '[SupabaseCompetitionService] Caller npub mismatch detected; using authenticated storage npub',
+        {
+          provided: `${providedNpub.slice(0, 12)}...`,
+          authenticated: `${storedNpub.slice(0, 12)}...`,
+        }
+      );
+    }
+
+    return storedNpub;
+  }
 
   /**
    * Resolve a competition ID (could be UUID or external_id) to UUID
