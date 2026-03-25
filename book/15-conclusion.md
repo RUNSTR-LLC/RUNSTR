@@ -1,20 +1,65 @@
 # Chapter 15: Conclusion
 
-## RUNSTR's Unique Value
+## RUNSTR in One Sentence
 
-RUNSTR sits at the intersection of three things people care about:
-1. **Fitness** — Universal desire for health and activity
-2. **Rewards** — Tangible incentive for staying active
-3. **Choice** — Freedom to direct your rewards where they matter to you
+RUNSTR rewards you for working out.
 
-By combining these, RUNSTR creates a virtuous cycle:
-- Exercise → Earn rewards → See impact → Stay motivated → Exercise more
+## RUNSTR in One Paragraph
+
+RUNSTR connects to Apple Health and Health Connect to automatically pull in workouts from any app or wearable you already use — or track directly with built-in GPS, rep counting, and wellness timers. Every workout earns rewards that you control: send them to a charity, fund AI credits, or keep them. Level up through consistency, spin the daily reward wheel for bonuses, and compete in virtual events against other athletes. Create or join Fitness Clubs with friends and earn more together. RUNSTR works in the background so you earn without thinking about it.
+
+---
+
+## The Core Loop
+
+Everything serves one loop:
+
+```
+Aggregate workouts → Earn rewards → Compete in events → Level up → Repeat
+```
+
+This is the product. Everything else is in service of making this loop smoother, stickier, and more rewarding.
+
+---
+
+## What Makes RUNSTR Different
+
+### 1. Fitness Data Aggregator
+RUNSTR isn't just a tracker — it's the place where all your fitness data comes together. In-app GPS tracking, synced workouts from Apple Health and Health Connect, wearable data from Garmin and others. One app, all your workouts, automatic rewards.
+
+### 2. Rewards Your Way
+Choose where your rewards go — a charity, an open source project, AI credits, or yourself. One destination, all rewards. Change anytime.
+
+### 3. Levels That Matter
+Your level isn't arbitrary. It reflects fitness consistency and directly multiplies your daily wheel payouts. More workouts → higher level → bigger rewards. Behavioral reinforcement through variable-ratio rewards.
+
+### 4. Works in the Background
+Any app connected to Apple Health or Health Connect syncs automatically. Earn rewards without opening the app.
+
+### 5. Fitness Clubs & Captain Economies
+Pro subscribers create clubs with leaderboards, chat, and events. Captains earn from member workouts and event participation — a real monetization path for coaches and fitness influencers.
+
+### 6. Sponsor-Funded
+Rewards come from sponsors, not RUNSTR. Sponsor attribution is visible and transparent (Zapvertising). Sustainable without selling user data.
+
+### 7. Zero Friction
+Tap Start. That's it. No email, no phone, no sign-up form. The app works immediately.
+
+---
+
+## Three Audiences, One Product
+
+| Audience | What Draws Them | What They Experience |
+|----------|----------------|---------------------|
+| **Fitness enthusiasts** | Workout aggregation, rewards, competitions | A fitness app that pays them to work out |
+| **Bitcoin/Nostr community** | Circular economy, anonymous tracking, decentralized backup | Privacy-preserving fitness with Lightning rewards |
+| **AI-forward users** | Earn AI credits, agent fitness context | Work out → earn compute → get smarter coaching |
+
+The technology is invisible. The experience is the same for everyone.
 
 ---
 
 ## The Simplicity Principle
-
-RUNSTR's strength is its **simplicity**:
 
 | Complex (Avoid) | Simple (Prefer) |
 |-----------------|-----------------|
@@ -23,6 +68,7 @@ RUNSTR's strength is its **simplicity**:
 | Reward splits and percentages | One destination, all rewards |
 | Mandatory sign-up forms | Tap Start, you're in |
 | Separate donation system | Destinations integrated into rewards |
+| Visible blockchain/protocol jargon | "Rewards", "micro donations", "AI credits" |
 
 ### Why Simplicity Matters
 
@@ -30,6 +76,7 @@ RUNSTR's strength is its **simplicity**:
 2. **Fewer bugs** — Less code = fewer issues
 3. **Better UX** — Clear paths, obvious actions
 4. **Maintainability** — Easier to update and improve
+5. **Wider audience** — Technology-invisible means everyone can use it
 
 ---
 
@@ -38,7 +85,7 @@ RUNSTR's strength is its **simplicity**:
 ### Data Flow
 
 ```
-User works out (in-app GPS or external app via health sync)
+User works out (in-app GPS, rep counter, or external app via health sync)
         ↓
 Local Storage (AsyncStorage)
         ↓
@@ -60,36 +107,40 @@ Push notification ("You received a reward from [Sponsor]")
 | Rewards | SupabaseRewardService | Verified payment tracking |
 | Clubs | ClubMembershipService | Fitness Club management |
 | Backup | BackupService | Encrypted backup (kind 30078) |
+| Verification | PoseDetectionService | Camera-verified reps (MediaPipe) |
 
 ### Navigation
 
 | Tab | Purpose |
 |-----|---------|
-| Profile | Start workouts, view history, join events, settings |
+| Profile | Start workouts, view history, level & wheel, settings |
 | Clubs | Browse/join Fitness Clubs, chat, club events |
 | Rewards | View earnings, sponsor info, change reward destination |
 
 ---
 
-## What Makes RUNSTR Different
+## Core Functionality
 
-### 1. Rewards Your Way
-Choose where your rewards go — a charity, a project, a service, or yourself. Change anytime.
+These are the features that must work perfectly:
 
-### 2. Works in the Background
-Any app connected to Apple Health or Health Connect syncs automatically. Earn rewards without opening the app.
+### Workouts
+- In-app fitness tracker for different activities (GPS, reps, wellness, journal)
+- Background sync from Health Connect and Apple Health
+- Workout history from both in-app and synced workouts
+- Encrypted workout backup to Nostr relays
 
-### 3. Sponsor-Funded Rewards
-Rewards come from sponsors, not RUNSTR. Sponsor attribution is visible and transparent (Zapvertising).
+### Rewards
+- Per-workout rewards for qualifying cardio
+- Push notifications with sponsor branding when rewards are received
+- Rewards routed to the correct destination
+- Extra rewards for subscribers
+- Daily wheel with level-based multiplier
 
-### 4. Zero Friction Onboarding
-Tap Start. That's it. No email, no phone, no sign-up form. The app works immediately.
-
-### 5. Fitness Clubs
-Pro subscribers create clubs with leaderboards, real-time chat, and captain-hosted events. Community built around fitness, not technology.
-
-### 6. Simple UX
-Three tabs, dark theme, clear actions. The underlying technology is invisible.
+### Events & Fitness Clubs
+- Captains create events from templates
+- Workouts auto-submitted into applicable events
+- Captain pledge system for event monetization
+- Club chat rooms with real-time messaging
 
 ---
 
@@ -97,10 +148,12 @@ Three tabs, dark theme, clear actions. The underlying technology is invisible.
 
 ### What's Coming
 
-1. **User-created competitions** — Moving away from hardcoded events (daily leaderboard stays built-in)
-2. **Fitness Club economies** — Captains connect NWC wallets to create reward pools and prize pools (non-custodial)
-3. **More competition types** — Expanding beyond current event templates
-4. **More reward destinations** — Growing the list of charities, projects, and services
+1. **Reward wheel / level system** — Daily spin with payouts multiplied by user level
+2. **Monthly reward pool budget** — Transparent, capped reward pool that resets monthly
+3. **Captain NWC wallets** — Connect wallet to create events with real prize pools (non-custodial)
+4. **User-created competitions** — Moving away from hardcoded events (daily leaderboard stays built-in)
+5. **AI agent integration** — CLI tool/MCP server giving agents access to user fitness data and PPQ.AI credits
+6. **More competition types** — Expanding beyond current event templates
 
 ### What Stays Simple
 
@@ -109,6 +162,7 @@ Three tabs, dark theme, clear actions. The underlying technology is invisible.
 3. **Anonymous-first** — Tap Start, no sign-up required
 4. **Three-tab navigation** — Don't add complexity to the UI
 5. **Sponsor-funded** — Keep rewards sustainable through Zapvertising
+6. **Invisible technology** — Users see rewards, not protocols
 
 ---
 
@@ -137,40 +191,13 @@ Three tabs, dark theme, clear actions. The underlying technology is invisible.
 
 ---
 
-## Using This Book
-
-### For Development
-
-1. **Before coding** — Read relevant chapter to understand architecture
-2. **During coding** — Reference technical sections for file paths
-3. **After coding** — Verify implementation matches ideal architecture
-
-### For Refactoring
-
-1. **Identify gaps** — Compare code to book
-2. **Prioritize** — Focus on core functionality first
-3. **Simplify** — Remove code that doesn't match ideal architecture
-
-### For Onboarding
-
-1. **Start with Chapter 1** — Understand the big picture
-2. **Read your area** — Focus on relevant chapters
-3. **Reference as needed** — Use book as ongoing reference
-4. **Read North Star.md** — Product identity and direction
-
----
-
 ## Final Thoughts
 
-RUNSTR is a fitness company that hosts competitions, builds community through Fitness Clubs, and rewards people for moving. By focusing on:
-- **Rewards your way** — Users choose where rewards go
-- **Background-first** — Works with any fitness app
-- **Simple UX** — Three tabs, zero friction
-- **Sponsor-funded** — Sustainable rewards through Zapvertising
+RUNSTR is a fitness event company with an app that rewards healthy behavior. Built by a behavioral health therapist who designs rewards systems for a living, it applies the science of reinforcement to fitness at scale: make the healthy choice the rewarding choice, and let the technology stay out of the way.
 
-...the app delivers real value without overwhelming users. The technology is invisible. The experience is effortless. Every workout counts.
+The app will work either in the background or the foreground. It will target fitness enthusiasts across Bitcoin, Nostr, and AI communities — but it will feel like a fitness app to all of them. The aggregator that rewards you. The events that challenge you. The clubs that connect you.
 
-Keep it simple. Keep it focused. Keep people moving.
+Aggregate workouts. Earn rewards. Keep it simple. Keep people moving.
 
 ---
 

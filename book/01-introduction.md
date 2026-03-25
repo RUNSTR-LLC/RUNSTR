@@ -2,12 +2,51 @@
 
 ## What is RUNSTR?
 
-RUNSTR is a fitness app that enters your workouts into virtual competitions and rewards you for working out. It doesn't matter if you're a marathon runner or someone who takes a walk after dinner — every workout counts. You choose where your rewards go: to your wallet, to a charity, to an open source project, or converted into AI credits. RUNSTR gives you rewards the way you want them.
+Aggregate workouts, earn rewards. RUNSTR pulls in your workouts from any fitness app or wearable and rewards you for staying active. You choose where your rewards go — a charity, AI credits, or your own wallet. The more you work out, the more you earn. Join competitions, level up, and spin the daily wheel for bonus rewards. It works in the background — just keep working out and RUNSTR handles the rest.
+
+RUNSTR is a fitness company that monetizes through subscriptions, sponsorships (Zapvertising), and event ticket sales. The final form of RUNSTR is a fitness event company with an app that rewards healthy behavior.
 
 ### Core Value Proposition
-**Fitness rewards, your way.**
+**Aggregate workouts, earn rewards.**
 
-Your workouts automatically enter daily leaderboards and virtual competitions. Qualifying workouts earn sponsor-funded rewards sent to whatever destination you choose. Works in the background with any fitness app you already use.
+RUNSTR connects to Apple Health and Health Connect to automatically pull in workouts from any app or wearable you already use — or track directly with built-in GPS, rep counting, and wellness timers. Every workout earns rewards that you control.
+
+---
+
+## The Core Loop
+
+Everything in RUNSTR serves one loop:
+
+```
+Aggregate workouts → Earn rewards → Compete in events → Level up → Repeat
+```
+
+### Aggregation
+RUNSTR is a fitness data aggregator. Data comes in two ways:
+- **Internal** — Built-in GPS trackers, rep counters, wellness timers, journal
+- **External** — Background sync from Apple Health, Health Connect, and connected wearables
+
+The app pulls workouts from across your fitness ecosystem into one place. Users can encrypt and push their workout history to a decentralized network. Advanced users can give this data to their AI agent for context into their health and fitness.
+
+### Rewards
+Rewards are earned in multiple ways:
+- **Per-workout rewards** — Complete a qualifying cardio workout and earn a reward sent to your chosen destination
+- **Competition rewards** — Place on leaderboards in virtual fitness events
+- **Daily wheel** — Spin the RUNSTR wheel for bonus rewards scaled by your level
+- **Captain rewards** — Club captains earn when their members work out
+
+RUNSTR can send rewards as micro donations, AI credits (via PPQ.AI), or directly to your wallet. Users choose ONE destination for all rewards and can change it anytime.
+
+### Levels
+Your level reflects your fitness consistency. The more workouts you aggregate, the higher your level. Levels aren't just a number — they multiply your daily wheel payouts and unlock premium features. This creates a behavioral reinforcement loop: work out consistently, level up, earn more.
+
+---
+
+## Three Things Users Care About
+
+1. **It works with what I already use** — Syncs with any fitness app via Apple Health or Health Connect
+2. **I get something for working out** — Rewards for every qualifying workout
+3. **I choose what happens with it** — 20+ reward destinations including charities, projects, AI credits, or yourself
 
 ---
 
@@ -55,28 +94,8 @@ RUNSTR is **free open source software** licensed under the MIT License. Anyone c
 
 ## How RUNSTR Works
 
-RUNSTR is built around competitions and rewards:
-
-### Competitions
-Your workouts automatically enter virtual competitions. A built-in daily leaderboard tracks the fastest 5K, 10K, half marathon, and marathon times alongside a daily steps ranking. Featured events run on Supabase with their own leaderboards. Fitness Club captains host events for their members.
-
-**Key Features:**
-- Daily leaderboard (5K, 10K, Half Marathon, Marathon, Steps) — always active, no join required
-- Featured events with leaderboards (Season II, Einundzwanzig, Running Bitcoin)
-- Fitness Club competitions created by captains from templates
-- Works with background-synced workouts — no need to open the app
-
-### Rewards
-Qualifying workouts earn rewards funded by sponsors. You choose ONE destination for all your rewards — a charity, an open source project, a service like PPQ.AI for AI credits, or your own wallet. Change your destination anytime.
-
-**Key Features:**
-- Sponsor-funded rewards (Zapvertising) — attributed on Rewards page and push notifications
-- 20+ reward destinations: charities, projects, services, or yourself
-- Subscriber boost: Supporter and Pro tiers earn significantly more per workout
-- Silent failure — rewards never block workout saving
-
 ### Workouts
-Track your fitness using RUNSTR's built-in trackers or any app connected to Apple Health or Health Connect. Four activity categories across a swipeable grid:
+Track your fitness using RUNSTR's built-in trackers or any app connected to Apple Health or Health Connect. Four activity categories:
 
 | Category | Activities |
 |----------|-----------|
@@ -87,9 +106,30 @@ Track your fitness using RUNSTR's built-in trackers or any app connected to Appl
 
 **Key Features:**
 - GPS tracking with real-time pace, distance, elevation, and per-km splits
-- HealthKit (iOS), Health Connect (Android), Garmin background sync
+- Camera-verified rep counting for strength exercises (MediaPipe pose detection)
+- HealthKit (iOS), Health Connect (Android) background sync
 - Auto-submit to Supabase for competitions (all cardio workouts)
 - Passive earning — work out with any connected app and rewards happen automatically
+
+### Rewards
+Qualifying workouts earn rewards funded by sponsors. You choose ONE destination for all your rewards — a charity, an open source project, a service like PPQ.AI for AI credits, or your own wallet. Change your destination anytime.
+
+**Key Features:**
+- Sponsor-funded rewards (Zapvertising) — attributed on Rewards page and push notifications
+- 20+ reward destinations: charities, projects, services, or yourself
+- Daily reward wheel with level-based multiplier
+- Subscriber boost: Supporter and Pro tiers earn significantly more per workout
+- Silent failure — rewards never block workout saving
+
+### Competitions
+Your workouts automatically enter virtual competitions. A built-in daily leaderboard tracks the fastest 5K, 10K, half marathon, and marathon times alongside a daily steps ranking. Featured events run on Supabase with their own leaderboards. Fitness Club captains host events for their members.
+
+**Key Features:**
+- Daily leaderboard (5K, 10K, Half Marathon, Marathon, Steps) — always active
+- Featured events with leaderboards and prize pools
+- Fitness Club competitions created by captains
+- Captain pledge system — captains can charge a portion of daily rewards for event participation
+- Works with background-synced workouts — no need to open the app
 
 ### Fitness Clubs
 Pro subscribers create Fitness Clubs — a dedicated page with member leaderboard, real-time chat, and captain-hosted events. Captains earn rewards for each club member workout.
@@ -97,21 +137,39 @@ Pro subscribers create Fitness Clubs — a dedicated page with member leaderboar
 **Key Features:**
 - Club page with leaderboard, chat, and events
 - Captains create competitions from templates (5K, 10K, Half Marathon, Step Challenge)
-- 7-day cooldown on leaving/switching clubs
+- Captain monetization — earn from member workouts and event participation
 - Direction: NWC wallets for captain-managed reward pools and prize pools
 
 ---
 
-## Target Market
+## Three Audiences, One Product
 
-### Everyone
-RUNSTR is designed for anyone who moves — from marathon runners to evening walkers. The app doesn't advertise underlying technology. It uses "rewards", "micro donations", and "AI credits" — never jargon.
+RUNSTR serves three audiences that converge on the same experience:
 
-### How Users Find RUNSTR
-- Fitness communities and word of mouth
-- In-person events (5K races, community runs)
-- App Store / Zap.Store discovery
-- Social sharing of workout achievements
+| Audience | What They See | Underlying Technology |
+|----------|--------------|----------------------|
+| **Fitness enthusiasts** | Workout aggregator with rewards and competitions | Invisible |
+| **Bitcoin/Nostr community** | Circular fitness economy, anonymous tracking, decentralized data | Lightning, Nostr relays |
+| **AI-forward users** | Earn AI credits for working out, give agent fitness context | PPQ.AI integration |
+
+The technology stack is deliberately invisible. Users never see "Nostr", "Lightning", or "Bitcoin" — they see "rewards", "micro donations", and "AI credits."
+
+---
+
+## Business Model
+
+RUNSTR is a fitness event company with an app that rewards healthy behavior.
+
+| Revenue Stream | Description |
+|---------------|-------------|
+| **Subscriptions** | Free (base rewards), Supporter (boosted), Pro (clubs + events) |
+| **Sponsorships** | Zapvertising — branded push notifications and rewards page attribution |
+| **Event tickets** | In-person and virtual fitness events |
+
+### Monetization Paths for Users
+- **Captains** — Earn from member workouts and event participation
+- **Heavy users** — Subscriber tiers multiply per-workout rewards
+- **Consistency** — Level system multiplies daily wheel payouts
 
 ---
 
@@ -134,6 +192,7 @@ RUNSTR uses a **Supabase-first architecture**:
 | Competitions | Supabase | Simple participation tracking, leaderboards |
 | Rewards | LNURL to chosen destination | Universal support, sponsor-funded |
 | Fitness Clubs | Supabase + Realtime | Chat, leaderboards, events |
+| Pose Detection | MediaPipe (react-native-mediapipe) | Camera-verified strength workouts |
 
 ### Global NDK Instance
 
@@ -142,46 +201,19 @@ Nostr operations (profile sync, social posting, encrypted backup) use a single g
 - Maintains persistent relay connections
 - 4 relays: damus, primal, nos.lol, nostr.band
 
-```typescript
-// Usage pattern throughout the app
-import { GlobalNDKService } from '../services/nostr/GlobalNDKService';
-
-const ndk = await GlobalNDKService.getInstance();
-const events = await ndk.fetchEvents(filter);
-```
-
 ### Three-Tab Navigation
 
 | Tab | Purpose | Key Actions |
 |-----|---------|-------------|
-| **Profile** | User dashboard | Start Workout, View History, Join Events, Settings |
+| **Profile** | User dashboard | Start Workout, View History, Level & Wheel, Settings |
 | **Clubs** | Fitness Clubs | Browse/join clubs, chat, club events |
 | **Rewards** | Reward management | View earnings, sponsor info, change destination |
 
 ---
 
-## Key Files
-
-### Entry Points
-- `src/App.tsx` — Main app component
-- `src/navigation/AppNavigator.tsx` — Navigation setup
-- `src/navigation/BottomTabNavigator.tsx` — Tab bar
-
-### Core Services
-- `src/services/nostr/GlobalNDKService.ts` — Nostr connection (single instance)
-- `src/services/fitness/LocalWorkoutStorageService.ts` — Local workout storage
-- `src/services/rewards/DailyRewardService.ts` — Per-workout reward eligibility
-- `src/services/rewards/SupabaseRewardService.ts` — Verified payment tracking
-
-### Authentication
-- `src/contexts/AuthContext.tsx` — Auth state
-- `src/services/auth/authService.ts` — Login flow (anonymous-first + optional nsec)
-
----
-
 ## What This Book Covers
 
-This book documents what RUNSTR **is and should be** — the architecture that keeps the app simple, focused, and aligned with its identity as a fitness company that hosts competitions and rewards people for moving.
+This book documents what RUNSTR **is and should be** — the architecture that keeps the app simple, focused, and aligned with its identity as a fitness event company that rewards people for healthy behavior.
 
 Each chapter covers:
 - **Overview Section** — High-level concepts, user experience, philosophy
