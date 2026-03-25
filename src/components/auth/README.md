@@ -1,8 +1,16 @@
 # Auth Components Directory
 
-Authentication-related UI components for user login and account management.
+This directory is intentionally empty.
 
-## Files
+## Status
 
-- **AppleSignInButton.tsx** - Apple Sign In button component (legacy, not currently used)
-- **GoogleSignInButton.tsx** - Google Sign In button component (legacy, not currently used)
+Legacy social sign-in button components were removed during auth flow cleanup.
+Authentication UI now lives in screen-level implementations.
+
+## Current auth entry points
+
+- `src/screens/LoginScreen.tsx` — login form and auth UI
+- `src/contexts/AuthContext.tsx` — authentication state + sign-in/sign-up flows
+- `src/services/auth/providers/amberAuthProvider.ts` — Android Amber auth provider
+
+If shared auth components are reintroduced, document them here with exact file names and ownership.
