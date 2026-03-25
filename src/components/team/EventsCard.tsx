@@ -11,10 +11,8 @@ import { Card } from '../ui/Card';
 import { FormattedEvent } from '../../types';
 import { theme } from '../../styles/theme';
 import { NostrListService } from '../../services/nostr/NostrListService';
-import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { UnifiedSigningService } from '../../services/auth/UnifiedSigningService';
 import { CustomAlert } from '../ui/CustomAlert';
-import { GlobalNDKService } from '../../services/nostr/GlobalNDKService';
 
 // QR Code
 import { QRDisplayModal } from '../qr/QRDisplayModal';
@@ -87,7 +85,7 @@ export const EventsCard: React.FC<EventsCardProps> = ({
           // Note: We only need hex pubkey for event status checking
           // npub is only used for QR code generation (captain-only feature)
         }
-      } catch (error) {
+      } catch {
         console.log('Could not load current user data');
       }
     };
@@ -130,7 +128,7 @@ export const EventsCard: React.FC<EventsCardProps> = ({
             participantCount: participants.length,
             timingStatus: getEventTimingStatus(event), // ✅ NEW: Calculate timing status
           };
-        } catch (error) {
+        } catch {
           console.log(`Could not check status for event ${event.id}`);
           statuses[event.id] = {
             isJoined: false,
@@ -149,7 +147,7 @@ export const EventsCard: React.FC<EventsCardProps> = ({
     checkEventStatuses().catch((error) => {
       console.error('Failed to check event statuses:', error);
     });
-  }, [events, currentUserHex]);
+  }, [events, currentUserHex, listService]);
 
   const handleShowEventQR = async (event: FormattedEvent) => {
     if (!currentUserHex) return;
@@ -381,18 +379,6 @@ export const EventsCard: React.FC<EventsCardProps> = ({
         ]);
         return;
       }
-
-      // Get captain's hex pubkey
-      const captainHex = event.captainPubkey || event.authorPubkey || '';
-
-      // Prepare join request
-      const requestData = {
-        eventId: event.id,
-        eventName: event.name,
-        teamId: event.teamId || '',
-        captainPubkey: captainHex,
-        message: `Request to join ${event.name}`,
-      };
 
       // NOTE: Join request functionality disabled (old event system)
       // EventJoinRequestService was removed during migration to daily leaderboards
