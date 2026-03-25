@@ -709,7 +709,7 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
   },
   lightningAddressInputError: {
-    borderColor: theme.colors.error || '#ff4444',
+    borderColor: theme.colors.error,
   },
   lightningAddressSaveButton: {
     backgroundColor: theme.colors.accent,
@@ -725,7 +725,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   lightningAddressError: {
-    color: theme.colors.error || '#ff4444',
+    color: theme.colors.error,
     fontSize: 12,
     marginTop: 6,
   },
