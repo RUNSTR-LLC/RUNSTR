@@ -66,9 +66,9 @@ RUNSTR is an anonymous fitness tracker that rewards cardio workouts with Bitcoin
 - **Event Participation**: Supabase database for joining events and leaderboards
 - **Authentication**: Nostr (nsec) - direct authentication only
 - **Rewards**: Lightning address via LNURL protocol
-- **Nostr Library**: NDK (@nostr-dev-kit/ndk) EXCLUSIVELY - NEVER use nostr-tools
+- **Nostr Library**: NDK (`@nostr-dev-kit/ndk`) is the runtime relay/publish backbone; `nostr-tools` is still used in legacy/helper paths during migration
 - **Global NDK Instance**: Single shared NDK instance via `GlobalNDKService`
-- **Nostr Relays**: Damus, Primal, nos.lol, Nostr.band (4 relays)
+- **Nostr Relays**: Damus, nos.lol, Primal (3 active default relays in `GlobalNDKService`)
 
 ## Nostr Event Kinds
 
@@ -157,7 +157,7 @@ Workouts include tags for:
 **CRITICAL: The app uses a single global NDK instance for all Nostr operations**
 
 **Why Global NDK?**
-- **Prevents Connection Explosion**: Before global NDK, 9 services × 4 relays = 36 WebSocket connections. After: 1 NDK × 4 relays = 4 connections (90% reduction)
+- **Prevents Connection Explosion**: Before global NDK, 9 services × 3 relays = 27 WebSocket connections. After: 1 NDK × 3 relays = 3 connections (89% reduction)
 - **Eliminates Timing Issues**: New relay managers need 2-3 seconds to connect, causing "No connected relays available" errors
 - **Better Performance**: Reusing one connection pool instead of creating/destroying connections per query
 - **Connection Stability**: Single instance maintains persistent relay connections throughout app lifetime
@@ -179,7 +179,7 @@ const events = await ndk.fetchEvents(filter);
 - ✅ **USE** `ndk.subscribe()` for real-time subscriptions (returns subscription object)
 
 **Global NDK Configuration:**
-- **Default Relays**: `wss://relay.damus.io`, `wss://relay.primal.net`, `wss://nos.lol`, `wss://relay.nostr.band`
+- **Default Relays**: `wss://relay.damus.io`, `wss://nos.lol`, `wss://relay.primal.net`
 - **Initialized**: On app startup by `GlobalNDKService`
 - **Connection Timeout**: 2 seconds
 - **Auto-reconnect**: Built into NDK
@@ -611,7 +611,7 @@ All work happens on a **version branch** (e.g., `v1.6.8`). This is the next rele
 ✅ Kind 1301 workout publishing
 ✅ Kind 1 social posts with achievement cards
 ✅ Daily rewards (50 sats/workout)
-✅ Step rewards (5 sats/1k steps)
+⚠️ Step rewards pipeline exists but UI/runtime exposure is currently paused in Settings
 ✅ Lightning address reward delivery via LNURL
 ✅ Teams = Charities with donation splitting
 ✅ Impact Level XP system
