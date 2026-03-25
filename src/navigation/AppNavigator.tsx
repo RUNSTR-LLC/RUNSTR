@@ -34,6 +34,7 @@ import { SatlantisEventDetailScreen } from '../screens/satlantis/SatlantisEventD
 import { EinundzwanzigDetailScreen } from '../screens/events/EinundzwanzigDetailScreen';
 import { DynamicEventDetailScreen } from '../screens/events/DynamicEventDetailScreen';
 import { JournalHistoryScreen } from '../screens/JournalHistoryScreen';
+import { LevelDetailScreen } from '../screens/LevelDetailScreen';
 import { RewardsScreen } from '../screens/RewardsScreen';
 import { DonateScreen } from '../screens/DonateScreen';
 import { TeamsScreen } from '../screens/TeamsScreen';
@@ -89,6 +90,7 @@ export type RootStackParamList = {
   Leaderboards: undefined;
   DynamicEventDetail: { eventId: string };
   JournalHistory: undefined;
+  LevelDetail: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -531,6 +533,16 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
       <Stack.Screen
         name="DynamicEventDetail"
         component={DynamicEventDetailScreen}
+        options={{
+          ...defaultScreenOptions,
+          headerShown: false,
+        }}
+      />
+
+      {/* Level Detail Screen - Level info + lottery wheel */}
+      <Stack.Screen
+        name="LevelDetail"
+        component={LevelDetailScreen}
         options={{
           ...defaultScreenOptions,
           headerShown: false,
