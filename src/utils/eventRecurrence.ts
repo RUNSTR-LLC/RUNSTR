@@ -33,10 +33,10 @@ const DAY_OF_WEEK_MAP: Record<RecurrenceDay, number> = {
 };
 
 /**
- * Get current active period for a recurring event
- * Returns period boundaries based on today's date
+ * Internal helper to calculate period from a specific reference date
  */
-export function getCurrentPeriod(
+function getPeriodForReferenceDate(
+  referenceDate: Date,
   recurrence: RecurrenceFrequency,
   recurrenceDay: RecurrenceDay | undefined,
   recurrenceStartDate: string,
@@ -46,34 +46,57 @@ export function getCurrentPeriod(
     return null; // Not a recurring event
   }
 
-  const now = new Date();
   const startDate = new Date(recurrenceStartDate);
 
   switch (recurrence) {
     case 'daily':
-      return getDailyPeriod(now, startDate, durationMinutes);
+      return getDailyPeriod(referenceDate, startDate, durationMinutes);
 
     case 'weekly':
       if (!recurrenceDay) {
         console.error('Weekly recurrence requires recurrenceDay');
         return null;
       }
-      return getWeeklyPeriod(now, recurrenceDay, durationMinutes);
+      return getWeeklyPeriod(referenceDate, recurrenceDay, durationMinutes);
 
     case 'biweekly':
       if (!recurrenceDay) {
         console.error('Biweekly recurrence requires recurrenceDay');
         return null;
       }
-      return getBiweeklyPeriod(now, startDate, recurrenceDay, durationMinutes);
+      return getBiweeklyPeriod(
+        referenceDate,
+        startDate,
+        recurrenceDay,
+        durationMinutes
+      );
 
     case 'monthly':
-      return getMonthlyPeriod(now, startDate, durationMinutes);
+      return getMonthlyPeriod(referenceDate, startDate, durationMinutes);
 
     default:
       console.error('Unknown recurrence frequency:', recurrence);
       return null;
   }
+}
+
+/**
+ * Get current active period for a recurring event
+ * Returns period boundaries based on today's date
+ */
+export function getCurrentPeriod(
+  recurrence: RecurrenceFrequency,
+  recurrenceDay: RecurrenceDay | undefined,
+  recurrenceStartDate: string,
+  durationMinutes?: number
+): RecurrencePeriod | null {
+  return getPeriodForReferenceDate(
+    new Date(),
+    recurrence,
+    recurrenceDay,
+    recurrenceStartDate,
+    durationMinutes
+  );
 }
 
 /**
@@ -203,27 +226,19 @@ function getMonthlyPeriod(
  * Get period for a specific date (useful for viewing historical periods)
  */
 export function getPeriodForDate(
-  _targetDate: Date, // TODO: Actually use targetDate for historical period calculation
+  targetDate: Date,
   recurrence: RecurrenceFrequency,
   recurrenceDay: RecurrenceDay | undefined,
   recurrenceStartDate: string,
   durationMinutes?: number
 ): RecurrencePeriod | null {
-  // TODO: Implement proper date-based period calculation
-  // Currently just returns current period (bug - should use _targetDate)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _originalGetCurrentPeriod = getCurrentPeriod;
-
-  // For simplicity, we'll just call getCurrentPeriod with targetDate substituted
-  // This is a bit hacky but works for our use case
-  const result = getCurrentPeriod(
+  return getPeriodForReferenceDate(
+    targetDate,
     recurrence,
     recurrenceDay,
     recurrenceStartDate,
     durationMinutes
   );
-
-  return result;
 }
 
 /**
