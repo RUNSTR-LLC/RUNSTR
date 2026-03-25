@@ -11,6 +11,15 @@
 -- Already exists from prior migration, but add last_updated_at if missing
 -- ============================================================================
 
+-- Create rewards_pool if it doesn't exist (was originally created manually)
+CREATE TABLE IF NOT EXISTS rewards_pool (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  balance_sats BIGINT NOT NULL DEFAULT 0,
+  total_deposited_sats BIGINT NOT NULL DEFAULT 0,
+  total_paid_sats BIGINT NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Add last_updated_at column if it doesn't exist
 DO $$
 BEGIN
