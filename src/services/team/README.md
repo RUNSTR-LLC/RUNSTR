@@ -51,4 +51,9 @@ const teams = await ndkService.discoverAllTeams();
 
 ## Testing
 
-Use `test-ndk-team-discovery.js` in the project root to verify performance and coverage.
+Use `__tests__/teamDiscovery.test.tsx` to verify team discovery coverage and behavior.
+
+Example:
+```bash
+npm test -- teamDiscovery.test.tsx
+```
