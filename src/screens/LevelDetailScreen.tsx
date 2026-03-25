@@ -253,36 +253,17 @@ export const LevelDetailScreen: React.FC = () => {
           <View style={styles.wheelSection}>
             <LotteryWheel
               ref={wheelRef}
-              dimmed={!canSpin && !isSpinning}
-              winningIndex={showResult ? winningIndex : null}
+              dimmed={true}
+              winningIndex={null}
               onSpinComplete={handleSpinComplete}
             />
           </View>
 
-          {showResult && spinResult && (
-            <LotteryResult
-              segmentValue={spinResult.segment_value || 0}
-              multiplier={spinResult.multiplier}
-              finalPayout={spinResult.final_payout || 0}
-              visible={showResult}
-            />
-          )}
-
-          {!showResult && todaySpin && todaySpin.segment_value && (
-            <View style={styles.todayResult}>
-              <Text style={styles.todayLabel}>Today</Text>
-              <Text style={styles.todayValue}>
-                {todaySpin.segment_value} x {todaySpin.multiplier.toFixed(1)}x ={' '}
-                {todaySpin.final_payout} rewards
-              </Text>
-            </View>
-          )}
-
-          {spinError && <Text style={styles.errorText}>{spinError}</Text>}
+          <Text style={styles.comingSoonText}>Coming Soon</Text>
 
           <SpinButton
-            canSpin={canSpin}
-            isSpinning={isSpinning}
+            canSpin={false}
+            isSpinning={false}
             onSpin={handleSpin}
             hasNoConnection={!isConnected}
             hasNoDestination={!hasDestination}
@@ -405,6 +386,13 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontSize: 16,
     fontWeight: theme.typography.weights.semiBold,
+  },
+  comingSoonText: {
+    color: theme.colors.textMuted,
+    fontSize: 16,
+    fontWeight: theme.typography.weights.semiBold,
+    marginBottom: 16,
+    letterSpacing: 2,
   },
   errorText: {
     color: theme.colors.textMuted,

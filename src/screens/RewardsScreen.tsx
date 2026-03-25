@@ -134,13 +134,11 @@ const RewardsScreenComponent: React.FC = () => {
     }>
   >([]);
 
-  // Load rewards pool balance from Supabase
+  // Load rewards pool balance
+  // TODO: Re-enable Supabase fetch when rewards pool is funded
   const loadPoolBalance = async () => {
     try {
-      const result = await SupabaseRewardService.getRewardsPoolBalance();
-      if (result) {
-        setPoolBalance(result.balance);
-      }
+      setPoolBalance(0);
     } catch (error) {
       console.error('[RewardsScreen] Failed to load pool balance:', error);
       Toast.show({
