@@ -4,7 +4,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { NDK, NDKEvent, NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
+import NDK, { NDKEvent, NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
 import { SimpleNostrService } from '../nostr/SimpleNostrService';
 import { GlobalNDKService } from '../nostr/GlobalNDKService';
 import { getAuthenticationData } from '../../utils/nostrAuth';

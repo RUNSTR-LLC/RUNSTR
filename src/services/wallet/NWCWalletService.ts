@@ -141,7 +141,7 @@ class SimpleNWCWallet {
     try {
       this.client = new NWCClient({
         nostrWalletConnectUrl: nwcString,
-        websocketImplementation: WebSocket,
+        // websocketImplementation not in current NWC type defs
       });
 
       // Test connection with timeout

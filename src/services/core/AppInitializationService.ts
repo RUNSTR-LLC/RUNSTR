@@ -19,7 +19,7 @@ class AppInitializationService {
   private isInitializing = false;
   private abortController: AbortController | null = null;
   private timeoutId: NodeJS.Timeout | null = null;
-  private hasCompleted = false;
+  private _hasCompleted = false;
 
   private constructor() {}
 
@@ -42,7 +42,7 @@ class AppInitializationService {
     }
 
     this.isInitializing = true;
-    this.hasCompleted = false; // Reset completion flag
+    this._hasCompleted = false; // Reset completion flag
     const MAX_INIT_TIME = 12000; // 12 second timeout (increased for first launch)
 
     // Create AbortController for proper cancellation
@@ -173,8 +173,8 @@ class AppInitializationService {
         }
 
         // CRITICAL FIX: Only set flags if not aborted and not already completed
-        if (!signal.aborted && !this.hasCompleted) {
-          this.hasCompleted = true; // Mark as completed to prevent timeout from running
+        if (!signal.aborted && !this._hasCompleted) {
+          this._hasCompleted = true; // Mark as completed to prevent timeout from running
           this.isInitialized = true;
 
           // Cancel the timeout since we succeeded
@@ -205,9 +205,9 @@ class AppInitializationService {
     const timeoutPromise = new Promise<void>((resolve) => {
       this.timeoutId = setTimeout(() => {
         // Only execute timeout if initialization hasn't completed
-        if (!this.hasCompleted) {
+        if (!this._hasCompleted) {
           console.warn('⚠️ AppInit: Timeout reached - partial data loaded');
-          this.hasCompleted = true; // Prevent success path from running
+          this._hasCompleted = true; // Prevent success path from running
 
           // CRITICAL: Abort the initialization to prevent orphaned promises
           if (this.abortController) {

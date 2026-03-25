@@ -681,12 +681,12 @@ export class NostrCompetitionService {
 
       // Create and publish updated event
       if (kind === 30100) {
-        return await this.createLeague(
+        return await NostrCompetitionService.createLeague(
           updatedCompetition as any,
           captainPrivateKey
         );
       } else {
-        return await this.createEvent(
+        return await NostrCompetitionService.createEvent(
           updatedCompetition as any,
           captainPrivateKey
         );

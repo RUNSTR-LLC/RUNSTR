@@ -412,7 +412,11 @@ export class NostrCompetitionBridge {
       walking: 3.5,
       hiking: 6.0,
       strength_training: 4.0,
+      strength: 4.0,
       yoga: 3.0,
+      meditation: 2.0,
+      diet: 1.0,
+      fasting: 1.0,
       gym: 5.0,
       other: 4.0,
     };

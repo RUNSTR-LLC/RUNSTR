@@ -51,7 +51,7 @@ class NWCStorageServiceClass {
 
       testClient = new NWCClient({
         nostrWalletConnectUrl: nwcString,
-        websocketImplementation: WebSocket,
+        // websocketImplementation not in current NWC type defs
       });
 
       // 5 second timeout

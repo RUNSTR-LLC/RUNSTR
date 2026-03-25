@@ -299,7 +299,7 @@ export class NostrProtocolHandler {
       }
 
       // Create the signed event
-      const signedEvent: Event = {
+      const signedEvent = {
         ...unsignedEvent,
         id,
         sig: signature,
@@ -308,7 +308,7 @@ export class NostrProtocolHandler {
       console.log(
         `✅ Signed event with NDKSigner: ${signedEvent.id} (kind ${signedEvent.kind})`
       );
-      return signedEvent;
+      return signedEvent as any;
     } catch (error) {
       console.error('❌ Failed to sign event with NDKSigner:', error);
       throw error;

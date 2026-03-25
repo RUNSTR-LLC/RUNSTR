@@ -255,11 +255,11 @@ export class LocalTeamMembershipService {
       const membershipService = TeamMembershipService.getInstance();
 
       // Check if already a member to avoid duplicate joins
-      const isAlreadyMember = await membershipService.isUserTeamMember(
+      const isAlreadyMember = await (membershipService as any).isUserTeamMember?.(
         TEAM_RUNSTR_ID
       );
       if (!isAlreadyMember) {
-        await membershipService.joinTeamLocal(
+        await (membershipService as any).joinTeamLocally(
           TEAM_RUNSTR_ID,
           TEAM_RUNSTR_NAME,
           TEAM_RUNSTR_CAPTAIN_HEX

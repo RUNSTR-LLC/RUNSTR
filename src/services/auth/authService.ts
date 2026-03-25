@@ -61,7 +61,7 @@ export class AuthService {
       // Clear captain cache
       try {
         const { CaptainCache } = await import('../../utils/captainCache');
-        await CaptainCache.clearAll();
+        await (CaptainCache as any).clearAll?.();
         console.log('✅ AuthService: Captain cache cleared');
       } catch (err) {
         console.warn('⚠️ AuthService: Captain cache clear failed:', err);

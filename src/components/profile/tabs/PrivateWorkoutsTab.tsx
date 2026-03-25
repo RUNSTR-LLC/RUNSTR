@@ -180,7 +180,7 @@ export const PrivateWorkoutsTab: React.FC<PrivateWorkoutsTabProps> = ({
   };
 
   // Convert LocalWorkout to UnifiedWorkout for compatibility
-  const unifiedWorkouts: UnifiedWorkout[] = workouts.map((w) => ({
+  const unifiedWorkouts: UnifiedWorkout[] = (workouts as any[]).map((w: any) => ({
     ...w,
     userId: userId,
     syncedToNostr: false,
@@ -245,7 +245,7 @@ export const PrivateWorkoutsTab: React.FC<PrivateWorkoutsTabProps> = ({
   const renderMonthlyGroup = ({ item }: { item: any }) => (
     <MonthlyWorkoutGroup
       group={item}
-      renderWorkout={renderWorkout}
+      renderWorkout={renderWorkout as any}
       defaultExpanded={false}
     />
   );

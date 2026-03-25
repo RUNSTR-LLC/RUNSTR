@@ -56,6 +56,11 @@ export class NostrPrefetchService {
 
       const { hexPubkey } = identifiers;
 
+      if (!hexPubkey) {
+        console.warn('[Prefetch] No hex pubkey available');
+        return;
+      }
+
       console.log(
         '🚀 [Prefetch] Starting ESSENTIAL-ONLY prefetch (profile only)...'
       );
@@ -214,6 +219,11 @@ export class NostrPrefetchService {
       }
 
       const { hexPubkey } = identifiers;
+
+      if (!hexPubkey) {
+        console.warn('[Prefetch] No hex pubkey for team refresh');
+        return;
+      }
 
       // Invalidate the cache
       await unifiedCache.invalidate(CacheKeys.USER_TEAMS(hexPubkey));

@@ -233,7 +233,7 @@ export function isValidNpub(str: string): boolean {
  * @returns true if valid hex pubkey
  */
 export function isValidHexPubkey(str: string): boolean {
-  return str && str.length === 64 && /^[0-9a-f]+$/i.test(str);
+  return !!str && str.length === 64 && /^[0-9a-f]+$/i.test(str);
 }
 
 /**

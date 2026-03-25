@@ -4,7 +4,7 @@
  * Contextual messaging based on which feature triggered the modal
  */
 
-import React, { useCallback } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -13,9 +13,7 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
-  Linking,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { REWARD_CONFIG } from '../../config/rewards';
@@ -52,15 +50,6 @@ export const SubscriptionInfoModal: React.FC<SubscriptionInfoModalProps> = ({
   onClose,
   currentTier = 'free',
 }) => {
-  const handleSubscribe = useCallback(async (tier: 'supporter' | 'pro') => {
-    const npub = await AsyncStorage.getItem('@runstr:npub');
-    const base = 'https://www.runstr.club/pro/';
-    const params = npub
-      ? `?npub=${encodeURIComponent(npub)}&tier=${tier}`
-      : `?tier=${tier}`;
-    Linking.openURL(base + params);
-  }, []);
-
   // For supporters, only show the Pro upgrade card
   const showSupporterCard = currentTier === 'free';
   const showProCard = true; // Always show Pro
@@ -102,15 +91,9 @@ export const SubscriptionInfoModal: React.FC<SubscriptionInfoModalProps> = ({
                     ))}
                   </View>
 
-                  <TouchableOpacity
-                    style={styles.ctaButton}
-                    onPress={() => handleSubscribe('supporter')}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.ctaButtonText}>
-                      Subscribe
-                    </Text>
-                  </TouchableOpacity>
+                  <View style={styles.comingSoonBadge}>
+                    <Text style={styles.comingSoonText}>COMING SOON</Text>
+                  </View>
                 </View>
               )}
 
@@ -131,15 +114,9 @@ export const SubscriptionInfoModal: React.FC<SubscriptionInfoModalProps> = ({
                     ))}
                   </View>
 
-                  <TouchableOpacity
-                    style={styles.ctaButton}
-                    onPress={() => handleSubscribe('pro')}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.ctaButtonText}>
-                      {currentTier === 'supporter' ? 'Upgrade to Pro' : 'Subscribe'}
-                    </Text>
-                  </TouchableOpacity>
+                  <View style={styles.comingSoonBadge}>
+                    <Text style={styles.comingSoonText}>COMING SOON</Text>
+                  </View>
                 </View>
               )}
 
@@ -222,18 +199,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: theme.colors.text,
   },
-  ctaButton: {
+  comingSoonBadge: {
     paddingVertical: 14,
     paddingHorizontal: 32,
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: theme.colors.border,
+    opacity: 0.5,
   },
-  ctaButtonText: {
-    fontSize: 15,
+  comingSoonText: {
+    fontSize: 13,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.text,
+    color: theme.colors.textSecondary,
+    letterSpacing: 1,
   },
 });
 

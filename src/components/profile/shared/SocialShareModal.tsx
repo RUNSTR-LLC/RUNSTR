@@ -74,7 +74,7 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
 
         // Post to Nostr as kind 1 social event
         const result = await publishingService.postWorkoutToSocial(
-          workout,
+          workout as any,
           nsec,
           userId,
           {

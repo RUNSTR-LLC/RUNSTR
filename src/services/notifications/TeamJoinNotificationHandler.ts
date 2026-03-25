@@ -82,7 +82,7 @@ export class TeamJoinNotificationHandler {
       // Subscribe to team join requests (kind 1104) where user is tagged as captain
       this.subscription = ndk.subscribe(
         {
-          kinds: [TEAM_JOIN_REQUEST_KIND],
+          kinds: [TEAM_JOIN_REQUEST_KIND as any],
           '#p': [this.userHexPubkey], // Captain is tagged
         },
         { closeOnEose: false }
@@ -210,7 +210,7 @@ export class TeamJoinNotificationHandler {
           actions: [
             {
               id: 'view_requests',
-              type: 'view_join_requests',
+              type: 'view_join_requests' as any,
               label: 'View Requests',
               isPrimary: true,
             },

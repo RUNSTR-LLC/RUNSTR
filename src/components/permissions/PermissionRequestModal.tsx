@@ -235,7 +235,7 @@ export const PermissionRequestModal: React.FC<PermissionRequestModalProps> = ({
                         style={styles.buttonIcon}
                       />
                       <Text style={styles.primaryButtonText}>
-                        GRANT PERMISSIONS
+                        CONTINUE
                       </Text>
                     </>
                   )}

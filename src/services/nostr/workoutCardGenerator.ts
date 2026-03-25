@@ -933,7 +933,7 @@ export class WorkoutCardGenerator {
       meditation: '🧘',
       other: '⚡',
     };
-    return icons[type] || icons.other;
+    return (icons as Record<string, string>)[type] || icons.other;
   }
 
   /**
@@ -1223,7 +1223,7 @@ export class WorkoutCardGenerator {
       other: '⚡',
     };
 
-    const icon = icons[type] || icons.other;
+    const icon = (icons as Record<string, string>)[type] || icons.other;
 
     return `
       <g transform="translate(0, ${y})">

@@ -200,7 +200,7 @@ export const CharitySection: React.FC<CharitySectionProps> = ({
         console.error('[CharitySection] Failed to create RUNSTR invoice:', invoiceResult.error);
         // Fallback: Pay charity directly (legacy behavior)
         const { invoice } = await getInvoiceFromLightningAddress(
-          charity.lightningAddress,
+          charity.lightningAddress || '',
           DEFAULT_ZAP_AMOUNT,
           `Donation to ${charity.name}`
         );
@@ -244,7 +244,7 @@ export const CharitySection: React.FC<CharitySectionProps> = ({
         donorName,
         amount: DEFAULT_ZAP_AMOUNT,
         charityId: charity.id,
-        charityLightningAddress: charity.lightningAddress,
+        charityLightningAddress: charity.lightningAddress || '',
       });
 
       await markAsZapped();
@@ -357,7 +357,7 @@ export const CharitySection: React.FC<CharitySectionProps> = ({
       {IN_APP_ZAPS_ENABLED && (
         <ExternalZapModal
           visible={showPaymentModal}
-          recipientNpub={charity.lightningAddress}
+          recipientNpub={charity.lightningAddress || ''}
           recipientName={charity.name}
           memo={`Donation to ${charity.name}`}
           onClose={() => setShowPaymentModal(false)}

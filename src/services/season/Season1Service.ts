@@ -47,7 +47,7 @@ class Season1Service {
     // Extract all unique participant pubkeys from the static data
     const participants = new Set<string>();
 
-    Object.values(season1Results.leaderboards).forEach((leaderboard) => {
+    Object.values(season1Results.leaderboards).forEach((leaderboard: any) => {
       leaderboard.participants.forEach((p: any) => {
         participants.add(p.pubkey);
       });

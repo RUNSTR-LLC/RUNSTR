@@ -292,14 +292,14 @@ class LightningZapService {
 
       // Sign the zap request
       const signingService = UnifiedSigningService.getInstance();
-      const signedEvent = await signingService.signEvent(zapRequest);
+      const signedEvent = await signingService.signEvent(zapRequest as any);
 
       if (!signedEvent) {
         console.log('[LightningZap] Failed to sign zap request');
         return null;
       }
 
-      return signedEvent;
+      return signedEvent as any;
     } catch (error) {
       console.log('[LightningZap] Error creating zap request:', error);
       return null;

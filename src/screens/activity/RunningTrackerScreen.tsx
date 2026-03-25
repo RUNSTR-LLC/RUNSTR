@@ -202,7 +202,7 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
       e.preventDefault();
 
       // Show confirmation dialog
-      CustomAlert.show({
+      (CustomAlert as any).show({
         title: 'Stop Tracking?',
         message: 'You have an active workout. Do you want to stop and discard it?',
         buttons: [

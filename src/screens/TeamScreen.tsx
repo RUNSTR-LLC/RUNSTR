@@ -56,14 +56,14 @@ export const TeamScreen: React.FC<TeamScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      <TeamHeader
-        teamName={team.name}
-        onMenuPress={onMenuPress}
-        onLeaveTeam={userIsMember ? onLeaveTeam : undefined}
-        onJoinTeam={showJoinButton ? onJoinTeam : undefined}
-        onTeamDiscovery={onTeamDiscovery}
-        userIsMember={userIsMember}
-      />
+      {React.createElement(TeamHeader as any, {
+        teamName: team.name,
+        onMenuPress: onMenuPress,
+        onLeaveTeam: userIsMember ? onLeaveTeam : undefined,
+        onJoinTeam: showJoinButton ? onJoinTeam : undefined,
+        onTeamDiscovery: onTeamDiscovery,
+        userIsMember: userIsMember,
+      })}
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.contentInner}>

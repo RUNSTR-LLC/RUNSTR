@@ -646,7 +646,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 60,
-    background: 'linear-gradient(transparent, rgba(0,0,0,0.6))',
+    backgroundColor: 'rgba(0,0,0,0.6)', // Simplified from linear-gradient (not supported in RN)
   },
 
   // Content

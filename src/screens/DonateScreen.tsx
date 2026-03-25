@@ -26,6 +26,7 @@ const RUNSTR_DONATION: Charity = {
   lightningAddress: 'runstr@getalby.com',
   description: 'Support RUNSTR development and community growth',
   website: 'https://runstr.club',
+  category: 'project',
 };
 
 export const DonateScreen: React.FC = () => {
@@ -142,7 +143,7 @@ export const DonateScreen: React.FC = () => {
       {selectedCharity && (
         <ExternalZapModal
           visible={showZapModal}
-          recipientNpub={selectedCharity.lightningAddress}
+          recipientNpub={selectedCharity.lightningAddress || ''}
           recipientName={selectedCharity.name}
           memo={`Donation to ${selectedCharity.name} via RUNSTR`}
           onClose={handleZapModalClose}

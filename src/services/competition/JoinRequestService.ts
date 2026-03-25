@@ -50,7 +50,7 @@ export class JoinRequestService {
     const kind = type === 'challenge' ? 1106 : 1101;
 
     const filter: NDKFilter = {
-      kinds: [kind],
+      kinds: [kind as any],
       '#e': [competitionId],
       '#p': [creatorPubkey],
     };
@@ -116,7 +116,7 @@ export class JoinRequestService {
     const kind = type === 'challenge' ? 1106 : 1101;
 
     const filter: NDKFilter = {
-      kinds: [kind],
+      kinds: [kind as any],
       '#e': [competitionId],
       '#p': [creatorPubkey],
       limit: 100, // Prevent unbounded query - fetch recent join requests

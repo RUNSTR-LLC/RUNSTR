@@ -218,8 +218,8 @@ class SatlantisEventJoinServiceClass {
                 totalWorkouts: event.pledgeCost,
                 destination: {
                   type: destination.type as 'captain' | 'charity',
-                  lightningAddress: destination.lightningAddress,
-                  name: destination.name,
+                  lightningAddress: destination.lightningAddress || '',
+                  name: destination.name || '',
                 },
                 userPubkey,
               });

@@ -143,7 +143,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
   const handleViewChallenge = (notification: UnifiedNotification) => {
     onClose();
     // For now, just close the modal - challenge details screen may not exist yet
-    console.log('View challenge:', notification.metadata?.challengeId);
+    console.log('View challenge:', (notification.metadata as any)?.challengeId);
   };
 
   const handleViewCompetition = (notification: UnifiedNotification) => {

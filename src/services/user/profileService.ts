@@ -60,7 +60,7 @@ export class ProfileService {
         name: nostrProfile.name || nostrProfile.display_name || 'Anonymous',
         role: 'member', // Default role
         createdAt: nostrProfile.lastUpdated.toISOString(),
-        lastSyncAt: null,
+        lastSyncAt: undefined,
         preferences,
         notificationSettings,
 

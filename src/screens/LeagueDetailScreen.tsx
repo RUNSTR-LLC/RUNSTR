@@ -60,7 +60,7 @@ export const LeagueDetailScreen: React.FC<LeagueDetailScreenProps> = ({
         const SimpleCompetitionService = (
           await import('../services/competition/SimpleCompetitionService')
         ).default;
-        league = await SimpleCompetitionService.getLeagueById(leagueId);
+        league = await SimpleCompetitionService.getInstance().getLeagueById(leagueId);
       }
 
       if (!league) {

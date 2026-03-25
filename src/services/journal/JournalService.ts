@@ -8,6 +8,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import 'react-native-get-random-values';
+// @ts-ignore - uuid has no declaration file
 import { v4 as uuidv4 } from 'uuid';
 import type {
   JournalEntry,
