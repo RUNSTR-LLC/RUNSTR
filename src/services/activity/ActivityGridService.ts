@@ -1,7 +1,7 @@
 /**
  * ActivityGridService - Manages 2D grid navigation for activities
  *
- * Categories (rows): Cardio, Strength, Wellness, Mindfulness
+ * Categories (rows): Cardio, Strength, Wellness
  * Activities (columns): Vary per category
  *
  * Swipe Left/Right: Navigate within category
@@ -15,7 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Category row definition
 export interface CategoryRow {
   name: string;
-  key: 'cardio' | 'strength' | 'wellness' | 'mindfulness';
+  key: 'cardio' | 'strength' | 'wellness';
   activities: string[];
 }
 
@@ -40,12 +40,7 @@ export const ACTIVITY_GRID: CategoryRow[] = [
   {
     name: 'Wellness',
     key: 'wellness',
-    activities: ['guided', 'unguided', 'breathwork', 'body_scan', 'gratitude'],
-  },
-  {
-    name: 'Mindfulness',
-    key: 'mindfulness',
-    activities: ['journal', 'habits'],
+    activities: ['guided', 'unguided', 'breathwork', 'body_scan', 'gratitude', 'journal', 'habits'],
   },
 ];
 
@@ -76,7 +71,7 @@ export const ACTIVITY_DISPLAY_NAMES: Record<string, string> = {
   breathwork: 'Breathwork',
   body_scan: 'Body Scan',
   gratitude: 'Gratitude',
-  // Mindfulness
+  // Wellness (continued)
   journal: 'Journal',
   habits: 'Habits',
 };
