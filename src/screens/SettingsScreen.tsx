@@ -1137,15 +1137,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 <View style={styles.rewardSettingRow}>
                   <View style={styles.rewardSettingInfo}>
                     <Text style={styles.rewardSettingTitle}>Subscription Plan</Text>
-                    {subscriptionTier === 'free' ? (
-                      <Text style={styles.rewardSettingSubtitle}>
-                        Free — {REWARD_CONFIG.DAILY_WORKOUT_REWARD} rewards/workout
-                      </Text>
-                    ) : (
-                      <Text style={[styles.rewardSettingSubtitle, { color: theme.colors.accent }]}>
-                        {subscriptionTier === 'pro' ? 'Pro' : 'Supporter'} — {REWARD_CONFIG.BOOSTED_WORKOUT_REWARD} rewards/workout (boosted)
-                      </Text>
-                    )}
+                    <Text style={styles.rewardSettingSubtitle}>
+                      {REWARD_CONFIG.DAILY_WORKOUT_REWARD} rewards/workout — Subscriptions coming soon
+                    </Text>
                   </View>
                 </View>
 

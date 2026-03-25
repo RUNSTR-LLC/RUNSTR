@@ -229,12 +229,8 @@ const ClubsScreenComponent: React.FC = () => {
   }, [myClub, userNpub, performClubAction]);
 
   const handleCreatePress = useCallback(() => {
-    if (isSubscriber) {
-      setShowCreateClub(true);
-    } else {
-      setShowSubscriptionInfo(true);
-    }
-  }, [isSubscriber]);
+    setShowSubscriptionInfo(true);
+  }, []);
 
   const handleClubCreated = useCallback(async () => {
     setShowCreateClub(false);

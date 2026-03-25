@@ -384,42 +384,16 @@ const RewardsScreenComponent: React.FC = () => {
           onZapPress={() => handleZapCharity()}
         />
 
-        {/* Subscription Status Card */}
+        {/* Rewards Rate Card */}
         <View style={styles.subscriptionCard}>
           <Text style={styles.subscriptionCardTitle}>YOUR REWARDS</Text>
 
           <View style={styles.subscriptionRateRow}>
             <Ionicons name="flash" size={18} color="#FF9D42" />
             <Text style={styles.subscriptionRateText}>
-              {subscriptionTier !== 'free'
-                ? `${REWARD_CONFIG.BOOSTED_WORKOUT_REWARD} rewards per workout`
-                : `${REWARD_CONFIG.DAILY_WORKOUT_REWARD} rewards per workout`}
+              {REWARD_CONFIG.DAILY_WORKOUT_REWARD} rewards per workout
             </Text>
-            {subscriptionTier !== 'free' && (
-              <View style={styles.boostedBadge}>
-                <Text style={styles.boostedBadgeText}>Boosted</Text>
-              </View>
-            )}
           </View>
-
-          {subscriptionTier === 'free' ? (
-            <>
-              <View style={styles.subscriptionDivider} />
-              <Text style={styles.subscriptionUpsellText}>
-                Supporters get a 10x rewards boost.
-              </Text>
-              <TouchableOpacity
-                style={styles.learnMoreButton}
-                onPress={() => setShowSubscriptionModal(true)}
-              >
-                <Text style={styles.learnMoreText}>Learn More</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <Text style={styles.subscriptionConfirmText}>
-              {subscriptionTier === 'pro' ? 'Pro' : 'Supporter'} plan active. You earn 10x more rewards for every workout.
-            </Text>
-          )}
         </View>
 
         {/* Active Pledge Section (only shown if user has active pledge) */}

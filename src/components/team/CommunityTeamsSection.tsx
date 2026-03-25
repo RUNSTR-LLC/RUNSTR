@@ -187,7 +187,7 @@ export const CommunityTeamsSection: React.FC<CommunityTeamsSectionProps> = ({
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>COMMUNITY TEAMS</Text>
       <Text style={styles.sectionSubtitle}>
-        Created by RUNSTR subscribers
+        Created by RUNSTR members
       </Text>
 
       {isLoading ? (

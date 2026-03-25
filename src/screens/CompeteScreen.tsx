@@ -110,7 +110,7 @@ const CompeteScreenComponent: React.FC<CompeteScreenProps> = ({ navigation: prop
         <View style={styles.headerSpacer} />
         <TouchableOpacity
           style={styles.hostButton}
-          onPress={() => subscriptionTier === 'pro' ? setShowCreateEvent(true) : setShowSubscriptionInfo(true)}
+          onPress={() => setShowSubscriptionInfo(true)}
           activeOpacity={0.7}
         >
           <Ionicons name="add-circle-outline" size={18} color={theme.colors.accent} />
