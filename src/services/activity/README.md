@@ -7,21 +7,26 @@ Services for managing live workout tracking, location services, text-to-speech a
 ### Core Activity Tracking
 
 **ActivityMetricsService.ts** - Calculates real-time workout metrics (pace, speed, calories)
-**ActivityStateMachine.ts** - Manages workout session state (idle, active, paused, stopped)
-**SessionRecoveryService.ts** - Handles workout session recovery after app crashes or restarts
+**SimpleRunTracker.ts** - Main workout tracking flow for running/walking/cycling sessions
 **SplitTrackingService.ts** - Tracks kilometer splits and pace analysis for running workouts
+**WorkoutRecovery.ts** - Restores interrupted workout sessions after crash/restart
+**WorkoutSessionBridge.ts** - iOS HealthKit workout-session bridge integration
 
 ### Location Tracking
 
-**LocationTrackingService.ts** - Basic location tracking for workout activities
-**LocationValidator.ts** - Validates GPS coordinates and filters out bad data points
+**SimpleRunTrackerTask.ts** - Background GPS point collection task for active sessions
+**GPSHealthMonitor.ts** - Tracks GPS signal quality and location reliability
 **LocationPermissionService.ts** - Manages location permissions for iOS/Android
-**StreamingLocationStorage.ts** - Efficient storage and retrieval of location data streams
+**BatteryOptimizationService.ts** - Battery-aware GPS accuracy and update tuning
 
-### Background Services
+### Activity Configuration & Goals
 
-**BackgroundLocationTask.ts** - Background location tracking when app is minimized
-**BatteryOptimizationService.ts** - Battery-aware location tracking optimization
+**ActivityGridService.ts** - Manages 2D activity-grid navigation and category mapping
+**DefaultActivityService.ts** - Persists default activity selection for tracker entry
+**AutoCompetePreferencesService.ts** - Stores auto-compete behavior per activity type
+**DailyStepGoalService.ts** - Daily step-goal storage and progress helpers
+**WeeklyDistanceGoalService.ts** - Weekly distance-goal storage and progress helpers
+**WeatherService.ts** - Weather data fetcher for activity context and planning
 
 ### Step Counting (Android)
 
