@@ -16,6 +16,7 @@
 		AE6FF047FEF756720AA0C1C8 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 4999510078E4CD3C8675D118 /* PrivacyInfo.xcprivacy */; };
 		B18059E884C0ABDD17F3DC3D /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAC715A2D49A985799AEE119 /* ExpoModulesProvider.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
+		F2BE410AAB95C23BDF173DBB /* pose_landmarker_lite.task in Resources */ = {isa = PBXBuildFile; fileRef = 82CE83897DCFFE554B2304CF /* pose_landmarker_lite.task */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -29,6 +30,7 @@
 		2F56CA2E2D6CFBB72D7618D3 /* Pods-RUNSTR.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RUNSTR.debug.xcconfig"; path = "Target Support Files/Pods-RUNSTR/Pods-RUNSTR.debug.xcconfig"; sourceTree = "<group>"; };
 		3CCA69C1B3B287DDF941AA70 /* Pods-RUNSTR.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RUNSTR.release.xcconfig"; path = "Target Support Files/Pods-RUNSTR/Pods-RUNSTR.release.xcconfig"; sourceTree = "<group>"; };
 		4999510078E4CD3C8675D118 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = RUNSTR/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		82CE83897DCFFE554B2304CF /* pose_landmarker_lite.task */ = {isa = PBXFileReference; includeInIndex = 1; path = pose_landmarker_lite.task; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = RUNSTR/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		C826638BB27EFB1A390A6516 /* Pods_RUNSTR.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RUNSTR.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -91,6 +93,7 @@
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				D65327D7A22EEC0BE12398D9 /* Pods */,
 				D7E4C46ADA2E9064B798F356 /* ExpoModulesProviders */,
+				82CE83897DCFFE554B2304CF /* pose_landmarker_lite.task */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -204,6 +207,7 @@
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
 				AE6FF047FEF756720AA0C1C8 /* PrivacyInfo.xcprivacy in Resources */,
+				F2BE410AAB95C23BDF173DBB /* pose_landmarker_lite.task in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

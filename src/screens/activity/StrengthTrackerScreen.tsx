@@ -398,7 +398,7 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
         weight: averageWeight, // Average weight across all sets
         weightsPerSet: completedWeights, // Individual weights per set
         verificationReceipt: verificationReceipt ?? undefined,
-      });
+      } as any);
 
       console.log(
         `✅ Strength workout auto-saved: ${selectedExercise} - ${totalReps} reps in ${totalSets} sets, ${calories} cal (ID: ${workoutId})`
