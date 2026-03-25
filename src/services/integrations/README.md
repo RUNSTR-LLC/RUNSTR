@@ -1,11 +1,13 @@
 # Integration Services Directory
 
-External service integrations and data bridging between different systems in RUNSTR.
+External service integrations and bridging between Nostr events and RUNSTR competition internals.
 
-## Files
+## Active files
 
-- **competitionContextService.ts** - Competition context management for cross-service integration
-- **competitionIntegrationService.ts** - Competition data integration across Nostr and internal services
-- **NostrCompetitionContextService.ts** - Nostr-specific competition context and state management
-- **nostrCompetitionBridge.ts** - Bridge service connecting Nostr events with internal competition logic
-- **nostrRealtimeCompetitionSync.ts** - Real-time synchronization of competition data with Nostr relays
+- **NostrCompetitionContextService.ts** - Nostr-specific competition context/state hydration used by integration flows.
+- **nostrCompetitionBridge.ts** - Bridge service that maps Nostr competition events into internal competition models.
+
+## Notes
+
+- `competitionContextService.ts`, `competitionIntegrationService.ts`, and `nostrRealtimeCompetitionSync.ts` are no longer present in this directory.
+- Keep this index aligned with actual files to avoid stale implementation references during audits and onboarding.
