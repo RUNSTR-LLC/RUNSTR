@@ -80,7 +80,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
   const [rewardDestination, setRewardDestination] = useState<string | null>(null);
   const [rewardDestinationImage, setRewardDestinationImage] = useState<number | undefined>(undefined);
 
-  const isOwner = !pubkey || pubkey === userNpub;
+  const isOwner = !pubkey || pubkey === userNpub || (pubkey.length === 64 && !pubkey.startsWith('npub1') && npubEncode(pubkey) === userNpub);
   const targetNpub = pubkey || userNpub;
 
   // Fetch Nostr profile for other users

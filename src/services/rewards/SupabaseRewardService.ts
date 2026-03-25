@@ -17,7 +17,7 @@ import { nip19 } from '@nostr-dev-kit/ndk';
 import { getCharityByLightningAddress } from '../../constants/charities';
 
 // Geyser Fund charity IDs (payments to these may be pending)
-const GEYSER_CHARITY_IDS = ['bitcoin-yucatan', 'buho-go'];
+const GEYSER_CHARITY_IDS: string[] = [];
 
 export interface PaymentRecord {
   id: string;
@@ -203,7 +203,8 @@ class SupabaseRewardServiceClass {
         .select('*')
         .eq('npub', npub)
         .eq('status', 'pending')
-        .ilike('lightning_address', '%@geyser.fund');
+        .ilike('lightning_address', '%@geyser.fund')
+        .limit(100);
 
       if (error) {
         console.error('[SupabaseRewardService] Error fetching pending Geyser payments:', error);
@@ -248,7 +249,8 @@ class SupabaseRewardServiceClass {
         .eq('npub', npub)
         .eq('status', 'success')
         .gt('paid_at', sinceTimestamp)
-        .order('paid_at', { ascending: false });
+        .order('paid_at', { ascending: false })
+        .limit(100);
 
       if (error) {
         console.error('[SupabaseRewardService] Error fetching new payments:', error);

@@ -138,8 +138,18 @@ const STORAGE_KEYS = {
 
 export class LocalWorkoutStorageService {
   private static instance: LocalWorkoutStorageService;
+  private workoutCache: LocalWorkout[] | null = null;
+  private cacheValid = false;
 
   private constructor() {}
+
+  /**
+   * Invalidate the in-memory cache — forces next getAllWorkouts() to read from AsyncStorage
+   */
+  private invalidateCache(): void {
+    this.workoutCache = null;
+    this.cacheValid = false;
+  }
 
   static getInstance(): LocalWorkoutStorageService {
     if (!LocalWorkoutStorageService.instance) {
@@ -430,6 +440,7 @@ export class LocalWorkoutStorageService {
           STORAGE_KEYS.LOCAL_WORKOUTS,
           JSON.stringify(workouts)
         );
+        this.invalidateCache();
         AutoBackupService.getInstance().scheduleBackup();
         console.log(
           `✅ Updated daily steps workout: ${deterministicId} (${workout.steps} steps, ~${(workout.distance / 1000).toFixed(2)}km)`
@@ -457,6 +468,7 @@ export class LocalWorkoutStorageService {
           STORAGE_KEYS.LOCAL_WORKOUTS,
           JSON.stringify(workouts)
         );
+        this.invalidateCache();
         AutoBackupService.getInstance().scheduleBackup();
         console.log(
           `✅ Created daily steps workout: ${deterministicId} (${workout.steps} steps, ~${(workout.distance / 1000).toFixed(2)}km)`
@@ -507,6 +519,7 @@ export class LocalWorkoutStorageService {
         STORAGE_KEYS.LOCAL_WORKOUTS,
         JSON.stringify(workouts)
       );
+      this.invalidateCache();
 
       // REWARD TRIGGER: Only user-generated cardio workouts on a new day trigger rewards
       // Uses checkStreakAndReward() which:
@@ -709,6 +722,7 @@ export class LocalWorkoutStorageService {
         STORAGE_KEYS.LOCAL_WORKOUTS,
         JSON.stringify(workouts)
       );
+      this.invalidateCache();
     } catch (err) {
       console.warn('[LocalWorkoutStorage] Failed to update supabase status:', err);
     }
@@ -773,16 +787,29 @@ export class LocalWorkoutStorageService {
    */
   async getAllWorkouts(): Promise<LocalWorkout[]> {
     try {
+      // Return cached data if valid
+      if (this.cacheValid && this.workoutCache) {
+        return this.workoutCache;
+      }
+
       const data = await AsyncStorage.getItem(STORAGE_KEYS.LOCAL_WORKOUTS);
-      if (!data) return [];
+      if (!data) {
+        this.workoutCache = [];
+        this.cacheValid = true;
+        return [];
+      }
 
       const workouts: LocalWorkout[] = JSON.parse(data);
 
       // Sort by start time (newest first)
-      return workouts.sort(
+      workouts.sort(
         (a, b) =>
           new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
       );
+
+      this.workoutCache = workouts;
+      this.cacheValid = true;
+      return workouts;
     } catch (error) {
       console.error('❌ Failed to retrieve local workouts:', error);
       return [];
@@ -818,6 +845,7 @@ export class LocalWorkoutStorageService {
         STORAGE_KEYS.LOCAL_WORKOUTS,
         JSON.stringify(workouts)
       );
+      this.invalidateCache();
       console.log(
         `✅ Marked workout ${workoutId} as synced (Nostr event: ${nostrEventId})`
       );
@@ -855,6 +883,7 @@ export class LocalWorkoutStorageService {
         STORAGE_KEYS.LOCAL_WORKOUTS,
         JSON.stringify(workouts)
       );
+      this.invalidateCache();
       console.log(`[LocalWorkoutStorage] Saved card for workout: ${workoutId} (template: ${card.templateId})`);
     } catch (error) {
       console.error('[LocalWorkoutStorage] Failed to save workout card:', error);
@@ -886,6 +915,7 @@ export class LocalWorkoutStorageService {
           STORAGE_KEYS.LOCAL_WORKOUTS,
           JSON.stringify(remainingWorkouts)
         );
+        this.invalidateCache();
         console.log(
           `✅ Cleaned up ${removedCount} synced workouts older than ${olderThanDays} days`
         );
@@ -922,6 +952,7 @@ export class LocalWorkoutStorageService {
         STORAGE_KEYS.LOCAL_WORKOUTS,
         JSON.stringify(workouts)
       );
+      this.invalidateCache();
       console.log(`[LocalWorkoutStorage] Updated workout ${workoutId} with route "${routeLabel}"`);
     } catch (error) {
       console.error('[LocalWorkoutStorage] Failed to update workout route:', error);
@@ -957,6 +988,7 @@ export class LocalWorkoutStorageService {
         STORAGE_KEYS.LOCAL_WORKOUTS,
         JSON.stringify(filteredWorkouts)
       );
+      this.invalidateCache();
       console.log(`✅ Deleted workout ${workoutId} from local storage`);
     } catch (error) {
       console.error('❌ Failed to delete workout:', error);
@@ -970,6 +1002,7 @@ export class LocalWorkoutStorageService {
   async clearAllWorkouts(): Promise<void> {
     try {
       await AsyncStorage.removeItem(STORAGE_KEYS.LOCAL_WORKOUTS);
+      this.invalidateCache();
       console.log('✅ Cleared all local workouts');
     } catch (error) {
       console.error('❌ Failed to clear local workouts:', error);

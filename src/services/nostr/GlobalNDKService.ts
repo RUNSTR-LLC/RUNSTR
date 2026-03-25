@@ -105,7 +105,7 @@ export class GlobalNDKService {
     const degradedNDK = new NDK({
       explicitRelayUrls: this.DEFAULT_RELAYS,
       autoConnectUserRelays: false,
-      autoFetchUserMutelist: false,
+      // autoFetchUserMutelist removed - not in current NDK type definitions
       enableOutboxModel: false, // Prevent NDK from connecting to relays discovered via NIP-65
     });
 
@@ -468,7 +468,7 @@ export class GlobalNDKService {
       const ndk = new NDK({
         explicitRelayUrls: relayUrls,
         autoConnectUserRelays: false, // Disabled: prevents 5+ extra relay connections from Outbox Model
-        autoFetchUserMutelist: false, // Don't auto-fetch mute lists (saves bandwidth)
+        // autoFetchUserMutelist removed - not in current NDK type definitions // Don't auto-fetch mute lists (saves bandwidth)
         enableOutboxModel: false, // Prevent NDK from connecting to relays discovered via NIP-65
         // Note: debug option removed - was causing "ndk.debug.extend is not a function" error
       });

@@ -626,11 +626,5 @@ export const useNavigationData = (): NavigationData => {
       'useNavigationData must be used within a NavigationDataProvider'
     );
   }
-  console.log(
-    '✅ useNavigationData: Context found, isLoading:',
-    context.isLoading,
-    'profileData:',
-    !!context.profileData
-  );
   return context;
 };

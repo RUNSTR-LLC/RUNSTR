@@ -107,7 +107,8 @@ export class SupabaseCompetitionService {
         .from('competitions')
         .select('*')
         .not('external_id', 'in', `(${this.HARDCODED_EVENT_IDS.join(',')})`)
-        .order('start_date', { ascending: false });
+        .order('start_date', { ascending: false })
+        .limit(50);
 
       if (error) {
         console.error('[SupabaseCompetitionService] fetchDynamicCompetitions error:', error);
@@ -350,7 +351,7 @@ export class SupabaseCompetitionService {
               if (hasAccount) {
                 // Determine reward amount using shared boost logic (same criteria as non-PPQ path)
                 // Source is 'gps_tracker' since submitWorkoutSimple callers are all non-manual
-                let rewardSats = REWARD_CONFIG.DAILY_WORKOUT_REWARD;
+                let rewardSats: number = REWARD_CONFIG.DAILY_WORKOUT_REWARD;
                 const npub = await AsyncStorage.getItem('@runstr:npub');
                 if (npub) {
                   // 5s timeout prevents hanging if Supabase is slow (same pattern as club lookups)
@@ -705,7 +706,7 @@ export class SupabaseCompetitionService {
       // Anti-cheat validation already filters out impossible workouts (they go to flagged_workouts table)
       let workoutQuery = supabase!
         .from('workout_submissions')
-        .select('*')
+        .select('npub, distance_meters, activity_type, created_at, duration_seconds, raw_event, event_id, time_5k_seconds, time_10k_seconds, time_half_seconds, time_marathon_seconds')
         .in('npub', validNpubs)
         .gte('created_at', startDate)
         .lte('created_at', endDate);
@@ -726,7 +727,8 @@ export class SupabaseCompetitionService {
         workoutQuery = workoutQuery.eq('source', 'app');
       }
 
-      const { data: rawWorkouts } = await workoutQuery.order('created_at', { ascending: false }).limit(5000); // Most recent first, bounded for mobile safety
+      const { data: rawWorkoutsData } = await workoutQuery.order('created_at', { ascending: false }).limit(2000); // Most recent first, bounded for mobile safety
+      const rawWorkouts = rawWorkoutsData as unknown as WorkoutSubmission[] | null;
 
       // CRITICAL: Deduplicate workouts by (npub, distance, date) to prevent double-counting
       // Same workout can be submitted multiple times from different sources (GPS, HealthKit, Health Connect)

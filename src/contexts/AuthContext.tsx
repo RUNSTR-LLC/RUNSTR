@@ -100,6 +100,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         const { hexPubkey } = identifiers;
 
+        if (!hexPubkey) {
+          console.warn('⚠️ AuthContext: No hex pubkey in identifiers');
+          setIsAuthenticated(false);
+          setCurrentUser(null);
+          NostrFetchLogger.end('AuthContext.checkStoredCredentials', 0, 'no hex pubkey');
+          return;
+        }
+
         // ✅ PERFORMANCE FIX: Skip cache initialization - lazy load on demand
         // This saves 1-2s on app startup by deferring AsyncStorage reads
         // Cache will initialize automatically on first getCached() call
@@ -154,9 +162,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           cacheUnsubscribeRef.current?.();
           cacheUnsubscribeRef.current = unifiedCache.subscribe(
             CacheKeys.USER_PROFILE(hexPubkey),
-            (updatedUser) => {
+            (updatedUser: unknown) => {
               console.log('🔄 AuthContext: User profile updated from cache');
-              setCurrentUser(updatedUser);
+              setCurrentUser(updatedUser as User ?? null);
             }
           );
         } else {
@@ -327,7 +335,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   /**
    * Refresh profile in background without blocking
    */
-  const refreshProfileInBackground = async (): Promise<void> => {
+  const refreshProfileInBackground = useCallback(async (): Promise<void> => {
     try {
       const directUser =
         await DirectNostrProfileService.getCurrentUserProfile();
@@ -359,7 +367,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error) {
       // Silent fail for background refresh
     }
-  };
+  }, []);
 
   /**
    * Sign in with nsec - directly updates authentication state
@@ -393,7 +401,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         // Start loading profile in background while showing splash
         setTimeout(() => {
-          setCurrentUser(result.user);
+          setCurrentUser(result.user ?? null);
           setIsConnected(true);
           setConnectionStatus('Connected');
           setInitError(null);
@@ -469,7 +477,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       // NOW set user in state (profile data ready)
-      setCurrentUser(result.user);
+      setCurrentUser(result.user ?? null);
       setIsConnected(true);
       setConnectionStatus('Connected');
       setInitError(null);
@@ -522,7 +530,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Start loading profile in background while showing splash
       setTimeout(() => {
-        setCurrentUser(result.user);
+        setCurrentUser(result.user ?? null);
       }, 100);
       setIsConnected(true);
       setConnectionStatus('Connected');
@@ -597,7 +605,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Direct state updates (like iOS app)
       setIsAuthenticated(true);
-      setCurrentUser(result.user);
+      setCurrentUser(result.user ?? null);
       setIsConnected(true);
       setConnectionStatus('Connected');
       setInitError(null);

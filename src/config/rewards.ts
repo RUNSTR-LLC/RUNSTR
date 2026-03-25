@@ -75,4 +75,6 @@ export const REWARD_STORAGE_KEYS = {
   TOTAL_REWARDS_EARNED: '@runstr:total_rewards_earned',
   WEEKLY_REWARDS_EARNED: '@runstr:weekly_rewards_earned',
   WEEKLY_REWARDS_WEEK: '@runstr:weekly_rewards_week',
+  BOOSTED_COUNT_THIS_WEEK: '@runstr:boosted_count_this_week',
+  BOOSTED_WEEK_START: '@runstr:boosted_week_start',
 } as const;

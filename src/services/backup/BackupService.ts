@@ -13,6 +13,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Application from 'expo-application';
 import pako from 'pako';
 import { GlobalNDKService } from '../nostr/GlobalNDKService';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
@@ -287,7 +288,7 @@ export class BackupService {
     return {
       version: BACKUP_VERSION,
       exportedAt: new Date().toISOString(),
-      appVersion: '1.6.5', // TODO: Get from app config
+      appVersion: Application.nativeApplicationVersion || '1.7.5',
       workouts,
       habits: habits.length > 0 ? habits : undefined,
       journal: journalEntries.length > 0 ? journalEntries : undefined,
@@ -378,7 +379,7 @@ export class BackupService {
     // Tags (metadata visible to relays, content is encrypted)
     event.tags = [
       ['d', BACKUP_D_TAG], // Replaceable identifier
-      ['client', 'RUNSTR', '1.6.5'],
+      ['client', 'RUNSTR', Application.nativeApplicationVersion || '1.7.5'],
       ['encrypted', 'nip44'],
       ['compression', 'gzip'], // Content is gzip compressed before encryption
       ['backup_version', String(BACKUP_VERSION)],

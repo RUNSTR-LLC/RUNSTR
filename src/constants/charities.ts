@@ -90,16 +90,6 @@ export const CHARITIES: Charity[] = [
     category: 'project',
   },
   {
-    id: 'bitcoin-yucatan',
-    name: 'Bitcoin Yucatan',
-    displayName: 'Bitcoin Yucatan',
-    lightningAddress: 'bitcoinyucatancommunity@geyser.fund',
-    description: 'Bitcoin circular economy in Mexico',
-    website: 'https://geyser.fund/project/bitcoinyucatancommunity',
-    image: require('../../assets/images/charities/bitcoin-yucatan.webp'),
-    category: 'project',
-  },
-  {
     id: 'bitcoin-veterans',
     name: 'Bitcoin Veterans',
     displayName: 'Bitcoin Veterans',
@@ -128,24 +118,6 @@ export const CHARITIES: Charity[] = [
     category: 'project',
   },
   {
-    id: 'human-rights-foundation',
-    name: 'Human Rights Foundation',
-    displayName: 'HRF',
-    lightningAddress: 'nostr@btcpay.hrf.org',
-    description: 'Defending human rights globally through Bitcoin',
-    image: require('../../assets/images/charities/human-rights-foundation.png'),
-    category: 'charity',
-  },
-  {
-    id: 'lightning-news',
-    name: 'Lightning News',
-    displayName: 'Lightning News',
-    lightningAddress: 'lightningnews@puresignal.news',
-    description: 'Up to date news on Bitcoin and Lightning',
-    image: require('../../assets/images/charities/lightning-news.webp'),
-    category: 'project',
-  },
-  {
     id: 'runstr',
     name: 'RUNSTR',
     displayName: 'RUNSTR',
@@ -170,16 +142,6 @@ export const CHARITIES: Charity[] = [
     lightningAddress: 'plasticbowl87@walletofsatoshi.com',
     description: 'Bitcoin circular economy in Queenstown, New Zealand',
     image: require('../../assets/images/charities/bitcoin-basin.png'),
-    category: 'project',
-  },
-  {
-    id: 'buho-go',
-    name: 'BuhoGO',
-    displayName: 'BuhoGO',
-    lightningAddress: 'buho@lnbits.de',
-    description:
-      'BuhoGO is an open-source, NWC-ready wallet app that makes payments simple and accessible for everyone',
-    image: require('../../assets/images/charities/buho-go.jpeg'),
     category: 'project',
   },
   {

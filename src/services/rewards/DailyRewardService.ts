@@ -53,10 +53,10 @@ const REWARD_ELIGIBLE_SOURCES = [
 
 // Activity types that qualify for daily rewards
 // Cardio, strength, and journal entries earn the daily reward
-const REWARD_ELIGIBLE_ACTIVITY_TYPES = ['running', 'walking', 'cycling', 'strength', 'journal'];
+const REWARD_ELIGIBLE_ACTIVITY_TYPES = ['running', 'walking', 'cycling', 'hiking', 'strength', 'journal'];
 
-// Cardio-only subset used for boosted subscriber rewards (800 sats)
-const CARDIO_ACTIVITY_TYPES = ['running', 'walking', 'cycling'];
+// Cardio-only subset used for boosted subscriber rewards (1000 rewards)
+const CARDIO_ACTIVITY_TYPES = ['running', 'walking', 'cycling', 'hiking'];
 
 export interface RewardResult {
   success: boolean;
@@ -65,7 +65,7 @@ export interface RewardResult {
 }
 
 /**
- * Check if a workout qualifies for boosted subscriber rewards (800 sats)
+ * Check if a workout qualifies for boosted subscriber rewards (1000 rewards)
  * Requirements: cardio activity, non-manual source
  */
 export function isBoostedQualified(
@@ -654,13 +654,13 @@ class DailyRewardServiceClass {
 
   /**
    * Get the reward amount based on subscription tier and event bonuses
-   * Priority: boosted subscriber (800) > Einundzwanzig bonus (100) > base (50)
+   * Priority: boosted subscriber (1000, max 5/week) > Einundzwanzig bonus (100) > base (100)
    */
   private async getRewardAmount(
     userPubkey: string,
     workoutTags: string[][]
   ): Promise<number> {
-    const baseReward = REWARD_CONFIG.DAILY_WORKOUT_REWARD; // 100 sats
+    const baseReward = REWARD_CONFIG.DAILY_WORKOUT_REWARD;
 
     // Check subscriber boosted rewards (highest priority)
     try {
@@ -668,7 +668,6 @@ class DailyRewardServiceClass {
       if (npub) {
         const isSubscriber = await SubscriptionService.isSupporterOrAbove(npub);
         if (isSubscriber) {
-          // Extract workout metadata from tags to check boost qualification
           const exerciseTag = workoutTags.find(t => t[0] === 'exercise');
           const sourceTag = workoutTags.find(t => t[0] === 'source');
 
@@ -676,10 +675,17 @@ class DailyRewardServiceClass {
           const source = sourceTag?.[1] || '';
 
           if (isBoostedQualified(exercise, source)) {
-            console.log('[Reward] Subscriber boosted reward: 800 sats');
-            return REWARD_CONFIG.BOOSTED_WORKOUT_REWARD; // 800 sats
+            // Enforce weekly boost cap
+            const boostCount = await this.getWeeklyBoostCount();
+            if (boostCount < REWARD_CONFIG.BOOSTED_MAX_PER_WEEK) {
+              await this.incrementWeeklyBoostCount();
+              console.log(`[Reward] Subscriber boosted reward: ${REWARD_CONFIG.BOOSTED_WORKOUT_REWARD} (${boostCount + 1}/${REWARD_CONFIG.BOOSTED_MAX_PER_WEEK} this week)`);
+              return REWARD_CONFIG.BOOSTED_WORKOUT_REWARD;
+            }
+            console.log(`[Reward] Subscriber boost cap reached (${boostCount}/${REWARD_CONFIG.BOOSTED_MAX_PER_WEEK}), using base reward`);
+          } else {
+            console.log('[Reward] Subscriber but workout does not qualify for boost');
           }
-          console.log('[Reward] Subscriber but workout does not qualify for boost');
         }
       }
     } catch (err) {
@@ -698,6 +704,42 @@ class DailyRewardServiceClass {
     }
 
     return baseReward;
+  }
+
+  /**
+   * Get the number of boosted rewards claimed this week
+   */
+  private async getWeeklyBoostCount(): Promise<number> {
+    try {
+      const weekStart = await AsyncStorage.getItem(REWARD_STORAGE_KEYS.BOOSTED_WEEK_START);
+      const now = new Date();
+      const currentWeekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+      const currentWeekKey = currentWeekStart.toISOString().split('T')[0];
+
+      if (weekStart !== currentWeekKey) {
+        // New week — reset counter
+        await AsyncStorage.setItem(REWARD_STORAGE_KEYS.BOOSTED_WEEK_START, currentWeekKey);
+        await AsyncStorage.setItem(REWARD_STORAGE_KEYS.BOOSTED_COUNT_THIS_WEEK, '0');
+        return 0;
+      }
+
+      const count = await AsyncStorage.getItem(REWARD_STORAGE_KEYS.BOOSTED_COUNT_THIS_WEEK);
+      return parseInt(count || '0', 10);
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
+   * Increment the weekly boost counter
+   */
+  private async incrementWeeklyBoostCount(): Promise<void> {
+    try {
+      const count = await this.getWeeklyBoostCount();
+      await AsyncStorage.setItem(REWARD_STORAGE_KEYS.BOOSTED_COUNT_THIS_WEEK, String(count + 1));
+    } catch {
+      // Silent failure — don't block reward
+    }
   }
 
   /**

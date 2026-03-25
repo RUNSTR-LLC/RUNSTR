@@ -56,7 +56,7 @@ export interface GPSPoint {
 
 export interface RunSession {
   id: string;
-  activityType: 'running' | 'walking' | 'cycling';
+  activityType: 'running' | 'walking' | 'cycling' | 'hiking';
   startTime: number;
   endTime?: number;
   distance: number; // meters
@@ -189,7 +189,7 @@ export class SimpleRunTracker {
 
   // Core state
   private sessionId: string | null = null;
-  private activityType: 'running' | 'walking' | 'cycling' = 'running';
+  private activityType: 'running' | 'walking' | 'cycling' | 'hiking' = 'running';
   private isTracking = false;
   private isPaused = false;
   private pauseCount = 0;
@@ -275,7 +275,7 @@ export class SimpleRunTracker {
    * @param presetDistance - Optional race preset distance in meters (for auto-stop)
    */
   async startTracking(
-    activityType: 'running' | 'walking' | 'cycling',
+    activityType: 'running' | 'walking' | 'cycling' | 'hiking',
     presetDistance?: number
   ): Promise<boolean> {
     // CRITICAL FIX: Guard against double-calls that would reset distance
@@ -368,7 +368,7 @@ export class SimpleRunTracker {
     // Start WorkoutRecovery checkpointing (saves every 30 seconds for crash recovery)
     workoutRecovery.startCheckpointing(
       this.sessionId!,
-      activityType,
+      activityType as 'running' | 'walking' | 'cycling',
       this.startTime,
       () => ({
         distance: this.runningDistance,
@@ -386,7 +386,7 @@ export class SimpleRunTracker {
    * Like reference implementation - GPS starts async
    */
   private async initializeGPS(
-    activityType: 'running' | 'walking' | 'cycling'
+    activityType: 'running' | 'walking' | 'cycling' | 'hiking'
   ): Promise<void> {
     try {
       console.log(`[SimpleRunTracker] Initializing GPS for ${activityType}...`);
@@ -485,7 +485,7 @@ export class SimpleRunTracker {
           notificationChannelDescription: 'Shows active workout tracking status',
           notificationId: 123456, // Fixed ID prevents duplicate notifications
           killServiceOnDestroy: false, // CRITICAL: Keep service alive when app killed
-        },
+        } as any,
         pausesUpdatesAutomatically: false,
         activityType: Location.ActivityType.Fitness,
         showsBackgroundLocationIndicator: true,
@@ -1217,7 +1217,7 @@ export class SimpleRunTracker {
         notificationChannelDescription: 'Shows active workout tracking status',
         notificationId: 123456,
         killServiceOnDestroy: false,
-      },
+      } as any,
       pausesUpdatesAutomatically: false,
       activityType: Location.ActivityType.Fitness,
       showsBackgroundLocationIndicator: true,
@@ -1488,7 +1488,7 @@ export class SimpleRunTracker {
       distance: number;
       duration: number;
       pausedDuration: number;
-      activityType: 'running' | 'walking' | 'cycling';
+      activityType: 'running' | 'walking' | 'cycling' | 'hiking';
     };
   }> {
     // Don't recover if already tracking

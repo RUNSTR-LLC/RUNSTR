@@ -4,7 +4,7 @@
  * Checks subscriber tier from Supabase with AsyncStorage caching.
  * Supports two tiers: Supporter (10k sats/mo) and Pro (15k sats/mo).
  * Used to gate features:
- *   - Supporter+: Season III access, boosted rewards (800 sats/workout)
+ *   - Supporter+: Premium competitions, boosted rewards (1000 per workout, max 5/week)
  *   - Pro only: Create clubs, create events
  */
 

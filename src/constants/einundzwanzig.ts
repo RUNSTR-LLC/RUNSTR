@@ -41,7 +41,6 @@ export const EINUNDZWANZIG_COMPETITION_ID = 'einundzwanzig';
  */
 export const EINUNDZWANZIG_FEATURED_CHARITIES = [
   'als-foundation',
-  'buho-go',
 ] as const;
 
 // ============================================

@@ -265,9 +265,10 @@ const ClubsScreenComponent: React.FC = () => {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Clubs</Text>
         <TouchableOpacity
-          style={styles.createButton}
+          style={[styles.createButton, isJoining && { opacity: 0.5 }]}
           onPress={handleCreatePress}
           activeOpacity={0.7}
+          disabled={isJoining}
         >
           <Ionicons
             name="add-circle-outline"

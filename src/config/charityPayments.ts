@@ -21,7 +21,6 @@
  * instead of 'failed' (permanent).
  */
 export const RETRY_ELIGIBLE_CHARITIES: string[] = [
-  'human-rights-foundation', // nostr@btcpay.hrf.org - BTCPay routing issues
   'bitcoin-bay', // sats@donate.bitcoinbay.foundation - Custom domain issues
 ];
 
@@ -39,13 +38,7 @@ export interface BatchPaymentConfig {
   note: string; // Description of why batching is needed
 }
 
-export const BATCH_PAYMENT_CHARITIES: Record<string, BatchPaymentConfig> = {
-  'bitcoin-yucatan': {
-    minAmount: 1000, // Geyser.fund requires 1000 sat minimum
-    address: 'bitcoinyucatancommunity@geyser.fund',
-    note: 'Geyser.fund enforces 1000 sat minimum invoice amount',
-  },
-};
+export const BATCH_PAYMENT_CHARITIES: Record<string, BatchPaymentConfig> = {};
 
 /**
  * Retry configuration

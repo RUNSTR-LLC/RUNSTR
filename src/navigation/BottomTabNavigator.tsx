@@ -202,9 +202,10 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
             />
           ) : (
             <View style={styles.loadingContainer}>
-              <Text style={styles.loadingText}>
-                {error || 'Loading Profile...'}
-              </Text>
+              <ActivityIndicator size="large" color={theme.colors.accent} />
+              {error && (
+                <Text style={styles.loadingText}>{error}</Text>
+              )}
               {error && (
                 <TouchableOpacity onPress={refresh} style={styles.retryButton}>
                   <Text style={styles.retryText}>Retry</Text>

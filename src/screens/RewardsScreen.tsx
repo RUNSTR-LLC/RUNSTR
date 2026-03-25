@@ -115,7 +115,7 @@ const RewardsScreenComponent: React.FC = () => {
     if (route.params?.openDestinationPicker) {
       setShowDestinationPicker(true);
       // Clear the param so it doesn't re-trigger on tab switches
-      navigation.setParams({ openDestinationPicker: undefined });
+      navigation.setParams({ openDestinationPicker: undefined } as any);
     }
   }, [route.params?.openDestinationPicker]);
 
@@ -327,7 +327,7 @@ const RewardsScreenComponent: React.FC = () => {
     <SafeAreaView style={styles.container} edges={['top']}>
       <TexturedBackground edges={[]}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs' as never)}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
