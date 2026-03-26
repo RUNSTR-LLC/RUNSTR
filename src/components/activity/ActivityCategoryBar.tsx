@@ -26,9 +26,6 @@ export const ActivityCategoryBar: React.FC<ActivityCategoryBarProps> = ({
 
   const handleCategoryPress = useCallback((index: number) => {
     if (isWorkoutActive) return;
-
-    // Always open/re-open — tapping an open category keeps it open
-    // so users can switch within the same category
     setOpenCategoryIndex(index);
   }, [isWorkoutActive]);
 
@@ -45,13 +42,9 @@ export const ActivityCategoryBar: React.FC<ActivityCategoryBarProps> = ({
     setOpenCategoryIndex(null);
   }, [openCategoryIndex, onActivitySelect]);
 
-  const handleOverlayPress = useCallback(() => {
-    setOpenCategoryIndex(null);
-  }, []);
-
   return (
-    <>
-      {/* Category labels */}
+    <View>
+      {/* Category labels — inline in header */}
       <View style={styles.bar}>
         {CATEGORY_MENU.map((cat, index) => {
           const isActive = index === activeCategoryIndex;
@@ -77,7 +70,7 @@ export const ActivityCategoryBar: React.FC<ActivityCategoryBarProps> = ({
         })}
       </View>
 
-      {/* Dropdown */}
+      {/* Dropdown — renders below the bar */}
       {openCategoryIndex !== null && (
         <ActivityDropdown
           category={CATEGORY_MENU[openCategoryIndex]}
@@ -88,7 +81,7 @@ export const ActivityCategoryBar: React.FC<ActivityCategoryBarProps> = ({
           onSelectActivity={handleActivitySelect}
         />
       )}
-    </>
+    </View>
   );
 };
 
@@ -97,10 +90,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-evenly',
     alignItems: 'center',
-    backgroundColor: theme.colors.cardBackground,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    paddingVertical: 12,
   },
   categoryButton: {
     paddingHorizontal: 16,

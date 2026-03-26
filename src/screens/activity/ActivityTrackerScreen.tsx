@@ -381,7 +381,7 @@ export const ActivityTrackerScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header with back button + category bar */}
+      {/* Header with back button + category labels + dropdown */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -391,11 +391,13 @@ export const ActivityTrackerScreen: React.FC = () => {
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
 
-        <ActivityCategoryBar
-          gridPosition={gridPosition}
-          onActivitySelect={handleActivitySelect}
-          isWorkoutActive={isWorkoutActive}
-        />
+        <View style={styles.categoryBarWrapper}>
+          <ActivityCategoryBar
+            gridPosition={gridPosition}
+            onActivitySelect={handleActivitySelect}
+            isWorkoutActive={isWorkoutActive}
+          />
+        </View>
       </View>
 
       {/* Step counter — only for walk and hike */}
@@ -472,15 +474,20 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
+    alignItems: 'flex-start',
+    paddingLeft: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
+    zIndex: 10,
+  },
+  categoryBarWrapper: {
+    flex: 1,
   },
   backButton: {
     padding: 4,
     marginRight: 8,
+    marginTop: 2,
   },
   stepDisplay: {
     flexDirection: 'row',
