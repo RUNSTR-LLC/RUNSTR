@@ -226,8 +226,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
   }, [navigation]);
 
   const handleDestinationPress = useCallback(() => {
-    console.log('[ProfileScreen] handleDestinationPress fired!');
-    navigate('Rewards', { openDestinationPicker: true });
+    navigate('Rewards');
   }, []);
 
   const handleStatsPress = useCallback(() => {

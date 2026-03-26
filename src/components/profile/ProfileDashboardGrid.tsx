@@ -106,14 +106,14 @@ const RewardsMiniCard: React.FC<{ destination: string | null; destinationImage?:
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
-      <Text style={styles.cardLabel}>Rewards Destination</Text>
+      <Text style={styles.cardLabel}>Rewards</Text>
       <View style={styles.avatarRow}>
         <Avatar name={destination || '?'} size={28} imageSource={destinationImage} />
         <Text style={styles.rewardDestination} numberOfLines={2}>
           {destination || 'Set Destination'}
         </Text>
       </View>
-      <Text style={styles.tapHint}>Tap to change</Text>
+      <Text style={styles.tapHint}>View rewards</Text>
     </TouchableOpacity>
   );
 };
