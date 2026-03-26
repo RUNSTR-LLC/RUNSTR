@@ -269,25 +269,19 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
         )}
 
         {isOwner ? (
-          <>
-            <View style={styles.sectionGap}>
-              <TouchableOpacity style={styles.actionCard} onPress={handleStartWorkout} activeOpacity={0.7}>
-                <Text style={styles.actionCardText}>WORKOUT</Text>
-              </TouchableOpacity>
-            </View>
+          <View style={styles.actionCardsContainer}>
+            <TouchableOpacity style={styles.actionCard} onPress={handleStartWorkout} activeOpacity={0.7}>
+              <Text style={styles.actionCardText}>EXERCISE</Text>
+            </TouchableOpacity>
 
-            <View style={styles.sectionGap}>
-              <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('WorkoutHistory', { userId: targetNpub, pubkey: targetNpub })} activeOpacity={0.7}>
-                <Text style={styles.actionCardText}>HISTORY</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('WorkoutHistory', { userId: targetNpub, pubkey: targetNpub })} activeOpacity={0.7}>
+              <Text style={styles.actionCardText}>HISTORY</Text>
+            </TouchableOpacity>
 
-            <View style={styles.sectionGap}>
-              <TouchableOpacity style={styles.actionCard} onPress={handleDestinationPress} activeOpacity={0.7}>
-                <Text style={styles.actionCardText}>REWARDS</Text>
-              </TouchableOpacity>
-            </View>
-          </>
+            <TouchableOpacity style={styles.actionCard} onPress={handleDestinationPress} activeOpacity={0.7}>
+              <Text style={styles.actionCardText}>REWARDS</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           <>
             <View style={styles.sectionGap}>
@@ -326,12 +320,17 @@ const styles = StyleSheet.create({
   content: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: 16, paddingBottom: 32 },
   sectionGap: { marginBottom: 16 },
+  actionCardsContainer: {
+    flex: 1,
+    gap: 12,
+    marginBottom: 16,
+  },
   actionCard: {
+    flex: 1,
     alignItems: 'center', justifyContent: 'center',
     borderRadius: 12, borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.cardBackground,
-    paddingVertical: 32,
   },
   actionCardText: {
     fontSize: 18, fontWeight: theme.typography.weights.semiBold as any,

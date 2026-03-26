@@ -375,9 +375,13 @@ export const ActivityTrackerScreen: React.FC = () => {
     return steps.toLocaleString();
   };
 
+  // Determine current activity for conditional step counter
+  const currentActivityInfo = activityGridService.getActivityAt(gridPosition);
+  const showStepCounter = ['walk', 'hiking'].includes(currentActivityInfo.activity);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header with step counter */}
+      {/* Header with back button + category bar */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -387,6 +391,15 @@ export const ActivityTrackerScreen: React.FC = () => {
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
 
+        <ActivityCategoryBar
+          gridPosition={gridPosition}
+          onActivitySelect={handleActivitySelect}
+          isWorkoutActive={isWorkoutActive}
+        />
+      </View>
+
+      {/* Step counter — only for walk and hike */}
+      {showStepCounter && (
         <TouchableOpacity
           style={styles.stepDisplay}
           onPress={handlePostSteps}
@@ -395,16 +408,7 @@ export const ActivityTrackerScreen: React.FC = () => {
         >
           <Text style={styles.stepCount}>{formatSteps(dailySteps)} steps</Text>
         </TouchableOpacity>
-
-        <View style={styles.headerSpacer} />
-      </View>
-
-      {/* Category navigation bar */}
-      <ActivityCategoryBar
-        gridPosition={gridPosition}
-        onActivitySelect={handleActivitySelect}
-        isWorkoutActive={isWorkoutActive}
-      />
+      )}
 
       {/* Main content - gated on position load (prevents flash) and permissions */}
       {positionLoaded && permissionsReady ? (
@@ -479,10 +483,12 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   stepDisplay: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
   stepCount: {
     fontSize: 15,
