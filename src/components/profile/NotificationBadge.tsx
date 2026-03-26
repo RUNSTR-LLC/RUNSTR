@@ -4,13 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Animated,
-} from 'react-native';
+import { Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { theme } from '../../styles/theme';
 import { unifiedNotificationStore } from '../../services/notifications/UnifiedNotificationStore';
 
