@@ -271,25 +271,21 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
         {isOwner ? (
           <>
             <View style={styles.sectionGap}>
-              <TouchableOpacity style={styles.startWorkoutBtn} onPress={handleStartWorkout} activeOpacity={0.7}>
-                <Text style={styles.startWorkoutText}>Start Workout</Text>
+              <TouchableOpacity style={styles.actionCard} onPress={handleStartWorkout} activeOpacity={0.7}>
+                <Text style={styles.actionCardText}>WORKOUT</Text>
               </TouchableOpacity>
             </View>
 
-            <View style={styles.gridContainer}>
-              <ProfileDashboardGrid
-                levelData={levelData}
-                clubs={clubs}
-                recentWorkouts={recentWorkouts}
-                rewardDestination={rewardDestination}
-                rewardDestinationImage={rewardDestinationImage}
-                isLoading={isLoadingSections}
-                onLevelPress={handleStatsPress}
-                onClubPress={handleClubPress}
-                onEmptyClubPress={undefined}
-                onRewardsPress={handleDestinationPress}
-                onWorkoutsPress={() => navigation.navigate('WorkoutHistory', { userId: targetNpub, pubkey: targetNpub })}
-              />
+            <View style={styles.sectionGap}>
+              <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('WorkoutHistory', { userId: targetNpub, pubkey: targetNpub })} activeOpacity={0.7}>
+                <Text style={styles.actionCardText}>HISTORY</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.sectionGap}>
+              <TouchableOpacity style={styles.actionCard} onPress={handleDestinationPress} activeOpacity={0.7}>
+                <Text style={styles.actionCardText}>REWARDS</Text>
+              </TouchableOpacity>
             </View>
           </>
         ) : (
@@ -330,19 +326,17 @@ const styles = StyleSheet.create({
   content: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: 16, paddingBottom: 32 },
   sectionGap: { marginBottom: 16 },
-  startWorkoutBtn: {
+  actionCard: {
     alignItems: 'center', justifyContent: 'center',
     borderRadius: 12, borderWidth: 1,
-    borderColor: theme.colors.text,
-    backgroundColor: 'transparent',
-    paddingVertical: 13,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.cardBackground,
+    paddingVertical: 32,
   },
-  startWorkoutText: {
-    fontSize: 16, fontWeight: theme.typography.weights.semiBold as any,
+  actionCardText: {
+    fontSize: 18, fontWeight: theme.typography.weights.semiBold as any,
     color: theme.colors.text,
-  },
-  gridContainer: {
-    marginBottom: 16,
+    letterSpacing: 2,
   },
 });
 
