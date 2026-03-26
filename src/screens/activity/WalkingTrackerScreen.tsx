@@ -10,7 +10,6 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   AppState,
   AppStateStatus,
   StatusBar,
