@@ -28,10 +28,8 @@ import type { LevelStats } from '../types/workoutLevel';
 import { LEVEL_MILESTONES } from '../types/workoutLevel';
 import { useUserStore } from '../store/userStore';
 
-// Lazy import for NetInfo to avoid a missing-types error at compile time
-// when the package types are not present in the project.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const NetInfo = require('@react-native-community/netinfo').default;
+// NetInfo removed — package not installed. Assume connected.
+// TODO: Add NetInfo when @react-native-community/netinfo is added to deps
 
 export const LevelDetailScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -67,14 +65,8 @@ export const LevelDetailScreen: React.FC = () => {
     loadData();
   }, [npub]);
 
-  useEffect(() => {
-    const unsub = NetInfo.addEventListener(
-      (state: { isConnected: boolean | null }) => {
-        setIsConnected(state.isConnected ?? true);
-      }
-    );
-    return () => unsub();
-  }, []);
+  // Network monitoring removed — NetInfo not installed
+  // isConnected defaults to true
 
   const loadData = async () => {
     setIsLoadingStats(true);
