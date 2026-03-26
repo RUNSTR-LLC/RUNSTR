@@ -1955,16 +1955,6 @@ const styles = StyleSheet.create({
     padding: 12,
     fontStyle: 'italic',
   },
-  modalInput: {
-    backgroundColor: theme.colors.cardBackground,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: theme.colors.text,
-    marginTop: 12,
-  },
   modalInputError: {
     borderColor: theme.colors.error,
   },
