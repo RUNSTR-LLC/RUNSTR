@@ -51,7 +51,6 @@ import JoinRequestService from '../services/competition/JoinRequestService';
 import { UnifiedSigningService } from '../services/auth/UnifiedSigningService';
 import { GlobalNDKService } from '../services/nostr/GlobalNDKService';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
-import { Alert } from 'react-native';
 import { NostrFetchLogger } from '../utils/NostrFetchLogger';
 import Toast from 'react-native-toast-message';
 import { MusicPlayerPreferencesService } from '../services/music/MusicPlayerPreferencesService';
