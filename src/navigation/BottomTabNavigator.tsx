@@ -23,10 +23,10 @@ import { PerformanceLogger } from '../utils/PerformanceLogger';
 // FIX: Loading multiple lazy screens simultaneously was causing freeze on first launch
 import { ProfileScreen } from '../screens/ProfileScreen';
 
-// Lazy load Clubs and Events since they're not the initial tab
-const ClubsScreen = React.lazy(() =>
-  import('../screens/ClubsScreen').then((m) => ({
-    default: m.ClubsScreen,
+// Lazy load Social and Events since they're not the initial tab
+const SocialScreen = React.lazy(() =>
+  import('../screens/SocialScreen').then((m) => ({
+    default: m.SocialScreen,
   }))
 );
 
@@ -59,7 +59,7 @@ import { createNavigationHandlers } from './navigationHandlers';
 // Types
 export type BottomTabParamList = {
   Profile: undefined;
-  Clubs: undefined;
+  Social: undefined;
   Events: undefined;
 };
 
@@ -113,8 +113,8 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
 
           if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
-          } else if (route.name === 'Clubs') {
-            iconName = focused ? 'people' : 'people-outline';
+          } else if (route.name === 'Social') {
+            iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
           } else if (route.name === 'Events') {
             iconName = focused ? 'trophy' : 'trophy-outline';
           }
@@ -145,8 +145,8 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
               data={profileData}
               isLoadingTeam={isLoadingTeam}
               isLoadingProfile={isLoading}
-              onNavigateToTeam={() => navigation.navigate('Clubs')}
-              onNavigateToTeamDiscovery={() => navigation.navigate('Clubs')}
+              onNavigateToTeam={() => navigation.navigate('Social')}
+              onNavigateToTeamDiscovery={() => navigation.navigate('Social')}
               onViewCurrentTeam={() => {
                 // Navigate to EnhancedTeamScreen with the user's current team
                 if (profileData.currentTeam) {
@@ -216,17 +216,11 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
         }
       </Tab.Screen>
 
-      {/* Clubs Tab - Club & Charity Selection */}
-      <Tab.Screen
-        name="Clubs"
-        options={{
-          title: 'Clubs',
-          headerShown: false,
-        }}
-      >
+      {/* Social Tab - Feed & Fitness Clubs */}
+      <Tab.Screen name="Social" options={{ lazy: true }}>
         {() => (
           <Suspense fallback={<LoadingFallback />}>
-            <ClubsScreen />
+            <SocialScreen />
           </Suspense>
         )}
       </Tab.Screen>

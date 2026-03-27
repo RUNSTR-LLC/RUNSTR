@@ -133,7 +133,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
         break;
       case 'team_join_request':
         onClose();
-        navigation.navigate('Clubs');
+        navigation.navigate('Social');
         break;
       default:
         console.log('No default action for type:', notification.type);
@@ -149,13 +149,13 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
   const handleViewCompetition = (notification: UnifiedNotification) => {
     onClose();
     // Navigate to Clubs tab to view competitions
-    navigation.navigate('Clubs');
+    navigation.navigate('Social');
   };
 
   const handleViewResults = (notification: UnifiedNotification) => {
     onClose();
     // Navigate to Clubs tab where results would be displayed
-    navigation.navigate('Clubs');
+    navigation.navigate('Social');
   };
 
   const handleViewWallet = () => {

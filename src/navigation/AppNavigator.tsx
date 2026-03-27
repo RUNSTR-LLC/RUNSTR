@@ -215,8 +215,8 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
           profileData ? (
             <ProfileScreen
               data={profileData}
-              onNavigateToTeam={() => navigation.navigate('Clubs')}
-              onViewCurrentTeam={() => navigation.navigate('Clubs')}
+              onNavigateToTeam={() => navigation.navigate('Social')}
+              onViewCurrentTeam={() => navigation.navigate('Social')}
               onEditProfile={() => navigation.navigate('ProfileEdit')}
               onSyncSourcePress={handlers.handleSyncSourcePress}
               onManageSubscription={handlers.handleManageSubscription}

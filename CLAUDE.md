@@ -23,7 +23,7 @@ Never use "cryptocurrency", "blockchain", or "decentralized" in user-facing cont
 
 ## Product Structure
 
-**Three-Tab Navigation:** Profile (workouts, history, settings) · Clubs (Fitness Clubs) · Rewards (earnings, destination, sponsor)
+**Three-Tab Navigation:** Profile (workouts, history, settings) · Social (feed, Fitness Clubs) · Events (competitions, leaderboards)
 
 **Activities** (swipeable grid): Cardio (Run, Walk, Cycle, Hike with GPS) · Strength (Pushups, Pull-ups, Sit-ups, Squats, Curls, Bench) · Wellness (Guided, Unguided, Breathwork, Body Scan, Gratitude) · Mindfulness (Journal, Habits)
 
