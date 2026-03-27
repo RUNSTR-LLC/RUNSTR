@@ -39,12 +39,11 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
 
       const result = await SocialInteractionService.toggleLike(post.id, post.event_id, post.npub);
       if (!result.success) {
+        // Revert on failure
         setIsLiked(wasLiked);
         setLikeCount((c) => wasLiked ? c + 1 : Math.max(c - 1, 0));
-      } else {
-        setLikeCount(result.newCount);
-        setIsLiked(result.isLiked);
       }
+      // On success, keep the optimistic values — don't overwrite with server response
     });
   }, [isLiked, post, debounce]);
 
@@ -69,11 +68,11 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
 
       const result = await SocialInteractionService.repost(post.id, post.event_id, post.npub);
       if (!result.success || !result.wasAdded) {
+        // Revert on failure
         setIsReposted(false);
         setRepostCount((c) => Math.max(c - 1, 0));
-      } else {
-        setRepostCount(result.newCount);
       }
+      // On success, keep optimistic values
     });
   }, [isReposted, post, debounce]);
 

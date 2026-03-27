@@ -53,7 +53,7 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, userNpub }
         <Image
           source={{ uri: firstImage }}
           style={styles.image}
-          resizeMode="contain"
+          resizeMode="cover"
           onError={() => setImageError(true)}
         />
       )}
@@ -100,7 +100,8 @@ const styles = StyleSheet.create({
   },
   image: {
     width: '100%',
-    height: MAX_IMAGE_HEIGHT,
+    aspectRatio: 1,
+    maxHeight: 400,
     borderRadius: 8,
     marginTop: 10,
     backgroundColor: theme.colors.cardBackground,
