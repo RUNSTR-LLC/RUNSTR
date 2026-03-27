@@ -9,20 +9,15 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  Alert,
-  ImageBackground,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../../styles/theme';
 import { DiscoveryTeam } from '../../types';
-import { PrizeDisplay } from '../ui/PrizeDisplay';
 import { isTeamCaptain, isTeamMember } from '../../utils/teamUtils';
 import { TeamMembershipService } from '../../services/team/teamMembershipService';
 import { CaptainCache } from '../../utils/captainCache';
 import { publishJoinRequest } from '../../utils/joinRequestPublisher';
 import leagueRankingService from '../../services/competition/leagueRankingService';
 import { TeamMemberCache } from '../../services/team/TeamMemberCache';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigationData } from '../../contexts/NavigationDataContext';
 import { CustomAlertManager } from '../ui/CustomAlert';
 
