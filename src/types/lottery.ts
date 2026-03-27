@@ -24,22 +24,21 @@ export interface LotteryConfig {
  * is not yet set up. Server-side config takes precedence.
  */
 export const DEFAULT_SEGMENTS: LotterySegment[] = [
-  { segment: 1, baseValue: 5, probability: 0.30 },
-  { segment: 2, baseValue: 10, probability: 0.25 },
-  { segment: 3, baseValue: 25, probability: 0.20 },
-  { segment: 4, baseValue: 50, probability: 0.13 },
-  { segment: 5, baseValue: 100, probability: 0.08 },
-  { segment: 6, baseValue: 250, probability: 0.03 },
-  { segment: 7, baseValue: 500, probability: 0.008 },
-  { segment: 8, baseValue: 1000, probability: 0.002 },
+  { segment: 1, baseValue: 10, probability: 0.35 },
+  { segment: 2, baseValue: 25, probability: 0.25 },
+  { segment: 3, baseValue: 50, probability: 0.18 },
+  { segment: 4, baseValue: 100, probability: 0.12 },
+  { segment: 5, baseValue: 250, probability: 0.06 },
+  { segment: 6, baseValue: 500, probability: 0.03 },
+  { segment: 7, baseValue: 1000, probability: 0.01 },
 ];
 
 /**
  * Calculate lottery multiplier from user level.
- * Logarithmic: front-loads gains for new users.
+ * Linear: +0.1x per level. Level 0 = 1.0x, Level 50 = 6.0x.
  */
 export function calculateLotteryMultiplier(level: number): number {
-  return 1 + 0.5 * Math.log(level + 1);
+  return 1.0 + level * 0.1;
 }
 
 /** AsyncStorage key for last spin date */

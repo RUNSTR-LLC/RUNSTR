@@ -68,6 +68,11 @@ export const LevelDetailScreen: React.FC = () => {
     .reverse()
     .find((m) => level >= m.level);
 
+  const nextMilestone = LEVEL_MILESTONES.find((m) => level < m.level);
+  const nextMilestoneMultiplier = nextMilestone
+    ? calculateLotteryMultiplier(nextMilestone.level)
+    : null;
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <TexturedBackground edges={[]}>
@@ -105,10 +110,28 @@ export const LevelDetailScreen: React.FC = () => {
             </Text>
           </View>
 
+          {/* Current multiplier */}
           <View style={styles.multiplierBadge}>
-            <Text style={styles.multiplierLabel}>Level {level} Bonus</Text>
+            <Text style={styles.multiplierLabel}>Spin Bonus</Text>
             <Text style={styles.multiplierValue}>{multiplier.toFixed(1)}x</Text>
           </View>
+
+          <Text style={styles.multiplierExplainer}>
+            Every level adds +0.1x to your daily spin
+          </Text>
+
+          {/* Next milestone preview */}
+          {nextMilestone && (
+            <View style={styles.nextMilestone}>
+              <Text style={styles.nextMilestoneLabel}>NEXT</Text>
+              <Text style={styles.nextMilestoneTitle}>
+                Level {nextMilestone.level}: {nextMilestone.title}
+              </Text>
+              <Text style={styles.nextMilestoneBonus}>
+                {nextMilestoneMultiplier?.toFixed(1)}x spin bonus
+              </Text>
+            </View>
+          )}
 
           <View style={styles.spinNote}>
             <Text style={styles.spinNoteText}>
@@ -206,9 +229,42 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.medium,
   },
   multiplierValue: {
-    color: theme.colors.text,
-    fontSize: 16,
+    color: theme.colors.accent,
+    fontSize: 18,
     fontWeight: theme.typography.weights.bold,
+  },
+  multiplierExplainer: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    fontWeight: theme.typography.weights.medium,
+    marginBottom: 20,
+  },
+  nextMilestone: {
+    width: '100%',
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 10,
+    padding: 14,
+    alignItems: 'center',
+    marginBottom: 20,
+    gap: 4,
+  },
+  nextMilestoneLabel: {
+    color: theme.colors.textMuted,
+    fontSize: 10,
+    fontWeight: theme.typography.weights.semiBold,
+    letterSpacing: 1,
+  },
+  nextMilestoneTitle: {
+    color: theme.colors.text,
+    fontSize: 15,
+    fontWeight: theme.typography.weights.semiBold,
+  },
+  nextMilestoneBonus: {
+    color: theme.colors.accent,
+    fontSize: 13,
+    fontWeight: theme.typography.weights.medium,
   },
   spinNote: {
     paddingVertical: 12,
