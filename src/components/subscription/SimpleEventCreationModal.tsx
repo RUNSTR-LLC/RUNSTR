@@ -7,17 +7,13 @@
  *   - Half Marathon → total_distance
  *   - Step Challenge → total_steps (walking)
  *
- * Supports edit mode via `existingEvent` prop to update name/description.
- * Inserts directly into Supabase competitions table with spam prevention
- * and auto-join for club members.
+ * Supports edit mode via `existingEvent` prop to update recurring_interval.
  */
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Modal, SafeAreaView,
-  ScrollView, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform,
-  Image,
+  ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../styles/theme';
@@ -25,10 +21,6 @@ import { CustomAlert } from '../ui/CustomAlert';
 import { isSupabaseConfigured } from '../../utils/supabase';
 import { callEdgeFunction } from '../../utils/edgeFunctions';
 import { SupabaseCompetitionService } from '../../services/backend/SupabaseCompetitionService';
-import { ImageUploadService } from '../../services/media/ImageUploadService';
-import { UnifiedSigningService } from '../../services/auth/UnifiedSigningService';
-import { RewardLightningAddressService } from '../../services/rewards/RewardLightningAddressService';
-import { ProfileCache } from '../../cache/ProfileCache';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -39,14 +31,13 @@ interface SimpleEventCreationModalProps {
   onClose: () => void;
   onEventCreated?: (eventId: string) => void;
   clubId?: string;
-  /** Pass to open in edit mode */
+  clubName?: string;
+  clubBannerUrl?: string;
   existingEvent?: {
     id: string;
     external_id: string;
     name: string;
-    description: string | null;
-    template: string | null;
-    image_url?: string | null;
+    recurring_interval?: string;
   };
 }
 
@@ -59,7 +50,6 @@ interface EventTemplate {
   templateId: string;
   activityType: string;
   scoringMethod: string;
-  placeholder: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -69,25 +59,23 @@ interface EventTemplate {
 const EVENT_TEMPLATES: EventTemplate[] = [
   {
     key: '5k',
-    label: '5K',
+    label: '5K Race',
     subtitle: 'Fastest 5 km run',
     icon: 'fitness-outline',
     distanceKm: 5,
     templateId: '5k_race',
     activityType: 'running',
     scoringMethod: 'fastest_time',
-    placeholder: 'e.g., Saturday 5K Challenge',
   },
   {
     key: '10k',
-    label: '10K',
+    label: '10K Race',
     subtitle: 'Fastest 10 km run',
     icon: 'fitness-outline',
     distanceKm: 10,
     templateId: '10k_race',
     activityType: 'running',
     scoringMethod: 'fastest_time',
-    placeholder: 'e.g., Weekend 10K Showdown',
   },
   {
     key: 'half',
@@ -98,7 +86,6 @@ const EVENT_TEMPLATES: EventTemplate[] = [
     templateId: 'half_marathon',
     activityType: 'running',
     scoringMethod: 'total_distance',
-    placeholder: 'e.g., Spring Half Marathon',
   },
   {
     key: 'steps',
@@ -109,98 +96,51 @@ const EVENT_TEMPLATES: EventTemplate[] = [
     templateId: 'step_challenge',
     activityType: 'walking',
     scoringMethod: 'total_steps',
-    placeholder: 'e.g., 10K Steps Challenge',
   },
 ];
 
-const MAX_ACTIVE_EVENTS_PER_USER = 3;
-const EVENT_DURATION_DAYS = 1;
+const DURATION_OPTIONS = [
+  { label: '1d', days: 1 },
+  { label: '3d', days: 3 },
+  { label: '7d', days: 7 },
+  { label: '30d', days: 30 },
+];
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function getQuickDateOptions() {
-  const now = new Date();
-  const todayUTC = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-  const tomorrowUTC = new Date(todayUTC);
-  tomorrowUTC.setUTCDate(tomorrowUTC.getUTCDate() + 1);
-  const weekendUTC = new Date(todayUTC);
-  const daysUntilSaturday = (6 - todayUTC.getUTCDay() + 7) % 7;
-  weekendUTC.setUTCDate(weekendUTC.getUTCDate() + daysUntilSaturday);
-  return [
-    { label: 'Today', date: todayUTC },
-    { label: 'Tomorrow', date: tomorrowUTC },
-    { label: 'Weekend', date: weekendUTC },
-  ];
-}
-
-function slugify(text: string): string {
-  return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
-}
-
-function randomHex(length: number): string {
-  const chars = '0123456789abcdef';
-  let result = '';
-  for (let i = 0; i < length; i++) {
-    result += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return result;
-}
-
-const formatDate = (d: Date) =>
-  d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+const RECURRING_OPTIONS: { label: string; value: string | null }[] = [
+  { label: 'Off', value: null },
+  { label: 'Weekly', value: 'weekly' },
+  { label: 'Monthly', value: 'monthly' },
+];
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> = ({
-  visible, onClose, onEventCreated, clubId, existingEvent,
+  visible, onClose, onEventCreated, clubId, clubName, clubBannerUrl, existingEvent,
 }) => {
   const isEditMode = !!existingEvent;
 
   const [selectedTemplate, setSelectedTemplate] = useState<EventTemplate | null>(null);
-  const [eventName, setEventName] = useState('');
-  const [description, setDescription] = useState('');
-  const [startDate, setStartDate] = useState<Date | null>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [durationDays, setDurationDays] = useState(7);
+  const [recurringInterval, setRecurringInterval] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertTitle, setAlertTitle] = useState('');
   const [alertMessage, setAlertMessage] = useState('');
 
-  // Ticketing fields
-  const [ticketPledgeDays, setTicketPledgeDays] = useState(0);
-  const [winnerSelection, setWinnerSelection] = useState<'top_ranked' | 'random'>('top_ranked');
-  const [qualifyingDistance, setQualifyingDistance] = useState('');
-
-  const quickDates = getQuickDateOptions();
-
   // Pre-fill form in edit mode
   useEffect(() => {
     if (visible && existingEvent) {
-      setEventName(existingEvent.name);
-      setDescription(existingEvent.description || '');
-      setImageUrl(existingEvent.image_url || null);
-      if (existingEvent.template) {
-        const tmpl = EVENT_TEMPLATES.find((t) => t.templateId === existingEvent.template);
-        if (tmpl) setSelectedTemplate(tmpl);
-      }
+      setRecurringInterval(existingEvent.recurring_interval ?? null);
     }
   }, [visible, existingEvent]);
 
   const resetForm = useCallback(() => {
     setSelectedTemplate(null);
-    setEventName('');
-    setDescription('');
-    setStartDate(null);
-    setImageUrl(null);
-    setTicketPledgeDays(0);
-    setWinnerSelection('top_ranked');
-    setQualifyingDistance('');
+    setDurationDays(7);
+    setRecurringInterval(null);
   }, []);
 
   const handleClose = useCallback(() => {
@@ -209,65 +149,14 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
   }, [resetForm, onClose]);
 
   const isValid = isEditMode
-    ? eventName.trim().length > 0
-    : selectedTemplate !== null && eventName.trim().length > 0 && startDate !== null;
+    ? true
+    : selectedTemplate !== null;
 
   const showAlert = useCallback((title: string, message: string) => {
     setAlertTitle(title);
     setAlertMessage(message);
     setAlertVisible(true);
   }, []);
-
-  // -------------------------------------------------------------------------
-  // Image picker
-  // -------------------------------------------------------------------------
-
-  const handlePickImage = useCallback(async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        showAlert('Permission Required', 'Please allow access to your photo library to add an event image.');
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [16, 9],
-        quality: 0.8,
-      });
-
-      if (result.canceled || !result.assets?.[0]?.uri) return;
-
-      setIsUploadingImage(true);
-
-      const signingService = UnifiedSigningService.getInstance();
-      const signer = await signingService.getSigner();
-
-      if (!signer) {
-        showAlert('Error', 'Please log in to upload images');
-        setIsUploadingImage(false);
-        return;
-      }
-
-      const uploadResult = await ImageUploadService.getInstance().uploadImage(
-        result.assets[0].uri,
-        'event-banner.png',
-        signer,
-      );
-
-      if (uploadResult.success && uploadResult.url) {
-        setImageUrl(uploadResult.url);
-      } else {
-        showAlert('Upload Failed', uploadResult.error || 'Failed to upload image');
-      }
-    } catch (error) {
-      console.error('[SimpleEventCreation] Image picker error:', error);
-      showAlert('Error', 'Failed to select image');
-    } finally {
-      setIsUploadingImage(false);
-    }
-  }, [showAlert]);
 
   // -------------------------------------------------------------------------
   // Edit handler
@@ -280,17 +169,15 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
 
     try {
       const npub = await AsyncStorage.getItem('@runstr:npub');
-      const result = await SupabaseCompetitionService.updateCompetition(
-        existingEvent.id,
-        {
-          name: eventName.trim(),
-          description: description.trim() || null,
-          image_url: imageUrl,
-        },
-        npub || undefined,
-      );
+      const result = await callEdgeFunction('manage-competition', {
+        action: 'update',
+        competition_id: existingEvent.id,
+        npub: npub || '',
+        updates: { recurring_interval: recurringInterval },
+      });
 
       if (result.success) {
+        await SupabaseCompetitionService.clearDynamicCompetitionsCache();
         showAlert('Event Updated', 'Your changes have been saved.');
         onEventCreated?.(existingEvent.external_id);
       } else {
@@ -303,7 +190,7 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
       isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
-  }, [existingEvent, eventName, description, imageUrl, showAlert, onEventCreated]);
+  }, [existingEvent, recurringInterval, showAlert, onEventCreated]);
 
   // -------------------------------------------------------------------------
   // Create handler
@@ -326,40 +213,12 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
         return;
       }
 
-      // Set end date to end-of-day on the final day (not start of next day).
-      // This ensures workouts from users west of UTC aren't excluded when
-      // their evening workout's created_at falls after midnight UTC.
-      const endDate = new Date(startDate!);
-      endDate.setUTCDate(endDate.getUTCDate() + EVENT_DURATION_DAYS - 1);
-      endDate.setUTCHours(23, 59, 59, 999);
+      const displayClubName = clubName || 'RUNSTR Club';
+      const autoName = `${displayClubName} ${selectedTemplate.label}`;
 
-      // For ticketed events, resolve the captain's Lightning address
-      let captainLightningAddress: string | null = null;
-      if (ticketPledgeDays > 0) {
-        // Try stored reward address first (most reliable)
-        captainLightningAddress = await RewardLightningAddressService.getRewardLightningAddress();
+      const startDate = new Date().toISOString();
+      const endDate = new Date(Date.now() + durationDays * 86400000).toISOString();
 
-        // Fall back to Nostr kind 0 profile lud16
-        if (!captainLightningAddress && npub) {
-          try {
-            const profiles = await Promise.race([
-              ProfileCache.fetchProfiles([npub]),
-              new Promise<Map<string, unknown>>((resolve) => setTimeout(() => resolve(new Map()), 5000)),
-            ]);
-            const profile = profiles.get(npub) as { lud16?: string } | undefined;
-            captainLightningAddress = profile?.lud16 || null;
-          } catch {
-            // Non-fatal — will be caught by the check below
-          }
-        }
-
-        if (!captainLightningAddress) {
-          showAlert('Lightning Address Required', 'Set a Lightning address in Rewards settings before creating a ticketed event. Members\' pledged rewards need a destination.');
-          return;
-        }
-      }
-
-      // Create competition via Edge Function (handles spam prevention, auto-join)
       const result = await callEdgeFunction<{
         id?: string;
         external_id?: string;
@@ -367,15 +226,16 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
       }>('manage-competition', {
         action: 'create',
         npub,
-        name: eventName.trim(),
-        description: description.trim() || null,
+        name: autoName,
+        description: null,
         activity_type: selectedTemplate.activityType,
         scoring_method: selectedTemplate.scoringMethod,
-        start_date: startDate!.toISOString(),
-        end_date: endDate.toISOString(),
+        start_date: startDate,
+        end_date: endDate,
         template: selectedTemplate.templateId,
         club_id: clubId || null,
-        image_url: imageUrl || null,
+        image_url: clubBannerUrl || null,
+        recurring_interval: recurringInterval || null,
         config: {
           activity_types: [selectedTemplate.activityType],
           scoring_method: selectedTemplate.scoringMethod,
@@ -383,10 +243,8 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
           template: selectedTemplate.templateId,
           created_via: clubId ? 'club' : 'app',
           score_unit: selectedTemplate.scoringMethod === 'fastest_time' ? 'seconds' : 'km',
-          ticket_pledge_days: ticketPledgeDays,
-          winner_selection: winnerSelection,
-          qualifying_distance_km: qualifyingDistance ? parseFloat(qualifyingDistance) : null,
-          captain_lightning_address: captainLightningAddress,
+          ticket_pledge_days: 0,
+          winner_selection: 'top_ranked',
         },
       });
 
@@ -402,7 +260,6 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
 
       console.log(`[SimpleEventCreation] Created ${selectedTemplate.label}: ${externalId}${clubId ? ` (club: ${clubId})` : ''}`);
 
-      // Clear caches
       if (clubId) {
         await SupabaseCompetitionService.clearClubCompetitionsCache(clubId);
       }
@@ -414,7 +271,7 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
           ? autoJoinCount > 0
             ? `Event is live. ${autoJoinCount} club member${autoJoinCount === 1 ? '' : 's'} enrolled automatically.`
             : 'Event is live. No club members found to auto-enroll.'
-          : 'Event is live and you have been joined automatically.'
+          : 'Event is live and you have been joined automatically.',
       );
       onEventCreated?.(externalId);
     } catch (err) {
@@ -424,7 +281,7 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
       isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
-  }, [isValid, selectedTemplate, eventName, description, startDate, imageUrl, onEventCreated, showAlert, clubId, ticketPledgeDays, winnerSelection, qualifyingDistance]);
+  }, [isValid, selectedTemplate, durationDays, recurringInterval, clubId, clubName, clubBannerUrl, onEventCreated, showAlert]);
 
   const handleAlertDismiss = useCallback(() => {
     setAlertVisible(false);
@@ -453,34 +310,27 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
             {!isEditMode && (
               <View style={s.formGroup}>
                 <Text style={s.label}>Event Type</Text>
-                <View style={s.templateRow}>
+                <View style={s.templateGrid}>
                   {EVENT_TEMPLATES.map((tmpl) => {
                     const sel = selectedTemplate?.key === tmpl.key;
                     return (
                       <TouchableOpacity
                         key={tmpl.key}
-                        style={[s.templateButton, sel && s.templateButtonSelected]}
+                        style={[s.templateCard, sel && s.templateCardSelected]}
                         onPress={() => setSelectedTemplate(tmpl)}
                         activeOpacity={0.7}
                       >
-                        <View style={s.templateLeft}>
-                          <Ionicons
-                            name={tmpl.icon}
-                            size={20}
-                            color={sel ? theme.colors.text : theme.colors.textMuted}
-                          />
-                          <View style={s.templateInfo}>
-                            <Text style={[s.templateLabel, sel && s.templateLabelSelected]}>
-                              {tmpl.label}
-                            </Text>
-                            <Text style={[s.templateSubtitle, sel && s.templateSubtitleSelected]}>
-                              {tmpl.subtitle}
-                            </Text>
-                          </View>
-                        </View>
-                        {sel && (
-                          <Ionicons name="checkmark-circle" size={20} color={theme.colors.text} />
-                        )}
+                        <Ionicons
+                          name={tmpl.icon}
+                          size={22}
+                          color={sel ? theme.colors.text : theme.colors.textMuted}
+                        />
+                        <Text style={[s.templateLabel, sel && s.templateLabelSelected]}>
+                          {tmpl.label}
+                        </Text>
+                        <Text style={[s.templateSubtitle, sel && s.templateSubtitleSelected]}>
+                          {tmpl.subtitle}
+                        </Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -488,187 +338,47 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
               </View>
             )}
 
-            {/* Event Name */}
-            <View style={s.formGroup}>
-              <Text style={s.label}>Event Name</Text>
-              <TextInput
-                style={s.textInput}
-                value={eventName}
-                onChangeText={setEventName}
-                placeholder={selectedTemplate?.placeholder ?? 'e.g., Saturday 5K Challenge'}
-                placeholderTextColor={theme.colors.textDark}
-                maxLength={100}
-              />
-            </View>
-
-            {/* Description */}
-            <View style={s.formGroup}>
-              <Text style={s.label}>Description (optional)</Text>
-              <TextInput
-                style={[s.textInput, s.textArea]}
-                value={description}
-                onChangeText={setDescription}
-                placeholder="Rules, goals, or details about your event..."
-                placeholderTextColor={theme.colors.textDark}
-                maxLength={500}
-                multiline
-                numberOfLines={3}
-                textAlignVertical="top"
-              />
-            </View>
-
-            {/* Event Image (optional) */}
-            <View style={s.formGroup}>
-              <Text style={s.label}>Event Image (optional)</Text>
-              {imageUrl ? (
-                <View style={s.imagePreviewContainer}>
-                  <Image source={{ uri: imageUrl }} style={s.imagePreview} />
-                  <View style={s.imageActions}>
-                    <TouchableOpacity
-                      style={s.imageActionButton}
-                      onPress={handlePickImage}
-                      disabled={isUploadingImage}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="swap-horizontal" size={16} color={theme.colors.text} />
-                      <Text style={s.imageActionText}>Replace</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={s.imageActionButton}
-                      onPress={() => setImageUrl(null)}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="trash-outline" size={16} color={theme.colors.error || '#ff4444'} />
-                      <Text style={[s.imageActionText, { color: theme.colors.error || '#ff4444' }]}>Remove</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ) : (
-                <TouchableOpacity
-                  style={s.imagePickerButton}
-                  onPress={handlePickImage}
-                  disabled={isUploadingImage}
-                  activeOpacity={0.7}
-                >
-                  {isUploadingImage ? (
-                    <ActivityIndicator color={theme.colors.textMuted} />
-                  ) : (
-                    <>
-                      <Ionicons name="image-outline" size={28} color={theme.colors.textMuted} />
-                      <Text style={s.imagePickerText}>Tap to add a banner image</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* Start Date (create mode only) */}
+            {/* Duration (create mode only) */}
             {!isEditMode && (
               <View style={s.formGroup}>
-                <Text style={s.label}>Start Date</Text>
-                <View style={s.buttonRow}>
-                  {quickDates.map((opt) => {
-                    const sel = startDate?.toISOString() === opt.date.toISOString();
+                <Text style={s.label}>Duration</Text>
+                <View style={s.pillRow}>
+                  {DURATION_OPTIONS.map((opt) => {
+                    const sel = durationDays === opt.days;
                     return (
                       <TouchableOpacity
                         key={opt.label}
-                        style={[s.optionButton, sel && s.selectedButton]}
-                        onPress={() => setStartDate(opt.date)}
+                        style={[s.pill, sel && s.pillSelected]}
+                        onPress={() => setDurationDays(opt.days)}
                         activeOpacity={0.7}
                       >
-                        <Text style={[s.optionButtonText, sel && s.selectedText]}>
-                          {opt.label}
-                        </Text>
+                        <Text style={[s.pillText, sel && s.pillTextSelected]}>{opt.label}</Text>
                       </TouchableOpacity>
                     );
                   })}
                 </View>
-                {startDate && (
-                  <Text style={s.helperBelow}>
-                    {formatDate(startDate)} — 1 day event ending{' '}
-                    {formatDate((() => { const end = new Date(startDate); end.setUTCDate(end.getUTCDate() + EVENT_DURATION_DAYS); return end; })())}
-                  </Text>
-                )}
               </View>
             )}
 
-            {/* Entry Fee (create mode only) */}
-            {!isEditMode && (
-              <View style={s.formGroup}>
-                <Text style={s.label}>Entry Fee</Text>
-                <View style={s.pledgeDaysRow}>
-                  {[0, 1, 2, 3, 4, 5, 6, 7].map((days) => {
-                    const sel = ticketPledgeDays === days;
-                    return (
-                      <TouchableOpacity
-                        key={days}
-                        style={[s.pledgeDayChip, sel && s.pledgeDayChipSelected]}
-                        onPress={() => setTicketPledgeDays(days)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[s.pledgeDayChipText, sel && s.pledgeDayChipTextSelected]}>
-                          {days === 0 ? 'Free' : `${days}d`}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-                {ticketPledgeDays > 0 && (
-                  <Text style={s.helperBelow}>
-                    Participants pledge {ticketPledgeDays} workout day{ticketPledgeDays === 1 ? '' : 's'} to enter
-                  </Text>
-                )}
+            {/* Recurring */}
+            <View style={s.formGroup}>
+              <Text style={s.label}>Recurring</Text>
+              <View style={s.pillRow}>
+                {RECURRING_OPTIONS.map((opt) => {
+                  const sel = recurringInterval === opt.value;
+                  return (
+                    <TouchableOpacity
+                      key={opt.label}
+                      style={[s.pill, sel && s.pillSelected]}
+                      onPress={() => setRecurringInterval(opt.value)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[s.pillText, sel && s.pillTextSelected]}>{opt.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
-            )}
-
-            {/* Winner Selection (create mode, participation/workout_count scoring) */}
-            {!isEditMode && selectedTemplate != null && (
-              selectedTemplate.scoringMethod === 'total_steps' ||
-              selectedTemplate.scoringMethod === 'total_distance'
-            ) ? (
-              <View style={s.formGroup}>
-                <Text style={s.label}>Winner Selection</Text>
-                <View style={s.toggleRow}>
-                  <TouchableOpacity
-                    style={[s.toggleOption, winnerSelection === 'top_ranked' && s.toggleOptionSelected]}
-                    onPress={() => setWinnerSelection('top_ranked')}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[s.toggleOptionText, winnerSelection === 'top_ranked' && s.toggleOptionTextSelected]}>
-                      Top Ranked
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[s.toggleOption, winnerSelection === 'random' && s.toggleOptionSelected]}
-                    onPress={() => setWinnerSelection('random')}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[s.toggleOptionText, winnerSelection === 'random' && s.toggleOptionTextSelected]}>
-                      Random Draw
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : null}
-
-            {/* Qualifying Distance (create mode, random winner selection) */}
-            {!isEditMode && winnerSelection === 'random' && (
-              <View style={s.formGroup}>
-                <Text style={s.label}>Qualifying Distance (km)</Text>
-                <TextInput
-                  style={s.textInput}
-                  value={qualifyingDistance}
-                  onChangeText={setQualifyingDistance}
-                  placeholder="e.g., 5"
-                  placeholderTextColor={theme.colors.textDark}
-                  keyboardType="decimal-pad"
-                  maxLength={6}
-                />
-                <Text style={s.helperBelow}>
-                  Minimum distance to qualify for the random draw
-                </Text>
-              </View>
-            )}
+            </View>
 
             <View style={{ height: 100 }} />
           </ScrollView>
@@ -705,7 +415,7 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
 };
 
 // ---------------------------------------------------------------------------
-// Styles — dark/black primary, no bright orange
+// Styles
 // ---------------------------------------------------------------------------
 
 const s = StyleSheet.create({
@@ -729,93 +439,41 @@ const s = StyleSheet.create({
     color: theme.colors.textMuted, letterSpacing: 0.5,
     textTransform: 'uppercase', marginBottom: 8,
   },
-  textInput: {
-    backgroundColor: theme.colors.card, borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: 13, fontSize: 16,
-    color: theme.colors.text, borderWidth: 1, borderColor: theme.colors.border,
+  // Template 2x2 grid
+  templateGrid: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 10,
   },
-  textArea: { minHeight: 80, paddingTop: 12 },
-  helperBelow: { fontSize: 12, color: theme.colors.textMuted, marginTop: 6 },
-  // Image picker
-  imagePickerButton: {
-    height: 120, borderRadius: 10, borderWidth: 1, borderStyle: 'dashed',
-    borderColor: theme.colors.border, backgroundColor: theme.colors.card,
-    alignItems: 'center', justifyContent: 'center', gap: 8,
-  },
-  imagePickerText: { fontSize: 14, color: theme.colors.textMuted },
-  imagePreviewContainer: { borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.border },
-  imagePreview: { width: '100%', height: 140, borderRadius: 10 },
-  imageActions: { flexDirection: 'row', justifyContent: 'center', gap: 16, paddingVertical: 8, backgroundColor: theme.colors.card },
-  imageActionButton: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6 },
-  imageActionText: { fontSize: 13, color: theme.colors.text },
-  // Template selection
-  templateRow: { gap: 8 },
-  templateButton: {
-    paddingVertical: 14, paddingHorizontal: 14, borderRadius: 10,
+  templateCard: {
+    width: '47%', paddingVertical: 16, paddingHorizontal: 12, borderRadius: 10,
     backgroundColor: theme.colors.card, borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    borderColor: theme.colors.border, alignItems: 'center', gap: 6,
   },
-  templateButtonSelected: {
+  templateCardSelected: {
     borderColor: theme.colors.text,
     backgroundColor: '#111111',
   },
-  templateLeft: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1,
-  },
-  templateInfo: { flex: 1 },
   templateLabel: {
-    fontSize: 16, fontWeight: theme.typography.weights.bold,
-    color: theme.colors.textMuted,
+    fontSize: 15, fontWeight: theme.typography.weights.bold,
+    color: theme.colors.textMuted, textAlign: 'center',
   },
   templateLabelSelected: { color: theme.colors.text },
-  templateSubtitle: { fontSize: 13, color: theme.colors.textDark, marginTop: 2 },
+  templateSubtitle: { fontSize: 12, color: theme.colors.textDark, textAlign: 'center' },
   templateSubtitleSelected: { color: theme.colors.textMuted },
-  // Date quick-picks
-  buttonRow: { flexDirection: 'row', gap: 8 },
-  optionButton: {
-    flex: 1, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 10,
-    backgroundColor: theme.colors.card, borderWidth: 1,
+  // Pill rows for duration / recurring
+  pillRow: { flexDirection: 'row', gap: 8 },
+  pill: {
+    flex: 1, paddingVertical: 10, borderRadius: 8, borderWidth: 1,
     borderColor: theme.colors.border, alignItems: 'center',
-  },
-  optionButtonText: {
-    fontSize: 14, fontWeight: theme.typography.weights.medium, color: theme.colors.textMuted,
-  },
-  selectedButton: {
-    backgroundColor: theme.colors.text,
-    borderColor: theme.colors.text,
-  },
-  selectedText: { color: theme.colors.background },
-  // Ticketing — pledge days chip row
-  pledgeDaysRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  pledgeDayChip: {
-    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8,
-    borderWidth: 1, borderColor: theme.colors.border,
     backgroundColor: theme.colors.card,
   },
-  pledgeDayChipSelected: {
+  pillSelected: {
     backgroundColor: theme.colors.text, borderColor: theme.colors.text,
   },
-  pledgeDayChipText: {
+  pillText: {
     fontSize: 14, fontWeight: theme.typography.weights.semiBold as '600',
     color: theme.colors.textMuted,
   },
-  pledgeDayChipTextSelected: { color: theme.colors.background },
-  // Ticketing — winner selection toggle
-  toggleRow: { flexDirection: 'row', gap: 8, marginBottom: 0 },
-  toggleOption: {
-    flex: 1, paddingVertical: 10, borderRadius: 8, borderWidth: 1,
-    borderColor: theme.colors.border, alignItems: 'center' as const,
-    backgroundColor: theme.colors.card,
-  },
-  toggleOptionSelected: {
-    backgroundColor: theme.colors.text, borderColor: theme.colors.text,
-  },
-  toggleOptionText: {
-    fontSize: 14, fontWeight: theme.typography.weights.medium,
-    color: theme.colors.textMuted,
-  },
-  toggleOptionTextSelected: { color: theme.colors.background },
+  pillTextSelected: { color: theme.colors.background },
   // Footer
   footer: { padding: 16, borderTopWidth: 1, borderTopColor: theme.colors.border },
   submitButton: {

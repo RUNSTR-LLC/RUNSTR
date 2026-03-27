@@ -32,6 +32,8 @@ interface ClubEventsSectionProps {
   clubId: string;
   isCaptain: boolean;
   refreshKey?: number;
+  clubName?: string;
+  clubBannerUrl?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -75,6 +77,8 @@ const ClubEventsSectionComponent: React.FC<ClubEventsSectionProps> = ({
   clubId,
   isCaptain,
   refreshKey,
+  clubName,
+  clubBannerUrl,
 }) => {
   const navigation = useNavigation<any>();
   const [events, setEvents] = useState<DynamicCompetition[]>([]);
@@ -276,13 +280,13 @@ const ClubEventsSectionComponent: React.FC<ClubEventsSectionProps> = ({
         onClose={handleModalClose}
         onEventCreated={editingEvent ? handleEventEdited : handleEventCreated}
         clubId={clubId}
+        clubName={clubName}
+        clubBannerUrl={clubBannerUrl}
         existingEvent={editingEvent ? {
           id: editingEvent.id,
           external_id: editingEvent.external_id,
           name: editingEvent.name,
-          description: editingEvent.description ?? null,
-          template: editingEvent.template ?? null,
-          image_url: editingEvent.image_url ?? null,
+          recurring_interval: (editingEvent as any).recurring_interval ?? undefined,
         } : undefined}
       />
 
