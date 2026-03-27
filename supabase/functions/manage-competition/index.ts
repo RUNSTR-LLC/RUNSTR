@@ -156,6 +156,7 @@ async function handleCreate(
     club_id,
     config,
     image_url,
+    recurring_interval,
   } = params
 
   if (!npub || !name || !activity_type || !scoring_method || !start_date || !end_date) {
@@ -183,6 +184,12 @@ async function handleCreate(
   // Generate external_id
   const external_id = `${slugify(name as string)}-${randomHex(4)}`
 
+  let finalImageUrl = image_url || null;
+  if (club_id && !finalImageUrl) {
+    const { data: club } = await supabase.from('user_teams').select('banner_url').eq('id', club_id).single();
+    if (club?.banner_url) finalImageUrl = club.banner_url;
+  }
+
   const insertData: Record<string, unknown> = {
     created_by_npub: npub,
     name,
@@ -194,10 +201,11 @@ async function handleCreate(
     template: template || null,
     club_id: club_id || null,
     config: config || null,
-    image_url: image_url || null,
+    image_url: finalImageUrl,
     is_open: true,
     prize_pool_sats: 0,
     external_id,
+    recurring_interval: recurring_interval || 'none',
   }
 
   const { data: newComp, error: insertErr } = await supabase
@@ -292,7 +300,7 @@ async function handleUpdate(
   }
 
   // Whitelist allowed update fields
-  const allowed = ['name', 'description', 'image_url']
+  const allowed = ['name', 'description', 'image_url', 'recurring_interval']
   const safeUpdates: Record<string, unknown> = {}
   for (const key of allowed) {
     if ((updates as Record<string, unknown>)[key] !== undefined) {
