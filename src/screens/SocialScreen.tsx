@@ -29,6 +29,7 @@ const SocialScreenComponent: React.FC = () => {
   const [posts, setPosts] = useState<SocialFeedPostType[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
   const [userClubId, setUserClubId] = useState<string | null>(null);
+  const [userNpub, setUserNpub] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -52,6 +53,7 @@ const SocialScreenComponent: React.FC = () => {
       setHasMore(feedData.length >= 20);
 
       if (npub) {
+        setUserNpub(npub);
         const clubId = await ClubMembershipService.getCurrentClub(npub);
         setUserClubId(clubId);
       }
@@ -90,8 +92,8 @@ const SocialScreenComponent: React.FC = () => {
   }, [isLoadingMore, hasMore, posts]);
 
   const renderPost = useCallback(({ item }: { item: SocialFeedPostType }) => (
-    <SocialFeedPost post={item} />
-  ), []);
+    <SocialFeedPost post={item} userNpub={userNpub} />
+  ), [userNpub]);
 
   const renderHeader = useCallback(() => (
     <ClubsRow clubs={clubs} userClubId={userClubId} />

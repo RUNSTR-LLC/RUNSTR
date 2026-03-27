@@ -6,14 +6,16 @@ import { theme } from '../../styles/theme';
 import { Avatar } from '../ui/Avatar';
 import { timeAgo } from '../../types/social';
 import type { SocialFeedPost as SocialFeedPostType } from '../../types/social';
+import { SocialInteractionRow } from './SocialInteractionRow';
 
 const MAX_IMAGE_HEIGHT = 300;
 
 interface SocialFeedPostProps {
   post: SocialFeedPostType;
+  userNpub: string;
 }
 
-export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post }) => {
+export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, userNpub }) => {
   const [imageError, setImageError] = useState(false);
 
   const firstImage = post.images && post.images.length > 0 ? post.images[0] : null;
@@ -55,6 +57,7 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post }) => {
           onError={() => setImageError(true)}
         />
       )}
+      <SocialInteractionRow post={post} userNpub={userNpub} />
     </View>
   );
 };
