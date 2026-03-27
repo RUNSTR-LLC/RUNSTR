@@ -44,8 +44,9 @@ const FITNESS_HASHTAGS = [
   'exercise',
 ]
 
-// Query events from last 30 minutes (with overlap for reliability)
-const SYNC_WINDOW_SECONDS = 1800
+// Query events from last 7 days for initial population, then dedup handles overlap
+// Once feed is populated, most results will be skipped (already indexed)
+const SYNC_WINDOW_SECONDS = 604800
 
 // Max events to process per run (prevent runaway)
 const MAX_EVENTS = 200
@@ -336,11 +337,13 @@ serve(async (req) => {
     // Query relays for fitness posts
     console.log(`Querying ${RELAYS.length} relays for fitness posts since ${new Date(since * 1000).toISOString()}`)
 
+    // Query each hashtag separately for better relay coverage
+    // Some relays don't support multi-value #t filters well
     const filter: NostrFilter = {
       kinds: [1],
       '#t': FITNESS_HASHTAGS,
       since,
-      limit: 100,
+      limit: 200,
     }
 
     // Query all relays in parallel
