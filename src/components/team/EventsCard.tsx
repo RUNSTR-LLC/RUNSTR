@@ -13,7 +13,7 @@ import { theme } from '../../styles/theme';
 import { NostrListService } from '../../services/nostr/NostrListService';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { UnifiedSigningService } from '../../services/auth/UnifiedSigningService';
-import { CustomAlert } from '../ui/CustomAlert';
+import { CustomAlertManager } from '../ui/CustomAlert';
 import { GlobalNDKService } from '../../services/nostr/GlobalNDKService';
 
 // QR Code
@@ -81,7 +81,7 @@ export const EventsCard: React.FC<EventsCardProps> = ({
     const loadCurrentUser = async () => {
       try {
         const hexPubkey =
-          await UnifiedSigningService.getInstance().getHexPubkey();
+          await UnifiedSigningService.getInstance().getUserPubkey();
         if (hexPubkey) {
           setCurrentUserHex(hexPubkey);
           // Note: We only need hex pubkey for event status checking
@@ -181,7 +181,7 @@ export const EventsCard: React.FC<EventsCardProps> = ({
       setQrModalVisible(true);
     } catch (error) {
       console.error('Failed to generate event QR:', error);
-      CustomAlert.alert('Error', 'Failed to generate QR code', [
+      CustomAlertManager.alert('Error', 'Failed to generate QR code', [
         { text: 'OK' },
       ]);
     }
@@ -221,7 +221,7 @@ export const EventsCard: React.FC<EventsCardProps> = ({
                 // Check if event has minimum required data
                 if (!event?.id) {
                   console.error('❌ Cannot navigate: Event missing ID');
-                  CustomAlert.alert(
+                  CustomAlertManager.alert(
                     'Error',
                     'Unable to open event. Please try refreshing the page.',
                     [{ text: 'OK' }]
@@ -364,7 +364,7 @@ export const EventsCard: React.FC<EventsCardProps> = ({
       // Get signer (works for both nsec and Amber)
       const signer = await UnifiedSigningService.getInstance().getSigner();
       if (!signer) {
-        CustomAlert.alert(
+        CustomAlertManager.alert(
           'Error',
           'No authentication found. Please login first.',
           [{ text: 'OK' }]
@@ -374,9 +374,9 @@ export const EventsCard: React.FC<EventsCardProps> = ({
 
       // Get user's hex pubkey
       const userHexPubkey =
-        await UnifiedSigningService.getInstance().getHexPubkey();
+        await UnifiedSigningService.getInstance().getUserPubkey();
       if (!userHexPubkey) {
-        CustomAlert.alert('Error', 'Could not determine user public key', [
+        CustomAlertManager.alert('Error', 'Could not determine user public key', [
           { text: 'OK' },
         ]);
         return;
@@ -396,7 +396,7 @@ export const EventsCard: React.FC<EventsCardProps> = ({
 
       // NOTE: Join request functionality disabled (old event system)
       // EventJoinRequestService was removed during migration to daily leaderboards
-      CustomAlert.alert(
+      CustomAlertManager.alert(
         'Info',
         'Event join requests are currently unavailable. Please contact the team captain directly.',
         [{ text: 'OK' }]
@@ -412,7 +412,7 @@ export const EventsCard: React.FC<EventsCardProps> = ({
       }));
     } catch (error) {
       console.error('Failed to send join request:', error);
-      CustomAlert.alert('Error', 'Failed to send join request', [
+      CustomAlertManager.alert('Error', 'Failed to send join request', [
         { text: 'OK' },
       ]);
     } finally {
