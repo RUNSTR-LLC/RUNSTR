@@ -230,7 +230,7 @@ class AppInitializationService {
   /**
    * Check if initialization has completed
    */
-  async hasCompleted(): Promise<boolean> {
+  async getCompletionStatus(): Promise<boolean> {
     try {
       const completed = await AsyncStorage.getItem(
         '@runstr:app_init_completed'
