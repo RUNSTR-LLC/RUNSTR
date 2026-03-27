@@ -43,6 +43,8 @@ import { isEinundzwanzigActive } from '../../constants/einundzwanzig';
 import { PendingSubmissionService } from '../competition/PendingSubmissionService';
 import { WoTService } from '../wot/WoTService';
 import { shareWorkoutToClubChat } from '../club/ClubChatAutoShare';
+import SocialFeedService from '../social/SocialFeedService';
+import { nostrProfileService } from './NostrProfileService';
 
 // Import split type for race replay data
 import type { Split } from '../activity/SplitTrackingService';
@@ -590,6 +592,41 @@ export class WorkoutPublishingService {
       console.log(`📡 Published to ${relayCount} relay(s)`);
 
       console.log(`✅ Workout posted to social: ${ndkEvent.id}`);
+
+      // Dual-write to social_feed for instant feed appearance
+      try {
+        const hashtags = ndkEvent.tags
+          .filter((t: string[]) => t[0] === 't')
+          .map((t: string[]) => t[1]?.toLowerCase())
+          .filter(Boolean);
+
+        const images: string[] = [];
+        const imageRegex = /https?:\/\/\S+\.(?:jpg|jpeg|png|gif|webp)/gi;
+        const imageMatches = ndkEvent.content.match(imageRegex);
+        if (imageMatches) images.push(...imageMatches);
+        ndkEvent.tags
+          .filter((t: string[]) => t[0] === 'imeta')
+          .forEach((t: string[]) => {
+            const urlPart = t.find((p: string) => p.startsWith('url '));
+            if (urlPart) images.push(urlPart.replace('url ', ''));
+          });
+
+        // Try to get cached user profile for author info
+        const userProfile = await nostrProfileService.getProfile(userId).catch(() => null);
+
+        await SocialFeedService.insertPost({
+          event_id: ndkEvent.id || '',
+          npub: userId,
+          content: ndkEvent.content,
+          images,
+          hashtags,
+          author_name: userProfile?.display_name || userProfile?.name || '',
+          author_avatar: userProfile?.picture || '',
+          created_at: new Date((ndkEvent.created_at || 0) * 1000).toISOString(),
+        });
+      } catch (dualWriteError) {
+        console.warn('[workoutPublishingService] Dual-write to social_feed failed:', dualWriteError);
+      }
 
       // Cache invalidation (fire-and-forget) - social post appears on next refresh
       // CRASH FIX: Add .catch() to prevent unhandled promise rejection
