@@ -122,9 +122,7 @@ const SocialScreenComponent: React.FC = () => {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <TexturedBackground edges={[]}>
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>Social</Text>
-          </View>
+          <View style={styles.headerSpacer} />
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={theme.colors.accent} />
           </View>

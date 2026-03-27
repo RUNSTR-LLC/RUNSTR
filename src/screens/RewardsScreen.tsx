@@ -49,6 +49,7 @@ import { SubscriptionService } from '../services/backend/SubscriptionService';
 import type { SubscriptionTier } from '../services/backend/SubscriptionService';
 import { SubscriptionInfoModal } from '../components/subscription/SubscriptionInfoModal';
 import { REWARD_CONFIG } from '../config/rewards';
+import { LotteryWheelSection } from '../components/lottery/LotteryWheelSection';
 
 // Storage keys for donation settings
 // Note: Teams are now charities (rebranded)
@@ -331,7 +332,7 @@ const RewardsScreenComponent: React.FC = () => {
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Rewards</Text>
+        <View style={{ flex: 1 }} />
         <View style={styles.headerSpacer} />
       </View>
       <ScrollView
@@ -346,36 +347,6 @@ const RewardsScreenComponent: React.FC = () => {
           />
         }
       >
-        {/* Rewards Pool - Live balance from Supabase */}
-        <TouchableOpacity
-          style={styles.prizePoolCard}
-          onPress={() => setShowTransparencyDashboard(true)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.prizePoolHeader}>
-            <Text style={styles.prizePoolLabel}>{t('rewardsPool', { defaultValue: 'Rewards Pool' })}</Text>
-            <Ionicons name="information-circle-outline" size={16} color={theme.colors.textMuted} />
-          </View>
-          <Text style={styles.prizePoolAmount}>
-            {poolBalance !== null
-              ? `${poolBalance.toLocaleString()} rewards`
-              : t('loading', { defaultValue: '-- rewards' })}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Sponsor credit line */}
-        <SponsorBanner />
-
-        {/* Earnings Hero Card - Only shown when user has Lightning address */}
-        {userHexPubkey && hasLightningAddress && (
-          <EarningsHeroCard pubkey={userHexPubkey} isPPQ={isPPQTeam(selectedTeamId ?? undefined)} />
-        )}
-
-        {/* Impact Hero Card - Only shown when user does NOT have Lightning address */}
-        {userHexPubkey && !hasLightningAddress && (
-          <ImpactHeroCard pubkey={userHexPubkey} />
-        )}
-
         {/* Reward Destination - Where workout rewards go */}
         <RewardDestinationSection
           selectedTeamId={selectedTeamId}
@@ -384,25 +355,19 @@ const RewardsScreenComponent: React.FC = () => {
           onZapPress={() => handleZapCharity()}
         />
 
-        {/* Rewards Rate Card */}
-        <View style={styles.subscriptionCard}>
-          <Text style={styles.subscriptionCardTitle}>YOUR REWARDS</Text>
-
-          <View style={styles.subscriptionRateRow}>
-            <Ionicons name="flash" size={18} color="#FF9D42" />
-            <Text style={styles.subscriptionRateText}>
-              {REWARD_CONFIG.DAILY_WORKOUT_REWARD} rewards per workout
-            </Text>
-          </View>
-        </View>
-
-        {/* Active Pledge Section (only shown if user has active pledge) */}
-        {activePledge && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t('activePledge', { defaultValue: 'ACTIVE PLEDGE' })}</Text>
-            <ActivePledgeCard pledge={activePledge} />
-          </View>
+        {/* Impact / Earnings */}
+        {userHexPubkey && hasLightningAddress && (
+          <EarningsHeroCard pubkey={userHexPubkey} isPPQ={isPPQTeam(selectedTeamId ?? undefined)} />
         )}
+        {userHexPubkey && !hasLightningAddress && (
+          <ImpactHeroCard pubkey={userHexPubkey} />
+        )}
+
+        {/* Daily Spin */}
+        <LotteryWheelSection />
+
+        {/* Sponsor credit line */}
+        <SponsorBanner />
 
       </ScrollView>
 
