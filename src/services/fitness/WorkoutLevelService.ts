@@ -84,14 +84,14 @@ export class WorkoutLevelService {
    * Calculate complete level stats from local workout array
    * Flat 300 XP per workout
    */
-  calculateLevelStats(workouts: LocalWorkout[]): LevelStats {
+  calculateLevelStats(workouts: LocalWorkout[], competitionXP: number = 0): LevelStats {
     let totalDistance = 0;
 
     workouts.forEach((workout) => {
       totalDistance += workout.distance || 0;
     });
 
-    const totalXP = workouts.length * XP_VALUES.WORKOUT_SUBMITTED;
+    const totalXP = (workouts.length * XP_VALUES.WORKOUT_SUBMITTED) + competitionXP;
     const level = this.calculateLevel(totalXP);
 
     return {
@@ -107,7 +107,8 @@ export class WorkoutLevelService {
   async getLevelStats(
     pubkey: string,
     workouts: LocalWorkout[],
-    forceRefresh = false
+    forceRefresh = false,
+    competitionXP: number = 0
   ): Promise<LevelStats> {
     const cacheKey = `${CACHE_KEY_PREFIX}${pubkey}`;
 
@@ -139,7 +140,7 @@ export class WorkoutLevelService {
     console.log(
       `[WorkoutLevel] Calculating stats from ${workouts.length} workouts...`
     );
-    const stats = this.calculateLevelStats(workouts);
+    const stats = this.calculateLevelStats(workouts, competitionXP);
 
     // Cache the results
     try {
