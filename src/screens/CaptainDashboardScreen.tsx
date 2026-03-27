@@ -1880,24 +1880,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  modalButtonPrimary: {
-    backgroundColor: theme.colors.orangeBright, // Light orange for consistency
-  },
-
-  modalButtonSecondary: {
-    backgroundColor: theme.colors.border,
-  },
-
   modalButtonText: {
     fontSize: 14,
     fontWeight: theme.typography.weights.semiBold,
     color: theme.colors.accentText,
-  },
-
-  modalButtonTextSecondary: {
-    fontSize: 14,
-    fontWeight: theme.typography.weights.medium,
-    color: theme.colors.text,
   },
 
   // Charity styles
@@ -1979,13 +1965,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     lineHeight: 18,
   },
-  modalBtnDanger: {
-    backgroundColor: theme.colors.error,
-  },
-  modalBtnDisabled: {
-    opacity: 0.5,
-  },
-
   editBtn: {
     paddingHorizontal: 16,
     paddingVertical: 6,
@@ -2030,12 +2009,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     fontStyle: 'italic',
     paddingHorizontal: 8,
-  },
-
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
   },
 
   cancelButton: {
