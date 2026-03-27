@@ -19,8 +19,12 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post }) => {
   const firstImage = post.images && post.images.length > 0 ? post.images[0] : null;
   const showImage = firstImage && !imageError && firstImage.startsWith('https://');
 
-  // Sanitize and truncate content
-  const sanitized = post.content.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+  // Sanitize content: strip control chars and image URLs (images render separately)
+  const sanitized = post.content
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
+    .replace(/https?:\/\/\S+\.(?:jpg|jpeg|png|gif|webp)\S*/gi, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
   const displayContent = sanitized.length > 500
     ? sanitized.slice(0, 500) + '...'
     : sanitized;
