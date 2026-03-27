@@ -54,7 +54,8 @@ class LightningZapService {
   async sendLightningZap(
     recipientPubkey: string,
     amount: number,
-    memo: string = ''
+    memo: string = '',
+    eventId?: string
   ): Promise<LightningZapResult> {
     try {
       console.log(
@@ -95,7 +96,8 @@ class LightningZapService {
       const zapRequest = await this.createZapRequest(
         recipientPubkey,
         amount,
-        memo
+        memo,
+        eventId
       );
       if (!zapRequest) {
         console.log('[LightningZap] Failed to create zap request');
@@ -267,7 +269,8 @@ class LightningZapService {
   private async createZapRequest(
     recipientPubkey: string,
     amount: number,
-    memo: string
+    memo: string,
+    eventId?: string
   ): Promise<NDKEvent | null> {
     try {
       const ndk = await GlobalNDKService.getInstance();
@@ -287,6 +290,9 @@ class LightningZapService {
         ['amount', (amount * 1000).toString()], // Convert sats to millisats
         ['relays', 'wss://relay.damus.io', 'wss://nos.lol'],
       ];
+      if (eventId) {
+        zapRequest.tags.push(['e', eventId]);
+      }
       zapRequest.pubkey = hexPubkey;
       zapRequest.created_at = Math.floor(Date.now() / 1000);
 
