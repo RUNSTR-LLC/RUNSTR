@@ -8,7 +8,6 @@ import { View, Text, StyleSheet, Image } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../../styles/theme';
 import { User } from '../../types';
-import { Button } from '../ui/Button';
 import { Avatar } from '../ui/Avatar';
 
 interface ProfileHeaderProps {
