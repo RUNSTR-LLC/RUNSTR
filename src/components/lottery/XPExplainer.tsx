@@ -3,7 +3,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { theme } from '../../styles/theme';
-import { XP_CONSTANTS, STREAK_BONUSES, LEVEL_MILESTONES } from '../../types/workoutLevel';
+import { XP_VALUES, XP_PER_LEVEL, LEVEL_MILESTONES } from '../../types/workoutLevel';
 
 interface XPExplainerProps {
   currentLevel: number;
@@ -16,24 +16,20 @@ export const XPExplainer: React.FC<XPExplainerProps> = ({ currentLevel }) => {
 
       <View style={styles.item}>
         <Text style={styles.label}>Per Workout</Text>
-        <Text style={styles.value}>+{XP_CONSTANTS.BASE_XP_PER_WORKOUT} XP</Text>
+        <Text style={styles.value}>+{XP_VALUES.WORKOUT_SUBMITTED} XP</Text>
       </View>
       <View style={styles.item}>
-        <Text style={styles.label}>Per 10 min</Text>
-        <Text style={styles.value}>+{XP_CONSTANTS.DURATION_XP_PER_10_MIN} XP</Text>
+        <Text style={styles.label}>Daily Steps Goal</Text>
+        <Text style={styles.value}>+{XP_VALUES.DAILY_STEPS_GOAL} XP</Text>
       </View>
       <View style={styles.item}>
-        <Text style={styles.label}>Per km (cardio)</Text>
-        <Text style={styles.value}>+{XP_CONSTANTS.DISTANCE_XP_PER_KM} XP</Text>
+        <Text style={styles.label}>Daily Login</Text>
+        <Text style={styles.value}>+{XP_VALUES.DAILY_LOGIN} XP</Text>
       </View>
-
-      <Text style={[styles.title, { marginTop: 16 }]}>Streak Bonuses</Text>
-      {STREAK_BONUSES.map((bonus) => (
-        <View key={bonus.days} style={styles.item}>
-          <Text style={styles.label}>{bonus.days}+ days</Text>
-          <Text style={styles.value}>+{bonus.bonus} XP/workout</Text>
-        </View>
-      ))}
+      <View style={styles.item}>
+        <Text style={styles.label}>Per Level</Text>
+        <Text style={styles.value}>{XP_PER_LEVEL} XP</Text>
+      </View>
 
       <Text style={[styles.title, { marginTop: 16 }]}>Milestones</Text>
       {LEVEL_MILESTONES.map((m) => (

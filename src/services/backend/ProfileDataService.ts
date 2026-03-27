@@ -557,7 +557,7 @@ export class ProfileDataService {
           data.map((w) => w.created_at?.slice(0, 10)).filter(Boolean),
         ),
       ].sort((a, b) => (b > a ? 1 : -1));
-      const { longestStreakDays } = computeStreaks(uniqueDates);
+      const { longestStreakDays, currentStreakDays } = computeStreaks(uniqueDates);
 
       const result: ProfileLevelData = {
         level: stats.level.level,
@@ -566,7 +566,7 @@ export class ProfileDataService {
         xpForNextLevel: stats.level.xpForNextLevel,
         progress: stats.level.progress,
         totalXP: stats.level.totalXP,
-        currentStreak: stats.currentStreak ?? 0,
+        currentStreak: currentStreakDays,
         bestStreak: longestStreakDays,
       };
 

@@ -1,6 +1,6 @@
 // src/screens/LevelDetailScreen.tsx
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,22 +14,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { TouchableOpacity } from 'react-native';
 import { theme } from '../styles/theme';
 import { TexturedBackground } from '../components/ui/TexturedBackground';
-import { LotteryWheel } from '../components/lottery/LotteryWheel';
-import type { LotteryWheelRef } from '../components/lottery/LotteryWheel';
-import { LotteryResult } from '../components/lottery/LotteryResult';
-import { SpinButton } from '../components/lottery/SpinButton';
 import { XPExplainer } from '../components/lottery/XPExplainer';
-import LotteryService from '../services/lottery/LotteryService';
 import { WorkoutLevelService } from '../services/fitness/WorkoutLevelService';
-import { RewardDestinationService } from '../services/rewards/RewardDestinationService';
-import { calculateLotteryMultiplier, DEFAULT_SEGMENTS } from '../types/lottery';
-import type { LotterySpin } from '../types/lottery';
+import { calculateLotteryMultiplier } from '../types/lottery';
 import type { LevelStats } from '../types/workoutLevel';
 import { LEVEL_MILESTONES } from '../types/workoutLevel';
 import { useUserStore } from '../store/userStore';
-
-// NetInfo removed — package not installed. Assume connected.
-// TODO: Add NetInfo when @react-native-community/netinfo is added to deps
 
 export const LevelDetailScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -37,26 +27,8 @@ export const LevelDetailScreen: React.FC = () => {
   const user = useUserStore((state: any) => state.user);
   const npub = user?.npub || '';
 
-  // userStore does not expose workouts directly; WorkoutLevelService uses its
-  // own AsyncStorage cache so passing an empty array falls through to cache.
-  const EMPTY_WORKOUTS: never[] = [];
-
-  const wheelRef = useRef<LotteryWheelRef>(null);
-  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const unsubscribeRef = useRef<(() => void) | null>(null);
-
   const [stats, setStats] = useState<LevelStats | null>(null);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
-  const [canSpin, setCanSpin] = useState(false);
-  const [isSpinning, setIsSpinning] = useState(false);
-  const [spinResult, setSpinResult] = useState<LotterySpin | null>(null);
-  const [showResult, setShowResult] = useState(false);
-  const [winningIndex, setWinningIndex] = useState<number | null>(null);
-  const [todaySpin, setTodaySpin] = useState<LotterySpin | null>(null);
-  const [isConnected, setIsConnected] = useState(true);
-  const [spinError, setSpinError] = useState<string | null>(null);
-  const [hasDestination, setHasDestination] = useState(true);
 
   const level = stats?.level.level || 1;
   const multiplier = calculateLotteryMultiplier(level);
@@ -65,118 +37,18 @@ export const LevelDetailScreen: React.FC = () => {
     loadData();
   }, [npub]);
 
-  // Network monitoring removed — NetInfo not installed
-  // isConnected defaults to true
-
   const loadData = async () => {
     setIsLoadingStats(true);
     try {
-      // WorkoutLevelService is a singleton with instance methods
       const levelStats = await WorkoutLevelService.getInstance().getLevelStats(
         npub,
-        EMPTY_WORKOUTS
+        []
       );
       setStats(levelStats);
-
-      // getDestinationAddress always returns a RewardDestination (never null).
-      // A destination is "set" when address is non-empty OR it routes via PPQ (bolt11).
-      const destination = await RewardDestinationService.getDestinationAddress();
-      setHasDestination(destination.address !== '' || destination.isPPQ);
-
-      const existing = await LotteryService.getTodaySpin(npub);
-      if (existing && existing.status !== 'pending') {
-        setTodaySpin(existing);
-        setCanSpin(false);
-      } else {
-        const eligible = await LotteryService.canSpinToday();
-        setCanSpin(eligible);
-      }
     } catch (error) {
       console.error('[LevelDetail] Failed to load data:', error);
     } finally {
       setIsLoadingStats(false);
-    }
-  };
-
-  const cleanup = useCallback(() => {
-    if (pollTimerRef.current) {
-      clearInterval(pollTimerRef.current);
-      pollTimerRef.current = null;
-    }
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-    if (unsubscribeRef.current) {
-      unsubscribeRef.current();
-      unsubscribeRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    return cleanup;
-  }, [cleanup]);
-
-  const handleSpin = async () => {
-    if (!npub || isSpinning || !canSpin) return;
-
-    setSpinError(null);
-    setIsSpinning(true);
-    setShowResult(false);
-    setSpinResult(null);
-    setWinningIndex(null);
-
-    wheelRef.current?.startSpinning();
-
-    const spin = await LotteryService.submitSpin(npub, level);
-
-    if (!spin) {
-      wheelRef.current?.stopWithError();
-      setIsSpinning(false);
-      setSpinError('Spin failed, try again');
-      return;
-    }
-
-    unsubscribeRef.current = LotteryService.subscribeToSpinResult(
-      spin.id,
-      handleSpinResult
-    );
-
-    pollTimerRef.current = setInterval(async () => {
-      const result = await LotteryService.fetchSpinResult(spin.id);
-      if (result && result.status !== 'pending') {
-        handleSpinResult(result);
-      }
-    }, 2000);
-
-    timeoutRef.current = setTimeout(() => {
-      cleanup();
-      wheelRef.current?.stopWithError();
-      setIsSpinning(false);
-      setSpinError('Taking longer than expected. Pull down to refresh.');
-    }, 10000);
-  };
-
-  const handleSpinResult = (result: LotterySpin) => {
-    cleanup();
-    setSpinResult(result);
-
-    const segmentIndex = DEFAULT_SEGMENTS.findIndex(
-      (s) => s.baseValue === result.segment_value
-    );
-
-    if (segmentIndex >= 0) {
-      setWinningIndex(segmentIndex);
-      wheelRef.current?.spinToSegment(segmentIndex);
-    }
-  };
-
-  const handleSpinComplete = () => {
-    setIsSpinning(false);
-    setCanSpin(false);
-    setShowResult(true);
-    if (spinResult) {
-      setTodaySpin(spinResult);
     }
   };
 
@@ -192,7 +64,6 @@ export const LevelDetailScreen: React.FC = () => {
     );
   }
 
-  const currentStreak = stats?.currentStreak || 0;
   const milestone = LEVEL_MILESTONES.slice()
     .reverse()
     .find((m) => level >= m.level);
@@ -232,9 +103,6 @@ export const LevelDetailScreen: React.FC = () => {
               {stats?.level.currentXP || 0} /{' '}
               {stats?.level.xpForNextLevel || 100} XP
             </Text>
-            {currentStreak > 0 && (
-              <Text style={styles.streakText}>{currentStreak} day streak</Text>
-            )}
           </View>
 
           <View style={styles.multiplierBadge}>
@@ -242,24 +110,11 @@ export const LevelDetailScreen: React.FC = () => {
             <Text style={styles.multiplierValue}>{multiplier.toFixed(1)}x</Text>
           </View>
 
-          <View style={styles.wheelSection}>
-            <LotteryWheel
-              ref={wheelRef}
-              dimmed={true}
-              winningIndex={null}
-              onSpinComplete={handleSpinComplete}
-            />
+          <View style={styles.spinNote}>
+            <Text style={styles.spinNoteText}>
+              Spin the daily wheel on the Rewards tab
+            </Text>
           </View>
-
-          <Text style={styles.comingSoonText}>Coming Soon</Text>
-
-          <SpinButton
-            canSpin={false}
-            isSpinning={false}
-            onSpin={handleSpin}
-            hasNoConnection={!isConnected}
-            hasNoDestination={!hasDestination}
-          />
 
           <XPExplainer currentLevel={level} />
         </ScrollView>
@@ -333,12 +188,6 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.medium,
     marginTop: 6,
   },
-  streakText: {
-    color: theme.colors.orangeBright,
-    fontSize: 13,
-    fontWeight: theme.typography.weights.semiBold,
-    marginTop: 4,
-  },
   multiplierBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -361,34 +210,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
   },
-  wheelSection: {
-    marginVertical: 16,
-  },
-  todayResult: {
-    alignItems: 'center',
-    paddingVertical: 8,
-    gap: 2,
-  },
-  todayLabel: {
-    color: theme.colors.textMuted,
-    fontSize: 12,
-    fontWeight: theme.typography.weights.medium,
-  },
-  todayValue: {
-    color: theme.colors.text,
-    fontSize: 16,
-    fontWeight: theme.typography.weights.semiBold,
-  },
-  comingSoonText: {
-    color: theme.colors.textMuted,
-    fontSize: 16,
-    fontWeight: theme.typography.weights.semiBold,
+  spinNote: {
+    paddingVertical: 12,
     marginBottom: 16,
-    letterSpacing: 2,
   },
-  errorText: {
+  spinNoteText: {
     color: theme.colors.textMuted,
-    fontSize: 13,
-    marginBottom: 8,
+    fontSize: 14,
+    fontWeight: theme.typography.weights.medium,
   },
 });

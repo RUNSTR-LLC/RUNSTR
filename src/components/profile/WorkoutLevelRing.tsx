@@ -85,8 +85,6 @@ export const WorkoutLevelRing: React.FC<WorkoutLevelRingProps> = ({
     return null;
   }
 
-  const currentStreak = stats.currentStreak || 0;
-
   return (
     <View style={styles.container}>
       {/* Tappable ring to show XP explainer */}
@@ -153,7 +151,7 @@ export const WorkoutLevelRing: React.FC<WorkoutLevelRingProps> = ({
       <View style={styles.statsContainer}>
         <View style={styles.statRow}>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{stats.qualifyingWorkouts}</Text>
+            <Text style={styles.statValue}>{stats.totalWorkouts}</Text>
             <Text style={styles.statLabel}>Workouts</Text>
           </View>
           <View style={styles.statDivider} />
@@ -163,11 +161,6 @@ export const WorkoutLevelRing: React.FC<WorkoutLevelRingProps> = ({
               {levelService.formatXP(stats.level.xpForNextLevel)}
             </Text>
             <Text style={styles.statLabel}>XP Progress</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{currentStreak}</Text>
-            <Text style={styles.statLabel}>Day Streak</Text>
           </View>
         </View>
       </View>
