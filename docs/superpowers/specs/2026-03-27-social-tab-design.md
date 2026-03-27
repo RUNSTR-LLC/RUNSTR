@@ -19,7 +19,7 @@ Convert the Clubs tab into a Social tab. Top section shows a horizontal scroll o
 - `BottomTabParamList`: rename `Clubs` to `Social` in the type and update all `navigation.navigate('Clubs')` references to `navigation.navigate('Social')`
 - CLAUDE.md product structure should be updated to reflect the tab rename
 
-Note: This changes the documented three-tab navigation from "Profile / Clubs / Rewards" to "Profile / Social / Events". CLAUDE.md must be updated as part of implementation.
+Note: CLAUDE.md currently documents tabs as "Profile / Clubs / Rewards" but code already uses "Profile / Clubs / Events". This rename changes it to "Profile / Social / Events". CLAUDE.md must be updated to fix both: rename "Clubs" to "Social" and correct "Rewards" to "Events".
 
 ## Layout
 
@@ -227,7 +227,7 @@ Uses existing `ClubService.fetchActiveClubs()` with 5-minute cache. Skeleton cir
 
 ### Modified
 - `src/navigation/BottomTabNavigator.tsx` — swap Clubs tab to Social
-- `src/services/nostr/workoutPublishingService.ts` — add dual-write in `publishSocialPost` method (after `ndkEvent.publish()` succeeds, insert into `social_feed` using returned event ID)
+- `src/services/nostr/workoutPublishingService.ts` — add dual-write in `postWorkoutToSocial` method (~line 413). After `ndkEvent.publish()` succeeds (~line 580-592), insert into `social_feed` using returned event ID, before cache invalidation.
 
 ## What Doesn't Change
 
