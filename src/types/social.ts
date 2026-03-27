@@ -11,6 +11,11 @@ export interface SocialFeedPost {
   author_avatar: string | null;
   created_at: string;
   indexed_at: string;
+  like_count: number;
+  repost_count: number;
+  zap_total: number;
+  liked_by: string[] | null;
+  reposted_by: string[] | null;
 }
 
 /**
