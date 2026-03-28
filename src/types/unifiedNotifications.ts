@@ -33,6 +33,7 @@ export type NotificationActionType =
   | 'view_wallet'
   | 'approve_join_request'
   | 'deny_join_request'
+  | 'view_join_requests'
   | 'view_event_requests'
   | 'view_workout'
   | 'reply_comment';
