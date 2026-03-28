@@ -23,7 +23,7 @@ import Toast from 'react-native-toast-message';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../styles/theme';
 import { TexturedBackground } from '../components/ui/TexturedBackground';
-import { CHARITIES, Charity, isPPQTeam, isCoinOSTeam } from '../constants/charities';
+import { CHARITIES, Charity, getCharityById, isPPQTeam, isCoinOSTeam } from '../constants/charities';
 import { ExternalZapModal } from '../components/nutzap/ExternalZapModal';
 import { useNWCZap } from '../hooks/useNWCZap';
 import { NWCWalletService } from '../services/wallet/NWCWalletService';
@@ -462,7 +462,7 @@ const TeamsScreenComponent: React.FC = () => {
 
   // Find selected team object (memoized to avoid repeated linear scans)
   const selectedTeam = useMemo(
-    () => (selectedTeamId ? CHARITIES.find((c) => c.id === selectedTeamId) : null),
+    () => (selectedTeamId ? (getCharityById(selectedTeamId) ?? null) : null),
     [selectedTeamId]
   );
 
