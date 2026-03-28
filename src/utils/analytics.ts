@@ -132,6 +132,26 @@ class Analytics {
     };
   }
 
+  private sanitizeAnalyticsValue(value: unknown): unknown {
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : null;
+    }
+
+    if (Array.isArray(value)) {
+      return value.map((item) => this.sanitizeAnalyticsValue(item));
+    }
+
+    if (value && typeof value === 'object') {
+      const sanitizedEntries = Object.entries(value).map(([key, nestedValue]) => [
+        key,
+        this.sanitizeAnalyticsValue(nestedValue),
+      ]);
+      return Object.fromEntries(sanitizedEntries);
+    }
+
+    return value;
+  }
+
   // Track generic event
   track(event: AnalyticsEvent, properties?: Record<string, any>) {
     if (!this.isEnabled) return;
@@ -143,12 +163,17 @@ class Analytics {
       return;
     }
 
+    const mergedProperties = {
+      ...this.getBaseProperties(),
+      ...properties,
+    };
+
     const eventData = {
       event,
-      properties: {
-        ...this.getBaseProperties(),
-        ...properties,
-      },
+      properties: this.sanitizeAnalyticsValue(mergedProperties) as Record<
+        string,
+        unknown
+      >,
     };
 
     // Log to console in development
