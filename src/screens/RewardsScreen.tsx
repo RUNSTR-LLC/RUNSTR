@@ -45,9 +45,6 @@ import { SupabaseRewardService } from '../services/rewards/SupabaseRewardService
 import { RewardDestinationService } from '../services/rewards/RewardDestinationService';
 import { PPQCreditTopupModal } from '../components/ai/PPQCreditTopupModal';
 import { DirectNostrProfileService } from '../services/user/directNostrProfileService';
-import { SubscriptionService } from '../services/backend/SubscriptionService';
-import type { SubscriptionTier } from '../services/backend/SubscriptionService';
-import { SubscriptionInfoModal } from '../components/subscription/SubscriptionInfoModal';
 import { REWARD_CONFIG } from '../config/rewards';
 import { LotteryWheelSection } from '../components/lottery/LotteryWheelSection';
 
@@ -105,9 +102,6 @@ const RewardsScreenComponent: React.FC = () => {
   // Reward destination picker modal state
   const [showDestinationPicker, setShowDestinationPicker] = useState(false);
 
-  // Subscription tier state
-  const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>('free');
-  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   // Auto-open destination picker when navigated from onboarding
   const route = useRoute<any>();
@@ -203,11 +197,6 @@ const RewardsScreenComponent: React.FC = () => {
         setActivePledge(pledge);
       }
 
-      // Load subscription tier
-      if (npub) {
-        const tier = await SubscriptionService.getSubscriptionTier(npub);
-        setSubscriptionTier(tier);
-      }
     } catch (error) {
       console.error('[RewardsScreen] Error loading settings:', error);
       Toast.show({
@@ -462,13 +451,6 @@ const RewardsScreenComponent: React.FC = () => {
         }}
       />
 
-      {/* Subscription Info Modal */}
-      <SubscriptionInfoModal
-        visible={showSubscriptionModal}
-        onClose={() => setShowSubscriptionModal(false)}
-        feature="general"
-        currentTier={subscriptionTier}
-      />
       </TexturedBackground>
     </SafeAreaView>
   );

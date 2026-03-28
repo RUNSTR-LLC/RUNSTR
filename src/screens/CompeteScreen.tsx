@@ -8,7 +8,7 @@
  * - Leaderboards (navigates to LeaderboardsScreen)
  */
 
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -22,10 +22,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 import { EventsContent } from '../components/compete';
-import { SubscriptionInfoModal } from '../components/subscription/SubscriptionInfoModal';
 import { SimpleEventCreationModal } from '../components/subscription/SimpleEventCreationModal';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SubscriptionService, SubscriptionTier } from '../services/backend/SubscriptionService';
 import { SupabaseCompetitionService } from '../services/backend/SupabaseCompetitionService';
 import type { SatlantisEvent } from '../types/satlantis';
 
@@ -39,27 +36,7 @@ const CompeteScreenComponent: React.FC<CompeteScreenProps> = ({ navigation: prop
   const navigation = propNavigation || hookNavigation;
 
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>('free');
-  const [showSubscriptionInfo, setShowSubscriptionInfo] = useState(false);
   const [showCreateEvent, setShowCreateEvent] = useState(false);
-
-  useEffect(() => {
-    const checkSubscriber = async () => {
-      // Try cache first
-      const cached = await SubscriptionService.getCachedTier();
-      if (cached !== null) {
-        setSubscriptionTier(cached);
-        return;
-      }
-      // Cache empty (first launch or expired) -- try fresh check
-      const npub = await AsyncStorage.getItem('@runstr:npub');
-      if (npub) {
-        const tier = await SubscriptionService.getSubscriptionTier(npub);
-        setSubscriptionTier(tier);
-      }
-    };
-    checkSubscriber();
-  }, []);
 
   // Handle event press - navigate to event detail
   const handleEventPress = useCallback((event: SatlantisEvent) => {
@@ -131,15 +108,7 @@ const CompeteScreenComponent: React.FC<CompeteScreenProps> = ({ navigation: prop
         />
       </ScrollView>
 
-      {/* Subscription Info Modal (non-subscribers) */}
-      <SubscriptionInfoModal
-        visible={showSubscriptionInfo}
-        onClose={() => setShowSubscriptionInfo(false)}
-        feature="event"
-        currentTier={subscriptionTier}
-      />
-
-      {/* Event Creation Modal (subscribers) */}
+      {/* Event Creation Modal */}
       <SimpleEventCreationModal
         visible={showCreateEvent}
         onClose={() => setShowCreateEvent(false)}

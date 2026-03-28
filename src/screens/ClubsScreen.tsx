@@ -19,7 +19,6 @@ import { ClubService } from '../services/backend/ClubService';
 import { ClubMembershipService } from '../services/backend/ClubMembershipService';
 import { ClubCard } from '../components/club/ClubCard';
 import { SubscriptionService } from '../services/backend/SubscriptionService';
-import { SubscriptionInfoModal } from '../components/subscription/SubscriptionInfoModal';
 import { SimpleTeamCreationModal } from '../components/subscription/SimpleTeamCreationModal';
 import { nostrProfileService, NostrProfile } from '../services/nostr/NostrProfileService';
 
@@ -34,7 +33,6 @@ const ClubsScreenComponent: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubscriber, setIsSubscriber] = useState(false); // true for 'pro' tier (gates club creation)
-  const [showSubscriptionInfo, setShowSubscriptionInfo] = useState(false);
   const [showCreateClub, setShowCreateClub] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [captainProfiles, setCaptainProfiles] = useState<Map<string, NostrProfile>>(new Map());
@@ -229,7 +227,7 @@ const ClubsScreenComponent: React.FC = () => {
   }, [myClub, userNpub, performClubAction]);
 
   const handleCreatePress = useCallback(() => {
-    setShowSubscriptionInfo(true);
+    setShowCreateClub(true);
   }, []);
 
   const handleClubCreated = useCallback(async () => {
@@ -422,12 +420,6 @@ const ClubsScreenComponent: React.FC = () => {
           <ActivityIndicator size="large" color={theme.colors.accent} />
         </View>
       )}
-
-      <SubscriptionInfoModal
-        visible={showSubscriptionInfo}
-        onClose={() => setShowSubscriptionInfo(false)}
-        feature="team"
-      />
 
       <SimpleTeamCreationModal
         visible={showCreateClub}

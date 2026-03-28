@@ -27,10 +27,8 @@ import {
   SupabaseLeaderboardEntry,
 } from '../../hooks/useSupabaseLeaderboard';
 import { SupabaseCompetitionService } from '../../services/backend/SupabaseCompetitionService';
-import { SubscriptionService, SubscriptionTier } from '../../services/backend/SubscriptionService';
 import { ClubService } from '../../services/backend/ClubService';
 import { ClubMembershipService } from '../../services/backend/ClubMembershipService';
-import { SubscriptionInfoModal } from '../../components/subscription/SubscriptionInfoModal';
 import { CustomAlert } from '../../components/ui/CustomAlert';
 import { PledgeService } from '../../services/pledge/PledgeService';
 import { EventFinalizationService, FinalizationResult } from '../../services/events/EventFinalizationService';
@@ -134,8 +132,6 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [visibleBatches, setVisibleBatches] = useState(1);
-  const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>('free');
-  const [showSubscriptionInfo, setShowSubscriptionInfo] = useState(false);
   const [clubName, setClubName] = useState<string | null>(null);
   const [isClubMember, setIsClubMember] = useState<boolean | null>(null); // null = not checked yet
   const [showClubGateAlert, setShowClubGateAlert] = useState(false);
@@ -192,22 +188,6 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
       }
     };
     fetchClubInfo();
-  }, [competition]);
-
-  // Check subscription tier when competition requires it
-  useEffect(() => {
-    if (!competition) return;
-    const config: CompetitionConfig = competition.config || {};
-    if (!config.requires_subscription) return;
-
-    const checkTier = async () => {
-      const npub = await AsyncStorage.getItem('@runstr:npub');
-      if (npub) {
-        const tier = await SubscriptionService.getSubscriptionTier(npub);
-        setSubscriptionTier(tier);
-      }
-    };
-    checkTier();
   }, [competition]);
 
   const handlePledgeAndJoin = async () => {
@@ -277,18 +257,6 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
     if (competition?.club_id && isClubMember === false) {
       setShowClubGateAlert(true);
       return;
-    }
-
-    // Check subscription requirement before joining
-    const reqTier = competition?.config?.requires_subscription;
-    if (reqTier) {
-      const meetsRequirement = reqTier === 'supporter'
-        ? (subscriptionTier === 'supporter' || subscriptionTier === 'pro')
-        : subscriptionTier === 'pro';
-      if (!meetsRequirement) {
-        setShowSubscriptionInfo(true);
-        return;
-      }
     }
 
     // Pledge gate for ticketed events
@@ -845,14 +813,6 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
           </Text>
         </View>
       </ScrollView>
-
-      {/* Subscription Info Modal (for gated events) */}
-      <SubscriptionInfoModal
-        visible={showSubscriptionInfo}
-        onClose={() => setShowSubscriptionInfo(false)}
-        feature="season"
-        currentTier={subscriptionTier}
-      />
 
       {/* Club membership gate alert */}
       <CustomAlert

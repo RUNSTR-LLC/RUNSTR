@@ -35,7 +35,6 @@ import { PPQAccountService } from '../services/ai/PPQAccountService';
 import { LightningAddressSetupModal } from '../components/wallet/LightningAddressSetupModal';
 import { DirectNostrProfileService } from '../services/user/directNostrProfileService';
 import { RewardLightningAddressService } from '../services/rewards/RewardLightningAddressService';
-import { SubscriptionInfoModal } from '../components/subscription/SubscriptionInfoModal';
 import { SimpleTeamCreationModal } from '../components/subscription/SimpleTeamCreationModal';
 import { SubscriptionService, SubscriptionTier } from '../services/backend/SubscriptionService';
 import { CommunityTeamsSection } from '../components/team/CommunityTeamsSection';
@@ -214,7 +213,6 @@ const TeamsScreenComponent: React.FC = () => {
 
   // Subscription / team creation state
   const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>('free');
-  const [showSubscriptionInfo, setShowSubscriptionInfo] = useState(false);
   const [showCreateTeam, setShowCreateTeam] = useState(false);
 
   // Community teams refresh trigger
@@ -569,7 +567,7 @@ const TeamsScreenComponent: React.FC = () => {
       <View style={styles.createTeamHeader}>
         <TouchableOpacity
           style={styles.createTeamButton}
-          onPress={() => subscriptionTier === 'pro' ? setShowCreateTeam(true) : setShowSubscriptionInfo(true)}
+          onPress={() => setShowCreateTeam(true)}
           activeOpacity={0.7}
         >
           <Ionicons name="add-circle-outline" size={18} color={theme.colors.accent} />
@@ -686,15 +684,7 @@ const TeamsScreenComponent: React.FC = () => {
       />
 
 
-      {/* Subscription Info Modal (non-subscribers) */}
-      <SubscriptionInfoModal
-        visible={showSubscriptionInfo}
-        onClose={() => setShowSubscriptionInfo(false)}
-        feature="team"
-        currentTier={subscriptionTier}
-      />
-
-      {/* Team Creation Modal (subscribers) */}
+      {/* Team Creation Modal */}
       <SimpleTeamCreationModal
         visible={showCreateTeam}
         onClose={() => setShowCreateTeam(false)}
