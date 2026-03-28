@@ -74,10 +74,8 @@ export const ImpactHeroCard: React.FC<ImpactHeroCardProps> = ({ pubkey }) => {
 
   if (isLoading && !breakdown) {
     return (
-      <View style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.accent} />
-        </View>
+      <View style={styles.emptyContainer}>
+        <ActivityIndicator size="small" color={theme.colors.accent} />
       </View>
     );
   }
@@ -104,23 +102,14 @@ export const ImpactHeroCard: React.FC<ImpactHeroCardProps> = ({ pubkey }) => {
     );
   }
 
-  // Empty state
+  // Empty state — compact single row
   if (!breakdown || totalDonated === 0) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.headerTitle}>
-          {t('impactHero.title', 'YOUR IMPACT')}
+      <View style={styles.emptyContainer}>
+        <Ionicons name="heart-outline" size={18} color="#444" />
+        <Text style={styles.emptyInlineText}>
+          {t('impactHero.noImpactYet', 'Complete workouts to earn rewards!')}
         </Text>
-        <View style={styles.emptyState}>
-          <Ionicons
-            name="heart-outline"
-            size={40}
-            color="#444"
-          />
-          <Text style={styles.emptyText}>
-            {t('impactHero.noImpactYet', 'Complete workouts to support charities!')}
-          </Text>
-        </View>
       </View>
     );
   }
@@ -321,6 +310,24 @@ const styles = StyleSheet.create({
   workoutCount: {
     fontSize: 12,
     color: '#666',
+  },
+
+  emptyContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#0a0a0a',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1a1a1a',
+    padding: 14,
+    marginBottom: 12,
+  },
+
+  emptyInlineText: {
+    fontSize: 13,
+    color: '#666',
+    flex: 1,
   },
 
   emptyState: {
