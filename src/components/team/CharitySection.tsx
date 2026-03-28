@@ -79,6 +79,9 @@ export const CharitySection: React.FC<CharitySectionProps> = ({
     return null;
   }
 
+  // Charity data can be incomplete in edge cases; keep a safe string for typed call sites.
+  const charityLightningAddress = charity.lightningAddress ?? '';
+
   // Load zapped state and wallet balance on mount
   useEffect(() => {
     const loadZappedState = async () => {
@@ -182,6 +185,14 @@ export const CharitySection: React.FC<CharitySectionProps> = ({
       return;
     }
 
+    if (!charityLightningAddress) {
+      Alert.alert(
+        'Charity Payment Unavailable',
+        'This charity does not currently have a Lightning address configured.'
+      );
+      return;
+    }
+
     // Quick zap with default amount - routes through RUNSTR for tracking
     setIsZapping(true);
     try {
@@ -200,7 +211,7 @@ export const CharitySection: React.FC<CharitySectionProps> = ({
         console.error('[CharitySection] Failed to create RUNSTR invoice:', invoiceResult.error);
         // Fallback: Pay charity directly (legacy behavior)
         const { invoice } = await getInvoiceFromLightningAddress(
-          charity.lightningAddress,
+          charityLightningAddress,
           DEFAULT_ZAP_AMOUNT,
           `Donation to ${charity.name}`
         );
@@ -229,7 +240,7 @@ export const CharitySection: React.FC<CharitySectionProps> = ({
 
       // Step 3: Record donation and forward to charity
       console.log('[CharitySection] Recording and forwarding donation...');
-      const donorName = currentUser?.name || currentUser?.displayName;
+      const donorName = currentUser?.name || currentUser?.displayName || 'Anonymous';
 
       // Get hex pubkey from cached storage (reliable source set at login)
       const storedPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
@@ -244,7 +255,7 @@ export const CharitySection: React.FC<CharitySectionProps> = ({
         donorName,
         amount: DEFAULT_ZAP_AMOUNT,
         charityId: charity.id,
-        charityLightningAddress: charity.lightningAddress,
+        charityLightningAddress,
       });
 
       await markAsZapped();
@@ -354,19 +365,19 @@ export const CharitySection: React.FC<CharitySectionProps> = ({
 
       {/* External Zap Modal with charity donation verification
           v3: Modal disabled - NWC moved to external service */}
-      {IN_APP_ZAPS_ENABLED && (
+      {IN_APP_ZAPS_ENABLED && charityLightningAddress ? (
         <ExternalZapModal
           visible={showPaymentModal}
-          recipientNpub={charity.lightningAddress}
+          recipientNpub={charityLightningAddress}
           recipientName={charity.name}
           memo={`Donation to ${charity.name}`}
           onClose={() => setShowPaymentModal(false)}
           onSuccess={handlePaymentConfirmed}
           isCharityDonation={true}
           charityId={charity.id}
-          charityLightningAddress={charity.lightningAddress}
+          charityLightningAddress={charityLightningAddress}
         />
-      )}
+      ) : null}
     </View>
   );
 };
