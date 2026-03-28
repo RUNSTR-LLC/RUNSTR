@@ -30,6 +30,7 @@ import { MusicPlayerPreferencesService } from '../services/music/MusicPlayerPref
 import { HeaderMusicControls } from '../components/music/HeaderMusicControls';
 import { ProfileHero } from '../components/profile/ProfileHero';
 import { ProfileDashboardGrid } from '../components/profile/ProfileDashboardGrid';
+import { LightningActionCards } from '../components/profile/LightningActionCards';
 import { LevelCard } from '../components/profile/LevelCard';
 import { ActivityBreakdown } from '../components/profile/ActivityBreakdown';
 import { ClubAffiliationsSection } from '../components/profile/ClubAffiliationsSection';
@@ -257,9 +258,14 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
         <View style={styles.sectionGap}>
           <ProfileHero user={isOwner ? data.user : otherUser} isOwner={isOwner}
             isLoading={isOwner ? isLoadingSections : !otherUser}
+            level={levelData?.level ?? 0}
             onEditPress={isOwner ? handleEditPress : undefined}
             onBackPress={!isOwner ? () => navigation.goBack() : undefined}
-            onSettingsPress={undefined} />
+            onSettingsPress={undefined}
+            onLevelPress={() => {
+              const parent = navigation.getParent();
+              (parent || navigation).navigate('LevelDetail' as any);
+            }} />
         </View>
 
         {isOwner && (

@@ -21,22 +21,28 @@ interface ProfileHeroProps {
   user: User | null;
   isOwner: boolean;
   isLoading?: boolean;
+  level?: number;
   onEditPress?: () => void;
   onBackPress?: () => void;
   onSettingsPress?: () => void;
+  onLevelPress?: () => void;
 }
 
 const BANNER_HEIGHT = 100;
 const AVATAR_SIZE = 72;
 const AVATAR_OVERLAP = AVATAR_SIZE / 2;
 
+const LEVEL_BADGE_SIZE = 36;
+
 export const ProfileHero: React.FC<ProfileHeroProps> = ({
   user,
   isOwner,
   isLoading = false,
+  level,
   onEditPress,
   onBackPress,
   onSettingsPress,
+  onLevelPress,
 }) => {
   const { t } = useTranslation('profile');
   const isLoadingProfile = isLoading || !user;
@@ -144,19 +150,33 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
         </View>
       </View>
 
-      {/* Name / Bio / lud16 */}
+      {/* Name / Bio / lud16 + Level Badge */}
       <View style={styles.textArea}>
-        <Text style={styles.name}>{displayName}</Text>
-        {bio ? (
-          <Text style={styles.bio} numberOfLines={2}>
-            {bio}
-          </Text>
-        ) : null}
-        {lud16 ? (
-          <Text style={styles.lud16} numberOfLines={1}>
-            {lud16}
-          </Text>
-        ) : null}
+        <View style={styles.textRow}>
+          <View style={styles.textContent}>
+            <Text style={styles.name}>{displayName}</Text>
+            {bio ? (
+              <Text style={styles.bio} numberOfLines={2}>
+                {bio}
+              </Text>
+            ) : null}
+            {lud16 ? (
+              <Text style={styles.lud16} numberOfLines={1}>
+                {lud16}
+              </Text>
+            ) : null}
+          </View>
+          {level != null && (
+            <TouchableOpacity
+              style={styles.levelBadge}
+              onPress={onLevelPress}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.levelBadgeLabel}>LVL</Text>
+              <Text style={styles.levelBadgeText}>{level}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -246,6 +266,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 14,
+  },
+  textRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+  },
+  textContent: {
+    flex: 1,
+    marginRight: 12,
+  },
+  levelBadge: {
+    width: 40,
+    height: 46,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+    gap: 1,
+  },
+  levelBadgeLabel: {
+    fontSize: 9,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.textMuted,
+    letterSpacing: 1,
+  },
+  levelBadgeText: {
+    fontSize: 16,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.accent,
   },
   name: {
     fontSize: 18,

@@ -2,6 +2,69 @@
 
 All notable changes to RUNSTR will be documented in this file.
 
+## [1.7.6] - 2026-03-27 - Social Feed, Lottery Wheel, Activity Menu & UI Overhaul
+
+### Social Tab
+- Clubs tab renamed to Social with integrated feed
+- Social feed with workout shares, images, and Nostr posts
+- Like, zap, repost, and comment interactions on feed posts
+- Social feed indexer Edge Function with cron schedule for Nostr content
+- Clubs row with horizontal scroll at top of Social screen
+- Dual-write workout shares to social_feed for instant visibility
+
+### Lottery Wheel
+- Lottery wheel on Level Detail screen with animated spin
+- Linear multiplier system (+0.1x per level) with next milestone preview
+- "Coming Soon" state with rewards pool reset to 0
+- Spin button with countdown timer and haptic feedback
+
+### Activity Menu
+- Activity category bar integrated into tracker screen header
+- Dropdown overlay with animated category selection
+- Activity pills for quick exercise type switching
+- Wellness and Mindfulness merged into single category
+- Renamed "Workout" to "Exercise" across the app
+
+### Simplified Events
+- Event creation simplified to template + duration + recurring
+- Recurring events with automatic finalization and re-creation
+- Finalize-and-recur-events Edge Function with daily cron
+- Competition XP bonus support in WorkoutLevelService
+- Auto-use club banner for club events
+
+### XP System
+- Simplified to flat values and linear levels, capped at 50
+- Competition XP bonuses for event participation
+
+### Subscriptions
+- Subscription purchase flows removed per Apple review
+- Subscription set to "Coming Soon" state
+- Removed subscription upsell language throughout
+
+### Profile Redesign
+- Simplified to three action cards: Workout, History, Rewards
+- Level badge on profile hero with tap-to-level-detail navigation
+- LevelDetailScreen wired into navigation
+
+### Bug Fixes
+- Fixed like/repost flash bug (keep optimistic values)
+- Fixed image aspect ratio (cover with 1:1)
+- Fixed category bar dropdown rendering below header
+- Fixed Rewards card navigation
+- Fixed missing payment_count column in rewards_pool
+- Removed NetInfo dependency from LevelDetailScreen
+- Fixed location settings navigation fallback for permission prompts
+- Fixed historical recurrence period date calculation
+- Sanitized non-finite analytics payload values
+- Removed redundant error-color fallbacks
+
+### Improvements
+- Zero TypeScript errors (198 -> 0)
+- Core test suite: 12 suites, 571 assertions
+- Spin button uses minimal outlined pill style
+- Generic "earn rewards" text replaces charity-specific messaging
+- Removed redundant screen titles from Social and Rewards
+
 ## [1.7.5] - 2026-03-22 - Pushup Verification, Android Sync Reliability & Backup Fixes
 
 ### Pushup Verification (Camera)

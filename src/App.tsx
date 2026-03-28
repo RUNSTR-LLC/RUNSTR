@@ -167,6 +167,7 @@ import { CompetitionsListScreen } from './screens/CompetitionsListScreen';
 import { WorkoutHistoryScreen } from './screens/WorkoutHistoryScreen';
 import { MyTeamsScreen } from './screens/MyTeamsScreen';
 import { ProfileEditScreen } from './screens/ProfileEditScreen';
+import { LevelDetailScreen } from './screens/LevelDetailScreen';
 import { SavedRoutesScreen } from './screens/routes/SavedRoutesScreen';
 import { AdvancedAnalyticsScreen } from './screens/AdvancedAnalyticsScreen';
 import { HealthProfileScreen } from './screens/HealthProfileScreen';
@@ -275,6 +276,7 @@ type AuthenticatedStackParamList = {
   Experimental: undefined;
   ClubPage: { clubId: string; clubName: string };
   ClubChat: { clubId: string; clubName: string; captainNpub: string; pinnedMessageId?: string };
+  LevelDetail: undefined;
 };
 
 const AuthenticatedStack = createStackNavigator<AuthenticatedStackParamList>();
@@ -564,6 +566,15 @@ const AuthenticatedNavigator: React.FC = () => {
           presentation: 'modal',
         }}
         component={ProfileEditScreen}
+      />
+
+      {/* Level Detail Screen */}
+      <AuthenticatedStack.Screen
+        name="LevelDetail"
+        options={{
+          headerShown: false,
+        }}
+        component={LevelDetailScreen}
       />
 
       {/* Saved Routes Screen - Manage GPS routes */}

@@ -179,6 +179,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: theme.typography.weights.semiBold,
   },
+  headerSpacer: {
+    height: 12,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',

@@ -68,18 +68,18 @@ const styles = StyleSheet.create({
   },
 
   logo: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
   },
 
   displayText: {
-    fontSize: 11,
+    fontSize: 13,
     color: '#666',
   },
 
   sponsorName: {
-    fontSize: 11,
+    fontSize: 13,
     color: '#888',
     fontWeight: '600',
   },

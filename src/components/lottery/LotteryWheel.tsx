@@ -24,6 +24,7 @@ interface LotteryWheelProps {
   dimmed?: boolean;
   winningIndex?: number | null;
   onSpinComplete?: () => void;
+  size?: number;
 }
 
 function describeArc(
@@ -44,7 +45,10 @@ function describeArc(
 }
 
 export const LotteryWheel = forwardRef<LotteryWheelRef, LotteryWheelProps>(
-  ({ segments = DEFAULT_SEGMENTS, dimmed = false, winningIndex = null, onSpinComplete }, ref) => {
+  ({ segments = DEFAULT_SEGMENTS, dimmed = false, winningIndex = null, onSpinComplete, size: sizeProp }, ref) => {
+    const wheelSize = sizeProp || WHEEL_SIZE;
+    const center = wheelSize / 2;
+    const radius = wheelSize / 2 - 10;
     const rotation = useRef(new Animated.Value(0)).current;
     const currentRotation = useRef(0);
     const isSpinning = useRef(false);
@@ -157,21 +161,21 @@ export const LotteryWheel = forwardRef<LotteryWheelRef, LotteryWheelProps>(
         </View>
 
         <Animated.View style={{ transform: [{ rotate: rotationDeg }] }}>
-          <Svg width={WHEEL_SIZE} height={WHEEL_SIZE} viewBox={`0 0 ${WHEEL_SIZE} ${WHEEL_SIZE}`}>
+          <Svg width={wheelSize} height={wheelSize} viewBox={`0 0 ${wheelSize} ${wheelSize}`}>
             {segments.map((seg, i) => {
               const startAngle = i * segmentAngle - 90;
               const endAngle = startAngle + segmentAngle;
               const midAngle = startAngle + segmentAngle / 2;
               const midRad = (Math.PI / 180) * midAngle;
-              const textRadius = RADIUS * 0.65;
-              const textX = CENTER + textRadius * Math.cos(midRad);
-              const textY = CENTER + textRadius * Math.sin(midRad);
+              const textRadius = radius * 0.65;
+              const textX = center + textRadius * Math.cos(midRad);
+              const textY = center + textRadius * Math.sin(midRad);
               const isWinner = winningIndex === i;
 
               return (
                 <G key={seg.segment}>
                   <Path
-                    d={describeArc(CENTER, CENTER, RADIUS, startAngle, endAngle)}
+                    d={describeArc(center, center, radius, startAngle, endAngle)}
                     fill={isWinner ? '#2a1a0a' : SEGMENT_COLORS[i % 2]}
                     stroke={isWinner ? SEGMENT_GLOW : theme.colors.border}
                     strokeWidth={isWinner ? 2 : 1}
