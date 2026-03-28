@@ -44,9 +44,9 @@ const FITNESS_HASHTAGS = [
   'exercise',
 ]
 
-// Query events from last 7 days for initial population, then dedup handles overlap
-// Once feed is populated, most results will be skipped (already indexed)
-const SYNC_WINDOW_SECONDS = 604800
+// Query events from last 2 hours — feed is populated, now just catching new posts
+// Dedup handles any overlap via event_id unique constraint
+const SYNC_WINDOW_SECONDS = 7200
 
 // Max events to process per run (prevent runaway)
 const MAX_EVENTS = 200
