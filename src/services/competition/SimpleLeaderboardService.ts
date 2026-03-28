@@ -1267,6 +1267,7 @@ export class SimpleLeaderboardService {
     const filter: NDKFilter = {
       kinds: [1301],
       since: todayMidnight,
+      limit: 200, // Bound relay fan-out for global daily leaderboard fetch
     };
 
     console.log(`📊 [GlobalLeaderboard] Query filter:`, JSON.stringify(filter, null, 2));
