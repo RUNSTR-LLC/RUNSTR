@@ -6,6 +6,7 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { DiscoveryTeam, Team } from '../types';
+import { SafeStorage } from './storage';
 
 // Analytics event types
 export type AnalyticsEvent =
@@ -78,6 +79,14 @@ export interface ConversionAnalyticsProperties extends BaseAnalyticsProperties {
   viewedTeamsCount?: number;
   selectedTeamsCount?: number;
 }
+
+interface PersistedAnalyticsEvent {
+  event: AnalyticsEvent;
+  properties: Record<string, any>;
+}
+
+const ANALYTICS_EVENT_BUFFER_KEY = '@runstr:analytics:event-buffer';
+const MAX_BUFFERED_ANALYTICS_EVENTS = 200;
 
 // Main analytics class
 class Analytics {
@@ -152,6 +161,46 @@ class Analytics {
     return value;
   }
 
+  private parsePersistedEvents(
+    raw: string | null
+  ): PersistedAnalyticsEvent[] {
+    if (!raw) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        return [];
+      }
+
+      return parsed.filter(
+        item =>
+          item &&
+          typeof item === 'object' &&
+          typeof item.event === 'string' &&
+          item.properties &&
+          typeof item.properties === 'object'
+      ) as PersistedAnalyticsEvent[];
+    } catch {
+      return [];
+    }
+  }
+
+  private async persistEvent(eventData: PersistedAnalyticsEvent): Promise<void> {
+    const existingRaw = await SafeStorage.getItem(ANALYTICS_EVENT_BUFFER_KEY);
+    const existingEvents = this.parsePersistedEvents(existingRaw);
+
+    const nextEvents = [...existingEvents, eventData].slice(
+      -MAX_BUFFERED_ANALYTICS_EVENTS
+    );
+
+    await SafeStorage.setItem(
+      ANALYTICS_EVENT_BUFFER_KEY,
+      JSON.stringify(nextEvents)
+    );
+  }
+
   // Track generic event
   track(event: AnalyticsEvent, properties?: Record<string, any>) {
     if (!this.isEnabled) return;
@@ -178,6 +227,10 @@ class Analytics {
 
     // Log to console in development
     console.log('📊 Analytics Event:', eventData);
+
+    void this.persistEvent(eventData).catch(error => {
+      console.warn('[Analytics] Failed to persist analytics event:', error);
+    });
 
     // TODO: Send to analytics providers
     // this.sendToFirebaseAnalytics(eventData);
