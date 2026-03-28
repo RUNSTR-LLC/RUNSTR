@@ -14,6 +14,7 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { theme } from '../../styles/theme';
 import { NostrCompetitionService } from '../../services/nostr/NostrCompetitionService';
@@ -21,7 +22,6 @@ import { NostrListService } from '../../services/nostr/NostrListService';
 import { GlobalNDKService } from '../../services/nostr/GlobalNDKService';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import UnifiedSigningService from '../../services/auth/UnifiedSigningService';
-import { CustomAlert } from '../ui/CustomAlert';
 import type { NostrTeam } from '../../services/nostr/NostrTeamService';
 
 interface EventCreationModalProps {
@@ -126,7 +126,7 @@ export const EventCreationModal: React.FC<EventCreationModalProps> = ({
   const handleCreateEvent = async () => {
     const validationError = validateForm();
     if (validationError) {
-      CustomAlert.alert('Validation Error', validationError, [{ text: 'OK' }]);
+      Alert.alert('Validation Error', validationError, [{ text: 'OK' }]);
       return;
     }
 
@@ -139,7 +139,7 @@ export const EventCreationModal: React.FC<EventCreationModalProps> = ({
       const signingService = UnifiedSigningService.getInstance();
       const signer = await signingService.getSigner();
       if (!signer) {
-        CustomAlert.alert(
+        Alert.alert(
           'Error',
           'No authentication found. Please login first.',
           [{ text: 'OK' }]
@@ -277,10 +277,10 @@ export const EventCreationModal: React.FC<EventCreationModalProps> = ({
 
       onClose();
 
-      CustomAlert.alert('Success!', successMessage, [{ text: 'OK' }]);
+      Alert.alert('Success!', successMessage, [{ text: 'OK' }]);
     } catch (error) {
       console.error('❌ Failed to create event:', error);
-      CustomAlert.alert(
+      Alert.alert(
         'Error',
         `Failed to create event: ${
           error instanceof Error ? error.message : 'Unknown error'
