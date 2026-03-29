@@ -6,6 +6,7 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { DiscoveryTeam, Team } from '../types';
+import { SafeStorage } from './storage';
 
 // Analytics event types
 export type AnalyticsEvent =
@@ -78,6 +79,23 @@ export interface ConversionAnalyticsProperties extends BaseAnalyticsProperties {
   viewedTeamsCount?: number;
   selectedTeamsCount?: number;
 }
+
+type AnalyticsEventData = {
+  event: AnalyticsEvent;
+  properties: Record<string, unknown>;
+};
+
+const ANALYTICS_EVENT_BUFFER_KEY = '@runstr:analytics:event-buffer';
+const ANALYTICS_EVENT_BUFFER_LIMIT = 200;
+const ANALYTICS_NUMERIC_METRIC_FIELDS = new Set<string>([
+  'conversionTime',
+  'viewedTeamsCount',
+  'selectedTeamsCount',
+  'teamPrizePool',
+  'teamMemberCount',
+  'interactionTime',
+  'openTime',
+]);
 
 // Main analytics class
 class Analytics {
@@ -152,6 +170,49 @@ class Analytics {
     return value;
   }
 
+  private hasValidMetricPayload(properties: Record<string, unknown>): boolean {
+    return Object.entries(properties).every(([key, value]) => {
+      if (!ANALYTICS_NUMERIC_METRIC_FIELDS.has(key)) {
+        return true;
+      }
+
+      return (
+        value === null ||
+        value === undefined ||
+        (typeof value === 'number' && Number.isFinite(value))
+      );
+    });
+  }
+
+  private dispatchToProvider(eventData: AnalyticsEventData) {
+    if (!this.hasValidMetricPayload(eventData.properties)) {
+      console.warn(
+        `[Analytics] Skipping provider dispatch for ${eventData.event}: invalid metric payload`
+      );
+      return;
+    }
+
+    void this.persistEventBuffer(eventData);
+  }
+
+  private async persistEventBuffer(eventData: AnalyticsEventData): Promise<void> {
+    try {
+      const currentRaw = await SafeStorage.getItem(ANALYTICS_EVENT_BUFFER_KEY);
+      const currentParsed: unknown = currentRaw ? JSON.parse(currentRaw) : [];
+      const currentBuffer = Array.isArray(currentParsed) ? currentParsed : [];
+      const nextBuffer = [...currentBuffer, eventData].slice(
+        -ANALYTICS_EVENT_BUFFER_LIMIT
+      );
+
+      await SafeStorage.setItem(
+        ANALYTICS_EVENT_BUFFER_KEY,
+        JSON.stringify(nextBuffer)
+      );
+    } catch (error) {
+      console.warn('[Analytics] Provider dispatch persistence failed:', error);
+    }
+  }
+
   // Track generic event
   track(event: AnalyticsEvent, properties?: Record<string, any>) {
     if (!this.isEnabled) return;
@@ -168,7 +229,7 @@ class Analytics {
       ...properties,
     };
 
-    const eventData = {
+    const eventData: AnalyticsEventData = {
       event,
       properties: this.sanitizeAnalyticsValue(mergedProperties) as Record<
         string,
@@ -179,10 +240,8 @@ class Analytics {
     // Log to console in development
     console.log('📊 Analytics Event:', eventData);
 
-    // TODO: Send to analytics providers
-    // this.sendToFirebaseAnalytics(eventData);
-    // this.sendToMixpanel(eventData);
-    // this.sendToCustomAnalytics(eventData);
+    // Provider dispatch path (bounded local persistence until external sink wiring lands)
+    this.dispatchToProvider(eventData);
   }
 
   // Onboarding tracking methods
