@@ -16,7 +16,7 @@ RUNSTR is an anonymous fitness tracker that rewards cardio workouts with Bitcoin
 - GPS tracking with real-time metrics (pace, distance, elevation, splits)
 - HealthKit (iOS), Health Connect (Android), Garmin sync
 - Experimental features in settings (strength, diet, wellness)
-- Published as kind 1301 Nostr events
+- Stored locally in kind 1301-compatible structure and submitted to Supabase for competition tracking
 
 ### 2. **Rewards** - Bitcoin for Fitness
 - **50 sats** per daily workout
@@ -62,7 +62,7 @@ RUNSTR is an anonymous fitness tracker that rewards cardio workouts with Bitcoin
 
 ## Key Technologies
 - **Frontend**: React Native with TypeScript (Expo framework)
-- **Workout Data**: Nostr kind 1301 events + HealthKit/Health Connect
+- **Workout Data**: Local kind 1301-structured records + HealthKit/Health Connect (competition sync via Supabase)
 - **Event Participation**: Supabase database for joining events and leaderboards
 - **Authentication**: Nostr (nsec) - direct authentication only
 - **Rewards**: Lightning address via LNURL protocol
@@ -75,7 +75,7 @@ RUNSTR is an anonymous fitness tracker that rewards cardio workouts with Bitcoin
 ### Core Events
 - **kind 0**: Profile metadata (name, picture, about, Lightning address)
 - **kind 1**: Social posts (workout shares with achievement cards)
-- **kind 1301**: Workout events (distance, duration, calories, team tag)
+- **kind 1301**: Workout event structure used locally (distance, duration, calories, team tag)
 
 ### Kind 1301 Tags
 Workouts include tags for:
@@ -88,7 +88,7 @@ Workouts include tags for:
 
 ## Kind 1301 Workout Event Format
 
-**Overview**: RUNSTR publishes kind 1301 events for fitness tracking, supporting all activities for in-app competitions.
+**Overview**: RUNSTR creates kind 1301-structured workout records locally and submits competition data through Supabase for in-app events.
 
 **Critical Format Rules**:
 - Content must be plain text, NOT JSON
@@ -107,9 +107,9 @@ Workouts include tags for:
 - **Teams = Charities**: Team selection means choosing a charity to support
 - **Lightning Address Rewards**: Users receive sats via LNURL protocol
 - **Supabase for Events**: Event participation and leaderboards via database
-- **Nostr for Workouts**: Kind 1301 events for fitness data
+- **Workout Structure Standard**: Kind 1301 format is used locally for workout compatibility
 - **Performance First**: Aggressive caching eliminates loading states
-- **Local-First**: Store locally, sync to Nostr on user action
+- **Local-First**: Store workouts locally first, then sync competition data to Supabase on user action
 
 ## Multi-Agent Workflow (MANDATORY)
 
