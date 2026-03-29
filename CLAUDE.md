@@ -16,7 +16,7 @@ RUNSTR is an anonymous fitness tracker that rewards cardio workouts with Bitcoin
 - GPS tracking with real-time metrics (pace, distance, elevation, splits)
 - HealthKit (iOS), Health Connect (Android), Garmin sync
 - Experimental features in settings (strength, diet, wellness)
-- Published as kind 1301 Nostr events
+- Can be published as kind 1301 Nostr events when the user explicitly chooses "Save to Nostr"
 
 ### 2. **Rewards** - Bitcoin for Fitness
 - **50 sats** per daily workout
@@ -58,7 +58,7 @@ RUNSTR is an anonymous fitness tracker that rewards cardio workouts with Bitcoin
 **Authentication:**
 - Show login screen unless npub/nsec found in local storage
 - Manual nsec input only (no platform-specific auth)
-- Nsec login → derive npub → store locally in AsyncStorage
+- Nsec login → derive npub → store auth state locally (nsec in SecureStore, npub/hex in AsyncStorage)
 
 ## Key Technologies
 - **Frontend**: React Native with TypeScript (Expo framework)
@@ -239,7 +239,7 @@ src/
 **1. Authentication**:
 - Show login screen unless npub/nsec found in local storage
 - Nsec login imports profile from kind 0 events
-- Derived npub stored locally in AsyncStorage
+- Derived npub stored in AsyncStorage, while nsec is stored in SecureStore
 
 **2. Three-Tab Navigation**:
 - **Profile Tab**: Workout tracking, history, settings, Lightning address entry
@@ -249,7 +249,7 @@ src/
 **3. Workout Flow**:
 - Track cardio via GPS (Running, Walking, Cycling)
 - Sync from HealthKit/Health Connect/Garmin
-- Publish as kind 1301 to Nostr
+- Optionally publish as kind 1301 to Nostr via explicit user action ("Save to Nostr")
 - Share as kind 1 social post with achievement card
 
 **4. Rewards Flow**:
@@ -356,11 +356,11 @@ Simple three-tab interface with dark theme:
 
 ## Local Data Storage
 
-**Local Storage (AsyncStorage)**:
+**Local Storage**:
 - User authentication:
-  - `@runstr:user_nsec` - User's private key (nsec)
-  - `@runstr:npub` - User's public key (npub)
-  - `@runstr:hex_pubkey` - User's hex-encoded public key
+  - SecureStore: nsec (private key)
+  - AsyncStorage: `@runstr:npub`, `@runstr:hex_pubkey` (public identifiers)
+  - Legacy AsyncStorage nsec keys may exist only for migration fallback/cleanup
 - Lightning address for receiving rewards
 - Selected team/charity
 - Workout posting status (to prevent duplicates)
