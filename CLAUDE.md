@@ -16,7 +16,7 @@ RUNSTR is an anonymous fitness tracker that rewards cardio workouts with Bitcoin
 - GPS tracking with real-time metrics (pace, distance, elevation, splits)
 - HealthKit (iOS), Health Connect (Android), Garmin sync
 - Experimental features in settings (strength, diet, wellness)
-- Published as kind 1301 Nostr events
+- Stored as kind 1301 workout records locally and submitted to Supabase for competition processing
 
 ### 2. **Rewards** - Bitcoin for Fitness
 - **50 sats** per daily workout
@@ -88,7 +88,7 @@ Workouts include tags for:
 
 ## Kind 1301 Workout Event Format
 
-**Overview**: RUNSTR publishes kind 1301 events for fitness tracking, supporting all activities for in-app competitions.
+**Overview**: RUNSTR creates kind 1301 workout records for fitness tracking, stores them locally, and submits them through the backend competition pipeline.
 
 **Critical Format Rules**:
 - Content must be plain text, NOT JSON
@@ -249,7 +249,7 @@ src/
 **3. Workout Flow**:
 - Track cardio via GPS (Running, Walking, Cycling)
 - Sync from HealthKit/Health Connect/Garmin
-- Publish as kind 1301 to Nostr
+- Save as kind 1301 workout record locally, then submit via Supabase competition pipeline
 - Share as kind 1 social post with achievement card
 
 **4. Rewards Flow**:
