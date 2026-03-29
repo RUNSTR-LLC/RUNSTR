@@ -1,105 +1,65 @@
 # Documentation Directory
 
-Centralized documentation for the RUNSTR REWARDS project, including implementation guides, architecture decisions, testing documentation, and development history.
+Central index for RUNSTR docs. This file reflects the current live structure and points older material to `docs/archive/`.
 
 ## Quick Navigation
 
-**Core Documentation**: [Project Overview](#project-overview) · [Integration Guides](#integration-guides) · [Testing](#testing-documentation) · [Architecture](#architecture--planning)
+- [Project README](../README.md)
+- [Claude Context](../CLAUDE.md)
+- [Changelog](../CHANGELOG.md)
 
-**Essential Files**:
-- [../README.md](../README.md) - Main project README
-- [../CLAUDE.md](../CLAUDE.md) - Claude context and instructions
-- [../CHANGELOG.md](../CHANGELOG.md) - Project changelog
+## Core (active docs in `docs/`)
 
-## Documentation Categories
+- `RUNSTR_REWARDS_OVERVIEW.md` — product + system overview
+- `ENVIRONMENT_SETUP.md` — local env and secrets setup
+- `KIND_1301_SPEC.md` — workout event specification
+- `HEALTHKIT_IMPLEMENTATION_GUIDE.md` / `HEALTHKIT_XCODE_SETUP.md` — HealthKit integration
+- `DATA_ARCHITECTURE_AND_CACHING_STRATEGY.md` — cache/data architecture
+- `WORKOUT_ARCHITECTURE.md` — workout data model and flow
+- `TEAM_MANAGEMENT_SYSTEM.md` — team architecture and behavior
+- `EVENT_LEADERBOARD_PATTERN.md` — leaderboard/event interaction pattern
+- `PERFORMANCE_GUIDE.md` — performance troubleshooting and guardrails
+- `GIT_WORKFLOW.md` — branch/PR workflow
+- `PRE_LAUNCH_REVIEW_GUIDE.md` — pre-release validation checklist
 
-### Project Overview
-- **ROADMAP.md** - Project roadmap and future plans
+## Themed docs
 
-### Integration Guides
-- **AMBER_INTEGRATION.md** - Amber signer integration guide
-- **HEALTHKIT_IMPLEMENTATION_GUIDE.md** - HealthKit integration
-- **HEALTHKIT_XCODE_SETUP.md** - Xcode HealthKit setup instructions
-- **KIND_1301_SPEC.md** - Nostr kind 1301 workout event specification
-- **ENVIRONMENT_SETUP.md** - Environment variables and secrets setup
+- `events-and-leagues.md`
+- `AI_LEARNING_LAYER_DESIGN.md`
+- `ANTICHEAT_WEBSITE_SPEC.md`
+- `FITNESS_TRACKER_ANDROID_STEP_ANALYSIS.md`
+- `FITNESS_TRACKER_MEMORY.md`
+- `CHARITY_ADDRESS_ROUTING_ISSUES.md`
+- `IOS_TIMER_BLOCK_FIX.md`
+- `Decentralized-Fitness.md`
+- `LESSONS_LEARNED.md`
+- `NOSTR_AGENT_MEMORY.md`
+- `AMBER_INTEGRATION.md`
+- `ANDROID_BUILD.md`
+- `CLAUDE_REVIEW_PROMPT.md`
+- `BASELINE_SCRIPT_PROMPT.md`
 
-### Testing Documentation
-- **PHASE_1_2_TESTING_GUIDE.md** - Complete testing guide for Phase 1 & 2
-- **PRE_LAUNCH_REVIEW_GUIDE.md** - Pre-launch review workflow
-- **PRE_LAUNCH_REVIEW_SCRIPT.md** - Claude's manual review script
-- **CLAUDE_REVIEW_PROMPT.md** - Ready-to-paste Claude review prompt
-- **AMBER_TEST_SUITE.md** - Amber integration test suite
-- **AUDIT_REPORT.md** - Automated audit results
-- **TEST_SCRIPTS_SUMMARY.md** - Test scripts documentation
-- **NOTIFICATION_TESTING.md** - Notification testing guide
-- **PHASE1_TESTING_GUIDE.md** - Phase 1 specific testing
+## Internal planning (`docs/internal/`)
 
-### Deployment & Publishing
-- **ZAPSTORE_PUBLISHING.md** - ZapStore publishing guide
-- **APP_STORE_RESPONSE.md** - App Store submission responses
+Contains strategy docs, product planning, and internal audits (business plan, GTM, MVP specs, subscription planning, etc.).
 
-### Architecture & Planning
-- **DATA_ARCHITECTURE_AND_CACHING_STRATEGY.md** - Data architecture and caching design
-- **CACHING_MIGRATION_GUIDE.md** - Cache migration from legacy to unified system
-- **DATABASE_IMPLEMENTATION_PLAN.md** - Database architecture strategy (deprecated)
-- **NOSTR_FITNESS_ECOSYSTEM_VISION.md** - Vision for Nostr fitness ecosystem
-- **NOSTR_MVP_STRATEGY.md** - MVP strategy for Nostr implementation
-- **Decentralized-Fitness.md** - Decentralized fitness platform concepts
-- **ZAP_ARENA_VISION.md** - Zap Arena competition system vision
-- **WORKOUT_ARCHITECTURE.md** - Workout data architecture
-- **TEAM_MANAGEMENT_SYSTEM.md** - Team management system design
+## Release notes (`docs/release-notes/`)
 
-### Implementation Guides
-- **PHASE_2_IMPLEMENTATION_GUIDE.md** - Phase 2 development guide
-- **PHASE2_IMPLEMENTATION.md** - Phase 2 implementation details
-- **COMPETITION_REWARDS_IMPLEMENTATION.md** - Competition rewards system
-- **COMPETITION_SIMPLIFICATION.md** - Competition system simplification
-- **WALLET_PERSISTENCE_IMPROVEMENTS.md** - Wallet persistence improvements
-- **ACTIVITY_TRACKING_SIMPLIFICATION.md** - Activity tracking simplification
-- **nutzap-plan.md** - NutZap integration planning
-- **events-and-leagues.md** - Events and leagues system
+Versioned App Store release notes, including `APP_STORE_RELEASE_NOTES.md` and historical point-release notes.
 
-### Setup & Configuration
-- **SETUP_INSTRUCTIONS.md** - Project setup and configuration
-- **METRO_XCODE_DEBUGGING_GUIDE.md** - Metro bundler and Xcode debugging
-- **APPLY_MIGRATION_INSTRUCTIONS.md** - Database migration instructions
+## Archive (`docs/archive/`)
 
-### Problem Solving & Fixes
-- **1301_FITNESS_NOTES_BREAKTHROUGH.md** - Kind 1301 event breakthrough
-- **1301-PROBLEM-SOLVING.md** - Kind 1301 problem solving
-- **ACTIVITY_FILTERING_FIX_SUMMARY.md** - Activity filtering fixes
-- **CAPTAIN_DETECTION_FIX_ATTEMPTS.md** - Captain detection fix attempts
-- **CAPTAIN_DETECTION_INVESTIGATION.md** - Captain detection investigation
-- **TEAM_CREATION_ISSUE_SUMMARY.md** - Team creation issues
-- **TEAM_CREATION_RESOLUTION_SUMMARY.md** - Team creation resolution
-- **SUPABASE_FIX.md** - Supabase-related fixes (deprecated)
-- **PERFORMANCE_FIX_40S_FREEZE.md** - 40-second freeze performance fix
+Historical docs that were removed from active navigation but are still useful as reference:
 
-### Issue Tracking & Bug Reports
-- **GITHUB_ISSUE_CAPTAIN_NOTIFICATIONS.md** - Captain notification issue
-- **github-issue-wallet-duplication.md** - Wallet duplication issue
-- **FITNESS_TRACKER_MEMORY.md** - Fitness tracker memory management
+- prior roadmap snapshots
+- old implementation guides
+- legacy troubleshooting writeups
+- historical issue investigations
 
-### Development History & Progress
-- **LESSONS_LEARNED.md** - Lessons learned during development
-- **LESSONS_FROM_REFERENCE_IMPLEMENTATION.md** - Lessons from reference apps
-- **ENHANCED_TEAM_DISCOVERY_SUMMARY.md** - Team discovery implementation
-- **RUNSTR_PROGRESS_REPORT.md** - Project progress reports
-- **MVP Plan.md** - Original MVP planning
-- **september-to-do-list.md** - September development todos
-- **NOSTR_AGENT_MEMORY.md** - Nostr agent development memory
+## Maintenance rules
 
-## File Statistics
-
-**Total Documentation Files**: 61 MD files
-**Categories**: 9 major categories
-**Last Updated**: 2025-01-13
-
-## Contributing to Documentation
-
-When adding new documentation:
-1. Place in appropriate category folder (or root docs/ if general)
-2. Update this README with file entry in correct category
-3. Use clear, descriptive file names (SCREAMING_SNAKE_CASE or kebab-case)
-4. Include date updated in file footer
-5. Link to related documentation where relevant
+When adding docs:
+1. Keep active docs in `docs/` when they reflect current behavior.
+2. Move outdated material to `docs/archive/` instead of deleting.
+3. Add internal-only planning docs to `docs/internal/`.
+4. Update this index in the same PR.
