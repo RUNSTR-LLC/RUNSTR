@@ -121,23 +121,20 @@ export class SupabaseCompetitionService {
   }
 
   /**
-   * Join a competition - adds user's npub to participant list
-   * Uses optimistic pattern: save locally first for instant UI, then sync to Supabase
+   * Join a competition - adds authenticated user's npub to participant list
+   * Uses optimistic pattern: save locally first for instant UI, then sync to Supabase.
    *
-   * SECURITY: The authenticated npub is derived from local auth storage.
-   * Any caller-provided npub is treated as untrusted and only used for mismatch diagnostics.
+   * SECURITY: Authenticated npub is always derived from local auth storage.
    *
    * @param competitionId - The competition UUID or external_id
-   * @param npub - Caller-provided npub (untrusted; service resolves authenticated npub)
    * @param profile - Optional profile data (name, picture) to store for leaderboard display
    * @returns Success status
    */
   static async joinCompetition(
     competitionId: string,
-    npub: string,
     profile?: { name?: string; picture?: string }
   ): Promise<{ success: boolean; error?: string }> {
-    const authenticatedNpub = await this.resolveAuthenticatedNpub(npub);
+    const authenticatedNpub = await this.resolveAuthenticatedNpub();
     if (!authenticatedNpub) {
       console.warn('[SupabaseCompetitionService] joinCompetition blocked: no authenticated npub in local storage');
       return { success: false, error: 'Not authenticated' };
@@ -202,20 +199,17 @@ export class SupabaseCompetitionService {
   }
 
   /**
-   * Leave a competition - removes user's npub from participant list
+   * Leave a competition - removes authenticated user's npub from participant list
    *
-   * SECURITY: The authenticated npub is derived from local auth storage.
-   * Any caller-provided npub is treated as untrusted and only used for mismatch diagnostics.
+   * SECURITY: Authenticated npub is always derived from local auth storage.
    *
    * @param competitionId - The competition UUID or external_id
-   * @param npub - Caller-provided npub (untrusted; service resolves authenticated npub)
    * @returns Success status
    */
   static async leaveCompetition(
-    competitionId: string,
-    npub: string
+    competitionId: string
   ): Promise<{ success: boolean; error?: string }> {
-    const authenticatedNpub = await this.resolveAuthenticatedNpub(npub);
+    const authenticatedNpub = await this.resolveAuthenticatedNpub();
     if (!authenticatedNpub) {
       return { success: false, error: 'Not authenticated' };
     }

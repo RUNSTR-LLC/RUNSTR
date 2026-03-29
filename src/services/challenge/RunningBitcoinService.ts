@@ -659,7 +659,7 @@ class RunningBitcoinServiceClass {
       } catch {
         console.warn('[RunningBitcoin] Could not decode npub for profile lookup');
         // Still register without profile data
-        const result = await SupabaseCompetitionService.joinCompetition('running-bitcoin', npub);
+        const result = await SupabaseCompetitionService.joinCompetition('running-bitcoin');
         return result.success;
       }
 
@@ -683,7 +683,6 @@ class RunningBitcoinServiceClass {
       // Register in Supabase with profile data
       const result = await SupabaseCompetitionService.joinCompetition(
         'running-bitcoin',
-        npub,
         profileData
       );
 
