@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.xl,
   },
   emptyText: {
-    color: theme.colors.textDark,
+    color: theme.colors.textMuted,
     fontSize: 13,
     marginTop: theme.spacing.lg,
   },
