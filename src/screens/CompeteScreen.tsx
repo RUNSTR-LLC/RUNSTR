@@ -76,8 +76,11 @@ const CompeteScreenComponent: React.FC<CompeteScreenProps> = ({ navigation: prop
   // Handle refresh
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    // Events list has its own refresh via useSatlantisEvents
-    setTimeout(() => setIsRefreshing(false), 500);
+    try {
+      await SupabaseCompetitionService.clearDynamicCompetitionsCache();
+    } finally {
+      setIsRefreshing(false);
+    }
   }, []);
 
   return (
