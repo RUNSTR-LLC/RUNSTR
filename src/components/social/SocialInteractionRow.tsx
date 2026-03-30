@@ -3,6 +3,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
 import { theme } from '../../styles/theme';
 import SocialInteractionService from '../../services/social/SocialInteractionService';
 import type { SocialFeedPost } from '../../types/social';
@@ -103,9 +104,13 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
           {repostCount > 0 && <Text style={[styles.count, isReposted && styles.countActive]}>{formatCount(repostCount)}</Text>}
         </TouchableOpacity>
 
-        <View style={styles.action}>
+        <TouchableOpacity
+          style={styles.action}
+          onPress={() => Toast.show({ type: 'info', text1: 'Coming soon', position: 'bottom', visibilityTime: 1500 })}
+          activeOpacity={0.7}
+        >
           <Ionicons name="chatbubble-outline" size={20} color={theme.colors.textMuted} style={{ opacity: 0.4 }} />
-        </View>
+        </TouchableOpacity>
       </View>
 
       <ExternalZapModal
