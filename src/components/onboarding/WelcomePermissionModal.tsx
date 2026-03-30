@@ -12,7 +12,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Modal,
-  Platform,
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -41,76 +40,9 @@ export const WelcomePermissionModal: React.FC<WelcomePermissionModalProps> = ({
             contentContainerStyle={styles.scrollContent}
           >
             <Text style={styles.title}>WELCOME TO RUNSTR</Text>
-            <Text style={styles.subtitle}>Your Data, Your Device</Text>
-
-            <Text style={styles.paragraph}>
-              RUNSTR takes a different approach to fitness tracking. There's no
-              central database storing your workouts, no account to create, and
-              no cloud sync required. Your fitness data stays on your device
-              unless you choose to share it.
+            <Text style={styles.subtitle}>
+              RUNSTR rewards you for working out.{'\n'}Choose where your rewards go.
             </Text>
-
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Ionicons
-                  name="phone-portrait-outline"
-                  size={22}
-                  color={theme.colors.orangeBright}
-                />
-                <Text style={styles.sectionTitle}>Local-First Design</Text>
-              </View>
-              <Text style={styles.sectionText}>
-                All workouts are stored locally on your phone. You decide what
-                to publish to Nostr and what stays private.
-              </Text>
-            </View>
-
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Ionicons
-                  name="location-outline"
-                  size={22}
-                  color={theme.colors.orangeBright}
-                />
-                <Text style={styles.sectionTitle}>Background Tracking</Text>
-              </View>
-              <Text style={styles.sectionText}>
-                To accurately track runs, walks, and rides while using other
-                apps like music or podcasts, RUNSTR needs continuous location
-                access.
-              </Text>
-            </View>
-
-            <View style={styles.instructionsBox}>
-              <Text style={styles.instructionsTitle}>
-                When prompted for location permissions:
-              </Text>
-              {Platform.OS === 'ios' ? (
-                <View style={styles.instructionItem}>
-                  <Text style={styles.instructionBullet}>•</Text>
-                  <Text style={styles.instructionText}>
-                    Select <Text style={styles.highlight}>"Always"</Text>
-                  </Text>
-                </View>
-              ) : (
-                <>
-                  <View style={styles.instructionItem}>
-                    <Text style={styles.instructionBullet}>•</Text>
-                    <Text style={styles.instructionText}>
-                      Select{' '}
-                      <Text style={styles.highlight}>"Allow all the time"</Text>
-                    </Text>
-                  </View>
-                  <View style={styles.instructionItem}>
-                    <Text style={styles.instructionBullet}>•</Text>
-                    <Text style={styles.instructionText}>
-                      Set battery to{' '}
-                      <Text style={styles.highlight}>"Unrestricted"</Text>
-                    </Text>
-                  </View>
-                </>
-              )}
-            </View>
 
             <TouchableOpacity
               style={styles.primaryButton}
@@ -161,73 +93,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '500',
-    color: theme.colors.orangeBright,
+    color: theme.colors.textMuted,
     textAlign: 'center',
-    marginBottom: 16,
-  },
-  paragraph: {
-    fontSize: 13,
-    color: theme.colors.text,
-    lineHeight: 20,
-    marginBottom: 16,
-  },
-  section: {
-    marginBottom: 12,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-    gap: 8,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: theme.colors.text,
-  },
-  sectionText: {
-    fontSize: 13,
-    color: theme.colors.textSecondary,
-    lineHeight: 18,
-    paddingLeft: 30,
-  },
-  instructionsBox: {
-    backgroundColor: theme.colors.background,
-    borderWidth: 1,
-    borderColor: theme.colors.orangeDeep,
-    borderRadius: 10,
-    padding: 12,
-    marginTop: 4,
-    marginBottom: 16,
-  },
-  instructionsTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: theme.colors.text,
-    marginBottom: 8,
-  },
-  instructionItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 4,
-  },
-  instructionBullet: {
-    fontSize: 13,
-    color: theme.colors.orangeBright,
-    marginRight: 6,
-    marginTop: 1,
-  },
-  instructionText: {
-    fontSize: 13,
-    color: theme.colors.textSecondary,
-    flex: 1,
-    lineHeight: 18,
-  },
-  highlight: {
-    color: theme.colors.orangeBright,
-    fontWeight: '600',
+    marginBottom: 24,
+    lineHeight: 24,
   },
   primaryButton: {
     backgroundColor: theme.colors.orangeBright,
