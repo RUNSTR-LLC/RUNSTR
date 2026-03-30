@@ -28,17 +28,10 @@ import { theme } from '../../styles/theme';
 import {
   getCharitiesByCategory,
   SELF_TEAM_ID,
-  isPPQTeam,
   isSelfTeam,
   Charity,
 } from '../../constants/charities';
-import { RewardLightningAddressService } from '../../services/rewards/RewardLightningAddressService';
-import { NWCStorageService } from '../../services/wallet/NWCStorageService';
 import { LightningAddressSetupModal } from '../wallet/LightningAddressSetupModal';
-import { WalletConfigModal } from '../wallet/WalletConfigModal';
-import { QRScannerModal } from '../qr/QRScannerModal';
-import { NWCQRConfirmationModal } from '../wallet/NWCQRConfirmationModal';
-import type { QRData } from '../../services/qr/QRCodeService';
 import { useAuth } from '../../contexts/AuthContext';
 import { PPQAccountService } from '../../services/ai/PPQAccountService';
 import { PPQAccountSetupModal } from '../ai/PPQAccountSetupModal';
@@ -69,14 +62,6 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
   const [showPPQSetupModal, setShowPPQSetupModal] = useState(false);
   const [showPPQTopupModal, setShowPPQTopupModal] = useState(false);
 
-  // NWC wallet state
-  const [hasNWCWallet, setHasNWCWallet] = useState(false);
-  const [showWalletChoiceModal, setShowWalletChoiceModal] = useState(false);
-  const [showWalletConfigModal, setShowWalletConfigModal] = useState(false);
-  const [showQRScannerModal, setShowQRScannerModal] = useState(false);
-  const [showNWCQRConfirmModal, setShowNWCQRConfirmModal] = useState(false);
-  const [scannedNWCString, setScannedNWCString] = useState('');
-
   // Load user data on mount
   useEffect(() => {
     if (visible) {
@@ -86,12 +71,8 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
 
   const loadUserData = async () => {
     try {
-      const [address, nwcAvailable] = await Promise.all([
-        AsyncStorage.getItem(REWARD_LIGHTNING_ADDRESS_KEY),
-        NWCStorageService.hasNWC(),
-      ]);
+      const address = await AsyncStorage.getItem(REWARD_LIGHTNING_ADDRESS_KEY);
       setUserLightningAddress(address);
-      setHasNWCWallet(nwcAvailable);
     } catch (error) {
       console.error('[RewardDestinationPicker] Failed to load user data:', error);
     }
@@ -100,10 +81,9 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
   const handleSelect = useCallback(
     async (destinationId: string) => {
       try {
-        // Self selection always shows wallet choice modal so user can set up or change
         if (isSelfTeam(destinationId)) {
           setPendingSelfSelection(true);
-          setShowWalletChoiceModal(true);
+          setShowLightningSetupModal(true);
           return;
         }
 
@@ -140,45 +120,6 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
     setShowLightningSetupModal(false);
     setPendingSelfSelection(false);
   }, []);
-
-  // NWC wallet choice handlers
-  const handleWalletChoiceLightning = () => {
-    setShowWalletChoiceModal(false);
-    setTimeout(() => setShowLightningSetupModal(true), 50);
-  };
-
-  const handleWalletChoiceNWCScan = () => {
-    setShowWalletChoiceModal(false);
-    setTimeout(() => setShowQRScannerModal(true), 50);
-  };
-
-  const handleWalletChoiceNWCPaste = () => {
-    setShowWalletChoiceModal(false);
-    setTimeout(() => setShowWalletConfigModal(true), 50);
-  };
-
-  const handleNWCQRScanned = (data: QRData) => {
-    if (data.type === 'nwc') {
-      setScannedNWCString(data.connectionString);
-      setTimeout(() => setShowNWCQRConfirmModal(true), 50);
-    }
-  };
-
-  const handleNWCConnectSuccess = useCallback(async () => {
-    setHasNWCWallet(true);
-    setShowWalletConfigModal(false);
-    setShowNWCQRConfirmModal(false);
-    if (pendingSelfSelection) {
-      try {
-        await AsyncStorage.setItem(SELECTED_TEAM_KEY, SELF_TEAM_ID);
-        onSelectDestination(SELF_TEAM_ID);
-        setPendingSelfSelection(false);
-        console.log('[RewardDestinationPicker] Self selected after NWC setup');
-      } catch (error) {
-        console.error('[RewardDestinationPicker] Failed to save Self selection:', error);
-      }
-    }
-  }, [pendingSelfSelection, onSelectDestination]);
 
   // PPQ.AI sparkle tap - open top-up if account exists, otherwise setup
   const handlePPQSparklePress = useCallback(async () => {
@@ -335,12 +276,8 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
                 <Text style={styles.destinationDescription} numberOfLines={1}>
                   {userLightningAddress}
                 </Text>
-              ) : hasNWCWallet ? (
-                <Text style={[styles.destinationDescription, { color: theme.colors.textMuted }]} numberOfLines={1}>
-                  NWC Wallet Connected
-                </Text>
               ) : (
-                <Text style={styles.ctaText}>Set up Lightning address or connect wallet</Text>
+                <Text style={styles.ctaText}>Connect wallet to receive rewards</Text>
               )}
             </View>
             <View style={styles.actionsContainer}>
@@ -410,78 +347,11 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
         </ScrollView>
       </View>
 
-      {/* Lightning Address Setup Modal - shown when Self selected without address */}
+      {/* Lightning Address Setup Modal */}
       <LightningAddressSetupModal
         visible={showLightningSetupModal}
         onClose={handleLightningSetupClose}
         onSuccess={handleLightningSetupSuccess}
-      />
-
-      {/* Wallet Choice Modal - shown when Self selected without any payment method */}
-      <Modal
-        visible={showWalletChoiceModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => { setShowWalletChoiceModal(false); setPendingSelfSelection(false); }}
-      >
-        <View style={styles.walletChoiceOverlay}>
-          <View style={styles.walletChoiceContainer}>
-            <Text style={styles.walletChoiceTitle}>Receive Rewards</Text>
-            <Text style={styles.walletChoiceSubtitle}>
-              Choose how you want to receive your workout rewards
-            </Text>
-            <TouchableOpacity
-              style={styles.walletChoicePrimaryButton}
-              onPress={handleWalletChoiceLightning}
-            >
-              <Ionicons name="flash" size={18} color={theme.colors.background} style={{ marginRight: 8 }} />
-              <Text style={styles.walletChoicePrimaryText}>Lightning Address</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.walletChoiceSecondaryButton}
-              onPress={handleWalletChoiceNWCScan}
-            >
-              <Ionicons name="qr-code" size={18} color={theme.colors.accent} style={{ marginRight: 8 }} />
-              <Text style={styles.walletChoiceSecondaryText}>Scan NWC QR Code</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.walletChoiceTertiaryButton}
-              onPress={handleWalletChoiceNWCPaste}
-            >
-              <Ionicons name="clipboard" size={18} color={theme.colors.text} style={{ marginRight: 8 }} />
-              <Text style={styles.walletChoiceTertiaryText}>Paste NWC String</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.walletChoiceCancelButton}
-              onPress={() => { setShowWalletChoiceModal(false); setPendingSelfSelection(false); }}
-            >
-              <Text style={styles.walletChoiceCancelText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* NWC Wallet Config Modal (paste) */}
-      <WalletConfigModal
-        visible={showWalletConfigModal}
-        onClose={() => { setShowWalletConfigModal(false); setPendingSelfSelection(false); }}
-        onSuccess={handleNWCConnectSuccess}
-        allowSkip={false}
-      />
-
-      {/* NWC QR Scanner Modal */}
-      <QRScannerModal
-        visible={showQRScannerModal}
-        onClose={() => { setShowQRScannerModal(false); setPendingSelfSelection(false); }}
-        onScanned={handleNWCQRScanned}
-      />
-
-      {/* NWC QR Confirmation Modal */}
-      <NWCQRConfirmationModal
-        visible={showNWCQRConfirmModal}
-        onClose={() => { setShowNWCQRConfirmModal(false); setPendingSelfSelection(false); }}
-        connectionString={scannedNWCString}
-        onSuccess={handleNWCConnectSuccess}
       />
 
       {/* PPQ.AI Account Setup Modal */}
@@ -658,88 +528,5 @@ const styles = StyleSheet.create({
 
   bottomPadding: {
     height: 40,
-  },
-
-  // Wallet choice modal styles
-  walletChoiceOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  walletChoiceContainer: {
-    backgroundColor: '#0a0a0a',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#1a1a1a',
-    padding: 24,
-    width: '100%',
-    maxWidth: 340,
-  },
-  walletChoiceTitle: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: theme.colors.text,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  walletChoiceSubtitle: {
-    fontSize: 14,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  walletChoicePrimaryButton: {
-    flexDirection: 'row' as const,
-    backgroundColor: theme.colors.text,
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    marginBottom: 10,
-  },
-  walletChoicePrimaryText: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: theme.colors.background,
-  },
-  walletChoiceSecondaryButton: {
-    flexDirection: 'row' as const,
-    borderWidth: 1,
-    borderColor: theme.colors.text,
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    marginBottom: 10,
-  },
-  walletChoiceSecondaryText: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: theme.colors.accent,
-  },
-  walletChoiceTertiaryButton: {
-    flexDirection: 'row' as const,
-    borderWidth: 1,
-    borderColor: '#333',
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    marginBottom: 10,
-  },
-  walletChoiceTertiaryText: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: theme.colors.text,
-  },
-  walletChoiceCancelButton: {
-    paddingVertical: 12,
-    alignItems: 'center' as const,
-  },
-  walletChoiceCancelText: {
-    fontSize: 14,
-    color: theme.colors.textMuted,
   },
 });
