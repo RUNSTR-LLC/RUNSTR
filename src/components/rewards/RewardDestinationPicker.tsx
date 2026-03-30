@@ -36,6 +36,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { PPQAccountService } from '../../services/ai/PPQAccountService';
 import { PPQAccountSetupModal } from '../ai/PPQAccountSetupModal';
 import { PPQCreditTopupModal } from '../ai/PPQCreditTopupModal';
+import { ExternalZapModal } from '../nutzap/ExternalZapModal';
 
 const SELECTED_TEAM_KEY = '@runstr:selected_team_id';
 const REWARD_LIGHTNING_ADDRESS_KEY = '@runstr:reward_lightning_address';
@@ -61,6 +62,10 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
   // PPQ.AI top-up state
   const [showPPQSetupModal, setShowPPQSetupModal] = useState(false);
   const [showPPQTopupModal, setShowPPQTopupModal] = useState(false);
+
+  // External zap state
+  const [showZapModal, setShowZapModal] = useState(false);
+  const [zapTargetCharity, setZapTargetCharity] = useState<Charity | null>(null);
 
   // Load user data on mount
   useEffect(() => {
@@ -145,11 +150,8 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
 
   const handleZap = useCallback((charity: Charity) => {
     if (!charity.lightningAddress) return;
-    Alert.alert(
-      `Zap ${charity.displayName}`,
-      `Send sats to ${charity.lightningAddress} using your Lightning wallet (Cash App, Strike, Alby, Zeus).`,
-      [{ text: 'OK' }]
-    );
+    setZapTargetCharity(charity);
+    setShowZapModal(true);
   }, []);
 
   // Get categorized charities
@@ -366,6 +368,18 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
         visible={showPPQTopupModal}
         onClose={() => setShowPPQTopupModal(false)}
         onSuccess={() => setShowPPQTopupModal(false)}
+      />
+
+      {/* External Zap Modal for charities/projects */}
+      <ExternalZapModal
+        visible={showZapModal}
+        recipientNpub={zapTargetCharity?.lightningAddress || ''}
+        recipientName={zapTargetCharity?.displayName || zapTargetCharity?.name || ''}
+        onClose={() => { setShowZapModal(false); setZapTargetCharity(null); }}
+        onSuccess={() => { setShowZapModal(false); setZapTargetCharity(null); }}
+        isCharityDonation={true}
+        charityId={zapTargetCharity?.id}
+        charityLightningAddress={zapTargetCharity?.lightningAddress}
       />
     </Modal>
   );
