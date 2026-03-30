@@ -1,8 +1,8 @@
 /**
- * Season2EventCard - Event card for RUNSTR Season II
+ * Season2EventCard - Teaser card for RUNSTR Season III
  *
- * Displays Season II competition as an event card with trophy icon placeholder,
- * status badge, and metadata. Clicking navigates to the Season II tab.
+ * Displays a coming soon card for Season III competition.
+ * Tapping shows a toast instead of navigating.
  */
 
 import React from 'react';
@@ -14,53 +14,28 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
 
-// RUNSTR logo image for Season II card (orange ostrich on black)
+// RUNSTR logo image for Season III card (orange ostrich on black)
 const RUNSTR_LOGO = require('../../../assets/images/icon.png');
 import { theme } from '../../styles/theme';
-import {
-  getSeason2Status,
-  getSeason2DateRange,
-  SEASON_2_CONFIG,
-  formatSats,
-} from '../../constants/season2';
+interface Season2EventCardProps {}
 
-interface Season2EventCardProps {
-  onPress?: () => void;
-}
+export const Season2EventCard: React.FC<Season2EventCardProps> = () => {
+  const getStatusText = () => 'COMING SOON';
 
-export const Season2EventCard: React.FC<Season2EventCardProps> = ({
-  onPress,
-}) => {
-  const status = getSeason2Status();
-  const dateRange = getSeason2DateRange();
-
-  const getStatusStyles = () => {
-    switch (status) {
-      case 'active':
-        return { backgroundColor: '#111111', borderWidth: 1, borderColor: theme.colors.text };
-      case 'upcoming':
-        return { backgroundColor: '#111111', borderWidth: 1, borderColor: theme.colors.textMuted };
-      case 'ended':
-        return { backgroundColor: '#111111', borderWidth: 1, borderColor: '#333' };
-    }
-  };
-
-  const getStatusText = () => {
-    switch (status) {
-      case 'active':
-        return 'LIVE';
-      case 'upcoming':
-        return 'UPCOMING';
-      case 'ended':
-        return 'ENDED';
-    }
-  };
-
-  const totalPrizePool = SEASON_2_CONFIG.prizePoolBonus + SEASON_2_CONFIG.prizePoolCharity;
+  const getStatusStyles = () => ({
+    backgroundColor: '#111111',
+    borderWidth: 1,
+    borderColor: theme.colors.textMuted,
+  });
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => Toast.show({ type: 'info', text1: 'Coming soon', position: 'bottom', visibilityTime: 1500 })}
+      activeOpacity={0.7}
+    >
       {/* Event Banner Image */}
       <View style={styles.imageContainer}>
         <Image
@@ -78,22 +53,8 @@ export const Season2EventCard: React.FC<Season2EventCardProps> = ({
       {/* Content */}
       <View style={styles.content}>
         <Text style={styles.title} numberOfLines={2}>
-          RUNSTR Season II Competition
+          RUNSTR Season III
         </Text>
-
-        {/* Date Row */}
-        <View style={styles.metaRow}>
-          <Ionicons name="calendar-outline" size={14} color={theme.colors.textMuted} />
-          <Text style={styles.metaText}>{dateRange}</Text>
-        </View>
-
-        {/* Prize Row */}
-        <View style={styles.metaRow}>
-          <Ionicons name="flash-outline" size={14} color={theme.colors.textMuted} />
-          <Text style={styles.metaText}>
-            {formatSats(totalPrizePool)} Prize Pool
-          </Text>
-        </View>
 
         {/* Tags Row */}
         <View style={styles.tagsRow}>
