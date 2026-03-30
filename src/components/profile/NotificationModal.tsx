@@ -110,7 +110,8 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
       case 'view_wallet':
         handleViewWallet();
         break;
-      case 'view_captain_dashboard':
+      case 'view_join_requests':
+      case 'view_event_requests':
         handleViewCaptainDashboard(notification);
         break;
       default:
@@ -145,7 +146,11 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
   const handleViewChallenge = (notification: UnifiedNotification) => {
     onClose();
     // For now, just close the modal - challenge details screen may not exist yet
-    console.log('View challenge:', notification.metadata?.challengeId);
+    const challengeId =
+      notification.metadata && 'challengeId' in notification.metadata
+        ? notification.metadata.challengeId
+        : undefined;
+    console.log('View challenge:', challengeId ?? notification.id);
   };
 
   const handleViewCompetition = (notification: UnifiedNotification) => {
