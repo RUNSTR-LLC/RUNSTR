@@ -373,6 +373,12 @@ export class SupabaseCompetitionService {
       return { success: false, error: 'Backend not configured' };
     }
 
+    const authenticatedNpub = await this.resolveAuthenticatedNpub(data.npub);
+    if (!authenticatedNpub) {
+      console.warn('[SupabaseCompetitionService] Missing authenticated npub for submitWorkoutSimple');
+      return { success: false, error: 'Authentication required' };
+    }
+
     // PPQ.AI: Auto-create bolt11 invoice if user's team is PPQ.AI and no invoice provided
     // This ensures ALL submission paths (HealthKit, background, manual) get PPQ support
     let ppqBolt11 = data.ppqBolt11;
@@ -413,7 +419,7 @@ export class SupabaseCompetitionService {
           },
           body: JSON.stringify({
             event_id: data.eventId,
-            npub: data.npub,
+            npub: authenticatedNpub,
             activity_type: data.type,
             distance_meters: data.distance ?? null,
             duration_seconds: data.duration,
