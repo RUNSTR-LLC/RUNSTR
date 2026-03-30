@@ -560,6 +560,9 @@ export class SimpleLeaderboardService {
       const subscription = ndk.subscribe(filter, {
         closeOnEose: false,
       });
+      let eoseReceived = false;
+      let eoseReceivedAt = 0;
+      let settled = false;
 
       subscription.on('event', (event: any) => {
         console.log(
@@ -569,20 +572,46 @@ export class SimpleLeaderboardService {
       });
 
       subscription.on('eose', () => {
+        eoseReceived = true;
+        eoseReceivedAt = Date.now();
         console.log(
-          '📨 NUCLEAR: EOSE received - continuing to wait for timeout...'
+          `📨 NUCLEAR: EOSE received - ${eventsArray.length} events collected, starting grace window...`
         );
       });
 
-      // ✅ GUARANTEED TIMEOUT: Always fires after 5 seconds
-      console.log('⏰ NUCLEAR: Waiting 5 seconds for all events...');
+      console.log('⏰ NUCLEAR: Waiting up to 5 seconds (early exit on EOSE)...');
       await new Promise<void>((resolve) => {
-        setTimeout(() => {
+        const finish = (reason: 'eose' | 'timeout') => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          clearInterval(checkInterval);
+          clearTimeout(hardTimeout);
+
           // ✅ MEMORY LEAK FIX: Remove listeners before stopping subscription
           subscription.removeAllListeners('event');
           subscription.removeAllListeners('eose');
           subscription.stop();
+
+          if (reason === 'eose') {
+            console.log('✅ NUCLEAR: Early exit after EOSE grace window');
+          } else {
+            console.log('⏰ NUCLEAR: Timeout hit at 5 seconds');
+          }
+
           resolve();
+        };
+
+        // Allow a short grace period after EOSE for straggler events
+        const checkInterval = setInterval(() => {
+          if (eoseReceived && Date.now() - eoseReceivedAt >= 250) {
+            finish('eose');
+          }
+        }, 100);
+
+        const hardTimeout = setTimeout(() => {
+          finish('timeout');
         }, 5000);
       });
 
