@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   sourceType: {
-    color: theme.colors.textDark,
+    color: theme.colors.textMuted,
     fontSize: 10,
     fontWeight: '500',
     textTransform: 'uppercase',
