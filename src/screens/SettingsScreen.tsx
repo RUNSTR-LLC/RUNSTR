@@ -325,6 +325,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     setHasNWCWallet(true);
     setShowWalletConfigModal(false);
     setShowNWCQRConfirmModal(false);
+    Toast.show({
+      type: 'success',
+      text1: 'Wallet Connected',
+      position: 'bottom',
+      visibilityTime: 2000,
+    });
   };
 
   const handleTTSSettingChange = async <K extends keyof TTSSettings>(
@@ -422,6 +428,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     try {
       await AutoBackupService.getInstance().setAutoBackupEnabled(enabled);
       setAutoBackupEnabled(enabled);
+      Toast.show({
+        type: 'success',
+        text1: enabled ? 'Auto-Backup On' : 'Auto-Backup Off',
+        position: 'bottom',
+        visibilityTime: 2000,
+      });
     } catch (error) {
       console.error('Error saving auto-backup setting:', error);
       const current = await AutoBackupService.getInstance().isAutoBackupEnabled();
@@ -669,6 +681,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     try {
       setPrivateModeEnabled(value);
       await AsyncStorage.setItem('@runstr:private_mode', value ? 'true' : 'false');
+      Toast.show({
+        type: 'success',
+        text1: value ? 'Private Mode On' : 'Private Mode Off',
+        text2: value ? 'Workouts stay on your device' : 'Workouts can be shared',
+        position: 'bottom',
+        visibilityTime: 2000,
+      });
     } catch (error) {
       console.error('[Settings] Error saving private mode setting:', error);
       const current = await AsyncStorage.getItem('@runstr:private_mode');
@@ -1138,7 +1157,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   <View style={styles.rewardSettingInfo}>
                     <Text style={styles.rewardSettingTitle}>Subscription Plan</Text>
                     <Text style={styles.rewardSettingSubtitle}>
-                      {REWARD_CONFIG.DAILY_WORKOUT_REWARD} rewards/workout — Subscriptions coming soon
+                      {REWARD_CONFIG.DAILY_WORKOUT_REWARD} rewards per workout
                     </Text>
                   </View>
                 </View>
