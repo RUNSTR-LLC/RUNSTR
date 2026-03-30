@@ -79,13 +79,17 @@ export const ActivityTrackerScreen: React.FC = () => {
 
   // Load saved grid position on mount
   useEffect(() => {
+    let isMounted = true;
     const loadPosition = async () => {
       const saved = await activityGridService.loadPosition();
-      setGridPosition(saved);
-      setPositionLoaded(true);
-      console.log('[ActivityTracker] Loaded grid position:', saved);
+      if (isMounted) {
+        setGridPosition(saved);
+        setPositionLoaded(true);
+        console.log('[ActivityTracker] Loaded grid position:', saved);
+      }
     };
     loadPosition();
+    return () => { isMounted = false; };
   }, []);
 
   // Save position when it changes (only after initial load to avoid overwriting with defaults)
@@ -218,16 +222,20 @@ export const ActivityTrackerScreen: React.FC = () => {
   // Check permissions on mount
   // Gates child component rendering to prevent bridge saturation on Android
   useEffect(() => {
+    let isMounted = true;
     const checkPermissions = async () => {
       const status = await appPermissionService.checkAllPermissions();
-      if (!status.location) {
-        console.log('[ActivityTracker] Location permission not granted, showing modal');
-        setShowPermissionModal(true);
-      } else {
-        setPermissionsReady(true);
+      if (isMounted) {
+        if (!status.location) {
+          console.log('[ActivityTracker] Location permission not granted, showing modal');
+          setShowPermissionModal(true);
+        } else {
+          setPermissionsReady(true);
+        }
       }
     };
     checkPermissions();
+    return () => { isMounted = false; };
   }, []);
 
   // Navigation handlers

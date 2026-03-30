@@ -10,6 +10,7 @@ import type { Split } from '../activity/SplitTrackingService';
 import { DailyRewardService } from '../rewards/DailyRewardService';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
 import { buildRewardTags } from '../../utils/rewardTags';
+import { isValidWorkoutMetrics } from '../../utils/rewardEligibility';
 import Toast from 'react-native-toast-message';
 import type { VerificationReceipt } from '../../types/verification';
 
@@ -634,6 +635,11 @@ export class LocalWorkoutStorageService {
       await this.updateSupabaseStatus(workout.id, false, `Distance is ${workout.distance}`).catch(() => {});
       return;
     }
+    if (!isValidWorkoutMetrics(workout.distance, workout.duration)) {
+      console.warn('[LocalWorkoutStorage] Workout metrics out of bounds, skipping:', { distance: workout.distance, duration: workout.duration });
+      await this.updateSupabaseStatus(workout.id, false, 'Metrics out of bounds').catch(() => {});
+      return;
+    }
 
     const npub = await AsyncStorage.getItem('@runstr:npub');
     if (!npub) {
@@ -700,6 +706,30 @@ export class LocalWorkoutStorageService {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       await this.updateSupabaseStatus(workout.id, false, errorMsg).catch(() => {});
       console.warn(`[LocalWorkoutStorage] Supabase auto-submit failed for ${workout.id}:`, errorMsg);
+
+      // Queue for retry via PendingSubmissionService
+      try {
+        const { PendingSubmissionService } = await import('../competition/PendingSubmissionService');
+        await PendingSubmissionService.addPending({
+          id: workout.id,
+          submissionData: {
+            eventId: workout.id,
+            npub: npub!,
+            type: workout.type,
+            distance: workout.distance,
+            duration: workout.duration,
+            calories: workout.calories,
+            startTime: workout.startTime,
+            tags: this.buildWorkoutTags(workout),
+          },
+          createdAt: Date.now(),
+          retryCount: 0,
+          lastError: errorMsg,
+          nextRetryTime: Date.now() + 60000,
+        });
+      } catch (queueError) {
+        console.warn('[LocalWorkoutStorage] Failed to queue for retry:', queueError);
+      }
     }
 
     console.log(`[LocalWorkoutStorage] Supabase auto-submit complete for ${workout.id}`);

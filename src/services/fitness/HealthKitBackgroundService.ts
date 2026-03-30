@@ -141,6 +141,8 @@ export class HealthKitBackgroundService {
       const submittedIds = await this.getSubmittedIds();
       const CARDIO_TYPES = ['running', 'walking', 'cycling', 'hiking'];
 
+      const { isValidWorkoutMetrics } = await import('../../utils/rewardEligibility');
+
       const newWorkouts = recentWorkouts.filter((w) => {
         if (submittedIds.has(w.id)) return false;
         if (!CARDIO_TYPES.includes(w.type)) {
@@ -153,6 +155,10 @@ export class HealthKitBackgroundService {
         }
         if (!w.duration || w.duration <= 0) {
           console.log(`[HKBackground] Skipping ${w.id}: duration=${w.duration}`);
+          return false;
+        }
+        if (!isValidWorkoutMetrics(w.distance, w.duration)) {
+          console.warn(`[HKBackground] Skipping ${w.id}: metrics out of bounds (distance=${w.distance}, duration=${w.duration})`);
           return false;
         }
         return true;
@@ -215,6 +221,34 @@ export class HealthKitBackgroundService {
         } catch (err) {
           console.warn(`[HKBackground] Failed to submit workout ${w.id}:`, err);
           // Don't add to submittedIds - will retry on next sync
+
+          // Queue for retry via PendingSubmissionService
+          try {
+            const { PendingSubmissionService } = await import('../competition/PendingSubmissionService');
+            const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+            const failedEventId = `hk_bg_${w.id}`;
+            await PendingSubmissionService.addPending({
+              id: failedEventId,
+              submissionData: {
+                eventId: failedEventId,
+                npub,
+                type: w.type,
+                distance: w.distance,
+                duration: w.duration,
+                calories: w.calories,
+                startTime: w.startTime,
+                tags: [...rewardTags],
+                profileName: profile.name,
+                profilePicture: profile.picture,
+              },
+              createdAt: Date.now(),
+              retryCount: 0,
+              lastError: errorMsg,
+              nextRetryTime: Date.now() + 60000,
+            });
+          } catch (queueError) {
+            console.warn('[HKBackground] Failed to queue for retry:', queueError);
+          }
         }
       }
 

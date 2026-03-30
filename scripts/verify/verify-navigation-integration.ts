@@ -92,11 +92,11 @@ if (menuCardioMatch && gridCardioMatch) {
   check('Cardio order matches grid', false, 'could not parse');
 }
 
-// ===== 7. LevelDetailScreen — coming soon state =====
+// ===== 7. Lottery Wheel — live spin state =====
 console.log('\n--- Lottery Wheel State ---');
-const levelDetail = readFile('src/screens/LevelDetailScreen.tsx');
-check('Coming Soon text present', levelDetail.includes('Coming Soon'));
-check('Spin button disabled (canSpin={false})', levelDetail.includes('canSpin={false}'));
+const lotterySection = readFile('src/components/lottery/LotteryWheelSection.tsx');
+check('No Coming Soon placeholder', !lotterySection.includes('Coming Soon'));
+check('Spin eligibility is dynamic (canSpinToday)', lotterySection.includes('canSpinToday'));
 
 // ===== 8. Rewards pool reads from Supabase (not hardcoded) =====
 console.log('\n--- Rewards Pool ---');

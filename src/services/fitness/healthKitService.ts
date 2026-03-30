@@ -10,6 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { WorkoutData, WorkoutType } from '../../types/workout';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
 import { buildRewardTags } from '../../utils/rewardTags';
+import { isValidWorkoutMetrics } from '../../utils/rewardEligibility';
 
 // Environment-based logging utility
 const isDevelopment = __DEV__;
@@ -1031,6 +1032,10 @@ export class HealthKitService {
       if (!id || previousIds.has(id) || submittedIds.has(id)) return false;
       if (!w.activityType || !CARDIO_TYPES.includes(w.activityType)) return false;
       if (!w.totalDistance || w.totalDistance <= 0) return false;
+      if (!isValidWorkoutMetrics(w.totalDistance, w.duration)) {
+        debugLog(`[HealthKit] Skipping ${id}: metrics out of bounds (distance=${w.totalDistance}, duration=${w.duration})`);
+        return false;
+      }
       return true;
     });
 
@@ -1069,6 +1074,35 @@ export class HealthKitService {
         }).catch(() => {});
       } catch (err) {
         console.warn(`[HealthKit] Failed to submit workout ${w.UUID}:`, err);
+
+        // Queue for retry via PendingSubmissionService
+        try {
+          const { PendingSubmissionService } = await import('../competition/PendingSubmissionService');
+          const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+          const workoutId = w.UUID || w.id || '';
+          const eventId = `hk_${workoutId}`;
+          await PendingSubmissionService.addPending({
+            id: eventId,
+            submissionData: {
+              eventId,
+              npub,
+              type: w.activityType || 'running',
+              distance: w.totalDistance || 0,
+              duration: w.duration,
+              calories: w.totalEnergyBurned,
+              startTime: w.startDate,
+              tags: [...rewardTags],
+              profileName: profile.name,
+              profilePicture: profile.picture,
+            },
+            createdAt: Date.now(),
+            retryCount: 0,
+            lastError: errorMsg,
+            nextRetryTime: Date.now() + 60000,
+          });
+        } catch (queueError) {
+          console.warn('[HealthKit] Failed to queue for retry:', queueError);
+        }
       }
     }
 

@@ -98,18 +98,20 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
 
   // Load user npub on mount
   useEffect(() => {
+    let isMounted = true;
     (async () => {
       try {
         const id = data.user.id;
         if (!id) return;
-        if (id.startsWith('npub')) { setUserNpub(id); return; }
-        if (id.length === 64) { setUserNpub(npubEncode(id)); return; }
+        if (id.startsWith('npub')) { if (isMounted) setUserNpub(id); return; }
+        if (id.length === 64) { if (isMounted) setUserNpub(npubEncode(id)); return; }
         const stored = await AsyncStorage.getItem('@runstr:npub');
-        if (stored) setUserNpub(stored);
+        if (stored && isMounted) setUserNpub(stored);
       } catch {
-        try { const s = await AsyncStorage.getItem('@runstr:npub'); if (s) setUserNpub(s); } catch {}
+        try { const s = await AsyncStorage.getItem('@runstr:npub'); if (s && isMounted) setUserNpub(s); } catch {}
       }
     })();
+    return () => { isMounted = false; };
   }, [data.user.id]);
 
   // Load reward destination (owner only)

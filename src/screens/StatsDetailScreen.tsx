@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { theme } from '../styles/theme';
@@ -61,18 +61,24 @@ const StatsDetailScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <View style={styles.section}>
-          <LevelCard levelData={levelData} isLoading={isLoading} />
+      {isLoading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
+          <ActivityIndicator size="large" color={theme.colors.accent} />
         </View>
+      ) : (
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.scrollContent}
+        >
+          <View style={styles.section}>
+            <LevelCard levelData={levelData} isLoading={isLoading} />
+          </View>
 
-        <View style={styles.section}>
-          <ActivityBreakdown breakdown={breakdown} isLoading={isLoading} />
-        </View>
-      </ScrollView>
+          <View style={styles.section}>
+            <ActivityBreakdown breakdown={breakdown} isLoading={isLoading} />
+          </View>
+        </ScrollView>
+      )}
     </TexturedBackground>
   );
 };

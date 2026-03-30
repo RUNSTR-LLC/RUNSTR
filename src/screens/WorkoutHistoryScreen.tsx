@@ -103,13 +103,16 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
 
   // Load user profile in background (non-blocking, for social cards only)
   useEffect(() => {
+    let isMounted = true;
     if (pubkey) {
       console.log('[WorkoutHistory] Loading profile in background...');
       nostrProfileService
         .getProfile(pubkey)
         .then((profile) => {
-          setUserProfile(profile);
-          console.log('[WorkoutHistory] ✅ User profile loaded (background)');
+          if (isMounted) {
+            setUserProfile(profile);
+            console.log('[WorkoutHistory] ✅ User profile loaded (background)');
+          }
         })
         .catch((profileError) => {
           console.warn(
@@ -118,6 +121,7 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
           );
         });
     }
+    return () => { isMounted = false; };
   }, [pubkey]);
 
 

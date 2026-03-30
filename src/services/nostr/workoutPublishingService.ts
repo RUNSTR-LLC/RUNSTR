@@ -37,6 +37,7 @@ import Toast from 'react-native-toast-message';
 import { nip19 } from '@nostr-dev-kit/ndk';
 import Constants from 'expo-constants';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
+import { isValidWorkoutMetrics } from '../../utils/rewardEligibility';
 // RewardDestinationService removed - reward routing now uses isPPQTeam() inline
 import { EinundzwanzigService } from '../challenge/EinundzwanzigService';
 import { isEinundzwanzigActive } from '../../constants/einundzwanzig';
@@ -252,10 +253,18 @@ export class WorkoutPublishingService {
       const distanceMeters = workout.distance || 0;
       const durationSeconds = workout.duration || 0;
 
+      // Upper-bound validation: reject corrupt/impossible metrics
+      if (!isValidWorkoutMetrics(distanceMeters, durationSeconds)) {
+        console.warn('[WorkoutPublishing] Workout metrics out of bounds, skipping Supabase submission:', { distance: distanceMeters, duration: durationSeconds });
+        // Continue with Nostr publish but skip leaderboard submission
+      }
+
       // Fetch cached profile for leaderboard display (name/picture)
       const profile = await this.getCachedProfile();
 
-      if (distanceMeters === 0 && durationSeconds === 0) {
+      if (!isValidWorkoutMetrics(distanceMeters, durationSeconds)) {
+        // Already warned above — skip to post-submission tasks
+      } else if (distanceMeters === 0 && durationSeconds === 0) {
         console.warn('[WorkoutPublishing] ⚠️ Skipping Supabase submission: no distance or duration');
         console.warn('[WorkoutPublishing]    This workout will not appear on leaderboards');
         // Continue - wellness activities (meditation, etc.) don't need leaderboard entry

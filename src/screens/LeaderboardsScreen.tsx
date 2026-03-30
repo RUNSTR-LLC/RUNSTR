@@ -12,6 +12,7 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -32,7 +33,8 @@ export const LeaderboardsScreen: React.FC<LeaderboardsScreenProps> = ({ navigati
   const navigation = propNavigation || hookNavigation;
 
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [refreshTrigger, setRefreshTrigger] = useState(1);
   const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Cleanup timeout on unmount to prevent state updates on dead component
@@ -111,6 +113,7 @@ export const LeaderboardsScreen: React.FC<LeaderboardsScreenProps> = ({ navigati
       refreshTimeoutRef.current = null;
     }
     setIsRefreshing(false);
+    setLoading(false);
   }, []);
 
   return (
@@ -128,8 +131,13 @@ export const LeaderboardsScreen: React.FC<LeaderboardsScreenProps> = ({ navigati
         <View style={styles.headerSpacer} />
       </View>
 
+      {loading && (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
+          <ActivityIndicator size="large" color={theme.colors.accent} />
+        </View>
+      )}
       <ScrollView
-        style={styles.scrollView}
+        style={[styles.scrollView, loading && { position: 'absolute', opacity: 0 }]}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={

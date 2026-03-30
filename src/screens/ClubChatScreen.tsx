@@ -63,11 +63,13 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
+    let isMounted = true;
     const load = async () => {
       const npub = await AsyncStorage.getItem('@runstr:npub');
-      setUserNpub(npub);
+      if (isMounted) setUserNpub(npub);
     };
     load();
+    return () => { isMounted = false; };
   }, []);
 
   const {
@@ -91,19 +93,23 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
     const uniqueNew = [...new Set(newNpubs)];
     if (uniqueNew.length === 0) return;
     uniqueNew.forEach((npub) => fetchedNpubsRef.current.add(npub));
+    let isMounted = true;
     const fetchProfiles = async () => {
       try {
         const fetched = await nostrProfileService.getProfiles(uniqueNew);
-        setProfiles((prev) => {
-          const merged = new Map(prev);
-          fetched.forEach((profile, npub) => merged.set(npub, profile));
-          return merged;
-        });
+        if (isMounted) {
+          setProfiles((prev) => {
+            const merged = new Map(prev);
+            fetched.forEach((profile, npub) => merged.set(npub, profile));
+            return merged;
+          });
+        }
       } catch (err) {
         console.error('[ClubChatScreen] Error fetching profiles:', err);
       }
     };
     fetchProfiles();
+    return () => { isMounted = false; };
   }, [messages]);
 
   // Resolve pinned message from the loaded messages list

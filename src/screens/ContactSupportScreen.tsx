@@ -15,6 +15,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
@@ -39,6 +40,7 @@ export const ContactSupportScreen: React.FC<{ navigation: any }> = ({
   const [message, setMessage] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [debugInfo, setDebugInfo] = useState('');
+  const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [alertConfig, setAlertConfig] = useState<{visible: boolean; title: string; message: string; buttons: any[]}>({
     visible: false, title: '', message: '', buttons: []
@@ -80,6 +82,7 @@ Platform: ${Platform.OS}
 Team: ${teamInfo}`;
 
       setDebugInfo(info);
+      setLoading(false);
     };
 
     gatherDebugInfo();
@@ -209,6 +212,11 @@ Team: ${teamInfo}`;
           <View style={styles.backButton} />
         </View>
 
+        {loading ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
+            <ActivityIndicator size="large" color={theme.colors.accent} />
+          </View>
+        ) : (
         <ScrollView
           style={styles.content}
           showsVerticalScrollIndicator={false}
@@ -344,6 +352,7 @@ Team: ${teamInfo}`;
 
           <View style={styles.bottomPadding} />
         </ScrollView>
+        )}
       </KeyboardAvoidingView>
 
       <CustomAlert
