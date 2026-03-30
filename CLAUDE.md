@@ -16,11 +16,11 @@ RUNSTR is an anonymous fitness tracker that rewards cardio workouts with Bitcoin
 - GPS tracking with real-time metrics (pace, distance, elevation, splits)
 - HealthKit (iOS), Health Connect (Android), Garmin sync
 - Experimental features in settings (strength, diet, wellness)
-- Published as kind 1301 Nostr events
+- Stored locally and submitted through Supabase-backed workout flow (kind 1301 payloads remain local compatibility data)
 
 ### 2. **Rewards** - Bitcoin for Fitness
 - **50 sats** per daily workout
-- **5 sats** per 1,000 steps
+- Step rewards are currently disabled in UI (daily workout rewards remain active)
 - Delivered via Lightning address (LNURL protocol)
 - Real Bitcoin, not points or tokens
 - Creates positive feedback loop for healthy behavior
@@ -58,7 +58,7 @@ RUNSTR is an anonymous fitness tracker that rewards cardio workouts with Bitcoin
 **Authentication:**
 - Show login screen unless npub/nsec found in local storage
 - Manual nsec input only (no platform-specific auth)
-- Nsec login → derive npub → store locally in AsyncStorage
+- Nsec login → derive npub → store nsec in SecureStore and npub/hex pubkey in AsyncStorage
 
 ## Key Technologies
 - **Frontend**: React Native with TypeScript (Expo framework)
@@ -88,7 +88,7 @@ Workouts include tags for:
 
 ## Kind 1301 Workout Event Format
 
-**Overview**: RUNSTR publishes kind 1301 events for fitness tracking, supporting all activities for in-app competitions.
+**Overview**: RUNSTR builds kind 1301 workout payloads locally for compatibility while authoritative workout submission/competition tracking runs through Supabase.
 
 **Critical Format Rules**:
 - Content must be plain text, NOT JSON
@@ -239,7 +239,7 @@ src/
 **1. Authentication**:
 - Show login screen unless npub/nsec found in local storage
 - Nsec login imports profile from kind 0 events
-- Derived npub stored locally in AsyncStorage
+- Nsec stored in SecureStore; derived npub/hex pubkey stored in AsyncStorage
 
 **2. Three-Tab Navigation**:
 - **Profile Tab**: Workout tracking, history, settings, Lightning address entry
@@ -249,12 +249,12 @@ src/
 **3. Workout Flow**:
 - Track cardio via GPS (Running, Walking, Cycling)
 - Sync from HealthKit/Health Connect/Garmin
-- Publish as kind 1301 to Nostr
+- Build kind 1301 payload locally for compatibility metadata
 - Share as kind 1 social post with achievement card
 
 **4. Rewards Flow**:
 - Complete daily workout → Earn 50 sats
-- Walk 1,000 steps → Earn 5 sats
+- Step rewards are currently hidden/disabled in settings
 - Rewards sent to user's Lightning address via LNURL
 
 **5. Donation Flow**:
@@ -356,9 +356,9 @@ Simple three-tab interface with dark theme:
 
 ## Local Data Storage
 
-**Local Storage (AsyncStorage)**:
+**Local Storage (AsyncStorage + SecureStore)**:
 - User authentication:
-  - `@runstr:user_nsec` - User's private key (nsec)
+  - SecureStore: user's private key (nsec)
   - `@runstr:npub` - User's public key (npub)
   - `@runstr:hex_pubkey` - User's hex-encoded public key
 - Lightning address for receiving rewards
