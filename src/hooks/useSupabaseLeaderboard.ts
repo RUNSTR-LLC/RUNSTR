@@ -649,13 +649,10 @@ export function useCompetitionParticipation(competitionId: string) {
   }, [competitionId]);
 
   const join = useCallback(async () => {
-    const npub = await AsyncStorage.getItem('@runstr:npub');
-    if (!npub) return false;
-
     // OPTIMISTIC: Set participating state immediately for instant UI feedback
     setIsParticipating(true);
 
-    // Fire-and-forget: Service handles local + Supabase sync
+    // Service resolves authenticated identity from secure local auth storage.
     const result = await SupabaseCompetitionService.joinCompetition(
       competitionId
     );
@@ -669,12 +666,10 @@ export function useCompetitionParticipation(competitionId: string) {
   }, [competitionId]);
 
   const leave = useCallback(async () => {
-    const npub = await AsyncStorage.getItem('@runstr:npub');
-    if (!npub) return false;
-
     // OPTIMISTIC: Set non-participating state immediately for instant UI feedback
     setIsParticipating(false);
 
+    // Service resolves authenticated identity from secure local auth storage.
     const result = await SupabaseCompetitionService.leaveCompetition(
       competitionId
     );
