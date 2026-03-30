@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import SocialInteractionService from '../../services/social/SocialInteractionService';
 import type { SocialFeedPost } from '../../types/social';
+import { ExternalZapModal } from '../nutzap/ExternalZapModal';
 
 interface SocialInteractionRowProps {
   post: SocialFeedPost;
@@ -19,6 +20,7 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
   const [isLiked, setIsLiked] = useState(post.liked_by?.includes(userNpub) || false);
   const [isReposted, setIsReposted] = useState(post.reposted_by?.includes(userNpub) || false);
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
+  const [showZapModal, setShowZapModal] = useState(false);
 
   const debounceRef = useRef<number>(0);
   const zapFlash = useRef(new Animated.Value(1)).current;
@@ -48,17 +50,8 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
   }, [isLiked, post, debounce]);
 
   const handleZap = useCallback(() => {
-    debounce('zap', async () => {
-      const result = await SocialInteractionService.zap(post.id, post.event_id, post.npub);
-      if (result.success) {
-        setZapTotal(result.newTotal);
-        Animated.sequence([
-          Animated.timing(zapFlash, { toValue: 1.4, duration: 150, useNativeDriver: true }),
-          Animated.timing(zapFlash, { toValue: 1, duration: 150, useNativeDriver: true }),
-        ]).start();
-      }
-    });
-  }, [post, debounce, zapFlash]);
+    setShowZapModal(true);
+  }, []);
 
   const handleRepost = useCallback(() => {
     if (isReposted) return;
@@ -83,36 +76,46 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
   };
 
   return (
-    <View style={styles.row}>
-      <TouchableOpacity style={styles.action} onPress={handleLike} activeOpacity={0.7}>
-        <Ionicons
-          name={isLiked ? 'heart' : 'heart-outline'}
-          size={20}
-          color={isLiked ? theme.colors.orangeDeep : theme.colors.textMuted}
-        />
-        {likeCount > 0 && <Text style={[styles.count, isLiked && styles.countActive]}>{formatCount(likeCount)}</Text>}
-      </TouchableOpacity>
+    <>
+      <View style={styles.row}>
+        <TouchableOpacity style={styles.action} onPress={handleLike} activeOpacity={0.7}>
+          <Ionicons
+            name={isLiked ? 'heart' : 'heart-outline'}
+            size={20}
+            color={isLiked ? theme.colors.orangeDeep : theme.colors.textMuted}
+          />
+          {likeCount > 0 && <Text style={[styles.count, isLiked && styles.countActive]}>{formatCount(likeCount)}</Text>}
+        </TouchableOpacity>
 
-      <TouchableOpacity style={styles.action} onPress={handleZap} activeOpacity={0.7}>
-        <Animated.View style={{ transform: [{ scale: zapFlash }] }}>
-          <Ionicons name="flash-outline" size={20} color={theme.colors.textMuted} />
-        </Animated.View>
-        {zapTotal > 0 && <Text style={styles.count}>{formatCount(zapTotal)}</Text>}
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.action} onPress={handleZap} activeOpacity={0.7}>
+          <Animated.View style={{ transform: [{ scale: zapFlash }] }}>
+            <Ionicons name="flash-outline" size={20} color={theme.colors.textMuted} />
+          </Animated.View>
+          {zapTotal > 0 && <Text style={styles.count}>{formatCount(zapTotal)}</Text>}
+        </TouchableOpacity>
 
-      <TouchableOpacity style={styles.action} onPress={handleRepost} activeOpacity={0.7} disabled={isReposted}>
-        <Ionicons
-          name={isReposted ? 'repeat' : 'repeat-outline'}
-          size={20}
-          color={isReposted ? theme.colors.orangeDeep : theme.colors.textMuted}
-        />
-        {repostCount > 0 && <Text style={[styles.count, isReposted && styles.countActive]}>{formatCount(repostCount)}</Text>}
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.action} onPress={handleRepost} activeOpacity={0.7} disabled={isReposted}>
+          <Ionicons
+            name={isReposted ? 'repeat' : 'repeat-outline'}
+            size={20}
+            color={isReposted ? theme.colors.orangeDeep : theme.colors.textMuted}
+          />
+          {repostCount > 0 && <Text style={[styles.count, isReposted && styles.countActive]}>{formatCount(repostCount)}</Text>}
+        </TouchableOpacity>
 
-      <View style={styles.action}>
-        <Ionicons name="chatbubble-outline" size={20} color={theme.colors.textMuted} style={{ opacity: 0.4 }} />
+        <View style={styles.action}>
+          <Ionicons name="chatbubble-outline" size={20} color={theme.colors.textMuted} style={{ opacity: 0.4 }} />
+        </View>
       </View>
-    </View>
+
+      <ExternalZapModal
+        visible={showZapModal}
+        recipientNpub={post.npub}
+        recipientName={post.author_name || 'Unknown'}
+        onClose={() => setShowZapModal(false)}
+        onSuccess={() => setShowZapModal(false)}
+      />
+    </>
   );
 };
 
