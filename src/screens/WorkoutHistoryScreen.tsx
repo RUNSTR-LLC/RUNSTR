@@ -15,6 +15,10 @@ import { theme } from '../styles/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { nostrProfileService } from '../services/nostr/NostrProfileService';
 import type { NostrProfile } from '../services/nostr/NostrProfileService';
+import workoutPublishingService, {
+  type PublishableWorkout,
+} from '../services/nostr/workoutPublishingService';
+import { UnifiedSigningService } from '../services/auth/UnifiedSigningService';
 
 // UI Components
 import { LoadingOverlay } from '../components/ui/LoadingStates';
@@ -156,6 +160,61 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
     setShowSocialModal(true);
   };
 
+  /**
+   * Handle posting selected workout to Nostr as kind 1 social event
+   * Called by EnhancedSocialShareModal after card capture
+   */
+  const handlePostToNostr = async (
+    cardImageUri?: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      if (!selectedWorkout) {
+        return { success: false, error: 'No workout selected' };
+      }
+
+      const signer = await UnifiedSigningService.getInstance().getSigner();
+      if (!signer) {
+        return { success: false, error: 'Not authenticated. Please log in again.' };
+      }
+
+      const npub = await AsyncStorage.getItem('@runstr:npub');
+      const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+      const publisherId = npub || hexPubkey || userId;
+
+      const publishableWorkout: PublishableWorkout = {
+        ...selectedWorkout,
+        userId: selectedWorkout.userId || publisherId || 'unknown',
+        canPostToSocial: true,
+      };
+
+      const result = await workoutPublishingService.postWorkoutToSocial(
+        publishableWorkout,
+        signer,
+        publisherId || 'unknown',
+        {
+          includeCard: true,
+          cardImageUri,
+          userAvatar: userProfile?.picture,
+          userName: userProfile?.name || userProfile?.display_name,
+        }
+      );
+
+      if (result.success) {
+        return { success: true };
+      }
+
+      return {
+        success: false,
+        error: result.error || 'Failed to publish workout post',
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to publish workout post';
+      console.error('[WorkoutHistory] Failed to post workout to social:', error);
+      return { success: false, error: errorMessage };
+    }
+  };
+
   const handleGoBack = () => {
     if (navigation.canGoBack()) {
       navigation.goBack();
@@ -207,6 +266,8 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
         userId={userId}
         userAvatar={userProfile?.picture}
         userName={userProfile?.name || userProfile?.display_name}
+        localWorkoutId={selectedWorkout?.id}
+        onPostToNostr={handlePostToNostr}
         onClose={() => {
           setShowSocialModal(false);
           setSelectedWorkout(null);
