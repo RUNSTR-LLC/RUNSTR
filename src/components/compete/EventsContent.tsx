@@ -9,6 +9,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
@@ -38,7 +39,7 @@ export const EventsContent: React.FC<EventsContentProps> = ({
   onDynamicEventPress,
 }) => {
   const { t } = useTranslation('events');
-  const { competitions: dynamicCompetitions } = useDynamicCompetitions();
+  const { competitions: dynamicCompetitions, isLoading } = useDynamicCompetitions();
   return (
     <View style={styles.container}>
       {/* Create Event Banner */}
@@ -72,6 +73,11 @@ export const EventsContent: React.FC<EventsContentProps> = ({
       )}
 
       {/* Dynamic Supabase Events */}
+      {isLoading && dynamicCompetitions.length === 0 && (
+        <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={theme.colors.accent} />
+        </View>
+      )}
       {dynamicCompetitions.map((comp) => (
         <View key={comp.external_id} style={styles.featuredEvent}>
           <DynamicEventCard

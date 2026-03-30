@@ -318,16 +318,17 @@ export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
 
   // Load user profile for social sharing
   useEffect(() => {
+    let isMounted = true;
     const loadProfileAndId = async () => {
       try {
         const pubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
         const npub = await AsyncStorage.getItem('@runstr:npub');
         const activeUserId = npub || pubkey || '';
-        setUserId(activeUserId);
+        if (isMounted) setUserId(activeUserId);
 
         if (pubkey) {
           const profile = await nostrProfileService.getProfile(pubkey);
-          setUserProfile(profile);
+          if (isMounted) setUserProfile(profile);
         }
       } catch (error) {
         console.error(
@@ -338,6 +339,7 @@ export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
     };
 
     loadProfileAndId();
+    return () => { isMounted = false; };
   }, []);
 
   // Daily step counter initialization (runs once on mount)
@@ -473,19 +475,19 @@ export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
 
   // Check if daily steps already posted today
   useEffect(() => {
+    let isMounted = true;
     const checkIfPosted = async () => {
       try {
         const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
         const alreadyPosted =
           await LocalWorkoutStorageService.hasDailyStepsForDate(today);
 
-        if (alreadyPosted) {
-          setPostingState('posted');
-          console.log(
-            '[WalkingTrackerScreen] Daily steps already posted today'
-          );
-        } else {
-          setPostingState('idle');
+        if (isMounted) {
+          if (alreadyPosted) {
+            setPostingState('posted');
+          } else {
+            setPostingState('idle');
+          }
         }
       } catch (error) {
         console.error(
@@ -496,6 +498,7 @@ export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
     };
 
     checkIfPosted();
+    return () => { isMounted = false; };
   }, [dailySteps]); // Re-check when daily steps update
 
   // AppState listener for background/foreground transitions

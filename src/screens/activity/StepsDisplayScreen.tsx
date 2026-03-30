@@ -65,36 +65,38 @@ export const StepsDisplayScreen: React.FC = () => {
 
   // Load user profile and WoT score for social sharing
   useEffect(() => {
+    let isMounted = true;
     const loadProfileAndId = async () => {
       try {
         const pubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
         const npub = await AsyncStorage.getItem('@runstr:npub');
         const activeUserId = npub || pubkey || '';
-        setUserId(activeUserId);
+        if (isMounted) setUserId(activeUserId);
 
         if (pubkey) {
           const profile = await nostrProfileService.getProfile(pubkey);
-          setUserProfile(profile);
+          if (isMounted) setUserProfile(profile);
 
-          // Check WoT score for post button eligibility
           const wotService = WoTService.getInstance();
           const score = await wotService.getCachedScore(pubkey);
-          setIsWoTEligible(score !== null && score > 0);
+          if (isMounted) setIsWoTEligible(score !== null && score > 0);
         }
       } catch (err) {
         console.error('[StepsDisplay] Failed to load user profile:', err);
       }
     };
     loadProfileAndId();
+    return () => { isMounted = false; };
   }, []);
 
   // Check if daily steps already posted today
   useEffect(() => {
+    let isMounted = true;
     const checkIfPosted = async () => {
       try {
         const today = new Date().toISOString().split('T')[0];
         const alreadyPosted = await LocalWorkoutStorageService.hasDailyStepsForDate(today);
-        if (alreadyPosted) {
+        if (isMounted && alreadyPosted) {
           setPostingState('posted');
         }
       } catch (err) {
@@ -102,6 +104,7 @@ export const StepsDisplayScreen: React.FC = () => {
       }
     };
     checkIfPosted();
+    return () => { isMounted = false; };
   }, [dailySteps]);
 
   /**
@@ -273,6 +276,14 @@ export const StepsDisplayScreen: React.FC = () => {
 
   // Display values
   const displaySteps = dailySteps ?? 0;
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
+        <ActivityIndicator size="large" color={theme.colors.accent} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.screenContainer}>

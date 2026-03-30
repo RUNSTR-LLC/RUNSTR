@@ -305,16 +305,17 @@ export const CyclingTrackerScreen: React.FC<CyclingTrackerScreenProps> = ({
 
   // Load user profile for social sharing
   useEffect(() => {
+    let isMounted = true;
     const loadProfileAndId = async () => {
       try {
         const pubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
         const npub = await AsyncStorage.getItem('@runstr:npub');
         const activeUserId = npub || pubkey || '';
-        setUserId(activeUserId);
+        if (isMounted) setUserId(activeUserId);
 
         if (pubkey) {
           const profile = await nostrProfileService.getProfile(pubkey);
-          setUserProfile(profile);
+          if (isMounted) setUserProfile(profile);
         }
       } catch (error) {
         console.error(
@@ -325,6 +326,7 @@ export const CyclingTrackerScreen: React.FC<CyclingTrackerScreenProps> = ({
     };
 
     loadProfileAndId();
+    return () => { isMounted = false; };
   }, []);
 
   // Load weekly distance data on mount

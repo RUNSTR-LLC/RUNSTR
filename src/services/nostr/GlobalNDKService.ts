@@ -36,6 +36,9 @@ export class GlobalNDKService {
   private static totalReconnectionAttempts = 0;
   private static readonly MAX_TOTAL_RECONNECTIONS = 50;
 
+  // Guard against concurrent retryConnection calls
+  private static isRetrying = false;
+
   // ✅ NEW: Store relay listeners for proper cleanup
   private static relayListeners = new Map<
     any,
@@ -661,6 +664,8 @@ export class GlobalNDKService {
     this.initPromise = null;
     this.isMonitoringConnections = false;
     this.lastReconnectAttempt = 0;
+    this.relayListeners.clear();
+    this.totalReconnectionAttempts = 0;
 
     console.log('✅ GlobalNDK: Cleanup complete');
   }
@@ -853,47 +858,54 @@ export class GlobalNDKService {
    * Called automatically in background if initial connection fails
    */
   static async retryConnection(maxAttempts: number = 3): Promise<boolean> {
+    if (this.isRetrying) {
+      console.log('⏳ GlobalNDK: Retry already in progress, skipping');
+      return false;
+    }
+
     if (this.isConnected()) {
       console.log('✅ GlobalNDK: Already connected, no retry needed');
       return true;
     }
 
-    console.log(
-      `🔄 GlobalNDK: Starting connection retry (max ${maxAttempts} attempts)...`
-    );
+    this.isRetrying = true;
 
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      const backoffDelay = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // 1s, 2s, 4s, max 10s
-
+    try {
       console.log(
-        `🔄 GlobalNDK: Retry attempt ${attempt}/${maxAttempts} after ${backoffDelay}ms delay...`
+        `🔄 GlobalNDK: Starting connection retry (max ${maxAttempts} attempts)...`
       );
-      await new Promise((resolve) => setTimeout(resolve, backoffDelay));
 
-      try {
-        // Clear previous failed instance
-        if (this.instance) {
-          await this.cleanup();
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const backoffDelay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+
+        console.log(
+          `🔄 GlobalNDK: Retry attempt ${attempt}/${maxAttempts} after ${backoffDelay}ms delay...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, backoffDelay));
+
+        try {
+          if (this.instance) {
+            await this.cleanup();
+          }
+
+          await this.getInstance();
+
+          if (this.isConnected()) {
+            console.log(
+              `✅ GlobalNDK: Reconnected successfully on attempt ${attempt}`
+            );
+            return true;
+          }
+        } catch (error) {
+          console.warn(`⚠️ GlobalNDK: Retry attempt ${attempt} failed:`, error);
         }
-
-        // Try to reconnect
-        await this.getInstance();
-
-        // Check if we successfully connected
-        if (this.isConnected()) {
-          console.log(
-            `✅ GlobalNDK: Reconnected successfully on attempt ${attempt}`
-          );
-          return true;
-        }
-      } catch (error) {
-        console.warn(`⚠️ GlobalNDK: Retry attempt ${attempt} failed:`, error);
-        // Continue to next attempt
       }
-    }
 
-    console.error(`❌ GlobalNDK: All ${maxAttempts} retry attempts failed`);
-    return false;
+      console.error(`❌ GlobalNDK: All ${maxAttempts} retry attempts failed`);
+      return false;
+    } finally {
+      this.isRetrying = false;
+    }
   }
 
   /**

@@ -357,16 +357,17 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
 
   // Load user profile for social sharing
   useEffect(() => {
+    let isMounted = true;
     const loadProfileAndId = async () => {
       try {
         const pubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
         const npub = await AsyncStorage.getItem('@runstr:npub');
         const activeUserId = npub || pubkey || '';
-        setUserId(activeUserId);
+        if (isMounted) setUserId(activeUserId);
 
         if (pubkey) {
           const profile = await nostrProfileService.getProfile(pubkey);
-          setUserProfile(profile);
+          if (isMounted) setUserProfile(profile);
         }
       } catch (error) {
         console.error(
@@ -377,47 +378,42 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
     };
 
     loadProfileAndId();
+    return () => { isMounted = false; };
   }, []);
 
   // Load weekly distance data on mount
   useEffect(() => {
+    let isMounted = true;
     const loadWeeklyDistance = async () => {
       try {
-        setDistanceLoading(true);
+        if (isMounted) setDistanceLoading(true);
 
-        // Get goal
         const goal = await weeklyDistanceGoalService.getGoal('running');
-        setDistanceGoal(goal);
+        if (isMounted) setDistanceGoal(goal);
 
-        // Get weekly distance
         const distance =
           await weeklyDistanceGoalService.getWeeklyDistance('running');
-        setWeeklyDistance(distance);
+        if (isMounted) setWeeklyDistance(distance);
 
-        // Calculate progress
         const progress = weeklyDistanceGoalService.calculateProgress(
           distance,
           goal
         );
-        setDistanceProgress(progress);
-
-        console.log(
-          `[RunningTrackerScreen] Weekly distance: ${distance.toFixed(
-            2
-          )}km, goal: ${goal}km`
-        );
-
-        setDistanceLoading(false);
+        if (isMounted) {
+          setDistanceProgress(progress);
+          setDistanceLoading(false);
+        }
       } catch (error) {
         console.error(
           '[RunningTrackerScreen] Error loading weekly distance:',
           error
         );
-        setDistanceLoading(false);
+        if (isMounted) setDistanceLoading(false);
       }
     };
 
     loadWeeklyDistance();
+    return () => { isMounted = false; };
   }, []);
 
   // AppState listener for background/foreground transitions - using AppStateManager
