@@ -36,6 +36,8 @@ import Toast from 'react-native-toast-message';
 import { EarningsHeroCard } from '../components/rewards/EarningsHeroCard';
 import { ImpactHeroCard } from '../components/rewards/ImpactHeroCard';
 import { TransparencyDashboardModal } from '../components/rewards/TransparencyDashboardModal';
+import { PersonalImpactSection } from '../components/rewards/PersonalImpactSection';
+import { RewardBreakdownCard } from '../components/rewards/RewardBreakdownCard';
 import { PledgeService } from '../services/pledge/PledgeService';
 import { ActivePledgeCard } from '../components/pledge/ActivePledgeCard';
 import type { Pledge } from '../types/pledge';
@@ -310,6 +312,14 @@ const RewardsScreenComponent: React.FC = () => {
         {/* Impact Hero Card - Only shown when user does NOT have Lightning address */}
         {userHexPubkey && !hasLightningAddress && (
           <ImpactHeroCard pubkey={userHexPubkey} />
+        )}
+
+        {/* Reward Impact + Breakdown cards */}
+        {userHexPubkey && (
+          <>
+            <PersonalImpactSection pubkey={userHexPubkey} />
+            <RewardBreakdownCard pubkey={userHexPubkey} />
+          </>
         )}
 
         {/* Your Team Card - Always visible */}
