@@ -25,7 +25,7 @@ import { PPQAccountService } from '../ai/PPQAccountService';
 import { RewardLightningAddressService } from '../rewards/RewardLightningAddressService';
 import { SubscriptionService } from './SubscriptionService';
 import { callEdgeFunction } from '../../utils/edgeFunctions';
-import { isBoostedQualified } from '../rewards/DailyRewardService';
+import { isBoostedQualified } from '../../utils/rewardEligibility';
 import { REWARD_CONFIG } from '../../config/rewards';
 
 // Local storage key for tracking joined competitions (optimistic join)
@@ -652,7 +652,8 @@ export class SupabaseCompetitionService {
         supabase!
           .from('banned_users')
           .select('npub')
-          .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`),
+          .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+          .limit(500),
       ]);
 
       const { data: competition, error: compError } = compResult;
@@ -1085,7 +1086,8 @@ export class SupabaseCompetitionService {
         .from('competitions')
         .select('*')
         .gte('end_date', new Date().toISOString())
-        .order('start_date', { ascending: true });
+        .order('start_date', { ascending: true })
+        .limit(100);
 
       if (error) {
         console.error('[SupabaseCompetitionService] Get competitions error:', error);
@@ -1405,7 +1407,8 @@ export class SupabaseCompetitionService {
         .from('competitions')
         .select('*')
         .eq('club_id', clubId)
-        .order('start_date', { ascending: false });
+        .order('start_date', { ascending: false })
+        .limit(100);
 
       if (error) {
         console.error('[SupabaseCompetitionService] fetchCompetitionsByClubId error:', error);

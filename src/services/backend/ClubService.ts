@@ -71,7 +71,8 @@ export class ClubService {
         .from('user_teams')
         .select('*')
         .eq('is_active', true)
-        .order('member_count', { ascending: false });
+        .order('member_count', { ascending: false })
+        .limit(200);
 
       if (error) {
         console.error('[ClubService] fetchActiveClubs error:', error);
@@ -274,7 +275,8 @@ export class ClubService {
         .select('npub, leaderboard_date')
         .eq('club_id', clubId)
         .not('club_lightning_address', 'is', null)
-        .gte('leaderboard_date', weekStartDate);
+        .gte('leaderboard_date', weekStartDate)
+        .limit(500);
 
       if (weekErr) {
         console.error('[ClubService] getClubEarnings week query error:', weekErr);
@@ -293,7 +295,8 @@ export class ClubService {
         .from('workout_submissions')
         .select('*', { count: 'exact', head: true })
         .eq('club_id', clubId)
-        .not('club_lightning_address', 'is', null);
+        .not('club_lightning_address', 'is', null)
+        .limit(5000);
 
       if (allErr) {
         console.error('[ClubService] getClubEarnings all-time query error:', allErr);

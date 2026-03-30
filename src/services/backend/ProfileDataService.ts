@@ -155,7 +155,8 @@ export class ProfileDataService {
         .from('workout_submissions')
         .select('id, distance_meters, created_at')
         .eq('npub', npub)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(1000);
 
       if (error || !data) {
         console.warn(TAG, 'getUserStats error:', error?.message);
@@ -216,7 +217,8 @@ export class ProfileDataService {
         .not('distance_meters', 'is', null)
         .not('duration_seconds', 'is', null)
         .gt('duration_seconds', 0)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(500);
 
       if (error || !data) {
         console.warn(TAG, 'getUserPRs error:', error?.message);
@@ -476,7 +478,8 @@ export class ProfileDataService {
       const { data, error } = await supabase!
         .from('workout_submissions')
         .select('activity_type')
-        .eq('npub', npub);
+        .eq('npub', npub)
+        .limit(1000);
 
       if (error || !data) {
         console.warn(TAG, 'getActivityBreakdown error:', error?.message);
@@ -531,7 +534,8 @@ export class ProfileDataService {
         .from('workout_submissions')
         .select('id, activity_type, distance_meters, duration_seconds, created_at')
         .eq('npub', npub)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(1000);
 
       if (error || !data || data.length === 0) {
         if (error) console.warn(TAG, 'getLevelData error:', error?.message);

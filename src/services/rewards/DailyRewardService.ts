@@ -64,18 +64,9 @@ export interface RewardResult {
   reason?: string;
 }
 
-/**
- * Check if a workout qualifies for boosted subscriber rewards (1000 rewards)
- * Requirements: cardio activity, non-manual source
- */
-export function isBoostedQualified(
-  activityType: string,
-  source: string,
-): boolean {
-  const isCardio = CARDIO_ACTIVITY_TYPES.includes(activityType);
-  const isNonManual = source !== 'manual_entry';
-  return isCardio && isNonManual;
-}
+// Import from utility for local use, and re-export for backward compatibility
+import { isBoostedQualified as _isBoostedQualified } from '../../utils/rewardEligibility';
+export const isBoostedQualified = _isBoostedQualified;
 
 // Diagnostic entry for reward attempts
 export interface RewardDiagnosticEntry {

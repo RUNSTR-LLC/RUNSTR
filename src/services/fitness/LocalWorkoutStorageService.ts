@@ -10,7 +10,6 @@ import type { Split } from '../activity/SplitTrackingService';
 import { DailyRewardService } from '../rewards/DailyRewardService';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
 import { buildRewardTags } from '../../utils/rewardTags';
-import { AutoBackupService } from '../backup/AutoBackupService';
 import Toast from 'react-native-toast-message';
 import type { VerificationReceipt } from '../../types/verification';
 
@@ -441,7 +440,9 @@ export class LocalWorkoutStorageService {
           JSON.stringify(workouts)
         );
         this.invalidateCache();
-        AutoBackupService.getInstance().scheduleBackup();
+        // Lazy import to avoid circular dependency
+        const { AutoBackupService: AutoBackup1 } = await import('../backup/AutoBackupService');
+        AutoBackup1.getInstance().scheduleBackup();
         console.log(
           `✅ Updated daily steps workout: ${deterministicId} (${workout.steps} steps, ~${(workout.distance / 1000).toFixed(2)}km)`
         );
@@ -469,7 +470,9 @@ export class LocalWorkoutStorageService {
           JSON.stringify(workouts)
         );
         this.invalidateCache();
-        AutoBackupService.getInstance().scheduleBackup();
+        // Lazy import to avoid circular dependency
+        const { AutoBackupService: AutoBackup2 } = await import('../backup/AutoBackupService');
+        AutoBackup2.getInstance().scheduleBackup();
         console.log(
           `✅ Created daily steps workout: ${deterministicId} (${workout.steps} steps, ~${(workout.distance / 1000).toFixed(2)}km)`
         );
@@ -546,6 +549,8 @@ export class LocalWorkoutStorageService {
       });
 
       // AUTO-BACKUP: Schedule backup to Nostr (3-min debounce collapses rapid saves)
+      // Lazy import to avoid circular dependency
+      const { AutoBackupService } = await import('../backup/AutoBackupService');
       AutoBackupService.getInstance().scheduleBackup();
     } catch (error) {
       console.error('❌ Failed to save workout to storage:', error);
