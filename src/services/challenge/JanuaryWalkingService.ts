@@ -326,7 +326,6 @@ class JanuaryWalkingServiceClass {
 
       const result = await SupabaseCompetitionService.joinCompetition(
         'january-walking',
-        npub,
         profileData
       );
 

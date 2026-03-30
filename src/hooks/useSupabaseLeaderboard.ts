@@ -657,8 +657,7 @@ export function useCompetitionParticipation(competitionId: string) {
 
     // Fire-and-forget: Service handles local + Supabase sync
     const result = await SupabaseCompetitionService.joinCompetition(
-      competitionId,
-      npub
+      competitionId
     );
 
     // Service always returns success (optimistic pattern), but handle edge case
@@ -677,8 +676,7 @@ export function useCompetitionParticipation(competitionId: string) {
     setIsParticipating(false);
 
     const result = await SupabaseCompetitionService.leaveCompetition(
-      competitionId,
-      npub
+      competitionId
     );
 
     if (!result.success) {
