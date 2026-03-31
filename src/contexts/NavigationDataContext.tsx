@@ -12,7 +12,7 @@ import React, {
   useMemo,
   ReactNode,
 } from 'react';
-import { InteractionManager, Platform } from 'react-native';
+import { InteractionManager } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthService } from '../services/auth/authService';
 import { getNostrTeamService } from '../services/nostr/NostrTeamService';
