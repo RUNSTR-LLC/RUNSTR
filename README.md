@@ -109,6 +109,8 @@ npm install
 npm run ios
 ```
 
+For the canonical first-run guide, see [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md).
+
 ### Commands
 ```bash
 npm run start          # Development server
