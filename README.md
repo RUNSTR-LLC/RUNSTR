@@ -106,8 +106,11 @@ Earn satoshis for staying active:
 git clone https://github.com/RUNSTR-LLC/RUNSTR.git
 cd RUNSTR
 npm install
+cp .env.example .env
 npm run ios
 ```
+
+Before sending rewards or using Lightning features, complete the environment setup: [docs/ENVIRONMENT_SETUP.md](docs/ENVIRONMENT_SETUP.md).
 
 ### Commands
 ```bash
