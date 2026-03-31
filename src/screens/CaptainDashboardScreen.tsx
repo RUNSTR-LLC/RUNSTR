@@ -1816,17 +1816,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 
-  modalInput: {
-    backgroundColor: theme.colors.background,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: theme.colors.text,
-    marginBottom: 20,
-  },
-
   textAreaInput: {
     minHeight: 100,
     textAlignVertical: 'top',
