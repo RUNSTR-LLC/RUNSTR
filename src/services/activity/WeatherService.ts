@@ -15,9 +15,11 @@ export interface WeatherConditions {
 class WeatherService {
   private static instance: WeatherService;
 
-  // OpenWeather API key - should be in environment variables
-  // For MVP, using a placeholder - replace with actual key
-  private readonly API_KEY = 'YOUR_OPENWEATHER_API_KEY'; // TODO: Move to env
+  // OpenWeather API key - configured via Expo env (preferred) with legacy fallback
+  private readonly API_KEY =
+    process.env.EXPO_PUBLIC_OPENWEATHER_API_KEY ||
+    process.env.OPENWEATHER_API_KEY ||
+    'YOUR_OPENWEATHER_API_KEY';
   private readonly BASE_URL = 'https://api.openweathermap.org/data/2.5/weather';
 
   private constructor() {}
