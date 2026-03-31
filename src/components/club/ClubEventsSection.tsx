@@ -19,7 +19,7 @@ import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../styles/theme';
 import { SupabaseCompetitionService } from '../../services/backend/SupabaseCompetitionService';
-import { SimpleEventCreationModal } from '../subscription/SimpleEventCreationModal';
+import { SimpleEventCreationModal } from '../creation/SimpleEventCreationModal';
 import { CustomAlert } from '../ui/CustomAlert';
 import type { Competition } from '../../utils/supabase';
 import type { CompetitionStatus, DynamicCompetition } from '../../hooks/useDynamicCompetitions';

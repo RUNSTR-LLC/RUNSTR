@@ -35,7 +35,7 @@ import { PPQAccountService } from '../services/ai/PPQAccountService';
 import { LightningAddressSetupModal } from '../components/wallet/LightningAddressSetupModal';
 import { DirectNostrProfileService } from '../services/user/directNostrProfileService';
 import { RewardLightningAddressService } from '../services/rewards/RewardLightningAddressService';
-import { SimpleTeamCreationModal } from '../components/subscription/SimpleTeamCreationModal';
+import { SimpleTeamCreationModal } from '../components/creation/SimpleTeamCreationModal';
 import { CommunityTeamsSection } from '../components/team/CommunityTeamsSection';
 import { UserTeamService } from '../services/backend/UserTeamService';
 

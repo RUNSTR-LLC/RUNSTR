@@ -2,6 +2,40 @@
 
 All notable changes to RUNSTR will be documented in this file.
 
+## [1.7.7] - 2026-03-31 - Solidification, App Store Compliance & Performance
+
+### App Store Compliance
+- Removed all subscription tier UI and gating (Guideline 3.1.1)
+- Club creation and event creation now available to all users
+- Added Apple Health section in Settings with sync toggle and connection status (Guideline 2.5.1)
+
+### Stability & Reliability
+- Added workout validation bounds (200km/24h) across all 4 submission paths
+- Failed workout submissions now retry via PendingSubmissionService on all paths
+- Added NDK retryConnection mutex to prevent stale connection references
+- Fixed 2 critical circular dependency cycles (SupabaseCompetition/DailyReward, LocalWorkoutStorage/Backup)
+- Added isMounted cleanup guards to 13 async useEffects across 8 screens
+
+### Performance
+- Added .limit() to 12 high-risk unbounded Supabase queries
+- Recovered and committed lottery wheel and profile action card components
+
+### UX Polish
+- Added loading indicators to 6 screens (Steps, Events, Leaderboards, Stats, Support, Journal)
+- Feed zap opens ExternalZapModal correctly
+- Pull-to-refresh on Compete screen now refreshes data
+- Chat button shows toast feedback instead of being dead
+- Settings toggles show toast confirmation
+- Simplified onboarding modal
+
+### Cleanup
+- Removed 12 dead files (~88KB, 3,121 lines deleted)
+- Removed orphaned subscription styles from RewardsScreen
+- Renamed components/subscription to components/creation
+
+### Testing
+- Added 28 verification and audit scripts covering all core flows
+
 ## [1.7.6] - 2026-03-27 - Social Feed, Lottery Wheel, Activity Menu & UI Overhaul
 
 ### Social Tab

@@ -25,7 +25,7 @@ import { ClubBannerHeader } from '../components/club/ClubBannerHeader';
 import { ClubInfoSection } from '../components/club/ClubInfoSection';
 import { ClubChatSection } from '../components/club/ClubChatSection';
 import { CaptainSettingsModal } from '../components/club/CaptainSettingsModal';
-import { SimpleEventCreationModal } from '../components/subscription/SimpleEventCreationModal';
+import { SimpleEventCreationModal } from '../components/creation/SimpleEventCreationModal';
 import { CustomAlert } from '../components/ui/CustomAlert';
 import type { Club } from '../types/club';
 

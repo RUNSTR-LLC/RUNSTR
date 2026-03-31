@@ -22,7 +22,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 import { EventsContent } from '../components/compete';
-import { SimpleEventCreationModal } from '../components/subscription/SimpleEventCreationModal';
+import { SimpleEventCreationModal } from '../components/creation/SimpleEventCreationModal';
 import { SupabaseCompetitionService } from '../services/backend/SupabaseCompetitionService';
 import type { SatlantisEvent } from '../types/satlantis';
 

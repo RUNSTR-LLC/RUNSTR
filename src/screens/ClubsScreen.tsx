@@ -18,7 +18,7 @@ import { Club } from '../types/club';
 import { ClubService } from '../services/backend/ClubService';
 import { ClubMembershipService } from '../services/backend/ClubMembershipService';
 import { ClubCard } from '../components/club/ClubCard';
-import { SimpleTeamCreationModal } from '../components/subscription/SimpleTeamCreationModal';
+import { SimpleTeamCreationModal } from '../components/creation/SimpleTeamCreationModal';
 import { nostrProfileService, NostrProfile } from '../services/nostr/NostrProfileService';
 
 const ClubsScreenComponent: React.FC = () => {
