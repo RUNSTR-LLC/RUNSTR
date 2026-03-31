@@ -1,6 +1,6 @@
 /**
  * ProfileBadgesRow Component - Horizontal scroll of compact chips
- * Shows reward destination, subscription tier, and club affiliations.
+ * Shows reward destination and club affiliations.
  */
 
 import React from 'react';

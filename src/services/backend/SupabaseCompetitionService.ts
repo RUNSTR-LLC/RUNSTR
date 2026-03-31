@@ -23,9 +23,7 @@ import { getCharityById, isPPQTeam } from '../../constants/charities';
 import { getClubLightningAddress } from '../../utils/rewardTags';
 import { PPQAccountService } from '../ai/PPQAccountService';
 import { RewardLightningAddressService } from '../rewards/RewardLightningAddressService';
-import { SubscriptionService } from './SubscriptionService';
 import { callEdgeFunction } from '../../utils/edgeFunctions';
-import { isBoostedQualified } from '../../utils/rewardEligibility';
 import { REWARD_CONFIG } from '../../config/rewards';
 
 // Local storage key for tracking joined competitions (optimistic join)
@@ -335,9 +333,8 @@ export class SupabaseCompetitionService {
 
     // PPQ.AI: Auto-create bolt11 invoice if user's team is PPQ.AI and no invoice provided
     // This ensures ALL submission paths (HealthKit, background, manual) get PPQ support
-    // Invoice amount matches subscriber tier using shared isBoostedQualified() + REWARD_CONFIG
-    // Total timeout of 12s prevents SubscriptionService (5s) + PPQ invoice (15s) from
-    // accumulating 20+ seconds before the fetch even starts
+    // Total timeout of 12s prevents PPQ invoice (15s) from
+    // accumulating too long before the fetch even starts
     let ppqBolt11 = data.ppqBolt11;
     let ppqInvoiceId = data.ppqInvoiceId;
     let ppqFailed = false;
@@ -349,23 +346,8 @@ export class SupabaseCompetitionService {
             if (selectedTeamId && isPPQTeam(selectedTeamId)) {
               const hasAccount = await PPQAccountService.hasAccount();
               if (hasAccount) {
-                // Determine reward amount using shared boost logic (same criteria as non-PPQ path)
-                // Source is 'gps_tracker' since submitWorkoutSimple callers are all non-manual
-                let rewardSats: number = REWARD_CONFIG.DAILY_WORKOUT_REWARD;
-                const npub = await AsyncStorage.getItem('@runstr:npub');
-                if (npub) {
-                  // 5s timeout prevents hanging if Supabase is slow (same pattern as club lookups)
-                  const isSubscriber = await Promise.race([
-                    SubscriptionService.isSupporterOrAbove(npub),
-                    new Promise<boolean>((resolve) => setTimeout(() => {
-                      console.warn('[SupabaseCompetition] Subscription check timed out, defaulting to non-boosted');
-                      resolve(false);
-                    }, 5000)),
-                  ]);
-                  if (isSubscriber && isBoostedQualified(data.type, 'gps_tracker')) {
-                    rewardSats = REWARD_CONFIG.BOOSTED_WORKOUT_REWARD;
-                  }
-                }
+                // Use base reward amount for all users
+                const rewardSats: number = REWARD_CONFIG.DAILY_WORKOUT_REWARD;
                 const invoiceResult = await PPQAccountService.createTopupInvoice(rewardSats);
                 if (invoiceResult.success && invoiceResult.bolt11) {
                   return { bolt11: invoiceResult.bolt11, invoiceId: invoiceResult.invoiceId, failed: false };

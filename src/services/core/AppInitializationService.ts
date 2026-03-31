@@ -113,14 +113,6 @@ class AppInitializationService {
           );
           console.log('✅ AppInit: Profile loaded');
 
-          // Prefetch subscriber status (non-blocking)
-          if (identifiers.npub) {
-            const { SubscriptionService } = await import('../backend/SubscriptionService');
-            SubscriptionService.refreshSubscriptionTier(identifiers.npub).catch(() =>
-              console.warn('AppInit: Subscriber check failed (non-blocking)')
-            );
-          }
-
           // Pre-fetch WoT score for social posting eligibility
           // This gates Kind 1 posting to users with WoT > 0
           if (identifiers.hexPubkey) {

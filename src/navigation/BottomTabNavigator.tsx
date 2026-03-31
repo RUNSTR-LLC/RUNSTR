@@ -191,7 +191,6 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
               onReceive={handlers.handleWalletReceive}
               onWalletHistory={handlers.handleWalletHistory}
               onSyncSourcePress={handlers.handleSyncSourcePress}
-              onManageSubscription={handlers.handleManageSubscription}
               onHelp={() => handlers.handleHelp(navigation)}
               onContactSupport={() => handlers.handleContactSupport(navigation)}
               onPrivacyPolicy={() => handlers.handlePrivacyPolicy(navigation)}

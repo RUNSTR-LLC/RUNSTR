@@ -63,7 +63,6 @@ export interface NavigationHandlers {
   handleWalletReceive: () => void;
   handleWalletHistory: () => void;
   handleSyncSourcePress: (provider: string) => void;
-  handleManageSubscription: () => void;
   handleHelp: (navigation?: any) => void;
   handleContactSupport: (navigation?: any) => void;
   handlePrivacyPolicy: (navigation?: any) => void;
@@ -449,14 +448,6 @@ export const createNavigationHandlers = (): NavigationHandlers => {
           `Manage your ${provider} sync settings.`
         );
       }
-    },
-
-    handleManageSubscription: () => {
-      console.log('Manage subscription pressed');
-      CustomAlertManager.alert(
-        'Subscription',
-        'Manage your RUNSTR subscription in your device settings.'
-      );
     },
 
     handleHelp: (navigation?: any) => {

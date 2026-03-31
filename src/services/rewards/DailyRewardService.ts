@@ -29,7 +29,6 @@ import { DonationTrackingService } from '../donation/DonationTrackingService';
 import { PledgeService } from '../pledge/PledgeService';
 import { EinundzwanzigService } from '../challenge/EinundzwanzigService';
 import { isEinundzwanzigActive, EINUNDZWANZIG_REWARD_CONFIG } from '../../constants/einundzwanzig';
-import { SubscriptionService } from '../backend/SubscriptionService';
 import { nip19 } from '@nostr-dev-kit/ndk';
 
 // Note: Supabase imports removed - rewards are now handled by external service
@@ -515,22 +514,7 @@ class DailyRewardServiceClass {
       }
       // ===== END PLEDGE CHECK =====
 
-      // ===== SUBSCRIBER BOOSTED REWARDS =====
       let totalAmount: number = REWARD_CONFIG.DAILY_WORKOUT_REWARD; // Default 100 sats
-      try {
-        const npub = await AsyncStorage.getItem('@runstr:npub');
-        if (npub) {
-          const isSub = await SubscriptionService.isSupporterOrAbove(npub);
-          if (isSub) {
-            // Note: sendReward() without tags can't check distance/duration,
-            // so boosted reward only applies via sendRewardWithTags path.
-            // Here we log that subscriber was detected but boost not applicable.
-            console.log('[Reward] Subscriber detected, but boost requires sendRewardWithTags path');
-          }
-        }
-      } catch (err) {
-        console.warn('[Reward] Error checking subscriber status:', err);
-      }
 
       // ===== EINUNDZWANZIG DOUBLE REWARDS =====
       if (isEinundzwanzigActive()) {
@@ -644,44 +628,14 @@ class DailyRewardServiceClass {
   }
 
   /**
-   * Get the reward amount based on subscription tier and event bonuses
-   * Priority: boosted subscriber (1000, max 5/week) > Einundzwanzig bonus (100) > base (100)
+   * Get the reward amount based on event bonuses
+   * Priority: Einundzwanzig bonus (100) > base (100)
    */
   private async getRewardAmount(
     userPubkey: string,
     workoutTags: string[][]
   ): Promise<number> {
     const baseReward = REWARD_CONFIG.DAILY_WORKOUT_REWARD;
-
-    // Check subscriber boosted rewards (highest priority)
-    try {
-      const npub = await AsyncStorage.getItem('@runstr:npub');
-      if (npub) {
-        const isSubscriber = await SubscriptionService.isSupporterOrAbove(npub);
-        if (isSubscriber) {
-          const exerciseTag = workoutTags.find(t => t[0] === 'exercise');
-          const sourceTag = workoutTags.find(t => t[0] === 'source');
-
-          const exercise = exerciseTag?.[1] || '';
-          const source = sourceTag?.[1] || '';
-
-          if (isBoostedQualified(exercise, source)) {
-            // Enforce weekly boost cap
-            const boostCount = await this.getWeeklyBoostCount();
-            if (boostCount < REWARD_CONFIG.BOOSTED_MAX_PER_WEEK) {
-              await this.incrementWeeklyBoostCount();
-              console.log(`[Reward] Subscriber boosted reward: ${REWARD_CONFIG.BOOSTED_WORKOUT_REWARD} (${boostCount + 1}/${REWARD_CONFIG.BOOSTED_MAX_PER_WEEK} this week)`);
-              return REWARD_CONFIG.BOOSTED_WORKOUT_REWARD;
-            }
-            console.log(`[Reward] Subscriber boost cap reached (${boostCount}/${REWARD_CONFIG.BOOSTED_MAX_PER_WEEK}), using base reward`);
-          } else {
-            console.log('[Reward] Subscriber but workout does not qualify for boost');
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('[Reward] Error checking subscriber boost:', err);
-    }
 
     // Check for Einundzwanzig double rewards bonus
     const hasEinundzwanzigBonus = await this.checkEinundzwanzigBonus(

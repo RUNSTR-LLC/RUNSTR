@@ -59,11 +59,6 @@ export const REWARD_CONFIG = {
   BOOSTED_WORKOUT_REWARD: 1000,           // sats per boosted workout
   BOOSTED_MAX_PER_WEEK: 5,               // max boosted workouts per week
 
-  /**
-   * Subscription Pricing (display only - payment via runstr.club/pro/)
-   */
-  SUPPORTER_PRICE_SATS: 15000,           // 15k sats/month
-  PRO_PRICE_SATS: 21000,                 // 21k sats/month
 } as const;
 
 /**

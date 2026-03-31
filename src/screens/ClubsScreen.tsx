@@ -18,7 +18,6 @@ import { Club } from '../types/club';
 import { ClubService } from '../services/backend/ClubService';
 import { ClubMembershipService } from '../services/backend/ClubMembershipService';
 import { ClubCard } from '../components/club/ClubCard';
-import { SubscriptionService } from '../services/backend/SubscriptionService';
 import { SimpleTeamCreationModal } from '../components/subscription/SimpleTeamCreationModal';
 import { nostrProfileService, NostrProfile } from '../services/nostr/NostrProfileService';
 
@@ -32,7 +31,7 @@ const ClubsScreenComponent: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSubscriber, setIsSubscriber] = useState(false); // true for 'pro' tier (gates club creation)
+  // Club creation is available to all users
   const [showCreateClub, setShowCreateClub] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [captainProfiles, setCaptainProfiles] = useState<Map<string, NostrProfile>>(new Map());
@@ -86,14 +85,6 @@ const ClubsScreenComponent: React.FC = () => {
           setMyRole(null);
         }
 
-        // Check subscriber status - only Pro can create clubs
-        const cachedTier = await SubscriptionService.getCachedTier();
-        if (cachedTier !== null) {
-          setIsSubscriber(cachedTier === 'pro');
-        } else {
-          const fresh = await SubscriptionService.isProSubscriber(npub);
-          setIsSubscriber(fresh);
-        }
       } else {
         setMyClub(null);
         setMyRole(null);

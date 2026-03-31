@@ -52,7 +52,6 @@ interface ProfileScreenProps {
   onReceive?: () => void;
   onWalletHistory?: () => void;
   onSyncSourcePress?: (provider: string) => void;
-  onManageSubscription?: () => void;
   onHelp?: () => void;
   onContactSupport?: () => void;
   onPrivacyPolicy?: () => void;

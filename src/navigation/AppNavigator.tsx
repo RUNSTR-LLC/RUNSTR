@@ -219,7 +219,6 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
               onViewCurrentTeam={() => navigation.navigate('Social')}
               onEditProfile={() => navigation.navigate('ProfileEdit')}
               onSyncSourcePress={handlers.handleSyncSourcePress}
-              onManageSubscription={handlers.handleManageSubscription}
               onHelp={() => handlers.handleHelp(navigation)}
               onContactSupport={() => handlers.handleContactSupport(navigation)}
               onPrivacyPolicy={() => handlers.handlePrivacyPolicy(navigation)}

@@ -36,7 +36,6 @@ import { LightningAddressSetupModal } from '../components/wallet/LightningAddres
 import { DirectNostrProfileService } from '../services/user/directNostrProfileService';
 import { RewardLightningAddressService } from '../services/rewards/RewardLightningAddressService';
 import { SimpleTeamCreationModal } from '../components/subscription/SimpleTeamCreationModal';
-import { SubscriptionService, SubscriptionTier } from '../services/backend/SubscriptionService';
 import { CommunityTeamsSection } from '../components/team/CommunityTeamsSection';
 import { UserTeamService } from '../services/backend/UserTeamService';
 
@@ -211,8 +210,7 @@ const TeamsScreenComponent: React.FC = () => {
   const [userLightningAddress, setUserLightningAddress] = useState<string | null>(null);
 
 
-  // Subscription / team creation state
-  const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>('free');
+  // Team creation state
   const [showCreateTeam, setShowCreateTeam] = useState(false);
 
   // Community teams refresh trigger
@@ -258,18 +256,6 @@ const TeamsScreenComponent: React.FC = () => {
           // Load user's Lightning address
           const lnAddr = await RewardLightningAddressService.getRewardLightningAddress();
           setUserLightningAddress(lnAddr);
-
-          // Check subscription tier (cache first, then fresh check)
-          const cachedTier = await SubscriptionService.getCachedTier();
-          if (cachedTier !== null) {
-            setSubscriptionTier(cachedTier);
-          } else {
-            const userNpub = await AsyncStorage.getItem('@runstr:npub');
-            if (userNpub) {
-              const tier = await SubscriptionService.getSubscriptionTier(userNpub);
-              setSubscriptionTier(tier);
-            }
-          }
         } catch (error) {
           console.error('[TeamsScreen] Error loading state:', error);
         }

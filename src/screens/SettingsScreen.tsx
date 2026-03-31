@@ -63,7 +63,6 @@ import { AutoBackupService } from '../services/backup/AutoBackupService';
 import { BackupService } from '../services/backup/BackupService';
 import { SecureNsecStorage } from '../services/auth/SecureNsecStorage';
 import { defaultActivityService, type DefaultActivity } from '../services/activity/DefaultActivityService';
-import { SubscriptionService, type SubscriptionTier } from '../services/backend/SubscriptionService';
 import { REWARD_CONFIG } from '../config/rewards';
 import { NWCStorageService } from '../services/wallet/NWCStorageService';
 import { NWCWalletService } from '../services/wallet/NWCWalletService';
@@ -157,9 +156,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Subscription tier state
-  const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>('free');
-
   // NWC Wallet state
   const [hasNWCWallet, setHasNWCWallet] = useState(false);
   const [showWalletConfigModal, setShowWalletConfigModal] = useState(false);
@@ -168,6 +164,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [scannedNWCString, setScannedNWCString] = useState('');
   const [showAgentSkillModal, setShowAgentSkillModal] = useState(false);
   const [privateModeEnabled, setPrivateModeEnabled] = useState(false);
+
+  // Apple Health state (iOS only)
+  const [healthKitSyncEnabled, setHealthKitSyncEnabled] = useState(false);
+  const [healthKitAuthorized, setHealthKitAuthorized] = useState(false);
+  const [healthKitLastSync, setHealthKitLastSync] = useState<string | null>(null);
 
   // Rewards settings state (Lightning address removed - now in Teams tab)
 
@@ -275,15 +276,21 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       const privateMode = await AsyncStorage.getItem('@runstr:private_mode');
       setPrivateModeEnabled(privateMode === 'true');
 
-      // Load subscription tier
-      if (npub) {
+      // Load Apple Health settings (iOS only)
+      if (Platform.OS === 'ios') {
         try {
-          const tier = await SubscriptionService.getSubscriptionTier(npub);
-          setSubscriptionTier(tier);
-        } catch (subError) {
-          console.warn('[Settings] Subscription tier load failed:', subError);
+          const hkSyncPref = await AsyncStorage.getItem('@runstr:healthkit_sync_enabled');
+          setHealthKitSyncEnabled(hkSyncPref !== 'false'); // default to true on iOS
+          const { HealthKitService } = await import('../services/fitness/healthKitService');
+          const hkService = HealthKitService.getInstance();
+          const status = hkService.getStatus();
+          setHealthKitAuthorized(status.authorized);
+          setHealthKitLastSync(status.lastSyncAt ?? null);
+        } catch (hkError) {
+          console.warn('[Settings] HealthKit status load failed:', hkError);
         }
       }
+
     } catch (error) {
       console.error('Error loading settings:', error);
     }
@@ -438,6 +445,43 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       console.error('Error saving auto-backup setting:', error);
       const current = await AutoBackupService.getInstance().isAutoBackupEnabled();
       setAutoBackupEnabled(current);
+    }
+  };
+
+  const handleHealthKitSyncToggle = async (enabled: boolean) => {
+    try {
+      if (enabled) {
+        // Request HealthKit permissions when enabling
+        const { HealthKitService } = await import('../services/fitness/healthKitService');
+        const hkService = HealthKitService.getInstance();
+        const result = await hkService.requestPermissions();
+        if (result.success) {
+          await AsyncStorage.setItem('@runstr:healthkit_sync_enabled', 'true');
+          setHealthKitSyncEnabled(true);
+          setHealthKitAuthorized(true);
+          // Re-enable background delivery
+          const { HealthKitBackgroundService } = await import('../services/fitness/HealthKitBackgroundService');
+          const bgService = HealthKitBackgroundService.getInstance();
+          await bgService.setupBackgroundDelivery();
+        } else {
+          setAlertTitle('Apple Health Access');
+          setAlertMessage(
+            'RUNSTR needs access to Apple Health to sync your workouts automatically.\n\n' +
+            'You can enable this in Settings > Privacy & Security > Health > RUNSTR.'
+          );
+          setAlertButtons([{ text: 'OK' }]);
+          setAlertVisible(true);
+        }
+      } else {
+        await AsyncStorage.setItem('@runstr:healthkit_sync_enabled', 'false');
+        setHealthKitSyncEnabled(false);
+        // Cleanup background delivery
+        const { HealthKitBackgroundService } = await import('../services/fitness/HealthKitBackgroundService');
+        const bgService = HealthKitBackgroundService.getInstance();
+        await bgService.cleanup();
+      }
+    } catch (error) {
+      console.error('[Settings] HealthKit sync toggle error:', error);
     }
   };
 
@@ -1049,6 +1093,49 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </SettingsAccordion>
         </View>
 
+        {/* Apple Health Accordion (iOS only) */}
+        {Platform.OS === 'ios' && (
+        <View style={styles.section}>
+          <SettingsAccordion title="Apple Health" defaultExpanded={false}>
+            <Card style={styles.accordionCard}>
+              <SettingItem
+                title="Sync Workouts"
+                subtitle="Automatically sync workouts from Apple Health"
+                rightElement={
+                  <Switch
+                    value={healthKitSyncEnabled}
+                    onValueChange={handleHealthKitSyncToggle}
+                    trackColor={{
+                      false: theme.colors.warning,
+                      true: theme.colors.accent,
+                    }}
+                    thumbColor={theme.colors.orangeBright}
+                  />
+                }
+              />
+              <SettingItem
+                title="Connection Status"
+                subtitle={healthKitAuthorized ? 'Connected' : 'Not connected'}
+              />
+              {healthKitLastSync && (
+                <SettingItem
+                  title="Last Sync"
+                  subtitle={(() => {
+                    const diff = Date.now() - new Date(healthKitLastSync).getTime();
+                    const mins = Math.floor(diff / 60000);
+                    if (mins < 1) return 'Just now';
+                    if (mins < 60) return `${mins}m ago`;
+                    const hrs = Math.floor(mins / 60);
+                    if (hrs < 24) return `${hrs}h ago`;
+                    return `${Math.floor(hrs / 24)}d ago`;
+                  })()}
+                />
+              )}
+            </Card>
+          </SettingsAccordion>
+        </View>
+        )}
+
         {/* Data & Backup Accordion */}
         <View style={styles.section}>
           <SettingsAccordion title="Data & Backup" defaultExpanded={false}>
@@ -1151,16 +1238,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               <View style={styles.rewardsSubsection}>
                 <Text style={styles.subsectionTitle}>Rewards</Text>
 
-
-                {/* Subscription Plan */}
-                <View style={styles.rewardSettingRow}>
-                  <View style={styles.rewardSettingInfo}>
-                    <Text style={styles.rewardSettingTitle}>Subscription Plan</Text>
-                    <Text style={styles.rewardSettingSubtitle}>
-                      {REWARD_CONFIG.DAILY_WORKOUT_REWARD} rewards per workout
-                    </Text>
-                  </View>
-                </View>
 
                 {/* Lightning Address - Managed in Teams tab */}
                 <View style={styles.rewardSettingRow}>
