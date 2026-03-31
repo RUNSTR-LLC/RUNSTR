@@ -744,22 +744,6 @@ const styles = StyleSheet.create({
     borderTopColor: '#1a1a1a',
   },
 
-  // Subscription status card styles
-  subscriptionCard: {
-    backgroundColor: '#0a0a0a',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#1a1a1a',
-    padding: 16,
-    marginBottom: 8,
-  },
-  subscriptionCardTitle: {
-    fontSize: 12,
-    fontWeight: theme.typography.weights.bold,
-    color: '#FF9D42',
-    letterSpacing: 1,
-    marginBottom: 14,
-  },
   subscriptionRateRow: {
     flexDirection: 'row',
     alignItems: 'center',
