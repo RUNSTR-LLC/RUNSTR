@@ -249,13 +249,8 @@ class LocationPermissionService {
   async openLocationSettings(): Promise<void> {
     try {
       if (Platform.OS === 'ios') {
-        const settingsUrl = 'app-settings:';
-        const canOpenSettingsUrl = await Linking.canOpenURL(settingsUrl);
-
-        if (canOpenSettingsUrl) {
-          await Linking.openURL(settingsUrl);
-          return;
-        }
+        await Linking.openURL('app-settings:');
+        return;
       }
 
       await Linking.openSettings();
