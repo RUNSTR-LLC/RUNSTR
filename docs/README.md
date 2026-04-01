@@ -7,6 +7,7 @@ Centralized documentation for the RUNSTR REWARDS project, including implementati
 **Core Documentation**: [Project Overview](#project-overview) · [Integration Guides](#integration-guides) · [Testing](#testing-documentation) · [Architecture](#architecture--planning)
 
 **Essential Files**:
+- [GETTING_STARTED.md](GETTING_STARTED.md) - Contributor onboarding quick path
 - [../README.md](../README.md) - Main project README
 - [../CLAUDE.md](../CLAUDE.md) - Claude context and instructions
 - [../CHANGELOG.md](../CHANGELOG.md) - Project changelog
