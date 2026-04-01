@@ -141,13 +141,24 @@ export class NotificationScheduler {
     }
 
     const delay = reminderTime.getTime() - new Date().getTime();
+    const timerId = 'streak_reminder';
 
-    setTimeout(() => {
+    // Clear existing streak reminder to avoid duplicate notifications
+    if (this.activeTimers.has(timerId)) {
+      clearTimeout(this.activeTimers.get(timerId)!);
+    }
+
+    const timer = setTimeout(() => {
       this.notificationService.sendStreakReminder({
         streakDays,
         timeRemaining: '6 hours',
       });
+
+      // Timer has fired; remove it from active tracking
+      this.activeTimers.delete(timerId);
     }, delay);
+
+    this.activeTimers.set(timerId, timer as any);
   }
 
   // Schedule competition ending reminders
