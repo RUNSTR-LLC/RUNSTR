@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a1a',
   },
   pillText: {
-    color: theme.colors.textDark,
+    color: theme.colors.textMuted,
     fontSize: 13,
     fontWeight: theme.typography.weights.medium,
   },
