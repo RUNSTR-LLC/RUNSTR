@@ -17,7 +17,6 @@ import { Team } from '../../types';
 import { isTeamCaptain } from '../../utils/teamUtils';
 import { ClubMembershipService } from '../../services/backend/ClubMembershipService';
 import leagueRankingService from '../../services/competition/leagueRankingService';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface CompactTeamCardProps {
   team: Team;

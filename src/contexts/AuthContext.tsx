@@ -17,13 +17,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthService } from '../services/auth/authService';
 import { getNpubFromStorage, getUserNostrIdentifiers } from '../utils/nostr';
 import { DirectNostrProfileService } from '../services/user/directNostrProfileService';
-import { locationPermissionService } from '../services/activity/LocationPermissionService';
 import unifiedCache from '../services/cache/UnifiedNostrCache';
 import { CacheKeys } from '../constants/cacheTTL';
 import type { User } from '../types';
 import { PerformanceLogger } from '../utils/PerformanceLogger';
 import { NostrFetchLogger } from '../utils/NostrFetchLogger';
-import { LocalTeamMembershipService } from '../services/team/LocalTeamMembershipService';
 import VerificationService from '../services/verification/VerificationService';
 import { UnifiedSigningService } from '../services/auth/UnifiedSigningService';
 

@@ -21,7 +21,6 @@ import { CacheKeys, CacheTTL } from '../../../constants/cacheTTL';
 import type { NostrWorkout } from '../../../types/nostrWorkout';
 import type { UnifiedWorkout } from '../../../services/fitness/workoutMergeService';
 import type { Workout } from '../../../types/workout';
-import { Ionicons } from '@expo/vector-icons';
 
 interface PublicWorkoutsTabProps {
   userId: string;

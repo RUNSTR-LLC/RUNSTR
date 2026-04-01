@@ -3,7 +3,6 @@
  * Dark-themed toast notifications for RUNSTR app
  */
 
-import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';

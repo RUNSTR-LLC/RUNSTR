@@ -1,6 +1,6 @@
 // src/components/lottery/LotteryWheel.tsx
 
-import React, { useRef, useCallback, useImperativeHandle, forwardRef, useEffect } from 'react';
+import { useRef, useCallback, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { View, StyleSheet, Animated, Easing } from 'react-native';
 import Svg, { Path, G, Text as SvgText, Polygon } from 'react-native-svg';
 import { theme } from '../../styles/theme';

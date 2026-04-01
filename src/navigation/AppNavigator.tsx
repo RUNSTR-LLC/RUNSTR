@@ -46,7 +46,6 @@ import { ActivityTrackerScreen } from '../screens/activity/ActivityTrackerScreen
 import { Season2Screen } from '../screens/season2/Season2Screen';
 import { CompeteScreen } from '../screens/CompeteScreen';
 import { LeaderboardsScreen } from '../screens/LeaderboardsScreen';
-import type { DiscoveredNostrUser } from '../services/user/UserDiscoveryService';
 
 // Navigation Configuration
 import {

@@ -1,7 +1,7 @@
 // src/components/activity/ActivityPill.tsx
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import type { ActivityIconConfig } from '../../types/activityMenu';

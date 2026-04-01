@@ -3,7 +3,7 @@
  * Settings UI for syncing Nostr identity to Apple Watch
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,

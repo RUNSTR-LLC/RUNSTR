@@ -18,10 +18,7 @@ import {
 import { theme } from '../../styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { NWCWalletService } from '../../services/wallet/NWCWalletService';
-import { nip19 } from 'nostr-tools';
-import { FEATURES } from '../../config/features';
 import { NWCStorageService } from '../../services/wallet/NWCStorageService';
-import { PaymentRouter } from '../../services/wallet/PaymentRouter';
 
 interface SendModalProps {
   visible: boolean;

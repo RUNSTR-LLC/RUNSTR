@@ -8,8 +8,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { View, Text, StyleSheet } from 'react-native';
 import { theme } from '../../styles/theme';
 import { supabase, isSupabaseConfigured } from '../../utils/supabase';
 import { nostrProfileService } from '../../services/nostr/NostrProfileService';

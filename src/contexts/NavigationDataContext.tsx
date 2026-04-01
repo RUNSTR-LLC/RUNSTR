@@ -12,13 +12,10 @@ import React, {
   useMemo,
   ReactNode,
 } from 'react';
-import { InteractionManager, Platform } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthService } from '../services/auth/authService';
 import { DirectNostrProfileService } from '../services/user/directNostrProfileService';
 import { CaptainCache } from '../utils/captainCache';
 import { TeamMembershipService } from '../services/team/teamMembershipService';
-import { isTeamCaptainEnhanced } from '../utils/teamUtils';
 import { getUserNostrIdentifiers } from '../utils/nostr';
 import { useAuth } from './AuthContext';
 import unifiedCache from '../services/cache/UnifiedNostrCache';

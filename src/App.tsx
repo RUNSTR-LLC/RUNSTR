@@ -179,7 +179,6 @@ import { Season2Screen } from './screens/season2/Season2Screen';
 import { CompeteScreen } from './screens/CompeteScreen';
 import { LeaderboardsScreen } from './screens/LeaderboardsScreen';
 import { RewardsScreen } from './screens/RewardsScreen';
-import { DonateScreen } from './screens/DonateScreen';
 import { TeamsScreen } from './screens/TeamsScreen';
 import { EventsScreen } from './screens/EventsScreen';
 import { ActivityTrackerScreen } from './screens/activity/ActivityTrackerScreen';
@@ -187,7 +186,6 @@ import { JournalHistoryScreen } from './screens/JournalHistoryScreen';
 import { StatsDetailScreen } from './screens/StatsDetailScreen';
 import { useWalletStore } from './store/walletStore';
 import { theme } from './styles/theme';
-import unifiedCache from './services/cache/UnifiedNostrCache';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   safeGetItem,
@@ -195,10 +193,7 @@ import {
   safeMultiGet,
   safeRemoveItem,
 } from './utils/asyncStorageTimeout';
-import { PerformanceLogger } from './utils/PerformanceLogger';
 import { AppStateManager } from './services/core/AppStateManager';
-import { appPermissionService } from './services/initialization/AppPermissionService';
-import { PermissionRequestModal } from './components/permissions/PermissionRequestModal';
 import { WelcomePermissionModal } from './components/onboarding/WelcomePermissionModal';
 import AppInitializationService from './services/core/AppInitializationService';
 import { StepCompetitionService } from './services/competition/StepCompetitionService';
