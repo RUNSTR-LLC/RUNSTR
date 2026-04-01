@@ -4,7 +4,7 @@
  * Supports RUNSTR event joining with free/paid options
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,

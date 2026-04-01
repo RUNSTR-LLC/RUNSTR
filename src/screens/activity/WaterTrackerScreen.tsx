@@ -3,7 +3,7 @@
  * Track water consumption with quick-add buttons and daily goal progress
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,

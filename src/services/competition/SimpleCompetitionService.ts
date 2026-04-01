@@ -9,7 +9,6 @@ import type { NDKFilter, NDKEvent } from '@nostr-dev-kit/ndk';
 import unifiedCache from '../cache/UnifiedNostrCache';
 import { CacheKeys, CacheTTL } from '../../constants/cacheTTL';
 import type { NostrChallengeDefinition } from '../../types/nostrCompetition';
-import { ClubMembershipService } from '../backend/ClubMembershipService';
 
 export interface League {
   id: string; // d tag

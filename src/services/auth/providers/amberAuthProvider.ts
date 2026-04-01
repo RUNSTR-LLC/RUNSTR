@@ -6,7 +6,6 @@
 
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { NDKUser } from '@nostr-dev-kit/ndk';
 import type { AuthResult, User } from '../../../types';
 import { AmberNDKSigner } from '../amber/AmberNDKSigner';
 import { DirectNostrProfileService } from '../../user/directNostrProfileService';

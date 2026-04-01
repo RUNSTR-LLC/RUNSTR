@@ -11,7 +11,7 @@ import {
   normalizeNsecInput,
 } from '../../../utils/nostr';
 import { storeAuthenticationData } from '../../../utils/nostrAuth';
-import type { AuthResult, CreateUserData, User } from '../../../types';
+import type { AuthResult, User } from '../../../types';
 import {
   DirectNostrProfileService,
   type DirectNostrUser,

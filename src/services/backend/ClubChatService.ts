@@ -11,7 +11,6 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, isSupabaseConfigured } from '../../utils/supabase';
-import { ClubMembershipService } from './ClubMembershipService';
 import { callEdgeFunction } from '../../utils/edgeFunctions';
 import type { ClubMessage, ClubMessageType, WorkoutMessageMetadata } from '../../types/club';
 import type { RealtimeChannel } from '@supabase/supabase-js';
