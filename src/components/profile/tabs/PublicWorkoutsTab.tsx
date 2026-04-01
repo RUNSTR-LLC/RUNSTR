@@ -14,7 +14,6 @@ import {
   MonthlyWorkoutGroup,
   groupWorkoutsByMonth,
 } from '../shared/MonthlyWorkoutGroup';
-// import { WorkoutLevelRing } from '../WorkoutLevelRing'; // Hidden for alpha release
 import { Nuclear1301Service } from '../../../services/fitness/Nuclear1301Service';
 import unifiedCache from '../../../services/cache/UnifiedNostrCache';
 import { CacheKeys, CacheTTL } from '../../../constants/cacheTTL';

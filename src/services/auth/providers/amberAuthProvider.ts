@@ -10,7 +10,6 @@ import { NDKUser } from '@nostr-dev-kit/ndk';
 import type { AuthResult, User } from '../../../types';
 import { AmberNDKSigner } from '../amber/AmberNDKSigner';
 import { DirectNostrProfileService } from '../../user/directNostrProfileService';
-// import nutzapService from '../../nutzap/nutzapService';
 import * as Linking from 'expo-linking';
 
 export class AmberAuthProvider {

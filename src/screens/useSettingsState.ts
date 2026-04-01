@@ -8,7 +8,6 @@ import {
   TTSPreferencesService,
   type TTSSettings,
 } from '../services/activity/TTSPreferencesService';
-import { AutoCompetePreferencesService } from '../services/activity/AutoCompetePreferencesService';
 import { DeleteAccountService } from '../services/auth/DeleteAccountService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
@@ -16,7 +15,6 @@ import * as SecureStore from 'expo-secure-store';
 import * as Clipboard from 'expo-clipboard';
 import RNRestart from 'react-native-restart';
 import { AuthService } from '../services/auth/authService';
-import { dailyStepCounterService } from '../services/activity/DailyStepCounterService';
 import Toast from 'react-native-toast-message';
 import { useUnitPreference } from '../hooks/useUnitPreference';
 import { useTranslation } from 'react-i18next';
@@ -50,7 +48,6 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
   const [currentLanguage, setCurrentLanguage] = useState<LanguageCode>(
     LanguagePreferenceService.getCurrentLanguage()
   );
-  const [userRole, setUserRole] = useState<'captain' | 'member' | null>(null);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [userNsec, setUserNsec] = useState<string | null>(null);
   const [userNpub, setUserNpub] = useState<string | null>(null);
@@ -61,10 +58,7 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
     includeSplits: false,
     announceLiveSplits: false,
   });
-  const [backgroundTrackingEnabled, setBackgroundTrackingEnabled] = useState(false);
-  const [autoCompeteEnabled, setAutoCompeteEnabled] = useState(false);
   const [showAntiCheatModal, setShowAntiCheatModal] = useState(false);
-  const [importing, setImporting] = useState(false);
   const [musicPlayerHeaderEnabled, setMusicPlayerHeaderEnabled] = useState(false);
   const [wotScore, setWotScore] = useState<number | null>(null);
   const [showExportModal, setShowExportModal] = useState(false);
@@ -109,21 +103,11 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
       const ttsPrefs = await TTSPreferencesService.getTTSSettings();
       setTtsSettings(ttsPrefs);
 
-      const keys = ['@runstr:user_role', '@runstr:npub'];
-      const values = await AsyncStorage.multiGet(keys);
-      const storedRole = values[0][1];
-      const npub = values[1][1];
+      const npub = await AsyncStorage.getItem('@runstr:npub');
       const nsec = await SecureNsecStorage.getNsec();
 
-      setUserRole(storedRole as 'captain' | 'member' | null);
       setUserNsec(nsec);
       setUserNpub(npub);
-
-      const trackingEnabled = await dailyStepCounterService.isBackgroundTrackingEnabled();
-      setBackgroundTrackingEnabled(trackingEnabled);
-
-      const autoCompete = await AutoCompetePreferencesService.isAutoCompeteEnabled();
-      setAutoCompeteEnabled(autoCompete);
 
       const musicHeaderEnabled = await MusicPlayerPreferencesService.isMusicPlayerHeaderEnabled();
       setMusicPlayerHeaderEnabled(musicHeaderEnabled);

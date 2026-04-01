@@ -11,14 +11,11 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
-// Navigation container provided by Expo Router - removed NavigationContainer import
-// ✅ PERFORMANCE: Using native stack for faster transitions (runs on UI thread)
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { theme } from '../styles/theme';
 
 // Screens
-// import { EnhancedTeamScreen } from '../screens/EnhancedTeamScreen'; // REMOVED: Dead code - not used in authenticated flow
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { ProfileEditScreen } from '../screens/ProfileEditScreen';
 import { WalletScreen } from '../screens/WalletScreen';
