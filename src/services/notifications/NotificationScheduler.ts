@@ -141,13 +141,23 @@ export class NotificationScheduler {
     }
 
     const delay = reminderTime.getTime() - new Date().getTime();
+    const timerId = 'streak_reminder';
 
-    setTimeout(() => {
+    // Clear existing streak reminder timer before rescheduling
+    if (this.activeTimers.has(timerId)) {
+      clearTimeout(this.activeTimers.get(timerId)!);
+    }
+
+    const timer = setTimeout(() => {
       this.notificationService.sendStreakReminder({
         streakDays,
         timeRemaining: '6 hours',
       });
+
+      this.activeTimers.delete(timerId);
     }, delay);
+
+    this.activeTimers.set(timerId, timer as any);
   }
 
   // Schedule competition ending reminders
