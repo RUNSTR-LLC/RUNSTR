@@ -43,8 +43,8 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const [hasNWC, setHasNWC] = useState(false);
   const [isReady, setIsReady] = useState(false);
-  const checkIntervalRef = React.useRef<NodeJS.Timeout>();
-  const stopCheckingTimeoutRef = React.useRef<NodeJS.Timeout>();
+  const checkIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+  const stopCheckingTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Check NWC availability when modal opens
   useEffect(() => {
@@ -54,11 +54,11 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
     return () => {
       if (checkIntervalRef.current) {
         clearInterval(checkIntervalRef.current);
-        checkIntervalRef.current = undefined;
+        checkIntervalRef.current = null;
       }
       if (stopCheckingTimeoutRef.current) {
         clearTimeout(stopCheckingTimeoutRef.current);
-        stopCheckingTimeoutRef.current = undefined;
+        stopCheckingTimeoutRef.current = null;
       }
     };
   }, [visible]);
@@ -111,11 +111,11 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
           if (lookupResult.success && lookupResult.paid) {
             if (checkIntervalRef.current) {
               clearInterval(checkIntervalRef.current);
-              checkIntervalRef.current = undefined;
+              checkIntervalRef.current = null;
             }
             if (stopCheckingTimeoutRef.current) {
               clearTimeout(stopCheckingTimeoutRef.current);
-              stopCheckingTimeoutRef.current = undefined;
+              stopCheckingTimeoutRef.current = null;
             }
 
             setIsCheckingPayment(false);
@@ -134,10 +134,10 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
       stopCheckingTimeoutRef.current = setTimeout(() => {
         if (checkIntervalRef.current) {
           clearInterval(checkIntervalRef.current);
-          checkIntervalRef.current = undefined;
+          checkIntervalRef.current = null;
         }
         setIsCheckingPayment(false);
-        stopCheckingTimeoutRef.current = undefined;
+        stopCheckingTimeoutRef.current = null;
       }, 600000);
     } catch (error) {
       console.error('Generate invoice error:', error);
@@ -184,11 +184,11 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
 
     if (checkIntervalRef.current) {
       clearInterval(checkIntervalRef.current);
-      checkIntervalRef.current = undefined;
+      checkIntervalRef.current = null;
     }
     if (stopCheckingTimeoutRef.current) {
       clearTimeout(stopCheckingTimeoutRef.current);
-      stopCheckingTimeoutRef.current = undefined;
+      stopCheckingTimeoutRef.current = null;
     }
 
     onClose();
@@ -312,11 +312,11 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
                   setAmount('');
                   if (checkIntervalRef.current) {
                     clearInterval(checkIntervalRef.current);
-                    checkIntervalRef.current = undefined;
+                    checkIntervalRef.current = null;
                   }
                   if (stopCheckingTimeoutRef.current) {
                     clearTimeout(stopCheckingTimeoutRef.current);
-                    stopCheckingTimeoutRef.current = undefined;
+                    stopCheckingTimeoutRef.current = null;
                   }
                   setIsCheckingPayment(false);
                 }}
