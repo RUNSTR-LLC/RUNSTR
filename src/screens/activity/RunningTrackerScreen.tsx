@@ -14,7 +14,6 @@ import {
   InteractionManager,
   StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as TaskManager from 'expo-task-manager';
@@ -27,7 +26,6 @@ import { CustomAlert } from '../../components/ui/CustomAlert';
 import { simpleRunTracker } from '../../services/activity/SimpleRunTracker';
 import type {
   RunSession,
-  GPSPoint,
 } from '../../services/activity/SimpleRunTracker';
 import type { Split } from '../../services/activity/SplitTrackingService';
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
@@ -41,7 +39,6 @@ import { HoldToStartButton } from '../../components/activity/HoldToStartButton';
 import { AppStateManager } from '../../services/core/AppStateManager';
 // Weekly distance goal components
 import {
-  WeeklyDistanceGoalCard,
   type PostingState,
 } from '../../components/activity/WeeklyDistanceGoalCard';
 import { DistanceGoalPickerModal } from '../../components/activity/DistanceGoalPickerModal';
@@ -59,7 +56,6 @@ import {
 } from '../../components/activity/SecondaryMetricRow';
 import { SplitsBar } from '../../components/activity/SplitsBar';
 import { CountdownOverlay } from '../../components/activity/CountdownOverlay';
-import { LastActivityCard } from '../../components/activity/LastActivityCard';
 // Debug overlays for GPS and step diagnosis
 import { ActivityDebugOverlay } from '../../components/debug/ActivityDebugOverlay';
 import { StepDebugOverlay } from '../../components/debug/StepDebugOverlay';

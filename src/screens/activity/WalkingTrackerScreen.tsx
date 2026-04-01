@@ -19,7 +19,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
-import { AppStateManager } from '../../services/core/AppStateManager';
 import { CustomAlert } from '../../components/ui/CustomAlert';
 import { simpleRunTracker } from '../../services/activity/SimpleRunTracker';
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
@@ -34,7 +33,6 @@ import {
 } from '../../components/activity/DailyStepGoalCard';
 import { dailyStepCounterService } from '../../services/activity/DailyStepCounterService';
 import { dailyStepGoalService } from '../../services/activity/DailyStepGoalService';
-import type { DailyStepData } from '../../services/activity/DailyStepCounterService';
 import type { StepGoalProgress } from '../../services/activity/DailyStepGoalService';
 import { HoldToStartButton } from '../../components/activity/HoldToStartButton';
 import { StepGoalPickerModal } from '../../components/activity/StepGoalPickerModal';
@@ -47,7 +45,6 @@ import {
 } from '../../components/activity/SecondaryMetricRow';
 import { CountdownOverlay } from '../../components/activity/CountdownOverlay';
 import { ControlBar } from '../../components/activity/ControlBar';
-import { LastActivityCard } from '../../components/activity/LastActivityCard';
 import { nostrProfileService } from '../../services/nostr/NostrProfileService';
 import type { NostrProfile } from '../../services/nostr/NostrProfileService';
 import AsyncStorage from '@react-native-async-storage/async-storage';

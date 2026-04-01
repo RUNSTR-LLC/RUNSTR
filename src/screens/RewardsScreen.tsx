@@ -38,14 +38,12 @@ import { RewardDestinationSection } from '../components/rewards/RewardDestinatio
 import { RewardDestinationPicker } from '../components/rewards/RewardDestinationPicker';
 import { SponsorBanner } from '../components/rewards/SponsorBanner';
 import { PledgeService } from '../services/pledge/PledgeService';
-import { ActivePledgeCard } from '../components/pledge/ActivePledgeCard';
 import type { Pledge } from '../types/pledge';
 import { useTranslation } from 'react-i18next';
 import { SupabaseRewardService } from '../services/rewards/SupabaseRewardService';
 import { RewardDestinationService } from '../services/rewards/RewardDestinationService';
 import { PPQCreditTopupModal } from '../components/ai/PPQCreditTopupModal';
 import { DirectNostrProfileService } from '../services/user/directNostrProfileService';
-import { REWARD_CONFIG } from '../config/rewards';
 import { LotteryWheelSection } from '../components/lottery/LotteryWheelSection';
 
 // Storage keys for donation settings

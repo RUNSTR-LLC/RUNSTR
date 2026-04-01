@@ -29,8 +29,6 @@ import { NostrFetchLogger } from '../utils/NostrFetchLogger';
 import { MusicPlayerPreferencesService } from '../services/music/MusicPlayerPreferencesService';
 import { HeaderMusicControls } from '../components/music/HeaderMusicControls';
 import { ProfileHero } from '../components/profile/ProfileHero';
-import { ProfileDashboardGrid } from '../components/profile/ProfileDashboardGrid';
-import { LightningActionCards } from '../components/profile/LightningActionCards';
 import { LevelCard } from '../components/profile/LevelCard';
 import { ActivityBreakdown } from '../components/profile/ActivityBreakdown';
 import { ClubAffiliationsSection } from '../components/profile/ClubAffiliationsSection';

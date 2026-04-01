@@ -28,7 +28,6 @@ import { theme } from '../../styles/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 // Weekly distance goal components
 import {
-  WeeklyDistanceGoalCard,
   type PostingState,
 } from '../../components/activity/WeeklyDistanceGoalCard';
 import { DistanceGoalPickerModal } from '../../components/activity/DistanceGoalPickerModal';
@@ -47,7 +46,6 @@ import {
 import { CountdownOverlay } from '../../components/activity/CountdownOverlay';
 import { ControlBar } from '../../components/activity/ControlBar';
 import { HoldToStartButton } from '../../components/activity/HoldToStartButton';
-import { LastActivityCard } from '../../components/activity/LastActivityCard';
 import { StepDebugOverlay } from '../../components/debug/StepDebugOverlay';
 
 interface CyclingTrackerScreenProps {

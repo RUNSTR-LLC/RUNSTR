@@ -19,7 +19,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 import { EventsContent } from '../components/compete';
 import { SimpleEventCreationModal } from '../components/creation/SimpleEventCreationModal';

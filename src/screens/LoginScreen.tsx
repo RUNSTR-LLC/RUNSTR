@@ -19,11 +19,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../styles/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { validateNsec } from '../utils/nostr';
-import { AmberAuthProvider } from '../services/auth/providers/amberAuthProvider';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IS_SMALL_DEVICE = SCREEN_HEIGHT < 700;
