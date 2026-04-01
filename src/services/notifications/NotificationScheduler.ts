@@ -160,8 +160,13 @@ export class NotificationScheduler {
 
     if (reminderTime > now) {
       const delay = reminderTime.getTime() - now.getTime();
+      const timerId = `ending_reminder_${event.id}`;
 
-      setTimeout(() => {
+      if (this.activeTimers.has(timerId)) {
+        clearTimeout(this.activeTimers.get(timerId)!);
+      }
+
+      const timer = setTimeout(() => {
         this.notificationService.scheduleNotification({
           id: `ending_reminder_${event.id}`,
           type: 'competition_ending_soon',
@@ -171,7 +176,11 @@ export class NotificationScheduler {
           isRead: false,
           eventId: event.id,
         });
+
+        this.activeTimers.delete(timerId);
       }, delay);
+
+      this.activeTimers.set(timerId, timer as any);
     }
   }
 
@@ -181,8 +190,13 @@ export class NotificationScheduler {
     nextMonday.setHours(9, 0, 0, 0);
 
     const delay = nextMonday.getTime() - new Date().getTime();
+    const timerId = 'weekly_earnings_summary';
 
-    setTimeout(() => {
+    if (this.activeTimers.has(timerId)) {
+      clearTimeout(this.activeTimers.get(timerId)!);
+    }
+
+    const timer = setTimeout(() => {
       // This would calculate actual weekly earnings
       const weeklyEarnings = this.calculateWeeklyEarnings();
 
@@ -196,9 +210,13 @@ export class NotificationScheduler {
         prizeAmount: weeklyEarnings.total,
       });
 
+      this.activeTimers.delete(timerId);
+
       // Reschedule for next week
       this.scheduleWeeklyEarningsSummary();
     }, delay);
+
+    this.activeTimers.set(timerId, timer as any);
   }
 
   // Private methods
