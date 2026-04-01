@@ -9,7 +9,6 @@
  * See AuthContext.tsx lines 629-650 for where this was disabled.
  */
 
-import { AppState, Platform } from 'react-native';
 import healthKitService from './healthKitService';
 // import workoutDataProcessor from './workoutDataProcessor';  // REMOVED: Pure Nostr - workouts processed via kind 1301 events
 // import teamLeaderboardService from './teamLeaderboardService';  // REMOVED: Pure Nostr - leaderboards query kind 1301 events directly
