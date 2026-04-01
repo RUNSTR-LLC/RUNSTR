@@ -671,7 +671,9 @@ export class SupabaseCompetitionService {
         workoutQuery = workoutQuery.eq('source', 'app');
       }
 
-      const { data: rawWorkouts } = await workoutQuery.order('created_at', { ascending: false }); // Most recent first
+      const { data: rawWorkouts } = await workoutQuery
+        .order('created_at', { ascending: false }) // Most recent first
+        .limit(5000); // Bound leaderboard fetch to protect query latency on large seasons
 
       // CRITICAL: Deduplicate workouts by (npub, distance, date) to prevent double-counting
       // Same workout can be submitted multiple times from different sources (GPS, HealthKit, Health Connect)
