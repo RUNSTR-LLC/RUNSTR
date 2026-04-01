@@ -227,8 +227,6 @@ export class SimpleRunTracker {
   // Auto-stop callback (for UI notification when preset distance reached)
   private autoStopCallback: (() => void) | null = null;
 
-  // REMOVED: Write queue no longer needed - memory-only architecture eliminates AsyncStorage GPS writes
-
   // GPS Watchdog - detects and recovers from silent GPS failures
   // Increased restarts (100 vs 5) to handle aggressive Android battery management
   // Counter resets when GPS successfully receives points, allowing unlimited recovery
@@ -694,9 +692,6 @@ export class SimpleRunTracker {
     };
   }
 
-  // REMOVED: syncGpsPointsFromStorage - no longer needed with memory-only architecture
-  // Distance is calculated incrementally, GPS points are not persisted
-
   /**
    * Set callback for auto-stop when preset distance is reached
    * @param callback - Function to call when auto-stop is triggered
@@ -911,9 +906,6 @@ export class SimpleRunTracker {
     );
   }
 
-  // REMOVED: flushPendingPointsToStorage, appendGpsPointsToStorage, saveGpsPointsToStorage
-  // Memory-only architecture - GPS points are not persisted to storage
-
   /**
    * Start periodic metrics save for crash recovery
    * Saves distance, duration, splits every 30 seconds (tiny writes, not GPS arrays)
@@ -1031,8 +1023,6 @@ export class SimpleRunTracker {
 
     return Math.round(totalGain);
   }
-
-  // REMOVED: getStoredPoints - no longer needed with memory-only architecture
 
   /**
    * Save session state to AsyncStorage (includes complete tracker state)

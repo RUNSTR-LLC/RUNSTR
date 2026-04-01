@@ -37,15 +37,6 @@ export const MyTeamsScreen: React.FC = () => {
         const npub = await AsyncStorage.getItem('@runstr:npub');
         const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
 
-        console.log(
-          '[MyTeamsScreen] 📱 Loaded npub:',
-          npub ? npub.slice(0, 20) + '...' : 'NONE'
-        );
-        console.log(
-          '[MyTeamsScreen] 📱 Loaded hex:',
-          hexPubkey ? hexPubkey.slice(0, 20) + '...' : 'NONE'
-        );
-
         if (npub) {
           setUserNpub(npub);
         }
@@ -66,15 +57,8 @@ export const MyTeamsScreen: React.FC = () => {
   // Android: Force refresh teams data on mount
   useEffect(() => {
     const initializeTeamsData = async () => {
-      console.log('[MyTeamsScreen] 📱 Android: Initializing teams data...');
-      console.log(
-        '[MyTeamsScreen] 📊 Current teams count:',
-        profileData?.teams?.length || 0
-      );
-
       // Force refresh to ensure latest data
       if (!profileData?.teams || profileData.teams.length === 0) {
-        console.log('[MyTeamsScreen] 🔄 No teams found, triggering refresh...');
         await refresh();
       }
     };
@@ -96,39 +80,9 @@ export const MyTeamsScreen: React.FC = () => {
   };
 
   const handleTeamPress = (team: Team) => {
-    console.log('[MyTeamsScreen] 🚀 START handleTeamPress');
-    console.log('[MyTeamsScreen] 📊 Team object:', {
-      id: team.id,
-      name: team.name,
-      description: team.description?.slice(0, 50) + '...',
-      hasId: !!team.id,
-      idType: typeof team.id,
-      idLength: team.id?.length,
-      allKeys: Object.keys(team),
-      captainId: team.captainId?.slice(0, 20) + '...',
-    });
-
     // Detect if user is captain of this team
-    // FIX: Compare hex pubkey (team.captainId is always hex format)
+    // Compare hex pubkey (team.captainId is always hex format)
     const isCaptain = team.captainId === userHexPubkey;
-
-    console.log('[MyTeamsScreen] 🎖️ Captain detection:', {
-      teamId: team.id,
-      teamCaptainId: team.captainId?.slice(0, 20) + '...',
-      userNpub: userNpub?.slice(0, 20) + '...',
-      userHexPubkey: userHexPubkey?.slice(0, 20) + '...',
-      isCaptain,
-    });
-
-    console.log('[MyTeamsScreen] 📍 BEFORE navigation.navigate call');
-    console.log('[MyTeamsScreen] 📦 Navigation params being passed:', {
-      teamId: team.id,
-      teamName: team.name,
-      hasTeamId: !!team.id,
-      userIsMember: true,
-      currentUserNpub: userNpub?.slice(0, 20) + '...',
-      userIsCaptain: isCaptain,
-    });
 
     // Navigate to EnhancedTeamScreen with team data and captain status
     navigation.navigate('EnhancedTeamScreen', {
@@ -138,9 +92,6 @@ export const MyTeamsScreen: React.FC = () => {
       userIsCaptain: isCaptain, // Pass captain status for captain dashboard access
     });
 
-    console.log(
-      '[MyTeamsScreen] 📍 AFTER navigation.navigate call - this should not print if frozen'
-    );
   };
 
   const handleClose = () => {
@@ -149,17 +100,6 @@ export const MyTeamsScreen: React.FC = () => {
 
   const teams = profileData?.teams || [];
   const primaryTeamId = profileData?.primaryTeamId;
-
-  // Debug logging
-  useEffect(() => {
-    console.log('[MyTeamsScreen] 📊 Render - Teams count:', teams.length);
-    console.log('[MyTeamsScreen] 📊 Profile data status:', {
-      hasProfileData: !!profileData,
-      hasTeams: !!profileData?.teams,
-      teamsLength: profileData?.teams?.length || 0,
-      isLoading: isLoadingTeam,
-    });
-  }, [teams, profileData, isLoadingTeam]);
 
   return (
     <SafeAreaView style={styles.container}>

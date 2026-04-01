@@ -489,7 +489,7 @@ export const SimpleTeamScreen: React.FC<SimpleTeamScreenProps> = ({
                   entries={leaderboards.leaderboard5k}
                   onPress={() => {
                     // TODO: Navigate to full leaderboard screen
-                    console.log('Navigate to 5K leaderboard');
+                    // TODO: Navigate to 5K leaderboard
                   }}
                   onShare={() =>
                     openShareModal(
@@ -508,7 +508,7 @@ export const SimpleTeamScreen: React.FC<SimpleTeamScreenProps> = ({
                   participants={leaderboards.leaderboard10k.length}
                   entries={leaderboards.leaderboard10k}
                   onPress={() => {
-                    console.log('Navigate to 10K leaderboard');
+                    // TODO: Navigate to 10K leaderboard
                   }}
                   onShare={() =>
                     openShareModal(
@@ -527,7 +527,7 @@ export const SimpleTeamScreen: React.FC<SimpleTeamScreenProps> = ({
                   participants={leaderboards.leaderboardHalf.length}
                   entries={leaderboards.leaderboardHalf}
                   onPress={() => {
-                    console.log('Navigate to Half Marathon leaderboard');
+                    // TODO: Navigate to Half Marathon leaderboard
                   }}
                   onShare={() =>
                     openShareModal(
@@ -546,7 +546,7 @@ export const SimpleTeamScreen: React.FC<SimpleTeamScreenProps> = ({
                   participants={leaderboards.leaderboardMarathon.length}
                   entries={leaderboards.leaderboardMarathon}
                   onPress={() => {
-                    console.log('Navigate to Marathon leaderboard');
+                    // TODO: Navigate to Marathon leaderboard
                   }}
                   onShare={() =>
                     openShareModal(

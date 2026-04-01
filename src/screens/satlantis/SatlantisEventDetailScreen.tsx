@@ -51,7 +51,6 @@ const DebugSection: React.FC<{
   const [debugInfo, setDebugInfo] = useState<string>('');
 
   const handleClearLocalJoin = async () => {
-    console.log('[DEBUG] Clearing local join for event:', eventId);
     await SatlantisEventJoinService.debugClearLocalJoin(eventPubkey, eventId);
     setDebugInfo('Local join cleared! You can now re-join.');
     // Wait a moment then refresh
@@ -65,7 +64,6 @@ const DebugSection: React.FC<{
       setDebugInfo('Error: No user pubkey available');
       return;
     }
-    console.log('[DEBUG] Force adding local join for user:', currentUserHexPubkey.slice(0, 16) + '...');
     await SatlantisEventJoinService.debugForceLocalJoin(eventPubkey, eventId, currentUserHexPubkey);
     setDebugInfo('Force joined locally! Refreshing...');
     setTimeout(() => {
@@ -79,7 +77,6 @@ const DebugSection: React.FC<{
       return;
     }
     setDebugInfo('Publishing new RSVP to Nostr...');
-    console.log('[DEBUG] Force re-joining event with pubkey:', currentUserHexPubkey.slice(0, 16) + '...');
 
     // First clear local join to allow re-joining
     await SatlantisEventJoinService.debugClearLocalJoin(eventPubkey, eventId);

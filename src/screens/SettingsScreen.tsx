@@ -188,30 +188,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     loadSettings();
   }, []);
 
-  // ✅ Load teams from NavigationDataContext - REMOVED: Users now auto-assigned to Team RUNSTR
-  // useEffect(() => {
-  //   if (profileData?.teams && Array.isArray(profileData.teams)) {
-  //     const navigationTeams = profileData.teams;
-  //     const localMemberships: LocalMembership[] = navigationTeams.map(
-  //       (team: any) => ({
-  //         teamId: team.id,
-  //         teamName: team.name,
-  //         captainPubkey: team.captainPubkey || team.captain || '',
-  //         joinedAt: team.joinedAt || Date.now(),
-  //         status: team.role === 'captain' ? 'official' : team.status || 'local',
-  //       })
-  //     );
-
-  //     console.log(
-  //       `[SettingsScreen] Loaded ${localMemberships.length} teams from NavigationDataContext (including captain teams)`
-  //     );
-  //     setFollowedTeams(localMemberships);
-  //   } else {
-  //     console.log('[SettingsScreen] No teams found in NavigationDataContext');
-  //     setFollowedTeams([]);
-  //   }
-  // }, [profileData?.teams]);
-
   const loadSettings = async () => {
     try {
       // Load TTS settings
@@ -670,56 +646,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       setImporting(false);
     }
   };
-
-  // REMOVED: handleChangeCompetitionTeam - Users now auto-assigned to Team RUNSTR
-  // const handleChangeCompetitionTeam = (teamId: string | null) => {
-  //   // If selecting the same team, just close modal
-  //   if (teamId === competitionTeam) {
-  //     setShowTeamSelectionModal(false);
-  //     return;
-  //   }
-
-  //   // Close the modal first
-  //   setShowTeamSelectionModal(false);
-
-  //   // Show confirmation for actual change
-  //   setAlertTitle('Change Competition Team?');
-  //   setAlertMessage(
-  //     teamId
-  //       ? `Your workouts will appear on ${
-  //           followedTeams.find((t) => t.teamId === teamId)?.teamName ||
-  //           'this team'
-  //         }'s leaderboards`
-  //       : 'Your workouts will not appear on any team leaderboards'
-  //   );
-  //   setAlertButtons([
-  //     { text: 'Cancel', style: 'cancel' },
-  //     {
-  //       text: 'Confirm',
-  //       onPress: async () => {
-  //         try {
-  //           if (teamId) {
-  //             await LocalTeamMembershipService.setCompetitionTeam(teamId);
-  //           } else {
-  //             await LocalTeamMembershipService.clearCompetitionTeam();
-  //           }
-  //           setCompetitionTeam(teamId);
-  //         } catch (error) {
-  //           console.error('Error changing competition team:', error);
-  //           setTimeout(() => {
-  //             setAlertTitle('Error');
-  //             setAlertMessage(
-  //               'Failed to change competition team. Please try again.'
-  //             );
-  //             setAlertButtons([{ text: 'OK' }]);
-  //             setAlertVisible(true);
-  //           }, 100);
-  //         }
-  //       },
-  //     },
-  //   ]);
-  //   setAlertVisible(true);
-  // };
 
   const handlePrivateModeToggle = async (value: boolean) => {
     try {

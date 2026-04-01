@@ -296,15 +296,6 @@ export class NostrCompetitionBridge {
         },
       };
 
-      // Get competition count for result - requires userPubkey
-      // For now, skip this as we'd need the userPubkey parameter
-      // const competitions = await this.competitionContextService.getApplicableCompetitions(
-      //   workoutData,
-      //   userId,
-      //   userPubkey
-      // );
-
-      // Return simplified result without competition count for now
       const competitionsFound = 0;
 
       return {

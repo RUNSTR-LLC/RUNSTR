@@ -153,32 +153,7 @@ export class SimpleLeaderboardService {
       `   📊 DEBUG: Starting leaderboard calculation for ${teamMembers.length} members`
     );
 
-    // ⚠️ TEMPORARY: Commented out for testing - this fetch can hang indefinitely
-    // ✅ NEW: Fetch join requests to get participation types
     const participationTypeMap = new Map<string, 'in-person' | 'virtual'>();
-    // try {
-    //   console.log(`   🔍 DEBUG: Starting join request fetch...`);
-    //   const joinRequestService = EventJoinRequestService.getInstance();
-    //   const joinRequests = await joinRequestService.getEventJoinRequestsByEventIds([event.id]);
-    //   const eventRequests = joinRequests.get(event.id) || [];
-
-    //   // Map hex pubkey -> npub for participation type lookup
-    //   const { nip19 } = await import('nostr-tools');
-    //   for (const request of eventRequests) {
-    //     if (request.participationType) {
-    //       try {
-    //         const npub = nip19.npubEncode(request.requesterId);
-    //         participationTypeMap.set(npub, request.participationType);
-    //       } catch (error) {
-    //         console.warn(`Failed to encode npub for ${request.requesterId}:`, error);
-    //       }
-    //     }
-    //   }
-    //   console.log(`   Loaded ${participationTypeMap.size} participation type preferences`);
-    // } catch (error) {
-    //   console.warn('Failed to fetch participation types (non-critical):', error);
-    // }
-    console.log(`   ✅ DEBUG: Skipped join request fetch (testing mode)`);
 
     const eventDate = new Date(event.eventDate);
     const eventStart = new Date(eventDate);

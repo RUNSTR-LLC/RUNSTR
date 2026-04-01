@@ -125,7 +125,6 @@ export const FitnessTestResultsScreen: React.FC = () => {
 
   const handleViewHistory = () => {
     // TODO: Navigate to test history screen
-    console.log('View test history');
   };
 
   const formatTime = (seconds: number): string => {

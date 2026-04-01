@@ -106,13 +106,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           return;
         }
 
-        // ✅ PERFORMANCE FIX: Skip cache initialization - lazy load on demand
-        // This saves 1-2s on app startup by deferring AsyncStorage reads
-        // Cache will initialize automatically on first getCached() call
-        // PerformanceLogger.start('AuthContext: unifiedCache.initialize()');
-        // await unifiedCache.initialize(); // REMOVED
-        // PerformanceLogger.end('AuthContext: unifiedCache.initialize()');
-
         // ✅ PROFILE CACHE FIX: Try memory cache first (instant)
         let cachedUser = unifiedCache.getCached<User>(
           CacheKeys.USER_PROFILE(hexPubkey)

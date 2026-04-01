@@ -124,22 +124,6 @@ export class GlobalNDKService {
       }, 0);
     }
 
-    // ⚠️ DISABLED: AppState listener for keepalive (v0.7.10)
-    // Keepalive disabled to fix 30-minute crash - no longer need lifecycle management
-    // if (!this.appStateListenerSetup) {
-    //   AppStateManager.onStateChange((isActive) => {
-    //     if (!isActive) {
-    //       // App backgrounded - pause keepalive to prevent WebSocket access
-    //       this.pauseKeepalive();
-    //     } else if (this.instance && this.isInitialized) {
-    //       // App foregrounded and NDK is ready - resume keepalive
-    //       this.resumeKeepalive();
-    //     }
-    //   });
-    //   this.appStateListenerSetup = true;
-    //   console.log('📱 GlobalNDK: AppState listener setup for keepalive lifecycle');
-    // }
-
     NostrFetchLogger.end('GlobalNDK.getInstance', undefined, 'new instance');
     return degradedNDK;
   }

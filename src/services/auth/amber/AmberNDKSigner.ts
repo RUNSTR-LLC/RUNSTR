@@ -149,8 +149,6 @@ export class AmberNDKSigner implements NDKSigner {
         permissions: JSON.stringify(permissions),
       };
 
-      console.log('[Amber DEBUG] Launching Intent with extras:', intentExtras);
-
       // Use IntentLauncher with timeout to prevent indefinite hangs
       const result = await this.startActivityWithTimeout(
         'android.intent.action.VIEW',
@@ -159,14 +157,6 @@ export class AmberNDKSigner implements NDKSigner {
           extra: intentExtras,
         }
       );
-
-      console.log('[Amber DEBUG] Activity result received:', {
-        resultCode: result.resultCode,
-        hasData: !!result.data,
-        hasExtra: !!result.extra,
-        dataType: typeof result.data,
-        extraKeys: result.extra ? Object.keys(result.extra) : [],
-      });
 
       // Check if user approved the request
       if (result.resultCode === IntentLauncher.ResultCode.Success) {
@@ -259,14 +249,6 @@ export class AmberNDKSigner implements NDKSigner {
       const eventJson = JSON.stringify(unsignedEvent);
       const nostrsignerUri = `nostrsigner:${eventJson}`; // ✅ RAW JSON per NIP-55
 
-      console.log('[Amber DEBUG] Sign event URI (NIP-55 raw JSON format):', {
-        type: 'sign_event',
-        eventKind: unsignedEvent.kind,
-        uriLength: nostrsignerUri.length,
-        eventJsonLength: eventJson.length,
-        rawJsonSample: eventJson.substring(0, 100) + '...',
-      });
-
       // Use IntentLauncher with timeout to prevent indefinite hangs
       // Per NIP-55: Event must be in URI, type in extras
       const result = await this.startActivityWithTimeout(
@@ -280,19 +262,6 @@ export class AmberNDKSigner implements NDKSigner {
           },
         }
       );
-
-      console.log('[Amber DEBUG] Sign result received:', {
-        resultCode: result.resultCode,
-        resultCodeValue: Object.keys(IntentLauncher.ResultCode).find(
-          (key) =>
-            IntentLauncher.ResultCode[
-              key as keyof typeof IntentLauncher.ResultCode
-            ] === result.resultCode
-        ),
-        hasData: !!result.data,
-        hasExtra: !!result.extra,
-        extraKeys: result.extra ? Object.keys(result.extra) : [],
-      });
 
       if (result.resultCode === IntentLauncher.ResultCode.Success) {
         // Per NIP-55: Check if user has permanently rejected this app
@@ -413,13 +382,6 @@ export class AmberNDKSigner implements NDKSigner {
         15000 // 15s timeout for user approval
       );
 
-      console.log('[Amber DEBUG] Encrypt result received:', {
-        resultCode: result.resultCode,
-        hasData: !!result.data,
-        hasExtra: !!result.extra,
-        extraKeys: result.extra ? Object.keys(result.extra) : [],
-      });
-
       if (result.resultCode === IntentLauncher.ResultCode.Success) {
         // Per NIP-55: Check if user has permanently rejected this app
         if (result.extra?.rejected) {
@@ -484,13 +446,6 @@ export class AmberNDKSigner implements NDKSigner {
         },
         15000 // 15s timeout for user approval
       );
-
-      console.log('[Amber DEBUG] Decrypt result received:', {
-        resultCode: result.resultCode,
-        hasData: !!result.data,
-        hasExtra: !!result.extra,
-        extraKeys: result.extra ? Object.keys(result.extra) : [],
-      });
 
       if (result.resultCode === IntentLauncher.ResultCode.Success) {
         // Per NIP-55: Check if user has permanently rejected this app
