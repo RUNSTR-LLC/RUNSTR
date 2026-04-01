@@ -14,7 +14,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { WorkoutData, WorkoutType } from '../../types/workout';
 import type {
   GarminActivity,
-  GarminActivitiesResponse,
   GarminSyncResult,
   GarminServiceStatus,
 } from '../../types/garmin';

@@ -106,9 +106,6 @@ class DailyLeaderboardServiceClass {
 
     try {
       // Fetch today's workouts with leaderboard fields
-      // REMOVED verified=eq.true filter - show all workouts regardless of verification status
-      // Anti-cheat validation already filters out impossible workouts (they go to flagged_workouts table)
-      // Users were not appearing on leaderboard because verification status was not being set properly
       // ADDED source=eq.app filter - only show workouts submitted through RUNSTR app
       // This prevents cheaters from creating fake kind 1301 events via terminal that get picked up by nostr_scan
       const workoutUrl = `${supabaseUrl}/rest/v1/workout_submissions?` +

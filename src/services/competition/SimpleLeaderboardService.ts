@@ -1,16 +1,14 @@
 /**
  * Simple Leaderboard Service - MVP Implementation
  * Calculates competition rankings from kind 1301 workout events
- * ✅ UPDATED: Now with 5-minute caching via CompetitionCacheService for 80% fewer queries
+ * Uses 5-minute caching via UnifiedCacheService for 80% fewer queries
  */
 
 import { GlobalNDKService } from '../nostr/GlobalNDKService';
-import { CompetitionCacheService } from '../cache/CompetitionCacheService';
 import { UnifiedCacheService } from '../cache/UnifiedCacheService';
 import {
   type NDKFilter,
   type NDKEvent,
-  NDKSubscriptionCacheUsage,
 } from '@nostr-dev-kit/ndk';
 import { nip19 } from 'nostr-tools';
 import type { League, CompetitionEvent } from './SimpleCompetitionService';

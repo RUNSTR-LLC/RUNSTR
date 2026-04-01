@@ -119,7 +119,6 @@ TaskManager.defineTask(SIMPLE_TRACKER_TASK, async ({ data, error }) => {
       }
 
       // Simplified filtering - trust GPS hardware more (based on October 2024 implementation)
-      // REMOVED: warm-up buffer that delayed first distance update by 9+ seconds
       const validLocations = [];
 
       for (const loc of locations) {

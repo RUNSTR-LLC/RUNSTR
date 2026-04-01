@@ -685,8 +685,6 @@ export class SupabaseCompetitionService {
 
       // Build query with activity type filter (single or multiple types)
       // DATA QUALITY FIX: Use validNpubs (banned users filtered)
-      // REMOVED .eq('verified', true) - show all workouts regardless of verification status
-      // Anti-cheat validation already filters out impossible workouts (they go to flagged_workouts table)
       let workoutQuery = supabase!
         .from('workout_submissions')
         .select('npub, distance_meters, activity_type, created_at, duration_seconds, raw_event, event_id, time_5k_seconds, time_10k_seconds, time_half_seconds, time_marathon_seconds')

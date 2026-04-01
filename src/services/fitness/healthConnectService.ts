@@ -6,7 +6,7 @@
 
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { WorkoutData, WorkoutType } from '../../types/workout';
+import type { WorkoutType } from '../../types/workout';
 import { inferActivityTypeSimple } from '../../utils/activityInference';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
 import { buildRewardTags } from '../../utils/rewardTags';

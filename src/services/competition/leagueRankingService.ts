@@ -9,7 +9,6 @@
 import Competition1301QueryService, {
   WorkoutMetrics,
   CompetitionQuery,
-  QueryResult,
 } from './Competition1301QueryService';
 import type {
   NostrActivityType,

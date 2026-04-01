@@ -8,7 +8,6 @@ import { NostrCompetitionContextService } from './NostrCompetitionContextService
 import type { NostrCompetition } from './NostrCompetitionContextService';
 import type {
   NostrWorkoutCompetition,
-  NostrWorkoutMetrics,
 } from '../../types/nostrWorkout';
 import type { WorkoutData, WorkoutType } from '../../types/workout';
 
