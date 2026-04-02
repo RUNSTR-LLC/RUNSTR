@@ -15,6 +15,7 @@ import { LocalWorkoutStorageService } from '../fitness/LocalWorkoutStorageServic
 import { getAllHabits, createHabit } from '../habits/HabitTrackerService';
 import { JournalService } from '../journal/JournalService';
 import { UnifiedSigningService } from '../auth/UnifiedSigningService';
+import { PendingSubmissionService, type PendingSubmission } from '../competition/PendingSubmissionService';
 import type { LocalWorkout } from '../fitness/LocalWorkoutStorageService';
 import type { Habit } from '../habits/HabitTrackerService';
 import type { JournalEntry } from '../../types/journal';
@@ -278,6 +279,11 @@ export class RestoreService {
         const workoutResult = await this.importWorkouts(backup.payload.workouts);
         result.workoutsImported = workoutResult.imported;
         result.workoutsSkipped = workoutResult.skipped;
+
+        // Queue imported workouts for Supabase submission
+        if (workoutResult.imported > 0) {
+          await this.queueWorkoutsForSupabase(backup.payload.workouts);
+        }
       }
 
       // Import habits
@@ -375,6 +381,50 @@ export class RestoreService {
     }
 
     return { imported, skipped };
+  }
+
+  /**
+   * Queue imported workouts for Supabase submission (fire-and-forget)
+   */
+  private async queueWorkoutsForSupabase(workouts: LocalWorkout[]): Promise<void> {
+    try {
+      const userNpub = await AsyncStorage.getItem('@runstr:npub');
+      if (!userNpub) {
+        console.warn('[RestoreService] No npub found, skipping Supabase queue');
+        return;
+      }
+
+      let queued = 0;
+      for (const workout of workouts) {
+        try {
+          const submission: PendingSubmission = {
+            id: workout.id,
+            submissionData: {
+              eventId: workout.nostrEventId || workout.id,
+              npub: userNpub,
+              type: workout.type,
+              distance: workout.distance || 0,
+              duration: workout.duration || 0,
+              calories: workout.calories,
+              startTime: workout.startTime,
+              tags: [],
+            },
+            createdAt: Date.now(),
+            retryCount: 0,
+            lastError: '',
+            nextRetryTime: Date.now(),
+          };
+          await PendingSubmissionService.addPending(submission);
+          queued++;
+        } catch (err) {
+          console.warn('[RestoreService] Failed to queue workout for Supabase:', err);
+        }
+      }
+
+      console.log(`[RestoreService] Queued ${queued}/${workouts.length} workouts for Supabase submission`);
+    } catch (error) {
+      console.warn('[RestoreService] Failed to queue workouts for Supabase:', error);
+    }
   }
 
   /**

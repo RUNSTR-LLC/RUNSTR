@@ -8,6 +8,7 @@
 
 import { supabase, isSupabaseConfigured } from '../../utils/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import localWorkoutStorage, { LocalWorkout } from '../fitness/LocalWorkoutStorageService';
 
 const TAG = '[ProfileDataService]';
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -519,7 +520,7 @@ export class ProfileDataService {
 
   static async getLevelData(npub: string): Promise<ProfileLevelData> {
     const defaultData: ProfileLevelData = {
-      level: 0, title: 'Beginner', currentXP: 0, xpForNextLevel: 100,
+      level: 0, title: 'Beginner', currentXP: 0, xpForNextLevel: 500,
       progress: 0, totalXP: 0, currentStreak: 0, bestStreak: 0,
     };
 
@@ -527,39 +528,58 @@ export class ProfileDataService {
     const cached = getCached<ProfileLevelData>(cacheKey);
     if (cached) return cached;
 
-    if (!isSupabaseConfigured()) return defaultData;
-
     try {
-      const { data, error } = await supabase!
-        .from('workout_submissions')
-        .select('id, activity_type, distance_meters, duration_seconds, created_at')
-        .eq('npub', npub)
-        .order('created_at', { ascending: false })
-        .limit(1000);
+      // Check if this is the current user's own profile
+      const currentNpub = await AsyncStorage.getItem('@runstr:npub');
+      const isOwnProfile = currentNpub && currentNpub === npub;
 
-      if (error || !data || data.length === 0) {
-        if (error) console.warn(TAG, 'getLevelData error:', error?.message);
-        return defaultData;
+      let workouts: Array<{ id: string; type: string; distance?: number; duration?: number; startTime: string }> = [];
+
+      if (isOwnProfile) {
+        // Own profile: use local storage (works offline, with private mode, etc.)
+        const localWorkouts: LocalWorkout[] = await localWorkoutStorage.getAllWorkouts();
+        workouts = localWorkouts.map(w => ({
+          id: w.id,
+          type: (w.type || 'unknown').toLowerCase(),
+          distance: w.distance,
+          duration: w.duration,
+          startTime: w.startTime,
+        }));
+        console.log(TAG, `getLevelData: own profile, ${workouts.length} local workouts`);
       }
 
-      // Map to LocalWorkout format for WorkoutLevelService
-      const workouts = data.map((w) => ({
-        id: w.id,
-        type: (w.activity_type || 'unknown').toLowerCase(),
-        distance: w.distance_meters ?? undefined,
-        duration: w.duration_seconds ?? undefined,
-        startTime: w.created_at,
-      }));
+      // If no local workouts found (or viewing another user), try Supabase
+      if (workouts.length === 0 && isSupabaseConfigured()) {
+        const { data, error } = await supabase!
+          .from('workout_submissions')
+          .select('id, activity_type, distance_meters, duration_seconds, created_at')
+          .eq('npub', npub)
+          .order('created_at', { ascending: false })
+          .limit(1000);
 
+        if (error) {
+          console.warn(TAG, 'getLevelData Supabase error:', error.message);
+        } else if (data && data.length > 0) {
+          workouts = data.map(w => ({
+            id: w.id,
+            type: (w.activity_type || 'unknown').toLowerCase(),
+            distance: w.distance_meters ?? undefined,
+            duration: w.duration_seconds ?? undefined,
+            startTime: w.created_at,
+          }));
+        }
+      }
+
+      if (workouts.length === 0) return defaultData;
+
+      // Calculate level from workouts
       const { WorkoutLevelService } = require('../../services/fitness/WorkoutLevelService');
       const levelService = WorkoutLevelService.getInstance();
       const stats = levelService.calculateLevelStats(workouts);
 
-      // Compute best streak from unique dates
+      // Compute streaks
       const uniqueDates = [
-        ...new Set(
-          data.map((w) => w.created_at?.slice(0, 10)).filter(Boolean),
-        ),
+        ...new Set(workouts.map(w => w.startTime?.slice(0, 10)).filter(Boolean)),
       ].sort((a, b) => (b > a ? 1 : -1));
       const { longestStreakDays, currentStreakDays } = computeStreaks(uniqueDates);
 
