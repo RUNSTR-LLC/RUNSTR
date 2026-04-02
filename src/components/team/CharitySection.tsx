@@ -67,20 +67,12 @@ export const CharitySection: React.FC<CharitySectionProps> = ({
   // Get user info for donation tracking
   const { currentUser } = useAuth();
 
-  // If no charity selected, don't render anything
-  if (!charityId) {
-    return null;
-  }
-
-  const charity = getCharityById(charityId);
-
-  // If charity ID is invalid, don't render
-  if (!charity) {
-    return null;
-  }
+  const charity = charityId ? getCharityById(charityId) : null;
 
   // Load zapped state and wallet balance on mount
   useEffect(() => {
+    if (!charity) return;
+
     const loadZappedState = async () => {
       try {
         const today = new Date().toDateString();
@@ -97,7 +89,7 @@ export const CharitySection: React.FC<CharitySectionProps> = ({
     };
 
     loadZappedState();
-  }, [charity.id]);
+  }, [charity?.id]);
 
   // Update wallet balance when it changes
   useEffect(() => {
@@ -105,6 +97,11 @@ export const CharitySection: React.FC<CharitySectionProps> = ({
       setWalletBalance(balance || 0);
     }
   }, [balance, hasWallet]);
+
+  // Don't render if no valid charity
+  if (!charityId || !charity) {
+    return null;
+  }
 
   // Update zapped state after successful zap
   const markAsZapped = async () => {

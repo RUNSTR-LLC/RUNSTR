@@ -77,15 +77,11 @@ export const NWCLightningButton: React.FC<NWCLightningButtonProps> = ({
     return normalized;
   }, [recipientNpub]);
 
-  // Don't render if recipient is invalid
-  if (!recipientHex) {
-    console.log('[NWCLightningButton] Skipping render - invalid recipient');
-    return null;
-  }
-
   // Load default amount on mount
   useEffect(() => {
-    loadDefaultAmount();
+    if (recipientHex) {
+      loadDefaultAmount();
+    }
   }, [recipientHex]);
 
   // Cleanup timer on unmount
@@ -96,6 +92,11 @@ export const NWCLightningButton: React.FC<NWCLightningButtonProps> = ({
       }
     };
   }, []);
+
+  // Don't render if recipient is invalid
+  if (!recipientHex) {
+    return null;
+  }
 
   const loadDefaultAmount = async () => {
     try {
