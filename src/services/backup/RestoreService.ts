@@ -101,11 +101,12 @@ export class RestoreService {
       const ndk = await GlobalNDKService.getInstance();
 
       // Filter for user's backup events
+      // Request more than 1 in case some relays return truncated/corrupted events
       const filter: NDKFilter = {
         kinds: [BACKUP_EVENT_KIND],
         authors: [pubkey],
         '#d': [BACKUP_D_TAG],
-        limit: 1, // Get most recent
+        limit: 5,
       };
 
       // Fetch from relays
@@ -116,18 +117,44 @@ export class RestoreService {
         return { found: false };
       }
 
-      // Get the most recent event
-      const eventsArray = Array.from(events);
-      const latestEvent = eventsArray.sort(
+      // Sort by most recent first, then try each until one decrypts
+      const eventsArray = Array.from(events).sort(
         (a, b) => (b.created_at || 0) - (a.created_at || 0)
-      )[0];
+      );
 
-      console.log('[RestoreService] Found backup event:', latestEvent.id?.slice(0, 8));
+      // NIP-44 requires at least 132 characters of base64 payload
+      const MIN_NIP44_LENGTH = 132;
 
-      // Decrypt the backup
-      const decrypted = await this.decryptBackup(latestEvent);
+      for (const event of eventsArray) {
+        const contentLength = event.content?.length || 0;
+        if (contentLength < MIN_NIP44_LENGTH) {
+          console.warn(
+            `[RestoreService] Skipping event ${event.id?.slice(0, 8)} — ` +
+            `content too short for NIP-44 (${contentLength} chars, need ${MIN_NIP44_LENGTH}+)`
+          );
+          continue;
+        }
 
-      return { found: true, backup: decrypted };
+        console.log('[RestoreService] Trying backup event:', event.id?.slice(0, 8));
+
+        try {
+          const decrypted = await this.decryptBackup(event);
+          return { found: true, backup: decrypted };
+        } catch (decryptError) {
+          console.warn(
+            `[RestoreService] Failed to decrypt event ${event.id?.slice(0, 8)}:`,
+            decryptError instanceof Error ? decryptError.message : decryptError
+          );
+          // Try the next event
+        }
+      }
+
+      // All events failed
+      return {
+        found: false,
+        error: `Found ${eventsArray.length} backup event(s) but none could be decrypted. ` +
+          'The backup data may be corrupted or created with a different key.',
+      };
     } catch (error) {
       console.error('[RestoreService] Search failed:', error);
       return {
