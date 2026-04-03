@@ -24,11 +24,11 @@ interface CachedSponsor {
   cachedAt: number;
 }
 
-const RUNSTR_FALLBACK: RewardSponsor = {
-  id: 'runstr-default',
-  name: 'RUNSTR',
-  logoUrl: null,
-  websiteUrl: 'https://runstr.club',
+const DEFAULT_FALLBACK: RewardSponsor = {
+  id: 'als-network-default',
+  name: 'ALS Network',
+  logoUrl: 'https://secure.alsnetwork.org/images/content/pagebuilder/ALS-Network-Logo.svg',
+  websiteUrl: 'https://secure.alsnetwork.org/site/TR?fr_id=1510&pg=entry',
   displayText: 'Rewards brought to you by',
 };
 
@@ -86,7 +86,7 @@ export class SponsorService {
   private static async fetchFromSupabase(): Promise<RewardSponsor> {
     if (!isSupabaseConfigured()) {
       console.warn('[SponsorService] Supabase not configured, using fallback');
-      return RUNSTR_FALLBACK;
+      return DEFAULT_FALLBACK;
     }
 
     try {
@@ -102,14 +102,14 @@ export class SponsorService {
         } else {
           console.warn('[SponsorService] Query error:', error);
         }
-        await this.saveCache(RUNSTR_FALLBACK);
-        return RUNSTR_FALLBACK;
+        await this.saveCache(DEFAULT_FALLBACK);
+        return DEFAULT_FALLBACK;
       }
 
       if (!data) {
         console.log('[SponsorService] No active sponsor found, using fallback');
-        await this.saveCache(RUNSTR_FALLBACK);
-        return RUNSTR_FALLBACK;
+        await this.saveCache(DEFAULT_FALLBACK);
+        return DEFAULT_FALLBACK;
       }
 
       const sponsor: RewardSponsor = {
@@ -125,7 +125,7 @@ export class SponsorService {
       return sponsor;
     } catch (err) {
       console.error('[SponsorService] Exception:', err);
-      return RUNSTR_FALLBACK;
+      return DEFAULT_FALLBACK;
     }
   }
 

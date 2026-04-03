@@ -16,8 +16,8 @@ import {
 } from 'react-native';
 import { SponsorService, RewardSponsor } from '../../services/backend/SponsorService';
 
-// Local fallback image for RUNSTR (used when logoUrl is null)
-const RUNSTR_LOGO = require('../../../assets/images/charities/runstr.png');
+// Local fallback image (used when logoUrl is null)
+const ALS_LOGO = require('../../../assets/images/running-bitcoin/avatar.jpg');
 
 export const SponsorBanner: React.FC = () => {
   const [sponsor, setSponsor] = useState<RewardSponsor | null>(null);
@@ -39,7 +39,7 @@ export const SponsorBanner: React.FC = () => {
 
   const logoSource = sponsor.logoUrl
     ? { uri: sponsor.logoUrl }
-    : RUNSTR_LOGO;
+    : ALS_LOGO;
 
   return (
     <TouchableOpacity
