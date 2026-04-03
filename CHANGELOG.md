@@ -2,6 +2,36 @@
 
 All notable changes to RUNSTR will be documented in this file.
 
+## [1.8.8] - 2026-04-03 - Polish, Bug Fixes & North Star Alignment
+
+### Bug Fixes
+- Fixed conditional React hooks crash in NWCLightningButton and CharitySection (hooks called after early return)
+- Fixed backup restore crash on truncated relay data ("invalid payload length") — now skips corrupted events and tries alternatives
+- Fixed Level/XP showing 0 — profile now reads local workout storage first, falls back to Supabase for other users
+- Fixed default XP-per-level mismatch (was 100, should be 500)
+
+### Workout Recovery
+- Restored workouts from encrypted backup now queue for Supabase submission automatically
+- Imported kind 1301 Nostr workouts now queue for Supabase submission automatically
+- Level system works offline, with Private Mode, and when Supabase is unreachable
+
+### Sponsor (Zapvertising)
+- Changed active reward sponsor from RUNSTR to ALS Network
+- Push notifications, toasts, and sponsor banner now display ALS Network branding
+- Added migration 164 for sponsor switchover
+
+### Codebase Cleanup (-12,500 lines)
+- Removed Satlantis event integration (17 files, ~5,300 lines)
+- Removed 12 dead service files (Google auth, Garmin direct, WeatherService, SimpleNostrService, etc.)
+- Removed 70+ dead imports across 42 files
+- Removed ~330 lines of dead commented code and debug logging
+- Removed 2 dead test files referencing deleted components
+- Split SettingsScreen.tsx from 2,252 to 205 lines (14 focused section components)
+
+### Documentation
+- Updated North Star: removed subscription tiers, added data ownership principles, updated business model
+- Created `/polish` skill for repeatable codebase cleanup passes
+
 ## [1.7.7] - 2026-03-31 - Solidification, App Store Compliance & Performance
 
 ### App Store Compliance
