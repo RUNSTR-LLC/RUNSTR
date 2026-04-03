@@ -140,9 +140,6 @@ class AppInitializationService {
             }
           );
 
-          // NOTE: Satlantis events are now hardcoded - no Nostr fetch needed
-          // Removed: SatlantisEventService.prefetchEventsForOfflineAccess()
-
           console.log('✅ AppInit: All data loaded!');
 
           // Step 4: Set up HealthKit background delivery (iOS only)

@@ -352,7 +352,7 @@ class RunstrEventPublishServiceClass {
     captainLightningAddress?: string
   ): Promise<void> {
     try {
-      // Build SatlantisEvent from config
+      // Build event object from config
       const satlantisEvent: SatlantisEvent = {
         id: dTag,
         pubkey,
@@ -429,7 +429,7 @@ class RunstrEventPublishServiceClass {
   }
 
   /**
-   * Map RUNSTR activity type to Satlantis sport type
+   * Map RUNSTR activity type to sport type
    */
   private mapActivityToSport(activityType: RunstrActivityType): SatlantisSportType {
     const mapping: Record<RunstrActivityType, SatlantisSportType> = {

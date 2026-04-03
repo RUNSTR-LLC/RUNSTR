@@ -2,10 +2,10 @@
  * CompeteScreen - Main Competitions/Events Screen
  *
  * Shows all competition events with cards for:
- * - Satlantis events
  * - Einundzwanzig Fitness
  * - Season II (navigates to Season2Screen)
  * - Leaderboards (navigates to LeaderboardsScreen)
+ * - Dynamic Supabase events
  */
 
 import React, { useCallback, useState } from 'react';
@@ -23,7 +23,6 @@ import { theme } from '../styles/theme';
 import { EventsContent } from '../components/compete';
 import { SimpleEventCreationModal } from '../components/creation/SimpleEventCreationModal';
 import { SupabaseCompetitionService } from '../services/backend/SupabaseCompetitionService';
-import type { SatlantisEvent } from '../types/satlantis';
 
 interface CompeteScreenProps {
   navigation?: any;
@@ -36,14 +35,6 @@ const CompeteScreenComponent: React.FC<CompeteScreenProps> = ({ navigation: prop
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showCreateEvent, setShowCreateEvent] = useState(false);
-
-  // Handle event press - navigate to event detail
-  const handleEventPress = useCallback((event: SatlantisEvent) => {
-    navigation.navigate('SatlantisEventDetail', {
-      eventId: event.id,
-      eventPubkey: event.pubkey,
-    });
-  }, [navigation]);
 
   // Handle Einundzwanzig event press
   const handleEinundzwanzigPress = useCallback(() => {
@@ -102,7 +93,6 @@ const CompeteScreenComponent: React.FC<CompeteScreenProps> = ({ navigation: prop
         }
       >
         <EventsContent
-          onEventPress={handleEventPress}
           onEinundzwanzigPress={handleEinundzwanzigPress}
           onSeason2Press={handleSeason2Press}
           onLeaderboardPress={handleLeaderboardPress}

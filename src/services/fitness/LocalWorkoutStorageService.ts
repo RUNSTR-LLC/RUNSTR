@@ -214,37 +214,8 @@ export class LocalWorkoutStorageService {
         Date.now() - workout.duration * 1000
       ).toISOString();
 
-      // Fetch weather conditions if GPS coordinates available
-      let weather;
-      if (workout.startLatitude && workout.startLongitude) {
-        try {
-          const { weatherService } = await import('../activity/WeatherService');
-          const conditions = await weatherService.getWeatherForWorkout(
-            workout.startLatitude,
-            workout.startLongitude
-          );
-
-          if (conditions) {
-            weather = {
-              temp: conditions.temp,
-              feelsLike: conditions.feelsLike,
-              description: conditions.description,
-              icon: conditions.icon,
-              humidity: conditions.humidity,
-              windSpeed: conditions.windSpeed,
-            };
-            console.log(
-              `✅ Weather recorded: ${conditions.temp}°C, ${conditions.description}`
-            );
-          }
-        } catch (weatherError) {
-          console.warn(
-            '⚠️ Failed to fetch weather, continuing without:',
-            weatherError
-          );
-          // Non-critical - continue saving workout without weather
-        }
-      }
+      // Weather conditions placeholder (WeatherService removed)
+      const weather = undefined;
 
       const localWorkout: LocalWorkout = {
         id: workoutId,

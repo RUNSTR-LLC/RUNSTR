@@ -172,29 +172,6 @@ export class NostrInitializationService {
     }
   }
 
-  /**
-   * Prefetch Satlantis events (kind 31923) during splash
-   * These are the main events shown in the app
-   */
-  async prefetchSatlantisEvents(): Promise<void> {
-    try {
-      const { SatlantisEventService } = await import(
-        '../satlantis/SatlantisEventService'
-      );
-
-      // Fetch all sports events (will be cached by SatlantisEventService)
-      const events = await SatlantisEventService.discoverSportsEvents();
-      console.log(`[NostrInit] Satlantis events prefetch complete: ${events.length} events`);
-    } catch (error) {
-      console.error('❌ ================================');
-      console.error('❌ SATLANTIS EVENTS PREFETCH FAILED');
-      console.error('❌ ================================');
-      console.error('❌ Error:', error);
-      console.error('❌ ================================');
-      // Don't throw - continue app loading
-    }
-  }
-
   getPrefetchedTeams(): any[] {
     return this.prefetchedTeams;
   }

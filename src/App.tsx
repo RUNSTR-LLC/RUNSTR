@@ -171,8 +171,6 @@ import { LevelDetailScreen } from './screens/LevelDetailScreen';
 import { SavedRoutesScreen } from './screens/routes/SavedRoutesScreen';
 import { AdvancedAnalyticsScreen } from './screens/AdvancedAnalyticsScreen';
 import { HealthProfileScreen } from './screens/HealthProfileScreen';
-import { SatlantisDiscoveryScreen } from './screens/satlantis/SatlantisDiscoveryScreen';
-import { SatlantisEventDetailScreen } from './screens/satlantis/SatlantisEventDetailScreen';
 import { EinundzwanzigDetailScreen } from './screens/events/EinundzwanzigDetailScreen';
 import { DynamicEventDetailScreen } from './screens/events/DynamicEventDetailScreen';
 import { Season2Screen } from './screens/season2/Season2Screen';
@@ -255,8 +253,6 @@ type AuthenticatedStackParamList = {
   SavedRoutes: { activityType?: 'running' | 'cycling' | 'walking' };
   AdvancedAnalytics: undefined;
   HealthProfile: undefined;
-  SatlantisDiscovery: undefined;
-  SatlantisEventDetail: { eventId: string; eventPubkey: string };
   EinundzwanzigDetail: undefined;
   Season2: undefined;
   Teams: undefined;
@@ -600,27 +596,6 @@ const AuthenticatedNavigator: React.FC = () => {
         }}
         component={HealthProfileScreen}
       />
-
-      {/* Satlantis Race Discovery Screen */}
-      <AuthenticatedStack.Screen
-        name="SatlantisDiscovery"
-        options={{
-          headerShown: false,
-        }}
-        component={SatlantisDiscoveryScreen}
-      />
-
-      {/* Satlantis Event Detail Screen */}
-      <AuthenticatedStack.Screen
-        name="SatlantisEventDetail"
-        options={{
-          headerShown: false,
-        }}
-      >
-        {({ navigation, route }) => (
-          <SatlantisEventDetailScreen route={route} navigation={navigation} />
-        )}
-      </AuthenticatedStack.Screen>
 
       {/* Einundzwanzig Fitness Challenge Detail Screen */}
       <AuthenticatedStack.Screen

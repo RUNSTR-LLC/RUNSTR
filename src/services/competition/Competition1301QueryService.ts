@@ -510,7 +510,7 @@ export class Competition1301QueryService {
   /**
    * Query ALL kind 1301 workouts in a date range for open events
    * Unlike queryMemberWorkouts, this doesn't filter by author - it gets ALL qualifying workouts
-   * Used for Satlantis open events where anyone can participate without RSVP
+   * Used for open events where anyone can participate without RSVP
    */
   async queryOpenEventWorkouts(params: {
     activityType: string;

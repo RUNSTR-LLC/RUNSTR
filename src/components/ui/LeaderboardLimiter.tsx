@@ -1,7 +1,7 @@
 /**
  * LeaderboardLimiter - Shared component for "Top N + Your Position" display pattern
  *
- * Used by all leaderboards (Season 2, Satlantis, Distance) to:
+ * Used by all leaderboards (Season 2, Distance, Dynamic Events) to:
  * - Display only top N entries (default 25)
  * - Show logged-in user's position below if outside top N
  * - Show lock icon for non-Season 2 participants (private participation)

@@ -1,6 +1,6 @@
 /**
  * EventsContent - Embeddable events feed for Compete screen toggle
- * Shows hardcoded event cards (no Nostr fetch)
+ * Shows event cards for Season II, daily leaderboards, and dynamic Supabase events
  */
 
 import React from 'react';
@@ -20,10 +20,8 @@ import { LeaderboardEventCard } from '../events/LeaderboardEventCard';
 import { DynamicEventCard } from '../events/DynamicEventCard';
 import { shouldShowEinundzwanzig } from '../../constants/einundzwanzig';
 import { useDynamicCompetitions } from '../../hooks/useDynamicCompetitions';
-import type { SatlantisEvent } from '../../types/satlantis';
 
 interface EventsContentProps {
-  onEventPress: (event: SatlantisEvent) => void;
   onCreateEvent?: () => void;
   onEinundzwanzigPress?: () => void;
   onSeason2Press?: () => void;

@@ -645,17 +645,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // Do cleanup in the background (non-blocking)
     try {
-      // Clean up notification handlers
-      try {
-        const { notificationCleanupService } = await import(
-          '../services/notifications/NotificationCleanupService'
-        );
-        await notificationCleanupService.cleanupAllHandlers();
-        console.log('✅ AuthContext: Notification handlers cleaned up');
-      } catch (cleanupError) {
-        console.warn('⚠️ AuthContext: Notification cleanup failed:', cleanupError);
-      }
-
       // Clear verification code
       await VerificationService.clearCode();
       console.log('✅ AuthContext: Verification code cleared');

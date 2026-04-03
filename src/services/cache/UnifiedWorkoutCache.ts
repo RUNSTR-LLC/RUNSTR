@@ -7,7 +7,7 @@
  *
  * All leaderboards read from this cache:
  * - Season II (Running/Walking/Cycling tabs)
- * - Satlantis events
+ * - Dynamic events
  * - Running Bitcoin Challenge
  *
  * Features:
@@ -123,7 +123,7 @@ export interface CachedWorkout {
   duration?: number;         // seconds
   createdAt: number;         // unix timestamp (seconds)
   charityId?: string;        // For Season II donation tracking
-  eventIds?: string[];       // For Satlantis event tagging (#e tags)
+  eventIds?: string[];       // For event tagging (#e tags)
 }
 
 type Subscriber = () => void;
@@ -798,7 +798,7 @@ class UnifiedWorkoutCacheClass {
       // Extract charity ID (for Season II)
       const charityId = getTag('charity');
 
-      // Extract event IDs (for Satlantis events)
+      // Extract event IDs (for event tagging)
       const eventIds = getAllTags('e');
 
       return {
@@ -995,7 +995,7 @@ class UnifiedWorkoutCacheClass {
   }
 
   /**
-   * Get workouts in date range (for Satlantis events)
+   * Get workouts in date range (for event leaderboards)
    * @param startTs - Start timestamp (seconds)
    * @param endTs - End timestamp (seconds)
    */

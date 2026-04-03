@@ -31,7 +31,6 @@ import { getCharityById, type Charity, isPPQTeam, isSelfTeam, isCommunityTeam, e
 import { UserTeamService } from '../backend/UserTeamService';
 import { isSupabaseConfigured } from '../../utils/supabase';
 // PPQAccountService import removed - PPQ bolt11 now created centrally in submitWorkoutSimple()
-import { SatlantisEventJoinService } from '../satlantis/SatlantisEventJoinService';
 import { withTimeout, fireAndForget, NOSTR_TIMEOUTS } from '../../utils/nostrTimeout';
 import Toast from 'react-native-toast-message';
 import { nip19 } from '@nostr-dev-kit/ndk';
@@ -943,22 +942,6 @@ export class WorkoutPublishingService {
     // 'charity' = send to charity's Lightning address
     tags.push(['reward_destination', rewardDestination]);
     console.log(`   ✅ Added reward_destination tag: ${rewardDestination}`);
-
-    // Add event tags for active RUNSTR events (workout belongs to these events)
-    // This enables event leaderboards to query workouts by event ID without RSVP queries
-    try {
-      const activeEventIds = await SatlantisEventJoinService.getActiveEventIds();
-      for (const eventId of activeEventIds) {
-        tags.push(['e', eventId]);
-        console.log(`   ✅ Added event tag: ${eventId}`);
-      }
-      if (activeEventIds.length > 0) {
-        console.log(`   📋 Workout tagged with ${activeEventIds.length} active event(s)`);
-      }
-    } catch (error) {
-      console.warn('   ⚠️ Failed to get active events for tagging:', error);
-      // Non-blocking - workout publishing continues without event tags
-    }
 
     // Add challenge tag for Einundzwanzig participants (enables double rewards)
     // External reward service checks this tag to award 100 sats instead of 50
