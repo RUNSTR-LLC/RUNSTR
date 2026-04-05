@@ -33,7 +33,7 @@ export const Season2EventCard: React.FC<Season2EventCardProps> = () => {
   return (
     <TouchableOpacity
       style={styles.card}
-      onPress={() => Toast.show({ type: 'info', text1: 'Coming soon', position: 'bottom', visibilityTime: 1500 })}
+      onPress={() => Toast.show({ type: 'success', text1: 'Coming Soon', text2: 'RUNSTR Season III is on the way', visibilityTime: 1500 })}
       activeOpacity={0.7}
     >
       {/* Event Banner Image */}

@@ -307,6 +307,8 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
           navigation.navigate('DynamicEventDetail', { eventId });
         }}
         clubId={clubId}
+        clubName={club?.name || clubName}
+        clubBannerUrl={club?.banner_url ?? undefined}
       />
 
       {/* Themed alert */}
