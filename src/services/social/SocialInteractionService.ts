@@ -90,6 +90,7 @@ export class SocialInteractionService {
         ['p', authorPubkey],
       ];
 
+      await event.sign(signer);
       await Promise.race([
         event.publish(),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Publish timeout')), PUBLISH_TIMEOUT_MS)),
@@ -123,6 +124,7 @@ export class SocialInteractionService {
       ['p', authorPubkey],
     ];
 
+    await event.sign(signer);
     await Promise.race([
       event.publish(),
       new Promise((_, reject) => setTimeout(() => reject(new Error('Publish timeout')), PUBLISH_TIMEOUT_MS)),
@@ -142,6 +144,7 @@ export class SocialInteractionService {
       ['p', authorPubkey],
     ];
 
+    await event.sign(signer);
     await Promise.race([
       event.publish(),
       new Promise((_, reject) => setTimeout(() => reject(new Error('Publish timeout')), PUBLISH_TIMEOUT_MS)),
