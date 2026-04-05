@@ -54,6 +54,10 @@ const MAX_EVENTS = 200
 // Image URL regex
 const IMAGE_REGEX = /https?:\/\/\S+\.(?:jpg|jpeg|png|gif|webp)/gi
 
+// Engagement indexing
+const ENGAGEMENT_WINDOW_DAYS = 7
+const ENGAGEMENT_CHUNK_SIZE = 50
+
 // =============================================
 // TYPES
 // =============================================
@@ -318,6 +322,269 @@ function pubkeyToNpub(hex: string): string {
 }
 
 // =============================================
+// ENGAGEMENT HELPERS
+// =============================================
+
+/**
+ * Parse zap amount from a kind 9735 zap receipt event.
+ */
+function parseZapAmount(event: NostrEvent): number {
+  // Look for bolt11 tag
+  const bolt11Tag = event.tags.find((t) => t[0] === 'bolt11')
+  if (bolt11Tag && bolt11Tag[1]) {
+    return decodeBolt11Amount(bolt11Tag[1])
+  }
+
+  // Look for amount in description tag (zap request)
+  const descTag = event.tags.find((t) => t[0] === 'description')
+  if (descTag && descTag[1]) {
+    try {
+      const zapRequest = JSON.parse(descTag[1])
+      const amountTag = zapRequest.tags?.find((t: string[]) => t[0] === 'amount')
+      if (amountTag && amountTag[1]) {
+        return Math.floor(parseInt(amountTag[1], 10) / 1000) // millisats to sats
+      }
+    } catch {}
+  }
+
+  return 0
+}
+
+/**
+ * Decode amount from a bolt11 invoice string.
+ */
+function decodeBolt11Amount(bolt11: string): number {
+  const lower = bolt11.toLowerCase()
+  const match = lower.match(/^lnbc(\d+)([munp]?)/)
+  if (!match) return 0
+
+  const num = parseInt(match[1], 10)
+  const multiplier = match[2]
+
+  switch (multiplier) {
+    case 'm': return num * 100000
+    case 'u': return num * 100
+    case 'n': return Math.floor(num / 10)
+    case 'p': return Math.floor(num / 10000)
+    default: return num * 100000000
+  }
+}
+
+/**
+ * Extract the sender pubkey from a kind 9735 zap receipt.
+ */
+function getZapSender(event: NostrEvent): string | null {
+  const descTag = event.tags.find((t) => t[0] === 'description')
+  if (!descTag || !descTag[1]) return null
+
+  try {
+    const zapRequest = JSON.parse(descTag[1])
+    return zapRequest.pubkey || null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Get the referenced post event_id from an event's e-tags.
+ */
+function getReferencedEventId(event: NostrEvent): string | null {
+  const eTag = event.tags.find((t) => t[0] === 'e')
+  return eTag ? eTag[1] : null
+}
+
+/**
+ * Index engagement (likes, reposts, zaps, comments) for recent posts.
+ */
+async function indexEngagement(
+  supabase: ReturnType<typeof createClient>,
+): Promise<{ likes: number; reposts: number; zaps: number; comments: number }> {
+  const stats = { likes: 0, reposts: 0, zaps: 0, comments: 0 }
+
+  // Load recent post event_ids (last 7 days)
+  const cutoff = new Date(Date.now() - ENGAGEMENT_WINDOW_DAYS * 86400000).toISOString()
+  const { data: recentPosts, error: postsErr } = await supabase
+    .from('social_feed')
+    .select('id, event_id')
+    .gte('created_at', cutoff)
+    .order('created_at', { ascending: false })
+    .limit(500)
+
+  if (postsErr || !recentPosts || recentPosts.length === 0) {
+    console.log('No recent posts to index engagement for')
+    return stats
+  }
+
+  // Build lookup: event_id -> post UUID
+  const eventToPostId = new Map<string, string>()
+  for (const p of recentPosts) {
+    eventToPostId.set(p.event_id, p.id)
+  }
+
+  const allEventIds = recentPosts.map((p: { event_id: string }) => p.event_id)
+  console.log(`Indexing engagement for ${allEventIds.length} recent posts`)
+
+  // Batch into chunks and query relays
+  const allEngagementEvents: NostrEvent[] = []
+
+  for (let i = 0; i < allEventIds.length; i += ENGAGEMENT_CHUNK_SIZE) {
+    const chunk = allEventIds.slice(i, i + ENGAGEMENT_CHUNK_SIZE)
+    const filter = {
+      kinds: [7, 6, 9735, 1],
+      '#e': chunk,
+      limit: 200,
+    }
+
+    // Query first 3 relays for engagement (faster than all 7)
+    const results = await Promise.allSettled(
+      RELAYS.slice(0, 3).map((relay) => queryRelayRaw(relay, filter, 10000))
+    )
+
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        allEngagementEvents.push(...result.value)
+      }
+    }
+  }
+
+  console.log(`Found ${allEngagementEvents.length} engagement events from relays`)
+
+  // Deduplicate by event ID
+  const dedupedEvents = new Map<string, NostrEvent>()
+  for (const event of allEngagementEvents) {
+    if (!dedupedEvents.has(event.id)) {
+      dedupedEvents.set(event.id, event)
+    }
+  }
+
+  // Categorize and process
+  const likesByPost = new Map<string, Set<string>>()
+  const repostsByPost = new Map<string, Set<string>>()
+  const zapRows: Array<{ event_id: string; post_id: string; sender_npub: string; amount: number; created_at: string }> = []
+  const commentRows: Array<{ event_id: string; post_id: string; sender_npub: string; content: string; author_name: string | null; author_avatar: string | null; created_at: string }> = []
+
+  for (const event of dedupedEvents.values()) {
+    const refEventId = getReferencedEventId(event)
+    if (!refEventId) continue
+
+    const postId = eventToPostId.get(refEventId)
+    if (!postId) continue
+
+    switch (event.kind) {
+      case 7: {
+        if (!likesByPost.has(postId)) likesByPost.set(postId, new Set())
+        likesByPost.get(postId)!.add(pubkeyToNpub(event.pubkey))
+        stats.likes++
+        break
+      }
+      case 6: {
+        if (!repostsByPost.has(postId)) repostsByPost.set(postId, new Set())
+        repostsByPost.get(postId)!.add(pubkeyToNpub(event.pubkey))
+        stats.reposts++
+        break
+      }
+      case 9735: {
+        const amount = parseZapAmount(event)
+        const sender = getZapSender(event)
+        if (amount > 0 && sender) {
+          zapRows.push({
+            event_id: event.id,
+            post_id: postId,
+            sender_npub: pubkeyToNpub(sender),
+            amount,
+            created_at: new Date(event.created_at * 1000).toISOString(),
+          })
+          stats.zaps++
+        }
+        break
+      }
+      case 1: {
+        if (event.content && event.content.trim().length > 0) {
+          commentRows.push({
+            event_id: event.id,
+            post_id: postId,
+            sender_npub: pubkeyToNpub(event.pubkey),
+            content: event.content.trim(),
+            author_name: null,
+            author_avatar: null,
+            created_at: new Date(event.created_at * 1000).toISOString(),
+          })
+          stats.comments++
+        }
+        break
+      }
+    }
+  }
+
+  // Resolve comment author profiles (best-effort, first 20)
+  const commentPubkeys = [...new Set(commentRows.map((c) => c.sender_npub))].slice(0, 20)
+  for (const pubkey of commentPubkeys) {
+    const profile = await fetchProfile(pubkey)
+    if (profile) {
+      for (const row of commentRows) {
+        if (row.sender_npub === pubkey) {
+          row.author_name = profile.name
+          row.author_avatar = profile.avatar
+        }
+      }
+    }
+  }
+
+  // Write likes
+  for (const [postId, npubs] of likesByPost) {
+    const npubArray = [...npubs]
+    await supabase.rpc('merge_liked_by', { target_post_id: postId, new_npubs: npubArray }).catch((err: unknown) => {
+      console.warn(`[Engagement] merge_liked_by error for ${postId}:`, err)
+    })
+  }
+
+  // Write reposts
+  for (const [postId, npubs] of repostsByPost) {
+    const npubArray = [...npubs]
+    await supabase.rpc('merge_reposted_by', { target_post_id: postId, new_npubs: npubArray }).catch((err: unknown) => {
+      console.warn(`[Engagement] merge_reposted_by error for ${postId}:`, err)
+    })
+  }
+
+  // Write zaps
+  if (zapRows.length > 0) {
+    const { error: zapErr } = await supabase
+      .from('social_feed_zaps')
+      .upsert(zapRows, { onConflict: 'event_id', ignoreDuplicates: true })
+    if (zapErr) console.error('[Engagement] Zap upsert error:', zapErr)
+
+    const affectedPostIds = [...new Set(zapRows.map((z) => z.post_id))]
+    for (const postId of affectedPostIds) {
+      const { data: sumData } = await supabase
+        .from('social_feed_zaps')
+        .select('amount')
+        .eq('post_id', postId)
+      const total = (sumData || []).reduce((sum: number, row: { amount: number }) => sum + row.amount, 0)
+      await supabase.from('social_feed').update({ zap_total: total }).eq('id', postId)
+    }
+  }
+
+  // Write comments
+  if (commentRows.length > 0) {
+    const { error: commentErr } = await supabase
+      .from('social_feed_comments')
+      .upsert(commentRows, { onConflict: 'event_id', ignoreDuplicates: true })
+    if (commentErr) console.error('[Engagement] Comment upsert error:', commentErr)
+
+    const affectedPostIds = [...new Set(commentRows.map((c) => c.post_id))]
+    for (const postId of affectedPostIds) {
+      const { count } = await supabase
+        .from('social_feed_comments')
+        .select('id', { count: 'exact', head: true })
+        .eq('post_id', postId)
+      await supabase.from('social_feed').update({ comment_count: count || 0 }).eq('id', postId)
+    }
+  }
+
+  return stats
+}
+
+// =============================================
 // MAIN HANDLER
 // =============================================
 
@@ -441,14 +708,22 @@ serve(async (req) => {
       console.error('Insert error:', insertError)
     }
 
+    console.log(`Indexed ${rows.length} posts`)
+
+    // === Engagement Indexing ===
+    console.log('--- Engagement Indexing ---')
+    const engagementStats = await indexEngagement(supabase)
+    console.log(`Engagement: ${engagementStats.likes} likes, ${engagementStats.reposts} reposts, ${engagementStats.zaps} zaps, ${engagementStats.comments} comments`)
+
     const duration = Date.now() - startTime
-    console.log(`Indexed ${rows.length} posts in ${duration}ms`)
+    console.log(`Total indexer run: ${duration}ms`)
 
     return new Response(JSON.stringify({
       success: true,
       indexed: rows.length,
       skipped: existingIds.size,
       profiles_resolved: profileCache.size,
+      engagement: engagementStats,
       duration_ms: duration,
     }), { headers: { 'Content-Type': 'application/json' } })
 
