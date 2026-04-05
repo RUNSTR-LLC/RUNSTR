@@ -1,11 +1,12 @@
 /**
  * SimpleEventCreationModal - Event creation/editing for club captains.
  *
- * Templates: 5K Race, 10K Race, Half Marathon, Step Challenge
+ * Templates: 5K Race, 10K Race, Half Marathon, Step Challenge, Charity Event
  * Scoring is auto-set per template:
  *   - 5K / 10K  → fastest_time
  *   - Half Marathon → total_distance
  *   - Step Challenge → total_steps (walking)
+ *   - Charity Event → workout_count (running)
  *
  * Supports edit mode via `existingEvent` prop to update recurring_interval.
  */
@@ -96,6 +97,16 @@ const EVENT_TEMPLATES: EventTemplate[] = [
     templateId: 'step_challenge',
     activityType: 'walking',
     scoringMethod: 'total_steps',
+  },
+  {
+    key: 'charity',
+    label: 'Charity Event',
+    subtitle: 'Rally for a cause',
+    icon: 'heart-outline',
+    distanceKm: 0,
+    templateId: 'charity_event',
+    activityType: 'running',
+    scoringMethod: 'workout_count',
   },
 ];
 
