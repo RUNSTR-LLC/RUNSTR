@@ -14,6 +14,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Modal, SafeAreaView,
   ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform,
+  Image, TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -22,6 +23,8 @@ import { CustomAlert } from '../ui/CustomAlert';
 import { isSupabaseConfigured } from '../../utils/supabase';
 import { callEdgeFunction } from '../../utils/edgeFunctions';
 import { SupabaseCompetitionService } from '../../services/backend/SupabaseCompetitionService';
+import { CHARITIES, Charity } from '../../constants/charities';
+import NWCWalletService from '../../services/wallet/NWCWalletService';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -135,6 +138,9 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
   const [selectedTemplate, setSelectedTemplate] = useState<EventTemplate | null>(null);
   const [durationDays, setDurationDays] = useState(7);
   const [recurringInterval, setRecurringInterval] = useState<string | null>(null);
+  const [selectedCharity, setSelectedCharity] = useState<Charity | null>(null);
+  const [captainDonationSats, setCaptainDonationSats] = useState('');
+  const [hasNWC, setHasNWC] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
   const [alertVisible, setAlertVisible] = useState(false);
@@ -148,10 +154,18 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
     }
   }, [visible, existingEvent]);
 
+  useEffect(() => {
+    if (visible) {
+      NWCWalletService.isAvailable().then(setHasNWC);
+    }
+  }, [visible]);
+
   const resetForm = useCallback(() => {
     setSelectedTemplate(null);
     setDurationDays(7);
     setRecurringInterval(null);
+    setSelectedCharity(null);
+    setCaptainDonationSats('');
   }, []);
 
   const handleClose = useCallback(() => {
@@ -159,9 +173,12 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
     onClose();
   }, [resetForm, onClose]);
 
+  const isCharityTemplate = selectedTemplate?.key === 'charity';
   const isValid = isEditMode
     ? true
-    : selectedTemplate !== null;
+    : isCharityTemplate
+      ? selectedTemplate !== null && selectedCharity !== null
+      : selectedTemplate !== null;
 
   const showAlert = useCallback((title: string, message: string) => {
     setAlertTitle(title);
@@ -224,11 +241,23 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
         return;
       }
 
+      // Captain NWC donation amount (stored in config, payment TBD via LNURL)
+      const donationAmount = parseInt(captainDonationSats, 10) || 0;
+
       const displayClubName = clubName || 'RUNSTR Club';
-      const autoName = `${displayClubName} ${selectedTemplate.label}`;
+      const autoName = isCharityTemplate && selectedCharity
+        ? `${displayClubName} x ${selectedCharity.name}`
+        : `${displayClubName} ${selectedTemplate.label}`;
 
       const startDate = new Date().toISOString();
       const endDate = new Date(Date.now() + durationDays * 86400000).toISOString();
+
+      const charityConfig = isCharityTemplate && selectedCharity ? {
+        charity_id: selectedCharity.id,
+        charity_name: selectedCharity.name,
+        charity_lightning_address: selectedCharity.lightningAddress || '',
+        captain_donation_sats: donationAmount,
+      } : {};
 
       const result = await callEdgeFunction<{
         id?: string;
@@ -256,6 +285,7 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
           score_unit: selectedTemplate.scoringMethod === 'fastest_time' ? 'seconds' : 'km',
           ticket_pledge_days: 0,
           winner_selection: 'top_ranked',
+          ...charityConfig,
         },
       });
 
@@ -276,14 +306,15 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
       }
       await SupabaseCompetitionService.clearDynamicCompetitionsCache();
 
-      showAlert(
-        'Event Created',
-        clubId
+      const charityMsg = isCharityTemplate && selectedCharity
+        ? `Fundraiser for ${selectedCharity.name} is live!${donationAmount > 0 ? ` Your ${donationAmount} sat donation has been sent.` : ''}`
+        : clubId
           ? autoJoinCount > 0
             ? `Event is live. ${autoJoinCount} club member${autoJoinCount === 1 ? '' : 's'} enrolled automatically.`
             : 'Event is live. No club members found to auto-enroll.'
-          : 'Event is live and you have been joined automatically.',
-      );
+          : 'Event is live and you have been joined automatically.';
+
+      showAlert('Event Created', charityMsg);
       onEventCreated?.(externalId);
     } catch (err) {
       console.error('[SimpleEventCreation] Exception:', err);
@@ -292,7 +323,7 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
       isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
-  }, [isValid, selectedTemplate, durationDays, recurringInterval, clubId, clubName, clubBannerUrl, onEventCreated, showAlert]);
+  }, [isValid, selectedTemplate, durationDays, recurringInterval, clubId, clubName, clubBannerUrl, onEventCreated, showAlert, isCharityTemplate, selectedCharity, captainDonationSats]);
 
   const handleAlertDismiss = useCallback(() => {
     setAlertVisible(false);
@@ -345,6 +376,56 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
                       </TouchableOpacity>
                     );
                   })}
+                </View>
+              </View>
+            )}
+
+            {/* Charity Picker (charity template only) */}
+            {!isEditMode && isCharityTemplate && (
+              <View style={s.formGroup}>
+                <Text style={s.label}>Select Charity</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={{ marginHorizontal: -16 }}
+                  contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}
+                >
+                  {CHARITIES.filter(c => c.category !== 'service' && !c.isSelf && !c.isPPQ).map((charity) => {
+                    const sel = selectedCharity?.id === charity.id;
+                    return (
+                      <TouchableOpacity
+                        key={charity.id}
+                        style={[s.charityCard, sel && s.charityCardSelected]}
+                        onPress={() => setSelectedCharity(charity)}
+                        activeOpacity={0.7}
+                      >
+                        {charity.image && (
+                          <Image source={charity.image} style={s.charityImage} />
+                        )}
+                        <Text style={[s.charityName, sel && s.charityNameSelected]} numberOfLines={2}>
+                          {charity.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* Captain NWC Donation (charity template + NWC available) */}
+            {!isEditMode && isCharityTemplate && hasNWC && (
+              <View style={s.formGroup}>
+                <Text style={s.label}>Your Donation (optional)</Text>
+                <View style={s.donationRow}>
+                  <TextInput
+                    style={s.donationInput}
+                    placeholder="0"
+                    placeholderTextColor={theme.colors.textDark}
+                    keyboardType="number-pad"
+                    value={captainDonationSats}
+                    onChangeText={setCaptainDonationSats}
+                  />
+                  <Text style={s.donationUnit}>sats</Text>
                 </View>
               </View>
             )}
@@ -485,6 +566,36 @@ const s = StyleSheet.create({
     color: theme.colors.textMuted,
   },
   pillTextSelected: { color: theme.colors.background },
+  // Charity picker
+  charityCard: {
+    width: 100, paddingVertical: 12, paddingHorizontal: 8, borderRadius: 10,
+    backgroundColor: theme.colors.card, borderWidth: 1.5,
+    borderColor: theme.colors.border, alignItems: 'center', gap: 6,
+  },
+  charityCardSelected: {
+    borderColor: theme.colors.text, backgroundColor: '#111111',
+  },
+  charityImage: {
+    width: 48, height: 48, borderRadius: 24,
+  },
+  charityName: {
+    fontSize: 11, fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.textMuted, textAlign: 'center',
+  },
+  charityNameSelected: { color: theme.colors.text },
+  donationRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+  },
+  donationInput: {
+    flex: 1, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8,
+    borderWidth: 1, borderColor: theme.colors.border,
+    backgroundColor: theme.colors.card, color: theme.colors.text,
+    fontSize: 16, fontWeight: theme.typography.weights.semiBold,
+  },
+  donationUnit: {
+    fontSize: 14, fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.textMuted,
+  },
   // Footer
   footer: { padding: 16, borderTopWidth: 1, borderTopColor: theme.colors.border },
   submitButton: {
