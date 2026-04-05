@@ -73,6 +73,35 @@ export class SocialInteractionService {
     }
   }
 
+  async publishComment(eventId: string, authorPubkey: string, content: string): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    try {
+      const ndk = await GlobalNDKService.getInstance();
+      const signer = await UnifiedSigningService.getInstance().getSigner();
+      if (!signer) throw new Error('No signer');
+
+      const event = new NDKEvent(ndk);
+      event.kind = 1 as NDKKind;
+      event.content = content;
+      event.tags = [
+        ['e', eventId, '', 'root'],
+        ['p', authorPubkey],
+      ];
+
+      await Promise.race([
+        event.publish(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Publish timeout')), PUBLISH_TIMEOUT_MS)),
+      ]);
+
+      return { success: true };
+    } catch (err) {
+      console.warn('[SocialInteraction] Comment publish failed:', err);
+      return { success: false, error: 'Failed to publish comment' };
+    }
+  }
+
   private async getUserNpub(): Promise<string | null> {
     try {
       return await UnifiedSigningService.getInstance().getUserNpub();
