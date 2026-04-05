@@ -16,6 +16,29 @@ export interface SocialFeedPost {
   zap_total: number;
   liked_by: string[] | null;
   reposted_by: string[] | null;
+  comment_count: number;
+}
+
+export interface SocialFeedZap {
+  id: string;
+  event_id: string;
+  post_id: string;
+  sender_npub: string;
+  amount: number;
+  created_at: string;
+  indexed_at: string;
+}
+
+export interface SocialFeedComment {
+  id: string;
+  event_id: string;
+  post_id: string;
+  sender_npub: string;
+  content: string;
+  author_name: string | null;
+  author_avatar: string | null;
+  created_at: string;
+  indexed_at: string;
 }
 
 /**
