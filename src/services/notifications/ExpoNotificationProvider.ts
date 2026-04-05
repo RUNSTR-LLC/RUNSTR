@@ -98,19 +98,24 @@ export class ExpoNotificationProvider {
         await Notifications.getExpoPushTokenAsync({ projectId })
       ).data;
 
-      console.log('📱 Device token obtained for local notifications');
+      console.log('[ExpoNotificationProvider] Device token obtained:', this.deviceToken?.slice(0, 30) + '...');
       analytics.track('notification_scheduled', { tokenRegistered: true });
 
       // Register for push notifications (community + per-user if logged in)
       // Per-user targeting enables reward earned / auto-join notifications
+      // IMPORTANT: Await this so the broadcast_tokens row exists before AuthContext
+      // tries to update token_key on it (was fire-and-forget, caused race condition)
       const AsyncStorage = require('@react-native-async-storage/async-storage').default;
       const npub = await AsyncStorage.getItem('@runstr:npub');
-      BroadcastTokenService.registerToken(
-        this.deviceToken,
-        npub ?? undefined
-      ).catch((err) => {
+      try {
+        await BroadcastTokenService.registerToken(
+          this.deviceToken,
+          npub ?? undefined
+        );
+        console.log('[ExpoNotificationProvider] Broadcast token registered successfully');
+      } catch (err) {
         console.warn('[ExpoNotificationProvider] Broadcast registration failed:', err);
-      });
+      }
     } catch (error) {
       console.error('Failed to get push token:', error);
       analytics.track('notification_scheduled', { tokenFailed: true });

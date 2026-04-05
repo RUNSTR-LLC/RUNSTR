@@ -1339,6 +1339,7 @@ serve(async (req) => {
               const notificationBody = team_name
                 ? `You earned ${rewardAmount} sats from ${sponsorName} for ${team_name}`
                 : `You earned ${rewardAmount} sats from ${sponsorName} for your workout`
+              console.log(`[claim-reward] Sending push notification to ${npub.slice(0, 12)}...`)
               fetch(`${supabaseUrl}/functions/v1/notify-user`, {
                 method: 'POST',
                 headers: {
@@ -1352,7 +1353,16 @@ serve(async (req) => {
                   data: { type: 'reward_earned', sats: rewardAmount, screen: 'Rewards' },
                   channelId: 'bitcoin_rewards',
                 }),
-              }).catch(() => {}) // Fire-and-forget
+              }).then(async (res) => {
+                const result = await res.json().catch(() => ({}))
+                if (!result.sent) {
+                  console.warn(`[claim-reward] Push notification not sent: ${result.error || res.status}`)
+                } else {
+                  console.log(`[claim-reward] Push notification sent to ${result.devices} device(s)`)
+                }
+              }).catch((err) => {
+                console.error('[claim-reward] Push notification fetch failed:', err.message || err)
+              })
             }
           }
 
@@ -1443,6 +1453,7 @@ serve(async (req) => {
           if (npub) {
             const supabaseUrl = Deno.env.get('SUPABASE_URL')
             if (supabaseUrl) {
+              console.log(`[claim-reward] Sending step reward push to ${npub.slice(0, 12)}...`)
               fetch(`${supabaseUrl}/functions/v1/notify-user`, {
                 method: 'POST',
                 headers: {
@@ -1456,7 +1467,16 @@ serve(async (req) => {
                   data: { type: 'step_reward_earned', sats: amountToPay },
                   channelId: 'bitcoin_rewards',
                 }),
-              }).catch(() => {}) // Fire-and-forget
+              }).then(async (res) => {
+                const result = await res.json().catch(() => ({}))
+                if (!result.sent) {
+                  console.warn(`[claim-reward] Step push not sent: ${result.error || res.status}`)
+                } else {
+                  console.log(`[claim-reward] Step push sent to ${result.devices} device(s)`)
+                }
+              }).catch((err) => {
+                console.error('[claim-reward] Step push fetch failed:', err.message || err)
+              })
             }
           }
 

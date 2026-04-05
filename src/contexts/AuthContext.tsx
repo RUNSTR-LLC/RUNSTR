@@ -733,8 +733,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, [isAuthenticated, isInitializing]);
 
-  // Register push token_key so the external zapping tool can send reward notifications.
-  // Fire-and-forget: tagged to the existing broadcast_tokens row via sha256(npub).
+  // Register push token_key so the server can send reward notifications to this device.
+  // Uses UPSERT to guarantee the token_key is set even if the broadcast_tokens row
+  // was created without one (e.g. app opened before login).
   useEffect(() => {
     if (!isAuthenticated || isInitializing) return;
 
@@ -747,7 +748,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           .ExpoNotificationProvider.getInstance();
         await provider.initialize();
         const token = provider.getDeviceToken();
-        if (!token) return;
+        if (!token) {
+          console.log('[Auth] No push token available (simulator or permission denied)');
+          return;
+        }
 
         const Crypto = await import('expo-crypto');
         const tokenKey = await Crypto.digestStringAsync(
@@ -756,14 +760,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         );
 
         const { supabase, isSupabaseConfigured } = await import('../utils/supabase');
+        const { Platform } = await import('react-native');
         if (!isSupabaseConfigured() || !supabase) return;
 
-        await supabase
+        // Use UPSERT instead of UPDATE to guarantee the row exists with token_key.
+        // The registerToken call in ExpoNotificationProvider should have created the row,
+        // but this is a safety net in case of race conditions or prior registration without npub.
+        const { error } = await supabase
           .from('broadcast_tokens')
-          .update({ token_key: tokenKey })
-          .eq('token', token);
+          .upsert(
+            { token, token_key: tokenKey, platform: Platform.OS, is_active: true },
+            { onConflict: 'token' }
+          );
 
-        console.log('[Auth] Push token_key registered for reward notifications');
+        if (error) {
+          console.warn('[Auth] Push token_key upsert failed:', error.message);
+        } else {
+          console.log('[Auth] Push token_key registered for reward notifications (key:', tokenKey.slice(0, 12) + '...)');
+        }
       } catch (err) {
         console.warn('[Auth] token_key registration failed (silent):', err);
       }
