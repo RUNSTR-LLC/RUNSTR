@@ -82,6 +82,17 @@ export interface CompetitionConfig {
   charity_name?: string;                // Charity display name
   charity_lightning_address?: string;   // Charity Lightning address
   captain_donation_sats?: number;       // Captain's NWC donation (0 if none)
+  // Prize pool fields
+  prize_pool_sats?: number;                     // 100, 500, 1000, or 5000
+  prize_distribution?: 'top3' | 'all_participants';
+  payout_results?: Array<{
+    npub: string;
+    name?: string;
+    amount_sats: number;
+    address: string;
+    success: boolean;
+    error?: string;
+  }>;
 }
 
 // Database types for type safety
