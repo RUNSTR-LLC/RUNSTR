@@ -3,11 +3,13 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Toast from 'react-native-toast-message';
 import { theme } from '../../styles/theme';
 import SocialInteractionService from '../../services/social/SocialInteractionService';
 import type { SocialFeedPost } from '../../types/social';
 import { ExternalZapModal } from '../nutzap/ExternalZapModal';
+import { LikesBottomSheet } from './LikesBottomSheet';
+import { ZapsBottomSheet } from './ZapsBottomSheet';
+import { InlineCommentList } from './InlineCommentList';
 
 interface SocialInteractionRowProps {
   post: SocialFeedPost;
@@ -22,6 +24,11 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
   const [isReposted, setIsReposted] = useState(post.reposted_by?.includes(userNpub) || false);
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const [showZapModal, setShowZapModal] = useState(false);
+
+  const [showLikes, setShowLikes] = useState(false);
+  const [showZaps, setShowZaps] = useState(false);
+  const [commentsExpanded, setCommentsExpanded] = useState(false);
+  const commentCount = (post as any).comment_count || 0;
 
   const debounceRef = useRef<number>(0);
   const zapFlash = useRef(new Animated.Value(1)).current;
@@ -42,11 +49,9 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
 
       const result = await SocialInteractionService.toggleLike(post.id, post.event_id, post.npub);
       if (!result.success) {
-        // Revert on failure
         setIsLiked(wasLiked);
         setLikeCount((c) => wasLiked ? c + 1 : Math.max(c - 1, 0));
       }
-      // On success, keep the optimistic values — don't overwrite with server response
     });
   }, [isLiked, post, debounce]);
 
@@ -61,12 +66,10 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
       setRepostCount((c) => c + 1);
 
       const result = await SocialInteractionService.repost(post.id, post.event_id, post.npub);
-      if (!result.success || !result.wasAdded) {
-        // Revert on failure
+      if (!result.success) {
         setIsReposted(false);
         setRepostCount((c) => Math.max(c - 1, 0));
       }
-      // On success, keep optimistic values
     });
   }, [isReposted, post, debounce]);
 
@@ -79,39 +82,66 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
   return (
     <>
       <View style={styles.row}>
-        <TouchableOpacity style={styles.action} onPress={handleLike} activeOpacity={0.7}>
-          <Ionicons
-            name={isLiked ? 'heart' : 'heart-outline'}
-            size={20}
-            color={isLiked ? theme.colors.orangeDeep : theme.colors.textMuted}
-          />
-          {likeCount > 0 && <Text style={[styles.count, isLiked && styles.countActive]}>{formatCount(likeCount)}</Text>}
-        </TouchableOpacity>
+        <View style={styles.actionGroup}>
+          <TouchableOpacity style={styles.action} onPress={handleLike} activeOpacity={0.7}>
+            <Ionicons
+              name={isLiked ? 'heart' : 'heart-outline'}
+              size={20}
+              color={isLiked ? theme.colors.orangeDeep : theme.colors.textMuted}
+            />
+          </TouchableOpacity>
+          {likeCount > 0 && (
+            <TouchableOpacity onPress={() => setShowLikes(true)} activeOpacity={0.7}>
+              <Text style={[styles.count, isLiked && styles.countActive]}>{formatCount(likeCount)}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
-        <TouchableOpacity style={styles.action} onPress={handleZap} activeOpacity={0.7}>
-          <Animated.View style={{ transform: [{ scale: zapFlash }] }}>
-            <Ionicons name="flash-outline" size={20} color={theme.colors.textMuted} />
-          </Animated.View>
-          {zapTotal > 0 && <Text style={styles.count}>{formatCount(zapTotal)}</Text>}
-        </TouchableOpacity>
+        <View style={styles.actionGroup}>
+          <TouchableOpacity style={styles.action} onPress={handleZap} activeOpacity={0.7}>
+            <Animated.View style={{ transform: [{ scale: zapFlash }] }}>
+              <Ionicons name="flash-outline" size={20} color={theme.colors.textMuted} />
+            </Animated.View>
+          </TouchableOpacity>
+          {zapTotal > 0 && (
+            <TouchableOpacity onPress={() => setShowZaps(true)} activeOpacity={0.7}>
+              <Text style={styles.count}>{formatCount(zapTotal)}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
-        <TouchableOpacity style={styles.action} onPress={handleRepost} activeOpacity={0.7} disabled={isReposted}>
-          <Ionicons
-            name={isReposted ? 'repeat' : 'repeat-outline'}
-            size={20}
-            color={isReposted ? theme.colors.orangeDeep : theme.colors.textMuted}
-          />
-          {repostCount > 0 && <Text style={[styles.count, isReposted && styles.countActive]}>{formatCount(repostCount)}</Text>}
-        </TouchableOpacity>
+        <View style={styles.actionGroup}>
+          <TouchableOpacity style={styles.action} onPress={handleRepost} activeOpacity={0.7} disabled={isReposted}>
+            <Ionicons
+              name={isReposted ? 'repeat' : 'repeat-outline'}
+              size={20}
+              color={isReposted ? theme.colors.orangeDeep : theme.colors.textMuted}
+            />
+          </TouchableOpacity>
+          {repostCount > 0 && (
+            <Text style={[styles.count, isReposted && styles.countActive]}>{formatCount(repostCount)}</Text>
+          )}
+        </View>
 
-        <TouchableOpacity
-          style={styles.action}
-          onPress={() => Toast.show({ type: 'info', text1: 'Coming soon', position: 'bottom', visibilityTime: 1500 })}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="chatbubble-outline" size={20} color={theme.colors.textMuted} style={{ opacity: 0.4 }} />
-        </TouchableOpacity>
+        <View style={styles.actionGroup}>
+          <TouchableOpacity
+            style={styles.action}
+            onPress={() => setCommentsExpanded((prev) => !prev)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={commentsExpanded ? 'chatbubble' : 'chatbubble-outline'}
+              size={20}
+              color={commentsExpanded ? theme.colors.orangeDeep : theme.colors.textMuted}
+            />
+          </TouchableOpacity>
+          {commentCount > 0 && (
+            <Text style={[styles.count, commentsExpanded && styles.countActive]}>{formatCount(commentCount)}</Text>
+          )}
+        </View>
       </View>
+
+      <InlineCommentList postId={post.id} commentCount={commentCount} expanded={commentsExpanded} />
 
       <ExternalZapModal
         visible={showZapModal}
@@ -119,6 +149,19 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
         recipientName={post.author_name || 'Unknown'}
         onClose={() => setShowZapModal(false)}
         onSuccess={() => setShowZapModal(false)}
+      />
+
+      <LikesBottomSheet
+        visible={showLikes}
+        likedBy={post.liked_by || []}
+        onClose={() => setShowLikes(false)}
+      />
+
+      <ZapsBottomSheet
+        visible={showZaps}
+        postId={post.id}
+        zapTotal={zapTotal}
+        onClose={() => setShowZaps(false)}
       />
     </>
   );
@@ -133,12 +176,18 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     marginTop: 10,
   },
-  action: {
+  actionGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     minWidth: 44,
     minHeight: 32,
+  },
+  action: {
+    minWidth: 32,
+    minHeight: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   count: {
     color: theme.colors.textMuted,
