@@ -41,6 +41,7 @@ import { ActivityTrackerScreen } from '../screens/activity/ActivityTrackerScreen
 import { Season2Screen } from '../screens/season2/Season2Screen';
 import { CompeteScreen } from '../screens/CompeteScreen';
 import { LeaderboardsScreen } from '../screens/LeaderboardsScreen';
+import { CommentsScreen } from '../screens/CommentsScreen';
 
 // Navigation Configuration
 import {
@@ -83,6 +84,7 @@ export type RootStackParamList = {
   DynamicEventDetail: { eventId: string };
   JournalHistory: undefined;
   LevelDetail: undefined;
+  Comments: { postId: string; commentCount: number };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -504,6 +506,16 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
       <Stack.Screen
         name="DynamicEventDetail"
         component={DynamicEventDetailScreen as any}
+        options={{
+          ...defaultScreenOptions,
+          headerShown: false,
+        }}
+      />
+
+      {/* Comments Screen - Full-screen comment view */}
+      <Stack.Screen
+        name="Comments"
+        component={CommentsScreen as any}
         options={{
           ...defaultScreenOptions,
           headerShown: false,
