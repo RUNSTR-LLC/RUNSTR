@@ -77,6 +77,11 @@ export interface CompetitionConfig {
   captain_lightning_address?: string;           // Captain's lightning address for pledge rewards
   winner_selection?: 'top_ranked' | 'random';  // How winner is selected
   qualifying_distance_km?: number;             // Minimum km to qualify
+  // Charity event fields
+  charity_id?: string;                  // Charity ID from charities.ts
+  charity_name?: string;                // Charity display name
+  charity_lightning_address?: string;   // Charity Lightning address
+  captain_donation_sats?: number;       // Captain's NWC donation (0 if none)
 }
 
 // Database types for type safety
