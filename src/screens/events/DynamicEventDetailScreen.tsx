@@ -31,8 +31,8 @@ import { ClubService } from '../../services/backend/ClubService';
 import { ClubMembershipService } from '../../services/backend/ClubMembershipService';
 import { CustomAlert } from '../../components/ui/CustomAlert';
 import { PledgeService } from '../../services/pledge/PledgeService';
-import { EventFinalizationService, FinalizationResult } from '../../services/events/EventFinalizationService';
-import NWCWalletService from '../../services/wallet/NWCWalletService';
+import { EventFinalizationService, FinalizationResult, PayoutRecipient } from '../../services/events/EventFinalizationService';
+import { callEdgeFunction } from '../../utils/edgeFunctions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Avatar } from '../../components/ui/Avatar';
 import type { Competition, CompetitionConfig } from '../../utils/supabase';
@@ -356,64 +356,70 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
     if (!competition?.config) return;
     setIsFinalizing(true);
     try {
+      const config = competition.config;
+      const prizePoolSats = config.prize_pool_sats || competition.prize_pool_sats || 0;
+      const distribution = config.prize_distribution || 'top3';
+
+      // Step 1: Get finishers
       const result = await EventFinalizationService.finalizeEvent(
         competition.id,
-        (competition.config.winner_selection as 'ranked' | 'random') || 'ranked',
-        competition.config.qualifying_distance_km || 0,
-        competition.prize_pool_sats || 0,
+        (config.winner_selection as 'ranked' | 'random') || 'ranked',
+        distribution === 'all_participants' ? 0 : (config.qualifying_distance_km || 0),
+        prizePoolSats,
       );
       setFinalizationResult(result);
+
+      // Step 2: Auto-payout if prize pool exists
+      if (prizePoolSats > 0 && result.finishers.length > 0) {
+        setIsPaying(true);
+
+        const recipients = EventFinalizationService.calculateSplits(
+          result.finishers,
+          prizePoolSats,
+          distribution,
+        );
+
+        const payoutResults = await EventFinalizationService.executePayout(recipients);
+
+        // Update finalization result with payout info
+        setFinalizationResult(prev => prev ? { ...prev, payoutResults } : prev);
+
+        // Store results in competition config
+        try {
+          await callEdgeFunction('manage-competition', {
+            action: 'update',
+            competition_id: competition.id,
+            npub: await AsyncStorage.getItem('@runstr:npub') || '',
+            updates: {
+              config: { ...config, payout_results: payoutResults },
+            },
+          });
+        } catch (e) {
+          console.warn('[DynamicEventDetail] Failed to persist payout results:', e);
+        }
+
+        // Show summary
+        const successCount = payoutResults.filter(p => p.success).length;
+        const failCount = payoutResults.filter(p => !p.success).length;
+        const totalPaid = payoutResults.filter(p => p.success).reduce((sum, p) => sum + p.amount_sats, 0);
+
+        let summary = `Paid ${totalPaid} sats to ${successCount} recipient${successCount !== 1 ? 's' : ''}.`;
+        if (failCount > 0) {
+          summary += ` ${failCount} payment${failCount !== 1 ? 's' : ''} failed.`;
+        }
+        Alert.alert('Event Finalized', summary);
+
+        setIsPaying(false);
+      } else if (result.finishers.length === 0) {
+        Alert.alert('No Finishers', 'No participants met the qualifying criteria.');
+      } else {
+        Alert.alert('Event Finalized', `${result.finishers.length} finisher${result.finishers.length !== 1 ? 's' : ''}.`);
+      }
     } catch (error) {
       console.error('[DynamicEventDetail] Finalization error:', error);
       Alert.alert('Error', 'Failed to finalize event. Please try again.');
     } finally {
       setIsFinalizing(false);
-    }
-  };
-
-  const handlePayWinner = async () => {
-    if (!finalizationResult?.winner) return;
-    setIsPaying(true);
-    try {
-      const winnerAddress = finalizationResult.winner.lightningAddress;
-      if (!winnerAddress) {
-        Alert.alert('No Address', 'Winner does not have a rewards address set in their profile.');
-        setIsPaying(false);
-        return;
-      }
-
-      // Request invoice from winner's rewards address
-      const response = await fetch(`https://${winnerAddress.split('@')[1]}/.well-known/lnurlp/${winnerAddress.split('@')[0]}`);
-      const lnurlData = await response.json();
-
-      if (!lnurlData.callback) {
-        Alert.alert('Error', 'Could not reach winner\'s wallet.');
-        setIsPaying(false);
-        return;
-      }
-
-      // Request invoice for prize amount
-      const callbackUrl = `${lnurlData.callback}?amount=${finalizationResult.prizePoolSats * 1000}`;
-      const invoiceResponse = await fetch(callbackUrl);
-      const invoiceData = await invoiceResponse.json();
-
-      if (!invoiceData.pr) {
-        Alert.alert('Error', 'Could not create invoice for winner.');
-        setIsPaying(false);
-        return;
-      }
-
-      // Pay via organizer's connected wallet
-      const payResult = await NWCWalletService.sendPayment(invoiceData.pr);
-      if (payResult.success) {
-        Alert.alert('Prize Sent!', `${finalizationResult.prizePoolSats} rewards sent to the winner!`);
-      } else {
-        Alert.alert('Payment Failed', payResult.error || 'Unknown error');
-      }
-    } catch (error) {
-      console.error('[DynamicEventDetail] Pay winner error:', error);
-      Alert.alert('Error', 'Failed to send prize. Please try again.');
-    } finally {
       setIsPaying(false);
     }
   };
@@ -613,6 +619,40 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
               </View>
             </View>
           )}
+
+              {/* Prize Pool Info */}
+              {competition?.config?.prize_pool_sats && (
+                <View style={styles.prizePoolBanner}>
+                  <Ionicons name="trophy-outline" size={20} color={theme.colors.primary} />
+                  <View style={styles.prizePoolText}>
+                    <Text style={styles.prizePoolAmount}>
+                      {competition.config.prize_pool_sats.toLocaleString()} sats prize pool
+                    </Text>
+                    <Text style={styles.prizePoolDistribution}>
+                      {competition.config.prize_distribution === 'all_participants'
+                        ? 'Split among all participants'
+                        : 'Top 3: 50% / 30% / 20%'}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Payout Results (after finalization) */}
+              {competition?.config?.payout_results && (
+                <View style={styles.payoutResults}>
+                  <Text style={styles.payoutResultsTitle}>Payout Results</Text>
+                  {competition.config.payout_results.map((p: PayoutRecipient, i: number) => (
+                    <View key={i} style={styles.payoutRow}>
+                      <Text style={styles.payoutName} numberOfLines={1}>
+                        {p.name || p.npub.slice(0, 12) + '...'}
+                      </Text>
+                      <Text style={[styles.payoutAmount, !p.success && styles.payoutFailed]}>
+                        {p.success ? `${p.amount_sats} sats` : 'Failed'}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
 
           {/* Date */}
           <View style={styles.metaRow}>
@@ -853,28 +893,19 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
                   {finalizationResult.finishers.length} finisher{finalizationResult.finishers.length !== 1 ? 's' : ''} qualified
                 </Text>
                 {finalizationResult.winner ? (
-                  <>
-                    <Text style={[styles.winnerText, { color: theme.colors.accent }]}>
-                      Winner: {finalizationResult.winner.name || finalizationResult.winner.npub.slice(0, 16) + '...'}
-                    </Text>
-                    <TouchableOpacity
-                      style={[styles.payButton, { backgroundColor: theme.colors.accent }]}
-                      onPress={handlePayWinner}
-                      disabled={isPaying}
-                    >
-                      {isPaying ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                      ) : (
-                        <Text style={styles.payButtonText}>
-                          Send {finalizationResult.prizePoolSats} rewards to Winner
-                        </Text>
-                      )}
-                    </TouchableOpacity>
-                  </>
+                  <Text style={[styles.winnerText, { color: theme.colors.accent }]}>
+                    Winner: {finalizationResult.winner.name || finalizationResult.winner.npub.slice(0, 16) + '...'}
+                  </Text>
                 ) : (
                   <Text style={[styles.noFinishersText, { color: theme.colors.textMuted }]}>
                     No finishers met the qualifying distance.
                   </Text>
+                )}
+                {isPaying && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
+                    <ActivityIndicator size="small" color={theme.colors.accent} />
+                    <Text style={{ color: theme.colors.textMuted, fontSize: 14 }}>Sending prizes...</Text>
+                  </View>
                 )}
               </View>
             )}
@@ -1326,6 +1357,44 @@ const styles = StyleSheet.create({
   charityBannerRaised: {
     fontSize: 14, color: theme.colors.primary, marginTop: 2,
     fontWeight: theme.typography.weights.semiBold,
+  },
+  prizePoolBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    padding: 16, marginHorizontal: 16, marginTop: 8,
+    backgroundColor: theme.colors.card, borderRadius: 12,
+    borderWidth: 1, borderColor: theme.colors.border,
+  },
+  prizePoolText: {
+    flex: 1,
+  },
+  prizePoolAmount: {
+    fontSize: 15, fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+  },
+  prizePoolDistribution: {
+    fontSize: 13, color: theme.colors.textMuted, marginTop: 2,
+  },
+  payoutResults: {
+    paddingHorizontal: 16, marginTop: 12,
+  },
+  payoutResultsTitle: {
+    fontSize: 13, fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.textMuted, letterSpacing: 0.5,
+    textTransform: 'uppercase', marginBottom: 8,
+  },
+  payoutRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: theme.colors.border,
+  },
+  payoutName: {
+    fontSize: 14, color: theme.colors.text, flex: 1,
+  },
+  payoutAmount: {
+    fontSize: 14, fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.primary,
+  },
+  payoutFailed: {
+    color: '#ff4444',
   },
 });
 
