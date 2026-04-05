@@ -1,13 +1,13 @@
 /**
  * SimpleEventCreationModal - Event creation/editing for club captains.
  *
- * Templates: 5K Race, 10K Race, Half Marathon, Step Challenge, Charity Event
+ * Templates: 5K Race, 10K Race, Half Marathon, Step Challenge
  * Scoring is auto-set per template:
  *   - 5K / 10K  → fastest_time
  *   - Half Marathon → total_distance
  *   - Step Challenge → total_steps (walking)
- *   - Charity Event → workout_count (running)
  *
+ * Advanced section (collapsible): charity picker, captain donation, prize pool, distribution.
  * Supports edit mode via `existingEvent` prop to update recurring_interval.
  */
 import React, { useState, useCallback, useRef, useEffect } from 'react';
@@ -101,16 +101,6 @@ const EVENT_TEMPLATES: EventTemplate[] = [
     activityType: 'walking',
     scoringMethod: 'total_steps',
   },
-  {
-    key: 'charity',
-    label: 'Charity Event',
-    subtitle: 'Rally for a cause',
-    icon: 'heart-outline',
-    distanceKm: 0,
-    templateId: 'charity_event',
-    activityType: 'running',
-    scoringMethod: 'workout_count',
-  },
 ];
 
 const DURATION_OPTIONS = [
@@ -124,6 +114,18 @@ const RECURRING_OPTIONS: { label: string; value: string | null }[] = [
   { label: 'Off', value: null },
   { label: 'Weekly', value: 'weekly' },
   { label: 'Monthly', value: 'monthly' },
+];
+
+const PRIZE_POOL_OPTIONS = [
+  { label: '100', sats: 100 },
+  { label: '500', sats: 500 },
+  { label: '1K', sats: 1000 },
+  { label: '5K', sats: 5000 },
+];
+
+const DISTRIBUTION_OPTIONS: { label: string; value: 'top3' | 'all_participants' }[] = [
+  { label: 'Top 3', value: 'top3' },
+  { label: 'All', value: 'all_participants' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -141,6 +143,9 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
   const [selectedCharity, setSelectedCharity] = useState<Charity | null>(null);
   const [captainDonationSats, setCaptainDonationSats] = useState('');
   const [hasNWC, setHasNWC] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [prizePoolSats, setPrizePoolSats] = useState<number | null>(null);
+  const [prizeDistribution, setPrizeDistribution] = useState<'top3' | 'all_participants'>('top3');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
   const [alertVisible, setAlertVisible] = useState(false);
@@ -166,6 +171,9 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
     setRecurringInterval(null);
     setSelectedCharity(null);
     setCaptainDonationSats('');
+    setShowAdvanced(false);
+    setPrizePoolSats(null);
+    setPrizeDistribution('top3');
   }, []);
 
   const handleClose = useCallback(() => {
@@ -173,12 +181,9 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
     onClose();
   }, [resetForm, onClose]);
 
-  const isCharityTemplate = selectedTemplate?.key === 'charity';
   const isValid = isEditMode
     ? true
-    : isCharityTemplate
-      ? selectedTemplate !== null && selectedCharity !== null
-      : selectedTemplate !== null;
+    : selectedTemplate !== null;
 
   const showAlert = useCallback((title: string, message: string) => {
     setAlertTitle(title);
@@ -243,7 +248,7 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
 
       // Captain NWC donation — pay charity directly via Lightning address
       const donationAmount = parseInt(captainDonationSats, 10) || 0;
-      if (isCharityTemplate && donationAmount > 0 && selectedCharity) {
+      if (donationAmount > 0 && selectedCharity) {
         if (!selectedCharity.lightningAddress) {
           showAlert('Error', 'Selected charity does not have a payment address.');
           return;
@@ -261,18 +266,24 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
       }
 
       const displayClubName = clubName || 'RUNSTR Club';
-      const autoName = isCharityTemplate && selectedCharity
-        ? `${displayClubName} x ${selectedCharity.name}`
-        : `${displayClubName} ${selectedTemplate.label}`;
+      let autoName = `${displayClubName} ${selectedTemplate.label}`;
+      if (selectedCharity) {
+        autoName = `${displayClubName} x ${selectedCharity.name}`;
+      }
 
       const startDate = new Date().toISOString();
       const endDate = new Date(Date.now() + durationDays * 86400000).toISOString();
 
-      const charityConfig = isCharityTemplate && selectedCharity ? {
+      const charityConfig = selectedCharity ? {
         charity_id: selectedCharity.id,
         charity_name: selectedCharity.name,
         charity_lightning_address: selectedCharity.lightningAddress || '',
         captain_donation_sats: donationAmount,
+      } : {};
+
+      const prizeConfig = prizePoolSats ? {
+        prize_pool_sats: prizePoolSats,
+        prize_distribution: prizeDistribution,
       } : {};
 
       const result = await callEdgeFunction<{
@@ -302,6 +313,7 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
           ticket_pledge_days: 0,
           winner_selection: 'top_ranked',
           ...charityConfig,
+          ...prizeConfig,
         },
       });
 
@@ -322,15 +334,20 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
       }
       await SupabaseCompetitionService.clearDynamicCompetitionsCache();
 
-      const charityMsg = isCharityTemplate && selectedCharity
-        ? `Fundraiser for ${selectedCharity.name} is live!${donationAmount > 0 ? ` Your ${donationAmount} sat donation has been sent.` : ''}`
-        : clubId
-          ? autoJoinCount > 0
-            ? `Event is live. ${autoJoinCount} club member${autoJoinCount === 1 ? '' : 's'} enrolled automatically.`
-            : 'Event is live. No club members found to auto-enroll.'
-          : 'Event is live and you have been joined automatically.';
+      let successMsg = clubId
+        ? autoJoinCount > 0
+          ? `Event is live. ${autoJoinCount} club member${autoJoinCount === 1 ? '' : 's'} enrolled automatically.`
+          : 'Event is live. No club members found to auto-enroll.'
+        : 'Event is live and you have been joined automatically.';
 
-      showAlert('Event Created', charityMsg);
+      if (selectedCharity && donationAmount > 0) {
+        successMsg += ` Your ${donationAmount} sat donation to ${selectedCharity.name} has been sent.`;
+      }
+      if (prizePoolSats) {
+        successMsg += ` Prize pool: ${prizePoolSats} sats.`;
+      }
+
+      showAlert('Event Created', successMsg);
       onEventCreated?.(externalId);
     } catch (err) {
       console.error('[SimpleEventCreation] Exception:', err);
@@ -339,7 +356,7 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
       isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
-  }, [isValid, selectedTemplate, durationDays, recurringInterval, clubId, clubName, clubBannerUrl, onEventCreated, showAlert, isCharityTemplate, selectedCharity, captainDonationSats]);
+  }, [isValid, selectedTemplate, durationDays, recurringInterval, clubId, clubName, clubBannerUrl, onEventCreated, showAlert, selectedCharity, captainDonationSats, prizePoolSats, prizeDistribution]);
 
   const handleAlertDismiss = useCallback(() => {
     setAlertVisible(false);
@@ -396,56 +413,6 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
               </View>
             )}
 
-            {/* Charity Picker (charity template only) */}
-            {!isEditMode && isCharityTemplate && (
-              <View style={s.formGroup}>
-                <Text style={s.label}>Select Charity</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  style={{ marginHorizontal: -16 }}
-                  contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}
-                >
-                  {CHARITIES.filter(c => c.category !== 'service' && !c.isSelf && !c.isPPQ).map((charity) => {
-                    const sel = selectedCharity?.id === charity.id;
-                    return (
-                      <TouchableOpacity
-                        key={charity.id}
-                        style={[s.charityCard, sel && s.charityCardSelected]}
-                        onPress={() => setSelectedCharity(charity)}
-                        activeOpacity={0.7}
-                      >
-                        {charity.image && (
-                          <Image source={charity.image} style={s.charityImage} />
-                        )}
-                        <Text style={[s.charityName, sel && s.charityNameSelected]} numberOfLines={2}>
-                          {charity.name}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
-            )}
-
-            {/* Captain NWC Donation (charity template + NWC available) */}
-            {!isEditMode && isCharityTemplate && hasNWC && (
-              <View style={s.formGroup}>
-                <Text style={s.label}>Your Donation (optional)</Text>
-                <View style={s.donationRow}>
-                  <TextInput
-                    style={s.donationInput}
-                    placeholder="0"
-                    placeholderTextColor={theme.colors.textDark}
-                    keyboardType="number-pad"
-                    value={captainDonationSats}
-                    onChangeText={setCaptainDonationSats}
-                  />
-                  <Text style={s.donationUnit}>sats</Text>
-                </View>
-              </View>
-            )}
-
             {/* Duration (create mode only) */}
             {!isEditMode && (
               <View style={s.formGroup}>
@@ -487,6 +454,120 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
                 })}
               </View>
             </View>
+
+            {/* Advanced Options (create mode only) */}
+            {!isEditMode && (
+              <View style={s.formGroup}>
+                <TouchableOpacity
+                  style={s.advancedToggle}
+                  onPress={() => setShowAdvanced(!showAdvanced)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={s.advancedToggleText}>Advanced</Text>
+                  <Ionicons
+                    name={showAdvanced ? 'chevron-up' : 'chevron-down'}
+                    size={18}
+                    color={theme.colors.textMuted}
+                  />
+                </TouchableOpacity>
+
+                {showAdvanced && (
+                  <View style={s.advancedContent}>
+                    {/* Charity Picker */}
+                    <View style={s.advancedGroup}>
+                      <Text style={s.label}>Charity (optional)</Text>
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        style={{ marginHorizontal: -16 }}
+                        contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}
+                      >
+                        {CHARITIES.filter(c => c.category !== 'service' && !c.isSelf && !c.isPPQ).map((charity) => {
+                          const sel = selectedCharity?.id === charity.id;
+                          return (
+                            <TouchableOpacity
+                              key={charity.id}
+                              style={[s.charityCard, sel && s.charityCardSelected]}
+                              onPress={() => setSelectedCharity(sel ? null : charity)}
+                              activeOpacity={0.7}
+                            >
+                              {charity.image && (
+                                <Image source={charity.image} style={s.charityImage} />
+                              )}
+                              <Text style={[s.charityName, sel && s.charityNameSelected]} numberOfLines={2}>
+                                {charity.name}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </ScrollView>
+                    </View>
+
+                    {/* Captain NWC Donation (only if charity selected + NWC available) */}
+                    {selectedCharity && hasNWC && (
+                      <View style={s.advancedGroup}>
+                        <Text style={s.label}>Charity Donation (optional)</Text>
+                        <View style={s.donationRow}>
+                          <TextInput
+                            style={s.donationInput}
+                            placeholder="0"
+                            placeholderTextColor={theme.colors.textDark}
+                            keyboardType="number-pad"
+                            value={captainDonationSats}
+                            onChangeText={setCaptainDonationSats}
+                          />
+                          <Text style={s.donationUnit}>sats</Text>
+                        </View>
+                      </View>
+                    )}
+
+                    {/* Prize Pool (only if NWC available) */}
+                    {hasNWC && (
+                      <View style={s.advancedGroup}>
+                        <Text style={s.label}>Prize Pool (optional)</Text>
+                        <View style={s.pillRow}>
+                          {PRIZE_POOL_OPTIONS.map((opt) => {
+                            const sel = prizePoolSats === opt.sats;
+                            return (
+                              <TouchableOpacity
+                                key={opt.label}
+                                style={[s.pill, sel && s.pillSelected]}
+                                onPress={() => setPrizePoolSats(sel ? null : opt.sats)}
+                                activeOpacity={0.7}
+                              >
+                                <Text style={[s.pillText, sel && s.pillTextSelected]}>{opt.label}</Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    )}
+
+                    {/* Distribution (only if prize pool selected) */}
+                    {prizePoolSats && (
+                      <View style={s.advancedGroup}>
+                        <Text style={s.label}>Distribution</Text>
+                        <View style={s.pillRow}>
+                          {DISTRIBUTION_OPTIONS.map((opt) => {
+                            const sel = prizeDistribution === opt.value;
+                            return (
+                              <TouchableOpacity
+                                key={opt.value}
+                                style={[s.pill, sel && s.pillSelected]}
+                                onPress={() => setPrizeDistribution(opt.value)}
+                                activeOpacity={0.7}
+                              >
+                                <Text style={[s.pillText, sel && s.pillTextSelected]}>{opt.label}</Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </View>
+            )}
 
             <View style={{ height: 100 }} />
           </ScrollView>
@@ -611,6 +692,22 @@ const s = StyleSheet.create({
   donationUnit: {
     fontSize: 14, fontWeight: theme.typography.weights.semiBold,
     color: theme.colors.textMuted,
+  },
+  // Advanced section
+  advancedToggle: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 12, paddingHorizontal: 4,
+  },
+  advancedToggleText: {
+    fontSize: 13, fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.textMuted, letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  advancedContent: {
+    marginTop: 8,
+  },
+  advancedGroup: {
+    marginBottom: 16,
   },
   // Footer
   footer: { padding: 16, borderTopWidth: 1, borderTopColor: theme.colors.border },
