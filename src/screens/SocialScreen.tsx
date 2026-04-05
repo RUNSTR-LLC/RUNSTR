@@ -95,9 +95,13 @@ const SocialScreenComponent: React.FC = () => {
     <SocialFeedPost post={item} userNpub={userNpub} />
   ), [userNpub]);
 
+  const handleClubCreated = useCallback(() => {
+    loadData(true);
+  }, []);
+
   const renderHeader = useCallback(() => (
-    <ClubsRow clubs={clubs} userClubId={userClubId} />
-  ), [clubs, userClubId]);
+    <ClubsRow clubs={clubs} userClubId={userClubId} onClubCreated={handleClubCreated} />
+  ), [clubs, userClubId, handleClubCreated]);
 
   const renderEmpty = useCallback(() => {
     if (isLoading) return null;

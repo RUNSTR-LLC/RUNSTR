@@ -9,6 +9,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import Toast from 'react-native-toast-message';
 import { ClubChatService } from '../services/backend/ClubChatService';
 import type { SendMessageOptions } from '../services/backend/ClubChatService';
 import type { ClubMessage } from '../types/club';
@@ -45,6 +46,9 @@ export function useClubChat(
   const unsubscribeRef = useRef<(() => void) | null>(null);
   // Track server IDs of messages we sent, so Realtime INSERT doesn't duplicate them
   const sentMessageIdsRef = useRef<Set<string>>(new Set());
+  // Keep senderNpub current for Realtime callback closures
+  const senderNpubRef = useRef(senderNpub);
+  senderNpubRef.current = senderNpub;
 
   // ------------------------------------------------------------------
   // Initial load: cache -> show -> fetch fresh -> update
@@ -107,11 +111,7 @@ export function useClubChat(
       (newMessage) => {
         if (!isMounted.current) return;
 
-        // Skip messages we sent ourselves — the optimistic update already
-        // added them and the sendMessage callback replaces the optimistic
-        // entry with the real server response. Without this check, the
-        // Realtime INSERT arrives while the optimistic message still has
-        // a temp ID, so the ID-based dedup below doesn't catch it.
+        // Skip messages we already processed via sendMessage callback
         if (sentMessageIdsRef.current.has(newMessage.id)) {
           sentMessageIdsRef.current.delete(newMessage.id);
           return;
@@ -120,6 +120,20 @@ export function useClubChat(
         setMessages((prev) => {
           // Dedup: check by server ID in case of race
           if (prev.some((m) => m.id === newMessage.id)) return prev;
+
+          // Race fix: if this is our own message arriving via Realtime
+          // before sendMessage resolved, replace the optimistic entry
+          // instead of adding a duplicate
+          if (newMessage.sender_npub === senderNpubRef.current) {
+            const optimisticIdx = prev.findIndex((m) => m.id.startsWith('optimistic-'));
+            if (optimisticIdx !== -1) {
+              sentMessageIdsRef.current.add(newMessage.id);
+              const updated = [...prev];
+              updated[optimisticIdx] = newMessage;
+              return updated;
+            }
+          }
+
           // Prepend (newest first)
           return [newMessage, ...prev];
         });
@@ -195,20 +209,24 @@ export function useClubChat(
         const sent = await ClubChatService.sendMessage(clubId, senderNpub, trimmed, options);
 
         if (sent && isMounted.current) {
-          // Track the real server ID so the Realtime INSERT callback skips it
           sentMessageIdsRef.current.add(sent.id);
-          // Replace optimistic message with real one from Supabase
-          setMessages((prev) =>
-            prev.map((m) => (m.id === optimisticId ? sent : m))
-          );
+          setMessages((prev) => {
+            // If Realtime already replaced the optimistic, just ensure no stale entries
+            if (prev.some((m) => m.id === sent.id)) {
+              return prev.filter((m) => !m.id.startsWith('optimistic-'));
+            }
+            // Normal case: replace optimistic with real server message
+            return prev.map((m) => (m.id === optimisticId ? sent : m));
+          });
           setCanSend(ClubChatService.canSendMessage());
           return true;
         }
 
-        // Send failed -- remove optimistic message
+        // Send failed -- remove optimistic message and notify user
         if (isMounted.current) {
           setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
           setError('Failed to send message');
+          Toast.show({ type: 'error', text1: 'Message not sent', text2: 'Tap to retry', visibilityTime: 2500 });
         }
         return false;
       } catch (err) {
@@ -216,6 +234,7 @@ export function useClubChat(
         if (isMounted.current) {
           setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
           setError(err instanceof Error ? err.message : 'Send failed');
+          Toast.show({ type: 'error', text1: 'Message not sent', visibilityTime: 2500 });
         }
         return false;
       } finally {

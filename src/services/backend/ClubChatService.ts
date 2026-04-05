@@ -13,7 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, isSupabaseConfigured } from '../../utils/supabase';
 import { callEdgeFunction } from '../../utils/edgeFunctions';
 import type { ClubMessage, ClubMessageType, WorkoutMessageMetadata } from '../../types/club';
-import type { RealtimeChannel } from '@supabase/supabase-js';
+
 
 // Cache configuration
 const CACHE_KEY_PREFIX = '@runstr:club_chat:';
@@ -43,10 +43,10 @@ interface CachedChat {
   timestamp: number;
 }
 
+// Monotonic counter for unique channel names per subscriber
+let channelCounter = 0;
+
 export class ClubChatService {
-  // Active Realtime subscription
-  private static activeChannel: RealtimeChannel | null = null;
-  private static activeClubId: string | null = null;
 
   // --------------------------------------------------------------------------
   // Public API
@@ -262,8 +262,10 @@ export class ClubChatService {
 
   /**
    * Subscribe to new messages for a club via Supabase Realtime.
-   * Cleans up any existing subscription for a different club.
-   * Returns an unsubscribe function.
+   * Each call creates an independent channel so multiple components
+   * (e.g. embedded chat + full-screen chat) can coexist without
+   * one unmount destroying the other's subscription.
+   * Returns an unsubscribe function that only removes THIS channel.
    */
   static subscribeToMessages(
     clubId: string,
@@ -275,24 +277,12 @@ export class ClubChatService {
       return () => {};
     }
 
-    // If already subscribed to a different club, clean up first
-    if (ClubChatService.activeClubId && ClubChatService.activeClubId !== clubId) {
-      console.log(
-        `[ClubChatService] Switching subscription from ${ClubChatService.activeClubId} to ${clubId}`
-      );
-      ClubChatService.unsubscribe();
-    }
-
-    // If already subscribed to this club, don't duplicate
-    if (ClubChatService.activeClubId === clubId && ClubChatService.activeChannel) {
-      console.log(`[ClubChatService] Already subscribed to ${clubId}`);
-      return () => ClubChatService.unsubscribe();
-    }
-
-    console.log(`[ClubChatService] Subscribing to club_chat:${clubId}`);
+    const channelId = ++channelCounter;
+    const channelName = `club_chat:${clubId}:${channelId}`;
+    console.log(`[ClubChatService] Subscribing to ${channelName}`);
 
     const channel = supabase!
-      .channel(`club_chat:${clubId}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -303,17 +293,10 @@ export class ClubChatService {
         },
         (payload) => {
           const newMessage = payload.new as ClubMessage;
-
-          // Ignore soft-deleted messages
           if (newMessage.deleted_at) return;
 
-          console.log(
-            `[ClubChatService] Realtime message received: ${newMessage.id}`
-          );
-
-          // Append to cache in background
+          console.log(`[ClubChatService] Realtime message received (${channelName}): ${newMessage.id}`);
           ClubChatService.appendToCache(clubId, newMessage).catch(() => {});
-
           onNewMessage(newMessage);
         }
       )
@@ -330,34 +313,18 @@ export class ClubChatService {
           const updatedMessage = payload.new as ClubMessage;
           if (updatedMessage.deleted_at) return;
 
-          console.log(
-            `[ClubChatService] Realtime message updated: ${updatedMessage.id}`
-          );
+          console.log(`[ClubChatService] Realtime message updated (${channelName}): ${updatedMessage.id}`);
           onMessageUpdated(updatedMessage);
         }
       )
       .subscribe((status) => {
-        console.log(`[ClubChatService] Realtime subscription status: ${status}`);
+        console.log(`[ClubChatService] Realtime ${channelName} status: ${status}`);
       });
 
-    ClubChatService.activeChannel = channel;
-    ClubChatService.activeClubId = clubId;
-
-    return () => ClubChatService.unsubscribe();
-  }
-
-  /**
-   * Remove the active Realtime channel subscription.
-   */
-  static unsubscribe(): void {
-    if (ClubChatService.activeChannel) {
-      console.log(
-        `[ClubChatService] Unsubscribing from club_chat:${ClubChatService.activeClubId}`
-      );
-      supabase?.removeChannel(ClubChatService.activeChannel);
-      ClubChatService.activeChannel = null;
-      ClubChatService.activeClubId = null;
-    }
+    return () => {
+      console.log(`[ClubChatService] Unsubscribing from ${channelName}`);
+      supabase?.removeChannel(channel);
+    };
   }
 
   // --------------------------------------------------------------------------
