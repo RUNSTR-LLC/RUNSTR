@@ -241,8 +241,24 @@ export const SimpleEventCreationModal: React.FC<SimpleEventCreationModalProps> =
         return;
       }
 
-      // Captain NWC donation amount (stored in config, payment TBD via LNURL)
+      // Captain NWC donation — pay charity directly via Lightning address
       const donationAmount = parseInt(captainDonationSats, 10) || 0;
+      if (isCharityTemplate && donationAmount > 0 && selectedCharity) {
+        if (!selectedCharity.lightningAddress) {
+          showAlert('Error', 'Selected charity does not have a payment address.');
+          return;
+        }
+
+        const payResult = await NWCWalletService.payLightningAddress(
+          selectedCharity.lightningAddress,
+          donationAmount,
+        );
+        if (!payResult.success) {
+          showAlert('Payment Failed', payResult.error || 'Could not send donation. Event not created.');
+          return;
+        }
+        console.log(`[SimpleEventCreation] Captain donated ${donationAmount} sats to ${selectedCharity.name}`);
+      }
 
       const displayClubName = clubName || 'RUNSTR Club';
       const autoName = isCharityTemplate && selectedCharity
