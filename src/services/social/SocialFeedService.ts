@@ -1,7 +1,7 @@
 // src/services/social/SocialFeedService.ts
 
 import { supabase, isSupabaseConfigured } from '../../utils/supabase';
-import type { SocialFeedPost } from '../../types/social';
+import type { SocialFeedPost, SocialFeedZap, SocialFeedComment } from '../../types/social';
 
 export class SocialFeedService {
   private static instance: SocialFeedService;
@@ -87,6 +87,62 @@ export class SocialFeedService {
     } catch (error) {
       console.error('[SocialFeedService] insertPost error:', error);
       return false;
+    }
+  }
+
+  async getZapsForPost(postId: string): Promise<SocialFeedZap[]> {
+    if (!isSupabaseConfigured()) return [];
+
+    try {
+      const { data, error } = await supabase!
+        .from('social_feed_zaps')
+        .select('*')
+        .eq('post_id', postId)
+        .order('amount', { ascending: false })
+        .limit(50);
+
+      if (error) {
+        console.error('[SocialFeedService] getZapsForPost error:', error);
+        return [];
+      }
+
+      return (data || []) as SocialFeedZap[];
+    } catch (error) {
+      console.error('[SocialFeedService] getZapsForPost exception:', error);
+      return [];
+    }
+  }
+
+  async getCommentsForPost(
+    postId: string,
+    limit: number = 5,
+    cursor?: string,
+  ): Promise<SocialFeedComment[]> {
+    if (!isSupabaseConfigured()) return [];
+
+    try {
+      let query = supabase!
+        .from('social_feed_comments')
+        .select('*')
+        .eq('post_id', postId)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (cursor) {
+        query = query.lt('created_at', cursor);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('[SocialFeedService] getCommentsForPost error:', error);
+        return [];
+      }
+
+      return (data || []) as SocialFeedComment[];
+    } catch (error) {
+      console.error('[SocialFeedService] getCommentsForPost exception:', error);
+      return [];
     }
   }
 }
