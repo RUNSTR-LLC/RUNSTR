@@ -44,15 +44,11 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
 
   const handleLike = useCallback(() => {
     debounce('like', async () => {
-      const wasLiked = isLiked;
-      setIsLiked(!wasLiked);
-      setLikeCount((c) => wasLiked ? Math.max(c - 1, 0) : c + 1);
+      setIsLiked((prev) => !prev);
+      setLikeCount((c) => isLiked ? Math.max(c - 1, 0) : c + 1);
 
-      const result = await SocialInteractionService.toggleLike(post.id, post.event_id, post.npub);
-      if (!result.success) {
-        setIsLiked(wasLiked);
-        setLikeCount((c) => wasLiked ? c + 1 : Math.max(c - 1, 0));
-      }
+      // Fire-and-forget — optimistic state stays regardless of Nostr publish result
+      SocialInteractionService.toggleLike(post.id, post.event_id, post.npub).catch(() => {});
     });
   }, [isLiked, post, debounce]);
 
@@ -66,11 +62,8 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
       setIsReposted(true);
       setRepostCount((c) => c + 1);
 
-      const result = await SocialInteractionService.repost(post.id, post.event_id, post.npub);
-      if (!result.success) {
-        setIsReposted(false);
-        setRepostCount((c) => Math.max(c - 1, 0));
-      }
+      // Fire-and-forget — optimistic state stays regardless of Nostr publish result
+      SocialInteractionService.repost(post.id, post.event_id, post.npub).catch(() => {});
     });
   }, [isReposted, post, debounce]);
 
