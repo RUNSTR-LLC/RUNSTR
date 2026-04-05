@@ -36,6 +36,7 @@ import NWCWalletService from '../../services/wallet/NWCWalletService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Avatar } from '../../components/ui/Avatar';
 import type { Competition, CompetitionConfig } from '../../utils/supabase';
+import { getCharityById } from '../../constants/charities';
 
 const RUNSTR_LOGO = require('../../../assets/images/icon.png');
 
@@ -135,6 +136,11 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
   const [clubName, setClubName] = useState<string | null>(null);
   const [isClubMember, setIsClubMember] = useState<boolean | null>(null); // null = not checked yet
   const [showClubGateAlert, setShowClubGateAlert] = useState(false);
+  const [totalRaised, setTotalRaised] = useState<number>(0);
+
+  const charityConfig = competition?.config;
+  const isCharityEvent = !!charityConfig?.charity_id;
+  const charity = isCharityEvent ? getCharityById(charityConfig.charity_id) : null;
 
   // Fetch competition details (try cache first, then direct lookup)
   useEffect(() => {
@@ -189,6 +195,55 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
     };
     fetchClubInfo();
   }, [competition]);
+
+  useEffect(() => {
+    if (!isCharityEvent || !competition) return;
+
+    const fetchTotalRaised = async () => {
+      try {
+        const { supabase, isSupabaseConfigured } = await import('../../utils/supabase');
+        if (!isSupabaseConfigured() || !supabase) return;
+
+        const { data, error } = await supabase
+          .from('charity_reward_payments')
+          .select('amount_sats')
+          .eq('charity_id', charityConfig!.charity_id!)
+          .gte('created_at', competition.start_date)
+          .lte('created_at', competition.end_date)
+          .eq('status', 'success');
+
+        if (!error && data) {
+          const fromPayments = data.reduce((sum: number, r: { amount_sats: number }) => sum + (r.amount_sats || 0), 0);
+          const captainDonation = charityConfig?.captain_donation_sats || 0;
+          setTotalRaised(fromPayments + captainDonation);
+        }
+      } catch (err) {
+        console.error('[DynamicEventDetail] Error fetching total raised:', err);
+      }
+    };
+    fetchTotalRaised();
+  }, [isCharityEvent, competition, charityConfig]);
+
+  const handleCharityJoin = async () => {
+    setIsJoining(true);
+    try {
+      if (!competition || !charityConfig?.charity_id) return;
+
+      // Switch reward destination to this charity
+      await AsyncStorage.setItem('@runstr:selected_team_id', charityConfig.charity_id);
+
+      // Join the competition via existing hook
+      await join();
+      await refreshLeaderboard();
+
+      Alert.alert('Joined!', `Your next reward will go to ${charityConfig.charity_name || 'charity'}. Thank you!`);
+    } catch (error) {
+      console.error('[DynamicEventDetail] Charity join error:', error);
+      Alert.alert('Error', 'Failed to join event. Please try again.');
+    } finally {
+      setIsJoining(false);
+    }
+  };
 
   const handlePledgeAndJoin = async () => {
     setIsJoining(true);
@@ -256,6 +311,12 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
     // Check club membership gate before joining
     if (competition?.club_id && isClubMember === false) {
       setShowClubGateAlert(true);
+      return;
+    }
+
+    // Charity event: use simplified join flow
+    if (isCharityEvent) {
+      await handleCharityJoin();
       return;
     }
 
@@ -537,6 +598,21 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
           )}
 
           <Text style={styles.statusText}>{getStatusText()}</Text>
+
+          {/* Charity Event Info */}
+          {isCharityEvent && charity && (
+            <View style={styles.charityBanner}>
+              {charity.image && (
+                <Image source={charity.image} style={styles.charityBannerImage} />
+              )}
+              <View style={styles.charityBannerText}>
+                <Text style={styles.charityBannerName}>{charity.name}</Text>
+                <Text style={styles.charityBannerRaised}>
+                  {totalRaised.toLocaleString()} sats raised
+                </Text>
+              </View>
+            </View>
+          )}
 
           {/* Date */}
           <View style={styles.metaRow}>
@@ -1230,6 +1306,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginTop: 8,
+  },
+  charityBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    padding: 16, marginHorizontal: 0, marginTop: 0, marginBottom: 12,
+    backgroundColor: theme.colors.card, borderRadius: 12,
+    borderWidth: 1, borderColor: theme.colors.border,
+  },
+  charityBannerImage: {
+    width: 48, height: 48, borderRadius: 24,
+  },
+  charityBannerText: {
+    flex: 1,
+  },
+  charityBannerName: {
+    fontSize: 16, fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+  },
+  charityBannerRaised: {
+    fontSize: 14, color: theme.colors.primary, marginTop: 2,
+    fontWeight: theme.typography.weights.semiBold,
   },
 });
 
