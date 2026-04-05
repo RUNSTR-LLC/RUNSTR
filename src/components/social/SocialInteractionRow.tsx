@@ -3,6 +3,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
 import { theme } from '../../styles/theme';
 import SocialInteractionService from '../../services/social/SocialInteractionService';
 import type { SocialFeedPost } from '../../types/social';
@@ -126,7 +127,13 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
         <View style={styles.actionGroup}>
           <TouchableOpacity
             style={styles.action}
-            onPress={() => setCommentsExpanded((prev) => !prev)}
+            onPress={() => {
+              if (commentCount > 0) {
+                setCommentsExpanded((prev) => !prev);
+              } else {
+                Toast.show({ type: 'success', text1: 'No comments yet', visibilityTime: 1500 });
+              }
+            }}
             activeOpacity={0.7}
           >
             <Ionicons
