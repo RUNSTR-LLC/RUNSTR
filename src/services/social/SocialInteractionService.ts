@@ -107,7 +107,7 @@ export class SocialInteractionService {
       await event.sign(signer);
       await Promise.race([
         event.publish(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Publish timeout')), PUBLISH_TIMEOUT_MS)),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Publish timeout')), PUBLISH_TIMEOUT_MS)),
       ]);
 
       return { success: true };
