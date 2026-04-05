@@ -25,6 +25,8 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
   const [zapTotal, setZapTotal] = useState(post.zap_total || 0);
   const [isLiked, setIsLiked] = useState(post.liked_by?.includes(userNpub) || false);
   const [isReposted, setIsReposted] = useState(post.reposted_by?.includes(userNpub) || false);
+  const [localLikedBy, setLocalLikedBy] = useState<string[]>(post.liked_by || []);
+  const [localRepostedBy, setLocalRepostedBy] = useState<string[]>(post.reposted_by || []);
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const [showZapModal, setShowZapModal] = useState(false);
 
@@ -54,14 +56,16 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
   }, [isProcessing]);
 
   const handleLike = useCallback(() => {
+    if (isLiked) return; // Likes are one-way on Nostr (kind 7 has no unlike)
     debounce('like', async () => {
-      setIsLiked((prev) => !prev);
-      setLikeCount((c) => isLiked ? Math.max(c - 1, 0) : c + 1);
+      setIsLiked(true);
+      setLikeCount((c) => c + 1);
+      setLocalLikedBy((prev) => prev.includes(userNpub) ? prev : [...prev, userNpub]);
 
       // Fire-and-forget — optimistic state stays regardless of Nostr publish result
       SocialInteractionService.toggleLike(post.id, post.event_id, post.npub).catch(() => {});
     });
-  }, [isLiked, post, debounce]);
+  }, [isLiked, post, userNpub, debounce]);
 
   const handleZapTap = useCallback(() => {
     if (hasNWC) {
@@ -94,11 +98,12 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
     debounce('repost', async () => {
       setIsReposted(true);
       setRepostCount((c) => c + 1);
+      setLocalRepostedBy((prev) => prev.includes(userNpub) ? prev : [...prev, userNpub]);
 
       // Fire-and-forget — optimistic state stays regardless of Nostr publish result
       SocialInteractionService.repost(post.id, post.event_id, post.npub).catch(() => {});
     });
-  }, [isReposted, post, debounce]);
+  }, [isReposted, post, userNpub, debounce]);
 
   const formatCount = (n: number): string => {
     if (n === 0) return '';
@@ -192,7 +197,7 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
 
       <LikesBottomSheet
         visible={showLikes}
-        likedBy={post.liked_by || []}
+        likedBy={localLikedBy}
         onClose={() => setShowLikes(false)}
       />
 
