@@ -35,7 +35,7 @@ export const ClubsRow: React.FC<ClubsRowProps> = ({ clubs, userClubId }) => {
         size={40}
         imageUrl={item.banner_url || undefined}
       />
-      <Text style={styles.clubName} numberOfLines={1}>
+      <Text style={styles.clubName}>
         {item.name}
       </Text>
     </TouchableOpacity>
@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
   },
   clubItem: {
     alignItems: 'center',
-    width: 56,
+    maxWidth: 80,
   },
   clubName: {
     color: theme.colors.textMuted,

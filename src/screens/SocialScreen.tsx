@@ -134,9 +134,7 @@ const SocialScreenComponent: React.FC = () => {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <TexturedBackground edges={[]}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Social</Text>
-        </View>
+        <View style={styles.headerSpacer} />
         <FlatList
           data={posts}
           renderItem={renderPost}
