@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { useMusicStore } from '../../store/musicStore';
 import { WavlakeZapService } from '../../services/music/WavlakeZapService';
+import { ExternalZapModal } from '../nutzap/ExternalZapModal';
 import type { WavlakeTrack } from '../../types/music';
 
 interface WavlakeZapButtonProps {
@@ -33,6 +34,7 @@ export const WavlakeZapButton: React.FC<WavlakeZapButtonProps> = React.memo(
     const { defaultZapAmount } = useMusicStore();
 
     const [isModalVisible, setIsModalVisible] = useState(false);
+    const [showExternalZap, setShowExternalZap] = useState(false);
     const [amount, setAmount] = useState(defaultZapAmount.toString());
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -44,11 +46,16 @@ export const WavlakeZapButton: React.FC<WavlakeZapButtonProps> = React.memo(
     /**
      * Open zap modal
      */
-    const openModal = useCallback(() => {
-      setAmount(defaultZapAmount.toString());
-      setError(null);
-      setSuccess(false);
-      setIsModalVisible(true);
+    const openModal = useCallback(async () => {
+      const hasWallet = await WavlakeZapService.hasWallet();
+      if (hasWallet) {
+        setAmount(defaultZapAmount.toString());
+        setError(null);
+        setSuccess(false);
+        setIsModalVisible(true);
+      } else {
+        setShowExternalZap(true);
+      }
     }, [defaultZapAmount]);
 
     /**
@@ -234,6 +241,14 @@ export const WavlakeZapButton: React.FC<WavlakeZapButtonProps> = React.memo(
             </SafeAreaView>
           </View>
         </Modal>
+
+        <ExternalZapModal
+          visible={showExternalZap}
+          recipientNpub={track.artist.lightningAddress || track.artist.npub || ''}
+          recipientName={track.artist.name}
+          onClose={() => setShowExternalZap(false)}
+          onSuccess={() => setShowExternalZap(false)}
+        />
       </>
     );
   }
