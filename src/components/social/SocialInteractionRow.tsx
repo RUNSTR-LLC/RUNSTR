@@ -1,6 +1,6 @@
 // src/components/social/SocialInteractionRow.tsx
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
@@ -11,6 +11,8 @@ import { ExternalZapModal } from '../nutzap/ExternalZapModal';
 import { LikesBottomSheet } from './LikesBottomSheet';
 import { ZapsBottomSheet } from './ZapsBottomSheet';
 import { InlineCommentList } from './InlineCommentList';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNWCZap } from '../../hooks/useNWCZap';
 
 interface SocialInteractionRowProps {
   post: SocialFeedPost;
@@ -34,6 +36,15 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
   const debounceRef = useRef<number>(0);
   const zapFlash = useRef(new Animated.Value(1)).current;
 
+  const { hasWallet: hasNWC, sendZap } = useNWCZap();
+  const [defaultZapAmount, setDefaultZapAmount] = useState(50);
+
+  useEffect(() => {
+    AsyncStorage.getItem('@runstr:default_zap_amount').then((stored) => {
+      if (stored) setDefaultZapAmount(parseInt(stored, 10) || 50);
+    });
+  }, []);
+
   const debounce = useCallback((action: string, fn: () => Promise<void>) => {
     const now = Date.now();
     if (now - debounceRef.current < 500 || isProcessing) return;
@@ -52,7 +63,29 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
     });
   }, [isLiked, post, debounce]);
 
-  const handleZap = useCallback(() => {
+  const handleZapTap = useCallback(() => {
+    if (hasNWC) {
+      debounce('zap', async () => {
+        setZapTotal((z) => z + defaultZapAmount);
+        Animated.sequence([
+          Animated.timing(zapFlash, { toValue: 1.4, duration: 100, useNativeDriver: true }),
+          Animated.timing(zapFlash, { toValue: 1, duration: 100, useNativeDriver: true }),
+        ]).start();
+
+        const success = await sendZap(post.npub, defaultZapAmount, `Zap from RUNSTR`);
+        if (success) {
+          Toast.show({ type: 'success', text1: `Zapped ${defaultZapAmount} sats`, visibilityTime: 1500 });
+        } else {
+          setZapTotal((z) => Math.max(z - defaultZapAmount, 0));
+          Toast.show({ type: 'error', text1: 'Zap failed', visibilityTime: 2000 });
+        }
+      });
+    } else {
+      setShowZapModal(true);
+    }
+  }, [hasNWC, defaultZapAmount, post, debounce, sendZap, zapFlash]);
+
+  const handleZapLongPress = useCallback(() => {
     setShowZapModal(true);
   }, []);
 
@@ -92,7 +125,13 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
         </View>
 
         <View style={styles.actionGroup}>
-          <TouchableOpacity style={styles.action} onPress={handleZap} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.action}
+            onPress={handleZapTap}
+            onLongPress={handleZapLongPress}
+            delayLongPress={400}
+            activeOpacity={0.7}
+          >
             <Animated.View style={{ transform: [{ scale: zapFlash }] }}>
               <Ionicons name="flash-outline" size={20} color={theme.colors.textMuted} />
             </Animated.View>
@@ -120,13 +159,7 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
         <View style={styles.actionGroup}>
           <TouchableOpacity
             style={styles.action}
-            onPress={() => {
-              if (commentCount > 0) {
-                setCommentsExpanded((prev) => !prev);
-              } else {
-                Toast.show({ type: 'success', text1: 'No comments yet', visibilityTime: 1500 });
-              }
-            }}
+            onPress={() => setCommentsExpanded((prev) => !prev)}
             activeOpacity={0.7}
           >
             <Ionicons
@@ -141,7 +174,13 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
         </View>
       </View>
 
-      <InlineCommentList postId={post.id} commentCount={commentCount} expanded={commentsExpanded} />
+      <InlineCommentList
+        postId={post.id}
+        postEventId={post.event_id}
+        postAuthorPubkey={post.npub}
+        commentCount={commentCount}
+        expanded={commentsExpanded}
+      />
 
       <ExternalZapModal
         visible={showZapModal}
