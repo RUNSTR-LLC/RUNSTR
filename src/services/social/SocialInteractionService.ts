@@ -1,6 +1,7 @@
 // src/services/social/SocialInteractionService.ts
 
 import { NDKEvent, NDKKind } from '@nostr-dev-kit/ndk';
+import { nip19 } from 'nostr-tools';
 import { GlobalNDKService } from '../nostr/GlobalNDKService';
 import { UnifiedSigningService } from '../auth/UnifiedSigningService';
 import LightningZapServiceDefault from '../nutzap/LightningZapService';
@@ -8,6 +9,19 @@ import { PaymentRouter } from '../wallet/PaymentRouter';
 
 const DEFAULT_ZAP_AMOUNT = 100;
 const PUBLISH_TIMEOUT_MS = 10000;
+
+/** Ensure a pubkey is in hex format (relays reject bech32 npub in tags). */
+function toHexPubkey(pubkeyOrNpub: string): string {
+  if (pubkeyOrNpub.startsWith('npub1')) {
+    try {
+      const { data } = nip19.decode(pubkeyOrNpub);
+      return data as string;
+    } catch {
+      return pubkeyOrNpub;
+    }
+  }
+  return pubkeyOrNpub;
+}
 
 export class SocialInteractionService {
   private static instance: SocialInteractionService;
@@ -87,7 +101,7 @@ export class SocialInteractionService {
       event.content = content;
       event.tags = [
         ['e', eventId, '', 'root'],
-        ['p', authorPubkey],
+        ['p', toHexPubkey(authorPubkey)],
       ];
 
       await event.sign(signer);
@@ -121,7 +135,7 @@ export class SocialInteractionService {
     event.content = '+';
     event.tags = [
       ['e', eventId, ''],
-      ['p', authorPubkey],
+      ['p', toHexPubkey(authorPubkey)],
     ];
 
     await event.sign(signer);
@@ -141,7 +155,7 @@ export class SocialInteractionService {
     event.content = '';
     event.tags = [
       ['e', eventId, ''],
-      ['p', authorPubkey],
+      ['p', toHexPubkey(authorPubkey)],
     ];
 
     await event.sign(signer);
