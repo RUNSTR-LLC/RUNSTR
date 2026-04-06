@@ -47,7 +47,7 @@ Any device or app connected to Apple Health or Health Connect syncs automaticall
 Four activity categories: Cardio (run, walk, cycle, hike with GPS), Strength (pushups, pull-ups, sit-ups, squats, curls, bench), Wellness (meditation, breathwork, body scan, gratitude), and Mindfulness (journal, habits).
 
 ### Fitness Clubs
-Pro subscribers create clubs with member leaderboards, real-time chat, and captain-hosted events. Captains earn rewards for each club member workout.
+Create clubs with member leaderboards, real-time chat, and captain-hosted events. Captains earn rewards for each club member workout.
 
 ### Sponsor-Funded Rewards
 Rewards are funded by sponsors, not RUNSTR. The Rewards page and push notifications show sponsor attribution — "You received a reward from [Sponsor] for your workout."
