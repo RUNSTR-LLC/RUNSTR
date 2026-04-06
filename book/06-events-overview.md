@@ -2,68 +2,71 @@
 
 ## Summary
 
-RUNSTR hosts fitness competitions where participants compete on leaderboards for Bitcoin prize pools. Current events include RUNSTR Season II (a two-month competition from January through March with a 1 million sat prize pool), the January Walking Contest, the Running Bitcoin Challenge, and Daily Leaderboards. Each event focuses on specific activities and offers real satoshi rewards to top performers.
+RUNSTR hosts fitness competitions where participants compete on leaderboards for reward prize pools. The app runs seasonal competitions, featured events, club captain-created events, and a daily leaderboard that is always active. Each event focuses on specific activities and rewards top performers.
 
-Joining an event takes a single tap. Navigate to the Events page, select an event card to view details and the current leaderboard, then tap Join. There are no entry fees—participation is completely free. Once joined, any workouts you publish using the Compete button automatically count toward that event's leaderboard. Your ranking updates as you and other participants log more distance.
+Joining an event takes a single tap. Navigate to the Events page, select an event card to view details and the current leaderboard, then tap Join. There are no entry fees — participation is completely free. Once joined, your workouts automatically count toward that event's leaderboard. Your ranking updates as you and other participants log more distance.
 
-The leaderboard system organizes competitors by activity type. In Season II, separate leaderboards track Running, Walking, and Cycling distances, ensuring fair competition within each category. You compete against others doing the same activity, not against cyclists when you're a runner. Leaderboards display participant names, total distances, workout counts, and rankings—calculated outside the app and updated every 2 minutes.
+The leaderboard system organizes competitors by activity type. Separate leaderboards track Running, Walking, and Cycling distances, ensuring fair competition within each category. You compete against others doing the same activity, not against cyclists when you're a runner. Leaderboards display participant names, total distances, workout counts, and rankings updated every 2 minutes.
 
-Event participation is tracked entirely through Supabase. This approach provides faster queries for participant lists, simpler management for event operations, and reliable tracking for prize distribution. When you complete a workout, it is automatically submitted to Supabase for leaderboard ranking. Kind 1301 events are created locally for structure but are NOT published to Nostr relays—Supabase is the single source of truth for competition data.
-
-Prize distribution happens at event conclusion, with Bitcoin sent via Lightning to top performers. The transparent prize structure—displayed on each event card—lets you know exactly what you're competing for before joining. Whether you're chasing the grand prize in Season II or competing for daily leaderboard recognition, RUNSTR events add stakes and community to your fitness routine, transforming solitary workouts into shared competition with tangible rewards.
+Prize distribution happens at event conclusion, with rewards sent via Lightning to top performers. Club captains can create events from templates with optional prize pools and charity payouts, enabling anyone to host a 5K for charity with real rewards on the line. The transparent prize structure displayed on each event card lets you know exactly what you're competing for before joining. Whether you're chasing the grand prize in a season competition or competing for daily leaderboard recognition, RUNSTR events add stakes and community to your fitness routine, transforming solitary workouts into shared competition with tangible rewards.
 
 ---
 
 ## What are RUNSTR Events?
 
-Events are fitness competitions with Bitcoin prizes. Users join events, complete workouts, and compete on leaderboards for satoshi rewards.
+Events are fitness competitions with reward prizes. Users join events, complete workouts, and compete on leaderboards for rewards.
 
-### Current Events (January 2026)
+### Event Types
 
-| Event | Duration | Prize | Activities |
-|-------|----------|-------|------------|
-| RUNSTR Season II | Jan 1 - Mar 1 | 1M sats pool | Running, Walking, Cycling |
-| January Walking Contest | Jan 1 - Jan 31 | 3,000 sats (top 3) | Walking |
-| Running Bitcoin Challenge | Ongoing | Varies | Running |
-| Daily Leaderboards | Daily reset | Recognition | All activities |
+| Type | Description | Examples |
+|------|-------------|---------|
+| Season Competitions | Multi-month events with large prize pools | RUNSTR Season III |
+| Featured Events | Scheduled events with specific goals | Distance challenges, streak competitions |
+| Club Events | Captain-created from templates | 5K charity run, 10K challenge, step competition |
+| Daily Leaderboard | Always active, resets daily | Fastest 5K/10K/Half/Marathon, Steps |
 
 ---
 
 ## Key Characteristics
 
-### Hardcoded Events
-Events are **currently hardcoded** in the app:
-- No dynamic event creation
-- No "Host Virtual Event" functionality yet
-- Events defined in code and updated with app releases
+### Captain-Created Events
+Club captains can create events from templates:
+- 5K, 10K, Half Marathon, Step Challenge templates
+- Optional prize pools funded by the captain
+- Optional charity payouts — run a 5K for charity with real rewards
+- All club members automatically entered
 
 ### Free Participation
 - No payment required to join events
 - Simply tap "Join" and start working out
 - All workouts during event period count toward leaderboard
 
-### Bitcoin Prizes
+### Reward Prizes
 - Prize pools defined per event
-- Top performers win satoshis
+- Top performers earn rewards
 - Distributed via Lightning at event end
+- Charity events route payouts to the chosen charity
 
 ---
 
-## Event Types
+## Event Formats
 
 ### Season Competitions
 Long-running events spanning multiple months:
-- **RUNSTR Season II** - 2 months (Jan-Mar)
 - Multiple activity types (Running, Walking, Cycling)
 - Large prize pools
 - Charity support integration
 
-### Monthly Contests
-Single-month focused events:
-- **January Walking Contest** - 1 month
-- Single activity type
-- Smaller prize pools
-- Top 3 winners format
+### Featured Events
+Scheduled events with specific goals:
+- Distance challenges, streak competitions, team races
+- Run on defined schedules with start and end dates
+
+### Club Events
+Captain-created from templates:
+- Captains choose template, set dates, configure prize pool and charity
+- Members automatically entered
+- Moving toward fully user-created competitions
 
 ---
 
@@ -125,12 +128,14 @@ Events are rendered using hardcoded card components:
 | RunningBitcoinEventCard | `src/components/events/RunningBitcoinEventCard.tsx` |
 | EinundzwanzigEventCard | `src/components/events/EinundzwanzigEventCard.tsx` |
 
-### No Dynamic Creation
+### Event Creation
 
-The "Host Virtual Event" button exists in the UI but:
-- Event creation is not fully implemented
-- Events are added through code updates
-- Future versions may enable user-created events
+Club captains can create events from templates with:
+- Activity type selection
+- Date range configuration
+- Optional prize pool (funded via captain's NWC wallet)
+- Optional charity destination and payout
+- Auto-finalization with multi-recipient prize splits
 
 ---
 
@@ -159,21 +164,17 @@ Displays leaderboard rankings
 ## What Events Should Be
 
 ### Ideal Architecture
-1. **Simple event list** - Clear display of active events
-2. **Easy joining** - One-tap to participate
-3. **Clear prizes** - Transparent prize structure
-4. **Live status** - Clear indication of active vs upcoming vs ended
+1. **Simple event list** — Clear display of active events
+2. **Easy joining** — One-tap to participate
+3. **Clear prizes** — Transparent prize structure
+4. **Live status** — Clear indication of active vs upcoming vs ended
+5. **Captain-created** — Captains host events for their clubs with real prize pools
 
-### Current Limitations
-- Events are hardcoded (requires app update to add new events)
-- No user/captain-created events
-- Limited event types
-
-### Future Possibilities
-- Dynamic event creation
-- User-hosted events
+### Future Direction
+- Fully user-created competitions (not just captains)
+- More event formats and templates
 - Entry fees (optional)
-- More event formats
+- NWC wallets for non-custodial prize pool management
 
 ---
 

@@ -7,18 +7,20 @@ To earn the daily 50 sats reward:
 
 | Requirement | Details |
 |-------------|---------|
-| Workout saved | Must save workout in the app |
-| Qualifying source | GPS tracker or manual entry |
+| Qualifying workout | Cardio activity (running, walking, cycling, hiking) |
+| Distance > 0 | Must have measurable distance |
 | Once per day | Max 1 reward per 24 hours |
-| Minimum distance | 1km (for GPS workouts) |
+| Anti-cheat validation | Pace limits, distance limits |
+
+### Qualifying Sources
+- In-app GPS tracker
+- Background sync from Apple Health / Health Connect
+- Manual entry
 
 ### Non-Qualifying Sources
-These do NOT trigger rewards:
-- HealthKit imports
-- Health Connect imports
-- Previously imported workouts
+- Previously imported historical workouts (only new workouts from today qualify)
 
-**Why?** To prevent gaming - users could import endless historical workouts.
+**Why?** Background-synced workouts qualify because passive earning is a core feature — users earn without opening the app. Historical imports are excluded to prevent gaming.
 
 ### Atomic Streak Tracking
 

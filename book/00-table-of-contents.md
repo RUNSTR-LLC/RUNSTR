@@ -11,6 +11,7 @@
 
 | Chapter | Title | Description |
 |---------|-------|-------------|
+| 00 | [About RUNSTR](./00-about-runstr.md) | External-facing narrative: workouts, social, rewards, and direction |
 | 01 | [Introduction](./01-introduction.md) | Core loop, aggregation + rewards model, three audiences, business model |
 
 ---
@@ -71,7 +72,8 @@ Aggregate workouts → Earn rewards → Compete in events → Level up → Repea
 - **Levels that matter** — Consistency multiplies daily wheel payouts
 - **Sponsor-funded** — Rewards come from sponsors (Zapvertising), not RUNSTR
 - **Background sync** — Works with any HealthKit/Health Connect app. Earn rewards without opening the app
-- **Fitness Clubs** — Pro subscribers create clubs with leaderboards, chat, and captain-hosted events
+- **Social feed** — Fitness posts from across Nostr with likes, zaps, reposts, and comments
+- **Fitness Clubs** — Users create clubs with leaderboards, chat, and captain-hosted events
 - **Captain economies** — Captains earn from member workouts and event participation
 - **Invisible technology** — Users see rewards, not protocols
 
@@ -95,5 +97,5 @@ Aggregate workouts → Earn rewards → Compete in events → Level up → Repea
 
 ### Navigation
 - **Profile Tab** — Start Workout, View History, Level & Wheel, Settings
-- **Clubs Tab** — Browse/join Fitness Clubs, club chat, club events
-- **Rewards Tab** — Reward pool, sponsor attribution, earnings, reward destination
+- **Social Tab** — Social feed, Fitness Clubs, club chat, club events
+- **Events Tab** — Competitions, leaderboards, featured events

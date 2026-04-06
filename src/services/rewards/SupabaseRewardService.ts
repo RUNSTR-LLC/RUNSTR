@@ -14,7 +14,8 @@
 
 import { supabase, isSupabaseConfigured } from '../../utils/supabase';
 import { nip19 } from '@nostr-dev-kit/ndk';
-import { getCharityByLightningAddress } from '../../constants/charities';
+// getCharityByLightningAddress removed — address matching misclassifies user payments
+// when user's address matches a charity entry (e.g., RUNSTR project)
 
 // Geyser Fund charity IDs (payments to these may be pending)
 const GEYSER_CHARITY_IDS: string[] = [];
@@ -95,14 +96,10 @@ class SupabaseRewardServiceClass {
     const charityMap = new Map<string, { amount: number; status: 'success' | 'pending' | 'partial' }>();
 
     for (const payment of payments) {
-      // Resolve charity: explicit charity_id first, then fallback to lightning address match
-      let effectiveCharityId = payment.charity_id;
-      if (!effectiveCharityId) {
-        const charityByAddress = getCharityByLightningAddress(payment.lightning_address);
-        if (charityByAddress) {
-          effectiveCharityId = charityByAddress.id;
-        }
-      }
+      // Use explicit charity_id only — the zapper sets this when the payment is charity-routed.
+      // Do NOT fall back to address matching: a user's personal lightning address may match
+      // a charity entry (e.g., RUNSTR project), causing their own rewards to be misclassified.
+      const effectiveCharityId = payment.charity_id || null;
 
       if (effectiveCharityId) {
         // Payment went to charity

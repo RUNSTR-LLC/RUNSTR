@@ -6,7 +6,7 @@ RUNSTR rewards you for working out. Rewards are funded by sponsors and sent to w
 
 The reward system is simple: complete a qualifying cardio workout and you're eligible. Rewards are processed externally — your workout gets submitted to Supabase, a database trigger fires the reward claim, and the reward is sent to your chosen destination via LNURL. The app tracks eligibility locally and polls for confirmed payments to display in-app notifications and earnings totals.
 
-Subscriber tiers increase your per-workout reward. Supporter and Pro subscribers earn significantly more per qualifying workout, with eligibility requirements (2km+, 15min+, GPS or health app source). The subscription is framed as a fitness bet — work out three times a week to break even, five times a week to profit. RUNSTR bets you won't keep it up.
+A lottery wheel adds an additional reward layer, giving users a spin after qualifying workouts. Your RUNSTR level, which is a direct correlation to your workout history, determines the reward multiplier on the wheel. The more you work out, the higher your level, the better your lottery odds and payouts. This creates a behavioral reinforcement loop: work out consistently, level up, earn more.
 
 Sponsor attribution is visible throughout the app. The Rewards page shows a message like "This month's rewards are brought to you by [Sponsor]" and push notifications include the sponsor's brand — "You received a reward from [Sponsor] for your workout." RUNSTR calls this Zapvertising: businesses sponsor rewards and reach an active fitness audience through branded attribution.
 
@@ -56,19 +56,19 @@ Change destination anytime via the Rewards tab. See [Chapter 13: Reward Destinat
 
 ---
 
-## Subscription Tiers
+## Lottery Wheel & Levels
 
-| | Free | Supporter | Pro |
-|---|---|---|---|
-| Rewards per workout | Base | Boosted | Boosted |
-| Premium competitions | No | Yes | Yes |
-| Create Fitness Clubs | No | No | Yes |
-| Create events | No | No | Yes |
+Every qualifying workout earns the base 50 sats reward. The lottery wheel provides additional rewards:
 
-### Subscriber Boost Requirements
-- 2km+ distance
-- 15min+ duration
-- GPS or health app source (not manual entry)
+- **Spin after qualifying workouts** — users get a wheel spin for bonus rewards
+- **Level-based multiplier** — your RUNSTR level determines the reward multiplier
+- **Level reflects consistency** — more workouts = higher level = better odds and payouts
+- **Variable-ratio reinforcement** — the wheel creates excitement and unpredictability
+
+### RUNSTR Levels
+Your level is a direct correlation to your workout history. It affects:
+- Lottery wheel multiplier (higher level = bigger potential payouts)
+- Lottery wheel odds (higher level = better chances)
 
 ---
 
@@ -170,7 +170,7 @@ Rewards are implemented with **silent failure**:
 2. **Single destination** — User picks one place for all rewards, no splits
 3. **Silent failure** — Never block user experience
 4. **Background-capable** — Earn rewards without opening the app
-5. **Subscriber tiers** — More rewards for paying subscribers
+5. **Level-based multiplier** — Consistency increases lottery wheel payouts
 6. **Visible attribution** — Sponsor brand shown on Rewards page and push notifications
 
 ### What to Avoid

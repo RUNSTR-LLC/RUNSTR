@@ -2,7 +2,7 @@
 
 ## Summary
 
-RUNSTR's in-person race events represent a strategic expansion beyond the app, creating a sustainable funding model that supports three interconnected goals: filling the rewards pool that pays users for workouts, raising money for charitable causes like the ALS Foundation, and generating revenue for ongoing app development. The key insight is that race events can be self-sustaining—sponsors cover operational costs, ticket sales fund the rewards pool and development, and the events themselves drive app adoption. Rather than relying on venture capital or token sales, RUNSTR builds a real business where fitness enthusiasts pay for valuable experiences while unknowingly participating in a Bitcoin-powered ecosystem.
+RUNSTR's in-person race events represent a strategic expansion beyond the app, creating a sustainable funding model that supports three interconnected goals: filling the rewards pool that pays users for workouts, raising money for charitable causes like the ALS Foundation, and generating revenue for ongoing app development. The key insight is that race events can be self-sustaining—sponsors cover operational costs, ticket sales fund the rewards pool and development, and the events themselves drive app adoption. Rather than relying on venture capital, RUNSTR builds a real business where fitness enthusiasts pay for valuable experiences.
 
 ---
 
@@ -10,8 +10,8 @@ RUNSTR's in-person race events represent a strategic expansion beyond the app, c
 
 RUNSTR is a fitness event company powered by Bitcoin. The business model has multiple revenue streams:
 
-1. **Subscriptions** - Season passes for access to special events and features
-2. **In-person events** - Ticket sales and sponsorships
+1. **Sponsorships** - Zapvertising — branded reward attribution
+2. **In-person events** - Ticket sales and event sponsorships
 3. **Strategic reserve** - Event profits fund company reserves and rewards pool
 
 ### Company Goals
@@ -258,19 +258,9 @@ RUNSTR conducts rewards and donations through its own Lightning node.
 
 ---
 
-## Subscription Revenue Model
+## Revenue Strategy
 
-Beyond events, RUNSTR builds recurring revenue through subscriptions.
-
-### Target
-**150,000 users paying 10,000 sats/month**
-
-This subscription revenue funds:
-- App development
-- Team salaries
-- Ongoing operations
-
-Event profits flow into the RUNSTR strategic reserve—building a sats treasury that compounds over time.
+Event profits and sponsorship revenue flow into the RUNSTR strategic reserve — building a treasury that compounds over time and funds the rewards pool.
 
 ---
 

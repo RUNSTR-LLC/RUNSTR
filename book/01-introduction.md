@@ -4,7 +4,7 @@
 
 Aggregate workouts, earn rewards. RUNSTR pulls in your workouts from any fitness app or wearable and rewards you for staying active. You choose where your rewards go — a charity, AI credits, or your own wallet. The more you work out, the more you earn. Join competitions, level up, and spin the daily wheel for bonus rewards. It works in the background — just keep working out and RUNSTR handles the rest.
 
-RUNSTR is a fitness company that monetizes through subscriptions, sponsorships (Zapvertising), and event ticket sales. The final form of RUNSTR is a fitness event company with an app that rewards healthy behavior.
+RUNSTR is a fitness event company with an app that rewards healthy behavior. It monetizes through sponsorships (Zapvertising) and event ticket sales.
 
 ### Core Value Proposition
 **Aggregate workouts, earn rewards.**
@@ -30,9 +30,9 @@ The app pulls workouts from across your fitness ecosystem into one place. Users 
 
 ### Rewards
 Rewards are earned in multiple ways:
-- **Per-workout rewards** — Complete a qualifying cardio workout and earn a reward sent to your chosen destination
+- **Per-workout rewards** — Complete a qualifying cardio workout and earn 50 sats sent to your chosen destination
 - **Competition rewards** — Place on leaderboards in virtual fitness events
-- **Daily wheel** — Spin the RUNSTR wheel for bonus rewards scaled by your level
+- **Lottery wheel** — Spin the RUNSTR wheel for bonus rewards scaled by your level. The more you work out, the higher your level, the better your odds and payouts
 - **Captain rewards** — Club captains earn when their members work out
 
 RUNSTR can send rewards as micro donations, AI credits (via PPQ.AI), or directly to your wallet. Users choose ONE destination for all rewards and can change it anytime.
@@ -117,8 +117,7 @@ Qualifying workouts earn rewards funded by sponsors. You choose ONE destination 
 **Key Features:**
 - Sponsor-funded rewards (Zapvertising) — attributed on Rewards page and push notifications
 - 20+ reward destinations: charities, projects, services, or yourself
-- Daily reward wheel with level-based multiplier
-- Subscriber boost: Supporter and Pro tiers earn significantly more per workout
+- Lottery wheel with level-based multiplier — your RUNSTR level reflects workout consistency
 - Silent failure — rewards never block workout saving
 
 ### Competitions
@@ -132,13 +131,13 @@ Your workouts automatically enter virtual competitions. A built-in daily leaderb
 - Works with background-synced workouts — no need to open the app
 
 ### Fitness Clubs
-Pro subscribers create Fitness Clubs — a dedicated page with member leaderboard, real-time chat, and captain-hosted events. Captains earn rewards for each club member workout.
+Users can create Fitness Clubs — a dedicated page with member leaderboard, real-time chat, and captain-hosted events. Captains earn rewards for each club member workout.
 
 **Key Features:**
 - Club page with leaderboard, chat, and events
-- Captains create competitions from templates (5K, 10K, Half Marathon, Step Challenge)
+- Captains create competitions from templates (5K, 10K, Half Marathon, Step Challenge) with optional prize pools and charity payouts
 - Captain monetization — earn from member workouts and event participation
-- Direction: NWC wallets for captain-managed reward pools and prize pools
+- Direction: NWC wallets for captain-managed reward pools and prize pools (non-custodial)
 
 ---
 
@@ -162,14 +161,12 @@ RUNSTR is a fitness event company with an app that rewards healthy behavior.
 
 | Revenue Stream | Description |
 |---------------|-------------|
-| **Subscriptions** | Free (base rewards), Supporter (boosted), Pro (clubs + events) |
 | **Sponsorships** | Zapvertising — branded push notifications and rewards page attribution |
 | **Event tickets** | In-person and virtual fitness events |
 
 ### Monetization Paths for Users
 - **Captains** — Earn from member workouts and event participation
-- **Heavy users** — Subscriber tiers multiply per-workout rewards
-- **Consistency** — Level system multiplies daily wheel payouts
+- **Consistency** — Level system multiplies lottery wheel payouts
 
 ---
 
@@ -206,8 +203,8 @@ Nostr operations (profile sync, social posting, encrypted backup) use a single g
 | Tab | Purpose | Key Actions |
 |-----|---------|-------------|
 | **Profile** | User dashboard | Start Workout, View History, Level & Wheel, Settings |
-| **Clubs** | Fitness Clubs | Browse/join clubs, chat, club events |
-| **Rewards** | Reward management | View earnings, sponsor info, change destination |
+| **Social** | Social feed & Fitness Clubs | Social feed, browse/join clubs, chat, club events |
+| **Events** | Competitions | Leaderboards, featured events, competitions |
 
 ---
 

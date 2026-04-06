@@ -6,7 +6,7 @@ RUNSTR rewards you for working out.
 
 ## RUNSTR in One Paragraph
 
-RUNSTR connects to Apple Health and Health Connect to automatically pull in workouts from any app or wearable you already use — or track directly with built-in GPS, rep counting, and wellness timers. Every workout earns rewards that you control: send them to a charity, fund AI credits, or keep them. Level up through consistency, spin the daily reward wheel for bonuses, and compete in virtual events against other athletes. Create or join Fitness Clubs with friends and earn more together. RUNSTR works in the background so you earn without thinking about it.
+RUNSTR connects to Apple Health and Health Connect to automatically pull in workouts from any app or wearable you already use — or track directly with built-in GPS, rep counting, and wellness timers. Every workout earns rewards that you control: send them to a charity, fund AI credits, or keep them. Level up through consistency, spin the lottery wheel for bonuses, and compete in virtual events against other athletes. Create or join Fitness Clubs with friends and earn more together. RUNSTR works in the background so you earn without thinking about it.
 
 ---
 
@@ -37,7 +37,7 @@ Your level isn't arbitrary. It reflects fitness consistency and directly multipl
 Any app connected to Apple Health or Health Connect syncs automatically. Earn rewards without opening the app.
 
 ### 5. Fitness Clubs & Captain Economies
-Pro subscribers create clubs with leaderboards, chat, and events. Captains earn from member workouts and event participation — a real monetization path for coaches and fitness influencers.
+Users create clubs with leaderboards, chat, and events. Captains earn from member workouts and event participation — a real monetization path for coaches and fitness influencers.
 
 ### 6. Sponsor-Funded
 Rewards come from sponsors, not RUNSTR. Sponsor attribution is visible and transparent (Zapvertising). Sustainable without selling user data.
@@ -114,8 +114,8 @@ Push notification ("You received a reward from [Sponsor]")
 | Tab | Purpose |
 |-----|---------|
 | Profile | Start workouts, view history, level & wheel, settings |
-| Clubs | Browse/join Fitness Clubs, chat, club events |
-| Rewards | View earnings, sponsor info, change reward destination |
+| Social | Social feed, Fitness Clubs, chat, club events, competitions |
+| Events | Competitions, leaderboards, featured events |
 
 ---
 
@@ -136,10 +136,12 @@ These are the features that must work perfectly:
 - Extra rewards for subscribers
 - Daily wheel with level-based multiplier
 
-### Events & Fitness Clubs
-- Captains create events from templates
+### Social & Competitions
+- Social feed pulls in fitness posts from across Nostr
+- Like, zap, repost, and comment on posts
+- Fitness Clubs with leaderboards, real-time chat, and captain-hosted events
+- Captains create events from templates with optional prize pools and charity payouts
 - Workouts auto-submitted into applicable events
-- Captain pledge system for event monetization
 - Club chat rooms with real-time messaging
 
 ---
@@ -148,12 +150,10 @@ These are the features that must work perfectly:
 
 ### What's Coming
 
-1. **Reward wheel / level system** — Daily spin with payouts multiplied by user level
-2. **Monthly reward pool budget** — Transparent, capped reward pool that resets monthly
-3. **Captain NWC wallets** — Connect wallet to create events with real prize pools (non-custodial)
-4. **User-created competitions** — Moving away from hardcoded events (daily leaderboard stays built-in)
-5. **AI agent integration** — CLI tool/MCP server giving agents access to user fitness data and PPQ.AI credits
-6. **More competition types** — Expanding beyond current event templates
+1. **Captain NWC wallets** — Connect wallet to create events with real prize pools (non-custodial)
+2. **User-created competitions** — Moving beyond captain-only event creation (daily leaderboard stays built-in)
+3. **More competition types** — Expanding beyond current event templates
+4. **Social feed engagement** — Likes, zaps, reposts, and comments on fitness posts across Nostr
 
 ### What Stays Simple
 
@@ -162,7 +162,7 @@ These are the features that must work perfectly:
 3. **Anonymous-first** — Tap Start, no sign-up required
 4. **Three-tab navigation** — Don't add complexity to the UI
 5. **Sponsor-funded** — Keep rewards sustainable through Zapvertising
-6. **Invisible technology** — Users see rewards, not protocols
+6. **No subscriptions** — Revenue comes from sponsorships and event tickets, not user fees
 
 ---
 

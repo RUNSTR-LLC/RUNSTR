@@ -80,15 +80,20 @@ const SocialScreenComponent: React.FC = () => {
     if (isLoadingMore || !hasMore || posts.length === 0) return;
 
     setIsLoadingMore(true);
-    const lastPost = posts[posts.length - 1];
-    const morePosts = await feedService.fetchFeed(lastPost.created_at);
+    try {
+      const lastPost = posts[posts.length - 1];
+      const morePosts = await feedService.fetchFeed(lastPost.created_at);
 
-    if (morePosts.length < 20) {
-      setHasMore(false);
+      if (morePosts.length < 20) {
+        setHasMore(false);
+      }
+
+      setPosts((prev) => [...prev, ...morePosts]);
+    } catch (error) {
+      console.error('Failed to load more posts:', error);
+    } finally {
+      setIsLoadingMore(false);
     }
-
-    setPosts((prev) => [...prev, ...morePosts]);
-    setIsLoadingMore(false);
   }, [isLoadingMore, hasMore, posts]);
 
   const renderPost = useCallback(({ item }: { item: SocialFeedPostType }) => (
