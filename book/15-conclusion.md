@@ -36,8 +36,8 @@ Your level isn't arbitrary. It reflects fitness consistency and directly multipl
 ### 4. Works in the Background
 Any app connected to Apple Health or Health Connect syncs automatically. Earn rewards without opening the app.
 
-### 5. Fitness Clubs & Captain Economies
-Users create clubs with leaderboards, chat, and events. Captains earn from member workouts and event participation — a real monetization path for coaches and fitness influencers.
+### 5. Fitness Clubs
+Users create clubs with leaderboards, real-time chat, and events. Captains manage members, host events from templates with optional prize pools, and build community around shared fitness goals.
 
 ### 6. Sponsor-Funded
 Rewards come from sponsors, not RUNSTR. Sponsor attribution is visible and transparent (Zapvertising). Sustainable without selling user data.
@@ -133,12 +133,12 @@ These are the features that must work perfectly:
 - Per-workout rewards for qualifying cardio
 - Push notifications with sponsor branding when rewards are received
 - Rewards routed to the correct destination
-- Extra rewards for subscribers
 - Daily wheel with level-based multiplier
 
 ### Social & Competitions
 - Social feed pulls in fitness posts from across Nostr
 - Like, zap, repost, and comment on posts
+- Wavlake music integration — zap artists directly from the feed
 - Fitness Clubs with leaderboards, real-time chat, and captain-hosted events
 - Captains create events from templates with optional prize pools and charity payouts
 - Workouts auto-submitted into applicable events
@@ -153,7 +153,6 @@ These are the features that must work perfectly:
 1. **Captain NWC wallets** — Connect wallet to create events with real prize pools (non-custodial)
 2. **User-created competitions** — Moving beyond captain-only event creation (daily leaderboard stays built-in)
 3. **More competition types** — Expanding beyond current event templates
-4. **Social feed engagement** — Likes, zaps, reposts, and comments on fitness posts across Nostr
 
 ### What Stays Simple
 

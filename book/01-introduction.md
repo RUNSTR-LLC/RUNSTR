@@ -26,19 +26,18 @@ RUNSTR is a fitness data aggregator. Data comes in two ways:
 - **Internal** — Built-in GPS trackers, rep counters, wellness timers, journal
 - **External** — Background sync from Apple Health, Health Connect, and connected wearables
 
-The app pulls workouts from across your fitness ecosystem into one place. Users can encrypt and push their workout history to a decentralized network. Advanced users can give this data to their AI agent for context into their health and fitness.
+The app pulls workouts from across your fitness ecosystem into one place. Users can create encrypted backups of their workout history. Advanced users can give this data to their AI agent for context into their health and fitness.
 
 ### Rewards
 Rewards are earned in multiple ways:
-- **Per-workout rewards** — Complete a qualifying cardio workout and earn 50 sats sent to your chosen destination
+- **Per-workout rewards** — Complete a qualifying cardio workout and earn 100 sats sent to your chosen destination
 - **Competition rewards** — Place on leaderboards in virtual fitness events
 - **Lottery wheel** — Spin the RUNSTR wheel for bonus rewards scaled by your level. The more you work out, the higher your level, the better your odds and payouts
-- **Captain rewards** — Club captains earn when their members work out
 
 RUNSTR can send rewards as micro donations, AI credits (via PPQ.AI), or directly to your wallet. Users choose ONE destination for all rewards and can change it anytime.
 
 ### Levels
-Your level reflects your fitness consistency. The more workouts you aggregate, the higher your level. Levels aren't just a number — they multiply your daily wheel payouts and unlock premium features. This creates a behavioral reinforcement loop: work out consistently, level up, earn more.
+Your level reflects your fitness consistency. The more workouts you aggregate, the higher your level. Levels aren't just a number — they multiply your daily wheel payouts. This creates a behavioral reinforcement loop: work out consistently, level up, earn more.
 
 ---
 
@@ -127,16 +126,15 @@ Your workouts automatically enter virtual competitions. A built-in daily leaderb
 - Daily leaderboard (5K, 10K, Half Marathon, Marathon, Steps) — always active
 - Featured events with leaderboards and prize pools
 - Fitness Club competitions created by captains
-- Captain pledge system — captains can charge a portion of daily rewards for event participation
+- Captain-created events with optional prize pools and charity payouts
 - Works with background-synced workouts — no need to open the app
 
 ### Fitness Clubs
-Users can create Fitness Clubs — a dedicated page with member leaderboard, real-time chat, and captain-hosted events. Captains earn rewards for each club member workout.
+Users can create Fitness Clubs — a dedicated page with member leaderboard, real-time chat, and captain-hosted events.
 
 **Key Features:**
 - Club page with leaderboard, chat, and events
 - Captains create competitions from templates (5K, 10K, Half Marathon, Step Challenge) with optional prize pools and charity payouts
-- Captain monetization — earn from member workouts and event participation
 - Direction: NWC wallets for captain-managed reward pools and prize pools (non-custodial)
 
 ---
@@ -165,7 +163,7 @@ RUNSTR is a fitness event company with an app that rewards healthy behavior.
 | **Event tickets** | In-person and virtual fitness events |
 
 ### Monetization Paths for Users
-- **Captains** — Earn from member workouts and event participation
+- **Captains** — Create events with prize pools and charity payouts
 - **Consistency** — Level system multiplies lottery wheel payouts
 
 ---

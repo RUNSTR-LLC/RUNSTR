@@ -43,7 +43,7 @@
 | Chapter | Title | Description |
 |---------|-------|-------------|
 | 10 | [Rewards Overview](./10-rewards-overview.md) | Sponsor-funded rewards, reward destinations, how rewards work |
-| 11 | [Daily & Step Rewards](./11-rewards-daily-step.md) | Per-workout rewards, step rewards, daily wheel, levels |
+| 11 | [Daily & Step Rewards](./11-rewards-daily-step.md) | Per-workout rewards, daily wheel, levels |
 | 12 | [Lightning Address Delivery](./12-rewards-lightning-address.md) | LNURL protocol, reward delivery |
 | 13 | [Reward Destinations](./13-rewards-teams-charities.md) | Charities, projects, services, self — choosing where rewards go |
 | 14 | [Encrypted Backup](./14-encrypted-backup.md) | Kind 30078, NIP-44 self-encryption, gzip compression |
@@ -74,7 +74,6 @@ Aggregate workouts → Earn rewards → Compete in events → Level up → Repea
 - **Background sync** — Works with any HealthKit/Health Connect app. Earn rewards without opening the app
 - **Social feed** — Fitness posts from across Nostr with likes, zaps, reposts, and comments
 - **Fitness Clubs** — Users create clubs with leaderboards, chat, and captain-hosted events
-- **Captain economies** — Captains earn from member workouts and event participation
 - **Invisible technology** — Users see rewards, not protocols
 
 ### Three Audiences
