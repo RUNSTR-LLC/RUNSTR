@@ -13,8 +13,11 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -52,6 +55,7 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
   route,
 }) => {
   const { clubId, clubName } = route.params;
+  const insets = useSafeAreaInsets();
 
   // State
   const [club, setClub] = useState<Club | null>(null);
@@ -266,25 +270,36 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
           </TouchableOpacity>
         </View>
       ) : (
-        <View style={styles.mainContent}>
-          {/* Club info, join/leave, invite */}
-          <ClubInfoSection
-            club={club}
-            clubId={clubId}
-            isMember={isMember}
-            userNpub={userNpub}
-            isJoining={isJoining}
-            onJoin={handleJoin}
-          />
+        <KeyboardAvoidingView
+          style={styles.mainContent}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={insets.top + 56}
+        >
+          <ScrollView
+            style={styles.mainContent}
+            contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Club info, join/leave, invite */}
+            <ClubInfoSection
+              club={club}
+              clubId={clubId}
+              isMember={isMember}
+              userNpub={userNpub}
+              isJoining={isJoining}
+              onJoin={handleJoin}
+            />
 
-          <ClubChatSection
-            clubId={clubId}
-            clubName={displayName}
-            captainNpub={club.created_by_npub || ''}
-            isMember={isMember}
-            pinnedMessageId={club.pinned_message_id}
-          />
-        </View>
+            <ClubChatSection
+              clubId={clubId}
+              clubName={displayName}
+              captainNpub={club.created_by_npub || ''}
+              isMember={isMember}
+              pinnedMessageId={club.pinned_message_id}
+            />
+          </ScrollView>
+        </KeyboardAvoidingView>
       )}
 
       {/* Captain Settings Modal */}

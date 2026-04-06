@@ -212,7 +212,7 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
   const orderedMessages = useMemo(() => [...messages].reverse(), [messages]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -289,7 +289,7 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
 
         {/* Input bar */}
         {userNpub && (
-          <View style={[styles.inputBar, isAnnouncementMode && styles.inputBarAnnouncement]}>
+          <View style={[styles.inputBar, isAnnouncementMode && styles.inputBarAnnouncement, { marginBottom: Math.max(insets.bottom, 8) }]}>
             {isCaptain && (
               <TouchableOpacity
                 onPress={() => setIsAnnouncementMode((prev) => !prev)}

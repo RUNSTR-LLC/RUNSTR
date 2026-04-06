@@ -12,6 +12,7 @@ import { LotteryWheel } from './LotteryWheel';
 import type { LotteryWheelRef } from './LotteryWheel';
 import { LotteryResult } from './LotteryResult';
 import { SpinButton } from './SpinButton';
+import Toast from 'react-native-toast-message';
 import LotteryService from '../../services/lottery/LotteryService';
 import { WorkoutLevelService } from '../../services/fitness/WorkoutLevelService';
 import { RewardDestinationService } from '../../services/rewards/RewardDestinationService';
@@ -153,12 +154,33 @@ export const LotteryWheelSection: React.FC = () => {
     }, 10000);
   };
 
-  const handleSpinComplete = () => {
+  const handleSpinComplete = async () => {
     setIsSpinning(false);
     setCanSpin(false);
     setShowResult(true);
     if (spinResult) {
       setTodaySpin(spinResult);
+
+      // Claim the lottery reward (pay to user's reward destination)
+      if (spinResult.final_payout && spinResult.final_payout > 0) {
+        try {
+          const destination = await RewardDestinationService.getDestinationAddress();
+          if (destination.address || destination.isPPQ) {
+            const paid = await LotteryService.claimLotteryReward(spinResult, destination);
+            if (paid) {
+              const label = destination.isCharity ? destination.charityName : 'you';
+              Toast.show({
+                type: 'reward',
+                text1: `${spinResult.final_payout} rewards earned!`,
+                text2: `Daily spin reward sent to ${label}`,
+                visibilityTime: 3000,
+              });
+            }
+          }
+        } catch (err) {
+          console.error('[LotteryWheelSection] Reward claim error:', err);
+        }
+      }
     }
   };
 

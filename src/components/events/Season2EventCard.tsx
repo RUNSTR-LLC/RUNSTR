@@ -19,9 +19,11 @@ import Toast from 'react-native-toast-message';
 // RUNSTR logo image for Season III card (orange ostrich on black)
 const RUNSTR_LOGO = require('../../../assets/images/icon.png');
 import { theme } from '../../styles/theme';
-interface Season2EventCardProps {}
+interface Season2EventCardProps {
+  onPress?: () => void;
+}
 
-export const Season2EventCard: React.FC<Season2EventCardProps> = () => {
+export const Season2EventCard: React.FC<Season2EventCardProps> = ({ onPress }) => {
   const getStatusText = () => 'COMING SOON';
 
   const getStatusStyles = () => ({
@@ -33,7 +35,7 @@ export const Season2EventCard: React.FC<Season2EventCardProps> = () => {
   return (
     <TouchableOpacity
       style={styles.card}
-      onPress={() => Toast.show({ type: 'success', text1: 'Coming Soon', text2: 'RUNSTR Season III is on the way', visibilityTime: 1500 })}
+      onPress={onPress ?? (() => Toast.show({ type: 'success', text1: 'Coming Soon', text2: 'RUNSTR Season III is on the way', visibilityTime: 1500 }))}
       activeOpacity={0.7}
     >
       {/* Event Banner Image */}

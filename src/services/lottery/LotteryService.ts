@@ -143,6 +143,54 @@ export class LotteryService {
     return data as LotterySpin | null;
   }
 
+  /**
+   * Claim lottery reward by paying to the user's reward destination and marking spin as paid.
+   */
+  async claimLotteryReward(
+    spin: LotterySpin,
+    destination: { address: string; isCharity: boolean; isPPQ: boolean },
+  ): Promise<boolean> {
+    if (!isSupabaseConfigured() || !spin.final_payout || spin.final_payout <= 0) {
+      return false;
+    }
+
+    // PPQ destinations not supported for lottery (no bolt11 available)
+    if (destination.isPPQ || !destination.address) {
+      console.warn('[LotteryService] No valid address for lottery payout');
+      return false;
+    }
+
+    try {
+      const { data, error } = await supabase!.functions.invoke('claim-reward', {
+        body: {
+          operation: 'claim_reward',
+          lightning_address: destination.address,
+          reward_type: 'workout',
+          amount_sats: spin.final_payout,
+          is_charity_donation: destination.isCharity,
+          npub: spin.npub,
+        },
+      });
+
+      if (error || !data?.success) {
+        console.error('[LotteryService] Reward claim failed:', error || data);
+        return false;
+      }
+
+      // Mark spin as paid
+      await supabase!
+        .from('lottery_spins')
+        .update({ status: 'paid' })
+        .eq('id', spin.id);
+
+      console.log(`[LotteryService] Lottery reward paid: ${spin.final_payout} sats to ${destination.isCharity ? 'charity' : 'user'}`);
+      return true;
+    } catch (err) {
+      console.error('[LotteryService] claimLotteryReward error:', err);
+      return false;
+    }
+  }
+
   private unsubscribe(): void {
     if (this.activeChannel) {
       supabase?.removeChannel(this.activeChannel);

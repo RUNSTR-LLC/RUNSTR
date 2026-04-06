@@ -152,7 +152,7 @@ lottery_user_addresses AS (
 SELECT npub, source, steps, wot_score, first_seen_at,
        lightning_address, reward_destination, charity_id,
        charity_lightning_address, is_ein_participant,
-       sats_amount, last_workout, zap_to_address
+       sats_amount, last_workout, zap_to_address, reward_source
 FROM workout_rewards
 
 UNION ALL
@@ -160,7 +160,7 @@ UNION ALL
 SELECT npub, source, steps, wot_score, first_seen_at,
        lightning_address, reward_destination, charity_id,
        charity_lightning_address, is_ein_participant,
-       sats_amount, last_workout, zap_to_address
+       sats_amount, last_workout, zap_to_address, reward_source
 FROM lottery_rewards
 WHERE zap_to_address IS NOT NULL
 

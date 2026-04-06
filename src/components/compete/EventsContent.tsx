@@ -55,7 +55,7 @@ export const EventsContent: React.FC<EventsContentProps> = ({
 
       {/* 1. RUNSTR Season II */}
       <View style={styles.featuredEvent}>
-        <Season2EventCard />
+        <Season2EventCard onPress={onSeason2Press} />
       </View>
 
       {/* 2. Daily Leaderboards */}
