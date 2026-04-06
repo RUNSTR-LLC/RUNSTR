@@ -94,7 +94,7 @@ const CompeteScreenComponent: React.FC<CompeteScreenProps> = ({ navigation: prop
       >
         <EventsContent
           onEinundzwanzigPress={handleEinundzwanzigPress}
-          onSeason2Press={handleSeason2Press}
+          onSeason2Press={undefined}
           onLeaderboardPress={handleLeaderboardPress}
           onDynamicEventPress={handleDynamicEventPress}
         />
