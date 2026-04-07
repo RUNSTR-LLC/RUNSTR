@@ -3,7 +3,7 @@
 ## How Users Join Events
 
 Joining an event in RUNSTR is simple:
-1. Navigate to Events page (via Profile → "Join Events")
+1. Navigate to the Events tab
 2. Tap on an event card
 3. Tap "Join" button
 4. Start working out!

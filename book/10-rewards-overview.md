@@ -58,7 +58,7 @@ Change destination anytime via the Rewards tab. See [Chapter 13: Reward Destinat
 
 ## Lottery Wheel & Levels
 
-Every qualifying workout earns the base 100 sats reward. The lottery wheel provides additional rewards:
+Every qualifying workout earns the base 50 sats reward. The lottery wheel provides additional rewards:
 
 - **Spin after qualifying workouts** — users get a wheel spin for bonus rewards
 - **Level-based multiplier** — your RUNSTR level determines the reward multiplier

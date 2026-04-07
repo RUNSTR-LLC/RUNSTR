@@ -3,7 +3,7 @@
 ## Daily Workout Rewards
 
 ### Eligibility
-To earn the daily 100 sats reward:
+To earn the daily 50 sats reward:
 
 | Requirement | Details |
 |-------------|---------|
@@ -43,7 +43,7 @@ This ensures:
 
 ## Lottery Wheel
 
-The lottery wheel is a core reward mechanic. After every qualifying workout, users spin a wheel for bonus rewards on top of the base 100 sats.
+The lottery wheel is a core reward mechanic. After every qualifying workout, users spin a wheel for bonus rewards on top of the base 50 sats.
 
 ### Wheel Segments
 
@@ -65,7 +65,7 @@ Lower values appear more frequently. The distribution is weighted so that small 
 ### How the Spin Works
 
 1. User completes a qualifying workout
-2. Base 100 sats reward is claimed
+2. Base 50 sats reward is claimed
 3. Lottery wheel appears with animated spin
 4. Wheel lands on a segment
 5. Segment value is multiplied by the user's level multiplier
@@ -202,7 +202,7 @@ Submit workout to Supabase
         |
 External service monitors Supabase
         |
-External service sends 100 sats via LNURL
+External service sends 50 sats via LNURL
         |
 RewardPollingService detects payment
         |

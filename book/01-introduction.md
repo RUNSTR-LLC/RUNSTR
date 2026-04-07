@@ -30,7 +30,7 @@ The app pulls workouts from across your fitness ecosystem into one place. Users 
 
 ### Rewards
 Rewards are earned in multiple ways:
-- **Per-workout rewards** — Complete a qualifying cardio workout and earn 100 sats sent to your chosen destination
+- **Per-workout rewards** — Complete a qualifying cardio workout and earn 50 sats sent to your chosen destination
 - **Competition rewards** — Place on leaderboards in virtual fitness events
 - **Lottery wheel** — Spin the RUNSTR wheel for bonus rewards scaled by your level. The more you work out, the higher your level, the better your odds and payouts
 

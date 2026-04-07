@@ -82,17 +82,17 @@ The Events page shows:
 │  │ [RUNSTR Logo]        LIVE   │   │
 │  │ RUNSTR Season II Competition│   │
 │  │ Jan 1, 2026 - Mar 1, 2026   │   │
-│  │ ⚡ 1.0M sats Prize Pool     │   │
+│  │ Prize Pool                   │   │
 │  │ [Running] [Walking] [Cycling]│   │
-│  │ [BTC Prizes] [Charity]      │   │
+│  │ [Rewards] [Charity]         │   │
 │  └─────────────────────────────┘   │
 │                                     │
 │  ┌─────────────────────────────┐   │
 │  │ [Image]              LIVE   │   │
 │  │ January Walking Contest     │   │
 │  │ Jan 1 - Jan 31 (24d left)   │   │
-│  │ Top 3 win 1,000 sats each   │   │
-│  │ [Walking] [⚡ 3,000 sats]   │   │
+│  │ Top 3 win rewards            │   │
+│  │ [Walking] [Rewards]         │   │
 │  └─────────────────────────────┘   │
 └─────────────────────────────────────┘
 ```

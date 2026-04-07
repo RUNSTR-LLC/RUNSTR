@@ -272,7 +272,7 @@ async function getUserLightningAddress(pubkey: string): Promise<string | null> {
 
 ## Navigation
 
-**Previous:** [Chapter 11: Daily & Step Rewards](./11-rewards-daily-step.md)
+**Previous:** [Chapter 11: Daily Rewards & Lottery Wheel](./11-rewards-daily-step.md)
 
 **Next:** [Chapter 13: Teams & Charities](./13-rewards-teams-charities.md)
 

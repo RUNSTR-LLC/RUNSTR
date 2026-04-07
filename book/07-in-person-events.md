@@ -20,7 +20,7 @@ RUNSTR is a fitness event company powered by Bitcoin. The business model has mul
 - Have a sustainable rewards model
 - Participate in the broader fitness ecosystem while catering to Bitcoin and Nostr users
 - Hit in-person events hard
-- Survive for 10 years while stacking sats and contributing to charitable causes
+- Survive for 10 years while building reserves and contributing to charitable causes
 - Ensure employees get paid with strong incentives to help the project grow
 - **Avoid grants and investors**
 
@@ -239,22 +239,21 @@ The path to scale: bring the event management team in-house and focus exclusivel
 
 ---
 
-## The Lightning Node Strategy
+## Reward Infrastructure
 
-RUNSTR conducts rewards and donations through its own Lightning node.
+RUNSTR processes rewards and donations through its own payment infrastructure.
 
 ### Current Architecture
-- App's NWC wallet sends all rewards and charity payments
+- App's wallet sends all rewards and charity payments
 - Payment verification enabled (both transactions confirmed)
 - Accurate donation tracking
 
 ### Future Vision
-- Hook into **Amboss** for node metrics and liquidity management
-- Contract with a Lightning liquidity management specialist
-- As volume grows, earn yield from routing transactions
-- Node develops strong metrics for sending/receiving activity
+- Automated liquidity management as volume grows
+- Infrastructure generates yield that partially funds the rewards pool
+- Self-sustaining rewards model where operational activity compounds into the pool
 
-**Ultimate goal:** Rewards funded partially by routing fee yield, creating a self-sustaining rewards pool.
+**Ultimate goal:** A rewards pool that grows organically through infrastructure activity, reducing dependence on external sponsorship funding over time.
 
 ---
 
