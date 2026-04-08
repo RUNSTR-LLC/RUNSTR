@@ -111,8 +111,8 @@ src/
 ```
 
 ### Documentation
-- [North Star.md](./North%20Star.md) — Product identity and direction
-- [ARCHITECTURE.md](./ARCHITECTURE.md) — System architecture
+- [North Star.md](./docs/North%20Star.md) — Product identity and direction
+- [ARCHITECTURE.md](./docs/ARCHITECTURE.md) — System architecture
 - [book/](./book/) — The RUNSTR Book
 
 ---

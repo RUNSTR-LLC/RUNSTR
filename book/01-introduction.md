@@ -220,7 +220,7 @@ By reading this book alongside the codebase, you can:
 3. Make informed decisions about refactoring
 4. Ensure alignment between developer and AI assistant
 
-**For product identity and direction, see [North Star.md](../North%20Star.md)**
+**For product identity and direction, see [North Star.md](../docs/North%20Star.md)**
 
 ---
 

@@ -47,6 +47,11 @@ lint-output.txt
 
 # Build artifacts
 dist-ios/
+.git.bfg-report/
+
+# Backup assets
+assets/images/old-icons-backup/
+assets/images/*-backup.png
 
 # Media files (kept locally, not in repo)
 *.mp4

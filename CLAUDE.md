@@ -4,7 +4,7 @@
 
 RUNSTR is a fitness app that enters your workouts into virtual competitions and rewards you for working out. Users choose where their rewards go — to their wallet, a charity, an open source project, or a service like PPQ.AI for AI credits. The app works with any device or fitness app connected to Apple Health or Health Connect, syncing workouts automatically in the background. RUNSTR is a fitness company that monetizes through subscriptions, sponsorships (Zapvertising), and event ticket sales.
 
-**Read [North Star.md](./North%20Star.md) for the full product identity and direction.**
+**Read [North Star.md](./docs/North%20Star.md) for the full product identity and direction.**
 
 ## Terminology Rules
 
@@ -141,9 +141,9 @@ For debugging, write a diagnostic script in `scripts/diagnostics/` first — con
 
 | Document | Purpose |
 |----------|---------|
-| [North Star.md](./North%20Star.md) | Product identity and direction (source of truth) |
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | System architecture, data flow, NDK details |
-| [USER_FLOW.md](./USER_FLOW.md) | User interaction maps and screen flows |
+| [North Star.md](./docs/North%20Star.md) | Product identity and direction (source of truth) |
+| [ARCHITECTURE.md](./docs/ARCHITECTURE.md) | System architecture, data flow, NDK details |
+| [USER_FLOW.md](./docs/USER_FLOW.md) | User interaction maps and screen flows |
 | [book/](./book/) | The RUNSTR Book (16 chapters) |
 | [docs/DEV_WORKFLOW.md](./docs/DEV_WORKFLOW.md) | Metro, Xcode, testing protocol, troubleshooting |
 | [docs/VIDEO_GUIDE.md](./docs/VIDEO_GUIDE.md) | Remotion video creation + PPQ.ai AI enhancement |
