@@ -1,8 +1,11 @@
 /**
- * ImportDataModal - Import encrypted data from Nostr relays
+ * ImportDataModal - Restore workout history from Nostr
  *
- * Searches for backup events, decrypts, and merges into local storage.
- * Handles deduplication automatically.
+ * Two-phase restore:
+ * 1. Encrypted backup (kind 30078) — decrypts and restores workouts, habits, journal
+ * 2. Kind 1301 workout events — fetches public workout notes and saves to local storage
+ *
+ * Both phases deduplicate automatically.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -23,7 +26,9 @@ import {
   type DecryptedBackup,
   type ImportResult,
 } from '../../services/backup/RestoreService';
+import { Nostr1301ImportService } from '../../services/fitness/Nostr1301ImportService';
 import { DEFAULT_BACKUP_RELAYS } from '../../services/backup/BackupService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 
 interface ImportDataModalProps {
@@ -75,29 +80,64 @@ export const ImportDataModal: React.FC<ImportDataModalProps> = ({
     }
   }, [visible, searchForBackup]);
 
-  // Import the backup
+  // Import: encrypted backup + kind 1301 events
   const handleImport = async () => {
-    if (!backup) return;
-
     setState('importing');
     try {
-      const restoreService = RestoreService.getInstance();
-      const result = await restoreService.importBackup(backup);
-      setImportResult(result);
+      let totalWorkouts = 0;
+      let totalSkipped = 0;
+      let totalHabits = 0;
+      let totalJournal = 0;
+      let nostrWorkouts = 0;
 
-      if (result.success) {
-        setState('complete');
-        Toast.show({
-          type: 'success',
-          text1: 'Import complete',
-          text2: `Imported ${result.workoutsImported} workouts`,
-          position: 'top',
-          visibilityTime: 3000,
-        });
-      } else {
-        setErrorMessage(result.error || 'Import failed');
-        setState('error');
+      // Phase 1: Encrypted backup (if found)
+      if (backup) {
+        const restoreService = RestoreService.getInstance();
+        const backupResult = await restoreService.importBackup(backup);
+        if (backupResult.success) {
+          totalWorkouts += backupResult.workoutsImported;
+          totalSkipped += backupResult.workoutsSkipped;
+          totalHabits += backupResult.habitsImported;
+          totalJournal += backupResult.journalImported;
+        }
       }
+
+      // Phase 2: Kind 1301 workout events from Nostr relays
+      const npub = await AsyncStorage.getItem('@runstr:npub');
+      if (npub) {
+        console.log('[ImportDataModal] Phase 2: Importing kind 1301 events...');
+        const importService = Nostr1301ImportService.getInstance();
+        const nostrResult = await importService.importUserHistory(npub);
+        if (nostrResult.success) {
+          nostrWorkouts = nostrResult.totalImported;
+          totalWorkouts += nostrResult.totalImported;
+        }
+      }
+
+      const combinedResult: ImportResult = {
+        success: true,
+        workoutsImported: totalWorkouts,
+        workoutsSkipped: totalSkipped,
+        habitsImported: totalHabits,
+        habitsSkipped: 0,
+        journalImported: totalJournal,
+        journalSkipped: 0,
+      };
+      setImportResult(combinedResult);
+      setState('complete');
+
+      const parts: string[] = [];
+      if (totalWorkouts > 0) parts.push(`${totalWorkouts} workouts`);
+      if (totalHabits > 0) parts.push(`${totalHabits} habits`);
+      if (totalJournal > 0) parts.push(`${totalJournal} journal entries`);
+
+      Toast.show({
+        type: 'success',
+        text1: 'Restore complete',
+        text2: parts.length > 0 ? `Imported ${parts.join(', ')}` : 'No new data to import',
+        position: 'top',
+        visibilityTime: 3000,
+      });
     } catch (error) {
       console.error('[ImportDataModal] Import error:', error);
       setErrorMessage(error instanceof Error ? error.message : 'Import failed');
@@ -123,9 +163,9 @@ export const ImportDataModal: React.FC<ImportDataModalProps> = ({
         return (
           <View style={styles.centerContainer}>
             <ActivityIndicator size="large" color={theme.colors.orangeBright} />
-            <Text style={styles.statusText}>Searching for backup...</Text>
+            <Text style={styles.statusText}>Searching for data...</Text>
             <Text style={styles.statusSubtext}>
-              Checking {DEFAULT_BACKUP_RELAYS.length} relays
+              Checking relays for backups and workout history
             </Text>
           </View>
         );
@@ -133,14 +173,22 @@ export const ImportDataModal: React.FC<ImportDataModalProps> = ({
       case 'not_found':
         return (
           <View style={styles.centerContainer}>
-            <Ionicons name="cloud-offline-outline" size={48} color="#666" />
-            <Text style={styles.statusText}>No backup found</Text>
+            <Ionicons name="cloud-download-outline" size={48} color={theme.colors.orangeBright} />
+            <Text style={styles.statusText}>Restore Workout History</Text>
             <Text style={styles.statusSubtext}>
-              No encrypted backup was found on the relays.{'\n'}
-              Make sure you've exported your data first.
+              No encrypted backup found, but we can still import{'\n'}
+              your workout notes from Nostr relays.
             </Text>
             <TouchableOpacity
-              style={styles.retryButton}
+              style={styles.importButton}
+              onPress={handleImport}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="cloud-download-outline" size={20} color="#000" />
+              <Text style={styles.importButtonText}>Import Workouts</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.retryButton, { marginTop: 12 }]}
               onPress={searchForBackup}
               activeOpacity={0.8}
             >
@@ -243,9 +291,9 @@ export const ImportDataModal: React.FC<ImportDataModalProps> = ({
         return (
           <View style={styles.centerContainer}>
             <ActivityIndicator size="large" color={theme.colors.orangeBright} />
-            <Text style={styles.statusText}>Importing data...</Text>
+            <Text style={styles.statusText}>Restoring workout history...</Text>
             <Text style={styles.statusSubtext}>
-              This may take a moment
+              Importing backups and workout notes from Nostr
             </Text>
           </View>
         );
@@ -254,7 +302,7 @@ export const ImportDataModal: React.FC<ImportDataModalProps> = ({
         return (
           <View style={styles.centerContainer}>
             <Ionicons name="checkmark-circle" size={64} color={theme.colors.success} />
-            <Text style={styles.statusText}>Import complete!</Text>
+            <Text style={styles.statusText}>Restore complete</Text>
 
             {/* Import Summary */}
             <View style={styles.summaryCard}>

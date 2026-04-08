@@ -98,6 +98,24 @@ export class RestoreService {
       const user = await signer.user();
       const pubkey = user.pubkey;
 
+      // Smoke test: verify NIP-44 self-encryption round-trip works with this signer
+      try {
+        const testPlaintext = 'runstr-backup-test';
+        const encrypted = await signer.encrypt(user, testPlaintext, 'nip44');
+        const decrypted = await signer.decrypt(user, encrypted, 'nip44');
+        if (decrypted !== testPlaintext) {
+          console.error('[RestoreService] NIP-44 smoke test FAILED: round-trip mismatch');
+          return { found: false, error: 'Encryption self-test failed. Your key may be corrupted.' };
+        }
+        console.log('[RestoreService] NIP-44 smoke test passed');
+      } catch (smokeErr) {
+        console.error('[RestoreService] NIP-44 smoke test threw:', smokeErr);
+        return {
+          found: false,
+          error: `Encryption self-test failed: ${smokeErr instanceof Error ? smokeErr.message : smokeErr}`,
+        };
+      }
+
       console.log('[RestoreService] Searching for backup...');
       const ndk = await GlobalNDKService.getInstance();
 
@@ -125,6 +143,7 @@ export class RestoreService {
 
       // NIP-44 requires at least 132 characters of base64 payload
       const MIN_NIP44_LENGTH = 132;
+      let lastError = '';
 
       for (const event of eventsArray) {
         const contentLength = event.content?.length || 0;
@@ -136,25 +155,25 @@ export class RestoreService {
           continue;
         }
 
-        console.log('[RestoreService] Trying backup event:', event.id?.slice(0, 8));
+        console.log(`[RestoreService] Trying backup event: ${event.id?.slice(0, 8)} (${contentLength} chars, created ${new Date((event.created_at || 0) * 1000).toISOString()})`);
 
         try {
           const decrypted = await this.decryptBackup(event);
           return { found: true, backup: decrypted };
         } catch (decryptError) {
+          lastError = decryptError instanceof Error ? decryptError.message : String(decryptError);
           console.warn(
-            `[RestoreService] Failed to decrypt event ${event.id?.slice(0, 8)}:`,
-            decryptError instanceof Error ? decryptError.message : decryptError
+            `[RestoreService] Failed to decrypt event ${event.id?.slice(0, 8)}: ${lastError}`
           );
           // Try the next event
         }
       }
 
-      // All events failed
+      // All events failed — surface the actual decrypt error
       return {
         found: false,
         error: `Found ${eventsArray.length} backup event(s) but none could be decrypted. ` +
-          'The backup data may be corrupted or created with a different key.',
+          `Last error: ${lastError || 'unknown'}`,
       };
     } catch (error) {
       console.error('[RestoreService] Search failed:', error);
@@ -186,6 +205,7 @@ export class RestoreService {
 
   /**
    * Decrypt a backup event
+   * Tries NIP-44 first, falls back to NIP-04 for older backups
    */
   private async decryptBackup(event: NDKEvent): Promise<DecryptedBackup> {
     // Get signer via UnifiedSigningService (works for both nsec and Amber)
@@ -199,9 +219,33 @@ export class RestoreService {
     // Parse metadata from tags
     const metadata = this.parseMetadata(event);
 
-    // Decrypt content via signer (routes through Amber for Amber users)
+    // Determine encryption scheme from tags (default to nip44)
+    const encryptionTag = event.tags.find((t) => t[0] === 'encrypted');
+    const declaredScheme = encryptionTag?.[1] || 'nip44';
+
+    // Decrypt content via signer — try declared scheme first, then fallback
     const selfUser = await signer.user();
-    const decryptedContent = await signer.decrypt(selfUser, event.content, 'nip44');
+    let decryptedContent: string;
+
+    // Strip any whitespace that relays may have injected into the content
+    const cleanContent = event.content.trim();
+
+    if (declaredScheme === 'nip44') {
+      try {
+        decryptedContent = await signer.decrypt(selfUser, cleanContent, 'nip44');
+      } catch (nip44Err) {
+        console.warn(`[RestoreService] NIP-44 decrypt failed: ${nip44Err instanceof Error ? nip44Err.message : nip44Err}, trying NIP-04...`);
+        // Fallback to NIP-04 in case the tag is wrong
+        decryptedContent = await signer.decrypt(selfUser, cleanContent, 'nip04');
+      }
+    } else {
+      try {
+        decryptedContent = await signer.decrypt(selfUser, cleanContent, 'nip04');
+      } catch (nip04Err) {
+        console.warn(`[RestoreService] NIP-04 decrypt failed: ${nip04Err instanceof Error ? nip04Err.message : nip04Err}, trying NIP-44...`);
+        decryptedContent = await signer.decrypt(selfUser, cleanContent, 'nip44');
+      }
+    }
 
     // Check if content is gzip compressed (indicated by tag)
     const isCompressed = event.tags.some(
@@ -210,12 +254,18 @@ export class RestoreService {
 
     let jsonString: string;
     if (isCompressed) {
-      // Decode base64 and decompress
-      const compressedBytes = this.base64ToUint8Array(decryptedContent);
-      jsonString = pako.ungzip(compressedBytes, { to: 'string' });
-      console.log(
-        `[RestoreService] Decompressed: ${compressedBytes.length} → ${jsonString.length} bytes`
-      );
+      try {
+        // Decode base64 and decompress
+        const compressedBytes = this.base64ToUint8Array(decryptedContent);
+        jsonString = pako.ungzip(compressedBytes, { to: 'string' });
+        console.log(
+          `[RestoreService] Decompressed: ${compressedBytes.length} → ${jsonString.length} bytes`
+        );
+      } catch (decompressErr) {
+        // Decrypted content might already be plain JSON (compression tag mismatch)
+        console.warn('[RestoreService] Decompress failed, trying as raw JSON');
+        jsonString = decryptedContent;
+      }
     } else {
       // Legacy uncompressed backup (backwards compatibility)
       jsonString = decryptedContent;

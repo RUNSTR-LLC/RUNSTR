@@ -596,6 +596,11 @@ export class LocalWorkoutStorageService {
    * Fire-and-forget — errors are logged, never block the save path.
    */
   private async autoSubmitToSupabase(workout: LocalWorkout): Promise<void> {
+    // Historical imports should NOT enter competitions — they would pollute
+    // the daily leaderboard because workout_submissions.created_at = NOW()
+    if (workout.source === 'imported_nostr') {
+      return;
+    }
     const CARDIO_TYPES: string[] = ['running', 'walking', 'cycling', 'hiking'];
     if (!CARDIO_TYPES.includes(workout.type)) {
       console.log(`[LocalWorkoutStorage] Skipping Supabase submit: type '${workout.type}' is not cardio`);

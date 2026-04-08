@@ -128,6 +128,7 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
     }
   };
 
+
   const loadJournalEntries = async () => {
     try {
       const entries = await JournalService.getAllEntries();

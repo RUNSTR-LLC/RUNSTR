@@ -146,10 +146,9 @@ export class Nostr1301ImportService {
         activityTypes,
       });
 
-      // Queue imported workouts for Supabase submission
-      if (importedCount > 0) {
-        await this.queueImportedForSupabase(nostrWorkouts);
-      }
+      // Historical imports are saved to local storage only — NOT submitted to
+      // Supabase competitions.  Queuing old workouts would pollute the daily
+      // leaderboard because workout_submissions.created_at defaults to NOW().
 
       console.log(
         `✅ Import complete: ${importedCount} workouts imported (${
