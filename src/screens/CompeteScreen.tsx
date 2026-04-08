@@ -41,11 +41,6 @@ const CompeteScreenComponent: React.FC<CompeteScreenProps> = ({ navigation: prop
     navigation.navigate('EinundzwanzigDetail');
   }, [navigation]);
 
-  // Handle Season II card press - navigate to Season2Screen
-  const handleSeason2Press = useCallback(() => {
-    navigation.navigate('Season2');
-  }, [navigation]);
-
   // Handle Season III card press - navigate to Season3Screen
   const handleSeason3Press = useCallback(() => {
     navigation.navigate('Season3');
@@ -99,8 +94,7 @@ const CompeteScreenComponent: React.FC<CompeteScreenProps> = ({ navigation: prop
       >
         <EventsContent
           onEinundzwanzigPress={handleEinundzwanzigPress}
-          onSeason2Press={undefined}
-          onSeason3Press={handleSeason3Press}
+          onSeason2Press={handleSeason3Press}
           onLeaderboardPress={handleLeaderboardPress}
           onDynamicEventPress={handleDynamicEventPress}
         />
