@@ -114,26 +114,28 @@ class Season3ServiceClass {
     if (error) throw new Error(`Failed to fetch live steps: ${error.message}`);
 
     const rows = data ?? [];
-    let clubASteps = 0;
-    let clubBSteps = 0;
-    const clubAMembers = new Set<string>();
-    const clubBMembers = new Set<string>();
+
+    // Aggregate steps per member, then take top 4 from each club
+    const TOP_N = 4;
+    const clubAByMember: Record<string, number> = {};
+    const clubBByMember: Record<string, number> = {};
 
     for (const row of rows) {
-      if (row.club_id === clubAId) {
-        clubASteps += row.step_count ?? 0;
-        if (row.npub) clubAMembers.add(row.npub);
-      } else {
-        clubBSteps += row.step_count ?? 0;
-        if (row.npub) clubBMembers.add(row.npub);
+      if (row.club_id === clubAId && row.npub) {
+        clubAByMember[row.npub] = (clubAByMember[row.npub] ?? 0) + (row.step_count ?? 0);
+      } else if (row.npub) {
+        clubBByMember[row.npub] = (clubBByMember[row.npub] ?? 0) + (row.step_count ?? 0);
       }
     }
 
+    const topA = Object.values(clubAByMember).sort((a, b) => b - a).slice(0, TOP_N);
+    const topB = Object.values(clubBByMember).sort((a, b) => b - a).slice(0, TOP_N);
+
     return {
-      club_a_steps: clubASteps,
-      club_b_steps: clubBSteps,
-      club_a_active: clubAMembers.size,
-      club_b_active: clubBMembers.size,
+      club_a_steps: topA.reduce((sum, s) => sum + s, 0),
+      club_b_steps: topB.reduce((sum, s) => sum + s, 0),
+      club_a_active: Object.keys(clubAByMember).length,
+      club_b_active: Object.keys(clubBByMember).length,
       last_updated: Date.now(),
     };
   }

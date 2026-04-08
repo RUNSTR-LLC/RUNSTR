@@ -130,20 +130,26 @@ serve(async (req) => {
 
     if (stepErr) throw stepErr;
 
-    let clubASteps = 0;
-    let clubBSteps = 0;
-    const clubAMembers = new Set<string>();
-    const clubBMembers = new Set<string>();
+    // Aggregate steps per member, then take top 4 from each club
+    const clubAByMember: Record<string, number> = {};
+    const clubBByMember: Record<string, number> = {};
 
     for (const row of steps ?? []) {
-      if (row.club_id === matchup.club_a_id) {
-        clubASteps += row.step_count ?? 0;
-        if (row.npub) clubAMembers.add(row.npub);
-      } else {
-        clubBSteps += row.step_count ?? 0;
-        if (row.npub) clubBMembers.add(row.npub);
+      if (row.club_id === matchup.club_a_id && row.npub) {
+        clubAByMember[row.npub] = (clubAByMember[row.npub] ?? 0) + (row.step_count ?? 0);
+      } else if (row.npub) {
+        clubBByMember[row.npub] = (clubBByMember[row.npub] ?? 0) + (row.step_count ?? 0);
       }
     }
+
+    const TOP_N = 4;
+    const topA = Object.values(clubAByMember).sort((a, b) => b - a).slice(0, TOP_N);
+    const topB = Object.values(clubBByMember).sort((a, b) => b - a).slice(0, TOP_N);
+
+    const clubASteps = topA.reduce((sum, s) => sum + s, 0);
+    const clubBSteps = topB.reduce((sum, s) => sum + s, 0);
+    const clubAMembers = new Set(Object.keys(clubAByMember));
+    const clubBMembers = new Set(Object.keys(clubBByMember));
 
     // 4. Determine winner
     let winnerSide: 'a' | 'b';

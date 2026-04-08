@@ -1,8 +1,7 @@
 /**
- * Season2EventCard - Teaser card for RUNSTR Season III
+ * Season2EventCard - Card for RUNSTR Season III Club Battles
  *
- * Displays a coming soon card for Season III competition.
- * Tapping shows a toast instead of navigating.
+ * Navigates to Season3Screen when tapped.
  */
 
 import React from 'react';
@@ -14,28 +13,19 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Toast from 'react-native-toast-message';
 
-// RUNSTR logo image for Season III card (orange ostrich on black)
 const RUNSTR_LOGO = require('../../../assets/images/icon.png');
 import { theme } from '../../styles/theme';
+
 interface Season2EventCardProps {
   onPress?: () => void;
 }
 
 export const Season2EventCard: React.FC<Season2EventCardProps> = ({ onPress }) => {
-  const getStatusText = () => 'COMING SOON';
-
-  const getStatusStyles = () => ({
-    backgroundColor: '#111111',
-    borderWidth: 1,
-    borderColor: theme.colors.textMuted,
-  });
-
   return (
     <TouchableOpacity
       style={styles.card}
-      onPress={onPress ?? (() => Toast.show({ type: 'success', text1: 'Coming Soon', text2: 'RUNSTR Season III is on the way', visibilityTime: 1500 }))}
+      onPress={onPress}
       activeOpacity={0.7}
     >
       {/* Event Banner Image */}
@@ -48,44 +38,34 @@ export const Season2EventCard: React.FC<Season2EventCardProps> = ({ onPress }) =
       </View>
 
       {/* Status Badge */}
-      <View style={[styles.statusBadge, getStatusStyles()]}>
-        <Text style={styles.statusText}>{getStatusText()}</Text>
+      <View style={styles.statusBadge}>
+        <Text style={styles.statusText}>MAY 2026</Text>
       </View>
 
       {/* Content */}
       <View style={styles.content}>
         <Text style={styles.title} numberOfLines={2}>
-          RUNSTR Season III
+          Season III: Club Battles
+        </Text>
+        <Text style={styles.subtitle}>
+          16 clubs. Double elimination. Daily step battles.
         </Text>
 
         {/* Tags Row */}
         <View style={styles.tagsRow}>
-          {/* Activity Types */}
           <View style={styles.tag}>
-            <Ionicons name="walk-outline" size={12} color={theme.colors.textMuted} />
-            <Text style={styles.tagText}>Running</Text>
+            <Ionicons name="people-outline" size={12} color={theme.colors.textMuted} />
+            <Text style={styles.tagText}>Team Competition</Text>
           </View>
 
           <View style={styles.tag}>
-            <Ionicons name="walk-outline" size={12} color={theme.colors.textMuted} />
-            <Text style={styles.tagText}>Walking</Text>
+            <Ionicons name="footsteps-outline" size={12} color={theme.colors.textMuted} />
+            <Text style={styles.tagText}>Steps</Text>
           </View>
 
           <View style={styles.tag}>
-            <Ionicons name="bicycle-outline" size={12} color={theme.colors.textMuted} />
-            <Text style={styles.tagText}>Cycling</Text>
-          </View>
-
-          {/* BTC Prizes */}
-          <View style={styles.tag}>
-            <Ionicons name="trophy" size={12} color={theme.colors.textMuted} />
-            <Text style={styles.tagText}>BTC Prizes</Text>
-          </View>
-
-          {/* Charity */}
-          <View style={styles.tag}>
-            <Ionicons name="heart" size={12} color={theme.colors.textMuted} />
-            <Text style={styles.tagText}>Charity</Text>
+            <Ionicons name="trophy-outline" size={12} color={theme.colors.accent} />
+            <Text style={styles.tagText}>Rewards</Text>
           </View>
         </View>
       </View>
@@ -119,6 +99,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
+    backgroundColor: '#111111',
+    borderWidth: 1,
+    borderColor: theme.colors.accent,
   },
   statusText: {
     fontSize: 10,
@@ -132,18 +115,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: theme.typography.weights.semiBold,
     color: theme.colors.text,
-    marginBottom: 8,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginBottom: 4,
   },
-  metaText: {
+  subtitle: {
     fontSize: 13,
     color: theme.colors.textMuted,
-    marginLeft: 6,
-    flex: 1,
+    marginBottom: 4,
   },
   tagsRow: {
     flexDirection: 'row',

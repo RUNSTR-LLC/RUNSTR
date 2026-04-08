@@ -122,7 +122,7 @@ export const Season3Screen: React.FC = () => {
             </View>
             <View style={styles.step}>
               <Text style={styles.stepNumber}>4</Text>
-              <Text style={styles.stepText}>Club with more steps wins. Lose twice, you're out.</Text>
+              <Text style={styles.stepText}>Top 4 steppers from each club count. Lose twice, you're out.</Text>
             </View>
             <View style={styles.prizeLine}>
               <Ionicons name="trophy-outline" size={14} color={theme.colors.accent} />
