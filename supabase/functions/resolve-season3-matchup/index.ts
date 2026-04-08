@@ -225,6 +225,59 @@ serve(async (req) => {
       await supabase.from('season3_config').update({ value: 'active' }).eq('key', 'status');
     }
 
+    // 9. Send result notifications to both clubs
+    const winnerName = winnerSide === 'a'
+      ? (await getClubName(supabase, matchup.club_a_id))
+      : (await getClubName(supabase, matchup.club_b_id));
+    const loserName = winnerSide === 'a'
+      ? (await getClubName(supabase, matchup.club_b_id))
+      : (await getClubName(supabase, matchup.club_a_id));
+
+    await notifyClubMembers(supabase, winnerId, {
+      title: 'Your club won!',
+      body: `${winnerName} beat ${loserName} with ${clubASteps > clubBSteps ? clubASteps.toLocaleString() : clubBSteps.toLocaleString()} steps (top 4)`,
+      data: { type: 'season3_result', screen: 'Season3' },
+      channelId: 'live_competition',
+    });
+    await notifyClubMembers(supabase, loserId, {
+      title: 'Tough battle!',
+      body: `${loserName} fell to ${winnerName}. ${isComplete ? '' : 'Next matchup coming soon.'}`,
+      data: { type: 'season3_result', screen: 'Season3' },
+      channelId: 'live_competition',
+    });
+
+    // 10. Notify next matchup clubs
+    if (!isComplete) {
+      const { data: nextLive } = await supabase
+        .from('season3_matchups')
+        .select('club_a_id, club_b_id')
+        .eq('status', 'live')
+        .limit(1);
+
+      if (nextLive?.[0]) {
+        const next = nextLive[0];
+        const clubAName = next.club_a_id ? await getClubName(supabase, next.club_a_id) : null;
+        const clubBName = next.club_b_id ? await getClubName(supabase, next.club_b_id) : null;
+
+        if (next.club_a_id && clubBName) {
+          await notifyClubMembers(supabase, next.club_a_id, {
+            title: 'Your club battles today!',
+            body: `${clubAName} vs ${clubBName}. Every step counts!`,
+            data: { type: 'season3_matchup', screen: 'Season3' },
+            channelId: 'live_competition',
+          });
+        }
+        if (next.club_b_id && clubAName) {
+          await notifyClubMembers(supabase, next.club_b_id, {
+            title: 'Your club battles today!',
+            body: `${clubBName} vs ${clubAName}. Every step counts!`,
+            data: { type: 'season3_matchup', screen: 'Season3' },
+            channelId: 'live_competition',
+          });
+        }
+      }
+    }
+
     return new Response(JSON.stringify({
       message: 'Matchup resolved',
       winner: winnerId,
@@ -307,4 +360,56 @@ async function activateNextMatch(supabase: any) {
     .eq('id', next.id);
 
   console.log(`[resolve-season3] Activated next match: ${next.bracket} R${next.round} M${next.match_number} on ${next.match_date}`);
+}
+
+/** Get club name from user_teams */
+async function getClubName(supabase: any, clubId: string): Promise<string> {
+  const { data } = await supabase
+    .from('user_teams')
+    .select('name')
+    .eq('id', clubId)
+    .single();
+  return data?.name ?? 'Unknown Club';
+}
+
+/** Send push notification to all members of a club via notify-user edge function */
+async function notifyClubMembers(
+  supabase: any,
+  clubId: string,
+  notification: { title: string; body: string; data: any; channelId: string },
+) {
+  const { data: members, error } = await supabase
+    .from('club_memberships')
+    .select('member_npub')
+    .eq('club_id', clubId);
+
+  if (error || !members?.length) {
+    console.log(`[resolve-season3] No members found for club ${clubId}`);
+    return;
+  }
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+
+  console.log(`[resolve-season3] Sending "${notification.title}" to ${members.length} members of club ${clubId}`);
+
+  // Fire-and-forget notifications in parallel
+  await Promise.allSettled(
+    members.map((m: any) =>
+      fetch(`${supabaseUrl}/functions/v1/notify-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${serviceKey}`,
+        },
+        body: JSON.stringify({
+          npub: m.member_npub,
+          title: notification.title,
+          body: notification.body,
+          data: notification.data,
+          channelId: notification.channelId,
+        }),
+      }).catch(err => console.error(`[resolve-season3] Notify failed for ${m.member_npub?.slice(0, 12)}: ${err.message}`))
+    )
+  );
 }
