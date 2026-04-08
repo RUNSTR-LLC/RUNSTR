@@ -90,19 +90,6 @@ export const Season3Screen: React.FC = () => {
           />
         }
       >
-        {/* Banner */}
-        <View style={styles.banner}>
-          <Text style={styles.bannerTitle}>CLUB BATTLES</Text>
-          <Text style={styles.bannerSubtitle}>
-            16 clubs. Double elimination. One step battle per day.
-          </Text>
-          {config?.prize_pool_first && config.prize_pool_first !== 'TBD' && (
-            <Text style={styles.prizeText}>
-              Rewards for 1st and 2nd place
-            </Text>
-          )}
-        </View>
-
         {/* ── Registration Phase ── */}
         {(tournamentPhase === 'registration' || tournamentPhase === 'bracket_set') && (
           <>
@@ -225,28 +212,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
     paddingBottom: 40,
-  },
-  banner: {
-    alignItems: 'center',
-    paddingVertical: 24,
-    marginBottom: 16,
-  },
-  bannerTitle: {
-    fontSize: 28,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text,
-    letterSpacing: 3,
-  },
-  bannerSubtitle: {
-    fontSize: 13,
-    color: theme.colors.textMuted,
-    marginTop: 4,
-  },
-  prizeText: {
-    fontSize: 13,
-    color: theme.colors.accent,
-    marginTop: 8,
-    fontWeight: theme.typography.weights.semiBold,
   },
   countdown: {
     flexDirection: 'row',
