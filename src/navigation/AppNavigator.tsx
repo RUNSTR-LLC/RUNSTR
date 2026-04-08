@@ -531,7 +531,7 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
         }}
       />
 
-      {/* Level Detail Screen - Level info + lottery wheel */}
+      {/* Level Detail Screen */}
       <Stack.Screen
         name="LevelDetail"
         component={LevelDetailScreen}

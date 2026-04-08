@@ -14,9 +14,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { TouchableOpacity } from 'react-native';
 import { theme } from '../styles/theme';
 import { TexturedBackground } from '../components/ui/TexturedBackground';
-import { XPExplainer } from '../components/lottery/XPExplainer';
 import { WorkoutLevelService } from '../services/fitness/WorkoutLevelService';
-import { calculateLotteryMultiplier } from '../types/lottery';
+import { XP_VALUES, XP_PER_LEVEL, LEVEL_MILESTONES as XP_MILESTONES } from '../types/workoutLevel';
 import type { LevelStats } from '../types/workoutLevel';
 import { LEVEL_MILESTONES } from '../types/workoutLevel';
 import { useUserStore } from '../store/userStore';
@@ -31,7 +30,6 @@ export const LevelDetailScreen: React.FC = () => {
   const [isLoadingStats, setIsLoadingStats] = useState(true);
 
   const level = stats?.level.level || 1;
-  const multiplier = calculateLotteryMultiplier(level);
 
   useEffect(() => {
     loadData();
@@ -69,9 +67,6 @@ export const LevelDetailScreen: React.FC = () => {
     .find((m) => level >= m.level);
 
   const nextMilestone = LEVEL_MILESTONES.find((m) => level < m.level);
-  const nextMilestoneMultiplier = nextMilestone
-    ? calculateLotteryMultiplier(nextMilestone.level)
-    : null;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -110,16 +105,6 @@ export const LevelDetailScreen: React.FC = () => {
             </Text>
           </View>
 
-          {/* Current multiplier */}
-          <View style={styles.multiplierBadge}>
-            <Text style={styles.multiplierLabel}>Spin Bonus</Text>
-            <Text style={styles.multiplierValue}>{multiplier.toFixed(1)}x</Text>
-          </View>
-
-          <Text style={styles.multiplierExplainer}>
-            Every level adds +0.1x to your daily spin
-          </Text>
-
           {/* Next milestone preview */}
           {nextMilestone && (
             <View style={styles.nextMilestone}>
@@ -127,19 +112,47 @@ export const LevelDetailScreen: React.FC = () => {
               <Text style={styles.nextMilestoneTitle}>
                 Level {nextMilestone.level}: {nextMilestone.title}
               </Text>
-              <Text style={styles.nextMilestoneBonus}>
-                {nextMilestoneMultiplier?.toFixed(1)}x spin bonus
-              </Text>
             </View>
           )}
 
-          <View style={styles.spinNote}>
-            <Text style={styles.spinNoteText}>
-              Spin the daily wheel on the Rewards tab
-            </Text>
-          </View>
+          {/* How XP Works */}
+          <View style={styles.xpExplainer}>
+            <Text style={styles.xpExplainerTitle}>How XP Works</Text>
+            <View style={styles.xpItem}>
+              <Text style={styles.xpItemLabel}>Per Workout</Text>
+              <Text style={styles.xpItemValue}>+{XP_VALUES.WORKOUT_SUBMITTED} XP</Text>
+            </View>
+            <View style={styles.xpItem}>
+              <Text style={styles.xpItemLabel}>Daily Steps Goal</Text>
+              <Text style={styles.xpItemValue}>+{XP_VALUES.DAILY_STEPS_GOAL} XP</Text>
+            </View>
+            <View style={styles.xpItem}>
+              <Text style={styles.xpItemLabel}>Daily Login</Text>
+              <Text style={styles.xpItemValue}>+{XP_VALUES.DAILY_LOGIN} XP</Text>
+            </View>
+            <View style={styles.xpItem}>
+              <Text style={styles.xpItemLabel}>Per Level</Text>
+              <Text style={styles.xpItemValue}>{XP_PER_LEVEL} XP</Text>
+            </View>
 
-          <XPExplainer currentLevel={level} />
+            <Text style={[styles.xpExplainerTitle, { marginTop: 16 }]}>Milestones</Text>
+            {XP_MILESTONES.map((m) => (
+              <View key={m.level} style={styles.xpItem}>
+                <Text style={[
+                  styles.xpItemLabel,
+                  level >= m.level && { color: theme.colors.text },
+                ]}>
+                  Level {m.level}
+                </Text>
+                <Text style={[
+                  styles.xpItemValue,
+                  level >= m.level && { color: theme.colors.text },
+                ]}>
+                  {m.title}
+                </Text>
+              </View>
+            ))}
+          </View>
         </ScrollView>
       </TexturedBackground>
     </SafeAreaView>
@@ -211,34 +224,6 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.medium,
     marginTop: 6,
   },
-  multiplierBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.cardBackground,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    gap: 8,
-    marginBottom: 20,
-  },
-  multiplierLabel: {
-    color: theme.colors.textMuted,
-    fontSize: 13,
-    fontWeight: theme.typography.weights.medium,
-  },
-  multiplierValue: {
-    color: theme.colors.accent,
-    fontSize: 18,
-    fontWeight: theme.typography.weights.bold,
-  },
-  multiplierExplainer: {
-    color: theme.colors.textMuted,
-    fontSize: 12,
-    fontWeight: theme.typography.weights.medium,
-    marginBottom: 20,
-  },
   nextMilestone: {
     width: '100%',
     backgroundColor: theme.colors.cardBackground,
@@ -261,18 +246,34 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: theme.typography.weights.semiBold,
   },
-  nextMilestoneBonus: {
-    color: theme.colors.accent,
+  xpExplainer: {
+    width: '100%',
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 32,
+  },
+  xpExplainerTitle: {
+    color: theme.colors.text,
+    fontSize: 15,
+    fontWeight: theme.typography.weights.semiBold,
+    marginBottom: 10,
+  },
+  xpItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  xpItemLabel: {
+    color: theme.colors.textMuted,
     fontSize: 13,
     fontWeight: theme.typography.weights.medium,
   },
-  spinNote: {
-    paddingVertical: 12,
-    marginBottom: 16,
-  },
-  spinNoteText: {
+  xpItemValue: {
     color: theme.colors.textMuted,
-    fontSize: 14,
-    fontWeight: theme.typography.weights.medium,
+    fontSize: 13,
+    fontWeight: theme.typography.weights.semiBold,
   },
 });
