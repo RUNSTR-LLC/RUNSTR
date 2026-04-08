@@ -44,7 +44,7 @@ import { SupabaseRewardService } from '../services/rewards/SupabaseRewardService
 import { RewardDestinationService } from '../services/rewards/RewardDestinationService';
 import { PPQCreditTopupModal } from '../components/ai/PPQCreditTopupModal';
 import { DirectNostrProfileService } from '../services/user/directNostrProfileService';
-import { LotteryWheelSection } from '../components/lottery/LotteryWheelSection';
+import { StreakSection } from '../components/streak/StreakSection';
 
 // Storage keys for donation settings
 // Note: Teams are now charities (rebranded)
@@ -350,8 +350,8 @@ const RewardsScreenComponent: React.FC = () => {
           <ImpactHeroCard pubkey={userHexPubkey} />
         )}
 
-        {/* Daily Spin */}
-        <LotteryWheelSection />
+        {/* Streak */}
+        <StreakSection />
 
         {/* Sponsor credit line */}
         <SponsorBanner />
