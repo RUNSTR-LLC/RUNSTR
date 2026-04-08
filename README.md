@@ -60,7 +60,7 @@ Daily leaderboards track the fastest 5K, 10K, half marathon, and full marathon t
 Spin the lottery wheel after qualifying workouts. Your RUNSTR level determines the reward multiplier — the more you work out, the higher your level, the better the payouts.
 
 ### Social Feed
-A fitness-first social feed pulling in workout posts from across Nostr. Like, zap, repost, and comment directly from the feed. Share your own workouts to the network.
+A fitness-first social feed. Like, repost, and comment on workout posts. Share your own workouts to the network.
 
 ### Fitness Clubs
 Create a club with a dedicated page, real-time chat, and captain-hosted events. Club events use templates (5K, 10K, step challenge) and auto-enter all members.
@@ -69,7 +69,7 @@ Create a club with a dedicated page, real-time chat, and captain-hosted events. 
 Rewards are funded by sponsors, not RUNSTR. The Rewards page and push notifications show sponsor attribution — "You received a reward from [Sponsor] for your workout." Sustainable without selling user data.
 
 ### Privacy by Default
-No email, no phone number, no real name required. Your identity is a cryptographic keypair on your device. Workout data stays local with encrypted backups to Nostr relays. Private Mode lets you track without participating in any networked features.
+No email, no phone number, no real name required. Your identity is a cryptographic keypair on your device. Workout data stays local with encrypted backups. Private Mode lets you track without participating in any networked features.
 
 ---
 
