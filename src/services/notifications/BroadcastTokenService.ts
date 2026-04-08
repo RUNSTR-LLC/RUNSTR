@@ -43,9 +43,6 @@ export class BroadcastTokenService {
         return;
       }
 
-      // Check if already registered with same token (and same npub binding)
-      const registeredToken = await AsyncStorage.getItem(TOKEN_VALUE_KEY);
-      const registeredKey = await AsyncStorage.getItem('@runstr:broadcast_token_key');
       const currentNpub = npub || null;
 
       // Compute token_key from npub if provided
@@ -62,13 +59,9 @@ export class BroadcastTokenService {
         }
       }
 
-      // Skip if token AND token_key haven't changed
-      if (registeredToken === expoPushToken && registeredKey === tokenKey) {
-        console.log('[BroadcastToken] Already registered with same token + key');
-        return;
-      }
-
-      // Build upsert payload
+      // Always upsert to Supabase — tokens can change after app updates or iOS updates.
+      // If we have a token_key, upsert by token_key (same user, possibly new device token).
+      // Otherwise upsert by token (anonymous device registration).
       const upsertData: Record<string, unknown> = {
         token: expoPushToken,
         platform: Platform.OS,
@@ -78,9 +71,10 @@ export class BroadcastTokenService {
         upsertData.token_key = tokenKey;
       }
 
+      const onConflict = tokenKey ? 'token_key' : 'token';
       const { error } = await supabase
         .from('broadcast_tokens')
-        .upsert(upsertData, { onConflict: 'token' });
+        .upsert(upsertData, { onConflict });
 
       if (error) {
         // If table doesn't exist yet, log and continue silently
@@ -88,10 +82,18 @@ export class BroadcastTokenService {
           console.log('[BroadcastToken] Table not created yet, skipping');
           return;
         }
-        throw error;
+        // If token_key conflict fails (no unique index), fall back to token conflict
+        if (error.code === '42P10' || error.message?.includes('unique')) {
+          const { error: fallbackError } = await supabase
+            .from('broadcast_tokens')
+            .upsert(upsertData, { onConflict: 'token' });
+          if (fallbackError) throw fallbackError;
+        } else {
+          throw error;
+        }
       }
 
-      // Save token locally to prevent duplicate registrations
+      // Save token locally for reference
       await AsyncStorage.setItem(TOKEN_REGISTERED_KEY, 'true');
       await AsyncStorage.setItem(TOKEN_VALUE_KEY, expoPushToken);
       if (tokenKey) {
@@ -99,7 +101,7 @@ export class BroadcastTokenService {
       }
 
       const targetMode = tokenKey ? 'community + per-user' : 'community only';
-      console.log(`[BroadcastToken] Registered for ${targetMode} notifications`);
+      console.log(`[BroadcastToken] Registered for ${targetMode} notifications (token: ${expoPushToken.slice(0, 30)}...)`);
     } catch (error) {
       // Silent failure - notifications are optional
       console.warn('[BroadcastToken] Registration failed (silent):', error);
