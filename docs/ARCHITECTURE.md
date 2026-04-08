@@ -11,7 +11,7 @@
 |  React Native (Expo) + TypeScript                                |
 |                                                                   |
 |  +-----------+  +----------+  +---------+                        |
-|  | Profile   |  | Clubs    |  | Rewards |   <- 3 Bottom Tabs     |
+|  | Profile   |  | Social   |  | Events  |   <- 3 Bottom Tabs     |
 |  | Tab       |  | Tab      |  | Tab     |                        |
 |  +-----------+  +----------+  +---------+                        |
 |        |              |             |                              |
@@ -82,8 +82,8 @@ App.tsx
                                 |    +-- BottomTabNavigator
                                 |         |
                                 |         +-- Profile Tab (eager load)
-                                |         +-- Clubs Tab   (React.lazy)
-                                |         +-- Rewards Tab (React.lazy)
+                                |         +-- Social Tab  (React.lazy)
+                                |         +-- Events Tab  (React.lazy)
                                 |
                                 +-- Modal Screens (~21 reachable)
                                      |
@@ -95,11 +95,11 @@ App.tsx
                                      |
                                      +-- Competition Screens
                                      |    +-- Season2Screen
+                                     |    +-- Season3Screen
                                      |    +-- CompeteScreen
                                      |    +-- LeaderboardsScreen
                                      |    +-- EinundzwanzigDetailScreen
-                                     |    +-- JanuaryWalkingDetailScreen
-                                     |    +-- RunningBitcoinDetailScreen
+                                     |    +-- DynamicEventDetailScreen
                                      |
                                      +-- Fitness Club Screens
                                      |    +-- ClubsScreen (browse/join clubs)
@@ -111,7 +111,9 @@ App.tsx
                                           +-- ProfileEditScreen
                                           +-- WorkoutHistoryScreen
                                           +-- AdvancedAnalyticsScreen
-                                          +-- AIHealthDashboardScreen
+                                          +-- LevelDetailScreen
+                                          +-- WalletScreen
+                                          +-- RewardsScreen
                                           +-- WalletScreen
                                           +-- JournalHistoryScreen
                                           +-- HelpSupportScreen
@@ -154,7 +156,6 @@ App.tsx
 |  | @runstr:reward_lightning_address    |  |
 |  | @runstr:last_reward_date            |  |
 |  | @runstr:total_rewards_earned        |  |
-|  | @runstr:subscription_tier           |  |
 |  | @runstr:club_id                     |  |
 |  | local_workouts (array)              |  |
 |  | @runstr:event_joins                 |  |
@@ -258,13 +259,9 @@ that monitors Supabase, not by the app itself. The app tracks
 eligibility and displays results. Rewards are sponsor-funded.
 ```
 
-### Subscription & Club Services
+### Club Services
 
 ```
-Subscriptions:
-  SubscriptionService          Query tier from Supabase (free/supporter/pro)
-                               1-hour cache, gates club creation and boosted rewards
-
 Fitness Clubs (Supabase-backed):
   ClubService                  CRUD operations on user_teams table
   ClubMembershipService        Join/leave clubs, role management (member/captain)
@@ -285,8 +282,6 @@ Competition Management (ALL Supabase-based at runtime):
 
 Hardcoded Events:
   EinundzwanzigService           Einundzwanzig challenge
-  JanuaryWalkingService          January Walking contest
-  RunningBitcoinService          Running Bitcoin challenge
 
 Direction: Moving toward user-created competitions via Fitness Clubs.
 Daily leaderboard stays built-in.
@@ -329,7 +324,6 @@ Daily leaderboard stays built-in.
     Profiles:     24 hours
     Leaderboards:  5 minutes
     Wallet:       30 seconds
-    Subscriptions: 1 hour
     Sponsors:     30 minutes
 ```
 
@@ -642,7 +636,6 @@ External reward service reads destination tag
 |  |   competitions         - Events and competitions            |  |
 |  |   reward_payments      - Verified payment records           |  |
 |  |   reward_sponsors      - Active sponsor configuration       |  |
-|  |   subscribers          - Subscription tiers (free/sup/pro)  |  |
 |  |   user_teams           - Fitness Clubs                      |  |
 |  |   club_memberships     - Club member/captain roles          |  |
 |  |   club_messages        - Club chat messages                 |  |

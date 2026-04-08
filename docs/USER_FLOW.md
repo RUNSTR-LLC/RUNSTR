@@ -1,7 +1,7 @@
 # RUNSTR User Flow — Complete Interaction Map
 
 > **Purpose**: Documents every user interaction from the user's perspective — what they see, what they tap, what happens next. Complements CLAUDE.md (developer context) and ARCHITECTURE.md (system design).
-> **For product identity and direction, see [North Star.md](./North%20Star.md)**
+> **For product identity and direction, see [North Star.md](./North%20Star.md)** (in docs/)
 
 ---
 
@@ -45,19 +45,15 @@ The app uses a bottom tab bar with three tabs. Profile is the default/home tab.
 - **Settings gear icon** (top right) → SettingsScreen
 - **Music controls**: ProfileMusicBar for Wavlake/Blossom playback (if enabled in Settings)
 
-### Clubs Tab
-- **YOUR CLUB** section: Shows user's current Fitness Club (if joined) with Leave button
-- **BROWSE CLUBS**: Searchable list of all active Fitness Clubs
-- **Create button** (top right): Opens club creation for Pro subscribers, or subscription info modal for others
+### Social Tab
+- **Social feed**: Fitness-first feed pulling workout posts from Nostr. Like, repost, comment.
+- **Clubs row**: Horizontal list of Fitness Clubs. Tap to browse, join, or view club pages.
 - **Tap a club** → ClubPageScreen (member leaderboard, chat, events)
 
-### Rewards Tab
-- **Rewards Pool card** (tappable → TransparencyDashboardModal showing global reward distribution)
-- **SponsorBanner**: "This month's rewards are brought to you by [Sponsor]" (tappable → sponsor website)
-- **EarningsHeroCard** (if Lightning address set): Shows total rewards earned, weekly earnings
-- **ImpactHeroCard** (if no Lightning address): Shows total rewards donated to destinations
-- **RewardDestinationSection**: Current destination with Change button
-- **How It Works**: Explainer section for new users
+### Events Tab (Compete)
+- **Daily Leaderboards**: 5K, 10K, Half Marathon, Marathon, Steps — always active
+- **Featured Events**: Season III Club Battles, Einundzwanzig, and other scheduled competitions
+- **Club Events**: Captain-created events from templates
 
 ---
 
@@ -176,10 +172,6 @@ Two paths:
 - `RewardPollingService` also polls `reward_payments` for in-app toast notifications
 - Sponsor attribution included in both push and in-app notifications
 
-### Subscriber Boost
-- Free users: base reward per qualifying workout
-- Supporter/Pro subscribers: significantly boosted reward (requires 2km+, 15min+, GPS/health app source)
-
 ---
 
 ## 6. Competition Flow
@@ -192,7 +184,7 @@ Two paths:
 
 ### Featured Events
 1. Tap **Join Events** on Profile tab → LeaderboardsScreen
-2. Available competitions: Season II, January Walking, Einundzwanzig, Running Bitcoin
+2. Available competitions: Season III Club Battles, Einundzwanzig, and other featured events
 3. Tap event → detail screen with leaderboard + Join button
 4. Tap Join → saves to Supabase
 
@@ -218,7 +210,7 @@ Two paths:
 ## 7. Fitness Club Flow
 
 ### Joining a Club
-1. Navigate to Clubs tab
+1. Navigate to Social tab → tap a club from the clubs row
 2. Browse or search available clubs
 3. Tap a club → ClubPageScreen
 4. Tap Join → `ClubMembershipService.joinClub()`
@@ -229,10 +221,9 @@ Two paths:
 - **Chat tab**: Real-time messages via Supabase Realtime (5 messages/60s rate limit)
 - **Events tab**: Active, upcoming, and past club competitions
 
-### Creating a Club (Pro Only)
-1. Tap Create button on Clubs tab
-2. If not Pro → SubscriptionInfoModal (upgrade prompt)
-3. If Pro → SimpleTeamCreationModal form (name, description, Lightning address)
+### Creating a Club
+1. Tap Create button on Clubs screen
+2. SimpleTeamCreationModal form (name, description, Lightning address)
 4. Submitted to `manage-club` Edge Function
 5. Creator becomes captain, auto-joined
 
@@ -246,15 +237,15 @@ Two paths:
 ## 8. Reward Destination Selection
 
 ### Access
-- Rewards tab → RewardDestinationSection → "Change" button
+- Profile tab → Rewards section → "Change" button
 - Or via onboarding flow
 
 ### Selection Flow
 1. **RewardDestinationPicker** modal opens
 2. Four categories displayed:
    - **YOU** — rewards to your wallet
-   - **CHARITIES** — ALS Network, HRF, Bitcoin Veterans, etc.
-   - **PROJECTS** — Bitcoin Beach, Bitcoin Ekasi, etc.
+   - **CHARITIES** — ALS Network, Bitcoin Veterans, etc.
+   - **PROJECTS** — Bitcoin Ekasi, Bitcoin Bay, Afribit Kibera, etc.
    - **SERVICES** — PPQ.AI (AI credits)
 3. Tap to select → saved to AsyncStorage
 4. All future rewards route to this destination
@@ -265,17 +256,7 @@ Two paths:
 
 ---
 
-## 9. AI Coach & Wellness Features
-
-### Access
-Settings → AI Coach → AIHealthDashboardScreen
-
-### Requirements
-- PPQ.AI account (set up via PPQAccountSetupModal)
-
-### Two Modes
-1. **Overview**: Today's journal entry + habit check-ins + recent workout summary
-2. **Chat**: Conversational AI health coach (Claude Haiku 4.5 via PPQ.AI)
+## 9. Wellness Features
 
 ### Journal
 - Mood tracking: 5 levels (emoji-based)
@@ -322,7 +303,6 @@ Accessible via gear icon on Profile tab → SettingsScreen.
 | Voice Announcements | Enable/disable, split details, live splits |
 | Distance Units | km / mi |
 | Default Activity | Running, Walking, Cycling, Hiking |
-| Subscription Plan | Free / Supporter / Pro |
 | Private Mode | Toggle — disables all Supabase submission |
 | AI Coach | Enable/configure PPQ.AI account |
 | Music | Enable/disable Wavlake/Blossom player |

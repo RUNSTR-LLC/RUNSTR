@@ -6,7 +6,7 @@ RUNSTR pulls in your workouts from any fitness app or wearable and rewards you f
 
 [![Website](https://img.shields.io/badge/Website-runstr.club-blue)](https://www.runstr.club/)
 [![iOS](https://img.shields.io/badge/iOS-App%20Store-black)](https://apps.apple.com/app/runstr)
-[![Android](https://img.shields.io/badge/Android-Zap.Store-green)](https://zapstore.dev/)
+[![Android](https://img.shields.io/badge/Android-Zap.Store-green)](https://zap.store/)
 
 ---
 
@@ -45,9 +45,9 @@ Four activity categories across a swipeable grid:
 - **Mindfulness** — Journal, habits
 
 ### Rewards Your Way
-Choose one destination for all your rewards. 20+ options across four categories:
-- **Charities** — ALS Network, Human Rights Foundation, Bitcoin Veterans, and more
-- **Projects** — Bitcoin Beach, Bitcoin Ekasi, Bitcoin Isla, Bitcoin Bay
+Choose one destination for all your rewards across four categories:
+- **Charities** — ALS Network, Bitcoin Veterans, and more
+- **Projects** — Bitcoin Ekasi, Bitcoin Isla, Bitcoin Bay, Afribit Kibera, and more
 - **Services** — PPQ.AI (rewards become AI credits)
 - **Yourself** — Sent directly to your wallet
 
