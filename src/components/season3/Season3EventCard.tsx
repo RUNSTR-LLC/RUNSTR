@@ -6,38 +6,19 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
-import { getSeason3Status } from '../../constants/season3';
 
 interface Season3EventCardProps {
   onPress?: () => void;
 }
 
 export const Season3EventCard: React.FC<Season3EventCardProps> = ({ onPress }) => {
-  const { isRegistration, isActive } = getSeason3Status();
-
-  const statusText = isActive
-    ? 'LIVE'
-    : isRegistration
-      ? 'REGISTRATION OPEN'
-      : 'COMING SOON';
-
-  const statusColor = isActive
-    ? theme.colors.success
-    : theme.colors.accent;
-
   return (
     <TouchableOpacity
       style={styles.card}
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <View style={styles.header}>
-        <Text style={styles.title}>SEASON III</Text>
-        <View style={[styles.badge, { backgroundColor: statusColor }]}>
-          <Text style={styles.badgeText}>{statusText}</Text>
-        </View>
-      </View>
-
+      <Text style={styles.title}>SEASON III</Text>
       <Text style={styles.subtitle}>CLUB BATTLES</Text>
       <Text style={styles.description}>
         16 clubs. Double elimination. Daily step battles.
@@ -69,28 +50,12 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.accent,
     padding: 16,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
   title: {
     fontSize: 20,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.accent,
     letterSpacing: 2,
-  },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.background,
-    letterSpacing: 1,
+    marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
