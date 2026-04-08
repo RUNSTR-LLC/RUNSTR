@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { EinundzwanzigEventCard } from '../events/EinundzwanzigEventCard';
 import { Season2EventCard } from '../events/Season2EventCard';
+import { Season3EventCard } from '../season3/Season3EventCard';
 import { LeaderboardEventCard } from '../events/LeaderboardEventCard';
 import { DynamicEventCard } from '../events/DynamicEventCard';
 import { shouldShowEinundzwanzig } from '../../constants/einundzwanzig';
@@ -25,6 +26,7 @@ interface EventsContentProps {
   onCreateEvent?: () => void;
   onEinundzwanzigPress?: () => void;
   onSeason2Press?: () => void;
+  onSeason3Press?: () => void;
   onLeaderboardPress?: () => void;
   onDynamicEventPress?: (eventId: string) => void;
 }
@@ -33,6 +35,7 @@ export const EventsContent: React.FC<EventsContentProps> = ({
   onCreateEvent,
   onEinundzwanzigPress,
   onSeason2Press,
+  onSeason3Press,
   onLeaderboardPress,
   onDynamicEventPress,
 }) => {
@@ -52,6 +55,11 @@ export const EventsContent: React.FC<EventsContentProps> = ({
           <Ionicons name="chevron-forward" size={18} color={theme.colors.textMuted} />
         </TouchableOpacity>
       )}
+
+      {/* 0. RUNSTR Season III - Club Battles */}
+      <View style={styles.featuredEvent}>
+        <Season3EventCard onPress={onSeason3Press} />
+      </View>
 
       {/* 1. RUNSTR Season II */}
       <View style={styles.featuredEvent}>

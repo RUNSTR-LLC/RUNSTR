@@ -39,6 +39,7 @@ import { SettingsScreen } from '../screens/SettingsScreen';
 import { StatsDetailScreen } from '../screens/StatsDetailScreen';
 import { ActivityTrackerScreen } from '../screens/activity/ActivityTrackerScreen';
 import { Season2Screen } from '../screens/season2/Season2Screen';
+import { Season3Screen } from '../screens/season3/Season3Screen';
 import { CompeteScreen } from '../screens/CompeteScreen';
 import { LeaderboardsScreen } from '../screens/LeaderboardsScreen';
 import { CommentsScreen } from '../screens/CommentsScreen';
@@ -80,6 +81,7 @@ export type RootStackParamList = {
   Exercise: undefined;
   Compete: undefined;
   Season2: undefined;
+  Season3: undefined;
   Leaderboards: undefined;
   DynamicEventDetail: { eventId: string };
   JournalHistory: undefined;
@@ -493,6 +495,13 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
         component={Season2Screen}
         options={defaultScreenOptions}
       />
+
+      {/* Season3 Screen - Season III Club Battles */}
+        <Stack.Screen
+          name="Season3"
+          component={Season3Screen}
+          options={defaultScreenOptions}
+        />
 
       {/* Leaderboards Screen - Daily Leaderboards */}
       {/* ✅ PERFORMANCE: Using component reference instead of inline function */}
