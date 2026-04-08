@@ -174,6 +174,7 @@ import { HealthProfileScreen } from './screens/HealthProfileScreen';
 import { EinundzwanzigDetailScreen } from './screens/events/EinundzwanzigDetailScreen';
 import { DynamicEventDetailScreen } from './screens/events/DynamicEventDetailScreen';
 import { Season2Screen } from './screens/season2/Season2Screen';
+import { Season3Screen } from './screens/season3/Season3Screen';
 import { CompeteScreen } from './screens/CompeteScreen';
 import { LeaderboardsScreen } from './screens/LeaderboardsScreen';
 import { RewardsScreen } from './screens/RewardsScreen';
@@ -255,6 +256,7 @@ type AuthenticatedStackParamList = {
   HealthProfile: undefined;
   EinundzwanzigDetail: undefined;
   Season2: undefined;
+  Season3: undefined;
   Teams: undefined;
   Rewards: undefined;
   Events: undefined;
@@ -613,6 +615,15 @@ const AuthenticatedNavigator: React.FC = () => {
           headerShown: false,
         }}
         component={Season2Screen}
+      />
+
+      {/* RUNSTR Season 3 Club Battles Screen */}
+      <AuthenticatedStack.Screen
+        name="Season3"
+        options={{
+          headerShown: false,
+        }}
+        component={Season3Screen}
       />
 
       {/* Teams Screen - Hardcoded teams + charities selection */}
