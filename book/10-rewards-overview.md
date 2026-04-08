@@ -47,12 +47,12 @@ Users choose ONE destination for all rewards:
 
 | Destination | What Happens |
 |-------------|-------------|
-| **Charity** (ALS Network, HRF, etc.) | Reward sent as micro donation to charity's address |
-| **Project** (Bitcoin Beach, Bitcoin Ekasi, etc.) | Reward sent to project's address |
+| **Charity** (ALS Network, Bitcoin Veterans, etc.) | Reward sent as micro donation to charity's address |
+| **Project** (Bitcoin Ekasi, Afribit Kibera, etc.) | Reward sent to project's address |
 | **Service** (PPQ.AI) | Reward converted to AI credits |
 | **You** (Self) | Reward sent to your wallet |
 
-Change destination anytime via the Rewards tab. See [Chapter 13: Reward Destinations](./13-rewards-teams-charities.md) for full details.
+Change destination anytime via the Rewards screen. See [Chapter 13: Reward Destinations](./13-rewards-teams-charities.md) for full details.
 
 ---
 
@@ -85,7 +85,7 @@ This model (Zapvertising) lets businesses reach an active fitness audience throu
 
 ## Rewards Screen
 
-The Rewards tab shows:
+The Rewards screen (accessible from Profile tab) shows:
 
 ```
 ┌─────────────────────────────────────┐

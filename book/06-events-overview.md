@@ -80,8 +80,8 @@ The Events page shows:
 ├─────────────────────────────────────┤
 │  ┌─────────────────────────────┐   │
 │  │ [RUNSTR Logo]        LIVE   │   │
-│  │ RUNSTR Season II Competition│   │
-│  │ Jan 1, 2026 - Mar 1, 2026   │   │
+│  │ RUNSTR Season III            │   │
+│  │ Club Battles                 │   │
 │  │ Prize Pool                   │   │
 │  │ [Running] [Walking] [Cycling]│   │
 │  │ [Rewards] [Charity]         │   │
@@ -89,10 +89,10 @@ The Events page shows:
 │                                     │
 │  ┌─────────────────────────────┐   │
 │  │ [Image]              LIVE   │   │
-│  │ January Walking Contest     │   │
-│  │ Jan 1 - Jan 31 (24d left)   │   │
-│  │ Top 3 win rewards            │   │
-│  │ [Walking] [Rewards]         │   │
+│  │ Einundzwanzig Challenge     │   │
+│  │ Distance competition         │   │
+│  │ Top performers win rewards   │   │
+│  │ [Running] [Rewards]         │   │
 │  └─────────────────────────────┘   │
 └─────────────────────────────────────┘
 ```
@@ -116,17 +116,17 @@ The Events page shows:
 |--------|------|---------|
 | EventsScreen | `src/screens/EventsScreen.tsx` | Main events list |
 | Season2Screen | `src/screens/season2/Season2Screen.tsx` | Season II details & leaderboard |
+| Season3Screen | `src/screens/season3/Season3Screen.tsx` | Season III Club Battles bracket tournament |
+| DynamicEventDetailScreen | `src/screens/events/DynamicEventDetailScreen.tsx` | Data-driven event details from Supabase |
 
 ### Event Card Components
-
-Events are rendered using hardcoded card components:
 
 | Component | File |
 |-----------|------|
 | Season2EventCard | `src/components/events/Season2EventCard.tsx` |
-| JanuaryWalkingEventCard | `src/components/events/JanuaryWalkingEventCard.tsx` |
-| RunningBitcoinEventCard | `src/components/events/RunningBitcoinEventCard.tsx` |
 | EinundzwanzigEventCard | `src/components/events/EinundzwanzigEventCard.tsx` |
+| DynamicEventCard | `src/components/events/DynamicEventCard.tsx` |
+| LeaderboardEventCard | `src/components/events/LeaderboardEventCard.tsx` |
 
 ### Event Creation
 
@@ -148,7 +148,7 @@ Renders hardcoded event cards
         ↓
 User taps event card
         ↓
-Navigates to Season2Screen (or similar)
+Navigates to event detail screen (Season3Screen, DynamicEventDetailScreen, etc.)
         ↓
 Loads participant list from Supabase
         ↓

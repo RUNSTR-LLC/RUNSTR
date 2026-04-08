@@ -2,7 +2,7 @@
 
 ## Summary
 
-In RUNSTR, you choose where your rewards go. The Reward Destination picker presents 20+ options across four categories: charities like the ALS Network and Human Rights Foundation, open source projects like Bitcoin Beach and Bitcoin Ekasi, services like PPQ.AI for AI credits, and yourself — rewards sent straight to your wallet. You pick one destination for all your rewards and can change it anytime.
+In RUNSTR, you choose where your rewards go. The Reward Destination picker presents options across four categories: charities like the ALS Network and Bitcoin Veterans, open source projects like Bitcoin Ekasi and Afribit Kibera, services like PPQ.AI for AI credits, and yourself — rewards sent straight to your wallet. You pick one destination for all your rewards and can change it anytime.
 
 This is central to RUNSTR's identity: **fitness rewards, your way.** The point isn't to pressure anyone into donating — it's to let every user decide what their effort is worth and where it should go. Whether you're funding ALS research, supporting a grassroots initiative, earning AI credits, or growing your own wallet, every qualifying workout sends rewards exactly where you chose.
 
@@ -18,8 +18,8 @@ Users choose ONE destination for all rewards:
 
 | Category | Examples | What Happens |
 |----------|----------|-------------|
-| **Charities** | ALS Network, HRF, Bitcoin Veterans | Reward sent as micro donation |
-| **Projects** | Bitcoin Beach, Bitcoin Ekasi, Bitcoin Isla | Reward sent to project |
+| **Charities** | ALS Network, Bitcoin Veterans | Reward sent as micro donation |
+| **Projects** | Bitcoin Ekasi, Bitcoin Isla, Afribit Kibera | Reward sent to project |
 | **Services** | PPQ.AI | Reward converted to AI credits |
 | **You** | User's wallet | Reward sent to your address |
 
@@ -45,10 +45,7 @@ All destinations are defined in `src/constants/charities.ts` and `src/config/cha
 | Destination | Focus |
 |-------------|-------|
 | ALS Network | ALS research (honoring Hal Finney) |
-| Human Rights Foundation | Human rights |
 | Bitcoin Veterans | US Veterans support |
-| Ashigaru | Privacy wallet development |
-| Afribit Kibera | Kenya |
 
 ### Projects
 
@@ -82,7 +79,7 @@ Rewards sent to the user's own wallet via their configured address.
 
 ### Selection Flow
 
-1. Navigate to Rewards tab
+1. Navigate to Rewards screen
 2. Tap "Change" on RewardDestinationSection
 3. **RewardDestinationPicker** modal opens
 4. Four categories displayed: YOU, CHARITIES, PROJECTS, SERVICES
@@ -96,7 +93,7 @@ Rewards sent to the user's own wallet via their configured address.
 
 ### Changing Destination
 
-- Change anytime via the Rewards tab
+- Change anytime via the Rewards screen
 - No cooldown, no penalty
 - New destination applies to all future rewards immediately
 

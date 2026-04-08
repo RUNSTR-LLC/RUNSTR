@@ -136,7 +136,7 @@ This virtual layer serves multiple purposes:
 - Creates content for social media (runners from different countries)
 - Demonstrates the app's core functionality to potential new users
 
-**Success metric:** 30+ virtual participants, additional app downloads and subscribers.
+**Success metric:** 30+ virtual participants, additional app downloads and new users.
 
 ---
 
