@@ -4,13 +4,14 @@
  * Three phases: Registration, Tournament (live bracket), Completed.
  */
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
   RefreshControl,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -39,6 +40,7 @@ export const Season3Screen: React.FC = () => {
   } = useSeason3();
 
   const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const [howItWorksOpen, setHowItWorksOpen] = useState(false);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -90,6 +92,45 @@ export const Season3Screen: React.FC = () => {
           />
         }
       >
+        {/* How It Works — collapsible */}
+        <TouchableOpacity
+          style={styles.howItWorksHeader}
+          onPress={() => setHowItWorksOpen(!howItWorksOpen)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.howItWorksTitle}>HOW IT WORKS</Text>
+          <Ionicons
+            name={howItWorksOpen ? 'chevron-up' : 'chevron-down'}
+            size={16}
+            color={theme.colors.textMuted}
+          />
+        </TouchableOpacity>
+
+        {howItWorksOpen && (
+          <View style={styles.howItWorksContent}>
+            <View style={styles.step}>
+              <Text style={styles.stepNumber}>1</Text>
+              <Text style={styles.stepText}>Get 4+ members in your club by May 15</Text>
+            </View>
+            <View style={styles.step}>
+              <Text style={styles.stepNumber}>2</Text>
+              <Text style={styles.stepText}>Bracket randomly drawn — up to 16 clubs</Text>
+            </View>
+            <View style={styles.step}>
+              <Text style={styles.stepNumber}>3</Text>
+              <Text style={styles.stepText}>One matchup per day — club with more steps wins</Text>
+            </View>
+            <View style={styles.step}>
+              <Text style={styles.stepNumber}>4</Text>
+              <Text style={styles.stepText}>Double elimination — lose twice and you're out</Text>
+            </View>
+            <View style={styles.prizeLine}>
+              <Ionicons name="trophy-outline" size={14} color={theme.colors.accent} />
+              <Text style={styles.prizeText}>100K rewards for 1st place, 50K for 2nd</Text>
+            </View>
+          </View>
+        )}
+
         {/* ── Registration Phase ── */}
         {(tournamentPhase === 'registration' || tournamentPhase === 'bracket_set') && (
           <>
@@ -208,6 +249,64 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  howItWorksHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginBottom: 4,
+  },
+  howItWorksTitle: {
+    fontSize: 11,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.textMuted,
+    letterSpacing: 1,
+  },
+  howItWorksContent: {
+    backgroundColor: theme.colors.cardBackground,
+    borderRadius: theme.borderRadius.medium,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: 14,
+    marginBottom: 16,
+    gap: 10,
+  },
+  step: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  stepNumber: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.accent,
+    textAlign: 'center',
+    lineHeight: 18,
+    fontSize: 11,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.accent,
+  },
+  stepText: {
+    fontSize: 13,
+    color: theme.colors.text,
+    flex: 1,
+  },
+  prizeLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  prizeText: {
+    fontSize: 13,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.accent,
   },
   scrollContent: {
     padding: 16,
