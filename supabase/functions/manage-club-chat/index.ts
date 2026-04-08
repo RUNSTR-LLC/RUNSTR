@@ -145,6 +145,15 @@ async function handleSend(
   }
 
   console.log(`Message (${msgType}) sent in club ${club_id} by ${sender_npub.slice(0, 12)}...`)
+
+  // --- Push notification to other club members (fire-and-forget) ---
+  // Skip for workout auto-shares to avoid spamming
+  if (msgType !== 'workout') {
+    notifyClubChatMembers(supabase, club_id, sender_npub, trimmed, msgType).catch(err =>
+      console.warn('[manage-club-chat] Notification failed:', err.message)
+    )
+  }
+
   return jsonResponse({ success: true, data: message })
 }
 
@@ -379,6 +388,80 @@ async function handleUnpin(
 
   console.log(`Pinned message cleared in club ${club_id} by ${caller_npub.slice(0, 12)}...`)
   return jsonResponse({ success: true, data: { pinned_message_id: null } })
+}
+
+// ---------------------------------------------------------------------------
+// Push notifications for club chat
+// ---------------------------------------------------------------------------
+
+async function notifyClubChatMembers(
+  supabase: ReturnType<typeof createClient>,
+  clubId: string,
+  senderNpub: string,
+  content: string,
+  messageType: string,
+) {
+  // Get club name
+  const { data: club } = await supabase
+    .from('user_teams')
+    .select('name')
+    .eq('id', clubId)
+    .single()
+
+  const clubName = club?.name ?? 'your club'
+
+  // Get all members except the sender
+  const { data: members, error } = await supabase
+    .from('club_memberships')
+    .select('member_npub')
+    .eq('club_id', clubId)
+    .neq('member_npub', senderNpub)
+
+  if (error || !members?.length) return
+
+  // Get sender's display name from cached profile
+  const { data: senderProfile } = await supabase
+    .from('workout_submissions')
+    .select('profile_name')
+    .eq('npub', senderNpub)
+    .limit(1)
+    .single()
+
+  const senderName = senderProfile?.profile_name ?? 'Someone'
+
+  // Build notification
+  const title = messageType === 'announcement'
+    ? `${clubName}`
+    : `${clubName}`
+
+  const body = messageType === 'announcement'
+    ? `${senderName}: ${content.slice(0, 100)}`
+    : `${senderName}: ${content.slice(0, 100)}`
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+
+  console.log(`[manage-club-chat] Notifying ${members.length} members of ${clubName}`)
+
+  // Fire-and-forget to all members in parallel
+  await Promise.allSettled(
+    members.map((m: { member_npub: string }) =>
+      fetch(`${supabaseUrl}/functions/v1/notify-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${serviceKey}`,
+        },
+        body: JSON.stringify({
+          npub: m.member_npub,
+          title,
+          body,
+          data: { type: 'club_chat', clubId, screen: 'ClubChat' },
+          channelId: 'default',
+        }),
+      }).catch(() => {})
+    )
+  )
 }
 
 // ---------------------------------------------------------------------------
