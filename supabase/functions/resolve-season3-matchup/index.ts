@@ -40,7 +40,7 @@ const BRACKET_MAP: Record<string, { winner_to: Dest | null; loser_to: Dest | nul
   'winners:2:4': { winner_to: { bracket: 'winners', round: 3, match_number: 2, slot: 'b' }, loser_to: { bracket: 'losers', round: 2, match_number: 1, slot: 'b' } },
   'winners:3:1': { winner_to: { bracket: 'winners', round: 4, match_number: 1, slot: 'a' }, loser_to: { bracket: 'losers', round: 4, match_number: 2, slot: 'b' } },
   'winners:3:2': { winner_to: { bracket: 'winners', round: 4, match_number: 1, slot: 'b' }, loser_to: { bracket: 'losers', round: 4, match_number: 1, slot: 'b' } },
-  'winners:4:1': { winner_to: { bracket: 'grand_finals', round: 1, match_number: 1, slot: 'a' }, loser_to: null },
+  'winners:4:1': { winner_to: { bracket: 'grand_finals', round: 1, match_number: 1, slot: 'a' }, loser_to: { bracket: 'losers', round: 6, match_number: 1, slot: 'a' } },
   'losers:1:1': { winner_to: { bracket: 'losers', round: 2, match_number: 1, slot: 'a' }, loser_to: null },
   'losers:1:2': { winner_to: { bracket: 'losers', round: 2, match_number: 2, slot: 'a' }, loser_to: null },
   'losers:1:3': { winner_to: { bracket: 'losers', round: 2, match_number: 3, slot: 'a' }, loser_to: null },
@@ -53,7 +53,8 @@ const BRACKET_MAP: Record<string, { winner_to: Dest | null; loser_to: Dest | nul
   'losers:3:2': { winner_to: { bracket: 'losers', round: 4, match_number: 2, slot: 'a' }, loser_to: null },
   'losers:4:1': { winner_to: { bracket: 'losers', round: 5, match_number: 1, slot: 'a' }, loser_to: null },
   'losers:4:2': { winner_to: { bracket: 'losers', round: 5, match_number: 1, slot: 'b' }, loser_to: null },
-  'losers:5:1': { winner_to: { bracket: 'grand_finals', round: 1, match_number: 1, slot: 'b' }, loser_to: null },
+  'losers:5:1': { winner_to: { bracket: 'losers', round: 6, match_number: 1, slot: 'b' }, loser_to: null },
+  'losers:6:1': { winner_to: { bracket: 'grand_finals', round: 1, match_number: 1, slot: 'b' }, loser_to: null },
   'grand_finals:1:1': { winner_to: null, loser_to: null },
   'grand_finals:2:1': { winner_to: null, loser_to: null },
 };
@@ -89,7 +90,16 @@ serve(async (req) => {
     const matchup = liveMatches[0];
     console.log(`[resolve-season3] Resolving matchup: ${matchup.bracket} R${matchup.round} M${matchup.match_number}`);
 
-    // 2. Handle bye (one club is NULL)
+    // 2. Handle bye or empty matchup
+    if (!matchup.club_a_id && !matchup.club_b_id) {
+      console.log('[resolve-season3] Both clubs NULL — skipping matchup');
+      await supabase.from('season3_matchups').update({ status: 'completed' }).eq('id', matchup.id);
+      await activateNextMatch(supabase);
+      return new Response(JSON.stringify({ message: 'Empty matchup skipped' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     if (!matchup.club_a_id || !matchup.club_b_id) {
       const winnerId = matchup.club_a_id ?? matchup.club_b_id;
       const loserId = null;
@@ -267,13 +277,13 @@ async function advanceTeam(
   }
 }
 
-/** Find and activate the next scheduled/pending matchup that has both clubs assigned */
+/** Find and activate the next scheduled/pending matchup that has at least one club assigned */
 async function activateNextMatch(supabase: any) {
   const { data, error } = await supabase
     .from('season3_matchups')
     .select('*')
     .in('status', ['scheduled', 'pending'])
-    .not('club_a_id', 'is', null)
+    .or('club_a_id.not.is.null,club_b_id.not.is.null')
     .order('match_date', { ascending: true })
     .limit(1);
 

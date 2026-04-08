@@ -156,6 +156,11 @@ BEGIN
     (5, 'losers', 1, p_start_date + (v_day + 0), 'pending');
   v_day := v_day + 1;
 
+  -- Losers Round 6: Losers Bracket Championship (WF loser vs LF winner)
+  INSERT INTO season3_matchups (round, bracket, match_number, match_date, status) VALUES
+    (6, 'losers', 1, p_start_date + (v_day + 0), 'pending');
+  v_day := v_day + 1;
+
   -- Grand Finals (1 matchup, reset created only if needed)
   INSERT INTO season3_matchups (round, bracket, match_number, match_date, status) VALUES
     (1, 'grand_finals', 1, p_start_date + (v_day + 0), 'pending');

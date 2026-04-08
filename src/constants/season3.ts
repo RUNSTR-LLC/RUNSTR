@@ -108,7 +108,7 @@ export const BRACKET_MAP: BracketMap = {
   // ── Winners Round 4 (Winners Finals) ──
   'winners:4:1': {
     winner_to: { bracket: 'grand_finals', round: 1, match_number: 1, slot: 'a' },
-    loser_to: null,
+    loser_to:  { bracket: 'losers', round: 6, match_number: 1, slot: 'a' },
   },
   // ── Losers Round 1 ──
   'losers:1:1': { winner_to: { bracket: 'losers', round: 2, match_number: 1, slot: 'a' }, loser_to: null },
@@ -127,7 +127,9 @@ export const BRACKET_MAP: BracketMap = {
   'losers:4:1': { winner_to: { bracket: 'losers', round: 5, match_number: 1, slot: 'a' }, loser_to: null },
   'losers:4:2': { winner_to: { bracket: 'losers', round: 5, match_number: 1, slot: 'b' }, loser_to: null },
   // ── Losers Round 5 (Losers Finals) ──
-  'losers:5:1': { winner_to: { bracket: 'grand_finals', round: 1, match_number: 1, slot: 'b' }, loser_to: null },
+  'losers:5:1': { winner_to: { bracket: 'losers', round: 6, match_number: 1, slot: 'b' }, loser_to: null },
+  // ── Losers Round 6 (Losers Bracket Championship: WF loser vs LF winner) ──
+  'losers:6:1': { winner_to: { bracket: 'grand_finals', round: 1, match_number: 1, slot: 'b' }, loser_to: null },
   // ── Grand Finals ──
   'grand_finals:1:1': { winner_to: null, loser_to: null },
   'grand_finals:2:1': { winner_to: null, loser_to: null },

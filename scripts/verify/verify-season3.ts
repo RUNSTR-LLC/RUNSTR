@@ -17,6 +17,7 @@ const expectedSlots = [
   ...Array.from({ length: 2 }, (_, i) => bracketKey('losers', 3, i + 1)),
   ...Array.from({ length: 2 }, (_, i) => bracketKey('losers', 4, i + 1)),
   bracketKey('losers', 5, 1),
+  bracketKey('losers', 6, 1),
   bracketKey('grand_finals', 1, 1),
   bracketKey('grand_finals', 2, 1),
 ];

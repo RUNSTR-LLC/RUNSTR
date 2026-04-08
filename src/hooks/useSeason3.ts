@@ -100,6 +100,9 @@ export function useSeason3(): UseSeason3Return {
 
   // Poll live scores every 60s during active matchup
   useEffect(() => {
+    // Clear stale scores when matchup changes
+    setLiveScores(null);
+
     if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current);
       pollIntervalRef.current = null;

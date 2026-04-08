@@ -58,6 +58,7 @@ export class Season3BracketService {
       return `Winners Round ${round}`;
     }
     if (round === 5) return 'Losers Finals';
+    if (round === 6) return 'Losers Bracket Championship';
     return `Losers Round ${round}`;
   }
 }
