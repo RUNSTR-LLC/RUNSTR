@@ -21,9 +21,10 @@ export const REWARD_CONFIG = {
 
   /**
    * Daily Workout Reward Amount
-   * Amount in satoshis sent for first workout of the day
+   * Base amount in satoshis sent for first workout of the day.
+   * Streak bonus applied server-side: 2d +10%, 3d +20%, 4d +30%, 5d+ +40%.
    */
-  DAILY_WORKOUT_REWARD: 100,
+  DAILY_WORKOUT_REWARD: 50,
 
   /**
    * Minimum Workout Distance for Reward
