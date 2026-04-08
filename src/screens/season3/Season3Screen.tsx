@@ -110,19 +110,19 @@ export const Season3Screen: React.FC = () => {
           <View style={styles.howItWorksContent}>
             <View style={styles.step}>
               <Text style={styles.stepNumber}>1</Text>
-              <Text style={styles.stepText}>Get 4+ members in your club by May 15</Text>
+              <Text style={styles.stepText}>Create or join a Fitness Club</Text>
             </View>
             <View style={styles.step}>
               <Text style={styles.stepNumber}>2</Text>
-              <Text style={styles.stepText}>Bracket randomly drawn — up to 16 clubs</Text>
+              <Text style={styles.stepText}>Get 4+ members by May 15</Text>
             </View>
             <View style={styles.step}>
               <Text style={styles.stepNumber}>3</Text>
-              <Text style={styles.stepText}>One matchup per day — club with more steps wins</Text>
+              <Text style={styles.stepText}>Bracket randomly drawn. One matchup per day.</Text>
             </View>
             <View style={styles.step}>
               <Text style={styles.stepNumber}>4</Text>
-              <Text style={styles.stepText}>Double elimination — lose twice and you're out</Text>
+              <Text style={styles.stepText}>Club with more steps wins. Lose twice, you're out.</Text>
             </View>
             <View style={styles.prizeLine}>
               <Ionicons name="trophy-outline" size={14} color={theme.colors.accent} />
