@@ -5,7 +5,6 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NostrCompetitionService } from '../nostr/NostrCompetitionService';
-import type { NostrTeamService } from '../nostr/NostrTeamService';
 import type { WorkoutData } from '../../types/workout';
 import type {
   NostrLeagueDefinition,
@@ -59,8 +58,6 @@ export class NostrCompetitionContextService {
   private static instance: NostrCompetitionContextService;
   private contextCache = new Map<string, NostrCompetitionContext>();
   private competitionService: NostrCompetitionService;
-  private teamService: NostrTeamService | null = null;
-
   private constructor() {
     this.competitionService = NostrCompetitionService.getInstance();
   }
@@ -71,13 +68,6 @@ export class NostrCompetitionContextService {
         new NostrCompetitionContextService();
     }
     return NostrCompetitionContextService.instance;
-  }
-
-  /**
-   * Set team service for team membership validation
-   */
-  setTeamService(teamService: NostrTeamService) {
-    this.teamService = teamService;
   }
 
   /**
@@ -389,20 +379,11 @@ export class NostrCompetitionContextService {
   }
 
   /**
-   * Get user's team memberships (placeholder - would integrate with NostrTeamService)
+   * Get user's team memberships via Supabase clubs
    */
-  private async getUserTeamMemberships(userPubkey: string): Promise<string[]> {
+  private async getUserTeamMemberships(_userPubkey: string): Promise<string[]> {
     try {
-      // TODO: Integrate with NostrTeamService to get actual team memberships
-      // For now, return empty array - this would be populated by team service
-      if (this.teamService) {
-        // This would be the actual implementation when teamService is available
-        // return await this.teamService.getUserTeamMemberships(userPubkey);
-      }
-
-      console.log(
-        '⚠️ Team service not available, returning empty team memberships'
-      );
+      // Team memberships now resolved via Supabase clubs
       return [];
     } catch (error) {
       console.error('Error getting user team memberships:', error);

@@ -19,7 +19,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
-import { AppStateManager } from '../../services/core/AppStateManager';
 import { CustomAlert } from '../../components/ui/CustomAlert';
 import { simpleRunTracker } from '../../services/activity/SimpleRunTracker';
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
@@ -34,7 +33,6 @@ import {
 } from '../../components/activity/DailyStepGoalCard';
 import { dailyStepCounterService } from '../../services/activity/DailyStepCounterService';
 import { dailyStepGoalService } from '../../services/activity/DailyStepGoalService';
-import type { DailyStepData } from '../../services/activity/DailyStepCounterService';
 import type { StepGoalProgress } from '../../services/activity/DailyStepGoalService';
 import { HoldToStartButton } from '../../components/activity/HoldToStartButton';
 import { StepGoalPickerModal } from '../../components/activity/StepGoalPickerModal';
@@ -47,7 +45,6 @@ import {
 } from '../../components/activity/SecondaryMetricRow';
 import { CountdownOverlay } from '../../components/activity/CountdownOverlay';
 import { ControlBar } from '../../components/activity/ControlBar';
-import { LastActivityCard } from '../../components/activity/LastActivityCard';
 import { nostrProfileService } from '../../services/nostr/NostrProfileService';
 import type { NostrProfile } from '../../services/nostr/NostrProfileService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -171,7 +168,7 @@ export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
       e.preventDefault();
 
       // Show confirmation dialog
-      CustomAlert.show({
+      (CustomAlert as any).show({
         title: 'Stop Tracking?',
         message: 'You have an active workout. Do you want to stop and discard it?',
         buttons: [
@@ -294,6 +291,14 @@ export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
     };
 
     checkAutoRecovery();
+
+    return () => {
+      // Clean up any interval started by auto-recovery
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
   }, []);
 
   // Helper function for time formatting
@@ -310,16 +315,17 @@ export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
 
   // Load user profile for social sharing
   useEffect(() => {
+    let isMounted = true;
     const loadProfileAndId = async () => {
       try {
         const pubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
         const npub = await AsyncStorage.getItem('@runstr:npub');
         const activeUserId = npub || pubkey || '';
-        setUserId(activeUserId);
+        if (isMounted) setUserId(activeUserId);
 
         if (pubkey) {
           const profile = await nostrProfileService.getProfile(pubkey);
-          setUserProfile(profile);
+          if (isMounted) setUserProfile(profile);
         }
       } catch (error) {
         console.error(
@@ -330,6 +336,7 @@ export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
     };
 
     loadProfileAndId();
+    return () => { isMounted = false; };
   }, []);
 
   // Daily step counter initialization (runs once on mount)
@@ -465,19 +472,19 @@ export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
 
   // Check if daily steps already posted today
   useEffect(() => {
+    let isMounted = true;
     const checkIfPosted = async () => {
       try {
         const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
         const alreadyPosted =
           await LocalWorkoutStorageService.hasDailyStepsForDate(today);
 
-        if (alreadyPosted) {
-          setPostingState('posted');
-          console.log(
-            '[WalkingTrackerScreen] Daily steps already posted today'
-          );
-        } else {
-          setPostingState('idle');
+        if (isMounted) {
+          if (alreadyPosted) {
+            setPostingState('posted');
+          } else {
+            setPostingState('idle');
+          }
         }
       } catch (error) {
         console.error(
@@ -488,6 +495,7 @@ export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
     };
 
     checkIfPosted();
+    return () => { isMounted = false; };
   }, [dailySteps]); // Re-check when daily steps update
 
   // AppState listener for background/foreground transitions
@@ -656,12 +664,13 @@ export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
     const session = simpleRunTracker.getCurrentSession();
     if (session) {
       const distance = session.distance || 0;
-      const calories = activityMetricsService.estimateCalories('walking', distance, elapsedTime);
+      const duration = session.duration || 0;
+      const calories = activityMetricsService.estimateCalories('walking', distance, duration);
 
       setMetrics(prev => ({
         ...prev,
         distance: activityMetricsService.formatDistance(distance),
-        duration: activityMetricsService.formatDuration(elapsedTime),
+        duration: activityMetricsService.formatDuration(duration),
         elevation: activityMetricsService.formatElevation(session.elevationGain || 0),
         calories: calories.toString(),
       }));
@@ -726,10 +735,11 @@ export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
       ? liveStepsRef.current
       : activityMetricsService.estimateSteps(session.distance);
     console.log(`[WalkingTracker] Workout summary steps: ${steps} (live: ${liveStepsRef.current})`);
+    const finalDuration = session.duration || elapsedTime;
     const calories = activityMetricsService.estimateCalories(
       'walking',
       session.distance,
-      elapsedTime
+      finalDuration
     );
 
     // Save workout to local storage BEFORE showing modal
@@ -737,7 +747,7 @@ export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
       const result = await LocalWorkoutStorageService.saveGPSWorkout({
         type: 'walking',
         distance: session.distance,
-        duration: elapsedTime,
+        duration: finalDuration,
         calories,
         elevation: session.elevationGain || 0,
         // Pass route info if selected

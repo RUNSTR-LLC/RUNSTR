@@ -529,7 +529,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
               <Ionicons name="flash" size={24} color="#f7931a" />
               <View style={styles.rewardTextContainer}>
                 <Text style={styles.rewardTitle}>Reward Earned!</Text>
-                <Text style={styles.rewardAmount}>+{workout.rewardAmount} sats</Text>
+                <Text style={styles.rewardAmount}>+{workout.rewardAmount} rewards</Text>
               </View>
             </View>
           )}
@@ -750,7 +750,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
 
           {/* Action Buttons */}
           <View style={styles.actionButtons}>
-            {/* Post to Nostr - Only visible if WoT > 0 */}
+            {/* Share Workout - Only visible if WoT > 0 */}
             {isWoTEligible && !postedToNostr && (
               <TouchableOpacity
                 style={[styles.actionButton, styles.postButton]}
@@ -759,9 +759,9 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
                 <Ionicons
                   name="paper-plane-outline"
                   size={20}
-                  color={theme.colors.accentText}
+                  color={theme.colors.background}
                 />
-                <Text style={styles.postButtonText}>Post to Nostr</Text>
+                <Text style={styles.postButtonText}>Share Workout</Text>
               </TouchableOpacity>
             )}
 
@@ -771,7 +771,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
                 <Ionicons
                   name="checkmark-circle"
                   size={20}
-                  color={theme.colors.accentText}
+                  color={theme.colors.background}
                 />
                 <Text style={styles.postButtonText}>Posted</Text>
               </View>
@@ -914,29 +914,29 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   saveCardButton: {
-    backgroundColor: theme.colors.accent, // #FF7B1C
+    backgroundColor: theme.colors.text,
   },
   saveButton: {
-    backgroundColor: theme.colors.accent, // #FF7B1C
+    backgroundColor: theme.colors.text,
   },
   disabledButton: {
-    opacity: 0.5,
+    opacity: 0.35,
   },
   saveCardButtonText: {
-    color: theme.colors.accentText,
+    color: theme.colors.background,
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
   },
   saveButtonText: {
-    color: theme.colors.accentText,
+    color: theme.colors.background,
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
   },
   postButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
   },
   postButtonText: {
-    color: theme.colors.accentText,
+    color: theme.colors.background,
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
   },
@@ -1033,7 +1033,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.text,
   },
   achievementHeader: {
     flexDirection: 'row',

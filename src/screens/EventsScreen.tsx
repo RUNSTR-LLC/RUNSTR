@@ -301,7 +301,7 @@ export const EventsScreen: React.FC = () => {
                     participants={team.leaderboard5k.length}
                     entries={team.leaderboard5k}
                     onPress={() => {
-                      console.log('Navigate to 5K leaderboard');
+                      // TODO: Navigate to 5K leaderboard
                     }}
                   />
                 )}
@@ -313,7 +313,7 @@ export const EventsScreen: React.FC = () => {
                     participants={team.leaderboard10k.length}
                     entries={team.leaderboard10k}
                     onPress={() => {
-                      console.log('Navigate to 10K leaderboard');
+                      // TODO: Navigate to 10K leaderboard
                     }}
                   />
                 )}
@@ -325,7 +325,7 @@ export const EventsScreen: React.FC = () => {
                     participants={team.leaderboardHalf.length}
                     entries={team.leaderboardHalf}
                     onPress={() => {
-                      console.log('Navigate to Half Marathon leaderboard');
+                      // TODO: Navigate to Half Marathon leaderboard
                     }}
                   />
                 )}
@@ -337,7 +337,7 @@ export const EventsScreen: React.FC = () => {
                     participants={team.leaderboardMarathon.length}
                     entries={team.leaderboardMarathon}
                     onPress={() => {
-                      console.log('Navigate to Marathon leaderboard');
+                      // TODO: Navigate to Marathon leaderboard
                     }}
                   />
                 )}

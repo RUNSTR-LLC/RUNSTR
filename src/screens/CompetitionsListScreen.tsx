@@ -189,7 +189,7 @@ export const CompetitionsListScreen: React.FC = () => {
                   participants={globalLeaderboards.leaderboard5k.length}
                   entries={globalLeaderboards.leaderboard5k}
                   onPress={() => {
-                    console.log('Navigate to RUNSTR 5K leaderboard');
+                    // TODO: Navigate to RUNSTR 5K leaderboard
                   }}
                 />
               )}
@@ -202,7 +202,7 @@ export const CompetitionsListScreen: React.FC = () => {
                   participants={globalLeaderboards.leaderboard10k.length}
                   entries={globalLeaderboards.leaderboard10k}
                   onPress={() => {
-                    console.log('Navigate to RUNSTR 10K leaderboard');
+                    // TODO: Navigate to RUNSTR 10K leaderboard
                   }}
                 />
               )}
@@ -215,7 +215,7 @@ export const CompetitionsListScreen: React.FC = () => {
                   participants={globalLeaderboards.leaderboardHalf.length}
                   entries={globalLeaderboards.leaderboardHalf}
                   onPress={() => {
-                    console.log('Navigate to RUNSTR Half Marathon leaderboard');
+                    // TODO: Navigate to RUNSTR Half Marathon leaderboard
                   }}
                 />
               )}
@@ -228,7 +228,7 @@ export const CompetitionsListScreen: React.FC = () => {
                   participants={globalLeaderboards.leaderboardMarathon.length}
                   entries={globalLeaderboards.leaderboardMarathon}
                   onPress={() => {
-                    console.log('Navigate to RUNSTR Marathon leaderboard');
+                    // TODO: Navigate to RUNSTR Marathon leaderboard
                   }}
                 />
               )}

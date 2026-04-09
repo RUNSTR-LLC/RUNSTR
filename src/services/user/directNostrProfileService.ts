@@ -6,7 +6,6 @@
 
 import { getNpubFromStorage } from '../../utils/nostr';
 import { nostrProfileService } from '../nostr/NostrProfileService';
-import { NostrCacheService } from '../cache/NostrCacheService';
 import { UnifiedNostrCache } from '../cache/UnifiedNostrCache';
 import { CacheKeys } from '../../constants/cacheTTL';
 import { nip19 } from 'nostr-tools';
@@ -68,9 +67,6 @@ export class DirectNostrProfileService {
       if (forceRefresh) {
         console.log('🗑️ DirectNostrProfileService: Force refresh - clearing all caches');
 
-        // Clear Layer 1: NostrCacheService (memory + persistent)
-        await NostrCacheService.forceRefreshProfile(storedNpub);
-
         // Clear Layer 2: NostrProfileService memory cache
         await nostrProfileService.clearCache();
 
@@ -85,19 +81,13 @@ export class DirectNostrProfileService {
         }
       }
 
-      // Try to get cached profile first (instant display) - skip if force refresh
+      // Fetch fresh data (or use UnifiedNostrCache)
       if (!forceRefresh) {
-        const cachedProfile =
-          await NostrCacheService.getCachedProfile<DirectNostrUser>(storedNpub);
-        if (cachedProfile) {
-          console.log('⚡ DirectNostrProfileService: Using cached profile data');
-          // Start background refresh but return cached data immediately
-          this.backgroundRefreshProfile(storedNpub);
-          return cachedProfile;
-        }
+        // Background refresh will update cache
+        this.backgroundRefreshProfile(storedNpub);
       }
 
-      // No cache - fetch fresh data (first time or expired)
+      // Fetch fresh data
       return await this.fetchFreshProfile(storedNpub);
     } catch (error) {
       console.error(
@@ -193,9 +183,6 @@ export class DirectNostrProfileService {
         hasWalletCredentials: false, // No CoinOS integration for pure Nostr users
       };
 
-      // Cache the fresh profile data
-      await NostrCacheService.setCachedProfile(storedNpub, directUser);
-
       // ✅ PROFILE CACHE FIX: Persist to UnifiedCache (non-blocking for fast startup)
       try {
         const { data: hexPubkey } = nip19.decode(storedNpub);
@@ -290,16 +277,6 @@ export class DirectNostrProfileService {
       console.log(
         '🏃‍♂️ DirectNostrProfileService: Checking for cached profile before creating fallback'
       );
-
-      // Try to get cached profile first
-      const cachedProfile =
-        await NostrCacheService.getCachedProfile<DirectNostrUser>(storedNpub);
-      if (cachedProfile) {
-        console.log(
-          '✅ DirectNostrProfileService: Using cached profile as fallback'
-        );
-        return cachedProfile;
-      }
 
       // Return null to allow UI to show loading state
       // This prevents showing "User xr8tvnnn" or other fake names

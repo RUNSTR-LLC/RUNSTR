@@ -1,61 +1,42 @@
 /**
- * ProfileScreen - Main profile screen with tab navigation
- * Matches HTML mockup profile screen exactly
+ * ProfileScreen - Unified profile page
+ *
+ * Composes section components for both the current user (tab root)
+ * and other users (navigated via pubkey route param).
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  RefreshControl,
-  TouchableOpacity,
-  Modal,
-  InteractionManager,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { theme } from '../styles/theme';
 import { TexturedBackground } from '../components/ui/TexturedBackground';
-import { ProfileTab, ProfileScreenData, NotificationSettings } from '../types';
-import { NotificationPreferencesService } from '../services/notifications/NotificationPreferencesService';
-
-// UI Components
-// BottomNavigation removed - using BottomTabNavigator instead
-
-// Profile Components
-import { ProfileHeader } from '../components/profile/ProfileHeader';
-// Wallet components moved to Settings
-import { FitnessTrackerBox } from '../components/profile/MyTeamsBox';
-// Season2Banner removed - moved to Compete tab
-// ChallengeNotificationsBox removed - 1v1 challenges feature removed
-import { FitnessHistoryBox } from '../components/profile/YourCompetitionsBox';
-import { FitnessCompetitionsBox } from '../components/profile/YourWorkoutsBox';
-import { NotificationBadge } from '../components/profile/NotificationBadge';
-import { NotificationModal } from '../components/profile/NotificationModal';
+import { ProfileScreenData } from '../types';
+import type { User } from '../types';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
-// Wallet imports removed - moved to Settings
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
+import { navigate } from '../navigation/navigationRef';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { npubEncode } from '../utils/nostrEncoding';
-import { unifiedNotificationStore } from '../services/notifications/UnifiedNotificationStore';
-// Challenge notification handlers removed - 1v1 challenges feature removed
-import { eventJoinNotificationHandler } from '../services/notifications/EventJoinNotificationHandler';
-import { teamJoinNotificationHandler } from '../services/notifications/TeamJoinNotificationHandler';
-// TEMPORARILY REMOVED TO DEBUG THEME ERROR
-// import { NotificationService } from '../services/notifications/NotificationService';
-import { getUserNostrIdentifiers } from '../utils/nostr';
-import type { QRData } from '../services/qr/QRCodeService';
-import { AppStateManager } from '../services/core/AppStateManager';
-import JoinRequestService from '../services/competition/JoinRequestService';
-import { UnifiedSigningService } from '../services/auth/UnifiedSigningService';
-import { GlobalNDKService } from '../services/nostr/GlobalNDKService';
-import { NDKEvent } from '@nostr-dev-kit/ndk';
-import { Alert } from 'react-native';
-import { NostrFetchLogger } from '../utils/NostrFetchLogger';
 import Toast from 'react-native-toast-message';
+import {
+  getCharityById,
+  isSelfTeam,
+  isPPQTeam,
+  isCommunityTeam,
+  extractCommunityTeamUUID,
+} from '../constants/charities';
+import { UserTeamService } from '../services/backend/UserTeamService';
+import { NostrFetchLogger } from '../utils/NostrFetchLogger';
 import { MusicPlayerPreferencesService } from '../services/music/MusicPlayerPreferencesService';
 import { HeaderMusicControls } from '../components/music/HeaderMusicControls';
+import { ProfileHero } from '../components/profile/ProfileHero';
+import { LevelCard } from '../components/profile/LevelCard';
+import { ActivityBreakdown } from '../components/profile/ActivityBreakdown';
+import { ClubAffiliationsSection } from '../components/profile/ClubAffiliationsSection';
+import { NotificationBadge } from '../components/profile/NotificationBadge';
+import { NotificationModal } from '../components/profile/NotificationModal';
+import { ProfileDataService } from '../services/backend/ProfileDataService';
+import type { RecentWorkout, ClubAffiliation, ProfileLevelData, ActivityBreakdownData } from '../services/backend/ProfileDataService';
+import { useNostrProfile } from '../hooks/useCachedData';
 
 interface ProfileScreenProps {
   data: ProfileScreenData;
@@ -64,13 +45,11 @@ interface ProfileScreenProps {
   onNavigateToTeam: () => void;
   onNavigateToTeamDiscovery?: () => void;
   onViewCurrentTeam?: () => void;
-  onCaptainDashboard?: () => void;
   onEditProfile?: () => void;
   onSend?: () => void;
   onReceive?: () => void;
   onWalletHistory?: () => void;
   onSyncSourcePress?: (provider: string) => void;
-  onManageSubscription?: () => void;
   onHelp?: () => void;
   onContactSupport?: () => void;
   onPrivacyPolicy?: () => void;
@@ -78,441 +57,291 @@ interface ProfileScreenProps {
   onRefresh?: () => void;
 }
 
-// ✅ PERFORMANCE: Wrapped in React.memo to prevent unnecessary re-renders
 const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
-  data,
-  isLoadingTeam = false,
-  isLoadingProfile = false,
-  onNavigateToTeam,
-  onNavigateToTeamDiscovery,
-  onViewCurrentTeam,
-  onCaptainDashboard,
-  onEditProfile,
-  onSend,
-  onReceive,
-  onWalletHistory,
-  onSyncSourcePress,
-  onManageSubscription,
-  onHelp,
-  onContactSupport,
-  onPrivacyPolicy,
-  onSignOut,
-  onRefresh,
+  data, onNavigateToTeamDiscovery, onViewCurrentTeam,
+  onHelp, onContactSupport, onPrivacyPolicy, onSignOut, onRefresh,
 }) => {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const pubkey: string | undefined = route?.params?.pubkey;
+
+  const [userNpub, setUserNpub] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
-  const [userNpub, setUserNpub] = useState<string>('');
   const [musicPlayerHeaderEnabled, setMusicPlayerHeaderEnabled] = useState(false);
   const isMountedRef = useRef(true);
+  const [levelData, setLevelData] = useState<ProfileLevelData | null>(null);
+  const [activityBreakdown, setActivityBreakdown] = useState<ActivityBreakdownData | null>(null);
+  const [recentWorkouts, setRecentWorkouts] = useState<RecentWorkout[]>([]);
+  const [clubs, setClubs] = useState<ClubAffiliation[]>([]);
+  const [isLoadingSections, setIsLoadingSections] = useState(true);
+  const [rewardDestination, setRewardDestination] = useState<string | null>(null);
+  const [rewardDestinationImage, setRewardDestinationImage] = useState<number | undefined>(undefined);
 
-  // Wallet features moved to Settings screen
+  const isOwner = !pubkey || pubkey === userNpub || (pubkey.length === 64 && !pubkey.startsWith('npub1') && npubEncode(pubkey) === userNpub);
+  const targetNpub = pubkey || userNpub;
 
-  // ❌ DISABLED: Notification system initialization to fix iOS freeze (Attempt #14)
-  // The app doesn't use notifications, and this was causing AsyncStorage operations
-  // during modal transitions, leading to iOS freezes on first launch.
-  // The 3-second delay coincided with permission modal cleanup, causing a race condition.
-  /* COMMENTED OUT TO FIX iOS FREEZE:
-  useEffect(() => {
-    isMountedRef.current = true;
+  // Fetch Nostr profile for other users
+  const { profile: otherProfile } = useNostrProfile(pubkey && !isOwner ? pubkey : null);
+  const otherUser: User | null = otherProfile ? {
+    id: pubkey!, name: otherProfile.name || otherProfile.display_name || '',
+    npub: otherProfile.npub || pubkey!, role: 'member' as const, createdAt: '',
+    bio: otherProfile.about, picture: otherProfile.picture, banner: otherProfile.banner,
+    lud16: otherProfile.lud16, displayName: otherProfile.display_name || otherProfile.name,
+    website: otherProfile.website,
+  } : null;
 
-    const timer = setTimeout(async () => {
-      // Don't initialize if component already unmounted
-      if (!isMountedRef.current) return;
-
-      try {
-        const userIdentifiers = await getUserNostrIdentifiers();
-        if (userIdentifiers?.hexPubkey) {
-          console.log(
-            '[ProfileScreen] ⚡ Background notification initialization (3s delay)...'
-          );
-
-          // Initialize in background - don't block UI
-          unifiedNotificationStore
-            .initialize(userIdentifiers.hexPubkey)
-            .catch((err) => {
-              console.warn(
-                '[ProfileScreen] Notification store init failed:',
-                err
-              );
-            });
-
-          // ❌ DISABLED: Background notification subscriptions causing Android crashes
-          // All notification handlers now query on-demand instead of persistent subscriptions
-          console.log(
-            '[ProfileScreen] ⚠️  Background notification subscriptions DISABLED for stability'
-          );
-
-          console.log(
-            '[ProfileScreen] ✅ Notification system initialization started (background)'
-          );
-        }
-      } catch (error) {
-        console.error(
-          '[ProfileScreen] Failed to initialize notification system:',
-          error
-        );
-      }
-    }, 3000);
-
-    // Cleanup on unmount
-    return () => {
-      isMountedRef.current = false;
-      clearTimeout(timer);
-
-      // ✅ FIX: Don't stop handlers that were never started (commented out above)
-      // This prevents unnecessary cleanup calls that could cause issues
-      // Handlers are currently disabled for stability (see lines 131-154)
-    };
-  }, []);
-  */
-
-  // Simple cleanup for mount tracking
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
-
-  // Load music player header setting - refresh on every screen focus
-  useFocusEffect(
-    useCallback(() => {
-      MusicPlayerPreferencesService.isMusicPlayerHeaderEnabled().then(setMusicPlayerHeaderEnabled);
-    }, [])
-  );
-
-  // ❌ DISABLED: AppState lifecycle management for notification handlers
-  // No longer needed since we're not running background subscriptions
-  /* COMMENTED OUT FOR ANDROID STABILITY:
-  useEffect(() => {
-    console.log('[ProfileScreen] 🎯 Setting up AppState lifecycle management');
-
-    const unsubscribe = AppStateManager.onStateChange((isActive) => {
-      if (!isActive) {
-        // App going to background - stop all notification handlers
-        console.log('[ProfileScreen] 📱 App backgrounded - stopping notification handlers');
-        challengeNotificationHandler.stopListening();
-        challengeResponseHandler.stopListening();
-        eventJoinNotificationHandler.stopListening();
-        teamJoinNotificationHandler.stopListening();
-      } else {
-        // App coming to foreground - restart notification handlers
-        console.log('[ProfileScreen] 📱 App foregrounded - restarting notification handlers');
-
-        // Small delay to ensure app is fully active
-        setTimeout(() => {
-          challengeNotificationHandler.startListening().catch((err) => {
-            console.warn('[ProfileScreen] Failed to restart challenge handler:', err);
-          });
-          challengeResponseHandler.startListening().catch((err) => {
-            console.warn('[ProfileScreen] Failed to restart response handler:', err);
-          });
-          eventJoinNotificationHandler.startListening().catch((err) => {
-            console.warn('[ProfileScreen] Failed to restart event handler:', err);
-          });
-          teamJoinNotificationHandler.startListening().catch((err) => {
-            console.warn('[ProfileScreen] Failed to restart team handler:', err);
-          });
-        }, 500);
-      }
-    });
-
-    return () => {
-      unsubscribe();
-    };
-  }, []);
-  */
+  useEffect(() => { isMountedRef.current = true; return () => { isMountedRef.current = false; }; }, []);
 
   // Load user npub on mount
   useEffect(() => {
-    const loadUserNpub = async () => {
+    let isMounted = true;
+    (async () => {
       try {
-        // Get user's ID which could be npub or hex pubkey
-        const userPubkey = data.user.id;
-        if (userPubkey) {
-          // Check if it's already an npub
-          if (userPubkey.startsWith('npub')) {
-            setUserNpub(userPubkey);
-          } else if (userPubkey.length === 64) {
-            // It's a hex pubkey, encode it
-            const npub = npubEncode(userPubkey);
-            setUserNpub(npub);
-          } else {
-            // Fallback: try to use it as-is or get from storage
-            const storedNpub = await AsyncStorage.getItem('@runstr:npub');
-            if (storedNpub) {
-              setUserNpub(storedNpub);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error handling user npub:', error);
-        // Try to get npub from storage as fallback
-        try {
-          const storedNpub = await AsyncStorage.getItem('@runstr:npub');
-          if (storedNpub) {
-            setUserNpub(storedNpub);
-          }
-        } catch (storageError) {
-          console.error('Error retrieving npub from storage:', storageError);
-        }
+        const id = data.user.id;
+        if (!id) return;
+        if (id.startsWith('npub')) { if (isMounted) setUserNpub(id); return; }
+        if (id.length === 64) { if (isMounted) setUserNpub(npubEncode(id)); return; }
+        const stored = await AsyncStorage.getItem('@runstr:npub');
+        if (stored && isMounted) setUserNpub(stored);
+      } catch {
+        try { const s = await AsyncStorage.getItem('@runstr:npub'); if (s && isMounted) setUserNpub(s); } catch {}
       }
-    };
-
-    loadUserNpub();
+    })();
+    return () => { isMounted = false; };
   }, [data.user.id]);
 
-  // ✅ CLEAN ARCHITECTURE: Workouts are already prefetched during SplashInit
-  // No need to fetch them again here - they're in UnifiedNostrCache
-  // PublicWorkoutsTab and PrivateWorkoutsTab will read from cache when opened
-
-  // ✅ PERFORMANCE: Memoize event handlers to prevent recreating on every render
-  const handleEditProfile = useCallback(() => {
-    onEditProfile?.();
-  }, [onEditProfile]);
-
-  // Wallet handlers moved to Settings screen
-
-  const handleSyncSourcePress = useCallback(
-    (provider: string) => {
-      onSyncSourcePress?.(provider);
-    },
-    [onSyncSourcePress]
-  );
-
-  const handleManageSubscription = useCallback(() => {
-    onManageSubscription?.();
-  }, [onManageSubscription]);
-
-  const handleHelp = useCallback(() => {
-    onHelp?.();
-  }, [onHelp]);
-
-  const handleContactSupport = useCallback(() => {
-    onContactSupport?.();
-  }, [onContactSupport]);
-
-  const handlePrivacyPolicy = useCallback(() => {
-    onPrivacyPolicy?.();
-  }, [onPrivacyPolicy]);
-
-  const handleSignOut = useCallback(() => {
-    onSignOut?.();
-  }, [onSignOut]);
-
-  // ✅ PERFORMANCE + ANDROID FIX: Memoized pull-to-refresh handler
-  const handleRefresh = useCallback(async () => {
-    console.log('[ProfileScreen] 🔄 Pull-to-refresh triggered');
-    NostrFetchLogger.start('ProfileScreen.pullToRefresh');
-    setIsRefreshing(true);
-
+  // Load reward destination (owner only)
+  const loadRewardDestination = useCallback(async () => {
+    if (!isOwner) { setRewardDestination(null); setRewardDestinationImage(undefined); return; }
     try {
-      // 1. Reconnect GlobalNDK to relays
-      const GlobalNDKService =
-        require('../services/nostr/GlobalNDKService').GlobalNDKService;
-      await GlobalNDKService.reconnect().catch((err: any) => {
-        console.warn('[ProfileScreen] Reconnect failed:', err);
-      });
-
-      // 2. Refetch profile from Nostr with force refresh (clears all caches)
-      const DirectNostrProfileService =
-        require('../services/user/directNostrProfileService').DirectNostrProfileService;
-      await DirectNostrProfileService.getCurrentUserProfile(true).catch(
-        (err: any) => {
-          console.warn('[ProfileScreen] Profile refetch failed:', err);
-        }
-      );
-
-      // 3. Call original onRefresh if provided
-      await onRefresh?.();
-
-      NostrFetchLogger.end('ProfileScreen.pullToRefresh', 1, 'success');
-      console.log('[ProfileScreen] ✅ Pull-to-refresh complete');
-    } catch (error) {
-      NostrFetchLogger.error('ProfileScreen.pullToRefresh', error as Error);
-      console.error('[ProfileScreen] Pull-to-refresh error:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Refresh failed',
-        text2: 'Check your connection and try again',
-        position: 'bottom',
-        visibilityTime: 3000,
-      });
-    } finally {
-      setIsRefreshing(false);
+      const teamId = await AsyncStorage.getItem('@runstr:selected_team_id');
+      if (!teamId) {
+        const defaultCharity = getCharityById('als-foundation');
+        setRewardDestination(defaultCharity?.name || 'ALS Foundation');
+        setRewardDestinationImage(defaultCharity?.image);
+        return;
+      }
+      if (isSelfTeam(teamId)) { setRewardDestination('You'); setRewardDestinationImage(undefined); return; }
+      if (isPPQTeam(teamId)) {
+        const ppq = getCharityById('ppq-ai');
+        setRewardDestination('PPQ.AI');
+        setRewardDestinationImage(ppq?.image);
+        return;
+      }
+      if (isCommunityTeam(teamId)) {
+        const uuid = extractCommunityTeamUUID(teamId);
+        const team = await UserTeamService.getTeamById(uuid);
+        setRewardDestination(team?.name || 'Community Team');
+        setRewardDestinationImage(undefined);
+        return;
+      }
+      const charity = getCharityById(teamId);
+      setRewardDestination(charity?.name || null);
+      setRewardDestinationImage(charity?.image);
+    } catch {
+      setRewardDestination(null);
+      setRewardDestinationImage(undefined);
     }
-  }, [onRefresh]);
+  }, [isOwner]);
+
+  useEffect(() => { loadRewardDestination(); }, [loadRewardDestination]);
+
+  // Load profile sections via ProfileDataService
+  const loadProfileSections = useCallback(async (npub: string) => {
+    setIsLoadingSections(true);
+    try {
+      // Use allSettled so one failing query doesn't block others
+      const [ldR, abR, wR, clR] = await Promise.allSettled([
+        ProfileDataService.getLevelData(npub),
+        ProfileDataService.getActivityBreakdown(npub),
+        ProfileDataService.getUserRecentWorkouts(npub, 5),
+        ProfileDataService.getUserClubs(npub),
+      ]);
+      if (!isMountedRef.current) return;
+      if (ldR.status === 'fulfilled') setLevelData(ldR.value);
+      if (abR.status === 'fulfilled') setActivityBreakdown(abR.value);
+      if (wR.status === 'fulfilled') setRecentWorkouts(wR.value);
+      if (clR.status === 'fulfilled') setClubs(clR.value);
+    } catch (err) {
+      console.error('[ProfileScreen] Failed to load profile sections:', err);
+    } finally {
+      if (isMountedRef.current) setIsLoadingSections(false);
+    }
+  }, []);
+
+  // Load sections when targetNpub is available; if empty, stop loading
+  useEffect(() => {
+    if (targetNpub) { loadProfileSections(targetNpub); }
+    else { setIsLoadingSections(false); }
+  }, [targetNpub, loadProfileSections]);
+
+  // Refresh reward destination + clubs + music header on focus
+  useFocusEffect(useCallback(() => {
+    MusicPlayerPreferencesService.isMusicPlayerHeaderEnabled().then(setMusicPlayerHeaderEnabled);
+    loadRewardDestination();
+    if (targetNpub) {
+      ProfileDataService.clearProfileCache(targetNpub);
+      ProfileDataService.getUserClubs(targetNpub).then(setClubs).catch(() => {});
+    }
+  }, [loadRewardDestination, targetNpub]));
 
   const handleSettingsPress = useCallback(() => {
     navigation.navigate('Settings', {
-      currentTeam: data.currentTeam,
-      onNavigateToTeamDiscovery,
-      onViewCurrentTeam,
-      onCaptainDashboard,
-      onHelp,
-      onContactSupport,
-      onPrivacyPolicy,
-      onSignOut,
+      currentTeam: data.currentTeam, onNavigateToTeamDiscovery,
+      onViewCurrentTeam, onHelp, onContactSupport, onPrivacyPolicy, onSignOut,
     });
-  }, [
-    navigation,
-    data.currentTeam,
-    onNavigateToTeamDiscovery,
-    onViewCurrentTeam,
-    onCaptainDashboard,
-    onHelp,
-    onContactSupport,
-    onPrivacyPolicy,
-    onSignOut,
-  ]);
+  }, [navigation, data.currentTeam, onNavigateToTeamDiscovery, onViewCurrentTeam, onHelp, onContactSupport, onPrivacyPolicy, onSignOut]);
 
-  // QR scanner and related functions moved to Settings screen
+  const handleRefresh = useCallback(async () => {
+    NostrFetchLogger.start('ProfileScreen.pullToRefresh');
+    setIsRefreshing(true);
+    try {
+      const { GlobalNDKService: NDK } = require('../services/nostr/GlobalNDKService');
+      await NDK.reconnect().catch(() => {});
+      const { DirectNostrProfileService: DPS } = require('../services/user/directNostrProfileService');
+      await DPS.getCurrentUserProfile(true).catch(() => {});
+      await onRefresh?.();
+      if (targetNpub) await loadProfileSections(targetNpub);
+      NostrFetchLogger.end('ProfileScreen.pullToRefresh', 1, 'success');
+    } catch (error) {
+      NostrFetchLogger.error('ProfileScreen.pullToRefresh', error as Error);
+      Toast.show({ type: 'error', text1: 'Refresh failed', text2: 'Check your connection and try again', position: 'bottom', visibilityTime: 3000 });
+    } finally { setIsRefreshing(false); }
+  }, [onRefresh, targetNpub, loadProfileSections]);
+
+  const handleClubPress = useCallback((id: string, name: string) => {
+    const parent = navigation.getParent();
+    (parent || navigation).navigate('ClubPage' as any, { clubId: id, clubName: name });
+  }, [navigation]);
+
+  const handleEditPress = useCallback(() => {
+    const parent = navigation.getParent();
+    (parent || navigation).navigate('ProfileEdit' as any);
+  }, [navigation]);
+
+  const handleStartWorkout = useCallback(() => {
+    const parent = navigation.getParent();
+    (parent || navigation).navigate('Exercise');
+  }, [navigation]);
+
+  const handleDestinationPress = useCallback(() => {
+    navigate('Rewards');
+  }, []);
+
+  const handleStatsPress = useCallback(() => {
+    const parent = navigation.getParent();
+    (parent || navigation).navigate('StatsDetail' as any, { npub: targetNpub });
+  }, [navigation, targetNpub]);
 
   return (
     <TexturedBackground>
-      {/* Header - Music Controls (when enabled) or Settings Button */}
-      <View style={styles.header}>
-        {musicPlayerHeaderEnabled ? (
-          <HeaderMusicControls onSettingsPress={handleSettingsPress} />
+      {isOwner && (
+        <View style={styles.header}>
+          {musicPlayerHeaderEnabled ? (
+            <HeaderMusicControls onSettingsPress={handleSettingsPress} />
+          ) : (
+            <>
+              <View style={styles.headerSpacer} />
+              <TouchableOpacity style={styles.headerButton} onPress={handleSettingsPress}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                <Ionicons name="menu-outline" size={24} color={theme.colors.text} />
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      )}
+
+      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}
+        refreshControl={isOwner ? <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={theme.colors.text} /> : undefined}>
+        <View style={styles.sectionGap}>
+          <ProfileHero user={isOwner ? data.user : otherUser} isOwner={isOwner}
+            isLoading={isOwner ? isLoadingSections : !otherUser}
+            level={levelData?.level ?? 0}
+            onEditPress={isOwner ? handleEditPress : undefined}
+            onBackPress={!isOwner ? () => navigation.goBack() : undefined}
+            onSettingsPress={undefined}
+            onLevelPress={() => {
+              const parent = navigation.getParent();
+              (parent || navigation).navigate('LevelDetail' as any);
+            }} />
+        </View>
+
+        {isOwner && (
+          <View style={styles.sectionGap}>
+            <NotificationBadge onPress={() => setShowNotificationModal(true)} />
+          </View>
+        )}
+
+        {isOwner ? (
+          <View style={styles.actionCardsContainer}>
+            <TouchableOpacity style={styles.actionCard} onPress={handleStartWorkout} activeOpacity={0.7}>
+              <Text style={styles.actionCardText}>EXERCISE</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('WorkoutHistory', { userId: targetNpub, pubkey: targetNpub })} activeOpacity={0.7}>
+              <Text style={styles.actionCardText}>HISTORY</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.actionCard} onPress={handleDestinationPress} activeOpacity={0.7}>
+              <Text style={styles.actionCardText}>REWARDS</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           <>
-            <View style={styles.headerSpacer} />
-            <TouchableOpacity
-              style={styles.headerButton}
-              onPress={handleSettingsPress}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
-              <Ionicons name="menu-outline" size={24} color={theme.colors.text} />
-            </TouchableOpacity>
+            <View style={styles.sectionGap}>
+              <LevelCard levelData={levelData} isLoading={isLoadingSections} />
+            </View>
+
+            <View style={styles.sectionGap}>
+              <ActivityBreakdown breakdown={activityBreakdown} isLoading={isLoadingSections} />
+            </View>
+
+            <View style={styles.sectionGap}>
+              <ClubAffiliationsSection clubs={clubs} onClubPress={(id) => {
+                const club = clubs.find(c => c.id === id);
+                handleClubPress(id, club?.name || '');
+              }} />
+            </View>
           </>
         )}
-      </View>
-
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            tintColor={theme.colors.text}
-          />
-        }
-      >
-        {/* Profile Header Box - Tappable to Edit Profile */}
-        <View style={styles.profileHeaderContainer}>
-          <TouchableOpacity
-            onPress={() => {
-              const parentNav = navigation.getParent();
-              if (parentNav) {
-                parentNav.navigate('ProfileEdit' as any);
-              } else {
-                navigation.navigate('ProfileEdit' as any);
-              }
-            }}
-            activeOpacity={0.7}
-          >
-            <ProfileHeader user={data.user} isLoading={isLoadingProfile} />
-          </TouchableOpacity>
-
-          {/* Notification Badge - positioned in bottom-right of profile header */}
-          <NotificationBadge onPress={() => setShowNotificationModal(true)} />
-        </View>
-
-        {/* Navigation Buttons */}
-        <View style={styles.navigationButtons}>
-          {/* Fitness Tracker */}
-          <View style={styles.boxContainer}>
-            <FitnessTrackerBox />
-          </View>
-
-          {/* Fitness History */}
-          <View style={styles.boxContainer}>
-            <FitnessHistoryBox />
-          </View>
-
-          {/* Fitness Competitions */}
-          <View style={styles.boxContainer}>
-            <FitnessCompetitionsBox />
-          </View>
-        </View>
       </ScrollView>
 
-      {/* Wallet modals moved to Settings screen */}
-      {/* QR scanner and related modals moved to Settings screen */}
-
-      {/* Notification Modal */}
-      <NotificationModal
-        visible={showNotificationModal}
-        onClose={() => setShowNotificationModal(false)}
-      />
+      {isOwner && (
+        <NotificationModal visible={showNotificationModal} onClose={() => setShowNotificationModal(false)} />
+      )}
     </TexturedBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background, // #000
-  },
-
-  // Header with QR, Balance, Settings
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    zIndex: 10,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: theme.colors.border, zIndex: 10,
   },
-
-  headerSpacer: {
-    flex: 1,
-  },
-
-  headerButton: {
-    padding: 4,
-  },
-
-  qrButton: {
-    padding: 4,
-  },
-
-  settingsButton: {
-    padding: 4,
-  },
-
-  // Content container (now scrollable with pull-to-refresh)
-  content: {
-    flex: 1,
-  },
-
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 16,
-  },
-
-  // Profile header container for badge positioning
-  profileHeaderContainer: {
-    position: 'relative',
-    marginTop: 8,
-    marginBottom: 12,
-  },
-
-  // Navigation buttons container
-  navigationButtons: {
+  headerSpacer: { flex: 1 },
+  headerButton: { padding: 4 },
+  content: { flex: 1 },
+  scrollContent: { flexGrow: 1, paddingHorizontal: 16, paddingBottom: 32 },
+  sectionGap: { marginBottom: 16 },
+  actionCardsContainer: {
     flex: 1,
     gap: 12,
+    marginBottom: 16,
   },
-
-  // Box styling - each button takes equal space
-  boxContainer: {
+  actionCard: {
     flex: 1,
+    alignItems: 'center', justifyContent: 'center',
+    borderRadius: 12, borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.cardBackground,
+  },
+  actionCardText: {
+    fontSize: 18, fontWeight: theme.typography.weights.semiBold as any,
+    color: theme.colors.text,
+    letterSpacing: 2,
   },
 });
 
-// ✅ PERFORMANCE: React.memo prevents re-renders when props haven't changed
 export const ProfileScreen = React.memo(ProfileScreenComponent);

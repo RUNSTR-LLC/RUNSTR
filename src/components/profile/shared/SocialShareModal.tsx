@@ -35,10 +35,10 @@ interface Platform {
 }
 
 const platforms: Platform[] = [
-  { id: 'nostr', name: 'Nostr', icon: '⚡', available: true },
-  { id: 'twitter', name: 'Twitter', icon: '🐦', available: false },
-  { id: 'instagram', name: 'Instagram', icon: '📸', available: false },
-  { id: 'facebook', name: 'Facebook', icon: '👤', available: false },
+  { id: 'nostr', name: 'Nostr', icon: 'N', available: true },
+  { id: 'twitter', name: 'Twitter', icon: 'X', available: false },
+  { id: 'instagram', name: 'Instagram', icon: 'IG', available: false },
+  { id: 'facebook', name: 'Facebook', icon: 'FB', available: false },
 ];
 
 export const SocialShareModal: React.FC<SocialShareModalProps> = ({
@@ -74,7 +74,7 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
 
         // Post to Nostr as kind 1 social event
         const result = await publishingService.postWorkoutToSocial(
-          workout,
+          workout as any,
           nsec,
           userId,
           {
@@ -269,8 +269,8 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   platformSelected: {
-    borderColor: theme.colors.accent,
-    backgroundColor: theme.colors.accent + '10',
+    borderColor: theme.colors.text,
+    backgroundColor: '#111111',
   },
   platformIcon: {
     fontSize: 24,

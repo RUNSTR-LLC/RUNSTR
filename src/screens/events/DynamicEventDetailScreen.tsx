@@ -16,6 +16,7 @@ import {
   Image,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,8 +27,16 @@ import {
   SupabaseLeaderboardEntry,
 } from '../../hooks/useSupabaseLeaderboard';
 import { SupabaseCompetitionService } from '../../services/backend/SupabaseCompetitionService';
+import { ClubService } from '../../services/backend/ClubService';
+import { ClubMembershipService } from '../../services/backend/ClubMembershipService';
+import { CustomAlert } from '../../components/ui/CustomAlert';
+import { PledgeService } from '../../services/pledge/PledgeService';
+import { EventFinalizationService, FinalizationResult, PayoutRecipient } from '../../services/events/EventFinalizationService';
+import { callEdgeFunction } from '../../utils/edgeFunctions';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Avatar } from '../../components/ui/Avatar';
 import type { Competition, CompetitionConfig } from '../../utils/supabase';
+import { getCharityById } from '../../constants/charities';
 
 const RUNSTR_LOGO = require('../../../assets/images/icon.png');
 
@@ -43,7 +52,9 @@ type EventStatus = 'active' | 'upcoming' | 'ended';
 function deriveStatus(comp: Competition): EventStatus {
   const now = Date.now();
   const start = new Date(comp.start_date).getTime();
-  const end = new Date(comp.end_date).getTime();
+  const endDate = new Date(comp.end_date);
+  endDate.setUTCHours(23, 59, 59, 999);
+  const end = endDate.getTime();
   if (now < start) return 'upcoming';
   if (now > end) return 'ended';
   return 'active';
@@ -97,6 +108,8 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
   // Competition data from Supabase
   const [competition, setCompetition] = useState<Competition | null>(null);
   const [compLoading, setCompLoading] = useState(true);
+  const [isEventCreator, setIsEventCreator] = useState(false);
+  const [showCancelAlert, setShowCancelAlert] = useState(false);
 
   // Reuse existing hooks
   const {
@@ -113,18 +126,43 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
     join,
   } = useCompetitionParticipation(eventId);
 
+  const [finalizationResult, setFinalizationResult] = useState<FinalizationResult | null>(null);
+  const [isFinalizing, setIsFinalizing] = useState(false);
+  const [isPaying, setIsPaying] = useState(false);
+
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [visibleBatches, setVisibleBatches] = useState(1);
+  const [clubName, setClubName] = useState<string | null>(null);
+  const [isClubMember, setIsClubMember] = useState<boolean | null>(null); // null = not checked yet
+  const [showClubGateAlert, setShowClubGateAlert] = useState(false);
+  const [totalRaised, setTotalRaised] = useState<number>(0);
 
-  // Fetch competition details
+  const charityConfig = competition?.config;
+  const isCharityEvent = !!charityConfig?.charity_id;
+  const charity = isCharityEvent ? getCharityById(charityConfig.charity_id) : null;
+
+  // Fetch competition details (try cache first, then direct lookup)
   useEffect(() => {
     const fetchCompetition = async () => {
       try {
+        // Try cached list first
         const comps = await SupabaseCompetitionService.fetchDynamicCompetitions();
-        const found = comps.find((c) => c.external_id === eventId);
+        let found = comps.find((c) => c.external_id === eventId);
+
+        // Fallback: direct query (handles newly created events not yet in cache)
+        if (!found) {
+          found = await SupabaseCompetitionService.fetchCompetitionByExternalId(eventId);
+        }
+
         if (found) {
           setCompetition(found);
+
+          // Check if current user is the event creator
+          const npub = await AsyncStorage.getItem('@runstr:npub');
+          if (npub && found.created_by_npub === npub) {
+            setIsEventCreator(true);
+          }
         }
       } catch (err) {
         console.error('[DynamicEventDetail] Error fetching competition:', err);
@@ -135,8 +173,167 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
     fetchCompetition();
   }, [eventId]);
 
+  // Fetch club info when competition belongs to a club
+  useEffect(() => {
+    if (!competition?.club_id) return;
+
+    const fetchClubInfo = async () => {
+      // Fetch club name
+      const club = await ClubService.getClubById(competition.club_id!);
+      if (club) {
+        setClubName(club.name);
+      }
+
+      // Check if current user is a member of this club
+      const npub = await AsyncStorage.getItem('@runstr:npub');
+      if (npub) {
+        const member = await ClubMembershipService.isMember(competition.club_id!, npub);
+        setIsClubMember(member);
+      } else {
+        setIsClubMember(false);
+      }
+    };
+    fetchClubInfo();
+  }, [competition]);
+
+  useEffect(() => {
+    if (!isCharityEvent || !competition) return;
+
+    const fetchTotalRaised = async () => {
+      try {
+        const { supabase, isSupabaseConfigured } = await import('../../utils/supabase');
+        if (!isSupabaseConfigured() || !supabase) return;
+
+        const { data, error } = await supabase
+          .from('charity_reward_payments')
+          .select('amount_sats')
+          .eq('charity_id', charityConfig!.charity_id!)
+          .gte('created_at', competition.start_date)
+          .lte('created_at', competition.end_date)
+          .eq('status', 'success');
+
+        if (!error && data) {
+          const fromPayments = data.reduce((sum: number, r: { amount_sats: number }) => sum + (r.amount_sats || 0), 0);
+          const captainDonation = charityConfig?.captain_donation_sats || 0;
+          setTotalRaised(fromPayments + captainDonation);
+        }
+      } catch (err) {
+        console.error('[DynamicEventDetail] Error fetching total raised:', err);
+      }
+    };
+    fetchTotalRaised();
+  }, [isCharityEvent, competition, charityConfig]);
+
+  const handleCharityJoin = async () => {
+    setIsJoining(true);
+    try {
+      if (!competition || !charityConfig?.charity_id) return;
+
+      // Switch reward destination to this charity
+      await AsyncStorage.setItem('@runstr:selected_team_id', charityConfig.charity_id);
+
+      // Join the competition via existing hook
+      await join();
+      await refreshLeaderboard();
+
+      Alert.alert('Joined!', `Your next reward will go to ${charityConfig.charity_name || 'charity'}. Thank you!`);
+    } catch (error) {
+      console.error('[DynamicEventDetail] Charity join error:', error);
+      Alert.alert('Error', 'Failed to join event. Please try again.');
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
+  const handlePledgeAndJoin = async () => {
+    setIsJoining(true);
+    try {
+      const userPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+      if (!userPubkey) return;
+
+      // Check eligibility (active pledge, Lightning address, etc.)
+      const eligibility = await PledgeService.canCreatePledge(userPubkey);
+      if (!eligibility.allowed) {
+        Alert.alert(
+          eligibility.reason === 'active_pledge_exists' ? 'Active Pledge' : 'Cannot Join',
+          eligibility.message || 'Unable to create pledge.',
+        );
+        return;
+      }
+
+      // Get captain's lightning address from competition config
+      const captainAddress = competition?.config?.captain_lightning_address || '';
+      if (!captainAddress) {
+        Alert.alert('Event Error', 'This event is missing a reward destination. Contact the event captain.');
+        return;
+      }
+      const captainName = competition?.name || 'Event Captain';
+
+      // Create the pledge
+      const pledge = await PledgeService.createPledge({
+        eventId: competition!.id,
+        eventName: competition!.name,
+        totalWorkouts: competition!.config!.ticket_pledge_days!,
+        destination: {
+          type: 'captain',
+          lightningAddress: captainAddress,
+          name: captainName,
+        },
+        userPubkey,
+      });
+
+      if (!pledge) {
+        Alert.alert('Error', 'Failed to create pledge. Please try again.');
+        return;
+      }
+
+      // Join the competition — roll back pledge if this fails
+      try {
+        await join();
+        await refreshLeaderboard();
+      } catch (joinError) {
+        console.error('[DynamicEventDetail] Join failed after pledge, rolling back:', joinError);
+        await PledgeService.clearActivePledge(userPubkey);
+        Alert.alert('Error', 'Failed to join event. Your pledge has been cancelled. Please try again.');
+        return;
+      }
+    } catch (error) {
+      console.error('[DynamicEventDetail] Pledge + join error:', error);
+      Alert.alert('Error', 'Failed to join event. Please try again.');
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
   const handleJoin = async () => {
     if (isJoining) return;
+
+    // Check club membership gate before joining
+    if (competition?.club_id && isClubMember === false) {
+      setShowClubGateAlert(true);
+      return;
+    }
+
+    // Charity event: use simplified join flow
+    if (isCharityEvent) {
+      await handleCharityJoin();
+      return;
+    }
+
+    // Pledge gate for ticketed events
+    const pledgeDays = competition?.config?.ticket_pledge_days;
+    if (pledgeDays && pledgeDays > 0) {
+      Alert.alert(
+        'Entry Fee Required',
+        `This event requires pledging ${pledgeDays} workout day${pledgeDays > 1 ? 's' : ''} to enter. Your next ${pledgeDays} daily reward${pledgeDays > 1 ? 's' : ''} will go to the event captain.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Pledge & Join', onPress: handlePledgeAndJoin },
+        ]
+      );
+      return;
+    }
+
     setIsJoining(true);
     try {
       await join();
@@ -154,6 +351,78 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
       setImmediate(() => setIsRefreshing(false));
     }
   }, [refreshLeaderboard]);
+
+  const handleFinalize = async () => {
+    if (!competition?.config) return;
+    setIsFinalizing(true);
+    try {
+      const config = competition.config;
+      const prizePoolSats = config.prize_pool_sats || competition.prize_pool_sats || 0;
+      const distribution = config.prize_distribution || 'top3';
+
+      // Step 1: Get finishers
+      const result = await EventFinalizationService.finalizeEvent(
+        competition.id,
+        (config.winner_selection as 'ranked' | 'random') || 'ranked',
+        distribution === 'all_participants' ? 0 : (config.qualifying_distance_km || 0),
+        prizePoolSats,
+      );
+      setFinalizationResult(result);
+
+      // Step 2: Auto-payout if prize pool exists
+      if (prizePoolSats > 0 && result.finishers.length > 0) {
+        setIsPaying(true);
+
+        const recipients = EventFinalizationService.calculateSplits(
+          result.finishers,
+          prizePoolSats,
+          distribution,
+        );
+
+        const payoutResults = await EventFinalizationService.executePayout(recipients);
+
+        // Update finalization result with payout info
+        setFinalizationResult(prev => prev ? { ...prev, payoutResults } : prev);
+
+        // Store results in competition config
+        try {
+          await callEdgeFunction('manage-competition', {
+            action: 'update',
+            competition_id: competition.id,
+            npub: await AsyncStorage.getItem('@runstr:npub') || '',
+            updates: {
+              config: { ...config, payout_results: payoutResults },
+            },
+          });
+        } catch (e) {
+          console.warn('[DynamicEventDetail] Failed to persist payout results:', e);
+        }
+
+        // Show summary
+        const successCount = payoutResults.filter(p => p.success).length;
+        const failCount = payoutResults.filter(p => !p.success).length;
+        const totalPaid = payoutResults.filter(p => p.success).reduce((sum, p) => sum + p.amount_sats, 0);
+
+        let summary = `Paid ${totalPaid} sats to ${successCount} recipient${successCount !== 1 ? 's' : ''}.`;
+        if (failCount > 0) {
+          summary += ` ${failCount} payment${failCount !== 1 ? 's' : ''} failed.`;
+        }
+        Alert.alert('Event Finalized', summary);
+
+        setIsPaying(false);
+      } else if (result.finishers.length === 0) {
+        Alert.alert('No Finishers', 'No participants met the qualifying criteria.');
+      } else {
+        Alert.alert('Event Finalized', `${result.finishers.length} finisher${result.finishers.length !== 1 ? 's' : ''}.`);
+      }
+    } catch (error) {
+      console.error('[DynamicEventDetail] Finalization error:', error);
+      Alert.alert('Error', 'Failed to finalize event. Please try again.');
+    } finally {
+      setIsFinalizing(false);
+      setIsPaying(false);
+    }
+  };
 
   // Loading state
   if (compLoading) {
@@ -195,7 +464,10 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
   const status = deriveStatus(competition);
   const config: CompetitionConfig = competition.config || {};
   const activityTypes = config.activity_types || [competition.activity_type];
-  const scoreUnit = config.score_unit || 'km';
+  // Infer score_unit from scoring_method when not explicitly set
+  // Existing events created before this fix may be missing score_unit
+  const scoreUnit = config.score_unit
+    || (competition.scoring_method === 'fastest_time' ? 'seconds' : 'km');
   const prizePool = competition.prize_pool_sats || 0;
   const winnerCount = config.winner_count ?? 3;
   const template = competition.template || 'distance_race';
@@ -314,7 +586,7 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
         ) : (
           <Image
             source={RUNSTR_LOGO}
-            style={[styles.bannerImage, { backgroundColor: '#000000' }]}
+            style={[styles.bannerImage, { backgroundColor: theme.colors.background }]}
             resizeMode="contain"
           />
         )}
@@ -322,7 +594,65 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
         {/* Event Info */}
         <View style={styles.eventInfo}>
           <Text style={styles.eventTitle}>{competition.name}</Text>
+
+          {/* Club attribution badge */}
+          {clubName && (
+            <View style={styles.clubBadge}>
+              <Ionicons name="people" size={14} color={theme.colors.accent} />
+              <Text style={styles.clubBadgeText}>{clubName} Event</Text>
+            </View>
+          )}
+
           <Text style={styles.statusText}>{getStatusText()}</Text>
+
+          {/* Charity Event Info */}
+          {isCharityEvent && charity && (
+            <View style={styles.charityBanner}>
+              {charity.image && (
+                <Image source={charity.image} style={styles.charityBannerImage} />
+              )}
+              <View style={styles.charityBannerText}>
+                <Text style={styles.charityBannerName}>{charity.name}</Text>
+                <Text style={styles.charityBannerRaised}>
+                  {totalRaised.toLocaleString()} sats raised
+                </Text>
+              </View>
+            </View>
+          )}
+
+              {/* Prize Pool Info */}
+              {competition?.config?.prize_pool_sats && (
+                <View style={styles.prizePoolBanner}>
+                  <Ionicons name="trophy-outline" size={20} color={theme.colors.primary} />
+                  <View style={styles.prizePoolText}>
+                    <Text style={styles.prizePoolAmount}>
+                      {competition.config.prize_pool_sats.toLocaleString()} sats prize pool
+                    </Text>
+                    <Text style={styles.prizePoolDistribution}>
+                      {competition.config.prize_distribution === 'all_participants'
+                        ? 'Split among all participants'
+                        : 'Top 3: 50% / 30% / 20%'}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Payout Results (after finalization) */}
+              {competition?.config?.payout_results && (
+                <View style={styles.payoutResults}>
+                  <Text style={styles.payoutResultsTitle}>Payout Results</Text>
+                  {competition.config.payout_results.map((p: PayoutRecipient, i: number) => (
+                    <View key={i} style={styles.payoutRow}>
+                      <Text style={styles.payoutName} numberOfLines={1}>
+                        {p.name || p.npub.slice(0, 12) + '...'}
+                      </Text>
+                      <Text style={[styles.payoutAmount, !p.success && styles.payoutFailed]}>
+                        {p.success ? `${p.amount_sats} sats` : 'Failed'}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
 
           {/* Date */}
           <View style={styles.metaRow}>
@@ -375,10 +705,47 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
             </View>
           )}
 
+          {/* Ticketing Info */}
+          {competition?.config?.ticket_pledge_days != null && competition.config.ticket_pledge_days > 0 && (
+            <View style={[styles.infoRow, { backgroundColor: '#111111' }]}>
+              <Text style={[styles.infoLabel, { color: theme.colors.textMuted }]}>Entry Fee</Text>
+              <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+                {competition.config.ticket_pledge_days} workout day{competition.config.ticket_pledge_days > 1 ? 's' : ''} pledged to captain
+              </Text>
+            </View>
+          )}
+          {competition?.config?.winner_selection === 'random' && (
+            <View style={[styles.infoRow, { backgroundColor: '#111111' }]}>
+              <Text style={[styles.infoLabel, { color: theme.colors.textMuted }]}>Winner</Text>
+              <Text style={[styles.infoValue, { color: theme.colors.text }]}>Random draw from finishers</Text>
+            </View>
+          )}
+          {competition?.config?.qualifying_distance_km != null && competition.config.qualifying_distance_km > 0 && (
+            <View style={[styles.infoRow, { backgroundColor: '#111111' }]}>
+              <Text style={[styles.infoLabel, { color: theme.colors.textMuted }]}>Qualifying</Text>
+              <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+                {competition.config.qualifying_distance_km} km minimum
+              </Text>
+            </View>
+          )}
+
+          {/* Club membership gate banner (visible before Join button) */}
+          {competition.club_id && isClubMember === false && !isParticipating && status !== 'ended' && (
+            <View style={styles.clubGateBanner}>
+              <Ionicons name="lock-closed" size={16} color={theme.colors.textMuted} />
+              <Text style={styles.clubGateText}>
+                Club members only - Join {clubName || 'the club'} to participate
+              </Text>
+            </View>
+          )}
+
           {/* Join Button */}
           {currentUserPubkey && !isParticipating && status !== 'ended' && competition.is_open && (
             <TouchableOpacity
-              style={styles.joinButton}
+              style={[
+                styles.joinButton,
+                competition.club_id && isClubMember === false && styles.joinButtonDisabled,
+              ]}
               onPress={handleJoin}
               disabled={isJoining}
             >
@@ -387,11 +754,16 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
               ) : (
                 <>
                   <Ionicons
-                    name={getActivityIcon(activityTypes)}
+                    name={competition.club_id && isClubMember === false ? 'lock-closed' : getActivityIcon(activityTypes)}
                     size={20}
-                    color={theme.colors.text}
+                    color={competition.club_id && isClubMember === false ? theme.colors.textMuted : theme.colors.text}
                   />
-                  <Text style={styles.joinButtonText}>Join Event</Text>
+                  <Text style={[
+                    styles.joinButtonText,
+                    competition.club_id && isClubMember === false && styles.joinButtonTextDisabled,
+                  ]}>
+                    {competition.club_id && isClubMember === false ? 'Club Members Only' : 'Join Event'}
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
@@ -403,6 +775,18 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
               <Ionicons name="checkmark-circle" size={20} color={theme.colors.accent} />
               <Text style={styles.joinedBadgeText}>You're participating!</Text>
             </View>
+          )}
+
+          {/* Cancel Event (creator only) */}
+          {isEventCreator && status !== 'ended' && (
+            <TouchableOpacity
+              style={styles.cancelEventButton}
+              onPress={() => setShowCancelAlert(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close-circle-outline" size={16} color={theme.colors.textMuted} />
+              <Text style={styles.cancelEventText}>Cancel Event</Text>
+            </TouchableOpacity>
           )}
         </View>
 
@@ -487,6 +871,47 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
           </View>
         )}
 
+        {/* Event Finalization (Creator Only, Event Ended) */}
+        {isEventCreator && status === 'ended' && competition?.config?.winner_selection === 'random' && (
+          <View style={[styles.finalizationSection, { backgroundColor: theme.colors.cardBackground }]}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text, marginBottom: 12 }]}>Event Finalization</Text>
+            {!finalizationResult ? (
+              <TouchableOpacity
+                style={[styles.finalizeButton, { backgroundColor: theme.colors.accent }]}
+                onPress={handleFinalize}
+                disabled={isFinalizing}
+              >
+                {isFinalizing ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.finalizeButtonText}>Draw Random Winner</Text>
+                )}
+              </TouchableOpacity>
+            ) : (
+              <View>
+                <Text style={[styles.finalizationSubtitle, { color: theme.colors.textMuted }]}>
+                  {finalizationResult.finishers.length} finisher{finalizationResult.finishers.length !== 1 ? 's' : ''} qualified
+                </Text>
+                {finalizationResult.winner ? (
+                  <Text style={[styles.winnerText, { color: theme.colors.accent }]}>
+                    Winner: {finalizationResult.winner.name || finalizationResult.winner.npub.slice(0, 16) + '...'}
+                  </Text>
+                ) : (
+                  <Text style={[styles.noFinishersText, { color: theme.colors.textMuted }]}>
+                    No finishers met the qualifying distance.
+                  </Text>
+                )}
+                {isPaying && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
+                    <ActivityIndicator size="small" color={theme.colors.accent} />
+                    <Text style={{ color: theme.colors.textMuted, fontSize: 14 }}>Sending prizes...</Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Note Section */}
         <View style={styles.noteSection}>
           <Ionicons name="information-circle-outline" size={16} color={theme.colors.textMuted} />
@@ -495,6 +920,43 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
           </Text>
         </View>
       </ScrollView>
+
+      {/* Club membership gate alert */}
+      <CustomAlert
+        visible={showClubGateAlert}
+        title="Club Members Only"
+        message={`This event is for ${clubName || 'club'} members. Join the club first to participate.`}
+        buttons={[
+          { text: 'Cancel', style: 'cancel', onPress: () => setShowClubGateAlert(false) },
+          { text: 'Go to Club', onPress: () => {
+            setShowClubGateAlert(false);
+            if (competition?.club_id) {
+              navigation.navigate('ClubPage', { clubId: competition.club_id, clubName: clubName || 'Club' });
+            }
+          }},
+        ]}
+        onClose={() => setShowClubGateAlert(false)}
+      />
+
+      {/* Cancel event confirmation (creator only) */}
+      <CustomAlert
+        visible={showCancelAlert}
+        title="Cancel Event"
+        message={`Are you sure you want to cancel "${competition?.name}"? This will remove the event and all participants.`}
+        buttons={[
+          { text: 'Keep', style: 'cancel', onPress: () => setShowCancelAlert(false) },
+          { text: 'Cancel Event', style: 'destructive', onPress: async () => {
+            setShowCancelAlert(false);
+            const npub = await AsyncStorage.getItem('@runstr:npub');
+            if (!npub) return;
+            const result = await SupabaseCompetitionService.deleteCompetition(eventId, npub);
+            if (result.success) {
+              navigation.goBack();
+            }
+          }},
+        ]}
+        onClose={() => setShowCancelAlert(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -547,6 +1009,17 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     marginBottom: 4,
   },
+  clubBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  clubBadgeText: {
+    fontSize: 13,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.accent,
+  },
   statusText: {
     fontSize: 14,
     color: theme.colors.accent,
@@ -564,7 +1037,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   aboutSection: {
-    backgroundColor: 'rgba(255, 157, 66, 0.1)',
+    backgroundColor: '#111111',
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
@@ -587,7 +1060,7 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 20,
     fontWeight: theme.typography.weights.bold,
-    color: '#FF9D42',
+    color: theme.colors.accent,
   },
   statLabel: {
     fontSize: 12,
@@ -597,7 +1070,7 @@ const styles = StyleSheet.create({
   prizeSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: `${theme.colors.accent}15`,
+    backgroundColor: '#111111',
     borderRadius: 12,
     padding: 14,
     marginBottom: 16,
@@ -616,7 +1089,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.cardBackground,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.text,
     paddingVertical: 14,
     marginBottom: 12,
     gap: 8,
@@ -626,11 +1099,33 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.semiBold,
     color: theme.colors.text,
   },
+  joinButtonDisabled: {
+    borderColor: theme.colors.border,
+    opacity: 0.7,
+  },
+  joinButtonTextDisabled: {
+    color: theme.colors.textMuted,
+  },
+  clubGateBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#111111',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  clubGateText: {
+    flex: 1,
+    fontSize: 13,
+    color: theme.colors.textMuted,
+  },
   joinedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: `${theme.colors.accent}15`,
+    backgroundColor: '#111111',
     borderRadius: 12,
     paddingVertical: 14,
     marginBottom: 12,
@@ -695,7 +1190,7 @@ const styles = StyleSheet.create({
     borderBottomColor: theme.colors.border,
   },
   currentUserRow: {
-    backgroundColor: `${theme.colors.accent}10`,
+    backgroundColor: '#111111',
     marginHorizontal: -16,
     paddingHorizontal: 16,
   },
@@ -732,7 +1227,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   top3Distance: {
-    color: '#FF9D42',
+    color: theme.colors.accent,
   },
   currentUserSection: {
     marginTop: 16,
@@ -770,6 +1265,136 @@ const styles = StyleSheet.create({
     color: theme.colors.accent,
     fontSize: 14,
     fontWeight: '600',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  infoLabel: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.medium,
+  },
+  infoValue: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
+    textAlign: 'right',
+    flex: 1,
+    marginLeft: 12,
+  },
+  cancelEventButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  cancelEventText: {
+    fontSize: 13,
+    color: theme.colors.textMuted,
+  },
+  finalizationSection: {
+    padding: 16,
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginTop: 16,
+  },
+  finalizeButton: {
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  finalizeButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  finalizationSubtitle: {
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  winnerText: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  payButton: {
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  payButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  noFinishersText: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  charityBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    padding: 16, marginHorizontal: 0, marginTop: 0, marginBottom: 12,
+    backgroundColor: theme.colors.card, borderRadius: 12,
+    borderWidth: 1, borderColor: theme.colors.border,
+  },
+  charityBannerImage: {
+    width: 48, height: 48, borderRadius: 24,
+  },
+  charityBannerText: {
+    flex: 1,
+  },
+  charityBannerName: {
+    fontSize: 16, fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+  },
+  charityBannerRaised: {
+    fontSize: 14, color: theme.colors.primary, marginTop: 2,
+    fontWeight: theme.typography.weights.semiBold,
+  },
+  prizePoolBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    padding: 16, marginHorizontal: 16, marginTop: 8,
+    backgroundColor: theme.colors.card, borderRadius: 12,
+    borderWidth: 1, borderColor: theme.colors.border,
+  },
+  prizePoolText: {
+    flex: 1,
+  },
+  prizePoolAmount: {
+    fontSize: 15, fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+  },
+  prizePoolDistribution: {
+    fontSize: 13, color: theme.colors.textMuted, marginTop: 2,
+  },
+  payoutResults: {
+    paddingHorizontal: 16, marginTop: 12,
+  },
+  payoutResultsTitle: {
+    fontSize: 13, fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.textMuted, letterSpacing: 0.5,
+    textTransform: 'uppercase', marginBottom: 8,
+  },
+  payoutRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: theme.colors.border,
+  },
+  payoutName: {
+    fontSize: 14, color: theme.colors.text, flex: 1,
+  },
+  payoutAmount: {
+    fontSize: 14, fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.primary,
+  },
+  payoutFailed: {
+    color: '#ff4444',
   },
 });
 

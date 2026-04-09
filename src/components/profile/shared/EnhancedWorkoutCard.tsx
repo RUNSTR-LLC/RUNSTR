@@ -18,6 +18,7 @@ import { WorkoutDetailModal } from './WorkoutDetailModal';
 import type { Workout } from '../../../types/workout';
 import { formatDistance } from '../../../utils/distanceFormatter';
 import { useUnitPreference } from '../../../hooks/useUnitPreference';
+import { VerifiedCheckmark } from '../../activity/VerifiedCheckmark';
 
 interface EnhancedWorkoutCardProps {
   workout: Workout;
@@ -173,26 +174,26 @@ export const EnhancedWorkoutCard: React.FC<EnhancedWorkoutCardProps> = React.mem
   // Get weather emoji from icon code
   const getWeatherEmoji = (icon: string): string => {
     const iconMap: Record<string, string> = {
-      '01d': '☀️',
-      '01n': '🌙',
-      '02d': '⛅',
-      '02n': '☁️',
-      '03d': '☁️',
-      '03n': '☁️',
-      '04d': '☁️',
-      '04n': '☁️',
-      '09d': '🌧️',
-      '09n': '🌧️',
-      '10d': '🌦️',
-      '10n': '🌧️',
-      '11d': '⛈️',
-      '11n': '⛈️',
-      '13d': '❄️',
-      '13n': '❄️',
-      '50d': '🌫️',
-      '50n': '🌫️',
+      '01d': 'Clear',
+      '01n': 'Clear',
+      '02d': 'Clouds',
+      '02n': 'Cloudy',
+      '03d': 'Cloudy',
+      '03n': 'Cloudy',
+      '04d': 'Cloudy',
+      '04n': 'Cloudy',
+      '09d': 'Rain',
+      '09n': 'Rain',
+      '10d': 'Rain',
+      '10n': 'Rain',
+      '11d': 'Storm',
+      '11n': 'Storm',
+      '13d': 'Snow',
+      '13n': 'Snow',
+      '50d': 'Fog',
+      '50n': 'Fog',
     };
-    return iconMap[icon] || '🌤️';
+    return iconMap[icon] || 'Fair';
   };
 
   return (
@@ -207,7 +208,10 @@ export const EnhancedWorkoutCard: React.FC<EnhancedWorkoutCardProps> = React.mem
           <View style={styles.headerLeft}>
             {/* Activity icon removed */}
             <View style={styles.headerInfo}>
-              <Text style={styles.activityType}>{getActivityTypeName()}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={styles.activityType}>{getActivityTypeName()}</Text>
+                {(workout as any).verificationReceipt && <VerifiedCheckmark />}
+              </View>
               <Text style={styles.date}>{formatDate(workout.startTime)}</Text>
             </View>
           </View>
@@ -483,14 +487,14 @@ export const EnhancedWorkoutCard: React.FC<EnhancedWorkoutCardProps> = React.mem
               {loading.post ? (
                 <ActivityIndicator
                   size="small"
-                  color={theme.colors.accentText}
+                  color={theme.colors.background}
                 />
               ) : (
                 <>
                   <Ionicons
                     name="paper-plane-outline"
                     size={16}
-                    color={theme.colors.accentText}
+                    color={theme.colors.background}
                     style={styles.buttonIcon}
                   />
                   <Text style={styles.actionButtonText}>
@@ -668,7 +672,7 @@ const styles = StyleSheet.create({
     marginRight: 0,
   },
   postButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
   },
   disabledButton: {
     opacity: 0.6,
@@ -677,7 +681,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   actionButtonText: {
-    color: theme.colors.accentText,
+    color: theme.colors.background,
     fontSize: 14,
     fontWeight: '600',
   },

@@ -60,7 +60,8 @@ class HealthSyncManagerClass {
         console.log('[HealthSyncManager] Sync already in progress, skipping');
         return { synced: false };
       }
-      console.warn('[HealthSyncManager] Sync failed:', message);
+      // Don't update lastSyncTime on failure — allow immediate retry
+      console.warn('[HealthSyncManager] Sync failed (will allow retry):', message);
       return { synced: false, error: message };
     }
   }
@@ -80,7 +81,7 @@ class HealthSyncManagerClass {
 
     // fetchWorkoutsProgressive triggers cacheWorkouts → submitNewWorkoutsToSupabase internally
     const workouts = await healthKitService.fetchWorkoutsProgressive(todayStart, new Date());
-    this.lastSyncTime = Date.now();
+    this.lastSyncTime = Date.now(); // Only update on success
     console.log(`[HealthSyncManager] iOS: Synced ${workouts.length} workout(s)`);
     return { synced: true };
   }
@@ -94,11 +95,15 @@ class HealthSyncManagerClass {
       return { synced: false };
     }
 
-    console.log('[HealthSyncManager] Android: Syncing recent Health Connect workouts...');
+    // Use wider lookback if last sync was >1 hour ago to catch missed background syncs
+    const hoursSinceLastSync = this.lastSyncTime > 0
+      ? (Date.now() - this.lastSyncTime) / (1000 * 60 * 60)
+      : Infinity;
+    const lookbackDays = hoursSinceLastSync > 1 ? 7 : 1;
+    console.log(`[HealthSyncManager] Android: Syncing Health Connect workouts (${lookbackDays}d lookback, ${hoursSinceLastSync.toFixed(1)}h since last sync)...`);
 
-    // fetchRecentWorkouts(1) fetches last 1 day, triggers auto-submit internally
-    const workouts = await healthConnectService.fetchRecentWorkouts(1);
-    this.lastSyncTime = Date.now();
+    const workouts = await healthConnectService.fetchRecentWorkouts(lookbackDays);
+    this.lastSyncTime = Date.now(); // Only update on success
     console.log(`[HealthSyncManager] Android: Synced ${workouts.length} workout(s)`);
     return { synced: true };
   }

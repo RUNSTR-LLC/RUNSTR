@@ -34,7 +34,7 @@ export function enableWebSocketDebugging(): void {
 
   // Create debug wrapper class
   class DebugWebSocket extends OriginalWebSocket {
-    private url: string;
+    private _debugUrl: string;
     private startTime: number;
 
     constructor(url: string | URL, protocols?: string | string[]) {
@@ -43,20 +43,20 @@ export function enableWebSocketDebugging(): void {
 
       super(url, protocols);
 
-      this.url = typeof url === 'string' ? url : url.toString();
+      this._debugUrl = typeof url === 'string' ? url : url.toString();
       this.startTime = Date.now();
 
       // Track connection lifecycle
       this.addEventListener('open', (event) => {
         const connectionTime = Date.now() - this.startTime;
         console.log(
-          `[WS-Debug] ✅ Connected to ${this.url} (took ${connectionTime}ms)`
+          `[WS-Debug] ✅ Connected to ${this._debugUrl} (took ${connectionTime}ms)`
         );
       });
 
       this.addEventListener('close', (event: CloseEvent) => {
         const connectionDuration = Date.now() - this.startTime;
-        console.log(`[WS-Debug] ❌ Closed ${this.url}`);
+        console.log(`[WS-Debug] ❌ Closed ${this._debugUrl}`);
         console.log(
           `[WS-Debug] Close code: ${event.code}, reason: ${
             event.reason || 'none'
@@ -86,7 +86,7 @@ export function enableWebSocketDebugging(): void {
       });
 
       this.addEventListener('error', (event) => {
-        console.error(`[WS-Debug] ⚠️ Error on ${this.url}:`, event);
+        console.error(`[WS-Debug] ⚠️ Error on ${this._debugUrl}:`, event);
       });
 
       // Track messages for Nostr protocol debugging

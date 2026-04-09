@@ -193,7 +193,7 @@ export const TotalRewardsCard: React.FC<TotalRewardsCardProps> = ({
             <View style={styles.infoSection}>
               <Text style={styles.infoSubtitle}>Workout Rewards</Text>
               <Text style={styles.infoText}>
-                Earn 50 sats per daily workout. Rewards are sent daily ~10pm EST.
+                Earn 100 sats per daily workout. Rewards are sent daily ~10pm EST.
               </Text>
             </View>
 

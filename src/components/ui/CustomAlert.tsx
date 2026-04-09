@@ -84,12 +84,19 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
           {/* Message */}
           {message && <Text style={styles.message}>{message}</Text>}
 
-          {/* Buttons */}
-          <View style={styles.buttonContainer}>
+          {/* Buttons - stack vertically for 3+, row for 1-2 */}
+          <View style={[
+            styles.buttonContainer,
+            buttons.length >= 3 && styles.buttonContainerVertical,
+          ]}>
             {buttons.map((button, index) => (
               <TouchableOpacity
                 key={index}
-                style={[styles.button, getButtonStyle(button.style)]}
+                style={[
+                  styles.button,
+                  getButtonStyle(button.style),
+                  buttons.length >= 3 && styles.buttonFullWidth,
+                ]}
                 onPress={() => handleButtonPress(button)}
                 activeOpacity={0.7}
               >
@@ -185,11 +192,11 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.cardBackground, // #0a0a0a
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: theme.colors.orangeDeep, // Orange border
+    borderColor: 'rgba(255, 157, 66, 0.3)',
     padding: 24,
     width: '100%',
     maxWidth: 320,
-    shadowColor: theme.colors.orangeDeep,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -214,6 +221,10 @@ const styles = StyleSheet.create({
     gap: 12,
     justifyContent: 'center',
   },
+  buttonContainerVertical: {
+    flexDirection: 'column',
+    gap: 10,
+  },
   button: {
     flex: 1,
     paddingVertical: 12,
@@ -222,10 +233,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  buttonFullWidth: {
+    flex: 0,
+    width: '100%',
+  },
   defaultButton: {
-    backgroundColor: theme.colors.orangeDeep, // Deep orange
+    backgroundColor: 'rgba(255, 157, 66, 0.12)',
     borderWidth: 1,
-    borderColor: theme.colors.orangeBright,
+    borderColor: 'rgba(255, 157, 66, 0.3)',
   },
   cancelButton: {
     backgroundColor: 'transparent',
@@ -233,19 +248,19 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   destructiveButton: {
-    backgroundColor: theme.colors.orangeBright, // Orange theme, not red
+    backgroundColor: 'rgba(255, 157, 66, 0.12)',
     borderWidth: 1,
-    borderColor: theme.colors.orangeDeep,
+    borderColor: 'rgba(255, 157, 66, 0.3)',
   },
   buttonText: {
     fontSize: 15,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.background, // Black text on orange
+    color: theme.colors.orangeBright,
   },
   cancelButtonText: {
-    color: theme.colors.text, // Light orange text for visibility on dark background
+    color: theme.colors.textMuted,
   },
   destructiveButtonText: {
-    color: theme.colors.accentText, // Black text on orange
+    color: theme.colors.orangeBright,
   },
 });

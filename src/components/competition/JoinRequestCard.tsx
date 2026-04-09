@@ -108,7 +108,7 @@ export const JoinRequestCard: React.FC<JoinRequestCardProps> = ({
           disabled={isLoading}
         >
           {isApproving ? (
-            <ActivityIndicator size="small" color={theme.colors.accentText} />
+            <ActivityIndicator size="small" color={theme.colors.background} />
           ) : (
             <Text style={styles.approveButtonText}>Approve</Text>
           )}
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
   approveButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: theme.colors.accentText, // Black text on orange
+    color: theme.colors.background, // Black text on orange
   },
   rejectButton: {
     flex: 1,

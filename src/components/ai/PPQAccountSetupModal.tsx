@@ -17,6 +17,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
@@ -36,6 +37,7 @@ export const PPQAccountSetupModal: React.FC<PPQAccountSetupModalProps> = ({
   const [isCreating, setIsCreating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isServerError, setIsServerError] = useState(false);
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [creditId, setCreditId] = useState('');
@@ -62,15 +64,20 @@ export const PPQAccountSetupModal: React.FC<PPQAccountSetupModalProps> = ({
   const handleCreateAccount = async () => {
     setIsCreating(true);
     setError(null);
+    setIsServerError(false);
 
     try {
       const result = await PPQAccountService.createAccount();
 
       if (result.success) {
-        // Account created successfully
         onSuccess();
       } else {
         setError(result.error || 'Failed to create account');
+        setIsServerError(result.isServerError ?? false);
+        // Auto-show manual entry when server is down
+        if (result.isServerError) {
+          setShowManualEntry(true);
+        }
       }
     } catch (err) {
       console.error('[PPQSetup] Create account error:', err);
@@ -78,6 +85,10 @@ export const PPQAccountSetupModal: React.FC<PPQAccountSetupModalProps> = ({
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const handleOpenPPQWebsite = () => {
+    Linking.openURL('https://ppq.ai');
   };
 
   const handleSaveManualKey = async () => {
@@ -134,7 +145,7 @@ export const PPQAccountSetupModal: React.FC<PPQAccountSetupModalProps> = ({
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerIcon}>
-              <Ionicons name="sparkles" size={24} color="#FF9D42" />
+              <Ionicons name="sparkles" size={24} color={theme.colors.text} />
             </View>
             <Text style={styles.title}>Set Up AI Credits</Text>
             <TouchableOpacity
@@ -270,9 +281,28 @@ export const PPQAccountSetupModal: React.FC<PPQAccountSetupModalProps> = ({
           {/* Error Message */}
           {error && (
             <View style={styles.errorContainer}>
-              <Ionicons name="alert-circle" size={16} color="#ff6b6b" />
-              <Text style={styles.errorText}>{error}</Text>
+              <Ionicons name="alert-circle" size={16} color="#FF6B00" />
+              <View style={styles.errorContent}>
+                <Text style={styles.errorText}>{error}</Text>
+                {isServerError && (
+                  <Text style={styles.errorHint}>
+                    You can create an account at ppq.ai and enter your credentials below.
+                  </Text>
+                )}
+              </View>
             </View>
+          )}
+
+          {/* Website fallback when server is down */}
+          {isServerError && (
+            <TouchableOpacity
+              style={styles.websiteFallback}
+              onPress={handleOpenPPQWebsite}
+            >
+              <Ionicons name="globe-outline" size={18} color={theme.colors.textMuted} />
+              <Text style={styles.websiteFallbackText}>Create account at ppq.ai</Text>
+              <Ionicons name="open-outline" size={14} color={theme.colors.textMuted} />
+            </TouchableOpacity>
           )}
 
           {/* Info Box */}
@@ -318,7 +348,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 20,
     fontWeight: '700',
-    color: '#FFB366',
+    color: theme.colors.text,
   },
   closeButton: {
     padding: 4,
@@ -357,7 +387,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FF9D42',
+    backgroundColor: theme.colors.text,
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 10,
@@ -370,11 +400,10 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
+    color: theme.colors.background,
   },
   buttonDisabled: {
-    backgroundColor: '#3a3a3a',
-    opacity: 0.6,
+    opacity: 0.35,
   },
   secondaryButton: {
     flexDirection: 'row',
@@ -424,17 +453,43 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     backgroundColor: '#2a1a1a',
     padding: 12,
     borderRadius: 8,
     marginTop: 12,
   },
-  errorText: {
-    fontSize: 13,
-    color: '#ff6b6b',
+  errorContent: {
     marginLeft: 8,
     flex: 1,
+  },
+  errorText: {
+    fontSize: 13,
+    color: '#FF6B00',
+  },
+  errorHint: {
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  websiteFallback: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 157, 66, 0.1)',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 157, 66, 0.3)',
+    gap: 8,
+  },
+  websiteFallbackText: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    fontWeight: '500',
   },
   infoBox: {
     flexDirection: 'row',

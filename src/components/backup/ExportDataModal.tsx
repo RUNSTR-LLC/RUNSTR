@@ -332,7 +332,7 @@ export const ExportDataModal: React.FC<ExportDataModalProps> = ({
             {/* In-modal error display (toast renders behind pageSheet modal) */}
             {exportError && (
               <View style={styles.inlineMessage}>
-                <Ionicons name="alert-circle" size={16} color="#ff4444" />
+                <Ionicons name="alert-circle" size={16} color="#FF6B00" />
                 <Text style={styles.inlineErrorText}>{exportError}</Text>
               </View>
             )}
@@ -340,7 +340,7 @@ export const ExportDataModal: React.FC<ExportDataModalProps> = ({
             {/* In-modal success display */}
             {exportSuccess && (
               <View style={styles.inlineMessage}>
-                <Ionicons name="checkmark-circle" size={16} color="#44bb44" />
+                <Ionicons name="checkmark-circle" size={16} color="#FF9D42" />
                 <Text style={styles.inlineSuccessText}>{exportSuccess}</Text>
               </View>
             )}
@@ -549,13 +549,13 @@ const styles = StyleSheet.create({
   inlineErrorText: {
     flex: 1,
     fontSize: 13,
-    color: '#ff4444',
+    color: '#FF6B00',
     lineHeight: 18,
   },
   inlineSuccessText: {
     flex: 1,
     fontSize: 13,
-    color: '#44bb44',
+    color: '#FF9D42',
     lineHeight: 18,
   },
 });

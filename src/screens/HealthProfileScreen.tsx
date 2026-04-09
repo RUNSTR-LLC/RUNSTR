@@ -38,17 +38,13 @@ export const HealthProfileScreen: React.FC = () => {
   const [height, setHeight] = useState('');
   const [age, setAge] = useState('');
 
-  // Debug: log when values change
   const handleWeightChange = (text: string) => {
-    console.log('[HealthProfile] Weight changed to:', text);
     setWeight(text);
   };
   const handleHeightChange = (text: string) => {
-    console.log('[HealthProfile] Height changed to:', text);
     setHeight(text);
   };
   const handleAgeChange = (text: string) => {
-    console.log('[HealthProfile] Age changed to:', text);
     setAge(text);
   };
 
@@ -84,8 +80,6 @@ export const HealthProfileScreen: React.FC = () => {
     try {
       setSaving(true);
 
-      console.log('[HealthProfile] Saving with values - weight:', weight, 'height:', height, 'age:', age);
-
       const profile: HealthProfile = {
         weight: weight ? parseFloat(weight) : undefined,
         height: height ? parseFloat(height) : undefined,
@@ -93,7 +87,6 @@ export const HealthProfileScreen: React.FC = () => {
         lastUpdated: new Date().toISOString(),
       };
 
-      console.log('[HealthProfile] Profile to save:', JSON.stringify(profile));
       await AsyncStorage.setItem(HEALTH_PROFILE_KEY, JSON.stringify(profile));
       console.log('[HealthProfile] ✅ Profile saved successfully');
       navigation.goBack();

@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
   prizePoolCard: {
     backgroundColor: theme.colors.background,
     borderWidth: 1,
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.text,
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
   rankNumber: {
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
-    color: '#fff',
+    color: theme.colors.text,
   },
 
   distributionDetails: {
@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
   totalPotCard: {
     backgroundColor: theme.colors.background,
     borderWidth: 2,
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.text,
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',

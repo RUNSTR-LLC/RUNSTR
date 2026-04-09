@@ -1,14 +1,11 @@
 /**
- * TeamMembershipService - Two-Tier Membership System
- * Handles local-first team joining with eventual Nostr consistency
- * Local membership for instant UX + official kind 30000 list membership via captain approval
- * Integrates with TeamJoinRequestService for complete join workflow
+ * TeamMembershipService - Local Team Membership Management
+ * Handles local-first team joining using AsyncStorage
+ * Team data now comes from Supabase clubs
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Event } from 'nostr-tools';
-import { NostrListService } from '../nostr/NostrListService';
-import { TeamJoinRequestService } from './TeamJoinRequestService';
 import { normalizeUserKeyForStorage } from '../../utils/nostr';
 
 export interface LocalMembership {
@@ -46,17 +43,12 @@ export interface TeamSwitchResult {
 }
 
 export class TeamMembershipService {
-  private listService: NostrListService;
-  private joinRequestService: TeamJoinRequestService;
   private static instance: TeamMembershipService;
 
   // Storage keys
   private readonly LOCAL_MEMBERSHIPS_KEY = 'runstr:localMemberships';
 
-  constructor() {
-    this.listService = NostrListService.getInstance();
-    this.joinRequestService = TeamJoinRequestService.getInstance();
-  }
+  constructor() {}
 
   static getInstance(): TeamMembershipService {
     if (!TeamMembershipService.instance) {
@@ -217,94 +209,21 @@ export class TeamMembershipService {
   }
 
   // ================================================================================
-  // JOIN REQUEST MANAGEMENT (Kind 1104 via TeamJoinRequestService)
+  // JOIN REQUEST MANAGEMENT (now handled via Supabase)
   // ================================================================================
 
   /**
-   * Prepare join request event (Kind 1104) - requires external signing
-   * Uses TeamJoinRequestService for consistent request handling
+   * Prepare join request event — now a no-op (join handled via Supabase)
    */
   prepareJoinRequest(
-    teamId: string,
-    teamName: string,
-    teamCaptainPubkey: string,
-    userPubkey: string,
-    message?: string
+    _teamId: string,
+    _teamName: string,
+    _teamCaptainPubkey: string,
+    _userPubkey: string,
+    _message?: string
   ) {
-    console.log(`📝 Preparing join request for team: ${teamName} (${teamId})`);
-
-    return this.joinRequestService.prepareJoinRequest(
-      {
-        teamId,
-        teamName,
-        captainPubkey: teamCaptainPubkey,
-        message: message || 'Request to join team',
-      },
-      userPubkey
-    );
-  }
-
-  /**
-   * Get join requests for a team (captain view)
-   * Delegates to TeamJoinRequestService for consistent handling
-   */
-  async getTeamJoinRequests(teamId: string): Promise<JoinRequest[]> {
-    console.log(`🔍 Fetching join requests for team: ${teamId}`);
-
-    try {
-      const requests = await this.joinRequestService.getTeamJoinRequests(
-        teamId
-      );
-
-      // Convert TeamJoinRequest to JoinRequest format
-      return requests.map((req) => ({
-        id: req.id,
-        teamId: req.teamId,
-        teamName: req.teamName,
-        requesterPubkey: req.requesterId,
-        requesterName: req.requesterName,
-        requestedAt: req.timestamp,
-        message: req.message,
-        nostrEvent: req.nostrEvent,
-      }));
-    } catch (error) {
-      console.error(
-        `❌ Failed to fetch join requests for team ${teamId}:`,
-        error
-      );
-      return [];
-    }
-  }
-
-  /**
-   * Subscribe to real-time join requests (for captain dashboard)
-   * Delegates to TeamJoinRequestService for consistent handling
-   */
-  async subscribeToJoinRequests(
-    captainPubkey: string,
-    callback: (joinRequest: JoinRequest) => void
-  ): Promise<import('@nostr-dev-kit/ndk').NDKSubscription> {
-    console.log(
-      `🔔 Subscribing to join requests for captain: ${captainPubkey}`
-    );
-
-    return this.joinRequestService.subscribeToJoinRequests(
-      captainPubkey,
-      (teamJoinRequest) => {
-        // Convert TeamJoinRequest to JoinRequest format
-        const joinRequest: JoinRequest = {
-          id: teamJoinRequest.id,
-          teamId: teamJoinRequest.teamId,
-          teamName: teamJoinRequest.teamName,
-          requesterPubkey: teamJoinRequest.requesterId,
-          requesterName: teamJoinRequest.requesterName,
-          requestedAt: teamJoinRequest.timestamp,
-          message: teamJoinRequest.message,
-          nostrEvent: teamJoinRequest.nostrEvent,
-        };
-        callback(joinRequest);
-      }
-    );
+    console.log('Join requests now handled via Supabase clubs');
+    return null;
   }
 
   // ================================================================================
@@ -317,23 +236,13 @@ export class TeamMembershipService {
   async getMembershipStatus(
     userPubkey: string,
     teamId: string,
-    captainPubkey: string
+    _captainPubkey: string
   ): Promise<MembershipStatus> {
-    console.log(`🔍 Checking membership status: ${userPubkey} in ${teamId}`);
-
-    // Check local membership
     const localMembership = await this.getLocalMembership(userPubkey, teamId);
-
-    // Check official membership (from Nostr list)
-    const isOfficialMember = await this.listService.isInList(
-      captainPubkey,
-      teamId,
-      userPubkey
-    );
 
     return {
       isLocalMember: !!localMembership,
-      isOfficialMember,
+      isOfficialMember: !!localMembership,
       hasRequestPending: localMembership?.status === 'requested',
       joinedAt: localMembership?.joinedAt,
       requestEventId: localMembership?.requestEventId,
@@ -341,76 +250,32 @@ export class TeamMembershipService {
   }
 
   /**
-   * Check if user is in team's official kind 30000 list
-   * Uses dTag pattern: ${teamId}-members for team membership lists
+   * Check if user is a team member (via Supabase clubs)
    */
   async isOfficialMember(
-    userPubkey: string,
-    teamId: string,
-    captainPubkey: string
+    _userPubkey: string,
+    _teamId: string,
+    _captainPubkey: string
   ): Promise<boolean> {
-    const memberListDTag = `${teamId}-members`;
-    return await this.listService.isInList(
-      captainPubkey,
-      memberListDTag,
-      userPubkey
-    );
-  }
-
-  // ================================================================================
-  // TEAM MEMBER LIST MANAGEMENT (Kind 30000)
-  // ================================================================================
-
-  /**
-   * Prepare team member list creation (Kind 30000) - requires external signing
-   * Creates initial empty member list for a team
-   */
-  prepareMemberListCreation(
-    teamId: string,
-    teamName: string,
-    captainPubkey: string,
-    initialMembers: string[] = []
-  ) {
-    console.log(`📝 Preparing member list creation for team: ${teamName}`);
-
-    const memberListDTag = `${teamId}-members`;
-
-    return this.listService.prepareListCreation(
-      {
-        name: `${teamName} Members`,
-        description: `Official member list for team: ${teamName}`,
-        members: [captainPubkey, ...initialMembers], // Captain is always included
-        dTag: memberListDTag,
-        listType: 'people', // Kind 30000 for people lists
-      },
-      captainPubkey
-    );
+    // Official membership now checked via ClubMembershipService
+    return false;
   }
 
   /**
-   * Get team members from official kind 30000 list
+   * Get team members via Supabase
    */
   async getTeamMembers(
     teamId: string,
-    captainPubkey: string
+    _captainPubkey: string
   ): Promise<string[]> {
-    const memberListDTag = `${teamId}-members`;
-    return await this.listService.getListMembers(captainPubkey, memberListDTag);
-  }
-
-  /**
-   * Get team member list stats
-   */
-  async getTeamMemberStats(
-    teamId: string,
-    captainPubkey: string
-  ): Promise<{
-    memberCount: number;
-    lastUpdated: number;
-    age: number;
-  } | null> {
-    const memberListDTag = `${teamId}-members`;
-    return await this.listService.getListStats(captainPubkey, memberListDTag);
+    try {
+      const { ClubMembershipService } = await import('../backend/ClubMembershipService');
+      const members = await ClubMembershipService.getClubMembers(teamId);
+      return members.map((m) => m.member_npub);
+    } catch (error) {
+      console.error('Failed to get team members:', error);
+      return [];
+    }
   }
 
   // ================================================================================

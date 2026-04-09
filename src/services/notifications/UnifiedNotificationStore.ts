@@ -455,6 +455,8 @@ export class UnifiedNotificationStore {
       team_join_request: 'people',
       workout_comment: 'chatbubble',
       workout_zap: 'flash',
+      challenge_received: 'trophy',
+      event_join_request: 'people',
     };
 
     return iconMap[type] || 'notifications';

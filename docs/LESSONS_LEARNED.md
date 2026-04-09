@@ -1351,4 +1351,23 @@ For any Nostr query that might return 100+ events on iOS:
 
 ---
 
-*Updated January 7, 2026. iOS timer block issue discovered and fixed via batched fetching pattern.*
+### "No script URL provided" Simulator Error
+**Problem:** iOS simulator shows "No script URL provided. Make sure the packager is running or you have embedded a JS bundle in your application bundle."
+
+**Root Cause:** Metro bundler is not running on port 8081. The native app shell has no JavaScript to load.
+
+**Fix:** Just start Metro. No simulator restart needed.
+```bash
+# Check if Metro is running:
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/status
+
+# If not running, start it:
+lsof -ti:8081 | xargs kill -9 2>/dev/null  # kill stale process if any
+npx expo start
+```
+
+**Key Insight:** The simulator auto-reconnects to Metro once it's available. No need to terminate/relaunch the app — just start Metro and the app picks it up.
+
+---
+
+*Updated February 7, 2026. Added Metro bundler reconnection behavior note.*

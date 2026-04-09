@@ -566,7 +566,7 @@ export const ManualEntryScreen: React.FC<ManualEntryScreenProps> = ({
           </View>
         </View>
 
-        {/* Post to Nostr - Only visible if WoT > 0 */}
+        {/* Share Workout - Only visible if WoT > 0 */}
         {isWoTEligible && !postedToNostr && (
           <TouchableOpacity style={styles.postButton} onPress={handleShowSocialModal}>
             <Ionicons
@@ -575,7 +575,7 @@ export const ManualEntryScreen: React.FC<ManualEntryScreenProps> = ({
               color={theme.colors.background}
               style={{ marginRight: 8 }}
             />
-            <Text style={styles.postButtonText}>Post to Nostr</Text>
+            <Text style={styles.postButtonText}>Share Workout</Text>
           </TouchableOpacity>
         )}
 

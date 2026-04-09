@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   artworkOverlayText: {
-    color: '#fff',
+    color: theme.colors.text,
     fontSize: 13,
     fontWeight: '500',
   },
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
     padding: 12,
-    backgroundColor: 'rgba(255, 59, 48, 0.1)',
+    backgroundColor: 'rgba(255, 107, 0, 0.1)',
     borderRadius: 8,
   },
   errorText: {

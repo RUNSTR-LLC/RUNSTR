@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { theme } from '../../styles/theme';
 import type { LeaderboardEntry } from '../../services/competition/SimpleLeaderboardService';
 import { ZappableUserRow } from '../ui/ZappableUserRow';
@@ -33,6 +34,7 @@ export const DailyLeaderboardCard: React.FC<DailyLeaderboardCardProps> = ({
   maxDisplay = 25,
   participantLabel = 'runner',
 }) => {
+  const navigation = useNavigation<any>();
   const [showAll, setShowAll] = useState(false);
   const INITIAL_DISPLAY = 10;
 
@@ -110,6 +112,7 @@ export const DailyLeaderboardCard: React.FC<DailyLeaderboardCardProps> = ({
               showQuickZap={true}
               zapAmount={21}
               recipientLightningAddress={entry.lightningAddress}
+              onPress={() => navigation.navigate('Profile', { pubkey: entry.npub })}
             />
           </View>
           <Text style={styles.runnerTime}>{entry.formattedScore}</Text>
@@ -169,6 +172,7 @@ export const DailyLeaderboardCard: React.FC<DailyLeaderboardCardProps> = ({
                 fallbackName={userEntryOutsideTopN.name}
                 showQuickZap={false}
                 hideActionsForCurrentUser={true}
+                onPress={() => navigation.navigate('Profile', { pubkey: userEntryOutsideTopN.npub })}
               />
             </View>
             <Text style={styles.runnerTime}>{userEntryOutsideTopN.formattedScore}</Text>
@@ -248,7 +252,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#FF8C00', // Orange - consistent with app theme
+    backgroundColor: theme.colors.textMuted, // Orange - consistent with app theme
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,

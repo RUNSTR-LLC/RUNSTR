@@ -15,13 +15,24 @@ export interface DynamicCompetition extends Competition {
   status: CompetitionStatus;
 }
 
+const ENDED_GRACE_MS = 24 * 60 * 60 * 1000; // 24 hours
+
 function deriveStatus(comp: Competition): CompetitionStatus {
   const now = Date.now();
   const start = new Date(comp.start_date).getTime();
-  const end = new Date(comp.end_date).getTime();
+  const endDate = new Date(comp.end_date);
+  endDate.setUTCHours(23, 59, 59, 999);
+  const end = endDate.getTime();
   if (now < start) return 'upcoming';
   if (now > end) return 'ended';
   return 'active';
+}
+
+/** Ended events stay visible for 24h so users can view final leaderboards */
+function isWithinGracePeriod(comp: Competition): boolean {
+  const endDate = new Date(comp.end_date);
+  endDate.setUTCHours(23, 59, 59, 999);
+  return Date.now() - endDate.getTime() <= ENDED_GRACE_MS;
 }
 
 const STATUS_ORDER: Record<CompetitionStatus, number> = {
@@ -37,12 +48,11 @@ export function useDynamicCompetitions() {
   const fetchCompetitions = useCallback(async () => {
     try {
       const raw = await SupabaseCompetitionService.fetchDynamicCompetitions();
-      const enriched: DynamicCompetition[] = raw.map((c) => ({
-        ...c,
-        status: deriveStatus(c),
-      }));
+      const enriched: DynamicCompetition[] = raw
+        .map((c) => ({ ...c, status: deriveStatus(c) }))
+        .filter((c) => c.status !== 'ended' || isWithinGracePeriod(c));
 
-      // Sort: LIVE first, then UPCOMING (soonest first), then ENDED (most recent first)
+      // Sort: LIVE first, then UPCOMING (soonest first), then recently ENDED
       enriched.sort((a, b) => {
         const orderDiff = STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
         if (orderDiff !== 0) return orderDiff;

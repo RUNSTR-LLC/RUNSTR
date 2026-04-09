@@ -1,34 +1,38 @@
 # zapstore.yaml for RUNSTR
 
 name: RUNSTR
-identifier: com.anonymous.runstr.project
-summary: Bitcoin-powered fitness competitions on Nostr
-description: Teams/Competitions/Workouts powered by Bitcoin and Nostr
+summary: Fitness competitions with rewards
+description: |
+  Track workouts, join competitions, and earn rewards.
+  Works with any device connected to Apple Health or Health Connect.
 
 repository: https://github.com/RUNSTR-LLC/RUNSTR
-homepage: https://www.runstr.club/
+website: https://www.runstr.club/
 license: MIT
 
-# App metadata
-tags: fitness bitcoin lightning nostr running cycling health sports competition teams
+tags:
+  - fitness
+  - health
+  - sports
+  - running
+  - cycling
+  - competition
 
 # App icon (local path)
 icon: assets/images/icon.png
 
-# Screenshots (will be added when available)
-images:
-  # - assets/screenshots/teams.png
-  # - assets/screenshots/profile.png
-  # - assets/screenshots/captain-dashboard.png
+# Screenshots (uncomment when available)
+# images:
+#   - assets/screenshots/teams.png
+#   - assets/screenshots/profile.png
+#   - assets/screenshots/captain-dashboard.png
 
-# Changelog file
-changelog: CHANGELOG.md
+# Release notes from changelog
+release_notes: CHANGELOG.md
 
-# Blossom servers for hosting assets
-blossom_servers:
-  - https://cdn.zapstore.dev
-  - https://blossom.primal.net
+# APK source - local build output from prerelease workflow
+release_source: ./android/app/build/outputs/apk/release/app-release.apk
 
-# APK assets - pointing to the release build for Zapstore distribution
-assets:
-  - android/app/build/outputs/apk/release/app-release.apk
+# Enrich metadata from GitHub
+metadata_sources:
+  - github

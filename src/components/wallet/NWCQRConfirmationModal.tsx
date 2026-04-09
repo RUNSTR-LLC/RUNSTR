@@ -13,8 +13,12 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Toast from 'react-native-toast-message';
 import { theme } from '../../styles/theme';
 import { NWCStorageService } from '../../services/wallet/NWCStorageService';
+
+const NWC_HINT_SHOWN_KEY = '@runstr:nwc_hint_shown';
 
 interface NWCQRConfirmationModalProps {
   visible: boolean;
@@ -41,6 +45,25 @@ export const NWCQRConfirmationModal: React.FC<NWCQRConfirmationModalProps> = ({
 
       if (!result.success) {
         throw new Error(result.error || 'Failed to connect wallet');
+      }
+
+      // Show one-time hint toast about long-press zapping
+      try {
+        const hintShown = await AsyncStorage.getItem(NWC_HINT_SHOWN_KEY);
+        if (!hintShown) {
+          await AsyncStorage.setItem(NWC_HINT_SHOWN_KEY, 'true');
+          setTimeout(() => {
+            Toast.show({
+              type: 'success',
+              text1: 'Wallet Connected!',
+              text2: 'Long-press any lightning bolt to quick-zap',
+              position: 'top',
+              visibilityTime: 5000,
+            });
+          }, 500);
+        }
+      } catch (e) {
+        // Non-critical, ignore
       }
 
       Alert.alert(
@@ -120,7 +143,7 @@ export const NWCQRConfirmationModal: React.FC<NWCQRConfirmationModalProps> = ({
               disabled={isConnecting}
             >
               {isConnecting ? (
-                <ActivityIndicator size="small" color={theme.colors.accentText} />
+                <ActivityIndicator size="small" color={theme.colors.background} />
               ) : (
                 <Text style={styles.connectButtonText}>Connect Wallet</Text>
               )}
@@ -205,14 +228,14 @@ const styles = StyleSheet.create({
   errorContainer: {
     backgroundColor: '#1a0a0a',
     borderWidth: 1,
-    borderColor: '#ff4444',
+    borderColor: '#FF6B00',
     borderRadius: 8,
     padding: 12,
     marginTop: 12,
   },
   errorText: {
     fontSize: 12,
-    color: '#ff6666',
+    color: '#FF6B00',
     textAlign: 'center',
   },
   buttonContainer: {
@@ -230,7 +253,7 @@ const styles = StyleSheet.create({
   connectButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
   cancelButton: {
     paddingVertical: 14,

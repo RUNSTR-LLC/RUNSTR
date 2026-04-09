@@ -14,14 +14,12 @@ import {
   MonthlyWorkoutGroup,
   groupWorkoutsByMonth,
 } from '../shared/MonthlyWorkoutGroup';
-// import { WorkoutLevelRing } from '../WorkoutLevelRing'; // Hidden for alpha release
 import { Nuclear1301Service } from '../../../services/fitness/Nuclear1301Service';
 import unifiedCache from '../../../services/cache/UnifiedNostrCache';
 import { CacheKeys, CacheTTL } from '../../../constants/cacheTTL';
 import type { NostrWorkout } from '../../../types/nostrWorkout';
 import type { UnifiedWorkout } from '../../../services/fitness/workoutMergeService';
 import type { Workout } from '../../../types/workout';
-import { Ionicons } from '@expo/vector-icons';
 
 interface PublicWorkoutsTabProps {
   userId: string;

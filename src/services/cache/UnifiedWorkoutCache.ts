@@ -7,7 +7,7 @@
  *
  * All leaderboards read from this cache:
  * - Season II (Running/Walking/Cycling tabs)
- * - Satlantis events
+ * - Dynamic events
  * - Running Bitcoin Challenge
  *
  * Features:
@@ -123,7 +123,7 @@ export interface CachedWorkout {
   duration?: number;         // seconds
   createdAt: number;         // unix timestamp (seconds)
   charityId?: string;        // For Season II donation tracking
-  eventIds?: string[];       // For Satlantis event tagging (#e tags)
+  eventIds?: string[];       // For event tagging (#e tags)
 }
 
 type Subscriber = () => void;
@@ -660,61 +660,6 @@ class UnifiedWorkoutCacheClass {
         }
       }
 
-      // ============================================================================
-      // DIAGNOSTIC LOGS: Investigating 40-second macrotask queue block
-      // ============================================================================
-      const diagStart = Date.now();
-
-      // [BLOCK-1] Immediately after fetchEvents - is the block starting here?
-      const t1 = Date.now();
-      setTimeout(() => console.log(`[BLOCK-1] setTimeout(0) after fetchEvents: ${Date.now() - t1}ms`), 0);
-
-      // [BLOCK-2] Microtask vs Macrotask - microtasks should fire immediately
-      const t2 = Date.now();
-      Promise.resolve().then(() => console.log(`[BLOCK-2] Promise.resolve (microtask): ${Date.now() - t2}ms`));
-      setTimeout(() => console.log(`[BLOCK-2] setTimeout (macrotask): ${Date.now() - t2}ms`), 0);
-
-      // [BLOCK-4] requestAnimationFrame timing
-      const t4 = Date.now();
-      requestAnimationFrame(() => console.log(`[BLOCK-4] requestAnimationFrame: ${Date.now() - t4}ms`));
-
-      // [BLOCK-5] setImmediate (React Native specific)
-      const t5 = Date.now();
-      setImmediate(() => console.log(`[BLOCK-5] setImmediate: ${Date.now() - t5}ms`));
-
-      // [BLOCK-6] InteractionManager (React Native specific)
-      const t6 = Date.now();
-      InteractionManager.runAfterInteractions(() => console.log(`[BLOCK-6] runAfterInteractions: ${Date.now() - t6}ms`));
-
-      // [BLOCK-7] Multiple staggered timeouts to find when block ends
-      const t7 = Date.now();
-      [0, 1000, 5000, 10000, 20000, 30000, 40000].forEach(delay => {
-        setTimeout(() => console.log(`[BLOCK-7] setTimeout(${delay}) fired at: ${Date.now() - t7}ms`), delay);
-      });
-
-      // [BLOCK-9] Check NDK pending operations
-      console.log(`[BLOCK-9] NDK pool stats:`, ndk.pool?.stats());
-      console.log(`[BLOCK-9] NDK pool relays:`, ndk.pool?.relays?.size ?? 'unknown');
-
-      // [BLOCK-10] JS thread gap detector - logs when JS thread is blocked
-      const t10 = Date.now();
-      let lastTick = t10;
-      const intervalId = setInterval(() => {
-        const now = Date.now();
-        const gap = now - lastTick;
-        if (gap > 100) { // Only log if gap > 100ms (indicates blocking)
-          console.log(`[BLOCK-10] JS thread gap: ${gap}ms at T+${now - t10}ms`);
-        }
-        lastTick = now;
-      }, 50);
-      setTimeout(() => {
-        clearInterval(intervalId);
-        console.log(`[BLOCK-10] Gap detector stopped at T+${Date.now() - t10}ms`);
-      }, 60000);
-
-      console.log(`[DIAG] All diagnostic callbacks scheduled in ${Date.now() - diagStart}ms`);
-      // ============================================================================
-
       // TIMING: Process collected events
       let stepStart = Date.now();
       const newWorkouts = new Map<string, CachedWorkout>();
@@ -806,7 +751,7 @@ class UnifiedWorkoutCacheClass {
       // Extract charity ID (for Season II)
       const charityId = getTag('charity');
 
-      // Extract event IDs (for Satlantis events)
+      // Extract event IDs (for event tagging)
       const eventIds = getAllTags('e');
 
       return {
@@ -1003,7 +948,7 @@ class UnifiedWorkoutCacheClass {
   }
 
   /**
-   * Get workouts in date range (for Satlantis events)
+   * Get workouts in date range (for event leaderboards)
    * @param startTs - Start timestamp (seconds)
    * @param endTs - End timestamp (seconds)
    */

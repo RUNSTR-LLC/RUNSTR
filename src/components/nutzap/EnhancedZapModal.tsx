@@ -134,7 +134,7 @@ export const EnhancedZapModal: React.FC<EnhancedZapModalProps> = ({
 
     // If using external wallet, generate invoice and show QR
     if (useExternalWallet) {
-      const zapMemo = memo || `⚡ Zap from RUNSTR - ${amount} sats!`;
+      const zapMemo = memo || `Zap from RUNSTR - ${amount} sats!`;
 
       // Update default if requested
       if (setAsDefault && onDefaultAmountChange) {
@@ -154,7 +154,7 @@ export const EnhancedZapModal: React.FC<EnhancedZapModalProps> = ({
     setIsSending(true);
 
     try {
-      const zapMemo = memo || `⚡ Zap from RUNSTR - ${amount} sats!`;
+      const zapMemo = memo || `Zap from RUNSTR - ${amount} sats!`;
       let success = false;
 
       // Check if recipientNpub is actually a Lightning address (contains @)
@@ -225,7 +225,7 @@ export const EnhancedZapModal: React.FC<EnhancedZapModalProps> = ({
         }
 
         Alert.alert(
-          '⚡ Zap Sent!',
+          'Zap Sent!',
           `Successfully sent ${amount} sats to ${recipientName}`,
           [
             {

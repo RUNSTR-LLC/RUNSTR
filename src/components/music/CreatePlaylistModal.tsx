@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 16,
     padding: 12,
-    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+    backgroundColor: 'rgba(255, 107, 0, 0.1)',
     borderRadius: 8,
   },
   errorText: {

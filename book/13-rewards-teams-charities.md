@@ -1,145 +1,116 @@
-# Chapter 13: Teams & Charities
+# Chapter 13: Reward Destinations
 
 ## Summary
 
-In RUNSTR, selecting a team means choosing a charity to support with your fitness activities. The Teams tab presents 17+ organizations—from Bitcoin Bay building circular economies in the Bay Area to the ALS Network honoring Hal Finney's legacy. Each organization has a Lightning address ready to receive donations, and your workout efforts can directly fund their missions.
+In RUNSTR, you choose where your rewards go. The Reward Destination picker presents options across four categories: charities like the ALS Network and Bitcoin Veterans, open source projects like Bitcoin Ekasi and Afribit Kibera, services like PPQ.AI for AI credits, and yourself — rewards sent straight to your wallet. You pick one destination for all your rewards and can change it anytime.
 
-Teams and charities are part of the Rewards ecosystem. When you select a team, your reward routing can direct payments to that charity. Beyond automatic routing, you can zap charities directly using the lightning bolt button on any team card—tap to open a donation modal with preset amounts (21, 100, 500, or 1,000 sats), or long-press for a quick 21-sat zap if you have NWC configured.
+This is central to RUNSTR's identity: **fitness rewards, your way.** The point isn't to pressure anyone into donating — it's to let every user decide what their effort is worth and where it should go. Whether you're funding ALS research, supporting a grassroots initiative, earning AI credits, or growing your own wallet, every qualifying workout sends rewards exactly where you chose.
 
----
-
-## Teams = Charities
-
-In RUNSTR, **"Teams" and "Charities" are the same thing**. The Teams tab shows organizations you can support through your fitness activities.
-
-When you select a team:
-- Your workouts contribute to that charity's fitness totals
-- Reward routing can direct payments to that charity
-- You become part of a community supporting that cause
+Beyond automatic reward routing, you can also donate directly to any charity or project using the lightning bolt button on their card — tap to open a donation modal with preset amounts, or long-press for a quick donation if you have NWC configured.
 
 ---
 
-## How Reward Routing Works
+## Reward Destination Model
 
-### Binary Routing
+### Single Destination
 
-Rewards are routed using simple binary logic:
+Users choose ONE destination for all rewards:
 
-| User Has Lightning Address? | Reward Destination |
-|----------------------------|-------------------|
-| Yes | User's Lightning address |
-| No | Selected charity's Lightning address |
+| Category | Examples | What Happens |
+|----------|----------|-------------|
+| **Charities** | ALS Network, Bitcoin Veterans | Reward sent as micro donation |
+| **Projects** | Bitcoin Ekasi, Bitcoin Isla, Afribit Kibera | Reward sent to project |
+| **Services** | PPQ.AI | Reward converted to AI credits |
+| **You** | User's wallet | Reward sent to your address |
 
-### How It Works
+### How Routing Works
 
-When you earn a daily reward:
-1. External service checks if user has configured Lightning address
-2. If yes → Payment sent to user's Lightning address
-3. If no → Payment sent to selected charity's Lightning address
+When you earn a reward:
+1. Workout submitted to Supabase with destination tag
+2. Database trigger fires claim-reward Edge Function
+3. Edge Function reads destination tag from workout
+4. Sends reward via LNURL to the destination's address
+5. Records payment in `reward_payments` table
 
-**Why Binary?** This simple model is fraud-resistant and easy to understand. Users who want to support charity simply don't configure a Lightning address.
-
----
-
-## Supported Charities
-
-All 17+ charities are hardcoded in `src/constants/charities.ts`. There is no Nostr-based team discovery -- all organizations are preset constants.
-
-| Charity | Lightning Address | Focus |
-|---------|-------------------|-------|
-| PPQ.AI | *(bolt11 invoices)* | AI credits for Coach RUNSTR |
-| ALS Network | `RunningBTC@primal.net` | ALS research (Hal Finney) |
-| Ashigaru | `ashigarufund@geyser.fund` | Privacy wallet development |
-| Bitcoin Bay | `sats@donate.bitcoinbay.foundation` | Bay Area Bitcoin economy |
-| Bitcoin Ekasi | `bitcoinekasi@primal.net` | South Africa |
-| Bitcoin Isla | `BTCIsla@primal.net` | Isla Mujeres, Mexico |
-| Bitcoin District | `bdi@strike.me` | Washington DC |
-| Bitcoin Yucatan | `bitcoinyucatancommunity@geyser.fund` | Mexico |
-| Bitcoin Veterans | `opbitcoin@strike.me` | US Veterans support |
-| Bitcoin Makueni | `rosechicken19@primal.net` | Kenya |
-| Bitcoin House Bali | `btchousebali@walletofsatoshi.com` | Bali, Indonesia |
-| Human Rights Foundation | `nostr@btcpay.hrf.org` | Human rights |
-| RUNSTR | `thewildhustle@strike.me` | RUNSTR project support |
-| Afribit Kibera | `afribit@blink.sv` | Kenya |
-| Bitcoin Basin | `plasticbowl87@walletofsatoshi.com` | New Zealand |
-| BuhoGO | `buho@lnbits.de` | NWC-ready wallet app |
-| Central PA Bitcoiners | `businesscat@getalby.com` | Pennsylvania |
-| WeSatoshi | `thefirstbitcointerminalhardware@geyser.fund` | Bitcoin terminal hardware |
-
-**Note:** PPQ.AI is a special team -- rewards go to AI credits for Coach RUNSTR instead of sats to a Lightning address.
+**Why single destination?** Simple model, easy to understand. Users who want to support a cause select it. Users who want rewards for themselves select themselves. No splits, no percentages, no complexity.
 
 ---
 
-## Selecting a Team
+## Supported Destinations
+
+All destinations are defined in `src/constants/charities.ts` and `src/config/charityPayments.ts`.
+
+### Charities
+
+| Destination | Focus |
+|-------------|-------|
+| ALS Network | ALS research (honoring Hal Finney) |
+| Bitcoin Veterans | US Veterans support |
+
+### Projects
+
+| Destination | Focus |
+|-------------|-------|
+| Bitcoin Bay | Bay Area circular economy |
+| Bitcoin Ekasi | South Africa |
+| Bitcoin Isla | Isla Mujeres, Mexico |
+| Bitcoin District | Washington DC |
+| Bitcoin Yucatan | Mexico |
+| Bitcoin Makueni | Kenya |
+| Bitcoin House Bali | Bali, Indonesia |
+| Bitcoin Basin | New Zealand |
+| BuhoGO | Wallet app |
+| Central PA Bitcoiners | Pennsylvania |
+| WeSatoshi | Terminal hardware |
+
+### Services
+
+| Destination | Focus |
+|-------------|-------|
+| PPQ.AI | AI credits for Coach RUNSTR |
+
+### You (Self)
+
+Rewards sent to the user's own wallet via their configured address.
+
+---
+
+## Selecting a Destination
 
 ### Selection Flow
 
-1. Navigate to Teams tab
-2. Scroll through "ALL TEAMS" list
-3. Tap on desired team
-4. Team moves to "YOUR TEAM" section
-5. Checkmark appears on selected team
+1. Navigate to Rewards screen
+2. Tap "Change" on RewardDestinationSection
+3. **RewardDestinationPicker** modal opens
+4. Four categories displayed: YOU, CHARITIES, PROJECTS, SERVICES
+5. Tap to select → saved to AsyncStorage
+6. All future rewards route to this destination
 
-### One Team at a Time
+### Wallet Setup (If "You" Selected)
 
-Users can only have **one active team**:
-- Simplifies reward routing
-- Clear focus on single cause
-- Can change team anytime
+- Enter your address manually
+- Or connect NWC wallet (scan QR or paste connection string)
 
----
+### Changing Destination
 
-## Teams Tab
-
-The Teams tab shows:
-
-```
-┌─────────────────────────────────────┐
-│  YOUR TEAM                          │
-│  ┌─────────────────────────────┐   │
-│  │ [Logo] ALS Network       ⚡ ✓│   │
-│  │ Honoring Hal Finney -       │   │
-│  │ Supporting ALS research     │   │
-│  └─────────────────────────────┘   │
-├─────────────────────────────────────┤
-│  ALL TEAMS                          │
-│  Select a team to support with      │
-│  your workouts                      │
-│                                     │
-│  [Logo] Bitcoin Bay            ⚡   │
-│  Bitcoin circular economy...        │
-│                                     │
-│  [Logo] Bitcoin Ekasi          ⚡   │
-│  Bitcoin circular economy...        │
-│                                     │
-│  [Logo] Bitcoin Isla           ⚡   │
-│  Bitcoin circular economy...        │
-│                                     │
-│  ... more teams ...                 │
-└─────────────────────────────────────┘
-```
-
-### Team Card Elements
-- **Logo** - Charity's image
-- **Name** - Bitcoin Bay, Bitcoin Ekasi, etc.
-- **Description** - Brief about the charity
-- **Zap Button (⚡)** - Direct donation button
-- **Checkmark (✓)** - Indicates selected team
+- Change anytime via the Rewards screen
+- No cooldown, no penalty
+- New destination applies to all future rewards immediately
 
 ---
 
-## Zap Button
+## Direct Donations
 
-The lightning bolt (⚡) button enables direct donations:
+The lightning bolt button on destination cards enables direct donations beyond automatic reward routing:
 
 ### Single Tap
 Opens donation modal:
-- Select amount (21, 100, 500, 1000 sats)
+- Select amount (21, 100, 500, 1000 preset amounts)
 - Generate invoice
-- Pay with any Lightning wallet
+- Pay with any wallet
 
 ### Long Press (500ms)
-Quick zap (21 sats) via NWC if configured:
+Quick donation (21 amount) via NWC if configured:
 - Instant payment
 - No modal needed
 - Visual confirmation
@@ -152,14 +123,14 @@ Quick zap (21 sats) via NWC if configured:
 
 | Service | File | Purpose |
 |---------|------|---------|
-| CharitySelectionService | `src/services/charity/CharitySelectionService.ts` | Track selected team |
-| DonationTrackingService | `src/services/donation/DonationTrackingService.ts` | Record donations |
+| CharitySelectionService | `src/services/charity/CharitySelectionService.ts` | Track selected destination |
+| DonationTrackingService | `src/services/donation/DonationTrackingService.ts` | Record direct donations |
 
-### Charity Constants
+### Destination Constants
 
 **File:** `src/constants/charities.ts`
 
-Contains all supported charities with metadata:
+Contains all supported destinations with metadata:
 
 ```typescript
 interface Charity {
@@ -176,21 +147,21 @@ const CHARITIES: Charity[] = [
   {
     id: 'bitcoin-bay',
     name: 'Bitcoin Bay',
-    displayName: 'Zap Bitcoin Bay',
+    displayName: 'Bitcoin Bay',
     lightningAddress: 'sats@donate.bitcoinbay.foundation',
     description: 'Bitcoin circular economy in the Bay Area',
   },
-  // ... 12+ more charities
+  // ... 15+ more destinations
 ];
 ```
 
 ### Helper Functions
 
 ```typescript
-// Get charity by ID
+// Get destination by ID
 function getCharityById(charityId?: string): Charity | undefined
 
-// Get all charities for dropdown
+// Get all destinations for picker
 function getCharityOptions(): { label: string; value: string }[]
 ```
 
@@ -199,77 +170,51 @@ function getCharityOptions(): { label: string; value: string }[]
 **File:** `src/services/charity/CharitySelectionService.ts`
 
 ```typescript
-// Get selected charity ID
+// Get selected destination ID
 async getSelectedCharity(): Promise<string | null>
 
-// Set selected charity
+// Set selected destination
 async setSelectedCharity(charityId: string): Promise<void>
 
-// Get charity stats (total earned from wins)
+// Get destination stats (total earned)
 async getCharityStats(): Promise<CharityStats>
 ```
 
-### CharitySection Component
+### RewardDestinationPicker Component
 
-**File:** `src/components/team/CharitySection.tsx`
+**File:** Located in reward/destination components
 
-Renders the charity card with zap functionality:
-
-```typescript
-interface CharitySectionProps {
-  charity: Charity;
-  isSelected: boolean;
-  onSelect: () => void;
-  onZap: (amount: number) => void;
-}
-```
-
-Features:
-- Logo image
-- Name and description
-- Animated zap button
-- Selection indicator
-- Long-press quick zap
-
-### Teams Screen
-
-**File:** `src/screens/TeamsScreen.tsx`
-
-Main screen showing all teams:
-
-```typescript
-// Structure
-- "YOUR TEAM" section (selected team)
-- "ALL TEAMS" section (all charities)
-- Team selection handling
-- Zap modal integration
-```
+Renders the destination selection modal with four categories:
+- YOU section — rewards to your wallet
+- CHARITIES section — micro donations to charities
+- PROJECTS section — support open source projects
+- SERVICES section — convert to AI credits (PPQ.AI)
 
 ### Storage Keys
 
 | Key | Purpose |
 |-----|---------|
-| `@runstr:selected_charity_id` | User's selected team |
-| `@runstr:lightning_address` | User's Lightning address (if configured) |
+| `@runstr:selected_team_id` | User's selected reward destination |
+| `@runstr:lightning_address` | User's address (if "You" selected) |
+| `@runstr:reward_destination` | Destination category |
 
 ---
 
-## What Teams & Charities Should Be
+## What Reward Destinations Should Be
 
 ### Ideal Architecture
-1. **Teams = Charities** - Simple mental model
-2. **One selected team** - User picks one to support
-3. **Binary routing** - Rewards go to user OR charity (not both)
-4. **Direct zaps** - Optional manual donations
-5. **Lightning native** - All charities have Lightning addresses
-6. **Part of Rewards** - Not a separate pillar
+1. **Single destination** — User picks one, no splits
+2. **Four categories** — Charities, Projects, Services, You
+3. **Change anytime** — No lock-in, no cooldown
+4. **Direct donations** — Optional manual donations via zap button
+5. **Part of Rewards** — Not a separate system, integrated into the reward flow
 
 ### What to Avoid
-- Percentage-based donation splits
-- Complex donation tracking
-- Donation leaderboards
+- Percentage-based splits
+- Complex donation tracking dashboards
 - Mandatory donations
-- Treating donations as a separate pillar from rewards
+- Treating destinations as a separate pillar from rewards
+- Using "sats", "Bitcoin", or "Lightning" in user-facing destination descriptions
 
 ---
 

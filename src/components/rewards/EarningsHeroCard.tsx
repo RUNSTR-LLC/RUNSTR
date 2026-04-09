@@ -25,9 +25,10 @@ import { SupabaseRewardService, RewardBreakdown } from '../../services/rewards/S
 
 interface EarningsHeroCardProps {
   pubkey: string;
+  isPPQ?: boolean;
 }
 
-export const EarningsHeroCard: React.FC<EarningsHeroCardProps> = ({ pubkey }) => {
+export const EarningsHeroCard: React.FC<EarningsHeroCardProps> = ({ pubkey, isPPQ }) => {
   const { t } = useTranslation('rewards');
   const [breakdown, setBreakdown] = useState<RewardBreakdown | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -111,7 +112,9 @@ export const EarningsHeroCard: React.FC<EarningsHeroCardProps> = ({ pubkey }) =>
             color="#444"
           />
           <Text style={styles.emptyText}>
-            {t('earningsHero.noEarningsYet', 'Complete workouts to earn sats!')}
+            {isPPQ
+              ? t('earningsHero.noEarningsYetPPQ', 'Complete workouts to earn AI credits!')
+              : t('earningsHero.noEarningsYet', 'Complete workouts to earn sats!')}
           </Text>
         </View>
       </View>
@@ -131,7 +134,7 @@ export const EarningsHeroCard: React.FC<EarningsHeroCardProps> = ({ pubkey }) =>
           <Text style={styles.heroNumber}>
             {totalEarned.toLocaleString()}
           </Text>
-          <Text style={styles.heroUnit}>sats</Text>
+          <Text style={styles.heroUnit}>{isPPQ ? 'credits' : 'sats'}</Text>
         </View>
         <Text style={styles.heroLabel}>
           {t('earningsHero.totalEarned', 'total earned')}
@@ -148,7 +151,7 @@ export const EarningsHeroCard: React.FC<EarningsHeroCardProps> = ({ pubkey }) =>
           <Text style={styles.splitLabel}>
             {t('earningsHero.toYou', 'to you')}
           </Text>
-          <Ionicons name="checkmark-circle" size={18} color="#4CAF50" style={styles.splitIcon} />
+          <Ionicons name="checkmark-circle" size={18} color="#FF9D42" style={styles.splitIcon} />
         </View>
 
         {/* Divider */}
@@ -162,7 +165,7 @@ export const EarningsHeroCard: React.FC<EarningsHeroCardProps> = ({ pubkey }) =>
           <Text style={styles.splitLabel}>
             {t('earningsHero.toCharity', 'to charity')}
           </Text>
-          <Ionicons name="checkmark-circle" size={18} color="#4CAF50" style={styles.splitIcon} />
+          <Ionicons name="checkmark-circle" size={18} color="#FF9D42" style={styles.splitIcon} />
         </View>
       </View>
 

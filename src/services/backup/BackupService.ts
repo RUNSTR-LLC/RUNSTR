@@ -13,7 +13,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from 'expo-constants';
+import * as Application from 'expo-application';
 import pako from 'pako';
 import { GlobalNDKService } from '../nostr/GlobalNDKService';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
@@ -30,7 +30,6 @@ import type { JournalEntry } from '../../types/journal';
 const BACKUP_EVENT_KIND = 30078;
 const BACKUP_D_TAG = 'runstr-workout-backup';
 const BACKUP_VERSION = 1;
-const RUNSTR_APP_VERSION = Constants.expoConfig?.version ?? 'unknown';
 
 // Default relays for backup (reliable, high-availability)
 export const DEFAULT_BACKUP_RELAYS = [
@@ -54,6 +53,8 @@ export interface DailyStepSummary {
 export interface BackupPreferences {
   unitSystem: 'metric' | 'imperial';
   selectedCharity?: string;
+  ppqApiKey?: string;
+  ppqCreditId?: string;
 }
 
 /**
@@ -274,24 +275,28 @@ export class BackupService {
   private async collectBackupData(): Promise<WorkoutBackupPayload> {
     const workoutService = LocalWorkoutStorageService.getInstance();
 
-    const [workouts, habits, journalEntries, unitSystem, selectedCharity] = await Promise.all([
+    const [workouts, habits, journalEntries, unitSystem, selectedCharity, ppqApiKey, ppqCreditId] = await Promise.all([
       workoutService.getAllWorkouts(),
       getAllHabits(),
       JournalService.getAllEntries(),
       AsyncStorage.getItem('@runstr:unit_system'),
       AsyncStorage.getItem('@runstr:selected_charity'),
+      AsyncStorage.getItem('@runstr:ppq_api_key'),
+      AsyncStorage.getItem('@runstr:ppq_credit_id'),
     ]);
 
     return {
       version: BACKUP_VERSION,
       exportedAt: new Date().toISOString(),
-      appVersion: RUNSTR_APP_VERSION,
+      appVersion: Application.nativeApplicationVersion || '1.7.5',
       workouts,
       habits: habits.length > 0 ? habits : undefined,
       journal: journalEntries.length > 0 ? journalEntries : undefined,
       preferences: {
         unitSystem: (unitSystem as 'metric' | 'imperial') || 'metric',
         selectedCharity: selectedCharity || undefined,
+        ppqApiKey: ppqApiKey || undefined,
+        ppqCreditId: ppqCreditId || undefined,
       },
     };
   }
@@ -317,10 +322,26 @@ export class BackupService {
     payload: WorkoutBackupPayload,
     signer: NDKSigner
   ): Promise<string> {
+    // Stringify then release the payload reference to free memory sooner.
+    // Users with many GPS workouts can have large payloads; releasing the
+    // original object before compression reduces peak memory on mobile.
     const plaintext = JSON.stringify(payload);
+    // payload is still referenced by the caller, but we avoid holding
+    // any additional references inside this method from here on.
 
     // Compress with gzip to handle large payloads (NIP-44 has 64KB limit)
     const compressed = pako.gzip(plaintext);
+
+    // NIP-44 has a ~65KB plaintext limit. After compression, the base64-encoded
+    // data will be ~33% larger, so check compressed size against a safe threshold.
+    const MAX_COMPRESSED_BYTES = 64000;
+    if (compressed.length > MAX_COMPRESSED_BYTES) {
+      throw new Error(
+        `Backup too large for encryption: ${compressed.length} bytes compressed ` +
+          `(limit: ${MAX_COMPRESSED_BYTES}). Try removing old workouts or GPS data to reduce size.`
+      );
+    }
+
     const compressedBase64 = this.uint8ArrayToBase64(compressed);
 
     // Log compression ratio for debugging
@@ -358,7 +379,7 @@ export class BackupService {
     // Tags (metadata visible to relays, content is encrypted)
     event.tags = [
       ['d', BACKUP_D_TAG], // Replaceable identifier
-      ['client', 'RUNSTR', RUNSTR_APP_VERSION],
+      ['client', 'RUNSTR', Application.nativeApplicationVersion || '1.7.5'],
       ['encrypted', 'nip44'],
       ['compression', 'gzip'], // Content is gzip compressed before encryption
       ['backup_version', String(BACKUP_VERSION)],

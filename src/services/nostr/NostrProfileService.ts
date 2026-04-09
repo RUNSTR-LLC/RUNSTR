@@ -144,11 +144,6 @@ export class NostrProfileService {
     try {
       const parsed = JSON.parse(content);
 
-      // DEBUG: Log raw kind 0 content to diagnose banner field issues
-      console.log('🔍 [DEBUG] Raw kind 0 content keys:', Object.keys(parsed));
-      console.log('🔍 [DEBUG] Banner field value:', parsed.banner);
-      console.log('🔍 [DEBUG] Raw content (first 500 chars):', content.substring(0, 500));
-
       // Extract and clean profile fields
       const profile: Partial<NostrProfile> = {};
 

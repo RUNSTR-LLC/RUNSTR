@@ -237,7 +237,7 @@ export class WorkoutEventStore {
 
   /**
    * Get workouts for an event (filtered by date range and participants)
-   * Used by Satlantis events to read from unified cache instead of direct Nostr queries
+   * Used by events to read from unified cache instead of direct Nostr queries
    */
   getEventWorkouts(
     startTimestamp: number,

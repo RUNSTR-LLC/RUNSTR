@@ -13,6 +13,7 @@ import {
   ScrollView,
   Modal,
   Keyboard,
+  Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { HeroMetric } from '../../components/activity/HeroMetric';
@@ -38,6 +39,9 @@ import Toast from 'react-native-toast-message';
 import type { HealthProfile } from '../HealthProfileScreen';
 import type { PublishableWorkout } from '../../services/nostr/workoutPublishingService';
 import type { Workout } from '../../types/workout';
+import { CameraPositionGuide } from '../../components/activity/CameraPositionGuide';
+import { VerifiedCheckmark } from '../../components/activity/VerifiedCheckmark';
+import { useVerification } from '../../hooks/useVerification';
 
 type ExerciseType =
   | 'pushups'
@@ -101,6 +105,21 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
   const [savedWorkoutId, setSavedWorkoutId] = useState<string | null>(null);
   const [savedWorkout, setSavedWorkout] = useState<Workout | null>(null);
   const [estimatedCalories, setEstimatedCalories] = useState<number>(0);
+
+  // Camera verification
+  const {
+    verificationEnabled,
+    landmarksDetected,
+    verifiedRepCount,
+    verificationReceipt,
+    cameraRef,
+    handleToggleVerification,
+    handleRepCounted,
+    setLandmarksDetected,
+    completeVerifiedSet,
+    generateReceipt,
+    resetVerification,
+  } = useVerification(selectedExercise);
 
   // Modal state
   const [showRepsModal, setShowRepsModal] = useState(false);
@@ -254,7 +273,29 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
     }, 1000);
   };
 
-  const handleSetComplete = () => {
+  const handleSetComplete = async () => {
+    // When verification is enabled, use camera-counted reps instead of manual input
+    if (verificationEnabled) {
+      const verifiedReps = completeVerifiedSet();
+      const newReps = [...repsCompleted, verifiedReps];
+      const newWeights = [...weightsCompleted, 0];
+      setRepsCompleted(newReps);
+      setWeightsCompleted(newWeights);
+
+      // Check if workout is complete
+      if (currentSet >= totalSets) {
+        const duration = Math.floor((Date.now() - workoutStartTime) / 1000);
+        setWorkoutDuration(duration);
+        generateReceipt(restDuration * 1000);
+        await saveWorkoutToLocal(newReps, newWeights, duration);
+        setPhase('summary');
+      } else {
+        setRestTimeRemaining(restDuration);
+        setPhase('rest');
+      }
+      return;
+    }
+
     setCurrentRepsInput(targetReps.toString());
     // Pre-fill weight with either exerciseWeight (setup value) or last set's weight
     const defaultWeight =
@@ -282,6 +323,10 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
     if (currentSet >= totalSets) {
       const duration = Math.floor((Date.now() - workoutStartTime) / 1000);
       setWorkoutDuration(duration);
+
+      if (verificationEnabled) {
+        generateReceipt(restDuration * 1000);
+      }
 
       // AUTO-SAVE: Save workout to local storage immediately
       await saveWorkoutToLocal(newReps, newWeights, duration);
@@ -352,7 +397,8 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
         restTime: restDuration,
         weight: averageWeight, // Average weight across all sets
         weightsPerSet: completedWeights, // Individual weights per set
-      });
+        verificationReceipt: verificationReceipt ?? undefined,
+      } as any);
 
       console.log(
         `✅ Strength workout auto-saved: ${selectedExercise} - ${totalReps} reps in ${totalSets} sets, ${calories} cal (ID: ${workoutId})`
@@ -378,6 +424,7 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
         exerciseType: selectedExercise, // Specific exercise (pushups, bench, etc.) for social cards
         repsBreakdown: completedReps, // Per-set reps for detailed social cards
         syncedAt: new Date().toISOString(),
+        verificationReceipt: verificationReceipt ?? undefined,
       };
 
       setSavedWorkout(workout);
@@ -686,6 +733,33 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
               ))}
             </View>
           </View>
+
+          {/* Verify with Camera — pushups only */}
+          {selectedExercise === 'pushups' && (
+            <View style={styles.setupCard}>
+              <View style={styles.setupCardRow}>
+                <Text style={styles.setupCardLabel}>Verify with Camera</Text>
+                <Switch
+                  value={verificationEnabled}
+                  onValueChange={handleToggleVerification}
+                  trackColor={{ false: 'rgba(255,255,255,0.15)', true: theme.colors.accent }}
+                  thumbColor={verificationEnabled ? '#000' : 'rgba(255,255,255,0.5)'}
+                />
+              </View>
+              {verificationEnabled && (
+                <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginTop: 4 }}>
+                  AI counts your reps. Earn a verified badge.
+                </Text>
+              )}
+            </View>
+          )}
+          {verificationEnabled && phase === 'setup' && (
+            <CameraPositionGuide
+              ref={cameraRef}
+              mode="position"
+              onLandmarksDetected={setLandmarksDetected}
+            />
+          )}
         </ScrollView>
 
         {/* Fixed bottom - circle start button */}
@@ -771,6 +845,16 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
                 </ScrollView>
               </View>
             )}
+
+            {/* Camera guide for active verification */}
+            {phase === 'active' && verificationEnabled && (
+              <CameraPositionGuide
+                ref={cameraRef}
+                mode="active"
+                onRepCounted={handleRepCounted}
+                onLandmarksDetected={setLandmarksDetected}
+              />
+            )}
           </ScrollView>
         </View>
 
@@ -788,9 +872,19 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
         </View>
 
         {/* Reps & Weight Input Modal */}
-        <Modal visible={showRepsModal} animationType="fade" transparent>
-          <View style={styles.modalOverlay}>
-            <View style={styles.repsModalContainer}>
+        <Modal
+          visible={showRepsModal}
+          animationType="fade"
+          transparent
+          onRequestClose={() => setShowRepsModal(false)}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowRepsModal(false)}
+          >
+            <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+              <View style={styles.repsModalContainer}>
               <Text style={styles.repsModalTitle}>
                 Set {currentSet} Complete
               </Text>
@@ -829,8 +923,16 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
               >
                 <Text style={styles.confirmButtonText}>Save Set</Text>
               </TouchableOpacity>
-            </View>
-          </View>
+
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setShowRepsModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          </TouchableOpacity>
         </Modal>
 
         {/* Custom Alert */}
@@ -924,8 +1026,16 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
 
           <View style={styles.summaryMainStats}>
             <View style={styles.summaryStatItem}>
-              <Text style={styles.summaryStatValue}>{totalReps}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.summaryStatValue}>{totalReps}</Text>
+                {verificationReceipt && <VerifiedCheckmark />}
+              </View>
               <Text style={styles.summaryStatLabel}>Total Reps</Text>
+              {verificationReceipt && (
+                <Text style={{ color: theme.colors.textMuted, fontSize: 11, marginTop: 2 }}>
+                  {Math.round(verificationReceipt.confidence * 100)}% confidence
+                </Text>
+              )}
             </View>
             <View style={styles.summaryStatItem}>
               <Text style={styles.summaryStatValue}>{totalSets}</Text>
@@ -970,7 +1080,7 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
           </View>
         </View>
 
-        {/* Post to Nostr - Only visible if WoT > 0 */}
+        {/* Share - Only visible if WoT > 0 */}
         {isWoTEligible && !postedToNostr && (
           <TouchableOpacity style={styles.postButton} onPress={handleShowSocialModal}>
             <Ionicons
@@ -979,7 +1089,7 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
               color={theme.colors.background}
               style={{ marginRight: 8 }}
             />
-            <Text style={styles.postButtonText}>Post to Nostr</Text>
+            <Text style={styles.postButtonText}>Share</Text>
           </TouchableOpacity>
         )}
 
@@ -996,6 +1106,25 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
           </View>
         )}
 
+        {/* Done Button - keeps workout, returns to setup */}
+        <TouchableOpacity
+          style={styles.doneButton}
+          onPress={() => {
+            setPhase('setup');
+            setRepsCompleted([]);
+            setWeightsCompleted([]);
+            setCurrentSet(1);
+            setSavedWorkoutId(null);
+            setSavedWorkout(null);
+            setAutoCompeteTriggered(false);
+            setPostedToNostr(false);
+            setShowShareModal(false);
+            resetVerification();
+          }}
+        >
+          <Text style={styles.doneButtonText}>Done</Text>
+        </TouchableOpacity>
+
         {/* Discard Button */}
         <TouchableOpacity
           style={styles.discardButton}
@@ -1006,11 +1135,14 @@ export const StrengthTrackerScreen: React.FC<StrengthTrackerScreenProps> = ({
             }
             setPhase('setup');
             setRepsCompleted([]);
+            setWeightsCompleted([]);
             setCurrentSet(1);
             setSavedWorkoutId(null);
             setSavedWorkout(null);
             setAutoCompeteTriggered(false);
             setPostedToNostr(false);
+            setShowShareModal(false);
+            resetVerification();
           }}
         >
           <Text style={styles.discardButtonText}>Discard</Text>
@@ -1321,6 +1453,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
   },
+  cancelButton: {
+    marginTop: 10,
+    paddingVertical: 14,
+    alignItems: 'center' as const,
+  },
+  cancelButtonText: {
+    color: theme.colors.textMuted,
+    fontSize: 16,
+    fontWeight: theme.typography.weights.semiBold,
+  },
   restTimerCircle: {
     width: 200,
     height: 200,
@@ -1456,6 +1598,18 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   postButtonText: {
+    color: theme.colors.background,
+    fontSize: 16,
+    fontWeight: theme.typography.weights.bold,
+  },
+  doneButton: {
+    backgroundColor: theme.colors.orangeBright,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  doneButtonText: {
     color: theme.colors.background,
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,

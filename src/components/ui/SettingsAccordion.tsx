@@ -9,7 +9,6 @@ import {
   UIManager,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../../styles/theme';
 
 // Enable LayoutAnimation on Android
 if (

@@ -844,7 +844,7 @@ const styles = StyleSheet.create({
   blossomPlaceholderCell: {
     width: '100%',
     height: '100%',
-    backgroundColor: 'rgba(255, 182, 193, 0.15)',
+    backgroundColor: 'rgba(255, 157, 66, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -869,7 +869,7 @@ const styles = StyleSheet.create({
   blossomCoverPlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: 'rgba(255, 182, 193, 0.15)',
+    backgroundColor: 'rgba(255, 157, 66, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
   },

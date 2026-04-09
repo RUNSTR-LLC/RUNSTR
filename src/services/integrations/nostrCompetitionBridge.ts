@@ -5,11 +5,9 @@
  */
 
 import { NostrCompetitionContextService } from './NostrCompetitionContextService';
-import { LeaderboardService } from '../competition/leaderboardService';
 import type { NostrCompetition } from './NostrCompetitionContextService';
 import type {
   NostrWorkoutCompetition,
-  NostrWorkoutMetrics,
 } from '../../types/nostrWorkout';
 import type { WorkoutData, WorkoutType } from '../../types/workout';
 
@@ -32,12 +30,10 @@ export interface WorkoutConversionResult {
 export class NostrCompetitionBridge {
   private static instance: NostrCompetitionBridge;
   private competitionContextService: NostrCompetitionContextService;
-  private leaderboardService: LeaderboardService;
 
   private constructor() {
     this.competitionContextService =
       NostrCompetitionContextService.getInstance();
-    this.leaderboardService = LeaderboardService.getInstance();
   }
 
   static getInstance(): NostrCompetitionBridge {
@@ -299,15 +295,6 @@ export class NostrCompetitionBridge {
         },
       };
 
-      // Get competition count for result - requires userPubkey
-      // For now, skip this as we'd need the userPubkey parameter
-      // const competitions = await this.competitionContextService.getApplicableCompetitions(
-      //   workoutData,
-      //   userId,
-      //   userPubkey
-      // );
-
-      // Return simplified result without competition count for now
       const competitionsFound = 0;
 
       return {
@@ -415,7 +402,11 @@ export class NostrCompetitionBridge {
       walking: 3.5,
       hiking: 6.0,
       strength_training: 4.0,
+      strength: 4.0,
       yoga: 3.0,
+      meditation: 2.0,
+      diet: 1.0,
+      fasting: 1.0,
       gym: 5.0,
       other: 4.0,
     };

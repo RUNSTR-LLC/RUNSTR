@@ -14,7 +14,6 @@ import {
   InteractionManager,
   StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as TaskManager from 'expo-task-manager';
@@ -27,7 +26,6 @@ import { CustomAlert } from '../../components/ui/CustomAlert';
 import { simpleRunTracker } from '../../services/activity/SimpleRunTracker';
 import type {
   RunSession,
-  GPSPoint,
 } from '../../services/activity/SimpleRunTracker';
 import type { Split } from '../../services/activity/SplitTrackingService';
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
@@ -41,7 +39,6 @@ import { HoldToStartButton } from '../../components/activity/HoldToStartButton';
 import { AppStateManager } from '../../services/core/AppStateManager';
 // Weekly distance goal components
 import {
-  WeeklyDistanceGoalCard,
   type PostingState,
 } from '../../components/activity/WeeklyDistanceGoalCard';
 import { DistanceGoalPickerModal } from '../../components/activity/DistanceGoalPickerModal';
@@ -59,7 +56,6 @@ import {
 } from '../../components/activity/SecondaryMetricRow';
 import { SplitsBar } from '../../components/activity/SplitsBar';
 import { CountdownOverlay } from '../../components/activity/CountdownOverlay';
-import { LastActivityCard } from '../../components/activity/LastActivityCard';
 // Debug overlays for GPS and step diagnosis
 import { ActivityDebugOverlay } from '../../components/debug/ActivityDebugOverlay';
 import { StepDebugOverlay } from '../../components/debug/StepDebugOverlay';
@@ -202,7 +198,7 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
       e.preventDefault();
 
       // Show confirmation dialog
-      CustomAlert.show({
+      (CustomAlert as any).show({
         title: 'Stop Tracking?',
         message: 'You have an active workout. Do you want to stop and discard it?',
         buttons: [
@@ -357,16 +353,17 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
 
   // Load user profile for social sharing
   useEffect(() => {
+    let isMounted = true;
     const loadProfileAndId = async () => {
       try {
         const pubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
         const npub = await AsyncStorage.getItem('@runstr:npub');
         const activeUserId = npub || pubkey || '';
-        setUserId(activeUserId);
+        if (isMounted) setUserId(activeUserId);
 
         if (pubkey) {
           const profile = await nostrProfileService.getProfile(pubkey);
-          setUserProfile(profile);
+          if (isMounted) setUserProfile(profile);
         }
       } catch (error) {
         console.error(
@@ -377,47 +374,42 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
     };
 
     loadProfileAndId();
+    return () => { isMounted = false; };
   }, []);
 
   // Load weekly distance data on mount
   useEffect(() => {
+    let isMounted = true;
     const loadWeeklyDistance = async () => {
       try {
-        setDistanceLoading(true);
+        if (isMounted) setDistanceLoading(true);
 
-        // Get goal
         const goal = await weeklyDistanceGoalService.getGoal('running');
-        setDistanceGoal(goal);
+        if (isMounted) setDistanceGoal(goal);
 
-        // Get weekly distance
         const distance =
           await weeklyDistanceGoalService.getWeeklyDistance('running');
-        setWeeklyDistance(distance);
+        if (isMounted) setWeeklyDistance(distance);
 
-        // Calculate progress
         const progress = weeklyDistanceGoalService.calculateProgress(
           distance,
           goal
         );
-        setDistanceProgress(progress);
-
-        console.log(
-          `[RunningTrackerScreen] Weekly distance: ${distance.toFixed(
-            2
-          )}km, goal: ${goal}km`
-        );
-
-        setDistanceLoading(false);
+        if (isMounted) {
+          setDistanceProgress(progress);
+          setDistanceLoading(false);
+        }
       } catch (error) {
         console.error(
           '[RunningTrackerScreen] Error loading weekly distance:',
           error
         );
-        setDistanceLoading(false);
+        if (isMounted) setDistanceLoading(false);
       }
     };
 
     loadWeeklyDistance();
+    return () => { isMounted = false; };
   }, []);
 
   // AppState listener for background/foreground transitions - using AppStateManager
@@ -1136,7 +1128,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.accent + '15',
+    backgroundColor: '#111111',
     paddingVertical: 8,
     paddingHorizontal: 16,
     marginHorizontal: 16,

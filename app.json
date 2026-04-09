@@ -1,8 +1,8 @@
 {
   "expo": {
     "name": "RUNSTR",
-    "slug": "runstr.project",
-    "version": "1.6.8",
+    "slug": "runstrproject",
+    "version": "1.8.8",
     "orientation": "portrait",
     "icon": "./assets/images/adaptive-icon.png",
     "scheme": "runstr",
@@ -30,6 +30,7 @@
         "NSHealthShareUsageDescription": "RUNSTR needs access to your workout data to automatically sync your fitness activities and calculate team rankings for Bitcoin rewards.",
         "NSHealthUpdateUsageDescription": "RUNSTR needs to read your workout data to track your fitness progress and team contributions.",
         "NSMotionUsageDescription": "RUNSTR needs access to your motion data to count your daily steps and track walking activities.",
+        "NSCameraUsageDescription": "RUNSTR uses the camera to verify your reps during workouts.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "RUNSTR needs location access to track your running, walking, and cycling activities accurately, even when the app is in the background.",
         "NSLocationWhenInUseUsageDescription": "RUNSTR needs location access to track your running, walking, and cycling activities.",
         "NSLocationAlwaysUsageDescription": "RUNSTR needs location access to continue tracking your workout when the app is in the background.",
@@ -39,7 +40,8 @@
         "UIBackgroundModes": [
           "location",
           "fetch",
-          "processing"
+          "processing",
+          "remote-notification"
         ],
         "UIUserInterfaceStyle": "Dark"
       },
@@ -52,7 +54,7 @@
       "appleTeamId": "SF8967F5M9"
     },
     "android": {
-      "versionCode": 168,
+      "versionCode": 188,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#000000"
@@ -73,7 +75,10 @@
         "android.permission.health.READ_HEART_RATE",
         "android.permission.health.READ_DISTANCE",
         "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
-        "android.permission.health.READ_TOTAL_CALORIES_BURNED"
+        "android.permission.health.READ_TOTAL_CALORIES_BURNED",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.FOREGROUND_SERVICE_HEALTH",
+        "android.permission.POST_NOTIFICATIONS"
       ],
       "edgeToEdgeEnabled": true,
       "package": "com.anonymous.runstr.project",
@@ -129,9 +134,10 @@
           },
           "android": {
             "newArchEnabled": true,
-            "compileSdkVersion": 34,
+            "compileSdkVersion": 35,
             "targetSdkVersion": 34,
-            "minSdkVersion": 26
+            "minSdkVersion": 26,
+            "kotlinVersion": "2.0.21"
           }
         }
       ],
@@ -180,8 +186,17 @@
           "defaultChannel": "default"
         }
       ],
-      ["expo-health-connect", { "requestPermissionsOnLaunch": false }],
+      [
+        "expo-background-fetch"
+      ],
+      [
+        "expo-health-connect",
+        {
+          "requestPermissionsOnLaunch": false
+        }
+      ],
       "./plugins/withHealthConnect",
+      "./plugins/withKspVersion",
       [
         "expo-android-pedometer",
         {
@@ -189,8 +204,27 @@
           "notificationContent": "Counting your steps...",
           "notificationIcon": "@mipmap/ic_launcher"
         }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "RUNSTR needs microphone access for voice journal entries.",
+          "speechRecognitionPermission": "RUNSTR needs speech recognition to transcribe your voice journal entries."
+        }
+      ],
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "RUNSTR uses the camera to verify your reps during workouts."
+        }
       ]
     ],
-    "main": "index.js"
+    "main": "index.js",
+    "extra": {
+      "eas": {
+        "projectId": "0cf14da8-49a0-4036-a837-53bd51a3f1c2"
+      }
+    },
+    "owner": "thewildhustle"
   }
 }

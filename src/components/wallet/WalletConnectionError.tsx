@@ -21,7 +21,7 @@ export const WalletConnectionError: React.FC<WalletConnectionErrorProps> = ({
       {/* Connection Error Message */}
       <View style={styles.errorCard}>
         <View style={styles.errorIcon}>
-          <Text style={styles.errorIconText}>⚠</Text>
+          <Text style={styles.errorIconText}>!</Text>
         </View>
 
         <Text style={styles.errorTitle}>Connection Problem</Text>
@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
   },
   errorIconText: {
     fontSize: 20,
-    color: '#ff6b6b',
+    color: '#FF6B00',
   },
   errorTitle: {
     fontSize: 16,

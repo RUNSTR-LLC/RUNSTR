@@ -19,11 +19,11 @@ import { theme } from '../../styles/theme';
 import { PermissionRequestModal } from '../../components/permissions/PermissionRequestModal';
 import { appPermissionService } from '../../services/initialization/AppPermissionService';
 import { SwipeGridNavigator } from '../../components/activity/SwipeGridNavigator';
+import { ActivityCategoryBar } from '../../components/activity/ActivityCategoryBar';
 import {
   activityGridService,
   type GridPosition,
 } from '../../services/activity/ActivityGridService';
-import { defaultActivityService } from '../../services/activity/DefaultActivityService';
 import { RunningTrackerScreen } from './RunningTrackerScreen';
 import { WalkingTrackerScreen } from './WalkingTrackerScreen';
 import { CyclingTrackerScreen } from './CyclingTrackerScreen';
@@ -79,24 +79,17 @@ export const ActivityTrackerScreen: React.FC = () => {
 
   // Load saved grid position on mount
   useEffect(() => {
+    let isMounted = true;
     const loadPosition = async () => {
       const saved = await activityGridService.loadPosition();
-      let initialPosition = saved;
-
-      // Apply saved default activity for cardio trackers on entry.
-      const defaultActivity = await defaultActivityService.getSavedDefault();
-      if (defaultActivity) {
-        const defaultPosition = activityGridService.getPositionForActivity(defaultActivity);
-        if (defaultPosition && defaultPosition.row === 0) {
-          initialPosition = defaultPosition;
-        }
+      if (isMounted) {
+        setGridPosition(saved);
+        setPositionLoaded(true);
+        console.log('[ActivityTracker] Loaded grid position:', saved);
       }
-
-      setGridPosition(initialPosition);
-      setPositionLoaded(true);
-      console.log('[ActivityTracker] Loaded grid position:', initialPosition);
     };
     loadPosition();
+    return () => { isMounted = false; };
   }, []);
 
   // Save position when it changes (only after initial load to avoid overwriting with defaults)
@@ -229,16 +222,20 @@ export const ActivityTrackerScreen: React.FC = () => {
   // Check permissions on mount
   // Gates child component rendering to prevent bridge saturation on Android
   useEffect(() => {
+    let isMounted = true;
     const checkPermissions = async () => {
       const status = await appPermissionService.checkAllPermissions();
-      if (!status.location) {
-        console.log('[ActivityTracker] Location permission not granted, showing modal');
-        setShowPermissionModal(true);
-      } else {
-        setPermissionsReady(true);
+      if (isMounted) {
+        if (!status.location) {
+          console.log('[ActivityTracker] Location permission not granted, showing modal');
+          setShowPermissionModal(true);
+        } else {
+          setPermissionsReady(true);
+        }
       }
     };
     checkPermissions();
+    return () => { isMounted = false; };
   }, []);
 
   // Navigation handlers
@@ -272,6 +269,11 @@ export const ActivityTrackerScreen: React.FC = () => {
       setGridPosition(newPos);
       console.log('[ActivityTracker] Swipe down → row', newPos.row);
     }
+  };
+
+  const handleActivitySelect = (row: number, column: number) => {
+    // Just update state — existing useEffect auto-saves to AsyncStorage
+    setGridPosition({ row, column });
   };
 
   // Handle step post button tap
@@ -356,21 +358,18 @@ export const ActivityTrackerScreen: React.FC = () => {
       }
 
       case 'wellness': {
-        const validMeditations: MeditationType[] = ['guided', 'unguided', 'breathwork', 'body_scan', 'gratitude'];
-        const meditationType = validMeditations.includes(activity as MeditationType)
-          ? (activity as MeditationType)
-          : 'guided';
-        return <MeditationTrackerScreen initialType={meditationType} />;
-      }
-
-      case 'mindfulness': {
+        const meditationTypes = ['guided', 'unguided', 'breathwork', 'body_scan', 'gratitude'];
+        if (meditationTypes.includes(activity)) {
+          const meditationType = activity as MeditationType;
+          return <MeditationTrackerScreen initialType={meditationType} />;
+        }
         switch (activity) {
           case 'journal':
             return <JournalTrackerScreen />;
           case 'habits':
             return <HabitTrackerScreen />;
           default:
-            return <JournalTrackerScreen />;
+            return <MeditationTrackerScreen initialType="guided" />;
         }
       }
 
@@ -384,9 +383,13 @@ export const ActivityTrackerScreen: React.FC = () => {
     return steps.toLocaleString();
   };
 
+  // Determine current activity for conditional step counter
+  const currentActivityInfo = activityGridService.getActivityAt(gridPosition);
+  const showStepCounter = ['walk', 'hiking'].includes(currentActivityInfo.activity);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header with step counter */}
+      {/* Header with back button + category labels + dropdown */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -396,6 +399,17 @@ export const ActivityTrackerScreen: React.FC = () => {
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
 
+        <View style={styles.categoryBarWrapper}>
+          <ActivityCategoryBar
+            gridPosition={gridPosition}
+            onActivitySelect={handleActivitySelect}
+            isWorkoutActive={isWorkoutActive}
+          />
+        </View>
+      </View>
+
+      {/* Step counter — only for walk and hike */}
+      {showStepCounter && (
         <TouchableOpacity
           style={styles.stepDisplay}
           onPress={handlePostSteps}
@@ -404,9 +418,7 @@ export const ActivityTrackerScreen: React.FC = () => {
         >
           <Text style={styles.stepCount}>{formatSteps(dailySteps)} steps</Text>
         </TouchableOpacity>
-
-        <View style={styles.headerSpacer} />
-      </View>
+      )}
 
       {/* Main content - gated on position load (prevents flash) and permissions */}
       {positionLoaded && permissionsReady ? (
@@ -470,21 +482,28 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
+    alignItems: 'flex-start',
+    paddingLeft: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
+    zIndex: 10,
+  },
+  categoryBarWrapper: {
+    flex: 1,
   },
   backButton: {
     padding: 4,
     marginRight: 8,
+    marginTop: 2,
   },
   stepDisplay: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
   stepCount: {
     fontSize: 15,
@@ -499,7 +518,7 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.text,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -51,7 +51,7 @@ Any wallet with Lightning address support:
 
 ### UI Flow
 
-1. Navigate to Rewards tab
+1. Navigate to Rewards screen (from Profile tab)
 2. Expand "REWARDS ADDRESS" section
 3. Enter Lightning address
 4. Tap "Save"
@@ -84,17 +84,19 @@ const isValid = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(address);
 
 ### How It Works
 
+The LNURL-pay protocol is used by the **external reward service** (not the app) to deliver rewards:
+
 1. **Parse Address**: Extract `user` and `domain` from `user@domain.com`
 2. **Fetch Endpoint**: GET `https://domain.com/.well-known/lnurlp/user`
 3. **Get Callback**: Response contains callback URL
 4. **Request Invoice**: Call callback with amount in millisats
 5. **Receive Invoice**: Get BOLT-11 invoice string
-6. **Pay Invoice**: Send payment via RewardSenderWallet
+6. **Pay Invoice**: External service pays the invoice
 
 ### Example Flow
 
 ```
-Lightning Address: runner@getalby.com
+Reward Address: runner@getalby.com
 
 1. GET https://getalby.com/.well-known/lnurlp/runner
 
@@ -115,7 +117,7 @@ Lightning Address: runner@getalby.com
   "routes": []
 }
 
-5. Pay invoice via RewardSenderWallet
+5. External reward service pays the invoice
 ```
 
 ---
@@ -138,93 +140,32 @@ async hasRewardLightningAddress(): Promise<boolean>
 function isValidLightningAddress(address: string): boolean
 ```
 
-### Invoice Request Flow
-
-**File:** `src/services/rewards/DailyRewardService.ts`
-
-```typescript
-async function requestInvoiceFromLightningAddress(
-  address: string,
-  amountSats: number,
-  description: string
-): Promise<string> {
-  // 1. Parse address
-  const [user, domain] = address.split('@');
-
-  // 2. Fetch LNURL endpoint
-  const lnurlEndpoint = `https://${domain}/.well-known/lnurlp/${user}`;
-  const lnurlResponse = await fetch(lnurlEndpoint);
-  const lnurlData = await lnurlResponse.json();
-
-  // 3. Request invoice
-  const amountMsats = amountSats * 1000;
-  const callbackUrl = `${lnurlData.callback}?amount=${amountMsats}`;
-  const invoiceResponse = await fetch(callbackUrl);
-  const invoiceData = await invoiceResponse.json();
-
-  // 4. Return BOLT-11 invoice
-  return invoiceData.pr;
-}
-```
-
-### RewardSenderWallet
-
-**File:** `src/services/rewards/RewardSenderWallet.ts`
-
-The app's dedicated wallet for sending rewards:
-
-```typescript
-// Initialize with app's NWC connection
-async initialize(): Promise<void>
-
-// Send payment
-async sendRewardPayment(
-  invoice: string,
-  amountSats?: number
-): Promise<PaymentResult>
-
-// Health check
-async healthCheck(): Promise<{
-  initialized: boolean;
-  balance: number;
-  lastError?: string;
-}>
-```
-
 ### Reward Delivery Flow
 
-```typescript
-async function sendReward(userPubkey: string): Promise<void> {
-  try {
-    // 1. Get user's Lightning address
-    const address = await RewardLightningAddressService.getRewardLightningAddress();
-    if (!address) {
-      console.log('No Lightning address configured');
-      return; // Silent exit
-    }
+**Important:** The app does NOT send rewards directly. The actual reward delivery is handled server-side:
 
-    // 2. Request invoice
-    const invoice = await requestInvoiceFromLightningAddress(
-      address,
-      50, // sats
-      'RUNSTR Daily Workout Reward'
-    );
-
-    // 3. Send payment
-    await RewardSenderWallet.sendRewardPayment(invoice);
-
-    // 4. Update counters
-    await updateCounters(userPubkey, 50);
-
-    // 5. Show notification
-    RewardNotificationManager.showRewardEarned(50);
-
-  } catch (error) {
-    // Silent failure - log but don't show error
-    console.error('Reward delivery failed:', error);
-  }
-}
 ```
+1. App submits workout to Supabase (workout_submissions table)
+   - Includes reward destination tag (charity/project/service/self)
+   - Includes destination address
+
+2. Supabase database trigger fires claim-reward Edge Function
+
+3. Edge Function reads destination from workout tags
+   - Resolves the LNURL endpoint for the destination address
+   - Requests a BOLT-11 invoice via LNURL-pay
+   - Pays the invoice
+   - Records payment in reward_payments table with preimage proof
+
+4. App polls for confirmed payments (RewardPollingService)
+   - Shows in-app toast notification
+   - Updates earnings counters
+```
+
+The app's role is limited to:
+- Tracking reward eligibility locally (DailyRewardService)
+- Submitting workouts with the correct destination tags
+- Polling for confirmed payments to display in the UI
 
 ---
 
@@ -272,7 +213,7 @@ async function getUserLightningAddress(pubkey: string): Promise<string | null> {
 
 ## Navigation
 
-**Previous:** [Chapter 11: Daily & Step Rewards](./11-rewards-daily-step.md)
+**Previous:** [Chapter 11: Daily Rewards & Lottery Wheel](./11-rewards-daily-step.md)
 
 **Next:** [Chapter 13: Teams & Charities](./13-rewards-teams-charities.md)
 

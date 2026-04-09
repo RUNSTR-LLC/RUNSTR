@@ -405,6 +405,7 @@ class EinundzwanzigServiceClass {
       // Register for the combined einundzwanzig competition
       const result = await SupabaseCompetitionService.joinCompetition(
         EINUNDZWANZIG_COMPETITION_ID,
+        npub,
         profileData
       );
 

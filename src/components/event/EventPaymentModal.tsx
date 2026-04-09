@@ -344,7 +344,7 @@ export const EventPaymentModal: React.FC<EventPaymentModalProps> = ({
               <Ionicons
                 name="checkmark-circle"
                 size={20}
-                color={theme.colors.accentText}
+                color={theme.colors.background}
               />
               <Text style={styles.paidButtonText}>I Paid This Invoice</Text>
             </TouchableOpacity>
@@ -567,7 +567,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -576,7 +576,7 @@ const styles = StyleSheet.create({
   stepNumberText: {
     fontSize: 12,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
 
   stepText: {
@@ -592,7 +592,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingVertical: 16,
     borderRadius: theme.borderRadius.medium,
     marginBottom: 12,
@@ -601,7 +601,7 @@ const styles = StyleSheet.create({
   paidButtonText: {
     fontSize: 16,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
 
   cancelButton: {

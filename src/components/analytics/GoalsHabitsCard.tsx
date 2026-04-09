@@ -140,7 +140,7 @@ export const GoalsHabitsCard: React.FC = () => {
             <Ionicons
               name="add-circle-outline"
               size={18}
-              color={theme.colors.accentText}
+              color={theme.colors.background}
             />
             <Text style={styles.addFirstButtonText}>Add Your First Habit</Text>
           </TouchableOpacity>
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
   addFirstButtonText: {
     fontSize: theme.typography.body,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
 
   habitsList: {

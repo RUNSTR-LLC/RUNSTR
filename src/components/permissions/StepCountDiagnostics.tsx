@@ -488,7 +488,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
   },
   importantBadge: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -518,7 +518,7 @@ const styles = StyleSheet.create({
   fixButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
@@ -559,7 +559,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,

@@ -11,9 +11,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
-  Alert,
 } from 'react-native';
 import { theme } from '../styles/theme';
+import { CustomAlert } from '../components/ui/CustomAlert';
 import { WalletBalanceCard } from '../components/wallet/WalletBalanceCard';
 import { AutoWithdrawSection } from '../components/wallet/AutoWithdrawSection';
 import { EarningsSummary } from '../components/wallet/EarningsSummary';
@@ -82,10 +82,18 @@ export const WalletScreen: React.FC<WalletScreenProps> = ({
   onRetryConnection,
 }) => {
   const [mode, setMode] = useState<WalletScreenMode>('overview');
+  const [alertConfig, setAlertConfig] = useState<{visible: boolean; title: string; message: string; buttons: any[]}>({
+    visible: false, title: '', message: '', buttons: []
+  });
 
   const handleSend = () => {
     if (!data.balance.connected) {
-      Alert.alert('Connection Error', 'Unable to send while offline');
+      setAlertConfig({
+        visible: true,
+        title: 'Connection Error',
+        message: 'Unable to send while offline',
+        buttons: [{ text: 'OK', onPress: () => setAlertConfig(prev => ({...prev, visible: false})) }]
+      });
       return;
     }
     setMode('send');
@@ -93,7 +101,12 @@ export const WalletScreen: React.FC<WalletScreenProps> = ({
 
   const handleReceive = () => {
     if (!data.balance.connected) {
-      Alert.alert('Connection Error', 'Unable to receive while offline');
+      setAlertConfig({
+        visible: true,
+        title: 'Connection Error',
+        message: 'Unable to receive while offline',
+        buttons: [{ text: 'OK', onPress: () => setAlertConfig(prev => ({...prev, visible: false})) }]
+      });
       return;
     }
     setMode('receive');
@@ -187,6 +200,14 @@ export const WalletScreen: React.FC<WalletScreenProps> = ({
 
       {/* Content */}
       <View style={styles.content}>{renderContent()}</View>
+
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onClose={() => setAlertConfig(prev => ({...prev, visible: false}))}
+      />
     </SafeAreaView>
   );
 };

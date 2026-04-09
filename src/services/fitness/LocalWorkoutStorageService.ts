@@ -10,7 +10,10 @@ import type { Split } from '../activity/SplitTrackingService';
 import { DailyRewardService } from '../rewards/DailyRewardService';
 import { RewardDestinationService } from '../rewards/RewardDestinationService';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
+import { buildRewardTags } from '../../utils/rewardTags';
+import { isValidWorkoutMetrics } from '../../utils/rewardEligibility';
 import Toast from 'react-native-toast-message';
+import type { VerificationReceipt } from '../../types/verification';
 
 /**
  * Result returned from saveGPSWorkout including reward info
@@ -72,6 +75,8 @@ export interface LocalWorkout {
   weightsPerSet?: number[]; // Array of weights per set (e.g., [135, 145, 155])
   restTime?: number; // Rest between sets in seconds
   weight?: number; // Average weight used in pounds or kilograms
+  // Verification (camera-verified workouts)
+  verificationReceipt?: VerificationReceipt;
 
   // Fitness test-specific fields
   fitnessTestScore?: number; // Composite score 0-300
@@ -134,8 +139,18 @@ const STORAGE_KEYS = {
 
 export class LocalWorkoutStorageService {
   private static instance: LocalWorkoutStorageService;
+  private workoutCache: LocalWorkout[] | null = null;
+  private cacheValid = false;
 
   private constructor() {}
+
+  /**
+   * Invalidate the in-memory cache — forces next getAllWorkouts() to read from AsyncStorage
+   */
+  private invalidateCache(): void {
+    this.workoutCache = null;
+    this.cacheValid = false;
+  }
 
   static getInstance(): LocalWorkoutStorageService {
     if (!LocalWorkoutStorageService.instance) {
@@ -200,37 +215,8 @@ export class LocalWorkoutStorageService {
         Date.now() - workout.duration * 1000
       ).toISOString();
 
-      // Fetch weather conditions if GPS coordinates available
-      let weather;
-      if (workout.startLatitude && workout.startLongitude) {
-        try {
-          const { weatherService } = await import('../activity/WeatherService');
-          const conditions = await weatherService.getWeatherForWorkout(
-            workout.startLatitude,
-            workout.startLongitude
-          );
-
-          if (conditions) {
-            weather = {
-              temp: conditions.temp,
-              feelsLike: conditions.feelsLike,
-              description: conditions.description,
-              icon: conditions.icon,
-              humidity: conditions.humidity,
-              windSpeed: conditions.windSpeed,
-            };
-            console.log(
-              `✅ Weather recorded: ${conditions.temp}°C, ${conditions.description}`
-            );
-          }
-        } catch (weatherError) {
-          console.warn(
-            '⚠️ Failed to fetch weather, continuing without:',
-            weatherError
-          );
-          // Non-critical - continue saving workout without weather
-        }
-      }
+      // Weather conditions placeholder (WeatherService removed)
+      const weather = undefined;
 
       const localWorkout: LocalWorkout = {
         id: workoutId,
@@ -426,6 +412,10 @@ export class LocalWorkoutStorageService {
           STORAGE_KEYS.LOCAL_WORKOUTS,
           JSON.stringify(workouts)
         );
+        this.invalidateCache();
+        // Lazy import to avoid circular dependency
+        const { AutoBackupService: AutoBackup1 } = await import('../backup/AutoBackupService');
+        AutoBackup1.getInstance().scheduleBackup();
         console.log(
           `✅ Updated daily steps workout: ${deterministicId} (${workout.steps} steps, ~${(workout.distance / 1000).toFixed(2)}km)`
         );
@@ -452,6 +442,10 @@ export class LocalWorkoutStorageService {
           STORAGE_KEYS.LOCAL_WORKOUTS,
           JSON.stringify(workouts)
         );
+        this.invalidateCache();
+        // Lazy import to avoid circular dependency
+        const { AutoBackupService: AutoBackup2 } = await import('../backup/AutoBackupService');
+        AutoBackup2.getInstance().scheduleBackup();
         console.log(
           `✅ Created daily steps workout: ${deterministicId} (${workout.steps} steps, ~${(workout.distance / 1000).toFixed(2)}km)`
         );
@@ -501,6 +495,7 @@ export class LocalWorkoutStorageService {
         STORAGE_KEYS.LOCAL_WORKOUTS,
         JSON.stringify(workouts)
       );
+      this.invalidateCache();
 
       // REWARD TRIGGER: Only user-generated cardio workouts on a new day trigger rewards
       // Uses checkStreakAndReward() which:
@@ -512,7 +507,7 @@ export class LocalWorkoutStorageService {
         if (pubkey) {
           console.log(`[LocalWorkoutStorage] Checking streak reward for ${workout.source} ${workout.type} workout...`);
           // Fire and forget - don't block workout save for reward
-          DailyRewardService.checkStreakAndReward(pubkey, workout.source, workout.type, workout.id).catch((rewardError) => {
+          DailyRewardService.checkStreakAndReward(pubkey, workout.source, workout.type).catch((rewardError) => {
             console.warn('[LocalWorkoutStorage] Reward error (silent):', rewardError);
           });
         }
@@ -525,6 +520,11 @@ export class LocalWorkoutStorageService {
       this.autoSubmitToSupabase(workout).catch((err) => {
         console.warn('[LocalWorkoutStorage] Supabase auto-submit error (silent):', err);
       });
+
+      // AUTO-BACKUP: Schedule backup to Nostr (3-min debounce collapses rapid saves)
+      // Lazy import to avoid circular dependency
+      const { AutoBackupService } = await import('../backup/AutoBackupService');
+      AutoBackupService.getInstance().scheduleBackup();
     } catch (error) {
       console.error('❌ Failed to save workout to storage:', error);
       throw error;
@@ -620,12 +620,33 @@ export class LocalWorkoutStorageService {
    * Fire-and-forget — errors are logged, never block the save path.
    */
   private async autoSubmitToSupabase(workout: LocalWorkout): Promise<void> {
+    // Historical imports should NOT enter competitions — they would pollute
+    // the daily leaderboard because workout_submissions.created_at = NOW()
+    if (workout.source === 'imported_nostr') {
+      return;
+    }
     const CARDIO_TYPES: string[] = ['running', 'walking', 'cycling', 'hiking'];
-    if (!CARDIO_TYPES.includes(workout.type)) return;
-    if (!workout.distance || workout.distance <= 0) return;
+    if (!CARDIO_TYPES.includes(workout.type)) {
+      console.log(`[LocalWorkoutStorage] Skipping Supabase submit: type '${workout.type}' is not cardio`);
+      return;
+    }
+    if (!workout.distance || workout.distance <= 0) {
+      console.warn(`[LocalWorkoutStorage] Skipping Supabase submit: distance is ${workout.distance} for ${workout.type} workout ${workout.id}`);
+      await this.updateSupabaseStatus(workout.id, false, `Distance is ${workout.distance}`).catch(() => {});
+      return;
+    }
+    if (!isValidWorkoutMetrics(workout.distance, workout.duration)) {
+      console.warn('[LocalWorkoutStorage] Workout metrics out of bounds, skipping:', { distance: workout.distance, duration: workout.duration });
+      await this.updateSupabaseStatus(workout.id, false, 'Metrics out of bounds').catch(() => {});
+      return;
+    }
 
     const npub = await AsyncStorage.getItem('@runstr:npub');
-    if (!npub) return;
+    if (!npub) {
+      console.warn('[LocalWorkoutStorage] Skipping Supabase submit: no npub in AsyncStorage');
+      await this.updateSupabaseStatus(workout.id, false, 'No npub in AsyncStorage').catch(() => {});
+      return;
+    }
 
     console.log(`[LocalWorkoutStorage] Auto-submitting ${workout.type} workout to Supabase...`);
 
@@ -633,11 +654,16 @@ export class LocalWorkoutStorageService {
       // Build tags with splits, team, and exercise metadata
       const tags = this.buildWorkoutTags(workout);
 
-      // Include team/charity tag
-      const selectedTeamId = await AsyncStorage.getItem('@runstr:selected_team_id');
-      if (selectedTeamId) {
-        tags.push(['team', selectedTeamId]);
-      }
+      // Include lightning address + charity tags for zapper reward routing
+      // 10s timeout prevents entire submission from hanging if AsyncStorage or Supabase stalls
+      const rewardTags = await Promise.race([
+        buildRewardTags(),
+        new Promise<string[][]>((resolve) => setTimeout(() => {
+          console.warn('[LocalWorkoutStorage] buildRewardTags timed out after 10s, submitting without reward tags');
+          resolve([]);
+        }, 10000)),
+      ]);
+      tags.push(...rewardTags);
 
       // Include reward routing audit tags (user/charity/ppq)
       await this.appendRewardDestinationTags(tags);
@@ -683,6 +709,30 @@ export class LocalWorkoutStorageService {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       await this.updateSupabaseStatus(workout.id, false, errorMsg).catch(() => {});
       console.warn(`[LocalWorkoutStorage] Supabase auto-submit failed for ${workout.id}:`, errorMsg);
+
+      // Queue for retry via PendingSubmissionService
+      try {
+        const { PendingSubmissionService } = await import('../competition/PendingSubmissionService');
+        await PendingSubmissionService.addPending({
+          id: workout.id,
+          submissionData: {
+            eventId: workout.id,
+            npub: npub!,
+            type: workout.type,
+            distance: workout.distance,
+            duration: workout.duration,
+            calories: workout.calories,
+            startTime: workout.startTime,
+            tags: this.buildWorkoutTags(workout),
+          },
+          createdAt: Date.now(),
+          retryCount: 0,
+          lastError: errorMsg,
+          nextRetryTime: Date.now() + 60000,
+        });
+      } catch (queueError) {
+        console.warn('[LocalWorkoutStorage] Failed to queue for retry:', queueError);
+      }
     }
 
     console.log(`[LocalWorkoutStorage] Supabase auto-submit complete for ${workout.id}`);
@@ -710,6 +760,7 @@ export class LocalWorkoutStorageService {
         STORAGE_KEYS.LOCAL_WORKOUTS,
         JSON.stringify(workouts)
       );
+      this.invalidateCache();
     } catch (err) {
       console.warn('[LocalWorkoutStorage] Failed to update supabase status:', err);
     }
@@ -728,13 +779,12 @@ export class LocalWorkoutStorageService {
       const npub = await AsyncStorage.getItem('@runstr:npub');
       if (!npub) return { success: false, error: 'Not logged in' };
 
-      // Build full tags (splits, exercise, team) — same logic as autoSubmitToSupabase
+      // Build full tags (splits, exercise, team, lightning, charity) — same logic as autoSubmitToSupabase
       const tags = this.buildWorkoutTags(workout);
 
-      const selectedTeamId = await AsyncStorage.getItem('@runstr:selected_team_id');
-      if (selectedTeamId) {
-        tags.push(['team', selectedTeamId]);
-      }
+      // Include lightning address + charity tags for zapper reward routing
+      const rewardTags = await buildRewardTags();
+      tags.push(...rewardTags);
 
       await this.appendRewardDestinationTags(tags);
 
@@ -777,16 +827,29 @@ export class LocalWorkoutStorageService {
    */
   async getAllWorkouts(): Promise<LocalWorkout[]> {
     try {
+      // Return cached data if valid
+      if (this.cacheValid && this.workoutCache) {
+        return this.workoutCache;
+      }
+
       const data = await AsyncStorage.getItem(STORAGE_KEYS.LOCAL_WORKOUTS);
-      if (!data) return [];
+      if (!data) {
+        this.workoutCache = [];
+        this.cacheValid = true;
+        return [];
+      }
 
       const workouts: LocalWorkout[] = JSON.parse(data);
 
       // Sort by start time (newest first)
-      return workouts.sort(
+      workouts.sort(
         (a, b) =>
           new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
       );
+
+      this.workoutCache = workouts;
+      this.cacheValid = true;
+      return workouts;
     } catch (error) {
       console.error('❌ Failed to retrieve local workouts:', error);
       return [];
@@ -822,6 +885,7 @@ export class LocalWorkoutStorageService {
         STORAGE_KEYS.LOCAL_WORKOUTS,
         JSON.stringify(workouts)
       );
+      this.invalidateCache();
       console.log(
         `✅ Marked workout ${workoutId} as synced (Nostr event: ${nostrEventId})`
       );
@@ -859,6 +923,7 @@ export class LocalWorkoutStorageService {
         STORAGE_KEYS.LOCAL_WORKOUTS,
         JSON.stringify(workouts)
       );
+      this.invalidateCache();
       console.log(`[LocalWorkoutStorage] Saved card for workout: ${workoutId} (template: ${card.templateId})`);
     } catch (error) {
       console.error('[LocalWorkoutStorage] Failed to save workout card:', error);
@@ -890,6 +955,7 @@ export class LocalWorkoutStorageService {
           STORAGE_KEYS.LOCAL_WORKOUTS,
           JSON.stringify(remainingWorkouts)
         );
+        this.invalidateCache();
         console.log(
           `✅ Cleaned up ${removedCount} synced workouts older than ${olderThanDays} days`
         );
@@ -926,6 +992,7 @@ export class LocalWorkoutStorageService {
         STORAGE_KEYS.LOCAL_WORKOUTS,
         JSON.stringify(workouts)
       );
+      this.invalidateCache();
       console.log(`[LocalWorkoutStorage] Updated workout ${workoutId} with route "${routeLabel}"`);
     } catch (error) {
       console.error('[LocalWorkoutStorage] Failed to update workout route:', error);
@@ -961,6 +1028,7 @@ export class LocalWorkoutStorageService {
         STORAGE_KEYS.LOCAL_WORKOUTS,
         JSON.stringify(filteredWorkouts)
       );
+      this.invalidateCache();
       console.log(`✅ Deleted workout ${workoutId} from local storage`);
     } catch (error) {
       console.error('❌ Failed to delete workout:', error);
@@ -974,6 +1042,7 @@ export class LocalWorkoutStorageService {
   async clearAllWorkouts(): Promise<void> {
     try {
       await AsyncStorage.removeItem(STORAGE_KEYS.LOCAL_WORKOUTS);
+      this.invalidateCache();
       console.log('✅ Cleared all local workouts');
     } catch (error) {
       console.error('❌ Failed to clear local workouts:', error);

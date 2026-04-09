@@ -16,7 +16,7 @@
 const IN_APP_ZAPS_ENABLED = false;
 
 import React, { memo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../../styles/theme';
 import { Avatar } from './Avatar';
@@ -37,6 +37,7 @@ interface ZappableUserRowProps {
   hideActionsForCurrentUser?: boolean; // Hide zap for current user
   recipientLightningAddress?: string; // User's lightning address from workout event or profile
   skipProfileFetch?: boolean; // Skip Nostr profile fetch, use fallbackName/fallbackPicture directly
+  onPress?: () => void; // Optional tap handler (e.g., navigate to user profile)
 }
 
 const ZappableUserRowComponent: React.FC<ZappableUserRowProps> = ({
@@ -53,6 +54,7 @@ const ZappableUserRowComponent: React.FC<ZappableUserRowProps> = ({
   hideActionsForCurrentUser = false,
   recipientLightningAddress,
   skipProfileFetch = false,
+  onPress,
 }) => {
   const { t } = useTranslation('profile');
 
@@ -77,8 +79,13 @@ const ZappableUserRowComponent: React.FC<ZappableUserRowProps> = ({
   // Get user's lightning address: prop (from workout event) → profile lud16 → undefined
   const userLightningAddress = recipientLightningAddress || profile?.lud16;
 
+  const Container = onPress ? TouchableOpacity : View;
+  const containerProps = onPress
+    ? { onPress, activeOpacity: 0.7, style: [styles.container, style] }
+    : { style: [styles.container, style] };
+
   return (
-    <View style={[styles.container, style]}>
+    <Container {...containerProps}>
       <View style={styles.userSection}>
         {/* Avatar with profile picture or fallback */}
         <Avatar
@@ -120,7 +127,7 @@ const ZappableUserRowComponent: React.FC<ZappableUserRowProps> = ({
       {additionalContent && (
         <View style={styles.additionalContent}>{additionalContent}</View>
       )}
-    </View>
+    </Container>
   );
 };
 

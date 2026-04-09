@@ -60,7 +60,7 @@ export const LeagueDetailScreen: React.FC<LeagueDetailScreenProps> = ({
         const SimpleCompetitionService = (
           await import('../services/competition/SimpleCompetitionService')
         ).default;
-        league = await SimpleCompetitionService.getLeagueById(leagueId);
+        league = await SimpleCompetitionService.getInstance().getLeagueById(leagueId);
       }
 
       if (!league) {
@@ -70,16 +70,16 @@ export const LeagueDetailScreen: React.FC<LeagueDetailScreenProps> = ({
       console.log('✅ League loaded:', league.name);
       setLeagueData(league);
 
-      // Get team members
-      const TeamMemberCache = (
-        await import('../services/team/TeamMemberCache')
-      ).TeamMemberCache.getInstance();
-      const members = await TeamMemberCache.getTeamMembers(
-        league.teamId,
-        league.captainPubkey
+      // Get club members from Supabase
+      const { ClubMembershipService } = await import(
+        '../services/backend/ClubMembershipService'
       );
+      const clubMembers = await ClubMembershipService.getClubMembers(
+        league.teamId
+      );
+      const members = clubMembers.map((m) => m.member_npub);
 
-      console.log(`Found ${members.length} team members`);
+      console.log(`Found ${members.length} club members`);
 
       // Calculate leaderboard
       const SimpleLeaderboardService = (
@@ -187,9 +187,9 @@ export const LeagueDetailScreen: React.FC<LeagueDetailScreenProps> = ({
               ]}
             >
               <Text style={styles.statusBadgeText}>
-                {status === 'active' && '🔴 Active'}
-                {status === 'past' && '✓ Completed'}
-                {status === 'upcoming' && '⏰ Upcoming'}
+                {status === 'active' && 'Active'}
+                {status === 'past' && 'Completed'}
+                {status === 'upcoming' && 'Upcoming'}
               </Text>
             </View>
           </View>
@@ -312,8 +312,8 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.textMuted,
   },
   statusBadgeUpcoming: {
-    backgroundColor: theme.colors.accent + '20',
-    borderColor: theme.colors.accent,
+    backgroundColor: '#111111',
+    borderColor: theme.colors.text,
   },
   statusBadgeText: {
     fontSize: 12,
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   retryButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
@@ -368,6 +368,6 @@ const styles = StyleSheet.create({
   retryButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
 });

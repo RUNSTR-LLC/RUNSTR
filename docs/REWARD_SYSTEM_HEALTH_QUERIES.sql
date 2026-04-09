@@ -229,19 +229,31 @@ ORDER BY last_payment;
 -- SECTION 8: DAILY REWARD PARTICIPANTS
 -- ============================================
 
--- QUERY 15: Today's reward participants with Lightning addresses
+-- QUERY 15: Today's reward participants with Lightning addresses + PPQ.AI bolt11
 -- Use this to find all users eligible for daily rewards with their zap addresses
+-- PPQ.AI users: pay ppq_bolt11 directly (skip LNURL), zap_to_address will be NULL
+-- Subscribers (supporter/pro): get 800 sats for qualifying workouts
 WITH ein_participants AS (
     SELECT DISTINCT cp.npub
     FROM competition_participants cp
     JOIN competitions c ON cp.competition_id = c.id
     WHERE c.external_id = 'einundzwanzig'
   ),
+  active_subscribers AS (
+    SELECT npub, plan
+    FROM subscribers
+    WHERE status = 'active'
+      AND (expires_at IS NULL OR expires_at > NOW())
+  ),
   workout_data AS (
     SELECT
       ws.npub,
       ws.created_at,
       ws.source,
+      ws.ppq_bolt11,
+      ws.distance_meters,
+      ws.duration_seconds,
+      ws.activity_type,
       (
         SELECT elem->>1
         FROM jsonb_array_elements(ws.raw_event->'tags') AS elem
@@ -273,9 +285,11 @@ WITH ein_participants AS (
         LIMIT 1
       ) AS charity_lightning_address,
       CASE WHEN ep.npub IS NOT NULL THEN true ELSE false END AS is_ein_participant,
+      sub.plan AS subscriber_plan,
       ROW_NUMBER() OVER (PARTITION BY ws.npub ORDER BY ws.created_at DESC) AS rn
     FROM workout_submissions ws
     LEFT JOIN ein_participants ep ON ws.npub = ep.npub
+    LEFT JOIN active_subscribers sub ON ws.npub = sub.npub
     WHERE ws.leaderboard_date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York')::date
       AND ws.raw_event IS NOT NULL
       AND (
@@ -291,10 +305,24 @@ WITH ein_participants AS (
     reward_destination,
     charity_id,
     charity_lightning_address,
+    ppq_bolt11,
+    subscriber_plan,
     is_ein_participant,
-    CASE WHEN is_ein_participant THEN 100 ELSE 50 END AS sats_amount,
-    created_at AS last_workout,
+    -- Reward amount: subscriber boost > ein bonus > default
     CASE
+      WHEN subscriber_plan IN ('supporter', 'pro')
+        AND activity_type IN ('running', 'walking', 'cycling')
+        AND COALESCE(distance_meters, 0) >= 2000
+        AND COALESCE(duration_seconds, 0) >= 900
+        AND COALESCE(source, '') <> 'manual_entry'
+        THEN 800
+      WHEN is_ein_participant THEN 100
+      ELSE 50
+    END AS sats_amount,
+    created_at AS last_workout,
+    -- Zap destination: PPQ users get NULL here (use ppq_bolt11 column instead)
+    CASE
+      WHEN reward_destination = 'ppq' THEN NULL
       WHEN reward_destination = 'user' THEN lightning_address
       WHEN reward_destination = 'charity' THEN charity_lightning_address
       WHEN lightning_address IS NOT NULL THEN lightning_address
@@ -302,5 +330,9 @@ WITH ein_participants AS (
     END AS zap_to_address
   FROM workout_data
   WHERE rn = 1
-    AND (lightning_address IS NOT NULL OR charity_lightning_address IS NOT NULL)
+    AND (
+      lightning_address IS NOT NULL
+      OR charity_lightning_address IS NOT NULL
+      OR (ppq_bolt11 IS NOT NULL AND ppq_bolt11 <> '')
+    )
   ORDER BY is_ein_participant DESC, sats_amount DESC;

@@ -14,6 +14,7 @@ import {
   Text,
   StyleSheet,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,6 +31,7 @@ export const ImpactHeroCard: React.FC<ImpactHeroCardProps> = ({ pubkey }) => {
   const { t } = useTranslation('rewards');
   const [breakdown, setBreakdown] = useState<RewardBreakdown | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     loadBreakdown();
@@ -47,10 +49,12 @@ export const ImpactHeroCard: React.FC<ImpactHeroCardProps> = ({ pubkey }) => {
   const loadBreakdown = async () => {
     try {
       setIsLoading(true);
+      setHasError(false);
       const data = await SupabaseRewardService.getRewardBreakdown(pubkey);
       setBreakdown(data);
     } catch (error) {
       console.error('[ImpactHeroCard] Failed to load breakdown:', error);
+      setHasError(true);
     } finally {
       setIsLoading(false);
     }
@@ -68,33 +72,44 @@ export const ImpactHeroCard: React.FC<ImpactHeroCardProps> = ({ pubkey }) => {
 
   const charitiesCount = sortedCharities.length;
 
-  if (isLoading) {
+  if (isLoading && !breakdown) {
     return (
-      <View style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.accent} />
-        </View>
+      <View style={styles.emptyContainer}>
+        <ActivityIndicator size="small" color={theme.colors.accent} />
       </View>
     );
   }
 
-  // Empty state
-  if (!breakdown || totalDonated === 0) {
+  if (hasError && !breakdown) {
     return (
       <View style={styles.container}>
         <Text style={styles.headerTitle}>
           {t('impactHero.title', 'YOUR IMPACT')}
         </Text>
         <View style={styles.emptyState}>
-          <Ionicons
-            name="heart-outline"
-            size={40}
-            color="#444"
-          />
+          <Ionicons name="cloud-offline-outline" size={40} color="#444" />
           <Text style={styles.emptyText}>
-            {t('impactHero.noImpactYet', 'Complete workouts to support charities!')}
+            {t('impactHero.errorLoading', 'Could not load impact data.')}
           </Text>
+          <TouchableOpacity onPress={loadBreakdown} style={styles.retryButton}>
+            <Ionicons name="refresh" size={16} color={theme.colors.text} />
+            <Text style={styles.retryText}>
+              {t('impactHero.retry', 'Retry')}
+            </Text>
+          </TouchableOpacity>
         </View>
+      </View>
+    );
+  }
+
+  // Empty state — compact single row
+  if (!breakdown || totalDonated === 0) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Ionicons name="heart-outline" size={18} color="#444" />
+        <Text style={styles.emptyInlineText}>
+          {t('impactHero.noImpactYet', 'Complete workouts to earn rewards!')}
+        </Text>
       </View>
     );
   }
@@ -297,6 +312,24 @@ const styles = StyleSheet.create({
     color: '#666',
   },
 
+  emptyContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#0a0a0a',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1a1a1a',
+    padding: 14,
+    marginBottom: 12,
+  },
+
+  emptyInlineText: {
+    fontSize: 13,
+    color: '#666',
+    flex: 1,
+  },
+
   emptyState: {
     alignItems: 'center',
     paddingVertical: 32,
@@ -307,5 +340,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
+  },
+
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#1a1a1a',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 4,
+  },
+
+  retryText: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.text,
   },
 });

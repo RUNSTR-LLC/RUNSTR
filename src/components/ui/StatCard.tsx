@@ -163,9 +163,9 @@ const styles = StyleSheet.create({
 
   // Highlighted card variant
   cardHighlighted: {
-    backgroundColor: theme.colors.accent, // #fff
+    backgroundColor: theme.colors.text, // #fff
     borderWidth: 1,
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.text,
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 8,
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
   statNumberHighlighted: {
     fontSize: 18,
     fontWeight: theme.typography.weights.extraBold,
-    color: theme.colors.accentText, // #000
+    color: theme.colors.background, // #000
     marginBottom: 2,
     textAlign: 'center',
   },
@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
   // Highlighted stat label
   statLabelHighlighted: {
     fontSize: 10,
-    color: theme.colors.accentText,
+    color: theme.colors.background,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     textAlign: 'center',

@@ -569,10 +569,10 @@ export const FullScreenCardModal: React.FC<FullScreenCardModalProps> = ({
               disabled={isPosting}
             >
               {isPosting ? (
-                <ActivityIndicator size="small" color={theme.colors.accentText} />
+                <ActivityIndicator size="small" color={theme.colors.background} />
               ) : (
                 <>
-                  <Ionicons name="paper-plane-outline" size={20} color={theme.colors.accentText} />
+                  <Ionicons name="paper-plane-outline" size={20} color={theme.colors.background} />
                   <Text style={styles.postButtonText}>Post to Nostr</Text>
                 </>
               )}
@@ -613,7 +613,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingVertical: 16,
     borderRadius: 12,
     gap: 8,
@@ -622,7 +622,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   postButtonText: {
-    color: theme.colors.accentText,
+    color: theme.colors.background,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -671,9 +671,9 @@ const styles = StyleSheet.create({
   toughBrand: { fontSize: 18, fontWeight: '900', color: '#fff', textAlign: 'right', letterSpacing: 2 },
 
   // ACHIEVEMENT TEXT CARD (no emojis)
-  textCardContainer: { backgroundColor: '#111', borderRadius: 20, padding: 32, alignItems: 'center', width: '90%', maxWidth: 400, borderWidth: 2, borderColor: theme.colors.accent },
+  textCardContainer: { backgroundColor: '#111', borderRadius: 20, padding: 32, alignItems: 'center', width: '90%', maxWidth: 400, borderWidth: 2, borderColor: theme.colors.text },
   textCardTitle: { fontSize: 18, fontWeight: '800', color: '#fff', textAlign: 'center', marginBottom: 16, letterSpacing: 1 },
-  textCardDivider: { height: 2, backgroundColor: theme.colors.accent, width: '50%', marginBottom: 20 },
+  textCardDivider: { height: 2, backgroundColor: theme.colors.text, width: '50%', marginBottom: 20 },
   textCardDuration: { fontSize: 48, fontWeight: '300', color: '#fff', marginBottom: 8 },
   textCardDistance: { fontSize: 24, color: 'rgba(255,255,255,0.8)', marginBottom: 16 },
   textCardHashtags: { fontSize: 16, color: theme.colors.accent, marginTop: 16 },

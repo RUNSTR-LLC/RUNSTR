@@ -335,51 +335,6 @@ export class CacheInvalidator {
   }
 
   /**
-   * When user refreshes Satlantis events (pull-to-refresh)
-   * Clear all Satlantis-related caches
-   */
-  static onSatlantisEventsRefresh(): void {
-    console.log('📅 CacheInvalidator: Refreshing Satlantis events...');
-
-    UnifiedCacheService.invalidate([
-      // Satlantis events list cache
-      'satlantis_events_*',
-
-      // Individual Satlantis event caches
-      'satlantis_event_*',
-
-      // Satlantis RSVPs cache
-      'satlantis_rsvps_*',
-
-      // Satlantis leaderboard caches
-      'satlantis_leaderboard_*',
-    ]);
-
-    console.log('✅ Satlantis event caches invalidated');
-  }
-
-  /**
-   * When user refreshes a single Satlantis event detail (pull-to-refresh)
-   * Only invalidates caches for that specific event (not all events)
-   */
-  static onSatlantisEventRefresh(eventId: string): void {
-    console.log(`📅 CacheInvalidator: Refreshing Satlantis event ${eventId}...`);
-
-    UnifiedCacheService.invalidate([
-      // This specific event's metadata cache (matches any pubkey)
-      `satlantis_event_*_${eventId}`,
-
-      // This event's RSVPs/participants cache
-      `satlantis_rsvps_${eventId}`,
-
-      // This event's leaderboard cache
-      `satlantis_leaderboard_${eventId}`,
-    ]);
-
-    console.log(`✅ Satlantis event ${eventId} caches invalidated`);
-  }
-
-  /**
    * Clear all caches (nuclear option)
    * Used for debugging or sign out
    */

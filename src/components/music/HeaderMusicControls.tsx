@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
   },
 
   // Content row

@@ -2,11 +2,10 @@
  * CompeteScreen - Main Competitions/Events Screen
  *
  * Shows all competition events with cards for:
- * - Satlantis events
- * - Running Bitcoin Challenge
  * - Einundzwanzig Fitness
  * - Season II (navigates to Season2Screen)
  * - Leaderboards (navigates to LeaderboardsScreen)
+ * - Dynamic Supabase events
  */
 
 import React, { useCallback, useState } from 'react';
@@ -20,11 +19,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 import { EventsContent } from '../components/compete';
-import { HostEventModal } from '../components/events/HostEventModal';
-import type { SatlantisEvent } from '../types/satlantis';
+import { SimpleEventCreationModal } from '../components/creation/SimpleEventCreationModal';
+import { SupabaseCompetitionService } from '../services/backend/SupabaseCompetitionService';
 
 interface CompeteScreenProps {
   navigation?: any;
@@ -36,34 +34,16 @@ const CompeteScreenComponent: React.FC<CompeteScreenProps> = ({ navigation: prop
   const navigation = propNavigation || hookNavigation;
 
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showHostModal, setShowHostModal] = useState(false);
-
-  // Handle event press - navigate to event detail
-  const handleEventPress = useCallback((event: SatlantisEvent) => {
-    navigation.navigate('SatlantisEventDetail', {
-      eventId: event.id,
-      eventPubkey: event.pubkey,
-    });
-  }, [navigation]);
-
-  // Handle Running Bitcoin event press
-  const handleRunningBitcoinPress = useCallback(() => {
-    navigation.navigate('RunningBitcoinDetail');
-  }, [navigation]);
+  const [showCreateEvent, setShowCreateEvent] = useState(false);
 
   // Handle Einundzwanzig event press
   const handleEinundzwanzigPress = useCallback(() => {
     navigation.navigate('EinundzwanzigDetail');
   }, [navigation]);
 
-  // Handle January Walking event press
-  const handleJanuaryWalkingPress = useCallback(() => {
-    navigation.navigate('JanuaryWalkingDetail');
-  }, [navigation]);
-
-  // Handle Season II card press - navigate to Season2Screen
-  const handleSeason2Press = useCallback(() => {
-    navigation.navigate('Season2');
+  // Handle Season III card press - navigate to Season3Screen
+  const handleSeason3Press = useCallback(() => {
+    navigation.navigate('Season3');
   }, [navigation]);
 
   // Handle Leaderboard card press - navigate to LeaderboardsScreen
@@ -76,32 +56,27 @@ const CompeteScreenComponent: React.FC<CompeteScreenProps> = ({ navigation: prop
     navigation.navigate('DynamicEventDetail', { eventId });
   }, [navigation]);
 
+  // Handle event created - clear cache and navigate to the new event
+  const handleEventCreated = useCallback(async (eventId: string) => {
+    setShowCreateEvent(false);
+    await SupabaseCompetitionService.clearDynamicCompetitionsCache();
+    navigation.navigate('DynamicEventDetail', { eventId });
+  }, [navigation]);
+
   // Handle refresh
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    // Events list has its own refresh via useSatlantisEvents
-    setTimeout(() => setIsRefreshing(false), 500);
+    try {
+      await SupabaseCompetitionService.clearDynamicCompetitionsCache();
+    } finally {
+      setIsRefreshing(false);
+    }
   }, []);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.hostButton}
-          onPress={() => setShowHostModal(true)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="add-circle-outline" size={18} color={theme.colors.accent} />
-          <Text style={styles.hostButtonText}>Host Virtual Event</Text>
-        </TouchableOpacity>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -118,20 +93,18 @@ const CompeteScreenComponent: React.FC<CompeteScreenProps> = ({ navigation: prop
         }
       >
         <EventsContent
-          onEventPress={handleEventPress}
-          onRunningBitcoinPress={handleRunningBitcoinPress}
           onEinundzwanzigPress={handleEinundzwanzigPress}
-          onJanuaryWalkingPress={handleJanuaryWalkingPress}
-          onSeason2Press={handleSeason2Press}
+          onSeason2Press={handleSeason3Press}
           onLeaderboardPress={handleLeaderboardPress}
           onDynamicEventPress={handleDynamicEventPress}
         />
       </ScrollView>
 
-      {/* Host Event Modal */}
-      <HostEventModal
-        visible={showHostModal}
-        onClose={() => setShowHostModal(false)}
+      {/* Event Creation Modal */}
+      <SimpleEventCreationModal
+        visible={showCreateEvent}
+        onClose={() => setShowCreateEvent(false)}
+        onEventCreated={handleEventCreated}
       />
     </SafeAreaView>
   );
@@ -150,9 +123,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
-  },
-  backButton: {
-    padding: 4,
   },
   hostButton: {
     flexDirection: 'row',

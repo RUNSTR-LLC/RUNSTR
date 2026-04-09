@@ -79,7 +79,7 @@ export class NotificationService {
   // Initialize notification service
   async initialize(userId: string): Promise<void> {
     this.userId = userId;
-    await this.expoProvider.initialize(userId);
+    await (this.expoProvider as any).initialize(userId);
 
     // ❌ DISABLED: Persistent NDK subscription causing Android/iOS crashes
     // This NostrNotificationEventHandler starts a background subscription that stays active
@@ -326,7 +326,7 @@ export class NotificationService {
       body: `They're gaining fast in ${data.competitionName} - defend your position!`,
       liveIndicator: {
         text: 'LIVE',
-        color: '#ff4444',
+        color: '#FF6B00',
         isLive: true,
       },
       miniLeaderboard: data.leaderboard,

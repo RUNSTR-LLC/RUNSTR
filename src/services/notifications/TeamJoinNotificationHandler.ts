@@ -9,7 +9,6 @@ import type { NDKSubscription, NDKEvent } from '@nostr-dev-kit/ndk';
 import { getCachedProfile } from './profileHelper';
 import { getUserNostrIdentifiers } from '../../utils/nostr';
 import { unifiedNotificationStore } from './UnifiedNotificationStore';
-import { NdkTeamService } from '../team/NdkTeamService';
 import type { TeamJoinNotificationMetadata } from '../../types/unifiedNotifications';
 import { TTLDeduplicator } from '../../utils/TTLDeduplicator';
 
@@ -70,7 +69,7 @@ export class TeamJoinNotificationHandler {
 
       this.userHexPubkey = userIdentifiers.hexPubkey;
 
-      // Note: We can't check if user is captain here as NdkTeamService doesn't have getCaptainTeams
+      // Note: Captain status checked locally via CaptainCache
       // The handler will subscribe to all team join requests where the user is tagged as captain
       // If they're not a captain of any teams, they simply won't receive any notifications
       console.log(
@@ -83,7 +82,7 @@ export class TeamJoinNotificationHandler {
       // Subscribe to team join requests (kind 1104) where user is tagged as captain
       this.subscription = ndk.subscribe(
         {
-          kinds: [TEAM_JOIN_REQUEST_KIND],
+          kinds: [TEAM_JOIN_REQUEST_KIND as any],
           '#p': [this.userHexPubkey], // Captain is tagged
         },
         { closeOnEose: false }
@@ -211,7 +210,7 @@ export class TeamJoinNotificationHandler {
           actions: [
             {
               id: 'view_requests',
-              type: 'view_join_requests',
+              type: 'view_join_requests' as any,
               label: 'View Requests',
               isPrimary: true,
             },

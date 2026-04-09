@@ -9,7 +9,6 @@ import type { NDKFilter, NDKEvent } from '@nostr-dev-kit/ndk';
 import unifiedCache from '../cache/UnifiedNostrCache';
 import { CacheKeys, CacheTTL } from '../../constants/cacheTTL';
 import type { NostrChallengeDefinition } from '../../types/nostrCompetition';
-import NdkTeamService from '../team/NdkTeamService';
 
 export interface League {
   id: string; // d tag
@@ -79,7 +78,7 @@ export class SimpleCompetitionService {
       const ndk = await GlobalNDKService.getInstance();
 
       const filter: NDKFilter = {
-        kinds: [30100],
+        kinds: [30100 as any],
         limit: 500, // Fetch many leagues for caching
       };
 
@@ -132,7 +131,7 @@ export class SimpleCompetitionService {
       const ndk = await GlobalNDKService.getInstance();
 
       const filter: NDKFilter = {
-        kinds: [30101],
+        kinds: [30101 as any],
         limit: 500, // Fetch many events for caching
       };
 
@@ -282,7 +281,7 @@ export class SimpleCompetitionService {
       // ✅ OPTIMIZED: Query by #team tag directly (90% more efficient than author query)
       // This fetches only events for THIS team instead of ALL captain's events
       const filter: NDKFilter = {
-        kinds: [30101],
+        kinds: [30101 as any],
         '#team': [teamId], // ✅ Direct team filter
         limit: 50, // Reduced from 200 since we're not filtering client-side
         since: Math.floor(Date.now() / 1000) - 90 * 24 * 60 * 60, // Last 90 days
@@ -306,7 +305,7 @@ export class SimpleCompetitionService {
           `⚠️ #team query returned 0 results, trying fallback author query...`
         );
         const fallbackFilter: NDKFilter = {
-          kinds: [30101],
+          kinds: [30101 as any],
           authors: [team.captainId],
           limit: 200,
           since: Math.floor(Date.now() / 1000) - 90 * 24 * 60 * 60,
@@ -458,10 +457,10 @@ export class SimpleCompetitionService {
   ): Promise<{ captainId: string } | null> {
     try {
       // Try UnifiedCache first (fastest) - using static import
-      const cached = unifiedCache.getCached(`team_${teamId}`);
+      const cached = unifiedCache.getCached<any>(`team_${teamId}`);
       if (cached?.captainId) {
         console.log(
-          `📦 Found team captain in cache: ${cached.captainId.substring(
+          `📦 Found team captain in cache: ${(cached.captainId as string).substring(
             0,
             16
           )}...`
@@ -469,20 +468,9 @@ export class SimpleCompetitionService {
         return { captainId: cached.captainId };
       }
 
-      // Try discovering teams from Nostr - using static import
-      console.log(`🔍 Fetching team ${teamId} from Nostr to get captain...`);
-      const teams = await NdkTeamService.getInstance().discoverAllTeams();
-      const team = teams.find((t) => t.id === teamId);
-
-      if (team?.captainId) {
-        console.log(
-          `✅ Found team captain from Nostr: ${team.captainId.substring(
-            0,
-            16
-          )}...`
-        );
-        return { captainId: team.captainId };
-      }
+      // Team captain now resolved via Supabase clubs
+      console.log(`🔍 Team ${teamId} captain not found in cache`);
+      // Captain info comes from Supabase ClubService, not Nostr relay discovery
 
       console.warn(`⚠️ Team ${teamId} not found or has no captain`);
       return null;
@@ -513,7 +501,7 @@ export class SimpleCompetitionService {
       const ndk = await GlobalNDKService.getInstance();
 
       const filter: NDKFilter = {
-        kinds: [30100],
+        kinds: [30100 as any],
         '#d': [leagueId],
         limit: 1,
       };
@@ -561,7 +549,7 @@ export class SimpleCompetitionService {
       const ndk = await GlobalNDKService.getInstance();
 
       const filter: NDKFilter = {
-        kinds: [30101],
+        kinds: [30101 as any],
         '#d': [eventId],
         limit: 1,
       };
@@ -618,7 +606,7 @@ export class SimpleCompetitionService {
         const ndk = await GlobalNDKService.getInstance();
 
         const filter: NDKFilter = {
-          kinds: [30101],
+          kinds: [30101 as any],
           ids: [identifier], // Query by event ID instead of d-tag
           limit: 1,
         };
@@ -672,7 +660,7 @@ export class SimpleCompetitionService {
 
       // Query kind 30102 where user is tagged as participant
       const filter: NDKFilter = {
-        kinds: [30102],
+        kinds: [30102 as any],
         '#p': [userPubkey], // User is tagged as participant (creator or opponent)
         limit: 100,
       };
@@ -748,9 +736,9 @@ export class SimpleCompetitionService {
         metric: 'fastest_time',
         startDate: startDate || new Date().toISOString(),
         endDate: endDate || new Date().toISOString(),
-        duration,
+        duration: duration as 24,
         participants,
-        maxParticipants: parseInt(getTag('max_participants') || '2'),
+        maxParticipants: parseInt(getTag('max_participants') || '2') as 2,
         wager,
         status: status || 'open',
         createdAt: event.created_at || Date.now() / 1000,
@@ -860,9 +848,9 @@ export class SimpleCompetitionService {
 
       return {
         id,
-        teamId,
+        teamId: teamId || '',
         captainPubkey,
-        pubkey: event.pubkey, // ✅ FIX: Preserve raw Nostr event pubkey for fallback
+        // pubkey preserved via captainPubkey above
         name: getTag('name') || 'Unnamed Event',
         description: getTag('description'),
         activityType, // ✅ FIX: Properly read from tags
@@ -883,7 +871,7 @@ export class SimpleCompetitionService {
         paymentRecipientName: getTag('payment_recipient_name'),
         scoringMode: scoringModeTag as 'individual' | 'team-total' | undefined, // ✅ NEW
         teamGoal: teamGoalTag ? parseFloat(teamGoalTag) : undefined, // ✅ NEW
-        location: getTag('location'), // ✅ NEW: Parse location tag
+        // location: getTag('location'), // Not yet in CompetitionEvent interface
       };
     } catch (error) {
       console.error('Failed to parse event:', error);

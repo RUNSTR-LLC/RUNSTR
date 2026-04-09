@@ -2,7 +2,7 @@
 
 **Version:** 1.0
 **Date:** January 2026
-**Status:** Active Development
+**Status:** OUTDATED — Subscriptions were removed from the business model as of April 2026. Revenue now comes from sponsorships (Zapvertising) and event ticket sales only. This document needs a full rewrite.
 
 ---
 

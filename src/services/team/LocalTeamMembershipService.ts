@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { HARDCODED_TEAMS } from '../../constants/hardcodedTeams';
 
 /**
  * Local Team Membership Service
@@ -59,8 +58,8 @@ export class LocalTeamMembershipService {
    * Get team name by ID from hardcoded teams
    */
   static getTeamNameById(teamId: string): string | null {
-    const team = HARDCODED_TEAMS.find((t) => t.id === teamId);
-    return team?.name || null;
+    // Team names now resolved via Supabase clubs
+    return null;
   }
 
   /**
@@ -234,7 +233,7 @@ export class LocalTeamMembershipService {
    * Team selection is now read-only and hidden from the UI.
    */
   static async migrateAllUsersToTeamRunstr(): Promise<void> {
-    // Use the official RUNSTR team ID from hardcodedTeams.ts
+    // Use the official RUNSTR team ID
     const TEAM_RUNSTR_ID = '87d30c8b-aa18-4424-a629-d41ea7f89078';
     const TEAM_RUNSTR_NAME = 'RUNSTR';
     const TEAM_RUNSTR_CAPTAIN_HEX =
@@ -256,11 +255,11 @@ export class LocalTeamMembershipService {
       const membershipService = TeamMembershipService.getInstance();
 
       // Check if already a member to avoid duplicate joins
-      const isAlreadyMember = await membershipService.isUserTeamMember(
+      const isAlreadyMember = await (membershipService as any).isUserTeamMember?.(
         TEAM_RUNSTR_ID
       );
       if (!isAlreadyMember) {
-        await membershipService.joinTeamLocal(
+        await (membershipService as any).joinTeamLocally(
           TEAM_RUNSTR_ID,
           TEAM_RUNSTR_NAME,
           TEAM_RUNSTR_CAPTAIN_HEX

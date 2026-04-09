@@ -68,14 +68,14 @@ export const ZapModal: React.FC<ZapModalProps> = ({
 
     try {
       const memo = competitionName
-        ? `Zap for winning ${competitionName}! ⚡️`
-        : 'Zap from RUNSTR! ⚡️';
+        ? `Zap for winning ${competitionName}!`
+        : 'Zap from RUNSTR!';
 
       const success = await sendNutzap(recipientNpub, amount, memo);
 
       if (success) {
         Alert.alert(
-          '⚡️ Zap Sent!',
+          'Zap Sent!',
           `Successfully sent ${amount} sats to ${recipientName}`,
           [
             {
@@ -119,7 +119,7 @@ export const ZapModal: React.FC<ZapModalProps> = ({
         <View style={styles.modal}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>Send Zap ⚡️</Text>
+            <Text style={styles.title}>Send Zap</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Ionicons name="close" size={24} color={theme.colors.text} />
             </TouchableOpacity>

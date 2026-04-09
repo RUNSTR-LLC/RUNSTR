@@ -39,10 +39,38 @@ yarn-error.*
 app-example
 .env
 *.apk
-*.apk
 
-# Build logs
+# Build logs and lint outputs
 build-v*.log
+current-lint.txt
+lint-output.txt
+
+# Build artifacts
+dist-ios/
+.git.bfg-report/
+
+# Backup assets
+assets/images/old-icons-backup/
+assets/images/*-backup.png
+
+# Media files (kept locally, not in repo)
+*.mp4
+caravaggio-grind-*.png
+classical-grind-*.png
+dark-lofi-*.png
+lofi-background.png
+yt-banner-*.png
+
+# Internal agent/AI files
+SOUL.md
+TOOLS.md
+USER.md
+MEMORY.md
+HEARTBEAT.md
+IDENTITY.md
+AUDIT_REPORT.md
+CHANGELOG_RELEASE_NOTES.md
+RELEASE_NOTES.md
 
 # Encrypted secrets (auto-generated, contains sensitive data)
 src/config/encryptedSecrets.ts

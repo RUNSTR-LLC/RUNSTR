@@ -7,6 +7,7 @@
 import React, { forwardRef, Component, ReactNode } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { SvgXml } from 'react-native-svg';
+import { theme } from '../../styles/theme';
 
 interface WorkoutCardRendererProps {
   svgContent: string;
@@ -107,7 +108,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   fallbackText: {
-    color: '#fff',
+    color: theme.colors.text,
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 8,

@@ -43,6 +43,7 @@ export class WoTService {
   private static readonly KIND_TRUSTED_ASSERTION = 30382;
 
   private ndk: NDK | null = null;
+  private connected = false;
 
   private constructor() {}
 
@@ -64,6 +65,7 @@ export class WoTService {
     console.log('[WoTService] Connecting to Brainstorm relay...');
     this.ndk = new NDK({
       explicitRelayUrls: [WoTService.BRAINSTORM_RELAY],
+      enableOutboxModel: false,
     });
 
     await this.ndk.connect();
@@ -306,11 +308,23 @@ export class WoTService {
 
   /**
    * Disconnect from Brainstorm relay
+   *
+   * NOTE: This is an intentional exception to the "use GlobalNDKService only" rule.
+   * WoTService creates its own NDK instance because it connects to a specialized
+   * relay (nip85.brainstorm.world) that is separate from the app's main relay pool.
+   * We must properly close WebSocket connections to avoid resource leaks.
    */
   disconnect(): void {
     if (this.ndk) {
-      // NDK doesn't have a disconnect method, but we can null the reference
+      try {
+        for (const relay of this.ndk.pool.relays.values()) {
+          relay.disconnect();
+        }
+      } catch (e) {
+        console.warn('[WoTService] Error disconnecting relays:', e);
+      }
       this.ndk = null;
     }
+    this.connected = false;
   }
 }

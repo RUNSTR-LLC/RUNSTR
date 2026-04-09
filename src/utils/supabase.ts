@@ -72,6 +72,27 @@ export interface CompetitionConfig {
     amount_sats: number;
     label: string;
   }>;
+  requires_subscription?: 'supporter' | 'pro'; // Minimum tier required to join
+  ticket_pledge_days?: number;                 // Days of rewards pledged to enter event
+  captain_lightning_address?: string;           // Captain's lightning address for pledge rewards
+  winner_selection?: 'top_ranked' | 'random';  // How winner is selected
+  qualifying_distance_km?: number;             // Minimum km to qualify
+  // Charity event fields
+  charity_id?: string;                  // Charity ID from charities.ts
+  charity_name?: string;                // Charity display name
+  charity_lightning_address?: string;   // Charity Lightning address
+  captain_donation_sats?: number;       // Captain's NWC donation (0 if none)
+  // Prize pool fields
+  prize_pool_sats?: number;                     // 100, 500, 1000, or 5000
+  prize_distribution?: 'top3' | 'all_participants';
+  payout_results?: Array<{
+    npub: string;
+    name?: string;
+    amount_sats: number;
+    address: string;
+    success: boolean;
+    error?: string;
+  }>;
 }
 
 // Database types for type safety
@@ -79,18 +100,20 @@ export interface Competition {
   id: string;
   external_id: string;
   name: string;
-  description?: string;
+  description?: string | null;
   activity_type: string;
-  scoring_method: 'total_distance' | 'total_duration' | 'workout_count' | 'fastest_time';
+  scoring_method: 'total_distance' | 'total_duration' | 'workout_count' | 'fastest_time' | 'total_steps';
   start_date: string;
   end_date: string;
   prize_pool_sats?: number;
   created_at: string;
   metadata: Record<string, unknown>;
-  template: 'distance_race' | 'step_challenge' | 'goal_challenge' | 'fundraiser';
+  template: string;
   config: CompetitionConfig;
   image_url?: string;
   is_open: boolean;
+  created_by_npub?: string;
+  club_id?: string;
 }
 
 export interface CompetitionParticipant {
@@ -108,6 +131,7 @@ export interface WorkoutSubmission {
   distance_meters: number | null;
   duration_seconds: number | null;
   calories: number | null;
+  step_count: number | null;
   created_at: string;
   submitted_at: string;
   raw_event: Record<string, unknown>;

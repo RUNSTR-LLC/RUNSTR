@@ -10,19 +10,20 @@ import React, {
   useEffect,
   useCallback,
   useMemo,
+  useRef,
 } from 'react';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthService } from '../services/auth/authService';
 import { getNpubFromStorage, getUserNostrIdentifiers } from '../utils/nostr';
 import { DirectNostrProfileService } from '../services/user/directNostrProfileService';
-import { locationPermissionService } from '../services/activity/LocationPermissionService';
 import unifiedCache from '../services/cache/UnifiedNostrCache';
 import { CacheKeys } from '../constants/cacheTTL';
 import type { User } from '../types';
 import { PerformanceLogger } from '../utils/PerformanceLogger';
 import { NostrFetchLogger } from '../utils/NostrFetchLogger';
-import { LocalTeamMembershipService } from '../services/team/LocalTeamMembershipService';
 import VerificationService from '../services/verification/VerificationService';
+import { UnifiedSigningService } from '../services/auth/UnifiedSigningService';
 
 // Authentication state interface
 interface AuthState {
@@ -68,6 +69,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
 
+  // Track cache subscription to prevent leaks on repeated calls
+  const cacheUnsubscribeRef = useRef<(() => void) | null>(null);
+
   /**
    * Check for stored credentials (FAST - no network calls)
    * Profile loaded from UnifiedCache (prefetched by SplashInit)
@@ -94,12 +98,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         const { hexPubkey } = identifiers;
 
-        // ✅ PERFORMANCE FIX: Skip cache initialization - lazy load on demand
-        // This saves 1-2s on app startup by deferring AsyncStorage reads
-        // Cache will initialize automatically on first getCached() call
-        // PerformanceLogger.start('AuthContext: unifiedCache.initialize()');
-        // await unifiedCache.initialize(); // REMOVED
-        // PerformanceLogger.end('AuthContext: unifiedCache.initialize()');
+        if (!hexPubkey) {
+          console.warn('⚠️ AuthContext: No hex pubkey in identifiers');
+          setIsAuthenticated(false);
+          setCurrentUser(null);
+          NostrFetchLogger.end('AuthContext.checkStoredCredentials', 0, 'no hex pubkey');
+          return;
+        }
 
         // ✅ PROFILE CACHE FIX: Try memory cache first (instant)
         let cachedUser = unifiedCache.getCached<User>(
@@ -144,12 +149,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setConnectionStatus('Connected');
           NostrFetchLogger.end('AuthContext.checkStoredCredentials', 1, 'cached user');
 
-          // Subscribe to profile updates
-          unifiedCache.subscribe(
+          // Subscribe to profile updates (cleanup previous subscription first)
+          cacheUnsubscribeRef.current?.();
+          cacheUnsubscribeRef.current = unifiedCache.subscribe(
             CacheKeys.USER_PROFILE(hexPubkey),
-            (updatedUser) => {
+            (updatedUser: unknown) => {
               console.log('🔄 AuthContext: User profile updated from cache');
-              setCurrentUser(updatedUser);
+              setCurrentUser(updatedUser as User ?? null);
             }
           );
         } else {
@@ -320,7 +326,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   /**
    * Refresh profile in background without blocking
    */
-  const refreshProfileInBackground = async (): Promise<void> => {
+  const refreshProfileInBackground = useCallback(async (): Promise<void> => {
     try {
       const directUser =
         await DirectNostrProfileService.getCurrentUserProfile();
@@ -352,7 +358,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error) {
       // Silent fail for background refresh
     }
-  };
+  }, []);
 
   /**
    * Sign in with nsec - directly updates authentication state
@@ -386,7 +392,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         // Start loading profile in background while showing splash
         setTimeout(() => {
-          setCurrentUser(result.user);
+          setCurrentUser(result.user ?? null);
           setIsConnected(true);
           setConnectionStatus('Connected');
           setInitError(null);
@@ -462,7 +468,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       // NOW set user in state (profile data ready)
-      setCurrentUser(result.user);
+      setCurrentUser(result.user ?? null);
       setIsConnected(true);
       setConnectionStatus('Connected');
       setInitError(null);
@@ -515,7 +521,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Start loading profile in background while showing splash
       setTimeout(() => {
-        setCurrentUser(result.user);
+        setCurrentUser(result.user ?? null);
       }, 100);
       setIsConnected(true);
       setConnectionStatus('Connected');
@@ -590,7 +596,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Direct state updates (like iOS app)
       setIsAuthenticated(true);
-      setCurrentUser(result.user);
+      setCurrentUser(result.user ?? null);
       setIsConnected(true);
       setConnectionStatus('Connected');
       setInitError(null);
@@ -639,17 +645,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // Do cleanup in the background (non-blocking)
     try {
-      // Clean up notification handlers
-      try {
-        const { notificationCleanupService } = await import(
-          '../services/notifications/NotificationCleanupService'
-        );
-        await notificationCleanupService.cleanupAllHandlers();
-        console.log('✅ AuthContext: Notification handlers cleaned up');
-      } catch (cleanupError) {
-        console.warn('⚠️ AuthContext: Notification cleanup failed:', cleanupError);
-      }
-
       // Clear verification code
       await VerificationService.clearCode();
       console.log('✅ AuthContext: Verification code cleared');
@@ -691,6 +686,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
 
     initializeAuth();
+
+    return () => {
+      // Cleanup cache subscription on unmount
+      cacheUnsubscribeRef.current?.();
+    };
   }, [checkStoredCredentials]);
 
   // Sync health platform workouts on app foreground and cold start
@@ -720,8 +720,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   }, [isAuthenticated, isInitializing]);
 
-  // Register push token_key so the external zapping tool can send reward notifications.
-  // Fire-and-forget: tagged to the existing broadcast_tokens row via sha256(npub).
+  // Register Android background fetch on login, unregister on logout
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+
+    const { BackgroundSyncRegistration } = require('../services/fitness/BackgroundSyncRegistration');
+
+    if (isAuthenticated && !isInitializing) {
+      BackgroundSyncRegistration.register().catch(() => {});
+    } else if (isAuthenticated === false) {
+      BackgroundSyncRegistration.unregister().catch(() => {});
+    }
+  }, [isAuthenticated, isInitializing]);
+
+  // Register push token_key so the server can send reward notifications to this device.
+  // Uses UPSERT to guarantee the token_key is set even if the broadcast_tokens row
+  // was created without one (e.g. app opened before login).
   useEffect(() => {
     if (!isAuthenticated || isInitializing) return;
 
@@ -734,7 +748,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           .ExpoNotificationProvider.getInstance();
         await provider.initialize();
         const token = provider.getDeviceToken();
-        if (!token) return;
+        if (!token) {
+          console.log('[Auth] No push token available (simulator or permission denied)');
+          return;
+        }
 
         const Crypto = await import('expo-crypto');
         const tokenKey = await Crypto.digestStringAsync(
@@ -743,14 +760,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         );
 
         const { supabase, isSupabaseConfigured } = await import('../utils/supabase');
+        const { Platform } = await import('react-native');
         if (!isSupabaseConfigured() || !supabase) return;
 
-        await supabase
+        // Use UPSERT instead of UPDATE to guarantee the row exists with token_key.
+        // The registerToken call in ExpoNotificationProvider should have created the row,
+        // but this is a safety net in case of race conditions or prior registration without npub.
+        const { error } = await supabase
           .from('broadcast_tokens')
-          .update({ token_key: tokenKey })
-          .eq('token', token);
+          .upsert(
+            { token, token_key: tokenKey, platform: Platform.OS, is_active: true },
+            { onConflict: 'token' }
+          );
 
-        console.log('[Auth] Push token_key registered for reward notifications');
+        if (error) {
+          console.warn('[Auth] Push token_key upsert failed:', error.message);
+        } else {
+          console.log('[Auth] Push token_key registered for reward notifications (key:', tokenKey.slice(0, 12) + '...)');
+        }
       } catch (err) {
         console.warn('[Auth] token_key registration failed (silent):', err);
       }

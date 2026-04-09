@@ -2,6 +2,450 @@
 
 All notable changes to RUNSTR will be documented in this file.
 
+## [1.8.8] - 2026-04-09 - Social, Season III & Streak Rewards
+
+### Season III: Club Battles
+- 16-team double-elimination tournament with bracket generation
+- Season III screen with registration, live tournament, and completed phases
+- Matchup cards, bracket view, clubs list, and event card UI
+- Nightly matchup resolution via Edge Function + cron job
+- Top 4 scoring per club, losers bracket through Round 6
+- Push notifications for matchup results and upcoming battles
+
+### Social Feed
+- New Social tab with clubs row and Nostr social feed
+- Likes, zaps, reposts, and comments on feed posts
+- Inline comment input with optimistic posting
+- Single-tap NWC zaps, detail views for likes/zaps/comments
+- Social feed indexer and engagement tables
+
+### Streak Rewards
+- Streak bonus on daily workout reward (10-40% for 2-5 day streaks)
+- StreakSection replaces lottery wheel on Rewards screen
+- Updated claim-reward Edge Function for streak bonus amounts
+
+### Club Chat
+- Full-screen ClubChatScreen with pinned messages
+- Message actions: pin/unpin, replies, announcements, reactions
+- Push notifications for club chat messages
+
+### Competitions & Events
+- Prize pool system with multi-recipient payouts
+- Charity event template with donation wiring
+- Ticketed events with pledge-based entry and winner selection
+- Simplified event creation from templates with recurring events
+
+### Rewards
+- Reward sponsor changed to ALS Network (Zapvertising)
+- Reward destination picker with charity, project, service, or self
+- Strength and journal workouts now earn rewards
+
+### Bug Fixes
+- Fixed event deep link navigation (EventDetail -> DynamicEventDetail)
+- Fixed PPQ step rewards crash (missing bolt11 branch)
+- Fixed null crash in RewardDestinationSection zap handler
+- Fixed conditional React hooks crash in NWCLightningButton and CharitySection
+- Fixed backup restore crash on truncated relay data
+- Fixed Level/XP showing 0, default XP-per-level mismatch
+- Removed 53 lines of debug diagnostic timers from production
+- Fixed duplicate migration 173 (renumbered to 174)
+
+### Workout Features
+- Unified workout restore (encrypted backup + kind 1301 import)
+- Camera-based pushup verification with pose detection
+- Meditation polish: breathing circle, presets, haptics
+- Voice journal with on-device speech-to-text (iOS)
+- Private Mode for local-only tracking
+
+### Performance & Cleanup
+- Removed 12,500+ lines of dead code
+- Split SettingsScreen from 2,252 to 205 lines
+- All 198 TypeScript errors fixed (clean typecheck)
+- Subscription system fully removed
+- 19 Supabase migrations (155-174)
+
+## [1.7.7] - 2026-03-31 - Solidification, App Store Compliance & Performance
+
+### App Store Compliance
+- Removed all subscription tier UI and gating (Guideline 3.1.1)
+- Club creation and event creation now available to all users
+- Added Apple Health section in Settings with sync toggle and connection status (Guideline 2.5.1)
+
+### Stability & Reliability
+- Added workout validation bounds (200km/24h) across all 4 submission paths
+- Failed workout submissions now retry via PendingSubmissionService on all paths
+- Added NDK retryConnection mutex to prevent stale connection references
+- Fixed 2 critical circular dependency cycles (SupabaseCompetition/DailyReward, LocalWorkoutStorage/Backup)
+- Added isMounted cleanup guards to 13 async useEffects across 8 screens
+
+### Performance
+- Added .limit() to 12 high-risk unbounded Supabase queries
+- Recovered and committed lottery wheel and profile action card components
+
+### UX Polish
+- Added loading indicators to 6 screens (Steps, Events, Leaderboards, Stats, Support, Journal)
+- Feed zap opens ExternalZapModal correctly
+- Pull-to-refresh on Compete screen now refreshes data
+- Chat button shows toast feedback instead of being dead
+- Settings toggles show toast confirmation
+- Simplified onboarding modal
+
+### Cleanup
+- Removed 12 dead files (~88KB, 3,121 lines deleted)
+- Removed orphaned subscription styles from RewardsScreen
+- Renamed components/subscription to components/creation
+
+### Testing
+- Added 28 verification and audit scripts covering all core flows
+
+## [1.7.6] - 2026-03-27 - Social Feed, Lottery Wheel, Activity Menu & UI Overhaul
+
+### Social Tab
+- Clubs tab renamed to Social with integrated feed
+- Social feed with workout shares, images, and Nostr posts
+- Like, zap, repost, and comment interactions on feed posts
+- Social feed indexer Edge Function with cron schedule for Nostr content
+- Clubs row with horizontal scroll at top of Social screen
+- Dual-write workout shares to social_feed for instant visibility
+
+### Lottery Wheel
+- Lottery wheel on Level Detail screen with animated spin
+- Linear multiplier system (+0.1x per level) with next milestone preview
+- "Coming Soon" state with rewards pool reset to 0
+- Spin button with countdown timer and haptic feedback
+
+### Activity Menu
+- Activity category bar integrated into tracker screen header
+- Dropdown overlay with animated category selection
+- Activity pills for quick exercise type switching
+- Wellness and Mindfulness merged into single category
+- Renamed "Workout" to "Exercise" across the app
+
+### Simplified Events
+- Event creation simplified to template + duration + recurring
+- Recurring events with automatic finalization and re-creation
+- Finalize-and-recur-events Edge Function with daily cron
+- Competition XP bonus support in WorkoutLevelService
+- Auto-use club banner for club events
+
+### XP System
+- Simplified to flat values and linear levels, capped at 50
+- Competition XP bonuses for event participation
+
+### Subscriptions
+- Subscription purchase flows removed per Apple review
+- Subscription set to "Coming Soon" state
+- Removed subscription upsell language throughout
+
+### Profile Redesign
+- Simplified to three action cards: Workout, History, Rewards
+- Level badge on profile hero with tap-to-level-detail navigation
+- LevelDetailScreen wired into navigation
+
+### Bug Fixes
+- Fixed like/repost flash bug (keep optimistic values)
+- Fixed image aspect ratio (cover with 1:1)
+- Fixed category bar dropdown rendering below header
+- Fixed Rewards card navigation
+- Fixed missing payment_count column in rewards_pool
+- Removed NetInfo dependency from LevelDetailScreen
+- Fixed location settings navigation fallback for permission prompts
+- Fixed historical recurrence period date calculation
+- Sanitized non-finite analytics payload values
+- Removed redundant error-color fallbacks
+
+### Improvements
+- Zero TypeScript errors (198 -> 0)
+- Core test suite: 12 suites, 571 assertions
+- Spin button uses minimal outlined pill style
+- Generic "earn rewards" text replaces charity-specific messaging
+- Removed redundant screen titles from Social and Rewards
+
+## [1.7.5] - 2026-03-22 - Pushup Verification, Android Sync Reliability & Backup Fixes
+
+### Pushup Verification (Camera)
+- On-device camera verification for pushup workouts using MediaPipe pose estimation
+- Optional "Verify with Camera" toggle in pushup setup — always opt-in, never required
+- Real-time rep counting via elbow angle tracking (shoulder/elbow/wrist landmarks)
+- Privacy-preserving: video frames processed in memory and discarded — only a lightweight verification receipt is stored
+- Verified workouts display an orange checkmark in workout history and detail views
+- Verification receipt sent to Supabase with workout submission (no video, just metadata)
+- Haptic feedback on each detected rep
+
+### Android Sync Reliability
+- Re-validate Health Connect permissions before background sync (detect revocation)
+- Extended background sync lookback to 7 days to catch missed syncs
+- Smart lookback in HealthSyncManager — 7 days if >1hr since last sync, 1 day otherwise
+- Handle submission failures properly — flagged workouts skip retries, transient failures retry
+
+### Pledge System & Rewards
+- Pledge rewards now route to captain's Lightning address during active pledge period
+- Push notifications delivered for rewards even when app is backgrounded (npub passed to auto_reward trigger)
+- Fixed Rewards screen navigation from welcome modal destination picker
+
+### Bug Fixes
+- Fixed base64 padding handling in backup restore
+- Fixed club chat keyboard offset using safe area insets
+- Fixed app freeze when opening event creation from club menu
+- Patched react-native-mediapipe for VisionCamera v4 header compatibility
+- Patched react-native glog crash triggered by MediaPipe initialization
+- Fixed undefined startTime crash in workout timeline
+
+### Improvements
+- Lazy-loaded camera verification component for faster screen load
+- Added react-native-vision-camera and react-native-worklets-core for frame processor support
+
+## [1.7.4] - 2026-03-16 - Unified Profile, Ticketed Events & HealthKit Fix
+
+### Profile Redesign
+- Unified profile page replaces separate screens — workouts, stats, and settings in one view
+- Restructured bottom tabs to Profile | Clubs | Events
+- Tap-to-profile navigation on leaderboard entries and club member circles
+- Reward destination badge always visible on profile
+- Start Workout button on profile page
+
+### Ticketed Events
+- Pledge-based event entry — organizers set pledge days (0-7) and qualifying distance
+- Random winner selection with deterministic draw for prize payouts
+- Event finalization UI for organizers with winner draw and payout
+- Ticket badge and event info displayed on ticketed events
+- Finalize-ticketed-event Edge Function and get_competition_finishers RPC
+
+### Bug Fixes
+- Fixed HealthKit background import rejecting valid cardio workouts (distance fallback was always 0)
+- Fixed app freeze when opening event creation from club menu
+- Fixed undefined startTime crash in workout timeline
+- Added back button header to Rewards screen
+- Profile theme fixes — outlined Start Workout button, always-visible destination badge
+- Sponsor name now included in all reward notifications
+
+### Improvements
+- Removed dead prefetch methods from NostrPrefetchService
+- Added diagnostic logging for HealthKit background sync rejections
+- Added /vibes skill for Nostr community sentiment monitoring
+- Added /prs skill for PR triage dashboard
+
+## [1.7.3] - 2026-03-02 - Security Hardening, Submission Reliability & Branch Unification
+
+### Security
+- Secure RNG for Nostr key generation (crypto.getRandomValues replaces Math.random)
+- Secure RNG for CoinOS credential generation
+- SecureNsecStorage used consistently in Running Bitcoin post flow
+- Centralized sign-out flow via AuthContext prevents partial state cleanup
+- GlobalNDK signer cleared on sign-out to prevent stale identity
+
+### Submission Pipeline Reliability
+- 5-second timeouts on club/team Supabase queries during reward tag building
+- 5-second timeout on SubscriptionService tier check prevents hangs
+- Timeout on image upload auth signing with Amber signer serialization
+- Restored relay minimum connection check before publishing
+- Hoisted async club lookups out of JSON.stringify to prevent silent failures
+- Diagnostic logging for silent early returns in auto-submit pipeline
+- Hardened early return status reporting in submission pipeline
+- PPQ total timeout and buildRewardTags timeout protection
+
+### Bug Fixes
+- Cache crash fix: SimpleCache.delete prevents TeamCacheService crash
+- Workout invalidation now passes competition team IDs correctly
+- Health auto-submit retries on transient failures instead of silently dropping
+- Reward summary defaults nullable totals to zero (prevents NaN display)
+- Team join resolves current user npub correctly
+- Manual entry range validation enforced
+- Removed broken ChallengeService import
+- Fixed chat double-submit on rapid taps
+- Fixed German translation string
+
+### Improvements
+- Subscription status card on Rewards page (10x boost, clean framing)
+- Subscription economics updated — 10x boost, 15k/21k pricing, 5/week cap
+- Terminology cleanup — rewards everywhere, no Bitcoin/sats/Nostr in user-facing text
+- SafeAreaView migrated to react-native-safe-area-context (12 screens)
+- ~12K lines of dead code removed
+- Nostr club/team relay queries replaced with Supabase-only
+
+### Infrastructure
+- Merged v1.7.0 (clubs) + v1.7.2 (security fixes) into unified branch
+- 4 critical-path verification scripts (216 assertions)
+- Pre-release audit fixes (performance, i18n, UX, data integrity)
+
+## [1.7.1] - 2026-02-24 - Club Chat, Challenges, Meditation & Voice Journal
+
+### Club Chat
+- Full-screen club chat with navigation
+- Pinned messages and banner display
+- 1v1 challenges — create, accept, decline from chat
+- Challenge wizard modal with activity type and distance selection
+- Challenge cards in chat with live status and mini leaderboard
+- Chat replies, announcements, reactions, and workout auto-share
+- Compact club page redesign — chat fills remaining screen space
+
+### Meditation & Wellness
+- Breathing circle component for guided breathwork sessions
+- Duration preset selector for meditation setup
+- Countdown timer with auto-stop for meditation presets
+- Milestone haptic pulses for open meditation sessions
+
+### Voice Journal
+- Voice record button with hold-to-record UX
+- On-device speech-to-text via VoiceTranscriptionService
+- Wired into journal editor (iOS only — Android sends audio to Google)
+
+### Rewards
+- Default reward increased to 100 sats per workout
+- Strength and journal workouts now earn rewards
+- Step reward display stays at 50 sats daily cap
+
+### Features
+- Anonymous-first login UX — use the app without creating or importing a Nostr identity
+- Private Mode toggle in Settings — prevents workout publishing to Nostr
+- Push notification tap handling with deep-link navigation
+- Leaderboard position change notifications
+- Seamless auto-backup to Nostr after every workout
+
+### Security
+- All Supabase writes routed through Edge Functions (no direct client writes)
+- Error handling on Private Mode toggle prevents retry loops
+
+### Bug Fixes
+- Event leaderboard scoring — show time for fastest_time, hide 0-workout entries, show real names
+- Event timezone — treat end_date as end of day to include western timezone workouts
+- Clear lightning address for PPQ users in GPS workout path
+- Add profile data to pending submissions, show Private Mode toast
+- Chat profiles, event images, PPQ rewards, and 5K leaderboard scoring fixes
+- Remove NDK signing from workout submission — prevents lost workouts
+- ENDED badge on club events, chat minHeight fix
+- Lazy-load expo-speech-recognition to prevent crash on Android/pre-rebuild
+- Remove hardcoded sat amount from reward destination subtitle
+- Timer ref assignment and auto-stop race condition in meditation
+- Harden background sync reliability for HealthKit and Health Connect
+- Polish club page — tone down orange, fix leaderboard and captain display bugs
+- Quote reserved word 'position' in leaderboard SQL function
+- Use runtime app version in Settings instead of hardcoded string
+- Android APK build — downgrade to Expo SDK 52-compatible deps
+
+### Infrastructure
+- Club page refactored to flex layout with compact event rows
+- Member avatars moved into ClubInfoSection
+- ChallengeCard extracted from ChatMessageBubble
+- Runtime version fallbacks replace stale hardcoded values
+- CLAUDE.md slimmed from 570 to 154 lines, docs aligned with North Star
+
+## [1.7.0] - 2026-02-19 - Clubs, Events, Stability & Audit Fixes
+
+### Clubs System
+- User-created clubs with captain/member roles
+- One-club-per-user constraint enforced at database level
+- Club chat with Supabase Realtime
+- Captain tools: transfer captainship, remove members
+- Membership reconciliation detects stale state every 5 minutes
+- Club events: captains can create competitions for their club members
+- Club event wizard with activity type selection and prize pool
+
+### Club Events
+- Connected clubs and events systems — club captains create events from club page
+- Club event UX hardening: leaderboard query fixes, auto-join feedback, club badges, gate UX
+- Club event creation modal with subscription gating
+- Dynamic event cards show club branding
+
+### Reward Destination & PPQ.AI
+- PPQ.AI reward destination with bolt11 invoice creation for AI credits
+- PPQ.AI account creation resilience with website fallback
+- Reward destination picker redesigned with clearer options
+- "How It Works" section updated with charity-aware descriptions
+- Removed Bitcoin mention in reward UI, says "Lightning wallet" instead
+
+### NWC Wallet
+- Re-enabled NWC wallet connection with 4-layer integration
+- NWC QR code scanning and manual connection string support
+
+### Activity Tracker Stability (Issue #28)
+- Fixed white screen crash during long workouts (~5km / 30+ min)
+- Zombie session cleanup now calls Location API directly instead of no-oping on fresh singleton
+- Background task heartbeat write wrapped in try-catch (prevents JS bridge crash)
+- Auto-recovery window extended from 5 to 15 minutes (aligns with checkpoint window)
+- Black background during app initialization instead of white flash
+- Fixed stale calorie calculations in Walking and Hiking trackers (closure bug)
+
+### Codebase Audit Fixes
+- Logout now clears selected team and charity stats (prevents cross-user contamination)
+- Tied ranking in leaderboards — equal scores share the same rank
+- Case-insensitive activity type matching in competition queries
+- Daily reward race condition lock prevents double-claiming
+- UTC-consistent date comparison for reward eligibility
+- CharitySelectionService aligned with correct AsyncStorage key
+
+### Cloud Backup (Issue #31)
+- PPQ.AI credentials (API key and credit ID) now included in encrypted Nostr backup
+- Credentials restored on device switch (only if not already set locally)
+
+### Push Notifications
+- Wired claim-reward edge function to notify-user push notifications
+- RUNSTR Fitness skill link added to Settings alongside GitHub
+
+### UI & Theme
+- Enforced orange-only dark theme across entire app — removed all off-theme colors
+- AI Agent setup section added to Settings
+- Simplified PPQ.AI descriptions to "AI credits"
+
+### Database Fixes (Migration 137+)
+- Added UPDATE + DELETE RLS policies on user_teams
+- Added UPDATE RLS policy on club_memberships
+- Added atomic adjust_member_count() RPC function (eliminates race conditions)
+- Fixed club image migrations
+
+### Infrastructure
+- Background-first architecture (4 phases) for faster app startup
+- Health Connect double-counting fix + global crash handlers
+- ClubMembershipService uses atomic RPC for all member_count changes
+- Promote-first captain transfer order prevents 0-captain states
+- 249 lines of dead code removed from workoutPublishingService
+
+## [1.6.9] - 2026-02-09 - Subscriptions, Leaderboard Fixes & Auto-Submission
+
+### Subscription-Gated Team & Event Creation
+- RUNSTR Pro subscription (7,000 sats/month) unlocks team and event creation
+- Subscribe button links to runstr.club/pro with user's npub for seamless checkout
+- Non-subscribers see locked state with subscribe prompt
+
+### Leaderboard & Competition Fixes
+- Added fastest_time scoring support for February 5K Challenge
+- Fixed missing lightning address and charity tags on all Supabase submission paths
+- Fixed reward routing: 50-sat reward now correctly routes to charity when charity team selected
+- Fixed missing reward tags and timezone bug for Supabase workout submissions
+- Synced Season 2 registration script with correct npubs and competition IDs
+
+### Workout Auto-Submission Fixes
+- Fixed all Supabase submission paths to include lightning address and charity tags
+- Reward tags and timezone data now consistently included in submissions
+- Admin script to credit flagged workouts for affected participants
+
+### Cloud Backup
+- Moved cloud backup button to header bar (next to stats icon) for cleaner UI
+- Fixed green success colors in export modal to match app-wide orange theme
+
+### Teams & Charities
+- Replaced CoinOS team with "You" team for intuitive reward routing
+- Added Lightning News as a team/charity option
+
+### Activity Tracker
+- Added Mindfulness row to activity grid with Journal and Habits
+- Simplified journal editor UI with cleaner mood/energy selectors
+- Fixed swipe navigation on mindfulness screens (removed interfering scroll views)
+- Fixed flash of Run screen before saved tab position loads
+
+### UI Fixes
+- Fixed DynamicEventCard logo style to match Season II card
+- Fixed DynamicEventDetail navigation crash with RUNSTR logo fallback
+- Fixed CoinOS wallet modal ScrollView layout collapse
+- Fixed CoinOS receive invoice errors now visible with 401 retry
+- Converted CoinOS logo from JPEG-as-PNG to real PNG format
+
+### Cleanup
+- Removed AI chat and coaching features, kept PPQ.AI account management
+- CI build fixes (tsconfig, ESLint config, workflow)
+
+---
+
 ## [1.6.8] - 2026-02-08 - Background Rewards, CoinOS Wallet & Dynamic Events
 
 ### HealthKit Background Delivery & Auto-Rewards

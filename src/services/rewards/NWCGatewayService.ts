@@ -9,7 +9,7 @@
  * NEW ARCHITECTURE (v3):
  * - External service monitors kind 1301 events
  * - External service holds NWC credentials (isolated, not in Supabase)
- * - External service sends 50 sats based on reward_destination tag
+ * - External service sends 100 sats based on reward_destination tag
  * - App never interacts with NWC directly
  *
  * MIGRATION:

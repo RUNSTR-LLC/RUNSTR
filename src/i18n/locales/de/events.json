@@ -1,0 +1,21 @@
+{
+  "createEvent": "Event erstellen",
+  "live": "LIVE",
+  "upcoming": "DEMNÄCHST",
+  "ended": "BEENDET",
+  "finalResults": "ENDERGEBNISSE",
+  "startsIn": "startet in {{days}}T",
+  "daysLeft": "{{days}}T übrig",
+  "fastestTime": "Schnellste Zeit",
+  "longestDistance": "Längste Distanz",
+  "mostSteps": "Meiste Schritte",
+  "mostWorkouts": "Meiste Workouts",
+  "longestDuration": "Längste Dauer",
+  "club": "Club",
+  "einundzwanzigCommunity": "Einundzwanzig Community",
+  "runningAndWalking": "Laufen + Gehen",
+  "charityFundraiser": "Spendenaktion",
+  "charity_one": "{{count}} Hilfsorganisation",
+  "charity_other": "{{count}} Hilfsorganisationen",
+  "rewards": "{{amount}} Belohnungen"
+}

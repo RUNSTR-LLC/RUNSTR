@@ -5,7 +5,7 @@
  * a fallback UI instead of crashing the entire app.
  */
 
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { theme } from '../../styles/theme';
 
@@ -120,13 +120,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   retryButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,
   },
   retryButtonText: {
-    color: theme.colors.accentText,
+    color: theme.colors.background,
     fontSize: 14,
     fontWeight: '600',
   },

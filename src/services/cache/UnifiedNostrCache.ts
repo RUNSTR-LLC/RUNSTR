@@ -226,7 +226,7 @@ export class UnifiedNostrCache {
 
       // ✅ ANDROID FIX: If not in memory, check AsyncStorage on-demand
       if (!cached) {
-        cached = await this.loadCachedEntry<T>(key);
+        cached = (await this.loadCachedEntry<T>(key)) ?? undefined;
       }
 
       if (cached && !this.isExpired(cached)) {
@@ -287,7 +287,7 @@ export class UnifiedNostrCache {
 
     // If not in memory, try loading from AsyncStorage
     if (!cached) {
-      cached = await this.loadCachedEntry<T>(key);
+      cached = (await this.loadCachedEntry<T>(key)) ?? undefined;
     }
 
     if (!cached || this.isExpired(cached)) {
@@ -532,7 +532,7 @@ export class UnifiedNostrCache {
 
         // Don't throw - return undefined to allow graceful degradation
         // Components should handle undefined cached data
-        return undefined;
+        return undefined as unknown as T;
       });
 
     // Track pending fetch

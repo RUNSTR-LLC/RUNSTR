@@ -3,6 +3,8 @@
  * TypeScript definitions for workouts, fitness data, and activity tracking
  */
 
+import type { VerificationReceipt } from './verification';
+
 // Workout Core Types
 export type WorkoutType =
   | 'running'
@@ -14,6 +16,7 @@ export type WorkoutType =
   | 'strength_training'
   | 'strength' // For imported Nostr workouts
   | 'meditation'
+  | 'yoga'
   | 'diet'
   | 'fasting';
 export type WorkoutSource =
@@ -103,6 +106,8 @@ export interface Workout {
     situps: { reps: number; score: number };
     run5k: { timeSeconds: number; score: number };
   };
+  // Verification (camera-verified workouts)
+  verificationReceipt?: VerificationReceipt;
   metadata?: Record<string, any>; // Additional data from source
 }
 

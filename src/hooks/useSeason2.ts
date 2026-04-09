@@ -307,7 +307,7 @@ export function useAllSeason2Leaderboards(): UseAllSeason2LeaderboardsReturn {
 
         // Subscribe to ONLY this user's 1301 events since cutoff
         const filter: NDKFilter = {
-          kinds: [1301],
+          kinds: [1301 as any],
           authors: [userPubkey],
           since: cutoffTimestamp,
         };
@@ -528,7 +528,7 @@ async function fetchUserWorkoutsSinceCutoff(
     const ndk = await GlobalNDKService.getInstance();
 
     const filter: NDKFilter = {
-      kinds: [1301],
+      kinds: [1301 as any],
       authors: [userPubkey],
       since: cutoffTimestamp,
     };

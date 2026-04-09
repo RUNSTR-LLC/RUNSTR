@@ -15,9 +15,8 @@ import {
 import { theme } from '../../styles/theme';
 import { Team } from '../../types';
 import { isTeamCaptain } from '../../utils/teamUtils';
-import { TeamMemberCache } from '../../services/team/TeamMemberCache';
+import { ClubMembershipService } from '../../services/backend/ClubMembershipService';
 import leagueRankingService from '../../services/competition/leagueRankingService';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface CompactTeamCardProps {
   team: Team;
@@ -57,15 +56,11 @@ export const CompactTeamCard: React.FC<CompactTeamCardProps> = ({
           scoringFrequency: 'daily' as const,
         };
 
-        // Get team members
-        const memberCache = TeamMemberCache.getInstance();
-        const members = await memberCache.getTeamMembers(
-          team.id,
-          team.captainId
-        );
-        const participants = members.map((pubkey) => ({
-          npub: pubkey,
-          name: pubkey.slice(0, 8) + '...',
+        // Get club members from Supabase
+        const clubMembers = await ClubMembershipService.getClubMembers(team.id);
+        const participants = clubMembers.map((m) => ({
+          npub: m.member_npub,
+          name: m.member_npub.slice(0, 8) + '...',
           isActive: true,
         }));
 
@@ -201,7 +196,7 @@ const styles = StyleSheet.create({
   },
 
   captainBadge: {
-    backgroundColor: theme.colors.accent, // #ffffff
+    backgroundColor: theme.colors.text, // #ffffff
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
@@ -210,7 +205,7 @@ const styles = StyleSheet.create({
   captainBadgeText: {
     fontSize: 9,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.accentText, // #000000
+    color: theme.colors.background, // #000000
     letterSpacing: 0.5,
   },
 
@@ -229,7 +224,7 @@ const styles = StyleSheet.create({
   },
 
   memberBadge: {
-    backgroundColor: theme.colors.accent, // #ffffff
+    backgroundColor: theme.colors.text, // #ffffff
     paddingHorizontal: 6,
     paddingVertical: 4,
     borderRadius: 4,
@@ -238,7 +233,7 @@ const styles = StyleSheet.create({
   memberBadgeText: {
     fontSize: 9,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.accentText, // #000000
+    color: theme.colors.background, // #000000
     letterSpacing: 0.5,
   },
 });

@@ -7,6 +7,7 @@ Encrypted workout backup to Nostr relays using NIP-44 self-encryption.
 | File | Description |
 |------|-------------|
 | `BackupService.ts` | Export encrypted workout data to Nostr relays (kind 30078) |
+| `AutoBackupService.ts` | Automatic backup orchestration with 3-min debounce, auth-aware scheduling |
 | `RestoreService.ts` | Import and decrypt backup data from Nostr relays |
 
 ## How It Works

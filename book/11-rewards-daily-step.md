@@ -1,4 +1,4 @@
-# Chapter 11: Daily & Step Rewards
+# Chapter 11: Daily Rewards & Lottery Wheel
 
 ## Daily Workout Rewards
 
@@ -7,18 +7,20 @@ To earn the daily 50 sats reward:
 
 | Requirement | Details |
 |-------------|---------|
-| Workout saved | Must save workout in the app |
-| Qualifying source | GPS tracker or manual entry |
+| Qualifying workout | Cardio activity (running, walking, cycling, hiking) |
+| Distance > 0 | Must have measurable distance |
 | Once per day | Max 1 reward per 24 hours |
-| Minimum distance | 1km (for GPS workouts) |
+| Anti-cheat validation | Pace limits, distance limits |
+
+### Qualifying Sources
+- In-app GPS tracker
+- Background sync from Apple Health / Health Connect
+- Manual entry
 
 ### Non-Qualifying Sources
-These do NOT trigger rewards:
-- HealthKit imports
-- Health Connect imports
-- Previously imported workouts
+- Previously imported historical workouts (only new workouts from today qualify)
 
-**Why?** To prevent gaming - users could import endless historical workouts.
+**Why?** Background-synced workouts qualify because passive earning is a core feature — users earn without opening the app. Historical imports are excluded to prevent gaming.
 
 ### Atomic Streak Tracking
 
@@ -39,68 +41,63 @@ This ensures:
 
 ---
 
-## Step Milestone Rewards
+## Lottery Wheel
 
-### How It Works
+The lottery wheel is a core reward mechanic. After every qualifying workout, users spin a wheel for bonus rewards on top of the base 50 sats.
 
-```
-Steps:    0 → 999 → 1000 → 1999 → 2000 → ...
-Reward:       ❌      ✓       ❌      ✓
-```
+### Wheel Segments
 
-Every time step count crosses a 1,000 threshold, user earns 5 sats.
+The wheel has 8 segments with weighted probabilities:
 
-### Milestone Detection
+| Segment | Base Value | Probability |
+|---------|-----------|-------------|
+| 5 | 5 sats | Highest |
+| 10 | 10 sats | High |
+| 25 | 25 sats | Medium-high |
+| 50 | 50 sats | Medium |
+| 100 | 100 sats | Medium-low |
+| 250 | 250 sats | Low |
+| 500 | 500 sats | Very low |
+| 1000 | 1000 sats | Lowest |
 
-```typescript
-// Check if new milestone reached
-function getNewMilestones(previousSteps: number, currentSteps: number): number[] {
-  const previousMilestone = Math.floor(previousSteps / 1000);
-  const currentMilestone = Math.floor(currentSteps / 1000);
+Lower values appear more frequently. The distribution is weighted so that small wins are common and large wins are rare, creating a variable-ratio reinforcement schedule — the same psychological mechanic that makes slot machines engaging, applied to fitness consistency.
 
-  const newMilestones = [];
-  for (let m = previousMilestone + 1; m <= currentMilestone; m++) {
-    newMilestones.push(m * 1000);
-  }
-  return newMilestones;
-}
+### How the Spin Works
 
-// Example: previousSteps=1500, currentSteps=3200
-// Returns: [2000, 3000]
-```
+1. User completes a qualifying workout
+2. Base 50 sats reward is claimed
+3. Lottery wheel appears with animated spin
+4. Wheel lands on a segment
+5. Segment value is multiplied by the user's level multiplier
+6. Bonus reward is sent to the user's chosen destination
 
-### Daily Reset
-
-Step milestones reset at midnight:
-- New date = new milestone tracking
-- Previous day's milestones don't carry over
-- Storage key includes date: `@runstr:step_milestones:2026-01-09`
+The wheel spin is visual and immediate — users see the wheel animate and land on their result. This creates a moment of anticipation after every workout.
 
 ---
 
-## Step Submission to Supabase
+## RUNSTR Levels
 
-### Automatic Step Submission
+Your RUNSTR level is a direct reflection of your workout history. The more you work out, the higher your level, and the better your lottery wheel payouts.
 
-When the app returns to foreground, step workouts are automatically submitted to Supabase:
+### How Levels Work
 
-```typescript
-// In App.tsx - on app foreground
-StepCompetitionService.checkAndSubmitSteps();
-```
+- **Level is based on total workouts** — every qualifying workout contributes
+- **Higher level = higher multiplier** — the wheel's base values are multiplied by your level multiplier
+- **Consistent effort compounds** — a user at level 10 spinning a 100 segment earns significantly more than a level 1 user landing on the same segment
 
-The submission uses a deterministic event ID (`steps_YYYY-MM-DD_npub12chars`) ensuring one submission per day per user.
+### Level Multiplier
 
-### External Reward Processing
+The level multiplier applies to lottery wheel winnings. A level 1 user landing on 50 earns 50 sats bonus. A higher-level user landing on 50 earns 50 * their multiplier.
 
-**Important:** Step reward payments are handled by an external service, not the app:
+This creates a behavioral reinforcement loop:
+1. Work out consistently
+2. Level up
+3. Wheel spins become more valuable
+4. Motivation to maintain consistency increases
 
-1. Step workout submitted to Supabase
-2. External service monitors Supabase for new step workouts
-3. External service validates and pays 5 sats per 1,000 steps
-4. User receives Lightning payment to their configured address
+### Why Levels Matter
 
-The in-app `StepRewardService` is deprecated—all step reward processing happens externally.
+Levels reward long-term consistency over single big efforts. A user who works out every day for a month will have a meaningfully higher multiplier than someone who does one workout. The system is designed so that the most consistent users get the best lottery outcomes over time.
 
 ---
 
@@ -134,35 +131,6 @@ async function checkStreakAndReward(
   await sendReward(userPubkey);
 }
 ```
-
-### StepCompetitionService
-
-**File:** `src/services/competition/StepCompetitionService.ts`
-
-```typescript
-// Called on app foreground
-async function checkAndSubmitSteps(): Promise<void> {
-  // 1. Check if already submitted today
-  const alreadySubmitted = await hasSubmittedToday();
-  if (alreadySubmitted) return;
-
-  // 2. Get current step count
-  const steps = await DailyStepCounterService.getStepCount();
-  if (steps < 1000) return;
-
-  // 3. Create deterministic event ID
-  const eventId = `steps_${dateStr}_${npub.slice(0, 12)}`;
-
-  // 4. Submit to Supabase
-  await SupabaseCompetitionService.submitStepWorkout({
-    eventId,
-    steps,
-    pubkey: userPubkey,
-  });
-}
-```
-
-**Note:** The in-app StepRewardService is deprecated. Step rewards are processed externally by monitoring Supabase.
 
 ### Counter Storage
 
@@ -217,72 +185,67 @@ async function getStreakDays(userPubkey: string): Promise<number> {
 
 ```
 User saves workout
-        ↓
+        |
 checkStreakAndReward(pubkey, source)
-        ↓
+        |
 Is source 'gps_tracker' or 'manual_entry'?
-        ↓
-    NO → Exit silently
-    YES ↓
+        |
+    NO --> Exit silently
+    YES |
 Already rewarded today?
-        ↓
-    YES → Exit silently
-    NO ↓
+        |
+    YES --> Exit silently
+    NO |
 Set atomic marker (timestamp)
-        ↓
+        |
 Submit workout to Supabase
-        ↓
+        |
 External service monitors Supabase
-        ↓
+        |
 External service sends 50 sats via LNURL
-        ↓
+        |
 RewardPollingService detects payment
-        ↓
+        |
 Update total/weekly counters
-        ↓
+        |
 Show toast notification
 ```
 
-### Step Reward Flow
+### Lottery Wheel Flow
 
 ```
-App returns to foreground
-        ↓
-StepCompetitionService.checkAndSubmitSteps()
-        ↓
-Get current step count from device
-        ↓
-Already submitted today? → Exit
-        ↓
-Steps >= 1000?
-        ↓
-    NO → Exit
-    YES ↓
-Submit to Supabase (deterministic event ID)
-        ↓
-External service monitors Supabase
-        ↓
-External service pays 5 sats per 1k steps
-        ↓
-User receives Lightning payment
+Daily reward confirmed
+        |
+Lottery wheel appears (animated)
+        |
+Wheel spins and lands on segment (5-1000)
+        |
+Base value * user's level multiplier = bonus amount
+        |
+Bonus reward sent to chosen destination
+        |
+Update total/weekly counters
+        |
+Show bonus toast notification
 ```
 
 ---
 
-## What Daily/Step Rewards Should Be
+## What Daily Rewards Should Be
 
 ### Ideal Architecture
 1. **Simple eligibility** - GPS or manual entry only
 2. **Atomic markers** - Prevent duplicate rewards
 3. **Silent failure** - Never block user actions
-4. **Clear milestones** - 1k, 2k, 3k... steps
-5. **Daily reset** - Fresh milestones each day
+4. **Lottery as engagement** - Wheel creates anticipation after every workout
+5. **Levels reward consistency** - Long-term users earn more from the wheel
 
 ### What to Avoid
 - Complex eligibility rules
 - Reward gaming through imports
 - Race conditions on rapid saves
 - Verbose error handling
+- Flat reward structures with no progression
 
 ---
 

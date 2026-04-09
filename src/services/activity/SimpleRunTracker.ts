@@ -56,7 +56,7 @@ export interface GPSPoint {
 
 export interface RunSession {
   id: string;
-  activityType: 'running' | 'walking' | 'cycling';
+  activityType: 'running' | 'walking' | 'cycling' | 'hiking';
   startTime: number;
   endTime?: number;
   distance: number; // meters
@@ -189,7 +189,7 @@ export class SimpleRunTracker {
 
   // Core state
   private sessionId: string | null = null;
-  private activityType: 'running' | 'walking' | 'cycling' = 'running';
+  private activityType: 'running' | 'walking' | 'cycling' | 'hiking' = 'running';
   private isTracking = false;
   private isPaused = false;
   private pauseCount = 0;
@@ -226,8 +226,6 @@ export class SimpleRunTracker {
 
   // Auto-stop callback (for UI notification when preset distance reached)
   private autoStopCallback: (() => void) | null = null;
-
-  // REMOVED: Write queue no longer needed - memory-only architecture eliminates AsyncStorage GPS writes
 
   // GPS Watchdog - detects and recovers from silent GPS failures
   // Increased restarts (100 vs 5) to handle aggressive Android battery management
@@ -275,7 +273,7 @@ export class SimpleRunTracker {
    * @param presetDistance - Optional race preset distance in meters (for auto-stop)
    */
   async startTracking(
-    activityType: 'running' | 'walking' | 'cycling',
+    activityType: 'running' | 'walking' | 'cycling' | 'hiking',
     presetDistance?: number
   ): Promise<boolean> {
     // CRITICAL FIX: Guard against double-calls that would reset distance
@@ -368,7 +366,7 @@ export class SimpleRunTracker {
     // Start WorkoutRecovery checkpointing (saves every 30 seconds for crash recovery)
     workoutRecovery.startCheckpointing(
       this.sessionId!,
-      activityType,
+      activityType as 'running' | 'walking' | 'cycling',
       this.startTime,
       () => ({
         distance: this.runningDistance,
@@ -386,7 +384,7 @@ export class SimpleRunTracker {
    * Like reference implementation - GPS starts async
    */
   private async initializeGPS(
-    activityType: 'running' | 'walking' | 'cycling'
+    activityType: 'running' | 'walking' | 'cycling' | 'hiking'
   ): Promise<void> {
     try {
       console.log(`[SimpleRunTracker] Initializing GPS for ${activityType}...`);
@@ -485,7 +483,7 @@ export class SimpleRunTracker {
           notificationChannelDescription: 'Shows active workout tracking status',
           notificationId: 123456, // Fixed ID prevents duplicate notifications
           killServiceOnDestroy: false, // CRITICAL: Keep service alive when app killed
-        },
+        } as any,
         pausesUpdatesAutomatically: false,
         activityType: Location.ActivityType.Fitness,
         showsBackgroundLocationIndicator: true,
@@ -693,9 +691,6 @@ export class SimpleRunTracker {
       elevationGain,
     };
   }
-
-  // REMOVED: syncGpsPointsFromStorage - no longer needed with memory-only architecture
-  // Distance is calculated incrementally, GPS points are not persisted
 
   /**
    * Set callback for auto-stop when preset distance is reached
@@ -911,9 +906,6 @@ export class SimpleRunTracker {
     );
   }
 
-  // REMOVED: flushPendingPointsToStorage, appendGpsPointsToStorage, saveGpsPointsToStorage
-  // Memory-only architecture - GPS points are not persisted to storage
-
   /**
    * Start periodic metrics save for crash recovery
    * Saves distance, duration, splits every 30 seconds (tiny writes, not GPS arrays)
@@ -1031,8 +1023,6 @@ export class SimpleRunTracker {
 
     return Math.round(totalGain);
   }
-
-  // REMOVED: getStoredPoints - no longer needed with memory-only architecture
 
   /**
    * Save session state to AsyncStorage (includes complete tracker state)
@@ -1217,7 +1207,7 @@ export class SimpleRunTracker {
         notificationChannelDescription: 'Shows active workout tracking status',
         notificationId: 123456,
         killServiceOnDestroy: false,
-      },
+      } as any,
       pausesUpdatesAutomatically: false,
       activityType: Location.ActivityType.Fitness,
       showsBackgroundLocationIndicator: true,
@@ -1488,7 +1478,7 @@ export class SimpleRunTracker {
       distance: number;
       duration: number;
       pausedDuration: number;
-      activityType: 'running' | 'walking' | 'cycling';
+      activityType: 'running' | 'walking' | 'cycling' | 'hiking';
     };
   }> {
     // Don't recover if already tracking
@@ -1505,8 +1495,10 @@ export class SimpleRunTracker {
         return { recovered: false };
       }
 
-      // Check if checkpoint is recent enough (< 5 minutes old)
-      const AUTO_RECOVERY_MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes
+      // Check if checkpoint is recent enough (< 15 minutes old)
+      // Extended from 5 min to 15 min to align with WorkoutRecovery's 1-hour window
+      // and give users more time to recover crashed workouts
+      const AUTO_RECOVERY_MAX_AGE_MS = 15 * 60 * 1000; // 15 minutes
       const age = Date.now() - checkpoint.timestamp;
 
       if (age > AUTO_RECOVERY_MAX_AGE_MS) {

@@ -1,7 +1,9 @@
 # RUNSTR Book - Table of Contents
 
-**Version:** 2.0.0
-**Last Updated:** January 2026
+**Version:** 4.0.0
+**Last Updated:** March 2026
+
+**Aggregate workouts, earn rewards.**
 
 ---
 
@@ -9,7 +11,8 @@
 
 | Chapter | Title | Description |
 |---------|-------|-------------|
-| 01 | [Introduction](./01-introduction.md) | RUNSTR as a fitness event company, three pillars, architecture overview |
+| 00 | [About RUNSTR](./00-about-runstr.md) | External-facing narrative: workouts, social, rewards, and direction |
+| 01 | [Introduction](./01-introduction.md) | Core loop, aggregation + rewards model, three audiences, business model |
 
 ---
 
@@ -18,20 +21,20 @@
 | Chapter | Title | Description |
 |---------|-------|-------------|
 | 02 | [Workouts Overview](./02-workouts-overview.md) | What workouts are, activity categories, health integrations |
-| 03 | [Workout Tracking](./03-workouts-tracking.md) | GPS tracking, manual entry, real-time metrics |
+| 03 | [Workout Tracking](./03-workouts-tracking.md) | GPS tracking, manual entry, real-time metrics, camera verification |
 | 04 | [Workout Data Model](./04-workouts-data-model.md) | Kind 1301 Nostr events, tag format, activity types |
-| 05 | [Workout Storage & Publishing](./05-workouts-storage.md) | Local storage, health sync, Nostr publishing |
+| 05 | [Workout Storage & Publishing](./05-workouts-storage.md) | Local storage, health sync, Supabase submission |
 
 ---
 
-## Part 2: Events
+## Part 2: Competitions
 
 | Chapter | Title | Description |
 |---------|-------|-------------|
-| 06 | [Events Overview](./06-events-overview.md) | What events are, virtual competitions, prize pools |
-| 07 | [In-Person Events & Business Model](./07-in-person-events.md) | Meatspace races, sponsorship strategy, scaling to 100+ events |
+| 06 | [Events Overview](./06-events-overview.md) | What competitions are, virtual events, prize pools |
+| 07 | [In-Person Events & Business Model](./07-in-person-events.md) | Meatspace races, sponsorship strategy, Zapvertising |
 | 08 | [Joining Events](./08-events-joining.md) | Supabase participant tracking, join flow |
-| 09 | [Event Leaderboards](./09-events-leaderboards.md) | Leaderboard calculation, Running/Walking/Cycling tabs |
+| 09 | [Event Leaderboards](./09-events-leaderboards.md) | Daily leaderboards, featured events, Fitness Club events |
 
 ---
 
@@ -39,10 +42,10 @@
 
 | Chapter | Title | Description |
 |---------|-------|-------------|
-| 10 | [Rewards Overview](./10-rewards-overview.md) | Fitness = Bitcoin philosophy, reward types, charity integration |
-| 11 | [Daily & Step Rewards](./11-rewards-daily-step.md) | 50 sats/workout, 5 sats/1k steps, streaks |
-| 12 | [Lightning Address Delivery](./12-rewards-lightning-address.md) | No NWC, LNURL protocol, reward delivery |
-| 13 | [Teams & Charities](./13-rewards-teams-charities.md) | Teams = Charities, reward routing, zap button |
+| 10 | [Rewards Overview](./10-rewards-overview.md) | Sponsor-funded rewards, reward destinations, how rewards work |
+| 11 | [Daily & Step Rewards](./11-rewards-daily-step.md) | Per-workout rewards, daily wheel, levels |
+| 12 | [Lightning Address Delivery](./12-rewards-lightning-address.md) | LNURL protocol, reward delivery |
+| 13 | [Reward Destinations](./13-rewards-teams-charities.md) | Charities, projects, services, self — choosing where rewards go |
 | 14 | [Encrypted Backup](./14-encrypted-backup.md) | Kind 30078, NIP-44 self-encryption, gzip compression |
 
 ---
@@ -51,32 +54,47 @@
 
 | Chapter | Title | Description |
 |---------|-------|-------------|
-| 15 | [Conclusion](./15-conclusion.md) | RUNSTR's value, simplicity principle, future vision |
+| 15 | [Conclusion](./15-conclusion.md) | Core loop, simplicity principle, future direction, final form |
 | 16 | [Appendix: Nostr Events](./16-appendix-nostr-events.md) | Kind 1301 spec, tag examples, relay config |
 
 ---
 
 ## Quick Reference
 
+### The Core Loop
+```
+Aggregate workouts → Earn rewards → Compete in events → Level up → Repeat
+```
+
 ### Core Concepts
-- **Fitness Event Company** - RUNSTR operates virtual and in-person fitness competitions
-- **Three Pillars** - Workouts, Events, Rewards
-- **Teams = Charities** - Users select one team/charity to support
-- **Rewards** - 50 sats per daily workout, 5 sats per 1k steps
-- **Lightning Address** - Users enter their address to receive rewards
-- **Encrypted Backup** - Kind 30078 NIP-44 encrypted backup/restore via Nostr relays
-- **In-Person Events** - 5K races with sponsorships, scaling nationwide
+- **Fitness data aggregator** — Pull workouts from any source into one place
+- **Rewards your way** — Users choose ONE destination: a charity, a project, AI credits, or themselves
+- **Levels that matter** — Consistency multiplies daily wheel payouts
+- **Sponsor-funded** — Rewards come from sponsors (Zapvertising), not RUNSTR
+- **Background sync** — Works with any HealthKit/Health Connect app. Earn rewards without opening the app
+- **Social feed** — Fitness posts from across Nostr with likes, zaps, reposts, and comments
+- **Fitness Clubs** — Users create clubs with leaderboards, chat, and captain-hosted events
+- **Invisible technology** — Users see rewards, not protocols
+
+### Three Audiences
+| Audience | What They See |
+|----------|--------------|
+| Fitness enthusiasts | Workout aggregator with rewards and competitions |
+| Bitcoin/Nostr community | Circular economy, anonymous tracking, decentralized data |
+| AI-forward users | Earn AI credits, give agent fitness context |
 
 ### Key Services
 | Service | Purpose | Chapter |
 |---------|---------|---------|
-| `WorkoutEventStore` | Workout cache | 02-05 |
-| `DailyRewardService` | 50 sats/workout | 10-11 |
-| `StepRewardService` | 5 sats/1k steps | 10-11 |
+| `LocalWorkoutStorageService` | Local workout storage | 02-05 |
+| `SupabaseCompetitionService` | Workout submission, leaderboards | 08-09 |
+| `DailyRewardService` | Per-workout reward eligibility | 10-11 |
+| `SupabaseRewardService` | Verified payment tracking | 10-11 |
+| `RewardPollingService` | In-app reward notifications | 10-11 |
 | `BackupService` | Encrypted backup (kind 30078) | 14 |
-| `SupabaseCompetitionService` | Event leaderboards | 09 |
+| `PoseDetectionService` | Camera-verified strength reps | 03 |
 
 ### Navigation
-- **Profile Tab** - Start Workout, View History, Join Events
-- **Teams Tab** - Select charity to support
-- **Rewards Tab** - Total rewards, earnings history, settings
+- **Profile Tab** — Start Workout, View History, Level & Wheel, Settings
+- **Social Tab** — Social feed, Fitness Clubs, club chat, club events
+- **Events Tab** — Competitions, leaderboards, featured events

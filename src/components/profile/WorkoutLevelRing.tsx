@@ -12,13 +12,12 @@ import {
   StyleSheet,
   ActivityIndicator,
   TouchableOpacity,
-  Modal,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import type { LevelStats } from '../../types/workoutLevel';
-import { XP_CONSTANTS, STREAK_BONUSES } from '../../types/workoutLevel';
 import WorkoutLevelService from '../../services/fitness/WorkoutLevelService';
 
 // Generic workout interface compatible with both LocalWorkout and NostrWorkout
@@ -41,7 +40,7 @@ export const WorkoutLevelRing: React.FC<WorkoutLevelRingProps> = ({
 }) => {
   const [stats, setStats] = useState<LevelStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [showExplainer, setShowExplainer] = useState(false);
+  const navigation = useNavigation<any>();
 
   const levelService = WorkoutLevelService;
 
@@ -86,15 +85,12 @@ export const WorkoutLevelRing: React.FC<WorkoutLevelRingProps> = ({
     return null;
   }
 
-  const currentStreak = stats.currentStreak || 0;
-  const streakBonus = levelService.calculateStreakBonus(currentStreak);
-
   return (
     <View style={styles.container}>
       {/* Tappable ring to show XP explainer */}
       <TouchableOpacity
         style={styles.ringContainer}
-        onPress={() => setShowExplainer(true)}
+        onPress={() => navigation.navigate('LevelDetail')}
         activeOpacity={0.8}
       >
         {/* SVG Progress Ring */}
@@ -155,7 +151,7 @@ export const WorkoutLevelRing: React.FC<WorkoutLevelRingProps> = ({
       <View style={styles.statsContainer}>
         <View style={styles.statRow}>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{stats.qualifyingWorkouts}</Text>
+            <Text style={styles.statValue}>{stats.totalWorkouts}</Text>
             <Text style={styles.statLabel}>Workouts</Text>
           </View>
           <View style={styles.statDivider} />
@@ -166,101 +162,9 @@ export const WorkoutLevelRing: React.FC<WorkoutLevelRingProps> = ({
             </Text>
             <Text style={styles.statLabel}>XP Progress</Text>
           </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{currentStreak}</Text>
-            <Text style={styles.statLabel}>Day Streak</Text>
-          </View>
         </View>
       </View>
 
-      {/* XP Explainer Modal */}
-      <Modal
-        visible={showExplainer}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setShowExplainer(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowExplainer(false)}
-        >
-          <View style={styles.modalContent}>
-            {/* Header */}
-            <View style={styles.modalHeader}>
-              <Ionicons name="flash" size={24} color="#FF9D42" />
-              <Text style={styles.modalTitle}>How XP Works</Text>
-              <TouchableOpacity
-                onPress={() => setShowExplainer(false)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="close" size={24} color={theme.colors.text} />
-              </TouchableOpacity>
-            </View>
-
-            {/* XP Breakdown */}
-            <View style={styles.xpBreakdown}>
-              <View style={styles.xpRow}>
-                <Text style={styles.xpLabel}>Every workout</Text>
-                <Text style={styles.xpValue}>
-                  +{XP_CONSTANTS.BASE_XP_PER_WORKOUT} XP
-                </Text>
-              </View>
-
-              <View style={styles.xpRow}>
-                <Text style={styles.xpLabel}>Per 10 minutes</Text>
-                <Text style={styles.xpValue}>
-                  +{XP_CONSTANTS.DURATION_XP_PER_10_MIN} XP
-                </Text>
-              </View>
-
-              <View style={styles.xpRow}>
-                <Text style={styles.xpLabel}>Per km (cardio)</Text>
-                <Text style={styles.xpValue}>
-                  +{XP_CONSTANTS.DISTANCE_XP_PER_KM} XP
-                </Text>
-              </View>
-
-              <View style={styles.xpDivider} />
-
-              <Text style={styles.streakTitle}>Streak Bonuses</Text>
-              {STREAK_BONUSES.map((streak) => (
-                <View key={streak.days} style={styles.xpRow}>
-                  <Text style={styles.xpLabel}>{streak.days}+ day streak</Text>
-                  <Text style={styles.xpValue}>+{streak.bonus} XP/workout</Text>
-                </View>
-              ))}
-            </View>
-
-            {/* Current Stats */}
-            <View style={styles.currentStats}>
-              <Text style={styles.currentStatsTitle}>Your Stats</Text>
-              <View style={styles.xpRow}>
-                <Text style={styles.xpLabel}>Current streak</Text>
-                <Text style={styles.xpValueHighlight}>{currentStreak} days</Text>
-              </View>
-              <View style={styles.xpRow}>
-                <Text style={styles.xpLabel}>Streak bonus</Text>
-                <Text style={styles.xpValueHighlight}>
-                  +{streakBonus} XP/workout
-                </Text>
-              </View>
-              <View style={styles.xpRow}>
-                <Text style={styles.xpLabel}>Total XP</Text>
-                <Text style={styles.xpValueHighlight}>
-                  {levelService.formatXP(stats.level.totalXP)} XP
-                </Text>
-              </View>
-            </View>
-
-            {/* Minimum threshold note */}
-            <Text style={styles.thresholdNote}>
-              Workouts must be 5+ minutes or 0.5+ km to qualify for XP.
-            </Text>
-          </View>
-        </TouchableOpacity>
-      </Modal>
     </View>
   );
 };
@@ -352,100 +256,4 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a1a',
   },
 
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-
-  modalContent: {
-    backgroundColor: '#0a0a0a',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#1a1a1a',
-    padding: 24,
-    width: '100%',
-    maxWidth: 340,
-  },
-
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-
-  modalTitle: {
-    flex: 1,
-    fontSize: 20,
-    fontWeight: theme.typography.weights.bold,
-    color: '#FFB366',
-    marginLeft: 10,
-  },
-
-  xpBreakdown: {
-    marginBottom: 16,
-  },
-
-  xpRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-
-  xpLabel: {
-    fontSize: 14,
-    color: theme.colors.textSecondary,
-  },
-
-  xpValue: {
-    fontSize: 14,
-    fontWeight: theme.typography.weights.semiBold,
-    color: '#FF9D42',
-  },
-
-  xpValueHighlight: {
-    fontSize: 14,
-    fontWeight: theme.typography.weights.bold,
-    color: '#FFB366',
-  },
-
-  xpDivider: {
-    height: 1,
-    backgroundColor: '#1a1a1a',
-    marginVertical: 12,
-  },
-
-  streakTitle: {
-    fontSize: 14,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.text,
-    marginBottom: 4,
-  },
-
-  currentStats: {
-    backgroundColor: '#1a1510',
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#2a2010',
-  },
-
-  currentStatsTitle: {
-    fontSize: 13,
-    fontWeight: theme.typography.weights.semiBold,
-    color: '#FF9D42',
-    marginBottom: 8,
-  },
-
-  thresholdNote: {
-    fontSize: 12,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-    lineHeight: 18,
-  },
 });

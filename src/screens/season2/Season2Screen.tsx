@@ -137,10 +137,6 @@ export const Season2Screen: React.FC<Season2ScreenProps> = ({ navigation: propNa
   const isLoading = activeTab === 'running' ? runningLoading : activeTab === 'walking' ? walkingLoading : cyclingLoading;
   const hasRealData = activeTab === 'running' ? runningHasRealData : activeTab === 'walking' ? walkingHasRealData : cyclingHasRealData;
 
-  // REMOVED: "All zeros" detection was causing blink on tab switch
-  // The cached data (even with zeros) is better UX than showing loading spinner
-  // Users can pull-to-refresh if they want fresh data
-
   // Get current charity rankings based on active tab
   const currentCharityRankings = useMemo(() => {
     switch (activeTab) {

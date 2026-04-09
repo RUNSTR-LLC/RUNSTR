@@ -1,13 +1,15 @@
 /**
- * WorkoutPublishingService - Workout Submission for Competitions
+ * WorkoutPublishingService - Workout Submission to Supabase
  *
- * Simplified flow: Workouts are only submitted to Supabase if user is in an active competition.
- * Kind 1301 events are created locally (for event structure/signing) but NOT published to Nostr.
+ * All workouts are submitted to Supabase unconditionally for leaderboard
+ * tracking and reward eligibility. Tags are built directly without NDK
+ * event creation or signing.
  *
  * Flow:
- * - Check if user is in any active competition
- * - If YES: Submit workout to Supabase (for leaderboards)
- * - If NO: Workout saved locally only (no backend submission)
+ * - Get pubkey from AsyncStorage (no NDK signer needed)
+ * - Build kind 1301 tags directly
+ * - Submit workout to Supabase (for leaderboards and rewards)
+ * - Fire-and-forget: cache invalidation, Running Bitcoin checks
  */
 
 import { GlobalNDKService } from './GlobalNDKService';
@@ -25,21 +27,24 @@ import { RewardLightningAddressService } from '../rewards/RewardLightningAddress
 // Note: DailyRewardService import removed - rewards now trigger from SupabaseCompetitionService
 import { ImageUploadService } from '../media/ImageUploadService';
 import { LocalTeamMembershipService } from '../team/LocalTeamMembershipService';
-import { getCharityById, type Charity, isPPQTeam } from '../../constants/charities';
+import { getCharityById, type Charity, isPPQTeam, isSelfTeam, isCommunityTeam, extractCommunityTeamUUID, SELF_TEAM_ID } from '../../constants/charities';
+import { UserTeamService } from '../backend/UserTeamService';
+import { isSupabaseConfigured } from '../../utils/supabase';
 // PPQAccountService import removed - PPQ bolt11 now created centrally in submitWorkoutSimple()
-import { SatlantisEventJoinService } from '../satlantis/SatlantisEventJoinService';
 import { withTimeout, fireAndForget, NOSTR_TIMEOUTS } from '../../utils/nostrTimeout';
-import { RunningBitcoinService } from '../challenge/RunningBitcoinService';
-import { isRunningBitcoinActive, isEligibleActivityType } from '../../constants/runningBitcoin';
 import Toast from 'react-native-toast-message';
-import { nip19 } from 'nostr-tools';
+import { nip19 } from '@nostr-dev-kit/ndk';
 import Constants from 'expo-constants';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
+import { isValidWorkoutMetrics } from '../../utils/rewardEligibility';
 // RewardDestinationService removed - reward routing now uses isPPQTeam() inline
 import { EinundzwanzigService } from '../challenge/EinundzwanzigService';
 import { isEinundzwanzigActive } from '../../constants/einundzwanzig';
 import { PendingSubmissionService } from '../competition/PendingSubmissionService';
 import { WoTService } from '../wot/WoTService';
+import { shareWorkoutToClubChat } from '../club/ClubChatAutoShare';
+import SocialFeedService from '../social/SocialFeedService';
+import { nostrProfileService } from './NostrProfileService';
 
 // Import split type for race replay data
 import type { Split } from '../activity/SplitTrackingService';
@@ -105,23 +110,8 @@ export interface SocialPostOptions {
   cardImageUri?: string; // Pre-rendered card image URI (optional)
 }
 
-interface WorkoutEventData {
-  type: string;
-  duration: number;
-  distance?: number;
-  calories?: number;
-  pace?: number;
-  elevationGain?: number;
-  averageHeartRate?: number;
-  maxHeartRate?: number;
-  startTime: string;
-  endTime: string;
-}
-
 export class WorkoutPublishingService {
   private static instance: WorkoutPublishingService;
-  private static readonly MAX_WORKOUT_DISTANCE_METERS = 300000; // 300km hard cap
-  private static readonly MAX_WORKOUT_DURATION_SECONDS = 86400; // 24h hard cap
   private cardGenerator: WorkoutCardGenerator;
   private imageUploadService: ImageUploadService;
 
@@ -138,7 +128,13 @@ export class WorkoutPublishingService {
   }
 
   /**
-   * Save HealthKit workout as Kind 1301 Nostr event (NIP-101e compliant)
+   * Save workout to Supabase for leaderboard tracking and rewards.
+   *
+   * NOTE: This method is named "saveWorkoutToNostr" for historical reasons.
+   * It no longer publishes to Nostr relays -- Supabase is the single source
+   * of truth. The name is kept to avoid breaking the many callers that
+   * reference it (GPS tracker, HealthKit sync, batch save, etc.).
+   *
    * Supports both direct privateKeyHex (nsec users) and NDKSigner (Amber users)
    */
   async saveWorkoutToNostr(
@@ -151,252 +147,226 @@ export class WorkoutPublishingService {
         `🔄 Publishing workout ${workout.id} as kind 1301 event (runstr format)...`
       );
 
-      const ndk = await GlobalNDKService.getInstance();
-      const isSigner = typeof privateKeyHexOrSigner !== 'string';
-
-      // Get signer and pubkey with error handling
-      // CRASH FIX: signer.user() can fail if Amber disconnects or nsec is invalid
-      let signer: NDKSigner;
-      let pubkey: string;
-
-      if (isSigner) {
-        signer = privateKeyHexOrSigner;
-        try {
-          const user = await signer.user();
-          pubkey = user.pubkey;
-        } catch (signerError) {
-          console.warn('[WorkoutPublishing] Failed to get pubkey from signer, using stored fallback:', signerError);
-          const storedPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
-          if (!storedPubkey) {
-            throw new Error('No authentication found. Please log in again.');
-          }
-          pubkey = storedPubkey;
-        }
-      } else {
-        signer = new NDKPrivateKeySigner(privateKeyHexOrSigner);
-        try {
-          const user = await signer.user();
-          pubkey = user.pubkey;
-        } catch (signerError) {
-          console.warn('[WorkoutPublishing] Failed to get pubkey from NDKPrivateKeySigner:', signerError);
-          const storedPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
-          if (!storedPubkey) {
-            throw new Error('No authentication found. Please log in again.');
-          }
-          pubkey = storedPubkey;
-        }
+      // Get pubkey directly from AsyncStorage (no NDK signer needed for Supabase submission)
+      const storedPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+      if (!storedPubkey) {
+        throw new Error('No authentication found. Please log in again.');
       }
+      const pubkey = storedPubkey;
 
       // Get user's selected team from TeamsScreen (charities ARE teams now)
       // The selected_team_id now stores charity ID directly
       const selectedTeamId = await AsyncStorage.getItem('@runstr:selected_team_id');
 
       // Look up the charity data (team data) from the charity ID
-      // This provides both team ID for the team tag AND full charity data for the charity tag
-      const selectedCharity = selectedTeamId ? getCharityById(selectedTeamId) : null;
+      // Self team is dynamic (not in CHARITIES array), so construct it inline
+      // Community teams are fetched from Supabase user_teams table
+      let selectedCharity: Charity | null = null;
+      if (selectedTeamId) {
+        if (isSelfTeam(selectedTeamId)) {
+          selectedCharity = {
+            id: SELF_TEAM_ID,
+            name: 'You',
+            displayName: 'You',
+            description: 'Rewards go to your Lightning address',
+            category: 'service',
+            isSelf: true,
+          };
+        } else if (isCommunityTeam(selectedTeamId)) {
+          // Community team -- look up from Supabase
+          const uuid = extractCommunityTeamUUID(selectedTeamId);
+          let communityTeam = null;
+          if (isSupabaseConfigured()) {
+            try {
+              communityTeam = await UserTeamService.getTeamById(uuid);
+            } catch (err) {
+              console.warn(`[WorkoutPublishing] Failed to fetch community team '${uuid}':`, err);
+            }
+          }
+          if (communityTeam) {
+            selectedCharity = {
+              id: selectedTeamId,
+              name: communityTeam.name,
+              displayName: communityTeam.name,
+              lightningAddress: communityTeam.lightning_address || undefined,
+              description: communityTeam.description || 'Community team',
+              category: 'project',
+            };
+          }
+        } else {
+          selectedCharity = getCharityById(selectedTeamId) || null;
+        }
+      }
 
       // Get user's reward lightning address for tagging (for external reward scripts)
       const rewardLightningAddress =
         await RewardLightningAddressService.getRewardLightningAddress();
 
       // Get reward destination for external reward service routing
-      // If user has a Lightning address → 'user'
-      // If PPQ.AI team → 'ppq' (rewards go to bolt11 invoice)
-      // Otherwise → 'charity' (charity is always the fallback)
-      const hasLightningAddress = rewardLightningAddress && rewardLightningAddress.length > 0;
+      // Must match buildRewardTags() logic in src/utils/rewardTags.ts:
+      // - PPQ.AI team -> 'ppq' (rewards go to bolt11 invoice)
+      // - Charity/community team with lightning address -> 'charity' (charity gets 100 sats)
+      // - Self team, no team, or charity without lightning address -> 'user' (user gets 100 sats)
+      const isSelf = selectedTeamId ? isSelfTeam(selectedTeamId) : false;
       const isPPQ = selectedTeamId ? isPPQTeam(selectedTeamId) : false;
       let rewardDestination: 'user' | 'charity' | 'ppq';
-      if (hasLightningAddress) {
-        rewardDestination = 'user';
-      } else if (isPPQ) {
+      let effectiveLightningAddress: string | null = rewardLightningAddress; // Default: user's address
+
+      if (isPPQ) {
         rewardDestination = 'ppq';
-      } else {
+        effectiveLightningAddress = null; // PPQ uses bolt11 invoice, not lightning address
+      } else if (!isSelf && selectedCharity && !selectedCharity.isSelf && selectedCharity.lightningAddress) {
+        // Charity/community team with a lightning address -> route reward to charity
         rewardDestination = 'charity';
+        effectiveLightningAddress = selectedCharity.lightningAddress;
+      } else {
+        // Self team, no team, or charity without lightning address -> reward goes to user
+        rewardDestination = 'user';
+        effectiveLightningAddress = rewardLightningAddress;
       }
 
-      // Create unsigned NDKEvent
-      const ndkEvent = new NDKEvent(ndk);
-      ndkEvent.kind = 1301;
-      ndkEvent.content = this.generateWorkoutDescription(workout);
-      ndkEvent.tags = await this.createNIP101eWorkoutTags(
+      // Build tags directly (no NDKEvent creation or signing needed)
+      // Signing was vestigial - Nostr publishing was already removed.
+      // Removing it prevents signing failures from blocking Supabase submission.
+      const tags = await this.createNIP101eWorkoutTags(
         workout,
         pubkey,
         selectedCharity, // Charity provides both team ID and charity data
-        rewardLightningAddress,
+        effectiveLightningAddress,
         rewardDestination
       );
-      ndkEvent.created_at = Math.floor(
-        new Date(workout.startTime).getTime() / 1000
-      );
-
-      // Validate runstr format compliance
-      const eventTemplate = {
-        kind: ndkEvent.kind,
-        content: ndkEvent.content,
-        tags: ndkEvent.tags,
-        created_at: ndkEvent.created_at,
-      };
-      if (!this.validateNIP101eStructure(eventTemplate)) {
-        throw new Error('Event structure does not comply with runstr format');
-      }
-
-      // Sign and publish WITH TIMEOUT PROTECTION
-      // These operations can hang indefinitely without timeouts
-      // Use longer timeout for Amber (external signer needs user approval)
-      const isAmberSigner = signer.constructor.name === 'AmberNDKSigner' ||
-                            (signer as any).AMBER_TIMEOUT_MS !== undefined;
-      const signTimeout = isAmberSigner ? NOSTR_TIMEOUTS.SIGN_AMBER : NOSTR_TIMEOUTS.SIGN;
-
-      // Logging for debugging signing issues (especially Amber)
-      console.log(`[WorkoutPublishing] 🔐 Signing workout event...`);
-      console.log(`[WorkoutPublishing]    Signer type: ${isAmberSigner ? 'AMBER (external)' : 'NDK (internal)'}`);
-      console.log(`[WorkoutPublishing]    Timeout: ${signTimeout / 1000}s`);
-
-      const signStartTime = Date.now();
-      try {
-        await withTimeout(
-          ndkEvent.sign(signer),
-          signTimeout,
-          'Event signing'
-        );
-        const signDuration = Date.now() - signStartTime;
-        console.log(`[WorkoutPublishing] ✅ Signing succeeded in ${signDuration}ms`);
-      } catch (signError) {
-        const signDuration = Date.now() - signStartTime;
-        console.error(`[WorkoutPublishing] ❌ Signing FAILED after ${signDuration}ms:`, signError);
-        throw signError; // Re-throw to be caught by outer try/catch
-      }
 
       // ============================================================================
-      // SUPABASE SUBMISSION (ONLY for competition participants)
-      // Workouts are only submitted to Supabase if user is in an active competition
-      // Non-competition users have their workouts saved locally only
+      // SUPABASE SUBMISSION (unconditional -- all workouts go to Supabase)
+      // This enables rewards and leaderboard tracking for ALL users,
+      // not just those currently in a competition.
       // ============================================================================
       const exerciseType = this.getExerciseVerb(workout.type);
       const npub = nip19.npubEncode(pubkey);
 
-      // Check if user is in any active competition
-      const isInCompetition = await SupabaseCompetitionService.isInAnyActiveCompetition(npub);
+      console.log(`[WorkoutPublishing] 🗄️ Submitting workout to Supabase...`);
+      console.log(`[WorkoutPublishing]    npub: ${npub.slice(0, 20)}...`);
+      console.log(`[WorkoutPublishing]    type: ${exerciseType}, distance: ${workout.distance}m, duration: ${workout.duration}s`);
 
-      if (!isInCompetition) {
-        console.log(`[WorkoutPublishing] ℹ️ User not in any active competition, skipping Supabase submission`);
-        console.log(`[WorkoutPublishing]    Workout saved locally only`);
+      // VALIDATION: Ensure we have valid distance/duration before submitting
+      const distanceMeters = workout.distance || 0;
+      const durationSeconds = workout.duration || 0;
+
+      // Upper-bound validation: reject corrupt/impossible metrics
+      if (!isValidWorkoutMetrics(distanceMeters, durationSeconds)) {
+        console.warn('[WorkoutPublishing] Workout metrics out of bounds, skipping Supabase submission:', { distance: distanceMeters, duration: durationSeconds });
+        // Continue with Nostr publish but skip leaderboard submission
+      }
+
+      // Fetch cached profile for leaderboard display (name/picture)
+      const profile = await this.getCachedProfile();
+
+      if (!isValidWorkoutMetrics(distanceMeters, durationSeconds)) {
+        // Already warned above — skip to post-submission tasks
+      } else if (distanceMeters === 0 && durationSeconds === 0) {
+        console.warn('[WorkoutPublishing] ⚠️ Skipping Supabase submission: no distance or duration');
+        console.warn('[WorkoutPublishing]    This workout will not appear on leaderboards');
+        // Continue - wellness activities (meditation, etc.) don't need leaderboard entry
       } else {
-        console.log(`[WorkoutPublishing] 🗄️ User in active competition, submitting to Supabase...`);
-        console.log(`[WorkoutPublishing]    npub: ${npub.slice(0, 20)}...`);
-        console.log(`[WorkoutPublishing]    type: ${exerciseType}, distance: ${workout.distance}m, duration: ${workout.duration}s`);
+        // PPQ.AI bolt11 creation is now handled inside submitWorkoutSimple()
+        // This ensures ALL submission paths (HealthKit, background, manual) get PPQ support
 
-        // VALIDATION: reject malformed/extreme values before backend submission
-        const {
-          distanceMeters,
-          durationSeconds,
-          hasInvalidValues,
-          invalidReasons,
-        } = this.getValidatedSubmissionMetrics(workout);
+        // Submit to Supabase SYNCHRONOUSLY - this is the primary save path
+        const supabaseStartTime = Date.now();
+        try {
+          const submissionResult = await SupabaseCompetitionService.submitWorkoutSimple({
+            eventId: workout.id,
+            npub: npub,
+            type: exerciseType,
+            distance: distanceMeters,
+            duration: durationSeconds,
+            calories: workout.calories,
+            startTime: workout.startTime,
+            tags: tags,
+            profileName: profile.name,
+            profilePicture: profile.picture,
+          });
+          const supabaseDuration = Date.now() - supabaseStartTime;
 
-        if (hasInvalidValues) {
-          console.warn('[WorkoutPublishing] ⚠️ Skipping Supabase submission: invalid workout metrics');
-          console.warn(`[WorkoutPublishing]    ${invalidReasons.join(' | ')}`);
-          console.warn('[WorkoutPublishing]    Workout kept local-only to avoid polluted leaderboard data');
-          // Continue - workout still exists locally, but we do not submit invalid values
-        } else if (distanceMeters === 0 && durationSeconds === 0) {
-          console.warn('[WorkoutPublishing] ⚠️ Skipping Supabase submission: no distance or duration');
-          console.warn('[WorkoutPublishing]    This workout will not appear on leaderboards');
-          // Continue - wellness activities (meditation, etc.) don't need leaderboard entry
-        } else {
-          // PPQ.AI bolt11 creation is now handled inside submitWorkoutSimple()
-          // This ensures ALL submission paths (HealthKit, background, manual) get PPQ support
+          if (submissionResult.success) {
+            console.log(`[WorkoutPublishing] ✅ Supabase submission successful in ${supabaseDuration}ms`);
+            console.log(`[WorkoutPublishing]    Workout will appear on daily leaderboard`);
+          } else if (submissionResult.error?.includes('duplicate')) {
+            console.log(`[WorkoutPublishing] ℹ️ Duplicate workout (already submitted) in ${supabaseDuration}ms`);
+          } else {
+            console.warn(`[WorkoutPublishing] ⚠️ Supabase submission FAILED in ${supabaseDuration}ms:`, submissionResult.error);
+            if (submissionResult.flagged) {
+              Toast.show({
+                type: 'info',
+                text1: 'Workout Saved',
+                text2: 'Under review - may take time to appear on leaderboard',
+                position: 'bottom',
+                visibilityTime: 4000,
+              });
+            } else {
+              // Non-flagged failure - queue for retry
+              await PendingSubmissionService.addPending({
+                id: workout.id,
+                submissionData: {
+                  eventId: workout.id,
+                  npub,
+                  type: exerciseType,
+                  distance: distanceMeters,
+                  duration: durationSeconds,
+                  calories: workout.calories,
+                  startTime: workout.startTime,
+                  tags: tags,
+                  profileName: profile.name,
+                  profilePicture: profile.picture,
+                },
+                createdAt: Date.now(),
+                retryCount: 0,
+                lastError: submissionResult.error || 'Unknown error',
+                nextRetryTime: Date.now() + 60000, // 1 minute
+              });
 
-          // Submit to Supabase SYNCHRONOUSLY - this is the primary save path
-          const supabaseStartTime = Date.now();
-          try {
-            const submissionResult = await SupabaseCompetitionService.submitWorkoutSimple({
-              eventId: ndkEvent.id || workout.id,
-              npub: npub,
+              const isPrivateMode = submissionResult.error?.includes('Private mode');
+              Toast.show({
+                type: 'info',
+                text1: isPrivateMode ? 'Private Mode Active' : 'Workout Saved Locally',
+                text2: isPrivateMode
+                  ? 'Turn off Private Mode to appear on leaderboards'
+                  : 'Will sync to leaderboard on next refresh',
+                position: 'bottom',
+                visibilityTime: isPrivateMode ? 5000 : 3000,
+              });
+            }
+          }
+        } catch (supabaseError) {
+          const supabaseDuration = Date.now() - supabaseStartTime;
+          console.warn(`[WorkoutPublishing] ⚠️ Supabase ERROR after ${supabaseDuration}ms:`, supabaseError);
+
+          // Queue for retry on network/exception errors
+          await PendingSubmissionService.addPending({
+            id: workout.id,
+            submissionData: {
+              eventId: workout.id,
+              npub,
               type: exerciseType,
               distance: distanceMeters,
               duration: durationSeconds,
               calories: workout.calories,
               startTime: workout.startTime,
-              tags: ndkEvent.tags,
-            });
-            const supabaseDuration = Date.now() - supabaseStartTime;
+              tags: tags,
+            },
+            createdAt: Date.now(),
+            retryCount: 0,
+            lastError: supabaseError instanceof Error ? supabaseError.message : 'Unknown error',
+            nextRetryTime: Date.now() + 60000, // 1 minute
+          });
 
-            if (submissionResult.success) {
-              console.log(`[WorkoutPublishing] ✅ Supabase submission successful in ${supabaseDuration}ms`);
-              console.log(`[WorkoutPublishing]    Workout will appear on daily leaderboard`);
-            } else if (submissionResult.error?.includes('duplicate')) {
-              console.log(`[WorkoutPublishing] ℹ️ Duplicate workout (already submitted) in ${supabaseDuration}ms`);
-            } else {
-              console.warn(`[WorkoutPublishing] ⚠️ Supabase submission FAILED in ${supabaseDuration}ms:`, submissionResult.error);
-              if (submissionResult.flagged) {
-                Toast.show({
-                  type: 'info',
-                  text1: 'Workout Saved',
-                  text2: 'Under review - may take time to appear on leaderboard',
-                  position: 'bottom',
-                  visibilityTime: 4000,
-                });
-              } else {
-                // Non-flagged failure - queue for retry
-                await PendingSubmissionService.addPending({
-                  id: ndkEvent.id || workout.id,
-                  submissionData: {
-                    eventId: ndkEvent.id || workout.id,
-                    npub,
-                    type: exerciseType,
-                    distance: distanceMeters,
-                    duration: durationSeconds,
-                    calories: workout.calories,
-                    startTime: workout.startTime,
-                    tags: ndkEvent.tags,
-                  },
-                  createdAt: Date.now(),
-                  retryCount: 0,
-                  lastError: submissionResult.error || 'Unknown error',
-                  nextRetryTime: Date.now() + 60000, // 1 minute
-                });
-
-                Toast.show({
-                  type: 'info',
-                  text1: 'Workout Saved Locally',
-                  text2: 'Will sync to leaderboard on next refresh',
-                  position: 'bottom',
-                  visibilityTime: 3000,
-                });
-              }
-            }
-          } catch (supabaseError) {
-            const supabaseDuration = Date.now() - supabaseStartTime;
-            console.warn(`[WorkoutPublishing] ⚠️ Supabase ERROR after ${supabaseDuration}ms:`, supabaseError);
-
-            // Queue for retry on network/exception errors
-            await PendingSubmissionService.addPending({
-              id: ndkEvent.id || workout.id,
-              submissionData: {
-                eventId: ndkEvent.id || workout.id,
-                npub,
-                type: exerciseType,
-                distance: distanceMeters,
-                duration: durationSeconds,
-                calories: workout.calories,
-                startTime: workout.startTime,
-                tags: ndkEvent.tags,
-              },
-              createdAt: Date.now(),
-              retryCount: 0,
-              lastError: supabaseError instanceof Error ? supabaseError.message : 'Unknown error',
-              nextRetryTime: Date.now() + 60000, // 1 minute
-            });
-
-            Toast.show({
-              type: 'info',
-              text1: 'Workout Saved Locally',
-              text2: 'Will sync to leaderboard on next refresh',
-              position: 'bottom',
-              visibilityTime: 3000,
-            });
-          }
+          Toast.show({
+            type: 'info',
+            text1: 'Workout Saved Locally',
+            text2: 'Will sync to leaderboard on next refresh',
+            position: 'bottom',
+            visibilityTime: 3000,
+          });
         }
       }
 
@@ -413,41 +383,27 @@ export class WorkoutPublishingService {
         'cacheInvalidation'
       );
 
+      // Club chat auto-share (non-blocking)
+      fireAndForget(
+        shareWorkoutToClubChat({
+          senderNpub: npub,
+          exerciseType,
+          distanceMeters,
+          durationSeconds,
+          profileName: profile.name,
+        }),
+        'clubChatAutoShare'
+      );
+
       // 🎁 Reward trigger MOVED to Supabase submission success
       // Rewards now require passing anti-cheat validation (see SupabaseCompetitionService)
       // This gates rewards behind competition submission instead of local save
-
-      // 🏃 Running Bitcoin auto-pay check (non-blocking)
-      if (isRunningBitcoinActive() && isEligibleActivityType(exerciseType)) {
-        fireAndForget(
-          (async () => {
-            console.log('[WorkoutPublishing] Checking Running Bitcoin auto-pay...');
-            try {
-              const autoPayResult = await RunningBitcoinService.checkAndAutoPayReward(npub);
-              if (autoPayResult.paid) {
-                console.log('🏃⚡ Running Bitcoin: Auto-paid 1000 sats for 21km completion!');
-                // Show toast notification so user knows they got paid
-                Toast.show({
-                  type: 'success',
-                  text1: '🏃 21km Complete!',
-                  text2: '1,000 sats sent to your Lightning address!',
-                  position: 'bottom',
-                  visibilityTime: 5000,
-                });
-              }
-            } catch (rbError) {
-              console.error('[WorkoutPublishing] Running Bitcoin auto-pay failed:', rbError);
-            }
-          })(),
-          'runningBitcoinAutoPay'
-        );
-      }
 
       // Return success immediately (Supabase is what matters for competitions)
       // User sees "Workout Saved!" without waiting for Nostr relays
       return {
         success: true,
-        eventId: ndkEvent.id,
+        eventId: workout.id,
         rewardEarned: false,
         rewardAmount: undefined,
       };
@@ -497,18 +453,7 @@ export class WorkoutPublishingService {
             await LocalTeamMembershipService.getCompetitionTeam();
           let teamName: string | undefined;
 
-          if (competitionTeamId) {
-            try {
-              const NdkTeamService = (await import('../team/NdkTeamService'))
-                .default;
-              const teamData = await NdkTeamService.getTeamById(
-                competitionTeamId
-              );
-              teamName = teamData?.name ? `Team ${teamData.name}` : undefined;
-            } catch (err) {
-              console.warn('⚠️ Failed to fetch team name for card:', err);
-            }
-          }
+          // Team name resolved via Supabase clubs if needed
 
           // Generate SVG card
           const cardData = await this.cardGenerator.generateWorkoutCard(
@@ -566,8 +511,45 @@ export class WorkoutPublishingService {
       }
 
       // Get user's selected team (charity) for tagging
+      // Self team is dynamic (not in CHARITIES array)
+      // Community teams are fetched from Supabase user_teams table
       const selectedTeamId = await AsyncStorage.getItem('@runstr:selected_team_id');
-      const selectedCharity = selectedTeamId ? getCharityById(selectedTeamId) : null;
+      let selectedCharity: Charity | null = null;
+      if (selectedTeamId) {
+        if (isSelfTeam(selectedTeamId)) {
+          selectedCharity = {
+            id: SELF_TEAM_ID,
+            name: 'You',
+            displayName: 'You',
+            description: 'Rewards go to your Lightning address',
+            category: 'service',
+            isSelf: true,
+          };
+        } else if (isCommunityTeam(selectedTeamId)) {
+          // Community team -- look up from Supabase
+          const uuid = extractCommunityTeamUUID(selectedTeamId);
+          let communityTeam = null;
+          if (isSupabaseConfigured()) {
+            try {
+              communityTeam = await UserTeamService.getTeamById(uuid);
+            } catch (err) {
+              console.warn(`[WorkoutPublishing] Failed to fetch community team for social post:`, err);
+            }
+          }
+          if (communityTeam) {
+            selectedCharity = {
+              id: selectedTeamId,
+              name: communityTeam.name,
+              displayName: communityTeam.name,
+              lightningAddress: communityTeam.lightning_address || undefined,
+              description: communityTeam.description || 'Community team',
+              category: 'project',
+            };
+          }
+        } else {
+          selectedCharity = getCharityById(selectedTeamId) || null;
+        }
+      }
 
       // Create unsigned NDKEvent
       const ndkEvent = new NDKEvent(ndk);
@@ -596,13 +578,63 @@ export class WorkoutPublishingService {
         signTimeout,
         'Social post signing'
       );
-      await withTimeout(
+
+      // Ensure at least 1 relay is connected before publishing
+      // This was removed in commit 3f84367 and caused silent zero-relay publishes
+      const relaysReady = await GlobalNDKService.waitForMinimumConnection(1, 5000);
+      if (!relaysReady) {
+        console.warn('[WorkoutPublishing] No relays connected — attempting publish anyway');
+      }
+
+      const publishResult = await withTimeout(
         ndkEvent.publish(),
         NOSTR_TIMEOUTS.PUBLISH,
         'Social post publishing'
       );
 
+      // Check that at least one relay accepted the event
+      const relayCount = publishResult?.size ?? 0;
+      if (relayCount === 0) {
+        throw new Error('Published to 0 relays — no relay connections available');
+      }
+      console.log(`📡 Published to ${relayCount} relay(s)`);
+
       console.log(`✅ Workout posted to social: ${ndkEvent.id}`);
+
+      // Dual-write to social_feed for instant feed appearance
+      try {
+        const hashtags = ndkEvent.tags
+          .filter((t: string[]) => t[0] === 't')
+          .map((t: string[]) => t[1]?.toLowerCase())
+          .filter(Boolean);
+
+        const images: string[] = [];
+        const imageRegex = /https?:\/\/\S+\.(?:jpg|jpeg|png|gif|webp)/gi;
+        const imageMatches = ndkEvent.content.match(imageRegex);
+        if (imageMatches) images.push(...imageMatches);
+        ndkEvent.tags
+          .filter((t: string[]) => t[0] === 'imeta')
+          .forEach((t: string[]) => {
+            const urlPart = t.find((p: string) => p.startsWith('url '));
+            if (urlPart) images.push(urlPart.replace('url ', ''));
+          });
+
+        // Try to get cached user profile for author info
+        const userProfile = await nostrProfileService.getProfile(userId).catch(() => null);
+
+        await SocialFeedService.insertPost({
+          event_id: ndkEvent.id || '',
+          npub: userId,
+          content: ndkEvent.content,
+          images,
+          hashtags,
+          author_name: userProfile?.display_name || userProfile?.name || '',
+          author_avatar: userProfile?.picture || '',
+          created_at: new Date((ndkEvent.created_at || 0) * 1000).toISOString(),
+        });
+      } catch (dualWriteError) {
+        console.warn('[workoutPublishingService] Dual-write to social_feed failed:', dualWriteError);
+      }
 
       // Cache invalidation (fire-and-forget) - social post appears on next refresh
       // CRASH FIX: Add .catch() to prevent unhandled promise rejection
@@ -629,23 +661,37 @@ export class WorkoutPublishingService {
   }
 
   /**
-   * Convert Workout to Nostr event data format
+   * Get cached profile data for leaderboard display (name/picture).
+   * Reads from the local Nostr profile cache in AsyncStorage.
+   * Falls back to individual profile keys if the main cache misses.
    */
-  private convertWorkoutToEventData(
-    workout: PublishableWorkout
-  ): WorkoutEventData {
-    return {
-      type: workout.type,
-      duration: workout.duration,
-      distance: workout.distance,
-      calories: workout.calories,
-      pace: workout.pace,
-      elevationGain: workout.elevationGain,
-      averageHeartRate: workout.heartRate?.avg,
-      maxHeartRate: workout.heartRate?.max,
-      startTime: workout.startTime,
-      endTime: workout.endTime,
-    };
+  private async getCachedProfile(): Promise<{ name?: string; picture?: string }> {
+    try {
+      const profilesJson = await AsyncStorage.getItem('@runstr:nostr_profiles');
+      if (profilesJson) {
+        const profiles = JSON.parse(profilesJson);
+        const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+        if (hexPubkey && profiles[hexPubkey]) {
+          return {
+            name: profiles[hexPubkey].name || profiles[hexPubkey].displayName,
+            picture: profiles[hexPubkey].picture,
+          };
+        }
+      }
+      // Fallback: try individual profile keys (populated by some auth flows)
+      const npub = await AsyncStorage.getItem('@runstr:npub');
+      if (npub) {
+        const profileJson = await AsyncStorage.getItem(`@runstr:profile:${npub}`);
+        if (profileJson) {
+          const profile = JSON.parse(profileJson);
+          return {
+            name: profile.name || profile.display_name || profile.displayName,
+            picture: profile.picture || profile.image,
+          };
+        }
+      }
+    } catch { /* non-critical */ }
+    return {};
   }
 
   /**
@@ -845,29 +891,43 @@ export class WorkoutPublishingService {
     }
 
     // Add team AND charity tags (charities ARE teams now)
-    // Both tags use the same charity data for backwards compatibility
+    // Self team: add team tag but skip charity tag (user isn't supporting a charity)
     if (selectedCharity) {
-      // Team tag for leaderboards and competition filtering
-      tags.push(['team', selectedCharity.id]);
-      console.log(`   ✅ Added team tag: ${selectedCharity.id}`);
-
-      // Charity tag for external client parsing and donations
-      // PPQ.AI has no Lightning address (uses bolt11 invoices instead)
-      if (selectedCharity.lightningAddress) {
-        tags.push([
-          'charity',
-          selectedCharity.id,
-          selectedCharity.name,
-          selectedCharity.lightningAddress,
-        ]);
+      if (selectedCharity.isSelf) {
+        // Self team: tag as 'self', no charity tag
+        tags.push(['team', SELF_TEAM_ID]);
+        console.log('   ✅ Added team tag: self (rewards go to user)');
       } else {
-        tags.push([
-          'charity',
-          selectedCharity.id,
-          selectedCharity.name,
-        ]);
+        // Team tag for leaderboards and competition filtering
+        tags.push(['team', selectedCharity.id]);
+        console.log(`   ✅ Added team tag: ${selectedCharity.id}`);
+
+        // Charity tag for external client parsing and donations
+        // PPQ.AI has no Lightning address (uses bolt11 invoices instead)
+        if (selectedCharity.lightningAddress) {
+          tags.push([
+            'charity',
+            selectedCharity.id,
+            selectedCharity.name,
+            selectedCharity.lightningAddress,
+          ]);
+        } else {
+          tags.push([
+            'charity',
+            selectedCharity.id,
+            selectedCharity.name,
+          ]);
+        }
+        console.log(`   ✅ Added charity tag: ${selectedCharity.name}`);
       }
-      console.log(`   ✅ Added charity tag: ${selectedCharity.name}`);
+    }
+
+    // Add club tag (separate from reward destination)
+    // Club is the user's social club, independent of charity/team selection
+    const clubId = await AsyncStorage.getItem('@runstr:club_id');
+    if (clubId) {
+      tags.push(['club', clubId]);
+      console.log(`   ✅ Added club tag: ${clubId}`);
     }
 
     // Add reward lightning address tag (for external reward scripts)
@@ -882,22 +942,6 @@ export class WorkoutPublishingService {
     // 'charity' = send to charity's Lightning address
     tags.push(['reward_destination', rewardDestination]);
     console.log(`   ✅ Added reward_destination tag: ${rewardDestination}`);
-
-    // Add event tags for active RUNSTR events (workout belongs to these events)
-    // This enables event leaderboards to query workouts by event ID without RSVP queries
-    try {
-      const activeEventIds = await SatlantisEventJoinService.getActiveEventIds();
-      for (const eventId of activeEventIds) {
-        tags.push(['e', eventId]);
-        console.log(`   ✅ Added event tag: ${eventId}`);
-      }
-      if (activeEventIds.length > 0) {
-        console.log(`   📋 Workout tagged with ${activeEventIds.length} active event(s)`);
-      }
-    } catch (error) {
-      console.warn('   ⚠️ Failed to get active events for tagging:', error);
-      // Non-blocking - workout publishing continues without event tags
-    }
 
     // Add challenge tag for Einundzwanzig participants (enables double rewards)
     // External reward service checks this tag to award 100 sats instead of 50
@@ -924,61 +968,17 @@ export class WorkoutPublishingService {
       console.warn('   ⚠️ Failed to get WoT score, defaulting to 0:', error);
     }
 
+    // Verification receipt — add tags if workout was camera-verified
+    if ((workout as any).verificationReceipt) {
+      const receipt = (workout as any).verificationReceipt;
+      tags.push(['verified', 'true']);
+      tags.push(['verification_method', receipt.method]);
+      tags.push(['verification_confidence', String(receipt.confidence)]);
+      tags.push(['verification_reps', String(receipt.reps)]);
+      tags.push(['verification_algorithm', String(receipt.algorithmVersion)]);
+    }
+
     return tags;
-  }
-
-  /**
-   * Validate/sanitize metrics before leaderboard submission.
-   * Keeps malformed or extreme values from entering Supabase mutation paths.
-   */
-  private getValidatedSubmissionMetrics(workout: PublishableWorkout): {
-    distanceMeters: number;
-    durationSeconds: number;
-    hasInvalidValues: boolean;
-    invalidReasons: string[];
-  } {
-    const distanceMeters = Number.isFinite(workout.distance)
-      ? Math.max(0, Number(workout.distance))
-      : 0;
-
-    const durationSeconds = Number.isFinite(workout.duration)
-      ? Math.max(0, Number(workout.duration))
-      : 0;
-
-    const invalidReasons: string[] = [];
-
-    if (workout.distance !== undefined) {
-      if (!Number.isFinite(workout.distance)) {
-        invalidReasons.push('distance is non-finite');
-      } else if (workout.distance < 0) {
-        invalidReasons.push(`distance negative (${workout.distance})`);
-      } else if (
-        workout.distance > WorkoutPublishingService.MAX_WORKOUT_DISTANCE_METERS
-      ) {
-        invalidReasons.push(
-          `distance exceeds max ${WorkoutPublishingService.MAX_WORKOUT_DISTANCE_METERS}m (${workout.distance})`
-        );
-      }
-    }
-
-    if (!Number.isFinite(workout.duration)) {
-      invalidReasons.push('duration is non-finite');
-    } else if (workout.duration < 0) {
-      invalidReasons.push(`duration negative (${workout.duration})`);
-    } else if (
-      workout.duration > WorkoutPublishingService.MAX_WORKOUT_DURATION_SECONDS
-    ) {
-      invalidReasons.push(
-        `duration exceeds max ${WorkoutPublishingService.MAX_WORKOUT_DURATION_SECONDS}s (${workout.duration})`
-      );
-    }
-
-    return {
-      distanceMeters,
-      durationSeconds,
-      hasInvalidValues: invalidReasons.length > 0,
-      invalidReasons,
-    };
   }
 
   /**
@@ -1319,95 +1319,6 @@ export class WorkoutPublishingService {
   }
 
   /**
-   * Format duration for human-readable description
-   */
-  private formatDurationForDescription(seconds: number): string {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    } else {
-      return `${minutes} minutes`;
-    }
-  }
-
-  /**
-   * Validate that an event template complies with runstr format
-   */
-  private validateNIP101eStructure(eventTemplate: {
-    kind: number;
-    content: string;
-    tags: string[][];
-    created_at?: number;
-  }): boolean {
-    // Check that content is plain text, not JSON
-    if (typeof eventTemplate.content !== 'string') {
-      console.error('Validation failed: content must be a string');
-      return false;
-    }
-
-    // Check for required runstr-compatible tags (distance is optional now)
-    const requiredTags = ['d', 'exercise', 'duration', 'source'];
-    const tagKeys = eventTemplate.tags.map((tag) => tag[0]);
-
-    for (const required of requiredTags) {
-      if (!tagKeys.includes(required)) {
-        console.error(`Validation failed: missing required tag '${required}'`);
-        return false;
-      }
-    }
-
-    // Validate exercise tag is simple (just activity type)
-    const exerciseTag = eventTemplate.tags.find((tag) => tag[0] === 'exercise');
-    if (!exerciseTag || exerciseTag.length !== 2) {
-      console.error(
-        'Validation failed: exercise tag must be simple ["exercise", activityType]'
-      );
-      return false;
-    }
-
-    // Validate exercise type is one of the supported values for in-app competitions
-    const validExerciseTypes = [
-      'running',
-      'walking',
-      'cycling',
-      'hiking',
-      'swimming',
-      'rowing',
-      'strength',
-      'yoga',
-      'meditation',
-      'diet',
-      'fasting',
-      'other',
-    ];
-    if (!validExerciseTypes.includes(exerciseTag[1])) {
-      console.warn(
-        `Exercise type '${exerciseTag[1]}' is non-standard - competitions may not recognize it`
-      );
-    }
-
-    // Validate distance tag if present (optional for wellness activities)
-    const distanceTag = eventTemplate.tags.find((tag) => tag[0] === 'distance');
-    if (distanceTag && distanceTag.length !== 3) {
-      console.error(
-        'Validation failed: distance tag must have value and unit when present'
-      );
-      return false;
-    }
-
-    // Validate duration is HH:MM:SS format (always required)
-    const durationTag = eventTemplate.tags.find((tag) => tag[0] === 'duration');
-    if (!durationTag || !/^\d{2}:\d{2}:\d{2}$/.test(durationTag[1])) {
-      console.error('Validation failed: duration must be in HH:MM:SS format');
-      return false;
-    }
-
-    return true;
-  }
-
-  /**
    * Create tags for kind 1 social posts with NIP-94 image metadata
    * ✅ UPDATED: Charity is now the team - adds charity ID to BOTH team AND charity tags
    */
@@ -1456,33 +1367,38 @@ export class WorkoutPublishingService {
     }
 
     // Add team AND charity tags (charities ARE teams now)
+    // Self team: add team tag but skip charity tag
     if (selectedCharity) {
-      // Team tag for leaderboards and competition filtering
-      tags.push(['team', selectedCharity.id]);
-
-      // Team name hashtag
-      const teamHashtag = selectedCharity.name.replace(/[^a-zA-Z0-9]/g, '');
-      tags.push(['t', teamHashtag]);
-
-      console.log(`   ✅ Added team tag to kind 1: ${selectedCharity.id}`);
-
-      // Charity tag for external client parsing and donations
-      // PPQ.AI has no Lightning address (uses bolt11 invoices instead)
-      if (selectedCharity.lightningAddress) {
-        tags.push([
-          'charity',
-          selectedCharity.id,
-          selectedCharity.name,
-          selectedCharity.lightningAddress,
-        ]);
+      if (selectedCharity.isSelf) {
+        tags.push(['team', SELF_TEAM_ID]);
+        console.log('   ✅ Added team tag to kind 1: self');
       } else {
-        tags.push([
-          'charity',
-          selectedCharity.id,
-          selectedCharity.name,
-        ]);
+        // Team tag for leaderboards and competition filtering
+        tags.push(['team', selectedCharity.id]);
+
+        // Team name hashtag
+        const teamHashtag = selectedCharity.name.replace(/[^a-zA-Z0-9]/g, '');
+        tags.push(['t', teamHashtag]);
+
+        console.log(`   ✅ Added team tag to kind 1: ${selectedCharity.id}`);
+
+        // Charity tag for external client parsing and donations
+        if (selectedCharity.lightningAddress) {
+          tags.push([
+            'charity',
+            selectedCharity.id,
+            selectedCharity.name,
+            selectedCharity.lightningAddress,
+          ]);
+        } else {
+          tags.push([
+            'charity',
+            selectedCharity.id,
+            selectedCharity.name,
+          ]);
+        }
+        console.log(`   ✅ Added charity tag to kind 1: ${selectedCharity.name}`);
       }
-      console.log(`   ✅ Added charity tag to kind 1: ${selectedCharity.name}`);
     }
 
     return tags;
@@ -1503,9 +1419,27 @@ export class WorkoutPublishingService {
     const activityHashtag = this.getActivityHashtag(workout.type);
 
     // Get selected team (charity) from TeamsScreen selection
+    // Self team doesn't have a team name for social posts
+    // Community teams are fetched from Supabase user_teams table
     const selectedTeamId = await AsyncStorage.getItem('@runstr:selected_team_id');
-    const selectedCharity = selectedTeamId ? getCharityById(selectedTeamId) : null;
-    const teamName = selectedCharity?.name || null;
+    let teamName: string | null = null;
+    if (selectedTeamId && !isSelfTeam(selectedTeamId)) {
+      if (isCommunityTeam(selectedTeamId)) {
+        // Community team -- look up name from Supabase
+        const uuid = extractCommunityTeamUUID(selectedTeamId);
+        if (isSupabaseConfigured()) {
+          try {
+            const communityTeam = await UserTeamService.getTeamById(uuid);
+            teamName = communityTeam?.name || null;
+          } catch (err) {
+            console.warn(`[WorkoutPublishing] Failed to fetch community team name for social post:`, err);
+          }
+        }
+      } else {
+        const selectedCharity = getCharityById(selectedTeamId);
+        teamName = selectedCharity?.name || null;
+      }
+    }
 
     // Generate activity-specific team mention (e.g., "Running for Bitcoin Beach!")
     const getTeamMention = () => {
@@ -1597,42 +1531,6 @@ export class WorkoutPublishingService {
   }
 
   /**
-   * Generate motivational message based on workout
-   */
-  private generateMotivationalMessage(workout: PublishableWorkout): string {
-    const messages = {
-      running: [
-        'Just crushed another run! 🏃‍♂️',
-        'Miles conquered, goals achieved! 🎯',
-        'Every step counts toward greatness! ⚡',
-        'Running toward my best self! 🌟',
-      ],
-      cycling: [
-        'Bike ride complete! 🚴‍♂️',
-        'Pedaling toward my goals! 🎯',
-        'Two wheels, infinite possibilities! ⚡',
-        'Cycling into a stronger me! 💪',
-      ],
-      gym: [
-        'Gym session: COMPLETE! 💪',
-        'Another step closer to my goals! 🎯',
-        'Strength builds character! ⚡',
-        'Iron sharpens iron! 🔥',
-      ],
-      walking: [
-        'Walk complete! One step at a time! 🚶‍♂️',
-        'Movement is medicine! 🌟',
-        'Every step matters! ⚡',
-        'Walking my way to wellness! 💚',
-      ],
-    };
-
-    const typeMessages =
-      messages[workout.type as keyof typeof messages] || messages.gym;
-    return typeMessages[Math.floor(Math.random() * typeMessages.length)];
-  }
-
-  /**
    * Format workout stats for social post in vertical list format
    */
   private formatWorkoutStats(workout: PublishableWorkout): string {
@@ -1693,85 +1591,6 @@ export class WorkoutPublishingService {
     return stats.join('\n');
   }
 
-  /**
-   * Generate achievement callouts
-   */
-  private generateAchievements(workout: PublishableWorkout): string | null {
-    const achievements = [];
-
-    // Distance-based achievements
-    if (workout.distance) {
-      const km = workout.distance / 1000;
-      if (km >= 21.1) achievements.push('🏃‍♂️ Half Marathon Distance!');
-      else if (km >= 10) achievements.push('🎯 10K Achievement!');
-      else if (km >= 5) achievements.push('⭐ 5K Complete!');
-    }
-
-    // Duration-based achievements
-    if (workout.duration >= 3600) {
-      achievements.push('⏰ 1+ Hour Workout!');
-    } else if (workout.duration >= 1800) {
-      achievements.push('💪 30+ Minute Session!');
-    }
-
-    // Calorie achievements
-    if (workout.calories && workout.calories >= 500) {
-      achievements.push('🔥 500+ Calories Burned!');
-    }
-
-    return achievements.length > 0 ? achievements.join(' ') : null;
-  }
-
-  /**
-   * Batch publish multiple workouts
-   * Supports both direct privateKeyHex (nsec users) and NDKSigner (Amber users)
-   */
-  async batchSaveWorkouts(
-    workouts: PublishableWorkout[],
-    privateKeyHexOrSigner: string | NDKSigner,
-    userId: string,
-    onProgress?: (completed: number, total: number) => void
-  ): Promise<{
-    successful: number;
-    failed: number;
-    results: WorkoutPublishResult[];
-  }> {
-    const results: WorkoutPublishResult[] = [];
-    let successful = 0;
-    let failed = 0;
-
-    for (let i = 0; i < workouts.length; i++) {
-      const workout = workouts[i];
-
-      try {
-        const result = await this.saveWorkoutToNostr(
-          workout,
-          privateKeyHexOrSigner,
-          userId
-        );
-        results.push(result);
-
-        if (result.success) {
-          successful++;
-        } else {
-          failed++;
-        }
-
-        onProgress?.(i + 1, workouts.length);
-
-        // Small delay between publishes to avoid overwhelming relays
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      } catch (error) {
-        results.push({
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
-        failed++;
-      }
-    }
-
-    return { successful, failed, results };
-  }
 }
 
 export default WorkoutPublishingService.getInstance();

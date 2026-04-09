@@ -22,7 +22,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SupabaseRewardService, PaymentRecord } from './SupabaseRewardService';
 import { RewardNotificationManager } from './RewardNotificationManager';
 import { AppStateManager } from '../core/AppStateManager';
-import { getCharityById, getCharityByLightningAddress } from '../../constants/charities';
+import { getCharityById } from '../../constants/charities';
+import { SponsorService } from '../backend/SponsorService';
 
 // Polling interval in milliseconds (45 seconds)
 const POLLING_INTERVAL_MS = 45 * 1000;
@@ -178,7 +179,7 @@ class RewardPollingServiceClass {
       await AsyncStorage.setItem(storageKey, mostRecentPayment.paid_at);
 
       // Show notifications
-      this.showNotifications(newPayments);
+      await this.showNotifications(newPayments);
     } catch (error) {
       console.error('[RewardPollingService] Error checking for new payments:', error);
     }
@@ -187,29 +188,35 @@ class RewardPollingServiceClass {
   /**
    * Show appropriate notifications for new payments
    */
-  private showNotifications(payments: PaymentRecord[]): void {
+  private async showNotifications(payments: PaymentRecord[]): Promise<void> {
+    // Fetch active sponsor name (cached with 30min TTL via SponsorService)
+    let sponsorName: string | undefined;
+    try {
+      const sponsor = await SponsorService.getActiveSponsor();
+      sponsorName = sponsor.name;
+    } catch {
+      // Non-critical - notifications will just omit sponsor name
+    }
+
     // If too many payments, show batch notification
     if (payments.length > BATCH_THRESHOLD) {
       const totalAmount = payments.reduce((sum, p) => sum + p.amount_sats, 0);
       // Check if any are charity payments (explicit or by lightning address)
-      const charityPayments = payments.filter((p) => {
-        if (p.charity_id) return true;
-        return !!getCharityByLightningAddress(p.lightning_address);
-      });
+      const charityPayments = payments.filter((p) => !!p.charity_id);
       const userPayments = payments.length - charityPayments.length;
       const charityTotal = charityPayments.reduce((sum, p) => sum + p.amount_sats, 0);
       const userTotal = totalAmount - charityTotal;
 
       if (charityPayments.length > 0 && userPayments > 0) {
         // Mixed batch - show both
-        RewardNotificationManager.showBatchRewardsConfirmed(userPayments, userTotal);
+        RewardNotificationManager.showBatchRewardsConfirmed(userPayments, userTotal, sponsorName);
         setTimeout(() => {
-          RewardNotificationManager.showBatchRewardsDonated(charityPayments.length, charityTotal);
+          RewardNotificationManager.showBatchRewardsDonated(charityPayments.length, charityTotal, sponsorName);
         }, 500);
       } else if (charityPayments.length > 0) {
-        RewardNotificationManager.showBatchRewardsDonated(charityPayments.length, charityTotal);
+        RewardNotificationManager.showBatchRewardsDonated(charityPayments.length, charityTotal, sponsorName);
       } else {
-        RewardNotificationManager.showBatchRewardsConfirmed(payments.length, totalAmount);
+        RewardNotificationManager.showBatchRewardsConfirmed(payments.length, totalAmount, sponsorName);
       }
       return;
     }
@@ -222,18 +229,13 @@ class RewardPollingServiceClass {
       // Stagger notifications slightly to avoid overlap
       setTimeout(() => {
         if (payment.charity_id) {
-          // Backend set charity_id explicitly
+          // Backend set charity_id explicitly — this is a real charity payment
           const charity = getCharityById(payment.charity_id);
           const charityName = charity?.name || payment.charity_id;
-          RewardNotificationManager.showRewardDonated(payment.amount_sats, charityName);
+          RewardNotificationManager.showRewardDonated(payment.amount_sats, charityName, sponsorName);
         } else {
-          // Fallback: check if lightning_address matches a known charity
-          const charityByAddress = getCharityByLightningAddress(payment.lightning_address);
-          if (charityByAddress) {
-            RewardNotificationManager.showRewardDonated(payment.amount_sats, charityByAddress.name);
-          } else {
-            RewardNotificationManager.showRewardConfirmed(payment.amount_sats);
-          }
+          // No charity_id = payment went to user
+          RewardNotificationManager.showRewardConfirmed(payment.amount_sats, sponsorName);
         }
       }, index * 500);
     });

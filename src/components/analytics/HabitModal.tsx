@@ -116,7 +116,7 @@ export const HabitModal: React.FC<HabitModalProps> = ({
                     size={20}
                     color={
                       habitType === 'abstinence'
-                        ? theme.colors.accentText
+                        ? theme.colors.background
                         : theme.colors.textMuted
                     }
                   />
@@ -142,7 +142,7 @@ export const HabitModal: React.FC<HabitModalProps> = ({
                     size={20}
                     color={
                       habitType === 'positive'
-                        ? theme.colors.accentText
+                        ? theme.colors.background
                         : theme.colors.textMuted
                     }
                   />
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
   },
 
   typeButtonTextActive: {
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
 
   templateGrid: {
@@ -413,6 +413,6 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: theme.typography.body,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
 });

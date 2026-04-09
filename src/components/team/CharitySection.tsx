@@ -67,20 +67,12 @@ export const CharitySection: React.FC<CharitySectionProps> = ({
   // Get user info for donation tracking
   const { currentUser } = useAuth();
 
-  // If no charity selected, don't render anything
-  if (!charityId) {
-    return null;
-  }
-
-  const charity = getCharityById(charityId);
-
-  // If charity ID is invalid, don't render
-  if (!charity) {
-    return null;
-  }
+  const charity = charityId ? getCharityById(charityId) : null;
 
   // Load zapped state and wallet balance on mount
   useEffect(() => {
+    if (!charity) return;
+
     const loadZappedState = async () => {
       try {
         const today = new Date().toDateString();
@@ -97,7 +89,7 @@ export const CharitySection: React.FC<CharitySectionProps> = ({
     };
 
     loadZappedState();
-  }, [charity.id]);
+  }, [charity?.id]);
 
   // Update wallet balance when it changes
   useEffect(() => {
@@ -105,6 +97,11 @@ export const CharitySection: React.FC<CharitySectionProps> = ({
       setWalletBalance(balance || 0);
     }
   }, [balance, hasWallet]);
+
+  // Don't render if no valid charity
+  if (!charityId || !charity) {
+    return null;
+  }
 
   // Update zapped state after successful zap
   const markAsZapped = async () => {
@@ -200,7 +197,7 @@ export const CharitySection: React.FC<CharitySectionProps> = ({
         console.error('[CharitySection] Failed to create RUNSTR invoice:', invoiceResult.error);
         // Fallback: Pay charity directly (legacy behavior)
         const { invoice } = await getInvoiceFromLightningAddress(
-          charity.lightningAddress,
+          charity.lightningAddress || '',
           DEFAULT_ZAP_AMOUNT,
           `Donation to ${charity.name}`
         );
@@ -244,7 +241,7 @@ export const CharitySection: React.FC<CharitySectionProps> = ({
         donorName,
         amount: DEFAULT_ZAP_AMOUNT,
         charityId: charity.id,
-        charityLightningAddress: charity.lightningAddress,
+        charityLightningAddress: charity.lightningAddress || '',
       });
 
       await markAsZapped();
@@ -357,7 +354,7 @@ export const CharitySection: React.FC<CharitySectionProps> = ({
       {IN_APP_ZAPS_ENABLED && (
         <ExternalZapModal
           visible={showPaymentModal}
-          recipientNpub={charity.lightningAddress}
+          recipientNpub={charity.lightningAddress || ''}
           recipientName={charity.name}
           memo={`Donation to ${charity.name}`}
           onClose={() => setShowPaymentModal(false)}
@@ -440,7 +437,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#FF9D42',
+    backgroundColor: theme.colors.text,
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 8,
@@ -456,7 +453,7 @@ const styles = StyleSheet.create({
   zappedButton: {
     backgroundColor: 'rgba(255, 123, 28, 0.2)', // Light orange when zapped
     borderWidth: 1,
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.text,
   },
 
   zappingButton: {

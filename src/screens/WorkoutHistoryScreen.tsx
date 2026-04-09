@@ -7,7 +7,7 @@
  * Tabs are displayed in the header row next to the back button.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -24,6 +24,10 @@ import { EnhancedSocialShareModal } from '../components/profile/shared/EnhancedS
 // Unified Workout Components
 import { WorkoutTabNavigator } from '../components/profile/WorkoutTabNavigator';
 import { WorkoutStatsSheet } from '../components/profile/WorkoutStatsSheet';
+
+// Backup modals
+import { ExportDataModal } from '../components/backup/ExportDataModal';
+import { ImportDataModal } from '../components/backup/ImportDataModal';
 
 // Import type from the service file (not from the default export)
 import type { LocalWorkout } from '../services/fitness/LocalWorkoutStorageService';
@@ -50,8 +54,16 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
   const [showStatsSheet, setShowStatsSheet] = useState(false);
   const [selectedWorkout, setSelectedWorkout] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<NostrProfile | null>(null);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [showBackupMenu, setShowBackupMenu] = useState(false);
 
-  const loadUserData = useCallback(async () => {
+  // Load user credentials on mount
+  useEffect(() => {
+    loadUserData();
+  }, []);
+
+  const loadUserData = async () => {
     try {
       console.log('[WorkoutHistory] Loading user data...');
 
@@ -73,8 +85,7 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
       }
 
       if (!activeUserId) {
-        // Allow guest/local users to view timeline without requiring Nostr login
-        activeUserId = activePubkey || 'local-device';
+        activeUserId = activePubkey; // Use pubkey as userId fallback
       }
 
       setPubkey(activePubkey);
@@ -82,32 +93,26 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
 
       // Note: Signer is now loaded fresh at publish time (not cached here)
       // This ensures we always use current auth state after sign out/sign in
-      if (!activePubkey) {
-        console.log('[WorkoutHistory] ✅ Guest/local mode enabled (no pubkey found)');
-      } else {
-        console.log('[WorkoutHistory] ✅ User data loaded (signer loaded at publish time)');
-      }
+      console.log('[WorkoutHistory] ✅ User data loaded (signer loaded at publish time)');
     } catch (error) {
       console.error('[WorkoutHistory] ❌ Failed to load user data:', error);
     } finally {
       setIsInitializing(false);
     }
-  }, [route?.params?.pubkey, route?.params?.userId]);
-
-  // Load user credentials on mount and when route params change
-  useEffect(() => {
-    loadUserData();
-  }, [loadUserData]);
+  };
 
   // Load user profile in background (non-blocking, for social cards only)
   useEffect(() => {
+    let isMounted = true;
     if (pubkey) {
       console.log('[WorkoutHistory] Loading profile in background...');
       nostrProfileService
         .getProfile(pubkey)
         .then((profile) => {
-          setUserProfile(profile);
-          console.log('[WorkoutHistory] ✅ User profile loaded (background)');
+          if (isMounted) {
+            setUserProfile(profile);
+            console.log('[WorkoutHistory] ✅ User profile loaded (background)');
+          }
         })
         .catch((profileError) => {
           console.warn(
@@ -116,6 +121,7 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
           );
         });
     }
+    return () => { isMounted = false; };
   }, [pubkey]);
 
 
@@ -174,14 +180,62 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
     );
   }
 
+  if (!pubkey) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Ionicons
+            name="alert-circle-outline"
+            size={64}
+            color={theme.colors.error}
+          />
+          <Text style={styles.errorTitle}>No User Found</Text>
+          <Text style={styles.errorMessage}>
+            Please log in to view your workouts
+          </Text>
+          <TouchableOpacity style={styles.errorButton} onPress={handleGoBack}>
+            <Text style={styles.errorButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header with back button and stats button */}
+      {/* Header with back button, cloud backup, and stats button */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
         <View style={styles.headerSpacer} />
+        <View style={styles.cloudButtonContainer}>
+          <TouchableOpacity
+            onPress={() => setShowBackupMenu(!showBackupMenu)}
+            style={styles.cloudButton}
+          >
+            <Ionicons name="cloud-outline" size={22} color="#CC7A33" />
+          </TouchableOpacity>
+          {showBackupMenu && (
+            <View style={styles.backupMenu}>
+              <TouchableOpacity
+                style={styles.backupMenuItem}
+                onPress={() => { setShowBackupMenu(false); setShowExportModal(true); }}
+              >
+                <Ionicons name="cloud-upload-outline" size={18} color={theme.colors.text} />
+                <Text style={styles.backupMenuText}>Backup</Text>
+              </TouchableOpacity>
+              <View style={styles.backupMenuDivider} />
+              <TouchableOpacity
+                style={styles.backupMenuItem}
+                onPress={() => { setShowBackupMenu(false); setShowImportModal(true); }}
+              >
+                <Ionicons name="cloud-download-outline" size={18} color={theme.colors.text} />
+                <Text style={styles.backupMenuText}>Restore</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
         <TouchableOpacity
           onPress={() => setShowStatsSheet(true)}
           style={styles.statsButton}
@@ -223,6 +277,16 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
         visible={showStatsSheet}
         onClose={() => setShowStatsSheet(false)}
       />
+
+      {/* Backup modals */}
+      <ExportDataModal
+        visible={showExportModal}
+        onClose={() => setShowExportModal(false)}
+      />
+      <ImportDataModal
+        visible={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -241,6 +305,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.cardBackground,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
+    zIndex: 10,
   },
 
   backButton: {
@@ -251,8 +316,87 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
+  cloudButtonContainer: {
+    position: 'relative',
+  },
+
+  cloudButton: {
+    padding: 8,
+  },
+
+  backupMenu: {
+    position: 'absolute',
+    top: 40,
+    right: 0,
+    zIndex: 100,
+    backgroundColor: theme.colors.cardBackground,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    minWidth: 140,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+
+  backupMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+
+  backupMenuText: {
+    color: theme.colors.text,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+
+  backupMenuDivider: {
+    height: 1,
+    backgroundColor: theme.colors.border,
+  },
+
   statsButton: {
     padding: 8,
   },
 
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+
+  errorTitle: {
+    marginTop: 16,
+    fontSize: 18,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.text,
+  },
+
+  errorMessage: {
+    marginTop: 8,
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+  },
+
+  errorButton: {
+    marginTop: 24,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: theme.colors.text,
+    borderRadius: 8,
+  },
+
+  errorButtonText: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.background,
+  },
 });

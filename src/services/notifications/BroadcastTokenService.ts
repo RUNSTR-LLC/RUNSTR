@@ -1,21 +1,20 @@
 /**
- * BroadcastTokenService - Anonymous push notification token registration
+ * BroadcastTokenService - Push notification token registration
  *
- * PRIVACY-FIRST DESIGN:
- * - Device tokens are stored WITHOUT npub association
- * - Cannot identify which user receives which notification
- * - Everyone receives the SAME community notifications
- * - Used for Daily Running Leaderboard updates
+ * DUAL-MODE DESIGN:
+ * - Community broadcasts: All devices receive the SAME notification (anonymous)
+ * - Per-user notifications: token_key = SHA256(npub) enables targeted push
+ *   (reward earned, auto-joined competition, etc.) without storing raw npub
  *
  * WHAT IT DOES:
  * - Registers Expo push token to Supabase (broadcast_tokens table)
- * - Token stored with platform only - no user identity
- * - Enables server-side push notifications for community events
+ * - Optionally links token to user via hashed npub (token_key column)
+ * - Enables both broadcast and per-user push notifications
  *
  * NOTIFICATIONS SENT:
- * - "Daily Running: First 5K time today - 24:32!"
- * - "New Record! Fastest 10K today: 48:15!"
- * - "Daily Running: Someone ran a Half Marathon!"
+ * - Community: "Daily Running: First 5K time today - 24:32!"
+ * - Per-user: "You earned 100 sats for today's workout!"
+ * - Per-user: "Auto-joined Season II Running! Keep going!"
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -27,15 +26,16 @@ const TOKEN_VALUE_KEY = '@runstr:broadcast_token_value';
 
 export class BroadcastTokenService {
   /**
-   * Register device token for broadcast notifications (anonymous - no npub)
+   * Register device token for push notifications.
    *
-   * This enables server-side push notifications for community events like:
-   * - Daily Running Leaderboard updates
-   * - New records on time-based leaderboards
+   * When npub is provided, computes SHA256(npub) and stores as token_key
+   * to enable per-user targeted notifications (reward earned, auto-join, etc.)
+   * without exposing the raw npub.
    *
-   * Privacy: Token is stored WITHOUT any user identity association
+   * @param expoPushToken - Expo push token string
+   * @param npub - Optional user npub for per-user push targeting
    */
-  static async registerToken(expoPushToken: string): Promise<void> {
+  static async registerToken(expoPushToken: string, npub?: string): Promise<void> {
     try {
       // Skip if Supabase not configured
       if (!isSupabaseConfigured() || !supabase) {
@@ -43,24 +43,38 @@ export class BroadcastTokenService {
         return;
       }
 
-      // Check if already registered with same token
-      const registeredToken = await AsyncStorage.getItem(TOKEN_VALUE_KEY);
-      if (registeredToken === expoPushToken) {
-        console.log('[BroadcastToken] Already registered with same token');
-        return;
+      const currentNpub = npub || null;
+
+      // Compute token_key from npub if provided
+      let tokenKey: string | null = null;
+      if (currentNpub) {
+        try {
+          const Crypto = require('expo-crypto');
+          tokenKey = await Crypto.digestStringAsync(
+            Crypto.CryptoDigestAlgorithm.SHA256,
+            currentNpub
+          );
+        } catch (hashErr) {
+          console.warn('[BroadcastToken] SHA256 hash failed:', hashErr);
+        }
       }
 
-      // Upsert token (no npub - anonymous)
+      // Always upsert to Supabase — tokens can change after app updates or iOS updates.
+      // If we have a token_key, upsert by token_key (same user, possibly new device token).
+      // Otherwise upsert by token (anonymous device registration).
+      const upsertData: Record<string, unknown> = {
+        token: expoPushToken,
+        platform: Platform.OS,
+        is_active: true,
+      };
+      if (tokenKey) {
+        upsertData.token_key = tokenKey;
+      }
+
+      const onConflict = tokenKey ? 'token_key' : 'token';
       const { error } = await supabase
         .from('broadcast_tokens')
-        .upsert(
-          {
-            token: expoPushToken,
-            platform: Platform.OS,
-            is_active: true,
-          },
-          { onConflict: 'token' }
-        );
+        .upsert(upsertData, { onConflict });
 
       if (error) {
         // If table doesn't exist yet, log and continue silently
@@ -68,14 +82,26 @@ export class BroadcastTokenService {
           console.log('[BroadcastToken] Table not created yet, skipping');
           return;
         }
-        throw error;
+        // If token_key conflict fails (no unique index), fall back to token conflict
+        if (error.code === '42P10' || error.message?.includes('unique')) {
+          const { error: fallbackError } = await supabase
+            .from('broadcast_tokens')
+            .upsert(upsertData, { onConflict: 'token' });
+          if (fallbackError) throw fallbackError;
+        } else {
+          throw error;
+        }
       }
 
-      // Save token locally to prevent duplicate registrations
+      // Save token locally for reference
       await AsyncStorage.setItem(TOKEN_REGISTERED_KEY, 'true');
       await AsyncStorage.setItem(TOKEN_VALUE_KEY, expoPushToken);
+      if (tokenKey) {
+        await AsyncStorage.setItem('@runstr:broadcast_token_key', tokenKey);
+      }
 
-      console.log('[BroadcastToken] ✅ Registered for community notifications');
+      const targetMode = tokenKey ? 'community + per-user' : 'community only';
+      console.log(`[BroadcastToken] Registered for ${targetMode} notifications (token: ${expoPushToken.slice(0, 30)}...)`);
     } catch (error) {
       // Silent failure - notifications are optional
       console.warn('[BroadcastToken] Registration failed (silent):', error);

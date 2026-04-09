@@ -320,6 +320,6 @@ export class TeamNotificationFormatter {
   cleanup(): void {
     this.teamCache.clear();
     this.cacheExpiry.clear();
-    this.teamContextService.cleanup();
+    (this.teamContextService as any).cleanup?.();
   }
 }

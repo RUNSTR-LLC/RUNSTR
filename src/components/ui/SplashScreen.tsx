@@ -75,13 +75,6 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           },
           {
             action: async () => {
-              setStatusMessage('Loading events...');
-              await initService.prefetchSatlantisEvents();
-            },
-            duration: 1500,
-          },
-          {
-            action: async () => {
               setStatusMessage('Almost ready...');
               // Final preparation
               await new Promise((resolve) => setTimeout(resolve, 400));
@@ -190,7 +183,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 20,
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: theme.colors.orangeBright,
     overflow: 'hidden',
   },
 

@@ -8,7 +8,6 @@ import { nostrRelayManager } from './NostrRelayManager';
 import { NostrProtocolHandler } from './NostrProtocolHandler';
 import { nostrProfileService } from './NostrProfileService';
 import { DirectNostrProfileService } from '../user/directNostrProfileService';
-import { NostrCacheService } from '../cache/NostrCacheService';
 import { getNsec, getNpub } from '../../utils/nostrAuth';
 import { npubToHex } from '../../utils/ndkConversion';
 import type { Event } from 'nostr-tools';
@@ -285,7 +284,7 @@ export class NostrProfilePublisher {
   ): Promise<void> {
     try {
       const npub = await getNpub();
-      const hexPubkey = npubToHex(npub);
+      const hexPubkey = npubToHex(npub || '');
 
       if (!npub || !hexPubkey) {
         console.warn('⚠️ Cannot update cache: missing npub or hexPubkey');
@@ -295,7 +294,7 @@ export class NostrProfilePublisher {
       // Get existing user data from cache to preserve fields like role, teamId, etc.
       const existingUser = unifiedCache.getCached(
         CacheKeys.USER_PROFILE(hexPubkey)
-      );
+      ) as any;
 
       // Merge existing data with new profile fields
       const updatedUser = {
@@ -328,9 +327,6 @@ export class NostrProfilePublisher {
         CacheTTL.USER_PROFILE,
         true // persist to AsyncStorage
       );
-
-      // Also update old NostrCacheService for backward compatibility
-      await NostrCacheService.setCachedProfile(npub, updatedUser);
 
       // CRITICAL: Force refresh NostrProfileService cache
       // This service has its own 30-min cache that must be invalidated

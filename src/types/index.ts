@@ -9,6 +9,9 @@ export * from './user';
 // Re-export Team and Competition Types
 export * from './team';
 
+// Re-export Club Types
+export * from './club';
+
 // Re-export Workout and Fitness Types
 export * from './workout';
 
@@ -29,7 +32,7 @@ export type {
 export interface RootStackParamList extends Record<string, object | undefined> {
   Home: undefined;
   Team: undefined;
-  Profile: undefined;
+  Profile: { pubkey?: string } | undefined;
   Wallet: undefined;
   EventDetail: {
     eventId: string;
@@ -41,4 +44,5 @@ export interface RootStackParamList extends Record<string, object | undefined> {
   LeagueDetail: { leagueId: string; leagueData?: any };
   TeamDiscovery: undefined;
   CaptainDashboard: undefined;
+  Comments: { postId: string; postEventId: string; postAuthorPubkey: string; commentCount: number };
 }

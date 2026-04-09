@@ -1,35 +1,82 @@
 # Chapter 15: Conclusion
 
-## RUNSTR's Unique Value
+## RUNSTR in One Sentence
 
-RUNSTR sits at the intersection of three powerful trends:
-1. **Fitness** - Universal desire for health and activity
-2. **Bitcoin** - Sound money and Lightning payments
-3. **Charity** - Desire to make a positive impact
+RUNSTR rewards you for working out.
 
-By combining these, RUNSTR creates a virtuous cycle:
-- Exercise → Earn Bitcoin → Support charities → Feel good → Exercise more
+## RUNSTR in One Paragraph
+
+RUNSTR connects to Apple Health and Health Connect to automatically pull in workouts from any app or wearable you already use — or track directly with built-in GPS, rep counting, and wellness timers. Every workout earns rewards that you control: send them to a charity, fund AI credits, or keep them. Level up through consistency, spin the lottery wheel for bonuses, and compete in virtual events against other athletes. Create or join Fitness Clubs with friends and earn more together. RUNSTR works in the background so you earn without thinking about it.
+
+---
+
+## The Core Loop
+
+Everything serves one loop:
+
+```
+Aggregate workouts → Earn rewards → Compete in events → Level up → Repeat
+```
+
+This is the product. Everything else is in service of making this loop smoother, stickier, and more rewarding.
+
+---
+
+## What Makes RUNSTR Different
+
+### 1. Fitness Data Aggregator
+RUNSTR isn't just a tracker — it's the place where all your fitness data comes together. In-app GPS tracking, synced workouts from Apple Health and Health Connect, wearable data from Garmin and others. One app, all your workouts, automatic rewards.
+
+### 2. Rewards Your Way
+Choose where your rewards go — a charity, an open source project, AI credits, or yourself. One destination, all rewards. Change anytime.
+
+### 3. Levels That Matter
+Your level isn't arbitrary. It reflects fitness consistency and directly multiplies your daily wheel payouts. More workouts → higher level → bigger rewards. Behavioral reinforcement through variable-ratio rewards.
+
+### 4. Works in the Background
+Any app connected to Apple Health or Health Connect syncs automatically. Earn rewards without opening the app.
+
+### 5. Fitness Clubs
+Users create clubs with leaderboards, real-time chat, and events. Captains manage members, host events from templates with optional prize pools, and build community around shared fitness goals.
+
+### 6. Sponsor-Funded
+Rewards come from sponsors, not RUNSTR. Sponsor attribution is visible and transparent (Zapvertising). Sustainable without selling user data.
+
+### 7. Zero Friction
+Tap Start. That's it. No email, no phone, no sign-up form. The app works immediately.
+
+---
+
+## Three Audiences, One Product
+
+| Audience | What Draws Them | What They Experience |
+|----------|----------------|---------------------|
+| **Fitness enthusiasts** | Workout aggregation, rewards, competitions | A fitness app that pays them to work out |
+| **Bitcoin/Nostr community** | Circular economy, anonymous tracking, decentralized backup | Privacy-preserving fitness with Lightning rewards |
+| **AI-forward users** | Earn AI credits, agent fitness context | Work out → earn compute → get smarter coaching |
+
+The technology is invisible. The experience is the same for everyone.
 
 ---
 
 ## The Simplicity Principle
 
-RUNSTR's strength is its **simplicity**:
-
 | Complex (Avoid) | Simple (Prefer) |
 |-----------------|-----------------|
-| Multiple wallet types | Lightning address only |
-| Dynamic event creation | Hardcoded events |
-| Team membership rosters | Teams = Charities |
-| Complex scoring algorithms | Total distance ranking |
-| NWC wallet connections | LNURL invoice requests |
+| Multiple wallet types | Single reward destination |
+| Complex scoring algorithms | Total distance / fastest time ranking |
+| Reward splits and percentages | One destination, all rewards |
+| Mandatory sign-up forms | Tap Start, you're in |
+| Separate donation system | Destinations integrated into rewards |
+| Visible blockchain/protocol jargon | "Rewards", "micro donations", "AI credits" |
 
 ### Why Simplicity Matters
 
-1. **Easier onboarding** - New users start immediately
-2. **Fewer bugs** - Less code = fewer issues
-3. **Better UX** - Clear paths, obvious actions
-4. **Maintainability** - Easier to update and improve
+1. **Easier onboarding** — Tap Start, no account needed
+2. **Fewer bugs** — Less code = fewer issues
+3. **Better UX** — Clear paths, obvious actions
+4. **Maintainability** — Easier to update and improve
+5. **Wider audience** — Technology-invisible means everyone can use it
 
 ---
 
@@ -38,15 +85,15 @@ RUNSTR's strength is its **simplicity**:
 ### Data Flow
 
 ```
-User Input (workouts, settings)
+User works out (in-app GPS, rep counter, or external app via health sync)
         ↓
 Local Storage (AsyncStorage)
         ↓
-Supabase (workout submission, leaderboards, rewards)
+Supabase (workout submission, competitions, leaderboards, rewards)
         ↓
-Lightning (reward payments via LNURL)
+Edge Function (claim-reward → send to chosen destination via LNURL)
         ↓
-Nostr (profiles, social posts, encrypted backup)
+Push notification ("You received a reward from [Sponsor]")
 ```
 
 ### Key Services
@@ -54,57 +101,67 @@ Nostr (profiles, social posts, encrypted backup)
 | Layer | Service | Responsibility |
 |-------|---------|----------------|
 | Workouts | LocalWorkoutStorageService | Local persistence |
-| Workouts | SupabaseCompetitionService | Workout submission to backend |
-| Events | useSupabaseLeaderboard | Leaderboard queries |
-| Rewards | DailyRewardService | 50 sats/day eligibility |
+| Workouts | SupabaseCompetitionService | Workout submission to Supabase |
+| Competitions | useSupabaseLeaderboard | Leaderboard queries |
+| Rewards | DailyRewardService | Per-workout reward eligibility |
 | Rewards | SupabaseRewardService | Verified payment tracking |
+| Clubs | ClubMembershipService | Fitness Club management |
 | Backup | BackupService | Encrypted backup (kind 30078) |
+| Verification | PoseDetectionService | Camera-verified reps (MediaPipe) |
 
 ### Navigation
 
 | Tab | Purpose |
 |-----|---------|
-| Profile | Start workouts, view history |
-| Teams | Select charity to support |
-| Rewards | View earnings, Lightning address, settings |
+| Profile | Start workouts, view history, level & wheel, settings |
+| Social | Social feed, Fitness Clubs, chat, club events, competitions |
+| Events | Competitions, leaderboards, featured events |
 
 ---
 
-## What Makes RUNSTR Different
+## Core Functionality
 
-### 1. Real Bitcoin Rewards
-Not points or tokens - actual satoshis sent to your wallet.
+These are the features that must work perfectly:
 
-### 2. Universal Wallet Support
-Works with any Lightning wallet - Cash App, Strike, Alby, self-custodial.
+### Workouts
+- In-app fitness tracker for different activities (GPS, reps, wellness, journal)
+- Background sync from Health Connect and Apple Health
+- Workout history from both in-app and synced workouts
+- Encrypted workout backup to Nostr relays
 
-### 3. Charity Integration
-Every workout can support a cause you care about.
+### Rewards
+- Per-workout rewards for qualifying cardio
+- Push notifications with sponsor branding when rewards are received
+- Rewards routed to the correct destination
+- Daily wheel with level-based multiplier
 
-### 4. Nostr Identity
-Your identity is a cryptographic key pair. Social posts and encrypted backups live on decentralized relays.
-
-### 5. Simple UX
-Three tabs, clear actions, no confusion.
+### Social & Competitions
+- Social feed pulls in fitness posts from across Nostr
+- Like, zap, repost, and comment on posts
+- Wavlake music integration — zap artists directly from the feed
+- Fitness Clubs with leaderboards, real-time chat, and captain-hosted events
+- Captains create events from templates with optional prize pools and charity payouts
+- Workouts auto-submitted into applicable events
+- Club chat rooms with real-time messaging
 
 ---
 
-## Future Vision
+## Future Direction
 
-### What Could Be Added
+### What's Coming
 
-1. **Dynamic Events** - Users create their own competitions
-2. **Social Features** - Follow friends, see their workouts
-3. **Achievement Badges** - Unlock milestones and achievements
-4. **Donation Leaderboards** - Community donation rankings
-5. **More Activity Types** - Swimming, rowing, etc.
+1. **Captain NWC wallets** — Connect wallet to create events with real prize pools (non-custodial)
+2. **User-created competitions** — Moving beyond captain-only event creation (daily leaderboard stays built-in)
+3. **More competition types** — Expanding beyond current event templates
 
-### What Should Stay Simple
+### What Stays Simple
 
-1. **Lightning address rewards** - Don't add wallet complexity
-2. **Teams = Charities** - Don't separate concepts
-3. **Hardcoded events** (initially) - Until dynamic events are solid
-4. **Basic leaderboards** - Total distance, not complex scoring
+1. **Single reward destination** — Don't add splits or percentages
+2. **Background-first** — Earn rewards without opening the app
+3. **Anonymous-first** — Tap Start, no sign-up required
+4. **Three-tab navigation** — Don't add complexity to the UI
+5. **Sponsor-funded** — Keep rewards sustainable through Zapvertising
+6. **No subscriptions** — Revenue comes from sponsorships and event tickets, not user fees
 
 ---
 
@@ -115,8 +172,8 @@ Three tabs, clear actions, no confusion.
 - Split large files into focused modules
 
 ### Single Source of Truth
-- Supabase for competition data and leaderboards
-- AsyncStorage for local workout persistence
+- Supabase for competition data, leaderboards, rewards, clubs
+- AsyncStorage for local workout persistence and preferences
 - One service per domain
 
 ### Silent Failures for Rewards
@@ -127,41 +184,19 @@ Three tabs, clear actions, no confusion.
 - One connection pool for all Nostr operations
 - 90% fewer WebSocket connections
 
----
-
-## Using This Book
-
-### For Development
-
-1. **Before coding** - Read relevant chapter to understand architecture
-2. **During coding** - Reference technical sections for file paths
-3. **After coding** - Verify implementation matches ideal architecture
-
-### For Refactoring
-
-1. **Identify gaps** - Compare code to book
-2. **Prioritize** - Focus on core functionality first
-3. **Simplify** - Remove code that doesn't match ideal architecture
-
-### For Onboarding
-
-1. **Start with Chapter 1** - Understand the big picture
-2. **Read your area** - Focus on relevant chapters
-3. **Reference as needed** - Use book as ongoing reference
+### Terminology
+- Use "rewards", "micro donations", "AI credits" — never "sats", "Bitcoin", "Lightning" in user-facing contexts
+- Technology is invisible to users
 
 ---
 
 ## Final Thoughts
 
-RUNSTR proves that Bitcoin apps don't need to be complicated. By focusing on:
-- **One clear value proposition** (fitness = Bitcoin)
-- **Simple user flows** (three tabs)
-- **Universal compatibility** (Lightning address)
-- **Meaningful impact** (charity donations)
+RUNSTR is a fitness event company with an app that rewards healthy behavior. Built by a behavioral health therapist who designs rewards systems for a living, it applies the science of reinforcement to fitness at scale: make the healthy choice the rewarding choice, and let the technology stay out of the way.
 
-...the app delivers real value without overwhelming users.
+The app will work either in the background or the foreground. It will target fitness enthusiasts across Bitcoin, Nostr, and AI communities — but it will feel like a fitness app to all of them. The aggregator that rewards you. The events that challenge you. The clubs that connect you.
 
-Keep it simple. Keep it focused. Keep people moving.
+Aggregate workouts. Earn rewards. Keep it simple. Keep people moving.
 
 ---
 

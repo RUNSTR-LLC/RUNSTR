@@ -21,15 +21,9 @@ import { theme } from '../styles/theme';
 import { PrivacyNoticeModal } from '../components/ui/PrivacyNoticeModal';
 import localWorkoutStorage from '../services/fitness/LocalWorkoutStorageService';
 import type { LocalWorkout } from '../services/fitness/LocalWorkoutStorageService';
-import unifiedCache from '../services/cache/UnifiedNostrCache';
-import { CacheKeys, CacheTTL } from '../constants/cacheTTL';
-import { Nuclear1301Service } from '../services/fitness/Nuclear1301Service';
-import type { NostrWorkout } from '../types/nostrWorkout';
 import type { AnalyticsSummary, HealthProfile } from '../types/analytics';
 import { CardioPerformanceAnalytics } from '../services/analytics/CardioPerformanceAnalytics';
 import { BodyCompositionAnalytics } from '../services/analytics/BodyCompositionAnalytics';
-import { StreakAnalyticsService } from '../services/analytics/StreakAnalyticsService';
-import { HealthSnapshotCard } from '../components/analytics/HealthSnapshotCard';
 import { LevelCard } from '../components/analytics/LevelCard';
 import { GoalsHabitsCard } from '../components/analytics/GoalsHabitsCard';
 import { CollapsibleAchievementsCard } from '../components/analytics/CollapsibleAchievementsCard';
@@ -475,7 +469,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#FF9D42' + '15',
+    backgroundColor: '#111111',
     borderWidth: 3,
     borderColor: '#FF9D42',
     alignItems: 'center',
@@ -541,7 +535,7 @@ const styles = StyleSheet.create({
 
   progressFill: {
     height: '100%',
-    backgroundColor: '#FF9D42',
+    backgroundColor: theme.colors.text,
     borderRadius: 4,
   },
 
@@ -690,7 +684,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FF9D42',
+    backgroundColor: theme.colors.text,
     borderRadius: 12,
     padding: 12,
     gap: 8,
@@ -730,7 +724,7 @@ const styles = StyleSheet.create({
 
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#FF9D42',
+    backgroundColor: theme.colors.text,
     borderRadius: 4,
   },
 
@@ -768,7 +762,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#FF9D42',
+    backgroundColor: theme.colors.text,
     paddingVertical: 14,
     borderRadius: 12,
   },

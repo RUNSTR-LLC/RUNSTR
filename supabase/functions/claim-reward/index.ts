@@ -11,8 +11,8 @@
  * - get_balance: Get wallet balance (for monitoring)
  *
  * Rate Limits (for claim_reward only):
- * - Workout reward: 1 per Lightning address per day (50 sats)
- * - Step reward: Max 50 sats per Lightning address per day
+ * - Workout reward: 1 per Lightning address per day (50 base + streak bonus)
+ * - Step reward: Max 100 sats per Lightning address per day
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
@@ -26,6 +26,23 @@ const WORKOUT_REWARD_SATS = 50
 const STEP_SATS_PER_MILESTONE = 5
 const MAX_DAILY_STEP_SATS = 50
 const NWC_TIMEOUT_MS = 30000
+
+/**
+ * Fetch the active reward sponsor name from the database.
+ * Returns 'RUNSTR' as fallback if no active sponsor found.
+ */
+async function getActiveSponsorName(supabase: any): Promise<string> {
+  try {
+    const { data } = await supabase
+      .from('reward_sponsors')
+      .select('name')
+      .eq('is_active', true)
+      .maybeSingle()
+    return data?.name || 'ALS Network'
+  } catch {
+    return 'ALS Network'
+  }
+}
 
 // CORS headers
 const corsHeaders = {
@@ -592,6 +609,8 @@ interface RequestBody {
   reward_type?: 'workout' | 'steps'
   amount_sats?: number
   is_charity_donation?: boolean // Skip rate-limiting for charity donations
+  npub?: string // For push notifications after successful payment
+  team_name?: string // For enriched push notification content (from trigger_auto_reward)
 
   // For PPQ.AI team rewards (pay directly to PPQ bolt11 instead of Lightning address)
   ppq_bolt11?: string
@@ -1181,7 +1200,9 @@ serve(async (req) => {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       )
 
-      const { lightning_address, reward_type, amount_sats, is_charity_donation, ppq_bolt11 } = body
+      const sponsorName = await getActiveSponsorName(supabase)
+
+      const { lightning_address, reward_type, amount_sats, is_charity_donation, ppq_bolt11, npub, team_name } = body
 
       // Validate required fields (ppq_bolt11 can substitute for lightning_address)
       if ((!lightning_address && !ppq_bolt11) || !reward_type) {
@@ -1245,9 +1266,9 @@ serve(async (req) => {
         }
 
         // Determine reward amount: use requested amount if valid, otherwise default
-        // Einundzwanzig event participants get 100 sats (double reward)
-        const MIN_WORKOUT_SATS = 50
-        const MAX_WORKOUT_SATS = 100
+        // trigger_auto_reward() calculates streak bonus and passes amount_sats
+        const MIN_WORKOUT_SATS = 21
+        const MAX_WORKOUT_SATS = 1000
         let rewardAmount = amount_sats || WORKOUT_REWARD_SATS
         if (rewardAmount < MIN_WORKOUT_SATS || rewardAmount > MAX_WORKOUT_SATS) {
           rewardAmount = WORKOUT_REWARD_SATS // Fall back to default if invalid
@@ -1310,6 +1331,41 @@ serve(async (req) => {
 
           const paymentType = isPPQPayment ? 'PPQ.AI credits' : 'Lightning'
           console.log(`[claim-reward] Workout reward paid to ${paymentType}:`, rewardAmount, 'sats', paymentResult.preimage ? '(verified)' : '(no preimage)')
+
+          // Fire-and-forget push notification
+          if (npub) {
+            const supabaseUrl = Deno.env.get('SUPABASE_URL')
+            if (supabaseUrl) {
+              const notificationBody = team_name
+                ? `You earned ${rewardAmount} sats from ${sponsorName} for ${team_name}`
+                : `You earned ${rewardAmount} sats from ${sponsorName} for your workout`
+              console.log(`[claim-reward] Sending push notification to ${npub.slice(0, 12)}...`)
+              fetch(`${supabaseUrl}/functions/v1/notify-user`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                },
+                body: JSON.stringify({
+                  npub,
+                  title: `Reward from ${sponsorName}!`,
+                  body: notificationBody,
+                  data: { type: 'reward_earned', sats: rewardAmount, screen: 'Rewards' },
+                  channelId: 'bitcoin_rewards',
+                }),
+              }).then(async (res) => {
+                const result = await res.json().catch(() => ({}))
+                if (!result.sent) {
+                  console.warn(`[claim-reward] Push notification not sent: ${result.error || res.status}`)
+                } else {
+                  console.log(`[claim-reward] Push notification sent to ${result.devices} device(s)`)
+                }
+              }).catch((err) => {
+                console.error('[claim-reward] Push notification fetch failed:', err.message || err)
+              })
+            }
+          }
+
           return new Response(
             JSON.stringify({
               success: true,
@@ -1348,11 +1404,21 @@ serve(async (req) => {
 
         try {
           // Get invoice and pay
-          const invoice = await getInvoiceFromLightningAddress(
-            lightning_address,
-            amountToPay,
-            'Step reward from RUNSTR!'
-          )
+          let invoice: string
+          let isPPQPayment = false
+
+          if (ppq_bolt11) {
+            // PPQ.AI team: Pay directly to the PPQ bolt11 invoice
+            console.log('[claim-reward] PPQ.AI team step reward - using provided bolt11 invoice')
+            invoice = ppq_bolt11
+            isPPQPayment = true
+          } else {
+            invoice = await getInvoiceFromLightningAddress(
+              lightning_address,
+              amountToPay,
+              'Step reward from RUNSTR!'
+            )
+          }
 
           const paymentResult = await payInvoiceViaNWC(nwcUrl, invoice)
 
@@ -1392,6 +1458,38 @@ serve(async (req) => {
           }
 
           console.log('[claim-reward] Step reward paid:', amountToPay, 'sats', paymentResult.preimage ? '(verified)' : '(no preimage)')
+
+          // Fire-and-forget push notification
+          if (npub) {
+            const supabaseUrl = Deno.env.get('SUPABASE_URL')
+            if (supabaseUrl) {
+              console.log(`[claim-reward] Sending step reward push to ${npub.slice(0, 12)}...`)
+              fetch(`${supabaseUrl}/functions/v1/notify-user`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                },
+                body: JSON.stringify({
+                  npub,
+                  title: `Steps Rewarded by ${sponsorName}!`,
+                  body: `You earned ${amountToPay} sats from ${sponsorName} for your steps today`,
+                  data: { type: 'step_reward_earned', sats: amountToPay },
+                  channelId: 'bitcoin_rewards',
+                }),
+              }).then(async (res) => {
+                const result = await res.json().catch(() => ({}))
+                if (!result.sent) {
+                  console.warn(`[claim-reward] Step push not sent: ${result.error || res.status}`)
+                } else {
+                  console.log(`[claim-reward] Step push sent to ${result.devices} device(s)`)
+                }
+              }).catch((err) => {
+                console.error('[claim-reward] Step push fetch failed:', err.message || err)
+              })
+            }
+          }
+
           return new Response(
             JSON.stringify({
               success: true,

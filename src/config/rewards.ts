@@ -19,17 +19,10 @@ export const REWARD_CONFIG = {
 
   /**
    * Daily Workout Reward Amount
-   * Amount in satoshis sent for first workout of the day
+   * Base amount in satoshis sent for first workout of the day.
+   * Streak bonus applied server-side: 2d +10%, 3d +20%, 4d +30%, 5d+ +40%.
    */
   DAILY_WORKOUT_REWARD: 50,
-
-  /**
-   * Step Milestone Rewards
-   * Automated rewards for reaching step milestones throughout the day
-   */
-  STEP_MILESTONE_REWARD: 5,        // sats per 1k steps milestone
-  STEP_MILESTONE_INCREMENT: 1000,  // reward every 1,000 steps
-  STEP_REWARDS_ENABLED: true,      // toggle to disable step rewards
 
   /**
    * Minimum Workout Distance for Reward
@@ -55,6 +48,16 @@ export const REWARD_CONFIG = {
    */
   MAX_RETRY_ATTEMPTS: 0, // 0 = no retries (silent failure)
   RETRY_DELAY_MS: 0,
+
+  /**
+   * Boosted Rewards (Supporter/Pro subscribers)
+   * Subscribers earn 1000 sats per qualifying workout instead of 100
+   * Up to 5 boosted workouts per week, then base rate applies
+   * Qualifications: running, walking, cycling, pushups, journal, 5k+ steps
+   */
+  BOOSTED_WORKOUT_REWARD: 1000,           // sats per boosted workout
+  BOOSTED_MAX_PER_WEEK: 5,               // max boosted workouts per week
+
 } as const;
 
 /**
@@ -66,4 +69,6 @@ export const REWARD_STORAGE_KEYS = {
   TOTAL_REWARDS_EARNED: '@runstr:total_rewards_earned',
   WEEKLY_REWARDS_EARNED: '@runstr:weekly_rewards_earned',
   WEEKLY_REWARDS_WEEK: '@runstr:weekly_rewards_week',
+  BOOSTED_COUNT_THIS_WEEK: '@runstr:boosted_count_this_week',
+  BOOSTED_WEEK_START: '@runstr:boosted_week_start',
 } as const;

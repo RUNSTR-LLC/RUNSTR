@@ -4,14 +4,12 @@ import { BottomNavigation } from '../components/ui/BottomNavigation';
 import { TeamHeader } from '../components/team/TeamHeader';
 import { AboutPrizeSection } from '../components/team/AboutPrizeSection';
 import { LeaderboardCard } from '../components/team/LeaderboardCard';
-import { EventsCard } from '../components/team/EventsCard';
 import { TeamScreenData } from '../types';
 import { theme } from '../styles/theme';
 
 interface TeamScreenProps {
   data: TeamScreenData;
   onMenuPress: () => void;
-  onCaptainDashboard: () => void;
   onEventPress?: (eventId: string) => void;
   onNavigateToProfile: () => void;
   onLeaveTeam: () => void;
@@ -25,7 +23,6 @@ interface TeamScreenProps {
 export const TeamScreen: React.FC<TeamScreenProps> = ({
   data,
   onMenuPress,
-  onCaptainDashboard,
   onEventPress,
   onNavigateToProfile,
   onLeaveTeam,
@@ -59,29 +56,26 @@ export const TeamScreen: React.FC<TeamScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      <TeamHeader
-        teamName={team.name}
-        onMenuPress={onMenuPress}
-        onLeaveTeam={userIsMember ? onLeaveTeam : undefined}
-        onJoinTeam={showJoinButton ? onJoinTeam : undefined}
-        onTeamDiscovery={onTeamDiscovery}
-        userIsMember={userIsMember}
-      />
+      {React.createElement(TeamHeader as any, {
+        teamName: team.name,
+        onMenuPress: onMenuPress,
+        onLeaveTeam: userIsMember ? onLeaveTeam : undefined,
+        onJoinTeam: showJoinButton ? onJoinTeam : undefined,
+        onTeamDiscovery: onTeamDiscovery,
+        userIsMember: userIsMember,
+      })}
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.contentInner}>
           <AboutPrizeSection
             description={team.description}
             prizePool={team.prizePool}
-            onCaptainDashboard={onCaptainDashboard}
             isCaptain={isCaptain}
           />
 
           <LeaderboardCard leaderboard={formattedLeaderboard} />
 
-          <View style={styles.bottomSection}>
-            <EventsCard events={formattedEvents} onEventPress={onEventPress} />
-          </View>
+          <View style={styles.bottomSection} />
         </View>
       </ScrollView>
 

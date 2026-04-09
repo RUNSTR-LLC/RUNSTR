@@ -118,6 +118,6 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
   },
   destructiveText: {
-    color: '#ff4444',
+    color: '#FF6B00',
   },
 });

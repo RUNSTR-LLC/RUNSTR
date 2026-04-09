@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Card } from '../ui/Card';
 import { Avatar } from '../ui/Avatar';
-// import { NutzapLightningButton } from '../nutzap/NutzapLightningButton';
 import { CharityZapIconButton } from '../ui/CharityZapIconButton';
 import { ExternalZapModal } from '../nutzap/ExternalZapModal';
 import { CharitySelectionService } from '../../services/charity/CharitySelectionService';
@@ -36,8 +35,8 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
       }
 
       setSelectedCharity({
-        name: charity.name,
-        address: charity.lightningAddress,
+        name: charity?.name || '',
+        address: charity?.lightningAddress || '',
       });
       setCharityModalVisible(true);
     } catch (error) {

@@ -19,11 +19,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../styles/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { validateNsec } from '../utils/nostr';
-import { AmberAuthProvider } from '../services/auth/providers/amberAuthProvider';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IS_SMALL_DEVICE = SCREEN_HEIGHT < 700;
@@ -44,6 +42,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [amberStage, setAmberStage] = useState<string>('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
   // Always show Amber button on Android - detection not reliable by design
 
   const handleShowInput = () => {
@@ -240,22 +239,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
               {!showInput ? (
                 // Login Options
                 <View style={styles.buttonContainer}>
-                  <TouchableOpacity
-                    style={styles.loginButton}
-                    onPress={handleShowInput}
-                    activeOpacity={0.8}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <ActivityIndicator
-                        size="small"
-                        color={theme.colors.background}
-                      />
-                    ) : (
-                      <Text style={styles.loginButtonText}>Login</Text>
-                    )}
-                  </TouchableOpacity>
-
+                  {/* Start button - hero action, generates anonymous npub */}
                   <TouchableOpacity
                     style={styles.signupButton}
                     onPress={handleSignUp}
@@ -271,6 +255,42 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
                       <Text style={styles.signupButtonText}>Start</Text>
                     )}
                   </TouchableOpacity>
+
+                  {/* Advanced toggle */}
+                  <TouchableOpacity
+                    onPress={() => setShowAdvanced(!showAdvanced)}
+                    activeOpacity={0.7}
+                    style={styles.advancedToggle}
+                  >
+                    <Text style={styles.advancedToggleText}>
+                      Advanced {showAdvanced ? '▲' : '▼'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* Advanced options - hidden by default */}
+                  {showAdvanced && (
+                    <>
+                      <TouchableOpacity
+                        style={styles.loginButton}
+                        onPress={handleShowInput}
+                        activeOpacity={0.8}
+                        disabled={isLoading}
+                      >
+                        <Text style={styles.loginButtonText}>Login</Text>
+                      </TouchableOpacity>
+
+                      {Platform.OS === 'android' && (
+                        <TouchableOpacity
+                          style={[styles.amberButton, { width: '80%', maxWidth: 320 }]}
+                          onPress={handleAmberLogin}
+                          disabled={isLoading}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={styles.amberButtonText}>Login with Amber</Text>
+                        </TouchableOpacity>
+                      )}
+                    </>
+                  )}
 
                   {error && (
                     <View style={styles.errorContainer}>
@@ -297,7 +317,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
                       style={[styles.textInput, error && styles.textInputError]}
                       value={nsecInput}
                       onChangeText={handleNsecChange}
-                      placeholder="nsec..."
+                      placeholder="Enter your password..."
                       placeholderTextColor={theme.colors.textOrange}
                       secureTextEntry={true}
                       autoCapitalize="none"
@@ -329,7 +349,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = () => {
                       <View style={styles.loadingContainer}>
                         <ActivityIndicator
                           size="small"
-                          color={theme.colors.accentText}
+                          color={theme.colors.background}
                         />
                         <Text style={styles.submitButtonText}>
                           Authenticating...
@@ -430,6 +450,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 16,
   },
+  advancedToggle: {
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  advancedToggleText: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    fontWeight: '500',
+  },
   loginButton: {
     backgroundColor: theme.colors.orangeBright,
     height: 56,
@@ -490,7 +519,7 @@ const styles = StyleSheet.create({
     minHeight: 50,
   },
   textInputError: {
-    borderColor: theme.colors.error,
+    borderColor: theme.colors.error || '#FF6B00',
   },
   inputHelper: {
     fontSize: 12,
@@ -505,10 +534,10 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 14,
-    color: theme.colors.error,
+    color: theme.colors.error || '#FF6B00',
     textAlign: 'center',
     padding: 12,
-    backgroundColor: 'rgba(255, 68, 68, 0.1)',
+    backgroundColor: 'rgba(255, 107, 0, 0.1)',
     borderRadius: 8,
   },
 
@@ -525,7 +554,7 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
   loadingContainer: {
     flexDirection: 'row',
@@ -555,7 +584,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   amberButton: {
-    backgroundColor: '#FFA500', // Amber color
+    backgroundColor: theme.colors.text, // Amber color
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 12,
@@ -568,14 +597,14 @@ const styles = StyleSheet.create({
   amberButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
   amberLoadingContainer: {
     alignItems: 'center',
   },
   amberStageText: {
     fontSize: 14,
-    color: '#FFFFFF',
+    color: theme.colors.text,
     marginTop: 8,
   },
 

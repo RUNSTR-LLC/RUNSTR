@@ -245,13 +245,13 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
                 disabled={isGenerating || !amount || !isReady}
               >
                 {isGenerating ? (
-                  <ActivityIndicator color={theme.colors.accentText} />
+                  <ActivityIndicator color={theme.colors.textMuted} />
                 ) : (
                   <>
                     <Ionicons
                       name="flash"
                       size={20}
-                      color={theme.colors.accentText}
+                      color={theme.colors.background}
                     />
                     <Text style={styles.primaryButtonText}>
                       {!isReady ? 'Connect Wallet First' : 'Generate Invoice'}
@@ -295,7 +295,7 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
                   <View style={styles.checkingPayment}>
                     <ActivityIndicator
                       size="small"
-                      color={theme.colors.accent}
+                      color={theme.colors.textMuted}
                     />
                     <Text style={styles.checkingText}>
                       Checking for payment...
@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
 
   checkingText: {
     fontSize: 13,
-    color: theme.colors.accent,
+    color: theme.colors.textMuted,
     fontWeight: theme.typography.weights.medium,
   },
 
@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingVertical: 16,
     borderRadius: theme.borderRadius.medium,
   },
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: 16,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
 
   secondaryButton: {
@@ -525,7 +525,7 @@ const styles = StyleSheet.create({
   },
 
   buttonDisabled: {
-    opacity: 0.5,
+    opacity: 0.35,
   },
 
   // Info

@@ -9,6 +9,7 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
+  InteractionManager,
   ActivityIndicator,
 } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -21,16 +22,16 @@ import { PerformanceLogger } from '../utils/PerformanceLogger';
 // FIX: Loading multiple lazy screens simultaneously was causing freeze on first launch
 import { ProfileScreen } from '../screens/ProfileScreen';
 
-// Lazy load Teams and Rewards since they're not the initial tab
-const TeamsScreen = React.lazy(() =>
-  import('../screens/TeamsScreen').then((m) => ({
-    default: m.TeamsScreen,
+// Lazy load Social and Events since they're not the initial tab
+const SocialScreen = React.lazy(() =>
+  import('../screens/SocialScreen').then((m) => ({
+    default: m.SocialScreen,
   }))
 );
 
-const RewardsScreen = React.lazy(() =>
-  import('../screens/RewardsScreen').then((m) => ({
-    default: m.RewardsScreen,
+const CompeteScreen = React.lazy(() =>
+  import('../screens/CompeteScreen').then((m) => ({
+    default: m.CompeteScreen,
   }))
 );
 
@@ -57,8 +58,8 @@ import { createNavigationHandlers } from './navigationHandlers';
 // Types
 export type BottomTabParamList = {
   Profile: undefined;
-  Teams: undefined;
-  Rewards: undefined;
+  Social: undefined;
+  Events: undefined;
 };
 
 const Tab = createBottomTabNavigator<BottomTabParamList>();
@@ -71,7 +72,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
   onSignOut,
 }) => {
   // i18n hook for tab labels
-  const { t } = useTranslation(['profile', 'teams', 'rewards']);
+  const { t } = useTranslation(['profile', 'clubs']);
 
   // Fetch real data for navigation screens
   const {
@@ -81,6 +82,8 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
     isLoadingTeam,
     error,
     refresh,
+    loadWallet,
+    prefetchLeaguesInBackground,
   } = useNavigationData();
 
   // Create navigation handlers
@@ -109,10 +112,10 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
 
           if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
-          } else if (route.name === 'Teams') {
-            iconName = focused ? 'people' : 'people-outline';
-          } else if (route.name === 'Rewards') {
-            iconName = focused ? 'wallet' : 'wallet-outline';
+          } else if (route.name === 'Social') {
+            iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
+          } else if (route.name === 'Events') {
+            iconName = focused ? 'trophy' : 'trophy-outline';
           }
 
           return (
@@ -141,8 +144,8 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
               data={profileData}
               isLoadingTeam={isLoadingTeam}
               isLoadingProfile={isLoading}
-              onNavigateToTeam={() => navigation.navigate('Teams')}
-              onNavigateToTeamDiscovery={() => navigation.navigate('Teams')}
+              onNavigateToTeam={() => navigation.navigate('Social')}
+              onNavigateToTeamDiscovery={() => navigation.navigate('Social')}
               onViewCurrentTeam={() => {
                 // Navigate to EnhancedTeamScreen with the user's current team
                 if (profileData.currentTeam) {
@@ -182,15 +185,11 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
                   });
                 }
               }}
-              onCaptainDashboard={() =>
-                handlers.handleCaptainDashboard(navigation)
-              }
               onEditProfile={handlers.handleEditProfile}
               onSend={handlers.handleWalletSend}
               onReceive={handlers.handleWalletReceive}
               onWalletHistory={handlers.handleWalletHistory}
               onSyncSourcePress={handlers.handleSyncSourcePress}
-              onManageSubscription={handlers.handleManageSubscription}
               onHelp={() => handlers.handleHelp(navigation)}
               onContactSupport={() => handlers.handleContactSupport(navigation)}
               onPrivacyPolicy={() => handlers.handlePrivacyPolicy(navigation)}
@@ -201,9 +200,10 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
             />
           ) : (
             <View style={styles.loadingContainer}>
-              <Text style={styles.loadingText}>
-                {error || 'Loading Profile...'}
-              </Text>
+              <ActivityIndicator size="large" color={theme.colors.accent} />
+              {error && (
+                <Text style={styles.loadingText}>{error}</Text>
+              )}
               {error && (
                 <TouchableOpacity onPress={refresh} style={styles.retryButton}>
                   <Text style={styles.retryText}>Retry</Text>
@@ -214,32 +214,26 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
         }
       </Tab.Screen>
 
-      {/* Teams Tab - Team & Charity Selection */}
-      <Tab.Screen
-        name="Teams"
-        options={{
-          title: t('teams:title'),
-          headerShown: false,
-        }}
-      >
+      {/* Social Tab - Feed & Fitness Clubs */}
+      <Tab.Screen name="Social" options={{ lazy: true }}>
         {() => (
           <Suspense fallback={<LoadingFallback />}>
-            <TeamsScreen />
+            <SocialScreen />
           </Suspense>
         )}
       </Tab.Screen>
 
-      {/* Rewards Tab - Wallet & Earnings */}
+      {/* Events Tab - Competitions & Events */}
       <Tab.Screen
-        name="Rewards"
+        name="Events"
         options={{
-          title: t('rewards:title'),
+          title: 'Events',
           headerShown: false,
         }}
       >
         {() => (
           <Suspense fallback={<LoadingFallback />}>
-            <RewardsScreen />
+            <CompeteScreen />
           </Suspense>
         )}
       </Tab.Screen>

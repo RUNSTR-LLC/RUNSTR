@@ -11,6 +11,7 @@ import nostrPrefetchService from '../nostr/NostrPrefetchService';
 import { getUserNostrIdentifiers } from '../../utils/nostr';
 import { LeaderboardBaselineService } from '../season/LeaderboardBaselineService';
 import { WoTService } from '../wot/WoTService';
+import { SELF_TEAM_ID, COINOS_TEAM_ID } from '../../constants/charities';
 
 class AppInitializationService {
   private static instance: AppInitializationService | null = null;
@@ -18,7 +19,7 @@ class AppInitializationService {
   private isInitializing = false;
   private abortController: AbortController | null = null;
   private timeoutId: NodeJS.Timeout | null = null;
-  private hasCompletedFlag = false;
+  private _hasCompleted = false;
 
   private constructor() {}
 
@@ -41,7 +42,7 @@ class AppInitializationService {
     }
 
     this.isInitializing = true;
-    this.hasCompletedFlag = false; // Reset completion flag
+    this._hasCompleted = false; // Reset completion flag
     const MAX_INIT_TIME = 12000; // 12 second timeout (increased for first launch)
 
     // Create AbortController for proper cancellation
@@ -50,9 +51,9 @@ class AppInitializationService {
 
     const initializationPromise = (async () => {
       try {
-        // ❌ REMOVED: InteractionManager.runAfterInteractions was causing DEADLOCK
-        // The modal animation never signals completion, causing permanent freeze
-        // The 5-second setTimeout in App.tsx is already sufficient delay
+        // Run one-time CoinOS → Self team migration
+        await this.migrateCoinOSToSelf();
+
         console.log('🚀 AppInit: Starting background data loading...');
 
         // Step 1: Connect to Nostr relays
@@ -139,9 +140,6 @@ class AppInitializationService {
             }
           );
 
-          // NOTE: Satlantis events are now hardcoded - no Nostr fetch needed
-          // Removed: SatlantisEventService.prefetchEventsForOfflineAccess()
-
           console.log('✅ AppInit: All data loaded!');
 
           // Step 4: Set up HealthKit background delivery (iOS only)
@@ -164,8 +162,8 @@ class AppInitializationService {
         }
 
         // CRITICAL FIX: Only set flags if not aborted and not already completed
-        if (!signal.aborted && !this.hasCompletedFlag) {
-          this.hasCompletedFlag = true; // Mark as completed to prevent timeout from running
+        if (!signal.aborted && !this._hasCompleted) {
+          this._hasCompleted = true; // Mark as completed to prevent timeout from running
           this.isInitialized = true;
 
           // Cancel the timeout since we succeeded
@@ -196,9 +194,9 @@ class AppInitializationService {
     const timeoutPromise = new Promise<void>((resolve) => {
       this.timeoutId = setTimeout(() => {
         // Only execute timeout if initialization hasn't completed
-        if (!this.hasCompletedFlag) {
+        if (!this._hasCompleted) {
           console.warn('⚠️ AppInit: Timeout reached - partial data loaded');
-          this.hasCompletedFlag = true; // Prevent success path from running
+          this._hasCompleted = true; // Prevent success path from running
 
           // CRITICAL: Abort the initialization to prevent orphaned promises
           if (this.abortController) {
@@ -225,6 +223,63 @@ class AppInitializationService {
 
     // Final cleanup
     this.abortController = null;
+  }
+
+  /**
+   * One-time migration: CoinOS team → Self team
+   * If user had CoinOS selected, swap to 'self' and recover Lightning address
+   */
+  private async migrateCoinOSToSelf(): Promise<void> {
+    const MIGRATION_KEY = '@runstr:migration_coinos_to_self_done';
+    try {
+      const done = await AsyncStorage.getItem(MIGRATION_KEY);
+      if (done === 'true') return;
+
+      const selectedTeam = await AsyncStorage.getItem('@runstr:selected_team_id');
+      if (selectedTeam !== COINOS_TEAM_ID) {
+        await AsyncStorage.setItem(MIGRATION_KEY, 'true');
+        return;
+      }
+
+      console.log('🔄 AppInit: Migrating CoinOS team → Self team...');
+
+      // Check if user already has a reward Lightning address
+      const { RewardLightningAddressService } = await import('../rewards/RewardLightningAddressService');
+      const hasAddress = await RewardLightningAddressService.hasRewardLightningAddress();
+
+      if (hasAddress) {
+        // User has Lightning address - just swap team
+        await AsyncStorage.setItem('@runstr:selected_team_id', SELF_TEAM_ID);
+        console.log('✅ AppInit: Migrated CoinOS → Self (existing Lightning address)');
+      } else {
+        // Try to recover address from CoinOS account
+        const { CoinOSAccountService } = await import('../wallet/CoinOSAccountService');
+        const hasCoinOS = await CoinOSAccountService.hasAccount();
+
+        if (hasCoinOS) {
+          const addr = await CoinOSAccountService.getLightningAddress();
+          if (addr) {
+            await RewardLightningAddressService.setRewardLightningAddress(addr);
+            await AsyncStorage.setItem('@runstr:selected_team_id', SELF_TEAM_ID);
+            console.log(`✅ AppInit: Migrated CoinOS → Self (recovered ${addr})`);
+          } else {
+            // CoinOS account but no address - fall back to default
+            await AsyncStorage.setItem('@runstr:selected_team_id', 'als-foundation');
+            console.log('⚠️ AppInit: CoinOS no address, falling back to ALS Network');
+          }
+        } else {
+          // No CoinOS account at all - fall back to default
+          await AsyncStorage.setItem('@runstr:selected_team_id', 'als-foundation');
+          console.log('⚠️ AppInit: No CoinOS account, falling back to ALS Network');
+        }
+      }
+
+      await AsyncStorage.setItem(MIGRATION_KEY, 'true');
+    } catch (error) {
+      console.warn('⚠️ AppInit: CoinOS migration failed (non-blocking):', error);
+      // Don't block app startup - mark as done to avoid retrying
+      await AsyncStorage.setItem(MIGRATION_KEY, 'true').catch(() => {});
+    }
   }
 
   /**

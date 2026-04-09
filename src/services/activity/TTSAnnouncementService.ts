@@ -5,7 +5,6 @@
 
 import * as Speech from 'expo-speech';
 import { Audio, InterruptionModeIOS, InterruptionModeAndroid } from 'expo-av';
-import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TTSPreferencesService } from './TTSPreferencesService';
 import { AppStateManager } from '../core/AppStateManager';

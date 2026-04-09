@@ -4,7 +4,7 @@
  * Provides user-friendly fallback UI and error recovery options
  */
 
-import React, { Component, ReactNode } from 'react';
+import { Component, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { AntDesign } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';

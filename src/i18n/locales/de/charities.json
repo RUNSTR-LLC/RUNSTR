@@ -1,23 +1,19 @@
 {
-  "teamCharity": "Team-Wohltätigkeitsorganisation",
+  "teamCharity": "Wohltätigkeitsorganisation",
   "learnMore": "Mehr erfahren",
   "descriptions": {
     "als-foundation": "In Erinnerung an Hal Finney - Unterstützung der ALS-Forschung und Patientenversorgung",
-    "ashigaru": "Unterstütze die Ashigaru-Entwickler mit Spenden, um sicherzustellen, dass ihr Projekt stark, nachhaltig und widerstandsfähig bleibt.",
     "bitcoin-bay": "Bitcoin-Kreislaufwirtschaft in der Bay Area",
     "bitcoin-ekasi": "Bitcoin-Kreislaufwirtschaft in Südafrika",
     "bitcoin-isla": "Bitcoin-Kreislaufwirtschaft in Isla Mujeres",
     "bitcoin-district": "Bitcoin-Kreislaufwirtschaft in Washington DC",
-    "bitcoin-yucatan": "Bitcoin-Kreislaufwirtschaft in Mexiko",
     "bitcoin-veterans": "Unterstützung von Veteranen durch Bitcoin",
     "bitcoin-makueni": "Bitcoin-Kreislaufwirtschaft in Kenia",
     "bitcoin-house-bali": "Bitcoin-Kreislaufwirtschaft in Bali",
-    "human-rights-foundation": "Weltweite Verteidigung der Menschenrechte durch Bitcoin",
     "runstr": "Los geht's!",
     "afribit-kibera": "Bitcoin-Kreislaufwirtschaft in Kibera, Kenia",
     "bitcoin-basin": "Bitcoin-Kreislaufwirtschaft in Queenstown, Neuseeland",
-    "buho-go": "BuhoGO ist eine Open-Source, NWC-kompatible Wallet-App, die Zahlungen einfach und für alle zugänglich macht",
     "central-pennsylvania-bitcoiners": "Eine Bitcoin-fokussierte Gruppe in Pennsylvania",
-    "wesatoshi": "Ein Bitcoin-fokussiertes Schweizer Taschenmesser für Hardware"
+    "ppq-ai": "KI-Credits für deine Workouts"
   }
 }

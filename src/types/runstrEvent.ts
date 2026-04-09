@@ -34,7 +34,9 @@ export type RunstrPayoutScheme =
   | 'winner_takes_all'
   | 'top_3_split'
   | 'top_5_split'
-  | 'fixed_amount';
+  | 'fixed_amount'
+  | 'random_winner'
+  | 'random_lottery';
 
 /**
  * Get valid payout schemes for a scoring type
@@ -43,9 +45,9 @@ export type RunstrPayoutScheme =
  */
 export function getValidPayoutSchemes(scoringType: RunstrScoringType): RunstrPayoutScheme[] {
   if (scoringType === 'participation') {
-    return ['fixed_amount']; // Complete scoring = fixed payout only
+    return ['fixed_amount', 'random_winner'];
   }
-  return ['winner_takes_all', 'top_3_split', 'top_5_split']; // Speed/Distance
+  return ['winner_takes_all', 'top_3_split', 'top_5_split'];
 }
 
 // ============================================================================
@@ -55,7 +57,7 @@ export function getValidPayoutSchemes(scoringType: RunstrScoringType): RunstrPay
 /**
  * Pledge cost options for event entry
  * Users pledge X daily workout rewards to join an event
- * Each workout = 50 sats, so 5 workouts = 250 sats pledged
+ * Each workout = 100 sats, so 5 workouts = 500 sats pledged
  */
 export type RunstrPledgeCost = 1 | 3 | 5 | 7;
 
@@ -170,6 +172,11 @@ export interface RunstrEventConfig {
   pledgeCharityAddress?: string; // Lightning address for charity (if destination is 'charity')
   pledgeCharityName?: string; // Display name for charity
 
+  // Ticketing (pledge-based entry)
+  ticketPledgeDays?: number;               // 1-7 workout days as entry fee (captain receives rewards)
+  winnerSelection?: 'ranked' | 'random';   // How winner is picked (default: 'ranked')
+  qualifyingDistance?: number;              // km — minimum distance to qualify as finisher
+
   // Legacy join method (kept for backward compatibility)
   joinMethod: RunstrJoinMethod;
   suggestedDonationSats?: number; // Legacy: suggested donation for 'donation' join method
@@ -239,6 +246,10 @@ export interface RunstrEventFormState {
   suggestedDonation?: string;
   // Team competition
   isTeamCompetition: boolean; // Enable team vs team competition mode
+  // Ticketing
+  ticketPledgeDays: number;          // 1-7 workout days as entry fee (0 = free)
+  winnerSelection: 'ranked' | 'random';
+  qualifyingDistance: string;         // Input field for qualifying distance in km
   // Start date for the event
   startDate: Date | null; // null = starts immediately on creation
 }
@@ -254,7 +265,7 @@ export const DEFAULT_FORM_STATE: RunstrEventFormState = {
   scoringType: 'fastest_time',
   targetDistance: '5',
   duration: '1d',
-  pledgeCost: 1, // Default: 1 daily workout pledge (50 sats)
+  pledgeCost: 1, // Default: 1 daily workout pledge (100 sats)
   pledgeDestination: 'captain', // Default: rewards go to event creator
   pledgeCharityId: null, // No charity selected by default
   payoutScheme: 'winner_takes_all',
@@ -267,6 +278,10 @@ export const DEFAULT_FORM_STATE: RunstrEventFormState = {
   minimumImpactLevel: 5,
   // Team competition default
   isTeamCompetition: false,
+  // Ticketing defaults
+  ticketPledgeDays: 0,
+  winnerSelection: 'ranked' as const,
+  qualifyingDistance: '',
   // Start date default - today at midnight
   startDate: null,
 };
@@ -360,12 +375,11 @@ export function calculatePayouts(
       return payouts;
     }
 
-    // Legacy case - kept for backward compatibility with old events
-    case 'random_lottery' as RunstrPayoutScheme: {
-      // Random selection happens at event end
-      // For calculation, assume any participant could win
-      const randomIndex = Math.floor(Math.random() * recipients.length);
-      const winner = recipients[randomIndex];
+    case 'random_winner': {
+      // Deterministic random: seed from event context, computed at finalization time
+      // At calculation time, just show that one winner gets the full pool
+      if (recipients.length === 0) return [];
+      const winner = recipients[0]; // Actual winner determined at finalization
       return [{ recipient: winner, amountSats: prizePoolSats, percentage: 100 }];
     }
 

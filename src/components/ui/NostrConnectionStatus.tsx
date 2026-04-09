@@ -54,7 +54,7 @@ export const NostrConnectionStatus: React.FC<NostrConnectionStatusProps> = ({
     const { connected, total, error } = connectionStatus;
 
     if (connected === 0) return theme.colors.textMuted; // No connections
-    if (error > 0) return '#ff6b6b'; // Has errors
+    if (error > 0) return '#FF6B00'; // Has errors
     if (connected === total) return '#51cf66'; // All connected
     return '#ffd43b'; // Partial connection
   };
@@ -71,11 +71,11 @@ export const NostrConnectionStatus: React.FC<NostrConnectionStatusProps> = ({
   const getStatusIcon = () => {
     const { connected, total, connecting, error } = connectionStatus;
 
-    if (connecting > 0) return '⏳';
-    if (error > 0) return '⚠️';
-    if (connected === 0) return '🔴';
-    if (connected === total) return '🟢';
-    return '🟡';
+    if (connecting > 0) return '...';
+    if (error > 0) return '!';
+    if (connected === 0) return 'x';
+    if (connected === total) return 'o';
+    return '-';
   };
 
   const renderCompactView = () => (
@@ -134,7 +134,7 @@ export const NostrConnectionStatus: React.FC<NostrConnectionStatusProps> = ({
       case 'connecting':
         return '#ffd43b';
       case 'error':
-        return '#ff6b6b';
+        return '#FF6B00';
       case 'disconnected':
         return theme.colors.textMuted;
       default:

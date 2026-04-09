@@ -168,7 +168,7 @@ export const WearableConnectionModal: React.FC<WearableConnectionModalProps> = (
               disabled={isConnecting}
             >
               {isConnecting ? (
-                <ActivityIndicator color={theme.colors.accentText} />
+                <ActivityIndicator color={theme.colors.background} />
               ) : (
                 <Text style={styles.connectButtonText}>
                   Connect {content.serviceName}
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: theme.colors.text,
     textAlign: 'center',
     marginBottom: 16,
   },
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   stepsTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: theme.colors.text,
     marginBottom: 12,
   },
   stepText: {
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   connectButton: {
-    backgroundColor: '#FFB366',
+    backgroundColor: theme.colors.text,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',

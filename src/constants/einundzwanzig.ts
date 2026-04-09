@@ -41,8 +41,6 @@ export const EINUNDZWANZIG_COMPETITION_ID = 'einundzwanzig';
  */
 export const EINUNDZWANZIG_FEATURED_CHARITIES = [
   'als-foundation',
-  'ashigaru',
-  'buho-go',
 ] as const;
 
 // ============================================
@@ -87,6 +85,11 @@ export function isEinundzwanzigActive(): boolean {
 }
 
 /**
+ * Days to keep showing the event card after it ends (for final results)
+ */
+export const EINUNDZWANZIG_RESULTS_DISPLAY_DAYS = 7;
+
+/**
  * Get the current status of the Einundzwanzig Challenge
  */
 export function getEinundzwanzigStatus(): 'upcoming' | 'active' | 'ended' {
@@ -101,6 +104,19 @@ export function getEinundzwanzigStatus(): 'upcoming' | 'active' | 'ended' {
   }
 
   return 'active';
+}
+
+/**
+ * Whether the event card should still be visible (includes grace period after ending)
+ */
+export function shouldShowEinundzwanzig(): boolean {
+  const status = getEinundzwanzigStatus();
+  if (status !== 'ended') return true;
+
+  const now = new Date();
+  const endDate = EINUNDZWANZIG_CONFIG.endDate;
+  const daysSinceEnd = (now.getTime() - endDate.getTime()) / (1000 * 60 * 60 * 24);
+  return daysSinceEnd <= EINUNDZWANZIG_RESULTS_DISPLAY_DAYS;
 }
 
 /**
@@ -183,11 +199,11 @@ export function calculateSatsFromDistance(distanceKm: number): number {
 // ============================================
 
 /**
- * Einundzwanzig participants with featured team tags earn double rewards (100 sats)
- * instead of the standard 50 sats per daily workout during the challenge period.
+ * Einundzwanzig participants with featured team tags earned double rewards (100 sats)
+ * instead of the standard 100 sats per daily workout during the challenge period.
  */
 export const EINUNDZWANZIG_REWARD_CONFIG = {
-  baseRewardSats: 50,
+  baseRewardSats: 100,
   bonusRewardSats: 100,
   requiresFeaturedTeam: true,
   featuredTeams: EINUNDZWANZIG_FEATURED_CHARITIES,

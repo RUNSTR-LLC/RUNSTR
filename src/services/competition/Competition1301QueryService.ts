@@ -6,8 +6,7 @@
 
 import type { NostrWorkout } from '../../types/nostrWorkout';
 import type { NostrActivityType } from '../../types/nostrCompetition';
-import { getTeamListDetector } from '../../utils/teamListDetector';
-import { TeamMemberCache } from '../team/TeamMemberCache';
+import { ClubMembershipService } from '../backend/ClubMembershipService';
 import { GlobalNDKService } from '../nostr/GlobalNDKService';
 
 export interface WorkoutMetrics {
@@ -67,45 +66,22 @@ export class Competition1301QueryService {
     // Get member list from kind 30000 if not provided
     let memberNpubs = query.memberNpubs;
 
-    if (!memberNpubs && query.teamId && query.captainPubkey) {
-      // Try to fetch from kind 30000 list
-      const detector = getTeamListDetector();
-      const haslist = await detector.hasKind30000List(
-        query.teamId,
-        query.captainPubkey
-      );
+    if (!memberNpubs && query.teamId) {
+      // Fetch members from Supabase club_memberships
+      const clubMembers = await ClubMembershipService.getClubMembers(query.teamId);
 
-      if (!haslist) {
-        console.warn(`❌ Team ${query.teamId} has no kind 30000 member list`);
+      if (!clubMembers || clubMembers.length === 0) {
+        console.warn(`⚠️ Club ${query.teamId} has no members`);
         return {
           metrics: new Map(),
           totalWorkouts: 0,
           queryTime: Date.now() - startTime,
           fromCache: false,
-          error:
-            'Team member list not found. Captain must create member list first.',
+          error: 'Club has no members.',
         };
       }
 
-      // Get members from cache or fetch from relays
-      const memberCache = TeamMemberCache.getInstance();
-      const members = await memberCache.getTeamMembers(
-        query.teamId,
-        query.captainPubkey
-      );
-
-      if (!members || members.length === 0) {
-        console.warn(`⚠️ Team ${query.teamId} has empty member list`);
-        return {
-          metrics: new Map(),
-          totalWorkouts: 0,
-          queryTime: Date.now() - startTime,
-          fromCache: false,
-          error: 'Team has no members. Add members to the team first.',
-        };
-      }
-
-      memberNpubs = members.map((m) => m.npub || m.pubkey);
+      memberNpubs = clubMembers.map((m) => m.member_npub);
     }
 
     if (!memberNpubs || memberNpubs.length === 0) {
@@ -246,7 +222,7 @@ export class Competition1301QueryService {
 
       const normalizedQueryType = query.activityType.toLowerCase();
       const filteredWorkouts = competitiveWorkouts.filter(
-        (workout) => (workout.activityType || '').toLowerCase() === normalizedQueryType
+        (workout) => ((workout as any).activityType || '').toLowerCase() === normalizedQueryType
       );
       console.log(
         `📦 Filtered ${competitiveWorkouts.length} → ${filteredWorkouts.length} ${query.activityType} workouts (case-insensitive)`
@@ -363,7 +339,7 @@ export class Competition1301QueryService {
 
     // Parse distance - look for tag with unit
     let distance = 0; // in meters
-    const distanceTagIndex = tags.findIndex((t) => t[0] === 'distance');
+    const distanceTagIndex = tags.findIndex((t: string[]) => t[0] === 'distance');
     if (distanceTagIndex !== -1) {
       const distanceTag = tags[distanceTagIndex];
       const distValue = parseFloat(distanceTag[1]) || 0;
@@ -402,8 +378,9 @@ export class Competition1301QueryService {
       }
     }
 
-    const workout: NostrWorkout = {
+    const workout: NostrWorkout & { activityType?: string } = {
       id: event.id,
+      userId: event.pubkey,
       source: 'nostr',
       type: workoutType as any,
       activityType: workoutType,
@@ -412,12 +389,15 @@ export class Competition1301QueryService {
       duration: duration, // in seconds
       distance: distance, // in meters
       calories: parseInt(this.extractTag(tags, 'calories') || '0'),
-      averageHeartRate: parseInt(this.extractTag(tags, 'avg_hr') || '0'),
-      maxHeartRate: parseInt(this.extractTag(tags, 'max_hr') || '0'),
+      heartRate: {
+        avg: parseInt(this.extractTag(tags, 'avg_hr') || '0'),
+        max: parseInt(this.extractTag(tags, 'max_hr') || '0'),
+      },
       nostrEventId: event.id,
       nostrPubkey: event.pubkey,
       nostrCreatedAt: event.created_at,
-      unitSystem: 'metric' as any, // Default to metric since we store in meters
+      unitSystem: 'metric' as const,
+      syncedAt: new Date().toISOString(),
       dataSource: dataSource, // For filtering manual entries from competitions
     };
 
@@ -514,7 +494,7 @@ export class Competition1301QueryService {
    * Generate cache key for query
    */
   private getCacheKey(query: CompetitionQuery): string {
-    return `${query.memberNpubs.sort().join(',')}:${
+    return `${(query.memberNpubs || []).sort().join(',')}:${
       query.activityType
     }:${query.startDate.getTime()}:${query.endDate.getTime()}`;
   }
@@ -530,7 +510,7 @@ export class Competition1301QueryService {
   /**
    * Query ALL kind 1301 workouts in a date range for open events
    * Unlike queryMemberWorkouts, this doesn't filter by author - it gets ALL qualifying workouts
-   * Used for Satlantis open events where anyone can participate without RSVP
+   * Used for open events where anyone can participate without RSVP
    */
   async queryOpenEventWorkouts(params: {
     activityType: string;
@@ -639,13 +619,13 @@ export class Competition1301QueryService {
 
         // Filter by activity type (case-insensitive comparison)
         // mapSportToActivityType returns 'Running' but kind 1301 uses 'running'
-        const normalizedWorkoutType = (workout.activityType || '').toLowerCase();
+        const normalizedWorkoutType = ((workout as any).activityType || '').toLowerCase();
         const normalizedQueryType = activityType.toLowerCase();
         if (normalizedQueryType !== 'any' && normalizedWorkoutType !== normalizedQueryType) {
           filteredByActivity++;
           // DEBUG: Log first few filtered-by-activity
           if (filteredByActivity <= 3) {
-            console.log(`   ❌ Filtered by activity: got "${workout.activityType}" (${normalizedWorkoutType}), wanted "${activityType}" (${normalizedQueryType})`);
+            console.log(`   ❌ Filtered by activity: got "${(workout as any).activityType}" (${normalizedWorkoutType}), wanted "${activityType}" (${normalizedQueryType})`);
           }
           continue;
         }
@@ -674,7 +654,7 @@ export class Competition1301QueryService {
         }
 
         // DEBUG: Log qualifying workouts
-        console.log(`   ✅ QUALIFYING: pubkey ${event.pubkey?.substring(0, 8)}..., activity: ${workout.activityType}, distance: ${distanceKm.toFixed(2)}km, splits: ${splitCount}`);
+        console.log(`   ✅ QUALIFYING: pubkey ${event.pubkey?.substring(0, 8)}..., activity: ${(workout as any).activityType}, distance: ${distanceKm.toFixed(2)}km, splits: ${splitCount}`);
 
         // Add to metrics (keyed by pubkey/npub)
         const npub = workout.nostrPubkey || event.pubkey;

@@ -21,9 +21,13 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Toast from 'react-native-toast-message';
 import { theme } from '../../styles/theme';
 import { NWCStorageService } from '../../services/wallet/NWCStorageService';
 import { CustomAlert } from '../ui/CustomAlert';
+
+const NWC_HINT_SHOWN_KEY = '@runstr:nwc_hint_shown';
 
 interface WalletConfigModalProps {
   visible: boolean;
@@ -92,6 +96,25 @@ export const WalletConfigModal: React.FC<WalletConfigModalProps> = ({
       const result = await NWCStorageService.saveNWCString(trimmedNwcString);
 
       if (result.success) {
+        // Show one-time hint toast about long-press zapping
+        try {
+          const hintShown = await AsyncStorage.getItem(NWC_HINT_SHOWN_KEY);
+          if (!hintShown) {
+            await AsyncStorage.setItem(NWC_HINT_SHOWN_KEY, 'true');
+            setTimeout(() => {
+              Toast.show({
+                type: 'success',
+                text1: 'Wallet Connected!',
+                text2: 'Long-press any lightning bolt to quick-zap',
+                position: 'top',
+                visibilityTime: 5000,
+              });
+            }, 500);
+          }
+        } catch (e) {
+          // Non-critical, ignore
+        }
+
         setAlertTitle('Wallet Saved');
         setAlertMessage('Your wallet connection has been saved. It will connect when you use Bitcoin features.');
         setAlertButtons([
@@ -272,14 +295,14 @@ export const WalletConfigModal: React.FC<WalletConfigModalProps> = ({
                 >
                   {isValidating ? (
                     <>
-                      <ActivityIndicator color={theme.colors.accentText} size="small" />
+                      <ActivityIndicator color={theme.colors.textMuted} size="small" />
                       <Text style={styles.connectButtonText}>
                         Saving...
                       </Text>
                     </>
                   ) : (
                     <>
-                      <Ionicons name="wallet" size={20} color="#000000" />
+                      <Ionicons name="wallet" size={20} color={theme.colors.background} />
                       <Text style={styles.connectButtonText}>
                         Save Wallet
                       </Text>
@@ -329,7 +352,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 2,
     borderLeftWidth: 2,
     borderRightWidth: 2,
-    borderColor: '#FF9D42',
+    borderColor: theme.colors.border,
     paddingTop: 24,
     paddingHorizontal: 24,
     maxHeight: '90%',
@@ -373,7 +396,7 @@ const styles = StyleSheet.create({
   explanationBox: {
     backgroundColor: theme.colors.cardBackground,
     borderWidth: 1,
-    borderColor: '#FF9D42',
+    borderColor: theme.colors.border,
     borderRadius: 12,
     padding: 16,
     marginBottom: 24,
@@ -393,7 +416,7 @@ const styles = StyleSheet.create({
   explanationNote: {
     fontSize: 13,
     fontStyle: 'italic',
-    color: '#FF9D42',
+    color: theme.colors.textMuted,
     marginBottom: 0,
   },
   benefitsList: {
@@ -446,18 +469,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#FF9D42',
+    backgroundColor: theme.colors.text,
     paddingVertical: 16,
     borderRadius: 12,
     marginBottom: 12,
   },
   connectButtonDisabled: {
-    opacity: 0.5,
+    opacity: 0.35,
   },
   connectButtonText: {
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
-    color: '#000000',
+    color: theme.colors.background,
   },
   skipButton: {
     paddingVertical: 12,

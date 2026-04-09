@@ -31,6 +31,7 @@ export const FEATURE_FLAGS = {
    * When false: Shows unified workout history
    */
   TWO_TAB_WORKOUTS: true,
+
 } as const;
 
 export default FEATURE_FLAGS;

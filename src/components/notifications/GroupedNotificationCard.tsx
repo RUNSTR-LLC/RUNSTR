@@ -46,7 +46,7 @@ export const GroupedNotificationCard: React.FC<
         return '+';
       case 'challenge_invitation':
       case 'challenge_received':
-        return '⚡';
+        return '!';
       case 'live_position_gained':
       case 'position_change':
         return '↑';

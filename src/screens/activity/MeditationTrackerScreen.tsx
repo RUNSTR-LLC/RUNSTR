@@ -25,10 +25,12 @@ import CalorieEstimationService from '../../services/fitness/CalorieEstimationSe
 import { nostrProfileService } from '../../services/nostr/NostrProfileService';
 import { HoldToStartButton } from '../../components/activity/HoldToStartButton';
 import { CountdownOverlay } from '../../components/activity/CountdownOverlay';
+import { BreathingCircle } from '../../components/activity/BreathingCircle';
 import { AutoCompetePreferencesService } from '../../services/activity/AutoCompetePreferencesService';
 import WorkoutStatusTracker from '../../services/fitness/WorkoutStatusTracker';
 import { WoTService } from '../../services/wot/WoTService';
 import Toast from 'react-native-toast-message';
+import * as Haptics from 'expo-haptics';
 import type { HealthProfile } from '../HealthProfileScreen';
 import type { PublishableWorkout } from '../../services/nostr/workoutPublishingService';
 import type { Workout } from '../../types/workout';
@@ -52,6 +54,16 @@ const MEDITATION_TYPES: {
   { value: 'gratitude', label: 'Gratitude', icon: 'heart-outline' },
 ];
 
+const DURATION_PRESETS: { value: number | null; label: string }[] = [
+  { value: null, label: 'Open' },
+  { value: 5 * 60, label: '5m' },
+  { value: 10 * 60, label: '10m' },
+  { value: 15 * 60, label: '15m' },
+  { value: 20 * 60, label: '20m' },
+];
+
+const MILESTONE_SECONDS = [5 * 60, 10 * 60, 15 * 60, 20 * 60, 30 * 60];
+
 interface MeditationTrackerScreenProps {
   initialType?: MeditationType;
 }
@@ -64,6 +76,7 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
   const [isPaused, setIsPaused] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [selectedType, setSelectedType] = useState<MeditationType>(initialType || 'unguided');
+  const [targetDuration, setTargetDuration] = useState<number | null>(null);
   const [userWeight, setUserWeight] = useState<number | undefined>(undefined);
   const [estimatedCalories, setEstimatedCalories] = useState<number>(0);
 
@@ -111,6 +124,8 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
   const pauseStartTimeRef = useRef<number>(0);
   const isPausedRef = useRef<boolean>(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const autoStopFiredRef = useRef<boolean>(false);
+  const firedMilestonesRef = useRef<Set<number>>(new Set());
 
   // Load userId, health profile, and WoT score on mount
   useEffect(() => {
@@ -188,13 +203,36 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
           (now - startTimeRef.current - totalPausedTime) / 1000
         );
         setElapsedSeconds(elapsed);
+
+        // Milestone haptics (open mode only)
+        if (targetDuration === null) {
+          for (const milestone of MILESTONE_SECONDS) {
+            if (elapsed >= milestone && !firedMilestonesRef.current.has(milestone)) {
+              firedMilestonesRef.current.add(milestone);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              break;
+            }
+          }
+        }
+
+        // Auto-stop when countdown reaches zero
+        if (targetDuration !== null && elapsed >= targetDuration && !autoStopFiredRef.current && !isPausedRef.current) {
+          autoStopFiredRef.current = true;
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          setTimeout(() => endSession(), 0);
+        }
       }, 1000);
+      timerRef.current = interval;
     }
 
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [phase, isActive, isPaused]);
+  }, [phase, isActive, isPaused, targetDuration]);
 
   // Auto-compete: publish kind 1301 when summary phase starts
   useEffect(() => {
@@ -291,6 +329,8 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
     pauseStartTimeRef.current = 0;
     totalPausedTimeRef.current = 0;
     setElapsedSeconds(0);
+    autoStopFiredRef.current = false;
+    firedMilestonesRef.current.clear();
   };
 
   const pauseMeditation = () => {
@@ -330,21 +370,23 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
         MEDITATION_TYPES.find((t) => t.value === selectedType)?.label ||
         'Meditation';
 
+      const finalDuration = targetDuration !== null ? targetDuration : elapsedSeconds;
+
       const calories = CalorieEstimationService.estimateMeditationCalories(
-        elapsedSeconds,
+        finalDuration,
         userWeight
       );
       setEstimatedCalories(calories);
 
       const workoutId = await LocalWorkoutStorageService.saveManualWorkout({
         type: 'meditation',
-        duration: elapsedSeconds,
+        duration: finalDuration,
         notes:
           sessionNotes ||
           `${
-            elapsedSeconds >= 60
-              ? Math.floor(elapsedSeconds / 60) + ' minute'
-              : elapsedSeconds + ' second'
+            finalDuration >= 60
+              ? Math.floor(finalDuration / 60) + ' minute'
+              : finalDuration + ' second'
           } ${meditationTypeLabel.toLowerCase()} session`,
         meditationType: selectedType,
         calories,
@@ -357,9 +399,9 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
         userId: userId || 'unknown',
         type: 'meditation',
         source: 'manual_entry' as const,
-        startTime: new Date(Date.now() - elapsedSeconds * 1000).toISOString(),
+        startTime: new Date(Date.now() - finalDuration * 1000).toISOString(),
         endTime: new Date().toISOString(),
-        duration: elapsedSeconds,
+        duration: finalDuration,
         calories,
         meditationType: selectedType,
         syncedAt: new Date().toISOString(),
@@ -421,6 +463,7 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
     setPhase('setup');
     setSessionNotes('');
     setElapsedSeconds(0);
+    setTargetDuration(null);
     setSavedWorkout(null);
     setSavedWorkoutId(null);
     setAutoCompeteTriggered(false);
@@ -465,6 +508,32 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
                     ]}
                   >
                     {type.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Duration Preset Card */}
+          <View style={styles.setupCard}>
+            <Text style={styles.setupCardLabel}>DURATION</Text>
+            <View style={styles.durationOptions}>
+              {DURATION_PRESETS.map((preset) => (
+                <TouchableOpacity
+                  key={preset.label}
+                  style={[
+                    styles.durationOption,
+                    targetDuration === preset.value && styles.durationOptionActive,
+                  ]}
+                  onPress={() => setTargetDuration(preset.value)}
+                >
+                  <Text
+                    style={[
+                      styles.durationOptionText,
+                      targetDuration === preset.value && styles.durationOptionTextActive,
+                    ]}
+                  >
+                    {preset.label}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -523,6 +592,11 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
 
   // Active meditation screen
   if (phase === 'active') {
+    const isBreathwork = selectedType === 'breathwork';
+    const displayTime = targetDuration !== null
+      ? formatTime(Math.max(0, targetDuration - elapsedSeconds))
+      : formatTime(elapsedSeconds);
+
     return (
       <View style={styles.container}>
         <View style={styles.activeContainer}>
@@ -530,12 +604,19 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
             {MEDITATION_TYPES.find((t) => t.value === selectedType)?.label}
           </Text>
 
-          <View style={styles.timerContainer}>
-            <Text style={styles.timerText}>{formatTime(elapsedSeconds)}</Text>
-            <Text style={styles.timerLabel}>
-              {isPaused ? 'Paused' : 'Meditating'}
-            </Text>
-          </View>
+          {isBreathwork ? (
+            <>
+              <Text style={styles.breathworkTimer}>{displayTime}</Text>
+              <BreathingCircle isPaused={isPaused} />
+            </>
+          ) : (
+            <View style={styles.timerContainer}>
+              <Text style={styles.timerText}>{displayTime}</Text>
+              <Text style={styles.timerLabel}>
+                {isPaused ? 'Paused' : 'Meditating'}
+              </Text>
+            </View>
+          )}
 
           <View style={styles.controlButtons}>
             {!isPaused ? (
@@ -576,6 +657,8 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.summaryScrollContainer}
+      keyboardDismissMode="on-drag"
+      keyboardShouldPersistTaps="handled"
     >
       <View style={styles.summaryIconContainer}>
         <Ionicons
@@ -629,7 +712,7 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
         />
       </View>
 
-      {/* Post to Nostr - Only visible if WoT > 0 */}
+      {/* Share - Only visible if WoT > 0 */}
       {isWoTEligible && !postedToNostr && (
         <TouchableOpacity style={styles.postButton} onPress={handleShowSocialModal}>
           <Ionicons
@@ -638,7 +721,7 @@ export const MeditationTrackerScreen: React.FC<MeditationTrackerScreenProps> = (
             color={theme.colors.background}
             style={{ marginRight: 8 }}
           />
-          <Text style={styles.postButtonText}>Post to Nostr</Text>
+          <Text style={styles.postButtonText}>Share</Text>
         </TouchableOpacity>
       )}
 
@@ -772,6 +855,32 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontWeight: theme.typography.weights.semiBold,
   },
+  durationOptions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  durationOption: {
+    flex: 1,
+    backgroundColor: theme.colors.card,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+  },
+  durationOptionActive: {
+    borderColor: theme.colors.text,
+    backgroundColor: theme.colors.border,
+  },
+  durationOptionText: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.textMuted,
+  },
+  durationOptionTextActive: {
+    color: theme.colors.text,
+    fontWeight: theme.typography.weights.semiBold,
+  },
   // Fixed bottom controls
   fixedControlsWrapper: {
     position: 'absolute',
@@ -823,6 +932,12 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.semiBold,
     color: theme.colors.textMuted,
     marginBottom: 40,
+  },
+  breathworkTimer: {
+    fontSize: 36,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.textMuted,
+    marginBottom: 8,
   },
   timerContainer: {
     alignItems: 'center',

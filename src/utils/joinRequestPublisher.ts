@@ -58,7 +58,7 @@ export async function publishJoinRequest(
       // 3. Sign the event (supports both nsec and Amber)
       const signature = await signingService.signEvent(eventTemplate as any);
       const signedEvent = {
-        ...eventTemplate,
+        ...(eventTemplate as any),
         sig: signature,
       };
 

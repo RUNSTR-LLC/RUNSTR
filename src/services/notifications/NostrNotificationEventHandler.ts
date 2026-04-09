@@ -99,7 +99,7 @@ export class NostrNotificationEventHandler {
       // Re-enable after fixing event parsing to handle actual Nostr relay events
       this.subscription = ndk.subscribe(
         {
-          kinds: [1101, 1102], // Competition announcements and results only
+          kinds: [1101 as any, 1102 as any], // Competition announcements and results only
           limit: 50, // Reduced from 100 to minimize startup load
         },
         { closeOnEose: false }

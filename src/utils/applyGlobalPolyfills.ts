@@ -26,10 +26,10 @@ import 'message-port-polyfill';
 export function applyGlobalPolyfills(): void {
   // Apply TextEncoder/TextDecoder globally
   if (typeof global.TextEncoder === 'undefined') {
-    global.TextEncoder = TextEncoder;
+    global.TextEncoder = TextEncoder as any;
   }
   if (typeof global.TextDecoder === 'undefined') {
-    global.TextDecoder = TextDecoder;
+    global.TextDecoder = TextDecoder as any;
   }
 
   // Ensure crypto is available globally

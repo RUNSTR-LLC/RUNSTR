@@ -141,7 +141,7 @@ class SimpleNWCWallet {
     try {
       this.client = new NWCClient({
         nostrWalletConnectUrl: nwcString,
-        websocketImplementation: WebSocket,
+        // websocketImplementation not in current NWC type defs
       });
 
       // Test connection with timeout
@@ -230,6 +230,101 @@ class SimpleNWCWallet {
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Payment failed';
       console.error('[NWC] Payment error:', msg);
+      return { success: false, error: msg };
+    }
+  }
+
+  /**
+   * Pay a Lightning address by resolving it via LNURL-pay
+   *
+   * Flow: Lightning address → LNURL endpoint → request invoice → pay invoice
+   */
+  async payLightningAddress(address: string, amountSats: number): Promise<SendPaymentResult> {
+    try {
+      if (!await this.isAvailable()) {
+        return { success: false, error: 'No wallet configured' };
+      }
+
+      if (!address || !address.includes('@')) {
+        return { success: false, error: 'Invalid Lightning address' };
+      }
+
+      if (!amountSats || amountSats <= 0) {
+        return { success: false, error: 'Invalid amount' };
+      }
+
+      // Step 1: Resolve Lightning address to LNURL-pay endpoint
+      // user@domain.com → https://domain.com/.well-known/lnurlp/user
+      const [user, domain] = address.split('@');
+      if (!user || !domain) {
+        return { success: false, error: 'Invalid Lightning address format' };
+      }
+
+      const lnurlpUrl = `https://${domain}/.well-known/lnurlp/${user}`;
+      console.log(`[NWC] Resolving Lightning address: ${address}`);
+
+      const metadataResponse = await Promise.race([
+        fetch(lnurlpUrl),
+        this.timeout<Response>(TIMEOUT.CONNECT),
+      ]);
+
+      if (!metadataResponse.ok) {
+        return { success: false, error: `Failed to resolve Lightning address (${metadataResponse.status})` };
+      }
+
+      const metadata = await metadataResponse.json();
+
+      if (metadata.status === 'ERROR') {
+        return { success: false, error: metadata.reason || 'LNURL error' };
+      }
+
+      if (!metadata.callback) {
+        return { success: false, error: 'Invalid LNURL-pay response: no callback' };
+      }
+
+      // Step 2: Check amount is within bounds (LNURL amounts are in millisats)
+      const amountMillisats = amountSats * 1000;
+      const minSendable = metadata.minSendable || 1000;
+      const maxSendable = metadata.maxSendable || 100000000000;
+
+      if (amountMillisats < minSendable || amountMillisats > maxSendable) {
+        return {
+          success: false,
+          error: `Amount out of range: ${Math.ceil(minSendable / 1000)}-${Math.floor(maxSendable / 1000)} sats`,
+        };
+      }
+
+      // Step 3: Request invoice from callback
+      const separator = metadata.callback.includes('?') ? '&' : '?';
+      const invoiceUrl = `${metadata.callback}${separator}amount=${amountMillisats}`;
+
+      console.log('[NWC] Requesting invoice from LNURL callback...');
+
+      const invoiceResponse = await Promise.race([
+        fetch(invoiceUrl),
+        this.timeout<Response>(TIMEOUT.CONNECT),
+      ]);
+
+      if (!invoiceResponse.ok) {
+        return { success: false, error: `Failed to get invoice (${invoiceResponse.status})` };
+      }
+
+      const invoiceData = await invoiceResponse.json();
+
+      if (invoiceData.status === 'ERROR') {
+        return { success: false, error: invoiceData.reason || 'Invoice request failed' };
+      }
+
+      if (!invoiceData.pr) {
+        return { success: false, error: 'No invoice returned from LNURL' };
+      }
+
+      // Step 4: Pay the invoice
+      console.log('[NWC] Got invoice, sending payment...');
+      return await this.sendPayment(invoiceData.pr);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Payment failed';
+      console.error('[NWC] Pay Lightning address error:', msg);
       return { success: false, error: msg };
     }
   }

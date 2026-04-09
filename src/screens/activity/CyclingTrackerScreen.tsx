@@ -28,7 +28,6 @@ import { theme } from '../../styles/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 // Weekly distance goal components
 import {
-  WeeklyDistanceGoalCard,
   type PostingState,
 } from '../../components/activity/WeeklyDistanceGoalCard';
 import { DistanceGoalPickerModal } from '../../components/activity/DistanceGoalPickerModal';
@@ -47,7 +46,6 @@ import {
 import { CountdownOverlay } from '../../components/activity/CountdownOverlay';
 import { ControlBar } from '../../components/activity/ControlBar';
 import { HoldToStartButton } from '../../components/activity/HoldToStartButton';
-import { LastActivityCard } from '../../components/activity/LastActivityCard';
 import { StepDebugOverlay } from '../../components/debug/StepDebugOverlay';
 
 interface CyclingTrackerScreenProps {
@@ -152,7 +150,7 @@ export const CyclingTrackerScreen: React.FC<CyclingTrackerScreenProps> = ({
       e.preventDefault();
 
       // Show confirmation dialog
-      CustomAlert.show({
+      (CustomAlert as any).show({
         title: 'Stop Tracking?',
         message: 'You have an active workout. Do you want to stop and discard it?',
         buttons: [
@@ -281,6 +279,14 @@ export const CyclingTrackerScreen: React.FC<CyclingTrackerScreenProps> = ({
     };
 
     checkAutoRecovery();
+
+    return () => {
+      // Clean up any interval started by auto-recovery
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
   }, []);
 
   // Helper function for time formatting
@@ -297,16 +303,17 @@ export const CyclingTrackerScreen: React.FC<CyclingTrackerScreenProps> = ({
 
   // Load user profile for social sharing
   useEffect(() => {
+    let isMounted = true;
     const loadProfileAndId = async () => {
       try {
         const pubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
         const npub = await AsyncStorage.getItem('@runstr:npub');
         const activeUserId = npub || pubkey || '';
-        setUserId(activeUserId);
+        if (isMounted) setUserId(activeUserId);
 
         if (pubkey) {
           const profile = await nostrProfileService.getProfile(pubkey);
-          setUserProfile(profile);
+          if (isMounted) setUserProfile(profile);
         }
       } catch (error) {
         console.error(
@@ -317,6 +324,7 @@ export const CyclingTrackerScreen: React.FC<CyclingTrackerScreenProps> = ({
     };
 
     loadProfileAndId();
+    return () => { isMounted = false; };
   }, []);
 
   // Load weekly distance data on mount

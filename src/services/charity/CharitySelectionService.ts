@@ -10,7 +10,7 @@ import type { Charity } from '../../constants/charities';
 
 const STORAGE_KEYS = {
   // Must match TeamsScreen storage key for consistency
-  SELECTED_CHARITY: '@runstr:selected_charity_id',
+  SELECTED_CHARITY: '@runstr:selected_team_id',
   CHARITY_STATS: '@runstr:charity_stats',
 };
 

@@ -20,7 +20,6 @@
 import type { LocalWorkout } from '../fitness/LocalWorkoutStorageService';
 import type {
   BodyCompositionMetrics,
-  VO2MaxData,
   HealthProfile,
 } from '../../types/analytics';
 

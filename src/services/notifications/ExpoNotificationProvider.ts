@@ -5,7 +5,7 @@
 
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
-import { Platform } from 'react-native';
+import { Platform, AppState, AppStateStatus } from 'react-native';
 import Constants from 'expo-constants';
 import { RichNotificationData } from '../../types';
 import { analytics } from '../../utils/analytics';
@@ -51,6 +51,13 @@ export class ExpoNotificationProvider {
     // Setup notification received listener
     this.setupNotificationListeners();
 
+    // Clear badge when app comes to foreground
+    AppState.addEventListener('change', (state: AppStateStatus) => {
+      if (state === 'active') {
+        Notifications.setBadgeCountAsync(0).catch(() => {});
+      }
+    });
+
     this.isInitialized = true;
   }
 
@@ -91,14 +98,24 @@ export class ExpoNotificationProvider {
         await Notifications.getExpoPushTokenAsync({ projectId })
       ).data;
 
-      console.log('📱 Device token obtained for local notifications');
+      console.log('[ExpoNotificationProvider] Device token obtained:', this.deviceToken?.slice(0, 30) + '...');
       analytics.track('notification_scheduled', { tokenRegistered: true });
 
-      // Register for broadcast community notifications (anonymous - no npub)
-      // This enables server-side push for Daily Running Leaderboard updates
-      BroadcastTokenService.registerToken(this.deviceToken).catch((err) => {
+      // Register for push notifications (community + per-user if logged in)
+      // Per-user targeting enables reward earned / auto-join notifications
+      // IMPORTANT: Await this so the broadcast_tokens row exists before AuthContext
+      // tries to update token_key on it (was fire-and-forget, caused race condition)
+      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+      const npub = await AsyncStorage.getItem('@runstr:npub');
+      try {
+        await BroadcastTokenService.registerToken(
+          this.deviceToken,
+          npub ?? undefined
+        );
+        console.log('[ExpoNotificationProvider] Broadcast token registered successfully');
+      } catch (err) {
         console.warn('[ExpoNotificationProvider] Broadcast registration failed:', err);
-      });
+      }
     } catch (error) {
       console.error('Failed to get push token:', error);
       analytics.track('notification_scheduled', { tokenFailed: true });
@@ -126,7 +143,7 @@ export class ExpoNotificationProvider {
       description: 'Real-time updates during active competitions',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 100, 150, 100],
-      lightColor: '#ff4444',
+      lightColor: '#FF6B00',
       sound: 'default',
     });
 
@@ -168,33 +185,32 @@ export class ExpoNotificationProvider {
     });
   }
 
-  // Handle notification action buttons
+  // Handle notification tap — deep-link to the relevant screen
   private handleNotificationAction(actionIdentifier: string, data: any): void {
-    switch (actionIdentifier) {
-      case 'start_run':
-        // TODO: Navigate to workout screen
-        console.log('Starting run from notification');
-        break;
-      case 'view_race':
-        // TODO: Navigate to live race screen
-        console.log('Viewing race from notification');
-        break;
-      case 'view_wallet':
-        // TODO: Navigate to wallet screen
-        console.log('Viewing wallet from notification');
-        break;
-      case 'accept_challenge':
-        // TODO: Accept challenge
-        console.log('Accepting challenge:', data.challengeId);
-        break;
-      case 'decline_challenge':
-        // TODO: Decline challenge
-        console.log('Declining challenge:', data.challengeId);
-        break;
-      default:
-        // Default tap - open app
-        console.log('Opening app from notification');
+    // Import the shared navigation ref (lazy require to avoid circular deps)
+    const { navigate } = require('../../navigation/navigationRef');
+
+    if (actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER || actionIdentifier === 'default') {
+      // User tapped the notification — route to the right screen
+      switch (data?.type) {
+        case 'reward_earned':
+        case 'step_reward_earned':
+          navigate('MainTabs', { screen: 'Rewards' });
+          break;
+        case 'auto_joined':
+        case 'leaderboard_change':
+          if (data?.competition_id) {
+            navigate('DynamicEventDetail', { eventId: data.competition_id });
+          } else {
+            navigate('Compete');
+          }
+          break;
+        default:
+          // Default tap - just open the app (no specific navigation)
+          console.log('Notification tapped with unknown type:', data?.type);
+      }
     }
+    // Named actions (start_run, view_race, etc.) — keep for future use
   }
 
   // Schedule local notification

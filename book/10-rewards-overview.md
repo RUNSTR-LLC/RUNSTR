@@ -2,111 +2,116 @@
 
 ## Summary
 
-RUNSTR pays you real Bitcoin for staying active—not points, not tokens, but actual satoshis delivered to your Lightning wallet. Complete a workout and earn 50 sats. Hit step milestones throughout your day and earn 5 sats for every 1,000 steps. These micropayments accumulate over time, creating a tangible financial incentive that compounds alongside your fitness gains.
+RUNSTR rewards you for working out. Rewards are funded by sponsors and sent to whatever destination you choose — a charity, an open source project, a service like PPQ.AI for AI credits, or your own wallet. Every qualifying workout earns a reward, automatically, whether you tracked it in the app or it synced from Apple Health or Health Connect in the background.
 
-The Rewards pillar encompasses everything related to earning and distributing Bitcoin through RUNSTR: daily workout rewards, step milestone rewards, Lightning address delivery, and teams and charities. Teams and charities are part of the rewards ecosystem—when you select a team, you're choosing a charity to support through your fitness activities, with reward routing directing payments accordingly.
+The reward system is simple: complete a qualifying cardio workout and you're eligible. Rewards are processed externally — your workout gets submitted to Supabase, a database trigger fires the reward claim, and the reward is sent to your chosen destination via LNURL. The app tracks eligibility locally and polls for confirmed payments to display in-app notifications and earnings totals.
 
-The daily workout reward system is straightforward: save one qualifying workout per day and receive 50 sats. Workouts tracked via GPS in the app or manually entered all qualify. The app uses atomic markers to prevent duplicate rewards—only your first qualifying workout of the day triggers payment, even if you save multiple workouts in rapid succession.
+A lottery wheel adds an additional reward layer, giving users a spin after qualifying workouts. Your RUNSTR level, which is a direct correlation to your workout history, determines the reward multiplier on the wheel. The more you work out, the higher your level, the better your lottery odds and payouts. This creates a behavioral reinforcement loop: work out consistently, level up, earn more.
 
-Step rewards work on a milestone system that resets at midnight. Every time your step count crosses a 1,000-step threshold (1k, 2k, 3k, and so on), you earn 5 sats. The app polls your device's step count every 60 seconds while active, automatically detecting and rewarding new milestones. There's no cap on step rewards—the more you move, the more you earn.
+Sponsor attribution is visible throughout the app. The Rewards page shows a message like "This month's rewards are brought to you by [Sponsor]" and push notifications include the sponsor's brand — "You received a reward from [Sponsor] for your workout." RUNSTR calls this Zapvertising: businesses sponsor rewards and reach an active fitness audience through branded attribution.
 
-To receive rewards, you simply enter your Lightning address in the app settings. RUNSTR supports any Lightning address from wallets like Strike, Alby, Zeus, or Wallet of Satoshi. When you earn a reward, the app's NWC wallet requests an invoice from your Lightning address and sends payment, enabling verification that the sats actually arrived.
-
-The rewards system follows a silent failure philosophy: if a payment fails for any reason, your workout still saves and your experience remains uninterrupted. Rewards are designed as a bonus that enhances your fitness journey, never as a blocker that frustrates it.
+The rewards system follows a silent failure philosophy: if a payment fails for any reason, your workout still saves and your experience remains uninterrupted. Rewards are a bonus that enhances your fitness journey, never a blocker that frustrates it.
 
 ---
 
-## Fitness = Bitcoin
+## How Rewards Work
 
-RUNSTR's core philosophy: **your daily workout earns real Bitcoin**.
+### The Flow
 
-Complete your daily workout and earn 50 sats. Hit step milestones throughout the day for bonus rewards. The app sends satoshis directly to your Lightning address—real Bitcoin, not points or tokens.
+```
+User works out (in-app GPS or external app via health sync)
+  |
+  +--> Workout submitted to Supabase (workout_submissions table)
+  |      +-- Anti-cheat validation (pace limits, distance limits)
+  |
+  +--> Database trigger fires claim-reward Edge Function
+  |      +-- Reads destination tag (charity/project/service/self)
+  |      +-- Sends reward via LNURL to destination address
+  |      +-- Records in reward_payments table with preimage proof
+  |
+  +--> Push notification: "You received a reward from [Sponsor]"
+  |
+  +--> RewardPollingService shows in-app toast notification
+```
 
-This creates a direct incentive loop:
-- Work out daily → Earn sats → Stay motivated → Keep moving
+### Eligibility Rules
 
----
+1. Activity must be cardio: running, walking, cycling, or hiking
+2. Distance > 0
+3. Passes anti-cheat validation
+4. One reward per day per user (deduplicated)
 
-## Reward Types
+### Reward Destinations
 
-### 1. Daily Workout Reward
-**50 sats per day** for completing a qualifying workout.
+Users choose ONE destination for all rewards:
 
-- One reward per 24-hour period
-- Requires saving workout to the app
-- GPS-tracked, manual entry, or health imports qualify
-- Apple Health and Health Connect imports qualify for rewards
+| Destination | What Happens |
+|-------------|-------------|
+| **Charity** (ALS Network, Bitcoin Veterans, etc.) | Reward sent as micro donation to charity's address |
+| **Project** (Bitcoin Ekasi, Afribit Kibera, etc.) | Reward sent to project's address |
+| **Service** (PPQ.AI) | Reward converted to AI credits |
+| **You** (Self) | Reward sent to your wallet |
 
-### 2. Step Milestone Rewards
-**5 sats per 1,000 steps** throughout the day.
-
-- Milestone at 1k, 2k, 3k, 4k... steps
-- Resets at midnight
-- Step count from device sensors
-- Multiple rewards possible per day
-
-### 3. Teams & Charities
-Select a team (charity) to support through your fitness activities.
-
-- Teams = Charities — choosing a team means supporting a cause
-- Reward routing directs payments to user or charity
-- Direct zaps available via the Teams tab
-- See [Chapter 13: Teams & Charities](./13-rewards-teams-charities.md) for details
-
-### 4. Encrypted Backup
-Back up all your fitness data to Nostr relays using encrypted events.
-
-- Kind 30078 replaceable parameterized events
-- NIP-44 self-encryption (only you can decrypt)
-- Gzip compression for large payloads
-- Backs up workouts, habits, journal, preferences
-- Export/Import buttons in Settings
-- See [Chapter 14: Encrypted Backup](./14-encrypted-backup.md) for details
+Change destination anytime via the Rewards screen. See [Chapter 13: Reward Destinations](./13-rewards-teams-charities.md) for full details.
 
 ---
 
-## Reward Values
+## Lottery Wheel & Levels
 
-| Reward Type | Amount | Frequency | Max/Day |
-|-------------|--------|-----------|---------|
-| Daily Workout | 50 sats | Once per day | 50 sats |
-| Step Milestone | 5 sats | Per 1,000 steps | Unlimited |
+Every qualifying workout earns the base 50 sats reward. The lottery wheel provides additional rewards:
 
-### Example Day
-| Activity | Reward |
-|----------|--------|
-| Morning run (5K) | 50 sats |
-| 1,000 steps | 5 sats |
-| 2,000 steps | 5 sats |
-| 3,000 steps | 5 sats |
-| 4,000 steps | 5 sats |
-| 5,000 steps | 5 sats |
-| **Total** | **75 sats** |
+- **Spin after qualifying workouts** — users get a wheel spin for bonus rewards
+- **Level-based multiplier** — your RUNSTR level determines the reward multiplier
+- **Level reflects consistency** — more workouts = higher level = better odds and payouts
+- **Variable-ratio reinforcement** — the wheel creates excitement and unpredictability
+
+### RUNSTR Levels
+Your level is a direct correlation to your workout history. It affects:
+- Lottery wheel multiplier (higher level = bigger potential payouts)
+- Lottery wheel odds (higher level = better chances)
+
+---
+
+## Sponsor-Funded Rewards (Zapvertising)
+
+Rewards are funded by sponsors, not RUNSTR. Sponsor attribution appears in two places:
+
+1. **Rewards page** — "This month's rewards are brought to you by [Sponsor]" (SponsorBanner component)
+2. **Push notifications** — "You received a reward from [Sponsor] for your workout"
+
+This model (Zapvertising) lets businesses reach an active fitness audience through branded reward attribution, keeping the reward system sustainable without selling user data.
 
 ---
 
 ## Rewards Screen
 
-The Rewards tab shows:
+The Rewards screen (accessible from Profile tab) shows:
 
 ```
 ┌─────────────────────────────────────┐
-│  TOTAL REWARDS         1050 sats   │
-│  22 workouts • 0 day streak        │
-│  0 steps today  [Compete] [Post]   │
+│  REWARDS POOL                       │
+│  [tap for Transparency Dashboard]   │
 ├─────────────────────────────────────┤
-│  ❤ YOUR TEAM                   ▼  │
+│  This month's rewards are brought   │
+│  to you by [Sponsor]                │
 ├─────────────────────────────────────┤
-│  💳 REWARDS ADDRESS             ▼  │
+│  EARNINGS / IMPACT                  │
+│  Total rewards earned or donated    │
+├─────────────────────────────────────┤
+│  REWARD DESTINATION                 │
+│  [Current destination]  [Change]    │
+├─────────────────────────────────────┤
+│  HOW IT WORKS                       │
+│  Explainer for new users            │
 └─────────────────────────────────────┘
 ```
 
 ### Key Elements
-- **Total Rewards** - Lifetime sats earned
-- **Workout Count** - Total workouts tracked
-- **Day Streak** - Consecutive days with workouts
-- **Steps Today** - Current step count
-- **Lightning Address** - Set address to receive rewards
+- **Rewards Pool** — Tappable card showing global reward distribution (TransparencyDashboardModal)
+- **SponsorBanner** — Sponsor attribution with link to sponsor website
+- **EarningsHeroCard** — Shows total rewards and weekly earnings (if wallet configured)
+- **ImpactHeroCard** — Shows total rewards donated to destinations (if no wallet configured)
+- **RewardDestinationSection** — Current destination with Change button
 
 ---
 
@@ -131,19 +136,21 @@ Rewards are implemented with **silent failure**:
 
 | Service | File | Purpose |
 |---------|------|---------|
-| DailyRewardService | `src/services/rewards/DailyRewardService.ts` | 50 sats/workout |
-| StepRewardService | `src/services/rewards/StepRewardService.ts` | 5 sats/1k steps |
-| SupabaseRewardService | `src/services/rewards/SupabaseRewardService.ts` | Query verified payments + impact data |
-| RewardsTransparencyService | `src/services/rewards/RewardsTransparencyService.ts` | Global reward pool + charity leaderboards |
-| RewardNotificationManager | `src/services/rewards/RewardNotificationManager.ts` | Toast notifications |
+| DailyRewardService | `src/services/rewards/DailyRewardService.ts` | Per-workout reward eligibility tracking |
+| SupabaseRewardService | `src/services/rewards/SupabaseRewardService.ts` | Query verified payments + earnings data |
+| RewardPollingService | `src/services/rewards/RewardPollingService.ts` | Poll for new payments, show in-app toasts |
+| RewardsTransparencyService | `src/services/rewards/RewardsTransparencyService.ts` | Global reward pool + destination leaderboards |
+| RewardNotificationManager | `src/services/rewards/RewardNotificationManager.ts` | Toast notifications for earned rewards |
 
 ### External Reward Processing
 
-**Important:** Actual reward payments are processed by an external service that monitors Supabase, not by the app itself. The app:
-1. Tracks reward eligibility locally
-2. Submits workouts to Supabase
-3. Polls for confirmed payments via `RewardPollingService`
-4. Displays payment results and totals via `SupabaseRewardService`
+**Important:** Actual reward payments are processed by an external service (Supabase Edge Functions), not by the app itself. The app:
+1. Tracks reward eligibility locally (DailyRewardService)
+2. Submits workouts to Supabase (SupabaseCompetitionService)
+3. Database trigger fires claim-reward Edge Function
+4. Edge Function reads destination and sends reward via LNURL
+5. App polls for confirmed payments (RewardPollingService)
+6. Displays earnings totals (SupabaseRewardService)
 
 ### Storage Keys
 
@@ -152,25 +159,27 @@ Rewards are implemented with **silent failure**:
 | `@runstr:last_reward_date` | Prevent duplicate daily rewards |
 | `@runstr:total_rewards_earned` | Lifetime counter |
 | `@runstr:weekly_rewards_earned` | Weekly counter |
-| `@runstr:step_milestones:{date}` | Today's achieved milestones |
+| `@runstr:reward_destination` | User's chosen destination |
 
 ---
 
 ## What Rewards Should Be
 
 ### Ideal Architecture
-1. **Simple rules** - 50/day, 5/1k steps, no complexity
-2. **Silent failure** - Never block user experience
-3. **Lightning address** - Universal wallet support
-4. **Clear tracking** - User sees total and streak
-5. **Integrated charities** - Teams/charities as part of rewards, not a separate pillar
+1. **Sponsor-funded** — Rewards come from sponsors, not RUNSTR
+2. **Single destination** — User picks one place for all rewards, no splits
+3. **Silent failure** — Never block user experience
+4. **Background-capable** — Earn rewards without opening the app
+5. **Level-based multiplier** — Consistency increases lottery wheel payouts
+6. **Visible attribution** — Sponsor brand shown on Rewards page and push notifications
 
 ### What to Avoid
 - Complex eligibility rules
 - Blocking payment errors
-- NWC wallet requirements for users
+- Reward splits or percentages
 - Retry loops that delay workouts
-- Treating donations as a separate system from rewards
+- Treating destinations as a separate system from rewards
+- Using "sats", "Bitcoin", or "Lightning" in user-facing contexts
 
 ---
 
@@ -178,6 +187,6 @@ Rewards are implemented with **silent failure**:
 
 **Previous:** [Chapter 9: Event Leaderboards](./09-events-leaderboards.md)
 
-**Next:** [Chapter 11: Daily & Step Rewards](./11-rewards-daily-step.md)
+**Next:** [Chapter 11: Daily Rewards & Lottery Wheel](./11-rewards-daily-step.md)
 
 **Table of Contents:** [Back to TOC](./00-table-of-contents.md)

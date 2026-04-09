@@ -18,11 +18,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
-import SimpleCompetitionService from '../services/competition/SimpleCompetitionService';
 import SimpleLeaderboardService from '../services/competition/SimpleLeaderboardService';
 import { LocalTeamMembershipService } from '../services/team/LocalTeamMembershipService';
-import unifiedCache from '../services/cache/UnifiedNostrCache';
-import { CacheKeys } from '../constants/cacheTTL';
 import { CharitySection } from '../components/team/CharitySection';
 import { DailyLeaderboardCard } from '../components/team/DailyLeaderboardCard';
 import { LeaderboardShareModal } from '../components/team/LeaderboardShareModal';
@@ -40,7 +37,6 @@ interface SimpleTeamScreenProps {
     challenges?: any[];
   };
   onBack: () => void;
-  onCaptainDashboard: () => void;
   onAddChallenge?: () => void;
   onAddEvent?: () => void;
   onEventPress?: (eventId: string, eventData?: any) => void;
@@ -55,7 +51,6 @@ interface SimpleTeamScreenProps {
 export const SimpleTeamScreen: React.FC<SimpleTeamScreenProps> = ({
   data,
   onBack,
-  onCaptainDashboard,
   onEventPress,
   showJoinButton = false,
   userIsMemberProp = false,
@@ -397,17 +392,6 @@ export const SimpleTeamScreen: React.FC<SimpleTeamScreenProps> = ({
 
           {/* Action Buttons */}
           <View style={styles.actionButtons}>
-            {/* Captain Dashboard Button */}
-            {userIsCaptain && (
-              <TouchableOpacity
-                style={styles.captainButton}
-                onPress={onCaptainDashboard}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.captainButtonText}>Captain Dashboard</Text>
-              </TouchableOpacity>
-            )}
-
             {/* Competition Team Button */}
             {showJoinButton && !isCompetitionTeam && (
               <TouchableOpacity
@@ -502,7 +486,7 @@ export const SimpleTeamScreen: React.FC<SimpleTeamScreenProps> = ({
                   entries={leaderboards.leaderboard5k}
                   onPress={() => {
                     // TODO: Navigate to full leaderboard screen
-                    console.log('Navigate to 5K leaderboard');
+                    // TODO: Navigate to 5K leaderboard
                   }}
                   onShare={() =>
                     openShareModal(
@@ -521,7 +505,7 @@ export const SimpleTeamScreen: React.FC<SimpleTeamScreenProps> = ({
                   participants={leaderboards.leaderboard10k.length}
                   entries={leaderboards.leaderboard10k}
                   onPress={() => {
-                    console.log('Navigate to 10K leaderboard');
+                    // TODO: Navigate to 10K leaderboard
                   }}
                   onShare={() =>
                     openShareModal(
@@ -540,7 +524,7 @@ export const SimpleTeamScreen: React.FC<SimpleTeamScreenProps> = ({
                   participants={leaderboards.leaderboardHalf.length}
                   entries={leaderboards.leaderboardHalf}
                   onPress={() => {
-                    console.log('Navigate to Half Marathon leaderboard');
+                    // TODO: Navigate to Half Marathon leaderboard
                   }}
                   onShare={() =>
                     openShareModal(
@@ -559,7 +543,7 @@ export const SimpleTeamScreen: React.FC<SimpleTeamScreenProps> = ({
                   participants={leaderboards.leaderboardMarathon.length}
                   entries={leaderboards.leaderboardMarathon}
                   onPress={() => {
-                    console.log('Navigate to Marathon leaderboard');
+                    // TODO: Navigate to Marathon leaderboard
                   }}
                   onShare={() =>
                     openShareModal(
@@ -659,7 +643,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 60,
-    background: 'linear-gradient(transparent, rgba(0,0,0,0.6))',
+    backgroundColor: 'rgba(0,0,0,0.6)', // Simplified from linear-gradient (not supported in RN)
   },
 
   // Content
@@ -723,21 +707,6 @@ const styles = StyleSheet.create({
   // Action Buttons
   actionButtons: {
     gap: 12,
-  },
-  captainButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFB366',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    gap: 8,
-  },
-  captainButtonText: {
-    color: theme.colors.background,
-    fontSize: 16,
-    fontWeight: '600',
   },
   joinButton: {
     backgroundColor: theme.colors.text,

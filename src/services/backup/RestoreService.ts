@@ -15,6 +15,7 @@ import { LocalWorkoutStorageService } from '../fitness/LocalWorkoutStorageServic
 import { getAllHabits, createHabit } from '../habits/HabitTrackerService';
 import { JournalService } from '../journal/JournalService';
 import { UnifiedSigningService } from '../auth/UnifiedSigningService';
+import { PendingSubmissionService, type PendingSubmission } from '../competition/PendingSubmissionService';
 import type { LocalWorkout } from '../fitness/LocalWorkoutStorageService';
 import type { Habit } from '../habits/HabitTrackerService';
 import type { JournalEntry } from '../../types/journal';
@@ -97,15 +98,34 @@ export class RestoreService {
       const user = await signer.user();
       const pubkey = user.pubkey;
 
+      // Smoke test: verify NIP-44 self-encryption round-trip works with this signer
+      try {
+        const testPlaintext = 'runstr-backup-test';
+        const encrypted = await signer.encrypt(user, testPlaintext, 'nip44');
+        const decrypted = await signer.decrypt(user, encrypted, 'nip44');
+        if (decrypted !== testPlaintext) {
+          console.error('[RestoreService] NIP-44 smoke test FAILED: round-trip mismatch');
+          return { found: false, error: 'Encryption self-test failed. Your key may be corrupted.' };
+        }
+        console.log('[RestoreService] NIP-44 smoke test passed');
+      } catch (smokeErr) {
+        console.error('[RestoreService] NIP-44 smoke test threw:', smokeErr);
+        return {
+          found: false,
+          error: `Encryption self-test failed: ${smokeErr instanceof Error ? smokeErr.message : smokeErr}`,
+        };
+      }
+
       console.log('[RestoreService] Searching for backup...');
       const ndk = await GlobalNDKService.getInstance();
 
       // Filter for user's backup events
+      // Request more than 1 in case some relays return truncated/corrupted events
       const filter: NDKFilter = {
         kinds: [BACKUP_EVENT_KIND],
         authors: [pubkey],
         '#d': [BACKUP_D_TAG],
-        limit: 1, // Get most recent
+        limit: 5,
       };
 
       // Fetch from relays
@@ -116,18 +136,45 @@ export class RestoreService {
         return { found: false };
       }
 
-      // Get the most recent event
-      const eventsArray = Array.from(events);
-      const latestEvent = eventsArray.sort(
+      // Sort by most recent first, then try each until one decrypts
+      const eventsArray = Array.from(events).sort(
         (a, b) => (b.created_at || 0) - (a.created_at || 0)
-      )[0];
+      );
 
-      console.log('[RestoreService] Found backup event:', latestEvent.id?.slice(0, 8));
+      // NIP-44 requires at least 132 characters of base64 payload
+      const MIN_NIP44_LENGTH = 132;
+      let lastError = '';
 
-      // Decrypt the backup
-      const decrypted = await this.decryptBackup(latestEvent);
+      for (const event of eventsArray) {
+        const contentLength = event.content?.length || 0;
+        if (contentLength < MIN_NIP44_LENGTH) {
+          console.warn(
+            `[RestoreService] Skipping event ${event.id?.slice(0, 8)} — ` +
+            `content too short for NIP-44 (${contentLength} chars, need ${MIN_NIP44_LENGTH}+)`
+          );
+          continue;
+        }
 
-      return { found: true, backup: decrypted };
+        console.log(`[RestoreService] Trying backup event: ${event.id?.slice(0, 8)} (${contentLength} chars, created ${new Date((event.created_at || 0) * 1000).toISOString()})`);
+
+        try {
+          const decrypted = await this.decryptBackup(event);
+          return { found: true, backup: decrypted };
+        } catch (decryptError) {
+          lastError = decryptError instanceof Error ? decryptError.message : String(decryptError);
+          console.warn(
+            `[RestoreService] Failed to decrypt event ${event.id?.slice(0, 8)}: ${lastError}`
+          );
+          // Try the next event
+        }
+      }
+
+      // All events failed — surface the actual decrypt error
+      return {
+        found: false,
+        error: `Found ${eventsArray.length} backup event(s) but none could be decrypted. ` +
+          `Last error: ${lastError || 'unknown'}`,
+      };
     } catch (error) {
       console.error('[RestoreService] Search failed:', error);
       return {
@@ -141,7 +188,14 @@ export class RestoreService {
    * Convert base64 string to Uint8Array (React Native compatible)
    */
   private base64ToUint8Array(base64: string): Uint8Array {
-    const binaryString = atob(base64);
+    // Strip whitespace/newlines that may be introduced during encrypt/decrypt
+    let cleaned = base64.replace(/\s/g, '');
+    // Ensure proper padding — some signers (e.g. Amber) strip trailing '='
+    const remainder = cleaned.length % 4;
+    if (remainder > 0) {
+      cleaned += '='.repeat(4 - remainder);
+    }
+    const binaryString = atob(cleaned);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
       bytes[i] = binaryString.charCodeAt(i);
@@ -151,6 +205,7 @@ export class RestoreService {
 
   /**
    * Decrypt a backup event
+   * Tries NIP-44 first, falls back to NIP-04 for older backups
    */
   private async decryptBackup(event: NDKEvent): Promise<DecryptedBackup> {
     // Get signer via UnifiedSigningService (works for both nsec and Amber)
@@ -164,9 +219,33 @@ export class RestoreService {
     // Parse metadata from tags
     const metadata = this.parseMetadata(event);
 
-    // Decrypt content via signer (routes through Amber for Amber users)
+    // Determine encryption scheme from tags (default to nip44)
+    const encryptionTag = event.tags.find((t) => t[0] === 'encrypted');
+    const declaredScheme = encryptionTag?.[1] || 'nip44';
+
+    // Decrypt content via signer — try declared scheme first, then fallback
     const selfUser = await signer.user();
-    const decryptedContent = await signer.decrypt(selfUser, event.content, 'nip44');
+    let decryptedContent: string;
+
+    // Strip any whitespace that relays may have injected into the content
+    const cleanContent = event.content.trim();
+
+    if (declaredScheme === 'nip44') {
+      try {
+        decryptedContent = await signer.decrypt(selfUser, cleanContent, 'nip44');
+      } catch (nip44Err) {
+        console.warn(`[RestoreService] NIP-44 decrypt failed: ${nip44Err instanceof Error ? nip44Err.message : nip44Err}, trying NIP-04...`);
+        // Fallback to NIP-04 in case the tag is wrong
+        decryptedContent = await signer.decrypt(selfUser, cleanContent, 'nip04');
+      }
+    } else {
+      try {
+        decryptedContent = await signer.decrypt(selfUser, cleanContent, 'nip04');
+      } catch (nip04Err) {
+        console.warn(`[RestoreService] NIP-04 decrypt failed: ${nip04Err instanceof Error ? nip04Err.message : nip04Err}, trying NIP-44...`);
+        decryptedContent = await signer.decrypt(selfUser, cleanContent, 'nip44');
+      }
+    }
 
     // Check if content is gzip compressed (indicated by tag)
     const isCompressed = event.tags.some(
@@ -175,12 +254,18 @@ export class RestoreService {
 
     let jsonString: string;
     if (isCompressed) {
-      // Decode base64 and decompress
-      const compressedBytes = this.base64ToUint8Array(decryptedContent);
-      jsonString = pako.ungzip(compressedBytes, { to: 'string' });
-      console.log(
-        `[RestoreService] Decompressed: ${compressedBytes.length} → ${jsonString.length} bytes`
-      );
+      try {
+        // Decode base64 and decompress
+        const compressedBytes = this.base64ToUint8Array(decryptedContent);
+        jsonString = pako.ungzip(compressedBytes, { to: 'string' });
+        console.log(
+          `[RestoreService] Decompressed: ${compressedBytes.length} → ${jsonString.length} bytes`
+        );
+      } catch (decompressErr) {
+        // Decrypted content might already be plain JSON (compression tag mismatch)
+        console.warn('[RestoreService] Decompress failed, trying as raw JSON');
+        jsonString = decryptedContent;
+      }
     } else {
       // Legacy uncompressed backup (backwards compatibility)
       jsonString = decryptedContent;
@@ -244,6 +329,11 @@ export class RestoreService {
         const workoutResult = await this.importWorkouts(backup.payload.workouts);
         result.workoutsImported = workoutResult.imported;
         result.workoutsSkipped = workoutResult.skipped;
+
+        // Queue imported workouts for Supabase submission
+        if (workoutResult.imported > 0) {
+          await this.queueWorkoutsForSupabase(backup.payload.workouts);
+        }
       }
 
       // Import habits
@@ -344,6 +434,50 @@ export class RestoreService {
   }
 
   /**
+   * Queue imported workouts for Supabase submission (fire-and-forget)
+   */
+  private async queueWorkoutsForSupabase(workouts: LocalWorkout[]): Promise<void> {
+    try {
+      const userNpub = await AsyncStorage.getItem('@runstr:npub');
+      if (!userNpub) {
+        console.warn('[RestoreService] No npub found, skipping Supabase queue');
+        return;
+      }
+
+      let queued = 0;
+      for (const workout of workouts) {
+        try {
+          const submission: PendingSubmission = {
+            id: workout.id,
+            submissionData: {
+              eventId: workout.nostrEventId || workout.id,
+              npub: userNpub,
+              type: workout.type,
+              distance: workout.distance || 0,
+              duration: workout.duration || 0,
+              calories: workout.calories,
+              startTime: workout.startTime,
+              tags: [],
+            },
+            createdAt: Date.now(),
+            retryCount: 0,
+            lastError: '',
+            nextRetryTime: Date.now(),
+          };
+          await PendingSubmissionService.addPending(submission);
+          queued++;
+        } catch (err) {
+          console.warn('[RestoreService] Failed to queue workout for Supabase:', err);
+        }
+      }
+
+      console.log(`[RestoreService] Queued ${queued}/${workouts.length} workouts for Supabase submission`);
+    } catch (error) {
+      console.warn('[RestoreService] Failed to queue workouts for Supabase:', error);
+    }
+  }
+
+  /**
    * Create a fingerprint for workout matching (fallback deduplication)
    */
   private getWorkoutFingerprint(workout: LocalWorkout): string {
@@ -424,11 +558,15 @@ export class RestoreService {
    * Import preferences (only if not already set)
    */
   private async importPreferences(
-    preferences: { unitSystem?: 'metric' | 'imperial'; selectedCharity?: string }
+    preferences: { unitSystem?: 'metric' | 'imperial'; selectedCharity?: string; ppqApiKey?: string; ppqCreditId?: string }
   ): Promise<void> {
     // Only import if user hasn't set their own preferences
-    const existingUnitSystem = await AsyncStorage.getItem('@runstr:unit_system');
-    const existingCharity = await AsyncStorage.getItem('@runstr:selected_charity');
+    const [existingUnitSystem, existingCharity, existingPpqApiKey, existingPpqCreditId] = await Promise.all([
+      AsyncStorage.getItem('@runstr:unit_system'),
+      AsyncStorage.getItem('@runstr:selected_charity'),
+      AsyncStorage.getItem('@runstr:ppq_api_key'),
+      AsyncStorage.getItem('@runstr:ppq_credit_id'),
+    ]);
 
     if (!existingUnitSystem && preferences.unitSystem) {
       await AsyncStorage.setItem('@runstr:unit_system', preferences.unitSystem);
@@ -436,6 +574,14 @@ export class RestoreService {
 
     if (!existingCharity && preferences.selectedCharity) {
       await AsyncStorage.setItem('@runstr:selected_charity', preferences.selectedCharity);
+    }
+
+    if (!existingPpqApiKey && preferences.ppqApiKey) {
+      await AsyncStorage.setItem('@runstr:ppq_api_key', preferences.ppqApiKey);
+    }
+
+    if (!existingPpqCreditId && preferences.ppqCreditId) {
+      await AsyncStorage.setItem('@runstr:ppq_credit_id', preferences.ppqCreditId);
     }
   }
 }

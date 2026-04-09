@@ -3,7 +3,7 @@
  * Settings UI for syncing Nostr identity to Apple Watch
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -89,7 +89,7 @@ export function WatchSyncSection() {
         disabled={!canSync}
       >
         {isSyncing ? (
-          <ActivityIndicator color={theme.colors.accentText} size="small" />
+          <ActivityIndicator color={theme.colors.background} size="small" />
         ) : (
           <>
             <Ionicons
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,

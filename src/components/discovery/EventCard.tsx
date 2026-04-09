@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 12,
     right: 12,
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
@@ -243,13 +243,13 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 12,
     fontWeight: theme.typography.weights.bold,
-    color: '#fff', // White text on black badge
+    color: theme.colors.text,
   },
 
   badgeTextOrange: {
     fontSize: 12,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.accentText, // Black text on orange badge
+    color: theme.colors.background, // Black text on orange badge
   },
   header: {
     flexDirection: 'row',

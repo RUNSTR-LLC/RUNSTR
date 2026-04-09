@@ -180,7 +180,7 @@ export const PrivateWorkoutsTab: React.FC<PrivateWorkoutsTabProps> = ({
   };
 
   // Convert LocalWorkout to UnifiedWorkout for compatibility
-  const unifiedWorkouts: UnifiedWorkout[] = workouts.map((w) => ({
+  const unifiedWorkouts: UnifiedWorkout[] = (workouts as any[]).map((w: any) => ({
     ...w,
     userId: userId,
     syncedToNostr: false,
@@ -245,7 +245,7 @@ export const PrivateWorkoutsTab: React.FC<PrivateWorkoutsTabProps> = ({
   const renderMonthlyGroup = ({ item }: { item: any }) => (
     <MonthlyWorkoutGroup
       group={item}
-      renderWorkout={renderWorkout}
+      renderWorkout={renderWorkout as any}
       defaultExpanded={false}
     />
   );
@@ -320,12 +320,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 8,
-    backgroundColor: theme.colors.accent + '15',
+    backgroundColor: '#111111',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     gap: 6,
   },
   instantText: {
     fontSize: 11,
-    color: theme.colors.accent,
+    color: theme.colors.textMuted,
     fontWeight: theme.typography.weights.medium,
   },
   list: {
@@ -365,7 +367,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   postButton: {
-    backgroundColor: '#FF9D42',
+    backgroundColor: theme.colors.text,
     flex: 1.5,
   },
   postButtonText: {
@@ -374,9 +376,9 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.semiBold,
   },
   deleteButton: {
-    backgroundColor: theme.colors.accent + '20',
+    backgroundColor: '#111111',
     borderWidth: 1,
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.border,
     flex: 1,
   },
   emptyState: {

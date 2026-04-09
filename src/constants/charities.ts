@@ -11,15 +11,20 @@ export interface Charity {
   description: string;
   website?: string;
   image?: number; // require() returns a number in React Native
+  category: 'charity' | 'project' | 'service'; // For reward destination grouping
   isPPQ?: boolean; // Special flag for PPQ.AI team (rewards go to AI credits)
-  isCoinOS?: boolean; // Special flag for CoinOS team (rewards go to Bitcoin wallet)
+  isCoinOS?: boolean; // Special flag for CoinOS team (rewards go to Bitcoin wallet) - DEPRECATED: kept for migration
+  isSelf?: boolean; // Special flag for "You" team (rewards go to user's Lightning address)
 }
 
 // PPQ.AI team ID constant for easy reference
 export const PPQ_AI_TEAM_ID = 'ppq-ai';
 
-// CoinOS team ID constant for easy reference
+// CoinOS team ID constant - DEPRECATED: kept for migration from CoinOS to self
 export const COINOS_TEAM_ID = 'coinos';
+
+// Self team ID constant - "You" team where rewards go to user's Lightning address
+export const SELF_TEAM_ID = 'self';
 
 export const CHARITIES: Charity[] = [
   // PPQ.AI - Special team: Earn AI credits instead of sats
@@ -28,21 +33,11 @@ export const CHARITIES: Charity[] = [
     name: 'PPQ.AI',
     displayName: 'PPQ.AI',
     // No lightningAddress - rewards go to PPQ.AI credits via bolt11 invoice
-    description: 'Earn AI credits for Coach RUNSTR instead of sats',
+    description: 'AI credits',
     website: 'https://ppq.ai',
     image: require('../../assets/images/charities/ppq-ai.png'),
+    category: 'service',
     isPPQ: true,
-  },
-  // CoinOS - Special team: Earn sats to a Lightning wallet
-  {
-    id: 'coinos',
-    name: 'CoinOS',
-    displayName: 'CoinOS',
-    // No static lightningAddress - set dynamically per user (username@coinos.io)
-    description: 'A Lightning wallet to send and receive sats',
-    website: 'https://coinos.io',
-    image: require('../../assets/images/charities/coinos.png'),
-    isCoinOS: true,
   },
   // ALS Network - Default team (honoring Hal Finney)
   {
@@ -53,16 +48,7 @@ export const CHARITIES: Charity[] = [
     description: 'Honoring Hal Finney - Supporting ALS research and patient care',
     website: 'https://secure.alsnetwork.org/site/TR?fr_id=1510&pg=entry',
     image: require('../../assets/images/running-bitcoin/avatar.jpg'),
-  },
-  {
-    id: 'ashigaru',
-    name: 'Ashigaru',
-    displayName: 'Ashigaru',
-    lightningAddress: 'ashigarufund@geyser.fund',
-    description:
-      'Support the Ashigaru developers by contributing donations to ensure their project remains strong, sustainable, and resilient.',
-    website: 'https://geyser.fund/project/ashigarufund',
-    image: require('../../assets/images/charities/ashigaru.webp'),
+    category: 'charity',
   },
   {
     id: 'bitcoin-bay',
@@ -72,6 +58,7 @@ export const CHARITIES: Charity[] = [
     description: 'Bitcoin circular economy in the Bay Area',
     website: 'https://geyser.fund/project/bitcoinbayfoundation',
     image: require('../../assets/images/charities/bitcoin-bay.webp'),
+    category: 'project',
   },
   {
     id: 'bitcoin-ekasi',
@@ -81,6 +68,7 @@ export const CHARITIES: Charity[] = [
     description: 'Bitcoin circular economy in South Africa',
     website: 'https://geyser.fund/project/bitcoinekasi',
     image: require('../../assets/images/charities/bitcoin-ekasi.webp'),
+    category: 'project',
   },
   {
     id: 'bitcoin-isla',
@@ -89,6 +77,7 @@ export const CHARITIES: Charity[] = [
     lightningAddress: 'BTCIsla@primal.net',
     description: 'Bitcoin circular economy in Isla Mujeres',
     image: require('../../assets/images/charities/bitcoin-isla.jpg'),
+    category: 'project',
   },
   {
     id: 'bitcoin-district',
@@ -98,15 +87,7 @@ export const CHARITIES: Charity[] = [
     description: 'Bitcoin circular economy in Washington DC',
     website: 'https://geyser.fund/project/bitcoindc',
     image: require('../../assets/images/charities/bitcoin-district.webp'),
-  },
-  {
-    id: 'bitcoin-yucatan',
-    name: 'Bitcoin Yucatan',
-    displayName: 'Bitcoin Yucatan',
-    lightningAddress: 'bitcoinyucatancommunity@geyser.fund',
-    description: 'Bitcoin circular economy in Mexico',
-    website: 'https://geyser.fund/project/bitcoinyucatancommunity',
-    image: require('../../assets/images/charities/bitcoin-yucatan.webp'),
+    category: 'project',
   },
   {
     id: 'bitcoin-veterans',
@@ -116,6 +97,7 @@ export const CHARITIES: Charity[] = [
     description: 'Supporting veterans through Bitcoin',
     website: 'https://geyser.fund/project/operationbitcoin',
     image: require('../../assets/images/charities/bitcoin-veterans.png'),
+    category: 'project',
   },
   {
     id: 'bitcoin-makueni',
@@ -124,6 +106,7 @@ export const CHARITIES: Charity[] = [
     lightningAddress: 'rosechicken19@primal.net',
     description: 'Bitcoin circular economy in Kenya',
     image: require('../../assets/images/charities/bitcoin-makueni.webp'),
+    category: 'project',
   },
   {
     id: 'bitcoin-house-bali',
@@ -132,22 +115,7 @@ export const CHARITIES: Charity[] = [
     lightningAddress: 'btchousebali@walletofsatoshi.com',
     description: 'Bitcoin circular economy in Bali',
     image: require('../../assets/images/charities/bitcoin-house-bali.png'),
-  },
-  {
-    id: 'human-rights-foundation',
-    name: 'Human Rights Foundation',
-    displayName: 'HRF',
-    lightningAddress: 'nostr@btcpay.hrf.org',
-    description: 'Defending human rights globally through Bitcoin',
-    image: require('../../assets/images/charities/human-rights-foundation.png'),
-  },
-  {
-    id: 'lightning-news',
-    name: 'Lightning News',
-    displayName: 'Lightning News',
-    lightningAddress: 'lightningnews@puresignal.news',
-    description: 'Up to date news on Bitcoin and Lightning',
-    image: require('../../assets/images/charities/lightning-news.webp'),
+    category: 'project',
   },
   {
     id: 'runstr',
@@ -156,6 +124,7 @@ export const CHARITIES: Charity[] = [
     lightningAddress: 'thewildhustle@strike.me',
     description: 'Lets Go!',
     image: require('../../assets/images/charities/runstr.png'),
+    category: 'project',
   },
   {
     id: 'afribit-kibera',
@@ -164,6 +133,7 @@ export const CHARITIES: Charity[] = [
     lightningAddress: 'afribit@blink.sv',
     description: 'Bitcoin circular economy in Kibera, Kenya',
     image: require('../../assets/images/charities/afribit-kibera.png'),
+    category: 'project',
   },
   {
     id: 'bitcoin-basin',
@@ -172,15 +142,7 @@ export const CHARITIES: Charity[] = [
     lightningAddress: 'plasticbowl87@walletofsatoshi.com',
     description: 'Bitcoin circular economy in Queenstown, New Zealand',
     image: require('../../assets/images/charities/bitcoin-basin.png'),
-  },
-  {
-    id: 'buho-go',
-    name: 'BuhoGO',
-    displayName: 'BuhoGO',
-    lightningAddress: 'buho@lnbits.de',
-    description:
-      'BuhoGO is an open-source, NWC-ready wallet app that makes payments simple and accessible for everyone',
-    image: require('../../assets/images/charities/buho-go.jpeg'),
+    category: 'project',
   },
   {
     id: 'central-pennsylvania-bitcoiners',
@@ -189,15 +151,7 @@ export const CHARITIES: Charity[] = [
     lightningAddress: 'businesscat@getalby.com',
     description: 'A Bitcoin focused group located in Pennsylvania.',
     image: require('../../assets/images/charities/central-pennsylvania-bitcoiners.png'),
-  },
-  {
-    id: 'wesatoshi',
-    name: 'WeSatoshi',
-    displayName: 'WeSatoshi',
-    lightningAddress: 'thefirstbitcointerminalhardware@geyser.fund',
-    description: 'A Bitcoin-focused Swiss Army knife hardware',
-    website: 'https://geyser.fund/project/thefirstbitcointerminalhardware',
-    image: require('../../assets/images/charities/wesatoshi.webp'),
+    category: 'project',
   },
 ];
 
@@ -234,13 +188,33 @@ export const getPPQTeam = (): Charity | undefined => {
   return CHARITIES.find((charity) => charity.isPPQ);
 };
 
-// Helper to check if a team is the CoinOS team
+// Helper to check if a team is the CoinOS team - DEPRECATED: kept for migration
 export const isCoinOSTeam = (teamId?: string): boolean => {
   if (!teamId) return false;
   return teamId === COINOS_TEAM_ID;
 };
 
-// Helper to get the CoinOS team
-export const getCoinOSTeam = (): Charity | undefined => {
-  return CHARITIES.find((charity) => charity.isCoinOS);
+// Helper to check if a team is the "You" (self) team
+export const isSelfTeam = (teamId?: string): boolean => {
+  if (!teamId) return false;
+  return teamId === SELF_TEAM_ID;
+};
+
+// Community team ID prefix
+export const COMMUNITY_TEAM_PREFIX = 'community-';
+
+// Helper to check if a team is a community-created team (from Supabase user_teams)
+export const isCommunityTeam = (teamId?: string): boolean => {
+  if (!teamId) return false;
+  return teamId.startsWith(COMMUNITY_TEAM_PREFIX);
+};
+
+// Helper to extract the UUID from a community team ID (strips "community-" prefix)
+export const extractCommunityTeamUUID = (teamId: string): string => {
+  return teamId.slice(COMMUNITY_TEAM_PREFIX.length);
+};
+
+// Helper to get charities by category (for reward destination picker)
+export const getCharitiesByCategory = (category: Charity['category']): Charity[] => {
+  return CHARITIES.filter((c) => c.category === category);
 };

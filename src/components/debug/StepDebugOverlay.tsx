@@ -35,7 +35,6 @@ import {
 import { nativeStepCounterService } from '../../services/activity/NativeStepCounterService';
 
 const POLL_INTERVAL_MS = 2000;
-const STEP_DEBUG_OVERLAY_ENABLED = false;
 
 const STATUS_COLORS = {
   good: theme.colors.success,
@@ -83,33 +82,22 @@ interface DiagSnapshot extends StepDiagnosticStatus {
   lastPollTime: Date;
 }
 
-const createInitialSnapshot = (): DiagSnapshot => ({
-  activeSource: 'none',
-  nativeSensorRunning: false,
-  backgroundTrackingEnabled: false,
-  healthConnectSdkAvailable: false,
-  healthConnectSdkStatus: 1,
-  stepsPermissionGranted: false,
-  romType: 'stock',
-  isPrivacyROM: false,
-  sensorNotes: null,
-  androidVersion: 0,
-  isLoading: false,
-  todaySteps: 0,
-  trackingStartTime: null,
-  lastPollTime: new Date(0),
-});
-
 export const StepDebugOverlay: React.FC = () => {
-  const isEnabled = STEP_DEBUG_OVERLAY_ENABLED && Platform.OS === 'android';
+  // Disabled for production - uncomment below for debug builds
+  return null;
+
+  // All debug UI code below is disabled for production.
+  // To re-enable, remove the early return above and uncomment the code below.
+  /*
+  // Android-only component
+  if (Platform.OS !== 'android') return null;
+
   const [isExpanded, setIsExpanded] = useState(false);
-  const [snapshot, setSnapshot] = useState<DiagSnapshot>(() => createInitialSnapshot());
+  const [snapshot, setSnapshot] = useState<DiagSnapshot | null>(null);
   const [copyFeedback, setCopyFeedback] = useState(false);
 
   // Poll diagnostics
   useEffect(() => {
-    if (!isEnabled) return;
-
     let mounted = true;
 
     const poll = async () => {
@@ -119,7 +107,7 @@ export const StepDebugOverlay: React.FC = () => {
         try {
           todaySteps = await nativeStepCounterService.getTodaySteps();
         } catch {
-          // ignore – may not be initialized
+          // ignore - may not be initialized
         }
         const trackingStartTime = nativeStepCounterService.getTrackingStartTime();
 
@@ -143,9 +131,11 @@ export const StepDebugOverlay: React.FC = () => {
       mounted = false;
       clearInterval(interval);
     };
-  }, [isEnabled]);
+  }, []);
 
   const copyToClipboard = useCallback(async () => {
+    if (!snapshot) return;
+
     const text = `
 RUNSTR Step Debug - ${new Date().toISOString()}
 
@@ -193,11 +183,8 @@ Last Poll: ${snapshot.lastPollTime.toISOString()}
   const boolColor = (val: boolean): string =>
     val ? STATUS_COLORS.good : STATUS_COLORS.bad;
 
-  if (!isEnabled) return null;
-
   return (
     <View style={styles.container}>
-      {/* Floating bug icon */}
       <TouchableOpacity
         style={styles.iconButton}
         onPress={() => setIsExpanded(!isExpanded)}
@@ -210,10 +197,8 @@ Last Poll: ${snapshot.lastPollTime.toISOString()}
         />
       </TouchableOpacity>
 
-      {/* Expanded panel */}
-      {isExpanded && (
+      {isExpanded && snapshot && (
         <View style={styles.panel}>
-          {/* Header */}
           <View style={styles.panelHeader}>
             <Text style={styles.panelTitle}>STEP DEBUG</Text>
             <TouchableOpacity
@@ -233,77 +218,56 @@ Last Poll: ${snapshot.lastPollTime.toISOString()}
             style={styles.panelContent}
             showsVerticalScrollIndicator={false}
           >
-            {/* Active Source */}
             <StatusRow
               label="Active Source"
               value={snapshot.activeSource}
               color={sourceColor(snapshot.activeSource)}
             />
-
-            {/* Native Sensor */}
             <StatusRow
               label="Native Sensor"
               value={snapshot.nativeSensorRunning ? 'Running' : 'Stopped'}
               color={boolColor(snapshot.nativeSensorRunning)}
             />
-
-            {/* BG Tracking */}
             <StatusRow
               label="BG Tracking"
               value={snapshot.backgroundTrackingEnabled ? 'Enabled' : 'Disabled'}
               color={boolColor(snapshot.backgroundTrackingEnabled)}
             />
-
-            {/* Today's Steps */}
             <StatusRow
               label="Today's Steps"
               value={snapshot.todaySteps.toLocaleString()}
               color={STATUS_COLORS.neutral}
             />
-
-            {/* Session Start */}
             <StatusRow
               label="Session Start"
               value={formatTime(snapshot.trackingStartTime)}
               color={STATUS_COLORS.neutral}
             />
-
-            {/* HC SDK */}
             <StatusRow
               label="HC SDK"
               value={sdkStatusLabel(snapshot.healthConnectSdkStatus)}
               color={sdkStatusColor(snapshot.healthConnectSdkStatus)}
             />
-
-            {/* HC Permission */}
             <StatusRow
               label="HC Permission"
               value={snapshot.stepsPermissionGranted ? 'Granted' : 'Denied'}
               color={boolColor(snapshot.stepsPermissionGranted)}
             />
-
-            {/* ROM Type */}
             <StatusRow
               label="ROM Type"
               value={`${snapshot.romType}${snapshot.isPrivacyROM ? ' *' : ''}`}
               color={STATUS_COLORS.neutral}
             />
-
-            {/* Android Version */}
             <StatusRow
               label="Android"
               value={`${snapshot.androidVersion}`}
               color={STATUS_COLORS.neutral}
             />
-
-            {/* Last Poll */}
             <StatusRow
               label="Last Poll"
               value={`${Math.round((Date.now() - snapshot.lastPollTime.getTime()) / 1000)}s ago`}
               color={STATUS_COLORS.neutral}
             />
-
-            {/* Sensor Notes */}
             {snapshot.sensorNotes && (
               <Text style={styles.noteText} numberOfLines={2}>
                 {snapshot.sensorNotes}
@@ -314,6 +278,7 @@ Last Poll: ${snapshot.lastPollTime.toISOString()}
       )}
     </View>
   );
+  */
 };
 
 /** Single diagnostic row */
@@ -382,7 +347,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   copyBtnSuccess: {
-    backgroundColor: '#22c55e',
+    backgroundColor: theme.colors.text,
   },
   panelContent: {
     paddingHorizontal: 12,

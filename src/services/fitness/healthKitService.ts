@@ -9,6 +9,8 @@ import { Platform, InteractionManager } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { WorkoutData, WorkoutType } from '../../types/workout';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
+import { buildRewardTags } from '../../utils/rewardTags';
+import { isValidWorkoutMetrics } from '../../utils/rewardEligibility';
 
 // Environment-based logging utility
 const isDevelopment = __DEV__;
@@ -47,7 +49,7 @@ if (Platform.OS === 'ios') {
   } catch (e) {
     errorLog(
       'HealthKit Service: Failed to import @yzlin/expo-healthkit:',
-      e.message
+      (e as Error).message
     );
     ExpoHealthKit = null;
   }
@@ -359,7 +361,7 @@ export class HealthKitService {
     success: boolean;
     error?: string;
   }> {
-    return this.executeWithTimeout(
+    return this.executeWithTimeout<{ success: boolean; error?: string }>(
       async () => {
         // Run after interactions to prevent UI blocking
         return new Promise((resolve, reject) => {
@@ -1005,8 +1007,11 @@ export class HealthKitService {
     const npub = await AsyncStorage.getItem('@runstr:npub');
     if (!npub) return;
 
-    // Include Lightning address in tags so Supabase trigger can auto-reward
-    const lightningAddress = await AsyncStorage.getItem('@runstr:lightning_address');
+    // Build lightning address + charity tags for zapper reward routing
+    const rewardTags = await buildRewardTags();
+
+    // Fetch cached profile for leaderboard display (name/picture)
+    const profile = await this.getCachedProfile();
     const submittedIds = await this.getSubmittedIds();
 
     const newCardio = workouts.filter((w) => {
@@ -1018,6 +1023,10 @@ export class HealthKitService {
       if (!id || submittedIds.has(id)) return false;
       if (!w.activityType || !CARDIO_TYPES.includes(w.activityType)) return false;
       if (!w.totalDistance || w.totalDistance <= 0) return false;
+      if (!isValidWorkoutMetrics(w.totalDistance, w.duration)) {
+        debugLog(`[HealthKit] Skipping ${id}: metrics out of bounds (distance=${w.totalDistance}, duration=${w.duration})`);
+        return false;
+      }
       return true;
     });
 
@@ -1025,10 +1034,7 @@ export class HealthKitService {
       try {
         const workoutId = w.UUID || w.id || '';
         const eventId = `hk_${workoutId}`;
-        const tags: string[][] = [];
-        if (lightningAddress) {
-          tags.push(['lightning', lightningAddress]);
-        }
+        const tags: string[][] = [...rewardTags];
 
         await SupabaseCompetitionService.submitWorkoutSimple({
           eventId,
@@ -1039,14 +1045,55 @@ export class HealthKitService {
           calories: w.totalEnergyBurned,
           startTime: w.startDate,
           tags,
+          profileName: profile.name,
+          profilePicture: profile.picture,
         });
 
         if (workoutId) {
           submittedIds.add(workoutId);
         }
         debugLog(`[HealthKit] Auto-submitted ${w.activityType} workout to Supabase: ${eventId}`);
+
+        // Auto-join RUNSTR competitions for this workout (fire-and-forget)
+        import('../competition/AutoJoinService').then(({ AutoJoinService }) => {
+          AutoJoinService.checkAndAutoJoin(
+            npub,
+            w.activityType || 'running',
+            new Date(w.startDate),
+            profile
+          ).catch(() => {});
+        }).catch(() => {});
       } catch (err) {
         console.warn(`[HealthKit] Failed to submit workout ${w.UUID}:`, err);
+
+        // Queue for retry via PendingSubmissionService
+        try {
+          const { PendingSubmissionService } = await import('../competition/PendingSubmissionService');
+          const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+          const workoutId = w.UUID || w.id || '';
+          const eventId = `hk_${workoutId}`;
+          await PendingSubmissionService.addPending({
+            id: eventId,
+            submissionData: {
+              eventId,
+              npub,
+              type: w.activityType || 'running',
+              distance: w.totalDistance || 0,
+              duration: w.duration,
+              calories: w.totalEnergyBurned,
+              startTime: w.startDate,
+              tags: [...rewardTags],
+              profileName: profile.name,
+              profilePicture: profile.picture,
+            },
+            createdAt: Date.now(),
+            retryCount: 0,
+            lastError: errorMsg,
+            nextRetryTime: Date.now() + 60000,
+          });
+        } catch (queueError) {
+          console.warn('[HealthKit] Failed to queue for retry:', queueError);
+        }
       }
     }
 
@@ -1070,6 +1117,26 @@ export class HealthKitService {
     } catch (error) {
       console.warn('[HealthKit] Failed to save submitted workout IDs:', error);
     }
+  }
+
+  /**
+   * Get cached profile data for leaderboard display.
+   */
+  private async getCachedProfile(): Promise<{ name?: string; picture?: string }> {
+    try {
+      const profilesJson = await AsyncStorage.getItem('@runstr:nostr_profiles');
+      if (profilesJson) {
+        const profiles = JSON.parse(profilesJson);
+        const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+        if (hexPubkey && profiles[hexPubkey]) {
+          return {
+            name: profiles[hexPubkey].name || profiles[hexPubkey].displayName,
+            picture: profiles[hexPubkey].picture,
+          };
+        }
+      }
+    } catch { /* non-critical */ }
+    return {};
   }
 
   /**
@@ -1345,12 +1412,14 @@ export class HealthKitService {
           );
 
           // Return in format expected by AppleHealthTab (simplified Workout interface)
+          // Use extracted distance/calories as fallback when normalizeWorkout returns null
+          // (e.g. workouts under 60s) so background sync doesn't reject valid workouts
           return {
             id: workoutData?.id || `healthkit_${workout.uuid}`,
             type: workoutData?.type || 'running',
-            duration: workoutData?.duration || 0,
-            distance: workoutData?.distance || 0,
-            calories: workoutData?.calories || 0,
+            duration: workoutData?.duration || (Math.round(workout.duration || 0)),
+            distance: workoutData?.distance || distance,
+            calories: workoutData?.calories || calories,
             startTime: workout.startDate,
             endTime: workout.endDate,
             source: 'healthkit',
@@ -1367,7 +1436,7 @@ export class HealthKitService {
       errorLog('HealthKit: Error in getRecentWorkouts:', error);
 
       console.error('❌ HealthKit getRecentWorkouts failed:', {
-        error: error.message,
+        error: (error as Error).message,
         userId,
         days,
         authorized: this.isAuthorized,

@@ -55,7 +55,11 @@ type ActivityType = keyof typeof ACTIVITY_THRESHOLDS;
 TaskManager.defineTask(SIMPLE_TRACKER_TASK, async ({ data, error }) => {
   // WATCHDOG HEARTBEAT: Write timestamp immediately to prove we're alive
   // The foreground watchdog reads this to detect if GPS has silently died
-  await AsyncStorage.setItem('@runstr:last_gps_time', Date.now().toString());
+  try {
+    await AsyncStorage.setItem('@runstr:last_gps_time', Date.now().toString());
+  } catch (e) {
+    // Non-fatal: heartbeat write failed, watchdog will detect GPS silence and recover
+  }
 
   if (error) {
     console.error('[GPS-FLOW] ❌ TaskManager error:', error);
@@ -115,7 +119,6 @@ TaskManager.defineTask(SIMPLE_TRACKER_TASK, async ({ data, error }) => {
       }
 
       // Simplified filtering - trust GPS hardware more (based on October 2024 implementation)
-      // REMOVED: warm-up buffer that delayed first distance update by 9+ seconds
       const validLocations = [];
 
       for (const loc of locations) {

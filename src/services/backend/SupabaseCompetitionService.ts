@@ -20,8 +20,11 @@ import {
   CharityRanking,
 } from '../../utils/supabase';
 import { getCharityById, isPPQTeam } from '../../constants/charities';
-import { getNpubFromStorage } from '../../utils/nostr';
+import { getClubLightningAddress } from '../../utils/rewardTags';
 import { PPQAccountService } from '../ai/PPQAccountService';
+import { RewardLightningAddressService } from '../rewards/RewardLightningAddressService';
+import { callEdgeFunction } from '../../utils/edgeFunctions';
+import { REWARD_CONFIG } from '../../config/rewards';
 
 // Local storage key for tracking joined competitions (optimistic join)
 const LOCAL_JOINED_COMPETITIONS_KEY = '@runstr:local_joined_competitions';
@@ -80,13 +83,21 @@ export class SupabaseCompetitionService {
     try {
       const cached = await AsyncStorage.getItem(DYNAMIC_COMPETITIONS_CACHE_KEY);
       if (cached) {
-        const { data, timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp < DYNAMIC_COMPETITIONS_TTL) {
-          return data as Competition[];
+        let parsed;
+        try {
+          parsed = JSON.parse(cached);
+        } catch {
+          // Corrupted cache (e.g., device reboot mid-write), remove it
+          console.warn('[SupabaseCompetitionService] Corrupted dynamic competitions cache, removing');
+          await AsyncStorage.removeItem(DYNAMIC_COMPETITIONS_CACHE_KEY);
+          parsed = null;
+        }
+        if (parsed && Date.now() - parsed.timestamp < DYNAMIC_COMPETITIONS_TTL) {
+          return parsed.data as Competition[];
         }
       }
     } catch {
-      // Cache read failed, continue to fetch
+      // AsyncStorage read failed, continue to fetch
     }
 
     try {
@@ -94,7 +105,8 @@ export class SupabaseCompetitionService {
         .from('competitions')
         .select('*')
         .not('external_id', 'in', `(${this.HARDCODED_EVENT_IDS.join(',')})`)
-        .order('start_date', { ascending: false });
+        .order('start_date', { ascending: false })
+        .limit(50);
 
       if (error) {
         console.error('[SupabaseCompetitionService] fetchDynamicCompetitions error:', error);
@@ -121,134 +133,69 @@ export class SupabaseCompetitionService {
   }
 
   /**
-   * Join a competition - adds authenticated user's npub to participant list
-   * Uses optimistic pattern: save locally first for instant UI, then sync to Supabase.
-   *
-   * SECURITY: Authenticated npub is always derived from local auth storage.
-   *
-   * @param competitionId - The competition UUID or external_id
-   * @param profile - Optional profile data (name, picture) to store for leaderboard display
-   * @returns Success status
+   * Join a competition via Edge Function.
+   * Uses optimistic pattern: save locally first for instant UI.
    */
   static async joinCompetition(
     competitionId: string,
+    npub: string,
     profile?: { name?: string; picture?: string }
   ): Promise<{ success: boolean; error?: string }> {
-    const authenticatedNpub = await this.resolveAuthenticatedNpub();
-    if (!authenticatedNpub) {
-      console.warn('[SupabaseCompetitionService] joinCompetition blocked: no authenticated npub in local storage');
-      return { success: false, error: 'Not authenticated' };
-    }
-
     // OPTIMISTIC: Save locally FIRST for instant UI feedback
-    // This ensures user sees "Joined" state immediately, even if Supabase is slow/fails
-    await this.saveLocalJoin(competitionId, authenticatedNpub);
+    await this.saveLocalJoin(competitionId, npub);
 
-    if (!isSupabaseConfigured()) {
-      console.warn('[SupabaseCompetitionService] Supabase not configured - local join only');
-      return { success: true }; // Return success since local join worked
-    }
-
-    try {
-      // Resolve competition ID (could be UUID or external_id)
-      const resolvedId = await this.resolveCompetitionId(competitionId);
-      if (!resolvedId) {
-        console.warn('[SupabaseCompetitionService] Competition not found in Supabase - local join only');
-        return { success: true }; // Still return success since local join worked
-      }
-
-      // Build participant data with optional profile fields
-      const participantData: {
-        competition_id: string;
-        npub: string;
-        name?: string;
-        picture?: string;
-      } = {
-        competition_id: resolvedId,
-        npub: authenticatedNpub,
-      };
-
-      // Only include profile fields if they have values
-      if (profile?.name) {
-        participantData.name = profile.name;
-      }
-      if (profile?.picture) {
-        participantData.picture = profile.picture;
-      }
-
-      const { error } = await supabase!
-        .from('competition_participants')
-        .upsert(participantData, { onConflict: 'competition_id,npub' });
-
-      if (error) {
-        console.warn('[SupabaseCompetitionService] Supabase join error (local join succeeded):', error);
-        // Still return success since local join worked
-        return { success: true };
-      }
-
-      console.log(
-        `[SupabaseCompetitionService] Joined competition: ${competitionId}${profile?.name ? ` (${profile.name})` : ''}`
-      );
-
-      return { success: true };
-    } catch (err) {
-      console.warn('[SupabaseCompetitionService] Join exception (local join succeeded):', err);
-      // Still return success since local join worked
+    // Resolve competition ID (could be UUID or external_id)
+    const resolvedId = await this.resolveCompetitionId(competitionId);
+    if (!resolvedId) {
+      console.warn('[SupabaseCompetitionService] Competition not found - local join only');
       return { success: true };
     }
+
+    const result = await callEdgeFunction('manage-competition', {
+      action: 'join',
+      competition_id: resolvedId,
+      npub,
+      ...(profile?.name ? { name: profile.name } : {}),
+      ...(profile?.picture ? { picture: profile.picture } : {}),
+    });
+
+    if (!result.success) {
+      console.warn('[SupabaseCompetitionService] Edge Function join error (local join succeeded):', result.error);
+      return { success: true }; // Optimistic: local join worked
+    }
+
+    console.log(
+      `[SupabaseCompetitionService] Joined competition: ${competitionId}${profile?.name ? ` (${profile.name})` : ''}`
+    );
+    return { success: true };
   }
 
   /**
-   * Leave a competition - removes authenticated user's npub from participant list
-   *
-   * SECURITY: Authenticated npub is always derived from local auth storage.
-   *
-   * @param competitionId - The competition UUID or external_id
-   * @returns Success status
+   * Leave a competition via Edge Function.
    */
   static async leaveCompetition(
-    competitionId: string
+    competitionId: string,
+    npub: string
   ): Promise<{ success: boolean; error?: string }> {
-    const authenticatedNpub = await this.resolveAuthenticatedNpub();
-    if (!authenticatedNpub) {
-      return { success: false, error: 'Not authenticated' };
+    const resolvedId = await this.resolveCompetitionId(competitionId);
+    if (!resolvedId) {
+      return { success: false, error: 'Competition not found' };
     }
 
-    if (!isSupabaseConfigured()) {
-      return { success: false, error: 'Backend not configured' };
+    const result = await callEdgeFunction('manage-competition', {
+      action: 'leave',
+      competition_id: resolvedId,
+      npub,
+    });
+
+    if (!result.success) {
+      console.error('[SupabaseCompetitionService] Leave error:', result.error);
+      return { success: false, error: result.error };
     }
 
-    try {
-      const resolvedId = await this.resolveCompetitionId(competitionId);
-      if (!resolvedId) {
-        return { success: false, error: 'Competition not found' };
-      }
-
-      const { error } = await supabase!
-        .from('competition_participants')
-        .delete()
-        .match({ competition_id: resolvedId, npub: authenticatedNpub });
-
-      if (error) {
-        console.error('[SupabaseCompetitionService] Leave error:', error);
-        return { success: false, error: error.message };
-      }
-
-      console.log(
-        `[SupabaseCompetitionService] Left competition: ${competitionId}`
-      );
-
-      // Remove from local storage
-      await this.removeLocalJoin(competitionId, authenticatedNpub);
-
-      return { success: true };
-    } catch (err) {
-      console.error('[SupabaseCompetitionService] Leave exception:', err);
-      return {
-        success: false,
-        error: err instanceof Error ? err.message : 'Unknown error',
-      };
-    }
+    console.log(`[SupabaseCompetitionService] Left competition: ${competitionId}`);
+    await this.removeLocalJoin(competitionId, npub);
+    return { success: true };
   }
 
   /**
@@ -365,6 +312,17 @@ export class SupabaseCompetitionService {
       return { success: false, error: 'Backend not configured' };
     }
 
+    // Private Mode: skip all Supabase submissions when enabled
+    try {
+      const privateMode = await AsyncStorage.getItem('@runstr:private_mode');
+      if (privateMode === 'true') {
+        console.log('[SupabaseCompetitionService] Private mode enabled, skipping Supabase submission');
+        return { success: false, error: 'Private mode enabled' };
+      }
+    } catch {
+      // Non-critical — proceed with submission if check fails
+    }
+
     const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -375,26 +333,82 @@ export class SupabaseCompetitionService {
 
     // PPQ.AI: Auto-create bolt11 invoice if user's team is PPQ.AI and no invoice provided
     // This ensures ALL submission paths (HealthKit, background, manual) get PPQ support
+    // Total timeout of 12s prevents PPQ invoice (15s) from
+    // accumulating too long before the fetch even starts
     let ppqBolt11 = data.ppqBolt11;
     let ppqInvoiceId = data.ppqInvoiceId;
+    let ppqFailed = false;
     if (!ppqBolt11) {
-      try {
-        const selectedTeamId = await AsyncStorage.getItem('@runstr:selected_team_id');
-        if (selectedTeamId && isPPQTeam(selectedTeamId)) {
-          const hasAccount = await PPQAccountService.hasAccount();
-          if (hasAccount) {
-            const WORKOUT_REWARD_SATS = 50;
-            const invoiceResult = await PPQAccountService.createTopupInvoice(WORKOUT_REWARD_SATS);
-            if (invoiceResult.success && invoiceResult.bolt11) {
-              ppqBolt11 = invoiceResult.bolt11;
-              ppqInvoiceId = invoiceResult.invoiceId;
-              console.log(`[SupabaseCompetition] PPQ.AI invoice auto-created: ${ppqBolt11.slice(0, 30)}...`);
+      const ppqResult = await Promise.race([
+        (async () => {
+          try {
+            const selectedTeamId = await AsyncStorage.getItem('@runstr:selected_team_id');
+            if (selectedTeamId && isPPQTeam(selectedTeamId)) {
+              const hasAccount = await PPQAccountService.hasAccount();
+              if (hasAccount) {
+                // Use base reward amount for all users
+                const rewardSats: number = REWARD_CONFIG.DAILY_WORKOUT_REWARD;
+                const invoiceResult = await PPQAccountService.createTopupInvoice(rewardSats);
+                if (invoiceResult.success && invoiceResult.bolt11) {
+                  return { bolt11: invoiceResult.bolt11, invoiceId: invoiceResult.invoiceId, failed: false };
+                } else {
+                  console.warn(`[SupabaseCompetition] PPQ.AI invoice creation returned error: ${invoiceResult.error}`);
+                  return { bolt11: undefined, invoiceId: undefined, failed: true };
+                }
+              } else {
+                console.warn('[SupabaseCompetition] PPQ.AI team selected but no account configured');
+                return { bolt11: undefined, invoiceId: undefined, failed: true };
+              }
             }
+            return { bolt11: undefined, invoiceId: undefined, failed: false };
+          } catch (ppqError) {
+            console.warn('[SupabaseCompetition] PPQ.AI invoice creation failed:', ppqError);
+            return { bolt11: undefined, invoiceId: undefined, failed: true };
+          }
+        })(),
+        new Promise<{ bolt11: undefined; invoiceId: undefined; failed: true }>((resolve) => setTimeout(() => {
+          console.warn('[SupabaseCompetition] PPQ prep timed out after 12s, proceeding without PPQ invoice');
+          resolve({ bolt11: undefined, invoiceId: undefined, failed: true });
+        }, 12000)),
+      ]);
+      if (ppqResult.bolt11) {
+        ppqBolt11 = ppqResult.bolt11;
+        ppqInvoiceId = ppqResult.invoiceId;
+        console.log(`[SupabaseCompetition] PPQ.AI invoice auto-created: ${ppqBolt11.slice(0, 30)}...`);
+      }
+      ppqFailed = ppqResult.failed;
+    }
+
+    // PPQ.AI FALLBACK: If PPQ invoice failed, inject user's lightning address into tags
+    // so the DB trigger can still route the reward to the user instead of losing it
+    let submissionTags = data.tags || [];
+    if (ppqFailed && !ppqBolt11) {
+      try {
+        const userLnAddress = await RewardLightningAddressService.getRewardLightningAddress();
+        if (userLnAddress) {
+          // Check if tags already have a lightning entry
+          const hasLightningTag = submissionTags.some(
+            (t: string[]) => t[0] === 'lightning'
+          );
+          if (!hasLightningTag) {
+            submissionTags = [...submissionTags, ['lightning', userLnAddress]];
+            console.log(`[SupabaseCompetition] PPQ failed → fallback to user lightning: ${userLnAddress.slice(0, 20)}...`);
           }
         }
-      } catch (ppqError) {
-        console.warn('[SupabaseCompetition] PPQ.AI invoice creation failed (non-blocking):', ppqError);
+      } catch {
+        // Non-critical
       }
+    }
+
+    // Resolve club data BEFORE starting the fetch timeout
+    // These were previously inside JSON.stringify body where they bypassed the AbortController
+    let clubId: string | null = null;
+    let clubLightningAddress: string | null = null;
+    try {
+      clubId = await AsyncStorage.getItem('@runstr:club_id') || null;
+      clubLightningAddress = await getClubLightningAddress();
+    } catch (clubErr) {
+      console.warn('[SupabaseCompetitionService] Club data lookup failed (non-blocking):', clubErr);
     }
 
     // CRASH FIX: Add timeout to prevent indefinite hang on network issues
@@ -419,16 +433,22 @@ export class SupabaseCompetitionService {
             duration_seconds: data.duration,
             calories: data.calories || null,
             created_at: data.startTime,
-            // TIMEZONE FIX: Send local date for leaderboard grouping
-            // This ensures workouts appear on the correct day in the user's timezone
-            // Without this, late-night workouts appear on "tomorrow's" leaderboard (UTC)
-            leaderboard_date: new Date().toLocaleDateString('en-CA'), // YYYY-MM-DD format
+            // TIMEZONE FIX: Use getFullYear/getMonth/getDate (always local timezone)
+            // toLocaleDateString('en-CA') can return UTC date in Hermes/React Native
+            // Must match DailyLeaderboardService's date computation exactly
+            leaderboard_date: (() => {
+              const now = new Date();
+              return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            })(),
             // Daily leaderboard: Pass profile data for caching
             profile_name: data.profileName || null,
             profile_picture: data.profilePicture || null,
             // PPQ.AI team: Bolt11 invoice for reward topup
             ppq_bolt11: ppqBolt11 || null,
             ppq_invoice_id: ppqInvoiceId || null,
+            // Club association (separate from charity/team)
+            club_id: clubId,
+            club_lightning_address: clubLightningAddress,
             raw_event: {
               event_id: data.eventId,
               type: data.type,
@@ -438,7 +458,7 @@ export class SupabaseCompetitionService {
               submitted_via: 'runstr_app',
               submitted_at: new Date().toISOString(),
               // Daily leaderboard: Pass tags for split/step parsing
-              tags: data.tags || [],
+              tags: submissionTags,
             },
           }),
           signal: controller.signal,
@@ -598,22 +618,33 @@ export class SupabaseCompetitionService {
         return { leaderboard: [], charityRankings: [], error: 'Competition not found' };
       }
 
-      // Get competition details
-      const { data: competition, error: compError } = await supabase!
-        .from('competitions')
-        .select('*')
-        .eq('id', resolvedId)
-        .single();
+      // Fetch competition details, participants, and banned users concurrently
+      // All three queries only depend on resolvedId, not on each other
+      const [compResult, participantsResult, bannedResult] = await Promise.all([
+        supabase!
+          .from('competitions')
+          .select('*')
+          .eq('id', resolvedId)
+          .single(),
+        supabase!
+          .from('competition_participants')
+          .select('npub')
+          .eq('competition_id', resolvedId)
+          .limit(1000),
+        supabase!
+          .from('banned_users')
+          .select('npub')
+          .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+          .limit(500),
+      ]);
+
+      const { data: competition, error: compError } = compResult;
+      const { data: participants } = participantsResult;
+      const { data: bannedUsers } = bannedResult;
 
       if (compError || !competition) {
         return { leaderboard: [], charityRankings: [], error: 'Competition not found' };
       }
-
-      // Get participants
-      const { data: participants } = await supabase!
-        .from('competition_participants')
-        .select('npub')
-        .eq('competition_id', resolvedId);
 
       const npubs = participants?.map((p) => p.npub) || [];
 
@@ -623,10 +654,6 @@ export class SupabaseCompetitionService {
 
       // DATA QUALITY FIX: Filter out banned users from leaderboard
       // Banned users are stored in banned_users table with optional expiry
-      const { data: bannedUsers } = await supabase!
-        .from('banned_users')
-        .select('npub')
-        .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
 
       const bannedSet = new Set((bannedUsers || []).map((b: { npub: string }) => b.npub));
       const validNpubs = npubs.filter(npub => !bannedSet.has(npub));
@@ -642,27 +669,37 @@ export class SupabaseCompetitionService {
       // Get workouts for participants within date range
       // Use dateOverride if provided (for demo mode), otherwise use competition dates
       const startDate = dateOverride?.startDate || competition.start_date;
-      const endDate = dateOverride?.endDate || competition.end_date;
+      // Extend end_date to end-of-day (23:59:59.999Z) so workouts from the
+      // final day are included regardless of timezone. Without this, users
+      // west of UTC who work out in the evening get excluded because their
+      // created_at timestamp falls after midnight UTC.
+      const rawEndDate = dateOverride?.endDate || competition.end_date;
+      const endDateObj = new Date(rawEndDate);
+      endDateObj.setUTCHours(23, 59, 59, 999);
+      const endDate = endDateObj.toISOString();
 
-      // Use activityTypes override if provided, otherwise use single competition type
-      const types = activityTypes || [competition.activity_type];
+      // Use activityTypes override if provided, then check config.activity_types array,
+      // and fall back to the single activity_type column for backwards compatibility
+      const configTypes = (competition.config as Record<string, unknown>)?.activity_types as string[] | undefined;
+      const types = activityTypes || (configTypes && configTypes.length > 0 ? configTypes : [competition.activity_type]);
 
       // Build query with activity type filter (single or multiple types)
       // DATA QUALITY FIX: Use validNpubs (banned users filtered)
-      // REMOVED .eq('verified', true) - show all workouts regardless of verification status
-      // Anti-cheat validation already filters out impossible workouts (they go to flagged_workouts table)
       let workoutQuery = supabase!
         .from('workout_submissions')
-        .select('*')
+        .select('npub, distance_meters, activity_type, created_at, duration_seconds, raw_event, event_id, time_5k_seconds, time_10k_seconds, time_half_seconds, time_marathon_seconds')
         .in('npub', validNpubs)
         .gte('created_at', startDate)
         .lte('created_at', endDate);
 
+      // Normalize activity types to lowercase before querying
+      const normalizedTypes = types.map(t => t.toLowerCase());
+
       // Use .in() for multiple types, .eq() for single type
-      if (types.length === 1) {
-        workoutQuery = workoutQuery.eq('activity_type', types[0]);
+      if (normalizedTypes.length === 1) {
+        workoutQuery = workoutQuery.eq('activity_type', normalizedTypes[0]);
       } else {
-        workoutQuery = workoutQuery.in('activity_type', types);
+        workoutQuery = workoutQuery.in('activity_type', normalizedTypes);
       }
 
       // DATA QUALITY FIX: Filter to only app-submitted workouts when required
@@ -671,7 +708,8 @@ export class SupabaseCompetitionService {
         workoutQuery = workoutQuery.eq('source', 'app');
       }
 
-      const { data: rawWorkouts } = await workoutQuery.order('created_at', { ascending: false }); // Most recent first
+      const { data: rawWorkoutsData } = await workoutQuery.order('created_at', { ascending: false }).limit(2000); // Most recent first, bounded for mobile safety
+      const rawWorkouts = rawWorkoutsData as unknown as WorkoutSubmission[] | null;
 
       // CRITICAL: Deduplicate workouts by (npub, distance, date) to prevent double-counting
       // Same workout can be submitted multiple times from different sources (GPS, HealthKit, Health Connect)
@@ -810,29 +848,40 @@ export class SupabaseCompetitionService {
         console.log(`[SupabaseCompetition] Distance aggregation: ${dailyData.size} user-days processed with MAX(steps, GPS)`);
       } else if (competition.scoring_method === 'fastest_time') {
         // Fastest time competitions: find each user's fastest qualifying workout
+        // Uses pre-computed time_Xk_seconds when available (more accurate for longer runs)
         const config = competition.config as Record<string, unknown> || {};
         const targetKm = (config.target_distance_km as number) || 5.0;
-        const toleranceKm = (config.distance_tolerance_km as number) || 0.5;
-        const minKm = targetKm - toleranceKm;
-        const maxKm = targetKm + toleranceKm;
+        // Minimum distance: must have run at least 90% of target (allows GPS undershoot)
+        const minKm = targetKm * 0.9;
 
-        console.log(`[SupabaseCompetition] Fastest time: target ${targetKm}km ± ${toleranceKm}km (${minKm}-${maxKm}km)`);
+        // Map target distance to the pre-computed time field
+        const timeFieldMap: Record<number, string> = { 5: 'time_5k_seconds', 10: 'time_10k_seconds', 21.1: 'time_half_seconds', 42.2: 'time_marathon_seconds' };
+        const precomputedTimeField = timeFieldMap[targetKm];
+
+        console.log(`[SupabaseCompetition] Fastest time: target ${targetKm}km, min ${minKm.toFixed(1)}km, timeField=${precomputedTimeField || 'duration'}`);
 
         workouts?.forEach((w: WorkoutSubmission) => {
           const distanceKm = (w.distance_meters || 0) / 1000;
           const durationSec = w.duration_seconds || 0;
 
-          // Skip workouts outside distance tolerance or with no duration
-          if (distanceKm < minKm || distanceKm > maxKm || durationSec <= 0) return;
+          // Must have run at least the minimum distance and have duration
+          if (distanceKm < minKm || durationSec <= 0) return;
+
+          // Use pre-computed target time if available (handles longer runs correctly),
+          // otherwise fall back to raw duration (only valid for runs near exact target distance)
+          let scoreSec = durationSec;
+          if (precomputedTimeField && (w as unknown as Record<string, unknown>)[precomputedTimeField]) {
+            scoreSec = (w as unknown as Record<string, unknown>)[precomputedTimeField] as number;
+          }
 
           const rawEvent = w.raw_event as Record<string, unknown> | null;
           const charityData = this.extractCharityFromRawEvent(rawEvent);
           const current = scores.get(w.npub);
 
-          // Keep only the fastest (minimum duration) qualifying workout per user
-          if (!current || current.score === 0 || durationSec < current.score) {
+          // Keep only the fastest (minimum time) qualifying workout per user
+          if (!current || current.score === 0 || scoreSec < current.score) {
             scores.set(w.npub, {
-              score: durationSec,
+              score: scoreSec,
               workoutCount: (current?.workoutCount || 0) + 1,
               charityId: charityData.charityId || current?.charityId,
               charityName: charityData.charityName || current?.charityName,
@@ -869,6 +918,9 @@ export class SupabaseCompetitionService {
               break;
             case 'workout_count':
               scoreIncrement = rowWorkoutCount;
+              break;
+            case 'total_steps':
+              scoreIncrement = w.step_count || 0;
               break;
           }
 
@@ -909,8 +961,18 @@ export class SupabaseCompetitionService {
           charityName: data.charityName,
         }))
         .sort((a, b) => isFastestTime ? a.score - b.score : b.score - a.score)
-        .slice(0, limit)
-        .map((entry, index) => ({ ...entry, rank: index + 1 }));
+        .slice(0, limit);
+
+      // Assign tied ranks: equal scores share the same rank
+      leaderboard.forEach((entry, i) => {
+        if (i === 0) {
+          entry.rank = 1;
+        } else if (entry.score === leaderboard[i - 1].score) {
+          entry.rank = leaderboard[i - 1].rank;
+        } else {
+          entry.rank = i + 1;
+        }
+      });
 
       // Build charity rankings sorted by total distance
       const charityRankings: CharityRanking[] = Array.from(charityTotals.entries())
@@ -1004,7 +1066,8 @@ export class SupabaseCompetitionService {
         .from('competitions')
         .select('*')
         .gte('end_date', new Date().toISOString())
-        .order('start_date', { ascending: true });
+        .order('start_date', { ascending: true })
+        .limit(100);
 
       if (error) {
         console.error('[SupabaseCompetitionService] Get competitions error:', error);
@@ -1019,59 +1082,35 @@ export class SupabaseCompetitionService {
   }
 
   /**
-   * Update a participant's profile data (name, picture)
-   * Used to fix participants with null profile data
-   *
-   * @param competitionId - The competition UUID or external_id
-   * @param npub - User's Nostr public key
-   * @param profile - Profile data to update
-   * @returns Success status
+   * Update a participant's profile data via Edge Function.
    */
   static async updateParticipantProfile(
     competitionId: string,
     npub: string,
     profile: { name?: string; picture?: string }
   ): Promise<{ success: boolean; error?: string }> {
-    if (!isSupabaseConfigured()) {
-      return { success: false, error: 'Backend not configured' };
+    const resolvedId = await this.resolveCompetitionId(competitionId);
+    if (!resolvedId) {
+      return { success: false, error: 'Competition not found' };
     }
 
-    try {
-      const resolvedId = await this.resolveCompetitionId(competitionId);
-      if (!resolvedId) {
-        return { success: false, error: 'Competition not found' };
-      }
+    const result = await callEdgeFunction('manage-competition', {
+      action: 'update-profile',
+      competition_id: resolvedId,
+      npub,
+      ...(profile.name ? { name: profile.name } : {}),
+      ...(profile.picture ? { picture: profile.picture } : {}),
+    });
 
-      // Build update data (only include non-null values)
-      const updateData: { name?: string; picture?: string } = {};
-      if (profile.name) updateData.name = profile.name;
-      if (profile.picture) updateData.picture = profile.picture;
-
-      if (Object.keys(updateData).length === 0) {
-        return { success: false, error: 'No profile data to update' };
-      }
-
-      const { error } = await supabase!
-        .from('competition_participants')
-        .update(updateData)
-        .match({ competition_id: resolvedId, npub });
-
-      if (error) {
-        console.error('[SupabaseCompetitionService] Update profile error:', error);
-        return { success: false, error: error.message };
-      }
-
-      console.log(
-        `[SupabaseCompetitionService] Updated profile for ${npub.slice(0, 12)}: ${profile.name || 'no name'}`
-      );
-      return { success: true };
-    } catch (err) {
-      console.error('[SupabaseCompetitionService] Update profile exception:', err);
-      return {
-        success: false,
-        error: err instanceof Error ? err.message : 'Unknown error',
-      };
+    if (!result.success) {
+      console.error('[SupabaseCompetitionService] Update profile error:', result.error);
+      return { success: false, error: result.error };
     }
+
+    console.log(
+      `[SupabaseCompetitionService] Updated profile for ${npub.slice(0, 12)}: ${profile.name || 'no name'}`
+    );
+    return { success: true };
   }
 
   /**
@@ -1124,29 +1163,6 @@ export class SupabaseCompetitionService {
   // ============================================================================
   // Private Helper Methods
   // ============================================================================
-
-  /**
-   * Resolve authenticated npub from local auth storage.
-   * Caller-provided npub is treated as untrusted and used only for mismatch diagnostics.
-   */
-  private static async resolveAuthenticatedNpub(providedNpub?: string): Promise<string | null> {
-    const storedNpub = await getNpubFromStorage();
-    if (!storedNpub) {
-      return null;
-    }
-
-    if (providedNpub && providedNpub !== storedNpub) {
-      console.warn(
-        '[SupabaseCompetitionService] Caller npub mismatch detected; using authenticated storage npub',
-        {
-          provided: `${providedNpub.slice(0, 12)}...`,
-          authenticated: `${storedNpub.slice(0, 12)}...`,
-        }
-      );
-    }
-
-    return storedNpub;
-  }
 
   /**
    * Resolve a competition ID (could be UUID or external_id) to UUID
@@ -1259,7 +1275,15 @@ export class SupabaseCompetitionService {
   private static async saveLocalJoin(competitionId: string, npub: string): Promise<void> {
     try {
       const stored = await AsyncStorage.getItem(LOCAL_JOINED_COMPETITIONS_KEY);
-      const joins: Record<string, string[]> = stored ? JSON.parse(stored) : {};
+      let joins: Record<string, string[]> = {};
+      if (stored) {
+        try {
+          joins = JSON.parse(stored);
+        } catch {
+          console.warn('[SupabaseCompetitionService] Corrupted local joins cache, resetting');
+          await AsyncStorage.removeItem(LOCAL_JOINED_COMPETITIONS_KEY);
+        }
+      }
 
       // Add npub to this competition's list (if not already there)
       if (!joins[competitionId]) {
@@ -1283,7 +1307,14 @@ export class SupabaseCompetitionService {
       const stored = await AsyncStorage.getItem(LOCAL_JOINED_COMPETITIONS_KEY);
       if (!stored) return;
 
-      const joins: Record<string, string[]> = JSON.parse(stored);
+      let joins: Record<string, string[]>;
+      try {
+        joins = JSON.parse(stored);
+      } catch {
+        console.warn('[SupabaseCompetitionService] Corrupted local joins cache, removing');
+        await AsyncStorage.removeItem(LOCAL_JOINED_COMPETITIONS_KEY);
+        return;
+      }
       if (joins[competitionId]) {
         joins[competitionId] = joins[competitionId].filter((n) => n !== npub);
         if (joins[competitionId].length === 0) {
@@ -1305,11 +1336,207 @@ export class SupabaseCompetitionService {
       const stored = await AsyncStorage.getItem(LOCAL_JOINED_COMPETITIONS_KEY);
       if (!stored) return false;
 
-      const joins: Record<string, string[]> = JSON.parse(stored);
+      let joins: Record<string, string[]>;
+      try {
+        joins = JSON.parse(stored);
+      } catch {
+        console.warn('[SupabaseCompetitionService] Corrupted local joins cache, removing');
+        await AsyncStorage.removeItem(LOCAL_JOINED_COMPETITIONS_KEY);
+        return false;
+      }
       return joins[competitionId]?.includes(npub) || false;
     } catch (error) {
       console.warn('[SupabaseCompetitionService] Failed to check local join:', error);
       return false;
+    }
+  }
+
+  /**
+   * Fetch competitions linked to a specific club.
+   * Results are cached in AsyncStorage per club for 3 minutes.
+   */
+  static async fetchCompetitionsByClubId(clubId: string): Promise<Competition[]> {
+    if (!isSupabaseConfigured()) {
+      return [];
+    }
+
+    const cacheKey = `@runstr:club_competitions:${clubId}`;
+    const CLUB_COMP_TTL = 3 * 60 * 1000; // 3 minutes
+
+    // Check cache first
+    try {
+      const cached = await AsyncStorage.getItem(cacheKey);
+      if (cached) {
+        let parsed;
+        try {
+          parsed = JSON.parse(cached);
+        } catch {
+          await AsyncStorage.removeItem(cacheKey);
+          parsed = null;
+        }
+        if (parsed && Date.now() - parsed.timestamp < CLUB_COMP_TTL) {
+          return parsed.data as Competition[];
+        }
+      }
+    } catch {
+      // Cache read failed, continue to fetch
+    }
+
+    try {
+      const { data, error } = await supabase!
+        .from('competitions')
+        .select('*')
+        .eq('club_id', clubId)
+        .order('start_date', { ascending: false })
+        .limit(100);
+
+      if (error) {
+        console.error('[SupabaseCompetitionService] fetchCompetitionsByClubId error:', error);
+        return [];
+      }
+
+      const competitions = (data || []) as Competition[];
+
+      // Save to cache
+      try {
+        await AsyncStorage.setItem(
+          cacheKey,
+          JSON.stringify({ data: competitions, timestamp: Date.now() })
+        );
+      } catch {
+        // Cache write failed, non-critical
+      }
+
+      return competitions;
+    } catch (err) {
+      console.error('[SupabaseCompetitionService] fetchCompetitionsByClubId exception:', err);
+      return [];
+    }
+  }
+
+  /**
+   * Auto-join all club members to a competition via Edge Function.
+   */
+  static async autoJoinClubMembers(
+    competitionId: string,
+    clubId: string,
+    callerNpub?: string,
+  ): Promise<{ joined: number; error?: string }> {
+    const result = await callEdgeFunction<{ joined?: number }>('manage-competition', {
+      action: 'auto-join-members',
+      competition_id: competitionId,
+      club_id: clubId,
+      npub: callerNpub || '',
+    });
+
+    if (!result.success) {
+      console.error('[SupabaseCompetitionService] autoJoinClubMembers error:', result.error);
+      return { joined: 0, error: result.error };
+    }
+
+    const joined = (result.data as any)?.joined ?? 0;
+    console.log(`[SupabaseCompetitionService] Auto-joined ${joined} club members to competition ${competitionId}`);
+    return { joined };
+  }
+
+  /**
+   * Delete a competition via Edge Function. Server verifies creator.
+   */
+  static async deleteCompetition(
+    competitionId: string,
+    npub: string
+  ): Promise<{ success: boolean; error?: string }> {
+    const resolvedId = await this.resolveCompetitionId(competitionId);
+    if (!resolvedId) {
+      return { success: false, error: 'Competition not found' };
+    }
+
+    const result = await callEdgeFunction('manage-competition', {
+      action: 'delete',
+      competition_id: resolvedId,
+      npub,
+    });
+
+    if (!result.success) {
+      console.error('[SupabaseCompetitionService] deleteCompetition error:', result.error);
+      return { success: false, error: result.error };
+    }
+
+    // Clear caches
+    await this.clearDynamicCompetitionsCache();
+    console.log(`[SupabaseCompetitionService] Deleted competition ${competitionId}`);
+    return { success: true };
+  }
+
+  /**
+   * Update a competition via Edge Function. Server verifies creator.
+   */
+  static async updateCompetition(
+    competitionId: string,
+    updates: { name?: string; description?: string | null; image_url?: string | null },
+    callerNpub?: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    const result = await callEdgeFunction('manage-competition', {
+      action: 'update',
+      competition_id: competitionId,
+      npub: callerNpub || '',
+      updates,
+    });
+
+    if (!result.success) {
+      console.error('[SupabaseCompetitionService] updateCompetition error:', result.error);
+      return { success: false, error: result.error };
+    }
+
+    await this.clearDynamicCompetitionsCache();
+    console.log(`[SupabaseCompetitionService] Updated competition ${competitionId}`);
+    return { success: true };
+  }
+
+  /**
+   * Clear club competitions cache after event creation
+   */
+  static async clearClubCompetitionsCache(clubId: string): Promise<void> {
+    try {
+      await AsyncStorage.removeItem(`@runstr:club_competitions:${clubId}`);
+      console.log('[SupabaseCompetitionService] Club competitions cache cleared:', clubId);
+    } catch {
+      // Non-critical
+    }
+  }
+
+  /**
+   * Clear the dynamic competitions cache so newly created events appear immediately
+   */
+  static async clearDynamicCompetitionsCache(): Promise<void> {
+    try {
+      await AsyncStorage.removeItem(DYNAMIC_COMPETITIONS_CACHE_KEY);
+      console.log('[SupabaseCompetitionService] Dynamic competitions cache cleared');
+    } catch {
+      // Non-critical
+    }
+  }
+
+  /**
+   * Fetch a single competition by external_id (direct Supabase query, no cache)
+   * Used after event creation to avoid cache staleness
+   */
+  static async fetchCompetitionByExternalId(externalId: string): Promise<any | null> {
+    if (!isSupabaseConfigured()) return null;
+    try {
+      const { data, error } = await supabase!
+        .from('competitions')
+        .select('*')
+        .eq('external_id', externalId)
+        .single();
+      if (error) {
+        console.warn('[SupabaseCompetitionService] fetchByExternalId error:', error.message);
+        return null;
+      }
+      return data;
+    } catch (err) {
+      console.warn('[SupabaseCompetitionService] fetchByExternalId exception:', err);
+      return null;
     }
   }
 
@@ -1322,7 +1549,14 @@ export class SupabaseCompetitionService {
       const stored = await AsyncStorage.getItem(LOCAL_JOINED_COMPETITIONS_KEY);
       if (!stored) return [];
 
-      const joins: Record<string, string[]> = JSON.parse(stored);
+      let joins: Record<string, string[]>;
+      try {
+        joins = JSON.parse(stored);
+      } catch {
+        console.warn('[SupabaseCompetitionService] Corrupted local joins cache, removing');
+        await AsyncStorage.removeItem(LOCAL_JOINED_COMPETITIONS_KEY);
+        return [];
+      }
       return joins[competitionId] || [];
     } catch (error) {
       console.warn('[SupabaseCompetitionService] Failed to get local joins:', error);

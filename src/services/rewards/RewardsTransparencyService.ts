@@ -175,7 +175,8 @@ class RewardsTransparencyServiceClass {
       const { data, error } = await supabase
         .from('pending_batch_payouts')
         .select('*')
-        .order('progress_percent', { ascending: false });
+        .order('progress_percent', { ascending: false })
+        .limit(100);
 
       if (error) {
         console.error('[RewardsTransparencyService] Error fetching pending payouts:', error);

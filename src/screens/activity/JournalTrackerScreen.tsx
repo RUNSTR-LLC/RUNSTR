@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { JournalEditorModal } from '../../components/journal/JournalEditorModal';
@@ -20,6 +20,7 @@ export const JournalTrackerScreen: React.FC = () => {
   const [showEditor, setShowEditor] = useState(false);
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
   const [entries, setEntries] = useState<JournalEntry[]>([]);
+  const [loading, setLoading] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
@@ -29,6 +30,8 @@ export const JournalTrackerScreen: React.FC = () => {
         setEntries(all.slice(0, MAX_VISIBLE_ENTRIES));
       } catch (error) {
         console.error('[JournalTracker] Error loading entries:', error);
+      } finally {
+        setLoading(false);
       }
     };
     load();
@@ -50,7 +53,11 @@ export const JournalTrackerScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      {entries.length === 0 ? (
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
+          <ActivityIndicator size="large" color={theme.colors.accent} />
+        </View>
+      ) : entries.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="book-outline" size={32} color={theme.colors.textDark} />
           <Text style={styles.emptyTitle}>No entries yet</Text>

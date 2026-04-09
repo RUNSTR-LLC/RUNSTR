@@ -2,58 +2,29 @@
 
 Core application services handling business logic and external integrations for RUNSTR.
 
-## Current Subdirectory Index
+## Key Subdirectories
 
-This index is the source of truth for `src/services/` and intentionally mirrors the live folder structure.
+### Core Infrastructure
+- **auth/** - Nostr nsec authentication and key management
+- **nostr/** - GlobalNDKService, relay management, event publishing
+- **cache/** - Unified caching for Nostr data and performance
 
-### Activity, Fitness, and Tracking
-- `activity/`
-- `fitness/`
-- `habits/`
-- `journal/`
-- `media/`
-- `music/`
-- `routes/`
-- `watch/`
+### Fitness & Workouts
+- **activity/** - GPS tracking, step counting, workout timers
+- **fitness/** - HealthKit/Health Connect integration, workout processing
 
-### Rewards, Value Flow, and Wallet
-- `charity/`
-- `donation/`
-- `ai/`
-- `nutzap/`
-- `pledge/`
-- `rewards/`
-- `wallet/`
+### Rewards & Donations
+- **rewards/** - DailyRewardService, Lightning address delivery, server-side auto-rewards
+- **donation/** - Charity donation splitting and tracking
+- **impact/** - Impact Level XP calculations
 
-### Events, Competition, and Scoring
-- `challenge/`
-- `competition/`
-- `event/`
-- `events/`
-- `satlantis/`
-- `scoring/`
-- `season/`
-- `team/`
+### Events & Competitions
+- **season/** - Season2Service, leaderboard calculations
+- **satlantis/** - Satlantis event integration
+- **scoring/** - Event scoring algorithms
 
-### Infrastructure and Platform
-- `analytics/`
-- `anticheat/`
-- `auth/`
-- `backend/`
-- `backup/`
-- `cache/`
-- `core/`
-- `i18n/`
-- `initialization/`
-- `integrations/`
-- `nostr/`
-- `notifications/`
-- `platform/`
-- `qr/`
-- `user/`
-- `verification/`
-- `wot/`
-
-## Maintenance Note
-
-When adding, deleting, or renaming service folders, update this file in the same PR so docs stay aligned with runtime structure.
+### Other Services
+- **ai/** - Coach Runstr AI assistant
+- **wallet/** - Lightning address storage and NWC utilities
+- **team/** - Charity (team) selection and display
+- **notifications/** - In-app notification system

@@ -61,20 +61,10 @@ export class AuthService {
       // Clear captain cache
       try {
         const { CaptainCache } = await import('../../utils/captainCache');
-        await CaptainCache.clearAll();
+        await (CaptainCache as any).clearAll?.();
         console.log('✅ AuthService: Captain cache cleared');
       } catch (err) {
         console.warn('⚠️ AuthService: Captain cache clear failed:', err);
-      }
-
-      // Clear team cache service
-      try {
-        const { TeamCacheService } = await import('../cache/TeamCacheService');
-        const teamCache = TeamCacheService.getInstance();
-        await teamCache.clearCache();
-        console.log('✅ AuthService: Team cache cleared');
-      } catch (err) {
-        console.warn('⚠️ AuthService: Team cache clear failed:', err);
       }
 
       // Clear competition cache service
@@ -89,16 +79,7 @@ export class AuthService {
         console.warn('⚠️ AuthService: Competition cache clear failed:', err);
       }
 
-      // Reset nutzap service if initialized
-      try {
-        const nutzapService = (await import('../nutzap/nutzapService')).default;
-        if (nutzapService) {
-          nutzapService.reset();
-        }
-        console.log('✅ AuthService: NutZap service reset');
-      } catch (err) {
-        console.warn('⚠️ AuthService: NutZap service reset skipped:', err);
-      }
+      // NutZap service removed - wallet features handled externally
 
       // Reset wallet store state (Zustand)
       try {
@@ -154,6 +135,17 @@ export class AuthService {
         console.warn('⚠️ AuthService: Unified cache clear failed:', err);
       }
 
+      // Clear club membership data (prevent cross-user contamination)
+      try {
+        const { ClubMembershipService } = await import(
+          '../backend/ClubMembershipService'
+        );
+        await ClubMembershipService.clearCache();
+        console.log('✅ AuthService: Club membership cache cleared');
+      } catch (err) {
+        console.warn('⚠️ AuthService: Club membership cache clear failed:', err);
+      }
+
       // Clear all remaining user-specific AsyncStorage keys
       try {
         await AsyncStorage.multiRemove([
@@ -169,6 +161,17 @@ export class AuthService {
           // Challenge join states (prevent cross-user contamination)
           '@runstr:running_bitcoin_joined',
           '@runstr:running_bitcoin_rewards_claimed',
+          // Club state (prevent cross-user contamination)
+          '@runstr:club_id',
+          '@runstr:club_name',
+          '@runstr:club_role',
+          '@runstr:club_reconciled_at',
+          // Team/charity state (prevent cross-user contamination)
+          '@runstr:selected_team_id',
+          '@runstr:charity_stats',
+          // Lightning address (CRITICAL: prevent rewards going to wrong user)
+          '@runstr:reward_lightning_address',
+          '@runstr:lightning_address',
         ]);
         console.log('✅ AuthService: Additional user data cleared');
       } catch (err) {

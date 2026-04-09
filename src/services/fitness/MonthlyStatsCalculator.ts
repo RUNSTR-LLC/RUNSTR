@@ -4,7 +4,6 @@
  */
 
 import type { Workout } from '../../types/workout';
-import type { NostrWorkout } from '../../types/nostrWorkout';
 
 export interface MonthlyStats {
   // Basic counts

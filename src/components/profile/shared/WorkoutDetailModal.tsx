@@ -20,6 +20,7 @@ import type { Workout } from '../../../types/workout';
 import type { PublishableWorkout } from '../../../services/nostr/workoutPublishingService';
 import { FullScreenCardModal } from './FullScreenCardModal';
 import { useUnitPreference } from '../../../hooks/useUnitPreference';
+import { VerifiedCheckmark } from '../../activity/VerifiedCheckmark';
 
 interface WorkoutDetailModalProps {
   visible: boolean;
@@ -124,26 +125,26 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
 
   const getWeatherEmoji = (icon: string): string => {
     const iconMap: Record<string, string> = {
-      '01d': '☀️',
-      '01n': '🌙',
-      '02d': '⛅',
-      '02n': '☁️',
-      '03d': '☁️',
-      '03n': '☁️',
-      '04d': '☁️',
-      '04n': '☁️',
-      '09d': '🌧️',
-      '09n': '🌧️',
-      '10d': '🌦️',
-      '10n': '🌧️',
-      '11d': '⛈️',
-      '11n': '⛈️',
-      '13d': '❄️',
-      '13n': '❄️',
-      '50d': '🌫️',
-      '50n': '🌫️',
+      '01d': 'Clear',
+      '01n': 'Clear',
+      '02d': 'Clouds',
+      '02n': 'Cloudy',
+      '03d': 'Cloudy',
+      '03n': 'Cloudy',
+      '04d': 'Cloudy',
+      '04n': 'Cloudy',
+      '09d': 'Rain',
+      '09n': 'Rain',
+      '10d': 'Rain',
+      '10n': 'Rain',
+      '11d': 'Storm',
+      '11n': 'Storm',
+      '13d': 'Snow',
+      '13n': 'Snow',
+      '50d': 'Fog',
+      '50n': 'Fog',
     };
-    return iconMap[icon] || '🌤️';
+    return iconMap[icon] || 'Fair';
   };
 
   const getActivityTypeName = (): string => {
@@ -388,7 +389,10 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
       <View style={styles.section}>
         <View style={styles.strengthSummary}>
           <View style={styles.strengthStat}>
-            <Text style={styles.strengthStatValue}>{totalReps}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={styles.strengthStatValue}>{totalReps}</Text>
+              {(workout as any).verificationReceipt && <VerifiedCheckmark />}
+            </View>
             <Text style={styles.strengthStatLabel}>Total Reps</Text>
           </View>
           <View style={styles.strengthStat}>
@@ -1077,7 +1081,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: theme.colors.accent,
+    borderColor: theme.colors.text,
   },
   savedCardInfo: {
     flex: 1,

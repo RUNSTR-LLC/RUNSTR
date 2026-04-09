@@ -1,11 +1,11 @@
 /**
- * Satlantis Event Types - NIP-52 Calendar Events Integration
+ * Event Types - NIP-52 Calendar Events
  *
- * RUNSTR integrates with Satlantis for race event discovery and leaderboards.
+ * Core event type definitions used throughout the RUNSTR event system.
  * - Kind 31923: Calendar event definitions
  * - Kind 31925: RSVPs/attendance
  *
- * RUNSTR-hosted events include additional tags for scoring, payouts, and join methods.
+ * RUNSTR events include additional tags for scoring, payouts, and join methods.
  */
 
 import type {
@@ -27,7 +27,7 @@ export type SatlantisSportType =
   | 'other';
 
 /**
- * Parsed Satlantis calendar event (kind 31923)
+ * Parsed calendar event (kind 31923)
  */
 export interface SatlantisEvent {
   /** Event ID (d-tag) */
@@ -165,7 +165,7 @@ export interface SatlantisEvent {
 /**
  * RSVP status for kind 31925 events
  */
-export type SatlantisRSVPStatus = 'accepted' | 'declined' | 'tentative';
+export type RSVPStatus = 'accepted' | 'declined' | 'tentative';
 
 /**
  * Parsed RSVP event (kind 31925)
@@ -178,7 +178,7 @@ export interface SatlantisRSVP {
   eventRef: string;
 
   /** RSVP status */
-  status: SatlantisRSVPStatus;
+  status: RSVPStatus;
 
   /** When the RSVP was created (Unix timestamp) */
   createdAt: number;
@@ -214,7 +214,7 @@ export interface SatlantisLeaderboardEntry {
 }
 
 /**
- * Filter options for Satlantis event discovery
+ * Filter options for event discovery
  */
 export interface SatlantisEventFilter {
   /** Filter by sport types */

@@ -8,13 +8,11 @@
 import { initializeWebSocketPolyfill } from './utils/webSocketPolyfill';
 import * as ExpoSplashScreen from 'expo-splash-screen';
 import * as TaskManager from 'expo-task-manager';
+import * as Location from 'expo-location';
 
 // Background location task imported in index.js (before app initialization)
-// Only import the task name - stopTracking is handled by simpleRunTracker
-import {
-  SIMPLE_TRACKER_TASK,
-  simpleRunTracker,
-} from './services/activity/SimpleRunTracker';
+// Only import the task name constant - zombie cleanup calls Location API directly
+import { SIMPLE_TRACKER_TASK } from './services/activity/SimpleRunTracker';
 
 import React from 'react';
 import {
@@ -111,7 +109,7 @@ class AppErrorBoundary extends React.Component<
         <SafeAreaProvider style={{ backgroundColor: '#000' }}>
           <StatusBar barStyle="light-content" backgroundColor="#000000" />
           <View style={errorStyles.container}>
-            <Text style={errorStyles.title}>🚨 App Error</Text>
+            <Text style={errorStyles.title}>App Error</Text>
             <Text style={errorStyles.error}>
               {this.state.error?.message || 'Unknown error occurred'}
             </Text>
@@ -196,12 +194,10 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NavigationDataProvider } from './contexts/NavigationDataContext';
 import { AppNavigator } from './navigation/AppNavigator';
 import { BottomTabNavigator } from './navigation/BottomTabNavigator';
+import { navigationRef, navigate as navigationRefNavigate } from './navigation/navigationRef';
 import { createStackNavigator } from '@react-navigation/stack';
-import { EventDetailScreen } from './screens/EventDetailScreen';
 import { LeagueDetailScreen } from './screens/LeagueDetailScreen';
-// Use SimpleTeamScreen instead of EnhancedTeamScreen to avoid freeze issues
-const SimpleTeamScreen = React.lazy(() => import('./screens/SimpleTeamScreen'));
-import { CaptainDashboardScreen } from './screens/CaptainDashboardScreen';
+// SimpleTeamScreen loaded via inline require() to avoid circular dependency
 import { HelpSupportScreen } from './screens/HelpSupportScreen';
 import { ContactSupportScreen } from './screens/ContactSupportScreen';
 import { PrivacyPolicyScreen } from './screens/PrivacyPolicyScreen';
@@ -210,28 +206,24 @@ import { CompetitionsListScreen } from './screens/CompetitionsListScreen';
 import { WorkoutHistoryScreen } from './screens/WorkoutHistoryScreen';
 import { MyTeamsScreen } from './screens/MyTeamsScreen';
 import { ProfileEditScreen } from './screens/ProfileEditScreen';
+import { LevelDetailScreen } from './screens/LevelDetailScreen';
 import { SavedRoutesScreen } from './screens/routes/SavedRoutesScreen';
 import { AdvancedAnalyticsScreen } from './screens/AdvancedAnalyticsScreen';
 import { HealthProfileScreen } from './screens/HealthProfileScreen';
-import { SatlantisDiscoveryScreen } from './screens/satlantis/SatlantisDiscoveryScreen';
-import { SatlantisEventDetailScreen } from './screens/satlantis/SatlantisEventDetailScreen';
-import { RunningBitcoinDetailScreen } from './screens/events/RunningBitcoinDetailScreen';
 import { EinundzwanzigDetailScreen } from './screens/events/EinundzwanzigDetailScreen';
-import { JanuaryWalkingDetailScreen } from './screens/events/JanuaryWalkingDetailScreen';
 import { DynamicEventDetailScreen } from './screens/events/DynamicEventDetailScreen';
 import { Season2Screen } from './screens/season2/Season2Screen';
+import { Season3Screen } from './screens/season3/Season3Screen';
 import { CompeteScreen } from './screens/CompeteScreen';
 import { LeaderboardsScreen } from './screens/LeaderboardsScreen';
 import { RewardsScreen } from './screens/RewardsScreen';
-import { DonateScreen } from './screens/DonateScreen';
 import { TeamsScreen } from './screens/TeamsScreen';
 import { EventsScreen } from './screens/EventsScreen';
 import { ActivityTrackerScreen } from './screens/activity/ActivityTrackerScreen';
 import { JournalHistoryScreen } from './screens/JournalHistoryScreen';
-import { User } from './types';
+import { StatsDetailScreen } from './screens/StatsDetailScreen';
 import { useWalletStore } from './store/walletStore';
 import { theme } from './styles/theme';
-import unifiedCache from './services/cache/UnifiedNostrCache';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   safeGetItem,
@@ -239,13 +231,9 @@ import {
   safeMultiGet,
   safeRemoveItem,
 } from './utils/asyncStorageTimeout';
-import { PerformanceLogger } from './utils/PerformanceLogger';
 import { AppStateManager } from './services/core/AppStateManager';
-import { appPermissionService } from './services/initialization/AppPermissionService';
-import { PermissionRequestModal } from './components/permissions/PermissionRequestModal';
 import { WelcomePermissionModal } from './components/onboarding/WelcomePermissionModal';
 import AppInitializationService from './services/core/AppInitializationService';
-import { StepPollingService } from './services/rewards/StepPollingService';
 import { StepCompetitionService } from './services/competition/StepCompetitionService';
 import { analytics } from './utils/analytics';
 import {
@@ -306,12 +294,9 @@ type AuthenticatedStackParamList = {
   SavedRoutes: { activityType?: 'running' | 'cycling' | 'walking' };
   AdvancedAnalytics: undefined;
   HealthProfile: undefined;
-  SatlantisDiscovery: undefined;
-  SatlantisEventDetail: { eventId: string; eventPubkey: string };
-  RunningBitcoinDetail: undefined;
   EinundzwanzigDetail: undefined;
-  JanuaryWalkingDetail: undefined;
   Season2: undefined;
+  Season3: undefined;
   Teams: undefined;
   Rewards: undefined;
   Events: undefined;
@@ -320,10 +305,486 @@ type AuthenticatedStackParamList = {
   Leaderboards: undefined;
   DynamicEventDetail: { eventId: string };
   JournalHistory: undefined;
+  StatsDetail: { npub: string };
   Experimental: undefined;
+  ClubPage: { clubId: string; clubName: string };
+  ClubChat: { clubId: string; clubName: string; captainNpub: string; pinnedMessageId?: string };
+  LevelDetail: undefined;
 };
 
 const AuthenticatedStack = createStackNavigator<AuthenticatedStackParamList>();
+
+// ✅ FIX: AuthenticatedNavigator defined at MODULE LEVEL to prevent
+// unmount/remount loops. Previously defined inside AppContent, causing
+// React to treat it as a new component type on every re-render.
+const AuthenticatedNavigator: React.FC = () => {
+  const { currentUser, signOut } = useAuth();
+
+  // Initialize app data when user is authenticated
+  React.useEffect(() => {
+    const initializeData = async () => {
+      try {
+        // ✅ PERFORMANCE: Batch read multiple AsyncStorage keys with timeout
+        const keys = [
+          '@runstr:app_init_completed',
+          '@runstr:hex_pubkey',
+          '@runstr:npub',
+        ];
+        const results = await safeMultiGet(keys, 3000);
+
+        const initCompleted = results.find(
+          ([k]) => k === '@runstr:app_init_completed'
+        )?.[1];
+        const hexPubkey = results.find(
+          ([k]) => k === '@runstr:hex_pubkey'
+        )?.[1];
+        const npub = results.find(([k]) => k === '@runstr:npub')?.[1];
+
+        if (initCompleted === 'true') {
+          console.log(
+            '[App] ℹ️  App already initialized, skipping duplicate initialization'
+          );
+          return;
+        }
+
+        // CRITICAL FIX: Get actual hex pubkey from AsyncStorage, NOT synthetic user.id
+        // user.id is 'nostr_hh6sr85uum' but we need actual hex for Nostr queries
+        const pubkey = hexPubkey || npub;
+
+        if (!pubkey) {
+          console.warn(
+            '[App] Cannot initialize app data: no pubkey available'
+          );
+          return;
+        }
+
+        console.log(
+          '[App] 🚀 Authenticated user detected, cleanup starting...'
+        );
+
+        // ✅ CLEANUP: Defer event snapshot cleanup to prevent UI blocking
+        setTimeout(async () => {
+          try {
+            const { EventSnapshotStore } = await import(
+              './services/event/EventSnapshotStore'
+            );
+            const removed = await EventSnapshotStore.cleanupExpired();
+            if (removed > 0) {
+              console.log(`🧹 Cleaned up ${removed} expired event snapshots`);
+            }
+          } catch (error) {
+            console.warn(
+              '⚠️ Event snapshot cleanup failed (non-critical):',
+              error
+            );
+          }
+        }, 1000); // Defer by 1 second to let UI settle
+
+        console.log(
+          '[App] 💰 Cashu wallet initialization skipped (using NWC for Lightning payments)'
+        );
+        console.log('[App] 💳 NWC wallet will connect on-demand (no startup init)');
+        console.log(
+          '[App] ⚠️  Background challenge monitoring DISABLED for Android stability'
+        );
+
+        // ✅ PERFORMANCE: Mark initialization as complete
+        await safeSetItem('@runstr:app_init_completed', 'true', 2000);
+        console.log('[App] ✅ App initialization complete - flag set');
+      } catch (error) {
+        console.error('[App] ❌ App data initialization error:', error);
+        // Don't block app - initialization errors are non-critical
+      }
+    };
+
+    initializeData();
+
+    // Cleanup: No background services to stop
+    return () => {
+      console.log('[App] 🛑 Component unmounting (user logged out)');
+    };
+  }, [currentUser?.id]);
+
+  return (
+    <AuthenticatedStack.Navigator
+      screenOptions={{
+        headerShown: false,
+        presentation: 'modal',
+        cardStyle: { backgroundColor: '#000' }, // Prevent white flash
+      }}
+    >
+      {/* Main bottom tabs */}
+      <AuthenticatedStack.Screen
+        name="MainTabs"
+        options={{ headerShown: false }}
+      >
+        {() => (
+          <BottomTabNavigator
+            onSignOut={signOut}
+          />
+        )}
+      </AuthenticatedStack.Screen>
+
+      {/* Enhanced Team Screen */}
+      <AuthenticatedStack.Screen
+        name="EnhancedTeamScreen"
+        options={{
+          headerShown: false,
+        }}
+      >
+        {({ navigation, route }) => {
+          console.log('[App.tsx] 🚀 EnhancedTeamScreen route rendering');
+          const {
+            team,
+            userIsMember = false,
+            currentUserNpub,
+            userIsCaptain = false,
+          } = route.params || {};
+          console.log('[App.tsx] 📦 Route params:', {
+            hasRouteParams: !!route.params,
+            hasTeam: !!team,
+            teamId: team?.id,
+            teamName: team?.name,
+            teamKeys: team ? Object.keys(team).length : 0,
+            allTeamKeys: team ? Object.keys(team) : [],
+            userIsMember,
+            userIsCaptain,
+            currentUserNpub: currentUserNpub?.slice(0, 20) + '...',
+          });
+
+          // Safety check: if no team data, show error
+          if (!team || !team.id) {
+            console.error('[App.tsx] ❌ No valid team data in route params');
+            return (
+              <View
+                style={{
+                  flex: 1,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  backgroundColor: theme.colors.background,
+                }}
+              >
+                <Text style={{ color: theme.colors.text, marginBottom: 20 }}>
+                  Team data not available
+                </Text>
+                <TouchableOpacity
+                  onPress={() => navigation.goBack()}
+                  style={{
+                    padding: 12,
+                    backgroundColor: theme.colors.cardBackground,
+                    borderRadius: 8,
+                  }}
+                >
+                  <Text style={{ color: theme.colors.text }}>Go Back</Text>
+                </TouchableOpacity>
+              </View>
+            );
+          }
+
+          const STS = require('./screens/SimpleTeamScreen').default || require('./screens/SimpleTeamScreen').SimpleTeamScreen;
+          return (
+            <ScreenErrorBoundary navigation={navigation}>
+              <STS
+                data={{
+                  team: team,
+                  leaderboard: [],
+                  events: [],
+                }}
+                onBack={() => navigation.goBack()}
+                showJoinButton={!userIsMember}
+                userIsMemberProp={userIsMember}
+                currentUserNpub={currentUserNpub}
+                userIsCaptain={userIsCaptain}
+              />
+            </ScreenErrorBoundary>
+          );
+        }}
+      </AuthenticatedStack.Screen>
+
+      {/* League Detail Screen */}
+      <AuthenticatedStack.Screen
+        name="LeagueDetail"
+        options={{
+          headerShown: false,
+        }}
+      >
+        {({ navigation, route }) => (
+          <LeagueDetailScreen route={route} navigation={navigation} />
+        )}
+      </AuthenticatedStack.Screen>
+
+      {/* Settings Screen */}
+      <AuthenticatedStack.Screen
+        name="Settings"
+        options={{
+          headerShown: false,
+        }}
+      >
+        {({ navigation, route }) => (
+          <SettingsScreen
+            onHelp={() => navigation.navigate('HelpSupport')}
+            onContactSupport={() => navigation.navigate('ContactSupport')}
+            onPrivacyPolicy={() => navigation.navigate('PrivacyPolicy')}
+            onSignOut={async () => {
+              // Reset initialization state on logout
+              await AppInitializationService.reset();
+              // ✅ PERFORMANCE: Clear initialization flag for next login
+              await safeRemoveItem('@runstr:app_init_completed', 2000);
+              await signOut();
+              // AuthContext state change will trigger App.tsx to show login screen
+            }}
+          />
+        )}
+      </AuthenticatedStack.Screen>
+
+      {/* Help & Support Screen */}
+      <AuthenticatedStack.Screen
+        name="HelpSupport"
+        options={{
+          headerShown: false,
+        }}
+        component={HelpSupportScreen}
+      />
+
+      {/* Contact Support Screen */}
+      <AuthenticatedStack.Screen
+        name="ContactSupport"
+        options={{
+          headerShown: false,
+        }}
+        component={ContactSupportScreen}
+      />
+
+      {/* Privacy Policy Screen */}
+      <AuthenticatedStack.Screen
+        name="PrivacyPolicy"
+        options={{
+          headerShown: false,
+        }}
+        component={PrivacyPolicyScreen}
+      />
+
+      {/* Competitions List Screen */}
+      <AuthenticatedStack.Screen
+        name="CompetitionsList"
+        options={{
+          headerShown: false,
+        }}
+        component={CompetitionsListScreen}
+      />
+
+      {/* Workout History Screen */}
+      <AuthenticatedStack.Screen
+        name="WorkoutHistory"
+        options={{
+          headerShown: false,
+        }}
+        component={WorkoutHistoryScreen}
+      />
+
+      {/* My Teams Screen */}
+      <AuthenticatedStack.Screen
+        name="MyTeams"
+        options={{
+          headerShown: false,
+        }}
+        component={MyTeamsScreen}
+      />
+
+      {/* Profile Edit Screen */}
+      <AuthenticatedStack.Screen
+        name="ProfileEdit"
+        options={{
+          headerShown: false,
+          presentation: 'modal',
+        }}
+        component={ProfileEditScreen}
+      />
+
+      {/* Level Detail Screen */}
+      <AuthenticatedStack.Screen
+        name="LevelDetail"
+        options={{
+          headerShown: false,
+        }}
+        component={LevelDetailScreen}
+      />
+
+      {/* Saved Routes Screen - Manage GPS routes */}
+      <AuthenticatedStack.Screen
+        name="SavedRoutes"
+        options={{
+          headerShown: false,
+          presentation: 'modal',
+        }}
+        component={SavedRoutesScreen}
+      />
+
+      {/* Advanced Analytics Screen - Workout analytics dashboard */}
+      <AuthenticatedStack.Screen
+        name="AdvancedAnalytics"
+        options={{
+          headerShown: false,
+          presentation: 'modal',
+        }}
+        component={AdvancedAnalyticsScreen}
+      />
+
+      {/* Health Profile Screen - Health data for analytics */}
+      <AuthenticatedStack.Screen
+        name="HealthProfile"
+        options={{
+          headerShown: false,
+        }}
+        component={HealthProfileScreen}
+      />
+
+      {/* Einundzwanzig Fitness Challenge Detail Screen */}
+      <AuthenticatedStack.Screen
+        name="EinundzwanzigDetail"
+        options={{
+          headerShown: false,
+        }}
+        component={EinundzwanzigDetailScreen}
+      />
+
+      {/* RUNSTR Season 2 Competition Screen */}
+      <AuthenticatedStack.Screen
+        name="Season2"
+        options={{
+          headerShown: false,
+        }}
+        component={Season2Screen}
+      />
+
+      {/* RUNSTR Season 3 Club Battles Screen */}
+      <AuthenticatedStack.Screen
+        name="Season3"
+        options={{
+          headerShown: false,
+        }}
+        component={Season3Screen}
+      />
+
+      {/* Teams Screen - Hardcoded teams + charities selection */}
+      <AuthenticatedStack.Screen
+        name="Teams"
+        options={{
+          headerShown: false,
+        }}
+        component={TeamsScreen}
+      />
+
+      {/* Rewards Screen - Wallet + earnings management */}
+      <AuthenticatedStack.Screen
+        name="Rewards"
+        options={{
+          headerShown: false,
+        }}
+        component={RewardsScreen}
+      />
+
+      {/* Events Screen - Leaderboards (5K/10K/21K/Marathon) */}
+      <AuthenticatedStack.Screen
+        name="Events"
+        options={{
+          headerShown: false,
+        }}
+        component={EventsScreen}
+      />
+
+      {/* Exercise Screen - Activity Tracker (accessed from Profile card) */}
+      <AuthenticatedStack.Screen
+        name="Exercise"
+        options={{
+          headerShown: false,
+        }}
+        component={ActivityTrackerScreen}
+      />
+
+      {/* Compete Screen - Events/Competitions (accessed from Profile card) */}
+      <AuthenticatedStack.Screen
+        name="Compete"
+        options={{
+          headerShown: false,
+        }}
+      >
+        {({ navigation }) => <CompeteScreen navigation={navigation} />}
+      </AuthenticatedStack.Screen>
+
+      {/* Leaderboards Screen - Daily Leaderboards */}
+      <AuthenticatedStack.Screen
+        name="Leaderboards"
+        options={{
+          headerShown: false,
+        }}
+      >
+        {({ navigation }) => <LeaderboardsScreen navigation={navigation} />}
+      </AuthenticatedStack.Screen>
+
+      {/* Dynamic Event Detail Screen - Supabase-driven competitions */}
+      <AuthenticatedStack.Screen
+        name="DynamicEventDetail"
+        options={{
+          headerShown: false,
+        }}
+      >
+        {({ navigation, route }) => (
+          <DynamicEventDetailScreen route={route} navigation={navigation} />
+        )}
+      </AuthenticatedStack.Screen>
+
+      {/* Journal History */}
+      <AuthenticatedStack.Screen
+        name="JournalHistory"
+        options={{
+          headerShown: false,
+        }}
+        component={JournalHistoryScreen}
+      />
+
+      {/* Stats Detail - Level + Activity Breakdown */}
+      <AuthenticatedStack.Screen
+        name="StatsDetail"
+        options={{
+          headerShown: false,
+        }}
+        component={StatsDetailScreen}
+      />
+
+      {/* Experimental Features (alias for AdvancedAnalytics) */}
+      <AuthenticatedStack.Screen
+        name="Experimental"
+        options={{
+          headerShown: false,
+        }}
+        component={AdvancedAnalyticsScreen}
+      />
+
+      {/* Club Chat Screen - Full-screen chat view */}
+      <AuthenticatedStack.Screen
+        name="ClubChat"
+        options={{ headerShown: false }}
+      >
+        {({ navigation, route }) => {
+          const ClubChatScreen = require('./screens/ClubChatScreen').ClubChatScreen;
+          return <ClubChatScreen route={route} navigation={navigation} />;
+        }}
+      </AuthenticatedStack.Screen>
+
+      {/* Club Page Screen - Individual club detail view */}
+      <AuthenticatedStack.Screen
+        name="ClubPage"
+        options={{ headerShown: false }}
+      >
+        {({ navigation, route }) => {
+          const ClubPageScreen = require('./screens/ClubPageScreen').ClubPageScreen;
+          return <ClubPageScreen route={route} navigation={navigation} />;
+        }}
+      </AuthenticatedStack.Screen>
+    </AuthenticatedStack.Navigator>
+  );
+};
 
 // Main app content that uses the AuthContext
 interface AppContentProps {
@@ -338,7 +799,6 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
     connectionStatus,
     isConnected,
     initError,
-    signOut,
   } = useAuth();
 
   // Initialize AppStateManager as early as possible
@@ -360,7 +820,7 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
   // Event deep link state
   const [pendingEventNavigation, setPendingEventNavigation] =
     React.useState<ParsedEventData | null>(null);
-  const navigationRef = React.useRef<any>(null);
+  // Uses shared navigationRef from './navigation/navigationRef' (imported at top)
 
   // Check for first launch when authenticated
   React.useEffect(() => {
@@ -411,9 +871,7 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
         AppInitializationService.initializeInBackground()
           .then(() => {
             console.log('✅ App: Background initialization completed');
-            // v3: Step rewards DISABLED - NWC moved to external service
-            // Step polling no longer triggers rewards, only workout rewards remain
-            // StepPollingService.initialize();
+            // Rewards are now handled server-side via trigger_auto_reward()
           })
           .catch((error) => {
             console.error('❌ Background initialization error:', error);
@@ -423,8 +881,7 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
 
       return () => {
         clearTimeout(timer);
-        // v3: Step polling disabled - cleanup not needed
-        // StepPollingService.cleanup();
+        // Rewards handled server-side, no client cleanup needed
       };
     }
   }, [isAuthenticated, currentUser, hasInitialized]);
@@ -474,6 +931,22 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
         } catch (error) {
           console.warn('[App] Step competition check failed:', error);
           // Non-critical - don't block app functionality
+        }
+
+        // Task 3: Fire any pending backup (Amber users deferred from background)
+        try {
+          const { AutoBackupService } = require('./services/backup/AutoBackupService');
+          AutoBackupService.getInstance().onAppForeground();
+        } catch (error) {
+          console.warn('[App] Foreground backup check failed:', error);
+        }
+      } else {
+        // App going to background - flush pending backup
+        try {
+          const { AutoBackupService } = require('./services/backup/AutoBackupService');
+          AutoBackupService.getInstance().onAppBackground();
+        } catch (error) {
+          console.warn('[App] Background backup trigger failed:', error);
         }
       }
     });
@@ -531,7 +1004,7 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
   React.useEffect(() => {
     if (
       pendingEventNavigation &&
-      navigationRef.current &&
+      navigationRef.isReady() &&
       isAuthenticated &&
       currentUser
     ) {
@@ -543,7 +1016,7 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
       // Small delay to ensure navigation stack is ready
       setTimeout(() => {
         try {
-          navigationRef.current?.navigate('EventDetail', {
+          navigationRefNavigate('DynamicEventDetail', {
             eventId: pendingEventNavigation.eventId,
           });
           setPendingEventNavigation(null);
@@ -621,636 +1094,13 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
   // that were causing instant crashes on Android in v0.6.2-v0.6.5
   // AppStateManager is the SINGLE source of truth for app state
 
-  // Authenticated app with bottom tabs and team creation modal
-  const AuthenticatedNavigator: React.FC<{ user: User }> = ({ user }) => {
-    // Initialize app data when user is authenticated
-    React.useEffect(() => {
-      const initializeData = async () => {
-        try {
-          // ✅ PERFORMANCE: Batch read multiple AsyncStorage keys with timeout
-          const keys = [
-            '@runstr:app_init_completed',
-            '@runstr:hex_pubkey',
-            '@runstr:npub',
-          ];
-          const results = await safeMultiGet(keys, 3000);
-
-          const initCompleted = results.find(
-            ([k]) => k === '@runstr:app_init_completed'
-          )?.[1];
-          const hexPubkey = results.find(
-            ([k]) => k === '@runstr:hex_pubkey'
-          )?.[1];
-          const npub = results.find(([k]) => k === '@runstr:npub')?.[1];
-
-          if (initCompleted === 'true') {
-            console.log(
-              '[App] ℹ️  App already initialized, skipping duplicate initialization'
-            );
-            return;
-          }
-
-          // CRITICAL FIX: Get actual hex pubkey from AsyncStorage, NOT synthetic user.id
-          // user.id is 'nostr_hh6sr85uum' but we need actual hex for Nostr queries
-          const pubkey = hexPubkey || npub;
-
-          if (!pubkey) {
-            console.warn(
-              '[App] Cannot initialize app data: no pubkey available'
-            );
-            return;
-          }
-
-          console.log(
-            '[App] 🚀 Authenticated user detected, cleanup starting...'
-          );
-
-          // Removed duplicate appInitializationService.initializeAppData(pubkey) call
-          // The new AppInitializationService.initializeInBackground() already handles this
-
-          // ✅ CLEANUP: Defer event snapshot cleanup to prevent UI blocking
-          setTimeout(async () => {
-            try {
-              const { EventSnapshotStore } = await import(
-                './services/event/EventSnapshotStore'
-              );
-              const removed = await EventSnapshotStore.cleanupExpired();
-              if (removed > 0) {
-                console.log(`🧹 Cleaned up ${removed} expired event snapshots`);
-              }
-            } catch (error) {
-              console.warn(
-                '⚠️ Event snapshot cleanup failed (non-critical):',
-                error
-              );
-            }
-          }, 1000); // Defer by 1 second to let UI settle
-
-          // ❌ CASHU WALLET DISABLED: Removed in favor of NWC (v0.2.4+)
-          // This initialization triggered Amber signing prompts for Cashu wallet encryption
-          // NWC wallet services now handle all Lightning payments independently
-          console.log(
-            '[App] 💰 Cashu wallet initialization skipped (using NWC for Lightning payments)'
-          );
-
-          // ✅ NWC WALLET: Connects on-demand when user opens wallet UI
-          // No startup initialization - prevents app freeze on bad NWC strings
-          console.log('[App] 💳 NWC wallet will connect on-demand (no startup init)');
-
-          /*
-          if (!walletStore.isInitialized && !walletStore.isInitializing) {
-            await walletStore.initialize();
-            console.log('[App] ✅ Wallet initialization complete');
-          } else {
-            console.log('[App] ℹ️  Wallet already initialized, skipping');
-          }
-          */
-
-          // ❌ REMOVED: ChallengeCompletionService background monitoring
-          // This was causing Android crashes due to background Nostr queries
-          // Challenges now expire on-demand when users view them
-          console.log(
-            '[App] ⚠️  Background challenge monitoring DISABLED for Android stability'
-          );
-
-          // ✅ PERFORMANCE: Mark initialization as complete
-          await safeSetItem('@runstr:app_init_completed', 'true', 2000);
-          console.log('[App] ✅ App initialization complete - flag set');
-        } catch (error) {
-          console.error('[App] ❌ App data initialization error:', error);
-          // Don't block app - initialization errors are non-critical
-        }
-      };
-
-      initializeData();
-
-      // Cleanup: No background services to stop
-      return () => {
-        console.log('[App] 🛑 Component unmounting (user logged out)');
-      };
-    }, [user.id]);
-
-    return (
-      <AuthenticatedStack.Navigator
-        screenOptions={{
-          headerShown: false,
-          presentation: 'modal',
-          cardStyle: { backgroundColor: '#000' }, // Prevent white flash
-        }}
-      >
-        {/* Main bottom tabs */}
-        <AuthenticatedStack.Screen
-          name="MainTabs"
-          options={{ headerShown: false }}
-        >
-          {() => (
-            <BottomTabNavigator
-              onSignOut={signOut}
-            />
-          )}
-        </AuthenticatedStack.Screen>
-
-        {/* Team Creation Modal removed - team creation feature removed */}
-
-        {/* Enhanced Team Screen */}
-        <AuthenticatedStack.Screen
-          name="EnhancedTeamScreen"
-          options={{
-            headerShown: false,
-          }}
-        >
-          {({ navigation, route }) => {
-            console.log('[App.tsx] 🚀 EnhancedTeamScreen route rendering');
-            const {
-              team,
-              userIsMember = false,
-              currentUserNpub,
-              userIsCaptain = false,
-            } = route.params || {};
-            console.log('[App.tsx] 📦 Route params:', {
-              hasRouteParams: !!route.params,
-              hasTeam: !!team,
-              teamId: team?.id,
-              teamName: team?.name,
-              teamKeys: team ? Object.keys(team).length : 0,
-              allTeamKeys: team ? Object.keys(team) : [],
-              userIsMember,
-              userIsCaptain,
-              currentUserNpub: currentUserNpub?.slice(0, 20) + '...',
-            });
-
-            // Safety check: if no team data, show error
-            if (!team || !team.id) {
-              console.error('[App.tsx] ❌ No valid team data in route params');
-              return (
-                <View
-                  style={{
-                    flex: 1,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    backgroundColor: theme.colors.background,
-                  }}
-                >
-                  <Text style={{ color: theme.colors.text, marginBottom: 20 }}>
-                    Team data not available
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => navigation.goBack()}
-                    style={{
-                      padding: 12,
-                      backgroundColor: theme.colors.cardBackground,
-                      borderRadius: 8,
-                    }}
-                  >
-                    <Text style={{ color: theme.colors.text }}>Go Back</Text>
-                  </TouchableOpacity>
-                </View>
-              );
-            }
-
-            console.log(
-              '[App.tsx] ⏳ SUSPENSE FALLBACK RENDERING - Waiting for lazy component'
-            );
-            return (
-              <ScreenErrorBoundary navigation={navigation}>
-                <React.Suspense
-                  fallback={
-                    <View
-                      style={{
-                        flex: 1,
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        backgroundColor: theme.colors.background,
-                      }}
-                    >
-                      <ActivityIndicator
-                        size="large"
-                        color={theme.colors.text}
-                      />
-                    </View>
-                  }
-                >
-                  <SimpleTeamScreen
-                    data={{
-                      team: team,
-                      leaderboard: [],
-                      events: [],
-                    }}
-                    onBack={() => navigation.goBack()}
-                    onCaptainDashboard={() => {
-                      console.log('Captain dashboard from EnhancedTeamScreen');
-                      console.log(
-                        'Navigating to CaptainDashboard with team:',
-                        team?.id
-                      );
-                      console.log(
-                        'Team object has captainId field:',
-                        'captainId' in (team || {})
-                      );
-                      console.log('Team captainId value:', team?.captainId);
-                      console.log(
-                        'Team captainId length:',
-                        team?.captainId?.length
-                      );
-                      console.log(
-                        'Team captainId format:',
-                        team?.captainId?.startsWith('npub')
-                          ? 'npub'
-                          : team?.captainId?.length === 64
-                          ? 'hex'
-                          : 'other'
-                      );
-                      console.log(
-                        'Passing userNpub:',
-                        currentUserNpub?.slice(0, 20) + '...'
-                      );
-
-                      // Ensure we pass the captain ID in hex format
-                      const teamCaptainIdToPass = team?.captainId || '';
-                      console.log(
-                        'Final teamCaptainId being passed:',
-                        teamCaptainIdToPass?.slice(0, 20) + '...'
-                      );
-
-                      navigation.navigate('CaptainDashboard', {
-                        teamId: team?.id,
-                        teamName: team?.name,
-                        teamCaptainId: teamCaptainIdToPass, // Pass the team's captain ID
-                        isCaptain: true,
-                        userNpub: currentUserNpub,
-                      });
-                    }}
-                    onEventPress={(eventId, eventData) => {
-                      console.log('📍 Navigation: Team → Event Detail');
-                      console.log('  eventId:', eventId);
-                      console.log(
-                        '  eventData:',
-                        eventData ? 'provided' : 'not provided'
-                      );
-                      console.log('  team context:', {
-                        teamId: team?.id,
-                        captainId: team?.captainId?.slice(0, 20) + '...',
-                      });
-                      // ✅ FIX: Pass team context explicitly to prevent missing teamId/captainPubkey crash
-                      navigation.navigate('EventDetail', {
-                        eventId,
-                        eventData,
-                        teamId: team?.id, // Explicit team context
-                        captainPubkey: team?.captainId, // Explicit captain context
-                      });
-                    }}
-                    onLeaguePress={(leagueId, leagueData) => {
-                      console.log('📍 Navigation: Team → League Detail');
-                      console.log('  leagueId:', leagueId);
-                      navigation.navigate('LeagueDetail', {
-                        leagueId,
-                        leagueData,
-                      });
-                    }}
-                    showJoinButton={!userIsMember}
-                    userIsMemberProp={userIsMember}
-                    currentUserNpub={currentUserNpub}
-                    userIsCaptain={userIsCaptain}
-                  />
-                </React.Suspense>
-              </ScreenErrorBoundary>
-            );
-          }}
-        </AuthenticatedStack.Screen>
-
-        {/* Event Detail Screen */}
-        <AuthenticatedStack.Screen
-          name="EventDetail"
-          options={{
-            headerShown: false,
-          }}
-        >
-          {({ navigation, route }) => (
-            <EventDetailScreen route={route} navigation={navigation} />
-          )}
-        </AuthenticatedStack.Screen>
-
-        {/* League Detail Screen */}
-        <AuthenticatedStack.Screen
-          name="LeagueDetail"
-          options={{
-            headerShown: false,
-          }}
-        >
-          {({ navigation, route }) => (
-            <LeagueDetailScreen route={route} navigation={navigation} />
-          )}
-        </AuthenticatedStack.Screen>
-
-        {/* Captain Dashboard Screen */}
-        <AuthenticatedStack.Screen
-          name="CaptainDashboard"
-          options={{
-            headerShown: false,
-          }}
-        >
-          {({ navigation, route }) => {
-            const { teamId, teamName, teamCaptainId, isCaptain, userNpub } =
-              route.params || {};
-            return (
-              <CaptainDashboardScreen
-                data={{
-                  team: {
-                    id: teamId || '',
-                    name: teamName || 'Team',
-                    memberCount: 0,
-                    activeEvents: 0,
-                    prizePool: 0,
-                  },
-                  members: [],
-                  recentActivity: [],
-                }}
-                teamId={teamId || ''}
-                captainId={teamCaptainId || user.npub || user.id}
-                userNpub={userNpub}
-                onNavigateToTeam={() => navigation.goBack()}
-                onNavigateToProfile={() => navigation.goBack()}
-                onSettingsPress={() => console.log('Settings')}
-                onKickMember={(memberId) =>
-                  console.log('Kick member:', memberId)
-                }
-                onViewAllActivity={() => console.log('View all activity')}
-              />
-            );
-          }}
-        </AuthenticatedStack.Screen>
-
-        {/* Settings Screen */}
-        <AuthenticatedStack.Screen
-          name="Settings"
-          options={{
-            headerShown: false,
-          }}
-        >
-          {({ navigation, route }) => (
-            <SettingsScreen
-              onCaptainDashboard={route.params?.onCaptainDashboard}
-              onHelp={() => navigation.navigate('HelpSupport')}
-              onContactSupport={() => navigation.navigate('ContactSupport')}
-              onPrivacyPolicy={() => navigation.navigate('PrivacyPolicy')}
-              onSignOut={async () => {
-                // Reset initialization state on logout
-                await AppInitializationService.reset();
-                // ✅ PERFORMANCE: Clear initialization flag for next login
-                await safeRemoveItem('@runstr:app_init_completed', 2000);
-                await signOut();
-                // AuthContext state change will trigger App.tsx to show login screen
-              }}
-            />
-          )}
-        </AuthenticatedStack.Screen>
-
-        {/* Help & Support Screen */}
-        <AuthenticatedStack.Screen
-          name="HelpSupport"
-          options={{
-            headerShown: false,
-          }}
-          component={HelpSupportScreen}
-        />
-
-        {/* Contact Support Screen */}
-        <AuthenticatedStack.Screen
-          name="ContactSupport"
-          options={{
-            headerShown: false,
-          }}
-          component={ContactSupportScreen}
-        />
-
-        {/* Privacy Policy Screen */}
-        <AuthenticatedStack.Screen
-          name="PrivacyPolicy"
-          options={{
-            headerShown: false,
-          }}
-          component={PrivacyPolicyScreen}
-        />
-
-        {/* Competitions List Screen */}
-        <AuthenticatedStack.Screen
-          name="CompetitionsList"
-          options={{
-            headerShown: false,
-          }}
-          component={CompetitionsListScreen}
-        />
-
-        {/* Workout History Screen */}
-        <AuthenticatedStack.Screen
-          name="WorkoutHistory"
-          options={{
-            headerShown: false,
-          }}
-          component={WorkoutHistoryScreen}
-        />
-
-        {/* My Teams Screen */}
-        <AuthenticatedStack.Screen
-          name="MyTeams"
-          options={{
-            headerShown: false,
-          }}
-          component={MyTeamsScreen}
-        />
-
-        {/* Profile Edit Screen */}
-        <AuthenticatedStack.Screen
-          name="ProfileEdit"
-          options={{
-            headerShown: false,
-            presentation: 'modal',
-          }}
-          component={ProfileEditScreen}
-        />
-
-        {/* Saved Routes Screen - Manage GPS routes */}
-        <AuthenticatedStack.Screen
-          name="SavedRoutes"
-          options={{
-            headerShown: false,
-            presentation: 'modal',
-          }}
-          component={SavedRoutesScreen}
-        />
-
-        {/* Advanced Analytics Screen - Workout analytics dashboard */}
-        <AuthenticatedStack.Screen
-          name="AdvancedAnalytics"
-          options={{
-            headerShown: false,
-            presentation: 'modal',
-          }}
-          component={AdvancedAnalyticsScreen}
-        />
-
-        {/* Health Profile Screen - Health data for analytics */}
-        <AuthenticatedStack.Screen
-          name="HealthProfile"
-          options={{
-            headerShown: false,
-          }}
-          component={HealthProfileScreen}
-        />
-
-        {/* Satlantis Race Discovery Screen */}
-        <AuthenticatedStack.Screen
-          name="SatlantisDiscovery"
-          options={{
-            headerShown: false,
-          }}
-          component={SatlantisDiscoveryScreen}
-        />
-
-        {/* Satlantis Event Detail Screen */}
-        <AuthenticatedStack.Screen
-          name="SatlantisEventDetail"
-          options={{
-            headerShown: false,
-          }}
-        >
-          {({ navigation, route }) => (
-            <SatlantisEventDetailScreen route={route} navigation={navigation} />
-          )}
-        </AuthenticatedStack.Screen>
-
-        {/* Running Bitcoin Challenge Detail Screen */}
-        <AuthenticatedStack.Screen
-          name="RunningBitcoinDetail"
-          options={{
-            headerShown: false,
-          }}
-          component={RunningBitcoinDetailScreen}
-        />
-
-        {/* Einundzwanzig Fitness Challenge Detail Screen */}
-        <AuthenticatedStack.Screen
-          name="EinundzwanzigDetail"
-          options={{
-            headerShown: false,
-          }}
-          component={EinundzwanzigDetailScreen}
-        />
-
-        {/* January Walking Contest Detail Screen */}
-        <AuthenticatedStack.Screen
-          name="JanuaryWalkingDetail"
-          options={{
-            headerShown: false,
-          }}
-          component={JanuaryWalkingDetailScreen}
-        />
-
-        {/* RUNSTR Season 2 Competition Screen */}
-        <AuthenticatedStack.Screen
-          name="Season2"
-          options={{
-            headerShown: false,
-          }}
-          component={Season2Screen}
-        />
-
-        {/* Teams Screen - Hardcoded teams + charities selection */}
-        <AuthenticatedStack.Screen
-          name="Teams"
-          options={{
-            headerShown: false,
-          }}
-          component={TeamsScreen}
-        />
-
-        {/* Rewards Screen - Wallet + earnings management */}
-        <AuthenticatedStack.Screen
-          name="Rewards"
-          options={{
-            headerShown: false,
-          }}
-          component={RewardsScreen}
-        />
-
-        {/* Events Screen - Leaderboards (5K/10K/21K/Marathon) */}
-        <AuthenticatedStack.Screen
-          name="Events"
-          options={{
-            headerShown: false,
-          }}
-          component={EventsScreen}
-        />
-
-        {/* Exercise Screen - Activity Tracker (accessed from Profile card) */}
-        <AuthenticatedStack.Screen
-          name="Exercise"
-          options={{
-            headerShown: false,
-          }}
-          component={ActivityTrackerScreen}
-        />
-
-        {/* Compete Screen - Events/Competitions (accessed from Profile card) */}
-        <AuthenticatedStack.Screen
-          name="Compete"
-          options={{
-            headerShown: false,
-          }}
-        >
-          {({ navigation }) => <CompeteScreen navigation={navigation} />}
-        </AuthenticatedStack.Screen>
-
-        {/* Leaderboards Screen - Daily Leaderboards */}
-        <AuthenticatedStack.Screen
-          name="Leaderboards"
-          options={{
-            headerShown: false,
-          }}
-        >
-          {({ navigation }) => <LeaderboardsScreen navigation={navigation} />}
-        </AuthenticatedStack.Screen>
-
-        {/* Dynamic Event Detail Screen - Supabase-driven competitions */}
-        <AuthenticatedStack.Screen
-          name="DynamicEventDetail"
-          options={{
-            headerShown: false,
-          }}
-        >
-          {({ navigation, route }) => (
-            <DynamicEventDetailScreen route={route} navigation={navigation} />
-          )}
-        </AuthenticatedStack.Screen>
-
-        {/* Journal History */}
-        <AuthenticatedStack.Screen
-          name="JournalHistory"
-          options={{
-            headerShown: false,
-          }}
-          component={JournalHistoryScreen}
-        />
-
-        {/* Experimental Features (alias for AdvancedAnalytics) */}
-        <AuthenticatedStack.Screen
-          name="Experimental"
-          options={{
-            headerShown: false,
-          }}
-          component={AdvancedAnalyticsScreen}
-        />
-      </AuthenticatedStack.Navigator>
-    );
-  };
-
   // Show error screen if initialization failed
   if (initError && !isInitializing) {
     return (
       <SafeAreaProvider style={{ backgroundColor: '#000' }}>
         <StatusBar barStyle="light-content" backgroundColor="#000000" />
         <View style={errorStyles.container}>
-          <Text style={errorStyles.title}>🚨 Initialization Error</Text>
+          <Text style={errorStyles.title}>Initialization Error</Text>
           <Text style={errorStyles.error}>{initError}</Text>
           <Text style={errorStyles.instruction}>Please restart the app</Text>
         </View>
@@ -1295,7 +1145,7 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
 
           // Show main app immediately after authentication
           if (isAuthenticated && currentUser) {
-            return <AuthenticatedNavigator user={currentUser} />;
+            return <AuthenticatedNavigator />;
           }
 
           // Fallback to login
@@ -1313,7 +1163,11 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
         visible={showWelcomeModal}
         onComplete={() => {
           setShowWelcomeModal(false);
-          console.log('✅ Welcome modal closed');
+          console.log('✅ Welcome modal closed - navigating to Reward Destination picker');
+          // Send user to Rewards tab and auto-open the destination picker
+          setTimeout(() => {
+            navigationRefNavigate('Rewards', { openDestinationPicker: true });
+          }, 300);
         }}
       />
     </SafeAreaProvider>
@@ -1394,17 +1248,30 @@ export default function App() {
             );
 
             // 🔧 ZOMBIE SESSION CLEANUP: Stop any registered background tasks from previous sessions
-            // This prevents the activity tracker from appearing to auto-start when navigating to Activity tab
+            // This prevents the activity tracker from appearing to auto-start when navigating to Activity tab.
+            // IMPORTANT: We call Location.stopLocationUpdatesAsync() directly instead of
+            // simpleRunTracker.stopTracking(), because after a crash the singleton is freshly
+            // created with isTracking=false, so stopTracking() returns early at the guard
+            // check without ever stopping the background location task.
+            // NOTE: We intentionally do NOT clear workout recovery checkpoints here so the
+            // user can still recover their workout data from the crashed session.
             if (isTaskRegistered) {
               console.log(
                 '⚠️  Background task registered from previous session - cleaning up zombie session'
               );
               try {
-                // simpleRunTracker.stopTracking() handles both background task and internal state
-                await simpleRunTracker.stopTracking();
+                // Stop the background location task directly — bypasses SimpleRunTracker's
+                // isTracking guard that would cause it to no-op after a fresh restart
+                await Location.stopLocationUpdatesAsync(SIMPLE_TRACKER_TASK);
+                console.log('✅ Zombie background location task stopped');
 
+                // Clear stale session state from AsyncStorage
+                // (recovery checkpoint is preserved for workout recovery)
                 await safeRemoveItem('@runstr:session_state', 2000);
                 await safeRemoveItem('@runstr:gps_points', 2000);
+                await safeRemoveItem('@runstr:active_metrics', 2000);
+                await safeRemoveItem('@runstr:last_gps_point', 2000);
+                await safeRemoveItem('@runstr:last_gps_time', 2000);
                 console.log('✅ Zombie session cleaned up successfully');
               } catch (cleanupError) {
                 console.warn(
@@ -1443,7 +1310,8 @@ export default function App() {
   }, [appIsReady]);
 
   if (!appIsReady) {
-    return null; // Keep showing the native splash screen
+    // Black background prevents white flash between native splash screen dismissal and app ready
+    return <View style={{ flex: 1, backgroundColor: '#000000' }} />;
   }
 
   return (
@@ -1473,7 +1341,7 @@ const errorStyles = StyleSheet.create({
     padding: 20,
   },
   title: {
-    color: '#ff4444',
+    color: '#FF6B00',
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 16,

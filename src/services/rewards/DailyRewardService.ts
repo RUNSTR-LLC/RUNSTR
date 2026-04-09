@@ -5,7 +5,7 @@
  * 1. User publishes kind 1301 workout event with reward_destination tag
  * 2. External service monitors Nostr for kind 1301 events
  * 3. External service validates workout, checks anti-cheat, reads reward_destination
- * 4. External service sends 50 sats to user or charity based on tag
+ * 4. External service sends 100 sats to user or charity based on tag
  * 5. This service only tracks rewards LOCALLY for UI display
  *
  * ARCHITECTURE (v3):
@@ -37,9 +37,11 @@ import { nip19 } from '@nostr-dev-kit/ndk';
 // DEBUG FLAG: Set to false for production (only shows debug alerts for failures)
 const DEBUG_REWARDS = false;
 
+// In-memory lock to prevent concurrent reward claims (race condition guard)
+let _rewardClaimLock = false;
+
 // Workout sources that count as "reward-eligible"
 // Includes GPS tracking, manual entry, and health app imports
-// Note: 'daily_steps' removed - step rewards come from StepRewardService (5 sats per 1k steps)
 // Note: 'imported_nostr' excluded - prevents gaming via Nostr syncs
 const REWARD_ELIGIBLE_SOURCES = [
   'gps_tracker',
@@ -48,16 +50,22 @@ const REWARD_ELIGIBLE_SOURCES = [
   'health_connect',  // Android Health Connect imports (source set by healthConnectService)
 ];
 
-// Cardio activity types that qualify for daily rewards
-// Only these workout types earn the 50 sats daily reward
-// Non-cardio activities (strength, diet, meditation) do NOT earn rewards
-const CARDIO_ACTIVITY_TYPES = ['running', 'walking', 'cycling'];
+// Activity types that qualify for daily rewards
+// Cardio, strength, and journal entries earn the daily reward
+const REWARD_ELIGIBLE_ACTIVITY_TYPES = ['running', 'walking', 'cycling', 'hiking', 'strength', 'journal'];
+
+// Cardio-only subset used for boosted subscriber rewards (1000 rewards)
+const CARDIO_ACTIVITY_TYPES = ['running', 'walking', 'cycling', 'hiking'];
 
 export interface RewardResult {
   success: boolean;
   amount?: number;
   reason?: string;
 }
+
+// Import from utility for local use, and re-export for backward compatibility
+import { isBoostedQualified as _isBoostedQualified } from '../../utils/rewardEligibility';
+export const isBoostedQualified = _isBoostedQualified;
 
 // Diagnostic entry for reward attempts
 export interface RewardDiagnosticEntry {
@@ -133,8 +141,8 @@ class DailyRewardServiceClass {
         return true;
       }
 
-      const lastRewardDate = new Date(lastRewardStr).toDateString();
-      const today = new Date().toDateString();
+      const lastRewardDate = new Date(lastRewardStr).toISOString().split('T')[0];
+      const today = new Date().toISOString().split('T')[0];
 
       // Can claim if last reward was on a different day
       return lastRewardDate !== today;
@@ -155,13 +163,11 @@ class DailyRewardServiceClass {
    * @param userPubkey - User's public key
    * @param workoutSource - The workout.source field (e.g., 'gps_tracker', 'imported_nostr')
    * @param workoutType - The workout.type field (e.g., 'running', 'strength')
-   * @param workoutId - Optional local workout id for idempotency guard
    */
   async checkStreakAndReward(
     userPubkey: string,
     workoutSource: string,
-    workoutType?: string,
-    workoutId?: string
+    workoutType?: string
   ): Promise<RewardResult> {
     // Step 1: Filter by source - only user-generated workouts
     if (!REWARD_ELIGIBLE_SOURCES.includes(workoutSource)) {
@@ -169,41 +175,39 @@ class DailyRewardServiceClass {
       return { success: false, reason: 'source_not_eligible' };
     }
 
-    // Step 1.5: Filter by activity type - only cardio workouts earn rewards
-    if (workoutType && !CARDIO_ACTIVITY_TYPES.includes(workoutType)) {
-      console.log(`[Reward] Skipping reward for ${workoutType} (not cardio activity)`);
+    // Step 1.5: Filter by activity type - only eligible types earn rewards
+    if (workoutType && !REWARD_ELIGIBLE_ACTIVITY_TYPES.includes(workoutType)) {
+      console.log(`[Reward] Skipping reward for ${workoutType} (not reward-eligible activity)`);
       return { success: false, reason: 'activity_type_not_eligible' };
     }
 
-    // Step 2: Workout idempotency guard (same workout should never trigger twice)
-    if (workoutId) {
-      const workoutRewardKey = `@runstr:reward_processed_workout:${userPubkey}:${workoutId}`;
-      const alreadyProcessed = await AsyncStorage.getItem(workoutRewardKey);
-      if (alreadyProcessed) {
-        console.log(`[Reward] Workout ${workoutId} already processed, skipping reward`);
-        return { success: false, reason: 'workout_already_processed' };
-      }
-      // Mark before downstream checks to avoid duplicate triggers in concurrent save paths
-      await AsyncStorage.setItem(workoutRewardKey, new Date().toISOString());
-    }
-
-    // Step 3: Atomic streak check - only first workout of the day PER USER
+    // Step 2: Atomic streak check - only first workout of the day PER USER
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     const streakKey = `@runstr:streak_incremented_today:${today}:${userPubkey}`;
 
     // Rate limit: Only one reward per day per user
-    const alreadyIncremented = await AsyncStorage.getItem(streakKey);
-    if (alreadyIncremented) {
-      console.log('[Reward] Streak already incremented today, skipping reward');
-      return { success: false, reason: 'streak_already_incremented' };
+    // Use in-memory lock to prevent concurrent execution (race condition guard)
+    if (_rewardClaimLock) {
+      console.log('[Reward] Reward claim already in progress, skipping');
+      return { success: false, reason: 'reward_claim_in_progress' };
     }
+    _rewardClaimLock = true;
+    try {
+      const alreadyIncremented = await AsyncStorage.getItem(streakKey);
+      if (alreadyIncremented) {
+        console.log('[Reward] Streak already incremented today, skipping reward');
+        return { success: false, reason: 'streak_already_incremented' };
+      }
 
-    // Step 4: Mark streak as incremented BEFORE sending reward (prevents race condition)
-    await AsyncStorage.setItem(streakKey, new Date().toISOString());
-    console.log('[Reward] Streak incremented! Triggering daily reward...');
+      // Step 3: Mark streak as incremented BEFORE sending reward (prevents race condition)
+      await AsyncStorage.setItem(streakKey, new Date().toISOString());
+      console.log('[Reward] Streak incremented! Triggering daily reward...');
 
-    // Step 5: Send the reward
-    return this.sendReward(userPubkey);
+      // Step 4: Send the reward
+      return this.sendReward(userPubkey);
+    } finally {
+      _rewardClaimLock = false;
+    }
   }
 
   /**
@@ -369,7 +373,7 @@ class DailyRewardServiceClass {
   // The external service:
   // - Monitors Nostr relays for new kind 1301 events
   // - Reads reward_destination, lightning, and charity tags
-  // - Sends 50 sats to appropriate destination (user or charity)
+  // - Sends 100 sats to appropriate destination (user or charity)
   // - Handles anti-cheat validation, deduplication, and fraud detection
 
   /**
@@ -459,7 +463,7 @@ class DailyRewardServiceClass {
    *
    * v3 ARCHITECTURE:
    * - External service reads reward_destination tag from kind 1301 events
-   * - External service sends 50 sats to user or charity based on tag
+   * - External service sends 100 sats to user or charity based on tag
    * - This method ONLY tracks locally for UI display
    *
    * SILENT OPERATION:
@@ -510,9 +514,9 @@ class DailyRewardServiceClass {
       }
       // ===== END PLEDGE CHECK =====
 
+      let totalAmount: number = REWARD_CONFIG.DAILY_WORKOUT_REWARD; // Default 100 sats
+
       // ===== EINUNDZWANZIG DOUBLE REWARDS =====
-      // If user is in Einundzwanzig event and it's active, double the reward
-      let totalAmount: number = REWARD_CONFIG.DAILY_WORKOUT_REWARD; // Default 50 sats
       if (isEinundzwanzigActive()) {
         const isInEinundzwanzig = await EinundzwanzigService.hasJoined(userPubkey);
         if (isInEinundzwanzig) {
@@ -603,9 +607,9 @@ class DailyRewardServiceClass {
       }
     }
 
-    // Only cardio activities earn daily rewards
-    if (!CARDIO_ACTIVITY_TYPES.includes(workoutType)) {
-      console.log(`[Reward] Skipping reward for ${workoutType} (not cardio activity)`);
+    // Only eligible activity types earn daily rewards
+    if (!REWARD_ELIGIBLE_ACTIVITY_TYPES.includes(workoutType)) {
+      console.log(`[Reward] Skipping reward for ${workoutType} (not reward-eligible activity)`);
       return { success: false, reason: 'activity_type_not_eligible' };
     }
 
@@ -615,7 +619,7 @@ class DailyRewardServiceClass {
       tagsCount: workoutTags.length,
     });
 
-    // Calculate reward amount (50 sats base, 100 sats for Einundzwanzig bonus)
+    // Calculate reward amount (100 sats base, boosted for subscribers)
     const rewardAmount = await this.getRewardAmount(userPubkey, workoutTags);
     console.log(`[Reward] Calculated reward amount: ${rewardAmount} sats`);
 
@@ -625,13 +629,13 @@ class DailyRewardServiceClass {
 
   /**
    * Get the reward amount based on event bonuses
-   * Returns 100 sats for Einundzwanzig participants with featured team tags
+   * Priority: Einundzwanzig bonus (100) > base (100)
    */
   private async getRewardAmount(
     userPubkey: string,
     workoutTags: string[][]
   ): Promise<number> {
-    const baseReward = REWARD_CONFIG.DAILY_WORKOUT_REWARD; // 50 sats
+    const baseReward = REWARD_CONFIG.DAILY_WORKOUT_REWARD;
 
     // Check for Einundzwanzig double rewards bonus
     const hasEinundzwanzigBonus = await this.checkEinundzwanzigBonus(
@@ -645,6 +649,42 @@ class DailyRewardServiceClass {
     }
 
     return baseReward;
+  }
+
+  /**
+   * Get the number of boosted rewards claimed this week
+   */
+  private async getWeeklyBoostCount(): Promise<number> {
+    try {
+      const weekStart = await AsyncStorage.getItem(REWARD_STORAGE_KEYS.BOOSTED_WEEK_START);
+      const now = new Date();
+      const currentWeekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+      const currentWeekKey = currentWeekStart.toISOString().split('T')[0];
+
+      if (weekStart !== currentWeekKey) {
+        // New week — reset counter
+        await AsyncStorage.setItem(REWARD_STORAGE_KEYS.BOOSTED_WEEK_START, currentWeekKey);
+        await AsyncStorage.setItem(REWARD_STORAGE_KEYS.BOOSTED_COUNT_THIS_WEEK, '0');
+        return 0;
+      }
+
+      const count = await AsyncStorage.getItem(REWARD_STORAGE_KEYS.BOOSTED_COUNT_THIS_WEEK);
+      return parseInt(count || '0', 10);
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
+   * Increment the weekly boost counter
+   */
+  private async incrementWeeklyBoostCount(): Promise<void> {
+    try {
+      const count = await this.getWeeklyBoostCount();
+      await AsyncStorage.setItem(REWARD_STORAGE_KEYS.BOOSTED_COUNT_THIS_WEEK, String(count + 1));
+    } catch {
+      // Silent failure — don't block reward
+    }
   }
 
   /**

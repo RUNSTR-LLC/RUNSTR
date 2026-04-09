@@ -291,7 +291,7 @@ export const LeaderboardShareModal: React.FC<LeaderboardShareModalProps> = ({
               {loading ? (
                 <ActivityIndicator
                   size="small"
-                  color={theme.colors.accentText}
+                  color={theme.colors.background}
                 />
               ) : (
                 <Text style={styles.shareButtonText}>Share to Nostr</Text>
@@ -436,7 +436,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   shareButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: 12,
@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   shareButtonText: {
-    color: theme.colors.accentText,
+    color: theme.colors.background,
     fontSize: 16,
     fontWeight: '600',
   },

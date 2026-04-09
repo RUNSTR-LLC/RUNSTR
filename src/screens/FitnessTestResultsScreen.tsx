@@ -82,9 +82,9 @@ export const FitnessTestResultsScreen: React.FC = () => {
           grade: testResult.grade,
           duration: testResult.testDuration,
           components: {
-            pushups: testResult.pushups,
-            situps: testResult.situps,
-            run5k: testResult.run,
+            pushups: testResult.pushups as { reps: number; score: number; } | null,
+            situps: testResult.situps as { reps: number; score: number; } | null,
+            run5k: testResult.run as { timeSeconds: number; score: number; } | null,
           },
         });
 
@@ -92,7 +92,7 @@ export const FitnessTestResultsScreen: React.FC = () => {
         console.log('📤 Publishing fitness test card to Nostr...');
         const publishingService = WorkoutPublishingService;
 
-        const eventId = await publishingService.uploadCardAndPublish(
+        const eventId = await (publishingService as any).uploadCardAndPublish(
           cardData.svgContent,
           `RUNSTR Fitness Test - ${testResult.compositeScore}/300 (${testResult.grade})`,
           {
@@ -124,9 +124,7 @@ export const FitnessTestResultsScreen: React.FC = () => {
   };
 
   const handleViewHistory = () => {
-    // Fitness test history is surfaced within WorkoutHistory for now.
-    // Use root stack route instead of a no-op so users can actually access history.
-    (navigation as any).navigate('WorkoutHistory');
+    // TODO: Navigate to test history screen
   };
 
   const formatTime = (seconds: number): string => {
@@ -308,7 +306,7 @@ export const FitnessTestResultsScreen: React.FC = () => {
               color={
                 testResult.kind1301EventId
                   ? theme.colors.success
-                  : theme.colors.accentText
+                  : theme.colors.background
               }
             />
             <Text
@@ -340,7 +338,7 @@ export const FitnessTestResultsScreen: React.FC = () => {
               color={
                 testResult.kind1EventId
                   ? theme.colors.success
-                  : theme.colors.accentText
+                  : theme.colors.background
               }
             />
             <Text
@@ -584,12 +582,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
     paddingVertical: 14,
     borderRadius: theme.borderRadius.small,
   },
   shareButton: {
-    backgroundColor: theme.colors.accent,
+    backgroundColor: theme.colors.text,
   },
   publishedButton: {
     backgroundColor: 'transparent',
@@ -599,7 +597,7 @@ const styles = StyleSheet.create({
   publishButtonText: {
     fontSize: 15,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.accentText,
+    color: theme.colors.background,
   },
   publishedButtonText: {
     color: theme.colors.textSecondary,

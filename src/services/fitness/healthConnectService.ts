@@ -6,10 +6,11 @@
 
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { WorkoutData, WorkoutType } from '../../types/workout';
+import type { WorkoutType } from '../../types/workout';
 import { inferActivityTypeSimple } from '../../utils/activityInference';
 import { SubmittedIdStore } from '../../utils/SubmittedIdStore';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
+import { buildRewardTags } from '../../utils/rewardTags';
 
 // Environment-based logging utility
 const isDevelopment = __DEV__;
@@ -524,9 +525,12 @@ export class HealthConnectService {
       let avgHeartRate = 0;
       let maxHeartRate = 0;
 
-      // Fetch distance for this session
+      // Fetch distance for this session using aggregateRecord to avoid double-counting
+      // Per Android docs: "For cumulative types, use aggregate() instead of readRecords()
+      // to avoid double counting from multiple sources"
       try {
-        const distanceRecords = await HealthConnect.readRecords('Distance', {
+        const distanceResult = await HealthConnect.aggregateRecord({
+          recordType: 'Distance',
           timeRangeFilter: {
             operator: 'between',
             startTime: session.startTime,
@@ -534,16 +538,15 @@ export class HealthConnectService {
           },
         });
 
-        for (const record of distanceRecords?.records || []) {
-          totalDistance += record.distance?.inMeters || 0;
-        }
+        totalDistance = distanceResult?.DISTANCE_TOTAL?.inMeters || 0;
       } catch (e) {
         debugLog('Health Connect: Could not fetch distance:', e);
       }
 
-      // Fetch calories for this session
+      // Fetch calories for this session using aggregateRecord to avoid double-counting
       try {
-        const caloriesRecords = await HealthConnect.readRecords('ActiveCaloriesBurned', {
+        const caloriesResult = await HealthConnect.aggregateRecord({
+          recordType: 'ActiveCaloriesBurned',
           timeRangeFilter: {
             operator: 'between',
             startTime: session.startTime,
@@ -551,16 +554,15 @@ export class HealthConnectService {
           },
         });
 
-        for (const record of caloriesRecords?.records || []) {
-          totalCalories += record.energy?.inKilocalories || 0;
-        }
+        totalCalories = caloriesResult?.ENERGY_TOTAL?.inKilocalories || 0;
       } catch (e) {
         debugLog('Health Connect: Could not fetch calories:', e);
       }
 
-      // Fetch steps for this session
+      // Fetch steps for this session using aggregateRecord to avoid double-counting
       try {
-        const stepsRecords = await HealthConnect.readRecords('Steps', {
+        const stepsResult = await HealthConnect.aggregateRecord({
+          recordType: 'Steps',
           timeRangeFilter: {
             operator: 'between',
             startTime: session.startTime,
@@ -568,9 +570,7 @@ export class HealthConnectService {
           },
         });
 
-        for (const record of stepsRecords?.records || []) {
-          steps += record.count || 0;
-        }
+        steps = stepsResult?.COUNT_TOTAL || 0;
       } catch (e) {
         debugLog('Health Connect: Could not fetch steps:', e);
       }
@@ -805,10 +805,16 @@ export class HealthConnectService {
       return true;
     });
 
+    // Build reward tags once for all workouts (lightning, team, charity, reward_destination)
+    const rewardTags = await buildRewardTags();
+
+    // Fetch cached profile for leaderboard display (name/picture)
+    const profile = await this.getCachedProfile();
+
     for (const w of newCardio) {
       try {
         const eventId = `hc_${w.id}`;
-        await SupabaseCompetitionService.submitWorkoutSimple({
+        const result = await SupabaseCompetitionService.submitWorkoutSimple({
           eventId,
           npub,
           type: w.activityType || 'running',
@@ -816,10 +822,35 @@ export class HealthConnectService {
           duration: w.duration,
           calories: w.totalEnergyBurned,
           startTime: w.startTime,
+          tags: [...rewardTags],
+          profileName: profile.name,
+          profilePicture: profile.picture,
         });
+
+        if (!result.success) {
+          // Permanent rejections (anti-cheat flagged): mark as submitted to avoid infinite retries
+          if (result.flagged) {
+            submittedIds.add(w.id);
+            console.warn(`[HealthConnect] Workout flagged by anti-cheat, skipping: ${eventId} - ${result.error}`);
+          } else {
+            // Transient failure (network, timeout): leave unmarked so next sync retries
+            console.warn(`[HealthConnect] Submission failed (will retry): ${eventId} - ${result.error}`);
+          }
+          continue;
+        }
 
         submittedIds.add(w.id);
         debugLog(`[HealthConnect] Auto-submitted ${w.activityType} workout to Supabase: ${eventId}`);
+
+        // Auto-join RUNSTR competitions for this workout (fire-and-forget)
+        import('../competition/AutoJoinService').then(({ AutoJoinService }) => {
+          AutoJoinService.checkAndAutoJoin(
+            npub,
+            w.activityType || 'running',
+            new Date(w.startTime),
+            profile
+          ).catch(() => {});
+        }).catch(() => {});
       } catch (err) {
         console.warn(`[HealthConnect] Failed to submit workout ${w.id}:`, err);
       }
@@ -830,6 +861,26 @@ export class HealthConnectService {
     } catch (error) {
       console.warn('[HealthConnect] Failed to save submitted workout IDs:', error);
     }
+  }
+
+  /**
+   * Get cached profile data for leaderboard display.
+   */
+  private async getCachedProfile(): Promise<{ name?: string; picture?: string }> {
+    try {
+      const profilesJson = await AsyncStorage.getItem('@runstr:nostr_profiles');
+      if (profilesJson) {
+        const profiles = JSON.parse(profilesJson);
+        const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+        if (hexPubkey && profiles[hexPubkey]) {
+          return {
+            name: profiles[hexPubkey].name || profiles[hexPubkey].displayName,
+            picture: profiles[hexPubkey].picture,
+          };
+        }
+      }
+    } catch { /* non-critical */ }
+    return {};
   }
 
   /**

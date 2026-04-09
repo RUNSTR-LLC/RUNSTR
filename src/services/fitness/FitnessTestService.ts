@@ -312,9 +312,9 @@ export class FitnessTestService {
         duration: result.testDuration,
         score: result.compositeScore,
         grade: result.grade,
-        pushups: result.pushups,
-        situps: result.situps,
-        run5k: result.run,
+        pushups: result.pushups as { reps: number; score: number; } | null,
+        situps: result.situps as { reps: number; score: number; } | null,
+        run5k: result.run as { timeSeconds: number; score: number; } | null,
       });
 
       console.log(`✅ Test saved as workout in Local history: ${result.id}`);

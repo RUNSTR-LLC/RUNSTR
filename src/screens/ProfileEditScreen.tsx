@@ -13,7 +13,6 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   ActivityIndicator,
   Image,
 } from 'react-native';
@@ -23,6 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { theme } from '../styles/theme';
+import { CustomAlert } from '../components/ui/CustomAlert';
 import {
   nostrProfilePublisher,
   type EditableProfile,
@@ -49,6 +49,9 @@ export const ProfileEditScreen: React.FC = () => {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [hasChanges, setHasChanges] = useState(false);
   const [originalProfile, setOriginalProfile] = useState<EditableProfile>({});
+  const [alertConfig, setAlertConfig] = useState<{visible: boolean; title: string; message: string; buttons: any[]}>({
+    visible: false, title: '', message: '', buttons: []
+  });
 
   // Load current profile data on mount and when screen comes into focus
   useFocusEffect(
@@ -150,7 +153,12 @@ export const ProfileEditScreen: React.FC = () => {
 
   const handleSave = async () => {
     if (!validateForm()) {
-      Alert.alert('Validation Error', 'Please fix the errors before saving');
+      setAlertConfig({
+        visible: true,
+        title: 'Validation Error',
+        message: 'Please fix the errors before saving',
+        buttons: [{ text: 'OK', onPress: () => setAlertConfig(prev => ({...prev, visible: false})) }]
+      });
       return;
     }
 
@@ -161,13 +169,15 @@ export const ProfileEditScreen: React.FC = () => {
       if (result.success) {
         await clearDraft();
 
-        Alert.alert(
-          'Success',
-          `Profile updated successfully! Published to ${result.publishedToRelays} relays.`,
-          [
+        setAlertConfig({
+          visible: true,
+          title: 'Success',
+          message: `Profile updated successfully! Published to ${result.publishedToRelays} relays.`,
+          buttons: [
             {
               text: 'OK',
               onPress: () => {
+                setAlertConfig(prev => ({...prev, visible: false}));
                 // Wait for alert dismiss animation before navigating
                 setTimeout(() => {
                   navigation.goBack();
@@ -175,13 +185,23 @@ export const ProfileEditScreen: React.FC = () => {
               },
             },
           ]
-        );
+        });
       } else {
-        Alert.alert('Error', result.error || 'Failed to update profile');
+        setAlertConfig({
+          visible: true,
+          title: 'Error',
+          message: result.error || 'Failed to update profile',
+          buttons: [{ text: 'OK', onPress: () => setAlertConfig(prev => ({...prev, visible: false})) }]
+        });
       }
     } catch (error) {
       console.error('Error saving profile:', error);
-      Alert.alert('Error', 'An unexpected error occurred while saving');
+      setAlertConfig({
+        visible: true,
+        title: 'Error',
+        message: 'An unexpected error occurred while saving',
+        buttons: [{ text: 'OK', onPress: () => setAlertConfig(prev => ({...prev, visible: false})) }]
+      });
     } finally {
       setIsSaving(false);
     }
@@ -189,21 +209,23 @@ export const ProfileEditScreen: React.FC = () => {
 
   const handleCancel = () => {
     if (hasChanges) {
-      Alert.alert(
-        'Discard Changes?',
-        'You have unsaved changes. Do you want to discard them?',
-        [
-          { text: 'Keep Editing', style: 'cancel' },
+      setAlertConfig({
+        visible: true,
+        title: 'Discard Changes?',
+        message: 'You have unsaved changes. Do you want to discard them?',
+        buttons: [
+          { text: 'Keep Editing', style: 'cancel', onPress: () => setAlertConfig(prev => ({...prev, visible: false})) },
           {
             text: 'Discard',
             style: 'destructive',
             onPress: () => {
+              setAlertConfig(prev => ({...prev, visible: false}));
               clearDraft();
               navigation.goBack();
             },
           },
         ]
-      );
+      });
     } else {
       navigation.goBack();
     }
@@ -384,6 +406,14 @@ export const ProfileEditScreen: React.FC = () => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onClose={() => setAlertConfig(prev => ({...prev, visible: false}))}
+      />
     </SafeAreaView>
   );
 };
@@ -483,7 +513,7 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   error: {
-    color: theme.colors.error,
+    color: theme.colors.error || '#FF6B00',
     fontSize: 12,
     marginTop: 4,
   },

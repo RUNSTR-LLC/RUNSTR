@@ -26,8 +26,23 @@ import {
   EnergyLevel,
 } from '../../types/journal';
 import { JournalService } from '../../services/journal/JournalService';
+import { SupabaseCompetitionService } from '../../services/backend/SupabaseCompetitionService';
+import { buildRewardTags } from '../../utils/rewardTags';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MoodSelector } from './MoodSelector';
 import { EnergySelector } from './EnergySelector';
+
+// Lazy-load VoiceRecordButton — wrapped in try/catch because
+// expo-speech-recognition requires a native rebuild (expo prebuild --clean).
+// If the native module isn't linked yet, we gracefully hide the button.
+let VoiceRecordButton: React.ComponentType<{ onTranscriptionComplete: (text: string) => void; disabled?: boolean }> | null = null;
+if (Platform.OS === 'ios') {
+  try {
+    VoiceRecordButton = require('./VoiceRecordButton').VoiceRecordButton;
+  } catch {
+    // Native module not available — needs expo prebuild --clean
+  }
+}
 
 interface JournalEditorModalProps {
   visible: boolean;
@@ -79,6 +94,15 @@ export const JournalEditorModal: React.FC<JournalEditorModalProps> = ({
     setTags((prev) => prev.filter((t) => t !== tagToRemove));
   }, []);
 
+  const handleTranscription = useCallback((text: string) => {
+    setContent((prev) => {
+      if (prev.trim()) {
+        return prev.trimEnd() + '\n\n' + text;
+      }
+      return text;
+    });
+  }, []);
+
   const handleSave = useCallback(async () => {
     if (!content.trim()) {
       Alert.alert('Empty Entry', 'Please write something in your journal.');
@@ -106,6 +130,35 @@ export const JournalEditorModal: React.FC<JournalEditorModalProps> = ({
       }
 
       onSave(savedEntry);
+
+      // Fire-and-forget: submit new journal entries to Supabase to trigger reward
+      if (!isEditing) {
+        (async () => {
+          try {
+            const npub = await AsyncStorage.getItem('@runstr:npub');
+            if (!npub) return;
+            const rewardTags = await buildRewardTags();
+            rewardTags.push(['exercise', 'journal']);
+            const profileName = await AsyncStorage.getItem('@runstr:profile_name');
+            const profilePicture = await AsyncStorage.getItem('@runstr:profile_picture');
+            await SupabaseCompetitionService.submitWorkoutSimple({
+              eventId: `journal_${savedEntry.id}`,
+              npub,
+              type: 'journal',
+              distance: 0,
+              duration: 0,
+              startTime: new Date().toISOString(),
+              tags: rewardTags,
+              profileName: profileName || undefined,
+              profilePicture: profilePicture || undefined,
+            });
+            console.log('[JournalEditor] Journal submitted to Supabase for reward');
+          } catch (err) {
+            console.warn('[JournalEditor] Failed to submit journal for reward:', err);
+          }
+        })();
+      }
+
       onClose();
     } catch (error) {
       console.error('[JournalEditor] Save error:', error);
@@ -226,6 +279,14 @@ export const JournalEditorModal: React.FC<JournalEditorModalProps> = ({
                 autoFocus={!entry}
               />
             </View>
+
+            {/* Voice Recording (iOS only — Android SpeechRecognizer sends audio to Google) */}
+            {VoiceRecordButton && (
+              <VoiceRecordButton
+                onTranscriptionComplete={handleTranscription}
+                disabled={isSaving}
+              />
+            )}
 
             {/* Tags */}
             <View style={styles.tagsSection}>
