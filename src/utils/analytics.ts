@@ -3,6 +3,8 @@
  * Tracks user behavior, team selection, and key conversion events
  */
 
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 import { DiscoveryTeam, Team } from '../types';
 
 // Analytics event types
@@ -82,6 +84,12 @@ class Analytics {
   private isEnabled: boolean = true;
   private userId?: string;
   private sessionId: string;
+  private readonly anonymousAllowedEvents = new Set<AnalyticsEvent>([
+    'onboarding_started',
+    'onboarding_step_completed',
+    'onboarding_abandoned',
+    'onboarding_skipped',
+  ]);
 
   constructor() {
     this.sessionId = this.generateSessionId();
@@ -90,6 +98,15 @@ class Analytics {
 
   // Initialize analytics with user context
   initialize(userId: string) {
+    if (!userId) {
+      console.warn('[Analytics] initialize called without userId');
+      return;
+    }
+
+    if (this.userId === userId) {
+      return;
+    }
+
     this.userId = userId;
     console.log('Analytics initialized for user:', userId);
   }
@@ -110,21 +127,53 @@ class Analytics {
       userId: this.userId,
       timestamp: new Date().toISOString(),
       sessionId: this.sessionId,
-      platform: 'ios', // TODO: Get from Platform.OS
-      appVersion: '1.0.0', // TODO: Get from package.json or config
+      platform: Platform.OS === 'android' ? 'android' : 'ios',
+      appVersion: Constants.expoConfig?.version || 'unknown',
     };
+  }
+
+  private sanitizeAnalyticsValue(value: unknown): unknown {
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : null;
+    }
+
+    if (Array.isArray(value)) {
+      return value.map((item) => this.sanitizeAnalyticsValue(item));
+    }
+
+    if (value && typeof value === 'object') {
+      const sanitizedEntries = Object.entries(value).map(([key, nestedValue]) => [
+        key,
+        this.sanitizeAnalyticsValue(nestedValue),
+      ]);
+      return Object.fromEntries(sanitizedEntries);
+    }
+
+    return value;
   }
 
   // Track generic event
   track(event: AnalyticsEvent, properties?: Record<string, any>) {
     if (!this.isEnabled) return;
 
+    if (!this.userId && !this.anonymousAllowedEvents.has(event)) {
+      console.warn(
+        `[Analytics] Skipping ${event}: analytics.initialize(userId) has not been called yet`
+      );
+      return;
+    }
+
+    const mergedProperties = {
+      ...this.getBaseProperties(),
+      ...properties,
+    };
+
     const eventData = {
       event,
-      properties: {
-        ...this.getBaseProperties(),
-        ...properties,
-      },
+      properties: this.sanitizeAnalyticsValue(mergedProperties) as Record<
+        string,
+        unknown
+      >,
     };
 
     // Log to console in development
@@ -264,6 +313,18 @@ class Analytics {
     });
   }
 
+  private getSafeConversionRate(
+    viewedTeamsCount: number,
+    selectedTeamsCount: number
+  ): number | null {
+    if (viewedTeamsCount <= 0) {
+      return null;
+    }
+
+    const conversionRate = selectedTeamsCount / viewedTeamsCount;
+    return Number.isFinite(conversionRate) ? conversionRate : null;
+  }
+
   // Conversion funnel tracking
   trackTeamDiscoveryConversion(
     viewedTeamsCount: number,
@@ -277,7 +338,10 @@ class Analytics {
       conversionTime,
       joinedTeamId: joinedTeam.id,
       joinedTeamName: joinedTeam.name,
-      conversionRate: selectedTeamsCount / viewedTeamsCount,
+      conversionRate: this.getSafeConversionRate(
+        viewedTeamsCount,
+        selectedTeamsCount
+      ),
     });
   }
 

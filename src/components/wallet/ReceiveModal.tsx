@@ -44,6 +44,7 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
   const [hasNWC, setHasNWC] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const checkIntervalRef = React.useRef<NodeJS.Timeout>();
+  const stopCheckingTimeoutRef = React.useRef<NodeJS.Timeout>();
 
   // Check NWC availability when modal opens
   useEffect(() => {
@@ -53,6 +54,11 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
     return () => {
       if (checkIntervalRef.current) {
         clearInterval(checkIntervalRef.current);
+        checkIntervalRef.current = undefined;
+      }
+      if (stopCheckingTimeoutRef.current) {
+        clearTimeout(stopCheckingTimeoutRef.current);
+        stopCheckingTimeoutRef.current = undefined;
       }
     };
   }, [visible]);
@@ -91,11 +97,27 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
 
       // Start polling for payment using NWC lookupInvoice
       setIsCheckingPayment(true);
+
+      if (checkIntervalRef.current) {
+        clearInterval(checkIntervalRef.current);
+      }
+      if (stopCheckingTimeoutRef.current) {
+        clearTimeout(stopCheckingTimeoutRef.current);
+      }
+
       checkIntervalRef.current = setInterval(async () => {
         try {
           const lookupResult = await NWCWalletService.lookupInvoice(result.invoice!);
           if (lookupResult.success && lookupResult.paid) {
-            clearInterval(checkIntervalRef.current!);
+            if (checkIntervalRef.current) {
+              clearInterval(checkIntervalRef.current);
+              checkIntervalRef.current = undefined;
+            }
+            if (stopCheckingTimeoutRef.current) {
+              clearTimeout(stopCheckingTimeoutRef.current);
+              stopCheckingTimeoutRef.current = undefined;
+            }
+
             setIsCheckingPayment(false);
             Alert.alert(
               'Payment Received!',
@@ -109,11 +131,13 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
       }, 3000);
 
       // Stop checking after 10 minutes
-      setTimeout(() => {
+      stopCheckingTimeoutRef.current = setTimeout(() => {
         if (checkIntervalRef.current) {
           clearInterval(checkIntervalRef.current);
-          setIsCheckingPayment(false);
+          checkIntervalRef.current = undefined;
         }
+        setIsCheckingPayment(false);
+        stopCheckingTimeoutRef.current = undefined;
       }, 600000);
     } catch (error) {
       console.error('Generate invoice error:', error);
@@ -157,9 +181,16 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
     setInvoice('');
     setPaymentHash('');
     setIsCheckingPayment(false);
+
     if (checkIntervalRef.current) {
       clearInterval(checkIntervalRef.current);
+      checkIntervalRef.current = undefined;
     }
+    if (stopCheckingTimeoutRef.current) {
+      clearTimeout(stopCheckingTimeoutRef.current);
+      stopCheckingTimeoutRef.current = undefined;
+    }
+
     onClose();
   };
 
@@ -281,6 +312,11 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
                   setAmount('');
                   if (checkIntervalRef.current) {
                     clearInterval(checkIntervalRef.current);
+                    checkIntervalRef.current = undefined;
+                  }
+                  if (stopCheckingTimeoutRef.current) {
+                    clearTimeout(stopCheckingTimeoutRef.current);
+                    stopCheckingTimeoutRef.current = undefined;
                   }
                   setIsCheckingPayment(false);
                 }}

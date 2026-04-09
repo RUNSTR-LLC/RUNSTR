@@ -94,13 +94,57 @@ export class ActivityGridService {
    * Get current category and activity from grid position
    */
   getActivityAt(position: GridPosition): { category: CategoryRow; activity: string } {
-    const row = Math.max(0, Math.min(position.row, ACTIVITY_GRID.length - 1));
+    const safePosition = this.isPositionValid(position)
+      ? position
+      : { row: 0, column: 0 };
+    const row = Math.max(0, Math.min(safePosition.row, ACTIVITY_GRID.length - 1));
     const category = ACTIVITY_GRID[row];
-    const column = Math.max(0, Math.min(position.column, category.activities.length - 1));
+    const column = Math.max(0, Math.min(safePosition.column, category.activities.length - 1));
     return {
       category,
       activity: category.activities[column],
     };
+  }
+
+  /**
+   * Resolve an activity key to its grid coordinates
+   */
+  getPositionForActivity(activity: string): GridPosition | null {
+    if (typeof activity !== 'string') {
+      return null;
+    }
+    for (let row = 0; row < ACTIVITY_GRID.length; row++) {
+      const column = ACTIVITY_GRID[row].activities.indexOf(activity);
+      if (column !== -1) {
+        return { row, column };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Validate whether a grid position exists within the current activity matrix
+   */
+  isPositionValid(position: unknown): position is GridPosition {
+    if (!position || typeof position !== 'object') {
+      return false;
+    }
+    const candidate = position as Partial<GridPosition>;
+    if (
+      typeof candidate.row !== 'number' ||
+      typeof candidate.column !== 'number' ||
+      !Number.isInteger(candidate.row) ||
+      !Number.isInteger(candidate.column)
+    ) {
+      return false;
+    }
+
+    const inRowBounds = candidate.row >= 0 && candidate.row < ACTIVITY_GRID.length;
+    if (!inRowBounds) {
+      return false;
+    }
+    const rowActivities = ACTIVITY_GRID[candidate.row].activities;
+    return candidate.column >= 0 && candidate.column < rowActivities.length;
   }
 
   /**
@@ -114,18 +158,27 @@ export class ActivityGridService {
    * Navigate left (next activity in row, with wrap)
    */
   navigateLeft(position: GridPosition): GridPosition {
-    const category = ACTIVITY_GRID[position.row];
-    const newColumn = (position.column + 1) % category.activities.length;
-    return { row: position.row, column: newColumn };
+    const safePosition = this.isPositionValid(position)
+      ? position
+      : { row: 0, column: 0 };
+    const { row, column } = safePosition;
+    const category = ACTIVITY_GRID[row];
+    const newColumn = (column + 1) % category.activities.length;
+    return { row, column: newColumn };
   }
 
   /**
    * Navigate right (previous activity in row, with wrap)
    */
   navigateRight(position: GridPosition): GridPosition {
-    const category = ACTIVITY_GRID[position.row];
-    const newColumn = (position.column - 1 + category.activities.length) % category.activities.length;
-    return { row: position.row, column: newColumn };
+    const safePosition = this.isPositionValid(position)
+      ? position
+      : { row: 0, column: 0 };
+    const { row, column } = safePosition;
+    const category = ACTIVITY_GRID[row];
+    const newColumn =
+      (column - 1 + category.activities.length) % category.activities.length;
+    return { row, column: newColumn };
   }
 
   /**
@@ -133,6 +186,9 @@ export class ActivityGridService {
    * Returns null if already at bottom category
    */
   navigateUp(position: GridPosition): GridPosition | null {
+    if (!this.isPositionValid(position)) {
+      return { row: 0, column: 0 };
+    }
     if (position.row >= ACTIVITY_GRID.length - 1) {
       return null; // Already at bottom category (Wellness)
     }
@@ -144,6 +200,9 @@ export class ActivityGridService {
    * Returns null if already at top category
    */
   navigateDown(position: GridPosition): GridPosition | null {
+    if (!this.isPositionValid(position)) {
+      return { row: 0, column: 0 };
+    }
     if (position.row <= 0) {
       return null; // Already at top category (Cardio)
     }
@@ -171,18 +230,9 @@ export class ActivityGridService {
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
       if (stored) {
         const position = JSON.parse(stored) as GridPosition;
-        // Validate position is within bounds
-        if (
-          typeof position.row === 'number' &&
-          typeof position.column === 'number' &&
-          position.row >= 0 &&
-          position.row < ACTIVITY_GRID.length
-        ) {
-          const category = ACTIVITY_GRID[position.row];
-          if (position.column >= 0 && position.column < category.activities.length) {
-            console.log('[ActivityGridService] Loaded position:', position);
-            return position;
-          }
+        if (this.isPositionValid(position)) {
+          console.log('[ActivityGridService] Loaded position:', position);
+          return position;
         }
       }
     } catch (error) {

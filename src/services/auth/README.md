@@ -16,8 +16,8 @@ Authentication services, secure key storage, and signing providers for RUNSTR us
 
 ### amber/
 
-- **AmberNDKSigner.ts** - NDK Signer implementation that delegates all signing to the Amber app on Android. Private keys never leave Amber.
-- **__tests__/AmberNDKSigner.test.ts** - Unit tests for the AmberNDKSigner.
+- **amber/AmberNDKSigner.ts** - NDK Signer implementation that delegates all signing to the Amber app on Android. Private keys never leave Amber.
+- **amber/__tests__/AmberNDKSigner.test.ts** - Unit tests for the AmberNDKSigner.
 
 ### providers/
 

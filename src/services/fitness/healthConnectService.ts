@@ -8,6 +8,7 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { WorkoutType } from '../../types/workout';
 import { inferActivityTypeSimple } from '../../utils/activityInference';
+import { SubmittedIdStore } from '../../utils/SubmittedIdStore';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
 import { buildRewardTags } from '../../utils/rewardTags';
 
@@ -22,8 +23,10 @@ const errorLog = (message: string, ...args: any[]) => {
   console.error(message, ...args);
 };
 
-const SUBMITTED_IDS_KEY = '@healthconnect:submitted_workout_ids';
-const MAX_SUBMITTED_IDS = 500;
+const submittedIdStore = new SubmittedIdStore({
+  storageKey: '@healthconnect:submitted_workout_ids',
+  maxIds: 500,
+});
 
 // Import react-native-health-connect for Android only
 let HealthConnect: any = null;
@@ -761,18 +764,6 @@ export class HealthConnectService {
     try {
       const cacheKey = 'healthconnect_workouts_cache';
 
-      // Identify new workouts by comparing with previous cache
-      const previousCache = await AsyncStorage.getItem(cacheKey);
-      const previousIds = new Set<string>();
-      if (previousCache) {
-        try {
-          const parsed = JSON.parse(previousCache);
-          (parsed.workouts || []).forEach((w: HealthConnectWorkout) => {
-            previousIds.add(w.id || '');
-          });
-        } catch { /* ignore parse errors */ }
-      }
-
       const cacheData = {
         workouts,
         timestamp: Date.now(),
@@ -784,7 +775,7 @@ export class HealthConnectService {
       debugLog(`Health Connect: Cached ${workouts.length} workouts`);
 
       // Auto-submit new cardio workouts to Supabase (fire-and-forget)
-      this.submitNewWorkoutsToSupabase(workouts, previousIds).catch((err) => {
+      this.submitNewWorkoutsToSupabase(workouts).catch((err) => {
         console.warn('[HealthConnect] Supabase auto-submit error (silent):', err);
       });
     } catch (error) {
@@ -796,17 +787,19 @@ export class HealthConnectService {
    * Submit newly discovered cardio workouts to Supabase for leaderboard tracking.
    */
   private async submitNewWorkoutsToSupabase(
-    workouts: HealthConnectWorkout[],
-    previousIds: Set<string>
+    workouts: HealthConnectWorkout[]
   ): Promise<void> {
     const CARDIO_TYPES = ['running', 'walking', 'cycling', 'hiking'];
     const npub = await AsyncStorage.getItem('@runstr:npub');
     if (!npub) return;
 
-    const submittedIds = await this.getSubmittedIds();
+    const submittedIds = await submittedIdStore.get();
 
     const newCardio = workouts.filter((w) => {
-      if (!w.id || previousIds.has(w.id) || submittedIds.has(w.id)) return false;
+      // Only suppress workouts that are already confirmed submitted.
+      // Do NOT suppress by previous cache presence: if a prior submit failed,
+      // the workout can exist in cache but still needs retry.
+      if (!w.id || submittedIds.has(w.id)) return false;
       if (!w.activityType || !CARDIO_TYPES.includes(w.activityType)) return false;
       if (!w.totalDistance || w.totalDistance <= 0) return false;
       return true;
@@ -863,23 +856,8 @@ export class HealthConnectService {
       }
     }
 
-    await this.saveSubmittedIds(submittedIds);
-  }
-
-  private async getSubmittedIds(): Promise<Set<string>> {
     try {
-      const raw = await AsyncStorage.getItem(SUBMITTED_IDS_KEY);
-      if (!raw) return new Set();
-      return new Set(JSON.parse(raw));
-    } catch {
-      return new Set();
-    }
-  }
-
-  private async saveSubmittedIds(ids: Set<string>): Promise<void> {
-    try {
-      const trimmed = Array.from(ids).slice(-MAX_SUBMITTED_IDS);
-      await AsyncStorage.setItem(SUBMITTED_IDS_KEY, JSON.stringify(trimmed));
+      await submittedIdStore.save(submittedIds);
     } catch (error) {
       console.warn('[HealthConnect] Failed to save submitted workout IDs:', error);
     }

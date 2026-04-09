@@ -551,7 +551,7 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
     [handleJournalPress]
   );
 
-  const renderMonthlyGroup = ({ item }: { item: MonthlyGroup }) => (
+  const renderMonthlyGroup = ({ item, index }: { item: MonthlyGroup; index: number }) => (
     <MonthlyWorkoutGroup
       group={item}
       renderWorkout={renderWorkout}
@@ -607,10 +607,7 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
         renderItem={renderMonthlyGroup}
         keyExtractor={(item) => item.key}
         contentContainerStyle={styles.list}
-        windowSize={7}
-        maxToRenderPerBatch={5}
-        removeClippedSubviews={true}
-        initialNumToRender={3}
+        initialNumToRender={monthlyGroups.length}
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={theme.colors.text} />
         }

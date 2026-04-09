@@ -334,6 +334,14 @@ class UnifiedWorkoutCacheClass {
     await yieldToReact();
     console.log(`[Batched] Yielded to React after Batch 1 at T+${Date.now() - startTime}ms`);
 
+    // Initial load should return after the priority batch to keep startup snappy.
+    // Full author fetch remains available via pull-to-refresh (fullRefresh=true).
+    if (!fullRefresh) {
+      this.pruneOldWorkouts(60);
+      console.log(`[Batched] Initial load mode complete after priority batch: ${this.workouts.size} workouts in ${Date.now() - startTime}ms`);
+      return;
+    }
+
     // After priority batch, continue fetching remaining authors
     // UI already has data to show, now we progressively add more
     console.log(`[Batched] Priority batch complete (${this.workouts.size} workouts in ${Date.now() - startTime}ms), continuing with ${otherAuthors.length} remaining authors...`);

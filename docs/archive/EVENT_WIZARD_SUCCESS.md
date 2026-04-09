@@ -326,5 +326,5 @@ As of January 2025:
   - `src/services/nostr/NostrListService.ts`
   - `src/services/nostr/eventAnnouncementCardGenerator.ts`
 - **Docs:**
-  - [Nostr Competition Events](../docs/nostr-native-fitness-competitions.md)
-  - [Performance Guide](../docs/PERFORMANCE_GUIDE.md)
+  - [Nostr Competition Events](../events-and-leagues.md)
+  - [Performance Guide](../PERFORMANCE_GUIDE.md)

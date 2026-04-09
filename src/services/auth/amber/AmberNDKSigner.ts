@@ -35,22 +35,26 @@ export class AmberNDKSigner implements NDKSigner {
     options: any,
     timeoutMs: number = this.AMBER_TIMEOUT_MS
   ): Promise<any> {
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+
     try {
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutHandle = setTimeout(
+          () =>
+            reject(
+              new Error(
+                `Amber request timed out after ${
+                  timeoutMs / 1000
+                } seconds. Please respond in Amber app.`
+              )
+            ),
+          timeoutMs
+        );
+      });
+
       return await Promise.race([
         IntentLauncher.startActivityAsync(action, options),
-        new Promise((_, reject) =>
-          setTimeout(
-            () =>
-              reject(
-                new Error(
-                  `Amber request timed out after ${
-                    timeoutMs / 1000
-                  } seconds. Please respond in Amber app.`
-                )
-              ),
-            timeoutMs
-          )
-        ),
+        timeoutPromise,
       ]);
     } catch (error) {
       const errorMessage = String(error);
@@ -69,6 +73,10 @@ export class AmberNDKSigner implements NDKSigner {
 
       // Re-throw other errors
       throw error;
+    } finally {
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
     }
   }
 

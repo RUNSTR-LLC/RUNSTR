@@ -24,6 +24,22 @@ export interface InvoiceResponse {
   };
 }
 
+function ensureHttpsUrl(urlString: string, fieldName: string): URL {
+  let parsed: URL;
+
+  try {
+    parsed = new URL(urlString);
+  } catch {
+    throw new Error(`Invalid ${fieldName} URL`);
+  }
+
+  if (parsed.protocol !== 'https:') {
+    throw new Error(`${fieldName} must use HTTPS`);
+  }
+
+  return parsed;
+}
+
 /**
  * Fetch LNURL-pay details from Lightning address
  *
@@ -79,6 +95,9 @@ export async function fetchLNURLPayDetails(
       throw new Error('Invalid LNURL response: missing required fields');
     }
 
+    // Security: LNURL callback must use HTTPS
+    ensureHttpsUrl(data.callback, 'LNURL callback');
+
     console.log('[LNURL] ✅ Details fetched successfully');
 
     return data as LNURLPayDetails;
@@ -119,7 +138,7 @@ export async function requestInvoiceFromLNURL(
   zapRequest?: string
 ): Promise<InvoiceResponse> {
   // Build callback URL with amount parameter
-  const url = new URL(callbackUrl);
+  const url = ensureHttpsUrl(callbackUrl, 'LNURL callback');
   url.searchParams.set('amount', amountMillisats.toString());
 
   if (comment) {

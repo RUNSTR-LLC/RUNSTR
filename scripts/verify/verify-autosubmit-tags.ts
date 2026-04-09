@@ -26,6 +26,12 @@ interface MockWorkout {
   steps?: number;
 }
 
+interface MockRewardDestination {
+  isPPQ: boolean;
+  isCharity: boolean;
+  charityId: string;
+}
+
 function buildWorkoutTags(workout: MockWorkout): string[][] {
   const tags: string[][] = [];
   tags.push(['exercise', workout.type]);
@@ -47,6 +53,25 @@ function buildWorkoutTags(workout: MockWorkout): string[][] {
   if (workout.steps) {
     tags.push(['steps', workout.steps.toString()]);
     tags.push(['source', 'auto_steps']);
+  }
+
+  return tags;
+}
+
+function appendRewardDestinationTags(
+  tags: string[][],
+  destination: MockRewardDestination
+): string[][] {
+  if (destination.isPPQ) {
+    tags.push(['reward_destination', 'ppq']);
+  } else if (destination.isCharity) {
+    tags.push(['reward_destination', 'charity']);
+  } else {
+    tags.push(['reward_destination', 'user']);
+  }
+
+  if (destination.charityId) {
+    tags.push(['reward_charity_id', destination.charityId]);
   }
 
   return tags;
@@ -122,6 +147,32 @@ const stepWorkout: MockWorkout = {
 const stepTags = buildWorkoutTags(stepWorkout);
 assert('has steps tag', stepTags.some(t => t[0] === 'steps' && t[1] === '5000'));
 assert('has source auto_steps tag', stepTags.some(t => t[0] === 'source' && t[1] === 'auto_steps'));
+
+console.log('\n=== reward destination tag tests ===');
+const baseTags: string[][] = [['exercise', 'running']];
+
+const userDest = appendRewardDestinationTags([...baseTags], {
+  isPPQ: false,
+  isCharity: false,
+  charityId: 'runstr',
+});
+assert('user destination tag present', userDest.some(t => t[0] === 'reward_destination' && t[1] === 'user'));
+assert('charity id tag present for user fallback context', userDest.some(t => t[0] === 'reward_charity_id' && t[1] === 'runstr'));
+
+const charityDest = appendRewardDestinationTags([...baseTags], {
+  isPPQ: false,
+  isCharity: true,
+  charityId: 'hrf',
+});
+assert('charity destination tag present', charityDest.some(t => t[0] === 'reward_destination' && t[1] === 'charity'));
+assert('charity id tag present', charityDest.some(t => t[0] === 'reward_charity_id' && t[1] === 'hrf'));
+
+const ppqDest = appendRewardDestinationTags([...baseTags], {
+  isPPQ: true,
+  isCharity: false,
+  charityId: 'ppq_ai',
+});
+assert('ppq destination tag present', ppqDest.some(t => t[0] === 'reward_destination' && t[1] === 'ppq'));
 
 console.log(`\n=== Results: ${passed} passed, ${failed} failed ===\n`);
 process.exit(failed > 0 ? 1 : 0);

@@ -96,13 +96,23 @@ class BlossomServiceClass {
    */
   async addServer(url: string, name?: string): Promise<boolean> {
     try {
+      // Security hardening: custom Blossom endpoints must use HTTPS
+      const parsedUrl = new URL(url);
+      if (parsedUrl.protocol !== 'https:') {
+        console.warn(
+          '[BlossomService] Rejected non-HTTPS server URL:',
+          parsedUrl.protocol
+        );
+        return false;
+      }
+
       // Normalize URL (remove trailing slash)
-      const normalizedUrl = url.replace(/\/$/, '');
+      const normalizedUrl = parsedUrl.toString().replace(/\/$/, '');
 
       // Check if already exists
       const servers = await this.getServers();
-      const exists = servers.some(s =>
-        s.url.replace(/\/$/, '') === normalizedUrl
+      const exists = servers.some(
+        (s) => s.url.replace(/\/$/, '') === normalizedUrl
       );
 
       if (exists) {
@@ -113,7 +123,10 @@ class BlossomServiceClass {
       // Test connection before adding
       const isValid = await this.testConnection(normalizedUrl);
       if (!isValid) {
-        console.warn('[BlossomService] Failed to connect to server:', normalizedUrl);
+        console.warn(
+          '[BlossomService] Failed to connect to server:',
+          normalizedUrl
+        );
         return false;
       }
 
@@ -123,7 +136,7 @@ class BlossomServiceClass {
 
       customServers.push({
         url: normalizedUrl,
-        name: name || new URL(normalizedUrl).hostname,
+        name: name || parsedUrl.hostname,
         isDefault: false,
       });
 

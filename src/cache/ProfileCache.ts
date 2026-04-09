@@ -35,7 +35,47 @@ type FetchStatus = 'idle' | 'fetching' | 'fetched' | 'error';
 
 // Module-level cache - persists across component remounts
 const profileCache = new Map<string, CachedProfile>();
+const profileTimestamps = new Map<string, number>();
 const fetchingStatus = new Map<string, FetchStatus>();
+
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const MAX_CACHE_SIZE = 200;
+
+function evictExpiredEntry(pubkey: string): void {
+  profileCache.delete(pubkey);
+  profileTimestamps.delete(pubkey);
+  fetchingStatus.delete(pubkey);
+}
+
+function isFresh(pubkey: string): boolean {
+  if (!profileCache.has(pubkey)) return false;
+  const cachedAt = profileTimestamps.get(pubkey);
+  if (!cachedAt) {
+    evictExpiredEntry(pubkey);
+    return false;
+  }
+
+  const isExpired = Date.now() - cachedAt > CACHE_TTL_MS;
+  if (isExpired) {
+    evictExpiredEntry(pubkey);
+    return false;
+  }
+
+  return true;
+}
+
+function setCachedProfile(pubkey: string, profile: CachedProfile): void {
+  profileCache.set(pubkey, profile);
+  profileTimestamps.set(pubkey, Date.now());
+  fetchingStatus.set(pubkey, 'fetched');
+
+  // Simple LRU by insertion order: refresh key recency then evict oldest overflow
+  while (profileCache.size > MAX_CACHE_SIZE) {
+    const oldestKey = profileCache.keys().next().value as string | undefined;
+    if (!oldestKey) break;
+    evictExpiredEntry(oldestKey);
+  }
+}
 
 /**
  * Safely parse profile content from kind 0 event
@@ -105,7 +145,7 @@ export class ProfileCache {
     const pubkeysToFetch = uniquePubkeys.filter((pk) => {
       const status = fetchingStatus.get(pk);
       return (
-        !profileCache.has(pk) &&
+        !isFresh(pk) &&
         (status === undefined || status === 'idle' || status === 'error')
       );
     });
@@ -138,9 +178,8 @@ export class ProfileCache {
 
             if (parsed && event.pubkey) {
               // Cache all profiles - display components handle missing names via fallback
-              profileCache.set(event.pubkey, parsed);
+              setCachedProfile(event.pubkey, parsed);
               fetchedProfilesMap.set(event.pubkey, parsed);
-              fetchingStatus.set(event.pubkey, 'fetched');
             } else if (event.pubkey) {
               fetchingStatus.set(event.pubkey, 'error');
             }
@@ -173,8 +212,9 @@ export class ProfileCache {
     // Build result map from cache
     const resultMap = new Map<string, CachedProfile>();
     uniquePubkeys.forEach((pk) => {
-      if (profileCache.has(pk)) {
-        resultMap.set(pk, profileCache.get(pk)!);
+      const cached = ProfileCache.getProfile(pk);
+      if (cached) {
+        resultMap.set(pk, cached);
       }
     });
 
@@ -192,6 +232,9 @@ export class ProfileCache {
     if (typeof pubkey !== 'string' || pubkey.trim() === '') {
       return undefined;
     }
+    if (!isFresh(pubkey)) {
+      return undefined;
+    }
     return profileCache.get(pubkey);
   }
 
@@ -199,7 +242,7 @@ export class ProfileCache {
    * Check if profile is cached
    */
   static has(pubkey: string): boolean {
-    return profileCache.has(pubkey);
+    return this.getProfile(pubkey) !== undefined;
   }
 
   /**
@@ -207,8 +250,7 @@ export class ProfileCache {
    * Useful for pre-populating from other sources
    */
   static setProfile(pubkey: string, profile: CachedProfile): void {
-    profileCache.set(pubkey, profile);
-    fetchingStatus.set(pubkey, 'fetched');
+    setCachedProfile(pubkey, profile);
   }
 
   /**
@@ -218,6 +260,7 @@ export class ProfileCache {
   static clearAll(): void {
     console.log('[ProfileCache] Clearing all cached profiles');
     profileCache.clear();
+    profileTimestamps.clear();
     fetchingStatus.clear();
   }
 

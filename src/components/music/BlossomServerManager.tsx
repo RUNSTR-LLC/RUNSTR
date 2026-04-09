@@ -107,12 +107,23 @@ export const BlossomServerManager: React.FC<BlossomServerManagerProps> = ({
       url = 'https://' + url;
     }
 
+    let parsedUrl: URL;
     try {
-      new URL(url); // Validate URL
+      parsedUrl = new URL(url);
     } catch {
       Alert.alert('Error', 'Please enter a valid URL');
       return;
     }
+
+    if (parsedUrl.protocol !== 'https:') {
+      Alert.alert(
+        'HTTPS Required',
+        'For security, custom Blossom servers must use https:// endpoints.'
+      );
+      return;
+    }
+
+    url = parsedUrl.toString().replace(/\/$/, '');
 
     setIsAddingServer(true);
 
