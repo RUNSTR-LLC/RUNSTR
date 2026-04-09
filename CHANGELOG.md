@@ -2,35 +2,67 @@
 
 All notable changes to RUNSTR will be documented in this file.
 
-## [1.8.8] - 2026-04-03 - Polish, Bug Fixes & North Star Alignment
+## [1.8.8] - 2026-04-09 - Social, Season III & Streak Rewards
+
+### Season III: Club Battles
+- 16-team double-elimination tournament with bracket generation
+- Season III screen with registration, live tournament, and completed phases
+- Matchup cards, bracket view, clubs list, and event card UI
+- Nightly matchup resolution via Edge Function + cron job
+- Top 4 scoring per club, losers bracket through Round 6
+- Push notifications for matchup results and upcoming battles
+
+### Social Feed
+- New Social tab with clubs row and Nostr social feed
+- Likes, zaps, reposts, and comments on feed posts
+- Inline comment input with optimistic posting
+- Single-tap NWC zaps, detail views for likes/zaps/comments
+- Social feed indexer and engagement tables
+
+### Streak Rewards
+- Streak bonus on daily workout reward (10-40% for 2-5 day streaks)
+- StreakSection replaces lottery wheel on Rewards screen
+- Updated claim-reward Edge Function for streak bonus amounts
+
+### Club Chat
+- Full-screen ClubChatScreen with pinned messages
+- Message actions: pin/unpin, replies, announcements, reactions
+- Push notifications for club chat messages
+
+### Competitions & Events
+- Prize pool system with multi-recipient payouts
+- Charity event template with donation wiring
+- Ticketed events with pledge-based entry and winner selection
+- Simplified event creation from templates with recurring events
+
+### Rewards
+- Reward sponsor changed to ALS Network (Zapvertising)
+- Reward destination picker with charity, project, service, or self
+- Strength and journal workouts now earn rewards
 
 ### Bug Fixes
-- Fixed conditional React hooks crash in NWCLightningButton and CharitySection (hooks called after early return)
-- Fixed backup restore crash on truncated relay data ("invalid payload length") — now skips corrupted events and tries alternatives
-- Fixed Level/XP showing 0 — profile now reads local workout storage first, falls back to Supabase for other users
-- Fixed default XP-per-level mismatch (was 100, should be 500)
+- Fixed event deep link navigation (EventDetail -> DynamicEventDetail)
+- Fixed PPQ step rewards crash (missing bolt11 branch)
+- Fixed null crash in RewardDestinationSection zap handler
+- Fixed conditional React hooks crash in NWCLightningButton and CharitySection
+- Fixed backup restore crash on truncated relay data
+- Fixed Level/XP showing 0, default XP-per-level mismatch
+- Removed 53 lines of debug diagnostic timers from production
+- Fixed duplicate migration 173 (renumbered to 174)
 
-### Workout Recovery
-- Restored workouts from encrypted backup now queue for Supabase submission automatically
-- Imported kind 1301 Nostr workouts now queue for Supabase submission automatically
-- Level system works offline, with Private Mode, and when Supabase is unreachable
+### Workout Features
+- Unified workout restore (encrypted backup + kind 1301 import)
+- Camera-based pushup verification with pose detection
+- Meditation polish: breathing circle, presets, haptics
+- Voice journal with on-device speech-to-text (iOS)
+- Private Mode for local-only tracking
 
-### Sponsor (Zapvertising)
-- Changed active reward sponsor from RUNSTR to ALS Network
-- Push notifications, toasts, and sponsor banner now display ALS Network branding
-- Added migration 164 for sponsor switchover
-
-### Codebase Cleanup (-12,500 lines)
-- Removed Satlantis event integration (17 files, ~5,300 lines)
-- Removed 12 dead service files (Google auth, Garmin direct, WeatherService, SimpleNostrService, etc.)
-- Removed 70+ dead imports across 42 files
-- Removed ~330 lines of dead commented code and debug logging
-- Removed 2 dead test files referencing deleted components
-- Split SettingsScreen.tsx from 2,252 to 205 lines (14 focused section components)
-
-### Documentation
-- Updated North Star: removed subscription tiers, added data ownership principles, updated business model
-- Created `/polish` skill for repeatable codebase cleanup passes
+### Performance & Cleanup
+- Removed 12,500+ lines of dead code
+- Split SettingsScreen from 2,252 to 205 lines
+- All 198 TypeScript errors fixed (clean typecheck)
+- Subscription system fully removed
+- 19 Supabase migrations (155-174)
 
 ## [1.7.7] - 2026-03-31 - Solidification, App Store Compliance & Performance
 

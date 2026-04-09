@@ -1404,11 +1404,21 @@ serve(async (req) => {
 
         try {
           // Get invoice and pay
-          const invoice = await getInvoiceFromLightningAddress(
-            lightning_address,
-            amountToPay,
-            'Step reward from RUNSTR!'
-          )
+          let invoice: string
+          let isPPQPayment = false
+
+          if (ppq_bolt11) {
+            // PPQ.AI team: Pay directly to the PPQ bolt11 invoice
+            console.log('[claim-reward] PPQ.AI team step reward - using provided bolt11 invoice')
+            invoice = ppq_bolt11
+            isPPQPayment = true
+          } else {
+            invoice = await getInvoiceFromLightningAddress(
+              lightning_address,
+              amountToPay,
+              'Step reward from RUNSTR!'
+            )
+          }
 
           const paymentResult = await payInvoiceViaNWC(nwcUrl, invoice)
 

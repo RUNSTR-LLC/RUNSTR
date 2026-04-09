@@ -159,7 +159,10 @@ export const RewardDestinationSection: React.FC<RewardDestinationSectionProps> =
           {showZapButton && onZapPress && (
             <TouchableOpacity
               style={styles.zapButton}
-              onPress={() => onZapPress(charity!.id)}
+              onPress={() => {
+                const zapTarget = charity?.id || (isCommunity && selectedTeamId ? selectedTeamId : undefined);
+                if (zapTarget) onZapPress(zapTarget);
+              }}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Ionicons name="flash-outline" size={18} color={theme.colors.orangeDeep} />

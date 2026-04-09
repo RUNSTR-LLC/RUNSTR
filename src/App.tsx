@@ -956,7 +956,7 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
       // Small delay to ensure navigation stack is ready
       setTimeout(() => {
         try {
-          navigationRefNavigate('EventDetail', {
+          navigationRefNavigate('DynamicEventDetail', {
             eventId: pendingEventNavigation.eventId,
           });
           setPendingEventNavigation(null);
