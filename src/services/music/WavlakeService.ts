@@ -82,24 +82,6 @@ class WavlakeServiceClass {
       data.artist_lud16 ||
       '';
 
-    // Debug log for first track to help diagnose what Wavlake returns
-    if (data.id && !this.cache.has('_logged_artist_fields')) {
-      console.log('[WavlakeService] Artist fields in API response:', {
-        artistNpub: data.artistNpub,
-        artist_npub: data.artist_npub,
-        npub: data.npub,
-        artistPubkey: data.artistPubkey,
-        artistLightningAddress: data.artistLightningAddress,
-        lud16: data.lud16,
-        resolvedNpub: artistNpub,
-        resolvedLnAddress: lightningAddress,
-      });
-      this.cache.set('_logged_artist_fields', {
-        data: true,
-        timestamp: Date.now(),
-      });
-    }
-
     return {
       id: data.id,
       title: data.title,
@@ -168,28 +150,6 @@ class WavlakeServiceClass {
       }
 
       const json = await response.json();
-
-      // DEBUG: Log raw API response structure to help diagnose field mapping issues
-      console.log('[WavlakeService] Raw API response keys:', Object.keys(json));
-      if (json.data && json.data.length > 0) {
-        console.log(
-          '[WavlakeService] First track raw fields:',
-          Object.keys(json.data[0])
-        );
-        console.log(
-          '[WavlakeService] First track sample:',
-          JSON.stringify(json.data[0], null, 2).slice(0, 500)
-        );
-      } else if (Array.isArray(json) && json.length > 0) {
-        console.log(
-          '[WavlakeService] First track raw fields (array):',
-          Object.keys(json[0])
-        );
-        console.log(
-          '[WavlakeService] First track sample (array):',
-          JSON.stringify(json[0], null, 2).slice(0, 500)
-        );
-      }
 
       const tracks = (json.data || json || []).map((t: any) =>
         this.transformTrack(t)
