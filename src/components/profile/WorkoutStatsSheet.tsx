@@ -15,9 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
-import localWorkoutStorage, {
-  type LocalWorkout,
-} from '../../services/fitness/LocalWorkoutStorageService';
+import localWorkoutStorage, { type LocalWorkout } from '../../services/fitness/LocalWorkoutStorageService';
 import {
   PersonalRecordsService,
   type CardioPR,

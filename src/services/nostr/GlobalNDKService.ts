@@ -14,8 +14,7 @@
  * ```
  */
 
-import NDK, { NDKNip07Signer } from '@nostr-dev-kit/ndk';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import NDK from '@nostr-dev-kit/ndk';
 import { AppStateManager } from '../core/AppStateManager';
 import { NostrFetchLogger } from '../../utils/NostrFetchLogger';
 

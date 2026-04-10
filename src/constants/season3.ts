@@ -2,7 +2,7 @@
  * Season III: Club Battles — Constants and bracket map
  */
 
-import type { BracketMap, Season3Config, Season3Status } from '../types/season3';
+import type { BracketMap, Season3Status } from '../types/season3';
 
 // ── Config ──────────────────────────────────────────────────────────
 

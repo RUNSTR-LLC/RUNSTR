@@ -6,7 +6,6 @@
 import { appCache } from '../../utils/cache';
 import {
   WorkoutMergeService,
-  type UnifiedWorkout,
   type WorkoutMergeResult,
 } from '../fitness/workoutMergeService';
 

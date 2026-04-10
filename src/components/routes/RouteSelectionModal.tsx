@@ -19,12 +19,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
-import routeStorageService, {
-  type RouteLabel,
-} from '../../services/routes/RouteStorageService';
-import localWorkoutStorageService, {
-  type LocalWorkout,
-} from '../../services/fitness/LocalWorkoutStorageService';
+import routeStorageService, { type RouteLabel } from '../../services/routes/RouteStorageService';
+import localWorkoutStorageService, { type LocalWorkout } from '../../services/fitness/LocalWorkoutStorageService';
 import type { WorkoutType } from '../../types/workout';
 import { useUnitPreference } from '../../hooks/useUnitPreference';
 

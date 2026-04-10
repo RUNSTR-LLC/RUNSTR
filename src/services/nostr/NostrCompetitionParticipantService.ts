@@ -7,7 +7,6 @@
 import NDK, {
   NDKEvent,
   NDKPrivateKeySigner,
-  NDKUser,
   type NDKSigner,
 } from '@nostr-dev-kit/ndk';
 import AsyncStorage from '@react-native-async-storage/async-storage';

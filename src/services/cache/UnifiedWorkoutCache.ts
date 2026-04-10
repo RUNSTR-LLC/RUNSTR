@@ -22,7 +22,7 @@ import { GlobalNDKService } from '../nostr/GlobalNDKService';
 import { SEASON_2_PARTICIPANTS } from '../../constants/season2';
 import { BASELINE_TIMESTAMP } from '../../constants/season2Baseline';
 import NDK, { type NDKFilter, type NDKEvent, NDKRelaySet } from '@nostr-dev-kit/ndk';
-import { InteractionManager } from 'react-native';
+
 
 // ============================================================================
 // EXPERIMENT FLAGS - Toggle to test different fixes for 43-second delay bug
