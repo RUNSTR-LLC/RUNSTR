@@ -24,6 +24,7 @@ export interface LeaderboardEntry {
   score: number;
   formattedScore: string;
   workoutCount: number;
+  participationType?: 'in-person' | 'virtual'; // Track how user is participating
   lightningAddress?: string;
   isPending?: boolean; // NEW: true if from local queue, not yet synced
 }

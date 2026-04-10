@@ -19,11 +19,8 @@ import { theme } from '../styles/theme';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { ProfileEditScreen } from '../screens/ProfileEditScreen';
 import { WalletScreen } from '../screens/WalletScreen';
-import { LeagueDetailScreen } from '../screens/LeagueDetailScreen';
 import { LoginScreen } from '../screens/LoginScreen';
-import { CompetitionsListScreen } from '../screens/CompetitionsListScreen';
 import { WorkoutHistoryScreen } from '../screens/WorkoutHistoryScreen';
-import { MyTeamsScreen } from '../screens/MyTeamsScreen';
 import { HealthProfileScreen } from '../screens/HealthProfileScreen';
 import { FitnessTestResultsScreen } from '../screens/FitnessTestResultsScreen';
 import { EinundzwanzigDetailScreen } from '../screens/events/EinundzwanzigDetailScreen';
@@ -31,10 +28,7 @@ import { DynamicEventDetailScreen } from '../screens/events/DynamicEventDetailSc
 import { JournalHistoryScreen } from '../screens/JournalHistoryScreen';
 import { LevelDetailScreen } from '../screens/LevelDetailScreen';
 import { RewardsScreen } from '../screens/RewardsScreen';
-import { DonateScreen } from '../screens/DonateScreen';
-import { TeamsScreen } from '../screens/TeamsScreen';
 import { AdvancedAnalyticsScreen } from '../screens/AdvancedAnalyticsScreen';
-import { EventsScreen } from '../screens/EventsScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { StatsDetailScreen } from '../screens/StatsDetailScreen';
 import { ActivityTrackerScreen } from '../screens/activity/ActivityTrackerScreen';
@@ -64,18 +58,12 @@ export type RootStackParamList = {
   Profile: { pubkey?: string } | undefined;
   ProfileEdit: undefined;
   Wallet: undefined;
-  LeagueDetail: { leagueId: string; leagueData?: any };
-  CompetitionsList: undefined;
   WorkoutHistory: { userId: string; pubkey: string };
-  MyTeams: undefined;
   HealthProfile: undefined;
   FitnessTestResults: { testId: string };
   EinundzwanzigDetail: undefined;
-  Teams: undefined;
   Rewards: undefined;
-  Donate: undefined;
   AdvancedAnalytics: undefined;
-  Events: undefined;
   Settings: undefined;
   StatsDetail: { npub: string };
   Exercise: undefined;
@@ -320,26 +308,6 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
         }}
       </Stack.Screen>
 
-      {/* League Detail Screen */}
-      <Stack.Screen
-        name="LeagueDetail"
-        options={{
-          ...defaultScreenOptions,
-          headerShown: false,
-        }}
-        component={LeagueDetailScreen}
-      />
-
-      {/* Competitions List Screen */}
-      <Stack.Screen
-        name="CompetitionsList"
-        options={{
-          ...defaultScreenOptions,
-          headerShown: false,
-        }}
-        component={CompetitionsListScreen}
-      />
-
       {/* Workout History Screen */}
       <Stack.Screen
         name="WorkoutHistory"
@@ -348,16 +316,6 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
           headerShown: false,
         }}
         component={WorkoutHistoryScreen}
-      />
-
-      {/* My Teams Screen */}
-      <Stack.Screen
-        name="MyTeams"
-        options={{
-          ...defaultScreenOptions,
-          headerShown: false,
-        }}
-        component={MyTeamsScreen}
       />
 
       {/* Health Profile Screen */}
@@ -390,16 +348,6 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
         }}
       />
 
-      {/* Teams Screen - Hardcoded teams + charities selection */}
-      <Stack.Screen
-        name="Teams"
-        component={TeamsScreen}
-        options={{
-          ...defaultScreenOptions,
-          headerShown: false,
-        }}
-      />
-
       {/* Rewards Screen - Wallet + earnings management */}
       <Stack.Screen
         name="Rewards"
@@ -410,30 +358,10 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
         }}
       />
 
-      {/* Donate Screen - Charity donations */}
-      <Stack.Screen
-        name="Donate"
-        component={DonateScreen}
-        options={{
-          ...defaultScreenOptions,
-          headerShown: false,
-        }}
-      />
-
       {/* Advanced Analytics Screen - Stats dashboard */}
       <Stack.Screen
         name="AdvancedAnalytics"
         component={AdvancedAnalyticsScreen}
-        options={{
-          ...defaultScreenOptions,
-          headerShown: false,
-        }}
-      />
-
-      {/* Events Screen - Leaderboards (5K/10K/21K/Marathon) */}
-      <Stack.Screen
-        name="Events"
-        component={EventsScreen}
         options={{
           ...defaultScreenOptions,
           headerShown: false,

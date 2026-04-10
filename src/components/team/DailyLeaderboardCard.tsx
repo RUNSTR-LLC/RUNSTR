@@ -8,7 +8,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { theme } from '../../styles/theme';
-import type { LeaderboardEntry } from '../../services/competition/SimpleLeaderboardService';
+import type { LeaderboardEntry } from '../../services/competition/DailyLeaderboardService';
 import { ZappableUserRow } from '../ui/ZappableUserRow';
 
 interface DailyLeaderboardCardProps {

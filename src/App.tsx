@@ -196,15 +196,11 @@ import { AppNavigator } from './navigation/AppNavigator';
 import { BottomTabNavigator } from './navigation/BottomTabNavigator';
 import { navigationRef, navigate as navigationRefNavigate } from './navigation/navigationRef';
 import { createStackNavigator } from '@react-navigation/stack';
-import { LeagueDetailScreen } from './screens/LeagueDetailScreen';
-// SimpleTeamScreen loaded via inline require() to avoid circular dependency
 import { HelpSupportScreen } from './screens/HelpSupportScreen';
 import { ContactSupportScreen } from './screens/ContactSupportScreen';
 import { PrivacyPolicyScreen } from './screens/PrivacyPolicyScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
-import { CompetitionsListScreen } from './screens/CompetitionsListScreen';
 import { WorkoutHistoryScreen } from './screens/WorkoutHistoryScreen';
-import { MyTeamsScreen } from './screens/MyTeamsScreen';
 import { ProfileEditScreen } from './screens/ProfileEditScreen';
 import { LevelDetailScreen } from './screens/LevelDetailScreen';
 import { SavedRoutesScreen } from './screens/routes/SavedRoutesScreen';
@@ -217,8 +213,6 @@ import { Season3Screen } from './screens/season3/Season3Screen';
 import { CompeteScreen } from './screens/CompeteScreen';
 import { LeaderboardsScreen } from './screens/LeaderboardsScreen';
 import { RewardsScreen } from './screens/RewardsScreen';
-import { TeamsScreen } from './screens/TeamsScreen';
-import { EventsScreen } from './screens/EventsScreen';
 import { ActivityTrackerScreen } from './screens/activity/ActivityTrackerScreen';
 import { JournalHistoryScreen } from './screens/JournalHistoryScreen';
 import { StatsDetailScreen } from './screens/StatsDetailScreen';
@@ -263,19 +257,12 @@ type AuthenticatedStackParamList = {
   Auth: undefined;
   Main: undefined;
   MainTabs: undefined;
-  EnhancedTeamScreen: {
-    team: any;
-    userIsMember?: boolean;
-    currentUserNpub?: string;
-    userIsCaptain?: boolean;
-  };
   EventDetail: {
     eventId: string;
     eventData?: any;
     teamId?: string; // ✅ NEW: Team context for fallback
     captainPubkey?: string; // ✅ NEW: Captain context for fallback
   };
-  LeagueDetail: { leagueId: string; leagueData?: any };
   CaptainDashboard: {
     teamId?: string;
     teamName?: string;
@@ -287,9 +274,7 @@ type AuthenticatedStackParamList = {
   HelpSupport: undefined;
   ContactSupport: undefined;
   PrivacyPolicy: undefined;
-  CompetitionsList: undefined;
   WorkoutHistory: { userId: string; pubkey: string };
-  MyTeams: undefined;
   ProfileEdit: undefined;
   SavedRoutes: { activityType?: 'running' | 'cycling' | 'walking' };
   AdvancedAnalytics: undefined;
@@ -297,9 +282,7 @@ type AuthenticatedStackParamList = {
   EinundzwanzigDetail: undefined;
   Season2: undefined;
   Season3: undefined;
-  Teams: undefined;
   Rewards: undefined;
-  Events: undefined;
   Exercise: undefined;
   Compete: undefined;
   Leaderboards: undefined;
@@ -425,94 +408,6 @@ const AuthenticatedNavigator: React.FC = () => {
         )}
       </AuthenticatedStack.Screen>
 
-      {/* Enhanced Team Screen */}
-      <AuthenticatedStack.Screen
-        name="EnhancedTeamScreen"
-        options={{
-          headerShown: false,
-        }}
-      >
-        {({ navigation, route }) => {
-          console.log('[App.tsx] 🚀 EnhancedTeamScreen route rendering');
-          const {
-            team,
-            userIsMember = false,
-            currentUserNpub,
-            userIsCaptain = false,
-          } = route.params || {};
-          console.log('[App.tsx] 📦 Route params:', {
-            hasRouteParams: !!route.params,
-            hasTeam: !!team,
-            teamId: team?.id,
-            teamName: team?.name,
-            teamKeys: team ? Object.keys(team).length : 0,
-            allTeamKeys: team ? Object.keys(team) : [],
-            userIsMember,
-            userIsCaptain,
-            currentUserNpub: currentUserNpub?.slice(0, 20) + '...',
-          });
-
-          // Safety check: if no team data, show error
-          if (!team || !team.id) {
-            console.error('[App.tsx] ❌ No valid team data in route params');
-            return (
-              <View
-                style={{
-                  flex: 1,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  backgroundColor: theme.colors.background,
-                }}
-              >
-                <Text style={{ color: theme.colors.text, marginBottom: 20 }}>
-                  Team data not available
-                </Text>
-                <TouchableOpacity
-                  onPress={() => navigation.goBack()}
-                  style={{
-                    padding: 12,
-                    backgroundColor: theme.colors.cardBackground,
-                    borderRadius: 8,
-                  }}
-                >
-                  <Text style={{ color: theme.colors.text }}>Go Back</Text>
-                </TouchableOpacity>
-              </View>
-            );
-          }
-
-          const STS = require('./screens/SimpleTeamScreen').default || require('./screens/SimpleTeamScreen').SimpleTeamScreen;
-          return (
-            <ScreenErrorBoundary navigation={navigation}>
-              <STS
-                data={{
-                  team: team,
-                  leaderboard: [],
-                  events: [],
-                }}
-                onBack={() => navigation.goBack()}
-                showJoinButton={!userIsMember}
-                userIsMemberProp={userIsMember}
-                currentUserNpub={currentUserNpub}
-                userIsCaptain={userIsCaptain}
-              />
-            </ScreenErrorBoundary>
-          );
-        }}
-      </AuthenticatedStack.Screen>
-
-      {/* League Detail Screen */}
-      <AuthenticatedStack.Screen
-        name="LeagueDetail"
-        options={{
-          headerShown: false,
-        }}
-      >
-        {({ navigation, route }) => (
-          <LeagueDetailScreen route={route} navigation={navigation} />
-        )}
-      </AuthenticatedStack.Screen>
-
       {/* Settings Screen */}
       <AuthenticatedStack.Screen
         name="Settings"
@@ -564,15 +459,6 @@ const AuthenticatedNavigator: React.FC = () => {
         component={PrivacyPolicyScreen}
       />
 
-      {/* Competitions List Screen */}
-      <AuthenticatedStack.Screen
-        name="CompetitionsList"
-        options={{
-          headerShown: false,
-        }}
-        component={CompetitionsListScreen}
-      />
-
       {/* Workout History Screen */}
       <AuthenticatedStack.Screen
         name="WorkoutHistory"
@@ -580,15 +466,6 @@ const AuthenticatedNavigator: React.FC = () => {
           headerShown: false,
         }}
         component={WorkoutHistoryScreen}
-      />
-
-      {/* My Teams Screen */}
-      <AuthenticatedStack.Screen
-        name="MyTeams"
-        options={{
-          headerShown: false,
-        }}
-        component={MyTeamsScreen}
       />
 
       {/* Profile Edit Screen */}
@@ -666,15 +543,6 @@ const AuthenticatedNavigator: React.FC = () => {
         component={Season3Screen}
       />
 
-      {/* Teams Screen - Hardcoded teams + charities selection */}
-      <AuthenticatedStack.Screen
-        name="Teams"
-        options={{
-          headerShown: false,
-        }}
-        component={TeamsScreen}
-      />
-
       {/* Rewards Screen - Wallet + earnings management */}
       <AuthenticatedStack.Screen
         name="Rewards"
@@ -682,15 +550,6 @@ const AuthenticatedNavigator: React.FC = () => {
           headerShown: false,
         }}
         component={RewardsScreen}
-      />
-
-      {/* Events Screen - Leaderboards (5K/10K/21K/Marathon) */}
-      <AuthenticatedStack.Screen
-        name="Events"
-        options={{
-          headerShown: false,
-        }}
-        component={EventsScreen}
       />
 
       {/* Exercise Screen - Activity Tracker (accessed from Profile card) */}

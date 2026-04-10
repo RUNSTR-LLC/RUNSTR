@@ -7,7 +7,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { CompetitionEvent } from '../competition/SimpleCompetitionService';
+import type { CompetitionEvent } from '../../types/competitionEvent';
 
 export interface CaptainEventRecord {
   eventId: string;

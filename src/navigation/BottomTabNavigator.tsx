@@ -147,41 +147,10 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
               onNavigateToTeam={() => navigation.navigate('Social')}
               onNavigateToTeamDiscovery={() => navigation.navigate('Social')}
               onViewCurrentTeam={() => {
-                // Navigate to EnhancedTeamScreen with the user's current team
                 if (profileData.currentTeam) {
-                  // Ensure complete team object structure matching Teams discovery
-                  const team = {
-                    id: profileData.currentTeam.id,
-                    name: profileData.currentTeam.name,
-                    description: profileData.currentTeam.description || '',
-                    memberCount: profileData.currentTeam.memberCount || 0,
-                    prizePool: profileData.currentTeam.prizePool || 0,
-                    isActive:
-                      profileData.currentTeam.isActive !== undefined
-                        ? profileData.currentTeam.isActive
-                        : true,
-                    // Include all team metadata fields
-                    captainId: profileData.currentTeam.captainId, // Include if available
-                    bannerImage: profileData.currentTeam.bannerImage, // Include banner for display
-                    charityId: profileData.currentTeam.charityId, // Include charity for charity section display
-                  };
-
-                  // Get the current user's npub to pass to navigation
-                  // This ensures consistent behavior with Teams tab navigation
-                  const currentUserNpub = user?.npub;
-
-                  console.log('Profile Navigation to Team:', {
-                    teamId: team.id,
-                    teamName: team.name,
-                    userNpub: currentUserNpub?.slice(0, 20) + '...',
-                    userIsCaptain: profileData.currentTeam.role === 'captain',
-                  });
-
-                  navigation.navigate('EnhancedTeamScreen', {
-                    team,
-                    userIsMember: true,
-                    userIsCaptain: profileData.currentTeam.role === 'captain',
-                    currentUserNpub, // Pass npub to ensure proper competition loading
+                  navigation.navigate('ClubPage', {
+                    clubId: profileData.currentTeam.id,
+                    clubName: profileData.currentTeam.name,
                   });
                 }
               }}
