@@ -22,6 +22,7 @@ interface ProfileHeroProps {
   isOwner: boolean;
   isLoading?: boolean;
   level?: number;
+  streak?: number;
   onEditPress?: () => void;
   onBackPress?: () => void;
   onSettingsPress?: () => void;
@@ -39,6 +40,7 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
   isOwner,
   isLoading = false,
   level,
+  streak,
   onEditPress,
   onBackPress,
   onSettingsPress,
@@ -166,14 +168,14 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
               </Text>
             ) : null}
           </View>
-          {level != null && (
+          {streak != null && (
             <TouchableOpacity
               style={styles.levelBadge}
               onPress={onLevelPress}
               activeOpacity={0.7}
             >
               <Text style={styles.levelBadgeLabel}>LVL</Text>
-              <Text style={styles.levelBadgeText}>{level}</Text>
+              <Text style={styles.levelBadgeText}>{streak}</Text>
             </TouchableOpacity>
           )}
         </View>

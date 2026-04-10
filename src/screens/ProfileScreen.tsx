@@ -37,6 +37,42 @@ import { NotificationModal } from '../components/profile/NotificationModal';
 import { ProfileDataService } from '../services/backend/ProfileDataService';
 import type { RecentWorkout, ClubAffiliation, ProfileLevelData, ActivityBreakdownData } from '../services/backend/ProfileDataService';
 import { useNostrProfile } from '../hooks/useCachedData';
+import LocalWorkoutStorageService from '../services/fitness/LocalWorkoutStorageService';
+
+const GRACE_PERIOD_DAYS = 3;
+
+function computeCurrentStreak(workouts: { startTime: string; source: string }[]): number {
+  const qualifying = workouts.filter((w) => w.source !== 'daily_steps');
+  const uniqueDates = [
+    ...new Set(qualifying.map((w) => w.startTime?.slice(0, 10)).filter(Boolean)),
+  ].sort((a, b) => (b > a ? 1 : -1));
+
+  if (uniqueDates.length === 0) return 0;
+
+  const dates = [...uniqueDates].reverse();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const mostRecent = new Date(dates[dates.length - 1]);
+  mostRecent.setHours(0, 0, 0, 0);
+  const daysSinceLast = Math.round(
+    (today.getTime() - mostRecent.getTime()) / (24 * 60 * 60 * 1000)
+  );
+
+  if (daysSinceLast >= GRACE_PERIOD_DAYS) return 0;
+
+  let streak = 1;
+  for (let i = dates.length - 2; i >= 0; i--) {
+    const curr = new Date(dates[i + 1]);
+    const prev = new Date(dates[i]);
+    const gap = Math.round((curr.getTime() - prev.getTime()) / (24 * 60 * 60 * 1000));
+    if (gap <= GRACE_PERIOD_DAYS) {
+      streak++;
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
 
 interface ProfileScreenProps {
   data: ProfileScreenData;
@@ -75,6 +111,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
   const [recentWorkouts, setRecentWorkouts] = useState<RecentWorkout[]>([]);
   const [clubs, setClubs] = useState<ClubAffiliation[]>([]);
   const [isLoadingSections, setIsLoadingSections] = useState(true);
+  const [currentStreak, setCurrentStreak] = useState(0);
   const [rewardDestination, setRewardDestination] = useState<string | null>(null);
   const [rewardDestinationImage, setRewardDestinationImage] = useState<number | undefined>(undefined);
 
@@ -176,15 +213,20 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
     else { setIsLoadingSections(false); }
   }, [targetNpub, loadProfileSections]);
 
-  // Refresh reward destination + clubs + music header on focus
+  // Refresh reward destination + clubs + streak + music header on focus
   useFocusEffect(useCallback(() => {
     MusicPlayerPreferencesService.isMusicPlayerHeaderEnabled().then(setMusicPlayerHeaderEnabled);
     loadRewardDestination();
+    if (isOwner) {
+      LocalWorkoutStorageService.getAllWorkouts()
+        .then((w) => setCurrentStreak(computeCurrentStreak(w)))
+        .catch(() => {});
+    }
     if (targetNpub) {
       ProfileDataService.clearProfileCache(targetNpub);
       ProfileDataService.getUserClubs(targetNpub).then(setClubs).catch(() => {});
     }
-  }, [loadRewardDestination, targetNpub]));
+  }, [loadRewardDestination, targetNpub, isOwner]));
 
   const handleSettingsPress = useCallback(() => {
     navigation.navigate('Settings', {
@@ -258,6 +300,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
           <ProfileHero user={isOwner ? data.user : otherUser} isOwner={isOwner}
             isLoading={isOwner ? isLoadingSections : !otherUser}
             level={levelData?.level ?? 0}
+            streak={isOwner ? currentStreak : undefined}
             onEditPress={isOwner ? handleEditPress : undefined}
             onBackPress={!isOwner ? () => navigation.goBack() : undefined}
             onSettingsPress={undefined}

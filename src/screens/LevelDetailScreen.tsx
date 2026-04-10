@@ -1,4 +1,5 @@
 // src/screens/LevelDetailScreen.tsx
+// Repurposed as Streak Detail Screen
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -14,43 +15,104 @@ import { Ionicons } from '@expo/vector-icons';
 import { TouchableOpacity } from 'react-native';
 import { theme } from '../styles/theme';
 import { TexturedBackground } from '../components/ui/TexturedBackground';
-import { WorkoutLevelService } from '../services/fitness/WorkoutLevelService';
-import { XP_VALUES, XP_PER_LEVEL, LEVEL_MILESTONES as XP_MILESTONES } from '../types/workoutLevel';
-import type { LevelStats } from '../types/workoutLevel';
-import { LEVEL_MILESTONES } from '../types/workoutLevel';
-import { useUserStore } from '../store/userStore';
+import LocalWorkoutStorageService from '../services/fitness/LocalWorkoutStorageService';
+
+const GRACE_PERIOD_DAYS = 3;
+
+function getLastWorkoutLabel(daysSince: number): string {
+  if (daysSince === 0) return 'Today';
+  if (daysSince === 1) return 'Yesterday';
+  return `${daysSince} days ago`;
+}
+
+function computeStreaks(workouts: { startTime: string; source: string }[]): {
+  current: number;
+  longest: number;
+  totalWorkoutDays: number;
+  daysSinceLast: number;
+} {
+  const qualifying = workouts.filter((w) => w.source !== 'daily_steps');
+  const uniqueDates = [
+    ...new Set(qualifying.map((w) => w.startTime?.slice(0, 10)).filter(Boolean)),
+  ].sort((a, b) => (b > a ? 1 : -1));
+
+  if (uniqueDates.length === 0) {
+    return { current: 0, longest: 0, totalWorkoutDays: 0, daysSinceLast: -1 };
+  }
+
+  const dates = [...uniqueDates].reverse();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const mostRecent = new Date(dates[dates.length - 1]);
+  mostRecent.setHours(0, 0, 0, 0);
+  const daysSinceLast = Math.round(
+    (today.getTime() - mostRecent.getTime()) / (24 * 60 * 60 * 1000)
+  );
+
+  // Longest streak
+  let longest = 1;
+  let temp = 1;
+  for (let i = 1; i < dates.length; i++) {
+    const prev = new Date(dates[i - 1]);
+    const curr = new Date(dates[i]);
+    const gap = Math.round((curr.getTime() - prev.getTime()) / (24 * 60 * 60 * 1000));
+    if (gap <= GRACE_PERIOD_DAYS) {
+      temp++;
+    } else {
+      temp = 1;
+    }
+    if (temp > longest) longest = temp;
+  }
+
+  // Current streak
+  let current: number;
+  if (daysSinceLast >= GRACE_PERIOD_DAYS) {
+    current = 0;
+  } else {
+    current = 1;
+    for (let i = dates.length - 2; i >= 0; i--) {
+      const curr = new Date(dates[i + 1]);
+      const prev = new Date(dates[i]);
+      const gap = Math.round((curr.getTime() - prev.getTime()) / (24 * 60 * 60 * 1000));
+      if (gap <= GRACE_PERIOD_DAYS) {
+        current++;
+      } else {
+        break;
+      }
+    }
+  }
+
+  return { current, longest, totalWorkoutDays: uniqueDates.length, daysSinceLast };
+}
 
 export const LevelDetailScreen: React.FC = () => {
   const navigation = useNavigation();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const user = useUserStore((state: any) => state.user);
-  const npub = user?.npub || '';
 
-  const [stats, setStats] = useState<LevelStats | null>(null);
-  const [isLoadingStats, setIsLoadingStats] = useState(true);
-
-  const level = stats?.level.level || 1;
+  const [streakData, setStreakData] = useState<{
+    current: number;
+    longest: number;
+    totalWorkoutDays: number;
+    daysSinceLast: number;
+  } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     loadData();
-  }, [npub]);
+  }, []);
 
   const loadData = async () => {
-    setIsLoadingStats(true);
+    setIsLoading(true);
     try {
-      const levelStats = await WorkoutLevelService.getInstance().getLevelStats(
-        npub,
-        []
-      );
-      setStats(levelStats);
+      const workouts = await LocalWorkoutStorageService.getAllWorkouts();
+      setStreakData(computeStreaks(workouts));
     } catch (error) {
-      console.error('[LevelDetail] Failed to load data:', error);
+      console.error('[StreakDetail] Failed to load data:', error);
     } finally {
-      setIsLoadingStats(false);
+      setIsLoading(false);
     }
   };
 
-  if (isLoadingStats) {
+  if (isLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <TexturedBackground edges={[]}>
@@ -62,11 +124,13 @@ export const LevelDetailScreen: React.FC = () => {
     );
   }
 
-  const milestone = LEVEL_MILESTONES.slice()
-    .reverse()
-    .find((m) => level >= m.level);
-
-  const nextMilestone = LEVEL_MILESTONES.find((m) => level < m.level);
+  const { current = 0, longest = 0, totalWorkoutDays = 0, daysSinceLast = -1 } =
+    streakData || {};
+  const workedOutToday = daysSinceLast === 0;
+  const inGracePeriod = !workedOutToday && current > 0;
+  const graceDaysLeft = inGracePeriod
+    ? GRACE_PERIOD_DAYS - 1 - daysSinceLast
+    : 0;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -86,72 +150,54 @@ export const LevelDetailScreen: React.FC = () => {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.levelHeader}>
-            <Text style={styles.levelNumber}>{level}</Text>
-            <Text style={styles.levelTitle}>
-              {milestone?.title || 'Beginner'}
+          {/* Level number */}
+          <View style={styles.streakHeader}>
+            <Text style={[styles.streakNumber, inGracePeriod && styles.dimmed]}>
+              {current}
             </Text>
-            <View style={styles.xpBar}>
-              <View
-                style={[
-                  styles.xpBarFill,
-                  { width: `${(stats?.level.progress || 0) * 100}%` },
-                ]}
-              />
-            </View>
-            <Text style={styles.xpText}>
-              {stats?.level.currentXP || 0} /{' '}
-              {stats?.level.xpForNextLevel || 100} XP
+            <Text style={[styles.streakSubtitle, inGracePeriod && styles.dimmed]}>
+              Level {current}
             </Text>
           </View>
 
-          {/* Next milestone preview */}
-          {nextMilestone && (
-            <View style={styles.nextMilestone}>
-              <Text style={styles.nextMilestoneLabel}>NEXT</Text>
-              <Text style={styles.nextMilestoneTitle}>
-                Level {nextMilestone.level}: {nextMilestone.title}
+          {/* Grace period warning */}
+          {inGracePeriod && (
+            <View style={styles.graceCard}>
+              <Text style={styles.graceText}>
+                {graceDaysLeft > 0
+                  ? `Work out within ${graceDaysLeft} day${graceDaysLeft !== 1 ? 's' : ''} to keep your level`
+                  : 'Last chance — your level resets tomorrow'}
               </Text>
             </View>
           )}
 
-          {/* How XP Works */}
-          <View style={styles.xpExplainer}>
-            <Text style={styles.xpExplainerTitle}>How XP Works</Text>
-            <View style={styles.xpItem}>
-              <Text style={styles.xpItemLabel}>Per Workout</Text>
-              <Text style={styles.xpItemValue}>+{XP_VALUES.WORKOUT_SUBMITTED} XP</Text>
+          {/* Stats */}
+          <View style={styles.statsCard}>
+            <View style={styles.statRow}>
+              <Text style={styles.statLabel}>Last workout</Text>
+              <Text style={styles.statValue}>
+                {daysSinceLast >= 0 ? getLastWorkoutLabel(daysSinceLast) : 'Never'}
+              </Text>
             </View>
-            <View style={styles.xpItem}>
-              <Text style={styles.xpItemLabel}>Daily Steps Goal</Text>
-              <Text style={styles.xpItemValue}>+{XP_VALUES.DAILY_STEPS_GOAL} XP</Text>
+            <View style={styles.statRow}>
+              <Text style={styles.statLabel}>Highest level</Text>
+              <Text style={styles.statValue}>{longest}</Text>
             </View>
-            <View style={styles.xpItem}>
-              <Text style={styles.xpItemLabel}>Daily Login</Text>
-              <Text style={styles.xpItemValue}>+{XP_VALUES.DAILY_LOGIN} XP</Text>
+            <View style={styles.statRow}>
+              <Text style={styles.statLabel}>Total workout days</Text>
+              <Text style={styles.statValue}>{totalWorkoutDays}</Text>
             </View>
-            <View style={styles.xpItem}>
-              <Text style={styles.xpItemLabel}>Per Level</Text>
-              <Text style={styles.xpItemValue}>{XP_PER_LEVEL} XP</Text>
-            </View>
+          </View>
 
-            <Text style={[styles.xpExplainerTitle, { marginTop: 16 }]}>Milestones</Text>
-            {XP_MILESTONES.map((m) => (
-              <View key={m.level} style={styles.xpItem}>
-                <Text style={[
-                  styles.xpItemLabel,
-                  level >= m.level && { color: theme.colors.text },
-                ]}>
-                  Level {m.level}
-                </Text>
-                <Text style={[
-                  styles.xpItemValue,
-                  level >= m.level && { color: theme.colors.text },
-                ]}>
-                  {m.title}
-                </Text>
-              </View>
-            ))}
+          {/* How levels work */}
+          <View style={styles.explainerCard}>
+            <Text style={styles.explainerTitle}>How Levels Work</Text>
+            <Text style={styles.explainerText}>
+              Your level is your workout streak. Each day you complete
+              a workout, you gain a level. Miss more than 2 days and
+              your level resets. Passive step counting doesn't count,
+              but any tracked activity does.
+            </Text>
           </View>
         </ScrollView>
       </TexturedBackground>
@@ -191,89 +237,84 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     alignItems: 'center',
   },
-  levelHeader: {
+  streakHeader: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
-  levelNumber: {
-    color: theme.colors.text,
-    fontSize: 48,
+  streakNumber: {
+    color: theme.colors.accent,
+    fontSize: 56,
     fontWeight: theme.typography.weights.extraBold,
+    lineHeight: 60,
   },
-  levelTitle: {
+  streakSubtitle: {
     color: theme.colors.textMuted,
     fontSize: 16,
     fontWeight: theme.typography.weights.medium,
-    marginBottom: 12,
+    marginTop: 2,
   },
-  xpBar: {
-    width: '80%',
-    height: 6,
-    backgroundColor: theme.colors.border,
-    borderRadius: 3,
-    overflow: 'hidden',
+  dimmed: {
+    opacity: 0.45,
   },
-  xpBarFill: {
-    height: '100%',
-    backgroundColor: theme.colors.orangeDeep,
-    borderRadius: 3,
-  },
-  xpText: {
-    color: theme.colors.textMuted,
-    fontSize: 12,
-    fontWeight: theme.typography.weights.medium,
-    marginTop: 6,
-  },
-  nextMilestone: {
+  graceCard: {
     width: '100%',
     backgroundColor: theme.colors.cardBackground,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.orangeDeep,
     borderRadius: 10,
     padding: 14,
     alignItems: 'center',
     marginBottom: 20,
-    gap: 4,
   },
-  nextMilestoneLabel: {
-    color: theme.colors.textMuted,
-    fontSize: 10,
-    fontWeight: theme.typography.weights.semiBold,
-    letterSpacing: 1,
+  graceText: {
+    color: theme.colors.orangeBright,
+    fontSize: 13,
+    fontWeight: theme.typography.weights.medium,
+    textAlign: 'center',
   },
-  nextMilestoneTitle: {
-    color: theme.colors.text,
-    fontSize: 15,
-    fontWeight: theme.typography.weights.semiBold,
-  },
-  xpExplainer: {
+  statsCard: {
     width: '100%',
     backgroundColor: theme.colors.cardBackground,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: 12,
     padding: 16,
-    marginTop: 32,
+    marginBottom: 16,
   },
-  xpExplainerTitle: {
+  statRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  statLabel: {
+    color: theme.colors.textMuted,
+    fontSize: 14,
+    fontWeight: theme.typography.weights.medium,
+  },
+  statValue: {
+    color: theme.colors.text,
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
+  },
+  explainerCard: {
+    width: '100%',
+    backgroundColor: theme.colors.cardBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+  },
+  explainerTitle: {
     color: theme.colors.text,
     fontSize: 15,
     fontWeight: theme.typography.weights.semiBold,
-    marginBottom: 10,
+    marginBottom: 8,
   },
-  xpItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-  },
-  xpItemLabel: {
+  explainerText: {
     color: theme.colors.textMuted,
     fontSize: 13,
     fontWeight: theme.typography.weights.medium,
-  },
-  xpItemValue: {
-    color: theme.colors.textMuted,
-    fontSize: 13,
-    fontWeight: theme.typography.weights.semiBold,
+    lineHeight: 20,
   },
 });
