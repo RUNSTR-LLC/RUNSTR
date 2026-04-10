@@ -15,6 +15,7 @@ import {
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import * as Haptics from 'expo-haptics';
 import { theme } from '../styles/theme';
 import { PerformanceLogger } from '../utils/PerformanceLogger';
 
@@ -100,13 +101,18 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
 
   return (
     <Tab.Navigator
+      screenListeners={{
+        tabPress: () => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        },
+      }}
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: styles.tabBar,
         tabBarActiveTintColor: theme.colors.text,
         tabBarInactiveTintColor: theme.colors.textMuted,
         tabBarLabelStyle: styles.tabBarLabel,
-        sceneContainerStyle: { backgroundColor: '#000' }, // Prevent white flash during tab transitions
+        sceneContainerStyle: { backgroundColor: '#000' },
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: keyof typeof Ionicons.glyphMap = 'help-outline';
 
