@@ -24,7 +24,8 @@ All notable changes to RUNSTR will be documented in this file.
 - Fixed iOS crash on launch caused by `await import('react-native')` in AuthContext
 - Fixed terminology: "Bitcoin"/"sats" replaced with "rewards" in navigation text
 
-### Cleanup
+### Polish
+- Haptic feedback on bottom tab switching
 - Stripped 35 debug console.logs from navigationHandlers.ts
 - Removed outdated subscription tier references from CLAUDE.md
 - Added dead code audit prompt for future use
