@@ -2,6 +2,33 @@
 
 All notable changes to RUNSTR will be documented in this file.
 
+## [1.8.9] - 2026-04-10 - Level System, Dead Code Removal & Crash Fix
+
+### Level System (replaces XP + Streak)
+- Level = your workout streak. LVL badge on profile shows consecutive workout days
+- 2-day grace period: miss up to 2 days without losing your level
+- Tapping LVL badge opens detail screen with current level, highest level, last workout, and explainer
+- Passive step counting excluded — only deliberate activity counts
+- All data sourced from local storage (works for private users too)
+- Removed streak bonus from rewards (levels are purely motivational)
+- Removed StreakSection from Rewards screen (level lives on Profile now)
+
+### Dead Code Removal
+- Removed 5,850 lines of unreachable code (7 dead screens, 2 dead services)
+- Deleted SimpleTeamScreen, EventsScreen, LeagueDetailScreen, MyTeamsScreen, CompetitionsListScreen, TeamsScreen, DonateScreen
+- Deleted SimpleLeaderboardService (1,512 lines) and SimpleCompetitionService (884 lines)
+- Redirected orphaned navigation calls to live ClubPage screen
+- Removed 14 dead imports across live files
+
+### Bug Fixes
+- Fixed iOS crash on launch caused by `await import('react-native')` in AuthContext
+- Fixed terminology: "Bitcoin"/"sats" replaced with "rewards" in navigation text
+
+### Cleanup
+- Stripped 35 debug console.logs from navigationHandlers.ts
+- Removed outdated subscription tier references from CLAUDE.md
+- Added dead code audit prompt for future use
+
 ## [1.8.8] - 2026-04-09 - Social, Season III & Streak Rewards
 
 ### Season III: Club Battles
