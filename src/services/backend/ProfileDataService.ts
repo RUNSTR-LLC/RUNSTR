@@ -154,10 +154,10 @@ export class ProfileDataService {
     try {
       const { data, error } = await supabase!
         .from('workout_submissions')
-        .select('id, distance_meters, created_at')
+        .select('id, activity_type, distance_meters, duration_seconds, created_at')
         .eq('npub', npub)
         .order('created_at', { ascending: false })
-        .limit(1000);
+        .limit(5000);
 
       if (error || !data) {
         console.warn(TAG, 'getUserStats error:', error?.message);
@@ -171,9 +171,17 @@ export class ProfileDataService {
       );
 
       // Compute streaks from unique workout dates (UTC)
+      // Exclude passive step submissions (walking with 0 duration = auto-steps)
+      const streakEligible = data.filter((w) => {
+        const isPassiveSteps =
+          (w.activity_type === 'walking' || w.activity_type === 'steps') &&
+          (w.duration_seconds === 0 || w.duration_seconds === null);
+        return !isPassiveSteps;
+      });
+
       const uniqueDates = [
         ...new Set(
-          data.map((w) => w.created_at?.slice(0, 10)).filter(Boolean),
+          streakEligible.map((w) => w.created_at?.slice(0, 10)).filter(Boolean),
         ),
       ].sort((a, b) => (b > a ? 1 : -1)); // descending
 
@@ -640,22 +648,29 @@ function computeStreaks(
     return { longestStreakDays: 0, currentStreakDays: 0 };
   }
 
+  // 2-day grace period: gaps of 1-3 days between workout days keep the streak alive,
+  // but only days with actual workouts count toward the streak number.
+  const GRACE_PERIOD_DAYS = 3; // gap of 3 = missed 2 days (grace period)
+
   // Convert to ascending order for easier streak calculation
   const dates = [...sortedDatesDesc].reverse();
 
+  // Calculate longest streak (with grace period)
   let longestStreak = 1;
-  let currentStreak = 1;
   let tempStreak = 1;
 
   for (let i = 1; i < dates.length; i++) {
     const prev = new Date(dates[i - 1]);
     const curr = new Date(dates[i]);
-    const diffMs = curr.getTime() - prev.getTime();
-    const diffDays = Math.round(diffMs / (24 * 60 * 60 * 1000));
+    const diffDays = Math.round(
+      (curr.getTime() - prev.getTime()) / (24 * 60 * 60 * 1000),
+    );
 
-    if (diffDays === 1) {
+    if (diffDays <= GRACE_PERIOD_DAYS) {
+      // Within grace period — streak continues, count only workout days
       tempStreak++;
     } else {
+      // Gap too large — streak breaks
       tempStreak = 1;
     }
 
@@ -665,7 +680,6 @@ function computeStreaks(
   }
 
   // Current streak: count backwards from the most recent date
-  // Check if the most recent workout was today or yesterday
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const mostRecent = new Date(dates[dates.length - 1]);
@@ -674,19 +688,21 @@ function computeStreaks(
     (today.getTime() - mostRecent.getTime()) / (24 * 60 * 60 * 1000),
   );
 
-  if (daysSinceLast > 1) {
-    // Streak is broken (last workout was more than yesterday)
+  let currentStreak: number;
+  if (daysSinceLast >= GRACE_PERIOD_DAYS) {
+    // Grace period expired — streak is broken
     currentStreak = 0;
   } else {
-    // Count consecutive days backwards from most recent
+    // Count workout days backwards, allowing gaps up to grace period
     currentStreak = 1;
     for (let i = dates.length - 2; i >= 0; i--) {
       const curr = new Date(dates[i + 1]);
       const prev = new Date(dates[i]);
-      const diffMs = curr.getTime() - prev.getTime();
-      const diffDays = Math.round(diffMs / (24 * 60 * 60 * 1000));
+      const diffDays = Math.round(
+        (curr.getTime() - prev.getTime()) / (24 * 60 * 60 * 1000),
+      );
 
-      if (diffDays === 1) {
+      if (diffDays <= GRACE_PERIOD_DAYS) {
         currentStreak++;
       } else {
         break;

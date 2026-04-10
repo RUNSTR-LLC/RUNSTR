@@ -247,8 +247,8 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
                 <View style={styles.walletEmptyContent}>
                   <Text style={styles.walletEmptyTitle}>No Wallet Found</Text>
                   <Text style={styles.walletEmptyDescription}>
-                    Create a RUNSTR Lightning wallet to send and receive Bitcoin
-                    zaps. Your wallet is stored securely on Nostr.
+                    Create a RUNSTR wallet to send and receive rewards.
+                    Your wallet is stored securely.
                   </Text>
                   <TouchableOpacity
                     style={styles.createWalletButton}

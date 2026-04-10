@@ -31,19 +31,12 @@ function getCurrentWeekDates(): { start: string; end: string; dates: string[] } 
 
 const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-function getStreakBonus(streak: number): number {
-  if (streak >= 5) return 40;
-  if (streak >= 4) return 30;
-  if (streak >= 3) return 20;
-  if (streak >= 2) return 10;
-  return 0;
-}
-
 export const StreakSection: React.FC = () => {
   const [npub, setNpub] = useState('');
   const [currentStreak, setCurrentStreak] = useState(0);
   const [longestStreak, setLongestStreak] = useState(0);
   const [workoutDays, setWorkoutDays] = useState<Set<string>>(new Set());
+  const [inGracePeriod, setInGracePeriod] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -61,26 +54,56 @@ export const StreakSection: React.FC = () => {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      // Fetch streak stats from existing service
       const stats = await ProfileDataService.getUserStats(npub);
       setCurrentStreak(stats.currentStreakDays);
       setLongestStreak(stats.longestStreakDays);
 
       // Fetch this week's workout days for the dots
+      // Exclude passive step submissions (walking with 0 duration)
       if (isSupabaseConfigured()) {
         const week = getCurrentWeekDates();
         const { data } = await supabase!
           .from('workout_submissions')
-          .select('leaderboard_date')
+          .select('leaderboard_date, activity_type, duration_seconds')
           .eq('npub', npub)
           .gte('leaderboard_date', week.start)
           .lte('leaderboard_date', week.end);
 
         if (data) {
-          const days = new Set(
-            data.map((r: { leaderboard_date: string }) => r.leaderboard_date)
+          const eligibleDays = new Set(
+            data
+              .filter((r) => {
+                const isPassiveSteps =
+                  (r.activity_type === 'walking' || r.activity_type === 'steps') &&
+                  (r.duration_seconds === 0 || r.duration_seconds === null);
+                return !isPassiveSteps;
+              })
+              .map((r: { leaderboard_date: string }) => r.leaderboard_date)
           );
-          setWorkoutDays(days);
+          setWorkoutDays(eligibleDays);
+        }
+      }
+
+      // Determine grace period state: streak > 0 but no workout today
+      const today = new Date().toISOString().split('T')[0];
+      if (stats.currentStreakDays > 0) {
+        // Check if user worked out today
+        if (isSupabaseConfigured()) {
+          const { data: todayData } = await supabase!
+            .from('workout_submissions')
+            .select('id, activity_type, duration_seconds')
+            .eq('npub', npub)
+            .eq('leaderboard_date', today)
+            .limit(10);
+
+          const hasQualifyingToday = (todayData || []).some((r) => {
+            const isPassiveSteps =
+              (r.activity_type === 'walking' || r.activity_type === 'steps') &&
+              (r.duration_seconds === 0 || r.duration_seconds === null);
+            return !isPassiveSteps;
+          });
+
+          setInGracePeriod(!hasQualifyingToday);
         }
       }
     } catch (err) {
@@ -94,7 +117,6 @@ export const StreakSection: React.FC = () => {
 
   const week = getCurrentWeekDates();
   const today = new Date().toISOString().split('T')[0];
-  const bonus = getStreakBonus(currentStreak);
 
   return (
     <View style={styles.container}>
@@ -102,14 +124,13 @@ export const StreakSection: React.FC = () => {
 
       {/* Streak count */}
       <View style={styles.streakRow}>
-        <Text style={styles.streakNumber}>{currentStreak}</Text>
-        <Text style={styles.streakLabel}>day streak</Text>
+        <Text style={[styles.streakNumber, inGracePeriod && styles.streakDimmed]}>
+          {currentStreak}
+        </Text>
+        <Text style={[styles.streakLabel, inGracePeriod && styles.streakLabelDimmed]}>
+          day streak
+        </Text>
       </View>
-
-      {/* Bonus badge */}
-      {bonus > 0 && (
-        <Text style={styles.bonusText}>+{bonus}% streak bonus</Text>
-      )}
 
       {/* Week dots */}
       <View style={styles.weekRow}>
@@ -171,16 +192,16 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.accent,
   },
+  streakDimmed: {
+    opacity: 0.5,
+  },
   streakLabel: {
     fontSize: 15,
     fontWeight: theme.typography.weights.medium,
     color: theme.colors.textMuted,
   },
-  bonusText: {
-    fontSize: 13,
-    fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.orangeBright,
-    marginBottom: 12,
+  streakLabelDimmed: {
+    opacity: 0.5,
   },
   weekRow: {
     flexDirection: 'row',
