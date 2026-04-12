@@ -82,6 +82,9 @@ export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey }) => {
 
   const formatNumber = (n: number) => n.toLocaleString();
 
+  const formatRecord = (n: number, suffix = '') =>
+    n > 0 ? `${formatNumber(n)}${suffix}` : '—';
+
   return (
     <Card style={styles.container}>
       <View style={styles.row}>
@@ -89,30 +92,26 @@ export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey }) => {
           <Text style={styles.statValue}>{formatNumber(todaySteps)}</Text>
           <Text style={styles.statLabel}>Steps Today</Text>
         </View>
-        {records.longestRunKm > 0 && (
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>
-              {records.longestRunKm.toFixed(1)} km
-            </Text>
-            <Text style={styles.statLabel}>Longest Run</Text>
-          </View>
-        )}
-        {records.mostStepsInDay > 0 && (
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>
-              {formatNumber(records.mostStepsInDay)}
-            </Text>
-            <Text style={styles.statLabel}>Most Steps</Text>
-          </View>
-        )}
-        {records.mostPushups > 0 && (
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>
-              {formatNumber(records.mostPushups)}
-            </Text>
-            <Text style={styles.statLabel}>Most Pushups</Text>
-          </View>
-        )}
+        <View style={styles.stat}>
+          <Text style={styles.statValue}>
+            {records.longestRunKm > 0
+              ? `${records.longestRunKm.toFixed(1)} km`
+              : '—'}
+          </Text>
+          <Text style={styles.statLabel}>Longest Run</Text>
+        </View>
+        <View style={styles.stat}>
+          <Text style={styles.statValue}>
+            {formatRecord(records.mostStepsInDay)}
+          </Text>
+          <Text style={styles.statLabel}>Most Steps</Text>
+        </View>
+        <View style={styles.stat}>
+          <Text style={styles.statValue}>
+            {formatRecord(records.mostPushups)}
+          </Text>
+          <Text style={styles.statLabel}>Most Pushups</Text>
+        </View>
       </View>
     </Card>
   );
