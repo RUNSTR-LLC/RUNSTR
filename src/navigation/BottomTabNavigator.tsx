@@ -58,9 +58,10 @@ import { createNavigationHandlers } from './navigationHandlers';
 
 // Types
 export type BottomTabParamList = {
-  Profile: undefined;
+  Home: { pubkey?: string } | undefined;
   Social: undefined;
   Events: undefined;
+  History: undefined;
 };
 
 const Tab = createBottomTabNavigator<BottomTabParamList>();
@@ -116,7 +117,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: keyof typeof Ionicons.glyphMap = 'help-outline';
 
-          if (route.name === 'Profile') {
+          if (route.name === 'Home') {
             iconName = focused ? 'person' : 'person-outline';
           } else if (route.name === 'Social') {
             iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
@@ -134,11 +135,11 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
           );
         },
       })}
-      initialRouteName="Profile"
+      initialRouteName="Home"
     >
-      {/* Profile Tab */}
+      {/* Home Tab */}
       <Tab.Screen
-        name="Profile"
+        name="Home"
         options={{
           title: t('profile:title'),
           headerShown: false,

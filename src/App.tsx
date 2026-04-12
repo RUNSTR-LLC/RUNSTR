@@ -213,7 +213,6 @@ import { Season3Screen } from './screens/season3/Season3Screen';
 import { CompeteScreen } from './screens/CompeteScreen';
 import { LeaderboardsScreen } from './screens/LeaderboardsScreen';
 import { RewardsScreen } from './screens/RewardsScreen';
-import { ActivityTrackerScreen } from './screens/activity/ActivityTrackerScreen';
 import { JournalHistoryScreen } from './screens/JournalHistoryScreen';
 import { StatsDetailScreen } from './screens/StatsDetailScreen';
 import { useWalletStore } from './store/walletStore';
@@ -283,7 +282,6 @@ type AuthenticatedStackParamList = {
   Season2: undefined;
   Season3: undefined;
   Rewards: undefined;
-  Exercise: undefined;
   Compete: undefined;
   Leaderboards: undefined;
   DynamicEventDetail: { eventId: string };
@@ -550,15 +548,6 @@ const AuthenticatedNavigator: React.FC = () => {
           headerShown: false,
         }}
         component={RewardsScreen}
-      />
-
-      {/* Exercise Screen - Activity Tracker (accessed from Profile card) */}
-      <AuthenticatedStack.Screen
-        name="Exercise"
-        options={{
-          headerShown: false,
-        }}
-        component={ActivityTrackerScreen}
       />
 
       {/* Compete Screen - Events/Competitions (accessed from Profile card) */}

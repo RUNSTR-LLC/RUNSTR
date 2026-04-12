@@ -31,7 +31,6 @@ import { RewardsScreen } from '../screens/RewardsScreen';
 import { AdvancedAnalyticsScreen } from '../screens/AdvancedAnalyticsScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { StatsDetailScreen } from '../screens/StatsDetailScreen';
-import { ActivityTrackerScreen } from '../screens/activity/ActivityTrackerScreen';
 import { Season2Screen } from '../screens/season2/Season2Screen';
 import { Season3Screen } from '../screens/season3/Season3Screen';
 import { CompeteScreen } from '../screens/CompeteScreen';
@@ -55,7 +54,7 @@ export type RootStackParamList = {
   Main: undefined;
   Login: undefined;
   Clubs: undefined;
-  Profile: { pubkey?: string } | undefined;
+  Home: { pubkey?: string } | undefined;
   ProfileEdit: undefined;
   Wallet: undefined;
   WorkoutHistory: { userId: string; pubkey: string };
@@ -66,7 +65,6 @@ export type RootStackParamList = {
   AdvancedAnalytics: undefined;
   Settings: undefined;
   StatsDetail: { npub: string };
-  Exercise: undefined;
   Compete: undefined;
   Season2: undefined;
   Season3: undefined;
@@ -112,9 +110,9 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
       return initialRoute;
     }
 
-    // Simplified logic: authenticated users always go to Profile
-    console.log('🎯 AppNavigator: Going to Profile');
-    return 'Profile';
+    // Simplified logic: authenticated users always go to Home
+    console.log('🎯 AppNavigator: Going to Home');
+    return 'Home';
   };
 
   // Create navigation handlers
@@ -193,8 +191,8 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
         options={{ headerShown: false }}
       />
 
-      {/* Profile Screen */}
-      <Stack.Screen name="Profile" options={screenConfigurations.Profile}>
+      {/* Home Screen */}
+      <Stack.Screen name="Home" options={screenConfigurations.Home}>
         {({ navigation }) =>
           profileData ? (
             <ProfileScreen
@@ -392,16 +390,6 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
       <Stack.Screen
         name="JournalHistory"
         component={JournalHistoryScreen}
-        options={{
-          ...defaultScreenOptions,
-          headerShown: false,
-        }}
-      />
-
-      {/* Exercise Screen - Activity Tracker (accessed from Profile card) */}
-      <Stack.Screen
-        name="Exercise"
-        component={ActivityTrackerScreen}
         options={{
           ...defaultScreenOptions,
           headerShown: false,

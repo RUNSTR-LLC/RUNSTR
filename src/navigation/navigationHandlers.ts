@@ -137,7 +137,7 @@ export const createNavigationHandlers = (): NavigationHandlers => {
     },
 
     handleManageWallet: (navigation: any) => {
-      navigation.navigate('Profile');
+      navigation.navigate('Home');
     },
 
     handleAnnouncements: () => {
@@ -172,7 +172,7 @@ export const createNavigationHandlers = (): NavigationHandlers => {
       },
       navigation: any
     ) => {
-      navigation.navigate('Profile');
+      navigation.navigate('Home');
     },
 
     handleOnboardingSkip: (navigation: any) => {

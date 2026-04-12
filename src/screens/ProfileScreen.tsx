@@ -262,11 +262,6 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
     (parent || navigation).navigate('ProfileEdit' as any);
   }, [navigation]);
 
-  const handleStartWorkout = useCallback(() => {
-    const parent = navigation.getParent();
-    (parent || navigation).navigate('Exercise');
-  }, [navigation]);
-
   const handleDestinationPress = useCallback(() => {
     navigate('Rewards');
   }, []);
@@ -318,10 +313,6 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
 
         {isOwner ? (
           <View style={styles.actionCardsContainer}>
-            <TouchableOpacity style={styles.actionCard} onPress={handleStartWorkout} activeOpacity={0.7}>
-              <Text style={styles.actionCardText}>EXERCISE</Text>
-            </TouchableOpacity>
-
             <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('WorkoutHistory', { userId: targetNpub, pubkey: targetNpub })} activeOpacity={0.7}>
               <Text style={styles.actionCardText}>HISTORY</Text>
             </TouchableOpacity>

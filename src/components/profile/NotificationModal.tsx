@@ -161,7 +161,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
   const handleViewWallet = () => {
     onClose();
     // Navigate to Profile tab (wallet is displayed there)
-    navigation.navigate('Profile');
+    navigation.navigate('Home');
   };
 
 
