@@ -23,7 +23,6 @@ import { EnhancedSocialShareModal } from '../components/profile/shared/EnhancedS
 
 // Unified Workout Components
 import { WorkoutTabNavigator } from '../components/profile/WorkoutTabNavigator';
-import { WorkoutStatsSheet } from '../components/profile/WorkoutStatsSheet';
 
 // Backup modals
 import { ExportDataModal } from '../components/backup/ExportDataModal';
@@ -51,7 +50,6 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
   // to ensure we're using current auth after sign out/sign in
   const [isInitializing, setIsInitializing] = useState(true);
   const [showSocialModal, setShowSocialModal] = useState(false);
-  const [showStatsSheet, setShowStatsSheet] = useState(false);
   const [selectedWorkout, setSelectedWorkout] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<NostrProfile | null>(null);
   const [showExportModal, setShowExportModal] = useState(false);
@@ -236,12 +234,6 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
             </View>
           )}
         </View>
-        <TouchableOpacity
-          onPress={() => setShowStatsSheet(true)}
-          style={styles.statsButton}
-        >
-          <Ionicons name="stats-chart" size={22} color={theme.colors.text} />
-        </TouchableOpacity>
       </View>
 
       {/* Unified Workout List - all sources merged into one view */}
@@ -270,12 +262,6 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
           setSelectedWorkout(null);
           // Success alert handled by child component (PrivateWorkoutsTab)
         }}
-      />
-
-      {/* Workout Stats Sheet */}
-      <WorkoutStatsSheet
-        visible={showStatsSheet}
-        onClose={() => setShowStatsSheet(false)}
       />
 
       {/* Backup modals */}
@@ -359,10 +345,6 @@ const styles = StyleSheet.create({
   backupMenuDivider: {
     height: 1,
     backgroundColor: theme.colors.border,
-  },
-
-  statsButton: {
-    padding: 8,
   },
 
   errorContainer: {
