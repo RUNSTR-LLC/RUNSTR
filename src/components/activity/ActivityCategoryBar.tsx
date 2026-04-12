@@ -54,22 +54,15 @@ export const ActivityCategoryBar: React.FC<ActivityCategoryBarProps> = ({
   }, [openCategoryIndex, onActivitySelect]);
 
   return (
-    <View>
-      {/* Collapsed trigger — shows current activity with chevron */}
+    <View style={styles.wrapper}>
+      {/* Collapsed trigger — icon-only chevron button */}
       <TouchableOpacity
         style={styles.trigger}
         onPress={handleToggle}
         activeOpacity={0.7}
         disabled={isWorkoutActive}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <Text
-          style={[
-            styles.triggerLabel,
-            isWorkoutActive && styles.triggerLabelDisabled,
-          ]}
-        >
-          {activeActivityLabel || 'Select activity'}
-        </Text>
         <Ionicons
           name={isOpen ? 'chevron-up' : 'chevron-down'}
           size={18}
@@ -118,29 +111,22 @@ export const ActivityCategoryBar: React.FC<ActivityCategoryBarProps> = ({
 };
 
 const styles = StyleSheet.create({
-  trigger: {
-    flexDirection: 'row',
+  wrapper: {
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 10,
+  },
+  trigger: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.cardBackground,
-    gap: 8,
-  },
-  triggerLabel: {
-    color: theme.colors.text,
-    fontSize: 15,
-    fontWeight: theme.typography.weights.semiBold,
-    letterSpacing: 0.5,
-  },
-  triggerLabelDisabled: {
-    color: theme.colors.textMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   expanded: {
     marginTop: 8,
+    alignSelf: 'stretch',
   },
   categoryBar: {
     flexDirection: 'row',
