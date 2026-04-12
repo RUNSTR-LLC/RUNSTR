@@ -262,7 +262,6 @@ export const EnhancedSocialShareModal: React.FC<EnhancedSocialShareModalProps> =
               <TouchableOpacity onPress={onClose} style={styles.backButton}>
                 <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
               </TouchableOpacity>
-              <Text style={styles.headerTitle}>Share Workout</Text>
               <View style={styles.headerSpacer} />
             </View>
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 }}>
@@ -480,7 +479,6 @@ export const EnhancedSocialShareModal: React.FC<EnhancedSocialShareModalProps> =
             <TouchableOpacity onPress={onClose} style={styles.backButton}>
               <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Share Workout</Text>
             <View style={styles.headerSpacer} />
           </View>
 
@@ -530,7 +528,7 @@ export const EnhancedSocialShareModal: React.FC<EnhancedSocialShareModalProps> =
                 <ActivityIndicator size="small" color={theme.colors.background} />
               ) : (
                 <Text style={styles.doneButtonText}>
-                  {onPostToNostr ? 'Post to Nostr' : 'Full Screen'}
+                  {onPostToNostr ? 'Post' : 'Full Screen'}
                 </Text>
               )}
             </TouchableOpacity>

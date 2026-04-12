@@ -761,7 +761,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
                   size={20}
                   color={theme.colors.background}
                 />
-                <Text style={styles.postButtonText}>Share Workout</Text>
+                <Text style={styles.postButtonText}>Post</Text>
               </TouchableOpacity>
             )}
 
@@ -782,7 +782,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
           {isWoTEligible && !postedToNostr && (
             <View style={styles.infoContainer}>
               <Text style={styles.infoText}>
-                Create a workout card and share it to Nostr
+                Create a workout card and share it
               </Text>
             </View>
           )}
