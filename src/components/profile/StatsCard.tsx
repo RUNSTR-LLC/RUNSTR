@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { Card } from '../ui/Card';
 import { DailyStepCounterService } from '../../services/activity/DailyStepCounterService';
@@ -143,11 +142,6 @@ export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey }) => {
       {/* Hero: Today's Steps */}
       <View style={styles.hero}>
         <View style={styles.heroHeader}>
-          <Ionicons
-            name="footsteps-outline"
-            size={16}
-            color={theme.colors.textMuted}
-          />
           <Text style={styles.heroLabel}>STEPS TODAY</Text>
         </View>
         <Text style={styles.heroValue}>{todaySteps.toLocaleString()}</Text>
@@ -186,7 +180,6 @@ export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey }) => {
       <Text style={styles.sectionTitle}>PERSONAL BESTS</Text>
       <View style={styles.bestList}>
         <BestRow
-          icon="trending-up-outline"
           label="Longest Run"
           value={
             records.longestRunKm > 0
@@ -195,12 +188,10 @@ export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey }) => {
           }
         />
         <BestRow
-          icon="fitness-outline"
           label="Most Pushups"
           value={formatCount(records.mostPushups)}
         />
         <BestRow
-          icon="barbell-outline"
           label="Most Pull-ups"
           value={formatCount(records.mostPullups)}
         />
@@ -210,15 +201,11 @@ export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey }) => {
 };
 
 const BestRow: React.FC<{
-  icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value: string;
-}> = ({ icon, label, value }) => (
+}> = ({ label, value }) => (
   <View style={styles.bestRow}>
-    <View style={styles.bestRowLeft}>
-      <Ionicons name={icon} size={16} color={theme.colors.accent} />
-      <Text style={styles.bestLabel}>{label}</Text>
-    </View>
+    <Text style={styles.bestLabel}>{label}</Text>
     <Text style={styles.bestValue}>{value}</Text>
   </View>
 );
@@ -315,11 +302,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 8,
-  },
-  bestRowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
   },
   bestLabel: {
     color: theme.colors.text,
