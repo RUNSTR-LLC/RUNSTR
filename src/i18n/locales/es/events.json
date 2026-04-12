@@ -1,0 +1,21 @@
+{
+  "createEvent": "Crear Evento",
+  "live": "EN VIVO",
+  "upcoming": "PROXIMOS",
+  "ended": "FINALIZADO",
+  "finalResults": "RESULTADOS FINALES",
+  "startsIn": "comienza en {{days}}d",
+  "daysLeft": "{{days}}d restantes",
+  "fastestTime": "Tiempo Mas Rapido",
+  "longestDistance": "Mayor Distancia",
+  "mostSteps": "Mas Pasos",
+  "mostWorkouts": "Mas Entrenamientos",
+  "longestDuration": "Mayor Duracion",
+  "club": "Club",
+  "einundzwanzigCommunity": "Comunidad Einundzwanzig",
+  "runningAndWalking": "Carrera + Caminata",
+  "charityFundraiser": "Recaudacion Benefica",
+  "charity_one": "{{count}} Organizacion",
+  "charity_other": "{{count}} Organizaciones",
+  "rewards": "{{amount}} recompensas"
+}

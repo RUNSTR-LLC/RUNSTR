@@ -36,9 +36,20 @@ import deCharities from './locales/de/charities.json';
 import deClubs from './locales/de/clubs.json';
 import deEvents from './locales/de/events.json';
 
+// Spanish translations
+import esCommon from './locales/es/common.json';
+import esSettings from './locales/es/settings.json';
+import esProfile from './locales/es/profile.json';
+import esRewards from './locales/es/rewards.json';
+import esTeams from './locales/es/teams.json';
+import esCharities from './locales/es/charities.json';
+import esClubs from './locales/es/clubs.json';
+import esEvents from './locales/es/events.json';
+
 export const SUPPORTED_LANGUAGES = [
   { code: 'en', name: 'English', nativeName: 'English' },
   { code: 'de', name: 'German', nativeName: 'Deutsch' },
+  { code: 'es', name: 'Spanish', nativeName: 'Espanol' },
 ] as const;
 
 export type LanguageCode = typeof SUPPORTED_LANGUAGES[number]['code'];
@@ -63,6 +74,16 @@ const resources = {
     charities: deCharities,
     clubs: deClubs,
     events: deEvents,
+  },
+  es: {
+    common: esCommon,
+    settings: esSettings,
+    profile: esProfile,
+    rewards: esRewards,
+    teams: esTeams,
+    charities: esCharities,
+    clubs: esClubs,
+    events: esEvents,
   },
 };
 

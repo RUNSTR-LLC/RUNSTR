@@ -1,0 +1,18 @@
+{
+  "title": "Equipos",
+  "yourTeam": "TU DESTINO",
+  "allTeams": "TODOS LOS DESTINOS",
+  "selectTeamSubtitle": "Elige a donde van tus recompensas",
+  "noWalletConnected": "Billetera No Conectada",
+  "noWalletDescription": "Toca el boton de zap para usar billeteras externas como Cash App o Strike.",
+  "insufficientBalance": "Saldo Insuficiente",
+  "insufficientBalanceDescription": "Necesitas {{amount}} sats pero solo tienes {{balance}}. Toca para usar billetera externa.",
+  "thankYou": "Gracias!",
+  "donationVerified": "Donacion a {{name}} verificada!",
+  "zapped": "Enviado!",
+  "donated": "Se donaron {{amount}} sats a {{name}}",
+  "failedToGetInvoice": "Error al obtener factura del destino.",
+  "failedToProcessDonation": "Error al procesar la donacion.",
+  "failedToProcessDonationExternal": "Error al procesar la donacion. Toca para usar billetera externa.",
+  "error": "Error"
+}
