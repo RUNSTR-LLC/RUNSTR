@@ -72,18 +72,22 @@ New 4 tabs:
 
 Individual tracker screens (RunningTrackerScreen, WalkingTrackerScreen, etc.) have **zero** permission checks — they rely entirely on ActivityTrackerScreen having already validated permissions. `SimpleRunTracker.startTracking()` also has no guard; if called without location permissions it silently fails (timer counts, distance stays 0).
 
-The Home screen MUST replicate the exact permission flow from ActivityTrackerScreen:
+The Home screen MUST replicate the exact permission flow from ActivityTrackerScreen, but with a timing adjustment to avoid back-to-back modals for first-time users.
 
-1. **On mount**: call `appPermissionService.checkAllPermissions()` to check location status
-2. **If not granted**: show `PermissionRequestModal` (same component, same props) — this is a non-dismissible modal on Android that handles:
+**First-time user context:** The welcome modal + reward destination picker flow runs at the App.tsx level before the user reaches the Home screen. If we also check permissions on Home mount, first-time users would see: welcome modal -> destination picker -> immediately hit with permission modal. Three modals in a row is too much friction.
+
+**Solution: defer permission check to hold-start for cardio activities.**
+
+1. **On hold-start (not on mount)**: if a cardio activity is selected and `permissionsReady !== true`, intercept the hold completion and show `PermissionRequestModal` instead of starting the countdown. Same component, same props — this is a non-dismissible modal on Android that handles:
    - System permission dialog
    - "Open Settings" fallback for Android 11+ background location
    - AppState listener that re-checks when user returns from Settings
    - Battery optimization / Doze exemption request on Android
-3. **Gate the hold-to-start button**: the `HoldToStartButton` must not be functional until `permissionsReady === true` for cardio activities. Either disable it or render it behind the permission modal.
-4. **Strength activities do NOT need location**: the permission gate only applies when a cardio activity (run, walk, cycle, hike) is selected. Strength tracking can start regardless.
+2. **After permissions granted**: set `permissionsReady = true`, dismiss the modal, and the user can hold-start again to begin tracking. The permission check only happens once — subsequent hold-starts skip it.
+3. **Strength activities do NOT need location**: no permission check when a strength activity is selected. Hold-start works immediately.
+4. **Cache the permission state**: once `permissionsReady` is true (checked via `appPermissionService.checkAllPermissions()` on mount silently, no modal), it stays true for the session. The modal only shows if the silent check finds permissions missing AND the user tries to start a cardio workout.
 
-The `permissionsReady` and `showPermissionModal` state from ActivityTrackerScreen moves directly into the Home screen component with the same logic.
+This preserves the exact same permission guarantees (no cardio tracker renders without location permissions) while avoiding modal pile-up on first launch.
 
 ### Activity state persistence
 `ActivityGridService.savePosition()` currently saves the selected category/activity to AsyncStorage. Home screen should read this on mount to restore the last-selected activity, and write it when the user changes selection via the category bar or dropdown.
