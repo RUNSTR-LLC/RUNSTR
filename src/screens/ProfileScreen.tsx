@@ -219,6 +219,11 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
     activityGridService.savePosition(gridPosition);
   }, [gridPosition, positionLoaded]);
 
+  // Safety: reset workout state when activity changes (prevents stuck-in-workout state)
+  useEffect(() => {
+    setIsWorkoutActive(false);
+  }, [gridPosition]);
+
   // Silent permission check on mount (no modal — deferred to hold-start)
   useEffect(() => {
     let isMounted = true;
@@ -312,6 +317,9 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
         const exercise = validExercises.includes(activity as StrengthExercise)
           ? (activity as StrengthExercise)
           : 'pushups';
+        // StrengthTrackerScreen does not accept onWorkoutStateChange — strength tracking
+        // intentionally does not trigger the full-screen takeover. Strength sessions are
+        // set-based and the user needs access to the header/nav to adjust settings mid-session.
         return <StrengthTrackerScreen initialExercise={exercise} />;
       }
       default:
@@ -407,9 +415,13 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
       {showPermissionModal && (
         <PermissionRequestModal
           visible={true}
-          onComplete={() => {
+          onComplete={async () => {
             setShowPermissionModal(false);
-            setPermissionsReady(true);
+            // Re-verify actual OS status — user may have denied in the system dialog
+            const status = await appPermissionService.checkAllPermissions();
+            if (status.location) {
+              setPermissionsReady(true);
+            }
           }}
         />
       )}
