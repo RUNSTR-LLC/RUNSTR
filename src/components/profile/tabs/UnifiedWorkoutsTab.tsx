@@ -39,6 +39,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { WoTService } from '../../../services/wot/WoTService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { StatsCard } from '../StatsCard';
 
 interface UnifiedWorkoutsTabProps {
   userId: string;
@@ -51,12 +52,11 @@ interface UnifiedWorkoutsTabProps {
 const FILTER_OPTIONS: { key: TimelineFilter; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'workouts', label: 'Workouts' },
-  { key: 'journal', label: 'Journal' },
-  { key: 'habits', label: 'Habits' },
 ];
 
 export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
   userId,
+  pubkey,
   onRefresh,
   onPostToSocial,
   onSocialShareHealthApp,
@@ -586,6 +586,9 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
           </TouchableOpacity>
         </TouchableOpacity>
       )}
+
+      {/* Stats card */}
+      {pubkey && <StatsCard userPubkey={pubkey} />}
 
       {/* Filter chips */}
       <View style={styles.filterRow}>
