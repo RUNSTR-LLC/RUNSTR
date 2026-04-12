@@ -1427,36 +1427,7 @@ serve(async (req) => {
 
           console.log('[claim-reward] Step reward paid:', amountToPay, 'sats', paymentResult.preimage ? '(verified)' : '(no preimage)')
 
-          // Fire-and-forget push notification
-          if (npub) {
-            const supabaseUrl = Deno.env.get('SUPABASE_URL')
-            if (supabaseUrl) {
-              console.log(`[claim-reward] Sending step reward push to ${npub.slice(0, 12)}...`)
-              fetch(`${supabaseUrl}/functions/v1/notify-user`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-                },
-                body: JSON.stringify({
-                  npub,
-                  title: `Steps Rewarded by ${sponsorName}!`,
-                  body: `You earned ${amountToPay} sats from ${sponsorName} for your steps today`,
-                  data: { type: 'step_reward_earned', sats: amountToPay },
-                  channelId: 'bitcoin_rewards',
-                }),
-              }).then(async (res) => {
-                const result = await res.json().catch(() => ({}))
-                if (!result.sent) {
-                  console.warn(`[claim-reward] Step push not sent: ${result.error || res.status}`)
-                } else {
-                  console.log(`[claim-reward] Step push sent to ${result.devices} device(s)`)
-                }
-              }).catch((err) => {
-                console.error('[claim-reward] Step push fetch failed:', err.message || err)
-              })
-            }
-          }
+          // Push notification handled client-side by RewardPollingService
 
           return new Response(
             JSON.stringify({
