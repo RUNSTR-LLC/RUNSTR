@@ -23,10 +23,12 @@ interface ProfileHeroProps {
   isLoading?: boolean;
   level?: number;
   streak?: number;
+  earnings?: number;
   onEditPress?: () => void;
   onBackPress?: () => void;
   onSettingsPress?: () => void;
   onLevelPress?: () => void;
+  onEarningsPress?: () => void;
 }
 
 const BANNER_HEIGHT = 100;
@@ -35,16 +37,25 @@ const AVATAR_OVERLAP = AVATAR_SIZE / 2;
 
 const LEVEL_BADGE_SIZE = 36;
 
+const formatEarnings = (amount: number): string => {
+  if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(1)}M`;
+  if (amount >= 10_000) return `${Math.round(amount / 1000)}K`;
+  if (amount >= 1_000) return `${(amount / 1000).toFixed(1)}K`;
+  return amount.toLocaleString();
+};
+
 export const ProfileHero: React.FC<ProfileHeroProps> = ({
   user,
   isOwner,
   isLoading = false,
   level,
   streak,
+  earnings,
   onEditPress,
   onBackPress,
   onSettingsPress,
   onLevelPress,
+  onEarningsPress,
 }) => {
   const { t } = useTranslation('profile');
   const isLoadingProfile = isLoading || !user;
@@ -168,16 +179,28 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
               </Text>
             ) : null}
           </View>
-          {streak != null && (
-            <TouchableOpacity
-              style={styles.levelBadge}
-              onPress={onLevelPress}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.levelBadgeLabel}>LVL</Text>
-              <Text style={styles.levelBadgeText}>{streak}</Text>
-            </TouchableOpacity>
-          )}
+          <View style={styles.badgeRow}>
+            {earnings != null && isOwner && (
+              <TouchableOpacity
+                style={styles.earningsBadge}
+                onPress={onEarningsPress}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.levelBadgeLabel}>EARN</Text>
+                <Text style={styles.levelBadgeText}>{formatEarnings(earnings)}</Text>
+              </TouchableOpacity>
+            )}
+            {streak != null && (
+              <TouchableOpacity
+                style={styles.levelBadge}
+                onPress={onLevelPress}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.levelBadgeLabel}>LVL</Text>
+                <Text style={styles.levelBadgeText}>{streak}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </View>
     </View>
@@ -278,9 +301,26 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 12,
   },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+  },
   levelBadge: {
     width: 40,
     height: 46,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+    gap: 1,
+  },
+  earningsBadge: {
+    minWidth: 56,
+    height: 46,
+    paddingHorizontal: 8,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: theme.colors.border,

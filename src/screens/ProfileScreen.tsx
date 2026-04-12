@@ -29,7 +29,8 @@ import { ProfileDataService } from '../services/backend/ProfileDataService';
 import type { RecentWorkout, ClubAffiliation, ProfileLevelData, ActivityBreakdownData } from '../services/backend/ProfileDataService';
 import { useNostrProfile } from '../hooks/useCachedData';
 import LocalWorkoutStorageService from '../services/fitness/LocalWorkoutStorageService';
-import { EarningsCard } from '../components/rewards/EarningsCard';
+import { SupabaseRewardService } from '../services/rewards/SupabaseRewardService';
+import { navigate } from '../navigation/navigationRef';
 import { ActivityCategoryBar } from '../components/activity/ActivityCategoryBar';
 import { activityGridService, type GridPosition } from '../services/activity/ActivityGridService';
 import { appPermissionService } from '../services/initialization/AppPermissionService';
@@ -113,6 +114,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
   const [clubs, setClubs] = useState<ClubAffiliation[]>([]);
   const [isLoadingSections, setIsLoadingSections] = useState(true);
   const [currentStreak, setCurrentStreak] = useState(0);
+  const [totalEarnings, setTotalEarnings] = useState<number>(0);
 
   // Activity launcher state
   const [gridPosition, setGridPosition] = useState<GridPosition>({ row: 0, column: 0 });
@@ -192,6 +194,18 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
       LocalWorkoutStorageService.getAllWorkouts()
         .then((w) => setCurrentStreak(computeCurrentStreak(w)))
         .catch(() => {});
+
+      // Load total earnings for the ProfileHero earnings badge
+      (async () => {
+        try {
+          const pubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+          if (!pubkey) return;
+          const data = await SupabaseRewardService.getEarningsByDestination(pubkey);
+          setTotalEarnings(data.reduce((sum, d) => sum + d.totalSats, 0));
+        } catch (err) {
+          console.warn('[ProfileScreen] Failed to load earnings:', err);
+        }
+      })();
     }
     if (targetNpub) {
       ProfileDataService.clearProfileCache(targetNpub);
@@ -359,13 +373,15 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
               isLoading={isOwner ? isLoadingSections : !otherUser}
               level={levelData?.level ?? 0}
               streak={isOwner ? currentStreak : undefined}
+              earnings={isOwner ? totalEarnings : undefined}
               onEditPress={isOwner ? handleEditPress : undefined}
               onBackPress={!isOwner ? () => navigation.goBack() : undefined}
               onSettingsPress={undefined}
               onLevelPress={() => {
                 const parent = navigation.getParent();
                 (parent || navigation).navigate('LevelDetail' as any);
-              }} />
+              }}
+              onEarningsPress={() => navigate('Rewards')} />
           </View>
 
           {isOwner && (
@@ -376,10 +392,6 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
 
           {isOwner ? (
             <>
-              <View style={styles.sectionGap}>
-                <EarningsCard />
-              </View>
-
               <View style={styles.sectionGap}>
                 <ActivityCategoryBar
                   gridPosition={gridPosition}
