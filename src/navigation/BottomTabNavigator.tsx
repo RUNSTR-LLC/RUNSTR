@@ -36,6 +36,12 @@ const CompeteScreen = React.lazy(() =>
   }))
 );
 
+const WorkoutHistoryScreen = React.lazy(() =>
+  import('../screens/WorkoutHistoryScreen').then((m) => ({
+    default: m.WorkoutHistoryScreen,
+  }))
+);
+
 // Loading fallback component
 const LoadingFallback = () => (
   <View
@@ -123,6 +129,8 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
             iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
           } else if (route.name === 'Events') {
             iconName = focused ? 'trophy' : 'trophy-outline';
+          } else if (route.name === 'History') {
+            iconName = focused ? 'time' : 'time-outline';
           }
 
           return (
@@ -210,6 +218,21 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
         {() => (
           <Suspense fallback={<LoadingFallback />}>
             <CompeteScreen />
+          </Suspense>
+        )}
+      </Tab.Screen>
+      {/* History Tab - Workout History */}
+      <Tab.Screen
+        name="History"
+        options={{
+          title: 'History',
+          headerShown: false,
+          lazy: true,
+        }}
+      >
+        {() => (
+          <Suspense fallback={<LoadingFallback />}>
+            <WorkoutHistoryScreen />
           </Suspense>
         )}
       </Tab.Screen>
