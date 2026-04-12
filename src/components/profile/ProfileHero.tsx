@@ -186,7 +186,7 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
                 onPress={onEarningsPress}
                 activeOpacity={0.7}
               >
-                <Text style={styles.statBadgeLabel}>EARNINGS</Text>
+                <Text style={styles.statBadgeLabel}>{t('earnings')}</Text>
                 <Text style={styles.statBadgeValue}>{formatEarnings(earnings)}</Text>
               </TouchableOpacity>
             )}
@@ -196,7 +196,7 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
                 onPress={onLevelPress}
                 activeOpacity={0.7}
               >
-                <Text style={styles.statBadgeLabel}>LEVEL</Text>
+                <Text style={styles.statBadgeLabel}>{t('level')}</Text>
                 <Text style={styles.statBadgeValue}>{streak}</Text>
               </TouchableOpacity>
             )}

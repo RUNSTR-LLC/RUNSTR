@@ -1,5 +1,11 @@
 {
   "title": "Profile",
+  "earnings": "EARNINGS",
+  "level": "LEVEL",
+  "tabHome": "Home",
+  "tabSocial": "Social",
+  "tabEvents": "Events",
+  "tabHistory": "History",
   "anonymousAthlete": "Anonymous Athlete",
   "defaultBio": "Welcome to RUNSTR! Tap to edit your profile.",
   "startWorkout": "START WORKOUT",

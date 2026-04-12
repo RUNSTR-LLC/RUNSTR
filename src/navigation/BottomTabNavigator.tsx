@@ -149,7 +149,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
       <Tab.Screen
         name="Home"
         options={{
-          title: 'Home',
+          title: t('profile:tabHome'),
           headerShown: false,
         }}
       >
@@ -199,7 +199,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
       </Tab.Screen>
 
       {/* Social Tab - Feed & Fitness Clubs */}
-      <Tab.Screen name="Social" options={{ lazy: true }}>
+      <Tab.Screen name="Social" options={{ title: t('profile:tabSocial'), lazy: true }}>
         {() => (
           <Suspense fallback={<LoadingFallback />}>
             <SocialScreen />
@@ -211,7 +211,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
       <Tab.Screen
         name="Events"
         options={{
-          title: 'Events',
+          title: t('profile:tabEvents'),
           headerShown: false,
         }}
       >
@@ -225,7 +225,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
       <Tab.Screen
         name="History"
         options={{
-          title: 'History',
+          title: t('profile:tabHistory'),
           headerShown: false,
           lazy: true,
         }}
