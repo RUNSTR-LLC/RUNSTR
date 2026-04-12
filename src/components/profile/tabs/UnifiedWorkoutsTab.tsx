@@ -590,21 +590,6 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
       {/* Stats card */}
       {pubkey && <StatsCard userPubkey={pubkey} />}
 
-      {/* Filter chips */}
-      <View style={styles.filterRow}>
-        {FILTER_OPTIONS.map((opt) => (
-          <TouchableOpacity
-            key={opt.key}
-            style={[styles.filterChip, activeFilter === opt.key && styles.filterChipActive]}
-            onPress={() => setActiveFilter(opt.key)}
-          >
-            <Text style={[styles.filterChipText, activeFilter === opt.key && styles.filterChipTextActive]}>
-              {opt.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
       <FlatList
         data={monthlyGroups}
         renderItem={renderMonthlyGroup}
