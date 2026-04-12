@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { theme } from '../../styles/theme';
 import { ActivityDropdown } from './ActivityDropdown';
 import { CATEGORY_MENU } from '../../types/activityMenu';
@@ -32,11 +33,13 @@ export const ActivityCategoryBar: React.FC<ActivityCategoryBarProps> = ({
 
   const handleToggle = useCallback(() => {
     if (isWorkoutActive) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setOpenCategoryIndex((prev) => (prev === null ? activeCategoryIndex : null));
   }, [isWorkoutActive, activeCategoryIndex]);
 
   const handleCategoryPress = useCallback((index: number) => {
     if (isWorkoutActive) return;
+    Haptics.selectionAsync();
     setOpenCategoryIndex(index);
   }, [isWorkoutActive]);
 
@@ -47,6 +50,7 @@ export const ActivityCategoryBar: React.FC<ActivityCategoryBarProps> = ({
     const columnIndex = category.activities.findIndex((a) => a.key === activityKey);
 
     if (columnIndex >= 0) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       onActivitySelect(openCategoryIndex, columnIndex);
     }
 
