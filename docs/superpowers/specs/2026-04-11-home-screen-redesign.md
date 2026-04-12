@@ -95,8 +95,33 @@ This preserves the exact same permission guarantees (no cardio tracker renders w
 ### Workout active state
 When a workout is active, the Home screen content should not be accessible (user is in full-screen tracker mode). The `onWorkoutStateChange` callback pattern from ActivityTrackerScreen can be simplified since there are no swipe gestures to lock.
 
-### Screen naming
-The ProfileScreen file should be renamed to HomeScreen (or the component name updated) and the navigation route updated from "Profile" to "Home". The tab label changes from "Profile" to "Home".
+### Route renaming and navigation references (8 locations)
+
+The "Profile" route becomes "Home" and the "Exercise" route is removed (activity launching moves into Home). The following files have hardcoded route references that must be updated:
+
+| File | Reference | Action |
+|------|-----------|--------|
+| `navigationHandlers.ts:140` | `navigate('Profile')` from wallet management | Change to `navigate('Home')` |
+| `navigationHandlers.ts:175` | `navigate('Profile')` from onboarding complete | Change to `navigate('Home')` |
+| `NotificationModal.tsx:164` | `navigate('Profile')` from wallet view | Change to `navigate('Home')` |
+| `ClubMembersSection.tsx:106` | `navigate('Profile', { pubkey })` view other user | Change to `navigate('Home', { pubkey })` |
+| `DailyLeaderboardCard.tsx:115` | `navigate('Profile', { pubkey })` view user | Change to `navigate('Home', { pubkey })` |
+| `DailyLeaderboardCard.tsx:175` | `navigate('Profile', { pubkey })` view user | Change to `navigate('Home', { pubkey })` |
+| `ProfileScreen.tsx:267` | `navigate('Exercise')` start workout | Remove -- workout starts inline now |
+| `BottomTabNavigator.tsx:119` | `route.name === 'Profile'` icon check | Change to `route.name === 'Home'` |
+
+Type definitions to update:
+- `AppNavigator.tsx` RootStackParamList: rename `Profile` to `Home` (keep `{ pubkey?: string }` param), remove `Exercise`
+- `App.tsx` AuthenticatedStackParamList: remove `Exercise`
+
+### Other user profile view (must still work)
+
+ProfileScreen currently serves dual duty: own profile (action cards) vs other user's profile (LevelCard, ActivityBreakdown, ClubAffiliations), controlled by the `pubkey` route param. After the rename to Home:
+
+- `navigate('Home')` with no params = own Home screen (activity launcher, earnings, etc.)
+- `navigate('Home', { pubkey: '...' })` = other user's profile view (unchanged layout)
+
+The conditional logic (`isOwner` check) stays. The activity launcher, earnings card, and hold-to-start only render in the owner view. The other-user view renders exactly as it does today.
 
 ### Earnings card
 New component needed. Should query the same rewards data that the current Rewards screen uses. Keep it simple -- show a single total number, tappable, navigates to Rewards.
