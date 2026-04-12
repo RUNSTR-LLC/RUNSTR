@@ -182,22 +182,22 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
           <View style={styles.badgeRow}>
             {earnings != null && isOwner && (
               <TouchableOpacity
-                style={styles.earningsBadge}
+                style={styles.statBadge}
                 onPress={onEarningsPress}
                 activeOpacity={0.7}
               >
-                <Text style={styles.levelBadgeLabel}>EARN</Text>
-                <Text style={styles.levelBadgeText}>{formatEarnings(earnings)}</Text>
+                <Text style={styles.statBadgeLabel}>EARNINGS</Text>
+                <Text style={styles.statBadgeValue}>{formatEarnings(earnings)}</Text>
               </TouchableOpacity>
             )}
             {streak != null && (
               <TouchableOpacity
-                style={styles.levelBadge}
+                style={styles.statBadge}
                 onPress={onLevelPress}
                 activeOpacity={0.7}
               >
-                <Text style={styles.levelBadgeLabel}>LVL</Text>
-                <Text style={styles.levelBadgeText}>{streak}</Text>
+                <Text style={styles.statBadgeLabel}>LEVEL</Text>
+                <Text style={styles.statBadgeValue}>{streak}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -302,25 +302,36 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   badgeRow: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'flex-end',
-    gap: 8,
+    gap: 6,
   },
-  levelBadge: {
-    width: 40,
-    height: 46,
+  statBadge: {
+    minWidth: 86,
+    height: 40,
+    paddingHorizontal: 10,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: theme.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 2,
     gap: 1,
   },
-  earningsBadge: {
-    minWidth: 56,
+  statBadgeLabel: {
+    fontSize: 9,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.textMuted,
+    letterSpacing: 1,
+  },
+  statBadgeValue: {
+    fontSize: 16,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.accent,
+  },
+  // Deprecated — kept for any external consumers that still reference these
+  levelBadge: {
+    width: 40,
     height: 46,
-    paddingHorizontal: 8,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: theme.colors.border,
