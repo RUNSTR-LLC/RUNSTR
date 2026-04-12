@@ -149,7 +149,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
       <Tab.Screen
         name="Home"
         options={{
-          title: t('profile:title'),
+          title: 'Home',
           headerShown: false,
         }}
       >

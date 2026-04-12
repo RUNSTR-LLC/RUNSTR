@@ -182,17 +182,31 @@ export class SocialFeedService {
       }
     }
 
-    // Also insert into Supabase so it appears for others
-    await this.insertPost({
-      event_id: realEventId,
-      npub: localPost.npub,
-      content,
-      images: [],
-      hashtags,
-      author_name: localPost.author_name || '',
-      author_avatar: localPost.author_avatar || '',
-      created_at: localPost.created_at,
-    });
+    // Also insert into Supabase so it appears for others.
+    // Insert directly (not via insertPost) to avoid double-prepending to the cache,
+    // since the cached post was already updated in place with the real event ID above.
+    if (isSupabaseConfigured()) {
+      try {
+        const { error } = await supabase!
+          .from('social_feed')
+          .insert({
+            event_id: realEventId,
+            npub: localPost.npub,
+            content,
+            images: [],
+            hashtags,
+            author_name: localPost.author_name || '',
+            author_avatar: localPost.author_avatar || '',
+            created_at: localPost.created_at,
+          });
+        // Ignore unique-violation (23505) — the post may already exist via indexer
+        if (error && error.code !== '23505') {
+          console.error('[SocialFeedService] Failed to insert post to Supabase:', error);
+        }
+      } catch (err) {
+        console.error('[SocialFeedService] Supabase insert exception:', err);
+      }
+    }
   }
 
   async getZapsForPost(postId: string): Promise<SocialFeedZap[]> {
