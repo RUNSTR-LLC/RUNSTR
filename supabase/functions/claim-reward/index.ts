@@ -1332,39 +1332,7 @@ serve(async (req) => {
           const paymentType = isPPQPayment ? 'PPQ.AI credits' : 'Lightning'
           console.log(`[claim-reward] Workout reward paid to ${paymentType}:`, rewardAmount, 'sats', paymentResult.preimage ? '(verified)' : '(no preimage)')
 
-          // Fire-and-forget push notification
-          if (npub) {
-            const supabaseUrl = Deno.env.get('SUPABASE_URL')
-            if (supabaseUrl) {
-              const notificationBody = team_name
-                ? `You earned ${rewardAmount} sats from ${sponsorName} for ${team_name}`
-                : `You earned ${rewardAmount} sats from ${sponsorName} for your workout`
-              console.log(`[claim-reward] Sending push notification to ${npub.slice(0, 12)}...`)
-              fetch(`${supabaseUrl}/functions/v1/notify-user`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-                },
-                body: JSON.stringify({
-                  npub,
-                  title: `Reward from ${sponsorName}!`,
-                  body: notificationBody,
-                  data: { type: 'reward_earned', sats: rewardAmount, screen: 'Rewards' },
-                  channelId: 'bitcoin_rewards',
-                }),
-              }).then(async (res) => {
-                const result = await res.json().catch(() => ({}))
-                if (!result.sent) {
-                  console.warn(`[claim-reward] Push notification not sent: ${result.error || res.status}`)
-                } else {
-                  console.log(`[claim-reward] Push notification sent to ${result.devices} device(s)`)
-                }
-              }).catch((err) => {
-                console.error('[claim-reward] Push notification fetch failed:', err.message || err)
-              })
-            }
-          }
+          // Push notification handled client-side by RewardPollingService
 
           return new Response(
             JSON.stringify({
