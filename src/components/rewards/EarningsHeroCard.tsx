@@ -13,6 +13,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
@@ -21,40 +22,42 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Toast from 'react-native-toast-message';
 import { theme } from '../../styles/theme';
-import { SupabaseRewardService, RewardBreakdown } from '../../services/rewards/SupabaseRewardService';
+import { SupabaseRewardService, DestinationEarning } from '../../services/rewards/SupabaseRewardService';
 
 interface EarningsHeroCardProps {
   pubkey: string;
   isPPQ?: boolean;
 }
 
-export const EarningsHeroCard: React.FC<EarningsHeroCardProps> = ({ pubkey, isPPQ }) => {
+export const EarningsHeroCard: React.FC<EarningsHeroCardProps> = ({ pubkey }) => {
   const { t } = useTranslation('rewards');
-  const [breakdown, setBreakdown] = useState<RewardBreakdown | null>(null);
+  const [destinations, setDestinations] = useState<DestinationEarning[]>([]);
+  const [totalEarned, setTotalEarned] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
-    loadBreakdown();
+    loadDestinations();
   }, [pubkey]);
 
   // Reload data when screen regains focus
   useFocusEffect(
     useCallback(() => {
       if (pubkey) {
-        loadBreakdown();
+        loadDestinations();
       }
     }, [pubkey])
   );
 
-  const loadBreakdown = async () => {
+  const loadDestinations = async () => {
     try {
       setIsLoading(true);
       setHasError(false);
-      const data = await SupabaseRewardService.getRewardBreakdown(pubkey);
-      setBreakdown(data);
+      const data = await SupabaseRewardService.getEarningsByDestination(pubkey);
+      setDestinations(data);
+      setTotalEarned(data.reduce((sum, d) => sum + d.totalSats, 0));
     } catch (error) {
-      console.error('[EarningsHeroCard] Failed to load breakdown:', error);
+      console.error('[EarningsHeroCard] Failed to load destinations:', error);
       setHasError(true);
       Toast.show({
         type: 'error',
@@ -68,11 +71,7 @@ export const EarningsHeroCard: React.FC<EarningsHeroCardProps> = ({ pubkey, isPP
     }
   };
 
-  const totalEarned = breakdown
-    ? breakdown.sentToUser + breakdown.sentToCharity + breakdown.pendingToCharity
-    : 0;
-
-  if (isLoading && !breakdown) {
+  if (isLoading && destinations.length === 0) {
     return (
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
@@ -82,7 +81,7 @@ export const EarningsHeroCard: React.FC<EarningsHeroCardProps> = ({ pubkey, isPP
     );
   }
 
-  if (hasError && !breakdown) {
+  if (hasError && destinations.length === 0) {
     return (
       <View style={styles.container}>
         <Text style={styles.headerTitle}>
@@ -99,7 +98,7 @@ export const EarningsHeroCard: React.FC<EarningsHeroCardProps> = ({ pubkey, isPP
   }
 
   // Empty state
-  if (!breakdown || totalEarned === 0) {
+  if (totalEarned === 0) {
     return (
       <View style={styles.container}>
         <Text style={styles.headerTitle}>
@@ -112,9 +111,7 @@ export const EarningsHeroCard: React.FC<EarningsHeroCardProps> = ({ pubkey, isPP
             color="#444"
           />
           <Text style={styles.emptyText}>
-            {isPPQ
-              ? t('earningsHero.noEarningsYetPPQ', 'Complete workouts to earn AI credits!')
-              : t('earningsHero.noEarningsYet', 'Complete workouts to earn sats!')}
+            {t('earningsHero.noEarningsYet', 'Complete workouts to earn sats!')}
           </Text>
         </View>
       </View>
@@ -134,59 +131,28 @@ export const EarningsHeroCard: React.FC<EarningsHeroCardProps> = ({ pubkey, isPP
           <Text style={styles.heroNumber}>
             {totalEarned.toLocaleString()}
           </Text>
-          <Text style={styles.heroUnit}>{isPPQ ? 'credits' : 'sats'}</Text>
+          <Text style={styles.heroUnit}>sats</Text>
         </View>
         <Text style={styles.heroLabel}>
           {t('earningsHero.totalEarned', 'total earned')}
         </Text>
       </View>
 
-      {/* Split Boxes */}
-      <View style={styles.splitContainer}>
-        {/* To You */}
-        <View style={styles.splitBox}>
-          <Text style={styles.splitAmount}>
-            {(breakdown.sentToUser || 0).toLocaleString()}
-          </Text>
-          <Text style={styles.splitLabel}>
-            {t('earningsHero.toYou', 'to you')}
-          </Text>
-          <Ionicons name="checkmark-circle" size={18} color="#FF9D42" style={styles.splitIcon} />
-        </View>
-
-        {/* Divider */}
-        <View style={styles.splitDivider} />
-
-        {/* To Charity */}
-        <View style={styles.splitBox}>
-          <Text style={styles.splitAmount}>
-            {(breakdown.sentToCharity || 0).toLocaleString()}
-          </Text>
-          <Text style={styles.splitLabel}>
-            {t('earningsHero.toCharity', 'to charity')}
-          </Text>
-          <Ionicons name="checkmark-circle" size={18} color="#FF9D42" style={styles.splitIcon} />
-        </View>
-      </View>
-
-      {/* Footer info */}
-      <View style={styles.footerSection}>
-        {/* Pending if any */}
-        {(breakdown.pendingToCharity || 0) > 0 && (
-          <View style={styles.pendingRow}>
-            <Ionicons name="time" size={14} color="#FF9D42" />
-            <Text style={styles.pendingText}>
-              {breakdown.pendingToCharity.toLocaleString()} {t('earningsHero.pendingToCharity', 'sats pending to charity')}
-            </Text>
+      {/* Destination Breakdown */}
+      <View style={styles.destinationList}>
+        {destinations.map((dest) => (
+          <View key={dest.id} style={styles.destinationRow}>
+            {dest.imageSource ? (
+              <Image source={dest.imageSource} style={styles.destAvatar} />
+            ) : dest.avatarUrl ? (
+              <Image source={{ uri: dest.avatarUrl }} style={styles.destAvatar} />
+            ) : (
+              <View style={[styles.destAvatar, styles.destAvatarPlaceholder]} />
+            )}
+            <Text style={styles.destName} numberOfLines={1}>{dest.name}</Text>
+            <Text style={styles.destAmount}>{dest.totalSats.toLocaleString()} sats</Text>
           </View>
-        )}
-
-        {/* Workout count */}
-        <Text style={styles.workoutCount}>
-          {t('earningsHero.fromWorkouts', 'From {{count}} workouts', {
-            count: breakdown.paymentCount || 0,
-          })}
-        </Text>
+        ))}
       </View>
     </View>
   );
@@ -245,68 +211,39 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  splitContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#111',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#1a1a1a',
-    overflow: 'hidden',
+  destinationList: {
+    borderTopWidth: 1,
+    borderTopColor: '#1a1a1a',
+    paddingTop: 12,
   },
 
-  splitBox: {
+  destinationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    gap: 12,
+  },
+
+  destAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+
+  destAvatarPlaceholder: {
+    backgroundColor: '#333',
+  },
+
+  destName: {
     flex: 1,
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-  },
-
-  splitDivider: {
-    width: 1,
-    backgroundColor: '#1a1a1a',
-  },
-
-  splitAmount: {
-    fontSize: 18,
-    fontWeight: theme.typography.weights.bold,
+    fontSize: 14,
     color: theme.colors.text,
-    marginBottom: 2,
   },
 
-  splitLabel: {
-    fontSize: 12,
-    color: '#888',
-    marginBottom: 6,
-  },
-
-  splitIcon: {
-    marginTop: 2,
-  },
-
-  footerSection: {
-    alignItems: 'center',
-    marginTop: 16,
-    gap: 6,
-  },
-
-  pendingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(255, 157, 66, 0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-
-  pendingText: {
-    fontSize: 12,
-    color: '#FF9D42',
-  },
-
-  workoutCount: {
-    fontSize: 12,
-    color: '#666',
+  destAmount: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.accent,
   },
 
   emptyState: {
