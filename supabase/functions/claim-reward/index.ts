@@ -38,9 +38,9 @@ async function getActiveSponsorName(supabase: any): Promise<string> {
       .select('name')
       .eq('is_active', true)
       .maybeSingle()
-    return data?.name || 'ALS Network'
+    return data?.name || 'RUNSTR'
   } catch {
-    return 'ALS Network'
+    return 'RUNSTR'
   }
 }
 
