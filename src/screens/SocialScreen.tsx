@@ -16,6 +16,7 @@ import { theme } from '../styles/theme';
 import { TexturedBackground } from '../components/ui/TexturedBackground';
 import { ClubsRow } from '../components/social/ClubsRow';
 import { SocialFeedPost } from '../components/social/SocialFeedPost';
+import { PostComposerModal } from '../components/social/PostComposerModal';
 import SocialFeedService from '../services/social/SocialFeedService';
 import { ClubService } from '../services/backend/ClubService';
 import { ClubMembershipService } from '../services/backend/ClubMembershipService';
@@ -35,6 +36,7 @@ const SocialScreenComponent: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [composerVisible, setComposerVisible] = useState(false);
 
   const loadData = async (refresh = false) => {
     try {
@@ -96,6 +98,13 @@ const SocialScreenComponent: React.FC = () => {
       setIsLoadingMore(false);
     }
   }, [isLoadingMore, hasMore, posts]);
+
+  const handleCreatePost = useCallback(async (content: string) => {
+    const localPost = await feedService.createLocalPost(content);
+    if (localPost) {
+      setPosts((prev) => [localPost, ...prev]);
+    }
+  }, []);
 
   const renderPost = useCallback(({ item }: { item: SocialFeedPostType }) => (
     <SocialFeedPost post={item} userNpub={userNpub} />
@@ -167,13 +176,16 @@ const SocialScreenComponent: React.FC = () => {
         <TouchableOpacity
           style={styles.fab}
           activeOpacity={0.8}
-          onPress={() => {
-            // TODO: Open post composer in Task 12
-          }}
+          onPress={() => setComposerVisible(true)}
         >
           <Text style={styles.fabText}>Post</Text>
         </TouchableOpacity>
       </TexturedBackground>
+      <PostComposerModal
+        visible={composerVisible}
+        onClose={() => setComposerVisible(false)}
+        onPost={handleCreatePost}
+      />
     </SafeAreaView>
   );
 };

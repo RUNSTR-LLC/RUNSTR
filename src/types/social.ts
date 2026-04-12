@@ -17,6 +17,8 @@ export interface SocialFeedPost {
   liked_by: string[] | null;
   reposted_by: string[] | null;
   comment_count: number;
+  /** True when post is saved locally but not yet confirmed on relay */
+  localOnly?: boolean;
 }
 
 export interface SocialFeedZap {
