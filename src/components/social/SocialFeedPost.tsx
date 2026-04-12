@@ -17,6 +17,7 @@ interface SocialFeedPostProps {
 
 export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, userNpub }) => {
   const [imageError, setImageError] = useState(false);
+  const [imageAspect, setImageAspect] = useState(1);
 
   const firstImage = post.images && post.images.length > 0 ? post.images[0] : null;
   const showImage = firstImage && !imageError && firstImage.startsWith('https://');
@@ -52,8 +53,14 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, userNpub }
       {showImage && (
         <Image
           source={{ uri: firstImage }}
-          style={styles.image}
+          style={[styles.image, { aspectRatio: imageAspect }]}
           resizeMode="cover"
+          onLoad={(e) => {
+            const { width, height } = e.nativeEvent.source;
+            if (width && height) {
+              setImageAspect(width / height);
+            }
+          }}
           onError={() => setImageError(true)}
         />
       )}
@@ -100,8 +107,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: '100%',
-    aspectRatio: 1,
-    maxHeight: 400,
+    maxHeight: 500,
     borderRadius: 8,
     marginTop: 10,
     backgroundColor: theme.colors.cardBackground,
