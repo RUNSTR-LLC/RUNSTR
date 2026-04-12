@@ -379,25 +379,13 @@ export class SupabaseCompetitionService {
       ppqFailed = ppqResult.failed;
     }
 
-    // PPQ.AI FALLBACK: If PPQ invoice failed, inject user's lightning address into tags
-    // so the DB trigger can still route the reward to the user instead of losing it
+    // PPQ.AI SAFETY: If PPQ invoice creation failed, do NOT inject user's lightning address.
+    // This was previously a "fallback" that misrouted rewards to the user's personal wallet
+    // instead of PPQ.AI. The correct behavior is: no bolt11 = no reward for PPQ users.
+    // The DB trigger will see no ppq_bolt11 and no lightning tag, and skip the reward.
     let submissionTags = data.tags || [];
     if (ppqFailed && !ppqBolt11) {
-      try {
-        const userLnAddress = await RewardLightningAddressService.getRewardLightningAddress();
-        if (userLnAddress) {
-          // Check if tags already have a lightning entry
-          const hasLightningTag = submissionTags.some(
-            (t: string[]) => t[0] === 'lightning'
-          );
-          if (!hasLightningTag) {
-            submissionTags = [...submissionTags, ['lightning', userLnAddress]];
-            console.log(`[SupabaseCompetition] PPQ failed → fallback to user lightning: ${userLnAddress.slice(0, 20)}...`);
-          }
-        }
-      } catch {
-        // Non-critical
-      }
+      console.warn('[SupabaseCompetition] PPQ invoice failed — reward will be skipped (no fallback to user wallet)');
     }
 
     // Resolve club data BEFORE starting the fetch timeout
