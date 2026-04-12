@@ -55,19 +55,6 @@ export const AdvancedFeaturesSection: React.FC<AdvancedFeaturesSectionProps> = (
             />
           )}
 
-          {/* Rewards Subsection */}
-          <View style={styles.rewardsSubsection}>
-            <Text style={styles.subsectionTitle}>Rewards</Text>
-
-            {/* Lightning Address - Managed in Teams tab */}
-            <View style={styles.rewardSettingRow}>
-              <View style={styles.rewardSettingInfo}>
-                <Text style={styles.rewardSettingTitle}>Lightning Address</Text>
-                <Text style={styles.rewardSettingSubtitle}>Manage your Lightning address in the Teams tab</Text>
-              </View>
-            </View>
-          </View>
-
           {/* Connected Wallet Subsection */}
           <View style={styles.voiceSubsection}>
             <Text style={styles.subsectionTitle}>Connected Wallet</Text>
