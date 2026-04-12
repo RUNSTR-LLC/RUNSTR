@@ -68,8 +68,22 @@ New 4 tabs:
 
 ## Implementation Concerns
 
-### Permission gating
-ActivityTrackerScreen currently shows a `PermissionRequestModal` for location access before rendering trackers. This logic needs to move -- either into the Home screen (check on mount or on hold-start) or into the navigation flow when transitioning to a tracker.
+### Permission gating (CRITICAL)
+
+Individual tracker screens (RunningTrackerScreen, WalkingTrackerScreen, etc.) have **zero** permission checks — they rely entirely on ActivityTrackerScreen having already validated permissions. `SimpleRunTracker.startTracking()` also has no guard; if called without location permissions it silently fails (timer counts, distance stays 0).
+
+The Home screen MUST replicate the exact permission flow from ActivityTrackerScreen:
+
+1. **On mount**: call `appPermissionService.checkAllPermissions()` to check location status
+2. **If not granted**: show `PermissionRequestModal` (same component, same props) — this is a non-dismissible modal on Android that handles:
+   - System permission dialog
+   - "Open Settings" fallback for Android 11+ background location
+   - AppState listener that re-checks when user returns from Settings
+   - Battery optimization / Doze exemption request on Android
+3. **Gate the hold-to-start button**: the `HoldToStartButton` must not be functional until `permissionsReady === true` for cardio activities. Either disable it or render it behind the permission modal.
+4. **Strength activities do NOT need location**: the permission gate only applies when a cardio activity (run, walk, cycle, hike) is selected. Strength tracking can start regardless.
+
+The `permissionsReady` and `showPermissionModal` state from ActivityTrackerScreen moves directly into the Home screen component with the same logic.
 
 ### Activity state persistence
 `ActivityGridService.savePosition()` currently saves the selected category/activity to AsyncStorage. Home screen should read this on mount to restore the last-selected activity, and write it when the user changes selection via the category bar or dropdown.
