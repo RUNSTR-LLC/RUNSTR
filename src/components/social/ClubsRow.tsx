@@ -36,7 +36,7 @@ export const ClubsRow: React.FC<ClubsRowProps> = ({ clubs, userClubId, onClubCre
     >
       <Avatar
         name={item.name}
-        size={40}
+        size={56}
         imageUrl={item.banner_url || undefined}
       />
       <Text style={styles.clubName}>
@@ -57,7 +57,7 @@ export const ClubsRow: React.FC<ClubsRowProps> = ({ clubs, userClubId, onClubCre
       activeOpacity={0.7}
     >
       <View style={styles.createCircle}>
-        <Ionicons name="add" size={22} color={theme.colors.accent} />
+        <Ionicons name="add" size={28} color={theme.colors.accent} />
       </View>
       <Text style={styles.clubName}>Create</Text>
     </TouchableOpacity>
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
   },
   clubItem: {
     alignItems: 'center',
-    maxWidth: 80,
+    maxWidth: 72,
   },
   clubName: {
     color: theme.colors.textMuted,
@@ -108,12 +108,12 @@ const styles = StyleSheet.create({
   },
   createItem: {
     alignItems: 'center',
-    maxWidth: 80,
+    maxWidth: 72,
   },
   createCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderStyle: 'dashed',
