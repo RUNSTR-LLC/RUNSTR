@@ -114,10 +114,6 @@ const SocialScreenComponent: React.FC = () => {
     loadData(true);
   }, []);
 
-  const renderHeader = useCallback(() => (
-    <ClubsRow clubs={clubs} userClubId={userClubId} onClubCreated={handleClubCreated} />
-  ), [clubs, userClubId, handleClubCreated]);
-
   const renderEmpty = useCallback(() => {
     if (isLoading) return null;
     return (
@@ -154,11 +150,11 @@ const SocialScreenComponent: React.FC = () => {
     <SafeAreaView style={styles.container} edges={['top']}>
       <TexturedBackground edges={[]}>
         <View style={styles.headerSpacer} />
+        <ClubsRow clubs={clubs} userClubId={userClubId} onClubCreated={handleClubCreated} />
         <FlatList
           data={posts}
           renderItem={renderPost}
           keyExtractor={(item) => item.id}
-          ListHeaderComponent={renderHeader}
           ListEmptyComponent={renderEmpty}
           ListFooterComponent={renderFooter}
           onEndReached={handleLoadMore}
