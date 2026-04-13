@@ -20,8 +20,11 @@ export const ClubsRow: React.FC<ClubsRowProps> = ({ clubs, userClubId, onClubCre
   const [showCreate, setShowCreate] = useState(false);
 
   const sorted = React.useMemo(() => {
-    if (!userClubId) return clubs;
-    return [...clubs].sort((a, b) => {
+    const byMembers = [...clubs].sort(
+      (a, b) => (b.member_count ?? 0) - (a.member_count ?? 0)
+    );
+    if (!userClubId) return byMembers;
+    return byMembers.sort((a, b) => {
       if (a.id === userClubId) return -1;
       if (b.id === userClubId) return 1;
       return 0;
