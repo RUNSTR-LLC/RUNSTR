@@ -1,7 +1,7 @@
 // src/components/social/ClubsRow.tsx
 
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
@@ -18,6 +18,7 @@ interface ClubsRowProps {
 export const ClubsRow: React.FC<ClubsRowProps> = ({ clubs, userClubId, onClubCreated }) => {
   const navigation = useNavigation<any>();
   const [showCreate, setShowCreate] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const sorted = React.useMemo(() => {
     const byMembers = [...clubs].sort(
@@ -79,6 +80,35 @@ export const ClubsRow: React.FC<ClubsRowProps> = ({ clubs, userClubId, onClubCre
         contentContainerStyle={styles.listContent}
         ListFooterComponent={createButton}
       />
+      <View style={styles.searchWrapper}>
+        <View style={styles.searchContainer}>
+          <Ionicons
+            name="search-outline"
+            size={18}
+            color={theme.colors.textMuted}
+            style={styles.searchIcon}
+          />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search clubs..."
+            placeholderTextColor={theme.colors.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setSearchQuery('')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="close-circle" size={18} color={theme.colors.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+        {/* Dropdown added in Task 4 goes here as a sibling of searchContainer. */}
+      </View>
       <SimpleTeamCreationModal
         visible={showCreate}
         onClose={() => setShowCreate(false)}
@@ -123,5 +153,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: theme.colors.cardBackground,
+  },
+  searchWrapper: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    zIndex: 20,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.cardBackground,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingHorizontal: 12,
+    height: 42,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    color: theme.colors.text,
+    fontSize: 14,
+    height: 42,
+    padding: 0,
   },
 });
