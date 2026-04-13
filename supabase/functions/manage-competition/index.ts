@@ -165,6 +165,27 @@ async function handleCreate(
     )
   }
 
+  // Authorization: club-scoped events require the caller to be the captain of that club.
+  // Without this check, any authenticated user could create competitions attributed to
+  // arbitrary clubs and auto-enroll their members.
+  if (club_id) {
+    const { data: callerMembership, error: membershipErr } = await supabase
+      .from('club_memberships')
+      .select('role')
+      .eq('club_id', club_id)
+      .eq('member_npub', npub)
+      .maybeSingle()
+
+    if (membershipErr) {
+      console.error('Captain check error:', membershipErr)
+      return errorResponse(membershipErr.message, 500)
+    }
+
+    if (!callerMembership || callerMembership.role !== 'captain') {
+      return errorResponse('Only the club captain can create club events', 403)
+    }
+  }
+
   // Auth check: max 3 active events per npub
   const { count, error: countErr } = await supabase
     .from('competitions')
