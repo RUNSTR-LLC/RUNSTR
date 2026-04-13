@@ -1,7 +1,7 @@
 // src/components/social/ClubsRow.tsx
 
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
@@ -125,23 +125,25 @@ export const ClubsRow: React.FC<ClubsRowProps> = ({ clubs, userClubId, onClubCre
         </View>
         {filteredMatches.length > 0 && (
           <View style={styles.dropdown}>
-            {filteredMatches.map((club) => (
-              <TouchableOpacity
-                key={club.id}
-                style={styles.dropdownRow}
-                onPress={() => handleMatchPress(club)}
-                activeOpacity={0.7}
-              >
-                <Avatar
-                  name={club.name}
-                  size={32}
-                  imageUrl={club.banner_url || undefined}
-                />
-                <Text style={styles.dropdownName} numberOfLines={1}>
-                  {club.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            <ScrollView keyboardShouldPersistTaps="handled">
+              {filteredMatches.map((club) => (
+                <TouchableOpacity
+                  key={club.id}
+                  style={styles.dropdownRow}
+                  onPress={() => handleMatchPress(club)}
+                  activeOpacity={0.7}
+                >
+                  <Avatar
+                    name={club.name}
+                    size={32}
+                    imageUrl={club.banner_url || undefined}
+                  />
+                  <Text style={styles.dropdownName} numberOfLines={1}>
+                    {club.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
         )}
       </View>
