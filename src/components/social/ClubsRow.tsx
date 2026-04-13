@@ -32,6 +32,22 @@ export const ClubsRow: React.FC<ClubsRowProps> = ({ clubs, userClubId, onClubCre
     });
   }, [clubs, userClubId]);
 
+  const filteredMatches = React.useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return clubs
+      .filter((c) => c.name.toLowerCase().includes(q))
+      .slice(0, 8);
+  }, [clubs, searchQuery]);
+
+  const handleMatchPress = useCallback(
+    (club: Club) => {
+      setSearchQuery('');
+      navigation.navigate('ClubPage', { clubId: club.id, clubName: club.name });
+    },
+    [navigation]
+  );
+
   const renderClub = ({ item }: { item: Club }) => (
     <TouchableOpacity
       style={styles.clubItem}
@@ -107,7 +123,27 @@ export const ClubsRow: React.FC<ClubsRowProps> = ({ clubs, userClubId, onClubCre
             </TouchableOpacity>
           )}
         </View>
-        {/* Dropdown added in Task 4 goes here as a sibling of searchContainer. */}
+        {filteredMatches.length > 0 && (
+          <View style={styles.dropdown}>
+            {filteredMatches.map((club) => (
+              <TouchableOpacity
+                key={club.id}
+                style={styles.dropdownRow}
+                onPress={() => handleMatchPress(club)}
+                activeOpacity={0.7}
+              >
+                <Avatar
+                  name={club.name}
+                  size={32}
+                  imageUrl={club.banner_url || undefined}
+                />
+                <Text style={styles.dropdownName} numberOfLines={1}>
+                  {club.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </View>
       <SimpleTeamCreationModal
         visible={showCreate}
@@ -123,6 +159,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
     paddingVertical: 12,
+    zIndex: 10,
   },
   listContent: {
     paddingHorizontal: 16,
@@ -178,5 +215,35 @@ const styles = StyleSheet.create({
     fontSize: 14,
     height: 42,
     padding: 0,
+  },
+  dropdown: {
+    position: 'absolute',
+    top: 46,
+    left: 0,
+    right: 0,
+    backgroundColor: theme.colors.background,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    maxHeight: 320,
+    overflow: 'hidden',
+  },
+  dropdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  dropdownName: {
+    flex: 1,
+    color: theme.colors.text,
+    fontSize: 14,
+    fontWeight: theme.typography.weights.medium,
   },
 });
