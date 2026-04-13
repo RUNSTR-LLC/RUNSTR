@@ -47,7 +47,13 @@ lint-output.txt
 
 # Build artifacts
 dist-ios/
+build/
 .git.bfg-report/
+
+# Tool/CLI output captures
+events.json
+.superpowers/
+.claude/worktrees/
 
 # Backup assets
 assets/images/old-icons-backup/

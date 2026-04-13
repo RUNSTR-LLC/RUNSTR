@@ -91,7 +91,7 @@ export const NostrConnectionStatus: React.FC<NostrConnectionStatusProps> = ({
     <View style={[styles.detailedContainer, style]}>
       <View style={styles.header}>
         <Text style={styles.headerIcon}>{getStatusIcon()}</Text>
-        <Text style={styles.headerText}>Nostr Relays</Text>
+        <Text style={styles.headerText}>Relays</Text>
         <Text style={[styles.statusText, { color: getStatusColor() }]}>
           {getStatusText()}
         </Text>

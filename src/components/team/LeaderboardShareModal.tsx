@@ -294,7 +294,7 @@ export const LeaderboardShareModal: React.FC<LeaderboardShareModalProps> = ({
                   color={theme.colors.background}
                 />
               ) : (
-                <Text style={styles.shareButtonText}>Share to Nostr</Text>
+                <Text style={styles.shareButtonText}>Share</Text>
               )}
             </TouchableOpacity>
 

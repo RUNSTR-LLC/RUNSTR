@@ -2,6 +2,63 @@
 
 All notable changes to RUNSTR will be documented in this file.
 
+## [1.9.0] - 2026-04-12 - Home Screen, Rewards, Spanish, Streak Levels
+
+### Home Screen
+- Merged activity tracker into Home — start workouts directly from the main screen
+- Renamed Profile route to Home; House icon replaces person icon on bottom tab
+- New StatsCard with 8 metrics, visual hierarchy, and all personal records shown with em-dash placeholders
+- EarningsCard added to Home, plus earnings badge beside level on ProfileHero
+- Earnings and Level badges stacked vertically with full labels
+- Removed icons from StatsCard hero and personal-bests rows for cleaner layout
+- Category bar collapsed into a dropdown; activity selector shrunk to icon-only chevron button with haptic feedback
+- Permission modal deferred to hold-start to avoid first-launch modal pile-up
+
+### History
+- New History tab as 4th bottom tab — dedicated view for workout history
+- Removed Stats button from History screen header (stats now live on Home)
+
+### Levels (replaces XP)
+- Level = your workout streak (consecutive workout days)
+- 2-day grace period redesigned for smoother experience
+- Tapping LVL badge opens detail screen with current/highest level, last workout, and explainer
+- Passive step counting excluded — only deliberate activity counts toward level
+
+### Rewards
+- Full rewards screen redesign with per-destination earnings breakdown
+- Removed Lightning Address setting from Advanced settings
+- Reward sponsor fallback changed from "ALS Network" to "RUNSTR"
+- Fixed PPQ.AI reward misrouting to user's personal wallet (migration 176)
+- Fixed double reward notification and simplified notification copy
+
+### Social
+- Local-first posting — posts appear instantly, publish to the network in background
+- Floating Post button added to Social tab
+- Renamed "Post to Nostr" to "Post"; removed "Share Workout" headers
+- Feed images now respect natural aspect ratio instead of forced square crop
+- Fixed duplicate post bug
+
+### Internationalization
+- Added Spanish language support
+- Localized bottom tab labels (EARNINGS, LEVEL)
+
+### Activities
+- Removed wellness category and squats from activity grid
+- Added pushup challenge to captain event types
+
+### Bug Fixes
+- Fixed step challenge leaderboard showing steps instead of distance
+- Fixed iOS launch crash from dynamic `import('react-native')`
+- Fixed profile tab saying "Home" and lighter FAB color
+- Fixed strength workout state, permission re-check, safety effect
+- Corrected reward amount comments and verified Einundzwanzig bonus path
+- Addressed review issues from Home screen redesign
+
+### Polish
+- Haptic feedback on bottom tab switching and activity selector
+- Added dead code audit prompt and navigation reference audit
+- Docs: Home screen redesign implementation plan and design spec
+
 ## [1.8.9] - 2026-04-10 - Level System, Dead Code Removal & Crash Fix
 
 ### Level System (replaces XP + Streak)

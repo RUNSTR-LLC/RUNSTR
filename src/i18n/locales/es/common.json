@@ -2,7 +2,7 @@
   "appName": "RUNSTR",
   "loading": "Cargando...",
   "error": "Error",
-  "success": "Exito",
+  "success": "Éxito",
   "cancel": "Cancelar",
   "confirm": "Confirmar",
   "save": "Guardar",
@@ -11,7 +11,7 @@
   "back": "Volver",
   "done": "Hecho",
   "ok": "OK",
-  "yes": "Si",
+  "yes": "Sí",
   "no": "No",
   "close": "Cerrar",
   "continue": "Continuar",
@@ -42,8 +42,8 @@
   "thisMonth": "Este Mes",
   "allTime": "Todo el Tiempo",
   "noDataAvailable": "No hay datos disponibles",
-  "somethingWentWrong": "Algo salio mal",
+  "somethingWentWrong": "Algo salió mal",
   "tryAgain": "Intentar de nuevo",
-  "networkError": "Error de red. Por favor verifica tu conexion.",
-  "version": "Version"
+  "networkError": "Error de red. Por favor verifica tu conexión.",
+  "version": "Versión"
 }
