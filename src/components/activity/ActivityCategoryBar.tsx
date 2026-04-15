@@ -117,6 +117,7 @@ export const ActivityCategoryBar: React.FC<ActivityCategoryBarProps> = ({
 const styles = StyleSheet.create({
   wrapper: {
     alignItems: 'center',
+    zIndex: 20,
   },
   trigger: {
     width: 32,
@@ -127,10 +128,24 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.cardBackground,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 21,
   },
   expanded: {
-    marginTop: 8,
-    alignSelf: 'stretch',
+    position: 'absolute',
+    top: 40,
+    left: 0,
+    right: 0,
+    backgroundColor: theme.colors.background,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingBottom: 8,
+    zIndex: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
   },
   categoryBar: {
     flexDirection: 'row',
