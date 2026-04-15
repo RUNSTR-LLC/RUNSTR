@@ -595,7 +595,10 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
         renderItem={renderMonthlyGroup}
         keyExtractor={(item) => item.key}
         contentContainerStyle={styles.list}
-        initialNumToRender={monthlyGroups.length}
+        initialNumToRender={3}
+        windowSize={7}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={3}
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={theme.colors.text} />
         }

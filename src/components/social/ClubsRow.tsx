@@ -15,6 +15,23 @@ interface ClubsRowProps {
   onClubCreated?: () => void;
 }
 
+const ClubItem = React.memo(
+  ({ club, onPress }: { club: Club; onPress: (id: string, name: string) => void }) => (
+    <TouchableOpacity
+      style={styles.clubItem}
+      onPress={() => onPress(club.id, club.name)}
+      activeOpacity={0.7}
+    >
+      <Avatar
+        name={club.name}
+        size={56}
+        imageUrl={club.banner_url || undefined}
+      />
+      <Text style={styles.clubName}>{club.name}</Text>
+    </TouchableOpacity>
+  )
+);
+
 export const ClubsRow: React.FC<ClubsRowProps> = ({ clubs, userClubId, onClubCreated }) => {
   const navigation = useNavigation<any>();
   const [showCreate, setShowCreate] = useState(false);
@@ -48,21 +65,18 @@ export const ClubsRow: React.FC<ClubsRowProps> = ({ clubs, userClubId, onClubCre
     [navigation]
   );
 
-  const renderClub = ({ item }: { item: Club }) => (
-    <TouchableOpacity
-      style={styles.clubItem}
-      onPress={() => navigation.navigate('ClubPage', { clubId: item.id, clubName: item.name })}
-      activeOpacity={0.7}
-    >
-      <Avatar
-        name={item.name}
-        size={56}
-        imageUrl={item.banner_url || undefined}
-      />
-      <Text style={styles.clubName}>
-        {item.name}
-      </Text>
-    </TouchableOpacity>
+  const handleClubPress = useCallback(
+    (clubId: string, clubName: string) => {
+      navigation.navigate('ClubPage', { clubId, clubName });
+    },
+    [navigation]
+  );
+
+  const renderClub = useCallback(
+    ({ item }: { item: Club }) => (
+      <ClubItem club={item} onPress={handleClubPress} />
+    ),
+    [handleClubPress]
   );
 
   const handleClubCreated = useCallback(() => {

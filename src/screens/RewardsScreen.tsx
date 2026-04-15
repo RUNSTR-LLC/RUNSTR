@@ -314,7 +314,7 @@ const RewardsScreenComponent: React.FC = () => {
     <SafeAreaView style={styles.container} edges={['top']}>
       <TexturedBackground edges={[]}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs' as never)}
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Home' as never)}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>

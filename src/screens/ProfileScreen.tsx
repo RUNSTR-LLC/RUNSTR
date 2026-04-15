@@ -238,18 +238,14 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
     setIsWorkoutActive(false);
   }, [gridPosition]);
 
-  // Silent permission check on mount (no modal — deferred to hold-start)
-  useEffect(() => {
+  // Silent permission check — re-runs on focus so revoking in Settings re-gates the UI
+  useFocusEffect(useCallback(() => {
     let isMounted = true;
-    const checkPermissions = async () => {
-      const status = await appPermissionService.checkAllPermissions();
-      if (isMounted && status.location) {
-        setPermissionsReady(true);
-      }
-    };
-    checkPermissions();
+    appPermissionService.checkAllPermissions().then((status) => {
+      if (isMounted) setPermissionsReady(!!status.location);
+    });
     return () => { isMounted = false; };
-  }, []);
+  }, []));
 
   const handleActivitySelect = useCallback((row: number, column: number) => {
     setGridPosition({ row, column });
