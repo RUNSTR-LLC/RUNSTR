@@ -613,21 +613,7 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
             </View>
           ) : null
         }
-        ListEmptyComponent={
-          <Card style={styles.emptyState}>
-            <Ionicons name="time-outline" size={64} color={theme.colors.textMuted} />
-            <Text style={styles.emptyStateTitle}>
-              {activeFilter === 'all' ? 'No Activity Yet' : `No ${FILTER_OPTIONS.find((f) => f.key === activeFilter)?.label} Yet`}
-            </Text>
-            <Text style={styles.emptyStateText}>
-              {activeFilter === 'all' || activeFilter === 'workouts'
-                ? 'Use the Activity Tracker to record workouts.'
-                : activeFilter === 'journal'
-                ? 'Write your first journal entry to start tracking.'
-                : 'Create your first habit to start tracking.'}
-            </Text>
-          </Card>
-        }
+        ListEmptyComponent={null}
       />
 
       {/* Journal Editor Modal */}
