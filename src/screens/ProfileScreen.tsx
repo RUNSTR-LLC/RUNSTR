@@ -302,11 +302,12 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
       return (
         <View style={styles.permissionGate}>
           <TouchableOpacity
-            style={styles.actionCard}
+            style={styles.permissionCircle}
             onPress={() => setShowPermissionModal(true)}
             activeOpacity={0.7}
           >
-            <Text style={styles.actionCardText}>ENABLE LOCATION TO START</Text>
+            <Text style={styles.permissionCircleText}>ENABLE{'\n'}LOCATION</Text>
+            <Text style={styles.permissionCircleHint}>tap to start</Text>
           </TouchableOpacity>
         </View>
       );
@@ -365,17 +366,15 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
         <View style={styles.fullScreenTracker}>
           {renderTracker()}
         </View>
-      ) : (
-        <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}
-          refreshControl={isOwner ? <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={theme.colors.text} /> : undefined}>
+      ) : isOwner ? (
+        <View style={styles.ownerContent}>
           <View style={styles.sectionGap}>
-            <ProfileHero user={isOwner ? data.user : otherUser} isOwner={isOwner}
-              isLoading={isOwner ? isLoadingSections : !otherUser}
+            <ProfileHero user={data.user} isOwner={true}
+              isLoading={isLoadingSections}
               level={levelData?.level ?? 0}
-              streak={isOwner ? currentStreak : undefined}
-              earnings={isOwner ? totalEarnings : undefined}
-              onEditPress={isOwner ? handleEditPress : undefined}
-              onBackPress={!isOwner ? () => navigation.goBack() : undefined}
+              streak={currentStreak}
+              earnings={totalEarnings}
+              onEditPress={handleEditPress}
               onSettingsPress={undefined}
               onLevelPress={() => {
                 const parent = navigation.getParent();
@@ -384,42 +383,50 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
               onEarningsPress={() => navigate('Rewards')} />
           </View>
 
-          {isOwner && (
-            <View style={styles.sectionGap}>
-              <NotificationBadge onPress={() => setShowNotificationModal(true)} />
-            </View>
-          )}
+          <View style={styles.sectionGap}>
+            <NotificationBadge onPress={() => setShowNotificationModal(true)} />
+          </View>
 
-          {isOwner ? (
-            <>
-              <View style={styles.sectionGap}>
-                <ActivityCategoryBar
-                  gridPosition={gridPosition}
-                  onActivitySelect={handleActivitySelect}
-                  isWorkoutActive={false}
-                />
-              </View>
+          <View style={styles.sectionGap}>
+            <ActivityCategoryBar
+              gridPosition={gridPosition}
+              onActivitySelect={handleActivitySelect}
+              isWorkoutActive={false}
+            />
+          </View>
 
-              <View style={styles.trackerContainer}>
-                {renderTracker()}
-              </View>
-            </>
-          ) : (
-            <>
-              <View style={styles.sectionGap}>
-                <LevelCard levelData={levelData} isLoading={isLoadingSections} />
-              </View>
-              <View style={styles.sectionGap}>
-                <ActivityBreakdown breakdown={activityBreakdown} isLoading={isLoadingSections} />
-              </View>
-              <View style={styles.sectionGap}>
-                <ClubAffiliationsSection clubs={clubs} onClubPress={(id) => {
-                  const club = clubs.find(c => c.id === id);
-                  handleClubPress(id, club?.name || '');
-                }} />
-              </View>
-            </>
-          )}
+          <View style={styles.trackerContainer}>
+            {renderTracker()}
+          </View>
+        </View>
+      ) : (
+        <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={theme.colors.text} />}>
+          <View style={styles.sectionGap}>
+            <ProfileHero user={otherUser} isOwner={false}
+              isLoading={!otherUser}
+              level={levelData?.level ?? 0}
+              onBackPress={() => navigation.goBack()}
+              onSettingsPress={undefined}
+              onLevelPress={() => {
+                const parent = navigation.getParent();
+                (parent || navigation).navigate('LevelDetail' as any);
+              }}
+              onEarningsPress={() => navigate('Rewards')} />
+          </View>
+
+          <View style={styles.sectionGap}>
+            <LevelCard levelData={levelData} isLoading={isLoadingSections} />
+          </View>
+          <View style={styles.sectionGap}>
+            <ActivityBreakdown breakdown={activityBreakdown} isLoading={isLoadingSections} />
+          </View>
+          <View style={styles.sectionGap}>
+            <ClubAffiliationsSection clubs={clubs} onClubPress={(id) => {
+              const club = clubs.find(c => c.id === id);
+              handleClubPress(id, club?.name || '');
+            }} />
+          </View>
         </ScrollView>
       )}
 
@@ -455,10 +462,10 @@ const styles = StyleSheet.create({
   headerButton: { padding: 4 },
   content: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: 16, paddingBottom: 32 },
-  sectionGap: { marginBottom: 16 },
+  ownerContent: { flex: 1, paddingHorizontal: 16, paddingBottom: 16 },
+  sectionGap: { marginBottom: 12 },
   trackerContainer: {
     flex: 1,
-    minHeight: 400,
   },
   fullScreenTracker: {
     flex: 1,
@@ -468,18 +475,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+    minHeight: 260,
   },
-  actionCard: {
-    flex: 1,
-    alignItems: 'center', justifyContent: 'center',
-    borderRadius: 12, borderWidth: 1,
+  permissionCircle: {
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    borderWidth: 1,
     borderColor: theme.colors.border,
-    backgroundColor: theme.colors.cardBackground,
+    backgroundColor: theme.colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  actionCardText: {
-    fontSize: 18, fontWeight: theme.typography.weights.semiBold as any,
+  permissionCircleText: {
+    fontSize: 20,
+    fontWeight: theme.typography.weights.bold as any,
     color: theme.colors.text,
-    letterSpacing: 2,
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  permissionCircleHint: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    marginTop: 4,
   },
 });
 
