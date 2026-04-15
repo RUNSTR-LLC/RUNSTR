@@ -2,6 +2,25 @@
 
 All notable changes to RUNSTR will be documented in this file.
 
+## [1.9.1] - 2026-04-15 - Clubs Rail Discovery & Polish
+
+### Features
+- Social clubs rail with discovery bar and filtered inline dropdown
+- Clubs rail sorted by member count (your club pinned first)
+- Bigger 56px club avatars for easier tapping
+
+### Bug Fixes
+- Rewards back button fallback routes correctly when reached via deep link
+- Location permission re-checks on return from Settings (revoked permission now re-gates the UI)
+- Require captain role to create club-scoped competitions
+
+### Improvements
+- History list restores proper FlatList virtualization for faster first paint on long histories
+- ClubsRow item memoization — no more re-rendering all club avatars on every search keystroke
+- Activity category picker expands as a floating dropdown overlay instead of pushing layout
+- ProfileScreen owner/non-owner rendering split into dedicated branches; permission gate redesigned as a circular tap target
+- Empty-state cards removed from workout history list (cleaner minimalism)
+
 ## [1.9.0] - 2026-04-12 - Home Screen, Rewards, Spanish, Streak Levels
 
 ### Home Screen
