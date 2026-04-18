@@ -2,6 +2,19 @@
 
 All notable changes to RUNSTR will be documented in this file.
 
+## [1.9.2] - 2026-04-18 - Cycling Parity
+
+### Features
+- **Cycling event templates** — club captains can now create "Most Kilometers" and "Most Rides" cycling competitions alongside the existing running events
+- **Adaptive StatsCard** — profile stats now show cycling PRs (20K / 40K / 100K) for riders, running PRs for runners, both for mixed athletes; empty sections hide automatically
+- **Longest Ride** joins Longest Run on the PERSONAL BESTS list
+- **Daily cycling leaderboards** — three new global leaderboards (20K / 40K / 100K) updated live throughout the day, mirroring how daily running leaderboards work
+
+### Improvements
+- StatsCard also hides empty strength rows (pushups / pull-ups) instead of showing em-dash placeholders
+- PR queries refactored into parallel async helpers for faster initial load
+- New partial indexes on cycling time columns keep leaderboard queries fast as data grows
+
 ## [1.9.1] - 2026-04-15 - Clubs Rail Discovery & Polish
 
 ### Features
