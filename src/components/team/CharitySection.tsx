@@ -179,6 +179,15 @@ export const CharitySection: React.FC<CharitySectionProps> = ({
       return;
     }
 
+    // Guard: charity must have a lightning address configured
+    if (!charity.lightningAddress) {
+      Alert.alert(
+        'Charity Payment Unavailable',
+        'This charity does not currently have a Lightning address configured.'
+      );
+      return;
+    }
+
     // Quick zap with default amount - routes through RUNSTR for tracking
     setIsZapping(true);
     try {
@@ -226,7 +235,7 @@ export const CharitySection: React.FC<CharitySectionProps> = ({
 
       // Step 3: Record donation and forward to charity
       console.log('[CharitySection] Recording and forwarding donation...');
-      const donorName = currentUser?.name || currentUser?.displayName;
+      const donorName = currentUser?.name || currentUser?.displayName || 'Anonymous';
 
       // Get hex pubkey from cached storage (reliable source set at login)
       const storedPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
@@ -351,10 +360,10 @@ export const CharitySection: React.FC<CharitySectionProps> = ({
 
       {/* External Zap Modal with charity donation verification
           v3: Modal disabled - NWC moved to external service */}
-      {IN_APP_ZAPS_ENABLED && (
+      {IN_APP_ZAPS_ENABLED && charity.lightningAddress && (
         <ExternalZapModal
           visible={showPaymentModal}
-          recipientNpub={charity.lightningAddress || ''}
+          recipientNpub={charity.lightningAddress}
           recipientName={charity.name}
           memo={`Donation to ${charity.name}`}
           onClose={() => setShowPaymentModal(false)}
