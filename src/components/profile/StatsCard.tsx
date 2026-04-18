@@ -15,7 +15,11 @@ interface PersonalRecords {
   fastest10kSeconds: number;
   fastestHalfSeconds: number;
   fastestMarathonSeconds: number;
+  fastestCycling20kSeconds: number;
+  fastestCycling40kSeconds: number;
+  fastestCycling100kSeconds: number;
   longestRunKm: number;
+  longestRideKm: number;
   mostPushups: number;
   mostPullups: number;
 }
@@ -24,6 +28,9 @@ const M_5K = 5000;
 const M_10K = 10000;
 const M_HALF = 21097;
 const M_MARATHON = 42195;
+const M_CYC_20K = 20000;
+const M_CYC_40K = 40000;
+const M_CYC_100K = 100000;
 const DAILY_STEP_GOAL = 10000;
 
 function formatDuration(seconds: number): string {
@@ -48,7 +55,11 @@ export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey }) => {
     fastest10kSeconds: 0,
     fastestHalfSeconds: 0,
     fastestMarathonSeconds: 0,
+    fastestCycling20kSeconds: 0,
+    fastestCycling40kSeconds: 0,
+    fastestCycling100kSeconds: 0,
     longestRunKm: 0,
+    longestRideKm: 0,
     mostPushups: 0,
     mostPullups: 0,
   });
@@ -72,55 +83,81 @@ export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey }) => {
         ? userPubkey
         : nip19.npubEncode(userPubkey);
 
-      const raceDistances = [M_5K, M_10K, M_HALF, M_MARATHON];
-      const raceResults = await Promise.all(
-        raceDistances.map(async (minMeters) => {
-          const { data } = await supabase!
-            .from('workouts')
-            .select('duration_seconds')
-            .eq('npub', npub)
-            .eq('activity_type', 'running')
-            .gte('distance_meters', minMeters)
-            .order('duration_seconds', { ascending: true })
-            .limit(1);
-          return data?.[0]?.duration_seconds || 0;
-        })
-      );
+      const fastestTimeAtDistance = async (
+        activityType: string,
+        minMeters: number
+      ): Promise<number> => {
+        const { data } = await supabase!
+          .from('workouts')
+          .select('duration_seconds')
+          .eq('npub', npub)
+          .eq('activity_type', activityType)
+          .gte('distance_meters', minMeters)
+          .order('duration_seconds', { ascending: true })
+          .limit(1);
+        return data?.[0]?.duration_seconds || 0;
+      };
 
-      const { data: longestRun } = await supabase
-        .from('workouts')
-        .select('distance_meters')
-        .eq('npub', npub)
-        .eq('activity_type', 'running')
-        .order('distance_meters', { ascending: false })
-        .limit(1);
+      const maxDistance = async (activityType: string): Promise<number> => {
+        const { data } = await supabase!
+          .from('workouts')
+          .select('distance_meters')
+          .eq('npub', npub)
+          .eq('activity_type', activityType)
+          .order('distance_meters', { ascending: false })
+          .limit(1);
+        return data?.[0]?.distance_meters || 0;
+      };
 
-      const { data: pushupData } = await supabase
-        .from('workouts')
-        .select('rep_count')
-        .eq('npub', npub)
-        .eq('activity_type', 'pushups')
-        .order('rep_count', { ascending: false })
-        .limit(1);
+      const maxReps = async (activityType: string): Promise<number> => {
+        const { data } = await supabase!
+          .from('workouts')
+          .select('rep_count')
+          .eq('npub', npub)
+          .eq('activity_type', activityType)
+          .order('rep_count', { ascending: false })
+          .limit(1);
+        return data?.[0]?.rep_count || 0;
+      };
 
-      const { data: pullupData } = await supabase
-        .from('workouts')
-        .select('rep_count')
-        .eq('npub', npub)
-        .eq('activity_type', 'pullups')
-        .order('rep_count', { ascending: false })
-        .limit(1);
+      const [
+        run5k,
+        run10k,
+        runHalf,
+        runMarathon,
+        cyc20k,
+        cyc40k,
+        cyc100k,
+        longestRunMeters,
+        longestRideMeters,
+        pushupMax,
+        pullupMax,
+      ] = await Promise.all([
+        fastestTimeAtDistance('running', M_5K),
+        fastestTimeAtDistance('running', M_10K),
+        fastestTimeAtDistance('running', M_HALF),
+        fastestTimeAtDistance('running', M_MARATHON),
+        fastestTimeAtDistance('cycling', M_CYC_20K),
+        fastestTimeAtDistance('cycling', M_CYC_40K),
+        fastestTimeAtDistance('cycling', M_CYC_100K),
+        maxDistance('running'),
+        maxDistance('cycling'),
+        maxReps('pushups'),
+        maxReps('pullups'),
+      ]);
 
       setRecords({
-        fastest5kSeconds: raceResults[0],
-        fastest10kSeconds: raceResults[1],
-        fastestHalfSeconds: raceResults[2],
-        fastestMarathonSeconds: raceResults[3],
-        longestRunKm: longestRun?.[0]?.distance_meters
-          ? longestRun[0].distance_meters / 1000
-          : 0,
-        mostPushups: pushupData?.[0]?.rep_count || 0,
-        mostPullups: pullupData?.[0]?.rep_count || 0,
+        fastest5kSeconds: run5k,
+        fastest10kSeconds: run10k,
+        fastestHalfSeconds: runHalf,
+        fastestMarathonSeconds: runMarathon,
+        fastestCycling20kSeconds: cyc20k,
+        fastestCycling40kSeconds: cyc40k,
+        fastestCycling100kSeconds: cyc100k,
+        longestRunKm: longestRunMeters / 1000,
+        longestRideKm: longestRideMeters / 1000,
+        mostPushups: pushupMax,
+        mostPullups: pullupMax,
       });
     } catch (e) {
       console.warn('[StatsCard] Failed to load personal records:', e);
@@ -130,11 +167,23 @@ export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey }) => {
   const stepProgress = Math.min(todaySteps / DAILY_STEP_GOAL, 1);
   const stepProgressPercent = Math.round(stepProgress * 100);
 
-  const raceStats = [
+  const hasRunning = records.longestRunKm > 0;
+  const hasCycling = records.longestRideKm > 0;
+  const hasPushups = records.mostPushups > 0;
+  const hasPullups = records.mostPullups > 0;
+  const hasAnyBest = hasRunning || hasCycling || hasPushups || hasPullups;
+
+  const runningRaceStats = [
     { label: '5K', value: formatDuration(records.fastest5kSeconds) },
     { label: '10K', value: formatDuration(records.fastest10kSeconds) },
     { label: 'HALF', value: formatDuration(records.fastestHalfSeconds) },
     { label: 'MARATHON', value: formatDuration(records.fastestMarathonSeconds) },
+  ];
+
+  const cyclingRaceStats = [
+    { label: '20K', value: formatDuration(records.fastestCycling20kSeconds) },
+    { label: '40K', value: formatDuration(records.fastestCycling40kSeconds) },
+    { label: '100K', value: formatDuration(records.fastestCycling100kSeconds) },
   ];
 
   return (
@@ -155,47 +204,83 @@ export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey }) => {
         </Text>
       </View>
 
-      <View style={styles.divider} />
-
-      {/* Race PRs */}
-      <Text style={styles.sectionTitle}>RACE PERSONAL RECORDS</Text>
-      <View style={styles.raceRow}>
-        {raceStats.map((stat) => (
-          <View key={stat.label} style={styles.raceCell}>
-            <Text
-              style={styles.raceValue}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-            >
-              {stat.value}
-            </Text>
-            <Text style={styles.raceLabel}>{stat.label}</Text>
+      {/* Running Race PRs */}
+      {hasRunning && (
+        <>
+          <View style={styles.divider} />
+          <Text style={styles.sectionTitle}>RACE PERSONAL RECORDS</Text>
+          <View style={styles.raceRow}>
+            {runningRaceStats.map((stat) => (
+              <View key={stat.label} style={styles.raceCell}>
+                <Text
+                  style={styles.raceValue}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
+                  {stat.value}
+                </Text>
+                <Text style={styles.raceLabel}>{stat.label}</Text>
+              </View>
+            ))}
           </View>
-        ))}
-      </View>
+        </>
+      )}
 
-      <View style={styles.divider} />
+      {/* Cycling Race PRs */}
+      {hasCycling && (
+        <>
+          <View style={styles.divider} />
+          <Text style={styles.sectionTitle}>CYCLING PERSONAL RECORDS</Text>
+          <View style={styles.raceRow}>
+            {cyclingRaceStats.map((stat) => (
+              <View key={stat.label} style={styles.raceCell}>
+                <Text
+                  style={styles.raceValue}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
+                  {stat.value}
+                </Text>
+                <Text style={styles.raceLabel}>{stat.label}</Text>
+              </View>
+            ))}
+          </View>
+        </>
+      )}
 
       {/* Personal Bests */}
-      <Text style={styles.sectionTitle}>PERSONAL BESTS</Text>
-      <View style={styles.bestList}>
-        <BestRow
-          label="Longest Run"
-          value={
-            records.longestRunKm > 0
-              ? `${records.longestRunKm.toFixed(1)} km`
-              : '—'
-          }
-        />
-        <BestRow
-          label="Most Pushups"
-          value={formatCount(records.mostPushups)}
-        />
-        <BestRow
-          label="Most Pull-ups"
-          value={formatCount(records.mostPullups)}
-        />
-      </View>
+      {hasAnyBest && (
+        <>
+          <View style={styles.divider} />
+          <Text style={styles.sectionTitle}>PERSONAL BESTS</Text>
+          <View style={styles.bestList}>
+            {hasRunning && (
+              <BestRow
+                label="Longest Run"
+                value={`${records.longestRunKm.toFixed(1)} km`}
+              />
+            )}
+            {hasCycling && (
+              <BestRow
+                label="Longest Ride"
+                value={`${records.longestRideKm.toFixed(1)} km`}
+              />
+            )}
+            {hasPushups && (
+              <BestRow
+                label="Most Pushups"
+                value={formatCount(records.mostPushups)}
+              />
+            )}
+            {hasPullups && (
+              <BestRow
+                label="Most Pull-ups"
+                value={formatCount(records.mostPullups)}
+              />
+            )}
+          </View>
+        </>
+      )}
     </Card>
   );
 };
