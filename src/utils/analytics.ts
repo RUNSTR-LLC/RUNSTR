@@ -6,6 +6,7 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { DiscoveryTeam, Team } from '../types';
+import { SafeStorage } from './storage';
 
 // Analytics event types
 export type AnalyticsEvent =
@@ -78,6 +79,21 @@ export interface ConversionAnalyticsProperties extends BaseAnalyticsProperties {
   viewedTeamsCount?: number;
   selectedTeamsCount?: number;
 }
+
+
+interface AnalyticsEventData {
+  event: AnalyticsEvent;
+  properties: Record<string, unknown>;
+  queuedAt: string;
+}
+
+const ANALYTICS_EVENT_BUFFER_KEY = '@runstr:analytics:event-buffer';
+const ANALYTICS_EVENT_BUFFER_LIMIT = 200;
+const NUMERIC_METRIC_FIELDS: (keyof ConversionAnalyticsProperties)[] = [
+  'conversionTime',
+  'viewedTeamsCount',
+  'selectedTeamsCount',
+];
 
 // Main analytics class
 class Analytics {
@@ -179,10 +195,59 @@ class Analytics {
     // Log to console in development
     console.log('📊 Analytics Event:', eventData);
 
-    // TODO: Send to analytics providers
-    // this.sendToFirebaseAnalytics(eventData);
-    // this.sendToMixpanel(eventData);
-    // this.sendToCustomAnalytics(eventData);
+    void this.dispatchToProvider(eventData);
+  }
+
+
+  private hasValidMetricShape(properties: Record<string, unknown>): boolean {
+    return NUMERIC_METRIC_FIELDS.every((field) => {
+      const value = properties[field];
+      return value === undefined || value === null || typeof value === 'number';
+    });
+  }
+
+  private async persistToLocalBuffer(eventData: AnalyticsEventData) {
+    const existingRaw = await SafeStorage.getItem(ANALYTICS_EVENT_BUFFER_KEY);
+    const existingEvents = this.parseEventBuffer(existingRaw);
+    const nextEvents = [...existingEvents, eventData].slice(
+      -ANALYTICS_EVENT_BUFFER_LIMIT
+    );
+
+    await SafeStorage.setItem(
+      ANALYTICS_EVENT_BUFFER_KEY,
+      JSON.stringify(nextEvents)
+    );
+  }
+
+  private parseEventBuffer(raw: string | null): AnalyticsEventData[] {
+    if (!raw) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? (parsed as AnalyticsEventData[]) : [];
+    } catch (error) {
+      console.warn('[Analytics] Failed to parse event buffer, resetting', error);
+      return [];
+    }
+  }
+
+  private async dispatchToProvider(eventData: {
+    event: AnalyticsEvent;
+    properties: Record<string, unknown>;
+  }) {
+    if (!this.hasValidMetricShape(eventData.properties)) {
+      console.warn(
+        `[Analytics] Skipping provider dispatch for ${eventData.event}: invalid numeric metric shape`
+      );
+      return;
+    }
+
+    await this.persistToLocalBuffer({
+      ...eventData,
+      queuedAt: new Date().toISOString(),
+    });
   }
 
   // Onboarding tracking methods
