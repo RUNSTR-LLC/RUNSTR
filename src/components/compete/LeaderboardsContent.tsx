@@ -40,6 +40,9 @@ interface GlobalLeaderboards {
   leaderboardHalf: LeaderboardEntry[];
   leaderboardMarathon: LeaderboardEntry[];
   leaderboardSteps: LeaderboardEntry[];
+  leaderboardCycling20k: LeaderboardEntry[];
+  leaderboardCycling40k: LeaderboardEntry[];
+  leaderboardCycling100k: LeaderboardEntry[];
 }
 
 interface LeaderboardsContentProps {
@@ -63,6 +66,9 @@ export const LeaderboardsContent: React.FC<LeaderboardsContentProps> = ({
     leaderboardHalf: [],
     leaderboardMarathon: [],
     leaderboardSteps: [],
+    leaderboardCycling20k: [],
+    leaderboardCycling40k: [],
+    leaderboardCycling100k: [],
   });
   const [isLoading, setIsLoading] = useState(true);
   const [currentUserNpub, setCurrentUserNpub] = useState<string | null>(null);
@@ -92,6 +98,9 @@ export const LeaderboardsContent: React.FC<LeaderboardsContentProps> = ({
           'half': data.leaderboardHalf.length,
           'marathon': data.leaderboardMarathon.length,
           'steps': data.leaderboardSteps.length,
+          'cyc20k': data.leaderboardCycling20k.length,
+          'cyc40k': data.leaderboardCycling40k.length,
+          'cyc100k': data.leaderboardCycling100k.length,
         });
 
         setGlobalLeaderboards({
@@ -100,6 +109,9 @@ export const LeaderboardsContent: React.FC<LeaderboardsContentProps> = ({
           leaderboardHalf: data.leaderboardHalf,
           leaderboardMarathon: data.leaderboardMarathon,
           leaderboardSteps: data.leaderboardSteps,
+          leaderboardCycling20k: data.leaderboardCycling20k,
+          leaderboardCycling40k: data.leaderboardCycling40k,
+          leaderboardCycling100k: data.leaderboardCycling100k,
         });
       } catch (error) {
         console.error('[LeaderboardsContent] Failed to load leaderboards:', error);
@@ -121,7 +133,10 @@ export const LeaderboardsContent: React.FC<LeaderboardsContentProps> = ({
     globalLeaderboards.leaderboard10k.length > 0 ||
     globalLeaderboards.leaderboardHalf.length > 0 ||
     globalLeaderboards.leaderboardMarathon.length > 0 ||
-    globalLeaderboards.leaderboardSteps.length > 0;
+    globalLeaderboards.leaderboardSteps.length > 0 ||
+    globalLeaderboards.leaderboardCycling20k.length > 0 ||
+    globalLeaderboards.leaderboardCycling40k.length > 0 ||
+    globalLeaderboards.leaderboardCycling100k.length > 0;
 
   // Loading state (only on initial load)
   if (isLoading && !hasAnyLeaderboards) {
@@ -219,6 +234,42 @@ export const LeaderboardsContent: React.FC<LeaderboardsContentProps> = ({
             entries={globalLeaderboards.leaderboardSteps}
             onPress={() => console.log('Navigate to Steps leaderboard')}
             participantLabel="walker"
+            currentUserPubkey={currentUserNpub || undefined}
+          />
+        )}
+
+        {globalLeaderboards.leaderboardCycling20k.length > 0 && (
+          <DailyLeaderboardCard
+            title="20K Ride"
+            distance="20km"
+            participants={globalLeaderboards.leaderboardCycling20k.length}
+            entries={globalLeaderboards.leaderboardCycling20k}
+            onPress={() => console.log('Navigate to 20K cycling leaderboard')}
+            participantLabel="rider"
+            currentUserPubkey={currentUserNpub || undefined}
+          />
+        )}
+
+        {globalLeaderboards.leaderboardCycling40k.length > 0 && (
+          <DailyLeaderboardCard
+            title="40K Ride"
+            distance="40km"
+            participants={globalLeaderboards.leaderboardCycling40k.length}
+            entries={globalLeaderboards.leaderboardCycling40k}
+            onPress={() => console.log('Navigate to 40K cycling leaderboard')}
+            participantLabel="rider"
+            currentUserPubkey={currentUserNpub || undefined}
+          />
+        )}
+
+        {globalLeaderboards.leaderboardCycling100k.length > 0 && (
+          <DailyLeaderboardCard
+            title="100K Ride"
+            distance="100km"
+            participants={globalLeaderboards.leaderboardCycling100k.length}
+            entries={globalLeaderboards.leaderboardCycling100k}
+            onPress={() => console.log('Navigate to 100K cycling leaderboard')}
+            participantLabel="rider"
             currentUserPubkey={currentUserNpub || undefined}
           />
         )}

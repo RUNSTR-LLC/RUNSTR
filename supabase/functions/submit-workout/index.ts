@@ -472,6 +472,26 @@ function calculateAllTargetTimes(
 }
 
 /**
+ * Calculate cycling target times (20K, 40K, 100K brackets).
+ * Only meaningful for activity_type='cycling' workouts.
+ */
+function calculateAllCyclingTargetTimes(
+  splits: Record<number, number>,
+  totalDistanceKm: number,
+  totalDurationSeconds: number
+): {
+  time_cycling_20k_seconds: number | null
+  time_cycling_40k_seconds: number | null
+  time_cycling_100k_seconds: number | null
+} {
+  return {
+    time_cycling_20k_seconds: calculateTargetTime(splits, totalDistanceKm, totalDurationSeconds, 20),
+    time_cycling_40k_seconds: calculateTargetTime(splits, totalDistanceKm, totalDurationSeconds, 40),
+    time_cycling_100k_seconds: calculateTargetTime(splits, totalDistanceKm, totalDurationSeconds, 100),
+  }
+}
+
+/**
  * Auto-classify "other" type workouts based on pace
  * Used for Apple Health / Health Connect imports that don't have proper activity type tags
  *
@@ -1031,6 +1051,9 @@ serve(async (req) => {
     const durationSeconds = workout.duration_seconds || 0
     const splits = parseSplitsFromTags(workout.raw_event)
     const targetTimes = calculateAllTargetTimes(splits, distanceKm, durationSeconds)
+    const cyclingTargetTimes = classifiedActivityType === 'cycling'
+      ? calculateAllCyclingTargetTimes(splits, distanceKm, durationSeconds)
+      : { time_cycling_20k_seconds: null, time_cycling_40k_seconds: null, time_cycling_100k_seconds: null }
     const stepCount = parseStepCount(workout.raw_event)
 
     // Skip pace/speed anti-cheat for step submissions (duration=0, pace is meaningless)
@@ -1173,6 +1196,9 @@ serve(async (req) => {
         time_10k_seconds: targetTimes.time_10k_seconds,
         time_half_seconds: targetTimes.time_half_seconds,
         time_marathon_seconds: targetTimes.time_marathon_seconds,
+        time_cycling_20k_seconds: cyclingTargetTimes.time_cycling_20k_seconds,
+        time_cycling_40k_seconds: cyclingTargetTimes.time_cycling_40k_seconds,
+        time_cycling_100k_seconds: cyclingTargetTimes.time_cycling_100k_seconds,
         step_count: stepCount,
         leaderboard_date: leaderboardDate,
         profile_name: workout.profile_name || null,
