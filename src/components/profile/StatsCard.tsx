@@ -65,14 +65,18 @@ export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey }) => {
   });
 
   useEffect(() => {
-    loadData();
+    let cancelled = false;
+    loadData(() => cancelled);
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userPubkey]);
 
-  const loadData = async () => {
+  const loadData = async (isCancelled: () => boolean) => {
     try {
       const stepData = await DailyStepCounterService.getInstance().getTodaySteps();
-      if (stepData) setTodaySteps(stepData.steps);
+      if (!isCancelled() && stepData) setTodaySteps(stepData.steps);
     } catch (e) {
       console.warn('[StatsCard] Failed to get today steps:', e);
     }
@@ -146,6 +150,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey }) => {
         maxReps('pullups'),
       ]);
 
+      if (isCancelled()) return;
       setRecords({
         fastest5kSeconds: run5k,
         fastest10kSeconds: run10k,
@@ -184,6 +189,13 @@ export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey }) => {
     { label: '20K', value: formatDuration(records.fastestCycling20kSeconds) },
     { label: '40K', value: formatDuration(records.fastestCycling40kSeconds) },
     { label: '100K', value: formatDuration(records.fastestCycling100kSeconds) },
+    {
+      label: 'LONGEST',
+      value:
+        records.longestRideKm > 0
+          ? `${records.longestRideKm.toFixed(1)}km`
+          : '—',
+    },
   ];
 
   return (
@@ -208,7 +220,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey }) => {
       {hasRunning && (
         <>
           <View style={styles.divider} />
-          <Text style={styles.sectionTitle}>RACE PERSONAL RECORDS</Text>
+          <Text style={styles.sectionTitle}>RUNNING PERSONAL RECORDS</Text>
           <View style={styles.raceRow}>
             {runningRaceStats.map((stat) => (
               <View key={stat.label} style={styles.raceCell}>

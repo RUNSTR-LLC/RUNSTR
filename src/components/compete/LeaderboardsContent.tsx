@@ -22,7 +22,7 @@
  * 3. Call NostrLeaderboardService.refreshLeaderboard() on pull-to-refresh
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -73,6 +73,13 @@ export const LeaderboardsContent: React.FC<LeaderboardsContentProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [currentUserNpub, setCurrentUserNpub] = useState<string | null>(null);
 
+  // Keep onRefreshComplete in a ref so we don't re-fire the fetch effect when
+  // the parent re-renders with a new callback identity.
+  const onRefreshCompleteRef = useRef(onRefreshComplete);
+  useEffect(() => {
+    onRefreshCompleteRef.current = onRefreshComplete;
+  }, [onRefreshComplete]);
+
   // Fetch current user's npub for "Your position" display
   useEffect(() => {
     AsyncStorage.getItem('@runstr:npub').then(npub => {
@@ -118,14 +125,14 @@ export const LeaderboardsContent: React.FC<LeaderboardsContentProps> = ({
       } finally {
         setIsLoading(false);
         // Signal to parent that refresh is complete (for pull-to-refresh spinner)
-        if (refreshTrigger > 0 && onRefreshComplete) {
-          onRefreshComplete();
+        if (refreshTrigger > 0 && onRefreshCompleteRef.current) {
+          onRefreshCompleteRef.current();
         }
       }
     };
 
     loadLeaderboards();
-  }, [refreshTrigger, onRefreshComplete]);
+  }, [refreshTrigger]);
 
   // Calculate if there are any active leaderboards
   const hasAnyLeaderboards =
@@ -240,7 +247,7 @@ export const LeaderboardsContent: React.FC<LeaderboardsContentProps> = ({
 
         {globalLeaderboards.leaderboardCycling20k.length > 0 && (
           <DailyLeaderboardCard
-            title="20K Ride"
+            title="20K"
             distance="20km"
             participants={globalLeaderboards.leaderboardCycling20k.length}
             entries={globalLeaderboards.leaderboardCycling20k}
@@ -252,7 +259,7 @@ export const LeaderboardsContent: React.FC<LeaderboardsContentProps> = ({
 
         {globalLeaderboards.leaderboardCycling40k.length > 0 && (
           <DailyLeaderboardCard
-            title="40K Ride"
+            title="40K"
             distance="40km"
             participants={globalLeaderboards.leaderboardCycling40k.length}
             entries={globalLeaderboards.leaderboardCycling40k}
@@ -264,7 +271,7 @@ export const LeaderboardsContent: React.FC<LeaderboardsContentProps> = ({
 
         {globalLeaderboards.leaderboardCycling100k.length > 0 && (
           <DailyLeaderboardCard
-            title="100K Ride"
+            title="100K"
             distance="100km"
             participants={globalLeaderboards.leaderboardCycling100k.length}
             entries={globalLeaderboards.leaderboardCycling100k}

@@ -112,6 +112,13 @@ const MIN_TARGET_TIMES = {
   time_marathon_seconds: 7200, // 2:00:00 (WR is 2:00:35)
 }
 
+// Cycling minimum times (UCI records, conservative floors below WR)
+const MIN_CYCLING_TARGET_TIMES = {
+  time_cycling_20k_seconds: 1200,   // 20:00 (UCI 20K TT ~22:00)
+  time_cycling_40k_seconds: 2400,   // 40:00 (UCI 40K TT ~44:00)
+  time_cycling_100k_seconds: 6600,  // 1:50:00 (UCI 100K TT ~1:57:00)
+}
+
 /**
  * Validate target times against world record minimums
  * Returns validation result with reason if any time is impossibly fast
@@ -153,6 +160,51 @@ function validateTargetTimes(targetTimes: {
     return {
       valid: false,
       reason: `Marathon time of ${hours}:${String(min).padStart(2, '0')} is faster than world record (2:00:35)`
+    }
+  }
+  return { valid: true }
+}
+
+/**
+ * Validate cycling target times against UCI record floors.
+ * Catches obvious fakes (e.g. 20K ride in 5 minutes).
+ */
+function validateCyclingTargetTimes(targetTimes: {
+  time_cycling_20k_seconds: number | null
+  time_cycling_40k_seconds: number | null
+  time_cycling_100k_seconds: number | null
+}): ValidationResult {
+  if (
+    targetTimes.time_cycling_20k_seconds !== null &&
+    targetTimes.time_cycling_20k_seconds < MIN_CYCLING_TARGET_TIMES.time_cycling_20k_seconds
+  ) {
+    const min = Math.floor(targetTimes.time_cycling_20k_seconds / 60)
+    const sec = Math.round(targetTimes.time_cycling_20k_seconds % 60)
+    return {
+      valid: false,
+      reason: `20K cycling time of ${min}:${String(sec).padStart(2, '0')} is faster than world record pace`
+    }
+  }
+  if (
+    targetTimes.time_cycling_40k_seconds !== null &&
+    targetTimes.time_cycling_40k_seconds < MIN_CYCLING_TARGET_TIMES.time_cycling_40k_seconds
+  ) {
+    const min = Math.floor(targetTimes.time_cycling_40k_seconds / 60)
+    const sec = Math.round(targetTimes.time_cycling_40k_seconds % 60)
+    return {
+      valid: false,
+      reason: `40K cycling time of ${min}:${String(sec).padStart(2, '0')} is faster than world record pace`
+    }
+  }
+  if (
+    targetTimes.time_cycling_100k_seconds !== null &&
+    targetTimes.time_cycling_100k_seconds < MIN_CYCLING_TARGET_TIMES.time_cycling_100k_seconds
+  ) {
+    const hours = Math.floor(targetTimes.time_cycling_100k_seconds / 3600)
+    const min = Math.floor((targetTimes.time_cycling_100k_seconds % 3600) / 60)
+    return {
+      valid: false,
+      reason: `100K cycling time of ${hours}:${String(min).padStart(2, '0')} is faster than world record pace`
     }
   }
   return { valid: true }
@@ -1117,6 +1169,29 @@ serve(async (req) => {
         JSON.stringify({ success: false, reason: targetTimeValidation.reason, flagged: true }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
+    }
+
+    // Validate cycling target times against UCI record floors
+    if (classifiedActivityType === 'cycling') {
+      const cyclingValidation = validateCyclingTargetTimes(cyclingTargetTimes)
+      if (!cyclingValidation.valid) {
+        const { error: flagError } = await supabase.from('flagged_workouts').insert({
+          event_id: workout.event_id,
+          npub: workout.npub,
+          activity_type: workout.activity_type,
+          distance_meters: workout.distance_meters,
+          duration_seconds: workout.duration_seconds,
+          created_at: workout.created_at,
+          reason: cyclingValidation.reason,
+          raw_event: workout.raw_event,
+        })
+        if (flagError) console.error('Flag insert error:', flagError)
+        console.log(`🚫 Workout flagged: ${workout.event_id} - ${cyclingValidation.reason}`)
+        return new Response(
+          JSON.stringify({ success: false, reason: cyclingValidation.reason, flagged: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
     }
 
     // Validate split consistency (catches suspicious split patterns)

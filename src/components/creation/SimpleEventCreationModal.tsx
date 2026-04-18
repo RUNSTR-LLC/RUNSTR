@@ -116,6 +116,16 @@ const EVENT_TEMPLATES: EventTemplate[] = [
     scoringMethod: 'workout_count',
   },
   {
+    key: 'pullups',
+    label: 'Pullup Challenge',
+    subtitle: 'Most pull-ups completed',
+    icon: 'fitness-outline',
+    distanceKm: 0,
+    templateId: 'pullup_challenge',
+    activityType: 'pullups',
+    scoringMethod: 'workout_count',
+  },
+  {
     key: 'cycling_distance',
     label: 'Most Kilometers',
     subtitle: 'Longest total cycling distance',

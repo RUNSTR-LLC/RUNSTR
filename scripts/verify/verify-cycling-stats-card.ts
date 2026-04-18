@@ -56,9 +56,9 @@ function main() {
     }
   }
 
-  // Section headers
+  // Section headers (v1.9.2 renamed RACE → RUNNING for symmetry with CYCLING)
   for (const header of [
-    'RACE PERSONAL RECORDS',
+    'RUNNING PERSONAL RECORDS',
     'CYCLING PERSONAL RECORDS',
     'PERSONAL BESTS',
   ]) {
