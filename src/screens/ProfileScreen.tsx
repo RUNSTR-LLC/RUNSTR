@@ -357,39 +357,45 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
         </View>
       )}
 
-      {/* Full-screen tracker takeover when workout active */}
-      {isOwner && isWorkoutActive ? (
-        <View style={styles.fullScreenTracker}>
-          {renderTracker()}
-        </View>
-      ) : isOwner ? (
-        <View style={styles.ownerContent}>
-          <View style={styles.sectionGap}>
-            <ProfileHero user={data.user} isOwner={true}
-              isLoading={isLoadingSections}
-              level={levelData?.level ?? 0}
-              streak={currentStreak}
-              earnings={totalEarnings}
-              onEditPress={handleEditPress}
-              onSettingsPress={undefined}
-              onLevelPress={() => {
-                const parent = navigation.getParent();
-                (parent || navigation).navigate('LevelDetail' as any);
-              }}
-              onEarningsPress={() => navigate('Rewards')} />
-          </View>
+      {/* Owner view — same container structure whether workout is active or not,
+          so the tracker component below keeps a stable position in the tree and
+          React does not unmount it when isWorkoutActive flips. Swapping between
+          two parallel branches here used to remount the tracker and kill the
+          workout within ~500ms of start. */}
+      {isOwner ? (
+        <View style={isWorkoutActive ? styles.fullScreenTracker : styles.ownerContent}>
+          {!isWorkoutActive && (
+            <View style={styles.sectionGap}>
+              <ProfileHero user={data.user} isOwner={true}
+                isLoading={isLoadingSections}
+                level={levelData?.level ?? 0}
+                streak={currentStreak}
+                earnings={totalEarnings}
+                onEditPress={handleEditPress}
+                onSettingsPress={undefined}
+                onLevelPress={() => {
+                  const parent = navigation.getParent();
+                  (parent || navigation).navigate('LevelDetail' as any);
+                }}
+                onEarningsPress={() => navigate('Rewards')} />
+            </View>
+          )}
 
-          <View style={styles.sectionGap}>
-            <NotificationBadge onPress={() => setShowNotificationModal(true)} />
-          </View>
+          {!isWorkoutActive && (
+            <View style={styles.sectionGap}>
+              <NotificationBadge onPress={() => setShowNotificationModal(true)} />
+            </View>
+          )}
 
-          <View style={styles.sectionGap}>
-            <ActivityCategoryBar
-              gridPosition={gridPosition}
-              onActivitySelect={handleActivitySelect}
-              isWorkoutActive={false}
-            />
-          </View>
+          {!isWorkoutActive && (
+            <View style={styles.sectionGap}>
+              <ActivityCategoryBar
+                gridPosition={gridPosition}
+                onActivitySelect={handleActivitySelect}
+                isWorkoutActive={false}
+              />
+            </View>
+          )}
 
           <View style={styles.trackerContainer}>
             {renderTracker()}
