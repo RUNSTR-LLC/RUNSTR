@@ -439,12 +439,15 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
         return { success: false, error: 'Failed to create workout' };
       }
 
+      // Plain text posts (no cardImageUri) skip the card generation entirely —
+      // saves the Blossom upload round trip and the SVG render work.
+      const includeCard = !!cardImageUri;
       const result = await workoutPublishingService.postWorkoutToSocial(
         publishableWorkout,
         signer,
         npub || 'unknown',
         {
-          includeCard: true,
+          includeCard,
           cardImageUri, // Use the card image from EnhancedSocialShareModal
           userAvatar: userProfile?.picture,
           userName: userProfile?.name,
