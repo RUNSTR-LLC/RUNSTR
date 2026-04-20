@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: theme.colors.buttonBorder, // #333
+    borderColor: theme.colors.buttonBorder,
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 16,
@@ -65,17 +65,17 @@ const styles = StyleSheet.create({
   },
 
   primaryButton: {
-    backgroundColor: theme.colors.text, // #fff
+    backgroundColor: theme.colors.text,
     borderColor: theme.colors.text,
   },
 
   actionButtonText: {
     fontSize: 12,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.text, // #fff
+    color: theme.colors.text,
   },
 
   primaryButtonText: {
-    color: theme.colors.background, // #000
+    color: theme.colors.background,
   },
 });

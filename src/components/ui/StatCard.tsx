@@ -150,9 +150,9 @@ export const StatCardGrid: React.FC<StatCardGridProps> = ({
 const styles = StyleSheet.create({
   // Default card style - exact match to mockup
   card: {
-    backgroundColor: theme.colors.cardBackground, // #0a0a0a
+    backgroundColor: theme.colors.cardBackground,
     borderWidth: 1,
-    borderColor: theme.colors.border, // #1a1a1a
+    borderColor: theme.colors.border,
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 8,
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
 
   // Highlighted card variant
   cardHighlighted: {
-    backgroundColor: theme.colors.text, // #fff
+    backgroundColor: theme.colors.text,
     borderWidth: 1,
     borderColor: theme.colors.text,
     borderRadius: 8,
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 18,
     fontWeight: theme.typography.weights.extraBold, // 800
-    color: theme.colors.text, // #fff
+    color: theme.colors.text,
     marginBottom: 2,
     textAlign: 'center',
   },
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
   statNumberHighlighted: {
     fontSize: 18,
     fontWeight: theme.typography.weights.extraBold,
-    color: theme.colors.background, // #000
+    color: theme.colors.background,
     marginBottom: 2,
     textAlign: 'center',
   },
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
   // Stat label styles - exact match to mockup
   statLabel: {
     fontSize: 10,
-    color: theme.colors.textMuted, // #666
+    color: theme.colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     textAlign: 'center',

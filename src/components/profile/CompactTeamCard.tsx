@@ -135,9 +135,9 @@ export const CompactTeamCard: React.FC<CompactTeamCardProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: theme.colors.cardBackground, // #0a0a0a
+    backgroundColor: theme.colors.cardBackground,
     borderWidth: 1,
-    borderColor: theme.colors.border, // #1a1a1a
+    borderColor: theme.colors.border,
     borderRadius: theme.borderRadius.large, // 12px
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -182,13 +182,13 @@ const styles = StyleSheet.create({
   teamName: {
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text, // #ffffff
+    color: theme.colors.text,
     marginBottom: 2,
   },
 
   teamDescription: {
     fontSize: 13,
-    color: theme.colors.textMuted, // #666666
+    color: theme.colors.textMuted,
   },
 
   badgeContainer: {
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
   },
 
   captainBadge: {
-    backgroundColor: theme.colors.text, // #ffffff
+    backgroundColor: theme.colors.text,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
   captainBadgeText: {
     fontSize: 9,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.background, // #000000
+    color: theme.colors.background,
     letterSpacing: 0.5,
   },
 
@@ -220,11 +220,11 @@ const styles = StyleSheet.create({
   rankBadgeText: {
     fontSize: 11,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.text, // #ffffff
+    color: theme.colors.text,
   },
 
   memberBadge: {
-    backgroundColor: theme.colors.text, // #ffffff
+    backgroundColor: theme.colors.text,
     paddingHorizontal: 6,
     paddingVertical: 4,
     borderRadius: 4,
@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
   memberBadgeText: {
     fontSize: 9,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.background, // #000000
+    color: theme.colors.background,
     letterSpacing: 0.5,
   },
 });

@@ -4,9 +4,9 @@
  */
 
 export const colors = {
-  // Core backgrounds - black theme
-  background: '#000000', // body background
-  cardBackground: '#0a0a0a', // all cards (.main-leaderboard, .events-card, etc.)
+  // Core backgrounds - OLED-friendly, cards layer visibly on canvas
+  background: '#050505', // body background (near-black, lets cards layer)
+  cardBackground: '#0a0a0a', // all cards
   card: '#0a0a0a', // alias for cardBackground for compatibility
   border: '#1a1a1a', // card borders, separators
 
@@ -107,17 +107,40 @@ export const typography = {
     bold: '700' as const,
     extraBold: '800' as const,
   },
+
+  // Semantic size scale — prefer for new work
+  size: {
+    xs: 11, // UPPERCASE labels, micro-eyebrow
+    sm: 13, // secondary body, metadata
+    base: 15, // body text
+    md: 17, // item titles, nav
+    lg: 22, // section headings
+    xl: 32, // stat numbers, prominent values
+    '2xl': 48, // hero numbers
+    '3xl': 72, // tracker distance / timer
+  },
 } as const;
 
 export const spacing = {
-  // Exact spacing from CSS padding/margin values
-  xs: 2, // Small gaps
-  sm: 4, // .challenge-prize padding, gaps
-  md: 6, // .manage-wallet-btn padding, .status-right gap
-  lg: 8, // .nav-item padding, .leaderboard-item padding
-  xl: 12, // .content gap, .leaderboard-avatar gap
-  xxl: 16, // .content padding, .main-leaderboard padding
-  xxxl: 20, // .status-bar padding, .header padding
+  // Legacy scale — kept for existing call sites, prefer spacing.scale for new work
+  xs: 2,
+  sm: 4,
+  md: 6,
+  lg: 8,
+  xl: 12,
+  xxl: 16,
+  xxxl: 20,
+
+  // Semantic scale — 4pt grid, use for new work
+  scale: {
+    xs: 4, // tight gaps, inner padding
+    sm: 8, // default element gap
+    md: 12, // between grouped elements
+    lg: 16, // card internal padding
+    xl: 24, // section gap
+    '2xl': 32, // screen padding
+    '3xl': 48, // hero / top-of-screen breathing room
+  },
 } as const;
 
 export const borderRadius = {

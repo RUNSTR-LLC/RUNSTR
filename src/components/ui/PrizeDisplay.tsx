@@ -81,13 +81,13 @@ const styles = StyleSheet.create({
   prizeCurrency: {
     // Exact CSS: font-size: 14px; color: #666; font-weight: 500;
     fontSize: 14,
-    color: theme.colors.textMuted, // #666
+    color: theme.colors.textMuted,
     fontWeight: theme.typography.weights.medium,
   },
 
   recentPayout: {
     // Exact CSS: font-size: 11px; color: #666;
     fontSize: 11,
-    color: theme.colors.textMuted, // #666
+    color: theme.colors.textMuted,
   },
 });

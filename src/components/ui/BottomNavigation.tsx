@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
   // CSS: height: 50px; background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 12px; display: flex; padding: 8px; margin: 12px 20px 10px;
   bottomNav: {
     height: theme.layout.bottomNavHeight, // 50px
-    backgroundColor: theme.colors.navBackground, // #0a0a0a
+    backgroundColor: theme.colors.navBackground,
     borderWidth: 1,
     borderColor: theme.colors.orangeDeep, // Orange border
     borderRadius: theme.borderRadius.large, // 12px
@@ -116,24 +116,24 @@ const styles = StyleSheet.create({
 
   // CSS: .nav-item.active { color: #fff; background: #1a1a1a; }
   navItemActive: {
-    backgroundColor: theme.colors.buttonHover, // #1a1a1a
+    backgroundColor: theme.colors.buttonHover,
   },
 
   // CSS: font-size: 16px; color: inherit;
   navIcon: {
     fontSize: 16,
-    color: theme.colors.textMuted, // #666
+    color: theme.colors.textMuted,
   },
 
   navIconActive: {
-    color: theme.colors.text, // #fff
+    color: theme.colors.text,
   },
 
   // CSS: font-size: 10px; font-weight: 500;
   navLabel: {
     fontSize: theme.typography.navLabel, // 10px
     fontWeight: theme.typography.weights.medium,
-    color: theme.colors.textMuted, // #666
+    color: theme.colors.textMuted,
   },
 
   navLabelActive: {
