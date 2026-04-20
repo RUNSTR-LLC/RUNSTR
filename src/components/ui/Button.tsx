@@ -15,7 +15,7 @@ interface ButtonProps {
   style?: ViewStyle;
   textStyle?: TextStyle;
   disabled?: boolean;
-  variant?: 'primary' | 'add' | 'menu' | 'outline';
+  variant?: 'primary' | 'add' | 'menu';
   children?: React.ReactNode;
 }
 
@@ -34,8 +34,6 @@ export const Button: React.FC<ButtonProps> = ({
         return styles.addButton;
       case 'menu':
         return styles.menuButton;
-      case 'outline':
-        return styles.primaryButton; // Same as primary for now
       default:
         return styles.primaryButton;
     }
@@ -47,8 +45,6 @@ export const Button: React.FC<ButtonProps> = ({
         return styles.addButtonText;
       case 'menu':
         return styles.menuButtonText;
-      case 'outline':
-        return styles.primaryButtonText; // Same as primary for now
       default:
         return styles.primaryButtonText;
     }
@@ -90,20 +86,19 @@ export const AddButtonContent: React.FC<AddButtonContentProps> = ({
 
 const styles = StyleSheet.create({
   primaryButton: {
-    backgroundColor: theme.colors.orangeDeep, // Deep orange background
-    borderWidth: 1,
-    borderColor: theme.colors.orangeBurnt, // Burnt orange border
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.xl,
-    borderRadius: theme.borderRadius.small,
+    backgroundColor: theme.colors.orangeBright,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: theme.borderRadius.large,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   primaryButtonText: {
-    color: theme.colors.buttons.primary.text, // Black text on orange background
-    fontSize: theme.typography.aboutTitle,
-    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.accentText,
+    fontSize: 16,
+    fontWeight: theme.typography.weights.semiBold,
+    letterSpacing: 0.3,
   },
 
   addButton: {
