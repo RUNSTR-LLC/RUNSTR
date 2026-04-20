@@ -37,7 +37,7 @@ export const colors = {
   buttonPrimary: '#FF7B1C', // Primary button background (deep orange)
 
   // Modal overlay - standardized opacity
-  modalOverlay: 'rgba(0, 0, 0, 0.85)', // Consistent overlay for all modals
+  modalOverlay: 'rgba(0, 0, 0, 0.92)', // Near-opaque for OLED; avoids the 0.85 uncanny valley
 
   // Input focus state
   inputFocus: '#FF7B1C', // Orange border when input is focused
