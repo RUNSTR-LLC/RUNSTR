@@ -2,6 +2,26 @@
 
 All notable changes to RUNSTR will be documented in this file.
 
+## [1.10.0] - 2026-04-20 - Design Refresh
+
+### Features
+- **Branded pull-to-refresh** — new OstrichRefreshScrollView component renders the RUNSTR ostrich as users pull to refresh (available for organic migration across screens)
+- **AnimatedNumber** — 200ms count-up transitions with tabular numerals, drop-in wherever displayed numbers change between renders
+- **Long-press workout menu** — workout cards now support long-press to surface share/compete/delete in a tactile bottom sheet with haptic feedback
+- **Workout save haptic** — success notification haptic fires the first time the summary modal appears for a freshly completed workout
+
+### Improvements
+- Canvas background shifted #000000 → #050505 for OLED-friendly card layering (cards retain #0a0a0a so elevation reads correctly)
+- Unified primary button: bright orange fill, 16px semibold black text, 12px radius, 14/24 padding (previously three inconsistent button components lived side-by-side)
+- Stat cards redesigned with 32px tabular numbers and tighter label styling
+- Modal overlay opacity raised 0.85 → 0.92 to avoid near-transparent OLED bleed
+- Card padding 16 → 20 for iOS Settings–standard breathing room
+- Theme now exports semantic `typography.size` and `spacing.scale` tokens alongside the original names
+
+### Cleanup
+- Deleted three unused components (PrimaryButton, ActionButton, BottomNavigation) and the unreferenced TeamScreen
+- Stripped 32 stale color comments from 12 components (leftover `// #fff` / `// #666` annotations from the pre-orange era)
+
 ## [1.9.2] - 2026-04-18 - Cycling Parity
 
 ### Features

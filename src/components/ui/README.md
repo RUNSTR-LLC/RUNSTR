@@ -5,7 +5,6 @@ Basic reusable UI components for consistent design across the RUNSTR application
 ## Files
 
 - **Avatar.tsx** - User avatar component with image loading and fallback.
-- **BottomNavigation.tsx** - Bottom tab navigation bar component.
 - **Button.tsx** - Primary/add/menu button variants. Use `variant="primary"` for CTAs.
 - **Card.tsx** - Card container component with consistent styling.
 - **CharityZapIconButton.tsx** - Compact charity zap heart icon for user lists, enabling quick charity donations next to usernames.
