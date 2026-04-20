@@ -362,6 +362,21 @@ export class AmberNDKSigner implements NDKSigner {
     }
   }
 
+  /**
+   * Declare which encryption schemes this signer can handle.
+   * NDK's internal encryption routing gates on the presence of this method
+   * (see @nostr-dev-kit/ndk isEncryptionEnabled). Without it, NDK treats the
+   * signer as encryption-disabled and may short-circuit around the encrypt/
+   * decrypt implementations below.
+   */
+  async encryptionEnabled(scheme?: 'nip04' | 'nip44'): Promise<('nip04' | 'nip44')[]> {
+    const supported: ('nip04' | 'nip44')[] = ['nip04', 'nip44'];
+    if (scheme) {
+      return supported.filter((s) => s === scheme);
+    }
+    return supported;
+  }
+
   async encrypt(recipient: NDKUser | string, value: string, scheme?: string): Promise<string> {
     if (Platform.OS !== 'android') {
       throw new Error('Amber is only available on Android');
