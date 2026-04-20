@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { theme } from '../../styles/theme';
 import { User } from '../../types';
 import { Avatar } from '../ui/Avatar';
+import { AnimatedNumber } from '../ui/AnimatedNumber';
 
 interface ProfileHeroProps {
   user: User | null;
@@ -187,7 +188,12 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
                 activeOpacity={0.7}
               >
                 <Text style={styles.statBadgeLabel}>{t('earnings')}</Text>
-                <Text style={styles.statBadgeValue}>{formatEarnings(earnings)}</Text>
+                <AnimatedNumber
+                  value={earnings}
+                  style={styles.statBadgeValue}
+                  format={formatEarnings}
+                />
+
               </TouchableOpacity>
             )}
             {streak != null && (
@@ -197,7 +203,8 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
                 activeOpacity={0.7}
               >
                 <Text style={styles.statBadgeLabel}>{t('level')}</Text>
-                <Text style={styles.statBadgeValue}>{streak}</Text>
+                <AnimatedNumber value={streak} style={styles.statBadgeValue} />
+
               </TouchableOpacity>
             )}
           </View>

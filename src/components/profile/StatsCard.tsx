@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { theme } from '../../styles/theme';
 import { Card } from '../ui/Card';
+import { AnimatedNumber } from '../ui/AnimatedNumber';
 import { DailyStepCounterService } from '../../services/activity/DailyStepCounterService';
 import { supabase, isSupabaseConfigured } from '../../utils/supabase';
 import { nip19 } from 'nostr-tools';
@@ -205,7 +206,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey }) => {
         <View style={styles.heroHeader}>
           <Text style={styles.heroLabel}>STEPS TODAY</Text>
         </View>
-        <Text style={styles.heroValue}>{todaySteps.toLocaleString()}</Text>
+        <AnimatedNumber value={todaySteps} style={styles.heroValue} />
         <View style={styles.progressTrack}>
           <View
             style={[styles.progressFill, { width: `${stepProgressPercent}%` }]}
