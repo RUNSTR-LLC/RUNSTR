@@ -18,6 +18,8 @@ interface AnimatedNumberProps {
   style?: StyleProp<TextStyle>;
   format?: (value: number) => string;
   decimals?: number;
+  /** If true, count up from 0 → value on mount instead of displaying it instantly. */
+  animateOnMount?: boolean;
 }
 
 const defaultFormat = (n: number, decimals: number): string => {
@@ -31,10 +33,12 @@ export const AnimatedNumber: React.FC<AnimatedNumberProps> = ({
   style,
   format,
   decimals = 0,
+  animateOnMount = false,
 }) => {
-  const [displayValue, setDisplayValue] = useState(value);
-  const animatedValue = useRef(new Animated.Value(value)).current;
-  const previousValue = useRef(value);
+  const initial = animateOnMount ? 0 : value;
+  const [displayValue, setDisplayValue] = useState(initial);
+  const animatedValue = useRef(new Animated.Value(initial)).current;
+  const previousValue = useRef(initial);
 
   useEffect(() => {
     if (previousValue.current === value) return;

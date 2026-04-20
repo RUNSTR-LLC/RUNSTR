@@ -22,6 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Toast from 'react-native-toast-message';
 import { theme } from '../../styles/theme';
+import { AnimatedNumber } from '../ui/AnimatedNumber';
 import { SupabaseRewardService, DestinationEarning } from '../../services/rewards/SupabaseRewardService';
 
 interface EarningsHeroCardProps {
@@ -128,9 +129,11 @@ export const EarningsHeroCard: React.FC<EarningsHeroCardProps> = ({ pubkey }) =>
       <View style={styles.heroSection}>
         <View style={styles.heroRow}>
           <Ionicons name="flash" size={28} color={theme.colors.orangeBright} />
-          <Text style={styles.heroNumber}>
-            {totalEarned.toLocaleString()}
-          </Text>
+          <AnimatedNumber
+            value={totalEarned}
+            style={styles.heroNumber}
+            animateOnMount
+          />
           <Text style={styles.heroUnit}>sats</Text>
         </View>
         <Text style={styles.heroLabel}>

@@ -36,6 +36,7 @@ import Toast from 'react-native-toast-message';
 import { useUnitPreference } from '../../hooks/useUnitPreference';
 import { WoTService } from '../../services/wot/WoTService';
 import * as Haptics from 'expo-haptics';
+import { AnimatedNumber } from '../ui/AnimatedNumber';
 
 interface WorkoutSummaryProps {
   visible: boolean;
@@ -557,16 +558,22 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
             {/* Only show distance if > 0 (hide for step-only tracking) */}
             {workout.distance > 0 && (
               <View style={styles.statCard}>
-                <Text style={styles.statValue}>
-                  {formatDistance(workout.distance)}
-                </Text>
+                <AnimatedNumber
+                  value={workout.distance}
+                  style={styles.statValue}
+                  format={formatDistance}
+                  animateOnMount
+                />
                 <Text style={styles.statLabel}>Distance</Text>
               </View>
             )}
             <View style={styles.statCard}>
-              <Text style={styles.statValue}>
-                {formatDuration(workout.duration)}
-              </Text>
+              <AnimatedNumber
+                value={workout.duration}
+                style={styles.statValue}
+                format={formatDuration}
+                animateOnMount
+              />
               <Text style={styles.statLabel}>Duration</Text>
             </View>
             {workout.type === 'running' && (

@@ -20,6 +20,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../../styles/theme';
+import { AnimatedNumber } from '../ui/AnimatedNumber';
 import { SupabaseRewardService, RewardBreakdown } from '../../services/rewards/SupabaseRewardService';
 import { getCharityById } from '../../constants/charities';
 
@@ -124,9 +125,11 @@ export const ImpactHeroCard: React.FC<ImpactHeroCardProps> = ({ pubkey }) => {
       <View style={styles.heroSection}>
         <View style={styles.heroRow}>
           <Ionicons name="gift" size={28} color={theme.colors.orangeBright} />
-          <Text style={styles.heroNumber}>
-            {totalDonated.toLocaleString()}
-          </Text>
+          <AnimatedNumber
+            value={totalDonated}
+            style={styles.heroNumber}
+            animateOnMount
+          />
           <Text style={styles.heroUnit}>sats</Text>
         </View>
         <Text style={styles.heroLabel}>
