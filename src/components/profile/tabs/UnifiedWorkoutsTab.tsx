@@ -8,8 +8,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
-  FlatList,
-  RefreshControl,
   Text,
   StyleSheet,
   TouchableOpacity,
@@ -18,6 +16,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { OstrichRefreshFlatList } from '../../ui/OstrichRefreshScrollView';
 import { theme } from '../../../styles/theme';
 import { Card } from '../../ui/Card';
 import { CustomAlert } from '../../ui/CustomAlert';
@@ -601,7 +600,7 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
       {/* Stats card */}
       {pubkey && <StatsCard userPubkey={pubkey} />}
 
-      <FlatList
+      <OstrichRefreshFlatList
         data={monthlyGroups}
         renderItem={renderMonthlyGroup}
         keyExtractor={(item) => item.key}
@@ -610,9 +609,8 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
         windowSize={7}
         removeClippedSubviews={true}
         maxToRenderPerBatch={3}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={theme.colors.text} />
-        }
+        refreshing={isRefreshing}
+        onRefresh={handleRefresh}
         ListFooterComponent={
           totalItems > 0 ? (
             <View style={styles.footer}>

@@ -6,7 +6,8 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { OstrichRefreshScrollView } from '../components/ui/OstrichRefreshScrollView';
 import { theme } from '../styles/theme';
 import { TexturedBackground } from '../components/ui/TexturedBackground';
 import { ProfileScreenData } from '../types';
@@ -402,8 +403,12 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
           </View>
         </View>
       ) : (
-        <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}
-          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={theme.colors.text} />}>
+        <OstrichRefreshScrollView
+          style={styles.content}
+          contentContainerStyle={styles.scrollContent}
+          refreshing={isRefreshing}
+          onRefresh={handleRefresh}
+        >
           <View style={styles.sectionGap}>
             <ProfileHero user={otherUser} isOwner={false}
               isLoading={!otherUser}
@@ -429,7 +434,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
               handleClubPress(id, club?.name || '');
             }} />
           </View>
-        </ScrollView>
+        </OstrichRefreshScrollView>
       )}
 
       {/* Permission modal — shown when user taps "enable location" for cardio */}

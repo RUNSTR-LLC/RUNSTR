@@ -1,22 +1,19 @@
 /**
- * OstrichRefreshScrollView — RUNSTR-branded pull-to-refresh.
+ * Ostrich pull-to-refresh — RUNSTR-branded.
  *
- * Drop-in replacement for ScrollView where you want the brand ostrich to
- * appear as the user pulls, instead of a generic system spinner.
+ * Two wrappers:
+ *   <OstrichRefreshScrollView refreshing onRefresh>{...}</OstrichRefreshScrollView>
+ *   <OstrichRefreshFlatList refreshing onRefresh data renderItem ... />
  *
- * Usage:
- *   <OstrichRefreshScrollView refreshing={isLoading} onRefresh={refetch}>
- *     {children}
- *   </OstrichRefreshScrollView>
- *
- * Migration note: screens currently using <ScrollView refreshControl={...}>
- * can switch to this wrapper organically. FlatList callers need a separate
- * FlatList variant — add when first requested.
+ * Both render the RUNSTR ostrich at the top; it fades + scales into view as the
+ * user pulls, and triggers onRefresh once pull distance exceeds the threshold.
+ * Built on the built-in Animated API so no additional dependencies are needed.
  */
 
 import React, { useRef } from 'react';
 import {
   Animated,
+  FlatListProps,
   Image,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -24,27 +21,18 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { theme } from '../../styles/theme';
 
 const OSTRICH_SIZE = 56;
 const PULL_THRESHOLD = 80;
 const HEADER_HEIGHT = 72;
 
-interface Props extends Omit<ScrollViewProps, 'refreshControl' | 'onScroll'> {
+type UseOstrichRefreshArgs = {
   refreshing: boolean;
   onRefresh: () => void;
   threshold?: number;
-  children: React.ReactNode;
-}
+};
 
-export const OstrichRefreshScrollView: React.FC<Props> = ({
-  refreshing,
-  onRefresh,
-  threshold = PULL_THRESHOLD,
-  children,
-  contentContainerStyle,
-  ...scrollViewProps
-}) => {
+const useOstrichRefresh = ({ refreshing, onRefresh, threshold = PULL_THRESHOLD }: UseOstrichRefreshArgs) => {
   const scrollY = useRef(new Animated.Value(0)).current;
   const triggered = useRef(false);
 
@@ -58,6 +46,11 @@ export const OstrichRefreshScrollView: React.FC<Props> = ({
       }, 1000);
     }
   };
+
+  const onScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    { useNativeDriver: true },
+  );
 
   const ostrichOpacity = scrollY.interpolate({
     inputRange: [-threshold, -threshold / 2, 0],
@@ -77,35 +70,54 @@ export const OstrichRefreshScrollView: React.FC<Props> = ({
     extrapolate: 'clamp',
   });
 
+  const overlay = (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        styles.header,
+        {
+          opacity: refreshing ? 1 : ostrichOpacity,
+          transform: [
+            { scale: refreshing ? 1 : ostrichScale },
+            { rotate: refreshing ? '0deg' : ostrichRotate },
+          ],
+        },
+      ]}
+    >
+      <Image
+        source={require('../../../assets/images/icon.png')}
+        style={styles.ostrich}
+        resizeMode="contain"
+      />
+    </Animated.View>
+  );
+
+  return { overlay, onScroll, onScrollEndDrag: handleScrollEndDrag };
+};
+
+interface ScrollViewWrapperProps extends Omit<ScrollViewProps, 'refreshControl' | 'onScroll'> {
+  refreshing: boolean;
+  onRefresh: () => void;
+  threshold?: number;
+  children: React.ReactNode;
+}
+
+export const OstrichRefreshScrollView: React.FC<ScrollViewWrapperProps> = ({
+  refreshing,
+  onRefresh,
+  threshold,
+  children,
+  ...scrollViewProps
+}) => {
+  const { overlay, onScroll, onScrollEndDrag } = useOstrichRefresh({ refreshing, onRefresh, threshold });
+
   return (
     <View style={styles.container}>
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          styles.header,
-          {
-            opacity: refreshing ? 1 : ostrichOpacity,
-            transform: [
-              { scale: refreshing ? 1 : ostrichScale },
-              { rotate: refreshing ? '0deg' : ostrichRotate },
-            ],
-          },
-        ]}
-      >
-        <Image
-          source={require('../../../assets/images/icon.png')}
-          style={styles.ostrich}
-          resizeMode="contain"
-        />
-      </Animated.View>
+      {overlay}
       <Animated.ScrollView
         {...scrollViewProps}
-        contentContainerStyle={contentContainerStyle}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true },
-        )}
-        onScrollEndDrag={handleScrollEndDrag}
+        onScroll={onScroll}
+        onScrollEndDrag={onScrollEndDrag}
         scrollEventThrottle={16}
       >
         {children}
@@ -114,10 +126,36 @@ export const OstrichRefreshScrollView: React.FC<Props> = ({
   );
 };
 
+interface FlatListWrapperProps<T> extends Omit<FlatListProps<T>, 'refreshControl' | 'onScroll' | 'refreshing'> {
+  refreshing: boolean;
+  onRefresh: () => void;
+  threshold?: number;
+}
+
+export function OstrichRefreshFlatList<T>({
+  refreshing,
+  onRefresh,
+  threshold,
+  ...flatListProps
+}: FlatListWrapperProps<T>) {
+  const { overlay, onScroll, onScrollEndDrag } = useOstrichRefresh({ refreshing, onRefresh, threshold });
+
+  return (
+    <View style={styles.container}>
+      {overlay}
+      <Animated.FlatList
+        {...(flatListProps as any)}
+        onScroll={onScroll}
+        onScrollEndDrag={onScrollEndDrag}
+        scrollEventThrottle={16}
+      />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
   },
   header: {
     position: 'absolute',

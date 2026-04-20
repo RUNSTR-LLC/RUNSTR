@@ -5,11 +5,10 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   ActivityIndicator,
-  RefreshControl,
   TouchableOpacity,
 } from 'react-native';
+import { OstrichRefreshFlatList } from '../components/ui/OstrichRefreshScrollView';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { theme } from '../styles/theme';
@@ -151,7 +150,7 @@ const SocialScreenComponent: React.FC = () => {
       <TexturedBackground edges={[]}>
         <View style={styles.headerSpacer} />
         <ClubsRow clubs={clubs} userClubId={userClubId} onClubCreated={handleClubCreated} />
-        <FlatList
+        <OstrichRefreshFlatList
           data={posts}
           renderItem={renderPost}
           keyExtractor={(item) => item.id}
@@ -159,13 +158,8 @@ const SocialScreenComponent: React.FC = () => {
           ListFooterComponent={renderFooter}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.3}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={handleRefresh}
-              tintColor={theme.colors.text}
-            />
-          }
+          refreshing={isRefreshing}
+          onRefresh={handleRefresh}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         />
