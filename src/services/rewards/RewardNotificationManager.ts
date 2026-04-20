@@ -139,13 +139,11 @@ class RewardNotificationManagerClass {
    * @param amount - Amount of sats received
    */
   showRewardConfirmed(amount: number, sponsorName?: string): void {
-    console.log('[RewardNotification] showRewardConfirmed called:', { amount, sponsorName });
-
-    const fromSponsor = sponsorName ? ` from ${sponsorName}` : '';
+    console.log('[RewardNotification] showRewardConfirmed called:', { amount });
     Toast.show({
       type: 'rewardConfirmed',
       text1: 'Reward Received!',
-      text2: `${amount} sats${fromSponsor} sent to your wallet`,
+      text2: `You earned ${amount} sats`,
       position: 'top',
       visibilityTime: 5000,
     });
@@ -159,13 +157,11 @@ class RewardNotificationManagerClass {
    * @param charityName - Name of the charity that received the donation
    */
   showRewardDonated(amount: number, charityName: string, sponsorName?: string): void {
-    console.log('[RewardNotification] showRewardDonated called:', { amount, charityName, sponsorName });
-
-    const fromSponsor = sponsorName ? ` from ${sponsorName}` : '';
+    console.log('[RewardNotification] showRewardDonated called:', { amount, charityName });
     Toast.show({
       type: 'rewardDonated',
-      text1: 'Reward Sent!',
-      text2: `${amount} sats${fromSponsor} sent to ${charityName}`,
+      text1: 'Reward Received!',
+      text2: `You earned ${amount} sats`,
       position: 'top',
       visibilityTime: 5000,
     });
@@ -179,13 +175,11 @@ class RewardNotificationManagerClass {
    * @param totalAmount - Total amount of sats donated
    */
   showBatchRewardsDonated(count: number, totalAmount: number, sponsorName?: string): void {
-    console.log('[RewardNotification] showBatchRewardsDonated called:', { count, totalAmount, sponsorName });
-
-    const fromSponsor = sponsorName ? ` from ${sponsorName}` : '';
+    console.log('[RewardNotification] showBatchRewardsDonated called:', { count, totalAmount });
     Toast.show({
       type: 'rewardDonated',
-      text1: 'Rewards Sent!',
-      text2: `${count} payments${fromSponsor} - ${totalAmount} sats to charities`,
+      text1: 'Rewards Received!',
+      text2: `You earned ${totalAmount} sats`,
       position: 'top',
       visibilityTime: 6000,
     });
@@ -199,13 +193,11 @@ class RewardNotificationManagerClass {
    * @param totalAmount - Total amount of sats received
    */
   showBatchRewardsConfirmed(count: number, totalAmount: number, sponsorName?: string): void {
-    console.log('[RewardNotification] showBatchRewardsConfirmed called:', { count, totalAmount, sponsorName });
-
-    const fromSponsor = sponsorName ? ` from ${sponsorName}` : '';
+    console.log('[RewardNotification] showBatchRewardsConfirmed called:', { count, totalAmount });
     Toast.show({
       type: 'rewardConfirmed',
       text1: 'Rewards Received!',
-      text2: `${count} payments${fromSponsor} - ${totalAmount} sats total`,
+      text2: `You earned ${totalAmount} sats`,
       position: 'top',
       visibilityTime: 6000,
     });

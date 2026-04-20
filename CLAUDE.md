@@ -27,11 +27,9 @@ Never use "cryptocurrency", "blockchain", or "decentralized" in user-facing cont
 
 **Activities** (swipeable grid): Cardio (Run, Walk, Cycle, Hike with GPS) · Strength (Pushups, Pull-ups, Sit-ups, Squats, Curls, Bench) · Wellness (Guided, Unguided, Breathwork, Body Scan, Gratitude) · Mindfulness (Journal, Habits)
 
-**Rewards:** Sponsor-funded, one destination (no splits) — charities, projects, services (PPQ.AI), or self. Subscriber tiers boost per-workout rewards. Zapvertising: branded push notifications and Rewards page attribution.
+**Rewards:** Sponsor-funded, one destination (no splits) — charities, projects, services (PPQ.AI), or self. Zapvertising: branded push notifications and Rewards page attribution.
 
-**Subscriptions:** Free (base rewards) · Supporter (boosted rewards, premium competitions) · Pro (+ create Fitness Clubs and events)
-
-**Fitness Clubs (Pro):** Club page with leaderboard, real-time chat, captain-created events. Captains earn rewards per member workout. Future: NWC wallets for non-custodial reward/prize pools.
+**Fitness Clubs:** Club page with leaderboard, real-time chat, captain-created events. Captains earn rewards per member workout. Future: NWC wallets for non-custodial reward/prize pools.
 
 **Competitions:** Daily leaderboard (5K, 10K, Half, Marathon, Steps — always active). Featured events on Supabase. Club events from templates. Moving toward user-created competitions.
 

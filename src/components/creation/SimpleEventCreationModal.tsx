@@ -1,11 +1,15 @@
 /**
  * SimpleEventCreationModal - Event creation/editing for club captains.
  *
- * Templates: 5K Race, 10K Race, Half Marathon, Step Challenge
+ * Templates: 5K Race, 10K Race, Half Marathon, Step Challenge, Pushup Challenge,
+ *            Most Kilometers (cycling), Most Rides (cycling)
  * Scoring is auto-set per template:
- *   - 5K / 10K  → fastest_time
- *   - Half Marathon → total_distance
+ *   - 5K / 10K  → fastest_time (running)
+ *   - Half Marathon → total_distance (running)
  *   - Step Challenge → total_steps (walking)
+ *   - Pushup Challenge → workout_count (pushups)
+ *   - Most Kilometers → total_distance (cycling)
+ *   - Most Rides → workout_count (cycling)
  *
  * Advanced section (collapsible): charity picker, captain donation, prize pool, distribution.
  * Supports edit mode via `existingEvent` prop to update recurring_interval.
@@ -100,6 +104,46 @@ const EVENT_TEMPLATES: EventTemplate[] = [
     templateId: 'step_challenge',
     activityType: 'walking',
     scoringMethod: 'total_steps',
+  },
+  {
+    key: 'pushups',
+    label: 'Pushup Challenge',
+    subtitle: 'Most pushups completed',
+    icon: 'fitness-outline',
+    distanceKm: 0,
+    templateId: 'pushup_challenge',
+    activityType: 'pushups',
+    scoringMethod: 'workout_count',
+  },
+  {
+    key: 'pullups',
+    label: 'Pullup Challenge',
+    subtitle: 'Most pull-ups completed',
+    icon: 'fitness-outline',
+    distanceKm: 0,
+    templateId: 'pullup_challenge',
+    activityType: 'pullups',
+    scoringMethod: 'workout_count',
+  },
+  {
+    key: 'cycling_distance',
+    label: 'Most Kilometers',
+    subtitle: 'Longest total cycling distance',
+    icon: 'bicycle-outline',
+    distanceKm: 0,
+    templateId: 'cycling_distance',
+    activityType: 'cycling',
+    scoringMethod: 'total_distance',
+  },
+  {
+    key: 'cycling_rides',
+    label: 'Most Rides',
+    subtitle: 'Most cycling workouts logged',
+    icon: 'bicycle-outline',
+    distanceKm: 0,
+    templateId: 'cycling_rides',
+    activityType: 'cycling',
+    scoringMethod: 'workout_count',
   },
 ];
 

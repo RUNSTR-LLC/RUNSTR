@@ -14,7 +14,6 @@ import { storeAuthenticationData } from '../../../utils/nostrAuth';
 import type { AuthResult, User } from '../../../types';
 import {
   DirectNostrProfileService,
-  type DirectNostrUser,
 } from '../../user/directNostrProfileService';
 import { NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
 import { UnifiedSigningService } from '../UnifiedSigningService';

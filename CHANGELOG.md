@@ -2,6 +2,123 @@
 
 All notable changes to RUNSTR will be documented in this file.
 
+## [1.9.2] - 2026-04-18 - Cycling Parity
+
+### Features
+- **Cycling event templates** — club captains can now create "Most Kilometers" and "Most Rides" cycling competitions alongside the existing running events
+- **Adaptive StatsCard** — profile stats now show cycling PRs (20K / 40K / 100K) for riders, running PRs for runners, both for mixed athletes; empty sections hide automatically
+- **Longest Ride** joins Longest Run on the PERSONAL BESTS list
+- **Daily cycling leaderboards** — three new global leaderboards (20K / 40K / 100K) updated live throughout the day, mirroring how daily running leaderboards work
+
+### Improvements
+- StatsCard also hides empty strength rows (pushups / pull-ups) instead of showing em-dash placeholders
+- PR queries refactored into parallel async helpers for faster initial load
+- New partial indexes on cycling time columns keep leaderboard queries fast as data grows
+
+## [1.9.1] - 2026-04-15 - Clubs Rail Discovery & Polish
+
+### Features
+- Social clubs rail with discovery bar and filtered inline dropdown
+- Clubs rail sorted by member count (your club pinned first)
+- Bigger 56px club avatars for easier tapping
+
+### Bug Fixes
+- Rewards back button fallback routes correctly when reached via deep link
+- Location permission re-checks on return from Settings (revoked permission now re-gates the UI)
+- Require captain role to create club-scoped competitions
+
+### Improvements
+- History list restores proper FlatList virtualization for faster first paint on long histories
+- ClubsRow item memoization — no more re-rendering all club avatars on every search keystroke
+- Activity category picker expands as a floating dropdown overlay instead of pushing layout
+- ProfileScreen owner/non-owner rendering split into dedicated branches; permission gate redesigned as a circular tap target
+- Empty-state cards removed from workout history list (cleaner minimalism)
+
+## [1.9.0] - 2026-04-12 - Home Screen, Rewards, Spanish, Streak Levels
+
+### Home Screen
+- Merged activity tracker into Home — start workouts directly from the main screen
+- Renamed Profile route to Home; House icon replaces person icon on bottom tab
+- New StatsCard with 8 metrics, visual hierarchy, and all personal records shown with em-dash placeholders
+- EarningsCard added to Home, plus earnings badge beside level on ProfileHero
+- Earnings and Level badges stacked vertically with full labels
+- Removed icons from StatsCard hero and personal-bests rows for cleaner layout
+- Category bar collapsed into a dropdown; activity selector shrunk to icon-only chevron button with haptic feedback
+- Permission modal deferred to hold-start to avoid first-launch modal pile-up
+
+### History
+- New History tab as 4th bottom tab — dedicated view for workout history
+- Removed Stats button from History screen header (stats now live on Home)
+
+### Levels (replaces XP)
+- Level = your workout streak (consecutive workout days)
+- 2-day grace period redesigned for smoother experience
+- Tapping LVL badge opens detail screen with current/highest level, last workout, and explainer
+- Passive step counting excluded — only deliberate activity counts toward level
+
+### Rewards
+- Full rewards screen redesign with per-destination earnings breakdown
+- Removed Lightning Address setting from Advanced settings
+- Reward sponsor fallback changed from "ALS Network" to "RUNSTR"
+- Fixed PPQ.AI reward misrouting to user's personal wallet (migration 176)
+- Fixed double reward notification and simplified notification copy
+
+### Social
+- Local-first posting — posts appear instantly, publish to the network in background
+- Floating Post button added to Social tab
+- Renamed "Post to Nostr" to "Post"; removed "Share Workout" headers
+- Feed images now respect natural aspect ratio instead of forced square crop
+- Fixed duplicate post bug
+
+### Internationalization
+- Added Spanish language support
+- Localized bottom tab labels (EARNINGS, LEVEL)
+
+### Activities
+- Removed wellness category and squats from activity grid
+- Added pushup challenge to captain event types
+
+### Bug Fixes
+- Fixed step challenge leaderboard showing steps instead of distance
+- Fixed iOS launch crash from dynamic `import('react-native')`
+- Fixed profile tab saying "Home" and lighter FAB color
+- Fixed strength workout state, permission re-check, safety effect
+- Corrected reward amount comments and verified Einundzwanzig bonus path
+- Addressed review issues from Home screen redesign
+
+### Polish
+- Haptic feedback on bottom tab switching and activity selector
+- Added dead code audit prompt and navigation reference audit
+- Docs: Home screen redesign implementation plan and design spec
+
+## [1.8.9] - 2026-04-10 - Level System, Dead Code Removal & Crash Fix
+
+### Level System (replaces XP + Streak)
+- Level = your workout streak. LVL badge on profile shows consecutive workout days
+- 2-day grace period: miss up to 2 days without losing your level
+- Tapping LVL badge opens detail screen with current level, highest level, last workout, and explainer
+- Passive step counting excluded — only deliberate activity counts
+- All data sourced from local storage (works for private users too)
+- Removed streak bonus from rewards (levels are purely motivational)
+- Removed StreakSection from Rewards screen (level lives on Profile now)
+
+### Dead Code Removal
+- Removed 5,850 lines of unreachable code (7 dead screens, 2 dead services)
+- Deleted SimpleTeamScreen, EventsScreen, LeagueDetailScreen, MyTeamsScreen, CompetitionsListScreen, TeamsScreen, DonateScreen
+- Deleted SimpleLeaderboardService (1,512 lines) and SimpleCompetitionService (884 lines)
+- Redirected orphaned navigation calls to live ClubPage screen
+- Removed 14 dead imports across live files
+
+### Bug Fixes
+- Fixed iOS crash on launch caused by `await import('react-native')` in AuthContext
+- Fixed terminology: "Bitcoin"/"sats" replaced with "rewards" in navigation text
+
+### Polish
+- Haptic feedback on bottom tab switching
+- Stripped 35 debug console.logs from navigationHandlers.ts
+- Removed outdated subscription tier references from CLAUDE.md
+- Added dead code audit prompt for future use
+
 ## [1.8.8] - 2026-04-09 - Social, Season III & Streak Rewards
 
 ### Season III: Club Battles

@@ -15,6 +15,7 @@ import {
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import * as Haptics from 'expo-haptics';
 import { theme } from '../styles/theme';
 import { PerformanceLogger } from '../utils/PerformanceLogger';
 
@@ -32,6 +33,12 @@ const SocialScreen = React.lazy(() =>
 const CompeteScreen = React.lazy(() =>
   import('../screens/CompeteScreen').then((m) => ({
     default: m.CompeteScreen,
+  }))
+);
+
+const WorkoutHistoryScreen = React.lazy(() =>
+  import('../screens/WorkoutHistoryScreen').then((m) => ({
+    default: m.WorkoutHistoryScreen,
   }))
 );
 
@@ -57,9 +64,10 @@ import { createNavigationHandlers } from './navigationHandlers';
 
 // Types
 export type BottomTabParamList = {
-  Profile: undefined;
+  Home: { pubkey?: string } | undefined;
   Social: undefined;
   Events: undefined;
+  History: undefined;
 };
 
 const Tab = createBottomTabNavigator<BottomTabParamList>();
@@ -100,22 +108,29 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
 
   return (
     <Tab.Navigator
+      screenListeners={{
+        tabPress: () => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        },
+      }}
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: styles.tabBar,
         tabBarActiveTintColor: theme.colors.text,
         tabBarInactiveTintColor: theme.colors.textMuted,
         tabBarLabelStyle: styles.tabBarLabel,
-        sceneContainerStyle: { backgroundColor: '#000' }, // Prevent white flash during tab transitions
+        sceneContainerStyle: { backgroundColor: '#000' },
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: keyof typeof Ionicons.glyphMap = 'help-outline';
 
-          if (route.name === 'Profile') {
-            iconName = focused ? 'person' : 'person-outline';
+          if (route.name === 'Home') {
+            iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Social') {
             iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
           } else if (route.name === 'Events') {
             iconName = focused ? 'trophy' : 'trophy-outline';
+          } else if (route.name === 'History') {
+            iconName = focused ? 'time' : 'time-outline';
           }
 
           return (
@@ -128,13 +143,13 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
           );
         },
       })}
-      initialRouteName="Profile"
+      initialRouteName="Home"
     >
-      {/* Profile Tab */}
+      {/* Home Tab */}
       <Tab.Screen
-        name="Profile"
+        name="Home"
         options={{
-          title: t('profile:title'),
+          title: t('profile:tabHome'),
           headerShown: false,
         }}
       >
@@ -147,41 +162,10 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
               onNavigateToTeam={() => navigation.navigate('Social')}
               onNavigateToTeamDiscovery={() => navigation.navigate('Social')}
               onViewCurrentTeam={() => {
-                // Navigate to EnhancedTeamScreen with the user's current team
                 if (profileData.currentTeam) {
-                  // Ensure complete team object structure matching Teams discovery
-                  const team = {
-                    id: profileData.currentTeam.id,
-                    name: profileData.currentTeam.name,
-                    description: profileData.currentTeam.description || '',
-                    memberCount: profileData.currentTeam.memberCount || 0,
-                    prizePool: profileData.currentTeam.prizePool || 0,
-                    isActive:
-                      profileData.currentTeam.isActive !== undefined
-                        ? profileData.currentTeam.isActive
-                        : true,
-                    // Include all team metadata fields
-                    captainId: profileData.currentTeam.captainId, // Include if available
-                    bannerImage: profileData.currentTeam.bannerImage, // Include banner for display
-                    charityId: profileData.currentTeam.charityId, // Include charity for charity section display
-                  };
-
-                  // Get the current user's npub to pass to navigation
-                  // This ensures consistent behavior with Teams tab navigation
-                  const currentUserNpub = user?.npub;
-
-                  console.log('Profile Navigation to Team:', {
-                    teamId: team.id,
-                    teamName: team.name,
-                    userNpub: currentUserNpub?.slice(0, 20) + '...',
-                    userIsCaptain: profileData.currentTeam.role === 'captain',
-                  });
-
-                  navigation.navigate('EnhancedTeamScreen', {
-                    team,
-                    userIsMember: true,
-                    userIsCaptain: profileData.currentTeam.role === 'captain',
-                    currentUserNpub, // Pass npub to ensure proper competition loading
+                  navigation.navigate('ClubPage', {
+                    clubId: profileData.currentTeam.id,
+                    clubName: profileData.currentTeam.name,
                   });
                 }
               }}
@@ -215,7 +199,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
       </Tab.Screen>
 
       {/* Social Tab - Feed & Fitness Clubs */}
-      <Tab.Screen name="Social" options={{ lazy: true }}>
+      <Tab.Screen name="Social" options={{ title: t('profile:tabSocial'), lazy: true }}>
         {() => (
           <Suspense fallback={<LoadingFallback />}>
             <SocialScreen />
@@ -227,13 +211,28 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
       <Tab.Screen
         name="Events"
         options={{
-          title: 'Events',
+          title: t('profile:tabEvents'),
           headerShown: false,
         }}
       >
         {() => (
           <Suspense fallback={<LoadingFallback />}>
             <CompeteScreen />
+          </Suspense>
+        )}
+      </Tab.Screen>
+      {/* History Tab - Workout History */}
+      <Tab.Screen
+        name="History"
+        options={{
+          title: t('profile:tabHistory'),
+          headerShown: false,
+          lazy: true,
+        }}
+      >
+        {() => (
+          <Suspense fallback={<LoadingFallback />}>
+            <WorkoutHistoryScreen />
           </Suspense>
         )}
       </Tab.Screen>

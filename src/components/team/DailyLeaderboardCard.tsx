@@ -8,7 +8,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { theme } from '../../styles/theme';
-import type { LeaderboardEntry } from '../../services/competition/SimpleLeaderboardService';
+import type { LeaderboardEntry } from '../../services/competition/DailyLeaderboardService';
 import { ZappableUserRow } from '../ui/ZappableUserRow';
 
 interface DailyLeaderboardCardProps {
@@ -112,7 +112,7 @@ export const DailyLeaderboardCard: React.FC<DailyLeaderboardCardProps> = ({
               showQuickZap={true}
               zapAmount={21}
               recipientLightningAddress={entry.lightningAddress}
-              onPress={() => navigation.navigate('Profile', { pubkey: entry.npub })}
+              onPress={() => navigation.navigate('Home', { pubkey: entry.npub })}
             />
           </View>
           <Text style={styles.runnerTime}>{entry.formattedScore}</Text>
@@ -172,7 +172,7 @@ export const DailyLeaderboardCard: React.FC<DailyLeaderboardCardProps> = ({
                 fallbackName={userEntryOutsideTopN.name}
                 showQuickZap={false}
                 hideActionsForCurrentUser={true}
-                onPress={() => navigation.navigate('Profile', { pubkey: userEntryOutsideTopN.npub })}
+                onPress={() => navigation.navigate('Home', { pubkey: userEntryOutsideTopN.npub })}
               />
             </View>
             <Text style={styles.runnerTime}>{userEntryOutsideTopN.formattedScore}</Text>
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: theme.colors.textMuted, // Orange - consistent with app theme
+    backgroundColor: theme.colors.accent, // Orange - consistent with app theme
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,

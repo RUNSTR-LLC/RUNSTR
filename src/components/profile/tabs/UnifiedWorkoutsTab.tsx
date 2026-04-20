@@ -39,6 +39,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { WoTService } from '../../../services/wot/WoTService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { StatsCard } from '../StatsCard';
 
 interface UnifiedWorkoutsTabProps {
   userId: string;
@@ -51,12 +52,11 @@ interface UnifiedWorkoutsTabProps {
 const FILTER_OPTIONS: { key: TimelineFilter; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'workouts', label: 'Workouts' },
-  { key: 'journal', label: 'Journal' },
-  { key: 'habits', label: 'Habits' },
 ];
 
 export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
   userId,
+  pubkey,
   onRefresh,
   onPostToSocial,
   onSocialShareHealthApp,
@@ -587,27 +587,18 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
         </TouchableOpacity>
       )}
 
-      {/* Filter chips */}
-      <View style={styles.filterRow}>
-        {FILTER_OPTIONS.map((opt) => (
-          <TouchableOpacity
-            key={opt.key}
-            style={[styles.filterChip, activeFilter === opt.key && styles.filterChipActive]}
-            onPress={() => setActiveFilter(opt.key)}
-          >
-            <Text style={[styles.filterChipText, activeFilter === opt.key && styles.filterChipTextActive]}>
-              {opt.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      {/* Stats card */}
+      {pubkey && <StatsCard userPubkey={pubkey} />}
 
       <FlatList
         data={monthlyGroups}
         renderItem={renderMonthlyGroup}
         keyExtractor={(item) => item.key}
         contentContainerStyle={styles.list}
-        initialNumToRender={monthlyGroups.length}
+        initialNumToRender={3}
+        windowSize={7}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={3}
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={theme.colors.text} />
         }
@@ -625,21 +616,7 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
             </View>
           ) : null
         }
-        ListEmptyComponent={
-          <Card style={styles.emptyState}>
-            <Ionicons name="time-outline" size={64} color={theme.colors.textMuted} />
-            <Text style={styles.emptyStateTitle}>
-              {activeFilter === 'all' ? 'No Activity Yet' : `No ${FILTER_OPTIONS.find((f) => f.key === activeFilter)?.label} Yet`}
-            </Text>
-            <Text style={styles.emptyStateText}>
-              {activeFilter === 'all' || activeFilter === 'workouts'
-                ? 'Use the Activity Tracker to record workouts.'
-                : activeFilter === 'journal'
-                ? 'Write your first journal entry to start tracking.'
-                : 'Create your first habit to start tracking.'}
-            </Text>
-          </Card>
-        }
+        ListEmptyComponent={null}
       />
 
       {/* Journal Editor Modal */}

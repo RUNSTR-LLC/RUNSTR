@@ -3,7 +3,7 @@
  * Creates shareable leaderboard cards for 5K/10K/Half/Marathon daily results
  */
 
-import type { LeaderboardEntry } from '../competition/SimpleLeaderboardService';
+import type { LeaderboardEntry } from '../competition/DailyLeaderboardService';
 import { RUNSTR_LOGO_BASE64 } from './runstrLogoBase64';
 
 export interface LeaderboardCardData {

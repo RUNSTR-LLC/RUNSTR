@@ -13,18 +13,9 @@ import { ProfileScreenData } from '../types';
 import type { User } from '../types';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
-import { navigate } from '../navigation/navigationRef';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { npubEncode } from '../utils/nostrEncoding';
 import Toast from 'react-native-toast-message';
-import {
-  getCharityById,
-  isSelfTeam,
-  isPPQTeam,
-  isCommunityTeam,
-  extractCommunityTeamUUID,
-} from '../constants/charities';
-import { UserTeamService } from '../services/backend/UserTeamService';
 import { NostrFetchLogger } from '../utils/NostrFetchLogger';
 import { MusicPlayerPreferencesService } from '../services/music/MusicPlayerPreferencesService';
 import { HeaderMusicControls } from '../components/music/HeaderMusicControls';
@@ -37,6 +28,53 @@ import { NotificationModal } from '../components/profile/NotificationModal';
 import { ProfileDataService } from '../services/backend/ProfileDataService';
 import type { RecentWorkout, ClubAffiliation, ProfileLevelData, ActivityBreakdownData } from '../services/backend/ProfileDataService';
 import { useNostrProfile } from '../hooks/useCachedData';
+import LocalWorkoutStorageService from '../services/fitness/LocalWorkoutStorageService';
+import { SupabaseRewardService } from '../services/rewards/SupabaseRewardService';
+import { navigate } from '../navigation/navigationRef';
+import { ActivityCategoryBar } from '../components/activity/ActivityCategoryBar';
+import { activityGridService, type GridPosition } from '../services/activity/ActivityGridService';
+import { appPermissionService } from '../services/initialization/AppPermissionService';
+import { PermissionRequestModal } from '../components/permissions/PermissionRequestModal';
+import { RunningTrackerScreen } from './activity/RunningTrackerScreen';
+import { WalkingTrackerScreen } from './activity/WalkingTrackerScreen';
+import { CyclingTrackerScreen } from './activity/CyclingTrackerScreen';
+import { HikingTrackerScreen } from './activity/HikingTrackerScreen';
+import { StrengthTrackerScreen } from './activity/StrengthTrackerScreen';
+
+const GRACE_PERIOD_DAYS = 3;
+
+function computeCurrentStreak(workouts: { startTime: string; source: string }[]): number {
+  const qualifying = workouts.filter((w) => w.source !== 'daily_steps');
+  const uniqueDates = [
+    ...new Set(qualifying.map((w) => w.startTime?.slice(0, 10)).filter(Boolean)),
+  ].sort((a, b) => (b > a ? 1 : -1));
+
+  if (uniqueDates.length === 0) return 0;
+
+  const dates = [...uniqueDates].reverse();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const mostRecent = new Date(dates[dates.length - 1]);
+  mostRecent.setHours(0, 0, 0, 0);
+  const daysSinceLast = Math.round(
+    (today.getTime() - mostRecent.getTime()) / (24 * 60 * 60 * 1000)
+  );
+
+  if (daysSinceLast >= GRACE_PERIOD_DAYS) return 0;
+
+  let streak = 1;
+  for (let i = dates.length - 2; i >= 0; i--) {
+    const curr = new Date(dates[i + 1]);
+    const prev = new Date(dates[i]);
+    const gap = Math.round((curr.getTime() - prev.getTime()) / (24 * 60 * 60 * 1000));
+    if (gap <= GRACE_PERIOD_DAYS) {
+      streak++;
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
 
 interface ProfileScreenProps {
   data: ProfileScreenData;
@@ -75,8 +113,17 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
   const [recentWorkouts, setRecentWorkouts] = useState<RecentWorkout[]>([]);
   const [clubs, setClubs] = useState<ClubAffiliation[]>([]);
   const [isLoadingSections, setIsLoadingSections] = useState(true);
-  const [rewardDestination, setRewardDestination] = useState<string | null>(null);
-  const [rewardDestinationImage, setRewardDestinationImage] = useState<number | undefined>(undefined);
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [totalEarnings, setTotalEarnings] = useState<number>(0);
+
+  // Activity launcher state
+  const [gridPosition, setGridPosition] = useState<GridPosition>({ row: 0, column: 0 });
+  const [positionLoaded, setPositionLoaded] = useState(false);
+  const [isWorkoutActive, setIsWorkoutActive] = useState(false);
+
+  // Permission state (deferred to hold-start for cardio)
+  const [permissionsReady, setPermissionsReady] = useState(false);
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
 
   const isOwner = !pubkey || pubkey === userNpub || (pubkey.length === 64 && !pubkey.startsWith('npub1') && npubEncode(pubkey) === userNpub);
   const targetNpub = pubkey || userNpub;
@@ -111,42 +158,6 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
     return () => { isMounted = false; };
   }, [data.user.id]);
 
-  // Load reward destination (owner only)
-  const loadRewardDestination = useCallback(async () => {
-    if (!isOwner) { setRewardDestination(null); setRewardDestinationImage(undefined); return; }
-    try {
-      const teamId = await AsyncStorage.getItem('@runstr:selected_team_id');
-      if (!teamId) {
-        const defaultCharity = getCharityById('als-foundation');
-        setRewardDestination(defaultCharity?.name || 'ALS Foundation');
-        setRewardDestinationImage(defaultCharity?.image);
-        return;
-      }
-      if (isSelfTeam(teamId)) { setRewardDestination('You'); setRewardDestinationImage(undefined); return; }
-      if (isPPQTeam(teamId)) {
-        const ppq = getCharityById('ppq-ai');
-        setRewardDestination('PPQ.AI');
-        setRewardDestinationImage(ppq?.image);
-        return;
-      }
-      if (isCommunityTeam(teamId)) {
-        const uuid = extractCommunityTeamUUID(teamId);
-        const team = await UserTeamService.getTeamById(uuid);
-        setRewardDestination(team?.name || 'Community Team');
-        setRewardDestinationImage(undefined);
-        return;
-      }
-      const charity = getCharityById(teamId);
-      setRewardDestination(charity?.name || null);
-      setRewardDestinationImage(charity?.image);
-    } catch {
-      setRewardDestination(null);
-      setRewardDestinationImage(undefined);
-    }
-  }, [isOwner]);
-
-  useEffect(() => { loadRewardDestination(); }, [loadRewardDestination]);
-
   // Load profile sections via ProfileDataService
   const loadProfileSections = useCallback(async (npub: string) => {
     setIsLoadingSections(true);
@@ -176,15 +187,69 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
     else { setIsLoadingSections(false); }
   }, [targetNpub, loadProfileSections]);
 
-  // Refresh reward destination + clubs + music header on focus
+  // Refresh clubs + streak + music header on focus
   useFocusEffect(useCallback(() => {
     MusicPlayerPreferencesService.isMusicPlayerHeaderEnabled().then(setMusicPlayerHeaderEnabled);
-    loadRewardDestination();
+    if (isOwner) {
+      LocalWorkoutStorageService.getAllWorkouts()
+        .then((w) => setCurrentStreak(computeCurrentStreak(w)))
+        .catch(() => {});
+
+      // Load total earnings for the ProfileHero earnings badge
+      (async () => {
+        try {
+          const pubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
+          if (!pubkey) return;
+          const data = await SupabaseRewardService.getEarningsByDestination(pubkey);
+          setTotalEarnings(data.reduce((sum, d) => sum + d.totalSats, 0));
+        } catch (err) {
+          console.warn('[ProfileScreen] Failed to load earnings:', err);
+        }
+      })();
+    }
     if (targetNpub) {
       ProfileDataService.clearProfileCache(targetNpub);
       ProfileDataService.getUserClubs(targetNpub).then(setClubs).catch(() => {});
     }
-  }, [loadRewardDestination, targetNpub]));
+  }, [targetNpub, isOwner]));
+
+  // Load saved activity grid position on mount
+  useEffect(() => {
+    let isMounted = true;
+    const loadPosition = async () => {
+      const saved = await activityGridService.loadPosition();
+      if (isMounted) {
+        setGridPosition(saved);
+        setPositionLoaded(true);
+      }
+    };
+    loadPosition();
+    return () => { isMounted = false; };
+  }, []);
+
+  // Save position when it changes
+  useEffect(() => {
+    if (!positionLoaded) return;
+    activityGridService.savePosition(gridPosition);
+  }, [gridPosition, positionLoaded]);
+
+  // Safety: reset workout state when activity changes (prevents stuck-in-workout state)
+  useEffect(() => {
+    setIsWorkoutActive(false);
+  }, [gridPosition]);
+
+  // Silent permission check — re-runs on focus so revoking in Settings re-gates the UI
+  useFocusEffect(useCallback(() => {
+    let isMounted = true;
+    appPermissionService.checkAllPermissions().then((status) => {
+      if (isMounted) setPermissionsReady(!!status.location);
+    });
+    return () => { isMounted = false; };
+  }, []));
+
+  const handleActivitySelect = useCallback((row: number, column: number) => {
+    setGridPosition({ row, column });
+  }, []);
 
   const handleSettingsPress = useCallback(() => {
     navigation.navigate('Settings', {
@@ -220,23 +285,63 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
     (parent || navigation).navigate('ProfileEdit' as any);
   }, [navigation]);
 
-  const handleStartWorkout = useCallback(() => {
-    const parent = navigation.getParent();
-    (parent || navigation).navigate('Exercise');
-  }, [navigation]);
+  type StrengthExercise = 'pushups' | 'pullups' | 'situps' | 'curls' | 'bench';
 
-  const handleDestinationPress = useCallback(() => {
-    navigate('Rewards');
-  }, []);
+  const renderTracker = () => {
+    if (!positionLoaded) return null;
 
-  const handleStatsPress = useCallback(() => {
-    const parent = navigation.getParent();
-    (parent || navigation).navigate('StatsDetail' as any, { npub: targetNpub });
-  }, [navigation, targetNpub]);
+    const { category, activity } = activityGridService.getActivityAt(gridPosition);
+    const isCardio = category.key === 'cardio';
+
+    // For cardio, check permissions before rendering tracker
+    if (isCardio && !permissionsReady) {
+      return (
+        <View style={styles.permissionGate}>
+          <TouchableOpacity
+            style={styles.permissionCircle}
+            onPress={() => setShowPermissionModal(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.permissionCircleText}>ENABLE{'\n'}LOCATION</Text>
+            <Text style={styles.permissionCircleHint}>tap to start</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    switch (category.key) {
+      case 'cardio':
+        switch (activity) {
+          case 'run':
+            return <RunningTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
+          case 'walk':
+            return <WalkingTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
+          case 'cycle':
+            return <CyclingTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
+          case 'hiking':
+            return <HikingTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
+          default:
+            return <RunningTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
+        }
+      case 'strength': {
+        const validExercises: StrengthExercise[] = ['pushups', 'pullups', 'situps', 'curls', 'bench'];
+        const exercise = validExercises.includes(activity as StrengthExercise)
+          ? (activity as StrengthExercise)
+          : 'pushups';
+        // StrengthTrackerScreen does not accept onWorkoutStateChange — strength tracking
+        // intentionally does not trigger the full-screen takeover. Strength sessions are
+        // set-based and the user needs access to the header/nav to adjust settings mid-session.
+        return <StrengthTrackerScreen initialExercise={exercise} />;
+      }
+      default:
+        return <RunningTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
+    }
+  };
 
   return (
     <TexturedBackground>
-      {isOwner && (
+      {/* Header — hidden during active workout */}
+      {isOwner && !isWorkoutActive && (
         <View style={styles.header}>
           {musicPlayerHeaderEnabled ? (
             <HeaderMusicControls onSettingsPress={handleSettingsPress} />
@@ -252,60 +357,95 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
         </View>
       )}
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}
-        refreshControl={isOwner ? <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={theme.colors.text} /> : undefined}>
-        <View style={styles.sectionGap}>
-          <ProfileHero user={isOwner ? data.user : otherUser} isOwner={isOwner}
-            isLoading={isOwner ? isLoadingSections : !otherUser}
-            level={levelData?.level ?? 0}
-            onEditPress={isOwner ? handleEditPress : undefined}
-            onBackPress={!isOwner ? () => navigation.goBack() : undefined}
-            onSettingsPress={undefined}
-            onLevelPress={() => {
-              const parent = navigation.getParent();
-              (parent || navigation).navigate('LevelDetail' as any);
-            }} />
+      {/* Owner view — same container structure whether workout is active or not,
+          so the tracker component below keeps a stable position in the tree and
+          React does not unmount it when isWorkoutActive flips. Swapping between
+          two parallel branches here used to remount the tracker and kill the
+          workout within ~500ms of start. */}
+      {isOwner ? (
+        <View style={isWorkoutActive ? styles.fullScreenTracker : styles.ownerContent}>
+          {!isWorkoutActive && (
+            <View style={styles.sectionGap}>
+              <ProfileHero user={data.user} isOwner={true}
+                isLoading={isLoadingSections}
+                level={levelData?.level ?? 0}
+                streak={currentStreak}
+                earnings={totalEarnings}
+                onEditPress={handleEditPress}
+                onSettingsPress={undefined}
+                onLevelPress={() => {
+                  const parent = navigation.getParent();
+                  (parent || navigation).navigate('LevelDetail' as any);
+                }}
+                onEarningsPress={() => navigate('Rewards')} />
+            </View>
+          )}
+
+          {!isWorkoutActive && (
+            <View style={styles.sectionGap}>
+              <NotificationBadge onPress={() => setShowNotificationModal(true)} />
+            </View>
+          )}
+
+          {!isWorkoutActive && (
+            <View style={styles.sectionGap}>
+              <ActivityCategoryBar
+                gridPosition={gridPosition}
+                onActivitySelect={handleActivitySelect}
+                isWorkoutActive={false}
+              />
+            </View>
+          )}
+
+          <View style={styles.trackerContainer}>
+            {renderTracker()}
+          </View>
         </View>
-
-        {isOwner && (
+      ) : (
+        <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={theme.colors.text} />}>
           <View style={styles.sectionGap}>
-            <NotificationBadge onPress={() => setShowNotificationModal(true)} />
+            <ProfileHero user={otherUser} isOwner={false}
+              isLoading={!otherUser}
+              level={levelData?.level ?? 0}
+              onBackPress={() => navigation.goBack()}
+              onSettingsPress={undefined}
+              onLevelPress={() => {
+                const parent = navigation.getParent();
+                (parent || navigation).navigate('LevelDetail' as any);
+              }}
+              onEarningsPress={() => navigate('Rewards')} />
           </View>
-        )}
 
-        {isOwner ? (
-          <View style={styles.actionCardsContainer}>
-            <TouchableOpacity style={styles.actionCard} onPress={handleStartWorkout} activeOpacity={0.7}>
-              <Text style={styles.actionCardText}>EXERCISE</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('WorkoutHistory', { userId: targetNpub, pubkey: targetNpub })} activeOpacity={0.7}>
-              <Text style={styles.actionCardText}>HISTORY</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionCard} onPress={handleDestinationPress} activeOpacity={0.7}>
-              <Text style={styles.actionCardText}>REWARDS</Text>
-            </TouchableOpacity>
+          <View style={styles.sectionGap}>
+            <LevelCard levelData={levelData} isLoading={isLoadingSections} />
           </View>
-        ) : (
-          <>
-            <View style={styles.sectionGap}>
-              <LevelCard levelData={levelData} isLoading={isLoadingSections} />
-            </View>
+          <View style={styles.sectionGap}>
+            <ActivityBreakdown breakdown={activityBreakdown} isLoading={isLoadingSections} />
+          </View>
+          <View style={styles.sectionGap}>
+            <ClubAffiliationsSection clubs={clubs} onClubPress={(id) => {
+              const club = clubs.find(c => c.id === id);
+              handleClubPress(id, club?.name || '');
+            }} />
+          </View>
+        </ScrollView>
+      )}
 
-            <View style={styles.sectionGap}>
-              <ActivityBreakdown breakdown={activityBreakdown} isLoading={isLoadingSections} />
-            </View>
-
-            <View style={styles.sectionGap}>
-              <ClubAffiliationsSection clubs={clubs} onClubPress={(id) => {
-                const club = clubs.find(c => c.id === id);
-                handleClubPress(id, club?.name || '');
-              }} />
-            </View>
-          </>
-        )}
-      </ScrollView>
+      {/* Permission modal — shown when user taps "enable location" for cardio */}
+      {showPermissionModal && (
+        <PermissionRequestModal
+          visible={true}
+          onComplete={async () => {
+            setShowPermissionModal(false);
+            // Re-verify actual OS status — user may have denied in the system dialog
+            const status = await appPermissionService.checkAllPermissions();
+            if (status.location) {
+              setPermissionsReady(true);
+            }
+          }}
+        />
+      )}
 
       {isOwner && (
         <NotificationModal visible={showNotificationModal} onClose={() => setShowNotificationModal(false)} />
@@ -324,23 +464,42 @@ const styles = StyleSheet.create({
   headerButton: { padding: 4 },
   content: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: 16, paddingBottom: 32 },
-  sectionGap: { marginBottom: 16 },
-  actionCardsContainer: {
+  ownerContent: { flex: 1, paddingHorizontal: 16, paddingBottom: 16 },
+  sectionGap: { marginBottom: 12 },
+  trackerContainer: {
     flex: 1,
-    gap: 12,
-    marginBottom: 16,
   },
-  actionCard: {
+  fullScreenTracker: {
     flex: 1,
-    alignItems: 'center', justifyContent: 'center',
-    borderRadius: 12, borderWidth: 1,
+  },
+  permissionGate: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    minHeight: 260,
+  },
+  permissionCircle: {
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    borderWidth: 1,
     borderColor: theme.colors.border,
-    backgroundColor: theme.colors.cardBackground,
+    backgroundColor: theme.colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  actionCardText: {
-    fontSize: 18, fontWeight: theme.typography.weights.semiBold as any,
+  permissionCircleText: {
+    fontSize: 20,
+    fontWeight: theme.typography.weights.bold as any,
     color: theme.colors.text,
-    letterSpacing: 2,
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  permissionCircleHint: {
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    marginTop: 4,
   },
 });
 

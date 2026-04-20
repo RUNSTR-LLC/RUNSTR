@@ -14,6 +14,7 @@
 
 import { supabase, isSupabaseConfigured } from '../../utils/supabase';
 import { nip19 } from '@nostr-dev-kit/ndk';
+import { getCharityById } from '../../constants/charities';
 // getCharityByLightningAddress removed — address matching misclassifies user payments
 // when user's address matches a charity entry (e.g., RUNSTR project)
 
@@ -49,6 +50,14 @@ export interface CharityPaymentSummary {
   amount: number;
   status: 'success' | 'pending' | 'partial';
   isGeyser: boolean;
+}
+
+export interface DestinationEarning {
+  id: string;
+  name: string;
+  avatarUrl: string;
+  imageSource?: number; // Local require() image asset
+  totalSats: number;
 }
 
 class SupabaseRewardServiceClass {
@@ -330,6 +339,42 @@ class SupabaseRewardServiceClass {
       console.error('[SupabaseRewardService] getVerifiedPaymentCount error:', error);
       return 0;
     }
+  }
+
+  /**
+   * Get earnings grouped by destination (user + each charity)
+   * Sorted by totalSats descending
+   */
+  async getEarningsByDestination(pubkey: string): Promise<DestinationEarning[]> {
+    const breakdown = await this.getRewardBreakdown(pubkey);
+    const destinations: DestinationEarning[] = [];
+
+    // Add "You" entry if user has received any sats
+    if (breakdown.sentToUser > 0) {
+      destinations.push({
+        id: 'self',
+        name: 'You',
+        avatarUrl: '',
+        totalSats: breakdown.sentToUser,
+      });
+    }
+
+    // Add each charity destination
+    for (const entry of breakdown.charityBreakdown) {
+      const charity = getCharityById(entry.charityId);
+      destinations.push({
+        id: entry.charityId,
+        name: charity?.name || entry.charityId,
+        avatarUrl: '',
+        imageSource: charity?.image,
+        totalSats: entry.amount,
+      });
+    }
+
+    // Sort by totalSats descending
+    destinations.sort((a, b) => b.totalSats - a.totalSats);
+
+    return destinations;
   }
 
   /**

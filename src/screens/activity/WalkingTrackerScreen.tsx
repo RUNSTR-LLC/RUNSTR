@@ -28,9 +28,6 @@ import LocalWorkoutStorageService from '../../services/fitness/LocalWorkoutStora
 import healthConnectService from '../../services/fitness/healthConnectService';
 import { RouteSelectionModal } from '../../components/routes/RouteSelectionModal';
 import routeStorageService from '../../services/routes/RouteStorageService';
-import {
-  type PostingState,
-} from '../../components/activity/DailyStepGoalCard';
 import { dailyStepCounterService } from '../../services/activity/DailyStepCounterService';
 import { dailyStepGoalService } from '../../services/activity/DailyStepGoalService';
 import type { StepGoalProgress } from '../../services/activity/DailyStepGoalService';
@@ -56,6 +53,8 @@ import { UnifiedSigningService } from '../../services/auth/UnifiedSigningService
 import { theme } from '../../styles/theme';
 import { KM_PER_STEP } from '../../constants/appConstants';
 import { StepDebugOverlay } from '../../components/debug/StepDebugOverlay';
+
+type PostingState = 'idle' | 'posting' | 'posted';
 
 const STEP_UPDATE_INTERVAL = 5 * 1000; // Update every 5 seconds for near-real-time
 

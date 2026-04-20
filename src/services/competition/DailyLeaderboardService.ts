@@ -24,6 +24,7 @@ export interface LeaderboardEntry {
   score: number;
   formattedScore: string;
   workoutCount: number;
+  participationType?: 'in-person' | 'virtual'; // Track how user is participating
   lightningAddress?: string;
   isPending?: boolean; // NEW: true if from local queue, not yet synced
 }
@@ -35,6 +36,9 @@ export interface DailyLeaderboards {
   leaderboardHalf: LeaderboardEntry[];
   leaderboardMarathon: LeaderboardEntry[];
   leaderboardSteps: LeaderboardEntry[];
+  leaderboardCycling20k: LeaderboardEntry[];
+  leaderboardCycling40k: LeaderboardEntry[];
+  leaderboardCycling100k: LeaderboardEntry[];
 }
 
 interface SupabaseWorkoutRow {
@@ -43,6 +47,9 @@ interface SupabaseWorkoutRow {
   time_10k_seconds: number | null;
   time_half_seconds: number | null;
   time_marathon_seconds: number | null;
+  time_cycling_20k_seconds: number | null;
+  time_cycling_40k_seconds: number | null;
+  time_cycling_100k_seconds: number | null;
   step_count: number | null;
   profile_name: string | null;
   profile_picture: string | null;
@@ -111,7 +118,7 @@ class DailyLeaderboardServiceClass {
       const workoutUrl = `${supabaseUrl}/rest/v1/workout_submissions?` +
         `leaderboard_date=eq.${todayDate}&` +
         `source=eq.app&` +
-        `select=npub,time_5k_seconds,time_10k_seconds,time_half_seconds,time_marathon_seconds,step_count,profile_name,profile_picture,activity_type&` +
+        `select=npub,time_5k_seconds,time_10k_seconds,time_half_seconds,time_marathon_seconds,time_cycling_20k_seconds,time_cycling_40k_seconds,time_cycling_100k_seconds,step_count,profile_name,profile_picture,activity_type&` +
         `limit=10000`;
 
       // Fetch banned users (permanent bans have null expires_at, temp bans have future expires_at)
@@ -165,6 +172,9 @@ class DailyLeaderboardServiceClass {
         leaderboardHalf: this.buildTimeLeaderboard(rows, 'time_half_seconds', 'running'),
         leaderboardMarathon: this.buildTimeLeaderboard(rows, 'time_marathon_seconds', 'running'),
         leaderboardSteps: this.buildStepsLeaderboard(rows),
+        leaderboardCycling20k: this.buildTimeLeaderboard(rows, 'time_cycling_20k_seconds', 'cycling'),
+        leaderboardCycling40k: this.buildTimeLeaderboard(rows, 'time_cycling_40k_seconds', 'cycling'),
+        leaderboardCycling100k: this.buildTimeLeaderboard(rows, 'time_cycling_100k_seconds', 'cycling'),
       };
 
       // ========== HYBRID LEADERBOARDS: Merge pending submissions ==========
@@ -191,7 +201,10 @@ class DailyLeaderboardServiceClass {
         `10K=${result.leaderboard10k.length}, ` +
         `Half=${result.leaderboardHalf.length}, ` +
         `Marathon=${result.leaderboardMarathon.length}, ` +
-        `Steps=${result.leaderboardSteps.length}`
+        `Steps=${result.leaderboardSteps.length}, ` +
+        `Cyc20K=${result.leaderboardCycling20k.length}, ` +
+        `Cyc40K=${result.leaderboardCycling40k.length}, ` +
+        `Cyc100K=${result.leaderboardCycling100k.length}`
       );
 
       // Cache for 5 minutes (300 seconds)
@@ -212,7 +225,14 @@ class DailyLeaderboardServiceClass {
    */
   private buildTimeLeaderboard(
     rows: SupabaseWorkoutRow[],
-    timeField: 'time_5k_seconds' | 'time_10k_seconds' | 'time_half_seconds' | 'time_marathon_seconds',
+    timeField:
+      | 'time_5k_seconds'
+      | 'time_10k_seconds'
+      | 'time_half_seconds'
+      | 'time_marathon_seconds'
+      | 'time_cycling_20k_seconds'
+      | 'time_cycling_40k_seconds'
+      | 'time_cycling_100k_seconds',
     activityType: string
   ): LeaderboardEntry[] {
     // Filter to rows with time data and matching activity type
@@ -308,6 +328,9 @@ class DailyLeaderboardServiceClass {
       leaderboardHalf: [],
       leaderboardMarathon: [],
       leaderboardSteps: [],
+      leaderboardCycling20k: [],
+      leaderboardCycling40k: [],
+      leaderboardCycling100k: [],
     };
   }
 
@@ -379,6 +402,37 @@ class DailyLeaderboardServiceClass {
             result.leaderboardMarathon,
             npub,
             timeMarathon,
+            true
+          );
+        }
+      }
+
+      // For cycling workouts, add to appropriate cycling distance leaderboard
+      if (activityType === 'cycling') {
+        if (distanceKm >= 20 && !isInSupabase(result.leaderboardCycling20k)) {
+          const time20k = this.calculateTimeForDistance(durationSeconds, distanceKm, 20);
+          result.leaderboardCycling20k = this.addPendingEntry(
+            result.leaderboardCycling20k,
+            npub,
+            time20k,
+            true
+          );
+        }
+        if (distanceKm >= 40 && !isInSupabase(result.leaderboardCycling40k)) {
+          const time40k = this.calculateTimeForDistance(durationSeconds, distanceKm, 40);
+          result.leaderboardCycling40k = this.addPendingEntry(
+            result.leaderboardCycling40k,
+            npub,
+            time40k,
+            true
+          );
+        }
+        if (distanceKm >= 100 && !isInSupabase(result.leaderboardCycling100k)) {
+          const time100k = this.calculateTimeForDistance(durationSeconds, distanceKm, 100);
+          result.leaderboardCycling100k = this.addPendingEntry(
+            result.leaderboardCycling100k,
+            npub,
+            time100k,
             true
           );
         }

@@ -27,9 +27,6 @@ import routeStorageService from '../../services/routes/RouteStorageService';
 import { theme } from '../../styles/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 // Weekly distance goal components
-import {
-  type PostingState,
-} from '../../components/activity/WeeklyDistanceGoalCard';
 import { DistanceGoalPickerModal } from '../../components/activity/DistanceGoalPickerModal';
 import { weeklyDistanceGoalService } from '../../services/activity/WeeklyDistanceGoalService';
 import type { DistanceGoalProgress } from '../../services/activity/WeeklyDistanceGoalService';
@@ -47,6 +44,8 @@ import { CountdownOverlay } from '../../components/activity/CountdownOverlay';
 import { ControlBar } from '../../components/activity/ControlBar';
 import { HoldToStartButton } from '../../components/activity/HoldToStartButton';
 import { StepDebugOverlay } from '../../components/debug/StepDebugOverlay';
+
+type PostingState = 'idle' | 'posting' | 'posted';
 
 interface CyclingTrackerScreenProps {
   onWorkoutStateChange?: (isActive: boolean) => void;

@@ -35,22 +35,8 @@ export const CATEGORY_MENU: CategoryConfig[] = [
       { key: 'pushups', label: 'Pushups', icon: 'fitness-outline' },
       { key: 'pullups', label: 'Pull-ups', icon: 'barbell-outline' },
       { key: 'situps', label: 'Sit-ups', icon: 'body-outline' },
-      { key: 'squats', label: 'Squats', icon: 'walk-outline' },
       { key: 'curls', label: 'Curls', icon: 'fitness-outline' },
       { key: 'bench', label: 'Bench', icon: 'barbell-outline' },
-    ],
-  },
-  {
-    key: 'wellness',
-    label: 'Wellness',
-    activities: [
-      { key: 'guided', label: 'Guided', icon: 'headset-outline' },
-      { key: 'unguided', label: 'Unguided', icon: 'leaf-outline' },
-      { key: 'breathwork', label: 'Breathwork', icon: 'water-outline' },
-      { key: 'body_scan', label: 'Body Scan', icon: 'body-outline' },
-      { key: 'gratitude', label: 'Gratitude', icon: 'heart-outline' },
-      { key: 'journal', label: 'Journal', icon: 'book-outline' },
-      { key: 'habits', label: 'Habits', icon: 'checkmark-circle-outline' },
     ],
   },
 ];

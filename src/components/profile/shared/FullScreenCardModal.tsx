@@ -91,6 +91,7 @@ export const FullScreenCardModal: React.FC<FullScreenCardModalProps> = ({
   const { t } = useTranslation('profile');
   const { isMetric, distanceLabel, paceLabel } = useUnitPreference();
   const [isPosting, setIsPosting] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const captureViewRef = useRef<View>(null);
 
   // Calculate photo dimensions for custom photo overlay
@@ -123,6 +124,7 @@ export const FullScreenCardModal: React.FC<FullScreenCardModalProps> = ({
   useEffect(() => {
     if (!visible) {
       setCardData(null);
+      setImageLoaded(false);
     }
   }, [visible]);
 
@@ -405,6 +407,7 @@ export const FullScreenCardModal: React.FC<FullScreenCardModalProps> = ({
           source={{ uri: customPhotoUri }}
           style={[styles.customPhotoBackground, { width: photoWidth, height: photoHeight }]}
           resizeMode="cover"
+          onLoad={() => setImageLoaded(true)}
         />
         <LinearGradient colors={gradientColors} style={styles.gradientOverlay} />
 
@@ -561,19 +564,27 @@ export const FullScreenCardModal: React.FC<FullScreenCardModalProps> = ({
         </View>
 
         {/* Post to Nostr button (only if callback provided) */}
-        {onPostToNostr && (
+        {onPostToNostr && (() => {
+          const waitingForImage = templateId === 'custom_photo' && !!customPhotoUri && !imageLoaded;
+          const disabled = isPosting || waitingForImage;
+          return (
           <View style={styles.postButtonContainer}>
             <TouchableOpacity
-              style={[styles.postButton, isPosting && styles.postButtonDisabled]}
+              style={[styles.postButton, disabled && styles.postButtonDisabled]}
               onPress={handlePost}
-              disabled={isPosting}
+              disabled={disabled}
             >
               {isPosting ? (
                 <ActivityIndicator size="small" color={theme.colors.background} />
+              ) : waitingForImage ? (
+                <>
+                  <ActivityIndicator size="small" color={theme.colors.background} />
+                  <Text style={styles.postButtonText}>Loading image...</Text>
+                </>
               ) : (
                 <>
                   <Ionicons name="paper-plane-outline" size={20} color={theme.colors.background} />
-                  <Text style={styles.postButtonText}>Post to Nostr</Text>
+                  <Text style={styles.postButtonText}>Post</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -581,7 +592,8 @@ export const FullScreenCardModal: React.FC<FullScreenCardModalProps> = ({
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
           </View>
-        )}
+          );
+        })()}
 
         {/* Tap to close (only if no post callback - screenshot mode) */}
         {!onPostToNostr && (

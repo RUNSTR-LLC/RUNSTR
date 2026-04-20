@@ -7,9 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
-import LocalWorkoutStorageService, {
-  type LocalWorkout,
-} from '../../services/fitness/LocalWorkoutStorageService';
+import LocalWorkoutStorageService, { type LocalWorkout } from '../../services/fitness/LocalWorkoutStorageService';
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
 
 type ActivityType = 'running' | 'walking' | 'cycling';

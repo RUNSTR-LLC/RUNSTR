@@ -1,5 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { theme } from '../../styles/theme';
 import { ActivityDropdown } from './ActivityDropdown';
 import { CATEGORY_MENU } from '../../types/activityMenu';
@@ -18,14 +20,26 @@ export const ActivityCategoryBar: React.FC<ActivityCategoryBarProps> = ({
   onActivitySelect,
   isWorkoutActive,
 }) => {
+  // Which category's dropdown is currently visible (null = collapsed)
   const [openCategoryIndex, setOpenCategoryIndex] = useState<number | null>(null);
 
   const activeCategoryIndex = gridPosition.row;
   const activeCategory = CATEGORY_MENU[activeCategoryIndex];
-  const activeActivityKey = activeCategory?.activities[gridPosition.column]?.key || '';
+  const activeActivity = activeCategory?.activities[gridPosition.column];
+  const activeActivityKey = activeActivity?.key || '';
+  const activeActivityLabel = activeActivity?.label || '';
+
+  const isOpen = openCategoryIndex !== null;
+
+  const handleToggle = useCallback(() => {
+    if (isWorkoutActive) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setOpenCategoryIndex((prev) => (prev === null ? activeCategoryIndex : null));
+  }, [isWorkoutActive, activeCategoryIndex]);
 
   const handleCategoryPress = useCallback((index: number) => {
     if (isWorkoutActive) return;
+    Haptics.selectionAsync();
     setOpenCategoryIndex(index);
   }, [isWorkoutActive]);
 
@@ -36,6 +50,7 @@ export const ActivityCategoryBar: React.FC<ActivityCategoryBarProps> = ({
     const columnIndex = category.activities.findIndex((a) => a.key === activityKey);
 
     if (columnIndex >= 0) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       onActivitySelect(openCategoryIndex, columnIndex);
     }
 
@@ -43,53 +58,100 @@ export const ActivityCategoryBar: React.FC<ActivityCategoryBarProps> = ({
   }, [openCategoryIndex, onActivitySelect]);
 
   return (
-    <View>
-      {/* Category labels — inline in header */}
-      <View style={styles.bar}>
-        {CATEGORY_MENU.map((cat, index) => {
-          const isActive = index === activeCategoryIndex;
-          return (
-            <TouchableOpacity
-              key={cat.key}
-              style={styles.categoryButton}
-              onPress={() => handleCategoryPress(index)}
-              activeOpacity={0.7}
-              disabled={isWorkoutActive}
-            >
-              <Text
-                style={[
-                  styles.categoryLabel,
-                  isActive && styles.categoryLabelActive,
-                  isWorkoutActive && styles.categoryLabelDisabled,
-                ]}
-              >
-                {cat.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      {/* Dropdown — renders below the bar */}
-      {openCategoryIndex !== null && (
-        <ActivityDropdown
-          category={CATEGORY_MENU[openCategoryIndex]}
-          activeActivityKey={
-            openCategoryIndex === activeCategoryIndex ? activeActivityKey : ''
-          }
-          isOpen={true}
-          onSelectActivity={handleActivitySelect}
+    <View style={styles.wrapper}>
+      {/* Collapsed trigger — icon-only chevron button */}
+      <TouchableOpacity
+        style={styles.trigger}
+        onPress={handleToggle}
+        activeOpacity={0.7}
+        disabled={isWorkoutActive}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
+        <Ionicons
+          name={isOpen ? 'chevron-up' : 'chevron-down'}
+          size={18}
+          color={isWorkoutActive ? theme.colors.textMuted : theme.colors.text}
         />
+      </TouchableOpacity>
+
+      {/* Expanded: category tabs + activity pills */}
+      {isOpen && (
+        <View style={styles.expanded}>
+          <View style={styles.categoryBar}>
+            {CATEGORY_MENU.map((cat, index) => {
+              const isActive = index === openCategoryIndex;
+              return (
+                <TouchableOpacity
+                  key={cat.key}
+                  style={styles.categoryButton}
+                  onPress={() => handleCategoryPress(index)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.categoryLabel,
+                      isActive && styles.categoryLabelActive,
+                    ]}
+                  >
+                    {cat.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <ActivityDropdown
+            category={CATEGORY_MENU[openCategoryIndex]}
+            activeActivityKey={
+              openCategoryIndex === activeCategoryIndex ? activeActivityKey : ''
+            }
+            isOpen={true}
+            onSelectActivity={handleActivitySelect}
+          />
+        </View>
       )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  bar: {
+  wrapper: {
+    alignItems: 'center',
+    zIndex: 20,
+  },
+  trigger: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.cardBackground,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 21,
+  },
+  expanded: {
+    position: 'absolute',
+    top: 40,
+    left: 0,
+    right: 0,
+    backgroundColor: theme.colors.background,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingBottom: 8,
+    zIndex: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  categoryBar: {
     flexDirection: 'row',
     justifyContent: 'space-evenly',
     alignItems: 'center',
+    paddingVertical: 4,
   },
   categoryButton: {
     paddingHorizontal: 16,
@@ -102,8 +164,5 @@ const styles = StyleSheet.create({
   },
   categoryLabelActive: {
     color: theme.colors.text,
-  },
-  categoryLabelDisabled: {
-    color: theme.colors.textMuted,
   },
 });

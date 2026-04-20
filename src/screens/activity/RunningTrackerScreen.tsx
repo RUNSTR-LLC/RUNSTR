@@ -38,9 +38,6 @@ import { RouteSelectionModal } from '../../components/routes/RouteSelectionModal
 import { HoldToStartButton } from '../../components/activity/HoldToStartButton';
 import { AppStateManager } from '../../services/core/AppStateManager';
 // Weekly distance goal components
-import {
-  type PostingState,
-} from '../../components/activity/WeeklyDistanceGoalCard';
 import { DistanceGoalPickerModal } from '../../components/activity/DistanceGoalPickerModal';
 import { weeklyDistanceGoalService } from '../../services/activity/WeeklyDistanceGoalService';
 import type { DistanceGoalProgress } from '../../services/activity/WeeklyDistanceGoalService';
@@ -59,6 +56,8 @@ import { CountdownOverlay } from '../../components/activity/CountdownOverlay';
 // Debug overlays for GPS and step diagnosis
 import { ActivityDebugOverlay } from '../../components/debug/ActivityDebugOverlay';
 import { StepDebugOverlay } from '../../components/debug/StepDebugOverlay';
+
+type PostingState = 'idle' | 'posting' | 'posted';
 
 // DEBUG MODE - Set to true for debug APK builds, false for production
 const DEBUG_MODE = false;

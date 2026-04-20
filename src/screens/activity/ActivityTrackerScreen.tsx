@@ -28,10 +28,7 @@ import { RunningTrackerScreen } from './RunningTrackerScreen';
 import { WalkingTrackerScreen } from './WalkingTrackerScreen';
 import { CyclingTrackerScreen } from './CyclingTrackerScreen';
 import { HikingTrackerScreen } from './HikingTrackerScreen';
-import { MeditationTrackerScreen } from './MeditationTrackerScreen';
 import { StrengthTrackerScreen } from './StrengthTrackerScreen';
-import { JournalTrackerScreen } from './JournalTrackerScreen';
-import { HabitTrackerScreen } from './HabitTrackerScreen';
 import { dailyStepCounterService } from '../../services/activity/DailyStepCounterService';
 import { WoTService } from '../../services/wot/WoTService';
 import { EnhancedSocialShareModal } from '../../components/profile/shared/EnhancedSocialShareModal';
@@ -44,10 +41,8 @@ import type { PublishableWorkout } from '../../services/nostr/workoutPublishingS
 import { KM_PER_STEP } from '../../constants/appConstants';
 
 // Strength exercise type mapping
-type StrengthExercise = 'pushups' | 'pullups' | 'situps' | 'squats' | 'curls' | 'bench';
+type StrengthExercise = 'pushups' | 'pullups' | 'situps' | 'curls' | 'bench';
 
-// Wellness/meditation type mapping
-type MeditationType = 'guided' | 'unguided' | 'breathwork' | 'body_scan' | 'gratitude';
 
 export const ActivityTrackerScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -350,27 +345,11 @@ export const ActivityTrackerScreen: React.FC = () => {
         }
 
       case 'strength': {
-        const validExercises: StrengthExercise[] = ['pushups', 'pullups', 'situps', 'squats', 'curls', 'bench'];
+        const validExercises: StrengthExercise[] = ['pushups', 'pullups', 'situps', 'curls', 'bench'];
         const exercise = validExercises.includes(activity as StrengthExercise)
           ? (activity as StrengthExercise)
           : 'pushups';
         return <StrengthTrackerScreen initialExercise={exercise} />;
-      }
-
-      case 'wellness': {
-        const meditationTypes = ['guided', 'unguided', 'breathwork', 'body_scan', 'gratitude'];
-        if (meditationTypes.includes(activity)) {
-          const meditationType = activity as MeditationType;
-          return <MeditationTrackerScreen initialType={meditationType} />;
-        }
-        switch (activity) {
-          case 'journal':
-            return <JournalTrackerScreen />;
-          case 'habits':
-            return <HabitTrackerScreen />;
-          default:
-            return <MeditationTrackerScreen initialType="guided" />;
-        }
       }
 
       default:

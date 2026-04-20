@@ -25,7 +25,7 @@ import { UnifiedSigningService } from '../../services/auth/UnifiedSigningService
 import { getNsecFromStorage } from '../../utils/nostr';
 import { GlobalNDKService } from '../../services/nostr/GlobalNDKService';
 import type { NDKSigner } from '@nostr-dev-kit/ndk';
-import type { LeaderboardEntry } from '../../services/competition/SimpleLeaderboardService';
+import type { LeaderboardEntry } from '../../services/competition/DailyLeaderboardService';
 
 interface LeaderboardShareModalProps {
   visible: boolean;
@@ -294,7 +294,7 @@ export const LeaderboardShareModal: React.FC<LeaderboardShareModalProps> = ({
                   color={theme.colors.background}
                 />
               ) : (
-                <Text style={styles.shareButtonText}>Share to Nostr</Text>
+                <Text style={styles.shareButtonText}>Share</Text>
               )}
             </TouchableOpacity>
 

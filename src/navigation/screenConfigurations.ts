@@ -16,8 +16,8 @@ export const screenConfigurations = {
     headerShown: false,
   } as NativeStackNavigationOptions,
 
-  // Profile Screen - slide from right (default iOS behavior)
-  Profile: {
+  // Home Screen - slide from right (default iOS behavior)
+  Home: {
     animation: 'slide_from_right',
     headerShown: false,
     contentStyle: { backgroundColor: '#000' },

@@ -103,7 +103,7 @@ const ClubMembersSectionComponent: React.FC<ClubMembersSectionProps> = ({
                 key={member.id}
                 style={styles.memberItem}
                 activeOpacity={0.7}
-                onPress={() => navigation.navigate('Profile', { pubkey: member.member_npub })}
+                onPress={() => navigation.navigate('Home', { pubkey: member.member_npub })}
               >
                 <View style={styles.avatarWrapper}>
                   <Avatar

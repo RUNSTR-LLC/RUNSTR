@@ -7,8 +7,8 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { CompetitionEvent } from '../competition/SimpleCompetitionService';
-import type { LeaderboardEntry } from '../competition/SimpleLeaderboardService';
+import type { CompetitionEvent } from '../../types/competitionEvent';
+import type { LeaderboardEntry } from '../competition/DailyLeaderboardService';
 
 export interface EventSnapshot {
   // Core event data

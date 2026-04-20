@@ -21,8 +21,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import {
   BackupService,
-  DEFAULT_BACKUP_RELAYS,
   type BackupStats,
+  DEFAULT_BACKUP_RELAYS,
 } from '../../services/backup/BackupService';
 import Toast from 'react-native-toast-message';
 

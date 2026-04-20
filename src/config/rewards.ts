@@ -51,7 +51,7 @@ export const REWARD_CONFIG = {
 
   /**
    * Boosted Rewards (Supporter/Pro subscribers)
-   * Subscribers earn 1000 sats per qualifying workout instead of 100
+   * Subscribers earn 1000 sats per qualifying workout instead of 50
    * Up to 5 boosted workouts per week, then base rate applies
    * Qualifications: running, walking, cycling, pushups, journal, 5k+ steps
    */

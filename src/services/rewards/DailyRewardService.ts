@@ -514,7 +514,7 @@ class DailyRewardServiceClass {
       }
       // ===== END PLEDGE CHECK =====
 
-      let totalAmount: number = REWARD_CONFIG.DAILY_WORKOUT_REWARD; // Default 100 sats
+      let totalAmount: number = REWARD_CONFIG.DAILY_WORKOUT_REWARD; // Default 50 sats
 
       // ===== EINUNDZWANZIG DOUBLE REWARDS =====
       if (isEinundzwanzigActive()) {

@@ -8,6 +8,7 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -15,6 +16,7 @@ import { theme } from '../styles/theme';
 import { TexturedBackground } from '../components/ui/TexturedBackground';
 import { ClubsRow } from '../components/social/ClubsRow';
 import { SocialFeedPost } from '../components/social/SocialFeedPost';
+import { PostComposerModal } from '../components/social/PostComposerModal';
 import SocialFeedService from '../services/social/SocialFeedService';
 import { ClubService } from '../services/backend/ClubService';
 import { ClubMembershipService } from '../services/backend/ClubMembershipService';
@@ -34,6 +36,7 @@ const SocialScreenComponent: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [composerVisible, setComposerVisible] = useState(false);
 
   const loadData = async (refresh = false) => {
     try {
@@ -96,6 +99,13 @@ const SocialScreenComponent: React.FC = () => {
     }
   }, [isLoadingMore, hasMore, posts]);
 
+  const handleCreatePost = useCallback(async (content: string) => {
+    const localPost = await feedService.createLocalPost(content);
+    if (localPost) {
+      setPosts((prev) => [localPost, ...prev]);
+    }
+  }, []);
+
   const renderPost = useCallback(({ item }: { item: SocialFeedPostType }) => (
     <SocialFeedPost post={item} userNpub={userNpub} />
   ), [userNpub]);
@@ -103,10 +113,6 @@ const SocialScreenComponent: React.FC = () => {
   const handleClubCreated = useCallback(() => {
     loadData(true);
   }, []);
-
-  const renderHeader = useCallback(() => (
-    <ClubsRow clubs={clubs} userClubId={userClubId} onClubCreated={handleClubCreated} />
-  ), [clubs, userClubId, handleClubCreated]);
 
   const renderEmpty = useCallback(() => {
     if (isLoading) return null;
@@ -144,11 +150,11 @@ const SocialScreenComponent: React.FC = () => {
     <SafeAreaView style={styles.container} edges={['top']}>
       <TexturedBackground edges={[]}>
         <View style={styles.headerSpacer} />
+        <ClubsRow clubs={clubs} userClubId={userClubId} onClubCreated={handleClubCreated} />
         <FlatList
           data={posts}
           renderItem={renderPost}
           keyExtractor={(item) => item.id}
-          ListHeaderComponent={renderHeader}
           ListEmptyComponent={renderEmpty}
           ListFooterComponent={renderFooter}
           onEndReached={handleLoadMore}
@@ -163,7 +169,19 @@ const SocialScreenComponent: React.FC = () => {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         />
+        <TouchableOpacity
+          style={styles.fab}
+          activeOpacity={0.8}
+          onPress={() => setComposerVisible(true)}
+        >
+          <Text style={styles.fabText}>Post</Text>
+        </TouchableOpacity>
       </TexturedBackground>
+      <PostComposerModal
+        visible={composerVisible}
+        onClose={() => setComposerVisible(false)}
+        onPost={handleCreatePost}
+      />
     </SafeAreaView>
   );
 };
@@ -218,5 +236,24 @@ const styles = StyleSheet.create({
   footerLoader: {
     paddingVertical: 20,
     alignItems: 'center',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 20,
+    backgroundColor: theme.colors.orangeBright,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 24,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  fabText: {
+    color: theme.colors.accentText,
+    fontSize: 15,
+    fontWeight: theme.typography.weights.bold,
   },
 });

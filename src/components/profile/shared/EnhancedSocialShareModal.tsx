@@ -44,7 +44,7 @@ interface EnhancedSocialShareModalProps {
   onSuccess?: () => void;
 }
 
-type Template = 'achievement' | 'progress' | 'minimal' | 'stats' | 'elegant' | 'custom_photo' | 'vertical' | 'gallery';
+type Template = 'achievement' | 'progress' | 'minimal' | 'stats' | 'elegant' | 'custom_photo' | 'vertical' | 'gallery' | 'plain_text';
 
 interface TemplateOption {
   id: Template;
@@ -54,6 +54,7 @@ interface TemplateOption {
 }
 
 const TEMPLATE_OPTIONS: TemplateOption[] = [
+  { id: 'plain_text', name: 'Plain Text', description: 'Stats only, no image', icon: 'document-text-outline' },
   { id: 'vertical', name: 'Text', description: 'Workout stats with motivational quote', icon: 'phone-portrait-outline' },
   { id: 'custom_photo', name: 'Camera', description: 'Take a photo with stats overlay', icon: 'camera' },
   { id: 'gallery', name: 'Gallery', description: 'Choose photo from library', icon: 'images-outline' },
@@ -127,7 +128,7 @@ export const EnhancedSocialShareModal: React.FC<EnhancedSocialShareModalProps> =
   const generateCardPreview = async () => {
     if (!workout) return;
     // Skip SVG generation for native/text templates (gallery uses custom_photo rendering)
-    if (selectedTemplate === 'achievement' || selectedTemplate === 'custom_photo' || selectedTemplate === 'vertical' || selectedTemplate === 'elegant' || selectedTemplate === 'gallery') {
+    if (selectedTemplate === 'achievement' || selectedTemplate === 'custom_photo' || selectedTemplate === 'vertical' || selectedTemplate === 'elegant' || selectedTemplate === 'gallery' || selectedTemplate === 'plain_text') {
       if (isMountedRef.current) setCardSvg('');
       return;
     }
@@ -219,7 +220,9 @@ export const EnhancedSocialShareModal: React.FC<EnhancedSocialShareModalProps> =
 
     if (isMountedRef.current) setLoading(true);
     try {
-      if (localWorkoutId) {
+      // Save the card choice to local storage for future reference. Plain text
+      // posts don't produce a card artifact, so skip storage entirely for them.
+      if (localWorkoutId && selectedTemplate !== 'plain_text') {
         // Gallery selection uses custom_photo template for storage
         const storageTemplateId = selectedTemplate === 'gallery' ? 'custom_photo' : selectedTemplate;
         await LocalWorkoutStorageService.saveWorkoutCard(localWorkoutId, {
@@ -227,6 +230,26 @@ export const EnhancedSocialShareModal: React.FC<EnhancedSocialShareModalProps> =
           customPhotoUri: selectedTemplate === 'custom_photo' ? customPhotoUri || undefined : undefined,
         });
       }
+
+      // Plain text posts skip the fullscreen capture and go straight to the
+      // publishing service. Passing undefined for cardImageUri makes the
+      // service post a text-only kind 1 (no image, no Blossom upload).
+      if (selectedTemplate === 'plain_text') {
+        if (onPostToNostr) {
+          const result = await onPostToNostr(undefined);
+          if (!isMountedRef.current) return;
+          if (result.success) {
+            onSuccess?.();
+            onClose();
+          } else {
+            Alert.alert('Post Failed', result.error || 'Could not post to Nostr');
+          }
+        }
+        // Plain text only makes sense when posting — don't fall through to
+        // the fullscreen screenshot flow.
+        return;
+      }
+
       console.log('🖼️ Setting showFullscreenPreview to true');
       setShowFullscreenPreview(true);
     } catch (error) {
@@ -262,7 +285,6 @@ export const EnhancedSocialShareModal: React.FC<EnhancedSocialShareModalProps> =
               <TouchableOpacity onPress={onClose} style={styles.backButton}>
                 <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
               </TouchableOpacity>
-              <Text style={styles.headerTitle}>Share Workout</Text>
               <View style={styles.headerSpacer} />
             </View>
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 }}>
@@ -345,6 +367,29 @@ export const EnhancedSocialShareModal: React.FC<EnhancedSocialShareModalProps> =
   };
 
   const renderPreview = () => {
+    // Plain text preview — mirrors what the kind 1 post will contain
+    if (selectedTemplate === 'plain_text') {
+      const { durationStr, distanceKm, paceMinKm, activityType, steps } = getPreviewStats();
+      const hashtag = activityType.replace(/\s+/g, '');
+      return (
+        <View style={styles.plainTextPreview}>
+          <Text style={styles.plainTextLine}>{activityType}</Text>
+          <Text style={styles.plainTextLine}>Time: {durationStr}</Text>
+          {distanceKm && (
+            <Text style={styles.plainTextLine}>Distance: {distanceKm} km</Text>
+          )}
+          {paceMinKm && (
+            <Text style={styles.plainTextLine}>Pace: {paceMinKm}/km</Text>
+          )}
+          {steps && (
+            <Text style={styles.plainTextLine}>Steps: {steps.toLocaleString()}</Text>
+          )}
+          <Text style={styles.plainTextSpacer}> </Text>
+          <Text style={styles.plainTextHashtags}>#RUNSTR #{hashtag}</Text>
+        </View>
+      );
+    }
+
     // Vertical full-screen preview
     if (selectedTemplate === 'vertical') {
       const { durationStr, distanceKm, activityType, steps } = getPreviewStats();
@@ -480,24 +525,30 @@ export const EnhancedSocialShareModal: React.FC<EnhancedSocialShareModalProps> =
             <TouchableOpacity onPress={onClose} style={styles.backButton}>
               <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Share Workout</Text>
             <View style={styles.headerSpacer} />
           </View>
 
           <View style={styles.contentContainer}>
             {/* Card Style Picker */}
             <SectionCard header="CARD STYLE">
-              {TEMPLATE_OPTIONS.map((template, index) => (
-                <ListRow
-                  key={template.id}
-                  icon={template.icon}
-                  title={template.name}
-                  subtitle={template.description}
-                  selected={selectedTemplate === template.id}
-                  onPress={() => handleTemplateSelect(template.id)}
-                  isLast={index === TEMPLATE_OPTIONS.length - 1}
-                />
-              ))}
+              {(() => {
+                // Hide plain_text when the modal is in screenshot-only mode
+                // (no onPostToNostr callback). Plain text is post-only.
+                const visibleOptions = onPostToNostr
+                  ? TEMPLATE_OPTIONS
+                  : TEMPLATE_OPTIONS.filter((t) => t.id !== 'plain_text');
+                return visibleOptions.map((template, index) => (
+                  <ListRow
+                    key={template.id}
+                    icon={template.icon}
+                    title={template.name}
+                    subtitle={template.description}
+                    selected={selectedTemplate === template.id}
+                    onPress={() => handleTemplateSelect(template.id)}
+                    isLast={index === visibleOptions.length - 1}
+                  />
+                ));
+              })()}
             </SectionCard>
 
             {/* Photo Style Picker - only show when custom_photo selected */}
@@ -530,7 +581,7 @@ export const EnhancedSocialShareModal: React.FC<EnhancedSocialShareModalProps> =
                 <ActivityIndicator size="small" color={theme.colors.background} />
               ) : (
                 <Text style={styles.doneButtonText}>
-                  {onPostToNostr ? 'Post to Nostr' : 'Full Screen'}
+                  {onPostToNostr ? 'Post' : 'Full Screen'}
                 </Text>
               )}
             </TouchableOpacity>
@@ -917,5 +968,29 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#fff',
+  },
+  // Plain text preview — monospace-ish, minimal, matches what posts to Nostr
+  plainTextPreview: {
+    width: '100%',
+    backgroundColor: '#000',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#1a1a1a',
+    padding: 16,
+    alignItems: 'flex-start',
+  },
+  plainTextLine: {
+    fontSize: 14,
+    color: '#fff',
+    marginBottom: 2,
+    fontVariant: ['tabular-nums'],
+  },
+  plainTextSpacer: {
+    height: 8,
+  },
+  plainTextHashtags: {
+    fontSize: 13,
+    color: theme.colors.accent,
+    marginTop: 8,
   },
 });

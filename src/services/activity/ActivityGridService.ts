@@ -1,13 +1,14 @@
 /**
  * ActivityGridService - Manages 2D grid navigation for activities
  *
- * Categories (rows): Cardio, Strength, Wellness
+ * Categories (rows): Cardio, Strength
  * Activities (columns): Vary per category
  *
  * Swipe Left/Right: Navigate within category
  * Swipe Up/Down: Navigate between categories
  *
  * Note: Diet category removed from swipe grid due to ScrollView conflicts
+ * Note: Wellness category removed — unused by user base
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,7 +16,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Category row definition
 export interface CategoryRow {
   name: string;
-  key: 'cardio' | 'strength' | 'wellness';
+  key: 'cardio' | 'strength';
   activities: string[];
 }
 
@@ -26,6 +27,7 @@ export interface GridPosition {
 }
 
 // Activity grid configuration (Diet removed - has ScrollView conflicts)
+// Wellness removed — unused by user base
 export const ACTIVITY_GRID: CategoryRow[] = [
   {
     name: 'Cardio',
@@ -35,12 +37,7 @@ export const ACTIVITY_GRID: CategoryRow[] = [
   {
     name: 'Strength',
     key: 'strength',
-    activities: ['pushups', 'pullups', 'situps', 'squats', 'curls', 'bench'],
-  },
-  {
-    name: 'Wellness',
-    key: 'wellness',
-    activities: ['guided', 'unguided', 'breathwork', 'body_scan', 'gratitude', 'journal', 'habits'],
+    activities: ['pushups', 'pullups', 'situps', 'curls', 'bench'],
   },
 ];
 
@@ -55,7 +52,6 @@ export const ACTIVITY_DISPLAY_NAMES: Record<string, string> = {
   pushups: 'Pushups',
   pullups: 'Pull-ups',
   situps: 'Sit-ups',
-  squats: 'Squats',
   curls: 'Curls',
   bench: 'Bench',
   // Diet
@@ -65,15 +61,6 @@ export const ACTIVITY_DISPLAY_NAMES: Record<string, string> = {
   snack: 'Snack',
   fast: 'Fast',
   water: 'Water',
-  // Wellness
-  guided: 'Guided',
-  unguided: 'Unguided',
-  breathwork: 'Breathwork',
-  body_scan: 'Body Scan',
-  gratitude: 'Gratitude',
-  // Wellness (continued)
-  journal: 'Journal',
-  habits: 'Habits',
 };
 
 const STORAGE_KEY = '@runstr:activity_grid_position';
@@ -190,7 +177,7 @@ export class ActivityGridService {
       return { row: 0, column: 0 };
     }
     if (position.row >= ACTIVITY_GRID.length - 1) {
-      return null; // Already at bottom category (Wellness)
+      return null; // Already at bottom category (Strength)
     }
     return { row: position.row + 1, column: 0 };
   }

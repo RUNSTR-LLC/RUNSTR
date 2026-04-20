@@ -200,7 +200,7 @@ export function calculateSatsFromDistance(distanceKm: number): number {
 
 /**
  * Einundzwanzig participants with featured team tags earned double rewards (100 sats)
- * instead of the standard 100 sats per daily workout during the challenge period.
+ * instead of the standard 50 sats per daily workout during the challenge period.
  */
 export const EINUNDZWANZIG_REWARD_CONFIG = {
   baseRewardSats: 100,

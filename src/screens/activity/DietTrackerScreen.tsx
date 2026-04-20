@@ -23,9 +23,7 @@ import { EnhancedSocialShareModal } from '../../components/profile/shared/Enhanc
 import workoutPublishingService from '../../services/nostr/workoutPublishingService';
 import { UnifiedSigningService } from '../../services/auth/UnifiedSigningService';
 import { CustomAlert } from '../../components/ui/CustomAlert';
-import CalorieEstimationService, {
-  type MealSize,
-} from '../../services/fitness/CalorieEstimationService';
+import CalorieEstimationService, { type MealSize } from '../../services/fitness/CalorieEstimationService';
 import { nostrProfileService } from '../../services/nostr/NostrProfileService';
 import { AutoCompetePreferencesService } from '../../services/activity/AutoCompetePreferencesService';
 import WorkoutStatusTracker from '../../services/fitness/WorkoutStatusTracker';

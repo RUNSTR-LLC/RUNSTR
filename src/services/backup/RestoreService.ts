@@ -98,24 +98,12 @@ export class RestoreService {
       const user = await signer.user();
       const pubkey = user.pubkey;
 
-      // Smoke test: verify NIP-44 self-encryption round-trip works with this signer
-      try {
-        const testPlaintext = 'runstr-backup-test';
-        const encrypted = await signer.encrypt(user, testPlaintext, 'nip44');
-        const decrypted = await signer.decrypt(user, encrypted, 'nip44');
-        if (decrypted !== testPlaintext) {
-          console.error('[RestoreService] NIP-44 smoke test FAILED: round-trip mismatch');
-          return { found: false, error: 'Encryption self-test failed. Your key may be corrupted.' };
-        }
-        console.log('[RestoreService] NIP-44 smoke test passed');
-      } catch (smokeErr) {
-        console.error('[RestoreService] NIP-44 smoke test threw:', smokeErr);
-        return {
-          found: false,
-          error: `Encryption self-test failed: ${smokeErr instanceof Error ? smokeErr.message : smokeErr}`,
-        };
-      }
-
+      // The decrypt loop below already surfaces per-event errors naturally, so
+      // we do not need a smoke-test encrypt/decrypt round-trip. The former
+      // smoke test made two synchronous Amber intent round-trips on Android
+      // which produced user prompts before any real work and frequently
+      // failed under Amber's stateless NIP-44 semantics — breaking workout
+      // import for all Amber users.
       console.log('[RestoreService] Searching for backup...');
       const ndk = await GlobalNDKService.getInstance();
 

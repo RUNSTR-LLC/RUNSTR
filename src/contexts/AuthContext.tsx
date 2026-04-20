@@ -760,7 +760,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         );
 
         const { supabase, isSupabaseConfigured } = await import('../utils/supabase');
-        const { Platform } = await import('react-native');
         if (!isSupabaseConfigured() || !supabase) return;
 
         // Use UPSERT instead of UPDATE to guarantee the row exists with token_key.
