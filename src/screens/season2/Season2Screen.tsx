@@ -17,10 +17,9 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
-  RefreshControl,
   TouchableOpacity,
 } from 'react-native';
+import { OstrichRefreshScrollView } from '../../components/ui/OstrichRefreshScrollView';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -207,17 +206,12 @@ export const Season2Screen: React.FC<Season2ScreenProps> = ({ navigation: propNa
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView
+      <OstrichRefreshScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            tintColor={theme.colors.orangeBright}
-          />
-        }
+        refreshing={isRefreshing}
+        onRefresh={handleRefresh}
       >
         {/* Info Card */}
         <Season2InfoCard onPress={() => setShowExplainer(true)} />
@@ -263,7 +257,7 @@ export const Season2Screen: React.FC<Season2ScreenProps> = ({ navigation: propNa
         ) : (
           <Season2SignupSection />
         )}
-      </ScrollView>
+      </OstrichRefreshScrollView>
 
       {/* Explainer Modal */}
       <Season2ExplainerModal

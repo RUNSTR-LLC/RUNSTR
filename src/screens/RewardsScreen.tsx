@@ -8,10 +8,9 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
-  RefreshControl,
 } from 'react-native';
+import { OstrichRefreshScrollView } from '../components/ui/OstrichRefreshScrollView';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRoute, useNavigation } from '@react-navigation/native';
@@ -321,17 +320,12 @@ const RewardsScreenComponent: React.FC = () => {
         <View style={{ flex: 1 }} />
         <View style={styles.headerSpacer} />
       </View>
-      <ScrollView
+      <OstrichRefreshScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            tintColor={theme.colors.accent}
-          />
-        }
+        refreshing={isRefreshing}
+        onRefresh={handleRefresh}
       >
         {/* Reward Destination - Where workout rewards go */}
         <RewardDestinationSection
@@ -352,7 +346,7 @@ const RewardsScreenComponent: React.FC = () => {
         {/* Sponsor credit line */}
         <SponsorBanner />
 
-      </ScrollView>
+      </OstrichRefreshScrollView>
 
       {/* Modals */}
       <CustomAlert

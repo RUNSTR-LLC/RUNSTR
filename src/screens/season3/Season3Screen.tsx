@@ -8,11 +8,10 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   StyleSheet,
-  RefreshControl,
   TouchableOpacity,
 } from 'react-native';
+import { OstrichRefreshScrollView } from '../../components/ui/OstrichRefreshScrollView';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -80,17 +79,12 @@ export const Season3Screen: React.FC = () => {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView
+      <OstrichRefreshScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            tintColor={theme.colors.accent}
-          />
-        }
+        refreshing={isRefreshing}
+        onRefresh={handleRefresh}
       >
         {/* How It Works — collapsible */}
         <TouchableOpacity
@@ -222,7 +216,7 @@ export const Season3Screen: React.FC = () => {
             </View>
           </>
         )}
-      </ScrollView>
+      </OstrichRefreshScrollView>
     </SafeAreaView>
   );
 };

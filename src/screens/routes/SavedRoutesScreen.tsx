@@ -9,11 +9,10 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
-  RefreshControl,
   Alert,
 } from 'react-native';
+import { OstrichRefreshFlatList } from '../../components/ui/OstrichRefreshScrollView';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -357,20 +356,15 @@ export const SavedRoutesScreen: React.FC = () => {
         <View style={styles.headerSpacer} />
       </View>
 
-      <FlatList
+      <OstrichRefreshFlatList
         data={filteredRoutes}
         renderItem={renderRouteCard}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={renderHeader()}
         ListEmptyComponent={renderEmptyState()}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            tintColor={theme.colors.text}
-          />
-        }
+        refreshing={isRefreshing}
+        onRefresh={handleRefresh}
       />
     </SafeAreaView>
   );

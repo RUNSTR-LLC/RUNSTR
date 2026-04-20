@@ -9,14 +9,13 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   StyleSheet,
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  RefreshControl,
   Linking,
 } from 'react-native';
+import { OstrichRefreshScrollView } from '../../components/ui/OstrichRefreshScrollView';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -252,15 +251,10 @@ export const EinundzwanzigDetailScreen: React.FC<EinundzwanzigDetailScreenProps>
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView
+      <OstrichRefreshScrollView
         style={styles.scrollView}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            tintColor={theme.colors.accent}
-          />
-        }
+        refreshing={isRefreshing}
+        onRefresh={handleRefresh}
       >
         {/* Banner Image */}
         <Image
@@ -446,7 +440,7 @@ export const EinundzwanzigDetailScreen: React.FC<EinundzwanzigDetailScreenProps>
             Select one of the featured teams above to support them with your kilometers.
           </Text>
         </View>
-      </ScrollView>
+      </OstrichRefreshScrollView>
 
       {/* External Zap Modal */}
       {zapRecipient && (
