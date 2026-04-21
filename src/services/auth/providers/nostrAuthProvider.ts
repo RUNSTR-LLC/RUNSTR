@@ -420,10 +420,8 @@ export class NostrAuthProvider {
           name: 'Anonymous Athlete',
           display_name: 'Anonymous Athlete',
           about: 'Welcome to RUNSTR! Tap to edit your profile.',
-          picture:
-            'https://blossom.primal.net/3c33216e58dcfa8f24803302b642eb4ccb069d63002b62d2cc18fdcb6981f1d4.png',
-          banner:
-            'https://blossom.primal.net/4517738732ccb674e856c000a5f77975fb7770038ce9719815189aca9fb3642b.jpg',
+          picture: '',
+          banner: '',
         };
 
         const result = await publisher.publishProfileUpdate(defaultProfile);
@@ -464,10 +462,8 @@ export class NostrAuthProvider {
         // Nostr profile fields - default values for new user
         bio: 'Welcome to RUNSTR! Tap to edit your profile.',
         website: '',
-        picture:
-          'https://blossom.primal.net/3c33216e58dcfa8f24803302b642eb4ccb069d63002b62d2cc18fdcb6981f1d4.png',
-        banner:
-          'https://blossom.primal.net/4517738732ccb674e856c000a5f77975fb7770038ce9719815189aca9fb3642b.jpg',
+        picture: '',
+        banner: '',
         lud16: '',
         displayName: displayName,
       };

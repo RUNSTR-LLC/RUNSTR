@@ -3,7 +3,7 @@
  * Used on the unified profile page for both self and other-user views.
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../../styles/theme';
 import { User } from '../../types';
@@ -60,6 +61,11 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
 }) => {
   const { t } = useTranslation('profile');
   const isLoadingProfile = isLoading || !user;
+  const [bannerErrored, setBannerErrored] = useState(false);
+
+  useEffect(() => {
+    setBannerErrored(false);
+  }, [user?.banner]);
 
   // --- Loading skeleton ---
   if (isLoadingProfile) {
@@ -98,16 +104,25 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
     <View style={styles.container}>
       {/* Banner */}
       <View style={styles.bannerWrapper}>
-        {bannerUri ? (
-          <Image
-            source={{ uri: bannerUri }}
-            style={styles.bannerImage}
-            resizeMode="cover"
-          />
+        {bannerUri && !bannerErrored ? (
+          <>
+            <Image
+              source={{ uri: bannerUri }}
+              style={styles.bannerImage}
+              resizeMode="cover"
+              onError={() => setBannerErrored(true)}
+            />
+            <View style={styles.bannerOverlay} />
+          </>
         ) : (
-          <View style={styles.bannerPlaceholder} />
+          <LinearGradient
+            colors={['rgba(255, 123, 28, 0.35)', 'rgba(255, 123, 28, 0.08)', '#1a1a1a']}
+            locations={[0, 0.55, 1]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.bannerPlaceholder}
+          />
         )}
-        <View style={styles.bannerOverlay} />
 
         {/* Top-bar actions sit on the banner */}
         {isOwner && onSettingsPress && (

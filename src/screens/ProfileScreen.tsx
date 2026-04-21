@@ -358,49 +358,56 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
         </View>
       )}
 
-      {/* Owner view — same container structure whether workout is active or not,
-          so the tracker component below keeps a stable position in the tree and
-          React does not unmount it when isWorkoutActive flips. Swapping between
-          two parallel branches here used to remount the tracker and kill the
-          workout within ~500ms of start. */}
+      {/* Owner view — same container + scroll wrapper whether workout is active
+          or not, so the tracker component below keeps a stable position in the
+          tree and React does not unmount it when isWorkoutActive flips.
+          scrollEnabled toggles pull-to-refresh off during a workout. */}
       {isOwner ? (
         <View style={isWorkoutActive ? styles.fullScreenTracker : styles.ownerContent}>
-          {!isWorkoutActive && (
-            <View style={styles.sectionGap}>
-              <ProfileHero user={data.user} isOwner={true}
-                isLoading={isLoadingSections}
-                level={levelData?.level ?? 0}
-                streak={currentStreak}
-                earnings={totalEarnings}
-                onEditPress={handleEditPress}
-                onSettingsPress={undefined}
-                onLevelPress={() => {
-                  const parent = navigation.getParent();
-                  (parent || navigation).navigate('LevelDetail' as any);
-                }}
-                onEarningsPress={() => navigate('Rewards')} />
-            </View>
-          )}
+          <OstrichRefreshScrollView
+            style={styles.ownerScroll}
+            contentContainerStyle={styles.ownerScrollContent}
+            refreshing={!isWorkoutActive && isRefreshing}
+            onRefresh={handleRefresh}
+            scrollEnabled={!isWorkoutActive}
+          >
+            {!isWorkoutActive && (
+              <View style={styles.sectionGap}>
+                <ProfileHero user={data.user} isOwner={true}
+                  isLoading={isLoadingSections}
+                  level={levelData?.level ?? 0}
+                  streak={currentStreak}
+                  earnings={totalEarnings}
+                  onEditPress={handleEditPress}
+                  onSettingsPress={undefined}
+                  onLevelPress={() => {
+                    const parent = navigation.getParent();
+                    (parent || navigation).navigate('LevelDetail' as any);
+                  }}
+                  onEarningsPress={() => navigate('Rewards')} />
+              </View>
+            )}
 
-          {!isWorkoutActive && (
-            <View style={styles.sectionGap}>
-              <NotificationBadge onPress={() => setShowNotificationModal(true)} />
-            </View>
-          )}
+            {!isWorkoutActive && (
+              <View style={styles.sectionGap}>
+                <NotificationBadge onPress={() => setShowNotificationModal(true)} />
+              </View>
+            )}
 
-          {!isWorkoutActive && (
-            <View style={styles.sectionGap}>
-              <ActivityCategoryBar
-                gridPosition={gridPosition}
-                onActivitySelect={handleActivitySelect}
-                isWorkoutActive={false}
-              />
-            </View>
-          )}
+            {!isWorkoutActive && (
+              <View style={styles.sectionGap}>
+                <ActivityCategoryBar
+                  gridPosition={gridPosition}
+                  onActivitySelect={handleActivitySelect}
+                  isWorkoutActive={false}
+                />
+              </View>
+            )}
 
-          <View style={styles.trackerContainer}>
-            {renderTracker()}
-          </View>
+            <View style={styles.trackerContainer}>
+              {renderTracker()}
+            </View>
+          </OstrichRefreshScrollView>
         </View>
       ) : (
         <OstrichRefreshScrollView
@@ -470,6 +477,8 @@ const styles = StyleSheet.create({
   content: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: 16, paddingBottom: 32 },
   ownerContent: { flex: 1, paddingHorizontal: 16, paddingBottom: 16 },
+  ownerScroll: { flex: 1 },
+  ownerScrollContent: { flexGrow: 1 },
   sectionGap: { marginBottom: 12 },
   trackerContainer: {
     flex: 1,

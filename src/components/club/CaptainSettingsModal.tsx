@@ -8,13 +8,14 @@ import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Modal, SafeAreaView,
   ScrollView, TextInput, ActivityIndicator, KeyboardAvoidingView,
-  Platform, Alert,
+  Platform, Alert, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { CustomAlert } from '../ui/CustomAlert';
 import { ClubService } from '../../services/backend/ClubService';
 import { ClubMembershipService } from '../../services/backend/ClubMembershipService';
+import { pickAndUploadClubBanner } from '../../services/club/ClubBannerStorageService';
 import { nostrProfileService } from '../../services/nostr/NostrProfileService';
 import type { NostrProfile } from '../../services/nostr/NostrProfileService';
 import { Avatar } from '../ui/Avatar';
@@ -41,6 +42,7 @@ export const CaptainSettingsModal: React.FC<CaptainSettingsModalProps> = ({
   const [bannerUrl, setBannerUrl] = useState(club.banner_url || '');
   const [leaderboardMetric, setLeaderboardMetric] = useState<'distance' | 'steps'>(club.leaderboard_metric || 'distance');
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
   const [members, setMembers] = useState<ClubMembership[]>([]);
   const [profiles, setProfiles] = useState<Map<string, NostrProfile>>(new Map());
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
@@ -84,6 +86,26 @@ export const CaptainSettingsModal: React.FC<CaptainSettingsModalProps> = ({
     setAlertMessage(message);
     setAlertVisible(true);
   };
+
+  const handlePickBanner = useCallback(async () => {
+    if (isUploadingBanner) return;
+    setIsUploadingBanner(true);
+    try {
+      const result = await pickAndUploadClubBanner(club.id);
+      if (result.cancelled) return;
+      if (!result.success || !result.url) {
+        showAlert('Upload Failed', result.error || 'Could not upload banner.');
+        return;
+      }
+      setBannerUrl(result.url);
+    } finally {
+      setIsUploadingBanner(false);
+    }
+  }, [club.id, isUploadingBanner]);
+
+  const handleRemoveBanner = useCallback(() => {
+    setBannerUrl('');
+  }, []);
 
   const handleSaveDetails = useCallback(async () => {
     if (isSaving) return;
@@ -233,13 +255,55 @@ export const CaptainSettingsModal: React.FC<CaptainSettingsModalProps> = ({
             </View>
 
             <View style={s.formGroup}>
-              <Text style={s.label}>Banner Image URL</Text>
-              <TextInput
-                style={s.textInput} value={bannerUrl} onChangeText={setBannerUrl}
-                placeholder="https://example.com/banner.jpg" placeholderTextColor={theme.colors.textMuted}
-                keyboardType="url" autoCapitalize="none" autoCorrect={false}
-              />
-              <Text style={s.helper}>Displayed at the top of your club page</Text>
+              <Text style={s.label}>Banner Image</Text>
+              {bannerUrl ? (
+                <View style={s.bannerPreview}>
+                  <Image source={{ uri: bannerUrl }} style={s.bannerPreviewImage} />
+                  <View style={s.bannerPreviewActions}>
+                    <TouchableOpacity
+                      style={[s.bannerActionBtn, isUploadingBanner && s.disabled]}
+                      onPress={handlePickBanner}
+                      disabled={isUploadingBanner}
+                      activeOpacity={0.7}
+                    >
+                      {isUploadingBanner ? (
+                        <ActivityIndicator size="small" color={theme.colors.text} />
+                      ) : (
+                        <>
+                          <Ionicons name="image-outline" size={16} color={theme.colors.text} />
+                          <Text style={s.bannerActionText}>Replace</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={s.bannerActionBtn}
+                      onPress={handleRemoveBanner}
+                      disabled={isUploadingBanner}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="trash-outline" size={16} color={theme.colors.error} />
+                      <Text style={[s.bannerActionText, { color: theme.colors.error }]}>Remove</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[s.bannerUploadButton, isUploadingBanner && s.disabled]}
+                  onPress={handlePickBanner}
+                  disabled={isUploadingBanner}
+                  activeOpacity={0.7}
+                >
+                  {isUploadingBanner ? (
+                    <ActivityIndicator color={theme.colors.textMuted} />
+                  ) : (
+                    <>
+                      <Ionicons name="cloud-upload-outline" size={22} color={theme.colors.textMuted} />
+                      <Text style={s.bannerUploadText}>Upload banner image</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+              <Text style={s.helper}>Displayed at the top of your club page. Max 5 MB.</Text>
             </View>
 
             <View style={s.formGroup}>
@@ -393,6 +457,31 @@ const s = StyleSheet.create({
   removeBtn: {
     width: 32, height: 32, borderRadius: 16, borderWidth: 1,
     borderColor: theme.colors.error, alignItems: 'center', justifyContent: 'center',
+  },
+  bannerPreview: {
+    borderRadius: 8, borderWidth: 1, borderColor: theme.colors.border,
+    overflow: 'hidden', backgroundColor: theme.colors.card,
+  },
+  bannerPreviewImage: {
+    width: '100%', aspectRatio: 16 / 9, resizeMode: 'cover',
+  },
+  bannerPreviewActions: {
+    flexDirection: 'row', borderTopWidth: 1, borderTopColor: theme.colors.border,
+  },
+  bannerActionBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 10,
+  },
+  bannerActionText: {
+    fontSize: 13, fontWeight: theme.typography.weights.medium, color: theme.colors.text,
+  },
+  bannerUploadButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: theme.colors.card, borderRadius: 8, paddingVertical: 22,
+    borderWidth: 1, borderColor: theme.colors.border, borderStyle: 'dashed',
+  },
+  bannerUploadText: {
+    fontSize: 14, fontWeight: theme.typography.weights.medium, color: theme.colors.textMuted,
   },
   toggleRow: { flexDirection: 'row', gap: 8 },
   toggleOption: {
