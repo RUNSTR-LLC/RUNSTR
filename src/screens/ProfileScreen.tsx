@@ -264,11 +264,17 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
     setIsRefreshing(true);
     try {
       const { GlobalNDKService: NDK } = require('../services/nostr/GlobalNDKService');
-      await NDK.reconnect().catch(() => {});
       const { DirectNostrProfileService: DPS } = require('../services/user/directNostrProfileService');
-      await DPS.getCurrentUserProfile(true).catch(() => {});
-      await onRefresh?.();
-      if (targetNpub) await loadProfileSections(targetNpub);
+
+      // Kick off NDK reconnect, then fan out all independent fetches in
+      // parallel. NDK internally queues subscriptions if connection isn't
+      // ready yet, so the profile + section fetches won't miss events.
+      await NDK.reconnect().catch(() => {});
+      await Promise.all([
+        DPS.getCurrentUserProfile(true).catch(() => {}),
+        onRefresh?.() ?? Promise.resolve(),
+        targetNpub ? loadProfileSections(targetNpub) : Promise.resolve(),
+      ]);
       NostrFetchLogger.end('ProfileScreen.pullToRefresh', 1, 'success');
     } catch (error) {
       NostrFetchLogger.error('ProfileScreen.pullToRefresh', error as Error);
