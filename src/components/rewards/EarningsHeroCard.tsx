@@ -15,7 +15,6 @@ import {
   Text,
   Image,
   StyleSheet,
-  ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +22,7 @@ import { useTranslation } from 'react-i18next';
 import Toast from 'react-native-toast-message';
 import { theme } from '../../styles/theme';
 import { AnimatedNumber } from '../ui/AnimatedNumber';
+import { Skeleton } from '../ui/LoadingStates';
 import { SupabaseRewardService, DestinationEarning } from '../../services/rewards/SupabaseRewardService';
 
 interface EarningsHeroCardProps {
@@ -75,8 +75,19 @@ export const EarningsHeroCard: React.FC<EarningsHeroCardProps> = ({ pubkey }) =>
   if (isLoading && destinations.length === 0) {
     return (
       <View style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.accent} />
+        <Skeleton width={120} height={12} style={{ marginBottom: 16 }} />
+        <View style={styles.heroSection}>
+          <Skeleton width={180} height={42} borderRadius={6} style={{ marginBottom: 8 }} />
+          <Skeleton width={90} height={14} />
+        </View>
+        <View style={styles.destinationList}>
+          {[0, 1, 2].map((i) => (
+            <View key={i} style={styles.destinationRow}>
+              <Skeleton width={32} height={32} borderRadius={16} />
+              <Skeleton width={120} height={14} style={{ flex: 1 }} />
+              <Skeleton width={70} height={14} />
+            </View>
+          ))}
         </View>
       </View>
     );
