@@ -42,6 +42,7 @@ import { WoTService } from '../../../services/wot/WoTService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatsCard } from '../StatsCard';
 import { WorkoutActionSheet, type WorkoutAction } from '../shared/WorkoutActionSheet';
+import { PressableScale } from '../../ui/PressableScale';
 
 interface UnifiedWorkoutsTabProps {
   userId: string;
@@ -487,7 +488,7 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
           <EnhancedWorkoutCard workout={workout} hideActions={true} />
           <View style={styles.workoutActions}>
             {isWoTEligible && (
-              <TouchableOpacity
+              <PressableScale
                 style={[styles.actionButton, styles.postButton]}
                 onPress={() => {
                   if (isLocal && localWorkout) handlePostToSocial(localWorkout);
@@ -503,10 +504,10 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
                     <Text style={styles.postButtonText}>Post</Text>
                   </>
                 )}
-              </TouchableOpacity>
+              </PressableScale>
             )}
             {isLocal && localWorkout?.supabaseSubmitted === false && (
-              <TouchableOpacity
+              <PressableScale
                 style={[styles.actionButton, styles.competeButton]}
                 onPress={() => handleRetryCompete(workout.id)}
                 disabled={isPosting && postingType === 'nostr'}
@@ -519,15 +520,15 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
                     <Text style={styles.competeButtonText}>Compete</Text>
                   </>
                 )}
-              </TouchableOpacity>
+              </PressableScale>
             )}
             {canDelete && (
-              <TouchableOpacity
+              <PressableScale
                 style={[styles.actionButton, styles.deleteButton]}
                 onPress={() => handleDeleteWorkout(workout.id)}
               >
                 <Ionicons name="trash-outline" size={16} color={theme.colors.accent} />
-              </TouchableOpacity>
+              </PressableScale>
             )}
           </View>
         </Pressable>

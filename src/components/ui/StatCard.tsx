@@ -10,10 +10,10 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   ViewStyle,
 } from 'react-native';
 import { theme } from '../../styles/theme';
+import { PressableScale } from './PressableScale';
 
 interface StatCardProps {
   number: number | string;
@@ -97,15 +97,14 @@ export const StatCard: React.FC<StatCardProps> = ({
 
   if (onPress) {
     return (
-      <TouchableOpacity
+      <PressableScale
         style={[cardStyle, style]}
         onPress={onPress}
-        activeOpacity={0.7}
         accessibilityRole="button"
         accessibilityLabel={`${label}: ${number}`}
       >
         {renderContent()}
-      </TouchableOpacity>
+      </PressableScale>
     );
   }
 

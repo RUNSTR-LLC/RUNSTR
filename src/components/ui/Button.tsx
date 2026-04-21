@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  TouchableOpacity,
   Text,
   ViewStyle,
   TextStyle,
@@ -8,6 +7,7 @@ import {
   View,
 } from 'react-native';
 import { theme } from '../../styles/theme';
+import { PressableScale } from './PressableScale';
 
 interface ButtonProps {
   title?: string;
@@ -54,18 +54,17 @@ export const Button: React.FC<ButtonProps> = ({
   const textStyleDefault = getTextStyle();
 
   return (
-    <TouchableOpacity
+    <PressableScale
       style={[buttonStyle, style, disabled && styles.disabled]}
       onPress={onPress}
       disabled={disabled}
-      activeOpacity={0.7}
     >
       {variant === 'add' && children ? (
         children
       ) : (
         <Text style={[textStyleDefault, textStyle]}>{title}</Text>
       )}
-    </TouchableOpacity>
+    </PressableScale>
   );
 };
 
