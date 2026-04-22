@@ -1069,7 +1069,7 @@ export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
           title: 'Steps Entered!',
           message: `${dailySteps.toLocaleString()} steps have been submitted to the competition.${
             result.rewardEarned
-              ? ` You earned ${result.rewardAmount} sats!`
+              ? ` You earned ${result.rewardAmount} rewards!`
               : ''
           }`,
           buttons: [{ text: 'OK', style: 'default' }],

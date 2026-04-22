@@ -262,12 +262,12 @@ export const EventPaymentModal: React.FC<EventPaymentModalProps> = ({
                 color="#000000"
               />
             </View>
-            <Text style={styles.qrLabel}>Scan with any Lightning wallet</Text>
+            <Text style={styles.qrLabel}>Scan with any wallet</Text>
           </View>
 
           {/* Invoice */}
           <View style={styles.invoiceSection}>
-            <Text style={styles.invoiceLabel}>Lightning Invoice</Text>
+            <Text style={styles.invoiceLabel}>Payment Invoice</Text>
             <TouchableOpacity
               onPress={handleCopyInvoice}
               style={styles.invoiceContainer}
@@ -309,7 +309,7 @@ export const EventPaymentModal: React.FC<EventPaymentModalProps> = ({
                 <Text style={styles.stepNumberText}>2</Text>
               </View>
               <Text style={styles.stepText}>
-                Pay from Cash App, Strike, Alby, or any Lightning wallet
+                Pay from Cash App, Strike, Alby, or any wallet
               </Text>
             </View>
             <View style={styles.step}>

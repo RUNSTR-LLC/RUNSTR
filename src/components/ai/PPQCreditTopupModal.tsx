@@ -330,7 +330,7 @@ export const PPQCreditTopupModal: React.FC<PPQCreditTopupModalProps> = ({
             <View style={styles.setupPrompt}>
               <Ionicons name="sparkles" size={48} color={theme.colors.accent} />
               <Text style={styles.setupPromptText}>
-                Create a PPQ.AI account to earn AI credits for Coach RUNSTR instead of sats.
+                Create a PPQ.AI account to earn AI credits for Coach RUNSTR instead of rewards.
               </Text>
             </View>
 
@@ -420,7 +420,7 @@ export const PPQCreditTopupModal: React.FC<PPQCreditTopupModalProps> = ({
                 </Text>
               )}
               {showInvoice && (
-                <Text style={styles.topupAmount}>{effectiveAmount} sats</Text>
+                <Text style={styles.topupAmount}>{effectiveAmount} rewards</Text>
               )}
             </View>
 
@@ -454,7 +454,7 @@ export const PPQCreditTopupModal: React.FC<PPQCreditTopupModalProps> = ({
                           selectedAmount === amount && !isCustom && styles.presetButtonTextSelected,
                         ]}
                       >
-                        sats
+                        rewards
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -475,7 +475,7 @@ export const PPQCreditTopupModal: React.FC<PPQCreditTopupModalProps> = ({
                       value={customAmount}
                       onChangeText={handleCustomAmountChange}
                     />
-                    <Text style={styles.satsLabel}>sats</Text>
+                    <Text style={styles.satsLabel}>rewards</Text>
                   </View>
                 </View>
 
@@ -497,7 +497,7 @@ export const PPQCreditTopupModal: React.FC<PPQCreditTopupModalProps> = ({
                   disabled={effectiveAmount <= 0}
                 >
                   <Text style={styles.proceedButtonText}>
-                    Continue with {effectiveAmount > 0 ? effectiveAmount.toLocaleString() : '0'} sats
+                    Continue with {effectiveAmount > 0 ? effectiveAmount.toLocaleString() : '0'} rewards
                   </Text>
                   <Ionicons name="arrow-forward" size={20} color={theme.colors.background} />
                 </TouchableOpacity>

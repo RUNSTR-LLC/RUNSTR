@@ -77,7 +77,7 @@ export const EventRewardsModal: React.FC<EventRewardsModalProps> = ({
               <Text style={styles.sectionTitle}>Prize Pool</Text>
               <View style={styles.prizePoolCard}>
                 <Text style={styles.prizePoolAmount}>
-                  {prizePoolSats.toLocaleString()} sats
+                  {prizePoolSats.toLocaleString()} rewards
                 </Text>
                 <Text style={styles.prizePoolLabel}>Total Prize Pool</Text>
               </View>
@@ -93,7 +93,7 @@ export const EventRewardsModal: React.FC<EventRewardsModalProps> = ({
                   </View>
                   <View style={styles.distributionDetails}>
                     <Text style={styles.distributionAmount}>
-                      {firstPlace.toLocaleString()} sats
+                      {firstPlace.toLocaleString()} rewards
                     </Text>
                     <Text style={styles.distributionPercent}>50%</Text>
                   </View>
@@ -105,7 +105,7 @@ export const EventRewardsModal: React.FC<EventRewardsModalProps> = ({
                   </View>
                   <View style={styles.distributionDetails}>
                     <Text style={styles.distributionAmount}>
-                      {secondPlace.toLocaleString()} sats
+                      {secondPlace.toLocaleString()} rewards
                     </Text>
                     <Text style={styles.distributionPercent}>30%</Text>
                   </View>
@@ -117,7 +117,7 @@ export const EventRewardsModal: React.FC<EventRewardsModalProps> = ({
                   </View>
                   <View style={styles.distributionDetails}>
                     <Text style={styles.distributionAmount}>
-                      {thirdPlace.toLocaleString()} sats
+                      {thirdPlace.toLocaleString()} rewards
                     </Text>
                     <Text style={styles.distributionPercent}>20%</Text>
                   </View>
@@ -135,7 +135,7 @@ export const EventRewardsModal: React.FC<EventRewardsModalProps> = ({
                       Fee per participant:
                     </Text>
                     <Text style={styles.entryFeeValue}>
-                      {entryFeesSats.toLocaleString()} sats
+                      {entryFeesSats.toLocaleString()} rewards
                     </Text>
                   </View>
 
@@ -153,7 +153,7 @@ export const EventRewardsModal: React.FC<EventRewardsModalProps> = ({
                           Total collected:
                         </Text>
                         <Text style={styles.entryFeeTotalValue}>
-                          {totalEntryFees.toLocaleString()} sats
+                          {totalEntryFees.toLocaleString()} rewards
                         </Text>
                       </View>
                     </>
@@ -183,7 +183,7 @@ export const EventRewardsModal: React.FC<EventRewardsModalProps> = ({
                   {hasParticipants
                     ? totalPot.toLocaleString()
                     : prizePoolSats.toLocaleString()}{' '}
-                  sats
+                  rewards
                 </Text>
                 <Text style={styles.totalPotBreakdown}>
                   {hasParticipants
