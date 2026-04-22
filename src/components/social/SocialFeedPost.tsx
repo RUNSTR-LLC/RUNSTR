@@ -29,6 +29,15 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, userNpub }
     matchedWorkout && matchedWorkout !== 'loading' ? matchedWorkout : null;
   const isLookingUpWorkout = matchedWorkout === 'loading';
 
+  // Workout posts that failed to match a Supabase workout still render the
+  // full-bleed PNG. Clamp its aspect ratio so the 9:16 composition doesn't
+  // eat the viewport. Non-workout photo posts keep their natural aspect.
+  const isWorkoutHashtagPost =
+    post.hashtags?.some((h) => h.toLowerCase() === 'runstr') ?? false;
+  const imageAspectForRender = isWorkoutHashtagPost
+    ? Math.max(imageAspect, 1)
+    : imageAspect;
+
   // Sanitize content: strip control chars and image URLs (images render separately)
   const sanitized = post.content
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
@@ -64,7 +73,7 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, userNpub }
       ) : showImage ? (
         <Image
           source={{ uri: firstImage }}
-          style={[styles.image, { aspectRatio: imageAspect }]}
+          style={[styles.image, { aspectRatio: imageAspectForRender }]}
           resizeMode="cover"
           onLoad={(e) => {
             const { width, height } = e.nativeEvent.source;

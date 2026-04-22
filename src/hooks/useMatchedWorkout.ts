@@ -36,7 +36,10 @@ const WORKOUT_HASHTAGS = new Set([
   'gym',
 ]);
 
-const TIME_WINDOW_SECONDS = 300; // ±5 minutes around the post timestamp
+// ±60 minutes around the post timestamp. Users often share a workout a
+// while after finishing it (review the summary, tweak the caption, share).
+// At ±5min we caught 30% of recent posts; at ±60min we catch ~90%.
+const TIME_WINDOW_SECONDS = 3600;
 
 // In-memory cache shared across mounts so scrolling a post in and out of
 // the viewport doesn't re-query Supabase every time.
