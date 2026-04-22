@@ -6,6 +6,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { theme } from '../../styles/theme';
 import { AnimatedNumber } from '../ui/AnimatedNumber';
+import { Skeleton } from '../ui/LoadingStates';
 import type { ProfileLevelData } from '../../services/backend/ProfileDataService';
 
 interface LevelCardProps {
@@ -14,7 +15,7 @@ interface LevelCardProps {
 }
 
 const SkeletonBar: React.FC<{ width: number; height: number }> = ({ width, height }) => (
-  <View style={{ width, height, borderRadius: height / 2, backgroundColor: theme.colors.border }} />
+  <Skeleton width={width} height={height} borderRadius={height / 2} />
 );
 
 export const LevelCard: React.FC<LevelCardProps> = ({ levelData, isLoading }) => {
