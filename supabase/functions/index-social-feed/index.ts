@@ -26,7 +26,6 @@ const RELAYS = [
   'wss://nos.lol',
   'wss://relay.snort.social',
   'wss://nostr.wine',
-  'wss://e.nos.lol',
 ]
 
 // Fitness hashtags to watch for
