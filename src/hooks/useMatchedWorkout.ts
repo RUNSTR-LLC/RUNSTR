@@ -79,12 +79,11 @@ export function useMatchedWorkout(post: SocialFeedPost): MatchedWorkoutResult {
 
         const { data, error } = await supabase
           .from('workout_submissions')
-          .select('activity_type, distance_meters, duration_seconds, calories, step_count')
+          .select('activity_type, distance_meters, duration_seconds, calories, step_count, created_at')
           .eq('npub', post.npub)
           .gte('created_at', fromIso)
           .lte('created_at', toIso)
-          .order('created_at', { ascending: false })
-          .limit(1);
+          .limit(10);
 
         if (cancelled) return;
 
@@ -94,7 +93,20 @@ export function useMatchedWorkout(post: SocialFeedPost): MatchedWorkoutResult {
           return;
         }
 
-        const workout = data && data.length > 0 ? (data[0] as WorkoutCardData) : null;
+        // Pick the workout whose created_at is closest to the post time.
+        // A user may share an older workout while a newer one also sits in
+        // the ±60min window — newest-wins would mismatch. Closest-wins
+        // handles both "share right after finishing" and "share a bit later."
+        let workout: WorkoutCardData | null = null;
+        if (data && data.length > 0) {
+          const closest = data.reduce((best: any, row: any) => {
+            const rowDelta = Math.abs(new Date(row.created_at).getTime() - postTime);
+            const bestDelta = Math.abs(new Date(best.created_at).getTime() - postTime);
+            return rowDelta < bestDelta ? row : best;
+          });
+          const { created_at: _unused, ...cardData } = closest;
+          workout = cardData as WorkoutCardData;
+        }
         cache.set(post.id, workout);
         setState(workout);
       } catch {
