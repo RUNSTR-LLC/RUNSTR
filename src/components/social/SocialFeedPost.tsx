@@ -7,8 +7,8 @@ import { Avatar } from '../ui/Avatar';
 import { timeAgo } from '../../types/social';
 import type { SocialFeedPost as SocialFeedPostType } from '../../types/social';
 import { SocialInteractionRow } from './SocialInteractionRow';
-
-const MAX_IMAGE_HEIGHT = 300;
+import { WorkoutPostCard } from './WorkoutPostCard';
+import { useMatchedWorkout } from '../../hooks/useMatchedWorkout';
 
 interface SocialFeedPostProps {
   post: SocialFeedPostType;
@@ -21,6 +21,13 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, userNpub }
 
   const firstImage = post.images && post.images.length > 0 ? post.images[0] : null;
   const showImage = firstImage && !imageError && firstImage.startsWith('https://');
+
+  // If this is a workout post, the workout PNG is redundant in-feed — swap
+  // it for a compact native card driven by Supabase workout_submissions.
+  const matchedWorkout = useMatchedWorkout(post);
+  const workoutForCard =
+    matchedWorkout && matchedWorkout !== 'loading' ? matchedWorkout : null;
+  const isLookingUpWorkout = matchedWorkout === 'loading';
 
   // Sanitize content: strip control chars and image URLs (images render separately)
   const sanitized = post.content
@@ -50,7 +57,11 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, userNpub }
 
       <Text style={styles.content}>{displayContent}</Text>
 
-      {showImage && (
+      {workoutForCard ? (
+        <WorkoutPostCard workout={workoutForCard} />
+      ) : isLookingUpWorkout ? (
+        <View style={styles.workoutSkeleton} />
+      ) : showImage ? (
         <Image
           source={{ uri: firstImage }}
           style={[styles.image, { aspectRatio: imageAspect }]}
@@ -63,7 +74,7 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, userNpub }
           }}
           onError={() => setImageError(true)}
         />
-      )}
+      ) : null}
       <SocialInteractionRow post={post} userNpub={userNpub} />
     </View>
   );
@@ -107,9 +118,17 @@ const styles = StyleSheet.create({
   },
   image: {
     width: '100%',
-    maxHeight: 500,
+    maxHeight: 420,
     borderRadius: 8,
     marginTop: 10,
     backgroundColor: theme.colors.cardBackground,
+  },
+  workoutSkeleton: {
+    height: 200,
+    marginTop: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1a1a1a',
+    backgroundColor: '#0a0a0a',
   },
 });
