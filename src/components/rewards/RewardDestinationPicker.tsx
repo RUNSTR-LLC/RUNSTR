@@ -84,6 +84,15 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
     }
   };
 
+  const resolveDestinationName = useCallback((destinationId: string): string => {
+    const all = [
+      ...getCharitiesByCategory('service'),
+      ...getCharitiesByCategory('charity'),
+      ...getCharitiesByCategory('project'),
+    ];
+    return all.find((d) => d.id === destinationId)?.name ?? 'your destination';
+  }, []);
+
   const handleSelect = useCallback(
     async (destinationId: string) => {
       try {
@@ -95,12 +104,19 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
 
         await AsyncStorage.setItem(SELECTED_TEAM_KEY, destinationId);
         onSelectDestination(destinationId);
+        Toast.show({
+          type: 'success',
+          text1: 'Destination Updated',
+          text2: `Rewards will go to ${resolveDestinationName(destinationId)}`,
+          position: 'top',
+          visibilityTime: 2000,
+        });
       } catch (error) {
         console.error('[RewardDestinationPicker] Failed to save selection:', error);
         Alert.alert('Error', 'Failed to save your selection. Please try again.');
       }
     },
-    [onSelectDestination]
+    [onSelectDestination, resolveDestinationName]
   );
 
   // Handle Lightning address setup success - auto-select Self
@@ -113,6 +129,13 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
           await AsyncStorage.setItem(SELECTED_TEAM_KEY, SELF_TEAM_ID);
           onSelectDestination(SELF_TEAM_ID);
           setPendingSelfSelection(false);
+          Toast.show({
+            type: 'success',
+            text1: 'Destination Updated',
+            text2: 'Rewards will go to your wallet',
+            position: 'top',
+            visibilityTime: 2000,
+          });
           console.log('[RewardDestinationPicker] Self selected after Lightning setup');
         } catch (error) {
           console.error('[RewardDestinationPicker] Failed to save Self selection:', error);
