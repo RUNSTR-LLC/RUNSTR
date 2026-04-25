@@ -1,7 +1,7 @@
 {
   "name": "runstr.project",
   "main": "index.js",
-  "version": "1.9.2",
+  "version": "1.10.0",
   "description": "Bitcoin-powered fitness competition platform",
   "scripts": {
     "start": "expo start",

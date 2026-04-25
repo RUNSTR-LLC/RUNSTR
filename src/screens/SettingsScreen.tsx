@@ -9,12 +9,11 @@ import React from 'react';
 import {
   View,
   SafeAreaView,
-  ScrollView,
   KeyboardAvoidingView,
   TouchableOpacity,
-  RefreshControl,
   Platform,
 } from 'react-native';
+import { OstrichRefreshScrollView } from '../components/ui/OstrichRefreshScrollView';
 import { theme } from '../styles/theme';
 import { CustomAlert } from '../components/ui/CustomAlert';
 import { Ionicons } from '@expo/vector-icons';
@@ -74,19 +73,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-        <ScrollView
+        <OstrichRefreshScrollView
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
-          refreshControl={
-            <RefreshControl
-              refreshing={state.isRefreshing}
-              onRefresh={state.handleRefresh}
-              tintColor={theme.colors.accent}
-              colors={[theme.colors.accent]}
-            />
-          }
+          refreshing={state.isRefreshing}
+          onRefresh={state.handleRefresh}
         >
           <PrivacySection
             privateModeEnabled={state.privateModeEnabled}
@@ -156,7 +149,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             onSignOut={state.handleSignOut}
             onDeleteAccount={state.handleDeleteAccount}
           />
-        </ScrollView>
+        </OstrichRefreshScrollView>
       </KeyboardAvoidingView>
 
       {/* Modals */}

@@ -143,9 +143,9 @@ export const NotificationCard: React.FC<NotificationCardProps> = ({
 
 const styles = StyleSheet.create({
   notificationCard: {
-    backgroundColor: theme.colors.cardBackground, // #0a0a0a
+    backgroundColor: theme.colors.cardBackground,
     borderWidth: 1,
-    borderColor: theme.colors.border, // #1a1a1a
+    borderColor: theme.colors.border,
     borderRadius: 12,
     overflow: 'hidden',
     marginBottom: 12,
@@ -153,11 +153,11 @@ const styles = StyleSheet.create({
 
   notificationNew: {
     borderLeftWidth: 3,
-    borderLeftColor: theme.colors.text, // #fff
+    borderLeftColor: theme.colors.text,
   },
 
   notificationHeader: {
-    backgroundColor: theme.colors.background, // #000
+    backgroundColor: theme.colors.background,
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
   appIcon: {
     width: 20,
     height: 20,
-    backgroundColor: theme.colors.text, // #fff
+    backgroundColor: theme.colors.text,
     borderRadius: 4,
     alignItems: 'center',
     justifyContent: 'center',
@@ -185,18 +185,18 @@ const styles = StyleSheet.create({
   appIconText: {
     fontSize: 10,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.background, // #000
+    color: theme.colors.background,
   },
 
   appName: {
     fontSize: 12,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.textSecondary, // #ccc
+    color: theme.colors.textSecondary,
   },
 
   notificationTime: {
     fontSize: 11,
-    color: theme.colors.textMuted, // #666
+    color: theme.colors.textMuted,
   },
 
   notificationContent: {
@@ -206,14 +206,14 @@ const styles = StyleSheet.create({
   notificationTitle: {
     fontSize: 16,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text, // #fff
+    color: theme.colors.text,
     marginBottom: 4,
     lineHeight: 19.2, // 16 * 1.2
   },
 
   notificationBody: {
     fontSize: 14,
-    color: theme.colors.textTertiary, // #999
+    color: theme.colors.textTertiary,
     lineHeight: 18.2, // 14 * 1.3
     marginBottom: 12,
   },
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: theme.colors.border, // #1a1a1a
+    borderTopColor: theme.colors.border,
   },
 
   // Notification type styles

@@ -73,18 +73,18 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: theme.colors.buttonBorder, // #333
+    backgroundColor: theme.colors.buttonBorder,
   },
 
   dotActive: {
     // Exact CSS: background: #fff;
-    backgroundColor: theme.colors.text, // #fff
+    backgroundColor: theme.colors.text,
   },
 
   label: {
     // Exact CSS: font-size: 10px; color: #666; margin-left: 4px;
     fontSize: 10,
-    color: theme.colors.textMuted, // #666
+    color: theme.colors.textMuted,
     marginLeft: theme.spacing.sm,
   },
 });

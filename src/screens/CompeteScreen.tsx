@@ -12,8 +12,6 @@ import React, { useCallback, useState } from 'react';
 import {
   View,
   StyleSheet,
-  ScrollView,
-  RefreshControl,
   TouchableOpacity,
   Text,
 } from 'react-native';
@@ -23,6 +21,7 @@ import { theme } from '../styles/theme';
 import { EventsContent } from '../components/compete';
 import { SimpleEventCreationModal } from '../components/creation/SimpleEventCreationModal';
 import { SupabaseCompetitionService } from '../services/backend/SupabaseCompetitionService';
+import { OstrichRefreshScrollView } from '../components/ui/OstrichRefreshScrollView';
 
 interface CompeteScreenProps {
   navigation?: any;
@@ -80,17 +79,12 @@ const CompeteScreenComponent: React.FC<CompeteScreenProps> = ({ navigation: prop
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView
+      <OstrichRefreshScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            tintColor={theme.colors.orangeBright}
-          />
-        }
+        refreshing={isRefreshing}
+        onRefresh={handleRefresh}
       >
         <EventsContent
           onEinundzwanzigPress={handleEinundzwanzigPress}
@@ -98,7 +92,7 @@ const CompeteScreenComponent: React.FC<CompeteScreenProps> = ({ navigation: prop
           onLeaderboardPress={handleLeaderboardPress}
           onDynamicEventPress={handleDynamicEventPress}
         />
-      </ScrollView>
+      </OstrichRefreshScrollView>
 
       {/* Event Creation Modal */}
       <SimpleEventCreationModal

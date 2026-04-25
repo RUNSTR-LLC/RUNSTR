@@ -32,7 +32,6 @@ Main application screens for the RUNSTR mobile app's user interface.
 ## Teams
 
 - **SimpleTeamScreen.tsx** - Lightweight team detail screen replacing EnhancedTeamScreen to fix navigation freeze issues.
-- **TeamScreen.tsx** - Team display screen with header, about/prize section, leaderboard, and events cards.
 - **TeamDiscoveryScreen.tsx** - Team discovery modal for new users to pick teams by skill level, prize pools, and activity.
 - **MyTeamsScreen.tsx** - Shows all teams the user has joined with compact team cards.
 - **CaptainDashboardScreen.tsx** - Team captain management dashboard with member management, quick actions, and event/league creation wizards.

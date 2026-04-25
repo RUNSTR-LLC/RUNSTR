@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
   container: {
     marginHorizontal: theme.spacing.xxxl, // 20px
     marginBottom: theme.spacing.xxl, // 16px
-    backgroundColor: theme.colors.cardBackground, // #0a0a0a
+    backgroundColor: theme.colors.cardBackground,
     borderWidth: 1,
     borderColor: theme.colors.orangeDeep, // Orange border
     borderRadius: theme.borderRadius.large, // 12px
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
   // CSS: font-size: 14px; color: #666; font-weight: 500;
   balanceCurrency: {
     fontSize: 14, // Exact from CSS
-    color: theme.colors.textMuted, // #666
+    color: theme.colors.textMuted,
     fontWeight: theme.typography.weights.medium, // 500
   },
 

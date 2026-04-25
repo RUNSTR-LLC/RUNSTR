@@ -10,17 +10,17 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   ViewStyle,
 } from 'react-native';
 import { theme } from '../../styles/theme';
+import { PressableScale } from './PressableScale';
 
 interface StatCardProps {
   number: number | string;
   label: string;
   style?: ViewStyle;
   onPress?: () => void;
-  variant?: 'default' | 'highlighted' | 'minimal';
+  variant?: 'default' | 'minimal';
   isLoading?: boolean;
   suffix?: string; // For units like "sats", "%", etc.
   prefix?: string; // For currency symbols, etc.
@@ -49,8 +49,6 @@ export const StatCard: React.FC<StatCardProps> = ({
 
   const getCardStyle = () => {
     switch (variant) {
-      case 'highlighted':
-        return styles.cardHighlighted;
       case 'minimal':
         return styles.cardMinimal;
       default:
@@ -60,8 +58,6 @@ export const StatCard: React.FC<StatCardProps> = ({
 
   const getNumberStyle = () => {
     switch (variant) {
-      case 'highlighted':
-        return styles.statNumberHighlighted;
       case 'minimal':
         return styles.statNumberMinimal;
       default:
@@ -71,8 +67,6 @@ export const StatCard: React.FC<StatCardProps> = ({
 
   const getLabelStyle = () => {
     switch (variant) {
-      case 'highlighted':
-        return styles.statLabelHighlighted;
       case 'minimal':
         return styles.statLabelMinimal;
       default:
@@ -103,15 +97,14 @@ export const StatCard: React.FC<StatCardProps> = ({
 
   if (onPress) {
     return (
-      <TouchableOpacity
+      <PressableScale
         style={[cardStyle, style]}
         onPress={onPress}
-        activeOpacity={0.7}
         accessibilityRole="button"
         accessibilityLabel={`${label}: ${number}`}
       >
         {renderContent()}
-      </TouchableOpacity>
+      </PressableScale>
     );
   }
 
@@ -148,30 +141,17 @@ export const StatCardGrid: React.FC<StatCardGridProps> = ({
 };
 
 const styles = StyleSheet.create({
-  // Default card style - exact match to mockup
+  // Default card style
   card: {
-    backgroundColor: theme.colors.cardBackground, // #0a0a0a
+    backgroundColor: theme.colors.cardBackground,
     borderWidth: 1,
-    borderColor: theme.colors.border, // #1a1a1a
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.medium,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 60,
-  },
-
-  // Highlighted card variant
-  cardHighlighted: {
-    backgroundColor: theme.colors.text, // #fff
-    borderWidth: 1,
-    borderColor: theme.colors.text,
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 60,
+    minHeight: 72,
   },
 
   // Minimal card variant
@@ -185,22 +165,14 @@ const styles = StyleSheet.create({
     minHeight: 50,
   },
 
-  // Stat number styles - exact match to mockup
+  // Stat number - moment of pride
   statNumber: {
-    fontSize: 18,
-    fontWeight: theme.typography.weights.extraBold, // 800
-    color: theme.colors.text, // #fff
-    marginBottom: 2,
+    fontSize: theme.typography.size.xl, // 32
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.text,
+    marginBottom: 4,
     textAlign: 'center',
-  },
-
-  // Highlighted stat number
-  statNumberHighlighted: {
-    fontSize: 18,
-    fontWeight: theme.typography.weights.extraBold,
-    color: theme.colors.background, // #000
-    marginBottom: 2,
-    textAlign: 'center',
+    fontVariant: ['tabular-nums'],
   },
 
   // Minimal stat number
@@ -210,26 +182,17 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     marginBottom: 2,
     textAlign: 'center',
+    fontVariant: ['tabular-nums'],
   },
 
-  // Stat label styles - exact match to mockup
+  // Stat label - eyebrow above the number
   statLabel: {
     fontSize: 10,
-    color: theme.colors.textMuted, // #666
+    color: theme.colors.textMuted,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 1.2,
     textAlign: 'center',
-    fontWeight: theme.typography.weights.regular,
-  },
-
-  // Highlighted stat label
-  statLabelHighlighted: {
-    fontSize: 10,
-    color: theme.colors.background,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    textAlign: 'center',
-    fontWeight: theme.typography.weights.medium,
+    fontWeight: theme.typography.weights.semiBold,
   },
 
   // Minimal stat label
@@ -237,9 +200,9 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: theme.colors.textMuted,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 1.0,
     textAlign: 'center',
-    fontWeight: theme.typography.weights.regular,
+    fontWeight: theme.typography.weights.semiBold,
   },
 
   // Prefix and suffix styles

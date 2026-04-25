@@ -70,41 +70,41 @@ const styles = StyleSheet.create({
   positionNumber: {
     width: 18,
     height: 18,
-    backgroundColor: theme.colors.buttonBorder, // #333
+    backgroundColor: theme.colors.buttonBorder,
     borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   positionNumberHighlight: {
-    backgroundColor: theme.colors.text, // #fff
+    backgroundColor: theme.colors.text,
   },
 
   positionText: {
     fontSize: 10,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.text, // #fff
+    color: theme.colors.text,
   },
 
   positionTextHighlight: {
-    color: theme.colors.background, // #000
+    color: theme.colors.background,
   },
 
   participantName: {
     fontSize: 12,
-    color: theme.colors.textSecondary, // #ccc
+    color: theme.colors.textSecondary,
     flex: 1,
   },
 
   positionChange: {
     fontSize: 10,
-    color: theme.colors.text, // #fff
+    color: theme.colors.text,
     fontWeight: theme.typography.weights.medium,
   },
 
   participantTime: {
     fontSize: 12,
-    color: theme.colors.textSecondary, // #ccc
+    color: theme.colors.textSecondary,
     fontWeight: theme.typography.weights.medium,
   },
 });

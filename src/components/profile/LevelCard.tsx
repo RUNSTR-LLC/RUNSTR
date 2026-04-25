@@ -5,6 +5,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { theme } from '../../styles/theme';
+import { AnimatedNumber } from '../ui/AnimatedNumber';
 import type { ProfileLevelData } from '../../services/backend/ProfileDataService';
 
 interface LevelCardProps {
@@ -56,7 +57,7 @@ export const LevelCard: React.FC<LevelCardProps> = ({ levelData, isLoading }) =>
       <View style={styles.card}>
         {/* Top row: Level number + title + XP */}
         <View style={styles.topRow}>
-          <Text style={styles.levelNumber}>{data.level}</Text>
+          <AnimatedNumber value={data.level} style={styles.levelNumber} />
           <Text style={styles.levelTitle}>{data.title}</Text>
           <Text style={styles.xpCounter}>
             {formatXP(data.currentXP)} / {formatXP(data.xpForNextLevel)} XP

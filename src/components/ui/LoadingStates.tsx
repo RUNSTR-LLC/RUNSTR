@@ -20,8 +20,8 @@ interface SkeletonProps {
   style?: any;
 }
 
-// Animated skeleton component
-const Skeleton: React.FC<SkeletonProps> = ({
+// Animated skeleton component — pulses opacity 0.3 → 0.7 → 0.3 over 2s
+export const Skeleton: React.FC<SkeletonProps> = ({
   width = '100%',
   height = 20,
   borderRadius = 4,

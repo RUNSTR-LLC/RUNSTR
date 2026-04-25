@@ -10,14 +10,13 @@ import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   StyleSheet,
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  RefreshControl,
   Alert,
 } from 'react-native';
+import { OstrichRefreshScrollView } from '../../components/ui/OstrichRefreshScrollView';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
@@ -567,15 +566,10 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView
+      <OstrichRefreshScrollView
         style={styles.scrollView}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            tintColor={theme.colors.accent}
-          />
-        }
+        refreshing={isRefreshing}
+        onRefresh={handleRefresh}
       >
         {/* Banner Image */}
         {competition.image_url ? (
@@ -920,7 +914,7 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
             Join the event and submit workouts to appear on the leaderboard.
           </Text>
         </View>
-      </ScrollView>
+      </OstrichRefreshScrollView>
 
       {/* Club membership gate alert */}
       <CustomAlert

@@ -3,7 +3,7 @@
  * Shows workout stats and provides buttons for competition entry and social sharing
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -35,6 +35,8 @@ import { AutoCompetePreferencesService } from '../../services/activity/AutoCompe
 import Toast from 'react-native-toast-message';
 import { useUnitPreference } from '../../hooks/useUnitPreference';
 import { WoTService } from '../../services/wot/WoTService';
+import * as Haptics from 'expo-haptics';
+import { AnimatedNumber } from '../ui/AnimatedNumber';
 
 interface WorkoutSummaryProps {
   visible: boolean;
@@ -230,6 +232,20 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
       setAutoCompeteTriggered(false);
     }
   }, [visible]);
+
+  // Success haptic the first time this modal is shown for a fresh workout
+  // (not fired on re-opens of already-saved workouts).
+  const savedHapticFiredRef = useRef(false);
+  useEffect(() => {
+    if (!visible) {
+      savedHapticFiredRef.current = false;
+      return;
+    }
+    if (savedHapticFiredRef.current) return;
+    if (saved) return; // already-saved workout, not a fresh completion
+    savedHapticFiredRef.current = true;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+  }, [visible, saved]);
 
   // Auto-compete: trigger publish on modal open if enabled
   useEffect(() => {
@@ -542,16 +558,22 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
             {/* Only show distance if > 0 (hide for step-only tracking) */}
             {workout.distance > 0 && (
               <View style={styles.statCard}>
-                <Text style={styles.statValue}>
-                  {formatDistance(workout.distance)}
-                </Text>
+                <AnimatedNumber
+                  value={workout.distance}
+                  style={styles.statValue}
+                  format={formatDistance}
+                  animateOnMount
+                />
                 <Text style={styles.statLabel}>Distance</Text>
               </View>
             )}
             <View style={styles.statCard}>
-              <Text style={styles.statValue}>
-                {formatDuration(workout.duration)}
-              </Text>
+              <AnimatedNumber
+                value={workout.duration}
+                style={styles.statValue}
+                format={formatDuration}
+                animateOnMount
+              />
               <Text style={styles.statLabel}>Duration</Text>
             </View>
             {workout.type === 'running' && (

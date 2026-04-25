@@ -6,7 +6,8 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { OstrichRefreshScrollView } from '../components/ui/OstrichRefreshScrollView';
 import { theme } from '../styles/theme';
 import { TexturedBackground } from '../components/ui/TexturedBackground';
 import { ProfileScreenData } from '../types';
@@ -263,11 +264,17 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
     setIsRefreshing(true);
     try {
       const { GlobalNDKService: NDK } = require('../services/nostr/GlobalNDKService');
-      await NDK.reconnect().catch(() => {});
       const { DirectNostrProfileService: DPS } = require('../services/user/directNostrProfileService');
-      await DPS.getCurrentUserProfile(true).catch(() => {});
-      await onRefresh?.();
-      if (targetNpub) await loadProfileSections(targetNpub);
+
+      // Kick off NDK reconnect, then fan out all independent fetches in
+      // parallel. NDK internally queues subscriptions if connection isn't
+      // ready yet, so the profile + section fetches won't miss events.
+      await NDK.reconnect().catch(() => {});
+      await Promise.all([
+        DPS.getCurrentUserProfile(true).catch(() => {}),
+        onRefresh?.() ?? Promise.resolve(),
+        targetNpub ? loadProfileSections(targetNpub) : Promise.resolve(),
+      ]);
       NostrFetchLogger.end('ProfileScreen.pullToRefresh', 1, 'success');
     } catch (error) {
       NostrFetchLogger.error('ProfileScreen.pullToRefresh', error as Error);
@@ -357,53 +364,64 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
         </View>
       )}
 
-      {/* Owner view — same container structure whether workout is active or not,
-          so the tracker component below keeps a stable position in the tree and
-          React does not unmount it when isWorkoutActive flips. Swapping between
-          two parallel branches here used to remount the tracker and kill the
-          workout within ~500ms of start. */}
+      {/* Owner view — same container + scroll wrapper whether workout is active
+          or not, so the tracker component below keeps a stable position in the
+          tree and React does not unmount it when isWorkoutActive flips.
+          scrollEnabled toggles pull-to-refresh off during a workout. */}
       {isOwner ? (
         <View style={isWorkoutActive ? styles.fullScreenTracker : styles.ownerContent}>
-          {!isWorkoutActive && (
-            <View style={styles.sectionGap}>
-              <ProfileHero user={data.user} isOwner={true}
-                isLoading={isLoadingSections}
-                level={levelData?.level ?? 0}
-                streak={currentStreak}
-                earnings={totalEarnings}
-                onEditPress={handleEditPress}
-                onSettingsPress={undefined}
-                onLevelPress={() => {
-                  const parent = navigation.getParent();
-                  (parent || navigation).navigate('LevelDetail' as any);
-                }}
-                onEarningsPress={() => navigate('Rewards')} />
-            </View>
-          )}
+          <OstrichRefreshScrollView
+            style={styles.ownerScroll}
+            contentContainerStyle={styles.ownerScrollContent}
+            refreshing={!isWorkoutActive && isRefreshing}
+            onRefresh={handleRefresh}
+            scrollEnabled={!isWorkoutActive}
+          >
+            {!isWorkoutActive && (
+              <View style={styles.sectionGap}>
+                <ProfileHero user={data.user} isOwner={true}
+                  isLoading={isLoadingSections}
+                  level={levelData?.level ?? 0}
+                  streak={currentStreak}
+                  earnings={totalEarnings}
+                  onEditPress={handleEditPress}
+                  onSettingsPress={undefined}
+                  onLevelPress={() => {
+                    const parent = navigation.getParent();
+                    (parent || navigation).navigate('LevelDetail' as any);
+                  }}
+                  onEarningsPress={() => navigate('Rewards')} />
+              </View>
+            )}
 
-          {!isWorkoutActive && (
-            <View style={styles.sectionGap}>
-              <NotificationBadge onPress={() => setShowNotificationModal(true)} />
-            </View>
-          )}
+            {!isWorkoutActive && (
+              <View style={styles.sectionGap}>
+                <NotificationBadge onPress={() => setShowNotificationModal(true)} />
+              </View>
+            )}
 
-          {!isWorkoutActive && (
-            <View style={styles.sectionGap}>
-              <ActivityCategoryBar
-                gridPosition={gridPosition}
-                onActivitySelect={handleActivitySelect}
-                isWorkoutActive={false}
-              />
-            </View>
-          )}
+            {!isWorkoutActive && (
+              <View style={styles.sectionGap}>
+                <ActivityCategoryBar
+                  gridPosition={gridPosition}
+                  onActivitySelect={handleActivitySelect}
+                  isWorkoutActive={false}
+                />
+              </View>
+            )}
 
-          <View style={styles.trackerContainer}>
-            {renderTracker()}
-          </View>
+            <View style={styles.trackerContainer}>
+              {renderTracker()}
+            </View>
+          </OstrichRefreshScrollView>
         </View>
       ) : (
-        <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}
-          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={theme.colors.text} />}>
+        <OstrichRefreshScrollView
+          style={styles.content}
+          contentContainerStyle={styles.scrollContent}
+          refreshing={isRefreshing}
+          onRefresh={handleRefresh}
+        >
           <View style={styles.sectionGap}>
             <ProfileHero user={otherUser} isOwner={false}
               isLoading={!otherUser}
@@ -429,7 +447,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
               handleClubPress(id, club?.name || '');
             }} />
           </View>
-        </ScrollView>
+        </OstrichRefreshScrollView>
       )}
 
       {/* Permission modal — shown when user taps "enable location" for cardio */}
@@ -465,6 +483,8 @@ const styles = StyleSheet.create({
   content: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: 16, paddingBottom: 32 },
   ownerContent: { flex: 1, paddingHorizontal: 16, paddingBottom: 16 },
+  ownerScroll: { flex: 1 },
+  ownerScrollContent: { flexGrow: 1 },
   sectionGap: { marginBottom: 12 },
   trackerContainer: {
     flex: 1,

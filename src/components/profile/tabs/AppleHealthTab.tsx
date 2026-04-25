@@ -6,13 +6,12 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  FlatList,
-  RefreshControl,
   Text,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
+import { OstrichRefreshFlatList } from '../../ui/OstrichRefreshScrollView';
 import { CustomAlertManager } from '../../ui/CustomAlert';
 import { theme } from '../../../styles/theme';
 import { Card } from '../../ui/Card';
@@ -454,18 +453,13 @@ const AppleHealthTabContent: React.FC<AppleHealthTabProps> = ({
   }
 
   return (
-    <FlatList
+    <OstrichRefreshFlatList
       data={workouts}
       renderItem={renderWorkout}
       keyExtractor={(item) => item.id}
       contentContainerStyle={styles.list}
-      refreshControl={
-        <RefreshControl
-          refreshing={isRefreshing}
-          onRefresh={handleRefresh}
-          tintColor={theme.colors.text}
-        />
-      }
+      refreshing={isRefreshing}
+      onRefresh={handleRefresh}
       ListEmptyComponent={
         <Card style={styles.emptyState}>
           <Text style={styles.emptyStateTitle}>No workouts found</Text>

@@ -16,6 +16,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { Club } from '../../types/club';
+import { PressableScale } from '../ui/PressableScale';
 
 interface ClubCardProps {
   club: Club;
@@ -48,13 +49,12 @@ const ClubCardComponent: React.FC<ClubCardProps> = ({
     : `${club.member_count} members`;
 
   return (
-    <TouchableOpacity
+    <PressableScale
       style={[
         styles.card,
         isCurrentClub && styles.cardActive,
       ]}
       onPress={onPress}
-      activeOpacity={0.7}
     >
       {/* Left: Club avatar (banner image, captain picture, or fallback icon) */}
       {club.banner_url ? (
@@ -119,7 +119,7 @@ const ClubCardComponent: React.FC<ClubCardProps> = ({
           </Text>
         </TouchableOpacity>
       )}
-    </TouchableOpacity>
+    </PressableScale>
   );
 };
 

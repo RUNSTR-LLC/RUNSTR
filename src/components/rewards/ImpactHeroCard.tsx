@@ -13,13 +13,14 @@ import {
   View,
   Text,
   StyleSheet,
-  ActivityIndicator,
   TouchableOpacity,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../../styles/theme';
+import { AnimatedNumber } from '../ui/AnimatedNumber';
+import { Skeleton } from '../ui/LoadingStates';
 import { SupabaseRewardService, RewardBreakdown } from '../../services/rewards/SupabaseRewardService';
 import { getCharityById } from '../../constants/charities';
 
@@ -74,8 +75,21 @@ export const ImpactHeroCard: React.FC<ImpactHeroCardProps> = ({ pubkey }) => {
 
   if (isLoading && !breakdown) {
     return (
-      <View style={styles.emptyContainer}>
-        <ActivityIndicator size="small" color={theme.colors.accent} />
+      <View style={styles.container}>
+        <Skeleton width={120} height={12} style={{ marginBottom: 16 }} />
+        <View style={styles.heroSection}>
+          <Skeleton width={180} height={42} borderRadius={6} style={{ marginBottom: 8 }} />
+          <Skeleton width={90} height={14} />
+        </View>
+        <View style={styles.charitiesSection}>
+          <Skeleton width={140} height={12} style={{ marginBottom: 12 }} />
+          {[0, 1, 2].map((i) => (
+            <View key={i} style={[styles.charityRow, { justifyContent: 'space-between' }]}>
+              <Skeleton width={160} height={14} />
+              <Skeleton width={80} height={14} />
+            </View>
+          ))}
+        </View>
       </View>
     );
   }
@@ -124,9 +138,11 @@ export const ImpactHeroCard: React.FC<ImpactHeroCardProps> = ({ pubkey }) => {
       <View style={styles.heroSection}>
         <View style={styles.heroRow}>
           <Ionicons name="gift" size={28} color={theme.colors.orangeBright} />
-          <Text style={styles.heroNumber}>
-            {totalDonated.toLocaleString()}
-          </Text>
+          <AnimatedNumber
+            value={totalDonated}
+            style={styles.heroNumber}
+            animateOnMount
+          />
           <Text style={styles.heroUnit}>sats</Text>
         </View>
         <Text style={styles.heroLabel}>

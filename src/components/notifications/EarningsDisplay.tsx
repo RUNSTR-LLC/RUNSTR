@@ -32,7 +32,7 @@ export const EarningsDisplay: React.FC<EarningsDisplayProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: theme.colors.buttonHover, // #1a1a1a
+    backgroundColor: theme.colors.buttonHover,
     borderRadius: 8,
     padding: 12,
     alignItems: 'center',
@@ -42,13 +42,13 @@ const styles = StyleSheet.create({
   earningsAmount: {
     fontSize: 20,
     fontWeight: '800', // Extra bold for emphasis
-    color: theme.colors.text, // #fff
+    color: theme.colors.text,
     marginBottom: 2,
   },
 
   earningsLabel: {
     fontSize: 11,
-    color: theme.colors.textMuted, // #666
+    color: theme.colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     fontWeight: theme.typography.weights.medium,

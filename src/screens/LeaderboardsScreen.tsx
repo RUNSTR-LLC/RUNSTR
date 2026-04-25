@@ -9,11 +9,10 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
-  RefreshControl,
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { OstrichRefreshScrollView } from '../components/ui/OstrichRefreshScrollView';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -136,23 +135,18 @@ export const LeaderboardsScreen: React.FC<LeaderboardsScreenProps> = ({ navigati
           <ActivityIndicator size="large" color={theme.colors.accent} />
         </View>
       )}
-      <ScrollView
+      <OstrichRefreshScrollView
         style={[styles.scrollView, loading && { position: 'absolute', opacity: 0 }]}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            tintColor={theme.colors.orangeBright}
-          />
-        }
+        refreshing={isRefreshing}
+        onRefresh={handleRefresh}
       >
         <LeaderboardsContent
           refreshTrigger={refreshTrigger}
           onRefreshComplete={handleRefreshComplete}
         />
-      </ScrollView>
+      </OstrichRefreshScrollView>
     </SafeAreaView>
   );
 };

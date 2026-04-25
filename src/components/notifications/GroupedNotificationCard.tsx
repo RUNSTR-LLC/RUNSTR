@@ -121,16 +121,16 @@ export const GroupedNotificationCard: React.FC<
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: theme.colors.cardBackground, // #0a0a0a
+    backgroundColor: theme.colors.cardBackground,
     borderWidth: 1,
-    borderColor: theme.colors.border, // #1a1a1a
+    borderColor: theme.colors.border,
     borderRadius: 12,
     overflow: 'hidden',
     marginBottom: 12,
   },
 
   header: {
-    backgroundColor: theme.colors.background, // #000
+    backgroundColor: theme.colors.background,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
@@ -143,13 +143,13 @@ const styles = StyleSheet.create({
   groupTitle: {
     fontSize: 14,
     fontWeight: theme.typography.weights.bold,
-    color: theme.colors.text, // #fff
+    color: theme.colors.text,
   },
 
   groupCount: {
     fontSize: 11,
-    color: theme.colors.textMuted, // #666
-    backgroundColor: theme.colors.buttonHover, // #1a1a1a
+    color: theme.colors.textMuted,
+    backgroundColor: theme.colors.buttonHover,
     paddingVertical: 3,
     paddingHorizontal: 8,
     borderRadius: 6,
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
   groupIcon: {
     width: 24,
     height: 24,
-    backgroundColor: theme.colors.buttonBorder, // #333
+    backgroundColor: theme.colors.buttonBorder,
     borderRadius: 4,
     alignItems: 'center',
     justifyContent: 'center',
@@ -186,17 +186,17 @@ const styles = StyleSheet.create({
   groupIconText: {
     fontSize: 12,
     fontWeight: theme.typography.weights.semiBold,
-    color: theme.colors.text, // #fff
+    color: theme.colors.text,
   },
 
   groupText: {
     flex: 1,
     fontSize: 13,
-    color: theme.colors.textSecondary, // #ccc
+    color: theme.colors.textSecondary,
   },
 
   groupTime: {
     fontSize: 11,
-    color: theme.colors.textMuted, // #666
+    color: theme.colors.textMuted,
   },
 });

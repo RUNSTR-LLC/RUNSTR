@@ -8,14 +8,15 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
-  FlatList,
-  RefreshControl,
   Text,
   StyleSheet,
   TouchableOpacity,
+  Pressable,
   Platform,
   ActivityIndicator,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { OstrichRefreshFlatList } from '../../ui/OstrichRefreshScrollView';
 import { theme } from '../../../styles/theme';
 import { Card } from '../../ui/Card';
 import { CustomAlert } from '../../ui/CustomAlert';
@@ -40,6 +41,8 @@ import Toast from 'react-native-toast-message';
 import { WoTService } from '../../../services/wot/WoTService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatsCard } from '../StatsCard';
+import { WorkoutActionSheet, type WorkoutAction } from '../shared/WorkoutActionSheet';
+import { PressableScale } from '../../ui/PressableScale';
 
 interface UnifiedWorkoutsTabProps {
   userId: string;
@@ -85,6 +88,7 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
   const [postingWorkoutId, setPostingWorkoutId] = useState<string | null>(null);
   const [postingType, setPostingType] = useState<'social' | 'nostr' | null>(null);
   const [isWoTEligible, setIsWoTEligible] = useState(false);
+  const [actionSheetWorkout, setActionSheetWorkout] = useState<Workout | null>(null);
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertConfig, setAlertConfig] = useState<{
     title: string;
@@ -473,11 +477,18 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
       const localWorkout = localWorkouts.find((w) => w.id === workout.id);
 
       return (
-        <View style={styles.workoutContainer}>
+        <Pressable
+          style={styles.workoutContainer}
+          onLongPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+            setActionSheetWorkout(workout);
+          }}
+          delayLongPress={400}
+        >
           <EnhancedWorkoutCard workout={workout} hideActions={true} />
           <View style={styles.workoutActions}>
             {isWoTEligible && (
-              <TouchableOpacity
+              <PressableScale
                 style={[styles.actionButton, styles.postButton]}
                 onPress={() => {
                   if (isLocal && localWorkout) handlePostToSocial(localWorkout);
@@ -493,10 +504,10 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
                     <Text style={styles.postButtonText}>Post</Text>
                   </>
                 )}
-              </TouchableOpacity>
+              </PressableScale>
             )}
             {isLocal && localWorkout?.supabaseSubmitted === false && (
-              <TouchableOpacity
+              <PressableScale
                 style={[styles.actionButton, styles.competeButton]}
                 onPress={() => handleRetryCompete(workout.id)}
                 disabled={isPosting && postingType === 'nostr'}
@@ -509,18 +520,18 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
                     <Text style={styles.competeButtonText}>Compete</Text>
                   </>
                 )}
-              </TouchableOpacity>
+              </PressableScale>
             )}
             {canDelete && (
-              <TouchableOpacity
+              <PressableScale
                 style={[styles.actionButton, styles.deleteButton]}
                 onPress={() => handleDeleteWorkout(workout.id)}
               >
                 <Ionicons name="trash-outline" size={16} color={theme.colors.accent} />
-              </TouchableOpacity>
+              </PressableScale>
             )}
           </View>
-        </View>
+        </Pressable>
       );
     },
     [localWorkoutIds, localWorkouts, postingWorkoutId, postingType, isWoTEligible]
@@ -590,7 +601,7 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
       {/* Stats card */}
       {pubkey && <StatsCard userPubkey={pubkey} />}
 
-      <FlatList
+      <OstrichRefreshFlatList
         data={monthlyGroups}
         renderItem={renderMonthlyGroup}
         keyExtractor={(item) => item.key}
@@ -599,9 +610,8 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
         windowSize={7}
         removeClippedSubviews={true}
         maxToRenderPerBatch={3}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={theme.colors.text} />
-        }
+        refreshing={isRefreshing}
+        onRefresh={handleRefresh}
         ListFooterComponent={
           totalItems > 0 ? (
             <View style={styles.footer}>
@@ -635,8 +645,58 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
         onClose={() => setAlertVisible(false)}
       />
 
+      <WorkoutActionSheet
+        visible={actionSheetWorkout !== null}
+        onClose={() => setActionSheetWorkout(null)}
+        title="Workout"
+        actions={buildWorkoutActions(actionSheetWorkout)}
+      />
+
     </View>
   );
+
+  function buildWorkoutActions(workout: Workout | null): WorkoutAction[] {
+    if (!workout) return [];
+    const isLocal = localWorkoutIds.has(workout.id);
+    const isHealthSource =
+      workout.source === 'healthkit' || workout.source === 'health_connect';
+    const canDelete = isLocal && !isHealthSource;
+    const localWorkout = localWorkouts.find((w) => w.id === workout.id);
+    const actions: WorkoutAction[] = [];
+
+    if (isWoTEligible) {
+      actions.push({
+        id: 'share',
+        label: 'Share to Social',
+        icon: 'paper-plane-outline',
+        onPress: () => {
+          if (isLocal && localWorkout) handlePostToSocial(localWorkout);
+          else handleSocialShareHealthApp(workout);
+        },
+      });
+    }
+
+    if (isLocal && localWorkout?.supabaseSubmitted === false) {
+      actions.push({
+        id: 'compete',
+        label: 'Retry Compete',
+        icon: 'trophy-outline',
+        onPress: () => handleRetryCompete(workout.id),
+      });
+    }
+
+    if (canDelete) {
+      actions.push({
+        id: 'delete',
+        label: 'Delete Workout',
+        icon: 'trash-outline',
+        destructive: true,
+        onPress: () => handleDeleteWorkout(workout.id),
+      });
+    }
+
+    return actions;
+  }
 };
 
 const styles = StyleSheet.create({

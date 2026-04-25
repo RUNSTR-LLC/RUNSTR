@@ -9,10 +9,9 @@ import React, { useCallback, useState, useEffect } from 'react';
 import {
   View,
   Text,
-  FlatList,
   StyleSheet,
-  RefreshControl,
 } from 'react-native';
+import { OstrichRefreshFlatList } from '../ui/OstrichRefreshScrollView';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { JournalEntry } from '../../types/journal';
@@ -119,7 +118,7 @@ export const JournalList: React.FC<JournalListProps> = React.memo(
     });
 
     return (
-      <FlatList
+      <OstrichRefreshFlatList
         data={flatData}
         renderItem={({ item }) => {
           if ('isHeader' in item && item.isHeader) {
@@ -137,13 +136,8 @@ export const JournalList: React.FC<JournalListProps> = React.memo(
         }
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            tintColor={theme.colors.text}
-          />
-        }
+        refreshing={isRefreshing}
+        onRefresh={handleRefresh}
       />
     );
   }

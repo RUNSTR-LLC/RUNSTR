@@ -4,7 +4,8 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, FlatList, RefreshControl, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { OstrichRefreshFlatList } from '../../ui/OstrichRefreshScrollView';
 import { useNavigation } from '@react-navigation/native';
 import { theme } from '../../../styles/theme';
 import { Card } from '../../ui/Card';
@@ -231,18 +232,13 @@ export const PublicWorkoutsTab: React.FC<PublicWorkoutsTabProps> = ({
 
   return (
     <View style={styles.container}>
-      <FlatList
+      <OstrichRefreshFlatList
         data={monthlyGroups}
         renderItem={renderMonthlyGroup}
         keyExtractor={(item) => item.key}
         contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            tintColor={theme.colors.text}
-          />
-        }
+        refreshing={isRefreshing}
+        onRefresh={handleRefresh}
         ListHeaderComponent={
           <>
             {/* Workout Level Ring - Hidden for alpha release */}

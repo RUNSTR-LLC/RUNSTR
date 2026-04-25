@@ -5,9 +5,10 @@
 
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, RefreshControl, ActivityIndicator,
+  View, Text, StyleSheet, TouchableOpacity,
+  TextInput, ActivityIndicator,
 } from 'react-native';
+import { OstrichRefreshScrollView } from '../components/ui/OstrichRefreshScrollView';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -264,19 +265,14 @@ const ClubsScreenComponent: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView
+      <OstrichRefreshScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            tintColor={theme.colors.orangeBright}
-          />
-        }
+        refreshing={isRefreshing}
+        onRefresh={handleRefresh}
       >
         {/* YOUR CLUB section */}
         {myClub ? (
@@ -404,7 +400,7 @@ const ClubsScreenComponent: React.FC = () => {
 
         {/* Bottom padding for tab bar */}
         <View style={{ height: 40 }} />
-      </ScrollView>
+      </OstrichRefreshScrollView>
 
       {isJoining && (
         <View style={styles.joiningOverlay}>

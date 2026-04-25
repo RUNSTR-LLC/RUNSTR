@@ -4,10 +4,8 @@ Basic reusable UI components for consistent design across the RUNSTR application
 
 ## Files
 
-- **ActionButton.tsx** - Action buttons with consistent styling and touch feedback.
 - **Avatar.tsx** - User avatar component with image loading and fallback.
-- **BottomNavigation.tsx** - Bottom tab navigation bar component.
-- **Button.tsx** - Primary button component with various styles and states.
+- **Button.tsx** - Primary/add/menu button variants. Use `variant="primary"` for CTAs.
 - **Card.tsx** - Card container component with consistent styling.
 - **CharityZapIconButton.tsx** - Compact charity zap heart icon for user lists, enabling quick charity donations next to usernames.
 - **CustomAlert.tsx** - Black/orange themed alert modal replacing React Native's unstyled Alert.alert().
@@ -22,7 +20,6 @@ Basic reusable UI components for consistent design across the RUNSTR application
 - **NostrConnectionStatus.tsx** - Visual indicator for Nostr relay connection status.
 - **ParticipantList.tsx** - List component for displaying competition participants.
 - **PostingErrorBoundary.tsx** - Error boundary for workout posting flows, displaying fallback UI instead of crashing the app.
-- **PrimaryButton.tsx** - Reusable orange button with white text for primary actions.
 - **PrivacyNoticeModal.tsx** - Modal explaining local-only analytics processing with no data transmission.
 - **PrizeDisplay.tsx** - Component for displaying Bitcoin prizes and rewards.
 - **ProgressBar.tsx** - Progress indicator component for various contexts.

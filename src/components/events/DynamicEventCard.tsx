@@ -10,7 +10,6 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   Image,
 } from 'react-native';
@@ -19,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../../styles/theme';
 import type { DynamicCompetition, CompetitionStatus } from '../../hooks/useDynamicCompetitions';
+import { PressableScale } from '../ui/PressableScale';
 
 // ---------------------------------------------------------------------------
 // Template banner config
@@ -144,7 +144,7 @@ export const DynamicEventCard: React.FC<DynamicEventCardProps> = ({
   const scoringMethod = (config as any).scoring_method || competition.scoring_method || '';
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
+    <PressableScale style={styles.card} onPress={onPress}>
       {/* Banner */}
       <View style={styles.bannerContainer}>
         {competition.image_url && !imageError ? (
@@ -233,7 +233,7 @@ export const DynamicEventCard: React.FC<DynamicEventCardProps> = ({
           </View>
         )}
       </View>
-    </TouchableOpacity>
+    </PressableScale>
   );
 };
 

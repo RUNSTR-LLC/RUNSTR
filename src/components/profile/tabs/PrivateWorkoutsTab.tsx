@@ -8,12 +8,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
-  FlatList,
-  RefreshControl,
   Text,
   StyleSheet,
   TouchableOpacity,
 } from 'react-native';
+import { OstrichRefreshFlatList } from '../../ui/OstrichRefreshScrollView';
 import { theme } from '../../../styles/theme';
 import { Card } from '../../ui/Card';
 import { CustomAlert } from '../../ui/CustomAlert';
@@ -252,18 +251,13 @@ export const PrivateWorkoutsTab: React.FC<PrivateWorkoutsTabProps> = ({
 
   return (
     <View style={styles.container}>
-      <FlatList
+      <OstrichRefreshFlatList
         data={monthlyGroups}
         renderItem={renderMonthlyGroup}
         keyExtractor={(item) => item.key}
         contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            tintColor={theme.colors.text}
-          />
-        }
+        refreshing={isRefreshing}
+        onRefresh={handleRefresh}
         ListFooterComponent={
           <>
             {/* Footer with workout count */}

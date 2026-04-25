@@ -31,10 +31,8 @@ const RELAYS = [
   'wss://relay.damus.io',
   'wss://relay.primal.net',
   'wss://nos.lol',
-  'wss://relay.nostr.band',
   'wss://relay.snort.social',
   'wss://nostr.wine',
-  'wss://e.nos.lol',
 ]
 
 // Query events from last 24 hours - matches manual sync pattern for reliability

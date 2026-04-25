@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
   liveDot: {
     width: 6,
     height: 6,
-    backgroundColor: theme.colors.text, // #fff
+    backgroundColor: theme.colors.text,
     borderRadius: 3,
   },
 
@@ -69,6 +69,6 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.semiBold,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    color: theme.colors.textSecondary, // #ccc
+    color: theme.colors.textSecondary,
   },
 });

@@ -25,6 +25,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { theme } from '../../styles/theme';
+import { PressableScale } from '../ui/PressableScale';
 import {
   getCharitiesByCategory,
   SELF_TEAM_ID,
@@ -170,11 +171,10 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
   ) => {
     const selected = isSelected(charity.id);
     return (
-      <TouchableOpacity
+      <PressableScale
         key={charity.id}
         style={[styles.destinationCard, selected && styles.destinationCardSelected]}
         onPress={() => handleSelect(charity.id)}
-        activeOpacity={0.7}
       >
         {/* Avatar / Image */}
         <View style={styles.avatarContainer}>
@@ -217,7 +217,7 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
             />
           )}
         </View>
-      </TouchableOpacity>
+      </PressableScale>
     );
   };
 

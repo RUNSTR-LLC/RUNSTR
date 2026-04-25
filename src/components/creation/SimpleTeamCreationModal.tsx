@@ -7,6 +7,7 @@ import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
+  Image,
   TouchableOpacity,
   StyleSheet,
   Modal,
@@ -17,12 +18,14 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../styles/theme';
 import { CustomAlert } from '../ui/CustomAlert';
 import { isSupabaseConfigured } from '../../utils/supabase';
 import { callEdgeFunction } from '../../utils/edgeFunctions';
 import { ClubWalletService } from '../../services/club/ClubWalletService';
+import { pickBannerImage, uploadBannerImage } from '../../services/club/ClubBannerStorageService';
 
 interface SimpleTeamCreationModalProps {
   visible: boolean;
@@ -43,6 +46,7 @@ export const SimpleTeamCreationModal: React.FC<SimpleTeamCreationModalProps> = (
   const [teamName, setTeamName] = useState('');
   const [description, setDescription] = useState('');
   const [lightningAddress, setLightningAddress] = useState('');
+  const [bannerUri, setBannerUri] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
 
@@ -55,6 +59,23 @@ export const SimpleTeamCreationModal: React.FC<SimpleTeamCreationModalProps> = (
     setTeamName('');
     setDescription('');
     setLightningAddress('');
+    setBannerUri(null);
+  }, []);
+
+  const handlePickBanner = useCallback(async () => {
+    const result = await pickBannerImage();
+    if (result.cancelled) return;
+    if (result.error || !result.uri) {
+      setAlertTitle('Upload Failed');
+      setAlertMessage(result.error || 'Could not pick image.');
+      setAlertVisible(true);
+      return;
+    }
+    setBannerUri(result.uri);
+  }, []);
+
+  const handleRemoveBanner = useCallback(() => {
+    setBannerUri(null);
   }, []);
 
   const handleClose = useCallback(() => {
@@ -108,6 +129,26 @@ export const SimpleTeamCreationModal: React.FC<SimpleTeamCreationModalProps> = (
       const teamId = (result.data as any)?.id || '';
       console.log(`[SimpleTeamCreation] Created team: ${teamId}`);
 
+      // Upload banner (if picked) and set it on the new club. Non-fatal — the
+      // club still exists if the upload fails; captain can retry from settings.
+      if (teamId && bannerUri) {
+        try {
+          const uploadResult = await uploadBannerImage(bannerUri, teamId);
+          if (uploadResult.success && uploadResult.url) {
+            await callEdgeFunction('manage-club', {
+              action: 'update-club',
+              npub,
+              club_id: teamId,
+              updates: { banner_url: uploadResult.url },
+            });
+          } else {
+            console.warn('[SimpleTeamCreation] Banner upload failed:', uploadResult.error);
+          }
+        } catch (bannerErr) {
+          console.warn('[SimpleTeamCreation] Banner upload exception:', bannerErr);
+        }
+      }
+
       // Cache club state locally
       if (teamId) {
         try {
@@ -141,7 +182,7 @@ export const SimpleTeamCreationModal: React.FC<SimpleTeamCreationModalProps> = (
       isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
-  }, [isValid, teamName, description, lightningAddress, onTeamCreated]);
+  }, [isValid, teamName, description, lightningAddress, bannerUri, onTeamCreated]);
 
   const handleAlertDismiss = useCallback(() => {
     setAlertVisible(false);
@@ -207,6 +248,44 @@ export const SimpleTeamCreationModal: React.FC<SimpleTeamCreationModalProps> = (
                 numberOfLines={3}
                 textAlignVertical="top"
               />
+            </View>
+
+            {/* Banner Image */}
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Banner Image (optional)</Text>
+              {bannerUri ? (
+                <View style={styles.bannerPreview}>
+                  <Image source={{ uri: bannerUri }} style={styles.bannerPreviewImage} />
+                  <View style={styles.bannerPreviewActions}>
+                    <TouchableOpacity
+                      style={styles.bannerActionBtn}
+                      onPress={handlePickBanner}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="image-outline" size={16} color={theme.colors.text} />
+                      <Text style={styles.bannerActionText}>Replace</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.bannerActionBtn}
+                      onPress={handleRemoveBanner}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="trash-outline" size={16} color={theme.colors.error} />
+                      <Text style={[styles.bannerActionText, { color: theme.colors.error }]}>Remove</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.bannerUploadButton}
+                  onPress={handlePickBanner}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="cloud-upload-outline" size={22} color={theme.colors.textMuted} />
+                  <Text style={styles.bannerUploadText}>Upload banner image</Text>
+                </TouchableOpacity>
+              )}
+              <Text style={styles.helper}>Shown on your club page. Max 5 MB.</Text>
             </View>
 
             {/* Lightning Address */}
@@ -357,6 +436,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: theme.typography.weights.semiBold,
     color: theme.colors.background,
+  },
+  bannerPreview: {
+    borderRadius: 8, borderWidth: 1, borderColor: theme.colors.border,
+    overflow: 'hidden', backgroundColor: theme.colors.card,
+  },
+  bannerPreviewImage: {
+    width: '100%', aspectRatio: 16 / 9, resizeMode: 'cover',
+  },
+  bannerPreviewActions: {
+    flexDirection: 'row', borderTopWidth: 1, borderTopColor: theme.colors.border,
+  },
+  bannerActionBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 10,
+  },
+  bannerActionText: {
+    fontSize: 13, fontWeight: theme.typography.weights.medium, color: theme.colors.text,
+  },
+  bannerUploadButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: theme.colors.card, borderRadius: 8, paddingVertical: 22,
+    borderWidth: 1, borderColor: theme.colors.border, borderStyle: 'dashed',
+  },
+  bannerUploadText: {
+    fontSize: 14, fontWeight: theme.typography.weights.medium, color: theme.colors.textMuted,
   },
 });
 
