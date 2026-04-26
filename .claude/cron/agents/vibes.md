@@ -20,6 +20,24 @@ Output is JSON with:
 - `runstr_posts`: kind 1 notes authored by RUNSTR (context)
 - `total_count` / `new_since_last_run`
 
+### 1b. Validate zero results
+
+If `total_count == 0`, run a connectivity probe **before** treating the result as genuine silence:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}" --max-time 5 https://relay.damus.io
+```
+
+- **`403` or `200`** — relays are network-reachable; the 15s WebSocket timeout in the script is likely dropping results silently. Retry with a longer timeout:
+  ```bash
+  npx tsx scripts/cron/vibes-query.ts --days 7 --timeout 30000 --out /tmp/vibes-retry.json
+  ```
+  Use the retry output if it contains more results. Whether or not the retry finds anything, note `"15s timeout possible — retried with 30s"` in your CRON-RUN-LOG notes and score `coverage` as 7 (confirmed reachable, retry done) rather than ≤5.
+
+- **`000` or connection error** — network is down. Score `coverage: 0`, note `"infrastructure failure — relays unreachable"`, and file a `cron-run-log` issue rather than a sentiment summary. Do not report 0 results as genuine community silence.
+
+Only report genuine silence (skip the retry note, score coverage 8+) when the HTTP probe confirms reachability AND the 30s retry also returns `total_count == 0`.
+
 ### 2. Triage
 
 Read the prior run's state to avoid duplicate issues:
