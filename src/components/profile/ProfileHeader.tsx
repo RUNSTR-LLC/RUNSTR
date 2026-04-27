@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { theme } from '../../styles/theme';
 import { User } from '../../types';
 import { Avatar } from '../ui/Avatar';
+import { Skeleton } from '../ui/LoadingStates';
 
 interface ProfileHeaderProps {
   user: User | null;
@@ -45,11 +46,10 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     return (
       <View style={styles.boxContainer}>
         <View style={styles.profileContent}>
-          {/* Skeleton avatar */}
-          <View style={[styles.avatar, styles.skeletonAvatar]} />
+          <Skeleton width={60} height={60} borderRadius={30} style={styles.avatar} />
           <View style={styles.info}>
-            <View style={styles.skeletonText} />
-            <View style={[styles.skeletonText, styles.skeletonTextSmall]} />
+            <Skeleton width="60%" height={18} borderRadius={4} style={{ marginBottom: 8 }} />
+            <Skeleton width="80%" height={14} borderRadius={4} />
           </View>
         </View>
       </View>
@@ -219,25 +219,5 @@ const styles = StyleSheet.create({
   editButtonText: {
     fontSize: 12, // Exact from CSS
     fontWeight: theme.typography.weights.medium, // 500
-  },
-
-  // Skeleton loading states
-  skeletonAvatar: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 30,
-  },
-
-  skeletonText: {
-    height: 18,
-    backgroundColor: '#1a1a1a',
-    borderRadius: 4,
-    marginBottom: 8,
-    width: '60%',
-  },
-
-  skeletonTextSmall: {
-    height: 14,
-    width: '80%',
-    marginBottom: 4,
   },
 });

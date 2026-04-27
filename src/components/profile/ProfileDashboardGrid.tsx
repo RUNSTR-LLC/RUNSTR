@@ -9,6 +9,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { theme } from '../../styles/theme';
 import { Avatar } from '../ui/Avatar';
+import { Skeleton as BaseSkeleton } from '../ui/LoadingStates';
 import type { ProfileLevelData, RecentWorkout, ClubAffiliation } from '../../services/backend/ProfileDataService';
 
 interface ProfileDashboardGridProps {
@@ -30,7 +31,7 @@ interface ProfileDashboardGridProps {
 // ---------------------------------------------------------------------------
 
 const Skeleton: React.FC<{ width: number; height: number }> = ({ width, height }) => (
-  <View style={{ width, height, borderRadius: height / 2, backgroundColor: theme.colors.border }} />
+  <BaseSkeleton width={width} height={height} borderRadius={height / 2} />
 );
 
 // ---------------------------------------------------------------------------

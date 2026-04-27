@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { theme } from '../../styles/theme';
 import { Avatar } from '../ui/Avatar';
+import { Skeleton } from '../ui/LoadingStates';
 import { timeAgo } from '../../types/social';
 import type { SocialFeedPost as SocialFeedPostType } from '../../types/social';
 import { SocialInteractionRow } from './SocialInteractionRow';
@@ -69,7 +70,12 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, userNpub }
       {workoutForCard ? (
         <WorkoutPostCard workout={workoutForCard} />
       ) : isLookingUpWorkout ? (
-        <View style={styles.workoutSkeleton} />
+        <Skeleton
+          width="100%"
+          height={200}
+          borderRadius={12}
+          style={{ marginTop: 10 }}
+        />
       ) : showImage ? (
         <Image
           source={{ uri: firstImage }}
@@ -131,13 +137,5 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 10,
     backgroundColor: theme.colors.cardBackground,
-  },
-  workoutSkeleton: {
-    height: 200,
-    marginTop: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#1a1a1a',
-    backgroundColor: '#0a0a0a',
   },
 });

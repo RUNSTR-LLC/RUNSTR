@@ -5,6 +5,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { theme } from '../../styles/theme';
+import { Skeleton } from '../ui/LoadingStates';
 import type { ActivityBreakdownData } from '../../services/backend/ProfileDataService';
 
 interface ActivityBreakdownProps {
@@ -41,8 +42,8 @@ const BarRow: React.FC<BarRowProps> = ({ label, count, percent, color }) => (
 const SkeletonBar: React.FC = () => (
   <View style={styles.barRow}>
     <View style={styles.barLabelRow}>
-      <View style={{ width: 60, height: 12, borderRadius: 6, backgroundColor: theme.colors.border }} />
-      <View style={{ width: 40, height: 12, borderRadius: 6, backgroundColor: theme.colors.border }} />
+      <Skeleton width={60} height={12} borderRadius={6} />
+      <Skeleton width={40} height={12} borderRadius={6} />
     </View>
     <View style={styles.barTrack} />
   </View>

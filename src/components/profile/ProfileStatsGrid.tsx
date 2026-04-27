@@ -6,6 +6,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { theme } from '../../styles/theme';
+import { Skeleton } from '../ui/LoadingStates';
 import type { ProfileStats } from '../../services/backend/ProfileDataService';
 
 interface ProfileStatsGridProps {
@@ -71,8 +72,8 @@ const StatCell: React.FC<StatCellData> = ({ label, value }) => (
 
 const SkeletonCell: React.FC = () => (
   <View style={styles.cell}>
-    <View style={styles.skeletonValue} />
-    <View style={styles.skeletonLabel} />
+    <Skeleton width={48} height={20} borderRadius={4} style={{ marginBottom: 4 }} />
+    <Skeleton width={60} height={12} borderRadius={4} />
   </View>
 );
 
@@ -111,20 +112,5 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-  },
-
-  // Skeletons
-  skeletonValue: {
-    width: 48,
-    height: 20,
-    borderRadius: 4,
-    backgroundColor: theme.colors.border,
-    marginBottom: 4,
-  },
-  skeletonLabel: {
-    width: 60,
-    height: 12,
-    borderRadius: 4,
-    backgroundColor: theme.colors.border,
   },
 });

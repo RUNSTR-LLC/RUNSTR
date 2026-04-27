@@ -18,6 +18,7 @@ import { theme } from '../../styles/theme';
 import { User } from '../../types';
 import { Avatar } from '../ui/Avatar';
 import { AnimatedNumber } from '../ui/AnimatedNumber';
+import { Skeleton } from '../ui/LoadingStates';
 
 interface ProfileHeroProps {
   user: User | null;
@@ -73,11 +74,15 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
       <View style={styles.container}>
         <View style={styles.bannerPlaceholder} />
         <View style={styles.avatarRow}>
-          <View style={[styles.skeletonAvatar, { width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2 }]} />
+          <Skeleton
+            width={AVATAR_SIZE}
+            height={AVATAR_SIZE}
+            borderRadius={AVATAR_SIZE / 2}
+          />
         </View>
         <View style={styles.textArea}>
-          <View style={styles.skeletonName} />
-          <View style={styles.skeletonBio} />
+          <Skeleton width="45%" height={18} borderRadius={4} style={{ marginBottom: 8 }} />
+          <Skeleton width="70%" height={14} borderRadius={4} />
         </View>
       </View>
     );
@@ -389,23 +394,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: theme.colors.accent,
     fontFamily: 'monospace',
-  },
-
-  // --- Skeletons ---
-  skeletonAvatar: {
-    backgroundColor: theme.colors.border,
-  },
-  skeletonName: {
-    height: 18,
-    width: '45%',
-    backgroundColor: theme.colors.border,
-    borderRadius: 4,
-    marginBottom: 8,
-  },
-  skeletonBio: {
-    height: 14,
-    width: '70%',
-    backgroundColor: theme.colors.border,
-    borderRadius: 4,
   },
 });

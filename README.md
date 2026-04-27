@@ -2,7 +2,7 @@
 
 **Aggregate workouts, earn rewards.**
 
-RUNSTR pulls in your workouts from any fitness app or wearable and rewards you for staying active. You choose where your rewards go — a charity, AI credits, or your own wallet. Join competitions, level up, and spin the daily wheel for bonus rewards.
+RUNSTR pulls in your workouts from any fitness app or wearable and rewards you for staying active. You choose where your rewards go — a charity, AI credits, or your own wallet. Join competitions and level up.
 
 [![Website](https://img.shields.io/badge/Website-runstr.club-blue)](https://www.runstr.club/)
 [![iOS](https://img.shields.io/badge/iOS-App%20Store-black)](https://apps.apple.com/app/runstr)
@@ -26,7 +26,7 @@ RUNSTR pulls in your workouts from any fitness app or wearable and rewards you f
 2. **Pick a destination** — Choose where rewards go (your wallet, a charity, a project, or AI credits)
 3. **Work out** — Use RUNSTR's GPS tracker, rep counter, or any app connected to Apple Health / Health Connect
 4. **Earn rewards** — Qualifying workouts trigger sponsor-funded rewards sent to your chosen destination
-5. **Level up** — More workouts = higher level = better daily wheel payouts
+5. **Level up** — More workouts raise your RUNSTR level and extend your streaks
 
 Works in the background. Earn rewards without ever opening the app.
 
@@ -55,9 +55,6 @@ Change your destination anytime. No splits, no pressure.
 
 ### Competitions
 Daily leaderboards track the fastest 5K, 10K, half marathon, and full marathon times alongside daily steps — always active, updated in real time. Featured events run on schedules with distance challenges, streak competitions, and team-based races. Club captains create events from templates and all club members are automatically entered.
-
-### Daily Wheel
-Spin the lottery wheel after qualifying workouts. Your RUNSTR level determines the reward multiplier — the more you work out, the higher your level, the better the payouts.
 
 ### Social Feed
 A fitness-first social feed. Like, repost, and comment on workout posts. Share your own workouts to the network.
