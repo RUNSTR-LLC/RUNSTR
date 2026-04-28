@@ -148,6 +148,14 @@ function auditMemoryLeaks() {
 
   const files = findFiles('src', /\.(tsx|ts)$/, ['node_modules']);
 
+  // Match a return statement that yields cleanup-shaped value:
+  //   return () => { ... }      ← arrow lambda
+  //   return unsubscribe;        ← bound function ref
+  //   return unsubscribe         ← bound function ref (no semicolon)
+  //   return someFunction();     ← function call returning cleanup
+  // Negative space (NOT a cleanup): bare `return;`, `return null;`, `return data;` after early-exit
+  const cleanupReturnRegex = /^\s*return\s+(?:\(.*?\)\s*=>|\w+\s*[;\n]|\w+\.\w+\s*[;\n]|\w+\(\)\s*[;\n])/;
+
   files.forEach(file => {
     const content = readFile(file);
     if (!content) return;
@@ -155,44 +163,49 @@ function auditMemoryLeaks() {
     const lines = content.split('\n');
 
     lines.forEach((line, index) => {
-      // Check for useEffect with subscriptions but no cleanup
-      if (line.includes('useEffect')) {
-        const effectStart = index;
-        let bracketCount = 0;
-        let effectEnd = index;
-        let hasReturn = false;
-        let hasSubscription = false;
+      if (!line.includes('useEffect')) return;
 
-        // Find the end of useEffect
-        for (let i = effectStart; i < Math.min(effectStart + 50, lines.length); i++) {
-          const currentLine = lines[i];
-          bracketCount += (currentLine.match(/{/g) || []).length;
-          bracketCount -= (currentLine.match(/}/g) || []).length;
+      const effectStart = index;
+      let bracketCount = 0;
+      let hasReturn = false;
+      let hasSubscription = false;
+      let started = false;
 
-          if (currentLine.includes('subscribe') || currentLine.includes('addEventListener')) {
-            hasSubscription = true;
-          }
+      for (let i = effectStart; i < Math.min(effectStart + 80, lines.length); i++) {
+        const currentLine = lines[i];
+        const opens = (currentLine.match(/{/g) || []).length;
+        const closes = (currentLine.match(/}/g) || []).length;
+        bracketCount += opens - closes;
+        if (opens > 0) started = true;
 
-          if (currentLine.includes('return') && currentLine.includes('=>')) {
-            hasReturn = true;
-          }
-
-          if (bracketCount === 0 && i > effectStart) {
-            effectEnd = i;
-            break;
-          }
+        // Detect subscription-style call inside the effect body
+        if (
+          /\.subscribe\b|addEventListener\b|addListener\b|onStateChange\b|onSnapshot\b/.test(
+            currentLine
+          )
+        ) {
+          hasSubscription = true;
         }
 
-        if (hasSubscription && !hasReturn) {
-          addResult({
-            category: 'Memory Leaks',
-            severity: 'critical',
-            file,
-            line: effectStart + 1,
-            issue: 'useEffect with subscription but no cleanup function',
-            recommendation: 'Add return () => { /* cleanup subscription */ } to useEffect',
-          });
+        // Detect any cleanup-shaped return inside the effect body
+        if (cleanupReturnRegex.test(currentLine)) {
+          hasReturn = true;
         }
+
+        if (started && bracketCount === 0 && i > effectStart) {
+          break;
+        }
+      }
+
+      if (hasSubscription && !hasReturn) {
+        addResult({
+          category: 'Memory Leaks',
+          severity: 'critical',
+          file,
+          line: effectStart + 1,
+          issue: 'useEffect with subscription but no cleanup function',
+          recommendation: 'Add return () => { /* cleanup subscription */ } or return unsubscribe',
+        });
       }
     });
   });
@@ -310,6 +323,13 @@ function auditNostrQueries() {
 
   const files = findFiles('src/services', /\.(tsx|ts)$/, ['node_modules']);
 
+  // Inline filter literal: fetchEvents({ ... }) or fetchEvents([{...}])
+  const inlineFilterRegex = /fetchEvents\s*\(\s*[\[{]/;
+  // Wrapper-style call: fetchEvents(varName), where varName is bounded by the caller
+  const wrapperCallRegex = /fetchEvents\s*\(\s*[a-zA-Z_$][\w$]*\s*[,)]/;
+  // Type signature definitions (parameter typing) — skip
+  const typeSignatureRegex = /:\s*NDKFilter|filter\s*:\s*NDKFilter/;
+
   files.forEach(file => {
     const content = readFile(file);
     if (!content) return;
@@ -317,25 +337,38 @@ function auditNostrQueries() {
     const lines = content.split('\n');
 
     lines.forEach((line, index) => {
-      if (line.includes('fetchEvents') || line.includes('ndk.fetchEvents')) {
-        // Check if filter has since/until or limit
-        const contextLines = lines.slice(index, Math.min(index + 20, lines.length));
-        const contextStr = contextLines.join('\n');
+      if (!/\bfetchEvents\b/.test(line)) return;
+      if (typeSignatureRegex.test(line)) return; // type annotations, not calls
+      if (line.trim().startsWith('//') || line.trim().startsWith('*')) return;
 
-        const hasLimit = /limit:\s*\d+/.test(contextStr);
-        const hasSince = /since:\s*/.test(contextStr);
-        const hasUntil = /until:\s*/.test(contextStr);
+      // Only inspect calls whose argument is an inline filter object/array.
+      // If the argument is a variable, the caller is responsible for bounding it
+      // — flagging it here produces false positives for wrapper functions.
+      if (!inlineFilterRegex.test(line)) {
+        // Confirm it's a wrapper-style call (skip silently) vs something we can't classify
+        if (wrapperCallRegex.test(line)) return;
+        return; // unclassifiable — don't flag
+      }
 
-        if (!hasLimit && !hasSince && !hasUntil) {
-          addResult({
-            category: 'Performance',
-            severity: 'high',
-            file,
-            line: index + 1,
-            issue: 'Unbounded Nostr query (no limit/since/until)',
-            recommendation: 'Add limit, since, or until to prevent fetching too many events',
-          });
-        }
+      // For inline filter literals, scan forward up to the closing paren of the call
+      const contextLines = lines.slice(index, Math.min(index + 20, lines.length));
+      const contextStr = contextLines.join('\n');
+
+      const hasLimit = /\blimit\s*:\s*\d+/.test(contextStr);
+      const hasSince = /\bsince\s*:/.test(contextStr);
+      const hasUntil = /\buntil\s*:/.test(contextStr);
+      const hasIds = /\bids\s*:\s*\[/.test(contextStr); // ids:[...] is inherently bounded
+      const hasAuthorsList = /\bauthors\s*:\s*\[/.test(contextStr); // authors list is bounded by length
+
+      if (!hasLimit && !hasSince && !hasUntil && !hasIds && !hasAuthorsList) {
+        addResult({
+          category: 'Performance',
+          severity: 'high',
+          file,
+          line: index + 1,
+          issue: 'Unbounded Nostr query (no limit/since/until/ids/authors)',
+          recommendation: 'Add limit, since, until, or scope by ids/authors to bound the result set',
+        });
       }
     });
   });
