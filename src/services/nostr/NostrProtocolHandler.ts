@@ -316,38 +316,6 @@ export class NostrProtocolHandler {
   }
 
   /**
-   * Create a workout event (kind 1301)
-   */
-  createWorkoutEvent(
-    privateKeyHex: string,
-    workoutData: {
-      type: string;
-      duration: number;
-      distance?: number;
-      calories?: number;
-      [key: string]: any;
-    }
-  ): Promise<Event> {
-    const eventTemplate: EventTemplate = {
-      kind: 1301,
-      content: JSON.stringify(workoutData),
-      tags: [
-        ['activity', workoutData.type],
-        ['duration', workoutData.duration.toString()],
-        ...(workoutData.distance
-          ? [['distance', workoutData.distance.toString()]]
-          : []),
-        ...(workoutData.calories
-          ? [['calories', workoutData.calories.toString()]]
-          : []),
-      ],
-      created_at: Math.floor(Date.now() / 1000),
-    };
-
-    return this.signEvent(eventTemplate, privateKeyHex);
-  }
-
-  /**
    * Create a profile event (kind 0)
    */
   createProfileEvent(

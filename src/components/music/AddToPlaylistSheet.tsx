@@ -187,7 +187,7 @@ export const AddToPlaylistSheet: React.FC<AddToPlaylistSheetProps> = ({
                     {addingToPlaylistId === playlist.id ? (
                       <ActivityIndicator size="small" color={theme.colors.accent} />
                     ) : successPlaylistId === playlist.id ? (
-                      <Ionicons name="checkmark-circle" size={24} color="#2ecc71" />
+                      <Ionicons name="checkmark-circle" size={24} color={theme.colors.success} />
                     ) : (
                       <Ionicons name="add-circle-outline" size={24} color={theme.colors.textMuted} />
                     )}

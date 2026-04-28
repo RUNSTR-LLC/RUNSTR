@@ -3,7 +3,7 @@
  * workout_submissions row in Supabase so we can render a native card
  * instead of the full-bleed PNG.
  *
- * Matching: same npub, created_at within ±5 minutes of the post.
+ * Matching: same npub, created_at within ±60 minutes of the post.
  *
  * Works for ALL posts (retroactive + new) because workouts are always in
  * Supabase — they're never queried from Nostr.
@@ -120,7 +120,7 @@ export function useMatchedWorkout(post: SocialFeedPost): MatchedWorkoutResult {
     return () => {
       cancelled = true;
     };
-  }, [post.id, post.npub, post.created_at, state]);
+  }, [post.id, post.npub, post.created_at]);
 
   return state;
 }
