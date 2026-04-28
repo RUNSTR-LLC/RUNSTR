@@ -1,20 +1,19 @@
 # Auto-PR Agent
 
 **Runs:** Weekdays 08:00 UTC (4am EDT)
-**Mission:** Pick one issue labeled `auto-pr-ok`, implement it, open a draft PR against the current working version branch.
+**Mission:** Pick one issue labeled `auto-pr-ok`, implement it, open a draft PR against `main`.
 
 ## Execution
 
-### 1. Find the current working branch
+### 1. Sync main
 
 ```bash
 git fetch --all --prune
-# Current working branch = latest vX.Y.Z branch on origin, excluding main
-working=$(git branch -r | grep -oE 'origin/v[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -1 | sed 's|origin/||')
-echo "Working branch: $working"
+git checkout main
+git pull --ff-only
 ```
 
-If no `vX.Y.Z` branch exists, target `main` and note it in your run log.
+The project uses a single-branch model — all work targets `main`, releases are tagged. There is no rolling version branch.
 
 ### 2. Pick an issue
 
@@ -36,8 +35,6 @@ If nothing qualifies, file a `[CronLog] Auto-PR YYYY-MM-DD` issue labeled `cron-
 
 Create branch:
 ```bash
-git checkout "$working"
-git pull --ff-only
 git checkout -b "auto-pr/issue-${ISSUE_NUM}-$(date +%Y%m%d)"
 ```
 
@@ -64,7 +61,7 @@ git add <specific files only>
 git commit -m "Auto-PR: <issue title, truncated to 60 chars> (closes #${ISSUE_NUM})"
 git push -u origin HEAD
 gh pr create --draft \
-  --base "$working" \
+  --base main \
   --title "Auto-PR: <short title>" \
   --body "$(cat <<'EOF'
 Automated draft PR addressing #${ISSUE_NUM}.
@@ -100,7 +97,7 @@ Append `CRON-RUN-LOG` block to the PR body (not the issue, since the issue will 
 
 - **Never merge.** Draft PRs only.
 - **Never force-push.**
-- **Never push to main or the working branch directly.**
+- **Never push to main directly.** Always open a draft PR.
 - **Abort on any lint/typecheck regression.** Better to skip than to ship a bad PR.
 - **One PR per run max.** Don't try to clear the whole queue.
 - **No --no-verify** under any circumstance.
@@ -110,7 +107,7 @@ Append `CRON-RUN-LOG` block to the PR body (not the issue, since the issue will 
 
 If any step fails after branch creation:
 ```bash
-git checkout "$working"
+git checkout main
 git branch -D "auto-pr/issue-${ISSUE_NUM}-$(date +%Y%m%d)"
 git push origin --delete "auto-pr/issue-${ISSUE_NUM}-$(date +%Y%m%d)" 2>/dev/null || true
 ```
