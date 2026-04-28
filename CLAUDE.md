@@ -107,12 +107,12 @@ src/
 
 ## Git Workflow
 
-**All changes go through version branches and PRs. NEVER push directly to main.** Full details: [docs/GIT_WORKFLOW.md](./docs/GIT_WORKFLOW.md)
+**Single-branch model: all work happens on `main`. Releases are tagged, not branched.** Full details: [docs/GIT_WORKFLOW.md](./docs/GIT_WORKFLOW.md)
 
-1. Work on version branch (e.g., `v1.7.0`) — check for it at session start
-2. Commit early and often — run `npm run typecheck` first, stage specific files, use prefixes (`Fix:`, `Feature:`, `Refactor:`, `Docs:`, `Chore:`)
-3. Push regularly to back up work
-4. Release via PR to main → merge → tag → build
+1. Routine work commits and pushes directly to `main` — `git pull --ff-only` first, run `npm run typecheck`, stage specific files, use prefixes (`Fix:`, `Feature:`, `Refactor:`, `Docs:`, `Chore:`)
+2. Use a feature branch only when the change needs review, is risky, or the user explicitly asks for one
+3. Never force-push, never bypass hooks (`--no-verify`), never `git add .`
+4. Releases: bump version, commit, tag (`v1.10.0`), push tag, build from the tag
 
 ## Development Commands
 
@@ -145,7 +145,7 @@ For debugging, write a diagnostic script in `scripts/diagnostics/` first — con
 | [book/](./book/) | The RUNSTR Book (16 chapters) |
 | [docs/DEV_WORKFLOW.md](./docs/DEV_WORKFLOW.md) | Metro, Xcode, testing protocol, troubleshooting |
 | [docs/VIDEO_GUIDE.md](./docs/VIDEO_GUIDE.md) | Remotion video creation + PPQ.ai AI enhancement |
-| [docs/GIT_WORKFLOW.md](./docs/GIT_WORKFLOW.md) | Version branch model, commit rules, release process |
+| [docs/GIT_WORKFLOW.md](./docs/GIT_WORKFLOW.md) | Single-branch model, commit rules, tag-based releases |
 | [docs/KIND_1301_SPEC.md](./docs/KIND_1301_SPEC.md) | Workout event specification |
 | [docs/PERFORMANCE_GUIDE.md](./docs/PERFORMANCE_GUIDE.md) | Caching architecture and optimization |
 | [docs/ENVIRONMENT_SETUP.md](./docs/ENVIRONMENT_SETUP.md) | Environment variables |
