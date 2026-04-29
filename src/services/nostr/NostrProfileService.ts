@@ -231,7 +231,7 @@ export class NostrProfileService {
       };
 
       const profileEvents: Event[] = [];
-      const subscription = ndk.subscribe(filter, { closeOnEose: false });
+      const subscription = ndk.subscribe(filter, { closeOnEose: true });
 
       subscription.on('event', (event: NDKEvent) => {
         profileEvents.push({
@@ -245,8 +245,14 @@ export class NostrProfileService {
         });
       });
 
-      // Wait for events (1s is sufficient - profiles typically return in <500ms)
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Resolve on EOSE (relay signals end of stored events); fall back to 1s timeout
+      await new Promise<void>((resolve) => {
+        const timeout = setTimeout(resolve, 1000);
+        subscription.once('eose', () => {
+          clearTimeout(timeout);
+          resolve();
+        });
+      });
       // ✅ MEMORY LEAK FIX: Remove listeners before stopping subscription
       subscription.removeAllListeners('event');
       subscription.removeAllListeners('eose');
