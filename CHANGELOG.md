@@ -2,7 +2,11 @@
 
 All notable changes to RUNSTR will be documented in this file.
 
-## [1.10.0] - 2026-04-20 - Design Refresh
+## [1.9.3] - 2026-04-30 - Stabilization & Design Refresh
+
+Patch release focused on solidifying core flows. Bundles the design-refresh
+work that was originally targeted at 1.10.0 with cleanup and resilience fixes
+required before the next App Store submission.
 
 ### Features
 - **Branded pull-to-refresh** — new OstrichRefreshScrollView component renders the RUNSTR ostrich as users pull to refresh (available for organic migration across screens)
@@ -17,10 +21,17 @@ All notable changes to RUNSTR will be documented in this file.
 - Modal overlay opacity raised 0.85 → 0.92 to avoid near-transparent OLED bleed
 - Card padding 16 → 20 for iOS Settings–standard breathing room
 - Theme now exports semantic `typography.size` and `spacing.scale` tokens alongside the original names
+- New `ScreenErrorBoundary` wraps CommentsScreen and Season3Screen so an unexpected throw shows a retry UI instead of crashing the whole app
+- Season3Screen now shows a loading indicator on initial bracket fetch (previously flashed empty sections)
 
 ### Cleanup
 - Deleted three unused components (PrimaryButton, ActionButton, BottomNavigation) and the unreferenced TeamScreen
 - Stripped 32 stale color comments from 12 components (leftover `// #fff` / `// #666` annotations from the pre-orange era)
+- Removed four unused tracker screens (Diet, Manual Entry, Meditation, Water — −4012 lines) left behind when Wellness/Diet were removed from the activity grid
+- Cleaned ACTIVITY_DISPLAY_NAMES of stale Diet/Water entries; updated screens README to match shipped surface
+
+### Notes
+- **Season III: Club Battles** card is hidden on the Compete tab pending a tournament dry-run (bracket generation + `resolve-season3-matchup` cron). The screen, services, and migrations remain in place — re-enabled in a follow-up release once verified.
 
 ## [1.9.2] - 2026-04-18 - Cycling Parity
 
