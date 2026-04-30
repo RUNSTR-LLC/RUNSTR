@@ -10,6 +10,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { OstrichRefreshScrollView } from '../../components/ui/OstrichRefreshScrollView';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,8 +22,9 @@ import { MatchupCard } from '../../components/season3/MatchupCard';
 import { BracketView } from '../../components/season3/BracketView';
 import { QualifiedClubsList } from '../../components/season3/QualifiedClubsList';
 import { SEASON_3_CONFIG } from '../../constants/season3';
+import { ScreenErrorBoundary } from '../../components/ui/ScreenErrorBoundary';
 
-export const Season3Screen: React.FC = () => {
+const Season3ScreenInner: React.FC = () => {
   const navigation = useNavigation();
   const {
     bracket,
@@ -79,6 +81,11 @@ export const Season3Screen: React.FC = () => {
         <View style={{ width: 24 }} />
       </View>
 
+      {isLoading && bracket.length === 0 ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator color={theme.colors.accent} />
+        </View>
+      ) : (
       <OstrichRefreshScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -217,9 +224,16 @@ export const Season3Screen: React.FC = () => {
           </>
         )}
       </OstrichRefreshScrollView>
+      )}
     </SafeAreaView>
   );
 };
+
+export const Season3Screen: React.FC = () => (
+  <ScreenErrorBoundary screenName="Season3">
+    <Season3ScreenInner />
+  </ScreenErrorBoundary>
+);
 
 const styles = StyleSheet.create({
   container: {
@@ -243,6 +257,11 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   howItWorksHeader: {
     flexDirection: 'row',

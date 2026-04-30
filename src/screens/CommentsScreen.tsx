@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import { theme } from '../styles/theme';
 import { Avatar } from '../components/ui/Avatar';
+import { ScreenErrorBoundary } from '../components/ui/ScreenErrorBoundary';
 import { timeAgo } from '../types/social';
 import feedService from '../services/social/SocialFeedService';
 import SocialInteractionService from '../services/social/SocialInteractionService';
@@ -20,7 +21,7 @@ interface CommentsScreenProps {
   route: { params: { postId: string; postEventId: string; postAuthorPubkey: string; commentCount: number } };
 }
 
-export const CommentsScreen: React.FC<CommentsScreenProps> = ({ navigation, route }) => {
+const CommentsScreenInner: React.FC<CommentsScreenProps> = ({ navigation, route }) => {
   const { postId, postEventId, postAuthorPubkey, commentCount } = route.params;
   const [comments, setComments] = useState<SocialFeedComment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -203,5 +204,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
+
+export const CommentsScreen: React.FC<CommentsScreenProps> = (props) => (
+  <ScreenErrorBoundary screenName="Comments" onRetry={() => props.navigation.goBack()}>
+    <CommentsScreenInner {...props} />
+  </ScreenErrorBoundary>
+);
 
 export default CommentsScreen;

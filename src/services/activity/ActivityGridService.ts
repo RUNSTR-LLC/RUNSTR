@@ -54,13 +54,6 @@ export const ACTIVITY_DISPLAY_NAMES: Record<string, string> = {
   situps: 'Sit-ups',
   curls: 'Curls',
   bench: 'Bench',
-  // Diet
-  breakfast: 'Breakfast',
-  lunch: 'Lunch',
-  dinner: 'Dinner',
-  snack: 'Snack',
-  fast: 'Fast',
-  water: 'Water',
 };
 
 const STORAGE_KEY = '@runstr:activity_grid_position';

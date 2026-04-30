@@ -55,17 +55,13 @@ Main application screens for the RUNSTR mobile app's user interface.
 
 Activity tracking screens for GPS-tracked and manual workouts.
 
-- **ActivityTrackerScreen.tsx** - Main activity tracking interface with 2D swipe grid navigation across activity categories (Cardio, Strength, Wellness).
+- **ActivityTrackerScreen.tsx** - Main activity tracking interface with 2D swipe grid navigation across activity categories (Cardio, Strength).
 - **RunningTrackerScreen.tsx** - Real-time GPS running tracker displaying distance, time, pace, and elevation.
 - **WalkingTrackerScreen.tsx** - Walking activity tracker with GPS tracking, step estimation, and daily step goal tracking.
 - **CyclingTrackerScreen.tsx** - Cycling activity tracker with speed, distance, time, and elevation metrics.
 - **HikingTrackerScreen.tsx** - GPS-based hiking tracker focused on distance, time, elevation, and calories.
 - **StepsDisplayScreen.tsx** - Walk screen with circular progress ring showing daily steps and WoT-gated posting.
 - **StrengthTrackerScreen.tsx** - Strength training tracker with set/rep counter and configurable rest timer.
-- **MeditationTrackerScreen.tsx** - Simple meditation timer with type selection and duration tracking.
-- **DietTrackerScreen.tsx** - Meal logger and fasting tracker that logs meals with timestamps and calculates fasting duration.
-- **WaterTrackerScreen.tsx** - Daily water intake tracker with quick-add buttons and daily goal progress.
-- **ManualEntryScreen.tsx** - Universal manual workout entry that adapts UI based on category (cardio, strength, diet, wellness).
 - **ManualWorkoutScreen.tsx** - Manual workout entry with presets for logging non-GPS tracked activities.
 
 ### events/

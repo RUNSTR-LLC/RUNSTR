@@ -53,10 +53,11 @@ export const EventsContent: React.FC<EventsContentProps> = ({
         </TouchableOpacity>
       )}
 
-      {/* 1. RUNSTR Season III */}
-      <View style={styles.featuredEvent}>
+      {/* 1. RUNSTR Season III — hidden until tournament is dry-run tested */}
+      {/* TODO 2026-05-19: re-enable Season III card after generate_season3_bracket() and resolve-season3-matchup are end-to-end verified */}
+      {/* <View style={styles.featuredEvent}>
         <Season2EventCard onPress={onSeason2Press} />
-      </View>
+      </View> */}
 
       {/* 2. Daily Leaderboards */}
       <View style={styles.featuredEvent}>
