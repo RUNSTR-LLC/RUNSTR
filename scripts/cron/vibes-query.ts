@@ -12,17 +12,20 @@ const RELAYS = [
 interface CliArgs {
   days: number;
   out: string;
+  timeoutMs: number | null;
 }
 
 function parseArgs(): CliArgs {
   const args = process.argv.slice(2);
   let days = 7;
   let out = '/tmp/vibes.json';
+  let timeoutMs: number | null = null;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--days') days = parseInt(args[++i], 10);
     else if (args[i] === '--out') out = args[++i];
+    else if (args[i] === '--timeout') timeoutMs = parseInt(args[++i], 10);
   }
-  return { days, out };
+  return { days, out, timeoutMs };
 }
 
 interface Mention {
@@ -70,16 +73,21 @@ function dedupe(all: Mention[]): Mention[] {
 }
 
 async function main() {
-  const { days, out } = parseArgs();
+  const { days, out, timeoutMs } = parseArgs();
   const since = Math.floor(Date.now() / 1000) - days * 86400;
+
+  // Per-query timeouts. When --timeout is passed, override all of them with the given value.
+  const hashtagTimeout = timeoutMs ?? 15000;
+  const ptagTimeout = timeoutMs ?? 15000;
+  const runstrTimeout = timeoutMs ?? 10000;
 
   const ndk = new NDK({ explicitRelayUrls: RELAYS });
   await ndk.connect(5000);
 
   const [hashtagEvents, ptagEvents, runstrEvents] = await Promise.all([
-    fetchWithTimeout(ndk, { kinds: [1], '#t': ['runstr', 'RUNSTR'], since, limit: 100 }, 15000),
-    fetchWithTimeout(ndk, { kinds: [1], '#p': [RUNSTR_HEX], since, limit: 100 }, 15000),
-    fetchWithTimeout(ndk, { kinds: [1], authors: [RUNSTR_HEX], since, limit: 50 }, 10000),
+    fetchWithTimeout(ndk, { kinds: [1], '#t': ['runstr', 'RUNSTR'], since, limit: 100 }, hashtagTimeout),
+    fetchWithTimeout(ndk, { kinds: [1], '#p': [RUNSTR_HEX], since, limit: 100 }, ptagTimeout),
+    fetchWithTimeout(ndk, { kinds: [1], authors: [RUNSTR_HEX], since, limit: 50 }, runstrTimeout),
   ]);
 
   const hashtag_mentions = Array.from(hashtagEvents)
