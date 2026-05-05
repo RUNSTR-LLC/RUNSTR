@@ -25,18 +25,27 @@ const EventRow: React.FC<EventRowProps> = ({ label, onPress }) => (
   </TouchableOpacity>
 );
 
+const MAX_VISIBLE_ROWS = 3;
+
 export const EventsList: React.FC<EventsListProps> = ({
   onLeaderboardPress,
   onEinundzwanzigPress,
   onDynamicEventPress,
 }) => {
   const { competitions, isLoading } = useDynamicCompetitions();
+  const showEinundzwanzig = shouldShowEinundzwanzig();
+
+  // Cap total visible rows. Daily Leaderboards is always first, then
+  // Einundzwanzig (if active), then dynamic competitions filling remaining slots.
+  const fixedCount = 1 + (showEinundzwanzig ? 1 : 0);
+  const dynamicSlots = Math.max(0, MAX_VISIBLE_ROWS - fixedCount);
+  const visibleCompetitions = competitions.slice(0, dynamicSlots);
 
   return (
     <View style={styles.container}>
       <EventRow label="Daily Leaderboards" onPress={onLeaderboardPress} />
 
-      {shouldShowEinundzwanzig() && (
+      {showEinundzwanzig && (
         <EventRow label="Einundzwanzig Fitness" onPress={onEinundzwanzigPress} />
       )}
 
@@ -46,7 +55,7 @@ export const EventsList: React.FC<EventsListProps> = ({
         </View>
       )}
 
-      {competitions.map((comp) => (
+      {visibleCompetitions.map((comp) => (
         <EventRow
           key={comp.id}
           label={comp.name}

@@ -18,6 +18,8 @@ import { SocialFeedPost } from '../components/social/SocialFeedPost';
 import { PostComposerModal } from '../components/social/PostComposerModal';
 import { SectionHeader } from '../components/social/SectionHeader';
 import { EventsList } from '../components/social/EventsList';
+import { useDynamicCompetitions } from '../hooks/useDynamicCompetitions';
+import { shouldShowEinundzwanzig } from '../constants/einundzwanzig';
 import SocialFeedService from '../services/social/SocialFeedService';
 import { ClubService } from '../services/backend/ClubService';
 import { ClubMembershipService } from '../services/backend/ClubMembershipService';
@@ -55,6 +57,16 @@ const SocialScreenComponent: React.FC = () => {
   const handleOpenComposer = useCallback(() => {
     setComposerVisible(true);
   }, []);
+
+  const handleSeeMoreEvents = useCallback(() => {
+    navigation.navigate('Compete');
+  }, [navigation]);
+
+  // Decide whether to surface the "See more" pill on the Events header.
+  // EventsList caps at 3 rows; show the pill only when there's overflow.
+  const { competitions: allCompetitions } = useDynamicCompetitions();
+  const totalEventCount = 1 + (shouldShowEinundzwanzig() ? 1 : 0) + allCompetitions.length;
+  const hasMoreEvents = totalEventCount > 3;
 
   const loadData = async (refresh = false) => {
     try {
@@ -156,7 +168,12 @@ const SocialScreenComponent: React.FC = () => {
       <SectionHeader title="Clubs" />
       <ClubsRow clubs={clubs} userClubId={userClubId} onClubCreated={handleClubCreated} />
       <View style={styles.sectionDivider} />
-      <SectionHeader title="Events" />
+      <SectionHeader
+        title="Events"
+        actionLabel={hasMoreEvents ? 'See more' : undefined}
+        actionIcon={hasMoreEvents ? 'arrow-forward' : undefined}
+        onActionPress={hasMoreEvents ? handleSeeMoreEvents : undefined}
+      />
       <EventsList
         onLeaderboardPress={handleLeaderboardPress}
         onEinundzwanzigPress={handleEinundzwanzigPress}
@@ -170,7 +187,7 @@ const SocialScreenComponent: React.FC = () => {
         onActionPress={handleOpenComposer}
       />
     </>
-  ), [clubs, userClubId, handleClubCreated, handleLeaderboardPress, handleEinundzwanzigPress, handleDynamicEventPress, handleOpenComposer]);
+  ), [clubs, userClubId, handleClubCreated, handleLeaderboardPress, handleEinundzwanzigPress, handleDynamicEventPress, handleOpenComposer, hasMoreEvents, handleSeeMoreEvents]);
 
   if (isLoading) {
     return (
