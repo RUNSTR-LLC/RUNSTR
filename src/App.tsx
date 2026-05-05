@@ -214,7 +214,6 @@ import { CompeteScreen } from './screens/CompeteScreen';
 import { LeaderboardsScreen } from './screens/LeaderboardsScreen';
 import { RewardsScreen } from './screens/RewardsScreen';
 import { JournalHistoryScreen } from './screens/JournalHistoryScreen';
-import { ClubsScreen } from './screens/ClubsScreen';
 import { StatsDetailScreen } from './screens/StatsDetailScreen';
 import { useWalletStore } from './store/walletStore';
 import { theme } from './styles/theme';
@@ -287,7 +286,6 @@ type AuthenticatedStackParamList = {
   Leaderboards: undefined;
   DynamicEventDetail: { eventId: string };
   JournalHistory: undefined;
-  Clubs: undefined;
   StatsDetail: { npub: string };
   Experimental: undefined;
   ClubPage: { clubId: string; clubName: string };
@@ -591,15 +589,6 @@ const AuthenticatedNavigator: React.FC = () => {
           headerShown: false,
         }}
         component={JournalHistoryScreen}
-      />
-
-      {/* Clubs - full discovery screen reached from Social tab "Discover" pill */}
-      <AuthenticatedStack.Screen
-        name="Clubs"
-        options={{
-          headerShown: false,
-        }}
-        component={ClubsScreen}
       />
 
       {/* Stats Detail - Level + Activity Breakdown */}

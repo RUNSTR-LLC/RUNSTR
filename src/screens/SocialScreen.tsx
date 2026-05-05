@@ -52,14 +52,6 @@ const SocialScreenComponent: React.FC = () => {
     navigation.navigate('DynamicEventDetail', { eventId });
   }, [navigation]);
 
-  const handleDiscoverClubs = useCallback(() => {
-    navigation.navigate('Clubs');
-  }, [navigation]);
-
-  const handleBrowseEvents = useCallback(() => {
-    navigation.navigate('Compete');
-  }, [navigation]);
-
   const handleOpenComposer = useCallback(() => {
     setComposerVisible(true);
   }, []);
@@ -161,20 +153,10 @@ const SocialScreenComponent: React.FC = () => {
 
   const renderHeader = useCallback(() => (
     <>
-      <SectionHeader
-        title="Clubs"
-        actionLabel="Discover"
-        actionIcon="add"
-        onActionPress={handleDiscoverClubs}
-      />
+      <SectionHeader title="Clubs" />
       <ClubsRow clubs={clubs} userClubId={userClubId} onClubCreated={handleClubCreated} />
       <View style={styles.sectionDivider} />
-      <SectionHeader
-        title="Events"
-        actionLabel="Browse"
-        actionIcon="add"
-        onActionPress={handleBrowseEvents}
-      />
+      <SectionHeader title="Events" />
       <EventsList
         onLeaderboardPress={handleLeaderboardPress}
         onEinundzwanzigPress={handleEinundzwanzigPress}
@@ -188,7 +170,7 @@ const SocialScreenComponent: React.FC = () => {
         onActionPress={handleOpenComposer}
       />
     </>
-  ), [clubs, userClubId, handleClubCreated, handleLeaderboardPress, handleEinundzwanzigPress, handleDynamicEventPress, handleDiscoverClubs, handleBrowseEvents, handleOpenComposer]);
+  ), [clubs, userClubId, handleClubCreated, handleLeaderboardPress, handleEinundzwanzigPress, handleDynamicEventPress, handleOpenComposer]);
 
   if (isLoading) {
     return (
