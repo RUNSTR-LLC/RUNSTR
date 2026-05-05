@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: theme.colors.text,
     fontSize: 14,
-    fontWeight: theme.typography.weights.semiBold,
+    fontWeight: theme.typography.weights.regular,
     marginRight: 12,
   },
   loader: {
