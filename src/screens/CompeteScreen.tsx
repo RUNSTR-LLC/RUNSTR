@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 import { EventsContent } from '../components/compete';
 import { SimpleEventCreationModal } from '../components/creation/SimpleEventCreationModal';
@@ -76,6 +77,13 @@ const CompeteScreenComponent: React.FC<CompeteScreenProps> = ({ navigation: prop
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Home' as never)}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+        </TouchableOpacity>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -141,6 +149,9 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 32,
+  },
+  backButton: {
+    padding: 4,
   },
   scrollView: {
     flex: 1,
