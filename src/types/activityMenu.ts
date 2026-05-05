@@ -28,15 +28,4 @@ export const CATEGORY_MENU: CategoryConfig[] = [
       { key: 'hiking', label: 'Hike', icon: 'compass-outline' },
     ],
   },
-  {
-    key: 'strength',
-    label: 'Strength',
-    activities: [
-      { key: 'pushups', label: 'Pushups', icon: 'fitness-outline' },
-      { key: 'pullups', label: 'Pull-ups', icon: 'barbell-outline' },
-      { key: 'situps', label: 'Sit-ups', icon: 'body-outline' },
-      { key: 'curls', label: 'Curls', icon: 'fitness-outline' },
-      { key: 'bench', label: 'Bench', icon: 'barbell-outline' },
-    ],
-  },
 ];
