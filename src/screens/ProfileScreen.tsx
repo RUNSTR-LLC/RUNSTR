@@ -27,6 +27,7 @@ import { ClubAffiliationsSection } from '../components/profile/ClubAffiliationsS
 import { NotificationBadge } from '../components/profile/NotificationBadge';
 import { NotificationModal } from '../components/profile/NotificationModal';
 import { ProfileDataService } from '../services/backend/ProfileDataService';
+import { ClubChatService } from '../services/backend/ClubChatService';
 import type { RecentWorkout, ClubAffiliation, ProfileLevelData, ActivityBreakdownData } from '../services/backend/ProfileDataService';
 import { useNostrProfile } from '../hooks/useCachedData';
 import LocalWorkoutStorageService from '../services/fitness/LocalWorkoutStorageService';
@@ -115,6 +116,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
   const [isLoadingSections, setIsLoadingSections] = useState(true);
   const [currentStreak, setCurrentStreak] = useState(0);
   const [totalEarnings, setTotalEarnings] = useState<number>(0);
+  const [unreadChatCount, setUnreadChatCount] = useState<number>(0);
 
   // Activity launcher state
   const [gridPosition, setGridPosition] = useState<GridPosition>({ row: 0, column: 0 });
@@ -213,6 +215,20 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
     }
   }, [targetNpub, isOwner]));
 
+  // Refresh unread chat count for the user's current team on focus
+  useFocusEffect(
+    useCallback(() => {
+      const teamId = data?.currentTeam?.id;
+      if (!teamId) {
+        setUnreadChatCount(0);
+        return;
+      }
+      ClubChatService.getUnreadCount(teamId)
+        .then(setUnreadChatCount)
+        .catch(() => setUnreadChatCount(0));
+    }, [data?.currentTeam?.id]),
+  );
+
   // Load saved activity grid position on mount
   useEffect(() => {
     let isMounted = true;
@@ -285,6 +301,16 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
     const parent = navigation.getParent();
     (parent || navigation).navigate('ClubPage' as any, { clubId: id, clubName: name });
   }, [navigation]);
+
+  const handleTeamPress = useCallback(() => {
+    const team = data?.currentTeam;
+    if (!team) return;
+    navigation.navigate('ClubChat', {
+      clubId: team.id,
+      clubName: team.name,
+      captainNpub: '',
+    });
+  }, [navigation, data?.currentTeam]);
 
   const handleEditPress = useCallback(() => {
     const parent = navigation.getParent();
@@ -371,6 +397,13 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
                   level={levelData?.level ?? 0}
                   streak={currentStreak}
                   earnings={totalEarnings}
+                  currentTeam={data.currentTeam ? {
+                    id: data.currentTeam.id,
+                    name: data.currentTeam.name,
+                    avatarUrl: null,
+                  } : null}
+                  unreadChatCount={unreadChatCount}
+                  onTeamPress={handleTeamPress}
                   onEditPress={handleEditPress}
                   onSettingsPress={undefined}
                   onLevelPress={() => {
