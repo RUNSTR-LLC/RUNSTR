@@ -23,16 +23,10 @@ import { PerformanceLogger } from '../utils/PerformanceLogger';
 // FIX: Loading multiple lazy screens simultaneously was causing freeze on first launch
 import { ProfileScreen } from '../screens/ProfileScreen';
 
-// Lazy load Social and Events since they're not the initial tab
+// Lazy load Social since it's not the initial tab
 const SocialScreen = React.lazy(() =>
   import('../screens/SocialScreen').then((m) => ({
     default: m.SocialScreen,
-  }))
-);
-
-const CompeteScreen = React.lazy(() =>
-  import('../screens/CompeteScreen').then((m) => ({
-    default: m.CompeteScreen,
   }))
 );
 
@@ -66,7 +60,6 @@ import { createNavigationHandlers } from './navigationHandlers';
 export type BottomTabParamList = {
   Home: { pubkey?: string } | undefined;
   Social: undefined;
-  Events: undefined;
   History: undefined;
 };
 
@@ -127,8 +120,6 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Social') {
             iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
-          } else if (route.name === 'Events') {
-            iconName = focused ? 'trophy' : 'trophy-outline';
           } else if (route.name === 'History') {
             iconName = focused ? 'time' : 'time-outline';
           }
@@ -207,20 +198,6 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
         )}
       </Tab.Screen>
 
-      {/* Events Tab - Competitions & Events */}
-      <Tab.Screen
-        name="Events"
-        options={{
-          title: t('profile:tabEvents'),
-          headerShown: false,
-        }}
-      >
-        {() => (
-          <Suspense fallback={<LoadingFallback />}>
-            <CompeteScreen />
-          </Suspense>
-        )}
-      </Tab.Screen>
       {/* History Tab - Workout History */}
       <Tab.Screen
         name="History"
