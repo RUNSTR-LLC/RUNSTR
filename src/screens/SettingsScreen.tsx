@@ -13,7 +13,6 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 import { OstrichRefreshScrollView } from '../components/ui/OstrichRefreshScrollView';
 import { theme } from '../styles/theme';
 import { CustomAlert } from '../components/ui/CustomAlert';
@@ -55,7 +54,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onSignOut,
 }) => {
   const state = useSettingsState(onSignOut);
-  const navigation = useNavigation<any>();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -113,10 +111,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           />
 
           <WorkoutDataSection
-            onAllWorkoutsPress={() => navigation.navigate('WorkoutHistory', {
-              userId: state.userNpub ?? '',
-              pubkey: state.userNpub ?? '',
-            })}
+            onAllWorkoutsPress={state.handleAllWorkoutsPress}
           />
 
           <DataBackupSection

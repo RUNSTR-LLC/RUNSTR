@@ -2,7 +2,7 @@
  * useSettingsState - Custom hook encapsulating all SettingsScreen state and handlers
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Platform } from 'react-native';
 import {
   TTSPreferencesService,
@@ -42,7 +42,7 @@ export interface AlertState {
 }
 
 export function useSettingsState(onSignOut?: () => void | Promise<void>) {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const { t } = useTranslation('settings');
   const { isMetric, setUnitSystem } = useUnitPreference();
   const [currentLanguage, setCurrentLanguage] = useState<LanguageCode>(
@@ -274,6 +274,13 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
     }
   };
 
+  const handleAllWorkoutsPress = useCallback(() => {
+    navigation.navigate('WorkoutHistory', {
+      userId: userNpub ?? '',
+      pubkey: userNpub ?? '',
+    });
+  }, [navigation, userNpub]);
+
   const handleSignOut = async () => {
     showAlert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
@@ -444,7 +451,6 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
 
   return {
     isMetric, setUnitSystem, currentLanguage, isDeletingAccount, userNsec,
-    userNpub,
     ttsSettings, musicPlayerHeaderEnabled, wotScore,
     showExportModal, setShowExportModal, showImportModal, setShowImportModal,
     autoBackupEnabled, lastBackupTime, defaultActivity,
@@ -458,6 +464,7 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
     handleDisconnectWallet, handleNWCQRScanned, handleNWCConnectSuccess,
     handleTTSSettingChange, handleAutoBackupToggle, handleHealthKitSyncToggle,
     handleMusicPlayerHeaderToggle, handleDefaultActivityChange, handleBack,
+    handleAllWorkoutsPress,
     handleSignOut, handleDeleteAccount, handleRefresh, handlePrivateModeToggle,
     handleLanguageChange, handleBackupPassword, handleCopyNpub,
   };
