@@ -34,7 +34,7 @@ import { EarningsHeroCard } from '../components/rewards/EarningsHeroCard';
 import { ImpactHeroCard } from '../components/rewards/ImpactHeroCard';
 import { TransparencyDashboardModal } from '../components/rewards/TransparencyDashboardModal';
 import { RewardDestinationSection } from '../components/rewards/RewardDestinationSection';
-import { RewardDestinationPicker } from '../components/rewards/RewardDestinationPicker';
+import { LightningAddressSetupModal } from '../components/wallet/LightningAddressSetupModal';
 import { SponsorBanner } from '../components/rewards/SponsorBanner';
 import { PledgeService } from '../services/pledge/PledgeService';
 import type { Pledge } from '../types/pledge';
@@ -95,20 +95,10 @@ const RewardsScreenComponent: React.FC = () => {
   // PPQ.AI credit topup modal state
   const [showPPQTopupModal, setShowPPQTopupModal] = useState(false);
 
-  // Reward destination picker modal state
-  const [showDestinationPicker, setShowDestinationPicker] = useState(false);
+  // Lightning address setup modal state (sole reward destination flow)
+  const [showLightningSetup, setShowLightningSetup] = useState(false);
 
-
-  // Auto-open destination picker when navigated from onboarding
-  const route = useRoute<any>();
   const navigation = useNavigation();
-  useEffect(() => {
-    if (route.params?.openDestinationPicker) {
-      setShowDestinationPicker(true);
-      // Clear the param so it doesn't re-trigger on tab switches
-      navigation.setParams({ openDestinationPicker: undefined } as any);
-    }
-  }, [route.params?.openDestinationPicker]);
 
   // Self team profile state
   const [selfTeamProfile, setSelfTeamProfile] = useState<{ displayName?: string; picture?: string } | null>(null);
@@ -330,7 +320,7 @@ const RewardsScreenComponent: React.FC = () => {
         {/* Reward Destination - Where workout rewards go */}
         <RewardDestinationSection
           selectedTeamId={selectedTeamId}
-          onChangePress={() => setShowDestinationPicker(true)}
+          onChangePress={() => setShowLightningSetup(true)}
           onPPQTopupPress={handlePPQTopup}
           onZapPress={() => handleZapCharity()}
         />
@@ -428,15 +418,11 @@ const RewardsScreenComponent: React.FC = () => {
         initialPoolBalance={poolBalance}
       />
 
-      {/* Reward Destination Picker Modal */}
-      <RewardDestinationPicker
-        visible={showDestinationPicker}
-        onClose={() => setShowDestinationPicker(false)}
-        selectedDestinationId={selectedTeamId}
-        onSelectDestination={(destinationId) => {
-          setSelectedTeamId(destinationId);
-          setShowDestinationPicker(false);
-        }}
+      {/* Lightning Address Setup — sole reward destination flow */}
+      <LightningAddressSetupModal
+        visible={showLightningSetup}
+        onClose={() => setShowLightningSetup(false)}
+        onSuccess={() => setShowLightningSetup(false)}
       />
 
       </TexturedBackground>
