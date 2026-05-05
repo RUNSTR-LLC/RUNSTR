@@ -426,7 +426,7 @@ export class ClubChatService {
         const createdMs = new Date(msg.created_at).getTime();
         if (createdMs > lastSeenMs) {
           count += 1;
-          if (count >= 99) return 99;
+          if (count > 99) return 100;
         }
       }
       return count;

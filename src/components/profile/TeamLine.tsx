@@ -19,7 +19,7 @@ interface TeamLineProps {
 
 const formatBadge = (count: number): string => {
   if (count <= 0) return '';
-  if (count >= 99) return '99+';
+  if (count > 99) return '99+';
   return String(count);
 };
 
@@ -36,6 +36,12 @@ export const TeamLine: React.FC<TeamLineProps> = ({
       style={styles.container}
       onPress={onPress}
       activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={
+        unreadCount > 0
+          ? `Open ${teamName} chat, ${unreadCount} unread message${unreadCount === 1 ? '' : 's'}`
+          : `Open ${teamName} chat`
+      }
     >
       <Avatar
         name={teamName}
