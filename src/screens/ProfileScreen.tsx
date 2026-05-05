@@ -223,9 +223,17 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
         setUnreadChatCount(0);
         return;
       }
+      let cancelled = false;
       ClubChatService.getUnreadCount(teamId)
-        .then(setUnreadChatCount)
-        .catch(() => setUnreadChatCount(0));
+        .then((count) => {
+          if (!cancelled) setUnreadChatCount(count);
+        })
+        .catch(() => {
+          if (!cancelled) setUnreadChatCount(0);
+        });
+      return () => {
+        cancelled = true;
+      };
     }, [data?.currentTeam?.id]),
   );
 
