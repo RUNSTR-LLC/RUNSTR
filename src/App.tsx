@@ -1011,11 +1011,10 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
         visible={showWelcomeModal}
         onComplete={() => {
           setShowWelcomeModal(false);
-          console.log('✅ Welcome modal closed - navigating to Reward Destination picker');
-          // Send user to Rewards tab and auto-open the destination picker
-          setTimeout(() => {
-            navigationRefNavigate('Rewards', { openDestinationPicker: true });
-          }, 300);
+          console.log('✅ Welcome modal closed');
+          // Cardio-only simplification: no auto-navigation to a destination picker.
+          // Rewards default to the user's Nostr lud16 and can be overridden later
+          // via the Lightning address modal on the Rewards screen.
         }}
       />
     </SafeAreaProvider>
