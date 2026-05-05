@@ -17,40 +17,52 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
   onActionPress,
 }) => (
   <View style={styles.container}>
-    <Text style={styles.title}>{title}</Text>
-    {actionLabel && onActionPress && (
-      <TouchableOpacity
-        style={styles.pill}
-        onPress={onActionPress}
-        activeOpacity={0.8}
-      >
-        {actionIcon && (
-          <Ionicons
-            name={actionIcon}
-            size={14}
-            color={theme.colors.background}
-            style={styles.pillIcon}
-          />
-        )}
-        <Text style={styles.pillLabel}>{actionLabel}</Text>
-      </TouchableOpacity>
-    )}
+    <View style={styles.titleRow}>
+      <Text style={styles.title}>{title}</Text>
+      {actionLabel && onActionPress && (
+        <TouchableOpacity
+          style={styles.pill}
+          onPress={onActionPress}
+          activeOpacity={0.8}
+        >
+          {actionIcon && (
+            <Ionicons
+              name={actionIcon}
+              size={14}
+              color={theme.colors.background}
+              style={styles.pillIcon}
+            />
+          )}
+          <Text style={styles.pillLabel}>{actionLabel}</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+    <View style={styles.accentRule} />
   </View>
 );
 
 const styles = StyleSheet.create({
   container: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+  },
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
   },
   title: {
     color: theme.colors.text,
-    fontSize: 18,
-    fontWeight: theme.typography.weights.semiBold,
+    fontSize: 22,
+    fontWeight: theme.typography.weights.bold,
+  },
+  accentRule: {
+    width: 40,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: theme.colors.orangeBright,
+    marginTop: 8,
   },
   pill: {
     flexDirection: 'row',
