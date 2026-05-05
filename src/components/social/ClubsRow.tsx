@@ -186,9 +186,9 @@ const styles = StyleSheet.create({
     maxWidth: 72,
   },
   clubName: {
-    color: theme.colors.textMuted,
-    fontSize: 11,
-    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.text,
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
     marginTop: 4,
     textAlign: 'center',
   },
