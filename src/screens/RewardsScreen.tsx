@@ -35,7 +35,6 @@ import { ImpactHeroCard } from '../components/rewards/ImpactHeroCard';
 import { TransparencyDashboardModal } from '../components/rewards/TransparencyDashboardModal';
 import { RewardDestinationSection } from '../components/rewards/RewardDestinationSection';
 import { LightningAddressSetupModal } from '../components/wallet/LightningAddressSetupModal';
-import { SponsorBanner } from '../components/rewards/SponsorBanner';
 import { PledgeService } from '../services/pledge/PledgeService';
 import type { Pledge } from '../types/pledge';
 import { useTranslation } from 'react-i18next';
@@ -332,9 +331,6 @@ const RewardsScreenComponent: React.FC = () => {
         {userHexPubkey && !hasLightningAddress && (
           <ImpactHeroCard pubkey={userHexPubkey} />
         )}
-
-        {/* Sponsor credit line */}
-        <SponsorBanner />
 
       </OstrichRefreshScrollView>
 
