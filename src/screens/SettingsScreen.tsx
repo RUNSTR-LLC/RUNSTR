@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { OstrichRefreshScrollView } from '../components/ui/OstrichRefreshScrollView';
 import { theme } from '../styles/theme';
 import { CustomAlert } from '../components/ui/CustomAlert';
@@ -32,6 +33,7 @@ import { PrivacySection } from '../components/settings/PrivacySection';
 import { LanguageSection } from '../components/settings/LanguageSection';
 import { FitnessTrackingSection } from '../components/settings/FitnessTrackingSection';
 import { AppleHealthSection } from '../components/settings/AppleHealthSection';
+import { WorkoutDataSection } from '../components/settings/WorkoutDataSection';
 import { DataBackupSection } from '../components/settings/DataBackupSection';
 import { AdvancedFeaturesSection } from '../components/settings/AdvancedFeaturesSection';
 import { PasswordSection } from '../components/settings/PasswordSection';
@@ -53,6 +55,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onSignOut,
 }) => {
   const state = useSettingsState(onSignOut);
+  const navigation = useNavigation<any>();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -107,6 +110,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             healthKitAuthorized={state.healthKitAuthorized}
             healthKitLastSync={state.healthKitLastSync}
             onHealthKitSyncToggle={state.handleHealthKitSyncToggle}
+          />
+
+          <WorkoutDataSection
+            onAllWorkoutsPress={() => navigation.navigate('WorkoutHistory', {
+              userId: state.userNpub ?? '',
+              pubkey: state.userNpub ?? '',
+            })}
           />
 
           <DataBackupSection

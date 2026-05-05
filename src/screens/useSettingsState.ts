@@ -444,6 +444,7 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
 
   return {
     isMetric, setUnitSystem, currentLanguage, isDeletingAccount, userNsec,
+    userNpub,
     ttsSettings, musicPlayerHeaderEnabled, wotScore,
     showExportModal, setShowExportModal, showImportModal, setShowImportModal,
     autoBackupEnabled, lastBackupTime, defaultActivity,
