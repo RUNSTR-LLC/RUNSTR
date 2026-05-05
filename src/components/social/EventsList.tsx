@@ -72,7 +72,8 @@ const styles = StyleSheet.create({
   rowLabel: {
     flex: 1,
     color: theme.colors.text,
-    fontSize: 16,
+    fontSize: 14,
+    fontWeight: theme.typography.weights.semiBold,
     marginRight: 12,
   },
   loader: {
