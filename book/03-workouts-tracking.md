@@ -68,11 +68,7 @@ Each activity type has a dedicated tracker screen:
 
 ### Manual Entry Screens
 
-| Screen | File | Activity |
-|--------|------|----------|
-| StrengthTrackerScreen | `src/screens/activity/StrengthTrackerScreen.tsx` | Strength |
-| MeditationTrackerScreen | `src/screens/activity/MeditationTrackerScreen.tsx` | Meditation |
-| DietTrackerScreen | `src/screens/activity/DietTrackerScreen.tsx` | Diet |
+> **Note (May 2026):** RUNSTR is now cardio-only. Strength, meditation, and diet trackers were removed as part of the cardio-only simplification — see `docs/superpowers/specs/2026-05-04-cardio-only-simplification-design.md`. Historical kind 1301 strength events still render in feeds via `workoutCardGenerator.ts`, but no manual-entry screens remain.
 
 ### Entry Point
 

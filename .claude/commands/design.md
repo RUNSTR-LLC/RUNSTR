@@ -161,7 +161,7 @@ For EACH inconsistency found, report:
 ### Agent 5: Polish & Enhancement Opportunities
 Prompt: "Review RUNSTR's screens and components for polish opportunities — things that work but could look/feel better.
 
-Read the main screens: ProfileScreen, ClubsScreen, RewardsScreen, SettingsScreen, and the activity tracker screens (ActivityTrackerScreen, RunningTrackerScreen, StrengthTrackerScreen, MeditationTrackerScreen).
+Read the main screens: ProfileScreen, ClubsScreen, RewardsScreen, SettingsScreen, and the activity tracker screens (ActivityTrackerScreen, RunningTrackerScreen, WalkingTrackerScreen, CyclingTrackerScreen, HikingTrackerScreen).
 
 Look for:
 

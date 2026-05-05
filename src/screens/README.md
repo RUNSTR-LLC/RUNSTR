@@ -61,7 +61,6 @@ Activity tracking screens for GPS-tracked and manual workouts.
 - **CyclingTrackerScreen.tsx** - Cycling activity tracker with speed, distance, time, and elevation metrics.
 - **HikingTrackerScreen.tsx** - GPS-based hiking tracker focused on distance, time, elevation, and calories.
 - **StepsDisplayScreen.tsx** - Walk screen with circular progress ring showing daily steps and WoT-gated posting.
-- **StrengthTrackerScreen.tsx** - Strength training tracker with set/rep counter and configurable rest timer.
 - **ManualWorkoutScreen.tsx** - Manual workout entry with presets for logging non-GPS tracked activities.
 
 ### events/

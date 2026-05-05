@@ -68,7 +68,7 @@ Look for:
 
 3. **Nostr subscriptions never stopped**: NDK subscriptions created but never .stop()'d. Check services that call ndk.subscribe() — is the subscription reference saved and cleaned up?
 
-4. **Timers without cleanup**: setInterval/setTimeout without corresponding clearInterval/clearTimeout in cleanup. Check tracker screens especially (RunningTrackerScreen, CyclingTrackerScreen, WalkingTrackerScreen, StrengthTrackerScreen).
+4. **Timers without cleanup**: setInterval/setTimeout without corresponding clearInterval/clearTimeout in cleanup. Check tracker screens especially (RunningTrackerScreen, CyclingTrackerScreen, WalkingTrackerScreen, HikingTrackerScreen).
 
 5. **Event listeners without removal**: addEventListener calls without corresponding removeEventListener in cleanup. Check AppState listeners, keyboard listeners, Linking listeners.
 
@@ -92,7 +92,7 @@ Look for:
 For EACH finding: file:line, severity, estimated bundle impact (KB if knowable), and the fix."
 
 ### Agent 5: Animation & UI Thread
-Prompt: "Audit RUNSTR for animation performance and UI thread issues. Read tracker screens (RunningTrackerScreen, CyclingTrackerScreen, WalkingTrackerScreen, MeditationTrackerScreen, StrengthTrackerScreen) and any components using Animated or LayoutAnimation.
+Prompt: "Audit RUNSTR for animation performance and UI thread issues. Read tracker screens (RunningTrackerScreen, CyclingTrackerScreen, WalkingTrackerScreen, HikingTrackerScreen) and any components using Animated or LayoutAnimation.
 
 Look for:
 
