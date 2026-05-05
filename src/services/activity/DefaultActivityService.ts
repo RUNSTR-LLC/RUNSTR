@@ -13,7 +13,6 @@ export type DefaultActivity =
   | 'walk'
   | 'cycle'
   | 'hiking'
-  | 'strength'
   | 'meditation';
 
 const STORAGE_KEY = '@runstr:default_activity';
@@ -92,7 +91,6 @@ export class DefaultActivityService {
       walk: 'Walking',
       cycle: 'Cycling',
       hiking: 'Hiking',
-      strength: 'Strength',
       meditation: 'Meditation',
     };
     return displayNames[activity] || 'Running';
@@ -107,7 +105,6 @@ export class DefaultActivityService {
       walk: 'footsteps',
       cycle: 'bicycle',
       hiking: 'trail-sign',
-      strength: 'barbell',
       meditation: 'leaf',
     };
     return icons[activity] || 'walk';
@@ -117,7 +114,7 @@ export class DefaultActivityService {
    * Validate if a string is a valid activity type
    */
   private isValidActivity(value: string): value is DefaultActivity {
-    return ['run', 'walk', 'cycle', 'hiking', 'strength', 'meditation'].includes(value);
+    return ['run', 'walk', 'cycle', 'hiking', 'meditation'].includes(value);
   }
 }
 
