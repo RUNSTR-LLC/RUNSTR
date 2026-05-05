@@ -12,7 +12,7 @@
  * Reads from reward_payments via SupabaseRewardService.getPaymentHistory.
  */
 
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -165,6 +165,7 @@ export const RewardHistoryScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const hasLoadedOnceRef = useRef(false);
 
   // Load pubkey once on mount
   useEffect(() => {
@@ -201,17 +202,12 @@ export const RewardHistoryScreen: React.FC = () => {
 
   useFocusEffect(
     useCallback(() => {
-      let cancelled = false;
-      if (pubkey) {
-        setIsLoading((prev) => prev || payments.length === 0);
-        loadPayments(pubkey).catch(() => {
-          if (!cancelled) setIsLoading(false);
-        });
-      }
-      return () => {
-        cancelled = true;
-      };
-    }, [pubkey, loadPayments, payments.length]),
+      if (!pubkey) return;
+      if (!hasLoadedOnceRef.current) setIsLoading(true);
+      loadPayments(pubkey).finally(() => {
+        hasLoadedOnceRef.current = true;
+      });
+    }, [pubkey, loadPayments]),
   );
 
   const handleRefresh = useCallback(() => {
