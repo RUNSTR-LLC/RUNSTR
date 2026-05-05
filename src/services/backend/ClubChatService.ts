@@ -20,6 +20,9 @@ const CACHE_KEY_PREFIX = '@runstr:club_chat:';
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const MAX_CACHED_MESSAGES = 50;
 
+// Per-club last-seen timestamp for unread-badge accounting
+const LAST_SEEN_KEY_PREFIX = '@runstr:club_chat_last_seen:';
+
 // Rate limiting: 5 messages per 60 seconds
 const RATE_LIMIT_WINDOW = 60 * 1000; // 60 seconds
 const RATE_LIMIT_MAX = 5;
@@ -404,6 +407,49 @@ export class ClubChatService {
       );
     } catch {
       // Cache write failed, non-critical
+    }
+  }
+
+  /**
+   * Get the count of cached chat messages newer than the user's last
+   * `markChatAsSeen` for this club. Reads from cache (no network).
+   * Capped at 99 so the badge can render a 2-digit max.
+   */
+  static async getUnreadCount(clubId: string): Promise<number> {
+    if (!clubId) return 0;
+    try {
+      const lastSeenStr = await AsyncStorage.getItem(`${LAST_SEEN_KEY_PREFIX}${clubId}`);
+      const lastSeenMs = lastSeenStr ? Number(lastSeenStr) : 0;
+      const cached = await ClubChatService.getCachedMessages(clubId);
+      let count = 0;
+      for (const msg of cached) {
+        const createdMs = new Date(msg.created_at).getTime();
+        if (createdMs > lastSeenMs) {
+          count += 1;
+          if (count >= 99) return 99;
+        }
+      }
+      return count;
+    } catch (err) {
+      console.warn('[ClubChatService] getUnreadCount failed:', err);
+      return 0;
+    }
+  }
+
+  /**
+   * Record the current timestamp as the user's last-seen point for this
+   * club's chat. Subsequent `getUnreadCount` calls return 0 until new
+   * messages arrive.
+   */
+  static async markChatAsSeen(clubId: string): Promise<void> {
+    if (!clubId) return;
+    try {
+      await AsyncStorage.setItem(
+        `${LAST_SEEN_KEY_PREFIX}${clubId}`,
+        String(Date.now()),
+      );
+    } catch (err) {
+      console.warn('[ClubChatService] markChatAsSeen failed:', err);
     }
   }
 
