@@ -17,7 +17,7 @@ import { ClubsRow } from '../components/social/ClubsRow';
 import { SocialFeedPost } from '../components/social/SocialFeedPost';
 import { PostComposerModal } from '../components/social/PostComposerModal';
 import { SectionHeader } from '../components/social/SectionHeader';
-import { EventsContent } from '../components/compete';
+import { EventsList } from '../components/social/EventsList';
 import SocialFeedService from '../services/social/SocialFeedService';
 import { ClubService } from '../services/backend/ClubService';
 import { ClubMembershipService } from '../services/backend/ClubMembershipService';
@@ -168,17 +168,19 @@ const SocialScreenComponent: React.FC = () => {
         onActionPress={handleDiscoverClubs}
       />
       <ClubsRow clubs={clubs} userClubId={userClubId} onClubCreated={handleClubCreated} />
+      <View style={styles.sectionDivider} />
       <SectionHeader
         title="Events"
         actionLabel="Browse"
         actionIcon="add"
         onActionPress={handleBrowseEvents}
       />
-      <EventsContent
+      <EventsList
         onLeaderboardPress={handleLeaderboardPress}
         onEinundzwanzigPress={handleEinundzwanzigPress}
         onDynamicEventPress={handleDynamicEventPress}
       />
+      <View style={styles.sectionDivider} />
       <SectionHeader
         title="Feed"
         actionLabel="Post"
@@ -232,6 +234,11 @@ const SocialScreenComponent: React.FC = () => {
 export const SocialScreen = React.memo(SocialScreenComponent);
 
 const styles = StyleSheet.create({
+  sectionDivider: {
+    height: 1,
+    backgroundColor: theme.colors.border,
+    marginTop: 16,
+  },
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
