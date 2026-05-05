@@ -40,7 +40,6 @@ import { RunningTrackerScreen } from './activity/RunningTrackerScreen';
 import { WalkingTrackerScreen } from './activity/WalkingTrackerScreen';
 import { CyclingTrackerScreen } from './activity/CyclingTrackerScreen';
 import { HikingTrackerScreen } from './activity/HikingTrackerScreen';
-import { StrengthTrackerScreen } from './activity/StrengthTrackerScreen';
 
 const GRACE_PERIOD_DAYS = 3;
 
@@ -292,8 +291,6 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
     (parent || navigation).navigate('ProfileEdit' as any);
   }, [navigation]);
 
-  type StrengthExercise = 'pushups' | 'pullups' | 'situps' | 'curls' | 'bench';
-
   const renderTracker = () => {
     if (!positionLoaded) return null;
 
@@ -330,16 +327,6 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
           default:
             return <RunningTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
         }
-      case 'strength': {
-        const validExercises: StrengthExercise[] = ['pushups', 'pullups', 'situps', 'curls', 'bench'];
-        const exercise = validExercises.includes(activity as StrengthExercise)
-          ? (activity as StrengthExercise)
-          : 'pushups';
-        // StrengthTrackerScreen does not accept onWorkoutStateChange — strength tracking
-        // intentionally does not trigger the full-screen takeover. Strength sessions are
-        // set-based and the user needs access to the header/nav to adjust settings mid-session.
-        return <StrengthTrackerScreen initialExercise={exercise} />;
-      }
       default:
         return <RunningTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
     }
