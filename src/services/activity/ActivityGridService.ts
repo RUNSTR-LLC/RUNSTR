@@ -150,8 +150,8 @@ export class ActivityGridService {
   }
 
   /**
-   * Navigate up (next category, reset to first activity)
-   * Returns null if already at bottom category
+   * Navigate up (vestigial — always returns null in cardio-only single-category grid).
+   * Kept to satisfy SwipeGridNavigator's interface; remove when consumers are updated.
    */
   navigateUp(position: GridPosition): GridPosition | null {
     if (!this.isPositionValid(position)) {
@@ -164,8 +164,8 @@ export class ActivityGridService {
   }
 
   /**
-   * Navigate down (previous category, reset to first activity)
-   * Returns null if already at top category
+   * Navigate down (vestigial — always returns null in cardio-only single-category grid).
+   * Kept to satisfy SwipeGridNavigator's interface; remove when consumers are updated.
    */
   navigateDown(position: GridPosition): GridPosition | null {
     if (!this.isPositionValid(position)) {
@@ -210,7 +210,7 @@ export class ActivityGridService {
   }
 
   /**
-   * Get hint text for vertical navigation
+   * Vestigial — always returns null in cardio-only single-category grid. Get hint text for vertical navigation
    */
   getVerticalHint(position: GridPosition): string | null {
     if (position.row < ACTIVITY_GRID.length - 1) {
