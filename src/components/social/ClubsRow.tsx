@@ -13,6 +13,7 @@ interface ClubsRowProps {
   clubs: Club[];
   userClubId?: string | null;
   onClubCreated?: () => void;
+  showSearch?: boolean;
 }
 
 const ClubItem = React.memo(
@@ -32,7 +33,7 @@ const ClubItem = React.memo(
   )
 );
 
-export const ClubsRow: React.FC<ClubsRowProps> = ({ clubs, userClubId, onClubCreated }) => {
+export const ClubsRow: React.FC<ClubsRowProps> = ({ clubs, userClubId, onClubCreated, showSearch = true }) => {
   const navigation = useNavigation<any>();
   const [showCreate, setShowCreate] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -110,7 +111,7 @@ export const ClubsRow: React.FC<ClubsRowProps> = ({ clubs, userClubId, onClubCre
         contentContainerStyle={styles.listContent}
         ListFooterComponent={createButton}
       />
-      <View style={styles.searchWrapper}>
+      {showSearch && <View style={styles.searchWrapper}>
         <View style={styles.searchContainer}>
           <Ionicons
             name="search-outline"
@@ -160,7 +161,7 @@ export const ClubsRow: React.FC<ClubsRowProps> = ({ clubs, userClubId, onClubCre
             </ScrollView>
           </View>
         )}
-      </View>
+      </View>}
       <SimpleTeamCreationModal
         visible={showCreate}
         onClose={() => setShowCreate(false)}

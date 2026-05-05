@@ -166,7 +166,7 @@ const SocialScreenComponent: React.FC = () => {
   const renderHeader = useCallback(() => (
     <>
       <SectionHeader title="Clubs" />
-      <ClubsRow clubs={clubs} userClubId={userClubId} onClubCreated={handleClubCreated} />
+      <ClubsRow clubs={clubs} userClubId={userClubId} onClubCreated={handleClubCreated} showSearch={false} />
       <View style={styles.sectionDivider} />
       <SectionHeader
         title="Events"
