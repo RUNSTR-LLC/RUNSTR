@@ -30,9 +30,9 @@ const SocialScreen = React.lazy(() =>
   }))
 );
 
-const WorkoutHistoryScreen = React.lazy(() =>
-  import('../screens/WorkoutHistoryScreen').then((m) => ({
-    default: m.WorkoutHistoryScreen,
+const RewardHistoryScreen = React.lazy(() =>
+  import('../screens/RewardHistoryScreen').then((m) => ({
+    default: m.RewardHistoryScreen,
   }))
 );
 
@@ -209,7 +209,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
       >
         {() => (
           <Suspense fallback={<LoadingFallback />}>
-            <WorkoutHistoryScreen />
+            <RewardHistoryScreen />
           </Suspense>
         )}
       </Tab.Screen>
