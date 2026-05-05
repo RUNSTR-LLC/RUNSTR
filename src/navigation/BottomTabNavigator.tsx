@@ -198,7 +198,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
         )}
       </Tab.Screen>
 
-      {/* History Tab - Workout History */}
+      {/* History Tab - Reward Transaction History */}
       <Tab.Screen
         name="History"
         options={{
