@@ -10,12 +10,13 @@ import {
 } from 'react-native';
 import { OstrichRefreshFlatList } from '../components/ui/OstrichRefreshScrollView';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { theme } from '../styles/theme';
 import { TexturedBackground } from '../components/ui/TexturedBackground';
 import { ClubsRow } from '../components/social/ClubsRow';
 import { SocialFeedPost } from '../components/social/SocialFeedPost';
 import { PostComposerModal } from '../components/social/PostComposerModal';
+import { EventsContent } from '../components/compete';
 import SocialFeedService from '../services/social/SocialFeedService';
 import { ClubService } from '../services/backend/ClubService';
 import { ClubMembershipService } from '../services/backend/ClubMembershipService';
@@ -27,6 +28,7 @@ import type { Club } from '../types/club';
 const feedService = SocialFeedService;
 
 const SocialScreenComponent: React.FC = () => {
+  const navigation = useNavigation<any>();
   const [posts, setPosts] = useState<SocialFeedPostType[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
   const [userClubId, setUserClubId] = useState<string | null>(null);
@@ -36,6 +38,18 @@ const SocialScreenComponent: React.FC = () => {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [composerVisible, setComposerVisible] = useState(false);
+
+  const handleLeaderboardPress = useCallback(() => {
+    navigation.navigate('Leaderboards');
+  }, [navigation]);
+
+  const handleEinundzwanzigPress = useCallback(() => {
+    navigation.navigate('EinundzwanzigDetail');
+  }, [navigation]);
+
+  const handleDynamicEventPress = useCallback((eventId: string) => {
+    navigation.navigate('DynamicEventDetail', { eventId });
+  }, [navigation]);
 
   const loadData = async (refresh = false) => {
     try {
@@ -132,6 +146,17 @@ const SocialScreenComponent: React.FC = () => {
     );
   }, [isLoadingMore]);
 
+  const renderHeader = useCallback(() => (
+    <>
+      <ClubsRow clubs={clubs} userClubId={userClubId} onClubCreated={handleClubCreated} />
+      <EventsContent
+        onLeaderboardPress={handleLeaderboardPress}
+        onEinundzwanzigPress={handleEinundzwanzigPress}
+        onDynamicEventPress={handleDynamicEventPress}
+      />
+    </>
+  ), [clubs, userClubId, handleClubCreated, handleLeaderboardPress, handleEinundzwanzigPress, handleDynamicEventPress]);
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -149,11 +174,11 @@ const SocialScreenComponent: React.FC = () => {
     <SafeAreaView style={styles.container} edges={['top']}>
       <TexturedBackground edges={[]}>
         <View style={styles.headerSpacer} />
-        <ClubsRow clubs={clubs} userClubId={userClubId} onClubCreated={handleClubCreated} />
         <OstrichRefreshFlatList
           data={posts}
           renderItem={renderPost}
           keyExtractor={(item) => item.id}
+          ListHeaderComponent={renderHeader}
           ListEmptyComponent={renderEmpty}
           ListFooterComponent={renderFooter}
           onEndReached={handleLoadMore}
