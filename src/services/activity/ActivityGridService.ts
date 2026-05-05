@@ -1,14 +1,15 @@
 /**
  * ActivityGridService - Manages 2D grid navigation for activities
  *
- * Categories (rows): Cardio, Strength
- * Activities (columns): Vary per category
+ * Categories (rows): Cardio
+ * Activities (columns): Run, Walk, Cycle, Hike
  *
  * Swipe Left/Right: Navigate within category
- * Swipe Up/Down: Navigate between categories
+ * Swipe Up/Down: Disabled (single category — no vertical navigation)
  *
- * Note: Diet category removed from swipe grid due to ScrollView conflicts
- * Note: Wellness category removed — unused by user base
+ * Note: Strength category removed 2026-05-04 — cardio-only simplification.
+ * Note: Diet category removed earlier due to ScrollView conflicts.
+ * Note: Wellness category removed earlier — unused by user base.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -16,7 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Category row definition
 export interface CategoryRow {
   name: string;
-  key: 'cardio' | 'strength';
+  key: 'cardio';
   activities: string[];
 }
 
@@ -26,34 +27,21 @@ export interface GridPosition {
   column: number;
 }
 
-// Activity grid configuration (Diet removed - has ScrollView conflicts)
-// Wellness removed — unused by user base
+// Activity grid configuration (cardio-only)
 export const ACTIVITY_GRID: CategoryRow[] = [
   {
     name: 'Cardio',
     key: 'cardio',
     activities: ['run', 'walk', 'cycle', 'hiking'],
   },
-  {
-    name: 'Strength',
-    key: 'strength',
-    activities: ['pushups', 'pullups', 'situps', 'curls', 'bench'],
-  },
 ];
 
 // Display names for activities
 export const ACTIVITY_DISPLAY_NAMES: Record<string, string> = {
-  // Cardio
   run: 'Run',
   walk: 'Walk',
   cycle: 'Cycle',
   hiking: 'Hike',
-  // Strength
-  pushups: 'Pushups',
-  pullups: 'Pull-ups',
-  situps: 'Sit-ups',
-  curls: 'Curls',
-  bench: 'Bench',
 };
 
 const STORAGE_KEY = '@runstr:activity_grid_position';
@@ -170,7 +158,7 @@ export class ActivityGridService {
       return { row: 0, column: 0 };
     }
     if (position.row >= ACTIVITY_GRID.length - 1) {
-      return null; // Already at bottom category (Strength)
+      return null; // Single category — no vertical navigation
     }
     return { row: position.row + 1, column: 0 };
   }
