@@ -225,7 +225,6 @@ import {
   safeRemoveItem,
 } from './utils/asyncStorageTimeout';
 import { AppStateManager } from './services/core/AppStateManager';
-import { WelcomePermissionModal } from './components/onboarding/WelcomePermissionModal';
 import AppInitializationService from './services/core/AppInitializationService';
 import { StepCompetitionService } from './services/competition/StepCompetitionService';
 import { analytics } from './utils/analytics';
@@ -662,28 +661,12 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
     };
   }, []);
 
-  const [showWelcomeModal, setShowWelcomeModal] = React.useState(false);
   const [hasInitialized, setHasInitialized] = React.useState(false);
 
   // Event deep link state
   const [pendingEventNavigation, setPendingEventNavigation] =
     React.useState<ParsedEventData | null>(null);
   // Uses shared navigationRef from './navigation/navigationRef' (imported at top)
-
-  // Check for first launch when authenticated
-  React.useEffect(() => {
-    if (isAuthenticated && currentUser) {
-      // Check first launch asynchronously (non-blocking)
-      safeGetItem('@runstr:first_launch', 2000, null).then((firstLaunch) => {
-        if (firstLaunch !== 'false') {
-          console.log('👋 App: First launch detected - showing welcome modal');
-          setShowWelcomeModal(true);
-          // Mark as not first launch anymore
-          safeSetItem('@runstr:first_launch', 'false', 2000);
-        }
-      });
-    }
-  }, [isAuthenticated, currentUser]);
 
   // Initialize analytics context for authenticated sessions
   React.useEffect(() => {
@@ -1007,16 +990,6 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
       <PlaylistBrowser />
 
       {/* Welcome Modal - Shows on first app launch */}
-      <WelcomePermissionModal
-        visible={showWelcomeModal}
-        onComplete={() => {
-          setShowWelcomeModal(false);
-          console.log('✅ Welcome modal closed');
-          // Cardio-only simplification: no auto-navigation to a destination picker.
-          // Rewards default to the user's Nostr lud16 and can be overridden later
-          // via the Lightning address modal on the Rewards screen.
-        }}
-      />
     </SafeAreaProvider>
   );
 };
