@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { CustomAlert } from '../components/ui/CustomAlert';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../styles/theme';
@@ -71,6 +72,14 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
     load();
     return () => { isMounted = false; };
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (clubId) {
+        ClubChatService.markChatAsSeen(clubId).catch(() => {});
+      }
+    }, [clubId]),
+  );
 
   const {
     messages,
