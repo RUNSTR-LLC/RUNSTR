@@ -263,14 +263,14 @@ class AppInitializationService {
             await AsyncStorage.setItem('@runstr:selected_team_id', SELF_TEAM_ID);
             console.log(`✅ AppInit: Migrated CoinOS → Self (recovered ${addr})`);
           } else {
-            // CoinOS account but no address - fall back to default
-            await AsyncStorage.setItem('@runstr:selected_team_id', 'als-foundation');
-            console.log('⚠️ AppInit: CoinOS no address, falling back to ALS Network');
+            // CoinOS account but no address - default to self (post cardio-only simplification)
+            await AsyncStorage.setItem('@runstr:selected_team_id', SELF_TEAM_ID);
+            console.log('⚠️ AppInit: CoinOS no address, defaulting to Self');
           }
         } else {
-          // No CoinOS account at all - fall back to default
-          await AsyncStorage.setItem('@runstr:selected_team_id', 'als-foundation');
-          console.log('⚠️ AppInit: No CoinOS account, falling back to ALS Network');
+          // No CoinOS account at all - default to self
+          await AsyncStorage.setItem('@runstr:selected_team_id', SELF_TEAM_ID);
+          console.log('⚠️ AppInit: No CoinOS account, defaulting to Self');
         }
       }
 

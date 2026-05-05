@@ -83,8 +83,8 @@ const RewardsScreenComponent: React.FC = () => {
   const [hasLightningAddress, setHasLightningAddress] = useState(false);
 
 
-  // Donation settings state (for zap modal)
-  const [selectedTeamId, setSelectedTeamId] = useState<string | null>('als-foundation');
+  // Reward destination state — defaults to self post cardio-only simplification
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(SELF_TEAM_ID);
 
   // Active pledge state
   const [activePledge, setActivePledge] = useState<Pledge | null>(null);
@@ -160,7 +160,7 @@ const RewardsScreenComponent: React.FC = () => {
 
       // Load selected team for zap modal
       const teamId = await AsyncStorage.getItem(SELECTED_TEAM_KEY);
-      if (teamId !== null) setSelectedTeamId(teamId || 'als-foundation');
+      if (teamId !== null) setSelectedTeamId(teamId || SELF_TEAM_ID);
 
       // Load user profile for self team display
       if (isSelfTeam(teamId || '')) {
