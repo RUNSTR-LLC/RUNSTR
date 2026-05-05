@@ -1451,7 +1451,7 @@ export class WorkoutCardGenerator {
     if (['strength_training', 'gym'].includes(workout.type)) {
       // If we have per-set weight data, show detailed breakdown
       if (workout.weightsPerSet && workout.weightsPerSet.length > 0) {
-        // Get reps breakdown from top-level field (saved by StrengthTrackerScreen)
+        // Get reps breakdown from the top-level field (historical strength workouts on Nostr)
         const repsBreakdown = workout.repsBreakdown;
 
         // Show first 3 sets (to avoid overcrowding the card)
