@@ -2,14 +2,12 @@
  * RewardDestinationSection - Compact card showing current reward destination
  *
  * Displays on the Rewards screen as a summary of where workout rewards go.
- * Tapping "Change" opens the full RewardDestinationPicker modal.
- * Tapping the zap icon opens an alert with the charity's Lightning address.
+ * Tapping "Change" opens LightningAddressSetupModal — the only reward
+ * destination flow post cardio-only simplification (2026-05-05).
  *
- * Handles four destination types:
- * - Self: "Rewards go to your Lightning address"
- * - PPQ.AI: "Rewards converted to AI credits"
- * - Charity/Project/Service: "Rewards go to [Name]"
- * - Community Team: "Rewards go to [Team Name]" (fetched from Supabase)
+ * Non-self branches (charity / PPQ.AI / community team) are vestigial —
+ * they still render correctly for any user whose stored selectedTeamId
+ * predates the cut, but no UI path can set those values anymore.
  */
 
 import React, { useState, useEffect } from 'react';
