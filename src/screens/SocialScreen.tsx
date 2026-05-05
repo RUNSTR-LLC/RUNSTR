@@ -16,6 +16,7 @@ import { TexturedBackground } from '../components/ui/TexturedBackground';
 import { ClubsRow } from '../components/social/ClubsRow';
 import { SocialFeedPost } from '../components/social/SocialFeedPost';
 import { PostComposerModal } from '../components/social/PostComposerModal';
+import { SectionHeader } from '../components/social/SectionHeader';
 import { EventsContent } from '../components/compete';
 import SocialFeedService from '../services/social/SocialFeedService';
 import { ClubService } from '../services/backend/ClubService';
@@ -50,6 +51,18 @@ const SocialScreenComponent: React.FC = () => {
   const handleDynamicEventPress = useCallback((eventId: string) => {
     navigation.navigate('DynamicEventDetail', { eventId });
   }, [navigation]);
+
+  const handleDiscoverClubs = useCallback(() => {
+    navigation.navigate('Clubs');
+  }, [navigation]);
+
+  const handleBrowseEvents = useCallback(() => {
+    navigation.navigate('Compete');
+  }, [navigation]);
+
+  const handleOpenComposer = useCallback(() => {
+    setComposerVisible(true);
+  }, []);
 
   const loadData = async (refresh = false) => {
     try {
@@ -148,14 +161,32 @@ const SocialScreenComponent: React.FC = () => {
 
   const renderHeader = useCallback(() => (
     <>
+      <SectionHeader
+        title="Clubs"
+        actionLabel="Discover"
+        actionIcon="add"
+        onActionPress={handleDiscoverClubs}
+      />
       <ClubsRow clubs={clubs} userClubId={userClubId} onClubCreated={handleClubCreated} />
+      <SectionHeader
+        title="Events"
+        actionLabel="Browse"
+        actionIcon="add"
+        onActionPress={handleBrowseEvents}
+      />
       <EventsContent
         onLeaderboardPress={handleLeaderboardPress}
         onEinundzwanzigPress={handleEinundzwanzigPress}
         onDynamicEventPress={handleDynamicEventPress}
       />
+      <SectionHeader
+        title="Feed"
+        actionLabel="Post"
+        actionIcon="add"
+        onActionPress={handleOpenComposer}
+      />
     </>
-  ), [clubs, userClubId, handleClubCreated, handleLeaderboardPress, handleEinundzwanzigPress, handleDynamicEventPress]);
+  ), [clubs, userClubId, handleClubCreated, handleLeaderboardPress, handleEinundzwanzigPress, handleDynamicEventPress, handleDiscoverClubs, handleBrowseEvents, handleOpenComposer]);
 
   if (isLoading) {
     return (
@@ -188,13 +219,6 @@ const SocialScreenComponent: React.FC = () => {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         />
-        <TouchableOpacity
-          style={styles.fab}
-          activeOpacity={0.8}
-          onPress={() => setComposerVisible(true)}
-        >
-          <Text style={styles.fabText}>Post</Text>
-        </TouchableOpacity>
       </TexturedBackground>
       <PostComposerModal
         visible={composerVisible}
