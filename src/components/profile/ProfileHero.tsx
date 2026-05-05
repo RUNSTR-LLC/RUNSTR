@@ -19,6 +19,7 @@ import { User } from '../../types';
 import { Avatar } from '../ui/Avatar';
 import { AnimatedNumber } from '../ui/AnimatedNumber';
 import { Skeleton } from '../ui/LoadingStates';
+import { TeamLine } from './TeamLine';
 
 interface ProfileHeroProps {
   user: User | null;
@@ -27,6 +28,9 @@ interface ProfileHeroProps {
   level?: number;
   streak?: number;
   earnings?: number;
+  currentTeam?: { id: string; name: string; avatarUrl?: string | null } | null;
+  unreadChatCount?: number;
+  onTeamPress?: () => void;
   onEditPress?: () => void;
   onBackPress?: () => void;
   onSettingsPress?: () => void;
@@ -54,6 +58,9 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
   level,
   streak,
   earnings,
+  currentTeam,
+  unreadChatCount = 0,
+  onTeamPress,
   onEditPress,
   onBackPress,
   onSettingsPress,
@@ -189,7 +196,14 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
         <View style={styles.textRow}>
           <View style={styles.textContent}>
             <Text style={styles.name}>{displayName}</Text>
-            {bio ? (
+            {currentTeam && onTeamPress ? (
+              <TeamLine
+                teamName={currentTeam.name}
+                teamAvatarUrl={currentTeam.avatarUrl}
+                unreadCount={unreadChatCount}
+                onPress={onTeamPress}
+              />
+            ) : bio ? (
               <Text style={styles.bio} numberOfLines={2}>
                 {bio}
               </Text>
