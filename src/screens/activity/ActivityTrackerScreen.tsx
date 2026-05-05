@@ -1,12 +1,10 @@
 /**
- * ActivityTrackerScreen - Main activity tracking interface with 2D swipe grid
+ * ActivityTrackerScreen - Main activity tracking interface
  *
  * Navigation:
- * - Swipe Left/Right: Navigate between activities within current category
- * - Swipe Up: Move to next category (Cardio → Strength → Wellness)
- * - Swipe Down: Move to previous category
+ * - Swipe Left/Right: Navigate between cardio activities (Run / Walk / Cycle / Hike)
  *
- * No menus - pure gesture-based navigation.
+ * Single-category grid post cardio-only simplification (2026-05-04).
  */
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -28,7 +26,6 @@ import { RunningTrackerScreen } from './RunningTrackerScreen';
 import { WalkingTrackerScreen } from './WalkingTrackerScreen';
 import { CyclingTrackerScreen } from './CyclingTrackerScreen';
 import { HikingTrackerScreen } from './HikingTrackerScreen';
-import { StrengthTrackerScreen } from './StrengthTrackerScreen';
 import { dailyStepCounterService } from '../../services/activity/DailyStepCounterService';
 import { WoTService } from '../../services/wot/WoTService';
 import { EnhancedSocialShareModal } from '../../components/profile/shared/EnhancedSocialShareModal';
@@ -39,9 +36,6 @@ import type { Workout } from '../../types/workout';
 import type { PublishableWorkout } from '../../services/nostr/workoutPublishingService';
 
 import { KM_PER_STEP } from '../../constants/appConstants';
-
-// Strength exercise type mapping
-type StrengthExercise = 'pushups' | 'pullups' | 'situps' | 'curls' | 'bench';
 
 
 export const ActivityTrackerScreen: React.FC = () => {
@@ -343,14 +337,6 @@ export const ActivityTrackerScreen: React.FC = () => {
           default:
             return <RunningTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
         }
-
-      case 'strength': {
-        const validExercises: StrengthExercise[] = ['pushups', 'pullups', 'situps', 'curls', 'bench'];
-        const exercise = validExercises.includes(activity as StrengthExercise)
-          ? (activity as StrengthExercise)
-          : 'pushups';
-        return <StrengthTrackerScreen initialExercise={exercise} />;
-      }
 
       default:
         return <RunningTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
