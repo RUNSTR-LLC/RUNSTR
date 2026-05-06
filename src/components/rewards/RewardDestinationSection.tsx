@@ -141,7 +141,7 @@ export const RewardDestinationSection: React.FC<RewardDestinationSectionProps> =
             onPress={onChangePress}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={styles.changeButtonText}>Change</Text>
+            <Text style={styles.changeButtonText}>Edit Lightning Address</Text>
           </TouchableOpacity>
 
           {isPPQ && onPPQTopupPress && (
