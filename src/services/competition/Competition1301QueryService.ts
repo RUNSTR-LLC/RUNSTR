@@ -584,18 +584,6 @@ export class Competition1301QueryService {
 
       console.log(`📥 Received ${events.length} raw kind 1301 events`);
 
-      // DEBUG: Log first 5 events to see what we're getting
-      if (events.length > 0) {
-        console.log(`🔍 DEBUG: Sample events (first 5):`);
-        events.slice(0, 5).forEach((event, i) => {
-          const tags = event.tags || [];
-          const exerciseTag = tags.find((t: string[]) => t[0] === 'exercise')?.[1] || 'unknown';
-          const distanceTag = tags.find((t: string[]) => t[0] === 'distance');
-          const splitCount = tags.filter((t: string[]) => t[0] === 'split').length;
-          console.log(`  [${i}] pubkey: ${event.pubkey?.substring(0, 8)}..., activity: ${exerciseTag}, distance: ${distanceTag ? distanceTag[1] + ' ' + (distanceTag[2] || 'km') : 'none'}, splits: ${splitCount}, created: ${new Date(event.created_at * 1000).toISOString()}`);
-        });
-      }
-
       // Parse and filter workouts
       const metrics = new Map<string, WorkoutMetrics>();
       let totalWorkouts = 0;

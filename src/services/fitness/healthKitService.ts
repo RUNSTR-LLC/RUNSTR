@@ -314,18 +314,13 @@ export class HealthKitService {
     }
 
     try {
-      console.log('🔍 DEBUG: HealthKit initialize() starting...');
-
       // Simplified approach: Just request permissions directly
       // iOS should handle already-granted permissions without showing dialogs
-      console.log('🔍 DEBUG: Requesting permissions directly...');
 
       // Request permissions from iOS
       const permissionsResult = await this.requestPermissions();
-      console.log('🔍 DEBUG: Permission request result:', permissionsResult);
 
       if (!permissionsResult.success) {
-        console.log('🔍 DEBUG: Permission request failed, returning failure');
         await this.saveAuthorizationStatus(false);
         return permissionsResult;
       }
@@ -1335,23 +1330,6 @@ export class HealthKitService {
         .map((workout: any, index: number) => {
           // Debug: Log first workout to see ALL available properties
           if (index === 0 && workout) {
-            console.log(
-              '📊 DEBUG: Available workout properties:',
-              Object.keys(workout)
-            );
-            console.log('📊 DEBUG: Full workout object:', workout);
-            console.log('📊 DEBUG: Specific fields check:');
-            console.log('  - uuid:', workout.uuid);
-            console.log('  - duration:', workout.duration);
-            console.log('  - distance:', workout.distance);
-            console.log('  - totalDistance:', workout.totalDistance);
-            console.log('  - totalEnergyBurned:', workout.totalEnergyBurned);
-            console.log('  - activeEnergyBurned:', workout.activeEnergyBurned);
-            console.log('  - energyBurned:', workout.energyBurned);
-            console.log(
-              '  - workoutActivityType:',
-              workout.workoutActivityType
-            );
           }
 
           // Extract distance - HealthKit returns HKQuantity objects, not raw numbers
@@ -1378,15 +1356,6 @@ export class HealthKitService {
             caloriesRaw?.doubleValue ||
             caloriesRaw?.value ||
             (typeof caloriesRaw === 'number' ? caloriesRaw : 0);
-
-          // Debug: Log extracted values for first workout
-          if (index === 0) {
-            console.log('📊 DEBUG: Extracted values from first workout:');
-            console.log(`  - Distance raw:`, distanceRaw);
-            console.log(`  - Distance extracted:`, distance, 'meters');
-            console.log(`  - Calories raw:`, caloriesRaw);
-            console.log(`  - Calories extracted:`, calories, 'kcal');
-          }
 
           const workoutData = this.normalizeWorkout(
             {

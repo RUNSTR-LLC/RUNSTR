@@ -514,14 +514,6 @@ export class WorkoutEventStore {
         }
       }
 
-      // DEBUG: Log raw event details for first few events
-      if (this.state.workouts.size < 10) {
-        console.log(`[WorkoutEventStore] DEBUG - Parsing event ${event.id.slice(0, 8)}:`);
-        console.log(`  pubkey: ${event.pubkey.slice(0, 8)}`);
-        console.log(`  created_at: ${event.created_at} (${new Date((event.created_at || 0) * 1000).toISOString()})`);
-        console.log(`  tags:`, event.tags.map(t => `[${t.join(', ')}]`).join(' '));
-      }
-
       // Extract activity type
       const exerciseTag = tags.get('exercise');
       const typeTag = tags.get('type');
