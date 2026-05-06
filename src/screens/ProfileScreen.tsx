@@ -7,6 +7,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { OstrichRefreshScrollView } from '../components/ui/OstrichRefreshScrollView';
 import { theme } from '../styles/theme';
 import { TexturedBackground } from '../components/ui/TexturedBackground';
@@ -367,8 +368,9 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
   };
 
   return (
-    <TexturedBackground>
-      {/* Header — hidden during active workout */}
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <TexturedBackground>
+        {/* Header — hidden during active workout */}
       {isOwner && !isWorkoutActive && (
         <View style={styles.header}>
           {musicPlayerHeaderEnabled ? (
@@ -496,7 +498,8 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
       {isOwner && (
         <NotificationModal visible={showNotificationModal} onClose={() => setShowNotificationModal(false)} />
       )}
-    </TexturedBackground>
+      </TexturedBackground>
+    </SafeAreaView>
   );
 };
 
