@@ -1389,7 +1389,7 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
   },
   payoutFailed: {
-    color: '#ff4444',
+    color: theme.colors.error,
   },
 });
 
