@@ -725,7 +725,7 @@ const styles = StyleSheet.create({
   previewActivityType: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#fff',
+    color: theme.colors.text,
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
@@ -734,7 +734,7 @@ const styles = StyleSheet.create({
   previewStatValue: {
     fontSize: 18,
     fontWeight: '300',
-    color: '#fff',
+    color: theme.colors.text,
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
@@ -742,7 +742,7 @@ const styles = StyleSheet.create({
   previewDistance: {
     fontSize: 11,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.8)',
+    color: theme.colors.textMuted,
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
@@ -765,13 +765,13 @@ const styles = StyleSheet.create({
   previewTacticalStat: {
     fontSize: 9,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.7)',
+    color: theme.colors.textMuted,
     letterSpacing: 1,
     marginTop: 2,
   },
   previewToughBar: {
     height: 2,
-    backgroundColor: '#FF3333',
+    backgroundColor: theme.colors.orangeBurnt,
     width: '100%',
     marginBottom: 4,
   },
@@ -868,37 +868,37 @@ const styles = StyleSheet.create({
   verticalPreviewActivity: {
     fontSize: 14,
     fontWeight: '300',
-    color: '#fff',
+    color: theme.colors.text,
     marginBottom: 4,
   },
   verticalPreviewValue: {
     fontSize: 48,
     fontWeight: '200',
-    color: '#fff',
+    color: theme.colors.text,
     lineHeight: 54,
   },
   verticalPreviewLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.6)',
+    color: theme.colors.textMuted,
     letterSpacing: 2,
   },
   verticalPreviewEstDistance: {
     fontSize: 11,
     fontWeight: '400',
-    color: 'rgba(255,255,255,0.45)',
+    color: theme.colors.textMuted,
     marginTop: 4,
   },
   verticalPreviewDivider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: theme.colors.textMuted,
     width: '60%',
     marginVertical: 12,
   },
   verticalPreviewQuote: {
     fontSize: 11,
     fontStyle: 'italic',
-    color: 'rgba(255,255,255,0.7)',
+    color: theme.colors.textMuted,
     textAlign: 'center',
   },
   // Elegant preview styles (black/grey/white only)
@@ -914,7 +914,7 @@ const styles = StyleSheet.create({
   elegantPreviewUsername: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#fff',
+    color: theme.colors.text,
     marginBottom: 4,
   },
   elegantPreviewQuote: {
@@ -946,7 +946,7 @@ const styles = StyleSheet.create({
   elegantPreviewStat: {
     fontSize: 14,
     fontWeight: '300',
-    color: '#fff',
+    color: theme.colors.text,
   },
   elegantPreviewStatSecondary: {
     fontSize: 10,
@@ -967,7 +967,7 @@ const styles = StyleSheet.create({
   elegantPreviewTeamName: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#fff',
+    color: theme.colors.text,
   },
   // Plain text preview — monospace-ish, minimal, matches what posts to Nostr
   plainTextPreview: {
@@ -981,7 +981,7 @@ const styles = StyleSheet.create({
   },
   plainTextLine: {
     fontSize: 14,
-    color: '#fff',
+    color: theme.colors.text,
     marginBottom: 2,
     fontVariant: ['tabular-nums'],
   },
