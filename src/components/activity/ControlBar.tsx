@@ -7,6 +7,7 @@ import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import { theme } from '../../styles/theme';
 import { HoldToStartButton } from './HoldToStartButton';
 
@@ -53,16 +54,43 @@ export const ControlBar: React.FC<ControlBarProps> = ({
     <View style={[styles.container, { paddingBottom: bottomPadding }]}>
       <View style={styles.buttonRow}>
         {state === 'tracking' ? (
-          <TouchableOpacity style={styles.pauseButton} onPress={onPause}>
+          <TouchableOpacity
+            style={styles.pauseButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onPause();
+            }}
+            activeOpacity={0.7}
+            accessibilityLabel="Pause workout"
+            accessibilityRole="button"
+          >
             <Ionicons name="pause" size={32} color={theme.colors.text} />
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity style={styles.resumeButton} onPress={onResume}>
+          <TouchableOpacity
+            style={styles.resumeButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onResume();
+            }}
+            activeOpacity={0.7}
+            accessibilityLabel="Resume workout"
+            accessibilityRole="button"
+          >
             <Ionicons name="play" size={32} color={theme.colors.background} />
           </TouchableOpacity>
         )}
 
-        <TouchableOpacity style={styles.stopButton} onPress={onStop}>
+        <TouchableOpacity
+          style={styles.stopButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            onStop();
+          }}
+          activeOpacity={0.7}
+          accessibilityLabel="Stop workout"
+          accessibilityRole="button"
+        >
           <Ionicons name="stop" size={32} color={theme.colors.text} />
         </TouchableOpacity>
       </View>

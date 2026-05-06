@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import * as Haptics from 'expo-haptics';
 import * as TaskManager from 'expo-task-manager';
 import * as Device from 'expo-device';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -960,14 +961,26 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
             {!isPaused ? (
               <TouchableOpacity
                 style={styles.pauseButton}
-                onPress={pauseTracking}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  pauseTracking();
+                }}
+                activeOpacity={0.7}
+                accessibilityLabel="Pause workout"
+                accessibilityRole="button"
               >
                 <Ionicons name="pause" size={30} color={theme.colors.text} />
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
                 style={styles.resumeButton}
-                onPress={resumeTracking}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  resumeTracking();
+                }}
+                activeOpacity={0.7}
+                accessibilityLabel="Resume workout"
+                accessibilityRole="button"
               >
                 <Ionicons
                   name="play"
@@ -978,7 +991,13 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
             )}
             <TouchableOpacity
               style={styles.stopButton}
-              onPress={stopTracking}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                stopTracking();
+              }}
+              activeOpacity={0.7}
+              accessibilityLabel="Stop workout"
+              accessibilityRole="button"
             >
               <Ionicons name="stop" size={30} color={theme.colors.text} />
             </TouchableOpacity>
