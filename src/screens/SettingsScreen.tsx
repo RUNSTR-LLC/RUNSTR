@@ -37,6 +37,7 @@ import { DataBackupSection } from '../components/settings/DataBackupSection';
 import { AdvancedFeaturesSection } from '../components/settings/AdvancedFeaturesSection';
 import { PasswordSection } from '../components/settings/PasswordSection';
 import { AgentSkillSection } from '../components/settings/AgentSkillSection';
+import { RewardsSection } from '../components/settings/RewardsSection';
 import { SupportLegalSection } from '../components/settings/SupportLegalSection';
 import { AccountActionsSection } from '../components/settings/AccountActionsSection';
 
@@ -140,6 +141,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
           <AgentSkillSection
             onShowAgentSkillModal={() => state.setShowAgentSkillModal(true)}
+          />
+
+          <RewardsSection
+            onRewardsPress={state.handleRewardsPress}
           />
 
           <SupportLegalSection

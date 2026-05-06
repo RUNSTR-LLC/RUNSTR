@@ -281,6 +281,10 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
     });
   }, [navigation, userNpub]);
 
+  const handleRewardsPress = useCallback(() => {
+    navigation.navigate('Rewards');
+  }, [navigation]);
+
   const handleSignOut = async () => {
     showAlert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
@@ -465,6 +469,7 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
     handleTTSSettingChange, handleAutoBackupToggle, handleHealthKitSyncToggle,
     handleMusicPlayerHeaderToggle, handleDefaultActivityChange, handleBack,
     handleAllWorkoutsPress,
+    handleRewardsPress,
     handleSignOut, handleDeleteAccount, handleRefresh, handlePrivateModeToggle,
     handleLanguageChange, handleBackupPassword, handleCopyNpub,
   };
