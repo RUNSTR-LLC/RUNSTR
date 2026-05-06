@@ -652,42 +652,42 @@ const styles = StyleSheet.create({
 
   // MINIMAL STYLE
   minimalOverlay: { position: 'absolute', bottom: 32, left: 24, right: 24 },
-  minimalLine: { height: 1, backgroundColor: 'rgba(255,255,255,0.4)', marginBottom: 20, width: '60%', alignSelf: 'center' },
+  minimalLine: { height: 1, backgroundColor: theme.colors.textMuted, marginBottom: 20, width: '60%', alignSelf: 'center' },
   minimalStatsRow: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 24 },
   minimalStat: { alignItems: 'center' },
-  minimalValue: { fontSize: 40, fontWeight: '300', color: '#fff', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
-  minimalLabel: { fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 4 },
+  minimalValue: { fontSize: 40, fontWeight: '300', color: theme.colors.text, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
+  minimalLabel: { fontSize: 13, color: theme.colors.textMuted, marginTop: 4 },
   minimalBrand: { fontSize: 16, fontWeight: '600', color: theme.colors.accent, textAlign: 'center', letterSpacing: 8 },
 
   // TACTICAL STYLE
   tacticalOverlay: { position: 'absolute', bottom: 24, left: 16, right: 16 },
-  tacticalCorner: { position: 'absolute', width: 20, height: 20, borderColor: 'rgba(255,255,255,0.6)' },
+  tacticalCorner: { position: 'absolute', width: 20, height: 20, borderColor: theme.colors.textMuted },
   tacticalCornerTL: { top: -30, left: 0, borderTopWidth: 2, borderLeftWidth: 2 },
   tacticalCornerTR: { top: -30, right: 0, borderTopWidth: 2, borderRightWidth: 2 },
   tacticalCornerBL: { bottom: -10, left: 0, borderBottomWidth: 2, borderLeftWidth: 2 },
   tacticalCornerBR: { bottom: -10, right: 0, borderBottomWidth: 2, borderRightWidth: 2 },
-  tacticalBox: { backgroundColor: 'rgba(26, 46, 26, 0.9)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', padding: 16, marginHorizontal: 8 },
+  tacticalBox: { backgroundColor: 'rgba(26, 46, 26, 0.9)', borderWidth: 1, borderColor: theme.colors.textMuted, padding: 16, marginHorizontal: 8 },
   tacticalMission: { fontFamily: 'Courier', fontSize: 16, fontWeight: '700', color: '#8b7355', marginBottom: 8, letterSpacing: 1 },
-  tacticalDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.2)', marginVertical: 8 },
+  tacticalDivider: { height: 1, backgroundColor: theme.colors.textMuted, marginVertical: 8 },
   tacticalStatsColumn: { gap: 4 },
-  tacticalStat: { fontFamily: 'Courier', fontSize: 14, color: '#fff', letterSpacing: 1 },
+  tacticalStat: { fontFamily: 'Courier', fontSize: 14, color: theme.colors.text, letterSpacing: 1 },
   tacticalStatus: { fontFamily: 'Courier', fontSize: 12, color: '#8b7355', marginTop: 4 },
 
   // TOUGH STYLE
   toughOverlay: { position: 'absolute', bottom: 24, left: 0, right: 0 },
-  toughTopBar: { height: 4, backgroundColor: '#FF3333', marginBottom: 16 },
+  toughTopBar: { height: 4, backgroundColor: theme.colors.orangeBurnt, marginBottom: 16 },
   toughContent: { paddingHorizontal: 24 },
-  toughActivity: { fontSize: 20, fontWeight: '800', color: '#fff', letterSpacing: 6, marginBottom: 12, textShadowColor: 'rgba(0,0,0,0.9)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
-  toughStats: { fontSize: 16, fontWeight: '700', color: '#fff', letterSpacing: 1, marginBottom: 12 },
-  toughUnderline: { height: 3, backgroundColor: '#fff', width: '80%', marginBottom: 12 },
-  toughBrand: { fontSize: 18, fontWeight: '900', color: '#fff', textAlign: 'right', letterSpacing: 2 },
+  toughActivity: { fontSize: 20, fontWeight: '800', color: theme.colors.text, letterSpacing: 6, marginBottom: 12, textShadowColor: 'rgba(0,0,0,0.9)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
+  toughStats: { fontSize: 16, fontWeight: '700', color: theme.colors.text, letterSpacing: 1, marginBottom: 12 },
+  toughUnderline: { height: 3, backgroundColor: theme.colors.text, width: '80%', marginBottom: 12 },
+  toughBrand: { fontSize: 18, fontWeight: '900', color: theme.colors.text, textAlign: 'right', letterSpacing: 2 },
 
   // ACHIEVEMENT TEXT CARD (no emojis)
   textCardContainer: { backgroundColor: '#111', borderRadius: 20, padding: 32, alignItems: 'center', width: '90%', maxWidth: 400, borderWidth: 2, borderColor: theme.colors.text },
-  textCardTitle: { fontSize: 18, fontWeight: '800', color: '#fff', textAlign: 'center', marginBottom: 16, letterSpacing: 1 },
+  textCardTitle: { fontSize: 18, fontWeight: '800', color: theme.colors.text, textAlign: 'center', marginBottom: 16, letterSpacing: 1 },
   textCardDivider: { height: 2, backgroundColor: theme.colors.text, width: '50%', marginBottom: 20 },
-  textCardDuration: { fontSize: 48, fontWeight: '300', color: '#fff', marginBottom: 8 },
-  textCardDistance: { fontSize: 24, color: 'rgba(255,255,255,0.8)', marginBottom: 16 },
+  textCardDuration: { fontSize: 48, fontWeight: '300', color: theme.colors.text, marginBottom: 8 },
+  textCardDistance: { fontSize: 24, color: theme.colors.textMuted, marginBottom: 16 },
   textCardHashtags: { fontSize: 16, color: theme.colors.accent, marginTop: 16 },
   loadingContainer: { alignItems: 'center' },
   loadingText: { color: '#666', fontSize: 16, marginTop: 12 },
@@ -727,13 +727,13 @@ const styles = StyleSheet.create({
   },
   wrapperUserName: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.7)',
+    color: theme.colors.textMuted,
     marginBottom: 12,
   },
   wrapperQuote: {
     fontSize: 16,
     fontStyle: 'italic',
-    color: 'rgba(255,255,255,0.6)',
+    color: theme.colors.textMuted,
     textAlign: 'center',
     paddingHorizontal: 20,
     lineHeight: 22,
@@ -770,7 +770,7 @@ const styles = StyleSheet.create({
   elegantUsername: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#fff',
+    color: theme.colors.text,
     marginBottom: 12,
   },
   elegantQuote: {
@@ -814,7 +814,7 @@ const styles = StyleSheet.create({
   elegantStat: {
     fontSize: 28,
     fontWeight: '300',
-    color: '#fff',
+    color: theme.colors.text,
     marginBottom: 4,
   },
   elegantStatSecondary: {
@@ -838,6 +838,6 @@ const styles = StyleSheet.create({
   elegantTeamName: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#fff',
+    color: theme.colors.text,
   },
 });
