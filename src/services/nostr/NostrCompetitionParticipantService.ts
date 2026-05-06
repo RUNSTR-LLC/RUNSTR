@@ -9,7 +9,6 @@ import NDK, {
   NDKPrivateKeySigner,
   type NDKSigner,
 } from '@nostr-dev-kit/ndk';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GlobalNDKService } from './GlobalNDKService';
 
 // Nostr event kinds for competition participants

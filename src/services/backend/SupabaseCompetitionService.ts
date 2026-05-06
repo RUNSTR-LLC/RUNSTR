@@ -22,7 +22,6 @@ import {
 import { getCharityById, isPPQTeam } from '../../constants/charities';
 import { getClubLightningAddress } from '../../utils/rewardTags';
 import { PPQAccountService } from '../ai/PPQAccountService';
-import { RewardLightningAddressService } from '../rewards/RewardLightningAddressService';
 import { callEdgeFunction } from '../../utils/edgeFunctions';
 import { REWARD_CONFIG } from '../../config/rewards';
 

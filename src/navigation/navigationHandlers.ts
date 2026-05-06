@@ -4,10 +4,7 @@
  */
 
 import { DiscoveryTeam } from '../types';
-import { useUserStore } from '../store/userStore';
 import { AuthService } from '../services/auth/authService';
-import { isTeamMember, isTeamCaptain } from '../utils/teamUtils';
-import { CaptainCache } from '../utils/captainCache';
 import { CustomAlertManager } from '../components/ui/CustomAlert';
 
 interface RewardDistribution {
