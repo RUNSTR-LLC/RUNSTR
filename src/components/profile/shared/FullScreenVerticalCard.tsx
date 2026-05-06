@@ -294,13 +294,13 @@ const styles = StyleSheet.create({
   activityName: {
     fontSize: 28,
     fontWeight: '300',
-    color: '#fff',
+    color: theme.colors.text,
     marginBottom: 8,
     textTransform: 'capitalize',
   },
   dateText: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.5)',
+    color: theme.colors.textMuted,
   },
 
   heroSection: {
@@ -311,20 +311,20 @@ const styles = StyleSheet.create({
   heroValue: {
     fontSize: 120,
     fontWeight: '200',
-    color: '#fff',
+    color: theme.colors.text,
     lineHeight: 130,
   },
   heroLabel: {
     fontSize: 18,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.6)',
+    color: theme.colors.textMuted,
     letterSpacing: 4,
     marginTop: -10,
   },
 
   divider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: theme.colors.textMuted,
     marginVertical: 24,
   },
 
@@ -339,13 +339,13 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.5)',
+    color: theme.colors.textMuted,
     letterSpacing: 2,
   },
   statValue: {
     fontSize: 18,
     fontWeight: '400',
-    color: '#fff',
+    color: theme.colors.text,
   },
 
   quoteSection: {
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
   quoteText: {
     fontSize: 16,
     fontStyle: 'italic',
-    color: 'rgba(255,255,255,0.7)',
+    color: theme.colors.textMuted,
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
   },
   userName: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.5)',
+    color: theme.colors.textMuted,
   },
 });
 
