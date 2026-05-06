@@ -14,6 +14,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { theme } from '../../styles/theme';
 import workoutPublishingService from '../../services/nostr/workoutPublishingService';
 import type { PublishableWorkout } from '../../services/nostr/workoutPublishingService';
@@ -65,6 +66,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
   workout,
 }) => {
   const { isMetric, distanceLabel, speedLabel } = useUnitPreference();
+  const navigation = useNavigation();
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showSocialModal, setShowSocialModal] = useState(false);
@@ -815,6 +817,22 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
           {/* Dismiss Button */}
           <TouchableOpacity style={styles.dismissButton} onPress={handleClose}>
             <Text style={styles.dismissButtonText}>Dismiss</Text>
+          </TouchableOpacity>
+
+          {/* View Rewards link */}
+          <TouchableOpacity
+            onPress={() => {
+              onClose();
+              navigation.navigate('Rewards' as never);
+            }}
+            activeOpacity={0.7}
+            accessibilityLabel="View rewards"
+            accessibilityRole="button"
+            style={{ alignSelf: 'center', paddingVertical: 8 }}
+          >
+            <Text style={{ color: theme.colors.textMuted, fontSize: 13 }}>
+              View Rewards →
+            </Text>
           </TouchableOpacity>
           </ScrollView>
         </View>
