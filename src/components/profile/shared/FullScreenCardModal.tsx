@@ -516,7 +516,7 @@ export const FullScreenCardModal: React.FC<FullScreenCardModalProps> = ({
         Toast.show({
           type: 'success',
           text1: 'Posted to Nostr!',
-          text2: 'Your workout has been shared',
+          text2: 'Your workout has been posted',
           position: 'bottom',
           visibilityTime: 3000,
         });

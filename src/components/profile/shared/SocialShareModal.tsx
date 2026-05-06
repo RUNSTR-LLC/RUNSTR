@@ -67,7 +67,7 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
         if (!nsec) {
           CustomAlertManager.alert(
             'Authentication Required',
-            'Please log in with your Nostr key to share workouts.'
+            'Please log in to post workouts.'
           );
           return;
         }
@@ -99,11 +99,11 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
             },
           ]);
         } else {
-          throw new Error(result.error || 'Failed to share workout');
+          throw new Error(result.error || 'Failed to post workout');
         }
       } catch (error) {
         console.error('Failed to share to Nostr:', error);
-        CustomAlertManager.alert('Error', 'Failed to share workout. Please try again.');
+        CustomAlertManager.alert('Error', 'Failed to post workout. Please try again.');
       } finally {
         setLoading(false);
         setSelectedPlatform(null);
@@ -137,7 +137,7 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
         <View style={styles.container}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>Share Workout</Text>
+            <Text style={styles.title}>Post Workout</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Text style={styles.closeText}>✕</Text>
             </TouchableOpacity>

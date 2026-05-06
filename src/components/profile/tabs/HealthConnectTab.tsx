@@ -340,7 +340,7 @@ const HealthConnectTabContent: React.FC<HealthConnectTabProps> = ({
       // Success alert handled by the EnhancedSocialShareModal
     } catch (error) {
       console.error('Social share failed:', error);
-      CustomAlertManager.alert('Error', 'Failed to share workout');
+      CustomAlertManager.alert('Error', 'Failed to post workout');
     } finally {
       setPostingWorkoutId(null);
       setPostingType(null);
@@ -386,7 +386,7 @@ const HealthConnectTabContent: React.FC<HealthConnectTabProps> = ({
                   size={16}
                   color={theme.colors.background}
                 />
-                <Text style={styles.postButtonText}>Share</Text>
+                <Text style={styles.postButtonText}>Post</Text>
               </>
             )}
           </TouchableOpacity>

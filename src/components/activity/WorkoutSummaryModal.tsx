@@ -777,7 +777,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
 
           {/* Action Buttons */}
           <View style={styles.actionButtons}>
-            {/* Share Workout - Only visible if WoT > 0 */}
+            {/* Post Workout - Only visible if WoT > 0 */}
             {isWoTEligible && !postedToNostr && (
               <TouchableOpacity
                 style={[styles.actionButton, styles.postButton]}
