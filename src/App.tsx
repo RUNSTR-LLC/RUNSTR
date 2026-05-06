@@ -215,6 +215,7 @@ import { LeaderboardsScreen } from './screens/LeaderboardsScreen';
 import { RewardsScreen } from './screens/RewardsScreen';
 import { JournalHistoryScreen } from './screens/JournalHistoryScreen';
 import { StatsDetailScreen } from './screens/StatsDetailScreen';
+import { CommentsScreen } from './screens/CommentsScreen';
 import { useWalletStore } from './store/walletStore';
 import { theme } from './styles/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -290,6 +291,7 @@ type AuthenticatedStackParamList = {
   ClubPage: { clubId: string; clubName: string };
   ClubChat: { clubId: string; clubName: string; captainNpub: string; pinnedMessageId?: string };
   LevelDetail: undefined;
+  Comments: { postId: string; postEventId: string; postAuthorPubkey: string; commentCount: number };
 };
 
 const AuthenticatedStack = createStackNavigator<AuthenticatedStackParamList>();
@@ -629,6 +631,13 @@ const AuthenticatedNavigator: React.FC = () => {
           return <ClubPageScreen route={route} navigation={navigation} />;
         }}
       </AuthenticatedStack.Screen>
+
+      {/* Comments Screen - Full-screen comment view */}
+      <AuthenticatedStack.Screen
+        name="Comments"
+        options={{ headerShown: false }}
+        component={CommentsScreen as any}
+      />
     </AuthenticatedStack.Navigator>
   );
 };
