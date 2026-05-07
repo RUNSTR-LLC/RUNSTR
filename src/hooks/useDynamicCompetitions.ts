@@ -8,25 +8,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { SupabaseCompetitionService } from '../services/backend/SupabaseCompetitionService';
 import type { Competition } from '../utils/supabase';
+import { deriveStatus, type CompetitionStatus } from '../utils/competitionStatus';
 
-export type CompetitionStatus = 'active' | 'upcoming' | 'ended';
+export type { CompetitionStatus };
 
 export interface DynamicCompetition extends Competition {
   status: CompetitionStatus;
 }
 
 const ENDED_GRACE_MS = 24 * 60 * 60 * 1000; // 24 hours
-
-function deriveStatus(comp: Competition): CompetitionStatus {
-  const now = Date.now();
-  const start = new Date(comp.start_date).getTime();
-  const endDate = new Date(comp.end_date);
-  endDate.setUTCHours(23, 59, 59, 999);
-  const end = endDate.getTime();
-  if (now < start) return 'upcoming';
-  if (now > end) return 'ended';
-  return 'active';
-}
 
 /** Ended events stay visible for 24h so users can view final leaderboards */
 function isWithinGracePeriod(comp: Competition): boolean {
