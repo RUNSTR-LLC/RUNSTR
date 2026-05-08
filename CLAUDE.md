@@ -25,7 +25,7 @@ Never use "cryptocurrency", "blockchain", or "decentralized" in user-facing cont
 
 **Three-Tab Navigation:** Profile (workouts, history, settings) · Social (feed, Fitness Clubs) · Events (competitions, leaderboards)
 
-**Activities** (swipeable grid): Cardio (Run, Walk, Cycle, Hike with GPS) · Strength (Pushups, Pull-ups, Sit-ups, Squats, Curls, Bench) · Wellness (Guided, Unguided, Breathwork, Body Scan, Gratitude) · Mindfulness (Journal, Habits)
+**Activities** (swipeable grid): Cardio (Run, Walk, Cycle, Hike with GPS) · Wellness (Guided, Unguided, Breathwork, Body Scan, Gratitude) · Mindfulness (Journal, Habits)
 
 **Rewards:** Sponsor-funded, one destination (no splits) — charities, projects, services (PPQ.AI), or self. Zapvertising: branded push notifications and Rewards page attribution.
 
