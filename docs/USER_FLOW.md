@@ -66,7 +66,6 @@ The app uses a bottom tab bar with three tabs. Profile is the default/home tab.
 | | Col 0 | Col 1 | Col 2 | Col 3 | Col 4 | Col 5 |
 |---|---|---|---|---|---|---|
 | **Cardio** | Run | Walk | Cycle | Hiking | | |
-| **Strength** | Pushups | Pull-ups | Sit-ups | Squats | Curls | Bench |
 | **Wellness** | Guided | Unguided | Breathwork | Body Scan | Gratitude | |
 | **Mindfulness** | Journal | Habits | | | | |
 
