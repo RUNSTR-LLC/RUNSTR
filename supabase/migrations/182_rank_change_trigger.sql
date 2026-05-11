@@ -2,6 +2,13 @@
 -- Fires AFTER INSERT and AFTER UPDATE on workout_submissions.
 -- Recomputes affected leaderboards inline, diffs against snapshot state,
 -- and invokes notify-user via net.http_post (async) for any rank delta.
+--
+-- Scope: covers the 5 daily leaderboards (5K, 10K, Half, Marathon, Steps) and
+-- all captain-created events (competitions where created_by_npub IS NOT NULL).
+-- KNOWN GAP: cycling daily leaderboards (time_cycling_20k_seconds and friends
+-- from migration 177) are NOT covered — they were out of scope for the design
+-- spec and the daily_leaderboard_rank_snapshots.leaderboard_id CHECK constraint
+-- would reject cycling values. Adding cycling requires a spec amendment.
 
 CREATE OR REPLACE FUNCTION notify_rank_changes()
 RETURNS TRIGGER
@@ -29,8 +36,13 @@ BEGIN
     RETURN NEW;
   END IF;
 
+  RAISE LOG '[notify_rank_changes] Fired for workout % (npub: %, activity: %)', NEW.id, left(NEW.npub, 12), NEW.activity_type;
+
   today_date := NEW.leaderboard_date;
 
+  IF today_date IS NULL THEN
+    RAISE WARNING '[notify_rank_changes] leaderboard_date is NULL for workout %, skipping daily leaderboards', NEW.id;
+  ELSE
   -- =============================================
   -- 1. Daily leaderboards
   -- =============================================
@@ -117,12 +129,13 @@ BEGIN
       END IF;
     END LOOP;
   END LOOP;
+  END IF; -- today_date IS NOT NULL
 
   -- =============================================
   -- 2. Captain events that include this workout in their window
   -- =============================================
   FOR event_row IN
-    SELECT id, name, scoring_method, activity_type
+    SELECT id, name, scoring_method, activity_type, start_date, end_date
     FROM competitions
     WHERE created_by_npub IS NOT NULL
       AND NEW.created_at >= start_date
@@ -147,8 +160,8 @@ BEGIN
         JOIN competition_participants cp ON cp.npub = ws.npub AND cp.competition_id = event_row.id
         WHERE ws.activity_type = event_row.activity_type
           AND ws.verified IS TRUE
-          AND ws.created_at >= (SELECT start_date FROM competitions WHERE id = event_row.id)
-          AND ws.created_at <  (SELECT end_date   FROM competitions WHERE id = event_row.id)
+          AND ws.created_at >= event_row.start_date
+          AND ws.created_at <  event_row.end_date
         GROUP BY ws.npub
       )
       SELECT * FROM ranked
@@ -217,3 +230,6 @@ CREATE TRIGGER trigger_notify_rank_changes_update
     OLD.duration_seconds      IS DISTINCT FROM NEW.duration_seconds
   )
   EXECUTE FUNCTION notify_rank_changes();
+
+COMMENT ON FUNCTION notify_rank_changes() IS
+  'Fires on workout_submissions INSERT/UPDATE. Recomputes affected daily and event leaderboards, diffs against snapshot tables, and async-invokes notify-user via net.http_post for each rank delta. See docs/superpowers/specs/2026-05-11-rank-change-notifications-design.md.';
