@@ -59,7 +59,7 @@ BEGIN
   IF NEW.time_marathon_seconds IS NOT NULL AND NEW.activity_type = 'running' THEN
     affected_lbs := array_append(affected_lbs, 'marathon');
   END IF;
-  IF NEW.activity_type = 'steps' AND NEW.step_count IS NOT NULL THEN
+  IF NEW.activity_type = 'walking' AND NEW.step_count IS NOT NULL THEN
     affected_lbs := array_append(affected_lbs, 'steps');
   END IF;
 
@@ -89,7 +89,7 @@ BEGIN
             (lb_id = '10k'           AND ws.time_10k_seconds      IS NOT NULL AND ws.activity_type = 'running') OR
             (lb_id = 'half_marathon' AND ws.time_half_seconds     IS NOT NULL AND ws.activity_type = 'running') OR
             (lb_id = 'marathon'      AND ws.time_marathon_seconds IS NOT NULL AND ws.activity_type = 'running') OR
-            (lb_id = 'steps'         AND ws.step_count            IS NOT NULL AND ws.activity_type = 'steps')
+            (lb_id = 'steps'         AND ws.step_count            IS NOT NULL AND ws.activity_type = 'walking')
           )
       )
       SELECT * FROM ranked
