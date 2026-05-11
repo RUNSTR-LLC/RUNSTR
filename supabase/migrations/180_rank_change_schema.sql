@@ -22,9 +22,6 @@ CREATE TABLE IF NOT EXISTS daily_leaderboard_rank_snapshots (
   UNIQUE (snapshot_date, leaderboard_id, npub)
 );
 
-CREATE INDEX IF NOT EXISTS idx_daily_rank_snapshots_date_lb
-  ON daily_leaderboard_rank_snapshots (snapshot_date, leaderboard_id);
-
 ALTER TABLE daily_leaderboard_rank_snapshots ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Anyone can read daily rank snapshots" ON daily_leaderboard_rank_snapshots;
@@ -47,9 +44,6 @@ CREATE TABLE IF NOT EXISTS event_leaderboard_rank_snapshots (
   last_updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
   UNIQUE (event_id, npub)
 );
-
-CREATE INDEX IF NOT EXISTS idx_event_rank_snapshots_event
-  ON event_leaderboard_rank_snapshots (event_id);
 
 ALTER TABLE event_leaderboard_rank_snapshots ENABLE ROW LEVEL SECURITY;
 
