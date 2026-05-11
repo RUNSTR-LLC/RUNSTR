@@ -43,7 +43,7 @@ function dailyBonusLabel(metadata: Record<string, any> | null): string {
     ? metadata.leaderboard_label
     : null;
   const place = typeof metadata?.place === 'number' ? metadata.place : null;
-  if (lbLabel && place) {
+  if (lbLabel !== null && place !== null) {
     return `${lbLabel} Daily — ${ordinal(place)} place`;
   }
   if (lbLabel) return `${lbLabel} Daily bonus`;
@@ -53,7 +53,7 @@ function dailyBonusLabel(metadata: Record<string, any> | null): string {
 function eventBonusLabel(metadata: Record<string, any> | null): string {
   const name = typeof metadata?.event_name === 'string' ? metadata.event_name : null;
   const place = typeof metadata?.place === 'number' ? metadata.place : null;
-  if (name && place) return `${name} — ${ordinal(place)} place`;
+  if (name !== null && place !== null) return `${name} — ${ordinal(place)} place`;
   if (name) return `${name} bonus`;
   return 'Event bonus';
 }
