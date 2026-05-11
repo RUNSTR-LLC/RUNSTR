@@ -69,6 +69,16 @@ function verifyLabelHelper() {
       expectedLabel: 'Steps Daily — 3rd place',
     },
     {
+      rewardType: 'daily_bonus',
+      metadata: { leaderboard_label: '10K', place: 1 },
+      expectedLabel: '10K Daily — 1st place',
+    },
+    {
+      rewardType: 'daily_bonus',
+      metadata: { leaderboard_label: 'Marathon', place: 3 },
+      expectedLabel: 'Marathon Daily — 3rd place',
+    },
+    {
       rewardType: 'event_bonus',
       metadata: { event_name: 'Ohio Ruckers Sprint', place: 2 },
       expectedLabel: 'Ohio Ruckers Sprint — 2nd place',
@@ -98,10 +108,16 @@ function verifyLabelHelper() {
 
 async function main() {
   console.log('Verifying bonus rewards schema and label helper...\n');
+
+  // Label tests are pure — run them first so failures surface even when
+  // migration 179 has not yet been applied.
+  verifyLabelHelper();
+  console.log('');
+
+  // Schema checks require migration 179 to be applied.
   await verifyTablesExist();
   await verifyMetadataColumn();
-  console.log('');
-  verifyLabelHelper();
+
   console.log('\nAll checks passed.');
 }
 
