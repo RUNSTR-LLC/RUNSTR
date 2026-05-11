@@ -32,6 +32,8 @@ async function verifyTablesExist() {
 }
 
 async function verifyMetadataColumn() {
+  // Read one row with metadata to confirm the column is selectable.
+  // (No rows is also OK — column existence is what we're checking.)
   const { error } = await supabase
     .from('reward_payments')
     .select('id, reward_type, metadata')
