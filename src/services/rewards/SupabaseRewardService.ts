@@ -34,6 +34,7 @@ export interface PaymentRecord {
   status: 'success' | 'pending' | 'failed';
   error_message: string | null;
   paid_at: string;
+  metadata: Record<string, any> | null;
 }
 
 export interface RewardBreakdown {
