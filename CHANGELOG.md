@@ -2,6 +2,60 @@
 
 All notable changes to RUNSTR will be documented in this file.
 
+## [1.9.4] - 2026-05-11 - Cardio Focus, Bonus Rewards, Rank Notifications
+
+Patch release that finishes the cardio-only simplification, ships bonus reward
+types with per-payment history, and adds push notifications when you move up
+or down a leaderboard.
+
+### Features
+- **Rank-change push notifications** — get pinged when your position changes on a daily leaderboard; tap the notification to deep-link straight into the relevant board
+- **Bonus rewards** — daily-bonus and event-bonus rewards now render as their own rows in History (new `rewardLabel` helper distinguishes them from base rewards)
+- **Reward History screen** — new per-payment ledger showing every reward you've received
+- **Settings → Wallet** — Rewards destination + NWC wallet config consolidated into a single Wallet accordion
+- **Android Health Connect sync toggle** — parity with iOS HealthKit sync; permission request flow + background registration
+- **Home team line + chat unread badge** — `TeamLine` shows your current club on Home with a badge for unread chat messages
+- **All Workouts entry in Settings** — quick path to full workout history
+- **Events embedded in Social tab** — events list with section headers and a 3-row + "See more" cap
+
+### Improvements
+- **Cardio-only activity grid** — Strength category and `StrengthTrackerScreen` removed. Historical strength events still render in feeds for backward compatibility. Run, Walk, Cycle, Hike are the only tracked activities.
+- **Lightning address replaces destination picker** — `RewardDestinationPicker` deleted; new direct lightning-address modal. Default destination is now Self (was ALS Network). `SponsorBanner` / Zapvertising surface removed.
+- **Events bottom tab removed** — events now live in the Social tab
+- **First-run friction trimmed** — `WelcomePermissionModal` deleted; onboarding no longer auto-navigates to the destination picker
+- **"Share" renamed to "Post"** across Nostr publish flows (matches the Nostr term)
+- **"Change" relabeled to "Edit Lightning Address"** to match button behavior
+- **Cleaner Social tab typography** — Discover/Browse pills dropped from Clubs and Events; row labels normalized to feed style; new SectionHeader (22pt bold + orange accent rule)
+- **Safe-area refactors** on HelpSupport, ContactSupport, PrivacyPolicy, and HealthProfile screens
+- **Theme tokens everywhere** — hardcoded `#fff`, `#ff4444`, `#FF3333` replaced with theme references in modals and tracker controls
+- **Accessibility + haptics** on tracker controls (a11y labels, activeOpacity, haptic feedback)
+- **Back button** added to CompeteScreen header
+- **Comments route** registered in AuthenticatedNavigator
+
+### Bug Fixes
+- Steps leaderboard `activity_type` corrected from `'steps'` to `'walking'`
+- `RewardHistoryScreen` no longer re-runs its focus effect on every payment count change (dropped `payments.length` dep)
+- `ProfileScreen` unread-count effect handles cancellation correctly
+- `TeamLine` badge off-by-one + accessibility fixes
+- `rewardLabel` metadata guards now use explicit null checks
+- Rank-change notification grammar fix: "11th" not "11st" (ordinal teens)
+- Migration 179 aligned with the project's RLS pattern; added `status` and `budget` CHECK constraints
+- `notify_rank_changes()` trigger hardened with NULL guards, subquery elision, and observability hooks
+- Redundant indexes on rank-change snapshot tables removed
+
+### Internals
+- Bonus rewards schema: `metadata` column on `reward_payments` + 3 new idempotency tables
+- Rank-change snapshot tables and `pg_net` extension enabled
+- PL/pgSQL helpers for the rank-change trigger (date-range helpers, ordinal formatting, transition matrix)
+- `claim-reward` Edge Function annotated so editors know which operations are live (`pay_invoice`, `create_invoice`, `lookup_invoice`, `get_balance`, `register_donation`) vs vestigial (the `claim_reward` workout-reward branch is superseded by the external runstr-zapper service)
+- `StatsCard`, `UnifiedWorkoutsTab`, step-counting service polish
+
+### Documentation
+- Full doc alignment pass: North Star, CLAUDE.md, README, USER_FLOW, ARCHITECTURE, REWARD_RULES, and the book rewritten around three pillars (Workouts / Social / Rewards), cardio-only, and lightning-address routing. Removes destination picker, charity routing, Zapvertising, subscriptions, lottery wheel, and non-cardio activity categories from canonical docs.
+- **Audience clarified**: the app is built for Bitcoin and Nostr users but deliberately doesn't lead with those technologies — users see "rewards," "password," and "lightning address," never "sats" or "nsec"
+- Book chapters 07 (in-person events) and 13 (reward destinations) removed; chapters 00, 01, 02, 06, 10, 11, 15 fully rewritten
+- Design specs and implementation plans added for shipped features (rank-change notifications, leaderboard bonuses, zapper handoff)
+
 ## [1.9.3] - 2026-04-30 - Stabilization & Design Refresh
 
 Patch release focused on solidifying core flows. Bundles the design-refresh
