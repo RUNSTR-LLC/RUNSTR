@@ -1,5 +1,7 @@
 # Chapter 8: Joining Events
 
+> **Note (May 2026):** This chapter references Season II as the canonical example because the technical patterns are real and still in the codebase. Under the simplified direction, the two active event types are the daily leaderboard (auto-entry, no joining required) and captain-created club events (auto-entry for members). Season II is a legacy featured-event format being phased out.
+
 ## How Users Join Events
 
 Joining an event in RUNSTR is simple:
@@ -217,7 +219,7 @@ async getParticipants() {
 
 ## Navigation
 
-**Previous:** [Chapter 7: In-Person Events & Business Model](./07-in-person-events.md)
+**Previous:** [Chapter 6: Events Overview](./06-events-overview.md)
 
 **Next:** [Chapter 9: Event Leaderboards](./09-events-leaderboards.md)
 

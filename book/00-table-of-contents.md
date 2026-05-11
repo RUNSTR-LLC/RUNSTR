@@ -1,9 +1,9 @@
 # RUNSTR Book - Table of Contents
 
-**Version:** 4.0.0
-**Last Updated:** March 2026
+**Version:** 5.0.0
+**Last Updated:** May 2026
 
-**Aggregate workouts, earn rewards.**
+**Cardio. Social. Rewards.**
 
 ---
 
@@ -11,8 +11,8 @@
 
 | Chapter | Title | Description |
 |---------|-------|-------------|
-| 00 | [About RUNSTR](./00-about-runstr.md) | External-facing narrative: workouts, social, rewards, and direction |
-| 01 | [Introduction](./01-introduction.md) | Core loop, aggregation + rewards model, three audiences, business model |
+| 00 | [About RUNSTR](./00-about-runstr.md) | External-facing narrative: the three pillars |
+| 01 | [Introduction](./01-introduction.md) | Cardio-only focus, the core loop, anonymous-first |
 
 ---
 
@@ -20,21 +20,20 @@
 
 | Chapter | Title | Description |
 |---------|-------|-------------|
-| 02 | [Workouts Overview](./02-workouts-overview.md) | What workouts are, activity categories, health integrations |
-| 03 | [Workout Tracking](./03-workouts-tracking.md) | GPS tracking, manual entry, real-time metrics, camera verification |
-| 04 | [Workout Data Model](./04-workouts-data-model.md) | Kind 1301 Nostr events, tag format, activity types |
+| 02 | [Workouts Overview](./02-workouts-overview.md) | What a workout is, the four cardio activities, health integrations |
+| 03 | [Workout Tracking](./03-workouts-tracking.md) | GPS tracking, real-time metrics |
+| 04 | [Workout Data Model](./04-workouts-data-model.md) | Kind 1301 Nostr events, tag format |
 | 05 | [Workout Storage & Publishing](./05-workouts-storage.md) | Local storage, health sync, Supabase submission |
 
 ---
 
-## Part 2: Competitions
+## Part 2: Events
 
 | Chapter | Title | Description |
 |---------|-------|-------------|
-| 06 | [Events Overview](./06-events-overview.md) | What competitions are, virtual events, prize pools |
-| 07 | [In-Person Events & Business Model](./07-in-person-events.md) | Meatspace races, sponsorship strategy, Zapvertising |
+| 06 | [Events Overview](./06-events-overview.md) | Daily leaderboard, club events, direction |
 | 08 | [Joining Events](./08-events-joining.md) | Supabase participant tracking, join flow |
-| 09 | [Event Leaderboards](./09-events-leaderboards.md) | Daily leaderboards, featured events, Fitness Club events |
+| 09 | [Event Leaderboards](./09-events-leaderboards.md) | Daily leaderboards, club event leaderboards |
 
 ---
 
@@ -42,10 +41,9 @@
 
 | Chapter | Title | Description |
 |---------|-------|-------------|
-| 10 | [Rewards Overview](./10-rewards-overview.md) | Sponsor-funded rewards, reward destinations, how rewards work |
-| 11 | [Daily & Step Rewards](./11-rewards-daily-step.md) | Per-workout rewards, daily wheel, levels |
-| 12 | [Lightning Address Delivery](./12-rewards-lightning-address.md) | LNURL protocol, reward delivery |
-| 13 | [Reward Destinations](./13-rewards-teams-charities.md) | Charities, projects, services, self — choosing where rewards go |
+| 10 | [Rewards Overview](./10-rewards-overview.md) | How rewards work, eligibility, lightning address routing |
+| 11 | [Daily Rewards & Levels](./11-rewards-daily-step.md) | Per-workout rewards, streaks expressed as level |
+| 12 | [Lightning Address Delivery](./12-rewards-lightning-address.md) | LNURL protocol, lud16 default, manual entry |
 | 14 | [Encrypted Backup](./14-encrypted-backup.md) | Kind 30078, NIP-44 self-encryption, gzip compression |
 
 ---
@@ -54,34 +52,28 @@
 
 | Chapter | Title | Description |
 |---------|-------|-------------|
-| 15 | [Conclusion](./15-conclusion.md) | Core loop, simplicity principle, future direction, final form |
-| 16 | [Appendix: Nostr Events](./16-appendix-nostr-events.md) | Kind 1301 spec, tag examples, relay config |
+| 15 | [Conclusion](./15-conclusion.md) | Core loop, simplicity principle, direction |
+| 16 | [Appendix: Nostr Events](./16-appendix-nostr-events.md) | Kind 1301 spec, kind 0 profiles, kind 30078 backups |
+
+> Note: Chapter numbers 07 and 13 are intentionally skipped. Chapter 07 (In-Person Events & Business Model) and Chapter 13 (Reward Destinations) were removed in the May 2026 simplification.
 
 ---
 
 ## Quick Reference
 
-### The Core Loop
-```
-Aggregate workouts → Earn rewards → Compete in events → Level up → Repeat
-```
+### The Three Pillars
+- **Workouts** — Cardio only. Track in-app or sync from Apple Health / Health Connect
+- **Social** — Feed, Fitness Clubs, captain-created events
+- **Rewards** — Lightning address (defaults to Nostr lud16), no destination picker
 
 ### Core Concepts
-- **Fitness data aggregator** — Pull workouts from any source into one place
-- **Rewards your way** — Users choose ONE destination: a charity, a project, AI credits, or themselves
-- **Levels that matter** — Consistency multiplies daily wheel payouts
-- **Sponsor-funded** — Rewards come from sponsors (Zapvertising), not RUNSTR
-- **Background sync** — Works with any HealthKit/Health Connect app. Earn rewards without opening the app
-- **Social feed** — Fitness posts from across Nostr with likes, zaps, reposts, and comments
-- **Fitness Clubs** — Users create clubs with leaderboards, chat, and captain-hosted events
-- **Invisible technology** — Users see rewards, not protocols
-
-### Three Audiences
-| Audience | What They See |
-|----------|--------------|
-| Fitness enthusiasts | Workout aggregator with rewards and competitions |
-| Bitcoin/Nostr community | Circular economy, anonymous tracking, decentralized data |
-| AI-forward users | Earn AI credits, give agent fitness context |
+- **Cardio focus** — Run, Walk, Cycle, Hike. Nothing else.
+- **Lightning address** — Pasted in or pulled from Nostr profile. One field, no routing.
+- **Level = streak** — A single legible progress number, not a dashboard of metrics.
+- **Background sync** — Works with any HealthKit/Health Connect app. Earn without opening the app.
+- **Social feed** — Workout posts, zaps, Fitness Clubs.
+- **Fitness Clubs** — Captain-run chatrooms and events. Captains earn per member workout.
+- **Invisible technology** — Users see rewards, not protocols.
 
 ### Key Services
 | Service | Purpose | Chapter |
@@ -92,9 +84,8 @@ Aggregate workouts → Earn rewards → Compete in events → Level up → Repea
 | `SupabaseRewardService` | Verified payment tracking | 10-11 |
 | `RewardPollingService` | In-app reward notifications | 10-11 |
 | `BackupService` | Encrypted backup (kind 30078) | 14 |
-| `PoseDetectionService` | Camera-verified strength reps | 03 |
 
 ### Navigation
-- **Profile Tab** — Start Workout, View History, Level & Wheel, Settings
+- **Profile Tab** — Start Workout, View History, Level, Settings
 - **Social Tab** — Social feed, Fitness Clubs, club chat, club events
-- **Events Tab** — Competitions, leaderboards, featured events
+- **Events Tab** — Daily leaderboard, club events

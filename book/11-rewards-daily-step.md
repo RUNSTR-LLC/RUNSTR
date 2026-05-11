@@ -1,23 +1,25 @@
-# Chapter 11: Daily Rewards & Lottery Wheel
+# Chapter 11: Daily Rewards & Levels
 
 ## Daily Workout Rewards
 
 ### Eligibility
-To earn the daily 50 sats reward:
+
+To earn the daily reward:
 
 | Requirement | Details |
 |-------------|---------|
 | Qualifying workout | Cardio activity (running, walking, cycling, hiking) |
 | Distance > 0 | Must have measurable distance |
-| Once per day | Max 1 reward per 24 hours |
+| Once per day | Max 1 daily reward per 24 hours |
 | Anti-cheat validation | Pace limits, distance limits |
 
 ### Qualifying Sources
+
 - In-app GPS tracker
 - Background sync from Apple Health / Health Connect
-- Manual entry
 
 ### Non-Qualifying Sources
+
 - Previously imported historical workouts (only new workouts from today qualify)
 
 **Why?** Background-synced workouts qualify because passive earning is a core feature — users earn without opening the app. Historical imports are excluded to prevent gaming.
@@ -36,68 +38,42 @@ await AsyncStorage.setItem(markerKey, Date.now().toString());
 
 This ensures:
 - Rapid back-to-back saves don't trigger multiple rewards
-- Only the first qualifying workout earns the reward
+- Only the first qualifying workout of the day earns the daily reward
 - No duplicate payments
 
 ---
 
-## Lottery Wheel
+## Levels Are Streaks
 
-The lottery wheel is a core reward mechanic. After every qualifying workout, users spin a wheel for bonus rewards on top of the base 50 sats.
-
-### Wheel Segments
-
-The wheel has 8 segments with weighted probabilities:
-
-| Segment | Base Value | Probability |
-|---------|-----------|-------------|
-| 5 | 5 sats | Highest |
-| 10 | 10 sats | High |
-| 25 | 25 sats | Medium-high |
-| 50 | 50 sats | Medium |
-| 100 | 100 sats | Medium-low |
-| 250 | 250 sats | Low |
-| 500 | 500 sats | Very low |
-| 1000 | 1000 sats | Lowest |
-
-Lower values appear more frequently. The distribution is weighted so that small wins are common and large wins are rare, creating a variable-ratio reinforcement schedule — the same psychological mechanic that makes slot machines engaging, applied to fitness consistency.
-
-### How the Spin Works
-
-1. User completes a qualifying workout
-2. Base 50 sats reward is claimed
-3. Lottery wheel appears with animated spin
-4. Wheel lands on a segment
-5. Segment value is multiplied by the user's level multiplier
-6. Bonus reward is sent to the user's chosen destination
-
-The wheel spin is visual and immediate — users see the wheel animate and land on their result. This creates a moment of anticipation after every workout.
-
----
-
-## RUNSTR Levels
-
-Your RUNSTR level is a direct reflection of your workout history. The more you work out, the higher your level, and the better your lottery wheel payouts.
+The RUNSTR level is the user's streak surfaced as a single legible number.
 
 ### How Levels Work
 
-- **Level is based on total workouts** — every qualifying workout contributes
-- **Higher level = higher multiplier** — the wheel's base values are multiplied by your level multiplier
-- **Consistent effort compounds** — a user at level 10 spinning a 100 segment earns significantly more than a level 1 user landing on the same segment
+- **Level = consecutive days with a qualifying workout**
+- One workout per day increments the streak
+- Missing a day breaks the streak and resets the level
+- The level number is shown on the Profile tab and in the workout summary
 
-### Level Multiplier
+### Why a Single Number?
 
-The level multiplier applies to lottery wheel winnings. A level 1 user landing on 50 earns 50 sats bonus. A higher-level user landing on 50 earns 50 * their multiplier.
+Many fitness apps surface XP, badges, points, achievements, and skill trees. RUNSTR surfaces one number. Behavioral reinforcement comes from the act of working out and getting a reward — the level is just the public-facing trace of consistency.
 
-This creates a behavioral reinforcement loop:
-1. Work out consistently
-2. Level up
-3. Wheel spins become more valuable
-4. Motivation to maintain consistency increases
+### Level Does Not Affect Reward Amount
 
-### Why Levels Matter
+The level is a streak indicator, not a multiplier. Every qualifying workout earns the same daily reward regardless of level. Extra rewards come from placing in events, not from level multipliers.
 
-Levels reward long-term consistency over single big efforts. A user who works out every day for a month will have a meaningfully higher multiplier than someone who does one workout. The system is designed so that the most consistent users get the best lottery outcomes over time.
+---
+
+## Event Rewards
+
+In addition to the daily reward, users earn extra rewards for placing in events:
+
+| Event | Extra Reward |
+|-------|--------------|
+| Daily leaderboard | Top finishers in each board (5K, 10K, Half, Marathon, Steps) |
+| Club event | Captain-defined prize structure |
+
+Event rewards stack with the daily reward — a user who works out and places on the daily leaderboard gets both.
 
 ---
 
@@ -127,15 +103,15 @@ async function checkStreakAndReward(
   // 3. Set atomic marker
   await setRewardMarker(userPubkey);
 
-  // 4. Send reward
-  await sendReward(userPubkey);
+  // 4. Workout is auto-submitted to Supabase
+  // (External runstr-zapper service picks it up and pays out)
 }
 ```
 
 ### Counter Storage
 
 ```typescript
-// Increment counters after successful reward
+// Increment counters after confirmed payment (via RewardPollingService)
 async function updateCounters(userPubkey: string, amount: number) {
   // Total lifetime
   const totalKey = `@runstr:total_rewards_earned:${userPubkey}`;
@@ -143,7 +119,7 @@ async function updateCounters(userPubkey: string, amount: number) {
   await setNumber(totalKey, total);
 
   // Weekly (resets Monday)
-  const weekKey = getWeekKey(); // e.g., "2026-W02"
+  const weekKey = getWeekKey();
   const weeklyKey = `@runstr:weekly_rewards_earned:${userPubkey}:${weekKey}`;
   const weekly = (await getNumber(weeklyKey)) + amount;
   await setNumber(weeklyKey, weekly);
@@ -184,68 +160,60 @@ async function getStreakDays(userPubkey: string): Promise<number> {
 ### Daily Reward Flow
 
 ```
-User saves workout
+User saves cardio workout
         |
+        v
 checkStreakAndReward(pubkey, source)
         |
 Is source 'gps_tracker' or 'manual_entry'?
         |
     NO --> Exit silently
     YES |
+        v
 Already rewarded today?
         |
     YES --> Exit silently
     NO |
+        v
 Set atomic marker (timestamp)
         |
-Submit workout to Supabase
+        v
+Workout auto-submitted to Supabase
         |
-External service monitors Supabase
+        v
+External runstr-zapper detects new workout
         |
-External service sends 50 sats via LNURL
+        v
+Sends reward via LNURL to user's lightning address
         |
+        v
 RewardPollingService detects payment
         |
-Update total/weekly counters
+        v
+Update total/weekly counters, increment streak
         |
+        v
 Show toast notification
-```
-
-### Lottery Wheel Flow
-
-```
-Daily reward confirmed
-        |
-Lottery wheel appears (animated)
-        |
-Wheel spins and lands on segment (5-1000)
-        |
-Base value * user's level multiplier = bonus amount
-        |
-Bonus reward sent to chosen destination
-        |
-Update total/weekly counters
-        |
-Show bonus toast notification
 ```
 
 ---
 
-## What Daily Rewards Should Be
+## What Daily Rewards & Levels Should Be
 
 ### Ideal Architecture
-1. **Simple eligibility** - GPS or manual entry only
-2. **Atomic markers** - Prevent duplicate rewards
-3. **Silent failure** - Never block user actions
-4. **Lottery as engagement** - Wheel creates anticipation after every workout
-5. **Levels reward consistency** - Long-term users earn more from the wheel
+1. **Simple eligibility** — Cardio workouts only, GPS or health-synced
+2. **Atomic markers** — Prevent duplicate rewards
+3. **Silent failure** — Never block user actions
+4. **Level = streak** — One number, no multipliers, no badges
+5. **Stack with event rewards** — Daily reward + event placement = both
 
 ### What to Avoid
+- Lottery wheels, multipliers, slot-machine mechanics
+- XP systems, badges, achievements, skill trees
 - Complex eligibility rules
 - Reward gaming through imports
 - Race conditions on rapid saves
 - Verbose error handling
-- Flat reward structures with no progression
 
 ---
 

@@ -142,17 +142,17 @@ function isValidLightningAddress(address: string): boolean
 
 ### Reward Delivery Flow
 
-**Important:** The app does NOT send rewards directly. The actual reward delivery is handled server-side:
+**Important:** The app does NOT send rewards directly. The actual reward delivery is handled by an external service:
 
 ```
 1. App submits workout to Supabase (workout_submissions table)
-   - Includes reward destination tag (charity/project/service/self)
-   - Includes destination address
 
-2. Supabase database trigger fires claim-reward Edge Function
+2. External runstr-zapper service polls Supabase for new workouts
 
-3. Edge Function reads destination from workout tags
-   - Resolves the LNURL endpoint for the destination address
+3. Service reads the user's lightning address
+   - Uses Nostr profile lud16 by default
+   - Falls back to settings-stored address if no lud16
+   - Resolves the LNURL endpoint
    - Requests a BOLT-11 invoice via LNURL-pay
    - Pays the invoice
    - Records payment in reward_payments table with preimage proof
@@ -164,7 +164,7 @@ function isValidLightningAddress(address: string): boolean
 
 The app's role is limited to:
 - Tracking reward eligibility locally (DailyRewardService)
-- Submitting workouts with the correct destination tags
+- Submitting workouts to Supabase
 - Polling for confirmed payments to display in the UI
 
 ---
@@ -215,6 +215,6 @@ async function getUserLightningAddress(pubkey: string): Promise<string | null> {
 
 **Previous:** [Chapter 11: Daily Rewards & Lottery Wheel](./11-rewards-daily-step.md)
 
-**Next:** [Chapter 13: Teams & Charities](./13-rewards-teams-charities.md)
+**Next:** [Chapter 14: Encrypted Backup](./14-encrypted-backup.md)
 
 **Table of Contents:** [Back to TOC](./00-table-of-contents.md)

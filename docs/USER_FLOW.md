@@ -50,10 +50,9 @@ The app uses a bottom tab bar with three tabs. Profile is the default/home tab.
 - **Clubs row**: Horizontal list of Fitness Clubs. Tap to browse, join, or view club pages.
 - **Tap a club** → ClubPageScreen (member leaderboard, chat, events)
 
-### Events Tab (Compete)
+### Events Tab
 - **Daily Leaderboards**: 5K, 10K, Half Marathon, Marathon, Steps — always active
-- **Featured Events**: Season III Club Battles, Einundzwanzig, and other scheduled competitions
-- **Club Events**: Captain-created events from templates
+- **Club Events**: Captain-created events; all club members auto-entered
 
 ---
 
@@ -61,18 +60,14 @@ The app uses a bottom tab bar with three tabs. Profile is the default/home tab.
 
 ### Starting a Workout
 1. Tap **Start Workout** on Profile tab → ActivityTrackerScreen
-2. **SwipeGridNavigator** presents a 2D grid of activities (swipe to navigate):
+2. **SwipeGridNavigator** presents the four cardio activities (swipe to navigate):
 
-| | Col 0 | Col 1 | Col 2 | Col 3 | Col 4 | Col 5 |
-|---|---|---|---|---|---|---|
-| **Cardio** | Run | Walk | Cycle | Hiking | | |
-| **Strength** | Pushups | Pull-ups | Sit-ups | Squats | Curls | Bench |
-| **Wellness** | Guided | Unguided | Breathwork | Body Scan | Gratitude | |
-| **Mindfulness** | Journal | Habits | | | | |
+| Col 0 | Col 1 | Col 2 | Col 3 |
+|---|---|---|---|
+| Run | Walk | Cycle | Hiking |
 
-3. Swipe left/right to change activity within a category
-4. Swipe up/down to change category
-5. Default position determined by user's preferred activity (from Settings)
+3. Swipe left/right to change activity
+4. Default position determined by user's preferred activity (from Settings)
 
 ### During a Workout (Cardio)
 - GPS tracking via `SimpleRunTracker` (expo-location background mode)
@@ -152,41 +147,29 @@ Two paths:
 3. Passes anti-cheat validation (pace limits, distance limits)
 4. One reward per day per user (deduplicated)
 
-### Reward Routing (Single Destination)
-| User's Selection | Destination |
-|---|---|
-| You (Self) | User's Lightning address |
-| Charity | Charity's Lightning address (micro donation) |
-| Project | Project's Lightning address |
-| PPQ.AI (Service) | Bolt11 invoice for AI credits |
+### Reward Routing (Lightning Address)
+Rewards are sent via LNURL to the user's lightning address. If the user's Nostr profile has a lud16, RUNSTR uses that automatically. Otherwise the user pastes one into Settings. There's no destination picker, no charity routing, no splits.
 
 ### Actual Payment (External, Async)
 1. Workout submitted to Supabase `workout_submissions` table
-2. Database trigger fires `claim-reward` Edge Function
-3. Edge function reads destination and Lightning address from workout tags
-4. Sends reward via LNURL to destination address
+2. External runstr-zapper service picks up the submission
+3. Reads the user's lightning address from their profile
+4. Sends reward via LNURL to that address
 5. Records payment in `reward_payments` table with preimage proof
 
 ### User Notification
-- Push notification: "You received a reward from [Sponsor] for your workout"
+- Push notification when a reward lands
 - `RewardPollingService` also polls `reward_payments` for in-app toast notifications
-- Sponsor attribution included in both push and in-app notifications
 
 ---
 
-## 6. Competition Flow
+## 6. Event Flow
 
 ### Daily Leaderboard (Built-In, Permanent)
 - Always active — no joining required
 - Five boards: 5K, 10K, Half Marathon, Marathon (fastest time), Daily Steps (highest count)
 - Top 25 shown with user's personal position below
 - Queried from Supabase `workout_submissions` for today's date
-
-### Featured Events
-1. Tap **Join Events** on Profile tab → LeaderboardsScreen
-2. Available competitions: Season III Club Battles, Einundzwanzig, and other featured events
-3. Tap event → detail screen with leaderboard + Join button
-4. Tap Join → saves to Supabase
 
 ### Club Events
 - Captains create events from templates (5K, 10K, Half Marathon, Step Challenge)
@@ -196,7 +179,7 @@ Two paths:
 
 ### How Workouts Count
 - ALL cardio workouts auto-submit to Supabase
-- If user has joined a competition, qualifying workouts count toward that leaderboard
+- Qualifying workouts count toward whatever leaderboards or events the user is in
 - Background synced workouts count too — no need to open the app
 
 ### Anti-Cheat
@@ -234,44 +217,21 @@ Two paths:
 
 ---
 
-## 8. Reward Destination Selection
+## 8. Lightning Address Setup
 
-### Access
-- Profile tab → Rewards section → "Change" button
-- Or via onboarding flow
+### Default
+If the user logged in with Nostr and their profile has a lud16, RUNSTR uses that address automatically. The user never has to interact with this section.
 
-### Selection Flow
-1. **RewardDestinationPicker** modal opens
-2. Four categories displayed:
-   - **YOU** — rewards to your wallet
-   - **CHARITIES** — ALS Network, Bitcoin Veterans, etc.
-   - **PROJECTS** — Bitcoin Ekasi, Bitcoin Bay, Afribit Kibera, etc.
-   - **SERVICES** — PPQ.AI (AI credits)
-3. Tap to select → saved to AsyncStorage
-4. All future rewards route to this destination
+### Manual Setup
+- Profile tab → Settings → Lightning Address
+- Paste a lightning address (e.g. `you@getalby.com`) → saved to AsyncStorage
+- Or connect an NWC wallet (scan QR or paste connection string)
 
-### Wallet Setup (If "You" Selected)
-- Enter Lightning address manually
-- Or connect NWC wallet (scan QR or paste connection string)
+All future rewards route to that address.
 
 ---
 
-## 9. Wellness Features
-
-### Journal
-- Mood tracking: 5 levels (emoji-based)
-- Energy rating: 1-5 scale
-- Freeform text entry
-- Streak tracking for consistency
-
-### Habits
-- Check-in system with daily tracking
-- Two types: abstinence (avoid something) and positive (do something)
-- 8 built-in templates + custom habit creation
-
----
-
-## 10. Encrypted Backup
+## 9. Encrypted Backup
 
 ### Auto-Backup
 After every workout save, `BackupService` auto-exports to Nostr.
@@ -293,7 +253,7 @@ Settings → Export Data / Import Data
 
 ---
 
-## 11. Settings
+## 10. Settings
 
 Accessible via gear icon on Profile tab → SettingsScreen.
 
@@ -303,9 +263,8 @@ Accessible via gear icon on Profile tab → SettingsScreen.
 | Voice Announcements | Enable/disable, split details, live splits |
 | Distance Units | km / mi |
 | Default Activity | Running, Walking, Cycling, Hiking |
+| Lightning Address | Reward payout address (defaults to Nostr lud16) |
 | Private Mode | Toggle — disables all Supabase submission |
-| AI Coach | Enable/configure PPQ.AI account |
-| Music | Enable/disable Wavlake/Blossom player |
 | Export Data | Encrypted backup to Nostr |
 | Import Data | Restore from encrypted backup |
 | Backup Password | Copy nsec with security warnings |
@@ -327,12 +286,12 @@ User works out (in-app GPS or external app via health sync)
   |      +-- INSERT into workout_submissions table
   |      +-- Anti-cheat validation
   |
-  +--> Database trigger: claim-reward Edge Function
-  |      +-- Read destination tag (user/charity/project/service)
-  |      +-- Send reward via LNURL to destination address
+  +--> External runstr-zapper service:
+  |      +-- Read user's lightning address from profile
+  |      +-- Send reward via LNURL to that address
   |      +-- Record in reward_payments table
   |
-  +--> Push notification: "You received a reward from [Sponsor]"
+  +--> Push notification when reward lands
   |
   +--> Auto-backup to Nostr (kind 30078, encrypted)
 ```

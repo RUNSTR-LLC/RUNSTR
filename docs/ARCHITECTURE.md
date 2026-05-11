@@ -247,16 +247,14 @@ Health Integrations (Background Sync):
 ```
 Reward Flow:
   DailyRewardService           Reward eligibility tracking (one per day)
-  RewardDestinationService     Route to user, charity, project, or service
-  SponsorService               Fetch active sponsor from Supabase (Zapvertising)
   SupabaseRewardService        Query verified payments from DB
-  RewardsTransparencyService   Global reward pool + destination leaderboards
   RewardPollingService         Poll for confirmed payments
-  RewardNotificationManager    Push/toast notifications with sponsor attribution
+  RewardNotificationManager    Push/toast notifications
 
 Note: Actual reward PAYMENTS are processed by an external service
-that monitors Supabase, not by the app itself. The app tracks
-eligibility and displays results. Rewards are sponsor-funded.
+("runstr-zapper") that monitors Supabase, not by the app itself.
+The app tracks eligibility and displays results. Rewards are sent
+to the user's lightning address (defaulting to their Nostr lud16).
 ```
 
 ### Club Services
@@ -287,18 +285,13 @@ Direction: Moving toward user-created competitions via Fitness Clubs.
 Daily leaderboard stays built-in.
 ```
 
-### Reward Destination Services
+### Lightning Address
 
 ```
-  Destinations are hardcoded in constants/charities.ts (20+ organizations)
-  User selects a destination -> stored in AsyncStorage (@runstr:selected_team_id)
-  Destination tag embedded in workout submissions to Supabase
-
-  Categories:
-    Charities    - ALS Network, HRF, Bitcoin Veterans, etc.
-    Projects     - Bitcoin Beach, Bitcoin Ekasi, Bitcoin Isla, etc.
-    Services     - PPQ.AI (rewards become AI credits)
-    Self         - User's own wallet
+  Reward payout address.
+  If user's Nostr profile has a lud16, that's the default.
+  Otherwise stored in AsyncStorage (@runstr:reward_lightning_address).
+  Read by the external runstr-zapper service when paying out.
 ```
 
 ### Auth & Identity Services
@@ -410,10 +403,7 @@ This is the most important data flow in the app.
        ["pace", "5:55", "min/km"],
        ["split", "1", "00:05:42"],
        ["split", "2", "00:05:55"],
-       ["team", "als-foundation"],
        ["lightning", "user@getalby.com"],
-       ["reward_destination", "user"],
-       ["charity", "als-foundation", "ALS Network", "RunningBTC@primal.net"],
        ["client", "RUNSTR"]
      ]
    }
@@ -465,61 +455,17 @@ Restore to local storage (workouts, habits, journal, preferences)
 
 ## Additional Features
 
-### AI Chat + Journal/Habit Tracker (PPQ.AI)
-
-Claude Haiku 4.5 via PPQ.AI API.
-
-- **AI Chat Coach**: Multi-turn conversational AI with weekly summaries, trend analysis, personalized tips
-- **Journal**: Daily entries with mood (5 levels) and energy (1-5 scale), tag support, streak tracking
-- **Habits**: Check-in system with streaks (abstinence + positive types), 8 predefined templates + custom
-
-### Music Integration (Wavlake + Blossom)
-
-- **Wavlake**: Stream top tracks, genre browsing, tip artists
-- **Blossom**: Personal audio library from Blossom servers
-- Full playback controls, queue management, mini player
-
 ### Internationalization
 
 - English + German via i18next
 - Device language detection
 
-### Transparency Dashboard
-
-- Public reward pool balance and payout breakdown
-- Destination payout leaderboard, pending batches
-- Period filtering (daily/weekly/monthly/all-time)
-
-## Sponsor System (Zapvertising)
-
-```
-Supabase reward_sponsors table
-  +-- name, logo_url, website_url, display_text, is_active
-  |
-  v
-SponsorService.getActiveSponsor()
-  +-- Fetches active sponsor (30-minute cache)
-  +-- Fallback to RUNSTR default if unavailable
-  |
-  v
-SponsorBanner (Rewards page)
-  +-- "This month's rewards are brought to you by [Sponsor]"
-  +-- Tappable link to sponsor website
-  |
-  v
-Push Notifications (Zapvertising)
-  +-- "You received a reward from [Sponsor] for your workout"
-  +-- Branded attribution alongside reward amount
-```
-
-Sponsors fund the reward pool. Configurable via Supabase — no app rebuild needed.
-
 ## Reward Payment Flow
 
 ```
 +-------------------+     +--------------------+     +------------------+
-|   RUNSTR App      |     | Supabase Backend   |     | External Reward  |
-|                   |     |                    |     | Service          |
+|   RUNSTR App      |     | Supabase Backend   |     | runstr-zapper    |
+|                   |     |                    |     | (external)       |
 +-------------------+     +--------------------+     +------------------+
          |                         |                         |
   User completes workout           |                         |
@@ -529,15 +475,11 @@ Sponsors fund the reward pool. Configurable via Supabase — no app rebuild need
          |              submit-workout Edge Function          |
          |                    validates + stores              |
          |                         |                         |
-         |                  DB trigger fires                  |
-         |                  claim-reward function             |
+         |                         |  zapper polls workouts  |
+         |                         |<------------------------|
          |                         |                         |
-         |                         |  Reads destination tag  |
-         |                         |  Reads Lightning addr   |
-         |                         |------------------------>|
-         |                         |                         |
+         |                         |              Reads user's lud16
          |                         |              Sends reward via LNURL
-         |                         |              to chosen destination
          |                         |                         |
          |                         |  Records payment        |
          |                         |<------------------------|
@@ -546,8 +488,7 @@ Sponsors fund the reward pool. Configurable via Supabase — no app rebuild need
   polls for new payments           |                         |
          |<------------------------|                         |
          |                                                   |
-  Push notification:                                         |
-  "You received a reward from [Sponsor]"                     |
+  Push notification when reward lands                        |
 ```
 
 ## Competition & Leaderboard Flow
@@ -580,34 +521,6 @@ Sponsors fund the reward pool. Configurable via Supabase — no app rebuild need
   5K:    #1 Alice  18:42           |
   10K:   #1 Bob    41:15           |
   Steps: #1 Carol  12,450          |
-```
-
-## Reward Destination Selection Flow
-
-```
-User opens Rewards tab or onboarding
-  |
-  v
-RewardDestinationPicker modal
-  +-- YOU (rewards to your wallet)
-  +-- CHARITIES (ALS Network, HRF, etc.)
-  +-- PROJECTS (Bitcoin Beach, Bitcoin Ekasi, etc.)
-  +-- SERVICES (PPQ.AI → AI credits)
-  |
-  v
-User selects one destination (e.g., "ALS Network")
-  |
-  v
-Store in AsyncStorage (@runstr:selected_team_id)
-  |
-  v
-On next workout, destination tag embedded in Supabase submission:
-  ["team", "als-foundation"]
-  ["reward_destination", "charity"]
-  |
-  v
-External reward service reads destination tag
-  +-- Routes reward to destination's address
 ```
 
 ## External Systems
@@ -656,16 +569,14 @@ External reward service reads destination tag
 |                                                                   |
 |  REWARD DELIVERY                                                  |
 |  +------------------------------------------------------------+  |
-|  | LNURL-Pay Protocol  - Reward delivery to destination addr   |  |
-|  | Sponsor-funded      - Rewards come from sponsors, not app   |  |
+|  | LNURL-Pay Protocol  - Sends rewards to user's lud16         |  |
+|  | runstr-zapper       - External service, polls Supabase      |  |
 |  | Supported wallets: Alby, Strike, Cash App, WoS, Phoenix    |  |
 |  +------------------------------------------------------------+  |
 |                                                                   |
 |  OTHER                                                            |
 |  +------------------------------------------------------------+  |
 |  | Blossom             - Image upload for achievement cards     |  |
-|  | PPQ.ai              - AI models (coach, image generation)   |  |
-|  | Wavlake             - Music streaming                       |  |
 |  +------------------------------------------------------------+  |
 +------------------------------------------------------------------+
 ```
@@ -732,10 +643,9 @@ interface Competition {
 6. **Cache-first rendering** — Show cached data instantly, refresh in background
 7. **Background-first** — Most users earn via HealthKit/Health Connect sync, not in-app tracking
 8. **Silent reward failures** — Rewards never block workout saving or user flow
-9. **Sponsor-funded rewards** — Rewards come from sponsors, routed to user's chosen destination
-10. **Single destination** — Users pick one destination for all rewards, no splits
-11. **NDK only** — Never use nostr-tools; NDK handles all Nostr operations
-12. **Terminology** — Use "rewards" not "sats/Bitcoin"; see [North Star.md](./North%20Star.md)
+9. **Lightning-address-routed rewards** — Rewards go to the user's lightning address (Nostr lud16 by default)
+10. **NDK only** — Never use nostr-tools; NDK handles all Nostr operations
+11. **Terminology** — Use "rewards" not "sats/Bitcoin"; see [North Star.md](./North%20Star.md)
 
 ## Nostr Event Kinds Reference
 

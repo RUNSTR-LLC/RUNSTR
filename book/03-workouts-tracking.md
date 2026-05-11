@@ -32,33 +32,9 @@ The workout starts with a deliberate **hold-to-start** interaction:
 
 ---
 
-## Manual Entry
-
-For activities that can't be GPS-tracked, users enter data manually.
-
-### Strength Training
-- Exercise name (predefined list + custom)
-- Sets and reps
-- Weight (optional)
-- Duration
-
-### Diet Tracking
-- Meal type (Breakfast, Lunch, Dinner, Snack)
-- Meal size (Small, Medium, Large)
-- Notes (optional)
-
-### Wellness/Meditation
-- Activity type (Meditation, Yoga, Breathwork)
-- Duration
-- Mindfulness rating (1-5)
-
----
-
 ## Tracker Screens
 
-Each activity type has a dedicated tracker screen:
-
-### Cardio Trackers
+Each cardio activity has a dedicated tracker screen:
 
 | Screen | File | Activity |
 |--------|------|----------|
@@ -66,16 +42,13 @@ Each activity type has a dedicated tracker screen:
 | WalkingTrackerScreen | `src/screens/activity/WalkingTrackerScreen.tsx` | Walking |
 | CyclingTrackerScreen | `src/screens/activity/CyclingTrackerScreen.tsx` | Cycling |
 
-### Manual Entry Screens
-
-> **Note (May 2026):** RUNSTR is now cardio-only. Strength, meditation, and diet trackers were removed as part of the cardio-only simplification — see `docs/superpowers/specs/2026-05-04-cardio-only-simplification-design.md`. Historical kind 1301 strength events still render in feeds via `workoutCardGenerator.ts`, but no manual-entry screens remain.
+Hiking uses the running tracker with a different activity tag.
 
 ### Entry Point
 
-All trackers are accessed from `ActivityTrackerScreen.tsx`:
-- Tab bar with Cardio, Strength, Diet, Wellness
-- Renders appropriate tracker based on selected tab
-- Handles activity type selection
+Cardio trackers are accessed from `ActivityTrackerScreen.tsx`. The screen presents the four cardio activities (Run, Walk, Cycle, Hike) and renders the appropriate tracker based on the selected activity.
+
+Historical kind 1301 events for non-cardio activities (strength, meditation, etc.) still render in feeds via `workoutCardGenerator.ts` for backward compatibility, but no manual-entry screens remain for these.
 
 ---
 

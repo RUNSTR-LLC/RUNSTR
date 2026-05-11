@@ -36,8 +36,7 @@ The Nostr event format used for fitness data.
     ["split", "5", "00:28:50"],
     ["source", "RUNSTR"],
     ["client", "RUNSTR", "1.4.4"],
-    ["t", "Running"],
-    ["charity", "bitcoin-bay", "Bitcoin Bay", "sats@donate.bitcoinbay.foundation"]
+    ["t", "Running"]
   ],
   "id": "event_id_hash",
   "sig": "signature"
@@ -66,7 +65,6 @@ The Nostr event format used for fitness data.
 | `source` | `["source", "RUNSTR"]` | Data source |
 | `client` | `["client", "RUNSTR", "1.4.4"]` | Client app |
 | `t` | `["t", "Running"]` | Hashtag |
-| `charity` | `["charity", "id", "name", "address"]` | Charity info |
 
 ### Exercise Types
 
@@ -76,11 +74,6 @@ The Nostr event format used for fitness data.
 | Walking | `walking` |
 | Cycling | `cycling` |
 | Hiking | `hiking` |
-| Swimming | `swimming` |
-| Strength | `strength` |
-| Yoga | `yoga` |
-| Meditation | `meditation` |
-| Diet | `diet` |
 
 ### Format Rules
 
@@ -327,36 +320,21 @@ Used for encrypted backup and restore of user data. See [Chapter 14: Encrypted B
 }
 ```
 
-### Strength Training
+### Hiking Workout
 
 ```json
 {
   "kind": 1301,
-  "content": "Upper body workout - pushups and pullups",
+  "content": "Weekend trail hike",
   "tags": [
-    ["d", "strength_1704240000_ghi789"],
-    ["exercise", "strength"],
-    ["duration", "00:30:00"],
-    ["calories", "200"],
+    ["d", "hike_1704240000_ghi789"],
+    ["exercise", "hiking"],
+    ["distance", "8.5", "km"],
+    ["duration", "02:15:00"],
+    ["elevation_gain", "320", "m"],
+    ["calories", "650"],
     ["source", "RUNSTR"],
-    ["t", "Strength"]
-  ]
-}
-```
-
-### Meditation
-
-```json
-{
-  "kind": 1301,
-  "content": "Morning guided meditation session",
-  "tags": [
-    ["d", "meditation_1704326400_jkl012"],
-    ["exercise", "meditation"],
-    ["duration", "00:15:00"],
-    ["source", "RUNSTR"],
-    ["t", "Meditation"],
-    ["t", "Mindfulness"]
+    ["t", "Hiking"]
   ]
 }
 ```

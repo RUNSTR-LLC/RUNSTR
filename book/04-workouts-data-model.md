@@ -41,8 +41,7 @@ A kind 1301 event follows this structure:
     ["split", "5", "00:28:50"],
     ["source", "RUNSTR"],
     ["client", "RUNSTR", "1.4.4"],
-    ["t", "Running"],
-    ["charity", "bitcoin-bay", "Bitcoin Bay", "sats@donate.bitcoinbay.foundation"]
+    ["t", "Running"]
   ],
   "id": "event_hash",
   "sig": "signature"
@@ -99,7 +98,6 @@ A kind 1301 event follows this structure:
 | `source` | String | `["source", "RUNSTR"]` |
 | `client` | Name, version | `["client", "RUNSTR", "1.4.4"]` |
 | `t` | Hashtag | `["t", "Running"]` |
-| `charity` | id, name, address | `["charity", "bitcoin-bay", "Bitcoin Bay", "sats@..."]` |
 
 ---
 
@@ -111,11 +109,6 @@ A kind 1301 event follows this structure:
 | Walking | `walking` | Cardio |
 | Cycling | `cycling` | Cardio |
 | Hiking | `hiking` | Cardio |
-| Swimming | `swimming` | Cardio |
-| Strength | `strength` | Strength |
-| Yoga | `yoga` | Wellness |
-| Meditation | `meditation` | Wellness |
-| Diet | `diet` | Diet |
 
 ---
 
@@ -255,7 +248,6 @@ This document contains:
 1. **Strict format adherence** - Always lowercase exercise, HH:MM:SS duration
 2. **Consistent units** - Internal storage always in meters/seconds
 3. **Complete splits** - Include splits whenever GPS tracking available
-4. **Charity tag** - Include user's selected charity when publishing
 
 ### What to Avoid
 - JSON in content field

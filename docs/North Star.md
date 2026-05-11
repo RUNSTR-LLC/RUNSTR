@@ -1,70 +1,77 @@
-# RUNSTR: Fitness Rewards, Your Way
+# RUNSTR: A Cardio Workout Companion
 
 > This document is the identity and direction reference for RUNSTR. It describes what the app is, how it works, and where it's headed. All other documentation (CLAUDE.md, ARCHITECTURE.md, USER_FLOW.md, the RUNSTR Book) should align with this document.
 
 ---
 
-RUNSTR is a fitness app that enters your workouts into virtual competitions and rewards you for working out. It doesn't matter if you're a marathon runner or someone who takes a walk after dinner — every workout counts. You choose where your rewards go: to your wallet, to a charity, to an open source project, or converted into AI credits. RUNSTR gives you rewards the way you want them.
+RUNSTR is a cardio workout companion built around three pillars: Workouts, Social, and Rewards. The product has been deliberately narrowed from a broader fitness platform into a focused loop — you do a cardio workout, you share it, you earn a reward. Everything that doesn't serve that loop is either being trimmed away or pushed into the background. The app is opinionated about cardio specifically (running, walking, cycling, hiking), and it treats every other surface in the app as support scaffolding for that core activity.
 
-Getting started takes seconds. Tap Start and you're in — no account, no email, no sign-up form. The experience is the same whether you log in or not. You pick a reward destination, and from that point forward, every qualifying workout earns you rewards sent exactly where you chose. Want to change your destination later? Change it anytime. There's no commitment and no complicated setup.
+The Workouts pillar is intentionally permissive about *how* a workout enters the system. Users can track in-app with the GPS-based tracker, or they can never open the tracker at all and let their workouts flow in passively from Apple Health or Health Connect — whatever device or app they already trust to record their runs. The job of RUNSTR is not to be the best tracker on the market; it's to be the layer that turns *any* tracked workout into a social and rewarded one. Workouts also get quietly backed up to Nostr so a user's history is portable and never trapped inside the app.
 
-RUNSTR tracks far more than just running. The app supports four categories of activity across a swipeable grid. Cardio covers running, walking, cycling, and hiking with full GPS tracking — real-time pace, distance, elevation, and per-kilometer splits. Strength includes pushups, pull-ups, sit-ups, squats, curls, and bench press with rep and set counting. Wellness offers five types of meditation: guided, unguided, breathwork, body scan, and gratitude. And Mindfulness covers journaling and habit tracking. Diet and water intake tracking are also available outside the main grid.
+The Social pillar is where workouts become visible to other people. The Social tab is a single feed that mixes workout posts, events, and Fitness Clubs into one place — there isn't a separate "discover" or "explore" surface. Clubs are the social gravity well: captains run chatrooms and create events for their members, and members get extra rewards on top of their normal daily rewards just for participating. The feed supports zaps, so appreciation flows peer-to-peer alongside the structured rewards from the app itself.
 
-But you don't have to use RUNSTR's trackers at all. The app works with any device or fitness app connected to Apple Health or Health Connect. Strava, Nike Run Club, Garmin, Apple Watch, Fitbit, Google Fit — whatever you already use. RUNSTR syncs your workouts automatically in the background. On iPhone, HealthKit background delivery wakes the app when a new workout appears. On Android, a periodic sync runs every fifteen minutes. You can earn rewards and show up on leaderboards without ever opening the app after your initial setup.
+The Rewards pillar is what makes RUNSTR distinct from a generic fitness tracker. Every completed workout earns a daily reward, and placing in an event — whether the always-on daily leaderboard or a captain-created club event — earns extra on top. Payouts go to a lightning address the user provides; if their Nostr profile already has a lightning address attached, RUNSTR uses that by default, so most users never have to fill in a field at all. There's no destination picker, no splits, no routing logic — the address is the address. Captains earn a slice when their members work out, which gives them a real incentive to run an engaged club rather than a dormant one.
 
-Competitions are central to the experience. RUNSTR hosts virtual and in-person fitness events where your workouts automatically count toward leaderboards. A built-in daily leaderboard tracks the fastest 5K, 10K, half marathon, and marathon times alongside a daily steps ranking — all updated in real time. Beyond the daily boards, RUNSTR runs featured events like distance challenges, goal-completion races, and team-based competitions. The platform is moving toward user-created competitions so anyone can build and host their own events.
-
-Rewards are funded by sponsors. The Rewards page shows a message like "This month's rewards are brought to you by [Sponsor]" so you know who's backing your earnings. When you receive a push notification for a workout reward, it includes the sponsor's brand — something like "You received a reward from Cash App for your workout." RUNSTR calls this Zapvertising: businesses aligned with the platform's ethos sponsor rewards and reach an active fitness audience through branded push notifications. It keeps the reward system sustainable without selling user data.
-
-Fitness Clubs are the social layer of the app. When you create a club, you get a dedicated page with a member leaderboard, real-time chat, and the ability to host events. Captains can create competitions from templates — 5K races, 10K challenges, half marathons, step challenges — and all club members are automatically entered. Captains earn rewards for each club member workout, and the roadmap includes enabling clubs to create their own reward pools and event prize pools by connecting an NWC wallet — giving captains a non-custodial way to reward their members directly.
-
-On the destination side, RUNSTR partners with over twenty charities, projects, and services. When you choose a charity like the ALS Network or Human Rights Foundation, your rewards are sent to them as micro donations. Choose an open source project like Bitcoin Beach or Bitcoin Ekasi, and you're funding grassroots initiatives. Choose a service like PPQ.AI, and your rewards become AI credits. Choose yourself, and rewards go straight to your wallet. The point isn't to pressure anyone into donating — it's to let every user decide what their effort is worth and where it should go.
-
-Your workout data is yours. RUNSTR stores workouts locally on your device and automatically creates encrypted backups to Nostr relays. If you switch phones or reinstall, you can restore everything from the encrypted backup. Older workouts originally published as individual Nostr events (kind 1301) can also be recovered and imported. Recovered workouts are automatically submitted to leaderboards so nothing is lost.
-
-RUNSTR is a fitness company that hosts events, builds community through Fitness Clubs, and rewards people for moving. It monetizes through sponsorships (Zapvertising) and event ticket sales. The app is designed to stay out of your way — three tabs, dark theme, no gimmicks. Private Mode lets you track workouts locally without participating in anything. Whether you're competing for the fastest 5K of the day or just logging your evening walk, RUNSTR meets you where you are and makes sure your effort counts for something.
+Everything else in the app is supporting infrastructure for those three pillars. Streaks are surfaced as the user's level, giving a single legible progress number instead of a dashboard of metrics. Identity is handled through Nostr login, but it's invisible — users see "password" instead of "nsec," and they never have to know the protocol exists to use the app. Push notifications announce rewards as they land. An NWC wallet can be connected for users who want full custody. The through-line for the next phase is restraint: the app should do workouts, social, and rewards extremely well, and resist the urge to grow back into the everything-fitness-app it used to be.
 
 ---
 
 ## Key Principles
 
-- **Rewards your way** — Users choose a single destination for all rewards. No splits, no pressure to donate.
+- **Three pillars only** — Workouts, Social, Rewards. Anything that doesn't serve the loop is trimmed.
+- **Cardio-only** — Running, walking, cycling, hiking. No strength training, meditation, journaling, or habit tracking.
+- **Lightning address, not destinations** — Rewards go to the user's lightning address. If their Nostr profile has a lud16, that's the default; most users never fill in a field.
 - **Works in the background** — Any HealthKit or Health Connect compatible app/device syncs automatically. Users earn without opening the app.
-- **Competitions first** — Workouts go into virtual competitions. Leaderboards and events are central, not secondary.
-- **Sponsor-funded rewards** — Rewards come from sponsors, not RUNSTR. Sponsor attribution is visible and transparent (Zapvertising).
-- **Fitness company, not a crypto app** — RUNSTR hosts events and partners with sponsors. The underlying technology is invisible to users.
-- **Your data, your device** — Workouts stored locally with encrypted Nostr backups. Recoverable from backups or legacy kind 1301 events.
-- **Terminology** — Use "rewards", "micro donations", "AI credits" in all user-facing and documentation contexts. Avoid "Bitcoin", "sats", "Lightning", "Nostr" except where technically necessary in code.
+- **Events are central** — Daily leaderboard always on. Captains create club events. Moving toward user-created events.
+- **Level is the streak** — A single legible progress number, not a dashboard of metrics.
+- **Your data, your device** — Workouts stored locally with encrypted Nostr backups.
+- **Identity is invisible** — Nostr is the auth layer. Users see "password" not "nsec". They never have to know the protocol exists.
+- **Terminology** — Use "rewards" in all user-facing and documentation contexts. Avoid "Bitcoin", "sats", "Lightning", "Nostr" except where technically necessary in code.
 
-## Current Reward Destinations (20+)
-
-| Category | Examples |
-|----------|---------|
-| **Charities** | ALS Network, Human Rights Foundation, Bitcoin Veterans |
-| **Projects** | Bitcoin Beach, Bitcoin Ekasi, Bitcoin Isla, Bitcoin Bay |
-| **Services** | PPQ.AI (AI credits) |
-| **Yourself** | User's wallet |
-
-## Activity Categories
+## Activities
 
 | Category | Activities |
 |----------|-----------|
 | **Cardio** | Running, Walking, Cycling, Hiking |
-| **Strength** | Pushups, Pull-ups, Sit-ups, Squats, Curls, Bench |
-| **Wellness** | Guided meditation, Unguided, Breathwork, Body Scan, Gratitude |
-| **Mindfulness** | Journal, Habits |
-| **Other** | Diet tracking, Water tracking |
 
-## Business Model
+GPS tracking provides real-time pace, distance, elevation, and per-kilometer splits for in-app tracked workouts. Workouts synced from Apple Health or Health Connect carry whatever data the source provided.
 
-| Revenue Stream | How |
+## Rewards
+
+| Mechanic | How |
 |---|---|
-| **Sponsorships** | Zapvertising — branded reward attribution on Rewards page and push notifications |
-| **Ticket sales** | In-person and virtual event entry fees |
+| **Daily reward** | Every completed cardio workout earns a daily reward |
+| **Event reward** | Placing in an event (daily leaderboard or club event) earns extra |
+| **Captain reward** | Captains earn a slice when their members work out |
+| **Destination** | Lightning address provided by the user, defaulting to their Nostr lud16 |
+
+Rewards are sent via LNURL to the user's lightning address. There is no destination picker, no charity routing, no splits — the address is the address. Users who don't have a lud16 on their Nostr profile can paste one into Settings.
+
+## Events
+
+| Type | Notes |
+|---|---|
+| **Daily leaderboard** | Built-in, always active — fastest 5K, 10K, Half, Marathon, and daily Steps |
+| **Club events** | Captains create events for their club; members auto-enter |
+
+"Events" and "competitions" refer to the same concept — use "events" in all user-facing copy.
+
+## Fitness Clubs
+
+Every club has a dedicated page with a member leaderboard, real-time chat, and events. Captains create events from templates, and all club members are automatically entered. Captains earn rewards for each member workout, which makes running an engaged club worthwhile.
+
+## Background Sync
+
+| Platform | Mechanism |
+|---|---|
+| **iOS** | HealthKit background delivery wakes RUNSTR when a new workout appears |
+| **Android** | Health Connect periodic sync every 15 minutes via WorkManager |
+
+Either way, workouts auto-submit to Supabase, auto-trigger reward eligibility, and auto-enter any active club events.
 
 ## Direction
 
-- Moving toward **user-created competitions** (away from hardcoded events, daily leaderboard stays built-in)
-- **Fitness Club economies** — captains will connect NWC wallets to create reward pools and prize pools (non-custodial)
-- More competition types coming
-- Captains already earn rewards per club member workout
+- **User-created events** — Moving toward captains and individual users creating their own events
+- **Daily leaderboard** stays built-in
+- **More event formats** coming
+- **Captain economy** — captains already earn rewards per member workout; this is the foundation for club-level dynamics

@@ -2,109 +2,70 @@
 
 ## Summary
 
-RUNSTR hosts fitness competitions where participants compete on leaderboards for reward prize pools. The app runs seasonal competitions, featured events, club captain-created events, and a daily leaderboard that is always active. Each event focuses on specific activities and rewards top performers.
+RUNSTR hosts virtual events where participants compete on leaderboards for extra rewards. There are two kinds of events: the always-on daily leaderboard, which every cardio workout enters automatically, and captain-created club events, which run on a captain's schedule for their club members.
 
-Joining an event takes a single tap. Navigate to the Events page, select an event card to view details and the current leaderboard, then tap Join. There are no entry fees — participation is completely free. Once joined, your workouts automatically count toward that event's leaderboard. Your ranking updates as you and other participants log more distance.
+There are no entry fees. There are no seasonal "battle" formats with sponsor logos. The model is simple: the daily leaderboard is always running, club captains create events when they want to, and the platform is moving toward fully user-created events where any user can host their own.
 
-The leaderboard system organizes competitors by activity type. Separate leaderboards track Running, Walking, and Cycling distances, ensuring fair competition within each category. You compete against others doing the same activity, not against cyclists when you're a runner. Leaderboards display participant names, total distances, workout counts, and rankings updated every 2 minutes.
-
-Prize distribution happens at event conclusion, with rewards sent via Lightning to top performers. Club captains can create events from templates with optional prize pools and charity payouts, enabling anyone to host a 5K for charity with real rewards on the line. The transparent prize structure displayed on each event card lets you know exactly what you're competing for before joining. Whether you're chasing the grand prize in a season competition or competing for daily leaderboard recognition, RUNSTR events add stakes and community to your fitness routine, transforming solitary workouts into shared competition with tangible rewards.
+The leaderboard system organizes competitors by activity type and metric. Separate leaderboards track running distances, walking distances, cycling distances, and steps. You compete against others doing the same thing — runners against runners, cyclists against cyclists.
 
 ---
 
 ## What are RUNSTR Events?
 
-Events are fitness competitions with reward prizes. Users join events, complete workouts, and compete on leaderboards for rewards.
+Events are virtual fitness competitions. Users enter events (or are auto-entered as club members), complete cardio workouts, and the leaderboard ranks participants. Top performers earn extra rewards on top of their normal daily reward.
 
 ### Event Types
 
-| Type | Description | Examples |
+| Type | Description | Example |
 |------|-------------|---------|
-| Season Competitions | Multi-month events with large prize pools | RUNSTR Season III |
-| Featured Events | Scheduled events with specific goals | Distance challenges, streak competitions |
-| Club Events | Captain-created from templates | 5K charity run, 10K challenge, step competition |
-| Daily Leaderboard | Always active, resets daily | Fastest 5K/10K/Half/Marathon, Steps |
+| **Daily Leaderboard** | Always active, resets daily | Fastest 5K, 10K, Half, Marathon, daily Steps |
+| **Club Events** | Captain-created from templates | 5K, 10K, Half Marathon, Step Challenge |
+
+Note: "Events" and "competitions" refer to the same concept. The codebase uses both terms interchangeably; user-facing copy says "events."
 
 ---
 
 ## Key Characteristics
 
-### Captain-Created Events
-Club captains can create events from templates:
-- 5K, 10K, Half Marathon, Step Challenge templates
-- Optional prize pools funded by the captain
-- Optional charity payouts — run a 5K for charity with real rewards
-- All club members automatically entered
+### Always-On Daily Leaderboard
+- No joining required — every cardio workout enters automatically
+- Five boards: 5K, 10K, Half Marathon, Marathon (fastest time), daily Steps
+- Resets every day
+- Top performers earn extra rewards
+
+### Captain-Created Club Events
+- Club captains create events from templates
+- All club members are automatically entered
+- 24-hour duration by default
+- Max 3 active events per captain
+- Captains earn rewards for each member workout, on top of any event prizes
 
 ### Free Participation
-- No payment required to join events
-- Simply tap "Join" and start working out
-- All workouts during event period count toward leaderboard
-
-### Reward Prizes
-- Prize pools defined per event
-- Top performers earn rewards
-- Distributed via Lightning at event end
-- Charity events route payouts to the chosen charity
-
----
-
-## Event Formats
-
-### Season Competitions
-Long-running events spanning multiple months:
-- Multiple activity types (Running, Walking, Cycling)
-- Large prize pools
-- Charity support integration
-
-### Featured Events
-Scheduled events with specific goals:
-- Distance challenges, streak competitions, team races
-- Run on defined schedules with start and end dates
-
-### Club Events
-Captain-created from templates:
-- Captains choose template, set dates, configure prize pool and charity
-- Members automatically entered
-- Moving toward fully user-created competitions
+- No payment required to join or enter events
+- Workouts auto-submitted during the event period count toward the leaderboard
 
 ---
 
 ## Events Page UI
 
-The Events page shows:
+The Events tab shows:
 
 ```
-┌─────────────────────────────────────┐
-│  ← Back     [Host Virtual Event]    │
-├─────────────────────────────────────┤
-│  ┌─────────────────────────────┐   │
-│  │ [RUNSTR Logo]        LIVE   │   │
-│  │ RUNSTR Season III            │   │
-│  │ Club Battles                 │   │
-│  │ Prize Pool                   │   │
-│  │ [Running] [Walking] [Cycling]│   │
-│  │ [Rewards] [Charity]         │   │
-│  └─────────────────────────────┘   │
-│                                     │
-│  ┌─────────────────────────────┐   │
-│  │ [Image]              LIVE   │   │
-│  │ Einundzwanzig Challenge     │   │
-│  │ Distance competition         │   │
-│  │ Top performers win rewards   │   │
-│  │ [Running] [Rewards]         │   │
-│  └─────────────────────────────┘   │
-└─────────────────────────────────────┘
++-------------------------------------+
+|  EVENTS                             |
++-------------------------------------+
+|  Daily Leaderboard          ALWAYS  |
+|  5K  |  10K  |  Half  |  Marathon  |
+|  Steps                              |
++-------------------------------------+
+|  Club Events                        |
+|  +-------------------------------+ |
+|  | Captain @runner               | |
+|  | 5K Challenge — Today          | |
+|  | 12 participants               | |
+|  +-------------------------------+ |
++-------------------------------------+
 ```
-
-### Event Card Elements
-- Event image/logo
-- LIVE badge (if active)
-- Event name
-- Date range
-- Prize information
-- Activity type tags
-- Special badges (BTC Prizes, Charity)
 
 ---
 
@@ -114,67 +75,53 @@ The Events page shows:
 
 | Screen | File | Purpose |
 |--------|------|---------|
-| EventsScreen | `src/screens/EventsScreen.tsx` | Main events list |
-| Season2Screen | `src/screens/season2/Season2Screen.tsx` | Season II details & leaderboard |
-| Season3Screen | `src/screens/season3/Season3Screen.tsx` | Season III Club Battles bracket tournament |
-| DynamicEventDetailScreen | `src/screens/events/DynamicEventDetailScreen.tsx` | Data-driven event details from Supabase |
-
-### Event Card Components
-
-| Component | File |
-|-----------|------|
-| Season2EventCard | `src/components/events/Season2EventCard.tsx` |
-| EinundzwanzigEventCard | `src/components/events/EinundzwanzigEventCard.tsx` |
-| DynamicEventCard | `src/components/events/DynamicEventCard.tsx` |
-| LeaderboardEventCard | `src/components/events/LeaderboardEventCard.tsx` |
+| EventsScreen | `src/screens/EventsScreen.tsx` | Main events tab |
+| DailyLeaderboardScreen | `src/screens/competition/DailyLeaderboardScreen.tsx` | Daily leaderboard |
+| DynamicEventDetailScreen | `src/screens/events/DynamicEventDetailScreen.tsx` | Club event details |
 
 ### Event Creation
 
-Club captains can create events from templates with:
-- Activity type selection
-- Date range configuration
+Club captains create events from templates with:
+- Template selection (5K, 10K, Half Marathon, Step Challenge)
+- Date range configuration (default: 24 hours)
 - Optional prize pool (funded via captain's NWC wallet)
-- Optional charity destination and payout
-- Auto-finalization with multi-recipient prize splits
+- Auto-finalization at event end with prize splits
 
----
-
-## Event Data Flow
+### Event Data Flow
 
 ```
 EventsScreen loads
         ↓
-Renders hardcoded event cards
+Fetch daily leaderboard from Supabase (always active)
+        ↓
+Fetch active club events from Supabase
         ↓
 User taps event card
         ↓
-Navigates to event detail screen (Season3Screen, DynamicEventDetailScreen, etc.)
+DynamicEventDetailScreen loads
         ↓
 Loads participant list from Supabase
         ↓
-Leaderboard data fetched (calculated externally, updated every 2 minutes)
+Leaderboard data fetched (5-min cache TTL)
         ↓
 Displays leaderboard rankings
 ```
-
-**Note:** Leaderboard data comes from Supabase, which aggregates submitted workouts. The app queries Supabase via the `useSupabaseLeaderboard` hook and displays ranked results.
 
 ---
 
 ## What Events Should Be
 
 ### Ideal Architecture
-1. **Simple event list** — Clear display of active events
-2. **Easy joining** — One-tap to participate
-3. **Clear prizes** — Transparent prize structure
-4. **Live status** — Clear indication of active vs upcoming vs ended
-5. **Captain-created** — Captains host events for their clubs with real prize pools
+1. **Two types only** — Daily leaderboard + club events. Nothing else.
+2. **Auto-entry** — Daily leaderboard takes every workout; club events take every member workout
+3. **One-tap UX** — Members never have to manually join their own club's events
+4. **Clear status** — LIVE / UPCOMING / ENDED states
+5. **Captain-owned** — Captains control their club's event schedule
 
 ### Future Direction
-- Fully user-created competitions (not just captains)
-- More event formats and templates
-- Entry fees (optional)
-- NWC wallets for non-custodial prize pool management
+- Fully user-created events (not just captains)
+- More event templates
+- Daily leaderboard stays built-in and always running
 
 ---
 
@@ -182,6 +129,6 @@ Displays leaderboard rankings
 
 **Previous:** [Chapter 5: Workout Storage & Publishing](./05-workouts-storage.md)
 
-**Next:** [Chapter 7: In-Person Events & Business Model](./07-in-person-events.md)
+**Next:** [Chapter 8: Joining Events](./08-events-joining.md)
 
 **Table of Contents:** [Back to TOC](./00-table-of-contents.md)

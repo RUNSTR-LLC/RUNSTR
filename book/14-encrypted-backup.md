@@ -35,7 +35,7 @@ RUNSTR supports **encrypted backup and restore** of all user data via Nostr kind
 | Step history | Daily step counts |
 | Habits | Habit definitions and streak data |
 | Journal entries | Fitness journal notes |
-| User preferences | Unit system (km/mi), selected charity, settings |
+| User preferences | Unit system (km/mi), lightning address, settings |
 
 ---
 
@@ -200,7 +200,7 @@ Backups are published to 3 relays:
 
 ## Navigation
 
-**Previous:** [Chapter 13: Teams & Charities](./13-rewards-teams-charities.md)
+**Previous:** [Chapter 12: Lightning Address Delivery](./12-rewards-lightning-address.md)
 
 **Next:** [Chapter 15: Conclusion](./15-conclusion.md)
 

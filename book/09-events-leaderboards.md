@@ -1,5 +1,7 @@
 # Chapter 9: Event Leaderboards
 
+> **Note (May 2026):** This chapter uses Season II as a canonical example for the long-event baseline pattern because that code still exists. Under the simplified direction, the two active leaderboard surfaces are the daily leaderboard and captain-created club events. The architectural patterns described here apply to all leaderboard types.
+
 ## How Leaderboards Work
 
 Leaderboards show ranked participants based on their workout performance during an event. Rankings are calculated from:

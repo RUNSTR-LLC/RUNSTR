@@ -68,7 +68,8 @@ Type Mapping:
 | 52 | walking |
 | 13 | cycling |
 | 24 | hiking |
-| 20, 50, 59 | strength |
+
+Non-cardio HealthKit workout types (strength, yoga, etc.) are filtered out at the sync layer.
 
 ### Android: Health Connect
 

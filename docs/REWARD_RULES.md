@@ -2,45 +2,46 @@
 
 Single source of truth for reward logic across the app, website, and backend.
 
-## Base Rewards
+## Daily Reward
 
 - **Amount:** 100 sats per qualifying workout
-- **Applies to:** All users (free and subscribed)
+- **Applies to:** All users (no tiers, no subscriptions)
 - **Daily limit:** 1 reward per user per day
 
-## Boosted Rewards (Subscribers)
+## Event Rewards
 
-- **Amount:** 1,000 sats per qualifying workout (10x boost)
-- **Applies to:** Supporter or Pro subscribers
-- **Weekly cap:** 5 boosted rewards per week (Mon-Sun, resets Monday 00:00 UTC)
-- **After cap:** Subscriber earns base rate (100 sats) for remaining workouts that week
+Placing in an event (daily leaderboard or captain-created club event) earns additional rewards on top of the daily reward. Event prize structures are defined per event.
+
+## Captain Rewards
+
+Captains earn a slice when their club members complete qualifying workouts. This is the primary incentive for running an engaged club.
 
 ## Qualifying Activities
 
-Running, walking, cycling, pushups, journal entries, and 5,000+ daily steps.
+Cardio only — running, walking, cycling, hiking.
 
-No distance minimum. No duration minimum. Manual entries allowed.
+Daily steps (5,000+) also qualify as a walking workout via the daily step submission path.
 
-## Subscription Tiers
+No distance minimum. No duration minimum.
 
-| Tier | Price | Rewards | Extras |
-|------|-------|---------|--------|
-| Free | — | 100 sats/workout | — |
-| Supporter | 15,000 sats/month | 1,000 sats/workout (10x boost), up to 5/week | Season access |
-| Pro | 21,000 sats/month | 1,000 sats/workout (10x boost), up to 5/week | Season access, create clubs, create events |
+## Payout Destination
 
-## Economics Reference
+Rewards are sent via LNURL to the user's lightning address. There is no destination picker — no charities, no projects, no AI credits, no splits.
 
-| Workouts/week | Free (monthly) | Subscriber (monthly) |
-|---------------|----------------|----------------------|
-| 3x | ~3,000 | ~13,000 |
-| 4x | ~3,500 | ~17,300 |
-| 5x | ~4,300 | ~21,700 |
-| 7x | ~3,000 | ~22,600 (5 boosted + 2 base) |
+Address resolution priority:
+1. Stored address (from Settings) if set
+2. Nostr profile lud16 otherwise
+
+If neither is available, the user cannot receive rewards until they paste one into Settings.
 
 ## Implementation Notes
 
-- Subscription tier verified via Supabase `subscriptions` table
 - App config: `src/config/rewards.ts` (REWARD_CONFIG constants)
-- Backend: Edge Functions check tier before sending boosted amount
-- Website: `runstr.club/pro/` handles subscription signup with npub + tier params
+- Eligibility tracking: `src/services/rewards/DailyRewardService.ts`
+- Address resolution: `src/services/rewards/RewardLightningAddressService.ts`
+- Backend: external `runstr-zapper` service polls `workout_submissions` and pays out
+- Payment records: `reward_payments` table in Supabase
+
+## Funding
+
+Rewards are funded by RUNSTR with a small monthly budget. Sporadic outages when the budget is exhausted are acceptable — rewards are a bonus, not a blocker. There are no sponsorships, no Zapvertising, and no subscription tiers.

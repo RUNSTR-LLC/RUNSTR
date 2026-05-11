@@ -2,85 +2,57 @@
 
 ## Summary
 
-RUNSTR transforms your smartphone into a powerful GPS fitness tracker for running, walking, and cycling. When you're ready to work out, simply select your activity type, hold the start button through a deliberate countdown, and begin moving. The app tracks your distance, duration, pace, elevation gain, and kilometer splits in real-time, giving you the metrics you need to understand your performance as it happens.
+RUNSTR is a cardio workout companion. The app tracks running, walking, cycling, and hiking — and nothing else. When you're ready to work out, select your activity, hold the start button through a deliberate countdown, and begin moving. The app tracks distance, duration, pace, elevation gain, and kilometer splits in real-time.
 
-The tracking experience prioritizes intentionality and reliability. The hold-to-start mechanism prevents accidental workout starts while giving your phone's GPS time to acquire a strong signal. During your workout, you can pause and resume freely without losing any data—perfect for stopping at traffic lights or taking a water break. The interface displays your most important metrics prominently, with secondary stats readily available.
+The tracking experience prioritizes intentionality and reliability. The hold-to-start mechanism prevents accidental workout starts while giving your phone's GPS time to acquire a strong signal. During your workout, you can pause and resume freely without losing any data — perfect for traffic lights or water breaks.
 
-When you finish your workout, it's saved locally first. If you have auto-compete enabled and are enrolled in an active competition, the workout automatically syncs to Supabase for leaderboard tracking. Users with high Web of Trust (WoT) scores also see a "Post" button that opens the Enhanced Share Modal, where you can choose from different visual templates to create a social post (kind 1) celebrating your achievement.
+When you finish a workout, it's saved locally first, then automatically submitted to Supabase for the daily leaderboard and any active club events. If you have a high Web of Trust score, you'll see a "Post" button that opens the share modal where you can choose a template to publish the workout as a kind 1 social post.
 
-Privacy sits at the core of RUNSTR's workout architecture. While the app uses GPS to calculate your metrics, your actual route coordinates never leave your device. Only aggregated data—total distance, duration, elevation gain—gets submitted to competitions. This means you can participate in competitions and share achievements without revealing where you run, walk, or cycle.
+Privacy sits at the core of RUNSTR's workout architecture. While the app uses GPS to calculate your metrics, your actual route coordinates never leave your device. Only aggregated data — total distance, duration, elevation gain — gets submitted.
 
-RUNSTR also integrates with Apple Health on iOS and Health Connect on Android, allowing workouts tracked by other apps or wearables to sync into RUNSTR. These imported workouts qualify for rewards and can be submitted to competitions, giving you flexibility in how you track your fitness while still participating in the RUNSTR ecosystem.
+RUNSTR also integrates with Apple Health on iOS and Health Connect on Android, allowing workouts tracked by other apps or wearables to sync into RUNSTR. These imported workouts qualify for rewards just like in-app GPS workouts.
 
 ---
 
 ## What is a Workout in RUNSTR?
 
-A workout in RUNSTR is any fitness activity that a user tracks through the app. Workouts can be:
-- **GPS-tracked** - Running, walking, cycling with real-time location
-- **Manually entered** - Strength training, diet logging, wellness activities
-- **Health-synced** - Imported from HealthKit or Health Connect
+A workout is a cardio activity that enters the system one of two ways:
+- **GPS-tracked in-app** — Running, walking, cycling, or hiking via the built-in tracker
+- **Health-synced** — Imported automatically from HealthKit or Health Connect
 
-Once saved, workouts are stored locally and can be automatically submitted to Supabase for competition tracking. Kind 1301 events are created locally for validation but are **not published to Nostr relays**—Supabase is the single source of truth for leaderboards.
+Once saved, workouts are stored locally and automatically submitted to Supabase for leaderboards and reward eligibility. Kind 1301 events are created locally for structure but are **not published to Nostr relays** — Supabase is the single source of truth.
 
 ---
 
-## Four Activity Categories
+## The Four Cardio Activities
 
-RUNSTR organizes activities into four main categories:
-
-### 1. Cardio
-GPS-tracked outdoor activities with distance, pace, and elevation metrics.
+RUNSTR tracks four cardio activities. There are no other categories — no strength, no diet, no meditation, no journaling. The narrower the scope, the better the app.
 
 | Activity | Tracking Method | Key Metrics |
 |----------|-----------------|-------------|
 | Running | GPS | Distance, pace, splits, elevation |
 | Walking | GPS + Steps | Distance, steps, pace |
 | Cycling | GPS | Distance, speed, elevation |
-
-### 2. Strength
-Manual entry for gym and bodyweight exercises.
-
-| Activity | Entry Method | Key Metrics |
-|----------|--------------|-------------|
-| Weights | Manual | Sets, reps, weight |
-| Pushups | Manual | Reps |
-| Pullups | Manual | Reps |
-
-### 3. Diet
-Meal and nutrition tracking.
-
-| Activity | Entry Method | Key Metrics |
-|----------|--------------|-------------|
-| Meals | Manual | Meal type, size |
-| Fasting | Timer | Duration |
-
-### 4. Wellness
-Mind-body activities.
-
-| Activity | Entry Method | Key Metrics |
-|----------|--------------|-------------|
-| Meditation | Timer | Duration, type |
-| Yoga | Timer/Manual | Duration |
+| Hiking | GPS | Distance, elevation gain |
 
 ---
 
 ## Auto-Submission to Supabase
 
-Workouts are stored locally first, then automatically synced to Supabase when auto-compete is enabled:
+Cardio workouts are saved locally first, then automatically submitted to Supabase:
 
 ### How It Works
-When you complete a workout with auto-compete enabled:
 - Workout is saved locally via `LocalWorkoutStorageService`
 - Automatically submitted to Supabase via `submit-workout` Edge Function
 - Server-side anti-cheat validation flags impossible workouts
-- Appears on leaderboards within seconds
+- Appears on the daily leaderboard within seconds
+- Counts toward any active club events the user is in
 
 ### Social Posting (WoT-Gated)
-Users with high Web of Trust scores (> 0) see a "Post" button:
-- Opens Enhanced Share Modal with style templates
+Users with high Web of Trust scores (> 0) see a "Post" button after a workout:
+- Opens the share modal with style templates
 - Creates a kind 1 social post (NOT kind 1301)
-- Publishes to Nostr for sharing achievements
+- Publishes to Nostr for sharing achievements on the social feed
 
 ---
 
@@ -99,14 +71,14 @@ RUNSTR takes a privacy-conscious approach to GPS data:
 
 | Data Type | Published | Stays Local |
 |-----------|-----------|-------------|
-| Distance (total) | ✅ Yes | - |
-| Duration | ✅ Yes | - |
-| Activity type | ✅ Yes | - |
-| Elevation gain/loss | ✅ Yes | - |
-| Split times | ✅ Yes | - |
-| GPS coordinates | ❌ Never | ✅ Local only |
-| Route map | ❌ Never | ✅ Local only |
-| Real-time location | ❌ Never | ✅ Local only |
+| Distance (total) | Yes | - |
+| Duration | Yes | - |
+| Activity type | Yes | - |
+| Elevation gain/loss | Yes | - |
+| Split times | Yes | - |
+| GPS coordinates | Never | Local only |
+| Route map | Never | Local only |
+| Real-time location | Never | Local only |
 
 ### Technical Implementation
 
@@ -126,19 +98,20 @@ The `data_points` tag in kind 1301 events only records **how many** GPS points w
 
 ## Health Integrations
 
-RUNSTR syncs with external fitness platforms:
+RUNSTR syncs with external fitness platforms so users earn passively:
 
 ### iOS: HealthKit
-- Automatic import of Apple Watch workouts
+- Automatic import of Apple Watch and third-party app workouts
+- HealthKit background delivery wakes the app when a new workout appears
 - Step count integration
-- Heart rate data (when available)
-- **Imported workouts qualify for rewards and competitions**
+- **Imported workouts qualify for rewards and count on leaderboards**
 
 ### Android: Health Connect
 - Google Health Connect API (Android 14+)
+- 15-minute periodic sync via WorkManager
 - Step count from phone sensors
-- Exercise sessions from other apps
-- **Imported workouts qualify for rewards and competitions**
+- Exercise sessions from any compatible app
+- **Imported workouts qualify for rewards and count on leaderboards**
 
 ### Other Wearables
 - Garmin, Fitbit, etc. sync through Apple Health or Health Connect
@@ -154,24 +127,24 @@ RUNSTR syncs with external fitness platforms:
 |---------|------|---------|
 | WorkoutEventStore | `src/services/fitness/WorkoutEventStore.ts` | In-memory workout cache |
 | LocalWorkoutStorageService | `src/services/fitness/LocalWorkoutStorageService.ts` | AsyncStorage persistence |
-| WorkoutPublishingService | `src/services/nostr/workoutPublishingService.ts` | Nostr event creation |
+| WorkoutPublishingService | `src/services/nostr/workoutPublishingService.ts` | Kind 1 social post creation |
 
 ### Data Flow
 
 ```
-User tracks workout
+User tracks cardio workout
         ↓
-SimpleRunTracker (GPS) or ManualWorkoutScreen (manual)
+SimpleRunTracker (GPS)
         ↓
 LocalWorkoutStorageService.saveWorkout()
         ↓
 Stored in AsyncStorage
         ↓
-[If auto-compete enabled] Submit to Supabase
+Auto-submit to Supabase (all cardio with distance > 0)
         ↓
 Server-side validation (submit-workout Edge Function)
         ↓
-Leaderboards updated
+Leaderboards updated, reward eligibility checked
 ```
 
 ### WorkoutEventStore
@@ -199,7 +172,7 @@ interface StoredWorkout {
   id: string;
   pubkey: string;
   teamId?: string;
-  activityType: string;
+  activityType: 'running' | 'walking' | 'cycling' | 'hiking';
   distance?: number;  // meters
   duration?: number;  // seconds
   calories?: number;
@@ -216,16 +189,17 @@ interface StoredWorkout {
 ## What Workouts Should Be
 
 ### Ideal Architecture
-1. **Local-first** - All workouts stored locally before syncing
-2. **Auto-compete** - Automatic submission when user enables it
-3. **Simple categories** - Four clear categories (Cardio, Strength, Diet, Wellness)
-4. **Automatic sync** - Health platforms sync in background
-5. **Supabase primary** - Supabase is the source of truth for competitions
+1. **Cardio-only** — Four activities, no exceptions
+2. **Local-first** — All workouts stored locally before syncing
+3. **Auto-submit** — Every cardio workout submits automatically
+4. **Simple categories** — One category. Drop the multi-category swipe grid entirely.
+5. **Automatic sync** — Health platforms sync in background
+6. **Supabase primary** — Supabase is the source of truth for leaderboards
 
 ### What to Avoid
+- Strength, meditation, journal, habit tracking — out of scope
 - Multiple competing cache systems
 - Complex workout type hierarchies
-- Manual "Compete" buttons for each workout
 - Publishing kind 1301 to Nostr relays
 
 ---
