@@ -14,8 +14,8 @@ ALTER TABLE reward_payments
 -- =============================================
 CREATE TABLE IF NOT EXISTS monthly_budget_state (
   month            TEXT        PRIMARY KEY,                   -- 'YYYY-MM' UTC
-  budget_total     INTEGER     NOT NULL,                       -- sats
-  budget_spent     INTEGER     NOT NULL DEFAULT 0,             -- sats
+  budget_total     INTEGER     NOT NULL CHECK (budget_total > 0),       -- sats
+  budget_spent     INTEGER     NOT NULL DEFAULT 0 CHECK (budget_spent >= 0), -- sats
   last_updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -27,7 +27,8 @@ CREATE POLICY "Anyone can read budget state" ON monthly_budget_state
 
 DROP POLICY IF EXISTS "Service role full access on budget" ON monthly_budget_state;
 CREATE POLICY "Service role full access on budget" ON monthly_budget_state
-  FOR ALL USING (auth.role() = 'service_role');
+  FOR ALL TO service_role
+  USING (true) WITH CHECK (true);
 
 -- =============================================
 -- 3. daily_bonus_payouts: idempotency for daily leaderboard payouts.
@@ -39,7 +40,7 @@ CREATE TABLE IF NOT EXISTS daily_bonus_payouts (
   place               SMALLINT     NOT NULL CHECK (place BETWEEN 1 AND 3),
   recipient_pubkey    TEXT,
   amount_sats         INTEGER      NOT NULL,
-  status              TEXT         NOT NULL,                  -- 'paid' | 'skipped_no_address' | 'skipped_budget'
+  status              TEXT         NOT NULL CHECK (status IN ('paid', 'skipped_no_address', 'skipped_budget')),
   reward_payment_id   UUID         REFERENCES reward_payments(id),
   created_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
   UNIQUE (payout_date, leaderboard_id, place)
@@ -53,7 +54,8 @@ CREATE POLICY "Anyone can read daily bonus payouts" ON daily_bonus_payouts
 
 DROP POLICY IF EXISTS "Service role full access on daily payouts" ON daily_bonus_payouts;
 CREATE POLICY "Service role full access on daily payouts" ON daily_bonus_payouts
-  FOR ALL USING (auth.role() = 'service_role');
+  FOR ALL TO service_role
+  USING (true) WITH CHECK (true);
 
 -- =============================================
 -- 4. event_bonus_payouts: idempotency for captain event payouts.
@@ -64,7 +66,7 @@ CREATE TABLE IF NOT EXISTS event_bonus_payouts (
   place               SMALLINT     NOT NULL CHECK (place BETWEEN 1 AND 3),
   recipient_pubkey    TEXT,
   amount_sats         INTEGER      NOT NULL,
-  status              TEXT         NOT NULL,                  -- 'paid' | 'skipped_no_address' | 'skipped_budget' | 'skipped_ineligible'
+  status              TEXT         NOT NULL CHECK (status IN ('paid', 'skipped_no_address', 'skipped_budget', 'skipped_ineligible')),
   ineligible_reason   TEXT,
   reward_payment_id   UUID         REFERENCES reward_payments(id),
   created_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
@@ -79,4 +81,5 @@ CREATE POLICY "Anyone can read event bonus payouts" ON event_bonus_payouts
 
 DROP POLICY IF EXISTS "Service role full access on event payouts" ON event_bonus_payouts;
 CREATE POLICY "Service role full access on event payouts" ON event_bonus_payouts
-  FOR ALL USING (auth.role() = 'service_role');
+  FOR ALL TO service_role
+  USING (true) WITH CHECK (true);
