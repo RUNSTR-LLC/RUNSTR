@@ -46,6 +46,14 @@ These are the only three pillars. If a feature doesn't serve one of them, it doe
 
 ---
 
+## Who RUNSTR Is For
+
+RUNSTR is built for Bitcoin and Nostr users. The identity layer is Nostr (used for login, profile, encrypted backups, and the social feed) and the payout layer is Lightning (used for sending rewards to a user's lightning address). The audience is the demographic that already uses those rails.
+
+That said, the app is deliberate about not putting those technologies in the foreground. Users see "rewards," "password," and "lightning address" — not "sats," "nsec," or "Bitcoin." The principle is: the audience knows what the rails are, but they don't want a fitness app that constantly reminds them. RUNSTR feels like a clean fitness product that happens to use Lightning and Nostr, not a Bitcoin or Nostr demo that happens to track workouts.
+
+---
+
 ## Anonymous-First
 
 Getting started takes seconds. Tap Start and you're in — no account, no email, no sign-up form. The experience is the same whether you log in or not.

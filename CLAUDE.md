@@ -4,6 +4,8 @@
 
 RUNSTR is a cardio workout companion built around three pillars: Workouts, Social, and Rewards. You complete a cardio workout (run, walk, cycle, or hike), share it, and earn a reward. Workouts can be tracked in-app via GPS or synced automatically from any device or app connected to Apple Health or Health Connect. Rewards go to a lightning address — if the user's Nostr profile has a lud16, that's the default; otherwise they paste one into Settings.
 
+The app is built for Bitcoin and Nostr users, but it deliberately avoids leading with those technologies — users see "rewards," "password," and "lightning address," never "sats" or "nsec." The audience is the demographic; the technology is the rails. The UX is a clean fitness app.
+
 **Read [North Star.md](./docs/North%20Star.md) for the full product identity and direction.**
 
 ## Terminology Rules
@@ -24,6 +26,8 @@ Never use "cryptocurrency", "blockchain", or "decentralized" in user-facing cont
 ## Product Structure
 
 **Three-Tab Navigation:** Profile (workouts, history, settings) · Social (feed, Fitness Clubs) · Events (daily leaderboard, club events)
+
+**Social Pillar:** Three surfaces — the Nostr feed (workout posts, zaps, likes, reposts), Fitness Clubs (captain-run groups with chat + events), and Events (daily leaderboard + club events). The pillar spans both the Social tab and the Events tab.
 
 **Activities:** Cardio only — Run, Walk, Cycle, Hike with GPS tracking.
 

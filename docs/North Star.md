@@ -12,12 +12,13 @@ The Social pillar is where workouts become visible to other people. The Social t
 
 The Rewards pillar is what makes RUNSTR distinct from a generic fitness tracker. Every completed workout earns a daily reward, and placing in an event — whether the always-on daily leaderboard or a captain-created club event — earns extra on top. Payouts go to a lightning address the user provides; if their Nostr profile already has a lightning address attached, RUNSTR uses that by default, so most users never have to fill in a field at all. There's no destination picker, no splits, no routing logic — the address is the address. Captains earn a slice when their members work out, which gives them a real incentive to run an engaged club rather than a dormant one.
 
-Everything else in the app is supporting infrastructure for those three pillars. Streaks are surfaced as the user's level, giving a single legible progress number instead of a dashboard of metrics. Identity is handled through Nostr login, but it's invisible — users see "password" instead of "nsec," and they never have to know the protocol exists to use the app. Push notifications announce rewards as they land. An NWC wallet can be connected for users who want full custody. The through-line for the next phase is restraint: the app should do workouts, social, and rewards extremely well, and resist the urge to grow back into the everything-fitness-app it used to be.
+Everything else in the app is supporting infrastructure for those three pillars. Streaks are surfaced as the user's level, giving a single legible progress number instead of a dashboard of metrics. Identity is handled through Nostr login, but it's invisible to the user experience — the app shows "password" instead of "nsec" and "rewards" instead of "sats." The audience is Bitcoin and Nostr users, but RUNSTR doesn't lead with that — the app feels like a clean fitness product that happens to use those rails, not a Bitcoin or Nostr demo that happens to track workouts. Push notifications announce rewards as they land. An NWC wallet can be connected for users who want full custody. The through-line for the next phase is restraint: the app should do workouts, social, and rewards extremely well, and resist the urge to grow back into the everything-fitness-app it used to be.
 
 ---
 
 ## Key Principles
 
+- **Audience** — Built for Bitcoin and Nostr users. The app's identity layer is Nostr and payouts are Lightning, but the UX never asks users to learn or care about the protocols.
 - **Three pillars only** — Workouts, Social, Rewards. Anything that doesn't serve the loop is trimmed.
 - **Cardio-only** — Running, walking, cycling, hiking. No strength training, meditation, journaling, or habit tracking.
 - **Lightning address, not destinations** — Rewards go to the user's lightning address. If their Nostr profile has a lud16, that's the default; most users never fill in a field.
@@ -35,6 +36,16 @@ Everything else in the app is supporting infrastructure for those three pillars.
 | **Cardio** | Running, Walking, Cycling, Hiking |
 
 GPS tracking provides real-time pace, distance, elevation, and per-kilometer splits for in-app tracked workouts. Workouts synced from Apple Health or Health Connect carry whatever data the source provided.
+
+## Social
+
+| Surface | Description |
+|---|---|
+| **Feed** | Workout posts from across Nostr. Likes, reposts, comments, zaps. |
+| **Fitness Clubs** | Captain-run groups with member leaderboard, real-time chat, and events |
+| **Events** | Daily leaderboard (always-on) and captain-created club events |
+
+The Social tab surfaces the feed and clubs; events live in their own tab but are conceptually part of the social pillar — they're how members earn extra together and how captains create engagement.
 
 ## Rewards
 
