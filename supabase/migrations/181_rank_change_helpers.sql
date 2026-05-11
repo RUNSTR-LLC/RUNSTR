@@ -9,10 +9,16 @@ RETURNS TEXT
 LANGUAGE plpgsql
 IMMUTABLE
 AS $$
+DECLARE
+  mod100 SMALLINT := n % 100;
+  mod10  SMALLINT := n % 10;
 BEGIN
-  IF n = 1 THEN RETURN '1st';
-  ELSIF n = 2 THEN RETURN '2nd';
-  ELSIF n = 3 THEN RETURN '3rd';
+  -- Teens exception: 11, 12, 13 (and 111, 112, 113, etc.) always take 'th'.
+  IF mod100 IN (11, 12, 13) THEN
+    RETURN n::text || 'th';
+  ELSIF mod10 = 1 THEN RETURN n::text || 'st';
+  ELSIF mod10 = 2 THEN RETURN n::text || 'nd';
+  ELSIF mod10 = 3 THEN RETURN n::text || 'rd';
   ELSE RETURN n::text || 'th';
   END IF;
 END;
@@ -56,8 +62,12 @@ BEGIN
     RETURN ordinal(current_rank) || ' Place: ' || label;
   ELSIF current_rank < prior_rank THEN
     RETURN 'Moved to ' || ordinal(current_rank) || ': ' || label;
-  ELSE
+  ELSIF current_rank > prior_rank THEN
     RETURN 'Dropped to ' || ordinal(current_rank) || ': ' || label;
+  ELSE
+    -- Equal ranks — caller (trigger) should have guarded with IS DISTINCT FROM.
+    -- Return NULL to surface misuse if it ever happens.
+    RETURN NULL;
   END IF;
 END;
 $$;
