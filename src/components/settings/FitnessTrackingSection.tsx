@@ -32,6 +32,20 @@ interface FitnessTrackingSectionProps {
   showDefaultActivityPicker: boolean;
   onSetShowDefaultActivityPicker: (show: boolean) => void;
   onDefaultActivityChange: (activity: DefaultActivity) => void;
+  // Privacy
+  privateModeEnabled: boolean;
+  onPrivateModeToggle: (value: boolean) => void;
+  // Apple Health (iOS)
+  healthKitSyncEnabled: boolean;
+  healthKitAuthorized: boolean;
+  healthKitLastSync: string | null;
+  onHealthKitSyncToggle: (enabled: boolean) => void;
+  // Health Connect (Android)
+  healthConnectSyncEnabled: boolean;
+  healthConnectAvailable: boolean;
+  healthConnectAuthorized: boolean;
+  healthConnectLastSync: string | null;
+  onHealthConnectSyncToggle: (enabled: boolean) => void;
 }
 
 export const FitnessTrackingSection: React.FC<FitnessTrackingSectionProps> = ({
@@ -43,7 +57,28 @@ export const FitnessTrackingSection: React.FC<FitnessTrackingSectionProps> = ({
   showDefaultActivityPicker,
   onSetShowDefaultActivityPicker,
   onDefaultActivityChange,
+  privateModeEnabled,
+  onPrivateModeToggle,
+  healthKitSyncEnabled,
+  healthKitAuthorized,
+  healthKitLastSync,
+  onHealthKitSyncToggle,
+  healthConnectSyncEnabled,
+  healthConnectAvailable,
+  healthConnectAuthorized,
+  healthConnectLastSync,
+  onHealthConnectSyncToggle,
 }) => {
+  const formatLastSync = (iso: string) => {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+  };
+
   const { t } = useTranslation('settings');
 
   return (
@@ -57,6 +92,101 @@ export const FitnessTrackingSection: React.FC<FitnessTrackingSectionProps> = ({
 
             {/* Step Count Diagnostics (Android only) */}
             {Platform.OS === 'android' && <StepCountDiagnostics />}
+
+            {/* Privacy Subsection */}
+            <View style={styles.voiceSubsection}>
+              <Text style={styles.subsectionTitle}>Privacy</Text>
+              <SettingItem
+                title="Private Mode"
+                subtitle="Workouts stay on your device. Competitions and rewards require this to be off."
+                rightElement={
+                  <Switch
+                    value={privateModeEnabled}
+                    onValueChange={onPrivateModeToggle}
+                    trackColor={{
+                      false: theme.colors.warning,
+                      true: theme.colors.accent,
+                    }}
+                    thumbColor={theme.colors.orangeBright}
+                  />
+                }
+              />
+            </View>
+
+            {/* Apple Health Subsection (iOS only) */}
+            {Platform.OS === 'ios' && (
+              <View style={styles.voiceSubsection}>
+                <Text style={styles.subsectionTitle}>Apple Health</Text>
+                <SettingItem
+                  title="Sync Workouts"
+                  subtitle="Automatically sync workouts from Apple Health"
+                  rightElement={
+                    <Switch
+                      value={healthKitSyncEnabled}
+                      onValueChange={onHealthKitSyncToggle}
+                      trackColor={{
+                        false: theme.colors.warning,
+                        true: theme.colors.accent,
+                      }}
+                      thumbColor={theme.colors.orangeBright}
+                    />
+                  }
+                />
+                <SettingItem
+                  title="Connection Status"
+                  subtitle={healthKitAuthorized ? 'Connected' : 'Not connected'}
+                />
+                {healthKitLastSync && (
+                  <SettingItem
+                    title="Last Sync"
+                    subtitle={formatLastSync(healthKitLastSync)}
+                  />
+                )}
+              </View>
+            )}
+
+            {/* Health Connect Subsection (Android only) */}
+            {Platform.OS === 'android' && (
+              <View style={styles.voiceSubsection}>
+                <Text style={styles.subsectionTitle}>Health Connect</Text>
+                <SettingItem
+                  title="Sync Workouts"
+                  subtitle={
+                    healthConnectAvailable
+                      ? 'Automatically sync workouts from Health Connect'
+                      : 'Health Connect not installed on this device'
+                  }
+                  rightElement={
+                    <Switch
+                      value={healthConnectSyncEnabled && healthConnectAvailable}
+                      onValueChange={onHealthConnectSyncToggle}
+                      trackColor={{
+                        false: theme.colors.warning,
+                        true: theme.colors.accent,
+                      }}
+                      thumbColor={theme.colors.orangeBright}
+                      disabled={!healthConnectAvailable}
+                    />
+                  }
+                />
+                <SettingItem
+                  title="Connection Status"
+                  subtitle={
+                    !healthConnectAvailable
+                      ? 'Not available'
+                      : healthConnectAuthorized
+                      ? 'Connected'
+                      : 'Not connected'
+                  }
+                />
+                {healthConnectLastSync && (
+                  <SettingItem
+                    title="Last Sync"
+                    subtitle={formatLastSync(healthConnectLastSync)}
+                  />
+                )}
+              </View>
+            )}
 
             {/* Voice Announcements Subsection */}
             <View style={styles.voiceSubsection}>
@@ -90,26 +220,6 @@ export const FitnessTrackingSection: React.FC<FitnessTrackingSectionProps> = ({
                     value={ttsSettings.announceOnSummary}
                     onValueChange={(value) =>
                       onTTSSettingChange('announceOnSummary', value)
-                    }
-                    trackColor={{
-                      false: theme.colors.warning,
-                      true: theme.colors.accent,
-                    }}
-                    thumbColor={theme.colors.orangeBright}
-                    disabled={!ttsSettings.enabled}
-                  />
-                }
-              />
-
-              {/* Include Splits */}
-              <SettingItem
-                title="Include Split Details"
-                subtitle={isMetric ? "Announce kilometer splits in summary" : "Announce mile splits in summary"}
-                rightElement={
-                  <Switch
-                    value={ttsSettings.includeSplits}
-                    onValueChange={(value) =>
-                      onTTSSettingChange('includeSplits', value)
                     }
                     trackColor={{
                       false: theme.colors.warning,
@@ -165,24 +275,6 @@ export const FitnessTrackingSection: React.FC<FitnessTrackingSectionProps> = ({
               />
             </View>
 
-            {/* Default Activity Subsection */}
-            <View style={styles.voiceSubsection}>
-              <Text style={styles.subsectionTitle}>Default Activity</Text>
-
-              <SettingItem
-                title="Default Workout"
-                subtitle={`Opens ${defaultActivityService.getActivityDisplayName(defaultActivity)} when you start a workout`}
-                onPress={() => onSetShowDefaultActivityPicker(true)}
-                rightElement={
-                  <View style={styles.defaultActivityValue}>
-                    <Text style={styles.defaultActivityText}>
-                      {defaultActivityService.getActivityDisplayName(defaultActivity)}
-                    </Text>
-                    <Ionicons name="chevron-forward" size={16} color={theme.colors.textMuted} />
-                  </View>
-                }
-              />
-            </View>
           </Card>
         </SettingsAccordion>
       </View>

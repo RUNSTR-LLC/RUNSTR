@@ -23,21 +23,15 @@ import { ImportDataModal } from '../components/backup/ImportDataModal';
 import { WalletConfigModal } from '../components/wallet/WalletConfigModal';
 import { NWCQRConfirmationModal } from '../components/wallet/NWCQRConfirmationModal';
 import { QRScannerModal } from '../components/qr/QRScannerModal';
-import { AgentSkillSetupModal } from '../components/settings/AgentSkillSetupModal';
 import { settingsStyles as styles } from './settingsStyles';
 import { useSettingsState } from './useSettingsState';
 
 // Section components
-import { PrivacySection } from '../components/settings/PrivacySection';
 import { LanguageSection } from '../components/settings/LanguageSection';
 import { FitnessTrackingSection } from '../components/settings/FitnessTrackingSection';
-import { AppleHealthSection } from '../components/settings/AppleHealthSection';
-import { WorkoutDataSection } from '../components/settings/WorkoutDataSection';
 import { DataBackupSection } from '../components/settings/DataBackupSection';
-import { AdvancedFeaturesSection } from '../components/settings/AdvancedFeaturesSection';
 import { PasswordSection } from '../components/settings/PasswordSection';
-import { AgentSkillSection } from '../components/settings/AgentSkillSection';
-import { RewardsSection } from '../components/settings/RewardsSection';
+import { WalletSection } from '../components/settings/WalletSection';
 import { SupportLegalSection } from '../components/settings/SupportLegalSection';
 import { AccountActionsSection } from '../components/settings/AccountActionsSection';
 
@@ -83,16 +77,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           refreshing={state.isRefreshing}
           onRefresh={state.handleRefresh}
         >
-          <PrivacySection
-            privateModeEnabled={state.privateModeEnabled}
-            onPrivateModeToggle={state.handlePrivateModeToggle}
-          />
-
-          <LanguageSection
-            currentLanguage={state.currentLanguage}
-            onLanguageChange={state.handleLanguageChange}
-          />
-
           <FitnessTrackingSection
             ttsSettings={state.ttsSettings}
             onTTSSettingChange={state.handleTTSSettingChange}
@@ -102,17 +86,17 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             showDefaultActivityPicker={state.showDefaultActivityPicker}
             onSetShowDefaultActivityPicker={state.setShowDefaultActivityPicker}
             onDefaultActivityChange={state.handleDefaultActivityChange}
-          />
-
-          <AppleHealthSection
+            privateModeEnabled={state.privateModeEnabled}
+            onPrivateModeToggle={state.handlePrivateModeToggle}
             healthKitSyncEnabled={state.healthKitSyncEnabled}
             healthKitAuthorized={state.healthKitAuthorized}
             healthKitLastSync={state.healthKitLastSync}
             onHealthKitSyncToggle={state.handleHealthKitSyncToggle}
-          />
-
-          <WorkoutDataSection
-            onAllWorkoutsPress={state.handleAllWorkoutsPress}
+            healthConnectSyncEnabled={state.healthConnectSyncEnabled}
+            healthConnectAvailable={state.healthConnectAvailable}
+            healthConnectAuthorized={state.healthConnectAuthorized}
+            healthConnectLastSync={state.healthConnectLastSync}
+            onHealthConnectSyncToggle={state.handleHealthConnectSyncToggle}
           />
 
           <DataBackupSection
@@ -123,10 +107,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             onShowImportModal={() => state.setShowImportModal(true)}
           />
 
-          <AdvancedFeaturesSection
-            wotScore={state.wotScore}
-            musicPlayerHeaderEnabled={state.musicPlayerHeaderEnabled}
-            onMusicPlayerHeaderToggle={state.handleMusicPlayerHeaderToggle}
+          <WalletSection
+            onRewardsPress={state.handleRewardsPress}
             hasNWCWallet={state.hasNWCWallet}
             onDisconnectWallet={state.handleDisconnectWallet}
             onShowWalletConfigModal={() => state.setShowWalletConfigModal(true)}
@@ -139,12 +121,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             onCopyNpub={state.handleCopyNpub}
           />
 
-          <AgentSkillSection
-            onShowAgentSkillModal={() => state.setShowAgentSkillModal(true)}
-          />
-
-          <RewardsSection
-            onRewardsPress={state.handleRewardsPress}
+          <LanguageSection
+            currentLanguage={state.currentLanguage}
+            onLanguageChange={state.handleLanguageChange}
           />
 
           <SupportLegalSection
@@ -181,10 +160,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       <ImportDataModal
         visible={state.showImportModal}
         onClose={() => state.setShowImportModal(false)}
-      />
-      <AgentSkillSetupModal
-        visible={state.showAgentSkillModal}
-        onClose={() => state.setShowAgentSkillModal(false)}
       />
       <WalletConfigModal
         visible={state.showWalletConfigModal}

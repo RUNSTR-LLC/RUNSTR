@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { OstrichRefreshScrollView } from '../../components/ui/OstrichRefreshScrollView';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../../styles/theme';
@@ -36,6 +37,7 @@ export const StepsDisplayScreen: React.FC = () => {
   const [estimatedDistance, setEstimatedDistance] = useState<number>(0);
   const [hasGPSWorkouts, setHasGPSWorkouts] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // UI state
@@ -211,6 +213,19 @@ export const StepsDisplayScreen: React.FC = () => {
     }, [])
   );
 
+  // Pull-to-refresh: bypass the 5s in-memory cache so the user can force a
+  // fresh HealthKit query without leaving the screen.
+  const handlePullToRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      dailyStepCounterService.clearCache();
+      await refreshSteps();
+      submitStepsNonBlocking();
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
   /**
    * Handle post daily steps (triggered by tapping the ring)
    */
@@ -287,34 +302,41 @@ export const StepsDisplayScreen: React.FC = () => {
 
   return (
     <View style={styles.screenContainer}>
-      <View style={styles.contentContainer}>
-        {/* Centered Ring - matches Run/Cycle idle state layout */}
-        <TouchableOpacity
-          style={styles.ringSection}
-          onPress={isWoTEligible && postingState !== 'posted' ? handlePostDailySteps : undefined}
-          activeOpacity={isWoTEligible && postingState !== 'posted' ? 0.7 : 1}
-          disabled={postingState === 'posting'}
-        >
-          {postingState === 'posting' ? (
-            <View style={styles.loadingRing}>
-              <ActivityIndicator size="large" color={theme.colors.accent} />
-            </View>
-          ) : (
-            <StepProgressRing
-              steps={displaySteps}
-              estimatedDistance={estimatedDistance}
-              size={200}
-              showProgress={false}
-              hasGPSWorkouts={hasGPSWorkouts}
-            />
-          )}
-        </TouchableOpacity>
-      </View>
+      <OstrichRefreshScrollView
+        refreshing={refreshing}
+        onRefresh={handlePullToRefresh}
+        contentContainerStyle={styles.scrollContent}
+        alwaysBounceVertical
+      >
+        <View style={styles.contentContainer}>
+          {/* Centered Ring - matches Run/Cycle idle state layout */}
+          <TouchableOpacity
+            style={styles.ringSection}
+            onPress={isWoTEligible && postingState !== 'posted' ? handlePostDailySteps : undefined}
+            activeOpacity={isWoTEligible && postingState !== 'posted' ? 0.7 : 1}
+            disabled={postingState === 'posting'}
+          >
+            {postingState === 'posting' ? (
+              <View style={styles.loadingRing}>
+                <ActivityIndicator size="large" color={theme.colors.accent} />
+              </View>
+            ) : (
+              <StepProgressRing
+                steps={displaySteps}
+                estimatedDistance={estimatedDistance}
+                size={200}
+                showProgress={false}
+                hasGPSWorkouts={hasGPSWorkouts}
+              />
+            )}
+          </TouchableOpacity>
+        </View>
 
-      {/* Show connection status at bottom if not connected */}
-      {error && (
-        <Text style={styles.statusMessage}>{error}</Text>
-      )}
+        {/* Show connection status at bottom if not connected */}
+        {error && (
+          <Text style={styles.statusMessage}>{error}</Text>
+        )}
+      </OstrichRefreshScrollView>
 
       {/* Enhanced Social Share Modal */}
       <EnhancedSocialShareModal
@@ -351,6 +373,9 @@ const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   contentContainer: {
     flex: 1,

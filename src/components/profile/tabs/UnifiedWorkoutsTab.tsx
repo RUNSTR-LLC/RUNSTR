@@ -85,6 +85,7 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
 
   // UI state
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [statsRefreshKey, setStatsRefreshKey] = useState(0);
   const [postingWorkoutId, setPostingWorkoutId] = useState<string | null>(null);
   const [postingType, setPostingType] = useState<'social' | 'nostr' | null>(null);
   const [isWoTEligible, setIsWoTEligible] = useState(false);
@@ -374,6 +375,8 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
         loadHabits(),
         healthPermission ? loadHealthWorkouts(false) : Promise.resolve(),
       ]);
+      // Force StatsCard to re-fetch today's steps (clears the 5s cache)
+      setStatsRefreshKey((k) => k + 1);
       onRefresh?.();
     } catch (error) {
       console.error('[UnifiedWorkouts] Refresh failed:', error);
@@ -598,9 +601,6 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
         </TouchableOpacity>
       )}
 
-      {/* Stats card */}
-      {pubkey && <StatsCard userPubkey={pubkey} />}
-
       <OstrichRefreshFlatList
         data={monthlyGroups}
         renderItem={renderMonthlyGroup}
@@ -612,6 +612,12 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
         maxToRenderPerBatch={3}
         refreshing={isRefreshing}
         onRefresh={handleRefresh}
+        ListHeaderComponent={
+          // Stats card lives inside the FlatList as a header so pull-to-refresh
+          // works when the user pulls on the card itself (the dominant content).
+          // Without this, the gesture only fires on the empty list area below.
+          pubkey ? <StatsCard userPubkey={pubkey} refreshKey={statsRefreshKey} /> : null
+        }
         ListFooterComponent={
           totalItems > 0 ? (
             <View style={styles.footer}>

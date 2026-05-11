@@ -1,18 +1,40 @@
 /**
  * Supabase Edge Function: claim-reward (NWC Gateway)
  *
- * Handles ALL NWC operations server-side to keep credentials secure:
+ * Handles NWC operations server-side to keep credentials secure.
  *
- * Operations:
- * - claim_reward: Rate-limited reward claims (workout/steps) with eligibility checking
- * - pay_invoice: Pay any Lightning invoice (for donation splits, payouts)
- * - create_invoice: Create invoice for receiving payments (charity donations)
- * - lookup_invoice: Check if an invoice has been paid
- * - get_balance: Get wallet balance (for monitoring)
+ * IMPORTANT — what's actually live in production (as of 2026-05):
  *
- * Rate Limits (for claim_reward only):
- * - Workout reward: 1 per Lightning address per day (50 base + streak bonus)
- * - Step reward: Max 100 sats per Lightning address per day
+ * The RUNSTR app does NOT send workout/step rewards through this function.
+ * Workout rewards are paid by the external "runstr-zapper" service (separate
+ * repo, not in this codebase) which polls Supabase, pays Lightning invoices,
+ * and writes records to the `reward_payments` table. See the migration 126
+ * header comment ("This table is written by runstr-zapper") and CLAUDE.md.
+ *
+ * Operation status:
+ *
+ *   ALIVE — invoked by the RUNSTR app via NWCGatewayService.ts:
+ *     - pay_invoice         (NWCGatewayService.ts:98)
+ *     - create_invoice      (NWCGatewayService.ts:139)
+ *     - lookup_invoice      (NWCGatewayService.ts:179)
+ *     - get_balance         (NWCGatewayService.ts:218)
+ *     - register_donation   (NWCGatewayService.ts:267)
+ *
+ *   VESTIGIAL — workout/step reward path. The only caller is the
+ *   trigger_auto_reward Postgres trigger (migrations 127, 132, 138, 139, 143,
+ *   147, 150, 151, 155, 174, 176), which has been superseded by runstr-zapper.
+ *   Streak-bonus / PPQ-misrouting logic in this branch is NOT how production
+ *   rewards work today — runstr-zapper owns those decisions.
+ *     - claim_reward (lines ~1197-1410)
+ *
+ *   STATUS UNKNOWN — not called from this repo, callers (if any) live
+ *   elsewhere (zapper, manual ops, retired flows):
+ *     - record_charity_payment
+ *     - log_charity_payment_failure
+ *     - diagnose
+ *
+ * Before editing the claim_reward branch, confirm your change is needed:
+ * the live behavior is in runstr-zapper, not here.
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'

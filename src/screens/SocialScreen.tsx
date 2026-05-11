@@ -18,6 +18,7 @@ import { SocialFeedPost } from '../components/social/SocialFeedPost';
 import { PostComposerModal } from '../components/social/PostComposerModal';
 import { SectionHeader } from '../components/social/SectionHeader';
 import { EventsList } from '../components/social/EventsList';
+import { SimpleTeamCreationModal } from '../components/creation/SimpleTeamCreationModal';
 import { useDynamicCompetitions } from '../hooks/useDynamicCompetitions';
 import { shouldShowEinundzwanzig } from '../constants/einundzwanzig';
 import SocialFeedService from '../services/social/SocialFeedService';
@@ -41,6 +42,7 @@ const SocialScreenComponent: React.FC = () => {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [composerVisible, setComposerVisible] = useState(false);
+  const [createClubVisible, setCreateClubVisible] = useState(false);
 
   const handleLeaderboardPress = useCallback(() => {
     navigation.navigate('Leaderboards');
@@ -56,6 +58,10 @@ const SocialScreenComponent: React.FC = () => {
 
   const handleOpenComposer = useCallback(() => {
     setComposerVisible(true);
+  }, []);
+
+  const handleOpenCreateClub = useCallback(() => {
+    setCreateClubVisible(true);
   }, []);
 
   const handleSeeMoreEvents = useCallback(() => {
@@ -141,6 +147,7 @@ const SocialScreenComponent: React.FC = () => {
   ), [userNpub]);
 
   const handleClubCreated = useCallback(() => {
+    setCreateClubVisible(false);
     loadData(true);
   }, []);
 
@@ -165,8 +172,13 @@ const SocialScreenComponent: React.FC = () => {
 
   const renderHeader = useCallback(() => (
     <>
-      <SectionHeader title="Clubs" />
-      <ClubsRow clubs={clubs} userClubId={userClubId} onClubCreated={handleClubCreated} showSearch={false} />
+      <SectionHeader
+        title="Clubs"
+        actionLabel="Create"
+        actionIcon="add"
+        onActionPress={handleOpenCreateClub}
+      />
+      <ClubsRow clubs={clubs} userClubId={userClubId} showSearch={false} />
       <View style={styles.sectionDivider} />
       <SectionHeader
         title="Events"
@@ -187,7 +199,7 @@ const SocialScreenComponent: React.FC = () => {
         onActionPress={handleOpenComposer}
       />
     </>
-  ), [clubs, userClubId, handleClubCreated, handleLeaderboardPress, handleEinundzwanzigPress, handleDynamicEventPress, handleOpenComposer, hasMoreEvents, handleSeeMoreEvents]);
+  ), [clubs, userClubId, handleOpenCreateClub, handleLeaderboardPress, handleEinundzwanzigPress, handleDynamicEventPress, handleOpenComposer, hasMoreEvents, handleSeeMoreEvents]);
 
   if (isLoading) {
     return (
@@ -225,6 +237,11 @@ const SocialScreenComponent: React.FC = () => {
         visible={composerVisible}
         onClose={() => setComposerVisible(false)}
         onPost={handleCreatePost}
+      />
+      <SimpleTeamCreationModal
+        visible={createClubVisible}
+        onClose={() => setCreateClubVisible(false)}
+        onTeamCreated={handleClubCreated}
       />
     </SafeAreaView>
   );

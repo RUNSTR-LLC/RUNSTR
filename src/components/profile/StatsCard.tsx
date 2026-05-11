@@ -9,6 +9,12 @@ import { nip19 } from 'nostr-tools';
 
 interface StatsCardProps {
   userPubkey: string;
+  /**
+   * Bumping this prop forces the card to re-fetch step count and PRs.
+   * Used by the History tab's pull-to-refresh to keep the card in sync
+   * with the rest of the screen.
+   */
+  refreshKey?: number;
 }
 
 interface PersonalRecords {
@@ -49,7 +55,7 @@ function formatCount(n: number): string {
   return n > 0 ? n.toLocaleString() : '—';
 }
 
-export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey }) => {
+export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey, refreshKey = 0 }) => {
   const [todaySteps, setTodaySteps] = useState<number>(0);
   const [records, setRecords] = useState<PersonalRecords>({
     fastest5kSeconds: 0,
@@ -72,11 +78,17 @@ export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey }) => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userPubkey]);
+  }, [userPubkey, refreshKey]);
 
   const loadData = async (isCancelled: () => boolean) => {
     try {
-      const stepData = await DailyStepCounterService.getInstance().getTodaySteps();
+      // Bypass the 5s service-level cache so a pull-to-refresh on the parent
+      // tab actually re-queries HealthKit instead of returning the stale value.
+      const stepService = DailyStepCounterService.getInstance();
+      if (refreshKey > 0) {
+        stepService.clearCache();
+      }
+      const stepData = await stepService.getTodaySteps();
       if (!isCancelled() && stepData) setTodaySteps(stepData.steps);
     } catch (e) {
       console.warn('[StatsCard] Failed to get today steps:', e);

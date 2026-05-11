@@ -78,6 +78,10 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
   const [healthKitSyncEnabled, setHealthKitSyncEnabled] = useState(false);
   const [healthKitAuthorized, setHealthKitAuthorized] = useState(false);
   const [healthKitLastSync, setHealthKitLastSync] = useState<string | null>(null);
+  const [healthConnectSyncEnabled, setHealthConnectSyncEnabled] = useState(false);
+  const [healthConnectAvailable, setHealthConnectAvailable] = useState(false);
+  const [healthConnectAuthorized, setHealthConnectAuthorized] = useState(false);
+  const [healthConnectLastSync, setHealthConnectLastSync] = useState<string | null>(null);
 
   const [alert, setAlert] = useState<AlertState>({
     visible: false,
@@ -148,6 +152,20 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
           setHealthKitLastSync(status.lastSyncAt ?? null);
         } catch (hkError) {
           console.warn('[Settings] HealthKit status load failed:', hkError);
+        }
+      }
+
+      if (Platform.OS === 'android') {
+        try {
+          const hcSyncPref = await AsyncStorage.getItem('@runstr:healthconnect_sync_enabled');
+          setHealthConnectSyncEnabled(hcSyncPref !== 'false');
+          const { default: hcService } = await import('../services/fitness/healthConnectService');
+          const status = hcService.getStatus();
+          setHealthConnectAvailable(status.available);
+          setHealthConnectAuthorized(status.authorized);
+          setHealthConnectLastSync(status.lastSyncAt ?? null);
+        } catch (hcError) {
+          console.warn('[Settings] Health Connect status load failed:', hcError);
         }
       }
     } catch (error) {
@@ -236,6 +254,44 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
       }
     } catch (error) {
       console.error('[Settings] HealthKit sync toggle error:', error);
+    }
+  };
+
+  const handleHealthConnectSyncToggle = async (enabled: boolean) => {
+    try {
+      if (enabled) {
+        const { default: hcService } = await import('../services/fitness/healthConnectService');
+        if (!hcService.getStatus().available) {
+          showAlert(
+            'Health Connect Unavailable',
+            'Health Connect is not installed or not supported on this device. Install it from the Play Store, then try again.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+        const result = await hcService.requestPermissions();
+        if (result.success) {
+          await AsyncStorage.setItem('@runstr:healthconnect_sync_enabled', 'true');
+          setHealthConnectSyncEnabled(true);
+          setHealthConnectAuthorized(true);
+          const { BackgroundSyncRegistration } = await import('../services/fitness/BackgroundSyncRegistration');
+          await BackgroundSyncRegistration.register();
+        } else {
+          showAlert(
+            'Health Connect Access',
+            'RUNSTR needs access to Health Connect to sync your workouts automatically.\n\n' +
+              'Open Health Connect from your device settings to grant permission, then try again.',
+            [{ text: 'OK' }]
+          );
+        }
+      } else {
+        await AsyncStorage.setItem('@runstr:healthconnect_sync_enabled', 'false');
+        setHealthConnectSyncEnabled(false);
+        const { BackgroundSyncRegistration } = await import('../services/fitness/BackgroundSyncRegistration');
+        await BackgroundSyncRegistration.unregister();
+      }
+    } catch (error) {
+      console.error('[Settings] Health Connect sync toggle error:', error);
     }
   };
 
@@ -464,9 +520,11 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
     showNWCQRConfirmModal, setShowNWCQRConfirmModal, scannedNWCString,
     showAgentSkillModal, setShowAgentSkillModal, privateModeEnabled,
     healthKitSyncEnabled, healthKitAuthorized, healthKitLastSync,
+    healthConnectSyncEnabled, healthConnectAvailable, healthConnectAuthorized, healthConnectLastSync,
     showAntiCheatModal, setShowAntiCheatModal, alert, hideAlert,
     handleDisconnectWallet, handleNWCQRScanned, handleNWCConnectSuccess,
     handleTTSSettingChange, handleAutoBackupToggle, handleHealthKitSyncToggle,
+    handleHealthConnectSyncToggle,
     handleMusicPlayerHeaderToggle, handleDefaultActivityChange, handleBack,
     handleAllWorkoutsPress,
     handleRewardsPress,

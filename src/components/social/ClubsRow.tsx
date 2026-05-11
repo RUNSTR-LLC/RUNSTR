@@ -6,13 +6,11 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { Avatar } from '../ui/Avatar';
-import { SimpleTeamCreationModal } from '../creation/SimpleTeamCreationModal';
 import type { Club } from '../../types/club';
 
 interface ClubsRowProps {
   clubs: Club[];
   userClubId?: string | null;
-  onClubCreated?: () => void;
   showSearch?: boolean;
 }
 
@@ -33,9 +31,8 @@ const ClubItem = React.memo(
   )
 );
 
-export const ClubsRow: React.FC<ClubsRowProps> = ({ clubs, userClubId, onClubCreated, showSearch = true }) => {
+export const ClubsRow: React.FC<ClubsRowProps> = ({ clubs, userClubId, showSearch = true }) => {
   const navigation = useNavigation<any>();
-  const [showCreate, setShowCreate] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const sorted = React.useMemo(() => {
@@ -80,24 +77,6 @@ export const ClubsRow: React.FC<ClubsRowProps> = ({ clubs, userClubId, onClubCre
     [handleClubPress]
   );
 
-  const handleClubCreated = useCallback(() => {
-    setShowCreate(false);
-    onClubCreated?.();
-  }, [onClubCreated]);
-
-  const createButton = (
-    <TouchableOpacity
-      style={styles.createItem}
-      onPress={() => setShowCreate(true)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.createCircle}>
-        <Ionicons name="add" size={28} color={theme.colors.accent} />
-      </View>
-      <Text style={styles.clubName}>Create</Text>
-    </TouchableOpacity>
-  );
-
   if (clubs.length === 0) return null;
 
   return (
@@ -109,7 +88,6 @@ export const ClubsRow: React.FC<ClubsRowProps> = ({ clubs, userClubId, onClubCre
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
-        ListFooterComponent={createButton}
       />
       {showSearch && <View style={styles.searchWrapper}>
         <View style={styles.searchContainer}>
@@ -162,11 +140,6 @@ export const ClubsRow: React.FC<ClubsRowProps> = ({ clubs, userClubId, onClubCre
           </View>
         )}
       </View>}
-      <SimpleTeamCreationModal
-        visible={showCreate}
-        onClose={() => setShowCreate(false)}
-        onTeamCreated={handleClubCreated}
-      />
     </View>
   );
 };
@@ -192,21 +165,6 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.regular,
     marginTop: 4,
     textAlign: 'center',
-  },
-  createItem: {
-    alignItems: 'center',
-    maxWidth: 72,
-  },
-  createCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.cardBackground,
   },
   searchWrapper: {
     marginHorizontal: 16,

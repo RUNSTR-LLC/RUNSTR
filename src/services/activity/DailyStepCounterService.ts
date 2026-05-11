@@ -1,6 +1,8 @@
 /**
  * DailyStepCounterService - Cross-platform daily step counting
- * iOS: Uses Expo Pedometer API (HealthKit) for auto-counting
+ * iOS: Queries HealthKit cumulativeSum (matches Apple Health app's daily total —
+ *      includes Apple Watch + 3rd-party sources). Falls back to CMPedometer
+ *      (expo-sensors) when HealthKit auth is not granted or returns nothing.
  * Android: Uses native step sensor or Health Connect aggregation API
  *          Returns 0 if no step data available (no mixing of data sources)
  */
@@ -13,6 +15,21 @@ import { privacyROMDetectionService } from '../platform/PrivacyROMDetectionServi
 import { nativeStepCounterService } from './NativeStepCounterService';
 
 const STORAGE_KEY_BACKGROUND_TRACKING = '@runstr:background_step_tracking_enabled';
+
+// Lazy-loaded HealthKit module (iOS only). Mirrors the pattern used by
+// HealthKitBackgroundService so we don't pull HealthKit into the Android bundle.
+let HealthKit: { queryStatisticsForQuantity?: any } | null = null;
+if (Platform.OS === 'ios') {
+  try {
+    const hk = require('@yzlin/expo-healthkit');
+    HealthKit = {
+      queryStatisticsForQuantity:
+        hk.default?.queryStatisticsForQuantity ?? hk.queryStatisticsForQuantity,
+    };
+  } catch (e) {
+    console.warn('[DailyStepCounterService] @yzlin/expo-healthkit unavailable:', e);
+  }
+}
 
 export interface DailyStepData {
   steps: number;
@@ -31,7 +48,7 @@ export class DailyStepCounterService {
     if (Platform.OS === 'android') {
       console.log('[DailyStepCounterService] Android priority: Native sensor → Health Connect → Local tracked steps');
     } else {
-      console.log('[DailyStepCounterService] Will use Pedometer (HealthKit) for auto-counted steps');
+      console.log('[DailyStepCounterService] iOS priority: HealthKit cumulativeSum → CMPedometer fallback');
     }
   }
 
@@ -44,7 +61,8 @@ export class DailyStepCounterService {
 
   /**
    * Check if step counting is available on the device
-   * iOS: Uses Pedometer (HealthKit)
+   * iOS: Uses CMPedometer (we'll prefer HealthKit at query time but fall back
+   *      to CMPedometer, so availability == CMPedometer availability)
    * Android: Always available (Health Connect or local tracked steps fallback)
    */
   async isAvailable(): Promise<boolean> {
@@ -67,7 +85,9 @@ export class DailyStepCounterService {
 
   /**
    * Request permissions for step data
-   * iOS: Automatically handled by Pedometer API (HealthKit)
+   * iOS: Triggers Motion & Fitness permission via CMPedometer. HealthKit
+   *      permission is requested separately via HealthKitService when the user
+   *      connects Apple Health from settings/onboarding.
    * Android: No permissions needed (uses local workout storage)
    */
   async requestPermissions(): Promise<boolean> {
@@ -82,19 +102,19 @@ export class DailyStepCounterService {
         // Return true regardless - Health Connect fallback doesn't need this permission
         return true;
       } else {
-        // iOS: Check Pedometer availability and request HealthKit access
+        // iOS: Verify CMPedometer access (Motion & Fitness prompt fires here
+        // if not yet granted). HealthKit permission is requested elsewhere.
         const available = await Pedometer.isAvailableAsync();
         if (!available) {
-          console.warn('[DailyStepCounterService] Pedometer not available on this device');
+          console.warn('[DailyStepCounterService] CMPedometer not available on this device');
           return false;
         }
 
-        // Test if we can access step data (iOS auto-prompts HealthKit permission here)
         const now = new Date();
         const testStart = new Date(now.getTime() - 1000); // 1 second ago
         await Pedometer.getStepCountAsync(testStart, now);
 
-        console.log('[DailyStepCounterService] iOS permissions granted - step data accessible');
+        console.log('[DailyStepCounterService] iOS Motion & Fitness permission granted');
         return true;
       }
     } catch (error) {
@@ -105,15 +125,12 @@ export class DailyStepCounterService {
 
   /**
    * Check if step counting permission is currently granted
-   * iOS: Always returns 'granted' (handled by HealthKit)
+   * iOS: Always returns 'granted' — actual prompts happen in requestPermissions()
    * Android: Always returns 'granted' (uses local workout storage - no permissions needed)
    */
   async checkPermissionStatus(): Promise<
     'granted' | 'denied' | 'never_ask_again' | 'unknown'
   > {
-    // Both platforms: always granted
-    // iOS: handled by HealthKit automatically
-    // Android: uses local workout storage, no permissions needed
     return 'granted';
   }
 
@@ -160,7 +177,7 @@ export class DailyStepCounterService {
   /**
    * Get today's step count (from midnight to now)
    * Uses cached value if less than 5 seconds old
-   * iOS: Uses Pedometer API (HealthKit) - auto-counted throughout day
+   * iOS: HealthKit cumulativeSum (Watch + iPhone + 3rd-party), CMPedometer fallback
    * Android: Uses native step sensor or Health Connect API
    */
   async getTodaySteps(): Promise<DailyStepData | null> {
@@ -175,7 +192,7 @@ export class DailyStepCounterService {
         // Android: Use Health Connect
         return await this.getTodayStepsAndroid();
       } else {
-        // iOS: Use Pedometer (HealthKit)
+        // iOS: HealthKit cumulativeSum, CMPedometer fallback
         return await this.getTodayStepsIOS();
       }
     } catch (error) {
@@ -187,19 +204,53 @@ export class DailyStepCounterService {
   }
 
   /**
-   * iOS-specific step fetching via Pedometer (HealthKit)
+   * iOS step fetch: HealthKit cumulativeSum first, CMPedometer fallback.
+   *
+   * HealthKit's HKStatisticsQuery with cumulativeSum returns the same number
+   * Apple Health shows for the day — iOS coordinates iPhone + Watch samples to
+   * avoid double-counting, and 3rd-party app contributions are merged in.
+   * CMPedometer (expo-sensors) only sees iPhone-detected steps, so a user
+   * wearing a Watch sees a much lower number than Health.app reports.
    */
   private async getTodayStepsIOS(): Promise<DailyStepData | null> {
-    // Calculate today's time range (midnight to now)
     const start = new Date();
-    start.setHours(0, 0, 0, 0); // Midnight today
-    const end = new Date(); // Now
+    start.setHours(0, 0, 0, 0);
+    const end = new Date();
 
-    console.log(`[DailyStepCounterService] iOS: Querying steps from ${start.toISOString()} to ${end.toISOString()}`);
+    // 1. Try HealthKit (matches Apple Health app's daily total)
+    if (HealthKit?.queryStatisticsForQuantity) {
+      try {
+        const result = await HealthKit.queryStatisticsForQuantity({
+          quantityType: 'HKQuantityTypeIdentifierStepCount',
+          from: start,
+          to: end,
+          options: ['cumulativeSum'],
+        });
 
-    // Query pedometer data
+        const sum = result?.sumQuantity?.quantity;
+        if (typeof sum === 'number' && sum >= 0) {
+          const steps = Math.round(sum);
+          const stepData: DailyStepData = {
+            steps,
+            startTime: start,
+            endTime: end,
+            lastUpdated: new Date(),
+          };
+          this.cachedSteps = stepData;
+          console.log(`[DailyStepCounterService] iOS ✅ HealthKit steps: ${steps}`);
+          return stepData;
+        }
+        console.log('[DailyStepCounterService] iOS: HealthKit returned no sum, falling back to CMPedometer');
+      } catch (error) {
+        // Most common cause: HealthKit auth not granted yet. Falling back to
+        // CMPedometer (Motion & Fitness permission) keeps the screen working.
+        console.log('[DailyStepCounterService] iOS: HealthKit query failed, falling back to CMPedometer:', error);
+      }
+    }
+
+    // 2. Fall back to CMPedometer via expo-sensors
+    console.log(`[DailyStepCounterService] iOS: Querying CMPedometer ${start.toISOString()} → ${end.toISOString()}`);
     const result = await Pedometer.getStepCountAsync(start, end);
-
     if (!result) {
       console.warn('[DailyStepCounterService] iOS: No step data returned');
       return null;
@@ -211,11 +262,8 @@ export class DailyStepCounterService {
       endTime: end,
       lastUpdated: new Date(),
     };
-
-    // Update cache
     this.cachedSteps = stepData;
-
-    console.log(`[DailyStepCounterService] iOS ✅ Today's steps: ${result.steps}`);
+    console.log(`[DailyStepCounterService] iOS ✅ CMPedometer steps: ${result.steps}`);
     return stepData;
   }
 
@@ -340,7 +388,7 @@ export class DailyStepCounterService {
   }
 
   /**
-   * Check if cached data is still valid (less than 5 minutes old)
+   * Check if cached data is still valid (less than cacheExpiry ms old — 5s)
    */
   private isCacheValid(): boolean {
     if (!this.cachedSteps) return false;

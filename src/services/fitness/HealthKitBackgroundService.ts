@@ -20,7 +20,7 @@ let enableBackgroundDelivery: any;
 let subscribeToQuery: any;
 let unsubscribeFromQuery: any;
 let addQueryUpdateListener: any;
-let queryQuantitySamples: any;
+let queryStatisticsForQuantity: any;
 let HKUpdateFrequency: any;
 let HKWorkoutTypeIdentifier: string;
 
@@ -31,7 +31,7 @@ if (Platform.OS === 'ios') {
     subscribeToQuery = hk.subscribeToQuery;
     unsubscribeFromQuery = hk.unsubscribeFromQuery;
     addQueryUpdateListener = hk.default?.addQueryUpdateListener ?? hk.addQueryUpdateListener;
-    queryQuantitySamples = hk.default?.queryQuantitySamples ?? hk.queryQuantitySamples;
+    queryStatisticsForQuantity = hk.default?.queryStatisticsForQuantity ?? hk.queryStatisticsForQuantity;
     HKUpdateFrequency = hk.HKUpdateFrequency;
     HKWorkoutTypeIdentifier = 'HKWorkoutTypeIdentifier';
   } catch (e) {
@@ -295,41 +295,34 @@ export class HealthKitBackgroundService {
   /**
    * Sync today's step count from HealthKit to Supabase.
    * Uses upsert via steps_ event ID prefix (server handles dedup).
+   *
+   * Uses HKStatisticsQuery / cumulativeSum so iOS deduplicates iPhone + Watch
+   * samples the same way the Apple Health app does. The previous implementation
+   * summed every raw sample and over-counted whenever both devices were active.
    */
   private async syncTodaySteps(npub: string): Promise<void> {
     try {
-      if (!queryQuantitySamples) {
-        console.log('[HKBackground] queryQuantitySamples not available, skipping step sync');
+      if (!queryStatisticsForQuantity) {
+        console.log('[HKBackground] queryStatisticsForQuantity not available, skipping step sync');
         return;
       }
 
       const now = new Date();
       const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-      const stepSamples = await queryQuantitySamples(
-        'HKQuantityTypeIdentifierStepCount',
-        {
-          from: startOfDay,
-          to: now,
-        }
-      );
+      const stats = await queryStatisticsForQuantity({
+        quantityType: 'HKQuantityTypeIdentifierStepCount',
+        from: startOfDay,
+        to: now,
+        options: ['cumulativeSum'],
+      });
 
-      if (!stepSamples || stepSamples.length === 0) {
+      const sum = stats?.sumQuantity?.quantity;
+      if (typeof sum !== 'number' || sum <= 0) {
         console.log('[HKBackground] No step data today');
         return;
       }
-
-      // Aggregate total steps from all sources
-      let totalSteps = 0;
-      for (const sample of stepSamples) {
-        const qty = sample.quantity ?? sample.value ?? 0;
-        totalSteps += typeof qty === 'number' ? qty : 0;
-      }
-
-      if (totalSteps <= 0) {
-        console.log('[HKBackground] Zero steps today');
-        return;
-      }
+      const totalSteps = Math.round(sum);
 
       // Estimate distance from steps (avg stride 0.762m)
       const estimatedDistanceMeters = Math.round(totalSteps * 0.762);
