@@ -1,11 +1,18 @@
 /**
  * Verifies the rank-change migrations (180, 181, 182) applied correctly.
  *
- * Checks:
- *   - Both snapshot tables exist with expected columns
- *   - pg_net extension is enabled (net.http_post is callable)
+ * Checks (anon-client safe):
+ *   - rank_change case is present in ExpoNotificationProvider.ts (static grep)
+ *   - Both snapshot tables exist with expected columns (Supabase probe)
+ *
+ * NOT verified by this script (require service-role access):
+ *   - pg_net extension is enabled
  *   - The notify_rank_changes function exists
  *   - The triggers are registered on workout_submissions
+ *
+ * For full end-to-end verification (does the trigger fire? does net.http_post
+ * enqueue?), see the "Manual smoke test" section in
+ * docs/superpowers/plans/2026-05-11-rank-change-notifications.md.
  *
  * Run: npx tsx scripts/verify/verify-rank-change-schema.ts
  */
@@ -68,12 +75,12 @@ async function main() {
   await verifyTriggerHandlerCase();
   console.log('');
   await verifyTablesExist();
-  console.log('\nAll checks passed.');
+  console.log('\nAll anon-safe checks passed.');
   console.log('');
-  console.log('Note: deeper trigger verification (does it fire? does net.http_post enqueue?)');
-  console.log('requires inserting a test workout_submissions row and checking');
-  console.log('net.http_request_queue — that requires service-role access. Manual SQL check:');
-  console.log('  SELECT * FROM net.http_request_queue ORDER BY created DESC LIMIT 5;');
+  console.log('Deeper trigger verification (does it fire? does net.http_post enqueue?)');
+  console.log('requires service-role access. Full smoke test recipe in:');
+  console.log('  docs/superpowers/plans/2026-05-11-rank-change-notifications.md');
+  console.log('  (search for "Manual smoke test")');
 }
 
 main().catch((err) => {
