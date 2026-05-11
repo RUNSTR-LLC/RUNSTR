@@ -205,6 +205,13 @@ export class ExpoNotificationProvider {
             navigate('Compete');
           }
           break;
+        case 'rank_change':
+          if (data?.event_id) {
+            navigate('DynamicEventDetail', { eventId: data.event_id });
+          } else {
+            navigate('Leaderboards');
+          }
+          break;
         default:
           // Default tap - just open the app (no specific navigation)
           console.log('Notification tapped with unknown type:', data?.type);
