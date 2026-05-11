@@ -30,8 +30,7 @@ import { theme } from '../styles/theme';
 import { TexturedBackground } from '../components/ui/TexturedBackground';
 import { SupabaseRewardService } from '../services/rewards/SupabaseRewardService';
 import type { PaymentRecord } from '../services/rewards/SupabaseRewardService';
-
-type RewardType = 'workout' | 'steps' | 'other';
+import { rewardLabel } from './rewardLabel';
 
 interface RewardSection {
   title: string;
@@ -76,24 +75,6 @@ const groupByDate = (payments: PaymentRecord[]): RewardSection[] => {
   return Array.from(sections.entries()).map(([title, data]) => ({ title, data }));
 };
 
-const classifyReward = (rewardType: string): RewardType => {
-  if (rewardType === 'workout') return 'workout';
-  if (rewardType === 'steps') return 'steps';
-  return 'other';
-};
-
-const labelFor = (type: RewardType): string => {
-  if (type === 'workout') return 'Workout reward';
-  if (type === 'steps') return 'Steps reward';
-  return 'Reward';
-};
-
-const iconFor = (type: RewardType): React.ComponentProps<typeof Ionicons>['name'] => {
-  if (type === 'workout') return 'fitness-outline';
-  if (type === 'steps') return 'footsteps-outline';
-  return 'star-outline';
-};
-
 const formatTime = (iso: string): string => {
   const d = new Date(iso);
   let hours = d.getHours();
@@ -115,9 +96,7 @@ interface RewardRowProps {
 }
 
 const RewardRow: React.FC<RewardRowProps> = ({ payment, expanded, onToggle }) => {
-  const type = classifyReward(payment.reward_type);
-  const label = labelFor(type);
-  const icon = iconFor(type);
+  const { label, icon } = rewardLabel(payment.reward_type, payment.metadata);
   const time = formatTime(payment.paid_at);
 
   return (
