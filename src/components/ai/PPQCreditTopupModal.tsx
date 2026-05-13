@@ -420,7 +420,7 @@ export const PPQCreditTopupModal: React.FC<PPQCreditTopupModalProps> = ({
                 </Text>
               )}
               {showInvoice && (
-                <Text style={styles.topupAmount}>{effectiveAmount} sats</Text>
+                <Text style={styles.topupAmount}>{effectiveAmount} credits</Text>
               )}
             </View>
 
@@ -454,7 +454,7 @@ export const PPQCreditTopupModal: React.FC<PPQCreditTopupModalProps> = ({
                           selectedAmount === amount && !isCustom && styles.presetButtonTextSelected,
                         ]}
                       >
-                        sats
+                        credits
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -475,7 +475,7 @@ export const PPQCreditTopupModal: React.FC<PPQCreditTopupModalProps> = ({
                       value={customAmount}
                       onChangeText={handleCustomAmountChange}
                     />
-                    <Text style={styles.satsLabel}>sats</Text>
+                    <Text style={styles.satsLabel}>credits</Text>
                   </View>
                 </View>
 
@@ -497,7 +497,7 @@ export const PPQCreditTopupModal: React.FC<PPQCreditTopupModalProps> = ({
                   disabled={effectiveAmount <= 0}
                 >
                   <Text style={styles.proceedButtonText}>
-                    Continue with {effectiveAmount > 0 ? effectiveAmount.toLocaleString() : '0'} sats
+                    Continue with {effectiveAmount > 0 ? effectiveAmount.toLocaleString() : '0'} credits
                   </Text>
                   <Ionicons name="arrow-forward" size={20} color={theme.colors.background} />
                 </TouchableOpacity>
