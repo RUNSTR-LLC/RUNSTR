@@ -64,7 +64,7 @@ File **one** issue per run titled `[Audit] General sweep YYYY-MM-DD` (substitute
 - `**Why:**` one-sentence reasoning
 - `**Fix direction:**` one sentence
 
-Label: `audit`. If findings look trivially fixable (<50 line diff, single file, no design decisions), also add `auto-pr-ok`.
+Label: `audit`, `cron-run-log`. If findings look trivially fixable (<50 line diff, single file, no design decisions), also add `auto-pr-ok`.
 
 ### 5. Self-assessment
 
