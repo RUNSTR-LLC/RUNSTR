@@ -764,7 +764,7 @@ const styles = StyleSheet.create({
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#2a1a1a',
+    backgroundColor: theme.colors.cardBackground,
     padding: 12,
     borderRadius: 8,
     marginTop: 12,
