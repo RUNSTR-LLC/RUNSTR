@@ -195,7 +195,7 @@ export class ExpoNotificationProvider {
       switch (data?.type) {
         case 'reward_earned':
         case 'step_reward_earned':
-          navigate('MainTabs', { screen: 'Rewards' });
+          navigate('Rewards');
           break;
         case 'auto_joined':
         case 'leaderboard_change':
