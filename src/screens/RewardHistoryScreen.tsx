@@ -149,9 +149,23 @@ export const RewardHistoryScreen: React.FC = () => {
   // Load pubkey once on mount
   useEffect(() => {
     let cancelled = false;
-    AsyncStorage.getItem('@runstr:hex_pubkey').then((value) => {
-      if (!cancelled && value) setPubkey(value);
-    });
+    AsyncStorage.getItem('@runstr:hex_pubkey')
+      .then((value) => {
+        if (cancelled) return;
+        if (value) {
+          setPubkey(value);
+        } else {
+          setPayments([]);
+          setIsLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.warn('[RewardHistoryScreen] failed to load pubkey:', err);
+        if (!cancelled) {
+          setPayments([]);
+          setIsLoading(false);
+        }
+      });
     return () => {
       cancelled = true;
     };
