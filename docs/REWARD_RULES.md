@@ -4,7 +4,7 @@ Single source of truth for reward logic across the app, website, and backend.
 
 ## Daily Reward
 
-- **Amount:** 100 sats per qualifying workout
+- **Amount:** 100 rewards per qualifying workout
 - **Applies to:** All users (no tiers, no subscriptions)
 - **Daily limit:** 1 reward per user per day
 
@@ -26,7 +26,7 @@ No distance minimum. No duration minimum.
 
 ## Payout Destination
 
-Rewards are sent via LNURL to the user's lightning address. There is no destination picker — no charities, no projects, no AI credits, no splits.
+Rewards are sent through the configured payout address on the user profile. There is no destination picker — no charities, no projects, no AI credits, no splits.
 
 Address resolution priority:
 1. Stored address (from Settings) if set
