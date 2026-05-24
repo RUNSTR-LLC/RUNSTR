@@ -193,7 +193,7 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
       }
     };
     fetchClubInfo();
-  }, [competition]);
+  }, [competition?.club_id]);
 
   useEffect(() => {
     if (!isCharityEvent || !competition) return;
