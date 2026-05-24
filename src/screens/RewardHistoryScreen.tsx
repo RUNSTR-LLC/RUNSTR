@@ -62,12 +62,18 @@ const startOfCurrentMonth = (): number => {
   return d.getTime();
 };
 
+const parseValidDate = (iso?: string | null): Date | null => {
+  if (!iso) return null;
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
 const groupByDate = (payments: PaymentRecord[]): RewardSection[] => {
   const today = new Date();
   const sections = new Map<string, PaymentRecord[]>();
   for (const p of payments) {
-    const d = new Date(p.paid_at);
-    const key = formatDateHeader(d, today);
+    const d = parseValidDate(p.paid_at);
+    const key = d ? formatDateHeader(d, today) : 'UNKNOWN DATE';
     const arr = sections.get(key) ?? [];
     arr.push(p);
     sections.set(key, arr);
@@ -75,8 +81,9 @@ const groupByDate = (payments: PaymentRecord[]): RewardSection[] => {
   return Array.from(sections.entries()).map(([title, data]) => ({ title, data }));
 };
 
-const formatTime = (iso: string): string => {
-  const d = new Date(iso);
+const formatTime = (iso?: string | null): string => {
+  const d = parseValidDate(iso);
+  if (!d) return 'unknown time';
   let hours = d.getHours();
   const minutes = d.getMinutes().toString().padStart(2, '0');
   const ampm = hours >= 12 ? 'pm' : 'am';
@@ -201,7 +208,10 @@ export const RewardHistoryScreen: React.FC = () => {
   const monthlyTotal = useMemo(() => {
     const start = startOfCurrentMonth();
     return payments
-      .filter((p) => new Date(p.paid_at).getTime() >= start)
+      .filter((p) => {
+        const paidAt = parseValidDate(p.paid_at);
+        return paidAt ? paidAt.getTime() >= start : false;
+      })
       .reduce((sum, p) => sum + p.amount_sats, 0);
   }, [payments]);
 
