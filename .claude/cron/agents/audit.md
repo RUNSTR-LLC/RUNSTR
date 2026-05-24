@@ -64,15 +64,26 @@ File **one** issue per run titled `[Audit] General sweep YYYY-MM-DD` (substitute
 - `**Why:**` one-sentence reasoning
 - `**Fix direction:**` one sentence
 
-Label: `audit`. If findings look trivially fixable (<50 line diff, single file, no design decisions), also add `auto-pr-ok`.
+Label: `audit`, `cron-run-log`. If findings look trivially fixable (<50 line diff, single file, no design decisions), also add `auto-pr-ok`.
 
 ### 5. Self-assessment
 
-Append `CRON-RUN-LOG` block to the issue.
+Add the `CRON-RUN-LOG` block as a **comment** on the filed issue — do not embed it in the initial issue body, as HTML comments in issue bodies are stripped by the GitHub API and cannot be parsed by the meta-learn agent:
+
+```bash
+gh issue comment <number> --body "$(cat <<'EOF'
+<!-- CRON-RUN-LOG
+agent: audit
+run_date: YYYY-MM-DD
+...
+-->
+EOF
+)"
+```
 
 ## Guardrails
 
-- Read-only. Only mutation is the single `gh issue create`.
-- Don't file an issue if you found nothing — file a `cron-run-log` issue with label `cron-run-log` instead.
+- Read-only. Only mutation is the single `gh issue create` plus the self-assessment comment.
+- Don't file an issue if you found nothing — file a `[CronLog] Audit YYYY-MM-DD` issue with labels `cron-run-log` instead, and add the CRON-RUN-LOG comment to it.
 - Don't double-file things already in existing open `audit` issues (dedup by title + first-finding match).
 - Don't touch pre-existing typecheck errors listed as baseline.

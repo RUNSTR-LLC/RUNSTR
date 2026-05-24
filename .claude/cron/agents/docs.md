@@ -54,7 +54,7 @@ Severity:
 - **Medium** — stale doc where code has moved on
 - **Low** — missing doc for non-critical service
 
-File one issue `[Docs] Doc staleness sweep YYYY-MM-DD`. Label: `docs`. Add `auto-pr-ok` for broken-link fixes, small corrections, changelog entries.
+File one issue `[Docs] Doc staleness sweep YYYY-MM-DD`. Label: `docs`, `cron-run-log`. Add `auto-pr-ok` for broken-link fixes, small corrections, changelog entries.
 
 ### 4. Self-assessment
 
