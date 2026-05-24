@@ -127,14 +127,14 @@ export const EnhancedZapModal: React.FC<EnhancedZapModalProps> = ({
     if (!useExternalWallet && amount > balance) {
       Alert.alert(
         'Insufficient Balance',
-        `You need ${amount} sats but only have ${balance} sats`
+        `You need ${amount} rewards but only have ${balance} rewards`
       );
       return;
     }
 
     // If using external wallet, generate invoice and show QR
     if (useExternalWallet) {
-      const zapMemo = memo || `Zap from RUNSTR - ${amount} sats!`;
+      const zapMemo = memo || `Zap from RUNSTR - ${amount} rewards!`;
 
       // Update default if requested
       if (setAsDefault && onDefaultAmountChange) {
@@ -154,7 +154,7 @@ export const EnhancedZapModal: React.FC<EnhancedZapModalProps> = ({
     setIsSending(true);
 
     try {
-      const zapMemo = memo || `Zap from RUNSTR - ${amount} sats!`;
+      const zapMemo = memo || `Zap from RUNSTR - ${amount} rewards!`;
       let success = false;
 
       // Check if recipientNpub is actually a Lightning address (contains @)
@@ -226,7 +226,7 @@ export const EnhancedZapModal: React.FC<EnhancedZapModalProps> = ({
 
         Alert.alert(
           'Zap Sent!',
-          `Successfully sent ${amount} sats to ${recipientName}`,
+          `Successfully sent ${amount} rewards to ${recipientName}`,
           [
             {
               text: 'OK',
@@ -369,7 +369,7 @@ export const EnhancedZapModal: React.FC<EnhancedZapModalProps> = ({
                 <View style={styles.balanceRow}>
                   <Text style={styles.balanceLabel}>Your Balance:</Text>
                   <Text style={styles.balanceAmount}>
-                    {balance.toLocaleString()} sats
+                    {balance.toLocaleString()} rewards
                   </Text>
                 </View>
                 {displayAmount > 0 && (
@@ -381,7 +381,7 @@ export const EnhancedZapModal: React.FC<EnhancedZapModalProps> = ({
                         displayAmount > balance && styles.balanceError,
                       ]}
                     >
-                      {(balance - displayAmount).toLocaleString()} sats
+                      {(balance - displayAmount).toLocaleString()} rewards
                     </Text>
                   </View>
                 )}
@@ -431,7 +431,7 @@ export const EnhancedZapModal: React.FC<EnhancedZapModalProps> = ({
                   keyboardType="numeric"
                   maxLength={7}
                 />
-                <Text style={styles.satsSuffix}>sats</Text>
+                <Text style={styles.satsSuffix}>rewards</Text>
               </View>
 
               {/* Set as Default Toggle - Always show when amount selected */}
@@ -445,8 +445,8 @@ export const EnhancedZapModal: React.FC<EnhancedZapModalProps> = ({
                     ]}
                   >
                     {displayAmount === defaultAmount
-                      ? `${displayAmount} sats is already your default`
-                      : `Set ${displayAmount} sats as my default`}
+                      ? `${displayAmount} rewards is already your default`
+                      : `Set ${displayAmount} rewards as my default`}
                   </Text>
                   <Switch
                     value={
@@ -505,10 +505,10 @@ export const EnhancedZapModal: React.FC<EnhancedZapModalProps> = ({
                   <Text style={styles.sendButtonText}>
                     {useExternalWallet
                       ? `Generate ${
-                          displayAmount > 0 ? `${displayAmount} sats` : ''
+                          displayAmount > 0 ? `${displayAmount} rewards` : ''
                         } Invoice`
                       : `Send ${
-                          displayAmount > 0 ? `${displayAmount} sats` : 'Zap'
+                          displayAmount > 0 ? `${displayAmount} rewards` : 'Zap'
                         }`}
                   </Text>
                 </>
