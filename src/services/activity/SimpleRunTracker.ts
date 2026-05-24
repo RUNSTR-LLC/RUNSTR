@@ -737,6 +737,11 @@ export class SimpleRunTracker {
    * Timer → Pure JS stopwatch → Counts 1, 2, 3, 4, 5...
    */
   appendGpsPointsToCache(points: GPSPoint[]): void {
+    if (this.isPaused) {
+      console.log('[SimpleRunTracker] Ignoring GPS points while paused');
+      return;
+    }
+
     if (points.length === 0) {
       // No points received - check for GPS failure
       const now = Date.now();
