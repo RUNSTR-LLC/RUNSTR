@@ -145,7 +145,7 @@ export const EarningsHeroCard: React.FC<EarningsHeroCardProps> = ({ pubkey }) =>
             style={styles.heroNumber}
             animateOnMount
           />
-          <Text style={styles.heroUnit}>sats</Text>
+          <Text style={styles.heroUnit}>rewards</Text>
         </View>
         <Text style={styles.heroLabel}>
           {t('earningsHero.totalEarned', 'total earned')}
@@ -164,7 +164,7 @@ export const EarningsHeroCard: React.FC<EarningsHeroCardProps> = ({ pubkey }) =>
               <View style={[styles.destAvatar, styles.destAvatarPlaceholder]} />
             )}
             <Text style={styles.destName} numberOfLines={1}>{dest.name}</Text>
-            <Text style={styles.destAmount}>{dest.totalSats.toLocaleString()} sats</Text>
+            <Text style={styles.destAmount}>{dest.totalSats.toLocaleString()} rewards</Text>
           </View>
         ))}
       </View>

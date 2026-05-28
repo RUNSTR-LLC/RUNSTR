@@ -26,7 +26,7 @@ export const WalletSection: React.FC<WalletSectionProps> = ({
         <Text style={styles.balanceNumber}>
           {wallet.balance.toLocaleString()}
         </Text>
-        <Text style={styles.balanceCurrency}>sats</Text>
+        <Text style={styles.balanceCurrency}>rewards</Text>
       </View>
 
       <View style={styles.actions}>

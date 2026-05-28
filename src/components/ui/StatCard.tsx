@@ -265,7 +265,7 @@ export const TeamStatCard: React.FC<TeamStatCardProps> = ({
       case 'challenges':
         return { label: 'Challenges', suffix: undefined, prefix: undefined };
       case 'sats':
-        return { label: 'Prize Pool', suffix: ' sats', prefix: undefined };
+        return { label: 'Prize Pool', suffix: ' rewards', prefix: undefined };
       case 'rank':
         return { label: 'Team Rank', suffix: undefined, prefix: '#' };
       default:

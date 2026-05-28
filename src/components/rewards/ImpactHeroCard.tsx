@@ -143,7 +143,7 @@ export const ImpactHeroCard: React.FC<ImpactHeroCardProps> = ({ pubkey }) => {
             style={styles.heroNumber}
             animateOnMount
           />
-          <Text style={styles.heroUnit}>sats</Text>
+          <Text style={styles.heroUnit}>rewards</Text>
         </View>
         <Text style={styles.heroLabel}>
           {t('impactHero.donated', 'donated')}

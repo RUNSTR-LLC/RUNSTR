@@ -88,18 +88,18 @@ export const RewardEarnedModal: React.FC<RewardEarnedModalProps> = ({
       return (
         <>
           <Text style={styles.title}>Reward Queued</Text>
-          <Text style={styles.message}>{amount} sats queued for payout!</Text>
+          <Text style={styles.message}>{amount} rewards queued for payout!</Text>
           <View style={styles.splitContainer}>
             <View style={styles.splitRow}>
               <Text style={styles.splitLine}>{'├─'}</Text>
               <Text style={styles.splitText}>
-                {donationSplit.userAmount} sats to your wallet
+                {donationSplit.userAmount} rewards to your wallet
               </Text>
             </View>
             <View style={styles.splitRow}>
               <Text style={styles.splitLine}>{'└─'}</Text>
               <Text style={styles.splitText}>
-                {donationSplit.charityAmount} sats to {donationSplit.charityName}
+                {donationSplit.charityAmount} rewards to {donationSplit.charityName}
               </Text>
             </View>
           </View>
@@ -112,7 +112,7 @@ export const RewardEarnedModal: React.FC<RewardEarnedModalProps> = ({
     return (
       <>
         <Text style={styles.title}>Reward Queued</Text>
-        <Text style={styles.message}>{amount} sats queued for payout!</Text>
+        <Text style={styles.message}>{amount} rewards queued for payout!</Text>
         <Text style={styles.deliveryInfo}>Rewards sent daily ~10pm EST</Text>
       </>
     );
