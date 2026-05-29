@@ -355,7 +355,6 @@ This is the most important data flow in the app.
      +-- Server validates: distance, duration, anti-cheat flags
      +-- Stored in Supabase workouts table
      +-- Leaderboard rankings update automatically
-     +-- Database trigger fires claim-reward Edge Function
 
    Kind 1301 event is created locally for tag structure and signing,
    but is NOT published to Nostr relays. Supabase is the single
@@ -364,12 +363,14 @@ This is the most important data flow in the app.
 4. REWARD AUTO-TRIGGERED
      |
      v
-   Database trigger on workout_submissions INSERT:
-     +-- Reads reward destination tag (user, charity, project, or service)
-     +-- Reads Lightning address from tags
-     +-- Calls claim-reward Edge Function
-     +-- Sends reward via LNURL to destination's address
+   runstr-zapper (external service, separate repo) polls Supabase:
+     +-- Detects new workout_submission rows
+     +-- Validates workout (distance, duration, anti-cheat flags)
+     +-- Reads user's lightning address (Nostr lud16 or Settings)
+     +-- Sends reward via LNURL to user's lightning address
      +-- Records payment in reward_payments table
+   App reads payment status via SupabaseRewardService (read-only).
+   The in-repo claim-reward Edge Function is vestigial for this path.
 
 5. BACKGROUND SYNC PATH (No App Interaction Required)
      |
@@ -380,7 +381,7 @@ This is the most important data flow in the app.
      +-- Fetch recent workouts from health platform
      +-- Auto-submit to Supabase
      +-- Auto-join matching competitions
-     +-- Reward auto-triggered via same database trigger
+     +-- Reward auto-triggered via runstr-zapper polling
 
 6. OPTIONAL: SHARE AS SOCIAL POST
      |
