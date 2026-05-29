@@ -674,7 +674,7 @@ export class SupabaseCompetitionService {
       // DATA QUALITY FIX: Use validNpubs (banned users filtered)
       let workoutQuery = supabase!
         .from('workout_submissions')
-        .select('npub, distance_meters, activity_type, created_at, duration_seconds, raw_event, event_id, time_5k_seconds, time_10k_seconds, time_half_seconds, time_marathon_seconds')
+        .select('npub, distance_meters, activity_type, created_at, duration_seconds, event_id, time_5k_seconds, time_10k_seconds, time_half_seconds, time_marathon_seconds')
         .in('npub', validNpubs)
         .gte('created_at', startDate)
         .lte('created_at', endDate);
