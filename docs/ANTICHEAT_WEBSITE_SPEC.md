@@ -21,7 +21,7 @@ Payment page for the Anti-Cheat Verification Service. Users arrive here after su
 How It Works
 -------------
 1. You've submitted a verification request through the RUNSTR app
-2. Pay the 5,000 sat verification fee below
+2. Pay the 5,000 reward verification fee below
 3. Our team manually investigates within 24-48 hours
 4. Results delivered via your chosen contact method (Nostr DM or email)
 
@@ -35,12 +35,12 @@ What We Check
 
 ### Pricing Box
 ```
-Verification Fee: 5,000 sats (~$2-3 USD)
+Verification Fee: 5,000 rewards (~$2-3 USD)
 
-[Lightning Invoice QR Code]
+[Payment Invoice QR Code]
 [Copy Invoice Button]
 
-Or pay via Lightning Address: anticheat@runstr.club
+Or pay via payment address: anticheat@runstr.club
 ```
 
 ### After Investigation Section
@@ -76,17 +76,17 @@ Important Information
 ### Footer
 - Link back to RUNSTR app
 - Contact: support@runstr.club
-- "Powered by Lightning Network"
+- "Powered by RUNSTR rewards"
 
 ---
 
 ## Technical Requirements
 
 ### Payment Integration
-- Generate Lightning invoice for 5,000 sats
+- Generate payment invoice for 5,000 rewards
 - Options:
   1. **Recommended**: Use existing Alby/NWC setup to generate invoices
-  2. Alternative: Static Lightning Address (anticheat@runstr.club)
+  2. Alternative: Static payment address (anticheat@runstr.club)
   3. Alternative: BTCPay Server invoice
 
 ### Design
@@ -101,16 +101,16 @@ Important Information
 
 ---
 
-## Example Lightning Address Setup
+## Example Payment Address Setup
 
 If using Alby:
-1. Create lightning address: `anticheat@getalby.com` or custom domain
+1. Create payment address: `anticheat@getalby.com` or custom domain
 2. Set up webhook to notify when payment received
 3. Include memo field showing it's for anti-cheat service
 
 ---
 
 ## Questions for Senior Dev
-- [ ] Which Lightning payment method to use? (Alby, BTCPay, static address)
+- [ ] Which payment method to use? (Alby, BTCPay, static address)
 - [ ] Should payments trigger automatic notification to admin?
 - [ ] Need any tracking between app request and website payment?
