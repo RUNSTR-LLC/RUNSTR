@@ -919,7 +919,7 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
         console.log('🔗 App opened via deep link (cold start):', url);
         handleDeepLink({ url });
       }
-    });
+    }).catch((err) => console.warn('[App] Failed to get initial URL:', err));
 
     return () => subscription.remove();
   }, []);
