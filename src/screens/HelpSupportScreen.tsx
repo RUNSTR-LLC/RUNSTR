@@ -69,9 +69,9 @@ export const HelpSupportScreen: React.FC<{ navigation: any }> = ({
       title: 'Getting Started',
       content: `Welcome to RUNSTR! Here's how to get started:
 
-• Nostr Login: Use your nsec (private key) to sign in. Your nsec starts with "nsec1" and should be kept private.
+• Sign in with your password. Your password starts with "nsec1" and should be kept private.
 • Profile Import: Your profile and workout history automatically import from Nostr events.
-• Understanding Keys: Your npub (public key) is like your username - safe to share. Your nsec is your password - never share it!
+• Your public key is like your username — safe to share. Your password is private — never share it!
 • First Steps: Join a team from the Teams tab to start competing and earning Bitcoin.`,
     },
     {
@@ -100,13 +100,13 @@ export const HelpSupportScreen: React.FC<{ navigation: any }> = ({
     },
     {
       id: 'rewards',
-      title: 'Sats & Rewards',
-      content: `Earn sats through fitness:
+      title: 'Rewards',
+      content: `Earn rewards through fitness:
 
 • NutZap Wallet: Your built-in Lightning wallet for instant transactions.
-• Prize Pools: Competition winners receive automatic sats distributions.
-• Entry Fees: Some competitions require small satoshi entry fees.
-• Sending/Receiving: Use the wallet buttons in your Profile to send or receive sats.
+• Prize Pools: Competition winners receive automatic reward distributions.
+• Entry Fees: Some competitions require small entry fees.
+• Sending/Receiving: Use the wallet buttons in your Profile to send or receive rewards.
 • Balance: Your current balance shows in the Profile wallet section.
 • Withdrawals: Transfer to external Lightning wallets anytime.`,
     },
@@ -140,7 +140,7 @@ export const HelpSupportScreen: React.FC<{ navigation: any }> = ({
       title: 'Troubleshooting',
       content: `Common issues and solutions:
 
-• Login Issues: Ensure your nsec starts with "nsec1" and has no spaces.
+• Login Issues: Ensure your password starts with "nsec1" and has no spaces.
 • Team Not Loading: Pull down to refresh in the Teams tab.
 • Workout Not Syncing: Check Profile > Workouts and tap sync button.
 • Can't Join Team: Ensure you're not already in another team.
