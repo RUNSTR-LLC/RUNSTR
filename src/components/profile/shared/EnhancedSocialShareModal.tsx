@@ -53,12 +53,14 @@ interface TemplateOption {
   icon: keyof typeof Ionicons.glyphMap;
 }
 
+// Hidden 2026-06-08: collapsed to a single posting style. Restore entries below to
+// re-enable the multi-template picker.
+// { id: 'plain_text', name: 'Plain Text', description: 'Stats only, no image', icon: 'document-text-outline' },
+// { id: 'custom_photo', name: 'Camera', description: 'Take a photo with stats overlay', icon: 'camera' },
+// { id: 'gallery', name: 'Gallery', description: 'Choose photo from library', icon: 'images-outline' },
+// { id: 'elegant', name: 'Profile', description: 'Your avatar with workout stats', icon: 'sparkles' },
 const TEMPLATE_OPTIONS: TemplateOption[] = [
-  { id: 'plain_text', name: 'Plain Text', description: 'Stats only, no image', icon: 'document-text-outline' },
   { id: 'vertical', name: 'Text', description: 'Workout stats with motivational quote', icon: 'phone-portrait-outline' },
-  { id: 'custom_photo', name: 'Camera', description: 'Take a photo with stats overlay', icon: 'camera' },
-  { id: 'gallery', name: 'Gallery', description: 'Choose photo from library', icon: 'images-outline' },
-  { id: 'elegant', name: 'Profile', description: 'Your avatar with workout stats', icon: 'sparkles' },
 ];
 
 const PHOTO_STYLE_OPTIONS: { id: PhotoStyle; name: string }[] = [
@@ -529,27 +531,29 @@ export const EnhancedSocialShareModal: React.FC<EnhancedSocialShareModalProps> =
           </View>
 
           <View style={styles.contentContainer}>
-            {/* Card Style Picker */}
-            <SectionCard header="CARD STYLE">
-              {(() => {
-                // Hide plain_text when the modal is in screenshot-only mode
-                // (no onPostToNostr callback). Plain text is post-only.
-                const visibleOptions = onPostToNostr
-                  ? TEMPLATE_OPTIONS
-                  : TEMPLATE_OPTIONS.filter((t) => t.id !== 'plain_text');
-                return visibleOptions.map((template, index) => (
-                  <ListRow
-                    key={template.id}
-                    icon={template.icon}
-                    title={template.name}
-                    subtitle={template.description}
-                    selected={selectedTemplate === template.id}
-                    onPress={() => handleTemplateSelect(template.id)}
-                    isLast={index === visibleOptions.length - 1}
-                  />
-                ));
-              })()}
-            </SectionCard>
+            {/* Card Style Picker - hidden when only a single posting style is available */}
+            {TEMPLATE_OPTIONS.length > 1 && (
+              <SectionCard header="CARD STYLE">
+                {(() => {
+                  // Hide plain_text when the modal is in screenshot-only mode
+                  // (no onPostToNostr callback). Plain text is post-only.
+                  const visibleOptions = onPostToNostr
+                    ? TEMPLATE_OPTIONS
+                    : TEMPLATE_OPTIONS.filter((t) => t.id !== 'plain_text');
+                  return visibleOptions.map((template, index) => (
+                    <ListRow
+                      key={template.id}
+                      icon={template.icon}
+                      title={template.name}
+                      subtitle={template.description}
+                      selected={selectedTemplate === template.id}
+                      onPress={() => handleTemplateSelect(template.id)}
+                      isLast={index === visibleOptions.length - 1}
+                    />
+                  ));
+                })()}
+              </SectionCard>
+            )}
 
             {/* Photo Style Picker - only show when custom_photo selected */}
             {selectedTemplate === 'custom_photo' && customPhotoUri && (
