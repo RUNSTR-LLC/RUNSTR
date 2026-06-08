@@ -27,6 +27,7 @@ import { ClubMembershipService } from '../services/backend/ClubMembershipService
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { SocialFeedPost as SocialFeedPostType } from '../types/social';
 import type { Club } from '../types/club';
+import { FEATURES } from '../config/features';
 
 // Default export is a singleton instance
 const feedService = SocialFeedService;
@@ -172,26 +173,34 @@ const SocialScreenComponent: React.FC = () => {
 
   const renderHeader = useCallback(() => (
     <>
-      <SectionHeader
-        title="Clubs"
-        actionLabel="Create"
-        actionIcon="add"
-        onActionPress={handleOpenCreateClub}
-      />
-      <ClubsRow clubs={clubs} userClubId={userClubId} showSearch={false} />
-      <View style={styles.sectionDivider} />
-      <SectionHeader
-        title="Events"
-        actionLabel={hasMoreEvents ? 'See more' : undefined}
-        actionIcon={hasMoreEvents ? 'arrow-forward' : undefined}
-        onActionPress={hasMoreEvents ? handleSeeMoreEvents : undefined}
-      />
-      <EventsList
-        onLeaderboardPress={handleLeaderboardPress}
-        onEinundzwanzigPress={handleEinundzwanzigPress}
-        onDynamicEventPress={handleDynamicEventPress}
-      />
-      <View style={styles.sectionDivider} />
+      {FEATURES.teams && (
+        <>
+          <SectionHeader
+            title="Clubs"
+            actionLabel="Create"
+            actionIcon="add"
+            onActionPress={handleOpenCreateClub}
+          />
+          <ClubsRow clubs={clubs} userClubId={userClubId} showSearch={false} />
+          <View style={styles.sectionDivider} />
+        </>
+      )}
+      {FEATURES.customEvents && (
+        <>
+          <SectionHeader
+            title="Events"
+            actionLabel={hasMoreEvents ? 'See more' : undefined}
+            actionIcon={hasMoreEvents ? 'arrow-forward' : undefined}
+            onActionPress={hasMoreEvents ? handleSeeMoreEvents : undefined}
+          />
+          <EventsList
+            onLeaderboardPress={handleLeaderboardPress}
+            onEinundzwanzigPress={handleEinundzwanzigPress}
+            onDynamicEventPress={handleDynamicEventPress}
+          />
+          <View style={styles.sectionDivider} />
+        </>
+      )}
       <SectionHeader
         title="Feed"
         actionLabel="Post"
