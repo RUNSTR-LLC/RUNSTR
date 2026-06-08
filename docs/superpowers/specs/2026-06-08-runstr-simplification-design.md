@@ -30,12 +30,16 @@ This simplified RUNSTR is intended to fold under the **No Burnout** brand as a l
 
 ## 3. Scope
 
-### Removed entirely
-- **Teams / Fitness Clubs** — all club screens, components, services, the team store, captain detection, and the `ClubPage` route.
-- **Team chat** — `ClubChatScreen`, `ClubChatService`, `ClubChatAutoShare`, `useClubChat`, chat components, and the `ClubChat` route. (User decision 2026-06-08: cut teams + chat entirely.)
-- **Custom / captain-created events** — event-creation modals, `CaptainEventStore`, `RunstrEventPublishService`, `RunstrAutoPayoutService`, the event-creation hook.
-- **Season competitions** — Season 2, Season 3 (team-based), Einundzwanzig challenge.
-- **Dead in-app wallet UI** — the unreachable `Wallet` stack screen + route (`AppNavigator:238`) and `WalletScreen`. Nothing navigates to it.
+**Approach: HIDE, don't delete (User decision 2026-06-08).** Hidden surfaces are gated behind a single `src/config/features.ts` flag file (`teams`, `customEvents`, `seasons` = `false`). Code stays in the tree and compiles; users can't reach it. This gets the crisp 3-tab UX with near-zero risk (no import cascade, rewards untouched) and makes revival a one-line flag flip. Deletion is a possible later follow-up once features are confidently retired. Caveat: hidden features' *background* behavior (e.g. auto-share-to-club-chat, Einundzwanzig reward branch) keeps running — invisible to the user and not a regression, but not a maintenance/bug-surface reduction either.
+
+### Hidden (gated behind feature flags, code retained)
+- **Teams / Fitness Clubs** — club nav entry points removed; `ClubsRow` and club affiliations gated off. Routes may remain registered but unreachable.
+- **Team chat** — chat entry points hidden. (User decision 2026-06-08: hide teams + chat.)
+- **Custom / captain-created events** — event-creation entry points hidden.
+- **Season competitions** — Season 2, Season 3, Einundzwanzig entry points hidden.
+
+### Already gone / left as-is
+- **In-app wallet UI** — the `Wallet` route is registered but unreachable; left as-is (no live wallet exists). Optionally hidden, not a focus.
 
 ### Kept (do NOT touch)
 - **Daily leaderboard pipeline** — `LeaderboardsScreen`, `LeaderboardsContent`, `StepCompetitionService`, `PendingSubmissionService`, `leaderboardCardGenerator`.
@@ -53,6 +57,8 @@ This simplified RUNSTR is intended to fold under the **No Burnout** brand as a l
 - Any No Burnout cross-brand automation (separate effort).
 
 ## 4. Phased Implementation
+
+> **Hide-not-delete:** Per the 2026-06-08 decision, the phases below describe the end-state. In implementation, "remove X" means **hide X behind a `features.ts` flag and strip its nav entry points** — not `git rm`. The tab swap (History→Leaderboard), the single-card change, and the Me/ALS toggle are real changes regardless. `workoutPublishingService` and `charities.ts` are NOT touched. See the implementation plan for the hide-based task breakdown.
 
 Each phase is a **separate commit** that leaves the app compiling (`npm run typecheck` clean) and the relevant `verify:*` scripts passing. Never batch phases.
 
@@ -131,5 +137,6 @@ The real test suite here is the `scripts/verify/` library (Jest footprint is int
 ## 9. Decisions Log
 - 2026-06-08: Charity = ALS only for now; no-address defaults to ALS. (User)
 - 2026-06-08: One styled card; hide the other 5, don't delete. (User)
-- 2026-06-08: Cut teams + team chat entirely. (User)
-- 2026-06-08: No live in-app wallet; remove only dead Wallet UI. Keep all NWC. (User)
+- 2026-06-08: Hide teams + team chat (originally "cut"; revised to hide). (User)
+- 2026-06-08: No live in-app wallet; `Wallet` route unreachable, left as-is. Keep all NWC. (User)
+- 2026-06-08: **HIDE, don't delete** — gate hidden surfaces behind `src/config/features.ts` flags; retain code; revival = flip a flag. `workoutPublishingService`/`charities.ts` untouched. (User)
