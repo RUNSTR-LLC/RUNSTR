@@ -38,6 +38,7 @@ import { ActivityCategoryBar } from '../components/activity/ActivityCategoryBar'
 import { activityGridService, type GridPosition } from '../services/activity/ActivityGridService';
 import { appPermissionService } from '../services/initialization/AppPermissionService';
 import { PermissionRequestModal } from '../components/permissions/PermissionRequestModal';
+import { FEATURES } from '../config/features';
 import { RunningTrackerScreen } from './activity/RunningTrackerScreen';
 import { WalkingTrackerScreen } from './activity/WalkingTrackerScreen';
 import { CyclingTrackerScreen } from './activity/CyclingTrackerScreen';
@@ -471,12 +472,14 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
           <View style={styles.sectionGap}>
             <ActivityBreakdown breakdown={activityBreakdown} isLoading={isLoadingSections} />
           </View>
+          {FEATURES.teams && (
           <View style={styles.sectionGap}>
             <ClubAffiliationsSection clubs={clubs} onClubPress={(id) => {
               const club = clubs.find(c => c.id === id);
               handleClubPress(id, club?.name || '');
             }} />
           </View>
+          )}
         </OstrichRefreshScrollView>
       )}
 
