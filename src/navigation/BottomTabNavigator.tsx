@@ -30,9 +30,9 @@ const SocialScreen = React.lazy(() =>
   }))
 );
 
-const RewardHistoryScreen = React.lazy(() =>
-  import('../screens/RewardHistoryScreen').then((m) => ({
-    default: m.RewardHistoryScreen,
+const LeaderboardsScreen = React.lazy(() =>
+  import('../screens/LeaderboardsScreen').then((m) => ({
+    default: m.LeaderboardsScreen,
   }))
 );
 
@@ -60,7 +60,7 @@ import { createNavigationHandlers } from './navigationHandlers';
 export type BottomTabParamList = {
   Home: { pubkey?: string } | undefined;
   Social: undefined;
-  History: undefined;
+  Leaderboard: undefined;
 };
 
 const Tab = createBottomTabNavigator<BottomTabParamList>();
@@ -120,8 +120,8 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Social') {
             iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
-          } else if (route.name === 'History') {
-            iconName = focused ? 'time' : 'time-outline';
+          } else if (route.name === 'Leaderboard') {
+            iconName = focused ? 'podium' : 'podium-outline';
           }
 
           return (
@@ -140,7 +140,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
       <Tab.Screen
         name="Home"
         options={{
-          title: t('profile:tabHome'),
+          title: t('profile:tabDashboard') ?? 'Dashboard',
           headerShown: false,
         }}
       >
@@ -198,18 +198,18 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
         )}
       </Tab.Screen>
 
-      {/* History Tab - Reward Transaction History */}
+      {/* Leaderboard Tab - Always-on daily competitions */}
       <Tab.Screen
-        name="History"
+        name="Leaderboard"
         options={{
-          title: t('profile:tabHistory'),
+          title: t('profile:tabLeaderboard') ?? 'Leaderboard',
           headerShown: false,
           lazy: true,
         }}
       >
         {() => (
           <Suspense fallback={<LoadingFallback />}>
-            <RewardHistoryScreen />
+            <LeaderboardsScreen />
           </Suspense>
         )}
       </Tab.Screen>
