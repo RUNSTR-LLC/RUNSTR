@@ -23,6 +23,20 @@ export const FEATURES = {
 
   // Optional Features
   ENABLE_EVENT_TICKETS: true, // Paid event entry with Lightning invoices
+
+  // ---------------------------------------------------------------------------
+  // Simplification visibility flags (added 2026-06-08).
+  // Set to `false` to HIDE a surface from the UI without deleting its code.
+  // Hidden features stay compiled and reachable by flipping the flag back to `true`.
+  // NOTE: hiding stops UI access only; a hidden feature's background behavior
+  // (e.g. auto-share-to-club-chat) may still run. That is intentional for this pass.
+  // ---------------------------------------------------------------------------
+  /** Fitness Clubs / Teams: club pages, team chat, captain tools, club affiliations. */
+  teams: false,
+  /** Captain/user-created events and the Compete hub. */
+  customEvents: false,
+  /** Season 2 / Season 3 / Einundzwanzig competitions and banners. */
+  seasons: false,
 } as const;
 
 // Type for feature keys
