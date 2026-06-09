@@ -201,11 +201,9 @@ const SocialScreenComponent: React.FC = () => {
           <View style={styles.sectionDivider} />
         </>
       )}
+      {/* Post button hidden 2026-06-09: feed shows workout shares only, no manual text posts. */}
       <SectionHeader
         title="Feed"
-        actionLabel="Post"
-        actionIcon="add"
-        onActionPress={handleOpenComposer}
       />
     </>
   ), [clubs, userClubId, handleOpenCreateClub, handleLeaderboardPress, handleEinundzwanzigPress, handleDynamicEventPress, handleOpenComposer, hasMoreEvents, handleSeeMoreEvents]);
