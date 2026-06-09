@@ -27,6 +27,8 @@ import { useAuth } from '../../contexts/AuthContext';
 
 interface RewardDestinationSectionProps {
   selectedTeamId: string | null;
+  /** Whether the user has set a reward lightning address. Drives the self-destination copy. */
+  hasLightningAddress?: boolean;
   onChangePress: () => void;
   onZapPress?: (charityId: string) => void;
   onPPQTopupPress?: () => void;
@@ -34,6 +36,7 @@ interface RewardDestinationSectionProps {
 
 export const RewardDestinationSection: React.FC<RewardDestinationSectionProps> = ({
   selectedTeamId,
+  hasLightningAddress = false,
   onChangePress,
   onZapPress,
   onPPQTopupPress,
@@ -76,14 +79,18 @@ export const RewardDestinationSection: React.FC<RewardDestinationSectionProps> =
 
   // Determine display values based on destination type
   const getDisplayName = (): string => {
-    if (isSelf) return currentUser?.displayName || currentUser?.name || 'You';
+    if (isSelf) return hasLightningAddress ? 'Lightning Address' : 'Add a Lightning Address';
     if (isCommunity && communityTeam) return communityTeam.name;
     if (charity) return charity.name;
     return 'Not selected';
   };
 
   const getSubtitle = (): string => {
-    if (isSelf) return 'Rewards go to your Lightning address';
+    if (isSelf) {
+      return hasLightningAddress
+        ? 'Rewards go to your lightning address'
+        : 'No address yet — rewards support the ALS Network';
+    }
     if (isPPQ) return 'AI credits';
     if (isCommunity && communityTeam) return `Rewards go to ${communityTeam.name}`;
     if (charity) return `Rewards go to ${charity.name}`;
@@ -129,7 +136,7 @@ export const RewardDestinationSection: React.FC<RewardDestinationSectionProps> =
           <Text style={styles.destinationName} numberOfLines={1}>
             {getDisplayName()}
           </Text>
-          <Text style={styles.destinationSubtitle} numberOfLines={1}>
+          <Text style={styles.destinationSubtitle} numberOfLines={2}>
             {getSubtitle()}
           </Text>
         </View>
@@ -141,7 +148,7 @@ export const RewardDestinationSection: React.FC<RewardDestinationSectionProps> =
             onPress={onChangePress}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={styles.changeButtonText}>Edit Lightning Address</Text>
+            <Text style={styles.changeButtonText}>{hasLightningAddress ? 'Edit' : 'Add'}</Text>
           </TouchableOpacity>
 
           {isPPQ && onPPQTopupPress && (

@@ -30,7 +30,6 @@ import { getCharityById, isPPQTeam, isSelfTeam, SELF_TEAM_ID } from '../constant
 import { ExternalZapModal } from '../components/nutzap/ExternalZapModal';
 import Toast from 'react-native-toast-message';
 import { EarningsHeroCard } from '../components/rewards/EarningsHeroCard';
-import { ImpactHeroCard } from '../components/rewards/ImpactHeroCard';
 import { TransparencyDashboardModal } from '../components/rewards/TransparencyDashboardModal';
 import { RewardDestinationSection } from '../components/rewards/RewardDestinationSection';
 import { LightningAddressSetupModal } from '../components/wallet/LightningAddressSetupModal';
@@ -318,17 +317,15 @@ const RewardsScreenComponent: React.FC = () => {
         {/* Reward Destination - Where workout rewards go */}
         <RewardDestinationSection
           selectedTeamId={selectedTeamId}
+          hasLightningAddress={hasLightningAddress}
           onChangePress={() => setShowLightningSetup(true)}
           onPPQTopupPress={handlePPQTopup}
           onZapPress={() => handleZapCharity()}
         />
 
-        {/* Impact / Earnings */}
+        {/* Earnings (only once the user has a lightning address) */}
         {userHexPubkey && hasLightningAddress && (
           <EarningsHeroCard pubkey={userHexPubkey} isPPQ={isPPQTeam(selectedTeamId ?? undefined)} />
-        )}
-        {userHexPubkey && !hasLightningAddress && (
-          <ImpactHeroCard pubkey={userHexPubkey} />
         )}
 
       </OstrichRefreshScrollView>

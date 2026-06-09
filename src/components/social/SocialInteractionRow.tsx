@@ -148,18 +148,7 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
           )}
         </View>
 
-        <View style={styles.actionGroup}>
-          <TouchableOpacity style={styles.action} onPress={handleRepost} activeOpacity={0.7} disabled={isReposted}>
-            <Ionicons
-              name={isReposted ? 'repeat' : 'repeat-outline'}
-              size={20}
-              color={isReposted ? theme.colors.orangeDeep : theme.colors.textMuted}
-            />
-          </TouchableOpacity>
-          {repostCount > 0 && (
-            <Text style={[styles.count, isReposted && styles.countActive]}>{formatCount(repostCount)}</Text>
-          )}
-        </View>
+        {/* Repost button removed 2026-06-09: feed keeps like / zap / comment only. */}
 
         <View style={styles.actionGroup}>
           <TouchableOpacity
