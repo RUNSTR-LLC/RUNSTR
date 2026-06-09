@@ -1,0 +1,15 @@
+# RUNSTR — Website Content Handoff (June 2026)
+
+> For the website team. This describes the simplified RUNSTR so site copy can be updated to match the app. Follow the terminology rules: say **rewards**, **wallet**, **password**, **lightning address**, **Fitness Club**, **event** — never "sats," "Bitcoin," "Lightning," or "Nostr" in user-facing copy. No "cryptocurrency," "blockchain," or "decentralized." Five paragraphs, ready to adapt.
+
+---
+
+RUNSTR is a cardio companion that pays you to move. You complete a workout — a run, walk, cycle, or hike — and you earn a reward. Workouts can be tracked right in the app with GPS, or synced automatically from any device or app connected to Apple Health or Health Connect, so you can earn even when you never open RUNSTR. The app has been deliberately simplified down to three screens — a daily Leaderboard, a Social feed, and your Dashboard — so it does a few things and does them cleanly, with no clutter to get in the way of the one thing that matters: finishing your workout and getting rewarded.
+
+The reward flow is the heart of the product and it is intentionally effortless. When a workout is recorded, RUNSTR submits it automatically and sends your reward to your lightning address. If you have set an address, the reward goes to you; if you would rather give back, leaving no address routes your rewards to the ALS Network in support of ALS research and patient care. You earn a reward for each qualifying daily workout, and placing on the leaderboard can earn you more. There is nothing to claim and nothing to manage — you move, and the reward arrives.
+
+The Social surface is now a single, clean feed. Share a finished workout in one tap and it posts as one polished workout card — no menus of templates, no decisions to make, just a sharp result every time. The feed shows workout posts from the community along with reactions, so the social side stays lightweight and fast rather than turning into another app to maintain. The goal was one reliable way to post that works flawlessly, every time, on every device.
+
+The Leaderboard is always on. Daily distance challenges — 5K, 10K, Half, Marathon — plus steps run continuously, so there is always a way to compete and a reason to push a little harder today. Your Dashboard ties it together: your workout history, your stats, and your settings in one place. Together these three screens are the whole app, and that focus is the point — a fitness product that feels professional and sturdy because every screen earns its place.
+
+Going forward, RUNSTR sits under the **No Burnout** brand as its movement-and-cardio pillar — one consolidated home alongside the writing, video, and audio under the same name. The thinking is simple: a focused, low-maintenance, automatable RUNSTR is something we can keep alive and keep crisp, rather than letting a sprawling app drift. For the website, the message to lead with is clarity and reward: track your cardio, earn for it, support a cause if you choose, and never think about the plumbing. That is RUNSTR now — simple, rewarding, and built to last.
