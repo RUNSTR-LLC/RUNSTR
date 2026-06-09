@@ -176,16 +176,7 @@ export const LeaderboardsContent: React.FC<LeaderboardsContentProps> = ({
   // Main content - Show GLOBAL leaderboards (not team-specific)
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.headerSection}>
-        <Ionicons
-          name="trophy"
-          size={20}
-          color={theme.colors.accent}
-          style={styles.headerIcon}
-        />
-        <Text style={styles.headerTitle}>Daily Leaderboards</Text>
-      </View>
+      {/* Header removed 2026-06-09: no 'Daily Leaderboards' heading. */}
 
       {/* Daily leaderboard cards */}
       <View style={styles.leaderboardsContainer}>
