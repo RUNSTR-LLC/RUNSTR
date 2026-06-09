@@ -117,18 +117,7 @@ export const LeaderboardsScreen: React.FC<LeaderboardsScreenProps> = ({ navigati
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header with back button */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-        </TouchableOpacity>
-        {/* Title removed 2026-06-09 per design: no 'Leaderboards' heading. */}
-        <View style={styles.headerSpacer} />
-      </View>
+      {/* Header removed 2026-06-09: Leaderboard is a tab, no back button / title needed. */}
 
       {loading && (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
