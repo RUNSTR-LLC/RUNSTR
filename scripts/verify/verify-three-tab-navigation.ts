@@ -30,8 +30,11 @@ for (const t of expected) {
   check(`tab "${t}" present`, tabNames.includes(t));
 }
 check('no "History" tab', !tabNames.includes('History'));
-// Home tab title should read "Dashboard"
-check('Home tab titled Dashboard', /tabDashboard'\)\s*\?\?\s*'Dashboard'|title:\s*'Dashboard'/.test(nav));
+// Home tab title should read "Dashboard" (i18next defaultValue form or literal)
+check(
+  'Home tab titled Dashboard',
+  /tabDashboard['"]\s*,\s*['"]Dashboard['"]|tabDashboard['"]\)\s*\?\?\s*['"]Dashboard['"]|title:\s*['"]Dashboard['"]/.test(nav)
+);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);

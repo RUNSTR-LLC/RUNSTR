@@ -140,7 +140,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
       <Tab.Screen
         name="Home"
         options={{
-          title: t('profile:tabDashboard') ?? 'Dashboard',
+          title: t('profile:tabDashboard', 'Dashboard'),
           headerShown: false,
         }}
       >
@@ -202,7 +202,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
       <Tab.Screen
         name="Leaderboard"
         options={{
-          title: t('profile:tabLeaderboard') ?? 'Leaderboard',
+          title: t('profile:tabLeaderboard', 'Leaderboard'),
           headerShown: false,
           lazy: true,
         }}
