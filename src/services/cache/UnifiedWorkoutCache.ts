@@ -68,8 +68,6 @@ const PRIORITY_AUTHORS = [
   '43256bc0859462cf14fa7de594a48babdf189b91abe27f88d824abf69b2343c9', // LOPES
 ];
 
-console.log('[UnifiedWorkoutCache] EXPERIMENT_FLAGS:', EXPERIMENT_FLAGS);
-
 // ============================================================================
 // Constants
 // ============================================================================
@@ -319,11 +317,6 @@ class UnifiedWorkoutCacheClass {
     // =========================================================================
     console.log(`[Batched] ========== BATCH 1: Priority Users ==========`);
     const batch1Events = await fetchBatch(priorityAuthors, 'Batch 1 (Priority)');
-
-    // Test timer after first batch
-    const t1 = Date.now();
-    setTimeout(() => console.log(`[BLOCK-1] setTimeout(0) after Batch 1: ${Date.now() - t1}ms`), 0);
-    setImmediate(() => console.log(`[BLOCK-1] setImmediate after Batch 1: ${Date.now() - t1}ms`));
 
     // Update cache timestamp and notify subscribers
     this.lastRefresh = Date.now();
