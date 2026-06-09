@@ -126,7 +126,7 @@ export const LeaderboardsScreen: React.FC<LeaderboardsScreenProps> = ({ navigati
         >
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Leaderboards</Text>
+        {/* Title removed 2026-06-09 per design: no 'Leaderboards' heading. */}
         <View style={styles.headerSpacer} />
       </View>
 

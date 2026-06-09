@@ -111,7 +111,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
         tabBarStyle: styles.tabBar,
         tabBarActiveTintColor: theme.colors.text,
         tabBarInactiveTintColor: theme.colors.textMuted,
-        tabBarLabelStyle: styles.tabBarLabel,
+        tabBarShowLabel: false,
         sceneContainerStyle: { backgroundColor: '#000' },
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: keyof typeof Ionicons.glyphMap = 'help-outline';

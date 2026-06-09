@@ -89,7 +89,7 @@ export const RewardDestinationSection: React.FC<RewardDestinationSectionProps> =
     if (isSelf) {
       return hasLightningAddress
         ? 'Rewards go to your lightning address'
-        : 'No address yet — rewards support the ALS Network';
+        : 'No address yet. Rewards support the ALS Network';
     }
     if (isPPQ) return 'AI credits';
     if (isCommunity && communityTeam) return `Rewards go to ${communityTeam.name}`;
