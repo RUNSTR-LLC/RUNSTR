@@ -112,7 +112,6 @@ export const DailyLeaderboardCard: React.FC<DailyLeaderboardCardProps> = ({
               showQuickZap={true}
               zapAmount={21}
               recipientLightningAddress={entry.lightningAddress}
-              onPress={() => navigation.navigate('Home', { pubkey: entry.npub })}
             />
           </View>
           <Text style={styles.runnerTime}>{entry.formattedScore}</Text>
@@ -172,7 +171,6 @@ export const DailyLeaderboardCard: React.FC<DailyLeaderboardCardProps> = ({
                 fallbackName={userEntryOutsideTopN.name}
                 showQuickZap={false}
                 hideActionsForCurrentUser={true}
-                onPress={() => navigation.navigate('Home', { pubkey: userEntryOutsideTopN.npub })}
               />
             </View>
             <Text style={styles.runnerTime}>{userEntryOutsideTopN.formattedScore}</Text>
