@@ -236,7 +236,7 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
                 onPress={onLevelPress}
                 activeOpacity={0.7}
               >
-                <Text style={styles.statBadgeLabel}>{t('level')}</Text>
+                <Text style={styles.statBadgeLabel}>{t('streak', 'Streak')}</Text>
                 <AnimatedNumber value={streak} style={styles.statBadgeValue} />
 
               </TouchableOpacity>

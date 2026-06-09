@@ -39,12 +39,24 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, userNpub }
     ? Math.max(imageAspect, 1)
     : imageAspect;
 
-  // Sanitize content: strip control chars and image URLs (images render separately)
-  const sanitized = post.content
+  // Sanitize content: strip control chars, image URLs (rendered separately),
+  // and hashtag noise (#RUNSTR #Running etc.).
+  let sanitized = post.content
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
     .replace(/https?:\/\/\S+\.(?:jpg|jpeg|png|gif|webp)\S*/gi, '')
+    .replace(/(^|\s)#\w+/g, '') // strip hashtags
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+  // When the native workout card renders the stats, drop the auto-generated
+  // emoji stat lines (⏱️ Duration / 📏 Distance / …) so they aren't shown twice.
+  if (workoutForCard) {
+    sanitized = sanitized
+      .split('\n')
+      .filter((line) => !/^\s*[^\x00-\x7F]/.test(line))
+      .join('\n')
+      .replace(/\n{2,}/g, '\n')
+      .trim();
+  }
   const displayContent = sanitized.length > 500
     ? sanitized.slice(0, 500) + '...'
     : sanitized;
