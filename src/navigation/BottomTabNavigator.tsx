@@ -117,11 +117,11 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
           let iconName: keyof typeof Ionicons.glyphMap = 'help-outline';
 
           if (route.name === 'Home') {
-            iconName = focused ? 'speedometer' : 'speedometer-outline';
+            iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Social') {
             iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
           } else if (route.name === 'Leaderboard') {
-            iconName = focused ? 'podium' : 'podium-outline';
+            iconName = focused ? 'trophy' : 'trophy-outline';
           }
 
           return (

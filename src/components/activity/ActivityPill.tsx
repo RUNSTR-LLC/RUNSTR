@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import type { ActivityIconConfig } from '../../types/activityMenu';
 
@@ -25,7 +25,7 @@ export const ActivityPill: React.FC<ActivityPillProps> = ({
       accessibilityLabel={activity.label}
       accessibilityRole="button"
     >
-      <Ionicons
+      <MaterialCommunityIcons
         name={activity.icon}
         size={24}
         color={isActive ? theme.colors.text : theme.colors.textMuted}
