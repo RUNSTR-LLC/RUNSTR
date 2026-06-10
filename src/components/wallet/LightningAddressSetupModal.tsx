@@ -258,12 +258,12 @@ const styles = StyleSheet.create({
   existingBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0a1a0a',
+    backgroundColor: 'rgba(255, 123, 28, 0.08)',
     padding: 16,
     borderRadius: 10,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#1a3a1a',
+    borderColor: theme.colors.orangeDeep,
   },
   existingContent: {
     marginLeft: 12,

@@ -31,7 +31,7 @@ import { ExternalZapModal } from '../components/nutzap/ExternalZapModal';
 import Toast from 'react-native-toast-message';
 import { EarningsHeroCard } from '../components/rewards/EarningsHeroCard';
 import { TransparencyDashboardModal } from '../components/rewards/TransparencyDashboardModal';
-import { RewardDestinationSection } from '../components/rewards/RewardDestinationSection';
+import { RewardDestinationPicker } from '../components/rewards/RewardDestinationPicker';
 import { LightningAddressSetupModal } from '../components/wallet/LightningAddressSetupModal';
 import { PledgeService } from '../services/pledge/PledgeService';
 import type { Pledge } from '../types/pledge';
@@ -314,13 +314,11 @@ const RewardsScreenComponent: React.FC = () => {
         refreshing={isRefreshing}
         onRefresh={handleRefresh}
       >
-        {/* Reward Destination - Where workout rewards go */}
-        <RewardDestinationSection
-          selectedTeamId={selectedTeamId}
-          hasLightningAddress={hasLightningAddress}
-          onChangePress={() => setShowLightningSetup(true)}
-          onPPQTopupPress={handlePPQTopup}
-          onZapPress={() => handleZapCharity()}
+        {/* Reward Destination — full inline picker (You / Services / Charities / Projects) */}
+        <RewardDestinationPicker
+          inline
+          selectedDestinationId={selectedTeamId}
+          onSelectDestination={(id) => setSelectedTeamId(id)}
         />
 
         {/* Earnings (only once the user has a lightning address) */}
@@ -385,6 +383,7 @@ const RewardsScreenComponent: React.FC = () => {
         onClose={() => setShowPPQTopupModal(false)}
         onSuccess={handlePPQTopupSuccess}
       />
+
 
       {showQRScanner && (
         <QRScannerModal
