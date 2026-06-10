@@ -77,28 +77,32 @@ export const ActivityCategoryBar: React.FC<ActivityCategoryBarProps> = ({
       {/* Expanded: category tabs + activity pills */}
       {isOpen && (
         <View style={styles.expanded}>
-          <View style={styles.categoryBar}>
-            {CATEGORY_MENU.map((cat, index) => {
-              const isActive = index === openCategoryIndex;
-              return (
-                <TouchableOpacity
-                  key={cat.key}
-                  style={styles.categoryButton}
-                  onPress={() => handleCategoryPress(index)}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={[
-                      styles.categoryLabel,
-                      isActive && styles.categoryLabelActive,
-                    ]}
+          {/* Category tabs only matter with >1 category. App is cardio-only, so hide
+              the redundant single "Cardio" row and show the activities directly. */}
+          {CATEGORY_MENU.length > 1 && (
+            <View style={styles.categoryBar}>
+              {CATEGORY_MENU.map((cat, index) => {
+                const isActive = index === openCategoryIndex;
+                return (
+                  <TouchableOpacity
+                    key={cat.key}
+                    style={styles.categoryButton}
+                    onPress={() => handleCategoryPress(index)}
+                    activeOpacity={0.7}
                   >
-                    {cat.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+                    <Text
+                      style={[
+                        styles.categoryLabel,
+                        isActive && styles.categoryLabelActive,
+                      ]}
+                    >
+                      {cat.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
 
           <ActivityDropdown
             category={CATEGORY_MENU[openCategoryIndex]}

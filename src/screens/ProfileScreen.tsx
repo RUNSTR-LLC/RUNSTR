@@ -537,9 +537,9 @@ const styles = StyleSheet.create({
     width: 220,
     height: 220,
     borderRadius: 110,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.card,
+    borderWidth: 2,
+    borderColor: theme.colors.accent,
+    backgroundColor: 'rgba(255, 123, 28, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -552,8 +552,9 @@ const styles = StyleSheet.create({
   },
   permissionCircleHint: {
     fontSize: 14,
-    color: theme.colors.textMuted,
+    color: theme.colors.accent,
     marginTop: 4,
+    fontWeight: theme.typography.weights.semiBold as any,
   },
 });
 
