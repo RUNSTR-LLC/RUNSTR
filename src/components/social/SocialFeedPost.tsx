@@ -126,19 +126,20 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     flex: 1,
   },
+  // PILOT 2026-06-09: tonal hierarchy — neutral text, orange reserved for data/CTAs.
   authorName: {
-    color: theme.colors.text,
+    color: '#F5F5F5', // near-white primary
     fontSize: 14,
     fontWeight: theme.typography.weights.semiBold,
   },
   timestamp: {
-    color: theme.colors.textMuted,
+    color: '#8A8A8A', // muted gray secondary
     fontSize: 12,
     fontWeight: theme.typography.weights.regular,
     marginTop: 1,
   },
   content: {
-    color: theme.colors.text,
+    color: '#C8C8C8', // light gray body
     fontSize: 14,
     fontWeight: theme.typography.weights.regular,
     lineHeight: 20,
