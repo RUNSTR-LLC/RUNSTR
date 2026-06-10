@@ -29,6 +29,7 @@ import { useSettingsState } from './useSettingsState';
 // Section components
 import { LanguageSection } from '../components/settings/LanguageSection';
 import { FitnessTrackingSection } from '../components/settings/FitnessTrackingSection';
+import { WorkoutDataSection } from '../components/settings/WorkoutDataSection';
 import { DataBackupSection } from '../components/settings/DataBackupSection';
 import { PasswordSection } from '../components/settings/PasswordSection';
 import { WalletSection } from '../components/settings/WalletSection';
@@ -97,6 +98,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             healthConnectAuthorized={state.healthConnectAuthorized}
             healthConnectLastSync={state.healthConnectLastSync}
             onHealthConnectSyncToggle={state.handleHealthConnectSyncToggle}
+          />
+
+          <WorkoutDataSection
+            onAllWorkoutsPress={state.handleAllWorkoutsPress}
           />
 
           <DataBackupSection

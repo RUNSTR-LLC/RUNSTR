@@ -38,7 +38,7 @@ export const settingsStyles = StyleSheet.create({
 
   // Sections
   section: {
-    marginBottom: 24,
+    marginBottom: 16,
     paddingHorizontal: 16,
   },
   accordionCard: {

@@ -64,7 +64,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#1a1a1a',
     borderRadius: 12,
-    marginBottom: 16,
+    // Spacing is owned by the settings `section` wrapper; avoid double margin.
+    marginBottom: 0,
     overflow: 'hidden',
   },
   header: {
