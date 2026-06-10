@@ -76,7 +76,7 @@ export const SendModal: React.FC<SendModalProps> = ({
       if (!hasNWC) {
         Alert.alert(
           'Wallet Not Connected',
-          'Please connect a Lightning wallet in Settings to send payments.',
+          'Please connect a wallet in Settings to send payments.',
           [{ text: 'OK' }]
         );
         return;

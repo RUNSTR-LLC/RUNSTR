@@ -79,7 +79,7 @@ const ClubRewardsPoolCardComponent: React.FC<ClubRewardsPoolCardProps> = ({
             <Text style={styles.headerTitle}>Rewards Pool</Text>
           </View>
           <Text style={styles.balanceNumber}>
-            {walletInfo.balance_sats.toLocaleString()} sats
+            {walletInfo.balance_sats.toLocaleString()} rewards
           </Text>
           <Text style={styles.balanceLabel}>available for prizes</Text>
         </View>

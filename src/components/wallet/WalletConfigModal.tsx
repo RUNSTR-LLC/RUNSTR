@@ -194,7 +194,7 @@ export const WalletConfigModal: React.FC<WalletConfigModalProps> = ({
   const handleHelp = () => {
     setAlertTitle('What is NWC?');
     setAlertMessage(
-      'Nostr Wallet Connect lets you connect your Lightning wallet to RUNSTR. You can get an NWC connection string from:\n\n• Alby (getalby.com)\n• Mutiny Wallet\n• Other NWC-compatible wallets'
+      'Wallet Connect (NWC) lets you connect your wallet to RUNSTR. You can get an NWC connection string from:\n\n• Alby (getalby.com)\n• Mutiny Wallet\n• Other NWC-compatible wallets'
     );
     setAlertButtons([
       {
@@ -256,7 +256,7 @@ export const WalletConfigModal: React.FC<WalletConfigModalProps> = ({
               >
                 {/* Subtitle */}
                 <Text style={styles.subtitle}>
-                  Connect your Lightning wallet to send Bitcoin payments
+                  Connect your wallet to send payments
                 </Text>
 
                 {/* Input Field */}

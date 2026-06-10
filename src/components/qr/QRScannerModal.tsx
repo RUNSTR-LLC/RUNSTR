@@ -244,7 +244,7 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({
           <View style={styles.nativeScannerContainer}>
             <Text style={styles.nativeScannerTitle}>Connect Wallet</Text>
             <Text style={styles.nativeScannerText}>
-              Scan your NWC wallet QR code to connect your Lightning wallet
+              Scan your NWC wallet QR code to connect your wallet
             </Text>
 
             <TouchableOpacity
@@ -307,7 +307,7 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({
 
             <View style={styles.bottomOverlay}>
               <Text style={styles.instructionText}>
-                Scan your NWC wallet QR code to connect your Lightning wallet
+                Scan your NWC wallet QR code to connect your wallet
               </Text>
 
               <TouchableOpacity

@@ -193,8 +193,8 @@ export const CoinOSAccountSetupModal: React.FC<CoinOSAccountSetupModalProps> = (
           ) : (
             <>
               <Text style={styles.description}>
-                Create a Bitcoin Lightning wallet to receive your workout rewards directly
-                in sats. One tap and you're set.
+                Create a wallet to receive your workout rewards directly.
+                One tap and you're set.
               </Text>
 
               {/* Create Wallet Button */}

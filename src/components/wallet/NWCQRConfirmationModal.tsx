@@ -68,7 +68,7 @@ export const NWCQRConfirmationModal: React.FC<NWCQRConfirmationModalProps> = ({
 
       Alert.alert(
         'Wallet Connected',
-        'Your Lightning wallet has been successfully connected via NWC.',
+        'Your wallet has been successfully connected.',
         [
           {
             text: 'OK',
@@ -122,7 +122,7 @@ export const NWCQRConfirmationModal: React.FC<NWCQRConfirmationModalProps> = ({
             </View>
 
             <Text style={styles.note}>
-              This will connect your Lightning wallet to RUNSTR for receiving
+              This will connect your wallet to RUNSTR for receiving
               payments and managing team funds.
             </Text>
 
