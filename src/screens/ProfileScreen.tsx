@@ -22,6 +22,7 @@ import { NostrFetchLogger } from '../utils/NostrFetchLogger';
 import { MusicPlayerPreferencesService } from '../services/music/MusicPlayerPreferencesService';
 import { HeaderMusicControls } from '../components/music/HeaderMusicControls';
 import { ProfileHero } from '../components/profile/ProfileHero';
+import { ScreenErrorBoundary } from '../components/ui/ScreenErrorBoundary';
 import { LevelCard } from '../components/profile/LevelCard';
 import { ActivityBreakdown } from '../components/profile/ActivityBreakdown';
 import { ClubAffiliationsSection } from '../components/profile/ClubAffiliationsSection';
@@ -349,23 +350,38 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
       );
     }
 
+    let tracker: React.ReactNode;
     switch (category.key) {
       case 'cardio':
         switch (activity) {
           case 'run':
-            return <RunningTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
+            tracker = <RunningTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
+            break;
           case 'walk':
-            return <WalkingTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
+            tracker = <WalkingTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
+            break;
           case 'cycle':
-            return <CyclingTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
+            tracker = <CyclingTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
+            break;
           case 'hiking':
-            return <HikingTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
+            tracker = <HikingTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
+            break;
           default:
-            return <RunningTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
+            tracker = <RunningTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
         }
+        break;
       default:
-        return <RunningTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
+        tracker = <RunningTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
     }
+
+    // A render-time crash inside an active tracker used to white-screen the whole
+    // app (and lose the workout). The in-progress session lives in the
+    // simpleRunTracker singleton, so "Retry" re-mounts the tracker and resumes it.
+    return (
+      <ScreenErrorBoundary screenName="Workout Tracker">
+        {tracker}
+      </ScreenErrorBoundary>
+    );
   };
 
   return (
