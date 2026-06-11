@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { OstrichRefreshScrollView } from '../components/ui/OstrichRefreshScrollView';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { TopBar } from '../components/ui/TopBar';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
@@ -117,7 +118,7 @@ export const LeaderboardsScreen: React.FC<LeaderboardsScreenProps> = ({ navigati
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header removed 2026-06-09: Leaderboard is a tab, no back button / title needed. */}
+      <TopBar />
 
       {loading && (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>

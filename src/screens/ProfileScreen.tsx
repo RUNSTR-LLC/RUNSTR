@@ -23,6 +23,7 @@ import { MusicPlayerPreferencesService } from '../services/music/MusicPlayerPref
 import { HeaderMusicControls } from '../components/music/HeaderMusicControls';
 import { ProfileHero } from '../components/profile/ProfileHero';
 import { ScreenErrorBoundary } from '../components/ui/ScreenErrorBoundary';
+import { TopBar } from '../components/ui/TopBar';
 import { LevelCard } from '../components/profile/LevelCard';
 import { ActivityBreakdown } from '../components/profile/ActivityBreakdown';
 import { ClubAffiliationsSection } from '../components/profile/ClubAffiliationsSection';
@@ -389,19 +390,13 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
       <TexturedBackground>
         {/* Header — hidden during active workout */}
       {isOwner && !isWorkoutActive && (
-        <View style={styles.header}>
-          {musicPlayerHeaderEnabled ? (
+        musicPlayerHeaderEnabled ? (
+          <View style={styles.header}>
             <HeaderMusicControls onSettingsPress={handleSettingsPress} />
-          ) : (
-            <>
-              <View style={styles.headerSpacer} />
-              <TouchableOpacity style={styles.headerButton} onPress={handleSettingsPress}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-                <Ionicons name="menu-outline" size={24} color={theme.colors.text} />
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
+          </View>
+        ) : (
+          <TopBar onMenuPress={handleSettingsPress} />
+        )
       )}
 
       {/* Owner view — same container + scroll wrapper whether workout is active

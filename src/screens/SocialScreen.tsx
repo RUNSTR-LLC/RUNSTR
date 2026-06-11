@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { OstrichRefreshFlatList } from '../components/ui/OstrichRefreshScrollView';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { TopBar } from '../components/ui/TopBar';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { theme } from '../styles/theme';
 import { TexturedBackground } from '../components/ui/TexturedBackground';
@@ -209,7 +210,7 @@ const SocialScreenComponent: React.FC = () => {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <TexturedBackground edges={[]}>
-          <View style={styles.headerSpacer} />
+          <TopBar />
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={theme.colors.accent} />
           </View>
@@ -221,7 +222,7 @@ const SocialScreenComponent: React.FC = () => {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <TexturedBackground edges={[]}>
-        <View style={styles.headerSpacer} />
+        <TopBar />
         <OstrichRefreshFlatList
           data={posts}
           renderItem={renderPost}
