@@ -208,11 +208,9 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
                 {bio}
               </Text>
             ) : null}
-            {lud16 ? (
-              <Text style={styles.lud16} numberOfLines={1}>
-                {lud16}
-              </Text>
-            ) : null}
+            {/* Lightning address intentionally hidden from the profile for
+                privacy — it would otherwise be visible to anyone viewing this
+                profile. The reward destination is managed on the Rewards screen. */}
           </View>
           <View style={styles.badgeRow}>
             {earnings != null && isOwner && (
