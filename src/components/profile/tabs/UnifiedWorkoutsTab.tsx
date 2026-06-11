@@ -214,13 +214,18 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
     }
   };
 
+  // HealthKit returns startDate/endDate as Date objects; coerce to ISO strings
+  // so every Workout in the timeline carries a consistent string timestamp.
+  const toIso = (d: any): string =>
+    typeof d === 'string' ? d : d ? new Date(d).toISOString() : '';
+
   const transformHealthKitWorkouts = (cached: any[]): Workout[] =>
     cached.map((w) => ({
       id: w.UUID || w.id || `hk_${Date.now()}`,
       userId, type: (w.activityType || 'running') as Workout['type'],
       source: 'healthkit' as const, duration: w.duration,
       distance: w.totalDistance || 0, calories: w.totalEnergyBurned || 0,
-      startTime: w.startDate, endTime: w.endDate, syncedAt: new Date().toISOString(),
+      startTime: toIso(w.startDate), endTime: toIso(w.endDate), syncedAt: new Date().toISOString(),
       metadata: { sourceApp: w.sourceName, healthKitId: w.UUID },
     }));
 
@@ -245,10 +250,17 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
     if (activeFilter === 'all' || activeFilter === 'workouts') {
       mergedWorkouts.forEach((w) => {
         if (!w.startTime) return; // Skip corrupted entries without a timestamp
+        // HealthKit workouts carry startTime as a Date object; local workouts as
+        // an ISO string. Normalize so `.split('T')` can never throw (this was
+        // crashing the History tab whenever Apple Health Workouts sync was on).
+        const startIso =
+          typeof w.startTime === 'string'
+            ? w.startTime
+            : new Date(w.startTime as any).toISOString();
         items.push({
           type: 'workout', id: `w_${w.id}`,
-          date: w.startTime.split('T')[0],
-          timestamp: new Date(w.startTime).getTime(),
+          date: startIso.split('T')[0],
+          timestamp: new Date(startIso).getTime(),
           workout: w,
         });
       });
