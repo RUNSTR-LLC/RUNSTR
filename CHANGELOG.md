@@ -2,6 +2,33 @@
 
 All notable changes to RUNSTR will be documented in this file.
 
+## [1.9.5] - 2026-06-11 - Polish, Stability & Global Nav
+
+Polish release: a consistent top bar across every tab for one-tap access to
+history and settings, the reward-destination picker back inline on the Rewards
+screen, the three-tab simplification, and a round of crash fixes and visual
+cleanup ahead of the next store build.
+
+### Features
+- **Global top bar** — Dashboard, Social, and Leaderboard each have a top bar with one-tap access to your workout history (clock, top-left) and settings (menu, top-right)
+- **Reward destination picker is back** — choose where your rewards go right on the Rewards screen, with the full You / Services / Charities / Projects list
+- **Three focused tabs** — Dashboard, Social, and Leaderboard with icon-only navigation; Social is now a pure workout feed and the workout share is a single clean card
+- **Workout history reachable** — Workout Data wired into Settings and surfaced via the new top-bar shortcut
+
+### Bug Fixes
+- **Fixed a History tab crash** that occurred when Apple Health workout sync was enabled
+- **Fixed unexpected sign-out** after force-closing and reopening the app (auth restore race)
+- **Fixed a white-screen crash during a workout** — an in-progress workout now recovers instead of taking down the app
+- **Reward amount** now reflects the current daily payout
+- **Tab labels** display correctly (were briefly showing raw keys)
+
+### Improvements
+- **Privacy** — your lightning address is no longer shown publicly on your profile
+- **Consistent rewards wording** across the earnings and feed screens
+- **Refreshed icons** — person / chat / trophy tabs, and proper activity glyphs (running figure, walk, bike, hike)
+- **Removed placeholder / dead controls** (non-functional leaderboard taps and chevrons) for a more finished feel
+- **Dashboard badge reads "LEVEL"**, tighter Settings spacing, and consistent orange text throughout
+
 ## [1.9.4] - 2026-05-11 - Cardio Focus, Bonus Rewards, Rank Notifications
 
 Patch release that finishes the cardio-only simplification, ships bonus reward
