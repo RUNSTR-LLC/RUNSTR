@@ -16,7 +16,8 @@ interface DailyLeaderboardCardProps {
   distance: string; // "5km"
   participants: number; // 7
   entries: LeaderboardEntry[]; // Top 25 + user position if outside top 25
-  onPress: () => void;
+  onPress?: () => void; // Optional: standings render inline, so the card is
+                        // non-interactive (no chevron) unless a target is given
   onShare?: () => void; // Callback to open share modal
   currentUserPubkey?: string; // For highlighting user's row
   maxDisplay?: number; // Max entries to display (default 25)
@@ -59,8 +60,13 @@ export const DailyLeaderboardCard: React.FC<DailyLeaderboardCardProps> = ({
     ? safeEntries.find((entry, index) => entry.npub === currentUserPubkey && index >= displayLimit)
     : null;
 
+  // The standings render inline below, so the card only behaves as a button
+  // (and shows a chevron) when a real navigation target is provided.
+  const Wrapper: any = onPress ? TouchableOpacity : View;
+  const wrapperProps = onPress ? { onPress, activeOpacity: 0.7 } : {};
+
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
+    <Wrapper style={styles.card} {...wrapperProps}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.iconContainer}>
@@ -79,11 +85,13 @@ export const DailyLeaderboardCard: React.FC<DailyLeaderboardCardProps> = ({
             <Ionicons name="share-outline" size={20} color={theme.colors.accent} />
           </TouchableOpacity>
         )}
-        <Ionicons
-          name="chevron-forward"
-          size={20}
-          color={theme.colors.textMuted}
-        />
+        {onPress && (
+          <Ionicons
+            name="chevron-forward"
+            size={20}
+            color={theme.colors.textMuted}
+          />
+        )}
       </View>
 
       {/* Stats Row */}
@@ -177,7 +185,7 @@ export const DailyLeaderboardCard: React.FC<DailyLeaderboardCardProps> = ({
           </View>
         </>
       )}
-    </TouchableOpacity>
+    </Wrapper>
   );
 };
 

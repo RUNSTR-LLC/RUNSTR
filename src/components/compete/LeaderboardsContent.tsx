@@ -185,9 +185,7 @@ export const LeaderboardsContent: React.FC<LeaderboardsContentProps> = ({
             title="5K"
             distance="5km"
             participants={globalLeaderboards.leaderboard5k.length}
-            entries={globalLeaderboards.leaderboard5k}
-            onPress={() => console.log('Navigate to 5K leaderboard')}
-            currentUserPubkey={currentUserNpub || undefined}
+            entries={globalLeaderboards.leaderboard5k}            currentUserPubkey={currentUserNpub || undefined}
           />
         )}
 
@@ -196,9 +194,7 @@ export const LeaderboardsContent: React.FC<LeaderboardsContentProps> = ({
             title="10K"
             distance="10km"
             participants={globalLeaderboards.leaderboard10k.length}
-            entries={globalLeaderboards.leaderboard10k}
-            onPress={() => console.log('Navigate to 10K leaderboard')}
-            currentUserPubkey={currentUserNpub || undefined}
+            entries={globalLeaderboards.leaderboard10k}            currentUserPubkey={currentUserNpub || undefined}
           />
         )}
 
@@ -207,9 +203,7 @@ export const LeaderboardsContent: React.FC<LeaderboardsContentProps> = ({
             title="Half Marathon"
             distance="21.1km"
             participants={globalLeaderboards.leaderboardHalf.length}
-            entries={globalLeaderboards.leaderboardHalf}
-            onPress={() => console.log('Navigate to Half Marathon leaderboard')}
-            currentUserPubkey={currentUserNpub || undefined}
+            entries={globalLeaderboards.leaderboardHalf}            currentUserPubkey={currentUserNpub || undefined}
           />
         )}
 
@@ -218,9 +212,7 @@ export const LeaderboardsContent: React.FC<LeaderboardsContentProps> = ({
             title="Marathon"
             distance="42.2km"
             participants={globalLeaderboards.leaderboardMarathon.length}
-            entries={globalLeaderboards.leaderboardMarathon}
-            onPress={() => console.log('Navigate to Marathon leaderboard')}
-            currentUserPubkey={currentUserNpub || undefined}
+            entries={globalLeaderboards.leaderboardMarathon}            currentUserPubkey={currentUserNpub || undefined}
           />
         )}
 
@@ -229,9 +221,7 @@ export const LeaderboardsContent: React.FC<LeaderboardsContentProps> = ({
             title="Daily Steps"
             distance="steps"
             participants={globalLeaderboards.leaderboardSteps.length}
-            entries={globalLeaderboards.leaderboardSteps}
-            onPress={() => console.log('Navigate to Steps leaderboard')}
-            participantLabel="walker"
+            entries={globalLeaderboards.leaderboardSteps}            participantLabel="walker"
             currentUserPubkey={currentUserNpub || undefined}
           />
         )}
@@ -241,9 +231,7 @@ export const LeaderboardsContent: React.FC<LeaderboardsContentProps> = ({
             title="20K"
             distance="20km"
             participants={globalLeaderboards.leaderboardCycling20k.length}
-            entries={globalLeaderboards.leaderboardCycling20k}
-            onPress={() => console.log('Navigate to 20K cycling leaderboard')}
-            participantLabel="rider"
+            entries={globalLeaderboards.leaderboardCycling20k}            participantLabel="rider"
             currentUserPubkey={currentUserNpub || undefined}
           />
         )}
@@ -253,9 +241,7 @@ export const LeaderboardsContent: React.FC<LeaderboardsContentProps> = ({
             title="40K"
             distance="40km"
             participants={globalLeaderboards.leaderboardCycling40k.length}
-            entries={globalLeaderboards.leaderboardCycling40k}
-            onPress={() => console.log('Navigate to 40K cycling leaderboard')}
-            participantLabel="rider"
+            entries={globalLeaderboards.leaderboardCycling40k}            participantLabel="rider"
             currentUserPubkey={currentUserNpub || undefined}
           />
         )}
@@ -265,9 +251,7 @@ export const LeaderboardsContent: React.FC<LeaderboardsContentProps> = ({
             title="100K"
             distance="100km"
             participants={globalLeaderboards.leaderboardCycling100k.length}
-            entries={globalLeaderboards.leaderboardCycling100k}
-            onPress={() => console.log('Navigate to 100K cycling leaderboard')}
-            participantLabel="rider"
+            entries={globalLeaderboards.leaderboardCycling100k}            participantLabel="rider"
             currentUserPubkey={currentUserNpub || undefined}
           />
         )}
