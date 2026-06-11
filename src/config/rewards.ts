@@ -19,10 +19,12 @@ export const REWARD_CONFIG = {
 
   /**
    * Daily Workout Reward Amount
-   * Base amount in satoshis sent for first workout of the day.
+   * Base reward for the first qualified workout of the day. Drives the
+   * "Reward Earned!" banner shown after a workout; the actual payout is made by
+   * the external zapper, which this must stay in sync with (currently 200).
    * Streak bonus applied server-side: 2d +10%, 3d +20%, 4d +30%, 5d+ +40%.
    */
-  DAILY_WORKOUT_REWARD: 50,
+  DAILY_WORKOUT_REWARD: 200,
 
   /**
    * Minimum Workout Distance for Reward
