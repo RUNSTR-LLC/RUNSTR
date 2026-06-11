@@ -966,6 +966,17 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
             isInitializing
           );
 
+          // Auth restore hasn't resolved yet: isAuthenticated starts as null and
+          // only flips after the async credential read. Hold a loading view rather
+          // than flashing the Login screen on every cold start / force-close reopen.
+          if (isInitializing || isAuthenticated === null) {
+            return (
+              <View style={errorStyles.container}>
+                <ActivityIndicator size="large" color={theme.colors.accent} />
+              </View>
+            );
+          }
+
           // Show login if not authenticated
           if (!isAuthenticated) {
             return <AppNavigator initialRoute="Login" isFirstTime={true} />;
