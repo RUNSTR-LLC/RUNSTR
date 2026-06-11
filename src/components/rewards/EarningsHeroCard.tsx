@@ -3,7 +3,7 @@
  * Hero card for users WITH lightning address showing earnings breakdown
  *
  * Displays:
- * - Total sats earned (big hero number)
+ * - Total rewards earned (big hero number)
  * - Split between user and charity with checkmarks
  * - Pending amounts if any
  * - Workout count source
@@ -123,7 +123,7 @@ export const EarningsHeroCard: React.FC<EarningsHeroCardProps> = ({ pubkey }) =>
             color="#444"
           />
           <Text style={styles.emptyText}>
-            {t('earningsHero.noEarningsYet', 'Complete workouts to earn sats!')}
+            {t('earningsHero.noEarningsYet', 'Complete workouts to earn rewards!')}
           </Text>
         </View>
       </View>
@@ -145,7 +145,7 @@ export const EarningsHeroCard: React.FC<EarningsHeroCardProps> = ({ pubkey }) =>
             style={styles.heroNumber}
             animateOnMount
           />
-          <Text style={styles.heroUnit}>sats</Text>
+          <Text style={styles.heroUnit}>rewards</Text>
         </View>
         <Text style={styles.heroLabel}>
           {t('earningsHero.totalEarned', 'total earned')}
@@ -164,7 +164,7 @@ export const EarningsHeroCard: React.FC<EarningsHeroCardProps> = ({ pubkey }) =>
               <View style={[styles.destAvatar, styles.destAvatarPlaceholder]} />
             )}
             <Text style={styles.destName} numberOfLines={1}>{dest.name}</Text>
-            <Text style={styles.destAmount}>{dest.totalSats.toLocaleString()} sats</Text>
+            <Text style={styles.destAmount}>{dest.totalSats.toLocaleString()} rewards</Text>
           </View>
         ))}
       </View>

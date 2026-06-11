@@ -78,10 +78,10 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
 
         const success = await sendZap(post.npub, defaultZapAmount, `Zap from RUNSTR`);
         if (success) {
-          Toast.show({ type: 'success', text1: `Zapped ${defaultZapAmount} sats`, visibilityTime: 1500 });
+          Toast.show({ type: 'success', text1: 'Reward sent', visibilityTime: 1500 });
         } else {
           setZapTotal((z) => Math.max(z - defaultZapAmount, 0));
-          Toast.show({ type: 'error', text1: 'Zap failed', visibilityTime: 2000 });
+          Toast.show({ type: 'error', text1: "Couldn't send reward", visibilityTime: 2000 });
         }
       });
     } else {
