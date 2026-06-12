@@ -20,6 +20,7 @@ import { nostrProfileService } from '../../services/nostr/NostrProfileService';
 import type { NostrProfile } from '../../services/nostr/NostrProfileService';
 import { Avatar } from '../ui/Avatar';
 import type { Club, ClubMembership } from '../../types/club';
+import { isValidLightningAddress } from '../../utils/lnurl';
 
 interface CaptainSettingsModalProps {
   visible: boolean;
@@ -29,10 +30,6 @@ interface CaptainSettingsModalProps {
   onClubUpdated?: () => void;
 }
 
-function isValidLightningAddress(addr: string): boolean {
-  if (!addr) return true;
-  return /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(addr);
-}
 
 export const CaptainSettingsModal: React.FC<CaptainSettingsModalProps> = ({
   visible, onClose, club, userNpub, onClubUpdated,
