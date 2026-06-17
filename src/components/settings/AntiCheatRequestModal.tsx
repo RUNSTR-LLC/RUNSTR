@@ -159,7 +159,7 @@ export const AntiCheatRequestModal: React.FC<AntiCheatRequestModalProps> = ({
                   Results sent via your preferred contact method
                 </Text>
                 <Text style={styles.bulletPoint}>
-                  If cheating confirmed, you can request removal from competition
+                  If cheating confirmed, you can request removal from the event
                 </Text>
               </View>
             </View>
@@ -178,8 +178,8 @@ export const AntiCheatRequestModal: React.FC<AntiCheatRequestModalProps> = ({
                 autoCorrect={false}
               />
 
-              {/* Competition */}
-              <Text style={styles.label}>Competition (optional)</Text>
+              {/* Event */}
+              <Text style={styles.label}>Event (optional)</Text>
               <TextInput
                 style={styles.input}
                 placeholder="e.g., Season 2 Walking"

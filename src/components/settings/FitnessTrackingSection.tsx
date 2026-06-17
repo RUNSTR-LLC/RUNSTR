@@ -98,7 +98,7 @@ export const FitnessTrackingSection: React.FC<FitnessTrackingSectionProps> = ({
               <Text style={styles.subsectionTitle}>Privacy</Text>
               <SettingItem
                 title="Private Mode"
-                subtitle="Workouts stay on your device. Competitions and rewards require this to be off."
+                subtitle="Workouts stay on your device. Events and rewards require this to be off."
                 rightElement={
                   <Switch
                     value={privateModeEnabled}

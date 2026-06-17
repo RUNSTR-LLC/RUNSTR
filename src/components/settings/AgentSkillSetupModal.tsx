@@ -108,7 +108,7 @@ export const AgentSkillSetupModal: React.FC<AgentSkillSetupModalProps> = ({
               </View>
               <Text style={styles.title}>RUNSTR Fitness Skill</Text>
               <Text style={styles.subtitle}>
-                Give your AI agent access to your workouts, habits, journal entries, mood, steps, and competition rankings.
+                Give your AI agent access to your workouts, habits, journal entries, mood, steps, and event rankings.
               </Text>
             </View>
 
@@ -121,7 +121,7 @@ export const AgentSkillSetupModal: React.FC<AgentSkillSetupModalProps> = ({
                   'Daily habits and streaks',
                   'Journal entries with mood and energy',
                   'Daily step counts',
-                  'Competition leaderboards and rankings',
+                  'Event leaderboards and rankings',
                   'AI fitness coaching based on real data',
                 ].map((feature, i) => (
                   <View key={i} style={styles.featureRow}>
