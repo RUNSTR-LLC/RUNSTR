@@ -582,8 +582,10 @@ export function useSupabaseLeaderboard(
 
     // Step 2: Merge local competed workouts for current user
     // Skip local merge for fastest_time (requires distance filtering that's complex to do locally)
+    // and for total_steps (score is step count, not distance — adding km would be a unit mismatch)
     const isFastestTime = scoringMethod === 'fastest_time';
-    if (!isFastestTime && localCompetedWorkouts.length > 0 && currentUserPubkey) {
+    const isStepScoring = scoringMethod === 'total_steps';
+    if (!isFastestTime && !isStepScoring && localCompetedWorkouts.length > 0 && currentUserPubkey) {
       // Calculate local contribution (distance in meters → km for score)
       const localDistanceKm = localCompetedWorkouts.reduce(
         (sum, w) => sum + ((w.distance || 0) / 1000), 0
