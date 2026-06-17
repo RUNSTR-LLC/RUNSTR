@@ -31,7 +31,7 @@ export const LikesBottomSheet: React.FC<LikesBottomSheetProps> = ({
 
   const renderItem = ({ item: npub }: { item: string }) => {
     const profile = profiles.get(npub);
-    const name = profile?.display_name || profile?.name || npub.slice(0, 12) + '...';
+    const name = profile?.display_name || profile?.name || (npub?.slice(0, 12) ?? '?') + '...';
     return (
       <View style={styles.row}>
         <Avatar name={name} size={36} imageUrl={profile?.picture || undefined} />

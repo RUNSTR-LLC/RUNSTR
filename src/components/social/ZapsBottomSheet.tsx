@@ -51,7 +51,7 @@ export const ZapsBottomSheet: React.FC<ZapsBottomSheetProps> = ({
 
   const renderItem = ({ item }: { item: SocialFeedZap }) => {
     const profile = profiles.get(item.sender_npub);
-    const name = profile?.display_name || profile?.name || item.sender_npub.slice(0, 12) + '...';
+    const name = profile?.display_name || profile?.name || (item.sender_npub?.slice(0, 12) ?? '?') + '...';
     return (
       <View style={styles.row}>
         <Avatar name={name} size={36} imageUrl={profile?.picture || undefined} />

@@ -131,7 +131,7 @@ export const InlineCommentList: React.FC<InlineCommentListProps> = ({
   return (
     <View style={styles.container}>
       {allComments.map((comment) => {
-        const name = comment.author_name || comment.sender_npub.slice(0, 12) + '...';
+        const name = comment.author_name || (comment.sender_npub?.slice(0, 12) ?? '?') + '...';
         const isOptimistic = comment.id.startsWith('optimistic-');
         return (
           <View key={comment.id} style={[styles.commentRow, isOptimistic && styles.optimistic]}>
