@@ -4,23 +4,20 @@
  *
  * The workout card PNG generator produces a 9:16 portrait image optimized
  * for Instagram Stories — lovely for external shares, but in-app it fills
- * the feed viewport with a single post. This component renders the same
- * core stats (distance, time, pace, calories) using workout data from
- * Supabase, at roughly 1/3 the height.
+ * the feed viewport with a single post. This component renders the core
+ * stats using workout data from Supabase, at roughly 1/3 the height. What's
+ * shown adapts to the activity (see deriveWorkoutCardDisplay): a steps post
+ * shows only the step count; a walk shows distance + steps + time but no pace.
  */
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { theme } from '../../styles/theme';
 import { AnimatedNumber } from '../ui/AnimatedNumber';
+import { deriveWorkoutCardDisplay } from './workoutCardDisplay';
+import type { WorkoutCardData } from './workoutCardDisplay';
 
-export interface WorkoutCardData {
-  activity_type: string;
-  distance_meters: number | null;
-  duration_seconds: number | null;
-  calories: number | null;
-  step_count?: number | null;
-}
+export type { WorkoutCardData } from './workoutCardDisplay';
 
 interface WorkoutPostCardProps {
   workout: WorkoutCardData;
@@ -49,17 +46,15 @@ const formatPace = (distanceMeters: number, durationSeconds: number, unit: 'km' 
 const capitalize = (s: string): string => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
 export const WorkoutPostCard: React.FC<WorkoutPostCardProps> = ({ workout, unit = 'km' }) => {
-  const hasDistance = !!workout.distance_meters && workout.distance_meters > 0;
-  const hasDuration = !!workout.duration_seconds && workout.duration_seconds > 0;
-
-  const heroValue = hasDistance
-    ? (unit === 'mi' ? workout.distance_meters! / 1609.344 : workout.distance_meters! / 1000)
-    : workout.step_count ?? 0;
-  const heroUnit = hasDistance ? unit.toUpperCase() : 'STEPS';
-  const heroDecimals = hasDistance ? 2 : 0;
-
-  const showPace = hasDistance && hasDuration;
-  const hasCalories = !!workout.calories && workout.calories > 0;
+  const {
+    heroValue,
+    heroUnit,
+    heroDecimals,
+    showTime,
+    showPace,
+    showStepsStat,
+    showCalories,
+  } = deriveWorkoutCardDisplay(workout, unit);
 
   return (
     <View style={styles.card}>
@@ -75,28 +70,36 @@ export const WorkoutPostCard: React.FC<WorkoutPostCardProps> = ({ workout, unit 
         <Text style={styles.heroUnit}>{heroUnit}</Text>
       </View>
 
-      <View style={styles.statsRow}>
-        {hasDuration ? (
-          <View style={styles.statCell}>
-            <Text style={styles.statLabel}>TIME</Text>
-            <Text style={styles.statValue}>{formatDuration(workout.duration_seconds!)}</Text>
-          </View>
-        ) : null}
-        {showPace ? (
-          <View style={styles.statCell}>
-            <Text style={styles.statLabel}>PACE</Text>
-            <Text style={styles.statValue}>
-              {formatPace(workout.distance_meters!, workout.duration_seconds!, unit)}
-            </Text>
-          </View>
-        ) : null}
-        {hasCalories ? (
-          <View style={styles.statCell}>
-            <Text style={styles.statLabel}>CAL</Text>
-            <Text style={styles.statValue}>{workout.calories}</Text>
-          </View>
-        ) : null}
-      </View>
+      {showTime || showPace || showStepsStat || showCalories ? (
+        <View style={styles.statsRow}>
+          {showTime ? (
+            <View style={styles.statCell}>
+              <Text style={styles.statLabel}>TIME</Text>
+              <Text style={styles.statValue}>{formatDuration(workout.duration_seconds!)}</Text>
+            </View>
+          ) : null}
+          {showPace ? (
+            <View style={styles.statCell}>
+              <Text style={styles.statLabel}>PACE</Text>
+              <Text style={styles.statValue}>
+                {formatPace(workout.distance_meters!, workout.duration_seconds!, unit)}
+              </Text>
+            </View>
+          ) : null}
+          {showStepsStat ? (
+            <View style={styles.statCell}>
+              <Text style={styles.statLabel}>STEPS</Text>
+              <Text style={styles.statValue}>{workout.step_count!.toLocaleString()}</Text>
+            </View>
+          ) : null}
+          {showCalories ? (
+            <View style={styles.statCell}>
+              <Text style={styles.statLabel}>CAL</Text>
+              <Text style={styles.statValue}>{workout.calories}</Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 };
