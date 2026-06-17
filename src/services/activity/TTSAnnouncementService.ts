@@ -7,7 +7,6 @@ import * as Speech from 'expo-speech';
 import { Audio, InterruptionModeIOS, InterruptionModeAndroid } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TTSPreferencesService } from './TTSPreferencesService';
-import { AppStateManager } from '../core/AppStateManager';
 import type { Split } from './SplitTrackingService';
 
 type UnitSystem = 'metric' | 'imperial';
@@ -29,7 +28,6 @@ export class TTSAnnouncementService {
   private static isInitialized = false;
   private static isSpeaking = false;
   private static speechQueue: string[] = [];
-  private static appStateUnsubscribe: (() => void) | null = null;
 
   /**
    * Get the user's unit system preference
@@ -44,45 +42,24 @@ export class TTSAnnouncementService {
   }
 
   /**
-   * Initialize audio session with ducking support
-   * Sets up platform-specific audio configuration to lower background music
+   * Initialize the TTS service.
+   *
+   * The audio session is intentionally NOT configured here. We activate the
+   * ducking session per-utterance in speak() and release it when the queue
+   * drains (onSpeechComplete). This keeps background music at full volume
+   * between announcements, and — crucially — lets announcements play while the
+   * app is backgrounded (GPS keeps tracking via the "location" background mode,
+   * and the "audio" background mode permits speech). Previously this method
+   * registered an AppState listener that tore down the audio session whenever
+   * the app backgrounded, which silenced every split during a background run.
    */
   static async initialize(): Promise<void> {
     if (this.isInitialized) {
       return;
     }
 
-    try {
-      console.log('🔊 Initializing TTS service with audio ducking...');
-
-      // Set up AppState listener for audio cleanup
-      const appStateManager = AppStateManager;
-      this.appStateUnsubscribe = appStateManager.onStateChange(
-        async (isActive) => {
-          if (!isActive) {
-            // App going to background - release audio session
-            console.log('🔊 App backgrounding, releasing audio session...');
-            await this.releaseAudioSession();
-          } else {
-            // App returned to foreground - reinitialize if needed
-            if (this.isSpeaking) {
-              console.log('🔊 App foregrounded, restoring audio session...');
-              await this.setupAudioSession();
-            }
-          }
-        }
-      );
-
-      // Configure audio session for TTS with ducking
-      await this.setupAudioSession();
-
-      this.isInitialized = true;
-      console.log('✅ TTS service initialized with audio ducking');
-    } catch (error) {
-      console.error('❌ Failed to initialize TTS service:', error);
-      // Don't throw - graceful degradation
-      this.isInitialized = true; // Mark as initialized anyway
-    }
+    this.isInitialized = true;
+    console.log('✅ TTS service initialized (per-utterance audio ducking)');
   }
 
   /**
@@ -173,6 +150,12 @@ export class TTSAnnouncementService {
       // Get speech rate from preferences
       const speechRate = await TTSPreferencesService.getSpeechRate();
 
+      // Activate the ducking audio session right before speaking. Doing this
+      // per-utterance (rather than holding it open) keeps background music at
+      // full volume between announcements, and works whether the app is in the
+      // foreground or backgrounded during a workout.
+      await this.setupAudioSession();
+
       // Stop any existing speech
       await Speech.stop();
 
@@ -197,6 +180,8 @@ export class TTSAnnouncementService {
     } catch (error) {
       console.error('❌ Speech failed:', error);
       this.isSpeaking = false;
+      // Release the session so background music returns to full volume.
+      await this.releaseAudioSession();
     }
   }
 
@@ -212,7 +197,14 @@ export class TTSAnnouncementService {
       if (nextText) {
         this.speak(nextText);
       }
+      return;
     }
+
+    // Queue drained — release the ducking session so any background music
+    // (e.g. Spotify) returns to full volume until the next announcement.
+    this.releaseAudioSession().catch((error) => {
+      console.error('❌ Failed to release audio session after speech:', error);
+    });
   }
 
   /**
@@ -447,7 +439,9 @@ export class TTSAnnouncementService {
     await Audio.setAudioModeAsync({
       playsInSilentModeIOS: true,
       allowsRecordingIOS: false,
-      staysActiveInBackground: false,
+      // Keep the session alive in the background so split announcements play
+      // during a backgrounded workout. Requires the "audio" UIBackgroundMode.
+      staysActiveInBackground: true,
 
       // iOS: Duck other audio (music, podcasts, etc.)
       interruptionModeIOS: InterruptionModeIOS.DuckOthers,
@@ -487,12 +481,6 @@ export class TTSAnnouncementService {
   static async cleanup(): Promise<void> {
     try {
       await this.stopSpeaking();
-
-      // Clean up AppState listener
-      if (this.appStateUnsubscribe) {
-        this.appStateUnsubscribe();
-        this.appStateUnsubscribe = null;
-      }
 
       // Release audio session
       await this.releaseAudioSession();
