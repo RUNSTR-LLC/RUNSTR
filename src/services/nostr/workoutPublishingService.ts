@@ -661,6 +661,170 @@ export class WorkoutPublishingService {
   }
 
   /**
+   * Format-aware entry point for posting a workout to Nostr + the RUNSTR feed.
+   * Honors the user's "Post format" preference:
+   *  - 'kind1'   → the existing card post (visible in every client) via
+   *               postWorkoutToSocial (which also dual-writes the feed).
+   *  - 'kind1301' → a structured workout event (native in Amethyst) via
+   *               publishWorkout1301, plus a feed dual-write so the in-app feed
+   *               still shows the native workout card (rendered from Supabase
+   *               data — no pre-rendered image needed).
+   */
+  async postWorkout(
+    workout: PublishableWorkout,
+    signer: NDKSigner,
+    userId: string,
+    options: (SocialPostOptions & { format?: 'kind1' | 'kind1301' }) = {}
+  ): Promise<WorkoutPublishResult> {
+    const format = options.format || 'kind1';
+    if (format === 'kind1301') {
+      const eventId = await this.publishWorkout1301(workout, signer, userId);
+      await this.dualWriteWorkoutFeed(workout, userId, eventId);
+      return { success: !!eventId, eventId: eventId || undefined };
+    }
+    return this.postWorkoutToSocial(workout, signer, userId, options);
+  }
+
+  /**
+   * Insert a RUNSTR feed entry for a workout published as kind 1301.
+   * No image is uploaded: the in-app feed matches this row to the Supabase
+   * workout (by npub + time) and renders a native WorkoutPostCard from data.
+   * Fitness hashtags are required so useMatchedWorkout recognizes it.
+   * Non-blocking — feed appearance is best-effort.
+   */
+  private async dualWriteWorkoutFeed(
+    workout: PublishableWorkout,
+    userId: string,
+    eventId: string | null
+  ): Promise<void> {
+    try {
+      const activityHashtag = this.getActivityHashtag(workout.type);
+      const hashtags = Array.from(
+        new Set(['runstr', activityHashtag].filter(Boolean))
+      );
+      const userProfile = await nostrProfileService
+        .getProfile(userId)
+        .catch(() => null);
+      await SocialFeedService.insertPost({
+        event_id: eventId || `workout_${workout.id}`,
+        npub: userId,
+        content: this.generateWorkoutDescription(workout),
+        images: [],
+        hashtags,
+        author_name: userProfile?.display_name || userProfile?.name || '',
+        author_avatar: userProfile?.picture || '',
+        created_at: new Date().toISOString(),
+      });
+    } catch (dualWriteError) {
+      console.warn(
+        '[WorkoutPublishing] 1301 feed dual-write failed:',
+        dualWriteError
+      );
+    }
+  }
+
+  /**
+   * Publish a workout to Nostr relays as a PUBLIC kind 1301 (NIP-101e) event.
+   *
+   * This is the structured workout record (rendered natively by Amethyst).
+   * It is intentionally NON-BLOCKING and must never throw into the save path:
+   * Supabase remains the source of truth, so publishing is best-effort.
+   *
+   * Privacy: reuses the full NIP-101e tag builder but STRIPS reward/routing
+   * tags (lightning address, reward_destination, wot_score, charity, challenge,
+   * club). The backend reads those from Supabase, never from relays — so they
+   * must never appear in a public event. The `client:RUNSTR` tag is kept for
+   * attribution.
+   *
+   * @returns the published event id, or null on any failure (never throws).
+   */
+  async publishWorkout1301(
+    workout: PublishableWorkout,
+    signer: NDKSigner,
+    _userId: string
+  ): Promise<string | null> {
+    try {
+      const ndk = await GlobalNDKService.getInstance();
+      const user = await signer.user();
+      const pubkey = user.pubkey;
+
+      // Build the full tag set (selectedCharity=null avoids the charity lookup
+      // and charity/team tags), then strip any remaining reward/routing tags.
+      const allTags = await this.createNIP101eWorkoutTags(
+        workout,
+        pubkey,
+        null, // selectedCharity — omit from public event
+        null, // rewardLightningAddress — NEVER publish the lightning address
+        'user' // rewardDestination — stripped below; value irrelevant
+      );
+      const PUBLIC_TAG_BLOCKLIST = new Set([
+        'lightning',
+        'reward_destination',
+        'wot_score',
+        'charity',
+        'challenge',
+        'club',
+      ]);
+      const publicTags = allTags.filter((t) => !PUBLIC_TAG_BLOCKLIST.has(t[0]));
+
+      const ndkEvent = new NDKEvent(ndk);
+      ndkEvent.kind = 1301;
+      ndkEvent.content = this.generateWorkoutDescription(workout);
+      ndkEvent.tags = publicTags;
+      ndkEvent.created_at = workout.startTime
+        ? Math.floor(new Date(workout.startTime).getTime() / 1000)
+        : Math.floor(Date.now() / 1000);
+
+      // Amber (external signer) needs a longer timeout for user approval.
+      const isAmberSigner =
+        signer.constructor.name === 'AmberNDKSigner' ||
+        (signer as any).AMBER_TIMEOUT_MS !== undefined;
+      const signTimeout = isAmberSigner
+        ? NOSTR_TIMEOUTS.SIGN_AMBER
+        : NOSTR_TIMEOUTS.SIGN;
+
+      await withTimeout(
+        ndkEvent.sign(signer),
+        signTimeout,
+        'Workout 1301 signing'
+      );
+
+      const relaysReady = await GlobalNDKService.waitForMinimumConnection(
+        1,
+        5000
+      );
+      if (!relaysReady) {
+        console.warn(
+          '[WorkoutPublishing] No relays connected — attempting 1301 publish anyway'
+        );
+      }
+
+      const publishResult = await withTimeout(
+        ndkEvent.publish(),
+        NOSTR_TIMEOUTS.PUBLISH,
+        'Workout 1301 publishing'
+      );
+
+      const relayCount = publishResult?.size ?? 0;
+      if (relayCount === 0) {
+        throw new Error('Published 1301 to 0 relays — no relay connections');
+      }
+
+      console.log(
+        `📡 Published kind 1301 to ${relayCount} relay(s): ${ndkEvent.id}`
+      );
+      return ndkEvent.id || null;
+    } catch (error) {
+      // Non-blocking: Supabase is the source of truth; swallow publish errors.
+      console.error(
+        '[WorkoutPublishing] 1301 publish failed (non-blocking):',
+        error
+      );
+      return null;
+    }
+  }
+
+  /**
    * Get cached profile data for leaderboard display (name/picture).
    * Reads from the local Nostr profile cache in AsyncStorage.
    * Falls back to individual profile keys if the main cache misses.

@@ -31,6 +31,13 @@ import { ImportDataModal } from '../components/backup/ImportDataModal';
 // Import type from the service file (not from the default export)
 import type { LocalWorkout } from '../services/fitness/LocalWorkoutStorageService';
 
+// Posting services (kind 1 social share) — mirrors the working WorkoutSummaryModal path
+import workoutPublishingService from '../services/nostr/workoutPublishingService';
+import type { PublishableWorkout } from '../services/nostr/workoutPublishingService';
+import { UnifiedSigningService } from '../services/auth/UnifiedSigningService';
+import { LocalTeamMembershipService } from '../services/team/LocalTeamMembershipService';
+import { NostrPostingPreferencesService } from '../services/activity/NostrPostingPreferencesService';
+
 interface WorkoutHistoryScreenProps {
   route?: {
     params?: {
@@ -160,6 +167,67 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
     setShowSocialModal(true);
   };
 
+  /**
+   * Publish the selected workout to Nostr as a kind 1 social post.
+   * Called by EnhancedSocialShareModal after card capture (or directly for
+   * plain-text posts). Mirrors WorkoutSummaryModal.handlePostToNostr.
+   *
+   * Without this handler the modal previously rendered in screenshot-only mode
+   * (no POST button, no publish) — see GitHub #322/#323.
+   */
+  const handlePostToNostr = async (
+    cardImageUri?: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      if (!selectedWorkout) {
+        return { success: false, error: 'No workout selected' };
+      }
+
+      const signer = await UnifiedSigningService.getInstance().getSigner();
+      const npub = await AsyncStorage.getItem('@runstr:npub');
+      if (!signer) {
+        // Keyless anonymous users (or signed-out state) cannot sign a post.
+        return { success: false, error: 'Not authenticated' };
+      }
+
+      // selectedWorkout is an already-complete stored workout (local /
+      // HealthKit / Health Connect), normalized to the Workout shape by the
+      // tabs. Coerce it into a PublishableWorkout for the kind 1 post.
+      const competitionTeam =
+        await LocalTeamMembershipService.getCompetitionTeam();
+      const publishableWorkout: PublishableWorkout = {
+        ...(selectedWorkout as any),
+        userId: selectedWorkout.userId || npub || 'unknown',
+        sourceApp: selectedWorkout.sourceApp || 'RUNSTR',
+        canSyncToNostr: true,
+        competitionTeam,
+      };
+
+      // Plain-text posts (no cardImageUri) skip card generation / upload.
+      const includeCard = !!cardImageUri;
+      // Honor the user's chosen Nostr post format (kind 1 card vs kind 1301 data).
+      const format = await NostrPostingPreferencesService.getPostFormat();
+      return await workoutPublishingService.postWorkout(
+        publishableWorkout,
+        signer,
+        npub || 'unknown',
+        {
+          includeCard,
+          cardImageUri,
+          userAvatar: userProfile?.picture,
+          userName: userProfile?.name || userProfile?.display_name,
+          format,
+        }
+      );
+    } catch (error) {
+      console.error('[WorkoutHistory][PostToNostr] Error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Post failed',
+      };
+    }
+  };
+
   const handleGoBack = () => {
     if (navigation.canGoBack()) {
       navigation.goBack();
@@ -253,6 +321,7 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
         userId={userId}
         userAvatar={userProfile?.picture}
         userName={userProfile?.name || userProfile?.display_name}
+        onPostToNostr={handlePostToNostr}
         onClose={() => {
           setShowSocialModal(false);
           setSelectedWorkout(null);

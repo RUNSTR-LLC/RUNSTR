@@ -30,6 +30,7 @@ import { useSettingsState } from './useSettingsState';
 import { LanguageSection } from '../components/settings/LanguageSection';
 import { FitnessTrackingSection } from '../components/settings/FitnessTrackingSection';
 import { WorkoutDataSection } from '../components/settings/WorkoutDataSection';
+import { NostrPostingSection } from '../components/settings/NostrPostingSection';
 import { DataBackupSection } from '../components/settings/DataBackupSection';
 import { PasswordSection } from '../components/settings/PasswordSection';
 import { WalletSection } from '../components/settings/WalletSection';
@@ -103,6 +104,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <WorkoutDataSection
             onAllWorkoutsPress={state.handleAllWorkoutsPress}
           />
+
+          <NostrPostingSection />
 
           <DataBackupSection
             autoBackupEnabled={state.autoBackupEnabled}

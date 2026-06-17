@@ -33,6 +33,7 @@ import { nostrProfileService } from '../../services/nostr/NostrProfileService';
 import type { NostrProfile } from '../../services/nostr/NostrProfileService';
 import { LocalTeamMembershipService } from '../../services/team/LocalTeamMembershipService';
 import { AutoCompetePreferencesService } from '../../services/activity/AutoCompetePreferencesService';
+import { NostrPostingPreferencesService } from '../../services/activity/NostrPostingPreferencesService';
 import Toast from 'react-native-toast-message';
 import { useUnitPreference } from '../../hooks/useUnitPreference';
 import { WoTService } from '../../services/wot/WoTService';
@@ -76,6 +77,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
   const [preparedWorkout, setPreparedWorkout] =
     useState<PublishableWorkout | null>(null);
   const [autoCompeteTriggered, setAutoCompeteTriggered] = useState(false);
+  const [autoPostTriggered, setAutoPostTriggered] = useState(false);
   const [wotScore, setWotScore] = useState<number | null>(null);
   const [postedToNostr, setPostedToNostr] = useState(false);
 
@@ -331,6 +333,54 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
     attemptAutoCompete();
   }, [visible, workout.localWorkoutId, autoCompeteTriggered, saved, isSaving]);
 
+  // Auto-post to Nostr: independent of auto-compete. When the user has enabled
+  // "Auto-post workouts to Nostr", publish on modal open in their chosen format
+  // (kind 1 or 1301) + dual-write the RUNSTR feed. Non-blocking and signer-gated
+  // (keyless anonymous users are skipped silently). Supabase save already
+  // happened on workout save, so history/rewards are unaffected.
+  useEffect(() => {
+    const attemptAutoPost = async () => {
+      if (!visible || !workout.localWorkoutId || autoPostTriggered || postedToNostr) {
+        return;
+      }
+
+      const enabled = await NostrPostingPreferencesService.isAutoPostEnabled();
+      if (!enabled) return;
+
+      setAutoPostTriggered(true);
+      try {
+        const signer = await UnifiedSigningService.getInstance().getSigner();
+        if (!signer) return; // keyless anonymous users cannot sign — skip
+        const npub = await AsyncStorage.getItem('@runstr:npub');
+
+        const publishableWorkout = await createPublishableWorkout();
+        if (!publishableWorkout) return;
+
+        const format = await NostrPostingPreferencesService.getPostFormat();
+        const result = await workoutPublishingService.postWorkout(
+          publishableWorkout,
+          signer,
+          npub || 'unknown',
+          {
+            includeCard: false, // no UI card capture in the silent auto path
+            format,
+            userAvatar: userProfile?.picture,
+            userName: userProfile?.name,
+          }
+        );
+        if (result.success) {
+          setPostedToNostr(true);
+          console.log(`[AutoPost] Workout auto-posted to Nostr (${format})`);
+        }
+      } catch (error) {
+        // Non-blocking: never disrupt the summary on a failed auto-post.
+        console.warn('[AutoPost] Error:', error);
+      }
+    };
+
+    attemptAutoPost();
+  }, [visible, workout.localWorkoutId, autoPostTriggered, postedToNostr]);
+
   const formatDistance = (meters: number): string => {
     if (isMetric) {
       const km = meters / 1000;
@@ -460,7 +510,9 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
       // Plain text posts (no cardImageUri) skip the card generation entirely —
       // saves the Blossom upload round trip and the SVG render work.
       const includeCard = !!cardImageUri;
-      const result = await workoutPublishingService.postWorkoutToSocial(
+      // Honor the user's chosen Nostr post format (kind 1 card vs kind 1301 data).
+      const format = await NostrPostingPreferencesService.getPostFormat();
+      const result = await workoutPublishingService.postWorkout(
         publishableWorkout,
         signer,
         npub || 'unknown',
@@ -469,6 +521,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
           cardImageUri, // Use the card image from EnhancedSocialShareModal
           userAvatar: userProfile?.picture,
           userName: userProfile?.name,
+          format,
         }
       );
 
