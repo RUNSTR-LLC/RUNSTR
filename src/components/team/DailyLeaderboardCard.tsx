@@ -117,6 +117,11 @@ export const DailyLeaderboardCard: React.FC<DailyLeaderboardCardProps> = ({
             <ZappableUserRow
               npub={entry.npub}
               fallbackName={entry.name}
+              fallbackPicture={entry.picture}
+              // Supabase already returns the cached profile name + picture, so a
+              // row with a cached picture needs no per-user Nostr fetch. Rows
+              // without one still fetch to resolve their name/avatar.
+              skipProfileFetch={!!entry.picture}
               showQuickZap={true}
               zapAmount={21}
               recipientLightningAddress={entry.lightningAddress}
@@ -177,6 +182,8 @@ export const DailyLeaderboardCard: React.FC<DailyLeaderboardCardProps> = ({
               <ZappableUserRow
                 npub={userEntryOutsideTopN.npub}
                 fallbackName={userEntryOutsideTopN.name}
+                fallbackPicture={userEntryOutsideTopN.picture}
+                skipProfileFetch={!!userEntryOutsideTopN.picture}
                 showQuickZap={false}
                 hideActionsForCurrentUser={true}
               />

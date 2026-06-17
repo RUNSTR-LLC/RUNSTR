@@ -21,6 +21,7 @@ export interface LeaderboardEntry {
   rank: number;
   npub: string;
   name: string;
+  picture?: string; // Cached profile picture from Supabase — lets the row skip a per-user Nostr profile fetch
   score: number;
   formattedScore: string;
   workoutCount: number;
@@ -259,6 +260,7 @@ class DailyLeaderboardServiceClass {
       rank: index + 1,
       npub: row.npub,
       name: row.profile_name || 'Anonymous Athlete',
+      picture: row.profile_picture || undefined,
       score: row[timeField] as number,
       formattedScore: this.formatTime(row[timeField] as number),
       workoutCount: 1, // Each row is one workout
@@ -293,6 +295,7 @@ class DailyLeaderboardServiceClass {
       rank: index + 1,
       npub: row.npub,
       name: row.profile_name || 'Anonymous Athlete',
+      picture: row.profile_picture || undefined,
       score: row.step_count || 0,
       formattedScore: `${(row.step_count || 0).toLocaleString()} steps`,
       workoutCount: 1,
