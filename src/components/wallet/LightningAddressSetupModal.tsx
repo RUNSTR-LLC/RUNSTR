@@ -157,7 +157,7 @@ export const LightningAddressSetupModal: React.FC<LightningAddressSetupModalProp
           ) : (
             <>
               <Text style={styles.description}>
-                Enter your Lightning address to receive workout rewards directly in sats.
+                Enter your lightning address to receive your workout rewards.
               </Text>
 
               {/* Lightning Address Input */}
@@ -196,7 +196,7 @@ export const LightningAddressSetupModal: React.FC<LightningAddressSetupModalProp
               <View style={styles.infoBox}>
                 <Ionicons name="information-circle-outline" size={18} color={theme.colors.textMuted} />
                 <Text style={styles.infoText}>
-                  Get a free Lightning address from Wallet of Satoshi, Strike, Alby, or any Lightning wallet.
+                  Get a free lightning address from Wallet of Satoshi, Strike, Alby, or any compatible wallet.
                 </Text>
               </View>
             </>
