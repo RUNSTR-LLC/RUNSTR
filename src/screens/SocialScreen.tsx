@@ -174,18 +174,6 @@ const SocialScreenComponent: React.FC = () => {
 
   const renderHeader = useCallback(() => (
     <>
-      {FEATURES.teams && (
-        <>
-          <SectionHeader
-            title="Clubs"
-            actionLabel="Create"
-            actionIcon="add"
-            onActionPress={handleOpenCreateClub}
-          />
-          <ClubsRow clubs={clubs} userClubId={userClubId} showSearch={false} />
-          <View style={styles.sectionDivider} />
-        </>
-      )}
       {FEATURES.customEvents && (
         <>
           <SectionHeader
@@ -204,7 +192,7 @@ const SocialScreenComponent: React.FC = () => {
       )}
       {/* Feed title + Post button removed 2026-06-09: pure feed of workout shares, no header chrome. */}
     </>
-  ), [clubs, userClubId, handleOpenCreateClub, handleLeaderboardPress, handleEinundzwanzigPress, handleDynamicEventPress, handleOpenComposer, hasMoreEvents, handleSeeMoreEvents]);
+  ), [handleLeaderboardPress, handleEinundzwanzigPress, handleDynamicEventPress, hasMoreEvents, handleSeeMoreEvents]);
 
   if (isLoading) {
     return (
@@ -223,6 +211,14 @@ const SocialScreenComponent: React.FC = () => {
     <SafeAreaView style={styles.container} edges={['top']}>
       <TexturedBackground edges={[]}>
         <TopBar />
+        {FEATURES.teams && (
+          <ClubsRow
+            clubs={clubs}
+            userClubId={userClubId}
+            showSearch={false}
+            onCreatePress={handleOpenCreateClub}
+          />
+        )}
         <OstrichRefreshFlatList
           data={posts}
           renderItem={renderPost}
@@ -236,6 +232,12 @@ const SocialScreenComponent: React.FC = () => {
           onRefresh={handleRefresh}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          // Windowing: cap how many rows mount at once so a long feed doesn't
+          // render every post up front (compounds the per-post workout lookup).
+          removeClippedSubviews
+          initialNumToRender={6}
+          maxToRenderPerBatch={5}
+          windowSize={7}
         />
       </TexturedBackground>
       <PostComposerModal

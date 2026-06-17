@@ -1,6 +1,6 @@
 // src/components/social/SocialFeedPost.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { theme } from '../../styles/theme';
 import { Avatar } from '../ui/Avatar';
@@ -16,7 +16,7 @@ interface SocialFeedPostProps {
   userNpub: string;
 }
 
-export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, userNpub }) => {
+const SocialFeedPostInner: React.FC<SocialFeedPostProps> = ({ post, userNpub }) => {
   const [imageError, setImageError] = useState(false);
   const [imageAspect, setImageAspect] = useState(1);
 
@@ -40,26 +40,27 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, userNpub }
     : imageAspect;
 
   // Sanitize content: strip control chars, image URLs (rendered separately),
-  // and hashtag noise (#RUNSTR #Running etc.).
-  let sanitized = post.content
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
-    .replace(/https?:\/\/\S+\.(?:jpg|jpeg|png|gif|webp)\S*/gi, '')
-    .replace(/(^|\s)#\w+/g, '') // strip hashtags
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-  // When the native workout card renders the stats, drop the auto-generated
-  // emoji stat lines (⏱️ Duration / 📏 Distance / …) so they aren't shown twice.
-  if (workoutForCard) {
-    sanitized = sanitized
-      .split('\n')
-      .filter((line) => !/^\s*[^\x00-\x7F]/.test(line))
-      .join('\n')
-      .replace(/\n{2,}/g, '\n')
+  // and hashtag noise (#RUNSTR #Running etc.). Memoized so the chained regex
+  // work doesn't re-run on every parent re-render (refresh, pagination, etc.).
+  const displayContent = useMemo(() => {
+    let sanitized = post.content
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
+      .replace(/https?:\/\/\S+\.(?:jpg|jpeg|png|gif|webp)\S*/gi, '')
+      .replace(/(^|\s)#\w+/g, '') // strip hashtags
+      .replace(/\n{3,}/g, '\n\n')
       .trim();
-  }
-  const displayContent = sanitized.length > 500
-    ? sanitized.slice(0, 500) + '...'
-    : sanitized;
+    // When the native workout card renders the stats, drop the auto-generated
+    // emoji stat lines (⏱️ Duration / 📏 Distance / …) so they aren't shown twice.
+    if (workoutForCard) {
+      sanitized = sanitized
+        .split('\n')
+        .filter((line) => !/^\s*[^\x00-\x7F]/.test(line))
+        .join('\n')
+        .replace(/\n{2,}/g, '\n')
+        .trim();
+    }
+    return sanitized.length > 500 ? sanitized.slice(0, 500) + '...' : sanitized;
+  }, [post.content, workoutForCard]);
 
   return (
     <View style={styles.card}>
@@ -106,6 +107,11 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, userNpub }
     </View>
   );
 };
+
+// Memoized: the feed re-renders on refresh/pagination/club-load; without this
+// every mounted row re-reconciles (and, before memoizing displayContent above,
+// re-ran the regex sanitizer) on each parent update.
+export const SocialFeedPost = React.memo(SocialFeedPostInner);
 
 const styles = StyleSheet.create({
   card: {
