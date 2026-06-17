@@ -4,7 +4,7 @@ Single source of truth for reward logic across the app, website, and backend.
 
 ## Daily Reward
 
-- **Amount:** 100 sats per qualifying workout
+- **Amount:** 50 sats per qualifying workout
 - **Applies to:** All users (no tiers, no subscriptions)
 - **Daily limit:** 1 reward per user per day
 

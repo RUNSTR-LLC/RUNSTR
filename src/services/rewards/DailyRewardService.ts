@@ -5,7 +5,7 @@
  * 1. User publishes kind 1301 workout event with reward_destination tag
  * 2. External service monitors Nostr for kind 1301 events
  * 3. External service validates workout, checks anti-cheat, reads reward_destination
- * 4. External service sends 100 sats to user or charity based on tag
+ * 4. External service sends 50 sats to user or charity based on tag
  * 5. This service only tracks rewards LOCALLY for UI display
  *
  * ARCHITECTURE (v3):

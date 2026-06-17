@@ -21,10 +21,11 @@ export const REWARD_CONFIG = {
    * Daily Workout Reward Amount
    * Base reward for the first qualified workout of the day. Drives the
    * "Reward Earned!" banner shown after a workout; the actual payout is made by
-   * the external zapper, which this must stay in sync with (currently 200).
+   * the external zapper, which this must stay in sync with (currently 50).
+   * NOTE: held at 50 — the backend needs work before the increase can go live.
    * Streak bonus applied server-side: 2d +10%, 3d +20%, 4d +30%, 5d+ +40%.
    */
-  DAILY_WORKOUT_REWARD: 200,
+  DAILY_WORKOUT_REWARD: 50,
 
   /**
    * Minimum Workout Distance for Reward

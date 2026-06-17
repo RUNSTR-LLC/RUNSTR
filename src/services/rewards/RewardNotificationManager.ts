@@ -76,7 +76,7 @@ class RewardNotificationManagerClass {
    * Show a pledge reward notification as a non-blocking toast
    * Called when a daily reward is routed to a pledge destination
    *
-   * @param amount - Amount of sats sent (usually 50)
+   * @param amount - Amount of sats sent (currently 50)
    * @param eventName - Name of the event the pledge is for
    * @param recipientName - Name of recipient (captain or charity name)
    * @param completedWorkouts - Number of workouts completed after this one
