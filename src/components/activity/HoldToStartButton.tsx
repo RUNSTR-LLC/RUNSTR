@@ -12,8 +12,9 @@ import {
   Animated,
   PanResponder,
   Platform,
+  Dimensions,
 } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { theme } from '../../styles/theme';
@@ -29,6 +30,12 @@ interface HoldToStartButtonProps {
   size?: 'default' | 'large'; // Size variant - large for minimalist UI
 }
 
+// The large variant scales to the device so the button commands the home
+// screen's lower two-thirds instead of floating in dead space. Capped so it
+// never overruns on tablets.
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const RESPONSIVE_LARGE = Math.min(Math.round(SCREEN_WIDTH * 0.66), 300);
+
 // Size configurations
 const sizeConfigs = {
   default: {
@@ -39,11 +46,11 @@ const sizeConfigs = {
     hintFontSize: 12,
   },
   large: {
-    svgSize: 200,
-    containerSize: 220,
-    strokeWidth: 4,
-    labelFontSize: 20,
-    hintFontSize: 14,
+    svgSize: RESPONSIVE_LARGE,
+    containerSize: RESPONSIVE_LARGE + 24,
+    strokeWidth: 6,
+    labelFontSize: 24,
+    hintFontSize: 15,
   },
 };
 
@@ -65,7 +72,13 @@ export const HoldToStartButton: React.FC<HoldToStartButtonProps> = ({
   const svgSize = config.svgSize;
   const strokeWidth = config.strokeWidth;
   const center = svgSize / 2;
-  const radius = (svgSize - strokeWidth) / 2;
+
+  // The progress ring is inset from the SVG edge by a small gap so its rounded
+  // cap never clips. outerRadius is the notional edge the gap is measured from.
+  const outerStrokeWidth = 2;
+  const outerRadius = (svgSize - outerStrokeWidth) / 2;
+  const ringGap = strokeWidth + 10;
+  const radius = outerRadius - ringGap;
   const circumference = 2 * Math.PI * radius;
 
   // Animated strokeDashoffset: full circumference (empty) -> 0 (full)
@@ -158,17 +171,30 @@ export const HoldToStartButton: React.FC<HoldToStartButtonProps> = ({
       {/* SVG Progress Ring */}
       <View style={{ position: 'absolute', top: svgOffset, left: svgOffset }}>
         <Svg width={svgSize} height={svgSize}>
-          {/* Background circle (gray track with dark fill) */}
+          <Defs>
+            {/* Soft orange glow that fills the button interior so it reads as a
+                solid, pressable target rather than a hollow outline. */}
+            <RadialGradient id="startGlow" cx="50%" cy="50%" r="50%">
+              <Stop offset="0%" stopColor={theme.colors.orangeDeep} stopOpacity={0.22} />
+              <Stop offset="70%" stopColor={theme.colors.orangeDeep} stopOpacity={0.06} />
+              <Stop offset="100%" stopColor={theme.colors.card} stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+
+          {/* Soft orange-glow fill */}
+          <Circle cx={center} cy={center} r={radius} fill="url(#startGlow)" />
+
+          {/* Progress track (dim) */}
           <Circle
             cx={center}
             cy={center}
             r={radius}
             stroke={theme.colors.border}
             strokeWidth={strokeWidth}
-            fill={theme.colors.card}
+            fill="none"
           />
 
-          {/* Progress circle (accent colored fill, starts from 12 o'clock) */}
+          {/* Progress circle (accent colored, starts from 12 o'clock) */}
           <AnimatedCircle
             cx={center}
             cy={center}
