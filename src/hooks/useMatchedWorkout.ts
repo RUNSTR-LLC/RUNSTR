@@ -141,6 +141,9 @@ async function flushBatch(): Promise<void> {
       .in('npub', npubs)
       .gte('created_at', fromIso)
       .lte('created_at', toIso)
+      // Deterministic order so that if BATCH_ROW_LIMIT truncates, we keep the
+      // most-recent rows (closest to recent posts) rather than an arbitrary set.
+      .order('created_at', { ascending: false })
       .limit(BATCH_ROW_LIMIT);
 
     if (error) {
