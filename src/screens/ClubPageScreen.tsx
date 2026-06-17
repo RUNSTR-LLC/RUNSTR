@@ -27,6 +27,7 @@ import { ClubMembershipService } from '../services/backend/ClubMembershipService
 import { ClubBannerHeader } from '../components/club/ClubBannerHeader';
 import { ClubInfoSection } from '../components/club/ClubInfoSection';
 import { ClubChatSection } from '../components/club/ClubChatSection';
+import { ClubEventsSection } from '../components/club/ClubEventsSection';
 import { CaptainSettingsModal } from '../components/club/CaptainSettingsModal';
 import { SimpleEventCreationModal } from '../components/creation/SimpleEventCreationModal';
 import { CustomAlert } from '../components/ui/CustomAlert';
@@ -289,6 +290,14 @@ export const ClubPageScreen: React.FC<ClubPageScreenProps> = ({
               userNpub={userNpub}
               isJoining={isJoining}
               onJoin={handleJoin}
+            />
+
+            {/* Events created by this club's captain (scoped to club_id) */}
+            <ClubEventsSection
+              clubId={clubId}
+              isCaptain={isCaptain}
+              clubName={displayName}
+              clubBannerUrl={club.banner_url ?? undefined}
             />
 
             <ClubChatSection
