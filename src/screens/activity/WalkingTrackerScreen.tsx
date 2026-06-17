@@ -21,6 +21,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { CustomAlert } from '../../components/ui/CustomAlert';
 import { simpleRunTracker } from '../../services/activity/SimpleRunTracker';
+import { useStartCountdown } from '../../hooks/useStartCountdown';
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
 import type { RunSession } from '../../services/activity/SimpleRunTracker';
 import { WorkoutSummaryModal } from '../../components/activity/WorkoutSummaryModal';
@@ -130,7 +131,9 @@ export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
   const liveStepsRef = useRef<number>(0);
   const unsubscribeLiveStepsRef = useRef<(() => void) | null>(null);
 
-  const [countdown, setCountdown] = useState<3 | 2 | 1 | 'GO' | null>(null);
+  const { countdown, start: startCountdown } = useStartCountdown(() =>
+    startTracking()
+  );
   const [showBackgroundBanner, setShowBackgroundBanner] = useState(false);
   const [isBackgroundActive, setIsBackgroundActive] = useState(false);
   const [goalPickerVisible, setGoalPickerVisible] = useState(false);
@@ -557,23 +560,9 @@ export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
     console.log(
       '[WalkingTrackerScreen] Permissions granted, starting countdown...'
     );
-
-    // Start countdown: 3 → 2 → 1 → GO!
-    setCountdown(3);
-    setTimeout(() => {
-      setCountdown(2);
-      setTimeout(() => {
-        setCountdown(1);
-        setTimeout(() => {
-          setCountdown('GO');
-          setTimeout(() => {
-            setCountdown(null);
-            // Start tracking after countdown completes
-            startTracking();
-          }, 500); // Show "GO!" for 0.5 seconds
-        }, 1000);
-      }, 1000);
-    }, 1000);
+    // Countdown timers are cleared on unmount by useStartCountdown, so an
+    // interrupted countdown can't start a phantom tracking session.
+    startCountdown();
   };
 
   const startTracking = async () => {

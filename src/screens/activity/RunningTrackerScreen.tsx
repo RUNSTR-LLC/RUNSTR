@@ -25,6 +25,7 @@ import { theme } from '../../styles/theme';
 const WEEKLY_DISTANCE_UPDATE_KEY = '@runstr:weekly_distance_last_updated_running';
 import { CustomAlert } from '../../components/ui/CustomAlert';
 import { simpleRunTracker } from '../../services/activity/SimpleRunTracker';
+import { useStartCountdown } from '../../hooks/useStartCountdown';
 import type {
   RunSession,
 } from '../../services/activity/SimpleRunTracker';
@@ -112,7 +113,9 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
   });
   const [elapsedTime, setElapsedTime] = useState(0);
   const [summaryModalVisible, setSummaryModalVisible] = useState(false);
-  const [countdown, setCountdown] = useState<3 | 2 | 1 | 'GO' | null>(null);
+  const { countdown, start: startCountdown } = useStartCountdown(() =>
+    proceedWithTracking()
+  );
   const [workoutData, setWorkoutData] = useState<{
     type: 'running' | 'walking' | 'cycling';
     distance: number;
@@ -528,23 +531,9 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
 
   const handleHoldComplete = async () => {
     console.log('[RunningTrackerScreen] Hold complete, starting countdown...');
-
-    // Start countdown: 3 → 2 → 1 → GO!
-    setCountdown(3);
-    setTimeout(() => {
-      setCountdown(2);
-      setTimeout(() => {
-        setCountdown(1);
-        setTimeout(() => {
-          setCountdown('GO');
-          setTimeout(() => {
-            setCountdown(null);
-            // Start tracking after countdown completes
-            proceedWithTracking();
-          }, 500); // Show "GO!" for 0.5 seconds
-        }, 1000);
-      }, 1000);
-    }, 1000);
+    // Countdown timers are cleared on unmount by useStartCountdown, so an
+    // interrupted countdown can't start a phantom tracking session.
+    startCountdown();
   };
 
   const proceedWithTracking = async () => {

@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { AppStateManager } from '../../services/core/AppStateManager';
 import { CustomAlert } from '../../components/ui/CustomAlert';
 import { simpleRunTracker } from '../../services/activity/SimpleRunTracker';
+import { useStartCountdown } from '../../hooks/useStartCountdown';
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
 import type { RunSession } from '../../services/activity/SimpleRunTracker';
 import { WorkoutSummaryModal } from '../../components/activity/WorkoutSummaryModal';
@@ -71,7 +72,9 @@ export const CyclingTrackerScreen: React.FC<CyclingTrackerScreenProps> = ({
   const [selectedRoute, setSelectedRoute] = useState<{ id: string; name: string } | null>(null);
   const [routeSelectionVisible, setRouteSelectionVisible] = useState(false);
   const [summaryModalVisible, setSummaryModalVisible] = useState(false);
-  const [countdown, setCountdown] = useState<3 | 2 | 1 | 'GO' | null>(null);
+  const { countdown, start: startCountdown } = useStartCountdown(() =>
+    proceedWithTracking()
+  );
   const [workoutData, setWorkoutData] = useState<{
     type: 'running' | 'walking' | 'cycling';
     distance: number;
@@ -449,23 +452,9 @@ export const CyclingTrackerScreen: React.FC<CyclingTrackerScreenProps> = ({
 
   const handleHoldComplete = async () => {
     console.log('[CyclingTrackerScreen] Hold complete, starting countdown...');
-
-    // Start countdown: 3 → 2 → 1 → GO!
-    setCountdown(3);
-    setTimeout(() => {
-      setCountdown(2);
-      setTimeout(() => {
-        setCountdown(1);
-        setTimeout(() => {
-          setCountdown('GO');
-          setTimeout(() => {
-            setCountdown(null);
-            // Start tracking after countdown completes
-            proceedWithTracking();
-          }, 500); // Show "GO!" for 0.5 seconds
-        }, 1000);
-      }, 1000);
-    }, 1000);
+    // Countdown timers are cleared on unmount by useStartCountdown, so an
+    // interrupted countdown can't start a phantom tracking session.
+    startCountdown();
   };
 
   const proceedWithTracking = async () => {

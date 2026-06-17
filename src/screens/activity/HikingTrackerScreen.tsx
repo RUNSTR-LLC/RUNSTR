@@ -20,6 +20,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { CustomAlert } from '../../components/ui/CustomAlert';
 import { simpleRunTracker } from '../../services/activity/SimpleRunTracker';
+import { useStartCountdown } from '../../hooks/useStartCountdown';
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
 import type { RunSession } from '../../services/activity/SimpleRunTracker';
 import { WorkoutSummaryModal } from '../../components/activity/WorkoutSummaryModal';
@@ -93,7 +94,9 @@ export const HikingTrackerScreen: React.FC<HikingTrackerScreenProps> = ({
   const isPausedRef = useRef<boolean>(false);
   const isTrackingRef = useRef<boolean>(false);
 
-  const [countdown, setCountdown] = useState<3 | 2 | 1 | 'GO' | null>(null);
+  const { countdown, start: startCountdown } = useStartCountdown(() =>
+    startTracking()
+  );
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -262,20 +265,9 @@ export const HikingTrackerScreen: React.FC<HikingTrackerScreenProps> = ({
   }, []);
 
   const handleHoldComplete = async () => {
-    setCountdown(3);
-    setTimeout(() => {
-      setCountdown(2);
-      setTimeout(() => {
-        setCountdown(1);
-        setTimeout(() => {
-          setCountdown('GO');
-          setTimeout(() => {
-            setCountdown(null);
-            startTracking();
-          }, 500);
-        }, 1000);
-      }, 1000);
-    }, 1000);
+    // Countdown timers are cleared on unmount by useStartCountdown, so an
+    // interrupted countdown can't start a phantom tracking session.
+    startCountdown();
   };
 
   const startTracking = async () => {
