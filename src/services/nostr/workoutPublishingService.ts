@@ -730,11 +730,13 @@ export class WorkoutPublishingService {
    * It is intentionally NON-BLOCKING and must never throw into the save path:
    * Supabase remains the source of truth, so publishing is best-effort.
    *
-   * Privacy: reuses the full NIP-101e tag builder but STRIPS reward/routing
-   * tags (lightning address, reward_destination, wot_score, charity, challenge,
-   * club). The backend reads those from Supabase, never from relays — so they
-   * must never appear in a public event. The `client:RUNSTR` tag is kept for
-   * attribution.
+   * Privacy: reuses the full NIP-101e tag builder but keeps only an ALLOWLIST
+   * of public workout-data tags. Reward/routing tags (lightning address,
+   * reward_destination, wot_score, charity, challenge, club, team) and
+   * anti-cheat tags (verified, verification_*) never appear in the public
+   * event — the backend reads those from Supabase, never from relays. The
+   * allowlist fails closed: any tag added to the builder later is excluded
+   * unless explicitly allowed. The `client:RUNSTR` tag is kept for attribution.
    *
    * @returns the published event id, or null on any failure (never throws).
    */
@@ -757,15 +759,42 @@ export class WorkoutPublishingService {
         null, // rewardLightningAddress — NEVER publish the lightning address
         'user' // rewardDestination — stripped below; value irrelevant
       );
-      const PUBLIC_TAG_BLOCKLIST = new Set([
-        'lightning',
-        'reward_destination',
-        'wot_score',
-        'charity',
-        'challenge',
-        'club',
+      // Allowlist (default-deny): only known workout-data tags are published.
+      // A denylist silently leaks any tag added to createNIP101eWorkoutTags
+      // later (it already missed the verification/team tags) — an allowlist
+      // fails closed instead. Reward/routing tags (lightning, reward_destination,
+      // wot_score, charity, challenge, club, team) and anti-cheat tags
+      // (verified, verification_*) are intentionally absent: the backend reads
+      // those from Supabase, never from public relays.
+      const PUBLIC_TAG_ALLOWLIST = new Set([
+        'd',
+        'title',
+        'exercise',
+        'duration',
+        'source',
+        'client',
+        't',
+        'distance',
+        'elevation_gain',
+        'elevation_loss',
+        'calories',
+        'steps',
+        'sets',
+        'reps',
+        'weight',
+        'weight_set',
+        'meditation_type',
+        'meal_type',
+        'meal_size',
+        'exercise_type',
+        'split',
+        'split_pace',
+        'avg_pace',
+        'data_points',
+        'recording_pauses',
+        'workout_start_time',
       ]);
-      const publicTags = allTags.filter((t) => !PUBLIC_TAG_BLOCKLIST.has(t[0]));
+      const publicTags = allTags.filter((t) => PUBLIC_TAG_ALLOWLIST.has(t[0]));
 
       const ndkEvent = new NDKEvent(ndk);
       ndkEvent.kind = 1301;

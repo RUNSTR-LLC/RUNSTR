@@ -448,9 +448,13 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
   const createPublishableWorkout =
     async (): Promise<PublishableWorkout | null> => {
       const npub = await AsyncStorage.getItem('@runstr:npub');
-      const workoutId = `workout_${Date.now()}_${Math.random()
-        .toString(36)
-        .substr(2, 9)}`;
+      // Use the stable local workout id when available so the published
+      // kind-1301 d-tag (and the feed event_id) is deterministic — republishing
+      // the same workout replaces the event instead of creating a duplicate.
+      // Fall back to a fresh id only for paths with no saved workout.
+      const workoutId =
+        workout.localWorkoutId ||
+        `workout_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
       // ✅ Get competition team for leaderboard participation
       const competitionTeam =
