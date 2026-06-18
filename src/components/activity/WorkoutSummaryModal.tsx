@@ -225,6 +225,9 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
       if (visible && workout.localWorkoutId) {
         const status = await WorkoutStatusTracker.getStatus(workout.localWorkoutId);
         setSaved(status.competedInNostr);
+        // Hydrate the auto-post guard from persisted status so a re-open never
+        // re-publishes a workout that was already posted.
+        setPostedToNostr(status.postedToNostr);
       }
     };
     checkExistingStatus();
@@ -347,6 +350,15 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
       const enabled = await NostrPostingPreferencesService.isAutoPostEnabled();
       if (!enabled) return;
 
+      // Persisted guard (mirrors auto-compete): never auto-post the same
+      // workout twice, even across remounts. The in-memory flags above only
+      // survive within a mount.
+      const status = await WorkoutStatusTracker.getStatus(workout.localWorkoutId);
+      if (status.postedToNostr) {
+        setPostedToNostr(true);
+        return;
+      }
+
       setAutoPostTriggered(true);
       try {
         const signer = await UnifiedSigningService.getInstance().getSigner();
@@ -370,6 +382,11 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
         );
         if (result.success) {
           setPostedToNostr(true);
+          // Persist so the workout is never auto-posted again.
+          await WorkoutStatusTracker.markAsPosted(
+            workout.localWorkoutId,
+            result.eventId
+          );
           console.log(`[AutoPost] Workout auto-posted to Nostr (${format})`);
         }
       } catch (error) {
