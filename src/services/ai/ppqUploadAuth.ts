@@ -13,21 +13,25 @@ import { NDKEvent, type NDKSigner } from '@nostr-dev-kit/ndk';
 
 // React Native-safe standard base64 encoder (no Buffer required).
 // Produces the same output as Buffer.from(str).toString('base64').
+// Encodes the input as UTF-8 bytes first (via TextEncoder, available in
+// Hermes/V8) so non-ASCII characters are represented correctly.
 // Uses index-based triplet loop to avoid the off-by-one padding bug present
 // in some while-loop variants.
 function toBase64(str: string): string {
   const chars =
     'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const bytes = new TextEncoder().encode(str);
+  const len = bytes.length;
   let result = '';
-  for (let i = 0; i < str.length; i += 3) {
-    const a = str.charCodeAt(i);
-    const b = (i + 1) < str.length ? str.charCodeAt(i + 1) : 0;
-    const c = (i + 2) < str.length ? str.charCodeAt(i + 2) : 0;
+  for (let i = 0; i < len; i += 3) {
+    const a = bytes[i];
+    const b = (i + 1) < len ? bytes[i + 1] : 0;
+    const c = (i + 2) < len ? bytes[i + 2] : 0;
     const triplet = (a << 16) | (b << 8) | c;
     result += chars[(triplet >> 18) & 63];
     result += chars[(triplet >> 12) & 63];
-    result += (i + 1) < str.length ? chars[(triplet >> 6) & 63] : '=';
-    result += (i + 2) < str.length ? chars[triplet & 63] : '=';
+    result += (i + 1) < len ? chars[(triplet >> 6) & 63] : '=';
+    result += (i + 2) < len ? chars[triplet & 63] : '=';
   }
   return result;
 }

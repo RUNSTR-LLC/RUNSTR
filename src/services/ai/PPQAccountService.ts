@@ -416,7 +416,7 @@ export class PPQAccountService {
    */
   static async clearAccount(): Promise<void> {
     try {
-      await AsyncStorage.multiRemove([PPQ_API_KEY, PPQ_CREDIT_ID]);
+      await AsyncStorage.multiRemove([PPQ_API_KEY, PPQ_CREDIT_ID, PPQ_UPLOADED]);
       console.log('[PPQAccount] Account cleared');
     } catch (error) {
       console.error('[PPQAccount] Error clearing account:', error);
