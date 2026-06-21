@@ -6,6 +6,11 @@
 import { supabase } from '../../src/utils/supabase';
 
 async function main() {
+  if (!supabase) {
+    console.error('Supabase not configured — set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY before running.');
+    process.exit(1);
+  }
+
   const competitionId = process.argv[2];
   if (!competitionId) {
     console.error('Usage: npx tsx scripts/diagnostics/check-finisher-address.ts <competition_id>');

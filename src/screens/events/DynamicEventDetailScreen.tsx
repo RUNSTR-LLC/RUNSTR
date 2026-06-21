@@ -365,7 +365,7 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
       // Step 1: Get finishers
       const result = await EventFinalizationService.finalizeEvent(
         competition.id,
-        (config.winner_selection as 'ranked' | 'random') || 'ranked',
+        config.winner_selection === 'random' ? 'random' : 'ranked',
         distribution === 'all_participants' ? 0 : (config.qualifying_distance_km || 0),
         prizePoolSats,
       );
@@ -447,7 +447,7 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
 
       const result = await EventFinalizationService.finalizeEvent(
         competition.id,
-        (config.winner_selection as 'ranked' | 'random') || 'ranked',
+        config.winner_selection === 'random' ? 'random' : 'ranked',
         distribution === 'all_participants' ? 0 : (config.qualifying_distance_km || 0),
         prizePoolSats,
       );
@@ -533,6 +533,12 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
                 } catch (e) {
                   console.warn('[DynamicEventDetail] Failed to persist payout results:', e);
                 }
+
+                // Refresh in-memory competition state so a same-session re-run
+                // reads the updated payout_results and skips already-paid winners.
+                setCompetition(prev =>
+                  prev ? { ...prev, config: { ...prev.config, payout_results: merged } } : prev,
+                );
 
                 const successCount = payoutResults.filter(p => p.success).length;
                 const failCount = payoutResults.filter(p => !p.success).length;
