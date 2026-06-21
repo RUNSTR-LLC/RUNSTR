@@ -16,22 +16,13 @@
 import CryptoJS from 'crypto-js';
 import { callEdgeFunction } from '../../utils/edgeFunctions';
 import NWCWalletService from '../wallet/NWCWalletService';
+import {
+  Finisher,
+  PayoutRecipient,
+  calculateSplits as calculateSplitsPure,
+} from './payoutMath';
 
-export interface Finisher {
-  npub: string;
-  totalDistanceKm: number;
-  name?: string;
-  lightningAddress?: string;
-}
-
-export interface PayoutRecipient {
-  npub: string;
-  name?: string;
-  amount_sats: number;
-  address: string;
-  success: boolean;
-  error?: string;
-}
+export type { Finisher, PayoutRecipient };
 
 export interface FinalizationResult {
   eventId: string;
@@ -78,52 +69,7 @@ class EventFinalizationServiceClass {
     prizePoolSats: number,
     distribution: 'top3' | 'all_participants',
   ): PayoutRecipient[] {
-    if (finishers.length === 0 || prizePoolSats <= 0) return [];
-
-    if (distribution === 'all_participants') {
-      const perPerson = Math.floor(prizePoolSats / finishers.length);
-      const remainder = prizePoolSats - (perPerson * finishers.length);
-
-      return finishers.map((f, i) => ({
-        npub: f.npub,
-        name: f.name,
-        amount_sats: perPerson + (i === 0 ? remainder : 0),
-        address: f.lightningAddress || '',
-        success: false,
-        error: undefined,
-      }));
-    }
-
-    // top3 distribution: 50/30/20 (adjusts for fewer)
-    const ranked = [...finishers].sort((a, b) => b.totalDistanceKm - a.totalDistanceKm);
-    const top = ranked.slice(0, 3);
-
-    let percentages: number[];
-    if (top.length === 1) {
-      percentages = [100];
-    } else if (top.length === 2) {
-      percentages = [60, 40];
-    } else {
-      percentages = [50, 30, 20];
-    }
-
-    let allocated = 0;
-    return top.map((f, i) => {
-      const isLast = i === top.length - 1;
-      const amount = isLast
-        ? prizePoolSats - allocated
-        : Math.floor(prizePoolSats * percentages[i] / 100);
-      allocated += amount;
-
-      return {
-        npub: f.npub,
-        name: f.name,
-        amount_sats: amount,
-        address: f.lightningAddress || '',
-        success: false,
-        error: undefined,
-      };
-    });
+    return calculateSplitsPure(finishers, prizePoolSats, distribution);
   }
 
   /**
