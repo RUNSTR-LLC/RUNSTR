@@ -31,6 +31,9 @@ import { ClubMembershipService } from '../../services/backend/ClubMembershipServ
 import { CustomAlert } from '../../components/ui/CustomAlert';
 import { PledgeService } from '../../services/pledge/PledgeService';
 import { EventFinalizationService, FinalizationResult, PayoutRecipient } from '../../services/events/EventFinalizationService';
+import { partitionRecipients, filterAlreadyPaid } from '../../services/events/payoutMath';
+import { NWCStorageService } from '../../services/wallet/NWCStorageService';
+import { NWCWalletService } from '../../services/wallet/NWCWalletService';
 import { callEdgeFunction } from '../../utils/edgeFunctions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Avatar } from '../../components/ui/Avatar';
@@ -420,6 +423,134 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
     } finally {
       setIsFinalizing(false);
       setIsPaying(false);
+    }
+  };
+
+  const handlePayWinners = async () => {
+    if (!competition?.config) return;
+
+    // Guard: NWC wallet must be connected (string lives only on-device).
+    const hasWallet = await NWCStorageService.hasNWC();
+    if (!hasWallet) {
+      Alert.alert(
+        'Connect a wallet',
+        'To pay winners you need to connect your wallet first. Open the Rewards screen and connect your wallet, then try again.',
+      );
+      return;
+    }
+
+    setIsFinalizing(true);
+    try {
+      const config = competition.config;
+      const prizePoolSats = config.prize_pool_sats || competition.prize_pool_sats || 0;
+      const distribution = config.prize_distribution || 'top3';
+
+      const result = await EventFinalizationService.finalizeEvent(
+        competition.id,
+        (config.winner_selection as 'ranked' | 'random') || 'ranked',
+        distribution === 'all_participants' ? 0 : (config.qualifying_distance_km || 0),
+        prizePoolSats,
+      );
+      setFinalizationResult(result);
+
+      if (prizePoolSats <= 0 || result.finishers.length === 0) {
+        Alert.alert('No payouts', 'There are no qualifying finishers to pay.');
+        return;
+      }
+
+      // Compute splits, drop anyone already paid, then separate payable vs unpayable.
+      const allRecipients = EventFinalizationService.calculateSplits(
+        result.finishers,
+        prizePoolSats,
+        distribution,
+      );
+      const notYetPaid = filterAlreadyPaid(allRecipients, config.payout_results);
+      const { payable, unpayable } = partitionRecipients(notYetPaid);
+
+      if (payable.length === 0) {
+        Alert.alert(
+          'Nothing to pay',
+          unpayable.length > 0
+            ? `${unpayable.length} winner(s) have no reward destination and can't be paid. Everyone else is already paid.`
+            : 'All winners are already paid.',
+        );
+        return;
+      }
+
+      const total = payable.reduce((s, r) => s + r.amount_sats, 0);
+
+      // Best-effort balance check (non-blocking if the wallet is slow/unreachable).
+      let balanceWarning = '';
+      try {
+        const { balance, error } = await NWCWalletService.getBalance();
+        if (!error && balance < total) {
+          balanceWarning = `\n\nWarning: your wallet balance (${balance} sats) is less than ${total} sats — some payments may fail.`;
+        }
+      } catch {
+        // ignore — proceed to confirm
+      }
+
+      const lines = payable
+        .map(r => `• ${r.name || r.npub.slice(0, 12) + '…'}: ${r.amount_sats} sats`)
+        .join('\n');
+      const unpayableNote =
+        unpayable.length > 0
+          ? `\n\n${unpayable.length} winner(s) can't be paid (no reward destination) and will be skipped.`
+          : '';
+
+      Alert.alert(
+        'Pay winners?',
+        `Send ${total} sats from your wallet to ${payable.length} winner(s):\n\n${lines}${unpayableNote}${balanceWarning}`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Pay',
+            onPress: async () => {
+              setIsPaying(true);
+              try {
+                const payoutResults = await EventFinalizationService.executePayout(payable);
+
+                // Merge: prior successes + unpayable (marked) + this run's results.
+                const priorSuccesses = (config.payout_results || []).filter(
+                  (p: PayoutRecipient) => p.success,
+                );
+                const unpayableMarked: PayoutRecipient[] = unpayable.map(u => ({
+                  ...u,
+                  success: false,
+                  error: 'No reward destination',
+                }));
+                const merged = [...priorSuccesses, ...payoutResults, ...unpayableMarked];
+
+                setFinalizationResult(prev => (prev ? { ...prev, payoutResults: merged } : prev));
+
+                try {
+                  await callEdgeFunction('manage-competition', {
+                    action: 'update',
+                    competition_id: competition.id,
+                    npub: (await AsyncStorage.getItem('@runstr:npub')) || '',
+                    updates: { config: { ...config, payout_results: merged } },
+                  });
+                } catch (e) {
+                  console.warn('[DynamicEventDetail] Failed to persist payout results:', e);
+                }
+
+                const successCount = payoutResults.filter(p => p.success).length;
+                const failCount = payoutResults.filter(p => !p.success).length;
+                const totalPaid = payoutResults
+                  .filter(p => p.success)
+                  .reduce((s, p) => s + p.amount_sats, 0);
+                let summary = `Paid ${totalPaid} sats to ${successCount} winner${successCount !== 1 ? 's' : ''}.`;
+                if (failCount > 0) summary += ` ${failCount} payment${failCount !== 1 ? 's' : ''} failed — re-run to retry.`;
+                Alert.alert('Done', summary);
+              } finally {
+                setIsPaying(false);
+              }
+            },
+          },
+        ],
+      );
+    } finally {
+      setIsFinalizing(false);
     }
   };
 
@@ -906,6 +1037,41 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
             )}
           </View>
         )}
+
+        {/* Pay Winners (Creator Only, Ended, has prize pool, non-random) */}
+        {isEventCreator &&
+          status === 'ended' &&
+          (competition?.config?.prize_pool_sats || 0) > 0 &&
+          competition?.config?.winner_selection !== 'random' && (
+            <View style={[styles.finalizationSection, { backgroundColor: theme.colors.cardBackground }]}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.text, marginBottom: 12 }]}>
+                Pay Winners
+              </Text>
+              <Text style={[styles.finalizationSubtitle, { color: theme.colors.textMuted, marginBottom: 12 }]}>
+                {(competition.config.prize_pool_sats || 0).toLocaleString()} sats ·{' '}
+                {competition.config.prize_distribution === 'all_participants'
+                  ? 'split among all finishers'
+                  : 'Top 3 (50/30/20)'}
+              </Text>
+              <TouchableOpacity
+                style={[styles.finalizeButton, { backgroundColor: theme.colors.accent }]}
+                onPress={handlePayWinners}
+                disabled={isFinalizing || isPaying}
+              >
+                {isFinalizing || isPaying ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.finalizeButtonText}>Pay Winners</Text>
+                )}
+              </TouchableOpacity>
+              {isPaying && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
+                  <ActivityIndicator size="small" color={theme.colors.accent} />
+                  <Text style={{ color: theme.colors.textMuted, fontSize: 14 }}>Sending prizes…</Text>
+                </View>
+              )}
+            </View>
+          )}
 
         {/* Note Section */}
         <View style={styles.noteSection}>
