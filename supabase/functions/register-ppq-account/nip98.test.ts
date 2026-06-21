@@ -57,3 +57,13 @@ Deno.test('rejects a url mismatch', async () => {
   const res = await verifyNip98({ authHeader: header, url: URL, method: METHOD, expectedNpub: npub });
   assertEquals(res.valid, false);
 });
+
+Deno.test('rejects a tampered signature', async () => {
+  const priv = secp.utils.bytesToHex(secp.utils.randomPrivateKey());
+  const { header, npub } = await makeAuthHeader(priv);
+  const ev = JSON.parse(atob(header.slice(6)));
+  ev.sig = ev.sig.slice(0, -2) + (ev.sig.endsWith('00') ? '11' : '00');
+  const tampered = `Nostr ${btoa(JSON.stringify(ev))}`;
+  const res = await verifyNip98({ authHeader: tampered, url: URL, method: METHOD, expectedNpub: npub });
+  assertEquals(res.valid, false);
+});

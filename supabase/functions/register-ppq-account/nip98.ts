@@ -62,7 +62,7 @@ export async function verifyNip98(params: {
 
   // recompute id and verify schnorr signature
   const computedId = secp.utils.bytesToHex(sha256(new TextEncoder().encode(serialize(event))));
-  if (event.id && event.id !== computedId) return { valid: false, reason: 'event id mismatch' };
+  if (typeof event.id !== 'string' || event.id !== computedId) return { valid: false, reason: 'event id mismatch' };
 
   let sigOk = false;
   try {
