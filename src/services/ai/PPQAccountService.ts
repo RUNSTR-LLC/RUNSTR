@@ -2,7 +2,10 @@
  * PPQAccountService - PPQ.AI Account Management
  *
  * Handles PPQ.AI account creation, balance checking, and topup invoice generation.
- * All credentials are stored locally - only bolt11 invoices leave the device.
+ * The key is stored locally (powers on-device AI queries) AND uploaded to the
+ * backend (ppq_accounts) via a NIP-98-signed request so the reward payer can
+ * create topup invoices server-side. The nsec never leaves the device — only a
+ * signature. A PPQ.AI key controls only AI credits (no withdrawal).
  *
  * Used when user selects PPQ.AI as their "team" to earn AI credits instead of sats.
  */
