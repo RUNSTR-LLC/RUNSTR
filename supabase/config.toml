@@ -388,6 +388,12 @@ verify_jwt = false
 # Club chat write operations (send, delete)
 verify_jwt = false
 
+[functions.register-ppq-account]
+# Public endpoint - stores a user's PPQ.AI key after verifying a NIP-98 signature.
+# Proof rides in the Authorization header as "Nostr <base64>" (not a JWT), so the
+# gateway must not enforce JWT verification.
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

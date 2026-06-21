@@ -1,0 +1,6 @@
+# Allow public access to register-ppq-account
+# The function does its own auth: it verifies a NIP-98 (kind 27235) signature
+# proving the caller owns the npub before storing the key. The proof rides in the
+# Authorization header as "Nostr <base64-event>", which is NOT a JWT — so the
+# gateway must not enforce JWT verification (it would 401 before our handler runs).
+verify_jwt = false
