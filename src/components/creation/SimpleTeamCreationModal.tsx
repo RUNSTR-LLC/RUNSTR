@@ -290,7 +290,7 @@ export const SimpleTeamCreationModal: React.FC<SimpleTeamCreationModalProps> = (
 
             {/* Lightning Address */}
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Lightning Address (optional)</Text>
+              <Text style={styles.label}>Wallet Address (optional)</Text>
               <TextInput
                 style={styles.textInput}
                 value={lightningAddress}
@@ -302,7 +302,7 @@ export const SimpleTeamCreationModal: React.FC<SimpleTeamCreationModalProps> = (
                 autoCorrect={false}
               />
               {lightningAddress.length > 0 && !isValidLightningAddress(lightningAddress) && (
-                <Text style={styles.errorHelper}>Invalid Lightning address format</Text>
+                <Text style={styles.errorHelper}>Invalid wallet address format</Text>
               )}
               <Text style={styles.helper}>
                 Users can zap donations to this address

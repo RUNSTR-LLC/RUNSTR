@@ -242,14 +242,14 @@ export const CaptainSettingsModal: React.FC<CaptainSettingsModalProps> = ({
             </View>
 
             <View style={s.formGroup}>
-              <Text style={s.label}>Lightning Address</Text>
+              <Text style={s.label}>Wallet Address</Text>
               <TextInput
                 style={s.textInput} value={lightningAddress} onChangeText={setLightningAddress}
                 placeholder="e.g., club@getalby.com" placeholderTextColor={theme.colors.textMuted}
                 keyboardType="email-address" autoCapitalize="none" autoCorrect={false}
               />
               {lightningAddress.length > 0 && !isValidLightningAddress(lightningAddress) && (
-                <Text style={s.errorHelper}>Invalid Lightning address format</Text>
+                <Text style={s.errorHelper}>Invalid wallet address format</Text>
               )}
               <Text style={s.helper}>10-sat workout rewards are sent to this address</Text>
             </View>

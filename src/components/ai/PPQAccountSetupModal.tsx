@@ -187,7 +187,7 @@ export const PPQAccountSetupModal: React.FC<PPQAccountSetupModalProps> = ({
             <>
               {/* Description */}
               <Text style={styles.description}>
-                To earn AI credits instead of sats, we need to create a PPQ.AI account for you.
+                To earn AI credits instead of rewards, we need to create a PPQ.AI account for you.
                 Your rewards will automatically top up your AI balance.
               </Text>
 
