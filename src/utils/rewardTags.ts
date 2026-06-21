@@ -7,14 +7,15 @@
  * Routing logic:
  * - "Self" team → ["lightning", userAddress] → user gets reward
  * - Charity team → ["lightning", charityAddress] → charity gets reward
- * - PPQ.AI team → handled separately via ppq_bolt11 field (no lightning tag)
+ * - PPQ.AI team → reward_destination=ppq tag, no lightning tag (server-side invoice)
  * - No team selected → ["lightning", userAddress] → user gets reward (default)
  *
  * The PostgreSQL trigger extracts ["lightning", "..."] from raw_event.tags
  * and sends 50 sats (base, +streak bonus) to that address. Missing tag = no reward.
- * For PPQ users, trigger reads ppq_bolt11 from the row directly.
- * SAFETY: If reward_destination is 'ppq' but no bolt11 exists, reward is skipped
- * (never misrouted to user's wallet).
+ * For PPQ users, the zapper reads the key from ppq_accounts and creates+pays the
+ * topup invoice server-side; the client only tags reward_destination=ppq.
+ * SAFETY: If reward_destination is 'ppq' but no key exists in ppq_accounts, reward
+ * is skipped (never misrouted to user's wallet).
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';

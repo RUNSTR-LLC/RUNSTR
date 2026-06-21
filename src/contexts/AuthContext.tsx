@@ -24,6 +24,7 @@ import { PerformanceLogger } from '../utils/PerformanceLogger';
 import { NostrFetchLogger } from '../utils/NostrFetchLogger';
 import VerificationService from '../services/verification/VerificationService';
 import { UnifiedSigningService } from '../services/auth/UnifiedSigningService';
+import { PPQAccountService } from '../services/ai/PPQAccountService';
 
 // Authentication state interface
 interface AuthState {
@@ -692,6 +693,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       cacheUnsubscribeRef.current?.();
     };
   }, [checkStoredCredentials]);
+
+  // One-time migration: upload PPQ.AI key to backend if it hasn't been yet.
+  // Runs after the NDK signer is ready (isAuthenticated=true implies signer attached).
+  // migrateLocalKeyToBackend() is idempotent — early-returns if already uploaded or no account.
+  useEffect(() => {
+    if (!isAuthenticated || isInitializing) return;
+    void PPQAccountService.migrateLocalKeyToBackend();
+  }, [isAuthenticated, isInitializing]);
 
   // Sync health platform workouts on app foreground and cold start
   // Replaces the disabled BackgroundSyncService (which conflicted with active GPS tracking).
