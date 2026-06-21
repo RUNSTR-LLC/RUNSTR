@@ -177,6 +177,7 @@ export const RewardDestinationPicker: React.FC<RewardDestinationPickerProps> = (
   const handlePPQSparklePress = useCallback(async () => {
     const hasAccount = await PPQAccountService.hasAccount();
     if (hasAccount) {
+      void PPQAccountService.migrateLocalKeyToBackend();
       setShowPPQTopupModal(true);
     } else {
       setShowPPQSetupModal(true);

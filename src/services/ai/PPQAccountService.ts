@@ -10,10 +10,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { fetchWithTimeout } from '../../utils/networkUtils';
+import { GlobalNDKService } from '../nostr/GlobalNDKService';
+import { buildPpqAuthEvent } from './ppqUploadAuth';
 
 // Storage keys (API key stays local, never sent to backend)
 const PPQ_API_KEY = '@runstr:ppq_api_key';
 const PPQ_CREDIT_ID = '@runstr:ppq_credit_id';
+const PPQ_UPLOADED = '@runstr:ppq_uploaded';
 
 // PPQ.AI API endpoints
 const PPQ_API_BASE = 'https://api.ppq.ai';
@@ -157,6 +160,9 @@ export class PPQAccountService {
         [PPQ_CREDIT_ID, creditId],
       ]);
 
+      // Best-effort: push the key to the backend so rewards work without the app open.
+      void this.uploadAccount(apiKey, creditId);
+
       console.log('[PPQAccount] Account created successfully');
       return {
         success: true,
@@ -185,6 +191,7 @@ export class PPQAccountService {
         [PPQ_API_KEY, apiKey],
         [PPQ_CREDIT_ID, creditId],
       ]);
+      void this.uploadAccount(apiKey, creditId);
       console.log('[PPQAccount] Account credentials saved');
       return true;
     } catch (error) {
@@ -328,6 +335,79 @@ export class PPQAccountService {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
       };
+    }
+  }
+
+  /**
+   * Upload the user's PPQ.AI key to the backend so the reward payer can create
+   * topup invoices server-side. Signed with the user's own key (NIP-98); the
+   * nsec never leaves the device. Idempotent: safe to call repeatedly.
+   */
+  static async uploadAccount(apiKey: string, creditId: string): Promise<boolean> {
+    try {
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+      if (!supabaseUrl || !supabaseAnonKey) {
+        console.warn('[PPQAccount] Supabase not configured; skip key upload');
+        return false;
+      }
+
+      const npub = await AsyncStorage.getItem('@runstr:npub');
+      if (!npub) {
+        console.warn('[PPQAccount] No npub; cannot upload key');
+        return false;
+      }
+
+      const ndk = await GlobalNDKService.getInstance();
+      if (!ndk.signer) {
+        console.warn('[PPQAccount] No signer available; cannot sign upload');
+        return false;
+      }
+
+      const functionUrl = `${supabaseUrl}/functions/v1/register-ppq-account`;
+      const { header } = await buildPpqAuthEvent(ndk.signer, functionUrl);
+
+      const res = await fetchWithTimeout(
+        functionUrl,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseAnonKey,
+            'Authorization': header,
+          },
+          body: JSON.stringify({ npub, api_key: apiKey, credit_id: creditId }),
+        },
+        PPQ_API_TIMEOUT,
+      );
+
+      if (!res.ok) {
+        console.warn('[PPQAccount] Key upload failed:', res.status, await res.text());
+        return false;
+      }
+
+      await AsyncStorage.setItem(PPQ_UPLOADED, '1');
+      console.log('[PPQAccount] Key uploaded to backend');
+      return true;
+    } catch (error) {
+      console.warn('[PPQAccount] uploadAccount error:', error);
+      return false;
+    }
+  }
+
+  /**
+   * One-time migration: if a local key exists but was never uploaded, upload it.
+   * Call on app launch / first PPQ interaction.
+   */
+  static async migrateLocalKeyToBackend(): Promise<void> {
+    try {
+      const uploaded = await AsyncStorage.getItem(PPQ_UPLOADED);
+      if (uploaded === '1') return;
+      const account = await this.getAccount();
+      if (!account) return;
+      await this.uploadAccount(account.apiKey, account.creditId);
+    } catch (error) {
+      console.warn('[PPQAccount] migrateLocalKeyToBackend error:', error);
     }
   }
 
