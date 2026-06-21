@@ -100,12 +100,23 @@ async function handleGetFinishers(
   }
 
   // 4. Map results with participant names
-  const finishers = (submissions || []).map((s: { npub: string; total_distance_meters: number; workout_count: number }) => ({
-    npub: s.npub,
-    totalDistanceKm: s.total_distance_meters / 1000,
-    workoutCount: s.workout_count,
-    name: participants.find((p: { npub: string; name: string | null }) => p.npub === s.npub)?.name || null,
-  }))
+  const finishers = (submissions || []).map(
+    (s: {
+      npub: string;
+      total_distance_meters: number;
+      workout_count: number;
+      lightning_address: string | null;
+    }) => ({
+      npub: s.npub,
+      totalDistanceKm: s.total_distance_meters / 1000,
+      workoutCount: s.workout_count,
+      name:
+        participants.find(
+          (p: { npub: string; name: string | null }) => p.npub === s.npub,
+        )?.name || null,
+      lightningAddress: s.lightning_address || null,
+    }),
+  )
 
   console.log(`Finishers for competition ${competition_id}: ${finishers.length} qualifying out of ${participants.length} participants`)
   return jsonResponse({ success: true, data: { finishers } })
