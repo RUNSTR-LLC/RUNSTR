@@ -79,7 +79,7 @@ export const ReceiveModal: React.FC<ReceiveModalProps> = ({
     if (!hasNWC) {
       Alert.alert(
         'Wallet Not Connected',
-        'Please connect a Lightning wallet in Settings to receive payments.',
+        'Please connect a wallet in Settings to receive payments.',
         [{ text: 'OK' }]
       );
       return;
