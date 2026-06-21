@@ -11,22 +11,34 @@ const anon = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 async function main() {
   const supabase = createClient(url, anon);
 
+  // Authoritative deny-all gate: under Supabase RLS with NO policy, an anon
+  // SELECT returns empty data with NO error (RLS filters rows; the anon role
+  // still has default table GRANTs). So an empty read does NOT prove denial.
+  // An anon INSERT, however, returns an RLS-violation error when no policy
+  // permits it — that is the reliable gate. The read is only a leak check:
+  // if any rows are visible to anon, that is a definite failure.
   const read = await supabase.from('ppq_accounts').select('npub').limit(1);
   const wrote = await supabase
     .from('ppq_accounts')
     .insert({ npub: 'npub1test', api_key: 'x', credit_id: 'y' });
 
-  const readDenied = !!read.error || (read.data?.length ?? 0) === 0;
   const writeDenied = !!wrote.error;
+  const readLeaked = !read.error && (read.data?.length ?? 0) > 0;
 
-  console.log('anon read denied/empty:', readDenied, read.error?.message ?? '');
-  console.log('anon write denied:', writeDenied, wrote.error?.message ?? '');
+  // If the insert unexpectedly succeeded, clean up the leaked row so the
+  // script stays re-runnable.
+  if (!writeDenied) {
+    await supabase.from('ppq_accounts').delete().eq('npub', 'npub1test');
+  }
 
-  if (readDenied && writeDenied) {
-    console.log('PASS: anon key has no access to ppq_accounts');
+  console.log('anon write denied (authoritative):', writeDenied, wrote.error?.message ?? '');
+  console.log('anon read leaked rows:', readLeaked, `(rows: ${read.data?.length ?? 0})`);
+
+  if (writeDenied && !readLeaked) {
+    console.log('PASS: anon key cannot write ppq_accounts and sees no rows');
     process.exit(0);
   }
-  console.error('FAIL: anon key can access ppq_accounts');
+  console.error('FAIL: anon key has access to ppq_accounts');
   process.exit(1);
 }
 main();
