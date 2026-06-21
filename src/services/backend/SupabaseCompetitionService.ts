@@ -19,11 +19,9 @@ import {
   LeaderboardEntry,
   CharityRanking,
 } from '../../utils/supabase';
-import { getCharityById, isPPQTeam } from '../../constants/charities';
+import { getCharityById } from '../../constants/charities';
 import { getClubLightningAddress } from '../../utils/rewardTags';
-import { PPQAccountService } from '../ai/PPQAccountService';
 import { callEdgeFunction } from '../../utils/edgeFunctions';
-import { REWARD_CONFIG } from '../../config/rewards';
 
 // Local storage key for tracking joined competitions (optimistic join)
 const LOCAL_JOINED_COMPETITIONS_KEY = '@runstr:local_joined_competitions';
@@ -52,9 +50,6 @@ interface WorkoutSubmissionData {
   tags?: string[][]; // Nostr event tags for split/step parsing
   profileName?: string; // User's display name for leaderboard caching
   profilePicture?: string; // User's avatar URL for leaderboard caching
-  // PPQ.AI team: Bolt11 invoice for reward topup (instead of Lightning address)
-  ppqBolt11?: string;
-  ppqInvoiceId?: string;
 }
 
 // Cache key and TTL for dynamic competitions
@@ -330,62 +325,12 @@ export class SupabaseCompetitionService {
       return { success: false, error: 'Backend not configured' };
     }
 
-    // PPQ.AI: Auto-create bolt11 invoice if user's team is PPQ.AI and no invoice provided
-    // This ensures ALL submission paths (HealthKit, background, manual) get PPQ support
-    // Total timeout of 12s prevents PPQ invoice (15s) from
-    // accumulating too long before the fetch even starts
-    let ppqBolt11 = data.ppqBolt11;
-    let ppqInvoiceId = data.ppqInvoiceId;
-    let ppqFailed = false;
-    if (!ppqBolt11) {
-      const ppqResult = await Promise.race([
-        (async () => {
-          try {
-            const selectedTeamId = await AsyncStorage.getItem('@runstr:selected_team_id');
-            if (selectedTeamId && isPPQTeam(selectedTeamId)) {
-              const hasAccount = await PPQAccountService.hasAccount();
-              if (hasAccount) {
-                // Use base reward amount for all users
-                const rewardSats: number = REWARD_CONFIG.DAILY_WORKOUT_REWARD;
-                const invoiceResult = await PPQAccountService.createTopupInvoice(rewardSats);
-                if (invoiceResult.success && invoiceResult.bolt11) {
-                  return { bolt11: invoiceResult.bolt11, invoiceId: invoiceResult.invoiceId, failed: false };
-                } else {
-                  console.warn(`[SupabaseCompetition] PPQ.AI invoice creation returned error: ${invoiceResult.error}`);
-                  return { bolt11: undefined, invoiceId: undefined, failed: true };
-                }
-              } else {
-                console.warn('[SupabaseCompetition] PPQ.AI team selected but no account configured');
-                return { bolt11: undefined, invoiceId: undefined, failed: true };
-              }
-            }
-            return { bolt11: undefined, invoiceId: undefined, failed: false };
-          } catch (ppqError) {
-            console.warn('[SupabaseCompetition] PPQ.AI invoice creation failed:', ppqError);
-            return { bolt11: undefined, invoiceId: undefined, failed: true };
-          }
-        })(),
-        new Promise<{ bolt11: undefined; invoiceId: undefined; failed: true }>((resolve) => setTimeout(() => {
-          console.warn('[SupabaseCompetition] PPQ prep timed out after 12s, proceeding without PPQ invoice');
-          resolve({ bolt11: undefined, invoiceId: undefined, failed: true });
-        }, 12000)),
-      ]);
-      if (ppqResult.bolt11) {
-        ppqBolt11 = ppqResult.bolt11;
-        ppqInvoiceId = ppqResult.invoiceId;
-        console.log(`[SupabaseCompetition] PPQ.AI invoice auto-created: ${ppqBolt11.slice(0, 30)}...`);
-      }
-      ppqFailed = ppqResult.failed;
-    }
-
-    // PPQ.AI SAFETY: If PPQ invoice creation failed, do NOT inject user's lightning address.
-    // This was previously a "fallback" that misrouted rewards to the user's personal wallet
-    // instead of PPQ.AI. The correct behavior is: no bolt11 = no reward for PPQ users.
-    // The DB trigger will see no ppq_bolt11 and no lightning tag, and skip the reward.
-    let submissionTags = data.tags || [];
-    if (ppqFailed && !ppqBolt11) {
-      console.warn('[SupabaseCompetition] PPQ invoice failed — reward will be skipped (no fallback to user wallet)');
-    }
+    // PPQ.AI rewards are now created server-side by the reward payer (runstr-zapper),
+    // which reads the user's key from ppq_accounts and creates the topup invoice for
+    // the exact reward amount. The client no longer creates invoices here — that broke
+    // for background-synced workouts (no app => no invoice). See
+    // docs/superpowers/specs/2026-06-21-ppq-backend-invoice-design.md
+    const submissionTags = data.tags || [];
 
     // Resolve club data BEFORE starting the fetch timeout
     // These were previously inside JSON.stringify body where they bypassed the AbortController
@@ -430,9 +375,6 @@ export class SupabaseCompetitionService {
             // Daily leaderboard: Pass profile data for caching
             profile_name: data.profileName || null,
             profile_picture: data.profilePicture || null,
-            // PPQ.AI team: Bolt11 invoice for reward topup
-            ppq_bolt11: ppqBolt11 || null,
-            ppq_invoice_id: ppqInvoiceId || null,
             // Club association (separate from charity/team)
             club_id: clubId,
             club_lightning_address: clubLightningAddress,
