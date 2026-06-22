@@ -8,6 +8,7 @@
 import React from 'react';
 import {
   View,
+  Text,
   SafeAreaView,
   KeyboardAvoidingView,
   TouchableOpacity,
@@ -25,6 +26,7 @@ import { NWCQRConfirmationModal } from '../components/wallet/NWCQRConfirmationMo
 import { QRScannerModal } from '../components/qr/QRScannerModal';
 import { settingsStyles as styles } from './settingsStyles';
 import { useSettingsState } from './useSettingsState';
+import { RewardNotificationManager } from '../services/rewards/RewardNotificationManager';
 
 // Section components
 import { LanguageSection } from '../components/settings/LanguageSection';
@@ -79,6 +81,29 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           refreshing={state.isRefreshing}
           onRefresh={state.handleRefresh}
         >
+          {__DEV__ && (
+            <TouchableOpacity
+              style={{
+                marginHorizontal: 16,
+                marginBottom: 16,
+                paddingVertical: 12,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: theme.colors.orangeDeep,
+                alignItems: 'center',
+              }}
+              onPress={() => {
+                // Prototype: fire the reward toast to preview the bolt animation.
+                // Single toast per press so the animation replay is easy to verify.
+                RewardNotificationManager.showRewardConfirmed(50);
+              }}
+            >
+              <Text style={{ color: theme.colors.orangeDeep, fontWeight: '600' }}>
+                ⚡ Preview reward animation (DEV)
+              </Text>
+            </TouchableOpacity>
+          )}
+
           <FitnessTrackingSection
             ttsSettings={state.ttsSettings}
             onTTSSettingChange={state.handleTTSSettingChange}

@@ -18,20 +18,21 @@ export const REWARD_CONFIG = {
   SENDER_NWC: 'nostr+walletconnect://YOUR_NWC_STRING_HERE',
 
   /**
-   * Daily Workout Reward Amount
-   * Base reward for the first qualified workout of the day. Drives the
-   * "Reward Earned!" banner shown after a workout; the actual payout is made by
-   * the external zapper, which this must stay in sync with (currently 50).
-   * NOTE: held at 50 — the backend needs work before the increase can go live.
-   * Streak bonus applied server-side: 2d +10%, 3d +20%, 4d +30%, 5d+ +40%.
+   * Daily Workout Reward Amount (base / 5K tier)
+   * Rewards are distance-tiered — see REWARD_DISTANCE_TIERS and
+   * getWorkoutRewardAmount() below, which are the source of truth. This base
+   * value (the 5K tier) is retained as a fallback for callers that don't have a
+   * distance. The actual payout is made by the external zapper, which these
+   * amounts must stay in sync with.
    */
-  DAILY_WORKOUT_REWARD: 50,
+  DAILY_WORKOUT_REWARD: 500,
 
   /**
    * Minimum Workout Distance for Reward
-   * Distance in meters required to qualify for a reward
+   * Distance in meters required to qualify for any reward (5K). Workouts below
+   * this — including non-GPS activities with no distance — earn nothing.
    */
-  MIN_WORKOUT_DISTANCE_METERS: 1000, // 1km minimum
+  MIN_WORKOUT_DISTANCE_METERS: 5000, // 5km minimum (lowest reward tier)
 
   /**
    * Maximum Rewards Per Day
@@ -62,6 +63,46 @@ export const REWARD_CONFIG = {
   BOOSTED_MAX_PER_WEEK: 5,               // max boosted workouts per week
 
 } as const;
+
+/**
+ * Distance-tiered workout rewards (highest milestone crossed).
+ *
+ * A workout earns the reward for the highest distance milestone it passes:
+ *   < 5K            → 0    (does not qualify)
+ *   5K  – 9.99K     → 500
+ *   10K – 21.0K     → 1000
+ *   21.1K (half)    → 2100
+ *   42.2K (marathon)→ 4200
+ *
+ * These MUST stay in sync with the external zapper, which is the system that
+ * actually pays. Thresholds are in meters; named milestones use 21.1K/42.2K
+ * (not the exact 21.0975K/42.195K) to match the zapper.
+ *
+ * Ordered descending so the first match is the highest milestone crossed.
+ */
+export const REWARD_DISTANCE_TIERS: ReadonlyArray<{ minMeters: number; reward: number }> = [
+  { minMeters: 42200, reward: 4200 }, // Marathon
+  { minMeters: 21100, reward: 2100 }, // Half marathon
+  { minMeters: 10000, reward: 1000 }, // 10K
+  { minMeters: 5000, reward: 500 },   // 5K
+];
+
+/**
+ * Resolve the reward amount for a workout from its distance.
+ * Returns 0 for anything below the 5K minimum (including undefined/0 distance,
+ * e.g. non-GPS activities), meaning "no reward".
+ *
+ * @param distanceMeters Workout distance in meters
+ */
+export function getWorkoutRewardAmount(distanceMeters?: number | null): number {
+  const meters = distanceMeters ?? 0;
+  for (const tier of REWARD_DISTANCE_TIERS) {
+    if (meters >= tier.minMeters) {
+      return tier.reward;
+    }
+  }
+  return 0;
+}
 
 /**
  * Storage keys for reward tracking

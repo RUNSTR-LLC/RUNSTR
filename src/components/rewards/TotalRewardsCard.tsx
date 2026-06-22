@@ -193,7 +193,7 @@ export const TotalRewardsCard: React.FC<TotalRewardsCardProps> = ({
             <View style={styles.infoSection}>
               <Text style={styles.infoSubtitle}>Workout Rewards</Text>
               <Text style={styles.infoText}>
-                Earn 100 sats per daily workout. Rewards are sent daily ~10pm EST.
+                Earn rewards for GPS workouts: 500 for a 5K, 1,000 for a 10K, 2,100 for a half marathon, 4,200 for a marathon. One reward per day, sent ~10pm EST.
               </Text>
             </View>
 

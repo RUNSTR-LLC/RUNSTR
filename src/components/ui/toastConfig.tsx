@@ -6,10 +6,12 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
+import { RewardBoltToast } from './RewardBoltToast';
 
 interface ToastProps {
   text1?: string;
   text2?: string;
+  props?: { nonce?: number };
 }
 
 /**
@@ -61,26 +63,14 @@ export const toastConfig = {
     </View>
   ),
 
-  // Reward confirmed notification - Orange checkmark for payments to user's wallet
-  rewardConfirmed: ({ text1, text2 }: ToastProps) => (
-    <View style={styles.rewardConfirmedToast}>
-      <Ionicons name="checkmark-circle" size={24} color={theme.colors.orangeDeep} />
-      <View style={styles.textContainer}>
-        <Text style={styles.title}>{text1}</Text>
-        {text2 && <Text style={styles.subtitle}>{text2}</Text>}
-      </View>
-    </View>
+  // Reward confirmed notification - Drop-in lightning bolt, amount beneath it (no box)
+  rewardConfirmed: ({ text1, text2, props }: ToastProps) => (
+    <RewardBoltToast text1={text1} text2={text2} nonce={props?.nonce} />
   ),
 
-  // Reward donated notification - Orange gift theme for payments to charity
-  rewardDonated: ({ text1, text2 }: ToastProps) => (
-    <View style={styles.rewardDonatedToast}>
-      <Ionicons name="gift" size={24} color="#FF9D42" />
-      <View style={styles.textContainer}>
-        <Text style={styles.title}>{text1}</Text>
-        {text2 && <Text style={styles.subtitle}>{text2}</Text>}
-      </View>
-    </View>
+  // Reward donated notification - Same bolt motion, charity-specific text
+  rewardDonated: ({ text1, text2, props }: ToastProps) => (
+    <RewardBoltToast text1={text1} text2={text2} nonce={props?.nonce} />
   ),
 };
 
@@ -119,16 +109,6 @@ const styles = StyleSheet.create({
     ...baseToastStyle,
     borderWidth: 1,
     borderColor: theme.colors.text,
-  },
-  rewardConfirmedToast: {
-    ...baseToastStyle,
-    borderWidth: 1,
-    borderColor: theme.colors.orangeDeep,
-  },
-  rewardDonatedToast: {
-    ...baseToastStyle,
-    borderWidth: 1,
-    borderColor: '#FF9D42',
   },
   textContainer: {
     marginLeft: 12,

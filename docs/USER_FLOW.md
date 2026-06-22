@@ -92,8 +92,8 @@ All of the following happen automatically after save:
 4. **Auto-backup** (fire-and-forget): Encrypted backup to Nostr (kind 30078)
 5. **Optional social share**: If user taps Share, opens `EnhancedSocialShareModal` → publishes kind 1 social post with workout achievement card
 
-### Important: Kind 1301 Events Are NOT Published to Nostr
-Kind 1301 events are created locally for event structure and signing but are **never published to Nostr relays**. All workout data goes through Supabase.
+### Kind 1301 Events Are Published to Nostr (default)
+Kind 1301 workout events are **published to Nostr relays by default** for cross-app interop (Amethyst/POWR/Chachi). Supabase remains the source of truth for history, leaderboards, and rewards — the 1301 is a portable public record. Sensitive tags (lightning/team/charity/verification) are stripped by the allowlist in `publishWorkout1301()` before publishing.
 
 ---
 

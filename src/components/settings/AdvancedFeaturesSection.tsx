@@ -3,8 +3,9 @@
  */
 
 import React from 'react';
-import { View, Text, Switch, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { theme } from '../../styles/theme';
+import { ThemedSwitch } from '../ui/ThemedSwitch';
 import { Card } from '../ui/Card';
 import { SettingsAccordion } from '../ui/SettingsAccordion';
 import { SettingItem } from './SettingItem';
@@ -42,14 +43,9 @@ export const AdvancedFeaturesSection: React.FC<AdvancedFeaturesSectionProps> = (
               title="Wavlake"
               subtitle="Show music player in Profile header"
               rightElement={
-                <Switch
+                <ThemedSwitch
                   value={musicPlayerHeaderEnabled}
                   onValueChange={onMusicPlayerHeaderToggle}
-                  trackColor={{
-                    false: theme.colors.warning,
-                    true: theme.colors.accent,
-                  }}
-                  thumbColor={theme.colors.orangeBright}
                 />
               }
             />

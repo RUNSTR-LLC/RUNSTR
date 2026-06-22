@@ -1,18 +1,20 @@
 /**
  * NostrPostingSection - "Sharing to Nostr" settings accordion.
  *
- * Two controls:
+ * Controls:
  *  - Auto-post workouts: automatically share each finished workout (default off).
  *  - Post format: what the Post action produces — a card post (every Nostr app)
- *    or a workout note (structured data, native in Amethyst).
+ *    or a workout note (structured data, native in Amethyst). Currently HIDDEN
+ *    (SHOW_FORMAT_TOGGLE = false); every Post defaults to a workout note (1301).
  *
  * Self-contained: reads/writes NostrPostingPreferencesService directly.
  * Workouts are always saved regardless of these settings.
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, Switch, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { theme } from '../../styles/theme';
+import { ThemedSwitch } from '../ui/ThemedSwitch';
 import { Card } from '../ui/Card';
 import { SettingsAccordion } from '../ui/SettingsAccordion';
 import { SettingItem } from './SettingItem';
@@ -22,6 +24,11 @@ import {
   NostrPostingPreferencesService,
   type PostFormat,
 } from '../../services/activity/NostrPostingPreferencesService';
+
+// Format toggle is hidden for now — every Post defaults to a workout note
+// (kind 1301) for cross-app interop (Amethyst/POWR/Chachi). Flip this to true
+// to bring the Card post / Workout note picker back.
+const SHOW_FORMAT_TOGGLE = false;
 
 const FORMAT_OPTIONS: { value: PostFormat; title: string; subtitle: string }[] = [
   {
@@ -65,18 +72,14 @@ export const NostrPostingSection: React.FC = () => {
             title="Auto-post workouts"
             subtitle="Automatically share each finished workout. Your workout is always saved either way."
             rightElement={
-              <Switch
+              <ThemedSwitch
                 value={autoPost}
                 onValueChange={onToggleAutoPost}
-                trackColor={{
-                  false: theme.colors.warning,
-                  true: theme.colors.accent,
-                }}
-                thumbColor={theme.colors.orangeBright}
               />
             }
           />
 
+          {SHOW_FORMAT_TOGGLE && (
           <View style={styles.voiceSubsection}>
             <Text style={styles.subsectionTitle}>Post format</Text>
             {FORMAT_OPTIONS.map((opt) => (
@@ -118,6 +121,7 @@ export const NostrPostingSection: React.FC = () => {
               </TouchableOpacity>
             ))}
           </View>
+          )}
         </Card>
       </SettingsAccordion>
     </View>

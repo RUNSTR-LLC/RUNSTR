@@ -6,12 +6,12 @@ import React from 'react';
 import {
   View,
   Text,
-  Switch,
   Platform,
   Modal,
   TouchableOpacity,
 } from 'react-native';
 import { theme } from '../../styles/theme';
+import { ThemedSwitch } from '../ui/ThemedSwitch';
 import { Card } from '../ui/Card';
 import { SettingsAccordion } from '../ui/SettingsAccordion';
 import { SettingItem } from './SettingItem';
@@ -100,14 +100,9 @@ export const FitnessTrackingSection: React.FC<FitnessTrackingSectionProps> = ({
                 title="Private Mode"
                 subtitle="Workouts stay on your device. Events and rewards require this to be off."
                 rightElement={
-                  <Switch
+                  <ThemedSwitch
                     value={privateModeEnabled}
                     onValueChange={onPrivateModeToggle}
-                    trackColor={{
-                      false: theme.colors.warning,
-                      true: theme.colors.accent,
-                    }}
-                    thumbColor={theme.colors.orangeBright}
                   />
                 }
               />
@@ -121,14 +116,9 @@ export const FitnessTrackingSection: React.FC<FitnessTrackingSectionProps> = ({
                   title="Sync Workouts"
                   subtitle="Automatically sync workouts from Apple Health"
                   rightElement={
-                    <Switch
+                    <ThemedSwitch
                       value={healthKitSyncEnabled}
                       onValueChange={onHealthKitSyncToggle}
-                      trackColor={{
-                        false: theme.colors.warning,
-                        true: theme.colors.accent,
-                      }}
-                      thumbColor={theme.colors.orangeBright}
                     />
                   }
                 />
@@ -157,14 +147,9 @@ export const FitnessTrackingSection: React.FC<FitnessTrackingSectionProps> = ({
                       : 'Health Connect not installed on this device'
                   }
                   rightElement={
-                    <Switch
+                    <ThemedSwitch
                       value={healthConnectSyncEnabled && healthConnectAvailable}
                       onValueChange={onHealthConnectSyncToggle}
-                      trackColor={{
-                        false: theme.colors.warning,
-                        true: theme.colors.accent,
-                      }}
-                      thumbColor={theme.colors.orangeBright}
                       disabled={!healthConnectAvailable}
                     />
                   }
@@ -197,16 +182,11 @@ export const FitnessTrackingSection: React.FC<FitnessTrackingSectionProps> = ({
                 title="Enable Voice Announcements"
                 subtitle="Hear workout summaries read aloud"
                 rightElement={
-                  <Switch
+                  <ThemedSwitch
                     value={ttsSettings.enabled}
                     onValueChange={(value) =>
                       onTTSSettingChange('enabled', value)
                     }
-                    trackColor={{
-                      false: theme.colors.warning,
-                      true: theme.colors.accent,
-                    }}
-                    thumbColor={theme.colors.orangeBright}
                   />
                 }
               />
@@ -216,16 +196,11 @@ export const FitnessTrackingSection: React.FC<FitnessTrackingSectionProps> = ({
                 title="Workout Summary"
                 subtitle="Announce stats when workout completes"
                 rightElement={
-                  <Switch
+                  <ThemedSwitch
                     value={ttsSettings.announceOnSummary}
                     onValueChange={(value) =>
                       onTTSSettingChange('announceOnSummary', value)
                     }
-                    trackColor={{
-                      false: theme.colors.warning,
-                      true: theme.colors.accent,
-                    }}
-                    thumbColor={theme.colors.orangeBright}
                     disabled={!ttsSettings.enabled}
                   />
                 }
@@ -236,16 +211,11 @@ export const FitnessTrackingSection: React.FC<FitnessTrackingSectionProps> = ({
                 title="Live Split Announcements"
                 subtitle={isMetric ? "Announce each kilometer as you run" : "Announce each mile as you run"}
                 rightElement={
-                  <Switch
+                  <ThemedSwitch
                     value={ttsSettings.announceLiveSplits}
                     onValueChange={(value) =>
                       onTTSSettingChange('announceLiveSplits', value)
                     }
-                    trackColor={{
-                      false: theme.colors.warning,
-                      true: theme.colors.accent,
-                    }}
-                    thumbColor={theme.colors.orangeBright}
                     disabled={!ttsSettings.enabled}
                   />
                 }
@@ -263,11 +233,9 @@ export const FitnessTrackingSection: React.FC<FitnessTrackingSectionProps> = ({
                 rightElement={
                   <View style={styles.unitToggleRow}>
                     <Text style={[styles.unitLabel, isMetric && styles.unitLabelActive]}>km</Text>
-                    <Switch
+                    <ThemedSwitch
                       value={!isMetric}
                       onValueChange={(v) => onSetUnitSystem(v ? 'imperial' : 'metric')}
-                      trackColor={{ false: theme.colors.accent, true: theme.colors.accent }}
-                      thumbColor={theme.colors.orangeBright}
                     />
                     <Text style={[styles.unitLabel, !isMetric && styles.unitLabelActive]}>mi</Text>
                   </View>

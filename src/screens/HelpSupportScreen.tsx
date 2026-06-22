@@ -100,15 +100,15 @@ export const HelpSupportScreen: React.FC<{ navigation: any }> = ({
     },
     {
       id: 'rewards',
-      title: 'Sats & Rewards',
-      content: `Earn sats through fitness:
+      title: 'Rewards',
+      content: `Earn rewards for GPS workouts:
 
-• NutZap Wallet: Your built-in Lightning wallet for instant transactions.
-• Prize Pools: Competition winners receive automatic sats distributions.
-• Entry Fees: Some competitions require small satoshi entry fees.
-• Sending/Receiving: Use the wallet buttons in your Profile to send or receive sats.
-• Balance: Your current balance shows in the Profile wallet section.
-• Withdrawals: Transfer to external Lightning wallets anytime.`,
+• How much: Rewards scale with distance — 500 for a 5K, 1,000 for a 10K, 2,100 for a half marathon, 4,200 for a marathon.
+• Minimum: A workout must reach 5K (about 3.1 miles) to earn. Shorter workouts still count toward your history and competitions.
+• How often: One reward per day, for your first qualifying GPS workout (run, walk, cycle, or hike).
+• Steps: Step activity counts toward competitions but does not earn rewards.
+• Where it goes: Rewards are sent to your lightning address. It defaults to the address on your profile, or you can set one in Settings.
+• When: Rewards are sent daily, around 10pm EST.`,
     },
     {
       id: 'captain',

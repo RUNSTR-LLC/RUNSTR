@@ -11,6 +11,12 @@
 
 import Toast from 'react-native-toast-message';
 
+// The toast library reuses a single component instance, so a repeat show()
+// updates props instead of remounting. We stamp each show with an incrementing
+// nonce so the bolt component can detect a fresh show and replay its animation.
+let showNonce = 0;
+const nextNonce = () => ++showNonce;
+
 /**
  * @deprecated Use charityName?: string instead
  * Kept for backwards compatibility during transition
@@ -93,11 +99,11 @@ class RewardNotificationManagerClass {
     const progress = `${completedWorkouts}/${totalWorkouts}`;
 
     let title = 'Pledge Reward Sent!';
-    let subtitle = `+${amount} sats to ${recipientName} (${progress})`;
+    let subtitle = `+${amount} to ${recipientName} (${progress})`;
 
     if (isComplete) {
       title = 'Pledge Complete!';
-      subtitle = `${eventName} - ${amount} sats sent to ${recipientName}`;
+      subtitle = `${eventName} - ${amount} sent to ${recipientName}`;
     }
 
     Toast.show({
@@ -142,8 +148,8 @@ class RewardNotificationManagerClass {
     console.log('[RewardNotification] showRewardConfirmed called:', { amount });
     Toast.show({
       type: 'rewardConfirmed',
-      text1: 'Reward Received!',
-      text2: `You earned ${amount} sats`,
+      text1: `${amount} earned`,
+      props: { nonce: nextNonce() },
       position: 'top',
       visibilityTime: 5000,
     });
@@ -160,8 +166,8 @@ class RewardNotificationManagerClass {
     console.log('[RewardNotification] showRewardDonated called:', { amount, charityName });
     Toast.show({
       type: 'rewardDonated',
-      text1: 'Reward Received!',
-      text2: `You earned ${amount} sats`,
+      text1: `${amount} earned`,
+      props: { nonce: nextNonce() },
       position: 'top',
       visibilityTime: 5000,
     });
@@ -178,8 +184,8 @@ class RewardNotificationManagerClass {
     console.log('[RewardNotification] showBatchRewardsDonated called:', { count, totalAmount });
     Toast.show({
       type: 'rewardDonated',
-      text1: 'Rewards Received!',
-      text2: `You earned ${totalAmount} sats`,
+      text1: `${totalAmount} earned`,
+      props: { nonce: nextNonce() },
       position: 'top',
       visibilityTime: 6000,
     });
@@ -196,8 +202,8 @@ class RewardNotificationManagerClass {
     console.log('[RewardNotification] showBatchRewardsConfirmed called:', { count, totalAmount });
     Toast.show({
       type: 'rewardConfirmed',
-      text1: 'Rewards Received!',
-      text2: `You earned ${totalAmount} sats`,
+      text1: `${totalAmount} earned`,
+      props: { nonce: nextNonce() },
       position: 'top',
       visibilityTime: 6000,
     });

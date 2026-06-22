@@ -1,33 +1,45 @@
-# RUNSTR: A Cardio Workout Companion
+# RUNSTR: A Nostr Workout App with Bitcoin Rewards
 
 > This document is the identity and direction reference for RUNSTR. It describes what the app is, how it works, and where it's headed. All other documentation (CLAUDE.md, ARCHITECTURE.md, USER_FLOW.md, the RUNSTR Book) should align with this document.
 
 ---
 
-RUNSTR is a cardio workout companion built around three pillars: Workouts, Social, and Rewards. The product has been deliberately narrowed from a broader fitness platform into a focused loop — you do a cardio workout, you share it, you earn a reward. Everything that doesn't serve that loop is either being trimmed away or pushed into the background. The app is opinionated about cardio specifically (running, walking, cycling, hiking), and it treats every other surface in the app as support scaffolding for that core activity.
+RUNSTR is a Nostr workout app with Bitcoin rewards. At its core it's a focused cardio tracker — you do a run, walk, cycle, or hike, you share it, you earn a reward — but the two things that make it distinct from a generic fitness tracker are the rails it runs on. **Nostr brings interoperability:** a workout published from RUNSTR is an open record on a shared protocol, not a row trapped in one company's database. **Bitcoin brings peer-to-peer micro-rewards:** effort earns real money over Lightning, and that money can flow from RUNSTR, from club captains, or from anyone cheering you on. The product has been deliberately narrowed from a broad fitness platform into this loop, and v2.0 is about making it the most polished and *focused* version yet — not the most feature-stuffed.
 
-The Workouts pillar is intentionally permissive about *how* a workout enters the system. Users can track in-app with the GPS-based tracker, or they can never open the tracker at all and let their workouts flow in passively from Apple Health or Health Connect — whatever device or app they already trust to record their runs. The job of RUNSTR is not to be the best tracker on the market; it's to be the layer that turns *any* tracked workout into a social and rewarded one. Workouts also get quietly backed up to Nostr so a user's history is portable and never trapped inside the app.
+The strategic direction is to stop competing with Strava and Nike Run Club on mainstream polish — a race a focused, open app can't win — and instead be a real, first-class client in the emerging Nostr health-and-fitness ecosystem. That's a sharpening, not a pivot: most of the machinery already exists. Workouts publish as kind 1301 notes that render natively in Amethyst (the largest Nostr client on Android), POWR, and Chachi; the feed both publishes and pulls those notes from across the network; captains already fund and pay event prize pools from their own nodes. RUNSTR is one piece in an open fitness world, and a working experiment in what interoperable fitness data on a decentralized network — combined with permissionless money — actually looks like in people's hands.
 
-The Social pillar is where workouts become visible to other people. The Social tab is a single feed that mixes workout posts, events, and Fitness Clubs into one place — there isn't a separate "discover" or "explore" surface. Clubs are the social gravity well: captains run chatrooms and create events for their members, and members get extra rewards on top of their normal daily rewards just for participating. The feed supports zaps, so appreciation flows peer-to-peer alongside the structured rewards from the app itself.
+**Two voices, never conflated.** RUNSTR speaks differently to its two contexts, and this is the single most important rule for anyone working on the product:
 
-The Rewards pillar is what makes RUNSTR distinct from a generic fitness tracker. Every completed workout earns a daily reward, and placing in an event — whether the always-on daily leaderboard or a captain-created club event — earns extra on top. Payouts go to a lightning address the user provides; if their Nostr profile already has a lightning address attached, RUNSTR uses that by default, so most users never have to fill in a field at all. There's no destination picker, no splits, no routing logic — the address is the address. Captains earn a slice when their members work out, which gives them a real incentive to run an engaged club rather than a dormant one.
+- **Inside the app, the technology is invisible.** A normal person must be able to use RUNSTR without ever knowing what Nostr or Bitcoin is. Onboarding is one-tap and anonymous-first ("Start"). The UI says "rewards," "password," and "lightning address" — never "sats," "nsec," "zap," or "Nostr." The app feels like a clean fitness product that happens to use open rails, not a crypto demo that happens to track workouts. This firewall stays.
+- **In positioning and marketing, the technology is the pitch.** The landing page and Nostr/Bitcoin-audience copy lead confidently with Nostr, Bitcoin, sats, zaps, 1301, and interoperability. The Nostr-native story lives in positioning and the "Advanced" surfaces, not the default in-app flow. Having both a niche moat and a wide door is intentional.
 
-Everything else in the app is supporting infrastructure for those three pillars. Streaks are surfaced as the user's level, giving a single legible progress number instead of a dashboard of metrics. Identity is handled through Nostr login, but it's invisible to the user experience — the app shows "password" instead of "nsec" and "rewards" instead of "sats." The audience is Bitcoin and Nostr users, but RUNSTR doesn't lead with that — the app feels like a clean fitness product that happens to use those rails, not a Bitcoin or Nostr demo that happens to track workouts. Push notifications announce rewards as they land. An NWC wallet can be connected for users who want full custody. The through-line for the next phase is restraint: the app should do workouts, social, and rewards extremely well, and resist the urge to grow back into the everything-fitness-app it used to be.
+The Workouts pillar is permissive about *how* a workout enters the system. Users can track in-app with the GPS tracker (run, walk, cycle, hike), or never open the tracker at all and let workouts flow in passively from Apple Health or Health Connect. RUNSTR's job is not to be the best tracker on the market — it's to be the layer that turns *any* tracked workout into a social, interoperable, and rewarded one. When a workout is published, it goes out as a kind 1301 note by default, freed from the platform silo so any client or tool that speaks the protocol can read and build on it in new and novel ways. A strict allowlist strips anything sensitive (lightning address, team/charity tags, verification metadata) before publishing — only neutral workout facts leave the device.
+
+> **Framing note — interoperability, not ownership.** Nostr's value here is that it *frees* workout data to be portable and interoperable across clients, not that it makes the data private or "yours." Publishing a 1301 makes a workout public and reusable. Self-custody language ("your keys, your sats") belongs only to the Bitcoin/wallet side. Don't sell the Nostr side as data ownership.
+
+The Social pillar is where workouts become visible and value flows peer to peer. The Social tab is a single feed that mixes workout posts (including 1301 notes pulled from other Nostr clients) with Fitness Clubs — there's no separate "discover" surface. Clubs are the social gravity well: captains run chatrooms and create events, and members earn together. The feed supports zaps, so appreciation — and real sats — flow directly from person to person alongside the structured rewards from the app itself.
+
+The Rewards pillar is the peer-to-peer Bitcoin economy. A completed cardio workout earns a daily reward that scales with distance, and there are three distinct sources of rewards, not one: **from RUNSTR** (the daily distance-tiered reward), **from club captains** (event prize pools the captain funds from their own node over NWC, with splits the captain sets, paid phone-to-wallet so RUNSTR's servers never touch the funds), and **from the crowd** (zaps on the feed). Payouts go to a destination the user chooses — their own wallet, a charity, or a community project — defaulting to the lightning address on their Nostr profile if present. RUNSTR isn't the only one handing out rewards; it's a platform for *anyone* to reward movement.
+
+Everything else is supporting infrastructure for those pillars. Streaks surface as the user's level — a single legible progress number instead of a dashboard. Identity runs on Nostr but stays invisible in-app. Push notifications announce rewards as they land. The through-line for v2.0 is restraint: do workouts, social, and rewards extremely well on open rails, and resist growing back into the everything-fitness-app it used to be.
 
 ---
 
 ## Key Principles
 
-- **Audience** — Built for Bitcoin and Nostr users. The app's identity layer is Nostr and payouts are Lightning, but the UX never asks users to learn or care about the protocols.
+- **Positioning** — A Nostr workout app with Bitcoin rewards. Nostr brings interoperability; Bitcoin brings peer-to-peer micro-rewards. Not competing with Strava/Nike — a focused client in the Nostr fitness ecosystem.
+- **Two voices** — In-app: technology is invisible ("rewards"/"password," anonymous-first, no "sats"/"Nostr"). Marketing/Nostr+Bitcoin audiences: lead with Nostr, Bitcoin, sats, zaps, 1301, interoperability. Never conflate the two.
+- **Interoperability, not ownership** — Nostr frees workout data to be portable and reusable across clients; it does not make it private or "owned." Keep self-custody language to the Bitcoin/wallet side.
+- **1301 by default** — Published workouts go out as kind 1301 notes that render in Amethyst, POWR, Chachi, and other clients. The feed publishes and pulls 1301s. A tag allowlist strips sensitive data before publishing.
 - **Three pillars only** — Workouts, Social, Rewards. Anything that doesn't serve the loop is trimmed.
-- **Cardio-only** — Running, walking, cycling, hiking. No strength training, meditation, journaling, or habit tracking.
-- **Lightning address, not destinations** — Rewards go to the user's lightning address. If their Nostr profile has a lud16, that's the default; most users never fill in a field.
-- **Works in the background** — Any HealthKit or Health Connect compatible app/device syncs automatically. Users earn without opening the app.
-- **Events are central** — Daily leaderboard always on. Captains create club events. Moving toward user-created events.
+- **Cardio-only** — Running, walking, cycling, hiking. No strength, meditation, journaling, or habit tracking.
+- **Three reward sources** — From RUNSTR (daily, distance-tiered), from captains (event pools funded from their own node), from zaps (peer-to-peer cheering).
+- **Reward destination is a choice** — Own wallet, charity, or community project; defaults to the Nostr lud16 if present.
+- **Works in the background** — Any HealthKit/Health Connect app or device syncs automatically. Users earn without opening the app.
+- **Captains build their own economies** — Captains create clubs and events and fund prize pools from their own node over NWC, paid peer-to-peer.
 - **Level is the streak** — A single legible progress number, not a dashboard of metrics.
-- **Your data, your device** — Workouts stored locally with encrypted Nostr backups.
-- **Identity is invisible** — Nostr is the auth layer. Users see "password" not "nsec". They never have to know the protocol exists.
-- **Terminology** — Use "rewards" in all user-facing and documentation contexts. Avoid "Bitcoin", "sats", "Lightning", "Nostr" except where technically necessary in code.
+- **Identity is invisible (in-app)** — Nostr is the auth layer. Users see "password," not "nsec," and never have to know the protocol exists.
+- **Terminology (in-app)** — Use "rewards" in user-facing app text, code, and product docs; avoid "Bitcoin," "sats," "Lightning," "Nostr" except where technically necessary. This does **not** apply to marketing/landing/Nostr-audience copy, which leads with the technology on purpose.
 
 ## Activities
 
@@ -37,39 +49,48 @@ Everything else in the app is supporting infrastructure for those three pillars.
 
 GPS tracking provides real-time pace, distance, elevation, and per-kilometer splits for in-app tracked workouts. Workouts synced from Apple Health or Health Connect carry whatever data the source provided.
 
+## Workouts & Interoperability
+
+| Aspect | Detail |
+|---|---|
+| **Source of truth** | Every workout is written to Supabase — powers history, leaderboards, and rewards. This does not depend on Nostr. |
+| **Outbound format** | Published workouts go out as kind 1301 notes by default (the card-post format is hidden behind a dormant flag). |
+| **Cross-client interop** | 1301 notes render natively in Amethyst, POWR, Chachi, and any client that speaks the standard. The feed pulls 1301s back in. |
+| **Privacy allowlist** | Only neutral workout facts (distance, duration, type, pace, elevation, calories, steps) are published. Lightning address, team/charity tags, and verification metadata are stripped. |
+
 ## Social
 
 | Surface | Description |
 |---|---|
-| **Feed** | Workout posts from across Nostr. Likes, reposts, comments, zaps. |
+| **Feed** | Workout posts from across Nostr, including 1301 notes from other clients. Likes, reposts, comments, zaps. |
 | **Fitness Clubs** | Captain-run groups with member leaderboard, real-time chat, and events |
 | **Events** | Daily leaderboard (always-on) and captain-created club events |
 
-The Social tab surfaces the feed and clubs; events live in their own tab but are conceptually part of the social pillar — they're how members earn extra together and how captains create engagement.
+The Social tab surfaces the feed and clubs; events are conceptually part of the social pillar — they're how members earn together and how captains create engagement. Zaps let appreciation and real sats flow peer to peer in the feed.
 
 ## Rewards
 
-| Mechanic | How |
+| Source | How |
 |---|---|
-| **Daily reward** | Every completed cardio workout earns a daily reward |
-| **Event reward** | Placing in an event (daily leaderboard or club event) earns extra |
-| **Captain reward** | Captains earn a slice when their members work out |
-| **Destination** | Lightning address provided by the user, defaulting to their Nostr lud16 |
+| **From RUNSTR** | Every qualifying cardio workout earns a daily reward that scales with distance |
+| **From captains** | Placing in a captain-created club event earns from a prize pool the captain funds from their own node over NWC |
+| **From zaps** | People who see your workout on the feed can zap it — peer-to-peer cheering, in sats |
+| **Destination** | The user chooses: own wallet, charity, or community project. Defaults to the Nostr lud16 if present. |
 
-Rewards are sent via LNURL to the user's lightning address. There is no destination picker, no charity routing, no splits — the address is the address. Users who don't have a lud16 on their Nostr profile can paste one into Settings.
+Rewards are sent over Lightning. Captain event pools are paid phone-to-wallet over NWC, so RUNSTR's servers never touch the funds — the peer-to-peer spine of the reward economy.
 
 ## Events
 
 | Type | Notes |
 |---|---|
 | **Daily leaderboard** | Built-in, always active — fastest 5K, 10K, Half, Marathon, and daily Steps |
-| **Club events** | Captains create events for their club; members auto-enter |
+| **Club events** | Captains create events for their club; members auto-enter. Captains can attach a prize pool, set splits, and pay winners from their own node. |
 
-"Events" and "competitions" refer to the same concept — use "events" in all user-facing copy.
+"Events" and "competitions" refer to the same concept — use "events" in user-facing copy.
 
 ## Fitness Clubs
 
-Every club has a dedicated page with a member leaderboard, real-time chat, and events. Captains create events from templates, and all club members are automatically entered. Captains earn rewards for each member workout, which makes running an engaged club worthwhile.
+Every club has a dedicated page with a member leaderboard, real-time chat, and events. Captains create events, attach reward pools funded from their own connected wallet (NWC), set the distribution, and pay winners directly. This is the foundation of the captain-run economy: anyone can build their own reward system on top of RUNSTR.
 
 ## Background Sync
 
@@ -82,7 +103,8 @@ Either way, workouts auto-submit to Supabase, auto-trigger reward eligibility, a
 
 ## Direction
 
-- **User-created events** — Moving toward captains and individual users creating their own events
-- **Daily leaderboard** stays built-in
-- **More event formats** coming
-- **Captain economy** — captains already earn rewards per member workout; this is the foundation for club-level dynamics
+- **Peer-to-peer fitness economy** — Deepen the captain-funded and zap-funded reward paths so value increasingly flows person-to-person, not just from RUNSTR. RUNSTR made this case publicly (talk in Mexico).
+- **Zap workouts on the feed** — Surface a first-class flow to zap a 1301 in the feed from your own node. Infrastructure exists; the surfaced loop is the next build. (Not fully shipped yet — don't claim it present-tense in public copy.)
+- **Automatic 1301 publishing** — A future opt-out-with-privacy-switch feature so every completed workout becomes portable across clients without a manual share. The 1301-by-default change is the foundation; this is a small follow-up, not a migration.
+- **User-created events** — Moving toward individual users, not just captains, creating events.
+- **v2.0 polish** — The most focused, most polished version of the app, with the open rails as the reason RUNSTR exists rather than a detail it hides.

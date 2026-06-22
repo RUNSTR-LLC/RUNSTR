@@ -4,13 +4,19 @@
 
 RUNSTR is a cardio workout companion built around three pillars: Workouts, Social, and Rewards. You complete a cardio workout (run, walk, cycle, or hike), share it, and earn a reward. Workouts can be tracked in-app via GPS or synced automatically from any device or app connected to Apple Health or Health Connect. Rewards go to a lightning address — if the user's Nostr profile has a lud16, that's the default; otherwise they paste one into Settings.
 
-The app is built for Bitcoin and Nostr users, but it deliberately avoids leading with those technologies — users see "rewards," "password," and "lightning address," never "sats" or "nsec." The audience is the demographic; the technology is the rails. The UX is a clean fitness app.
+**Positioning (v2.0 direction):** RUNSTR is positioned as **a Nostr workout app with Bitcoin rewards** — Nostr brings interoperability, Bitcoin brings peer-to-peer micro-rewards. We have stopped competing with Strava/Nike Run Club and committed to being a focused client in the Nostr health-and-fitness ecosystem (workouts publish as kind 1301 and render in Amethyst, POWR, Chachi). Rewards come from RUNSTR, from club captains (event prize pools funded from their own node over NWC), and from zaps. Framing note: Nostr = freeing/interoperating workout data across clients, **not** "data ownership" — keep self-custody/"your keys" language to the Bitcoin/wallet side only. See [[project_nostr_workout_positioning]] in memory for the full direction, vision, and honest gaps.
+
+**Two voices — do not conflate (this is the part most often mis-applied):**
+- **In-app UI keeps the terminology firewall below.** A normal user must be able to use RUNSTR without knowing what Nostr or Bitcoin is — one-tap anonymous "Start", "rewards"/"password"/"lightning address", never "sats"/"nsec". The technology stays invisible *inside the app*.
+- **Marketing, landing pages, and Nostr/Bitcoin-audience copy INVERT the firewall** — lead confidently with Nostr, Bitcoin, sats, zaps, 1301, interoperability. The Nostr-native pitch lives in positioning and "Advanced" surfaces, not the default in-app flow. Having both a niche moat and a wide door is intentional.
 
 **Read [North Star.md](./docs/North%20Star.md) for the full product identity and direction.**
 
 ## Terminology Rules
 
-**Use "rewards" everywhere. Avoid "Bitcoin", "sats", "Lightning", "Nostr" in documentation, code comments, and user-facing text except where technically necessary in implementation code.**
+**Scope: these rules govern in-app user-facing text, code, and product docs. They do NOT apply to marketing/landing/Nostr+Bitcoin-audience copy, which leads with the technology on purpose (see Positioning above).**
+
+**Use "rewards" everywhere in-app. Avoid "Bitcoin", "sats", "Lightning", "Nostr" in documentation, code comments, and user-facing app text except where technically necessary in implementation code.**
 
 | Use This | Not This |
 |----------|----------|
@@ -57,7 +63,7 @@ Nostr is the **invisible identity layer**. Users never see "Nostr" in the UI.
 | Social posts | 1 | Only when user taps "Share" |
 | Profile updates | 0 | When user edits profile |
 | Encrypted backups | 30078 | Auto-backup after workouts |
-| **Workouts** | **1301** | **Local only — submitted to Supabase, NEVER published to Nostr relays** |
+| **Workouts** | **1301** | **Saved to Supabase (source of truth for history + rewards) AND published to relays by default for cross-app interop (Amethyst/POWR/Chachi). Sensitive tags — lightning/team/charity/verification — are stripped by the allowlist in `publishWorkout1301()` before publishing.** |
 
 ## Critical Rules
 

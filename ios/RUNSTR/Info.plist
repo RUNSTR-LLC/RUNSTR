@@ -1,111 +1,111 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-  <dict>
-    <key>BGTaskSchedulerPermittedIdentifiers</key>
-    <array>
-      <string>runstr-background-location</string>
-    </array>
-    <key>CADisableMinimumFrameDurationOnPhone</key>
-    <true/>
-    <key>CFBundleAllowMixedLocalizations</key>
-    <true/>
-    <key>CFBundleDevelopmentRegion</key>
-    <string>$(DEVELOPMENT_LANGUAGE)</string>
-    <key>CFBundleDisplayName</key>
-    <string>RUNSTR</string>
-    <key>CFBundleExecutable</key>
-    <string>$(EXECUTABLE_NAME)</string>
-    <key>CFBundleIdentifier</key>
-    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-    <key>CFBundleInfoDictionaryVersion</key>
-    <string>6.0</string>
-    <key>CFBundleName</key>
-    <string>$(PRODUCT_NAME)</string>
-    <key>CFBundlePackageType</key>
-    <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
-    <key>CFBundleShortVersionString</key>
-    <string>1.9.6</string>
-    <key>CFBundleSignature</key>
-    <string>????</string>
-    <key>CFBundleURLTypes</key>
-    <array>
-      <dict>
-        <key>CFBundleURLSchemes</key>
-        <array>
-          <string>runstr</string>
-          <string>com.anonymous.runstr.project</string>
-        </array>
-      </dict>
-    </array>
-    <key>CFBundleVersion</key>
-    <string>196</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>12.0</string>
-    <key>LSRequiresIPhoneOS</key>
-    <true/>
-    <key>NSAppTransportSecurity</key>
-    <dict>
-      <key>NSAllowsArbitraryLoads</key>
-      <false/>
-      <key>NSAllowsLocalNetworking</key>
-      <true/>
-    </dict>
-    <key>NSCameraUsageDescription</key>
-    <string>RUNSTR needs camera access to take profile pictures and scan QR codes to join fitness challenges and events.</string>
-    <key>NSHealthShareUsageDescription</key>
-    <string>RUNSTR needs access to your workout data to automatically sync your fitness activities and calculate team rankings for Bitcoin rewards.</string>
-    <key>NSHealthUpdateUsageDescription</key>
-    <string>RUNSTR needs to read your workout data to track your fitness progress and team contributions.</string>
-    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-    <string>RUNSTR needs location access to track your running, walking, and cycling activities accurately.</string>
-    <key>NSLocationAlwaysUsageDescription</key>
-    <string>RUNSTR needs location access to continue tracking your workout when the app is in the background.</string>
-    <key>NSLocationWhenInUseUsageDescription</key>
-    <string>RUNSTR needs location access to track your running, walking, and cycling activities.</string>
-    <key>NSMicrophoneUsageDescription</key>
-    <string>RUNSTR needs microphone access for voice journal entries.</string>
-    <key>NSMotionUsageDescription</key>
-    <string>RUNSTR needs access to your motion data to count your daily steps and track walking activities.</string>
-    <key>NSPhotoLibraryAddUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to save photos</string>
-    <key>NSPhotoLibraryUsageDescription</key>
-    <string>RUNSTR needs access to your photos to select a profile picture.</string>
-    <key>NSSpeechRecognitionUsageDescription</key>
-    <string>RUNSTR needs speech recognition to transcribe your voice journal entries.</string>
-    <key>UIBackgroundModes</key>
-    <array>
-      <string>location</string>
-      <string>audio</string>
-      <string>fetch</string>
-      <string>processing</string>
-      <string>remote-notification</string>
-    </array>
-    <key>UILaunchStoryboardName</key>
-    <string>SplashScreen</string>
-    <key>UIRequiredDeviceCapabilities</key>
-    <array>
-      <string>arm64</string>
-    </array>
-    <key>UIRequiresFullScreen</key>
-    <false/>
-    <key>UIStatusBarStyle</key>
-    <string>UIStatusBarStyleDefault</string>
-    <key>UISupportedInterfaceOrientations</key>
-    <array>
-      <string>UIInterfaceOrientationPortrait</string>
-      <string>UIInterfaceOrientationPortraitUpsideDown</string>
-    </array>
-    <key>UISupportedInterfaceOrientations~ipad</key>
-    <array>
-      <string>UIInterfaceOrientationPortrait</string>
-      <string>UIInterfaceOrientationPortraitUpsideDown</string>
-      <string>UIInterfaceOrientationLandscapeLeft</string>
-      <string>UIInterfaceOrientationLandscapeRight</string>
-    </array>
-    <key>UIUserInterfaceStyle</key>
-    <string>Automatic</string>
-    <key>UIViewControllerBasedStatusBarAppearance</key>
-    <false/>
-  </dict>
+<dict>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>runstr-background-location</string>
+	</array>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>CFBundleAllowMixedLocalizations</key>
+	<true/>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>RUNSTR</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.9.7</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>runstr</string>
+				<string>com.anonymous.runstr.project</string>
+			</array>
+		</dict>
+	</array>
+	<key>CFBundleVersion</key>
+	<string>197</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>12.0</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>RUNSTR needs camera access to take profile pictures and scan QR codes to join fitness challenges and events.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>RUNSTR needs access to your workout data to automatically sync your fitness activities and calculate team rankings for Bitcoin rewards.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>RUNSTR needs to read your workout data to track your fitness progress and team contributions.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>RUNSTR needs location access to track your running, walking, and cycling activities accurately.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>RUNSTR needs location access to continue tracking your workout when the app is in the background.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>RUNSTR needs location access to track your running, walking, and cycling activities.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>RUNSTR needs microphone access for voice journal entries.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>RUNSTR needs access to your motion data to count your daily steps and track walking activities.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Allow $(PRODUCT_NAME) to save photos</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>RUNSTR needs access to your photos to select a profile picture.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>RUNSTR needs speech recognition to transcribe your voice journal entries.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>audio</string>
+		<string>fetch</string>
+		<string>processing</string>
+		<string>remote-notification</string>
+	</array>
+	<key>UILaunchStoryboardName</key>
+	<string>SplashScreen</string>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>arm64</string>
+	</array>
+	<key>UIRequiresFullScreen</key>
+	<false/>
+	<key>UIStatusBarStyle</key>
+	<string>UIStatusBarStyleDefault</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UIUserInterfaceStyle</key>
+	<string>Automatic</string>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<false/>
+</dict>
 </plist>

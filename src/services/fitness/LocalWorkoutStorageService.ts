@@ -7,7 +7,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { WorkoutType } from '../../types/workout';
 import type { Split } from '../activity/SplitTrackingService';
-import { DailyRewardService } from '../rewards/DailyRewardService';
+import { DailyRewardService, type RewardResult } from '../rewards/DailyRewardService';
 import { RewardDestinationService } from '../rewards/RewardDestinationService';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
 import { buildRewardTags } from '../../utils/rewardTags';
@@ -239,17 +239,21 @@ export class LocalWorkoutStorageService {
         syncedToNostr: false,
       };
 
-      await this.saveWorkout(localWorkout);
+      const rewardResult = await this.saveWorkout(localWorkout);
       console.log(
         `✅ Saved GPS workout locally: ${workoutId} (${workout.type}, ${(
           workout.distance / 1000
         ).toFixed(2)}km)`
       );
 
-      // Reward is now triggered in the central saveWorkout() method
-      // This ensures ANY workout hitting local storage triggers reward check
-      // (rate limited to 1 per day by DailyRewardService)
-      return { workoutId, rewardSent: false, rewardAmount: 0 };
+      // Reward is triggered in the central saveWorkout() method (rate limited to
+      // 1 per day, distance-tiered). Surface the result so the post-workout
+      // summary can show the earned amount.
+      return {
+        workoutId,
+        rewardSent: rewardResult?.success ?? false,
+        rewardAmount: rewardResult?.amount ?? 0,
+      };
     } catch (error) {
       console.error('❌ Failed to save GPS workout:', error);
       throw error;
@@ -487,7 +491,7 @@ export class LocalWorkoutStorageService {
    * This is the central point for ALL local workout saves - GPS, manual, etc.
    * Reward trigger is here to ensure ANY workout triggers the daily reward check.
    */
-  private async saveWorkout(workout: LocalWorkout): Promise<void> {
+  private async saveWorkout(workout: LocalWorkout): Promise<RewardResult | undefined> {
     try {
       const workouts = await this.getAllWorkouts();
       workouts.push(workout);
@@ -501,15 +505,17 @@ export class LocalWorkoutStorageService {
       // Uses checkStreakAndReward() which:
       // 1. Filters by source (only gps_tracker, manual_entry)
       // 2. Filters by activity type (only running, walking, cycling)
-      // 3. Uses atomic "streak incremented today" flag to prevent race conditions
+      // 3. Applies the distance tier (>= 5K) to resolve the reward amount
+      // 4. Uses atomic "streak incremented today" flag to prevent race conditions
+      // Awaited (local AsyncStorage, fast) so the post-workout summary can show
+      // the earned amount. Never blocks the save on failure.
+      let rewardResult: RewardResult | undefined;
       try {
         const pubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
         if (pubkey) {
           console.log(`[LocalWorkoutStorage] Checking streak reward for ${workout.source} ${workout.type} workout...`);
-          // Fire and forget - don't block workout save for reward
-          DailyRewardService.checkStreakAndReward(pubkey, workout.source, workout.type).catch((rewardError) => {
-            console.warn('[LocalWorkoutStorage] Reward error (silent):', rewardError);
-          });
+          // Pass distance (meters) so the reward uses the correct distance tier
+          rewardResult = await DailyRewardService.checkStreakAndReward(pubkey, workout.source, workout.type, workout.distance);
         }
       } catch (rewardError) {
         // Silent failure - never block workout saves for reward issues
@@ -525,6 +531,8 @@ export class LocalWorkoutStorageService {
       // Lazy import to avoid circular dependency
       const { AutoBackupService } = await import('../backup/AutoBackupService');
       AutoBackupService.getInstance().scheduleBackup();
+
+      return rewardResult;
     } catch (error) {
       console.error('❌ Failed to save workout to storage:', error);
       throw error;

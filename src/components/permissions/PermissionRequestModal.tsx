@@ -134,11 +134,13 @@ export const PermissionRequestModal: React.FC<PermissionRequestModalProps> = ({
           <ActivityIndicator size="small" color={theme.colors.orangeBright} />
         );
       default:
+        // Not-yet-granted: a muted/inactive circle. Bright orange here read as
+        // "active" before the user had granted anything.
         return (
           <Ionicons
             name="radio-button-off"
             size={24}
-            color={theme.colors.textSecondary}
+            color={theme.colors.statusDot}
           />
         );
     }

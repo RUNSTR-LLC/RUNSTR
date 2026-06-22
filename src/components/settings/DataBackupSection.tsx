@@ -3,8 +3,9 @@
  */
 
 import React from 'react';
-import { View, Text, Switch } from 'react-native';
+import { View, Text } from 'react-native';
 import { theme } from '../../styles/theme';
+import { ThemedSwitch } from '../ui/ThemedSwitch';
 import { Card } from '../ui/Card';
 import { SettingsAccordion } from '../ui/SettingsAccordion';
 import { SettingItem } from './SettingItem';
@@ -49,14 +50,9 @@ export const DataBackupSection: React.FC<DataBackupSectionProps> = ({
                 : 'Disabled'
             }
             rightElement={
-              <Switch
+              <ThemedSwitch
                 value={autoBackupEnabled}
                 onValueChange={onAutoBackupToggle}
-                trackColor={{
-                  false: theme.colors.warning,
-                  true: theme.colors.accent,
-                }}
-                thumbColor={theme.colors.orangeBright}
               />
             }
           />

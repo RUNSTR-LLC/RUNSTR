@@ -46,6 +46,7 @@ export const colors = {
   prizeBackground: '#1a1a1a', // .challenge-prize background
   navBackground: '#0a0a0a', // .bottom-nav background
   syncBackground: '#333333', // .sync-icon, .leaderboard-avatar background
+  switchTrackOff: '#3a3a3a', // Switch/toggle track when OFF (neutral, reads as off; NOT orange)
 
   // Status indicators
   statusConnected: '#FF9D42', // Connected state (bright orange)

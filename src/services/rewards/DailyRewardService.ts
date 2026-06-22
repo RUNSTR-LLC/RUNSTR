@@ -5,7 +5,8 @@
  * 1. User publishes kind 1301 workout event with reward_destination tag
  * 2. External service monitors Nostr for kind 1301 events
  * 3. External service validates workout, checks anti-cheat, reads reward_destination
- * 4. External service sends 50 sats to user or charity based on tag
+ * 4. External service sends the distance-tiered reward (500/1000/2100/4200 for
+ *    5K/10K/half/marathon) to user or charity based on tag
  * 5. This service only tracks rewards LOCALLY for UI display
  *
  * ARCHITECTURE (v3):
@@ -22,7 +23,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
-import { REWARD_CONFIG, REWARD_STORAGE_KEYS } from '../../config/rewards';
+import { REWARD_CONFIG, REWARD_STORAGE_KEYS, getWorkoutRewardAmount } from '../../config/rewards';
 import { RewardDestinationService } from './RewardDestinationService';
 import { RewardNotificationManager } from './RewardNotificationManager';
 import { DonationTrackingService } from '../donation/DonationTrackingService';
@@ -163,11 +164,15 @@ class DailyRewardServiceClass {
    * @param userPubkey - User's public key
    * @param workoutSource - The workout.source field (e.g., 'gps_tracker', 'imported_nostr')
    * @param workoutType - The workout.type field (e.g., 'running', 'strength')
+   * @param distanceMeters - The workout.distance field in meters; drives the
+   *   distance-tiered reward amount. Workouts below the 5K tier (including
+   *   non-GPS activities with no distance) earn nothing.
    */
   async checkStreakAndReward(
     userPubkey: string,
     workoutSource: string,
-    workoutType?: string
+    workoutType?: string,
+    distanceMeters?: number
   ): Promise<RewardResult> {
     // Step 1: Filter by source - only user-generated workouts
     if (!REWARD_ELIGIBLE_SOURCES.includes(workoutSource)) {
@@ -179,6 +184,14 @@ class DailyRewardServiceClass {
     if (workoutType && !REWARD_ELIGIBLE_ACTIVITY_TYPES.includes(workoutType)) {
       console.log(`[Reward] Skipping reward for ${workoutType} (not reward-eligible activity)`);
       return { success: false, reason: 'activity_type_not_eligible' };
+    }
+
+    // Step 1.6: Distance gate — only workouts reaching the 5K tier earn a reward.
+    // Resolves the tiered amount (500/1000/2100/4200); 0 means below 5K.
+    const rewardAmount = getWorkoutRewardAmount(distanceMeters);
+    if (rewardAmount <= 0) {
+      console.log(`[Reward] Skipping reward — distance ${distanceMeters ?? 0}m below 5K minimum`);
+      return { success: false, reason: 'below_minimum_distance' };
     }
 
     // Step 2: Atomic streak check - only first workout of the day PER USER
@@ -201,10 +214,10 @@ class DailyRewardServiceClass {
 
       // Step 3: Mark streak as incremented BEFORE sending reward (prevents race condition)
       await AsyncStorage.setItem(streakKey, new Date().toISOString());
-      console.log('[Reward] Streak incremented! Triggering daily reward...');
+      console.log(`[Reward] Streak incremented! Triggering daily reward (${rewardAmount} sats)...`);
 
-      // Step 4: Send the reward
-      return this.sendReward(userPubkey);
+      // Step 4: Send the reward (distance-tiered amount)
+      return this.sendReward(userPubkey, rewardAmount);
     } finally {
       _rewardClaimLock = false;
     }
@@ -473,8 +486,12 @@ class DailyRewardServiceClass {
    *
    * PLEDGE OVERRIDE:
    * If user has an active pledge, bypasses this flow and calls sendPledgeReward()
+   *
+   * @param userPubkey - User's public key
+   * @param rewardAmount - Distance-tiered reward amount. Defaults to the 5K base
+   *   when not supplied (callers without a known distance).
    */
-  async sendReward(userPubkey: string): Promise<RewardResult> {
+  async sendReward(userPubkey: string, rewardAmount?: number): Promise<RewardResult> {
     try {
       console.log(
         '[Reward] Tracking reward for',
@@ -514,14 +531,15 @@ class DailyRewardServiceClass {
       }
       // ===== END PLEDGE CHECK =====
 
-      let totalAmount: number = REWARD_CONFIG.DAILY_WORKOUT_REWARD; // Default 50 sats
+      // Distance-tiered amount from the caller; falls back to the 5K base.
+      let totalAmount: number = rewardAmount ?? REWARD_CONFIG.DAILY_WORKOUT_REWARD;
 
       // ===== EINUNDZWANZIG DOUBLE REWARDS =====
       if (isEinundzwanzigActive()) {
         const isInEinundzwanzig = await EinundzwanzigService.hasJoined(userPubkey);
         if (isInEinundzwanzig) {
-          totalAmount = 100; // Double reward for Einundzwanzig participants
-          console.log('[Reward] Einundzwanzig bonus active: 100 sats');
+          totalAmount = EINUNDZWANZIG_REWARD_CONFIG.bonusRewardSats; // Bonus for Einundzwanzig participants
+          console.log(`[Reward] Einundzwanzig bonus active: ${totalAmount} sats`);
         }
       }
       // ===== END EINUNDZWANZIG CHECK =====

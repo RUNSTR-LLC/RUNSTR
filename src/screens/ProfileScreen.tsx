@@ -387,7 +387,10 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <TexturedBackground>
+      {/* edges={[]} — the SafeAreaView above already applies the top inset.
+          TexturedBackground defaults to edges={['top']}, which would double the
+          inset and push the TopBar lower than on the Social/Leaderboard tabs. */}
+      <TexturedBackground edges={[]}>
         {/* Header — hidden during active workout */}
       {isOwner && !isWorkoutActive && (
         musicPlayerHeaderEnabled ? (

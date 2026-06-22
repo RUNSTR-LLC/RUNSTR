@@ -3,8 +3,9 @@
  */
 
 import React from 'react';
-import { View, Switch, Platform } from 'react-native';
+import { View, Platform } from 'react-native';
 import { theme } from '../../styles/theme';
+import { ThemedSwitch } from '../ui/ThemedSwitch';
 import { Card } from '../ui/Card';
 import { SettingsAccordion } from '../ui/SettingsAccordion';
 import { SettingItem } from './SettingItem';
@@ -33,14 +34,9 @@ export const AppleHealthSection: React.FC<AppleHealthSectionProps> = ({
             title="Sync Workouts"
             subtitle="Automatically sync workouts from Apple Health"
             rightElement={
-              <Switch
+              <ThemedSwitch
                 value={healthKitSyncEnabled}
                 onValueChange={onHealthKitSyncToggle}
-                trackColor={{
-                  false: theme.colors.warning,
-                  true: theme.colors.accent,
-                }}
-                thumbColor={theme.colors.orangeBright}
               />
             }
           />

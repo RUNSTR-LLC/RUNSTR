@@ -653,5 +653,5 @@ interface Competition {
 |------|-----------|---------|
 | 0 | Read + Write | Profile metadata (name, picture, lud16) |
 | 1 | Write (optional) | Social posts for workout shares |
-| 1301 | Local only | Workout event structure (submitted to Supabase, NOT published to relays) |
+| 1301 | Read + Write (default) | Workout records — saved to Supabase (source of truth) AND published to relays by default for cross-app interop; sensitive tags stripped by allowlist |
 | 30078 | Write | Encrypted backup (NIP-44 self-encryption, gzip compressed) |

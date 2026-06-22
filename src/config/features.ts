@@ -32,7 +32,7 @@ export const FEATURES = {
   // (e.g. auto-share-to-club-chat) may still run. That is intentional for this pass.
   // ---------------------------------------------------------------------------
   /** Fitness Clubs / Teams: club pages, team chat, captain tools, club affiliations. */
-  teams: false,
+  teams: true,
   /** Captain/user-created events and the Compete hub. */
   customEvents: false,
   /** Season 2 / Season 3 / Einundzwanzig competitions and banners. */

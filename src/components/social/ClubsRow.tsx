@@ -12,6 +12,7 @@ interface ClubsRowProps {
   clubs: Club[];
   userClubId?: string | null;
   showSearch?: boolean;
+  onCreatePress?: () => void;
 }
 
 const ClubItem = React.memo(
@@ -31,7 +32,20 @@ const ClubItem = React.memo(
   )
 );
 
-export const ClubsRow: React.FC<ClubsRowProps> = ({ clubs, userClubId, showSearch = true }) => {
+const CreateClubItem = React.memo(({ onPress }: { onPress: () => void }) => (
+  <TouchableOpacity
+    style={styles.clubItem}
+    onPress={onPress}
+    activeOpacity={0.7}
+  >
+    <View style={styles.createCircle}>
+      <Ionicons name="add" size={28} color={theme.colors.text} />
+    </View>
+    <Text style={styles.clubName}>Create</Text>
+  </TouchableOpacity>
+));
+
+export const ClubsRow: React.FC<ClubsRowProps> = ({ clubs, userClubId, showSearch = true, onCreatePress }) => {
   const navigation = useNavigation<any>();
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -77,7 +91,7 @@ export const ClubsRow: React.FC<ClubsRowProps> = ({ clubs, userClubId, showSearc
     [handleClubPress]
   );
 
-  if (clubs.length === 0) return null;
+  if (clubs.length === 0 && !onCreatePress) return null;
 
   return (
     <View style={styles.container}>
@@ -88,6 +102,9 @@ export const ClubsRow: React.FC<ClubsRowProps> = ({ clubs, userClubId, showSearc
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
+        ListFooterComponent={
+          onCreatePress ? <CreateClubItem onPress={onCreatePress} /> : null
+        }
       />
       {showSearch && <View style={styles.searchWrapper}>
         <View style={styles.searchContainer}>
@@ -158,6 +175,16 @@ const styles = StyleSheet.create({
   clubItem: {
     alignItems: 'center',
     maxWidth: 72,
+  },
+  createCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.cardBackground,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   clubName: {
     color: theme.colors.text,
