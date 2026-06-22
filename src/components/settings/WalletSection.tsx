@@ -11,6 +11,7 @@ import { Card } from '../ui/Card';
 import { SettingsAccordion } from '../ui/SettingsAccordion';
 import { SettingItem } from './SettingItem';
 import { settingsStyles as styles } from '../../screens/settingsStyles';
+import { DefaultZapAmountSetting } from './DefaultZapAmountSetting';
 
 interface WalletSectionProps {
   onRewardsPress: () => void;
@@ -67,6 +68,7 @@ export const WalletSection: React.FC<WalletSectionProps> = ({
                   </Text>
                 </View>
               </View>
+              <DefaultZapAmountSetting />
               <TouchableOpacity
                 style={{
                   paddingVertical: 10,
