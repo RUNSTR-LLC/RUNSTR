@@ -780,7 +780,7 @@ export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
       setWorkoutData({
         type: 'walking',
         distance: session.distance,
-        duration: elapsedTime,
+        duration: finalDuration, // match the value persisted to history (was elapsedTime → diverged after pause/resume)
         calories,
         elevation: session.elevationGain || 0,
         steps,

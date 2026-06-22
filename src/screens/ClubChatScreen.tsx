@@ -183,7 +183,7 @@ export const ClubChatScreen: React.FC<ClubChatScreenProps> = ({
     return {
       id: target.id,
       sender_npub: target.sender_npub,
-      content: target.content.slice(0, 80),
+      content: (target.content || '').slice(0, 80),
       sender_name: p?.display_name || p?.name,
     };
   }, [messages, profiles]);

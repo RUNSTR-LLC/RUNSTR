@@ -66,6 +66,7 @@ const STATUS_ORDER: Record<CompetitionStatus, number> = {
 
 function formatShortDate(dateStr: string): string {
   const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return ''; // null/malformed start_date → no "Invalid Date"
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 

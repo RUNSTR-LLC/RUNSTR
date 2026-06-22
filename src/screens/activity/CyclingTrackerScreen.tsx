@@ -393,7 +393,7 @@ export const CyclingTrackerScreen: React.FC<CyclingTrackerScreenProps> = ({
           '[CyclingTrackerScreen] App returned to foreground, restarting timers and syncing...'
         );
 
-        // Restart timer (metrics update via useEffect when elapsedTime changes)
+        // Restart timer
         if (!timerRef.current) {
           timerRef.current = setInterval(() => {
             if (!isPausedRef.current) {
@@ -405,6 +405,13 @@ export const CyclingTrackerScreen: React.FC<CyclingTrackerScreenProps> = ({
             }
           }, 1000);
         }
+
+        // Restart the recurring metrics interval — it was cleared on background
+        // and is only otherwise started in initializeTracking(), so without this
+        // distance/speed stayed frozen for the rest of the ride after a
+        // background/foreground cycle. startMetricsInterval() self-clears, so
+        // calling it again is safe. (The block below also does a one-shot sync.)
+        startMetricsInterval();
 
         // Force immediate sync of metrics
         const session = simpleRunTracker.getCurrentSession();

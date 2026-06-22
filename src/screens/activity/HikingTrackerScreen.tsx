@@ -412,7 +412,7 @@ export const HikingTrackerScreen: React.FC<HikingTrackerScreenProps> = ({
       setWorkoutData({
         type: 'hiking',
         distance: session.distance,
-        duration: elapsedTime,
+        duration: finalDuration, // match the value persisted to history (was elapsedTime → diverged after pause/resume)
         calories,
         elevation: session.elevationGain || 0,
         steps,

@@ -155,7 +155,7 @@ const ClubChatSectionComponent: React.FC<ClubChatSectionProps> = ({
     const target = messages.find((m) => m.id === replyToId);
     if (!target) return undefined;
     const p = profiles.get(target.sender_npub);
-    return { id: target.id, sender_npub: target.sender_npub, content: target.content.slice(0, 80), sender_name: p?.display_name || p?.name };
+    return { id: target.id, sender_npub: target.sender_npub, content: (target.content || '').slice(0, 80), sender_name: p?.display_name || p?.name };
   }, [messages, profiles]);
 
   const renderMessage = useCallback((item: ClubMessage) => {
