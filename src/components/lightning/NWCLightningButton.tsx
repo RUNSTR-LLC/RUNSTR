@@ -24,6 +24,7 @@ import { NWCWalletService } from '../../services/wallet/NWCWalletService';
 import { npubToHex } from '../../utils/ndkConversion';
 import { EnhancedZapModal } from '../nutzap/EnhancedZapModal';
 import { ExternalZapModal } from '../nutzap/ExternalZapModal';
+import { DEFAULT_ZAP_AMOUNT_KEY } from '../../constants/zap';
 
 const DEFAULT_ZAP_AMOUNT = 21;
 const LONG_PRESS_DURATION = 400; // ms to trigger long press (reduced from 500ms)
@@ -100,7 +101,7 @@ export const NWCLightningButton: React.FC<NWCLightningButtonProps> = ({
 
   const loadDefaultAmount = async () => {
     try {
-      const stored = await AsyncStorage.getItem('@runstr:default_zap_amount');
+      const stored = await AsyncStorage.getItem(DEFAULT_ZAP_AMOUNT_KEY);
       if (stored) {
         setDefaultAmount(parseInt(stored));
       }
@@ -286,10 +287,7 @@ export const NWCLightningButton: React.FC<NWCLightningButtonProps> = ({
   const handleDefaultAmountChange = async (newDefault: number) => {
     setDefaultAmount(newDefault);
     try {
-      await AsyncStorage.setItem(
-        '@runstr:default_zap_amount',
-        newDefault.toString()
-      );
+      await AsyncStorage.setItem(DEFAULT_ZAP_AMOUNT_KEY, newDefault.toString());
     } catch (error) {
       console.error('Error saving default amount:', error);
     }

@@ -13,6 +13,11 @@ import { ZapsBottomSheet } from './ZapsBottomSheet';
 import { InlineCommentList } from './InlineCommentList';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNWCZap } from '../../hooks/useNWCZap';
+import {
+  DEFAULT_ZAP_AMOUNT_KEY,
+  DEFAULT_ZAP_AMOUNT_FALLBACK,
+  parseStoredZapAmount,
+} from '../../constants/zap';
 
 interface SocialInteractionRowProps {
   post: SocialFeedPost;
@@ -39,12 +44,12 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
   const zapFlash = useRef(new Animated.Value(1)).current;
 
   const { hasWallet: hasNWC, sendZap } = useNWCZap();
-  const [defaultZapAmount, setDefaultZapAmount] = useState(50);
+  const [defaultZapAmount, setDefaultZapAmount] = useState(DEFAULT_ZAP_AMOUNT_FALLBACK);
 
   useEffect(() => {
-    AsyncStorage.getItem('@runstr:default_zap_amount').then((stored) => {
-      if (stored) setDefaultZapAmount(parseInt(stored, 10) || 50);
-    });
+    AsyncStorage.getItem(DEFAULT_ZAP_AMOUNT_KEY)
+      .then((stored) => setDefaultZapAmount(parseStoredZapAmount(stored)))
+      .catch(() => {});
   }, []);
 
   const debounce = useCallback((action: string, fn: () => Promise<void>) => {

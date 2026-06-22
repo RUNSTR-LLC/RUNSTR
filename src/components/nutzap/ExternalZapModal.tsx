@@ -31,9 +31,7 @@ import { openInCashApp } from '../../utils/walletDeepLinks';
 import { DonationTrackingService } from '../../services/donation/DonationTrackingService';
 import { NWCStorageService } from '../../services/wallet/NWCStorageService';
 import { NWCWalletService } from '../../services/wallet/NWCWalletService';
-
-// Storage key for default amount
-const DEFAULT_AMOUNT_KEY = '@runstr:default_zap_amount';
+import { DEFAULT_ZAP_AMOUNT_KEY } from '../../constants/zap';
 
 // Amount presets (higher minimums to avoid charity LNURL minimum errors)
 const AMOUNT_PRESETS = [1000, 2100, 5000, 10000];
@@ -117,7 +115,7 @@ export const ExternalZapModal: React.FC<ExternalZapModalProps> = ({
   useEffect(() => {
     const loadDefaultAmount = async () => {
       try {
-        const stored = await AsyncStorage.getItem(DEFAULT_AMOUNT_KEY);
+        const stored = await AsyncStorage.getItem(DEFAULT_ZAP_AMOUNT_KEY);
         if (stored) {
           const defaultAmount = parseInt(stored, 10);
           if (!isNaN(defaultAmount) && defaultAmount > 0) {
@@ -272,7 +270,7 @@ export const ExternalZapModal: React.FC<ExternalZapModalProps> = ({
     // Save as default if checked
     if (setAsDefault) {
       try {
-        await AsyncStorage.setItem(DEFAULT_AMOUNT_KEY, amount.toString());
+        await AsyncStorage.setItem(DEFAULT_ZAP_AMOUNT_KEY, amount.toString());
         console.log('[ExternalZapModal] Saved default amount:', amount);
       } catch (err) {
         console.warn('[ExternalZapModal] Error saving default amount:', err);
