@@ -65,17 +65,40 @@ target 'RUNSTR' do
 
     # Xcode 26 / Apple clang 21 tightened constant-expression rules and rejects
     # the consteval-based compile-time format-string checks in fmt 11.0.2 (vendored
-    # via React Native). fmt's base.h unconditionally #defines FMT_USE_CONSTEVAL
-    # from its own compiler detection, so a -D override is ignored; compiling the
-    # fmt target as C++17 instead makes fmt select FMT_USE_CONSTEVAL=0 (the checks
-    # become runtime), which builds cleanly. Remove once RN ships a newer fmt that
-    # compiles under Xcode 26 unaided. See fmtlib/fmt#4740, facebook/react-native#55601.
+    # via React Native). Two layers, because the build-setting override alone did
+    # not reliably win over fmt's own c++20 xcconfig in the Release archive:
+    #   1) compile the fmt target as C++17, and
+    #   2) force FMT_USE_CONSTEVAL off at the source so fmt compiles regardless of
+    #      the C++ standard the target actually ends up using.
+    # Remove once RN ships a newer fmt that compiles under Xcode 26 unaided.
+    # See fmtlib/fmt#4740, facebook/react-native#55601.
     installer.pods_project.targets.each do |target|
       if target.name == 'fmt'
         target.build_configurations.each do |config|
           config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
         end
       end
+    end
+
+    fmt_base = File.join(
+      Pod::Config.instance.installation_root.to_s,
+      'Pods', 'fmt', 'include', 'fmt', 'base.h'
+    )
+    if File.exist?(fmt_base)
+      original = File.read(fmt_base)
+      # fmt selects consteval when FMT_USE_CONSTEVAL is 1; force every such
+      # branch to 0. Idempotent — a second run finds nothing to replace.
+      patched = original.gsub('#  define FMT_USE_CONSTEVAL 1', '#  define FMT_USE_CONSTEVAL 0')
+      if patched != original
+        # CocoaPods marks pod sources read-only (0444), so make it writable first.
+        File.chmod(0644, fmt_base)
+        File.write(fmt_base, patched)
+        Pod::UI.puts '[RUNSTR] Patched fmt base.h: FMT_USE_CONSTEVAL forced to 0 (Xcode 26 fix)'
+      else
+        Pod::UI.puts '[RUNSTR] fmt base.h already consteval-free'
+      end
+    else
+      Pod::UI.puts "[RUNSTR] WARNING: fmt base.h not found at #{fmt_base} — consteval patch skipped"
     end
   end
 end
