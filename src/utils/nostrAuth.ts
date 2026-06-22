@@ -41,11 +41,13 @@ export async function storeAuthenticationData(
 ): Promise<boolean> {
   try {
     console.log('[Auth] Starting authentication storage (SecureStore v3.0)...');
-    console.log('[Auth] nsec format check:', {
-      startsWithNsec: nsec?.startsWith('nsec1'),
-      length: nsec?.length,
-      present: !!nsec,
-    });
+    if (__DEV__) {
+      console.log('[Auth] nsec format check:', {
+        startsWithNsec: nsec?.startsWith('nsec1'),
+        length: nsec?.length,
+        present: !!nsec,
+      });
+    }
 
     // Validate nsec format first
     if (!nsec || !nsec.startsWith('nsec1') || nsec.length < 63) {

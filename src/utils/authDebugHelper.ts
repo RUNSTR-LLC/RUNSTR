@@ -36,8 +36,17 @@ export async function checkAuthStorageStatus(): Promise<{
       const value = await AsyncStorage.getItem(key);
       if (value) {
         console.log(`✅ ${name}`);
-        console.log(`   Key: ${key}`);
-        console.log(`   Value: ${value.slice(0, 20)}...`);
+        // Never print key material (even a prefix) — nsec/encryption keys leak
+        // via device logs/crash reporters. Presence only; dev gets the prefix
+        // for non-sensitive keys to aid debugging.
+        if (__DEV__) {
+          const sensitive =
+            key.includes('nsec') || key.includes('encryption_key');
+          console.log(`   Key: ${key}`);
+          console.log(
+            `   Value: ${sensitive ? '[hidden]' : value.slice(0, 20) + '...'}`
+          );
+        }
 
         if (key === '@runstr:npub') hasNpub = true;
         if (key === '@runstr:hex_pubkey') hasHexPubkey = true;

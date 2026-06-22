@@ -141,6 +141,12 @@ export class LocalWorkoutStorageService {
   private static instance: LocalWorkoutStorageService;
   private workoutCache: LocalWorkout[] | null = null;
   private cacheValid = false;
+  /**
+   * Set when getAllWorkouts() fails to parse stored data. While true we refuse
+   * to overwrite local_workouts so a transient read/corruption error can't wipe
+   * the user's history (the corrupt blob is backed up for recovery).
+   */
+  private dataCorrupted = false;
 
   private constructor() {}
 
@@ -150,6 +156,24 @@ export class LocalWorkoutStorageService {
   private invalidateCache(): void {
     this.workoutCache = null;
     this.cacheValid = false;
+  }
+
+  /**
+   * Single guarded write path for the workout list. Refuses to persist when a
+   * prior read detected corruption — overwriting then would destroy history
+   * that we've already backed up. All callers must write through this.
+   */
+  private async persistWorkouts(workouts: LocalWorkout[]): Promise<void> {
+    if (this.dataCorrupted) {
+      throw new Error(
+        'LocalWorkoutStorage: refusing to write — stored workouts are corrupted ' +
+          '(backed up). Aborting to avoid overwriting recoverable history.'
+      );
+    }
+    await AsyncStorage.setItem(
+      STORAGE_KEYS.LOCAL_WORKOUTS,
+      JSON.stringify(workouts)
+    );
   }
 
   static getInstance(): LocalWorkoutStorageService {
@@ -412,10 +436,7 @@ export class LocalWorkoutStorageService {
         workouts[existingIndex].endTime = workout.endTime;
         workouts[existingIndex].calories = workout.calories;
 
-        await AsyncStorage.setItem(
-          STORAGE_KEYS.LOCAL_WORKOUTS,
-          JSON.stringify(workouts)
-        );
+        await this.persistWorkouts(workouts);
         this.invalidateCache();
         // Lazy import to avoid circular dependency
         const { AutoBackupService: AutoBackup1 } = await import('../backup/AutoBackupService');
@@ -442,10 +463,7 @@ export class LocalWorkoutStorageService {
         };
 
         workouts.push(localWorkout);
-        await AsyncStorage.setItem(
-          STORAGE_KEYS.LOCAL_WORKOUTS,
-          JSON.stringify(workouts)
-        );
+        await this.persistWorkouts(workouts);
         this.invalidateCache();
         // Lazy import to avoid circular dependency
         const { AutoBackupService: AutoBackup2 } = await import('../backup/AutoBackupService');
@@ -495,10 +513,7 @@ export class LocalWorkoutStorageService {
     try {
       const workouts = await this.getAllWorkouts();
       workouts.push(workout);
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.LOCAL_WORKOUTS,
-        JSON.stringify(workouts)
-      );
+      await this.persistWorkouts(workouts);
       this.invalidateCache();
 
       // REWARD TRIGGER: Only user-generated cardio workouts on a new day trigger rewards
@@ -764,10 +779,7 @@ export class LocalWorkoutStorageService {
       workout.supabaseSubmitted = submitted;
       workout.supabaseError = submitted ? undefined : error;
 
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.LOCAL_WORKOUTS,
-        JSON.stringify(workouts)
-      );
+      await this.persistWorkouts(workouts);
       this.invalidateCache();
     } catch (err) {
       console.warn('[LocalWorkoutStorage] Failed to update supabase status:', err);
@@ -835,9 +847,10 @@ export class LocalWorkoutStorageService {
    */
   async getAllWorkouts(): Promise<LocalWorkout[]> {
     try {
-      // Return cached data if valid
+      // Return a COPY of the cache — the same reference is handed to React
+      // state, and callers push/mutate the result before persisting.
       if (this.cacheValid && this.workoutCache) {
-        return this.workoutCache;
+        return [...this.workoutCache];
       }
 
       const data = await AsyncStorage.getItem(STORAGE_KEYS.LOCAL_WORKOUTS);
@@ -847,7 +860,25 @@ export class LocalWorkoutStorageService {
         return [];
       }
 
-      const workouts: LocalWorkout[] = JSON.parse(data);
+      let workouts: LocalWorkout[];
+      try {
+        workouts = JSON.parse(data);
+      } catch (parseError) {
+        // Corruption: returning [] here would let the next save overwrite the
+        // whole history with a near-empty array. Back the raw blob up and latch
+        // dataCorrupted so persistWorkouts() refuses to write until resolved.
+        this.dataCorrupted = true;
+        const backupKey = `local_workouts_corrupt_${Date.now()}`;
+        try {
+          await AsyncStorage.setItem(backupKey, data);
+        } catch {}
+        console.error(
+          `❌ local_workouts is corrupted; backed up to ${backupKey}. ` +
+            'Writes are now blocked to prevent data loss.',
+          parseError
+        );
+        return [];
+      }
 
       // Sort by start time (newest first)
       workouts.sort(
@@ -857,7 +888,7 @@ export class LocalWorkoutStorageService {
 
       this.workoutCache = workouts;
       this.cacheValid = true;
-      return workouts;
+      return [...workouts];
     } catch (error) {
       console.error('❌ Failed to retrieve local workouts:', error);
       return [];
@@ -889,10 +920,7 @@ export class LocalWorkoutStorageService {
       workout.nostrEventId = nostrEventId;
       workout.syncedAt = new Date().toISOString();
 
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.LOCAL_WORKOUTS,
-        JSON.stringify(workouts)
-      );
+      await this.persistWorkouts(workouts);
       this.invalidateCache();
       console.log(
         `✅ Marked workout ${workoutId} as synced (Nostr event: ${nostrEventId})`
@@ -927,10 +955,7 @@ export class LocalWorkoutStorageService {
         generatedAt: new Date().toISOString(),
       };
 
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.LOCAL_WORKOUTS,
-        JSON.stringify(workouts)
-      );
+      await this.persistWorkouts(workouts);
       this.invalidateCache();
       console.log(`[LocalWorkoutStorage] Saved card for workout: ${workoutId} (template: ${card.templateId})`);
     } catch (error) {
@@ -959,10 +984,7 @@ export class LocalWorkoutStorageService {
       const removedCount = workouts.length - remainingWorkouts.length;
 
       if (removedCount > 0) {
-        await AsyncStorage.setItem(
-          STORAGE_KEYS.LOCAL_WORKOUTS,
-          JSON.stringify(remainingWorkouts)
-        );
+        await this.persistWorkouts(remainingWorkouts);
         this.invalidateCache();
         console.log(
           `✅ Cleaned up ${removedCount} synced workouts older than ${olderThanDays} days`
@@ -996,10 +1018,7 @@ export class LocalWorkoutStorageService {
       workout.routeId = routeId;
       workout.routeLabel = routeLabel;
 
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.LOCAL_WORKOUTS,
-        JSON.stringify(workouts)
-      );
+      await this.persistWorkouts(workouts);
       this.invalidateCache();
       console.log(`[LocalWorkoutStorage] Updated workout ${workoutId} with route "${routeLabel}"`);
     } catch (error) {
@@ -1032,10 +1051,7 @@ export class LocalWorkoutStorageService {
       const workouts = await this.getAllWorkouts();
       const filteredWorkouts = workouts.filter((w) => w.id !== workoutId);
 
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.LOCAL_WORKOUTS,
-        JSON.stringify(filteredWorkouts)
-      );
+      await this.persistWorkouts(filteredWorkouts);
       this.invalidateCache();
       console.log(`✅ Deleted workout ${workoutId} from local storage`);
     } catch (error) {
