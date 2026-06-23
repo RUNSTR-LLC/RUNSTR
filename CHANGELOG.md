@@ -2,46 +2,19 @@
 
 All notable changes to RUNSTR will be documented in this file.
 
-## [1.9.7] - 2026-06-22 - Xcode 26 Build, Stability & Polish
+## [1.9.7] - 2026-06-22 - Stability & Polish
 
-This release gets RUNSTR building and running cleanly on the latest Xcode /
-iOS 26 toolchain — fixing a launch crash that blocked store submission — and
-lands a large round of stability, data-safety, and polish fixes from a
-pre-release audit.
+Stability and polish release. Fixes a launch crash, protects workout history from
+data loss, and gets RUNSTR building on the latest Xcode / iOS 26 toolchain.
+Includes everything since 1.9.5.
 
-(Rolls up the unreleased 1.9.6 work — App Store submission was blocked on the
-toolchain at the time — so this covers everything since 1.9.5.)
-
-### Features
-- **Default zap amount** — set your preferred zap amount with quick-pick chips or a custom value under your connected wallet
-- **Workout posting** — a post-format setting plus optional auto-post after each finished workout; auto-post is idempotent so a workout is never double-posted, and sensitive tags are stripped from public posts
-- **Captain-created events on the club page** — club pages now surface events created by the captain
-- **Step & walking events** — step/walking competitions now score correctly (previously returned 0)
-
-### Improvements
-- **Redesigned Settings toggles** — custom on-brand orange switches replace the default white iOS toggles, and an off toggle no longer looks active
-- **Aligned tab headers** — the history and menu buttons now sit at the same level across every tab
-- **Faster feed & leaderboards** — batched workout lookups, memoized rows, and a windowed list; the leaderboard no longer fetches a profile per row
-- **Cleaner Start screen** — removed the orange outline ring around the Start button
-- **Activity-aware workout cards** — step and walking posts render with the right stats
-- **Muted permission indicators** — an ungranted permission shows a neutral circle instead of a bright-orange one
-- **Wording** — "competition" is now "event" in Settings; reward notifications no longer surface raw units
-
-### Bug Fixes
-- **Fixed a crash on launch when tapping "Start"** on the new toolchain build — the most important fix this release
-- **Protected workout history from data loss** — corrupted local data is now backed up rather than overwritten on the next save
-- **Workout summary shows the correct duration** — it now matches your history (the two could diverge after pause/resume)
-- **Cycling distance & speed no longer freeze** after backgrounding the app mid-ride
-- **Fixed a club-chat crash** when replying to certain messages, and club events no longer show "Invalid Date"
-- **Voice split announcements** play while the app is backgrounded
-- **Removed phantom GPS distance** from pre-workout countdown timers left running on unmount
-- **Steadier feed** — deterministic ordering on batched queries and null-safe names in the zap / like / comment lists
-- **Privacy** — auth key material is no longer written to logs
-
-### Behind the scenes
-- **Builds on Xcode 26 / iOS 26 SDK** — resolved the fmt, react-native-mediapipe, and expo-localization build breaks plus a New Architecture (Fabric) launch crash, unblocking iOS store submission
-- **Backend-managed AI credits (groundwork)** — PPQ.AI key registration moved to a NIP-98-verified backend Edge Function; inert until the backend is deployed
-- **Captain NWC event payouts (groundwork)** — pure payout math (splits / partition / idempotency) extracted and tested ahead of enabling captain prize-pool payouts; inert until deployed
+- Fixed a crash on launch when tapping Start
+- Protected workout history from being overwritten if local data is corrupted
+- Fixed the workout-summary duration and a cycling distance/speed freeze after backgrounding the app
+- Redesigned Settings toggles, aligned tab headers, and a faster feed & leaderboards
+- Added a default zap amount setting and optional auto-post after a workout
+- Captain-created events now show on the club page; step/walking events score correctly
+- Builds on the Xcode 26 / iOS 26 SDK
 
 ## [1.9.5] - 2026-06-11 - Polish, Stability & Global Nav
 
