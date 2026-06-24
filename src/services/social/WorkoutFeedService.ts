@@ -52,7 +52,7 @@ export class WorkoutFeedService {
 
       // Enrich rows that are missing an authorName (network rows + any RUNSTR rows without profile_name).
       // De-dupe by npub so each unique author is fetched at most once per page.
-      const needsEnrichment = page.filter((w) => !w.authorName);
+      const needsEnrichment = page.filter((w) => !w.authorName && w.npub);
       if (needsEnrichment.length > 0) {
         const uniqueNpubs = [...new Set(needsEnrichment.map((w) => w.npub))];
         // Fetch concurrently; failures are non-fatal — rows keep their existing (null) values.
