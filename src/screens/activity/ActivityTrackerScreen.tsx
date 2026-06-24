@@ -31,6 +31,7 @@ import { WoTService } from '../../services/wot/WoTService';
 import { EnhancedSocialShareModal } from '../../components/profile/shared/EnhancedSocialShareModal';
 import { UnifiedSigningService } from '../../services/auth/UnifiedSigningService';
 import { WorkoutPublishingService } from '../../services/nostr/workoutPublishingService';
+import { NostrPostingPreferencesService } from '../../services/activity/NostrPostingPreferencesService';
 import { nostrProfileService } from '../../services/nostr/NostrProfileService';
 import type { Workout } from '../../types/workout';
 import type { PublishableWorkout } from '../../services/nostr/workoutPublishingService';
@@ -154,9 +155,10 @@ export const ActivityTrackerScreen: React.FC = () => {
         canPostToSocial: true,
       } as PublishableWorkout;
 
-      // Post to Nostr using workoutPublishingService
+      // Post to Nostr using workoutPublishingService, honoring the user's format preference
       const publishingService = WorkoutPublishingService.getInstance();
-      const result = await publishingService.postWorkoutToSocial(
+      const format = await NostrPostingPreferencesService.getPostFormat();
+      const result = await publishingService.postWorkout(
         publishableWorkout,
         signer,
         userPubkey,
@@ -165,6 +167,7 @@ export const ActivityTrackerScreen: React.FC = () => {
           userAvatar: userProfile?.picture,
           userName: userProfile?.name || userProfile?.display_name,
           includeCard: true,
+          format,
         }
       );
 

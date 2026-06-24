@@ -16,7 +16,8 @@ import { theme } from '../../../styles/theme';
 import { CustomAlertManager } from '../../ui/CustomAlert';
 import { WorkoutPublishingService } from '../../../services/nostr/workoutPublishingService';
 import { WorkoutStatusTracker } from '../../../services/fitness/WorkoutStatusTracker';
-import { getNsecFromStorage } from '../../../utils/nostr';
+import { UnifiedSigningService } from '../../../services/auth/UnifiedSigningService';
+import { NostrPostingPreferencesService } from '../../../services/activity/NostrPostingPreferencesService';
 import type { Workout } from '../../../types/workout';
 
 interface SocialShareModalProps {
@@ -62,9 +63,9 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
       setLoading(true);
 
       try {
-        // Get user's nsec
-        const nsec = await getNsecFromStorage(userId);
-        if (!nsec) {
+        // Get signer (handles both nsec and Amber)
+        const signer = await UnifiedSigningService.getInstance().getSigner();
+        if (!signer) {
           CustomAlertManager.alert(
             'Authentication Required',
             'Please log in to post workouts.'
@@ -72,16 +73,18 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
           return;
         }
 
-        // Post to Nostr as kind 1 social event
-        const result = await publishingService.postWorkoutToSocial(
+        // Post to Nostr honoring the user's format preference (kind 1301 or kind 1 card)
+        const format = await NostrPostingPreferencesService.getPostFormat();
+        const result = await publishingService.postWorkout(
           workout as any,
-          nsec,
+          signer,
           userId,
           {
             includeCard: true,
             cardTemplate: 'achievement',
             includeStats: true,
             includeMotivation: true,
+            format,
           }
         );
 

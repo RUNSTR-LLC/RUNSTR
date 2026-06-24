@@ -676,7 +676,7 @@ export class WorkoutPublishingService {
     userId: string,
     options: (SocialPostOptions & { format?: 'kind1' | 'kind1301' }) = {}
   ): Promise<WorkoutPublishResult> {
-    const format = options.format || 'kind1';
+    const format = options.format || 'kind1301';
     if (format === 'kind1301') {
       const eventId = await this.publishWorkout1301(workout, signer, userId);
       await this.dualWriteWorkoutFeed(workout, userId, eventId);
