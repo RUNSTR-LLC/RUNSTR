@@ -2,6 +2,7 @@ import { supabase, isSupabaseConfigured } from '../../utils/supabase';
 import {
   type FeedWorkout, normalizeSubmissionRow, normalizeNetworkRow,
 } from '../../types/feedWorkout';
+import { nostrProfileService } from '../nostr/NostrProfileService';
 
 const SUB_COLS = 'event_id, npub, activity_type, distance_meters, duration_seconds, calories, step_count, profile_name, profile_picture, created_at';
 const NET_COLS = 'event_id, npub, pubkey, activity_type, distance_meters, duration_seconds, calories, steps, title, event_created_at, ingested_at';
@@ -48,6 +49,38 @@ export class WorkoutFeedService {
       deduped.sort((a, b) => (a.occurredAt < b.occurredAt ? 1 : a.occurredAt > b.occurredAt ? -1 : 0));
 
       const page = deduped.slice(0, limit);
+
+      // Enrich rows that are missing an authorName (network rows + any RUNSTR rows without profile_name).
+      // De-dupe by npub so each unique author is fetched at most once per page.
+      const needsEnrichment = page.filter((w) => !w.authorName);
+      if (needsEnrichment.length > 0) {
+        const uniqueNpubs = [...new Set(needsEnrichment.map((w) => w.npub))];
+        // Fetch concurrently; failures are non-fatal — rows keep their existing (null) values.
+        const profileResults = await Promise.allSettled(
+          uniqueNpubs.map(async (npub) => {
+            const profile = await nostrProfileService.getProfile(npub);
+            return { npub, profile };
+          })
+        );
+        const profileMap = new Map<string, { name: string | null; avatar: string | null }>();
+        for (const result of profileResults) {
+          if (result.status === 'fulfilled' && result.value.profile) {
+            const { npub, profile } = result.value;
+            profileMap.set(npub, {
+              name: profile.display_name || profile.name || null,
+              avatar: profile.picture || null,
+            });
+          }
+        }
+        for (const row of needsEnrichment) {
+          const resolved = profileMap.get(row.npub);
+          if (resolved) {
+            row.authorName = resolved.name;
+            row.authorAvatar = resolved.avatar;
+          }
+        }
+      }
+
       if (!beforeISO) this.cached = page;
       return page;
     } catch (e) {

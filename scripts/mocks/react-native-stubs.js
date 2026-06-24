@@ -15,5 +15,13 @@ Module._resolveFilename = function (request, parent, isMain, options) {
   }
   return originalResolve(request, parent, isMain, options);
 };
-// Export nothing — the polyfill just needs to not crash on import
-module.exports = {};
+// Define React Native globals required by some transitive imports
+global.__DEV__ = false;
+
+// Stub react-native exports used by transitive imports (Platform, AppState, etc.)
+module.exports = {
+  Platform: { OS: 'ios', select: (obj) => obj.ios ?? obj.default },
+  AppState: { addEventListener: () => ({ remove: () => {} }), currentState: 'active' },
+  NativeModules: {},
+  NativeEventEmitter: class { addListener() { return { remove() {} }; } removeAllListeners() {} },
+};
