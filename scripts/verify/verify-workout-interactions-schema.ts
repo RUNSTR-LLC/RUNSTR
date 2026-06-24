@@ -8,7 +8,9 @@ const tables = ['workout_likes', 'workout_comments', 'workout_zaps'];
 (async () => {
   let failed = 0;
   for (const t of tables) {
-    const { error } = await supabase!.from(t).select('event_id', { count: 'exact', head: true });
+    // Use a real GET (.select().limit) — a HEAD/count request does NOT surface
+    // a "table not found in schema cache" error, which gives a false PASS.
+    const { error } = await supabase!.from(t).select('event_id').limit(1);
     if (error) {
       console.error(`FAIL ${t}: ${error.message}`);
       failed++;
