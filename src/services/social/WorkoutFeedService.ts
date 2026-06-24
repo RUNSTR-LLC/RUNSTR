@@ -20,6 +20,11 @@ export class WorkoutFeedService {
     return (w.distanceMeters ?? 0) > 0 || (w.durationSeconds ?? 0) > 0 || (w.stepCount ?? 0) > 0;
   }
 
+  /**
+   * Fetch a page of feed workouts. Each table is queried for `limit` rows then merged and sliced,
+   * so a page may under-fill when one table dominates. Load-more re-queries by the last item's
+   * `occurredAt`. No `hasMore` signal — treat short pages as "keep paginating", not "end of feed".
+   */
   async fetchFeed(beforeISO?: string, limit = 20): Promise<FeedWorkout[]> {
     if (!isSupabaseConfigured()) return [];
     try {
@@ -51,6 +56,7 @@ export class WorkoutFeedService {
     }
   }
 
+  /** Returns the first-page cache only (set when !beforeISO); later pages are not cached. */
   getCached(): FeedWorkout[] | null { return this.cached; }
   clearCache(): void { this.cached = null; }
 }

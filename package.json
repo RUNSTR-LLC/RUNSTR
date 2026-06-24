@@ -16,6 +16,7 @@
     "test:amber-coverage": "jest --testPathPattern=amber --coverage",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
+    "verify:feed": "tsx --require ./scripts/mocks/react-native-stubs.js scripts/verify/verify-workout-feed-service.ts",
     "test:activity-tracker": "npx tsx scripts/testing/testActivityTrackerFixes.ts",
     "test:amber-flow": "npx tsx scripts/testing/test-amber-wallet-flow.ts",
     "test:amber-solutions": "npx tsx scripts/testing/test-amber-solutions.ts",

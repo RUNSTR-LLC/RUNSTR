@@ -1,3 +1,6 @@
+// Run: npx tsx --require ./scripts/mocks/react-native-stubs.js scripts/verify/verify-workout-feed-service.ts
+// The stub no-ops react-native-url-polyfill/auto so the Supabase client loads under tsx.
+
 import 'dotenv/config';
 import { WorkoutFeedService } from '../../src/services/social/WorkoutFeedService';
 import type { FeedWorkout } from '../../src/types/feedWorkout';
