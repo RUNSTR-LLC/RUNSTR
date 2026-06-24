@@ -46,24 +46,29 @@ zapper ingest ─► ┌──────────────────�
 
 Relevant columns: `id`, `npub`, `event_id`, `activity_type`, `distance_meters`, `duration_seconds`, `calories`, `step_count`, `splits_json`, `created_at`, `profile_name`, `profile_picture`, `raw_event`, `source`, `verified`.
 
-### `network_workouts` (contract — CONFIRM against zapper repo)
+### `network_workouts` (CONFIRMED via PostgREST column probe, 2026-06-24)
 
-The table exists and is anon-readable but was **empty at design time** (zapper ingest just fixed; rows expected shortly). Exact columns must be confirmed from the zapper's `src/supabase/networkWorkouts.ts` / `src/nostr/normalizeWorkout.ts` **before implementation**. Expected normalized contract (the feed needs these — map actual names to this shape):
+Table exists, anon-readable, empty at design time (zapper ingest fixed; no 1301 picked up yet). Confirmed columns:
 
-| Feed needs | Expected `network_workouts` field | Notes |
-|---|---|---|
-| event id | `event_id` (the 1301 event id) | interaction key; also dedup key |
-| author pubkey | `pubkey` / `npub` | profile resolution |
-| activity type | `activity_type` | **may be non-cardio** (strength, yoga, etc.) |
-| distance | `distance_meters` | may be null |
-| duration | `duration_seconds` | may be null |
-| calories | `calories` | may be null |
-| steps | `step_count` | may be null |
-| title | `title` | optional free-text from 1301 |
-| timestamp | `start_time` / `created_at` | **column name differs from `workout_submissions`** — note `network_workouts` has no `created_at` (confirmed); use its actual time column |
-| raw event | `raw_event` | fallback parsing |
+`id, event_id, pubkey, npub, activity_type, distance_meters, duration_seconds, calories, steps, title, source, client, ingested_at, event_created_at, raw_event, tags`
 
-**Action item:** before writing the implementation plan, paste the real `network_workouts` column list into this spec and finalize the field mapping.
+Field map to the unified `FeedWorkout` shape:
+
+| `FeedWorkout` | `workout_submissions` | `network_workouts` | Notes |
+|---|---|---|---|
+| event id | `event_id` | `event_id` | interaction key + defensive dedup key |
+| author | `npub` | `npub` (+ `pubkey`) | network rows have both hex `pubkey` and `npub` |
+| activity type | `activity_type` | `activity_type` | same name; **network may be non-cardio** |
+| distance | `distance_meters` | `distance_meters` | may be null |
+| duration | `duration_seconds` | `duration_seconds` | may be null |
+| calories | `calories` | `calories` | may be null |
+| steps | `step_count` | **`steps`** | ⚠️ different column name |
+| title | (synthesize) | `title` | network carries free-text title |
+| occurred_at (sort) | `created_at` | **`event_created_at`** | ⚠️ network has no `created_at`; `event_created_at` = the 1301's own timestamp. `ingested_at` is write time — do not sort on it. |
+| profile name/pic | `profile_name`/`profile_picture` | (absent) | network rows need NDK kind-0 resolution |
+| raw event | `raw_event` | `raw_event` | fallback parsing |
+
+Columns largely mirror `workout_submissions` — only `steps` (vs `step_count`) and the time column (`event_created_at` vs `created_at`) differ.
 
 ## Feed query design
 
@@ -151,7 +156,7 @@ The current interaction tables (`social_feed_zaps`, `social_feed_comments`) and 
 
 ## Open questions / dependencies (resolve before/within planning)
 
-1. **`network_workouts` exact schema** — paste real column list from the zapper repo; finalize the field map and the time column.
+1. ~~**`network_workouts` exact schema**~~ — RESOLVED (confirmed via column probe; see Data model). Sort on `event_created_at`; steps column is `steps`.
 2. **Feed query mechanism** — Supabase view/RPC (preferred) vs client-side merge. If a view/RPC, it needs a migration in this repo.
 3. **Interaction re-keying** — confirm the migration path for `social_feed_zaps`/`social_feed_comments` to `event_id`, and how much goes Nostr-native vs Supabase-mirrored. Biggest unknown.
 4. **`social_feed` dual-write** — enumerate remaining consumers before retiring it.
