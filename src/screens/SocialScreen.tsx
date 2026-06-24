@@ -23,19 +23,19 @@ import { SimpleTeamCreationModal } from '../components/creation/SimpleTeamCreati
 import { useDynamicCompetitions } from '../hooks/useDynamicCompetitions';
 import { shouldShowEinundzwanzig } from '../constants/einundzwanzig';
 import SocialFeedService from '../services/social/SocialFeedService';
+import { WorkoutFeedService } from '../services/social/WorkoutFeedService';
 import { ClubService } from '../services/backend/ClubService';
 import { ClubMembershipService } from '../services/backend/ClubMembershipService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { SocialFeedPost as SocialFeedPostType } from '../types/social';
 import type { Club } from '../types/club';
+import type { FeedWorkout } from '../types/feedWorkout';
 import { FEATURES } from '../config/features';
 
-// Default export is a singleton instance
-const feedService = SocialFeedService;
+const workoutFeed = WorkoutFeedService.getInstance();
 
 const SocialScreenComponent: React.FC = () => {
   const navigation = useNavigation<any>();
-  const [posts, setPosts] = useState<SocialFeedPostType[]>([]);
+  const [posts, setPosts] = useState<FeedWorkout[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
   const [userClubId, setUserClubId] = useState<string | null>(null);
   const [userNpub, setUserNpub] = useState<string>('');
@@ -79,13 +79,13 @@ const SocialScreenComponent: React.FC = () => {
   const loadData = async (refresh = false) => {
     try {
       if (refresh) {
-        feedService.clearCache();
+        workoutFeed.clearCache();
       }
 
-      const cached = feedService.getCachedFeed();
+      const cached = workoutFeed.getCached();
       const [clubsData, feedData, npub] = await Promise.all([
         ClubService.fetchActiveClubs(),
-        refresh || !cached ? feedService.fetchFeed() : Promise.resolve(cached),
+        refresh || !cached ? workoutFeed.fetchFeed() : Promise.resolve(cached),
         AsyncStorage.getItem('@runstr:npub'),
       ]);
 
@@ -123,7 +123,7 @@ const SocialScreenComponent: React.FC = () => {
     setIsLoadingMore(true);
     try {
       const lastPost = posts[posts.length - 1];
-      const morePosts = await feedService.fetchFeed(lastPost.created_at);
+      const morePosts = await workoutFeed.fetchFeed(lastPost.occurredAt);
 
       if (morePosts.length < 20) {
         setHasMore(false);
@@ -138,14 +138,13 @@ const SocialScreenComponent: React.FC = () => {
   }, [isLoadingMore, hasMore, posts]);
 
   const handleCreatePost = useCallback(async (content: string) => {
-    const localPost = await feedService.createLocalPost(content);
-    if (localPost) {
-      setPosts((prev) => [localPost, ...prev]);
-    }
+    // Composer still publishes a kind-1 post via SocialFeedService.
+    // The local post is NOT injected into the workout feed (different data source) — that is expected.
+    await SocialFeedService.createLocalPost(content);
   }, []);
 
-  const renderPost = useCallback(({ item }: { item: SocialFeedPostType }) => (
-    <SocialFeedPost post={item} userNpub={userNpub} />
+  const renderPost = useCallback(({ item }: { item: FeedWorkout }) => (
+    <SocialFeedPost workout={item} userNpub={userNpub} />
   ), [userNpub]);
 
   const handleClubCreated = useCallback(() => {
@@ -222,7 +221,7 @@ const SocialScreenComponent: React.FC = () => {
         <OstrichRefreshFlatList
           data={posts}
           renderItem={renderPost}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.eventId}
           ListHeaderComponent={renderHeader}
           ListEmptyComponent={renderEmpty}
           ListFooterComponent={renderFooter}
