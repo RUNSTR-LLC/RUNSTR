@@ -16,11 +16,13 @@ import { theme } from '../../styles/theme';
 import { AnimatedNumber } from '../ui/AnimatedNumber';
 import { deriveWorkoutCardDisplay } from './workoutCardDisplay';
 import type { WorkoutCardData } from './workoutCardDisplay';
+import type { FeedWorkout } from '../../types/feedWorkout';
 
 export type { WorkoutCardData } from './workoutCardDisplay';
 
 interface WorkoutPostCardProps {
-  workout: WorkoutCardData;
+  workout: FeedWorkout;
+  title?: string | null;
   unit?: 'km' | 'mi';
 }
 
@@ -45,28 +47,44 @@ const formatPace = (distanceMeters: number, durationSeconds: number, unit: 'km' 
 
 const capitalize = (s: string): string => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
-export const WorkoutPostCard: React.FC<WorkoutPostCardProps> = ({ workout, unit = 'km' }) => {
+export const WorkoutPostCard: React.FC<WorkoutPostCardProps> = ({ workout, title, unit = 'km' }) => {
+  // Adapt FeedWorkout (camelCase) to WorkoutCardData (snake_case) for display logic
+  const cardData: WorkoutCardData = {
+    activity_type: workout.activityType,
+    distance_meters: workout.distanceMeters,
+    duration_seconds: workout.durationSeconds,
+    calories: workout.calories,
+    step_count: workout.stepCount,
+  };
+
   const {
     heroValue,
     heroUnit,
     heroDecimals,
+    useDurationHero,
     showTime,
     showPace,
     showStepsStat,
     showCalories,
-  } = deriveWorkoutCardDisplay(workout, unit);
+  } = deriveWorkoutCardDisplay(cardData, unit);
 
   return (
     <View style={styles.card}>
-      <Text style={styles.activity}>{capitalize(workout.activity_type)}</Text>
+      {title ? <Text style={styles.title}>{title}</Text> : null}
+      <Text style={styles.activity}>{capitalize(workout.activityType)}</Text>
 
       <View style={styles.heroRow}>
-        <AnimatedNumber
-          value={heroValue}
-          decimals={heroDecimals}
-          style={styles.heroNumber}
-          animateOnMount
-        />
+        {useDurationHero ? (
+          // Duration hero renders as HH:MM:SS text — not a decimal AnimatedNumber
+          <Text style={styles.heroNumber}>{formatDuration(heroValue)}</Text>
+        ) : (
+          <AnimatedNumber
+            value={heroValue}
+            decimals={heroDecimals}
+            style={styles.heroNumber}
+            animateOnMount
+          />
+        )}
         <Text style={styles.heroUnit}>{heroUnit}</Text>
       </View>
 
@@ -75,27 +93,27 @@ export const WorkoutPostCard: React.FC<WorkoutPostCardProps> = ({ workout, unit 
           {showTime ? (
             <View style={styles.statCell}>
               <Text style={styles.statLabel}>TIME</Text>
-              <Text style={styles.statValue}>{formatDuration(workout.duration_seconds!)}</Text>
+              <Text style={styles.statValue}>{formatDuration(cardData.duration_seconds!)}</Text>
             </View>
           ) : null}
           {showPace ? (
             <View style={styles.statCell}>
               <Text style={styles.statLabel}>PACE</Text>
               <Text style={styles.statValue}>
-                {formatPace(workout.distance_meters!, workout.duration_seconds!, unit)}
+                {formatPace(cardData.distance_meters!, cardData.duration_seconds!, unit)}
               </Text>
             </View>
           ) : null}
           {showStepsStat ? (
             <View style={styles.statCell}>
               <Text style={styles.statLabel}>STEPS</Text>
-              <Text style={styles.statValue}>{workout.step_count!.toLocaleString()}</Text>
+              <Text style={styles.statValue}>{cardData.step_count!.toLocaleString()}</Text>
             </View>
           ) : null}
           {showCalories ? (
             <View style={styles.statCell}>
               <Text style={styles.statLabel}>CAL</Text>
-              <Text style={styles.statValue}>{workout.calories}</Text>
+              <Text style={styles.statValue}>{cardData.calories}</Text>
             </View>
           ) : null}
         </View>
@@ -114,6 +132,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginTop: 10,
     alignItems: 'center',
+  },
+  title: {
+    fontSize: 13,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.text,
+    marginBottom: 4,
+    textAlign: 'center',
   },
   activity: {
     fontSize: 11,

@@ -1,116 +1,70 @@
 // src/components/social/SocialFeedPost.tsx
 
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { theme } from '../../styles/theme';
 import { Avatar } from '../ui/Avatar';
-import { Skeleton } from '../ui/LoadingStates';
 import { timeAgo } from '../../types/social';
 import type { SocialFeedPost as SocialFeedPostType } from '../../types/social';
+import type { FeedWorkout } from '../../types/feedWorkout';
 import { SocialInteractionRow } from './SocialInteractionRow';
 import { WorkoutPostCard } from './WorkoutPostCard';
-import { useMatchedWorkout } from '../../hooks/useMatchedWorkout';
 
 interface SocialFeedPostProps {
-  post: SocialFeedPostType;
+  workout: FeedWorkout;
   userNpub: string;
 }
 
-const SocialFeedPostInner: React.FC<SocialFeedPostProps> = ({ post, userNpub }) => {
-  const [imageError, setImageError] = useState(false);
-  const [imageAspect, setImageAspect] = useState(1);
+/**
+ * Maps a FeedWorkout to the SocialFeedPost shape that SocialInteractionRow expects.
+ * Interaction counts start at 0 for workout-feed posts until Phase 2 re-keys
+ * the interaction tables to the 1301 event_id.
+ * Zaps (Nostr-native, keyed by event_id + npub) work immediately.
+ * TODO(phase2): re-key interaction reads/writes to the 1301 event_id so cross-network counts populate
+ */
+function feedWorkoutToInteractionPost(w: FeedWorkout): SocialFeedPostType {
+  return {
+    id: w.eventId,
+    event_id: w.eventId,
+    npub: w.npub,
+    content: w.title ?? '',
+    images: null,
+    hashtags: null,
+    author_name: w.authorName,
+    author_avatar: w.authorAvatar,
+    created_at: w.occurredAt,
+    indexed_at: w.occurredAt,
+    like_count: 0,
+    repost_count: 0,
+    zap_total: 0,
+    comment_count: 0,
+    liked_by: null,
+    reposted_by: null,
+  };
+}
 
-  const firstImage = post.images && post.images.length > 0 ? post.images[0] : null;
-  const showImage = firstImage && !imageError && firstImage.startsWith('https://');
-
-  // If this is a workout post, the workout PNG is redundant in-feed — swap
-  // it for a compact native card driven by Supabase workout_submissions.
-  const matchedWorkout = useMatchedWorkout(post);
-  const workoutForCard =
-    matchedWorkout && matchedWorkout !== 'loading' ? matchedWorkout : null;
-  const isLookingUpWorkout = matchedWorkout === 'loading';
-
-  // Workout posts that failed to match a Supabase workout still render the
-  // full-bleed PNG. Clamp its aspect ratio so the 9:16 composition doesn't
-  // eat the viewport. Non-workout photo posts keep their natural aspect.
-  const isWorkoutHashtagPost =
-    post.hashtags?.some((h) => h.toLowerCase() === 'runstr') ?? false;
-  const imageAspectForRender = isWorkoutHashtagPost
-    ? Math.max(imageAspect, 1)
-    : imageAspect;
-
-  // Sanitize content: strip control chars, image URLs (rendered separately),
-  // and hashtag noise (#RUNSTR #Running etc.). Memoized so the chained regex
-  // work doesn't re-run on every parent re-render (refresh, pagination, etc.).
-  const displayContent = useMemo(() => {
-    let sanitized = post.content
-      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
-      .replace(/https?:\/\/\S+\.(?:jpg|jpeg|png|gif|webp)\S*/gi, '')
-      .replace(/(^|\s)#\w+/g, '') // strip hashtags
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
-    // When the native workout card renders the stats, drop the auto-generated
-    // emoji stat lines (⏱️ Duration / 📏 Distance / …) so they aren't shown twice.
-    if (workoutForCard) {
-      sanitized = sanitized
-        .split('\n')
-        .filter((line) => !/^\s*[^\x00-\x7F]/.test(line))
-        .join('\n')
-        .replace(/\n{2,}/g, '\n')
-        .trim();
-    }
-    return sanitized.length > 500 ? sanitized.slice(0, 500) + '...' : sanitized;
-  }, [post.content, workoutForCard]);
+const SocialFeedPostInner: React.FC<SocialFeedPostProps> = ({ workout, userNpub }) => {
+  const displayName = workout.authorName || 'Anonymous';
 
   return (
     <View style={styles.card}>
       <View style={styles.authorRow}>
-        <Avatar
-          name={post.author_name || '?'}
-          size={36}
-          imageUrl={post.author_avatar || undefined}
-        />
+        <Avatar name={displayName} size={36} imageUrl={workout.authorAvatar || undefined} />
         <View style={styles.authorInfo}>
-          <Text style={styles.authorName} numberOfLines={1}>
-            {post.author_name || 'Anonymous'}
-          </Text>
-          <Text style={styles.timestamp}>{timeAgo(post.created_at)}</Text>
+          <Text style={styles.authorName} numberOfLines={1}>{displayName}</Text>
+          <Text style={styles.timestamp}>{timeAgo(workout.occurredAt)}</Text>
         </View>
       </View>
 
-      <Text style={styles.content}>{displayContent}</Text>
+      <WorkoutPostCard workout={workout} title={workout.title} />
 
-      {workoutForCard ? (
-        <WorkoutPostCard workout={workoutForCard} />
-      ) : isLookingUpWorkout ? (
-        <Skeleton
-          width="100%"
-          height={200}
-          borderRadius={12}
-          style={{ marginTop: 10 }}
-        />
-      ) : showImage ? (
-        <Image
-          source={{ uri: firstImage }}
-          style={[styles.image, { aspectRatio: imageAspectForRender }]}
-          resizeMode="cover"
-          onLoad={(e) => {
-            const { width, height } = e.nativeEvent.source;
-            if (width && height) {
-              setImageAspect(width / height);
-            }
-          }}
-          onError={() => setImageError(true)}
-        />
-      ) : null}
-      <SocialInteractionRow post={post} userNpub={userNpub} />
+      <SocialInteractionRow post={feedWorkoutToInteractionPost(workout)} userNpub={userNpub} />
     </View>
   );
 };
 
 // Memoized: the feed re-renders on refresh/pagination/club-load; without this
-// every mounted row re-reconciles (and, before memoizing displayContent above,
-// re-ran the regex sanitizer) on each parent update.
+// every mounted row re-reconciles on each parent update.
 export const SocialFeedPost = React.memo(SocialFeedPostInner);
 
 const styles = StyleSheet.create({
@@ -142,18 +96,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: theme.typography.weights.regular,
     marginTop: 1,
-  },
-  content: {
-    color: theme.colors.text,
-    fontSize: 14,
-    fontWeight: theme.typography.weights.regular,
-    lineHeight: 20,
-  },
-  image: {
-    width: '100%',
-    maxHeight: 420,
-    borderRadius: 8,
-    marginTop: 10,
-    backgroundColor: theme.colors.cardBackground,
   },
 });
