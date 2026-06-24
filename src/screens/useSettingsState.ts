@@ -330,13 +330,6 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
     }
   };
 
-  const handleAllWorkoutsPress = useCallback(() => {
-    navigation.navigate('WorkoutHistory', {
-      userId: userNpub ?? '',
-      pubkey: userNpub ?? '',
-    });
-  }, [navigation, userNpub]);
-
   const handleRewardsPress = useCallback(() => {
     navigation.navigate('Rewards');
   }, [navigation]);
@@ -526,7 +519,6 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
     handleTTSSettingChange, handleAutoBackupToggle, handleHealthKitSyncToggle,
     handleHealthConnectSyncToggle,
     handleMusicPlayerHeaderToggle, handleDefaultActivityChange, handleBack,
-    handleAllWorkoutsPress,
     handleRewardsPress,
     handleSignOut, handleDeleteAccount, handleRefresh, handlePrivateModeToggle,
     handleLanguageChange, handleBackupPassword, handleCopyNpub,

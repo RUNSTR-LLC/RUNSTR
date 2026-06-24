@@ -31,7 +31,6 @@ import { RewardNotificationManager } from '../services/rewards/RewardNotificatio
 // Section components
 import { LanguageSection } from '../components/settings/LanguageSection';
 import { FitnessTrackingSection } from '../components/settings/FitnessTrackingSection';
-import { WorkoutDataSection } from '../components/settings/WorkoutDataSection';
 import { NostrPostingSection } from '../components/settings/NostrPostingSection';
 import { DataBackupSection } from '../components/settings/DataBackupSection';
 import { PasswordSection } from '../components/settings/PasswordSection';
@@ -124,10 +123,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             healthConnectAuthorized={state.healthConnectAuthorized}
             healthConnectLastSync={state.healthConnectLastSync}
             onHealthConnectSyncToggle={state.handleHealthConnectSyncToggle}
-          />
-
-          <WorkoutDataSection
-            onAllWorkoutsPress={state.handleAllWorkoutsPress}
           />
 
           <NostrPostingSection />
