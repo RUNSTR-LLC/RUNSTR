@@ -14,6 +14,7 @@ export interface WorkoutCardData {
 export interface WorkoutCardDisplay {
   isStepsOnly: boolean;
   useStepsHero: boolean;
+  useDurationHero: boolean;
   heroValue: number;
   heroUnit: string;
   heroDecimals: number;
@@ -49,14 +50,18 @@ export function deriveWorkoutCardDisplay(
   // Hero: step count for a steps post (or a walk with no usable distance),
   // otherwise the distance.
   const useStepsHero = isStepsOnly || (isWalking && !hasDistance && hasSteps);
+  // Non-distance, non-steps activity (e.g. strength) with a duration: time is the hero.
+  const useDurationHero = !useStepsHero && !hasDistance && !hasSteps && hasDuration;
   const heroValue = useStepsHero
     ? workout.step_count ?? 0
-    : (unit === 'mi' ? (workout.distance_meters ?? 0) / 1609.344 : (workout.distance_meters ?? 0) / 1000);
-  const heroUnit = useStepsHero ? 'STEPS' : unit.toUpperCase();
-  const heroDecimals = useStepsHero ? 0 : 2;
+    : useDurationHero
+      ? workout.duration_seconds ?? 0
+      : (unit === 'mi' ? (workout.distance_meters ?? 0) / 1609.344 : (workout.distance_meters ?? 0) / 1000);
+  const heroUnit = useStepsHero ? 'STEPS' : useDurationHero ? 'TIME' : unit.toUpperCase();
+  const heroDecimals = useStepsHero || useDurationHero ? 0 : 2;
 
   const showPace = hasDistance && hasDuration && !isWalking && !isStepsOnly;
-  const showTime = hasDuration && !isStepsOnly;
+  const showTime = hasDuration && !isStepsOnly && !useDurationHero;
   // Steps as a secondary stat on walking workouts (but not when the step count
   // is already the hero number).
   const showStepsStat = hasSteps && isWalking && !useStepsHero;
@@ -65,6 +70,7 @@ export function deriveWorkoutCardDisplay(
   return {
     isStepsOnly,
     useStepsHero,
+    useDurationHero,
     heroValue,
     heroUnit,
     heroDecimals,
