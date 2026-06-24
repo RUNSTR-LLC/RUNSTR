@@ -25,10 +25,10 @@ import {
   type PostFormat,
 } from '../../services/activity/NostrPostingPreferencesService';
 
-// Format toggle is hidden for now — every Post defaults to a workout note
-// (kind 1301) for cross-app interop (Amethyst/POWR/Chachi). Flip this to true
-// to bring the Card post / Workout note picker back.
-const SHOW_FORMAT_TOGGLE = false;
+// Post-format picker, surfaced in the Sharing accordion. Default is a workout
+// note (kind 1301) for cross-app interop (Amethyst/POWR/Chachi); a user can
+// opt into a card post (kind 1) that renders in every Nostr client.
+const SHOW_FORMAT_TOGGLE = true;
 
 const FORMAT_OPTIONS: { value: PostFormat; title: string; subtitle: string }[] = [
   {
@@ -45,7 +45,7 @@ const FORMAT_OPTIONS: { value: PostFormat; title: string; subtitle: string }[] =
 
 export const NostrPostingSection: React.FC = () => {
   const [autoPost, setAutoPost] = useState(false);
-  const [format, setFormat] = useState<PostFormat>('kind1');
+  const [format, setFormat] = useState<PostFormat>('kind1301');
 
   useEffect(() => {
     (async () => {
