@@ -2,6 +2,19 @@
 
 All notable changes to RUNSTR will be documented in this file.
 
+## [1.9.8] - 2026-06-25 - Workout Feed & Social
+
+Rebuilds the workout feed and adds in-app social. Every post now renders the
+same stats card — including walks and step days that used to show nothing — and
+you can like, comment, and reward workouts without leaving the feed.
+
+- The feed is a clean, consistent workout feed — every post shows distance/time/pace or steps, no more blank posts
+- Like, comment, and reward workouts right in the feed, and see who reacted
+- Workouts shared from other fitness apps now appear in your feed too
+- Workouts share in the interoperable format by default, with a Card / Workout-note option in Settings
+- Tidied up Settings — removed a redundant tab and surfaced the post-format option
+- Reliability fixes around interactions and reward-amount recording
+
 ## [1.9.7] - 2026-06-22 - Stability & Polish
 
 Stability and polish release. Fixes a launch crash, protects workout history from
@@ -14,7 +27,6 @@ Includes everything since 1.9.5.
 - Redesigned Settings toggles, aligned tab headers, and a faster feed & leaderboards
 - Added a default zap amount setting and optional auto-post after a workout
 - Captain-created events now show on the club page; step/walking events score correctly
-- Builds on the Xcode 26 / iOS 26 SDK
 
 ## [1.9.5] - 2026-06-11 - Polish, Stability & Global Nav
 
