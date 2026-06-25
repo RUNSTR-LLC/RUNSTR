@@ -44,5 +44,5 @@ export interface RootStackParamList extends Record<string, object | undefined> {
   LeagueDetail: { leagueId: string; leagueData?: any };
   TeamDiscovery: undefined;
   CaptainDashboard: undefined;
-  Comments: { postId: string; postEventId: string; postAuthorPubkey: string; commentCount: number };
+  Comments: { eventId: string; commentCount: number };
 }
