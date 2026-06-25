@@ -16,6 +16,11 @@ export interface FeedWorkout {
   occurredAt: string;         // ISO; used for sort + display
   authorName: string | null;  // null for network rows until kind-0 resolution
   authorAvatar: string | null;
+  // Phase 2: hydrated per-page by WorkoutFeedService after DB fetch
+  likeCount?: number;
+  commentCount?: number;
+  zapTotal?: number;
+  likedByMe?: boolean;
 }
 
 const toNum = (v: unknown): number | null => {

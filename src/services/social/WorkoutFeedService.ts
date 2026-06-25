@@ -3,6 +3,7 @@ import {
   type FeedWorkout, normalizeSubmissionRow, normalizeNetworkRow,
 } from '../../types/feedWorkout';
 import { nostrProfileService } from '../nostr/NostrProfileService';
+import { WorkoutInteractionService } from './WorkoutInteractionService';
 
 const SUB_COLS = 'event_id, npub, activity_type, distance_meters, duration_seconds, calories, step_count, profile_name, profile_picture, created_at';
 const NET_COLS = 'event_id, npub, pubkey, activity_type, distance_meters, duration_seconds, calories, steps, title, event_created_at, ingested_at';
@@ -26,7 +27,7 @@ export class WorkoutFeedService {
    * so a page may under-fill when one table dominates. Load-more re-queries by the last item's
    * `occurredAt`. No `hasMore` signal — treat short pages as "keep paginating", not "end of feed".
    */
-  async fetchFeed(beforeISO?: string, limit = 20): Promise<FeedWorkout[]> {
+  async fetchFeed(beforeISO?: string, limit = 20, userNpub: string | null = null): Promise<FeedWorkout[]> {
     if (!isSupabaseConfigured()) return [];
     try {
       let subQ = supabase!.from('workout_submissions').select(SUB_COLS)
@@ -79,6 +80,24 @@ export class WorkoutFeedService {
             row.authorAvatar = resolved.avatar;
           }
         }
+      }
+
+      // Hydrate per-page interaction counts (non-fatal — tables may not exist yet).
+      try {
+        const countsMap = await WorkoutInteractionService.getInstance().getCountsForEvents(
+          page.map((w) => w.eventId),
+          userNpub,
+        );
+        for (const row of page) {
+          const counts = countsMap.get(row.eventId);
+          row.likeCount = counts?.likeCount ?? 0;
+          row.commentCount = counts?.commentCount ?? 0;
+          row.zapTotal = counts?.zapTotal ?? 0;
+          row.likedByMe = counts?.likedByMe ?? false;
+        }
+      } catch (e) {
+        console.error('[WorkoutFeed] interaction hydration error:', e);
+        // Leave defaults (fields absent / undefined) — non-fatal.
       }
 
       if (!beforeISO) this.cached = page;

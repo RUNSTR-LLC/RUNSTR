@@ -83,10 +83,11 @@ const SocialScreenComponent: React.FC = () => {
       }
 
       const cached = workoutFeed.getCached();
-      const [clubsData, feedData, npub] = await Promise.all([
+      // Resolve npub first so it can be passed into fetchFeed for interaction hydration.
+      const npub = await AsyncStorage.getItem('@runstr:npub');
+      const [clubsData, feedData] = await Promise.all([
         ClubService.fetchActiveClubs(),
-        refresh || !cached ? workoutFeed.fetchFeed() : Promise.resolve(cached),
-        AsyncStorage.getItem('@runstr:npub'),
+        refresh || !cached ? workoutFeed.fetchFeed(undefined, 20, npub) : Promise.resolve(cached),
       ]);
 
       setClubs(clubsData);
@@ -123,7 +124,7 @@ const SocialScreenComponent: React.FC = () => {
     setIsLoadingMore(true);
     try {
       const lastPost = posts[posts.length - 1];
-      const morePosts = await workoutFeed.fetchFeed(lastPost.occurredAt);
+      const morePosts = await workoutFeed.fetchFeed(lastPost.occurredAt, 20, userNpub || null);
 
       if (morePosts.length < 20) {
         setHasMore(false);
