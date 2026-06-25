@@ -174,10 +174,10 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ work
         recipientNpub={workout.npub}
         recipientName={workout.authorName || 'Unknown'}
         onClose={() => setShowZapModal(false)}
-        onSuccess={() => {
+        onSuccess={(amountSats) => {
           setShowZapModal(false);
-          setZapTotal((z) => z + defaultZapAmount);
-          WorkoutInteractionService.getInstance().recordZap(workout.eventId, userNpub, defaultZapAmount).catch(() => {});
+          setZapTotal((z) => z + amountSats);
+          WorkoutInteractionService.getInstance().recordZap(workout.eventId, userNpub, amountSats).catch(() => {});
         }}
       />
 

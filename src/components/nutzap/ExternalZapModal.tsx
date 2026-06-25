@@ -43,7 +43,7 @@ interface ExternalZapModalProps {
   amount?: number; // Optional - if not provided, user selects amount
   memo?: string; // Optional - will default to "RUNSTR Community Rewards"
   onClose: () => void;
-  onSuccess?: () => void;
+  onSuccess?: (amountSats: number) => void;
   // Charity donation mode - pays charity directly, records donation locally
   isCharityDonation?: boolean;
   charityId?: string;
@@ -487,7 +487,7 @@ export const ExternalZapModal: React.FC<ExternalZapModalProps> = ({
         {
           text: 'OK',
           onPress: () => {
-            onSuccess?.();
+            onSuccess?.(paidAmount);
             onClose();
           },
         },
