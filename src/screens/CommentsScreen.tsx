@@ -10,46 +10,33 @@ import { theme } from '../styles/theme';
 import { Avatar } from '../components/ui/Avatar';
 import { ScreenErrorBoundary } from '../components/ui/ScreenErrorBoundary';
 import { timeAgo } from '../types/social';
-import feedService from '../services/social/SocialFeedService';
-import SocialInteractionService from '../services/social/SocialInteractionService';
-import type { SocialFeedComment } from '../types/social';
-
-const PAGE_SIZE = 20;
+import { WorkoutInteractionService } from '../services/social/WorkoutInteractionService';
+import type { WorkoutComment } from '../services/social/WorkoutInteractionService';
 
 interface CommentsScreenProps {
   navigation: any;
-  route: { params: { postId: string; postEventId: string; postAuthorPubkey: string; commentCount: number } };
+  route: { params: { eventId: string; commentCount: number } };
 }
 
 const CommentsScreenInner: React.FC<CommentsScreenProps> = ({ navigation, route }) => {
-  const { postId, postEventId, postAuthorPubkey, commentCount } = route.params;
-  const [comments, setComments] = useState<SocialFeedComment[]>([]);
+  const { eventId, commentCount } = route.params;
+  const [comments, setComments] = useState<WorkoutComment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [hasMore, setHasMore] = useState(true);
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
 
   useEffect(() => {
     let mounted = true;
-    feedService.getCommentsForPost(postId, PAGE_SIZE).then((fetched) => {
+    WorkoutInteractionService.getInstance().getComments(eventId).then((fetched) => {
       if (mounted) {
         setComments(fetched);
-        setHasMore(fetched.length >= PAGE_SIZE);
         setIsLoading(false);
       }
     }).catch(() => {
       if (mounted) setIsLoading(false);
     });
     return () => { mounted = false; };
-  }, [postId]);
-
-  const loadMore = useCallback(async () => {
-    if (!hasMore || comments.length === 0) return;
-    const oldest = comments[comments.length - 1];
-    const more = await feedService.getCommentsForPost(postId, PAGE_SIZE, oldest.created_at);
-    if (more.length < PAGE_SIZE) setHasMore(false);
-    setComments((prev) => [...prev, ...more]);
-  }, [hasMore, comments, postId]);
+  }, [eventId]);
 
   const handleSend = useCallback(async () => {
     const trimmed = inputText.trim();
@@ -61,40 +48,49 @@ const CommentsScreenInner: React.FC<CommentsScreenProps> = ({ navigation, route 
 
     const userNpub = await AsyncStorage.getItem('@runstr:npub');
     const userName = await AsyncStorage.getItem('@runstr:display_name');
+    const userAvatar = await AsyncStorage.getItem('@runstr:profile_picture');
 
-    const optimistic: SocialFeedComment = {
+    const optimistic: WorkoutComment = {
       id: `optimistic-${Date.now()}`,
-      event_id: '',
-      post_id: postId,
-      sender_npub: userNpub || '',
+      event_id: eventId,
+      npub: userNpub || '',
       content: trimmed,
       author_name: userName || 'You',
-      author_avatar: null,
+      author_avatar: userAvatar || null,
       created_at: new Date().toISOString(),
-      indexed_at: new Date().toISOString(),
     };
 
     setComments((prev) => [optimistic, ...prev]);
 
-    const result = await SocialInteractionService.publishComment(postEventId, postAuthorPubkey, trimmed);
-    if (!result.success) {
+    const result = await WorkoutInteractionService.getInstance().addComment(
+      eventId,
+      userNpub || '',
+      trimmed,
+      userName || undefined,
+      userAvatar || undefined,
+    );
+
+    if (result) {
+      setComments((prev) => [result, ...prev.filter((c) => c.id !== optimistic.id)]);
+    } else {
       setComments((prev) => prev.filter((c) => c.id !== optimistic.id));
       setInputText(trimmed);
       Toast.show({ type: 'error', text1: 'Comment not sent', visibilityTime: 2000 });
     }
 
     setIsSending(false);
-  }, [inputText, isSending, postId, postEventId, postAuthorPubkey]);
+  }, [inputText, isSending, eventId]);
 
-  const renderComment = ({ item }: { item: SocialFeedComment }) => {
-    const name = item.author_name || item.sender_npub.slice(0, 12) + '...';
+  const renderComment = ({ item }: { item: WorkoutComment }) => {
+    const name = item.author_name || (item.npub?.slice(0, 12) ?? '?') + '...';
+    const isOptimistic = item.id.startsWith('optimistic-');
     return (
-      <View style={styles.commentRow}>
+      <View style={[styles.commentRow, isOptimistic && { opacity: 0.6 }]}>
         <Avatar name={name} size={32} imageUrl={item.author_avatar || undefined} />
         <View style={styles.commentContent}>
           <View style={styles.commentHeader}>
             <Text style={styles.commentAuthor} numberOfLines={1}>{name}</Text>
-            <Text style={styles.commentTime}>{timeAgo(item.created_at)}</Text>
+            <Text style={styles.commentTime}>{isOptimistic ? 'now' : timeAgo(item.created_at)}</Text>
           </View>
           <Text style={styles.commentText}>{item.content}</Text>
         </View>
@@ -125,8 +121,6 @@ const CommentsScreenInner: React.FC<CommentsScreenProps> = ({ navigation, route 
             renderItem={renderComment}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.list}
-            onEndReached={loadMore}
-            onEndReachedThreshold={0.3}
             keyboardShouldPersistTaps="handled"
           />
         )}

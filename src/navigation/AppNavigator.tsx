@@ -72,7 +72,7 @@ export type RootStackParamList = {
   DynamicEventDetail: { eventId: string };
   JournalHistory: undefined;
   LevelDetail: undefined;
-  Comments: { postId: string; postEventId: string; postAuthorPubkey: string; commentCount: number };
+  Comments: { eventId: string; commentCount: number };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();

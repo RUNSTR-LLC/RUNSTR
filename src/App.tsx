@@ -291,7 +291,7 @@ type AuthenticatedStackParamList = {
   ClubPage: { clubId: string; clubName: string };
   ClubChat: { clubId: string; clubName: string; captainNpub: string; pinnedMessageId?: string };
   LevelDetail: undefined;
-  Comments: { postId: string; postEventId: string; postAuthorPubkey: string; commentCount: number };
+  Comments: { eventId: string; commentCount: number };
 };
 
 const AuthenticatedStack = createStackNavigator<AuthenticatedStackParamList>();

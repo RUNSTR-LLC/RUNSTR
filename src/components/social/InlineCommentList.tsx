@@ -60,7 +60,7 @@ export const InlineCommentList: React.FC<InlineCommentListProps> = ({
     setIsSending(true);
 
     const userName = await AsyncStorage.getItem('@runstr:display_name');
-    const userAvatar = await AsyncStorage.getItem('@runstr:avatar_url');
+    const userAvatar = await AsyncStorage.getItem('@runstr:profile_picture');
 
     const optimistic: WorkoutComment = {
       id: `optimistic-${Date.now()}`,
