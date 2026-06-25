@@ -5,25 +5,25 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, ActivityIndi
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { Avatar } from '../ui/Avatar';
-import feedService from '../../services/social/SocialFeedService';
+import { WorkoutInteractionService } from '../../services/social/WorkoutInteractionService';
+import type { WorkoutZap } from '../../services/social/WorkoutInteractionService';
 import { nostrProfileService } from '../../services/nostr/NostrProfileService';
 import type { NostrProfile } from '../../services/nostr/NostrProfileService';
-import type { SocialFeedZap } from '../../types/social';
 
 interface ZapsBottomSheetProps {
   visible: boolean;
-  postId: string;
+  eventId: string;
   zapTotal: number;
   onClose: () => void;
 }
 
 export const ZapsBottomSheet: React.FC<ZapsBottomSheetProps> = ({
   visible,
-  postId,
+  eventId,
   zapTotal,
   onClose,
 }) => {
-  const [zaps, setZaps] = useState<SocialFeedZap[]>([]);
+  const [zaps, setZaps] = useState<WorkoutZap[]>([]);
   const [profiles, setProfiles] = useState<Map<string, NostrProfile>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
 
@@ -32,7 +32,7 @@ export const ZapsBottomSheet: React.FC<ZapsBottomSheetProps> = ({
     let mounted = true;
     setIsLoading(true);
 
-    feedService.getZapsForPost(postId).then(async (fetched) => {
+    WorkoutInteractionService.getInstance().getZaps(eventId).then(async (fetched) => {
       if (!mounted) return;
       setZaps(fetched);
 
@@ -41,15 +41,15 @@ export const ZapsBottomSheet: React.FC<ZapsBottomSheetProps> = ({
         const p = await nostrProfileService.getProfiles(npubs).catch(() => new Map() as Map<string, NostrProfile>);
         if (mounted) setProfiles(p);
       }
-      setIsLoading(false);
+      if (mounted) setIsLoading(false);
     }).catch(() => {
       if (mounted) setIsLoading(false);
     });
 
     return () => { mounted = false; };
-  }, [visible, postId]);
+  }, [visible, eventId]);
 
-  const renderItem = ({ item }: { item: SocialFeedZap }) => {
+  const renderItem = ({ item }: { item: WorkoutZap }) => {
     const profile = profiles.get(item.sender_npub);
     const name = profile?.display_name || profile?.name || (item.sender_npub?.slice(0, 12) ?? '?') + '...';
     return (

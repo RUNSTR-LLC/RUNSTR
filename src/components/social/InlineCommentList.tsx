@@ -9,28 +9,27 @@ import Toast from 'react-native-toast-message';
 import { theme } from '../../styles/theme';
 import { Avatar } from '../ui/Avatar';
 import { timeAgo } from '../../types/social';
-import feedService from '../../services/social/SocialFeedService';
-import SocialInteractionService from '../../services/social/SocialInteractionService';
-import type { SocialFeedComment } from '../../types/social';
+import { WorkoutInteractionService } from '../../services/social/WorkoutInteractionService';
+import type { WorkoutComment } from '../../services/social/WorkoutInteractionService';
 
 interface InlineCommentListProps {
-  postId: string;
-  postEventId: string;
-  postAuthorPubkey: string;
+  eventId: string;
+  userNpub: string;
   commentCount: number;
   expanded: boolean;
+  onCommentAdded?: () => void;
 }
 
 export const InlineCommentList: React.FC<InlineCommentListProps> = ({
-  postId,
-  postEventId,
-  postAuthorPubkey,
+  eventId,
+  userNpub,
   commentCount,
   expanded,
+  onCommentAdded,
 }) => {
   const navigation = useNavigation<any>();
-  const [comments, setComments] = useState<SocialFeedComment[]>([]);
-  const [optimisticComments, setOptimisticComments] = useState<SocialFeedComment[]>([]);
+  const [comments, setComments] = useState<WorkoutComment[]>([]);
+  const [optimisticComments, setOptimisticComments] = useState<WorkoutComment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -40,7 +39,7 @@ export const InlineCommentList: React.FC<InlineCommentListProps> = ({
     let mounted = true;
     setIsLoading(true);
 
-    feedService.getCommentsForPost(postId, 5).then((fetched) => {
+    WorkoutInteractionService.getInstance().getComments(eventId, 5).then((fetched) => {
       if (mounted) {
         setComments(fetched);
         setIsLoading(false);
@@ -50,7 +49,7 @@ export const InlineCommentList: React.FC<InlineCommentListProps> = ({
     });
 
     return () => { mounted = false; };
-  }, [expanded, postId, commentCount]);
+  }, [expanded, eventId, commentCount]);
 
   const handleSend = useCallback(async () => {
     const trimmed = inputText.trim();
@@ -60,32 +59,42 @@ export const InlineCommentList: React.FC<InlineCommentListProps> = ({
     Keyboard.dismiss();
     setIsSending(true);
 
-    const userNpub = await AsyncStorage.getItem('@runstr:npub');
     const userName = await AsyncStorage.getItem('@runstr:display_name');
+    const userAvatar = await AsyncStorage.getItem('@runstr:avatar_url');
 
-    const optimistic: SocialFeedComment = {
+    const optimistic: WorkoutComment = {
       id: `optimistic-${Date.now()}`,
-      event_id: '',
-      post_id: postId,
-      sender_npub: userNpub || '',
+      event_id: eventId,
+      npub: userNpub,
       content: trimmed,
-      author_name: userName || 'You',
-      author_avatar: null,
+      author_name: userName || null,
+      author_avatar: userAvatar || null,
       created_at: new Date().toISOString(),
-      indexed_at: new Date().toISOString(),
     };
 
     setOptimisticComments((prev) => [optimistic, ...prev]);
 
-    const result = await SocialInteractionService.publishComment(postEventId, postAuthorPubkey, trimmed);
-    if (!result.success) {
+    const result = await WorkoutInteractionService.getInstance().addComment(
+      eventId,
+      userNpub,
+      trimmed,
+      userName || undefined,
+      userAvatar || undefined,
+    );
+
+    if (result) {
+      // Replace optimistic entry with the real one and notify parent
+      setOptimisticComments((prev) => prev.filter((c) => c.id !== optimistic.id));
+      setComments((prev) => [result, ...prev]);
+      onCommentAdded?.();
+    } else {
       setOptimisticComments((prev) => prev.filter((c) => c.id !== optimistic.id));
       setInputText(trimmed);
       Toast.show({ type: 'error', text1: 'Comment not sent', visibilityTime: 2000 });
     }
 
     setIsSending(false);
-  }, [inputText, isSending, postId, postEventId, postAuthorPubkey]);
+  }, [inputText, isSending, eventId, userNpub, onCommentAdded]);
 
   if (!expanded) return null;
 
@@ -131,7 +140,7 @@ export const InlineCommentList: React.FC<InlineCommentListProps> = ({
   return (
     <View style={styles.container}>
       {allComments.map((comment) => {
-        const name = comment.author_name || (comment.sender_npub?.slice(0, 12) ?? '?') + '...';
+        const name = comment.author_name || (comment.npub?.slice(0, 12) ?? '?') + '...';
         const isOptimistic = comment.id.startsWith('optimistic-');
         return (
           <View key={comment.id} style={[styles.commentRow, isOptimistic && styles.optimistic]}>
@@ -148,7 +157,7 @@ export const InlineCommentList: React.FC<InlineCommentListProps> = ({
       })}
       {commentCount > 5 && (
         <TouchableOpacity
-          onPress={() => navigation.navigate('Comments', { postId, postEventId, postAuthorPubkey, commentCount })}
+          onPress={() => navigation.navigate('Comments', { eventId, commentCount })}
           activeOpacity={0.7}
         >
           <Text style={styles.viewAll}>View all {commentCount} comments</Text>

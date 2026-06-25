@@ -1,33 +1,48 @@
 // src/components/social/LikesBottomSheet.tsx
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, ActivityIndicator } from 'react-native';
 import { theme } from '../../styles/theme';
 import { Avatar } from '../ui/Avatar';
+import { WorkoutInteractionService } from '../../services/social/WorkoutInteractionService';
 import { nostrProfileService } from '../../services/nostr/NostrProfileService';
 import type { NostrProfile } from '../../services/nostr/NostrProfileService';
 
 interface LikesBottomSheetProps {
   visible: boolean;
-  likedBy: string[];
+  eventId: string;
   onClose: () => void;
 }
 
 export const LikesBottomSheet: React.FC<LikesBottomSheetProps> = ({
   visible,
-  likedBy,
+  eventId,
   onClose,
 }) => {
+  const [likers, setLikers] = useState<string[]>([]);
   const [profiles, setProfiles] = useState<Map<string, NostrProfile>>(new Map());
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (!visible || likedBy.length === 0) return;
+    if (!visible) return;
     let mounted = true;
-    nostrProfileService.getProfiles(likedBy).then((fetched) => {
-      if (mounted) setProfiles(fetched);
-    }).catch(() => {});
+    setIsLoading(true);
+
+    WorkoutInteractionService.getInstance().getLikers(eventId).then(async (npubs) => {
+      if (!mounted) return;
+      setLikers(npubs);
+
+      if (npubs.length > 0) {
+        const p = await nostrProfileService.getProfiles(npubs).catch(() => new Map() as Map<string, NostrProfile>);
+        if (mounted) setProfiles(p);
+      }
+      if (mounted) setIsLoading(false);
+    }).catch(() => {
+      if (mounted) setIsLoading(false);
+    });
+
     return () => { mounted = false; };
-  }, [visible, likedBy]);
+  }, [visible, eventId]);
 
   const renderItem = ({ item: npub }: { item: string }) => {
     const profile = profiles.get(npub);
@@ -49,12 +64,22 @@ export const LikesBottomSheet: React.FC<LikesBottomSheetProps> = ({
             <Text style={styles.close}>Done</Text>
           </TouchableOpacity>
         </View>
-        <FlatList
-          data={likedBy}
-          renderItem={renderItem}
-          keyExtractor={(item) => item}
-          contentContainerStyle={styles.list}
-        />
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator color={theme.colors.accent} />
+          </View>
+        ) : likers.length === 0 ? (
+          <View style={styles.loadingContainer}>
+            <Text style={styles.emptyText}>No likes yet</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={likers}
+            renderItem={renderItem}
+            keyExtractor={(item) => item}
+            contentContainerStyle={styles.list}
+          />
+        )}
       </View>
     </Modal>
   );
@@ -72,4 +97,6 @@ const styles = StyleSheet.create({
   list: { paddingHorizontal: 16, paddingTop: 8 },
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 12 },
   name: { fontSize: 15, color: theme.colors.text, flex: 1 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 40 },
+  emptyText: { color: theme.colors.textMuted, fontSize: 14 },
 });

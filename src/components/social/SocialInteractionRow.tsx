@@ -162,11 +162,11 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ work
       </View>
 
       <InlineCommentList
-        postId={workout.eventId}
-        postEventId={workout.eventId}
-        postAuthorPubkey={workout.npub}
+        eventId={workout.eventId}
+        userNpub={userNpub}
         commentCount={commentCount}
         expanded={commentsExpanded}
+        onCommentAdded={() => setCommentCount((c) => c + 1)}
       />
 
       <ExternalZapModal
@@ -183,13 +183,13 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ work
 
       <LikesBottomSheet
         visible={showLikes}
-        likedBy={[]}
+        eventId={workout.eventId}
         onClose={() => setShowLikes(false)}
       />
 
       <ZapsBottomSheet
         visible={showZaps}
-        postId={workout.eventId}
+        eventId={workout.eventId}
         zapTotal={zapTotal}
         onClose={() => setShowZaps(false)}
       />
