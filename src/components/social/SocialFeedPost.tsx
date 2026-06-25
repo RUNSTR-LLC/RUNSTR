@@ -5,7 +5,6 @@ import { View, Text, StyleSheet } from 'react-native';
 import { theme } from '../../styles/theme';
 import { Avatar } from '../ui/Avatar';
 import { timeAgo } from '../../types/social';
-import type { SocialFeedPost as SocialFeedPostType } from '../../types/social';
 import type { FeedWorkout } from '../../types/feedWorkout';
 import { SocialInteractionRow } from './SocialInteractionRow';
 import { WorkoutPostCard } from './WorkoutPostCard';
@@ -13,34 +12,6 @@ import { WorkoutPostCard } from './WorkoutPostCard';
 interface SocialFeedPostProps {
   workout: FeedWorkout;
   userNpub: string;
-}
-
-/**
- * Maps a FeedWorkout to the SocialFeedPost shape that SocialInteractionRow expects.
- * Interaction counts start at 0 for workout-feed posts until Phase 2 re-keys
- * the interaction tables to the 1301 event_id.
- * Zaps (Nostr-native, keyed by event_id + npub) work immediately.
- * TODO(phase2): re-key interaction reads/writes to the 1301 event_id so cross-network counts populate
- */
-function feedWorkoutToInteractionPost(w: FeedWorkout): SocialFeedPostType {
-  return {
-    id: w.eventId,
-    event_id: w.eventId,
-    npub: w.npub,
-    content: w.title ?? '',
-    images: null,
-    hashtags: null,
-    author_name: w.authorName,
-    author_avatar: w.authorAvatar,
-    created_at: w.occurredAt,
-    indexed_at: w.occurredAt,
-    like_count: 0,
-    repost_count: 0,
-    zap_total: 0,
-    comment_count: 0,
-    liked_by: null,
-    reposted_by: null,
-  };
 }
 
 const SocialFeedPostInner: React.FC<SocialFeedPostProps> = ({ workout, userNpub }) => {
@@ -58,7 +29,7 @@ const SocialFeedPostInner: React.FC<SocialFeedPostProps> = ({ workout, userNpub 
 
       <WorkoutPostCard workout={workout} title={workout.title} />
 
-      <SocialInteractionRow post={feedWorkoutToInteractionPost(workout)} userNpub={userNpub} />
+      <SocialInteractionRow workout={workout} userNpub={userNpub} />
     </View>
   );
 };

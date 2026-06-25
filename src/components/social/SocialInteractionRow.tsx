@@ -5,8 +5,8 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { theme } from '../../styles/theme';
-import SocialInteractionService from '../../services/social/SocialInteractionService';
-import type { SocialFeedPost } from '../../types/social';
+import { WorkoutInteractionService } from '../../services/social/WorkoutInteractionService';
+import type { FeedWorkout } from '../../types/feedWorkout';
 import { ExternalZapModal } from '../nutzap/ExternalZapModal';
 import { LikesBottomSheet } from './LikesBottomSheet';
 import { ZapsBottomSheet } from './ZapsBottomSheet';
@@ -20,25 +20,21 @@ import {
 } from '../../constants/zap';
 
 interface SocialInteractionRowProps {
-  post: SocialFeedPost;
+  workout: FeedWorkout;
   userNpub: string;
 }
 
-export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post, userNpub }) => {
-  const [likeCount, setLikeCount] = useState(post.like_count || 0);
-  const [repostCount, setRepostCount] = useState(post.repost_count || 0);
-  const [zapTotal, setZapTotal] = useState(post.zap_total || 0);
-  const [isLiked, setIsLiked] = useState(post.liked_by?.includes(userNpub) || false);
-  const [isReposted, setIsReposted] = useState(post.reposted_by?.includes(userNpub) || false);
-  const [localLikedBy, setLocalLikedBy] = useState<string[]>(post.liked_by || []);
-  const [localRepostedBy, setLocalRepostedBy] = useState<string[]>(post.reposted_by || []);
+export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ workout, userNpub }) => {
+  const [likeCount, setLikeCount] = useState(workout.likeCount ?? 0);
+  const [commentCount, setCommentCount] = useState(workout.commentCount ?? 0);
+  const [zapTotal, setZapTotal] = useState(workout.zapTotal ?? 0);
+  const [isLiked, setIsLiked] = useState(workout.likedByMe ?? false);
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const [showZapModal, setShowZapModal] = useState(false);
 
   const [showLikes, setShowLikes] = useState(false);
   const [showZaps, setShowZaps] = useState(false);
   const [commentsExpanded, setCommentsExpanded] = useState(false);
-  const commentCount = (post as any).comment_count || 0;
 
   const debounceRef = useRef<number>(0);
   const zapFlash = useRef(new Animated.Value(1)).current;
@@ -61,16 +57,21 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
   }, [isProcessing]);
 
   const handleLike = useCallback(() => {
-    if (isLiked) return; // Likes are one-way on Nostr (kind 7 has no unlike)
     debounce('like', async () => {
-      setIsLiked(true);
-      setLikeCount((c) => c + 1);
-      setLocalLikedBy((prev) => prev.includes(userNpub) ? prev : [...prev, userNpub]);
+      // Optimistic update
+      const wasLiked = isLiked;
+      setIsLiked(!wasLiked);
+      setLikeCount((c) => wasLiked ? Math.max(c - 1, 0) : c + 1);
 
-      // Fire-and-forget — optimistic state stays regardless of Nostr publish result
-      SocialInteractionService.toggleLike(post.id, post.event_id, post.npub).catch(() => {});
+      try {
+        await WorkoutInteractionService.getInstance().toggleLike(workout.eventId, userNpub);
+      } catch {
+        // Revert on error
+        setIsLiked(wasLiked);
+        setLikeCount((c) => wasLiked ? c + 1 : Math.max(c - 1, 0));
+      }
     });
-  }, [isLiked, post, userNpub, debounce]);
+  }, [isLiked, workout.eventId, userNpub, debounce]);
 
   const handleZapTap = useCallback(() => {
     if (hasNWC) {
@@ -81,9 +82,10 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
           Animated.timing(zapFlash, { toValue: 1, duration: 100, useNativeDriver: true }),
         ]).start();
 
-        const success = await sendZap(post.npub, defaultZapAmount, `Zap from RUNSTR`);
+        const success = await sendZap(workout.npub, defaultZapAmount, `Zap from RUNSTR`);
         if (success) {
           Toast.show({ type: 'success', text1: 'Reward sent', visibilityTime: 1500 });
+          await WorkoutInteractionService.getInstance().recordZap(workout.eventId, userNpub, defaultZapAmount);
         } else {
           setZapTotal((z) => Math.max(z - defaultZapAmount, 0));
           Toast.show({ type: 'error', text1: "Couldn't send reward", visibilityTime: 2000 });
@@ -92,23 +94,11 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
     } else {
       setShowZapModal(true);
     }
-  }, [hasNWC, defaultZapAmount, post, debounce, sendZap, zapFlash]);
+  }, [hasNWC, defaultZapAmount, workout, userNpub, debounce, sendZap, zapFlash]);
 
   const handleZapLongPress = useCallback(() => {
     setShowZapModal(true);
   }, []);
-
-  const handleRepost = useCallback(() => {
-    if (isReposted) return;
-    debounce('repost', async () => {
-      setIsReposted(true);
-      setRepostCount((c) => c + 1);
-      setLocalRepostedBy((prev) => prev.includes(userNpub) ? prev : [...prev, userNpub]);
-
-      // Fire-and-forget — optimistic state stays regardless of Nostr publish result
-      SocialInteractionService.repost(post.id, post.event_id, post.npub).catch(() => {});
-    });
-  }, [isReposted, post, userNpub, debounce]);
 
   const formatCount = (n: number): string => {
     if (n === 0) return '';
@@ -153,8 +143,6 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
           )}
         </View>
 
-        {/* Repost button removed 2026-06-09: feed keeps like / zap / comment only. */}
-
         <View style={styles.actionGroup}>
           <TouchableOpacity
             style={styles.action}
@@ -174,30 +162,34 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ post
       </View>
 
       <InlineCommentList
-        postId={post.id}
-        postEventId={post.event_id}
-        postAuthorPubkey={post.npub}
+        postId={workout.eventId}
+        postEventId={workout.eventId}
+        postAuthorPubkey={workout.npub}
         commentCount={commentCount}
         expanded={commentsExpanded}
       />
 
       <ExternalZapModal
         visible={showZapModal}
-        recipientNpub={post.npub}
-        recipientName={post.author_name || 'Unknown'}
+        recipientNpub={workout.npub}
+        recipientName={workout.authorName || 'Unknown'}
         onClose={() => setShowZapModal(false)}
-        onSuccess={() => setShowZapModal(false)}
+        onSuccess={() => {
+          setShowZapModal(false);
+          setZapTotal((z) => z + defaultZapAmount);
+          WorkoutInteractionService.getInstance().recordZap(workout.eventId, userNpub, defaultZapAmount).catch(() => {});
+        }}
       />
 
       <LikesBottomSheet
         visible={showLikes}
-        likedBy={localLikedBy}
+        likedBy={[]}
         onClose={() => setShowLikes(false)}
       />
 
       <ZapsBottomSheet
         visible={showZaps}
-        postId={post.id}
+        postId={workout.eventId}
         zapTotal={zapTotal}
         onClose={() => setShowZaps(false)}
       />
