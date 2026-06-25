@@ -47,6 +47,7 @@ const CommentsScreenInner: React.FC<CommentsScreenProps> = ({ navigation, route 
     setIsSending(true);
 
     const userNpub = await AsyncStorage.getItem('@runstr:npub');
+    if (!userNpub) { setIsSending(false); return; }
     const userName = await AsyncStorage.getItem('@runstr:display_name');
     const userAvatar = await AsyncStorage.getItem('@runstr:profile_picture');
 

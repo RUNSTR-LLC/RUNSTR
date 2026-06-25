@@ -30,6 +30,7 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ work
   const [zapTotal, setZapTotal] = useState(workout.zapTotal ?? 0);
   const [isLiked, setIsLiked] = useState(workout.likedByMe ?? false);
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
+  const processingRef = useRef<string | null>(null);
   const [showZapModal, setShowZapModal] = useState(false);
 
   const [showLikes, setShowLikes] = useState(false);
@@ -50,13 +51,18 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ work
 
   const debounce = useCallback((action: string, fn: () => Promise<void>) => {
     const now = Date.now();
-    if (now - debounceRef.current < 500 || isProcessing) return;
+    if (now - debounceRef.current < 500 || processingRef.current) return;
     debounceRef.current = now;
+    processingRef.current = action;
     setIsProcessing(action);
-    fn().finally(() => setIsProcessing(null));
-  }, [isProcessing]);
+    fn().finally(() => {
+      processingRef.current = null;
+      setIsProcessing(null);
+    });
+  }, []);
 
   const handleLike = useCallback(() => {
+    if (!userNpub) return;
     debounce('like', async () => {
       // Optimistic update
       const wasLiked = isLiked;
@@ -74,6 +80,7 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ work
   }, [isLiked, workout.eventId, userNpub, debounce]);
 
   const handleZapTap = useCallback(() => {
+    if (!userNpub) return;
     if (hasNWC) {
       debounce('zap', async () => {
         setZapTotal((z) => z + defaultZapAmount);
@@ -110,7 +117,7 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ work
     <>
       <View style={styles.row}>
         <View style={styles.actionGroup}>
-          <TouchableOpacity style={styles.action} onPress={handleLike} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.action} onPress={handleLike} activeOpacity={isProcessing === 'like' ? 1 : 0.7} disabled={isProcessing === 'like'}>
             <Ionicons
               name={isLiked ? 'heart' : 'heart-outline'}
               size={20}
@@ -130,7 +137,8 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ work
             onPress={handleZapTap}
             onLongPress={handleZapLongPress}
             delayLongPress={400}
-            activeOpacity={0.7}
+            activeOpacity={isProcessing === 'zap' ? 1 : 0.7}
+            disabled={isProcessing === 'zap'}
           >
             <Animated.View style={{ transform: [{ scale: zapFlash }] }}>
               <Ionicons name="flash-outline" size={20} color={theme.colors.textMuted} />
@@ -176,6 +184,7 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ work
         onClose={() => setShowZapModal(false)}
         onSuccess={(amountSats) => {
           setShowZapModal(false);
+          if (!userNpub) return;
           setZapTotal((z) => z + amountSats);
           WorkoutInteractionService.getInstance().recordZap(workout.eventId, userNpub, amountSats).catch(() => {});
         }}

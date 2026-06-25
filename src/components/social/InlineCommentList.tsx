@@ -49,11 +49,12 @@ export const InlineCommentList: React.FC<InlineCommentListProps> = ({
     });
 
     return () => { mounted = false; };
-  }, [expanded, eventId, commentCount]);
+  }, [expanded, eventId]);
 
   const handleSend = useCallback(async () => {
     const trimmed = inputText.trim();
     if (trimmed.length === 0 || isSending) return;
+    if (!userNpub.trim()) return;
 
     setInputText('');
     Keyboard.dismiss();

@@ -125,7 +125,8 @@ export class WorkoutInteractionService {
       const { data, error } = await supabase!
         .from('workout_likes')
         .select('npub')
-        .eq('event_id', eventId);
+        .eq('event_id', eventId)
+        .limit(200);
       if (error) console.error('[WorkoutInteraction] getLikers:', error.message);
       return (data ?? []).map((r) => r.npub);
     } catch (e) {
@@ -183,6 +184,7 @@ export class WorkoutInteractionService {
 
   /** Record a zap (does not check for duplicates — callers ensure idempotency). */
   async recordZap(eventId: string, senderNpub: string, amount: number): Promise<void> {
+    if (!senderNpub || amount <= 0) return;
     if (!isSupabaseConfigured()) return;
     try {
       const { error } = await supabase!
@@ -202,7 +204,8 @@ export class WorkoutInteractionService {
         .from('workout_zaps')
         .select('id, event_id, sender_npub, amount, created_at')
         .eq('event_id', eventId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(200);
       if (error) console.error('[WorkoutInteraction] getZaps:', error.message);
       return (data ?? []) as WorkoutZap[];
     } catch (e) {
