@@ -4,7 +4,7 @@ Single source of truth for reward logic across the app, website, and backend.
 
 ## Daily Reward
 
-- **Amount:** 50 sats per qualifying workout
+- **Amount:** Distance-tiered rewards per qualifying workout — 500 for 5K, 1000 for 10K, 2100 for half marathon, 4200 for marathon (values from `src/config/rewards.ts` `REWARD_DISTANCE_TIERS`)
 - **Applies to:** All users (no tiers, no subscriptions)
 - **Daily limit:** 1 reward per user per day
 
@@ -22,7 +22,7 @@ Cardio only — running, walking, cycling, hiking.
 
 Daily steps (5,000+) also qualify as a walking workout via the daily step submission path.
 
-No distance minimum. No duration minimum.
+Minimum distance: 5 km. Minimum duration: 1 minute. Workouts below the 5K threshold earn no reward.
 
 ## Payout Destination
 
