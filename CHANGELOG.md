@@ -2,6 +2,22 @@
 
 All notable changes to RUNSTR will be documented in this file.
 
+## [1.9.9] - 2026-06-27 - Reliability & Feed Polish
+
+A polish and reliability pass: a deeper feed, an honest reward notification, and more dependable Apple Health sync.
+
+- The feed now keeps loading as you scroll instead of stopping after a handful of posts
+- Reward notifications show only confirmed payouts, as a clean branded toast — no more premature "earned" amounts before a reward actually lands
+- Turning off Apple Health sync now fully stops background syncing, and iOS catches up missed workouts over a longer window
+- Auto-post now shares GPS workouts only — step days no longer post automatically
+- Workouts shared from other apps (like strength training) now show their real stats: sets, reps, weight, and time, instead of a blank distance
+- Step days stay on your leaderboard but no longer clutter the feed as posts
+- View or import your RUNSTR AI key right from Settings
+- Fixed a login issue that could lock you out when the network was slow to respond
+- Tapping a reward notification now opens the Rewards screen
+- Reward counts no longer stick too high if recording a tap fails
+- Various stability fixes
+
 ## [1.9.8] - 2026-06-25 - Workout Feed & Social
 
 Rebuilds the workout feed and adds in-app social. Every post now renders the
