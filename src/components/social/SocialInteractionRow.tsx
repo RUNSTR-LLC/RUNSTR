@@ -92,7 +92,13 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ work
         const success = await sendZap(workout.npub, defaultZapAmount, `Zap from RUNSTR`);
         if (success) {
           Toast.show({ type: 'success', text1: 'Reward sent', visibilityTime: 1500 });
-          await WorkoutInteractionService.getInstance().recordZap(workout.eventId, userNpub, defaultZapAmount);
+          try {
+            await WorkoutInteractionService.getInstance().recordZap(workout.eventId, userNpub, defaultZapAmount);
+          } catch {
+            // Reward sent, but persisting the count failed — revert the
+            // optimistic bump so the displayed total matches the database.
+            setZapTotal((z) => Math.max(z - defaultZapAmount, 0));
+          }
         } else {
           setZapTotal((z) => Math.max(z - defaultZapAmount, 0));
           Toast.show({ type: 'error', text1: "Couldn't send reward", visibilityTime: 2000 });
@@ -186,7 +192,11 @@ export const SocialInteractionRow: React.FC<SocialInteractionRowProps> = ({ work
           setShowZapModal(false);
           if (!userNpub) return;
           setZapTotal((z) => z + amountSats);
-          WorkoutInteractionService.getInstance().recordZap(workout.eventId, userNpub, amountSats).catch(() => {});
+          WorkoutInteractionService.getInstance().recordZap(workout.eventId, userNpub, amountSats).catch(() => {
+            // Recording the zap failed — revert the optimistic count so it
+            // matches persisted truth (the feed re-hydrates from the DB).
+            setZapTotal((z) => Math.max(z - amountSats, 0));
+          });
         }}
       />
 

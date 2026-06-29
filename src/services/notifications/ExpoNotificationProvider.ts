@@ -195,7 +195,9 @@ export class ExpoNotificationProvider {
       switch (data?.type) {
         case 'reward_earned':
         case 'step_reward_earned':
-          navigate('MainTabs', { screen: 'Rewards' });
+          // 'Rewards' is a stack screen sibling to MainTabs, not a tab inside
+          // it — navigating into MainTabs silently no-ops. Target it directly.
+          navigate('Rewards');
           break;
         case 'auto_joined':
         case 'leaderboard_change':

@@ -152,32 +152,44 @@ export class NostrAuthProvider {
       const directUser =
         await DirectNostrProfileService.getCurrentUserProfile();
 
-      if (!directUser) {
-        return {
-          success: false,
-          error: 'Failed to load Nostr profile data',
-        };
-      }
+      // A null result here means the kind-0 profile couldn't be fetched (relay
+      // timeout, or the key simply has no published profile yet). The keys are
+      // valid and already stored, so do NOT lock the user out — sign them in
+      // with a minimal profile built from their own npub. The display name and
+      // avatar self-heal on the next successful profile fetch (app launch,
+      // prefetch, or pull-to-refresh).
+      const user: User = directUser
+        ? {
+            id: directUser.id,
+            name: directUser.name,
+            email: directUser.email,
+            npub: directUser.npub,
+            role: directUser.role,
+            teamId: directUser.teamId,
+            currentTeamId: directUser.currentTeamId,
+            createdAt: directUser.createdAt,
+            lastSyncAt: directUser.lastSyncAt,
+            // Nostr profile fields
+            bio: directUser.bio,
+            website: directUser.website,
+            picture: directUser.picture,
+            banner: directUser.banner,
+            lud16: directUser.lud16,
+            displayName: directUser.displayName,
+          }
+        : {
+            id: npub,
+            name: 'RUNSTR User',
+            npub,
+            role: 'member',
+            createdAt: new Date().toISOString(),
+          };
 
-      // Convert DirectNostrUser to User for compatibility
-      const user: User = {
-        id: directUser.id,
-        name: directUser.name,
-        email: directUser.email,
-        npub: directUser.npub,
-        role: directUser.role,
-        teamId: directUser.teamId,
-        currentTeamId: directUser.currentTeamId,
-        createdAt: directUser.createdAt,
-        lastSyncAt: directUser.lastSyncAt,
-        // Nostr profile fields
-        bio: directUser.bio,
-        website: directUser.website,
-        picture: directUser.picture,
-        banner: directUser.banner,
-        lud16: directUser.lud16,
-        displayName: directUser.displayName,
-      };
+      if (!directUser) {
+        console.warn(
+          '⚠️ NostrAuthProvider: profile fetch returned null — signing in with a minimal profile (will refresh later)'
+        );
+      }
 
       console.log(
         '✅ NostrAuthProvider: Pure Nostr authentication successful:',
