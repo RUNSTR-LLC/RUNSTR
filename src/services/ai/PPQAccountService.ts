@@ -427,8 +427,9 @@ export class PPQAccountService {
   }
 
   /**
-   * Get API key for Coach RUNSTR (internal use only)
-   * This key is used locally for AI queries, never sent to our backend
+   * Get API key for Coach RUNSTR (internal use only).
+   * Used locally for AI queries. Note the key is also uploaded (NIP-98 signed)
+   * to the backend via uploadAccount() so the reward payer can top up credits.
    */
   static async getApiKey(): Promise<string | null> {
     try {

@@ -498,7 +498,7 @@ export const PPQAPIKeyModal: React.FC<PPQAPIKeyModalProps> = ({
               <View style={styles.privacyNote}>
                 <Ionicons name="shield-checkmark-outline" size={16} color={theme.colors.textMuted} />
                 <Text style={styles.privacyText}>
-                  Credentials are stored locally on your device
+                  Your API key is saved on this device and synced to RUNSTR so rewards can top up your credits
                 </Text>
               </View>
             </>

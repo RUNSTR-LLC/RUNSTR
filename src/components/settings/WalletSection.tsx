@@ -15,6 +15,7 @@ import { DefaultZapAmountSetting } from './DefaultZapAmountSetting';
 
 interface WalletSectionProps {
   onRewardsPress: () => void;
+  onAIKeyPress: () => void;
   hasNWCWallet: boolean;
   onDisconnectWallet: () => void;
   onShowWalletConfigModal: () => void;
@@ -23,6 +24,7 @@ interface WalletSectionProps {
 
 export const WalletSection: React.FC<WalletSectionProps> = ({
   onRewardsPress,
+  onAIKeyPress,
   hasNWCWallet,
   onDisconnectWallet,
   onShowWalletConfigModal,
@@ -39,6 +41,21 @@ export const WalletSection: React.FC<WalletSectionProps> = ({
             <View style={styles.securityIcon}>
               <Ionicons
                 name="flash-outline"
+                size={20}
+                color={theme.colors.text}
+              />
+            </View>
+          }
+        />
+
+        <SettingItem
+          title="RUNSTR AI"
+          subtitle="View or import your API key"
+          onPress={onAIKeyPress}
+          rightElement={
+            <View style={styles.securityIcon}>
+              <Ionicons
+                name="sparkles-outline"
                 size={20}
                 color={theme.colors.text}
               />

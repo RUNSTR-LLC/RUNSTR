@@ -5,7 +5,7 @@
  * Rewards are handled server-side via trigger_auto_reward() + push notifications.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,7 @@ import { ImportDataModal } from '../components/backup/ImportDataModal';
 import { WalletConfigModal } from '../components/wallet/WalletConfigModal';
 import { NWCQRConfirmationModal } from '../components/wallet/NWCQRConfirmationModal';
 import { QRScannerModal } from '../components/qr/QRScannerModal';
+import { PPQAPIKeyModal } from '../components/ai/PPQAPIKeyModal';
 import { settingsStyles as styles } from './settingsStyles';
 import { useSettingsState } from './useSettingsState';
 import { RewardNotificationManager } from '../services/rewards/RewardNotificationManager';
@@ -52,6 +53,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onSignOut,
 }) => {
   const state = useSettingsState(onSignOut);
+  const [showPPQModal, setShowPPQModal] = useState(false);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -137,6 +139,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
           <WalletSection
             onRewardsPress={state.handleRewardsPress}
+            onAIKeyPress={() => setShowPPQModal(true)}
             hasNWCWallet={state.hasNWCWallet}
             onDisconnectWallet={state.handleDisconnectWallet}
             onShowWalletConfigModal={() => state.setShowWalletConfigModal(true)}
@@ -205,6 +208,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         onClose={() => state.setShowNWCQRConfirmModal(false)}
         connectionString={state.scannedNWCString}
         onSuccess={state.handleNWCConnectSuccess}
+      />
+      <PPQAPIKeyModal
+        visible={showPPQModal}
+        onClose={() => setShowPPQModal(false)}
+        onSuccess={() => {}}
       />
     </SafeAreaView>
   );
