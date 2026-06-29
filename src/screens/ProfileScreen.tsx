@@ -414,6 +414,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
             refreshing={!isWorkoutActive && isRefreshing}
             onRefresh={handleRefresh}
             scrollEnabled={!isWorkoutActive}
+            showsVerticalScrollIndicator={false}
           >
             {!isWorkoutActive && (
               <View style={styles.sectionGap}>
@@ -532,7 +533,7 @@ const styles = StyleSheet.create({
   scrollContent: { flexGrow: 1, paddingHorizontal: 16, paddingBottom: 32 },
   ownerContent: { flex: 1, paddingHorizontal: 16, paddingBottom: 16 },
   ownerScroll: { flex: 1 },
-  ownerScrollContent: { flexGrow: 1 },
+  ownerScrollContent: { flexGrow: 1, paddingTop: 8 },
   sectionGap: { marginBottom: 12 },
   trackerContainer: {
     flex: 1,

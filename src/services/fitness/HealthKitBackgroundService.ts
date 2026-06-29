@@ -105,6 +105,17 @@ export class HealthKitBackgroundService {
   async handleWorkoutUpdate(_event: { typeIdentifier: string }): Promise<void> {
     console.log('[HKBackground] Workout update received');
 
+    // OFF MEANS OFF: honor the Settings toggle. iOS keeps the module-load
+    // HealthKit observer (HealthKitBackgroundTask.ts) alive for the whole app
+    // lifetime — it can't be torn down — so disabling sync must be enforced HERE,
+    // at the single handler both listeners route through. Only an explicit
+    // 'false' disables; an unset pref preserves the default-on behavior.
+    const syncPref = await AsyncStorage.getItem('@runstr:healthkit_sync_enabled');
+    if (syncPref === 'false') {
+      console.log('[HKBackground] Apple Health sync disabled by user — skipping');
+      return;
+    }
+
     // SYNC MUTEX: Prevent concurrent background wakes from racing
     if (this.syncInProgress) {
       console.log('[HKBackground] Sync already in progress, skipping');
@@ -129,7 +140,11 @@ export class HealthKitBackgroundService {
       // Reuse HealthKitService for consistent workout fetching + normalization
       const { HealthKitService } = await import('./healthKitService');
       const healthKit = HealthKitService.getInstance();
-      const recentWorkouts = await healthKit.getRecentWorkouts(npub, 1); // last 24h
+      // 7-day lookback (was 1) to match Android and survive a missed wake: if a
+      // background wake is dropped (e.g. a transient HealthKit read error), the
+      // workout is still picked up within a week instead of aging out after 24h.
+      // Dedup (submittedIds + the server time-overlap guard) prevents resubmits.
+      const recentWorkouts = await healthKit.getRecentWorkouts(npub, 7);
 
       if (!recentWorkouts || recentWorkouts.length === 0) {
         console.log('[HKBackground] No recent workouts found');

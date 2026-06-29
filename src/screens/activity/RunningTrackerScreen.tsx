@@ -1072,7 +1072,7 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: 'transparent', // parent gradient shows through (no lighter box)
   },
   contentContainer: {
     flex: 1,

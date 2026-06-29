@@ -347,6 +347,11 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
         return;
       }
 
+      // Auto-post is for GPS cardio only. A step-only session (no GPS distance)
+      // must never auto-publish a workout note. Manual "Post" and the dedicated
+      // Daily Steps share/compete buttons are unaffected.
+      if (!(workout.distance > 0)) return;
+
       const enabled = await NostrPostingPreferencesService.isAutoPostEnabled();
       if (!enabled) return;
 
@@ -618,16 +623,10 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* Reward Earned Banner */}
-          {workout.rewardSent && workout.rewardAmount && workout.rewardAmount > 0 && (
-            <View style={styles.rewardBanner}>
-              <Ionicons name="flash" size={24} color="#f7931a" />
-              <View style={styles.rewardTextContainer}>
-                <Text style={styles.rewardTitle}>Reward Earned!</Text>
-                <Text style={styles.rewardAmount}>+{workout.rewardAmount} rewards</Text>
-              </View>
-            </View>
-          )}
+          {/* Reward feedback is intentionally NOT shown here. The earned amount
+              is a client-side guess at save time; the only truthful "you earned X"
+              surface is the confirmed toast fired by RewardPollingService once the
+              zapper has actually paid (reads the reward_payments table). */}
 
           {/* Stats Grid */}
           <View style={styles.statsGrid}>

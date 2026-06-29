@@ -553,7 +553,7 @@ export const HikingTrackerScreen: React.FC<HikingTrackerScreenProps> = ({
 const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: 'transparent', // parent gradient shows through (no lighter box)
   },
   contentContainer: {
     flex: 1,

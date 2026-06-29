@@ -972,7 +972,7 @@ const styles = StyleSheet.create({
   // Screen container (replaces SafeAreaView since parent handles safe area)
   screenContainer: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: 'transparent', // parent gradient shows through (no lighter box)
   },
   // Content container with platform-specific top padding
   contentContainer: {

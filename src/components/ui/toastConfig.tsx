@@ -6,7 +6,6 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
-import { RewardBoltToast } from './RewardBoltToast';
 
 interface ToastProps {
   text1?: string;
@@ -63,14 +62,27 @@ export const toastConfig = {
     </View>
   ),
 
-  // Reward confirmed notification - Drop-in lightning bolt, amount beneath it (no box)
-  rewardConfirmed: ({ text1, text2, props }: ToastProps) => (
-    <RewardBoltToast text1={text1} text2={text2} nonce={props?.nonce} />
+  // Reward confirmed notification - RUNSTR branded orange/black toast.
+  // Fired by RewardPollingService only on a confirmed reward_payments row.
+  rewardConfirmed: ({ text1, text2 }: ToastProps) => (
+    <View style={styles.rewardToast}>
+      <Ionicons name="flash" size={24} color={theme.colors.orangeDeep} />
+      <View style={styles.textContainer}>
+        <Text style={styles.title}>{text1}</Text>
+        {text2 && <Text style={styles.rewardSubtitle}>{text2}</Text>}
+      </View>
+    </View>
   ),
 
-  // Reward donated notification - Same bolt motion, charity-specific text
-  rewardDonated: ({ text1, text2, props }: ToastProps) => (
-    <RewardBoltToast text1={text1} text2={text2} nonce={props?.nonce} />
+  // Reward donated notification - same branded toast, charity-specific text
+  rewardDonated: ({ text1, text2 }: ToastProps) => (
+    <View style={styles.rewardToast}>
+      <Ionicons name="flash" size={24} color={theme.colors.orangeDeep} />
+      <View style={styles.textContainer}>
+        <Text style={styles.title}>{text1}</Text>
+        {text2 && <Text style={styles.rewardSubtitle}>{text2}</Text>}
+      </View>
+    </View>
   ),
 };
 
@@ -121,6 +133,12 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     color: '#888888',
+    fontSize: 14,
+    marginTop: 2,
+  },
+  // Reward toast keeps the strict black/orange palette — no white/gray text.
+  rewardSubtitle: {
+    color: theme.colors.textMuted,
     fontSize: 14,
     marginTop: 2,
   },

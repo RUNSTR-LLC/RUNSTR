@@ -1,6 +1,6 @@
 // src/screens/SocialScreen.tsx
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -36,6 +36,9 @@ const workoutFeed = WorkoutFeedService.getInstance();
 const SocialScreenComponent: React.FC = () => {
   const navigation = useNavigation<any>();
   const [posts, setPosts] = useState<FeedWorkout[]>([]);
+  // eventIds shown so far — dedups across pages (the .lte cursor re-includes the
+  // boundary row, and a workout can appear in both feed tables).
+  const seenIdsRef = useRef<Set<string>>(new Set());
   const [clubs, setClubs] = useState<Club[]>([]);
   const [userClubId, setUserClubId] = useState<string | null>(null);
   const [userNpub, setUserNpub] = useState<string>('');
@@ -92,7 +95,10 @@ const SocialScreenComponent: React.FC = () => {
 
       setClubs(clubsData);
       setPosts(feedData);
-      setHasMore(feedData.length >= 20);
+      seenIdsRef.current = new Set(feedData.map((p) => p.eventId));
+      // Short pages are normal — the two feed tables merge + filter and routinely
+      // under-fill. Only an empty first page means there's nothing to paginate.
+      setHasMore(feedData.length > 0);
 
       if (npub) {
         setUserNpub(npub);
@@ -126,17 +132,21 @@ const SocialScreenComponent: React.FC = () => {
       const lastPost = posts[posts.length - 1];
       const morePosts = await workoutFeed.fetchFeed(lastPost.occurredAt, 20, userNpub || null);
 
-      if (morePosts.length < 20) {
+      // Keep only rows we haven't already shown. A short page is NOT the end of
+      // the feed — only a page with zero new rows past this cursor is.
+      const fresh = morePosts.filter((p) => !seenIdsRef.current.has(p.eventId));
+      if (fresh.length === 0) {
         setHasMore(false);
+        return;
       }
-
-      setPosts((prev) => [...prev, ...morePosts]);
+      fresh.forEach((p) => seenIdsRef.current.add(p.eventId));
+      setPosts((prev) => [...prev, ...fresh]);
     } catch (error) {
       console.error('Failed to load more posts:', error);
     } finally {
       setIsLoadingMore(false);
     }
-  }, [isLoadingMore, hasMore, posts]);
+  }, [isLoadingMore, hasMore, posts, userNpub]);
 
   const handleCreatePost = useCallback(async (content: string) => {
     // Composer still publishes a kind-1 post via SocialFeedService.
