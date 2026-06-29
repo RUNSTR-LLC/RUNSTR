@@ -10,9 +10,9 @@ A polish and reliability pass: a deeper feed, an honest reward notification, and
 - Reward notifications show only confirmed payouts, as a clean branded toast — no more premature "earned" amounts before a reward actually lands
 - Turning off Apple Health sync now fully stops background syncing, and iOS catches up missed workouts over a longer window
 - Auto-post now shares GPS workouts only — step days no longer post automatically
-- Workouts shared from other apps (like strength training) now show their real stats: sets, reps, weight, and time, instead of a blank distance
+- Strength workouts shared from other apps now show their real stats (sets, reps, weight) instead of a blank distance, and you can tap "View workout" to see the full exercise breakdown
 - Step days stay on your leaderboard but no longer clutter the feed as posts
-- View or import your RUNSTR AI key right from Settings
+- View or import your PPQ.AI key from Settings, where workout rewards can be sent as credits
 - Fixed a login issue that could lock you out when the network was slow to respond
 - Tapping a reward notification now opens the Rewards screen
 - Reward counts no longer stick too high if recording a tap fails
