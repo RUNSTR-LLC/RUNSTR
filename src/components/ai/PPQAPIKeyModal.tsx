@@ -1,8 +1,9 @@
 /**
- * PPQAPIKeyModal - Manage PPQ.AI Account for RUNSTR AI
+ * PPQAPIKeyModal - Manage the user's PPQ.AI account.
  *
- * Shows AI credit balance and allows account management.
- * Integrates with PPQAccountService for PPQ.AI team rewards.
+ * PPQ.AI is a third-party service where the user holds credits. RUNSTR's only
+ * role is sending workout rewards to the user's PPQ.AI account. Shows the
+ * credit balance and lets the user view or import their PPQ.AI key.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -244,7 +245,7 @@ export const PPQAPIKeyModal: React.FC<PPQAPIKeyModalProps> = ({
             <View style={styles.headerIcon}>
               <Ionicons name="sparkles" size={24} color="#FF9D42" />
             </View>
-            <Text style={styles.title}>RUNSTR AI</Text>
+            <Text style={styles.title}>PPQ.AI</Text>
             <TouchableOpacity
               onPress={handleClose}
               style={styles.closeButton}
@@ -264,7 +265,7 @@ export const PPQAPIKeyModal: React.FC<PPQAPIKeyModalProps> = ({
             <>
               {/* Balance Card */}
               <View style={styles.balanceCard}>
-                <Text style={styles.balanceLabel}>AI Credits Balance</Text>
+                <Text style={styles.balanceLabel}>PPQ.AI Credits</Text>
                 <Text style={styles.balanceValue}>
                   ${balance !== null ? balance.toFixed(2) : '--'}
                 </Text>
@@ -285,7 +286,7 @@ export const PPQAPIKeyModal: React.FC<PPQAPIKeyModalProps> = ({
               <View style={styles.infoBox}>
                 <Ionicons name="flash-outline" size={18} color="#FF9D42" />
                 <Text style={styles.infoText}>
-                  Select "PPQ.AI" as your team to earn AI credits from workout rewards instead of sats.
+                  Choose PPQ.AI as your reward destination and your workout rewards are sent here as credits.
                 </Text>
               </View>
 
@@ -406,7 +407,7 @@ export const PPQAPIKeyModal: React.FC<PPQAPIKeyModalProps> = ({
             // No account - show setup options
             <>
               <Text style={styles.description}>
-                Set up AI credits to power RUNSTR AI's personalized insights and analysis.
+                Set up a PPQ.AI account so your workout rewards can be sent there as credits.
               </Text>
 
               {/* Create Account Button */}
@@ -498,7 +499,7 @@ export const PPQAPIKeyModal: React.FC<PPQAPIKeyModalProps> = ({
               <View style={styles.privacyNote}>
                 <Ionicons name="shield-checkmark-outline" size={16} color={theme.colors.textMuted} />
                 <Text style={styles.privacyText}>
-                  Your API key is saved on this device and synced to RUNSTR so rewards can top up your credits
+                  Your PPQ.AI key is saved on this device and synced to RUNSTR so your rewards can top up your PPQ.AI credits
                 </Text>
               </View>
             </>

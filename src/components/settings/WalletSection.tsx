@@ -49,8 +49,8 @@ export const WalletSection: React.FC<WalletSectionProps> = ({
         />
 
         <SettingItem
-          title="RUNSTR AI"
-          subtitle="View or import your API key"
+          title="PPQ.AI"
+          subtitle="Send your rewards to your PPQ.AI account"
           onPress={onAIKeyPress}
           rightElement={
             <View style={styles.securityIcon}>
