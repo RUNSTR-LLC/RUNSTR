@@ -87,13 +87,11 @@ export function deriveWorkoutCardDisplay(
   let useSetsHero = false;
 
   if (isStrength) {
-    // Headline a strength card with duration, else sets, reps, weight, or
-    // calories — never distance (which would render a bogus 0.00 KM).
-    if (hasDuration) {
-      useDurationHero = true;
-      heroValue = workout.duration_seconds ?? 0;
-      heroUnit = 'TIME';
-    } else if (hasSets) {
+    // Lead a strength card with the lifting stats (sets/reps/weight), then
+    // calories. Distance is never used (it would render a bogus 0.00 KM), and
+    // time is never the headline — it's only a last-resort hero so a sparse
+    // note isn't blank, and it's never shown as a secondary stat here.
+    if (hasSets) {
       useSetsHero = true;
       heroValue = workout.sets ?? 0;
       heroUnit = 'SETS';
@@ -103,9 +101,16 @@ export function deriveWorkoutCardDisplay(
     } else if (hasWeight) {
       heroValue = workout.weight_kg ?? 0;
       heroUnit = 'KG';
-    } else {
+    } else if (hasCalories) {
       heroValue = workout.calories ?? 0;
       heroUnit = 'CAL';
+    } else if (hasDuration) {
+      useDurationHero = true;
+      heroValue = workout.duration_seconds ?? 0;
+      heroUnit = 'TIME';
+    } else {
+      heroValue = 0;
+      heroUnit = '';
     }
     heroDecimals = 0;
   } else {
@@ -124,7 +129,8 @@ export function deriveWorkoutCardDisplay(
   }
 
   const showPace = hasDistance && hasDuration && !isWalking && !isStepsOnly && !isStrength;
-  const showTime = hasDuration && !isStepsOnly && !useDurationHero;
+  // Time is never a secondary stat on a strength card (only a last-resort hero).
+  const showTime = hasDuration && !isStepsOnly && !useDurationHero && !isStrength;
   // Steps as a secondary stat on walking workouts (but not when the step count
   // is already the hero number, and never on a strength card).
   const showStepsStat = !isStrength && hasSteps && isWalking && !useStepsHero;

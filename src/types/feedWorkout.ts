@@ -23,6 +23,9 @@ export interface FeedWorkout {
   reps?: number | null;
   weightKg?: number | null;
   avgHeartRate?: number | null;
+  // Free-text note body (network rows only) — e.g. a strength session's full
+  // exercise breakdown. Shown via tap-to-expand on the card. null for RUNSTR.
+  content?: string | null;
   // Phase 2: hydrated per-page by WorkoutFeedService after DB fetch
   likeCount?: number;
   commentCount?: number;
@@ -33,6 +36,31 @@ export interface FeedWorkout {
 const toNum = (v: unknown): number | null => {
   const n = typeof v === 'string' ? parseFloat(v) : (v as number);
   return typeof n === 'number' && isFinite(n) && !Number.isNaN(n) ? n : null;
+};
+
+/** Pull the kind-1301 `content` body out of a stored raw_event (object or JSON string). */
+const eventContent = (rawEvent: unknown): string | undefined => {
+  if (!rawEvent) return undefined;
+  if (typeof rawEvent === 'string') {
+    try { return JSON.parse(rawEvent)?.content; } catch { return undefined; }
+  }
+  return (rawEvent as { content?: string }).content;
+};
+
+/**
+ * Some clients (e.g. Mi Fitness via Amethyst) put the set/rep summary only in
+ * the free-text body, not in structured tags — so the sets/reps columns come
+ * through null. Recover them from the body's summary line ("29 Sets", "221 Reps").
+ * Heuristic and intentionally conservative: only the first match, used solely as
+ * a fallback when the structured columns are empty.
+ */
+export const parseStrengthFromContent = (
+  content: string | undefined
+): { sets: number | null; reps: number | null } => {
+  if (!content) return { sets: null, reps: null };
+  const setsM = content.match(/(\d+)\s*sets\b/i);
+  const repsM = content.match(/(\d+)\s*reps\b/i);
+  return { sets: setsM ? toNum(setsM[1]) : null, reps: repsM ? toNum(repsM[1]) : null };
 };
 
 export function normalizeSubmissionRow(row: any): FeedWorkout {
@@ -53,6 +81,18 @@ export function normalizeSubmissionRow(row: any): FeedWorkout {
 }
 
 export function normalizeNetworkRow(row: any): FeedWorkout {
+  const content = eventContent(row.raw_event);
+
+  // Prefer the structured columns; fall back to parsing the note body when a
+  // strength note carried its sets/reps only as free text.
+  let sets = toNum(row.sets);
+  let reps = toNum(row.reps);
+  if (sets === null && reps === null) {
+    const parsed = parseStrengthFromContent(content);
+    sets = parsed.sets;
+    reps = parsed.reps;
+  }
+
   return {
     eventId: row.event_id,
     npub: row.npub,
@@ -67,9 +107,10 @@ export function normalizeNetworkRow(row: any): FeedWorkout {
     authorName: null,                     // resolved via NDK kind-0 later
     authorAvatar: null,
     exercise: row.exercise ?? null,
-    sets: toNum(row.sets),
-    reps: toNum(row.reps),
+    sets,
+    reps,
     weightKg: toNum(row.weight_kg),
     avgHeartRate: toNum(row.avg_heart_rate),
+    content: content ?? null,
   };
 }

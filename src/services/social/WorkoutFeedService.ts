@@ -6,7 +6,7 @@ import { nostrProfileService } from '../nostr/NostrProfileService';
 import { WorkoutInteractionService } from './WorkoutInteractionService';
 
 const SUB_COLS = 'event_id, npub, activity_type, distance_meters, duration_seconds, calories, step_count, profile_name, profile_picture, created_at';
-const NET_COLS = 'event_id, npub, pubkey, activity_type, distance_meters, duration_seconds, calories, steps, exercise, sets, reps, weight_kg, avg_heart_rate, title, event_created_at, ingested_at';
+const NET_COLS = 'event_id, npub, pubkey, activity_type, distance_meters, duration_seconds, calories, steps, exercise, sets, reps, weight_kg, avg_heart_rate, title, raw_event, event_created_at, ingested_at';
 
 export class WorkoutFeedService {
   private static instance: WorkoutFeedService;

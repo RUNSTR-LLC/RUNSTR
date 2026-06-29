@@ -10,8 +10,9 @@
  * shows only the step count; a walk shows distance + steps + time but no pace.
  */
 
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { AnimatedNumber } from '../ui/AnimatedNumber';
 import { deriveWorkoutCardDisplay } from './workoutCardDisplay';
@@ -76,6 +77,12 @@ export const WorkoutPostCard: React.FC<WorkoutPostCardProps> = ({ workout, title
     showWeight,
     showHeartRate,
   } = deriveWorkoutCardDisplay(cardData, unit);
+
+  const [expanded, setExpanded] = useState(false);
+  // The full note body (e.g. a strength session's exercise breakdown). Show the
+  // toggle only when there's real text — not a trivial one-liner like "#running".
+  const body = (workout.content ?? '').trim();
+  const hasBody = body.length > 0 && !/^#?\w+$/.test(body);
 
   return (
     <View style={styles.card}>
@@ -151,6 +158,25 @@ export const WorkoutPostCard: React.FC<WorkoutPostCardProps> = ({ workout, title
           ) : null}
         </View>
       ) : null}
+
+      {hasBody ? (
+        <View style={styles.bodySection}>
+          <TouchableOpacity
+            style={styles.bodyToggle}
+            onPress={() => setExpanded((e) => !e)}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.bodyToggleText}>{expanded ? 'Hide workout' : 'View workout'}</Text>
+            <Ionicons
+              name={expanded ? 'chevron-up' : 'chevron-down'}
+              size={14}
+              color={theme.colors.textMuted}
+            />
+          </TouchableOpacity>
+          {expanded ? <Text style={styles.bodyText}>{body}</Text> : null}
+        </View>
+      ) : null}
     </View>
   );
 };
@@ -222,5 +248,32 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
     fontVariant: ['tabular-nums'],
+  },
+  bodySection: {
+    width: '100%',
+    marginTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#1a1a1a',
+    paddingTop: 12,
+  },
+  bodyToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  bodyToggleText: {
+    fontSize: 12,
+    fontWeight: theme.typography.weights.semiBold,
+    color: theme.colors.textMuted,
+    letterSpacing: 0.5,
+  },
+  bodyText: {
+    marginTop: 10,
+    fontSize: 13,
+    lineHeight: 19,
+    color: theme.colors.textSecondary,
+    textAlign: 'left',
+    alignSelf: 'stretch',
   },
 });
