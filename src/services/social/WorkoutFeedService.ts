@@ -6,7 +6,7 @@ import { nostrProfileService } from '../nostr/NostrProfileService';
 import { WorkoutInteractionService } from './WorkoutInteractionService';
 
 const SUB_COLS = 'event_id, npub, activity_type, distance_meters, duration_seconds, calories, step_count, profile_name, profile_picture, created_at';
-const NET_COLS = 'event_id, npub, pubkey, activity_type, distance_meters, duration_seconds, calories, steps, title, event_created_at, ingested_at';
+const NET_COLS = 'event_id, npub, pubkey, activity_type, distance_meters, duration_seconds, calories, steps, exercise, sets, reps, weight_kg, avg_heart_rate, title, event_created_at, ingested_at';
 
 export class WorkoutFeedService {
   private static instance: WorkoutFeedService;
@@ -17,9 +17,20 @@ export class WorkoutFeedService {
     return WorkoutFeedService.instance;
   }
 
-  /** A row earns a feed card only if it has at least one renderable metric. */
+  /**
+   * A row earns a feed card only if it has at least one renderable metric AND
+   * is not a passive daily-step sync. Passive step rows (a step count with no
+   * duration, carrying only an estimated distance) belong on the leaderboard,
+   * not the feed — per the product rule that step syncs never post. Real
+   * workouts (duration), strength rows (sets/reps/weight), and distance
+   * activities all still qualify.
+   */
   isFeedWorthy(w: FeedWorkout): boolean {
-    return (w.distanceMeters ?? 0) > 0 || (w.durationSeconds ?? 0) > 0 || (w.stepCount ?? 0) > 0;
+    const hasStrength = (w.sets ?? 0) > 0 || (w.reps ?? 0) > 0 || (w.weightKg ?? 0) > 0;
+    const isPassiveStepSync =
+      (w.stepCount ?? 0) > 0 && !((w.durationSeconds ?? 0) > 0) && !hasStrength;
+    if (isPassiveStepSync) return false;
+    return (w.distanceMeters ?? 0) > 0 || (w.durationSeconds ?? 0) > 0 || hasStrength;
   }
 
   /**
@@ -34,7 +45,10 @@ export class WorkoutFeedService {
         .order('created_at', { ascending: false }).limit(limit);
       let netQ = supabase!.from('network_workouts').select(NET_COLS)
         .order('event_created_at', { ascending: false }).limit(limit);
-      if (beforeISO) { subQ = subQ.lt('created_at', beforeISO); netQ = netQ.lt('event_created_at', beforeISO); }
+      // Use <= so rows sharing the exact boundary timestamp aren't skipped (a
+      // strict < silently drops tie rows → gaps). The screen dedups by eventId
+      // across pages, so the re-included boundary row is harmless.
+      if (beforeISO) { subQ = subQ.lte('created_at', beforeISO); netQ = netQ.lte('event_created_at', beforeISO); }
 
       const [subRes, netRes] = await Promise.all([subQ, netQ]);
       if (subRes.error) console.error('[WorkoutFeed] submissions:', subRes.error.message);
@@ -43,7 +57,12 @@ export class WorkoutFeedService {
       const merged: FeedWorkout[] = [
         ...(subRes.data ?? []).map(normalizeSubmissionRow),
         ...(netRes.data ?? []).map(normalizeNetworkRow),
-      ].filter((w) => this.isFeedWorthy(w));
+      ]
+        // Drop rows missing the id/timestamp we key on: eventId is the FlatList
+        // key + interaction key + dedup key; occurredAt is the pagination cursor.
+        // A null in either would collapse keys or break "load more".
+        .filter((w) => !!w.eventId && !!w.occurredAt)
+        .filter((w) => this.isFeedWorthy(w));
 
       const seen = new Set<string>();
       const deduped = merged.filter((w) => (seen.has(w.eventId) ? false : (seen.add(w.eventId), true)));

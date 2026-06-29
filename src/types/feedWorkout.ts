@@ -16,6 +16,13 @@ export interface FeedWorkout {
   occurredAt: string;         // ISO; used for sort + display
   authorName: string | null;  // null for network rows until kind-0 resolution
   authorAvatar: string | null;
+  // Strength / resistance metrics — populated only on cross-Nostr (network)
+  // rows whose 1301 carried them; null/undefined for RUNSTR submissions.
+  exercise?: string | null;   // 1301 `exercise` tag, e.g. 'strength'
+  sets?: number | null;
+  reps?: number | null;
+  weightKg?: number | null;
+  avgHeartRate?: number | null;
   // Phase 2: hydrated per-page by WorkoutFeedService after DB fetch
   likeCount?: number;
   commentCount?: number;
@@ -59,5 +66,10 @@ export function normalizeNetworkRow(row: any): FeedWorkout {
     occurredAt: row.event_created_at,     // NOT ingested_at
     authorName: null,                     // resolved via NDK kind-0 later
     authorAvatar: null,
+    exercise: row.exercise ?? null,
+    sets: toNum(row.sets),
+    reps: toNum(row.reps),
+    weightKg: toNum(row.weight_kg),
+    avgHeartRate: toNum(row.avg_heart_rate),
   };
 }

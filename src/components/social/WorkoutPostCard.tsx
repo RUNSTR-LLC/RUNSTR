@@ -55,6 +55,11 @@ export const WorkoutPostCard: React.FC<WorkoutPostCardProps> = ({ workout, title
     duration_seconds: workout.durationSeconds,
     calories: workout.calories,
     step_count: workout.stepCount,
+    sets: workout.sets,
+    reps: workout.reps,
+    weight_kg: workout.weightKg,
+    avg_heart_rate: workout.avgHeartRate,
+    exercise: workout.exercise,
   };
 
   const {
@@ -66,12 +71,16 @@ export const WorkoutPostCard: React.FC<WorkoutPostCardProps> = ({ workout, title
     showPace,
     showStepsStat,
     showCalories,
+    showSets,
+    showReps,
+    showWeight,
+    showHeartRate,
   } = deriveWorkoutCardDisplay(cardData, unit);
 
   return (
     <View style={styles.card}>
       {title ? <Text style={styles.title}>{title}</Text> : null}
-      <Text style={styles.activity}>{capitalize(workout.activityType)}</Text>
+      <Text style={styles.activity}>{capitalize(workout.activityType.replace(/_/g, ' '))}</Text>
 
       <View style={styles.heroRow}>
         {useDurationHero ? (
@@ -88,12 +97,30 @@ export const WorkoutPostCard: React.FC<WorkoutPostCardProps> = ({ workout, title
         <Text style={styles.heroUnit}>{heroUnit}</Text>
       </View>
 
-      {showTime || showPace || showStepsStat || showCalories ? (
+      {showTime || showPace || showStepsStat || showCalories || showSets || showReps || showWeight || showHeartRate ? (
         <View style={styles.statsRow}>
           {showTime ? (
             <View style={styles.statCell}>
               <Text style={styles.statLabel}>TIME</Text>
               <Text style={styles.statValue}>{formatDuration(cardData.duration_seconds!)}</Text>
+            </View>
+          ) : null}
+          {showSets ? (
+            <View style={styles.statCell}>
+              <Text style={styles.statLabel}>SETS</Text>
+              <Text style={styles.statValue}>{cardData.sets}</Text>
+            </View>
+          ) : null}
+          {showReps ? (
+            <View style={styles.statCell}>
+              <Text style={styles.statLabel}>REPS</Text>
+              <Text style={styles.statValue}>{cardData.reps}</Text>
+            </View>
+          ) : null}
+          {showWeight ? (
+            <View style={styles.statCell}>
+              <Text style={styles.statLabel}>WEIGHT</Text>
+              <Text style={styles.statValue}>{Math.round(cardData.weight_kg!)} kg</Text>
             </View>
           ) : null}
           {showPace ? (
@@ -114,6 +141,12 @@ export const WorkoutPostCard: React.FC<WorkoutPostCardProps> = ({ workout, title
             <View style={styles.statCell}>
               <Text style={styles.statLabel}>CAL</Text>
               <Text style={styles.statValue}>{cardData.calories}</Text>
+            </View>
+          ) : null}
+          {showHeartRate ? (
+            <View style={styles.statCell}>
+              <Text style={styles.statLabel}>BPM</Text>
+              <Text style={styles.statValue}>{Math.round(cardData.avg_heart_rate!)}</Text>
             </View>
           ) : null}
         </View>
