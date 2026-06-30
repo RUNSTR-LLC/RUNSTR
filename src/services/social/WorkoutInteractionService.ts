@@ -54,10 +54,11 @@ export class WorkoutInteractionService {
     if (!isSupabaseConfigured()) return result;
 
     try {
+      const rowCap = eventIds.length * 500;
       const [likesRes, commentsRes, zapsRes] = await Promise.all([
-        supabase!.from('workout_likes').select('event_id, npub').in('event_id', eventIds),
-        supabase!.from('workout_comments').select('event_id').in('event_id', eventIds),
-        supabase!.from('workout_zaps').select('event_id, amount').in('event_id', eventIds),
+        supabase!.from('workout_likes').select('event_id, npub').in('event_id', eventIds).limit(rowCap),
+        supabase!.from('workout_comments').select('event_id').in('event_id', eventIds).limit(rowCap),
+        supabase!.from('workout_zaps').select('event_id, amount').in('event_id', eventIds).limit(rowCap),
       ]);
 
       if (likesRes.error) console.error('[WorkoutInteraction] likes fetch:', likesRes.error.message);
