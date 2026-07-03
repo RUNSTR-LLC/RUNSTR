@@ -255,6 +255,17 @@ export class WorkoutPublishingService {
       // Upper-bound validation: reject corrupt/impossible metrics
       if (!isValidWorkoutMetrics(distanceMeters, durationSeconds)) {
         console.warn('[WorkoutPublishing] Workout metrics out of bounds, skipping Supabase submission:', { distance: distanceMeters, duration: durationSeconds });
+        // Tell the user — otherwise the workout is invisibly ineligible for
+        // the leaderboard and rewards while the UI reports success. There is
+        // no retry queue for this branch on purpose: invalid metrics don't
+        // become valid on retry.
+        Toast.show({
+          type: 'error',
+          text1: 'Workout saved locally',
+          text2: 'Stats look unusual, so it was not added to the leaderboard.',
+          position: 'bottom',
+          visibilityTime: 5000,
+        });
         // Continue with Nostr publish but skip leaderboard submission
       }
 
