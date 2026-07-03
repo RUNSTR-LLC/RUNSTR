@@ -130,10 +130,10 @@ async function syncAndroidSteps(npub: string): Promise<void> {
     if (!steps || steps <= 0) return;
 
     const now = new Date();
-    const dateStr = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-      .toISOString()
-      .split('T')[0];
-    const eventId = `steps_${npub}_${dateStr}`;
+    // Canonical daily-steps ID shared with the foreground + iOS writers so the
+    // server dedupes all three to one row per user per (local) day.
+    const { dailyStepsEventId } = await import('../../utils/stepEventId');
+    const eventId = dailyStepsEventId(npub, now);
     const estimatedDistanceMeters = Math.round(steps * 0.762);
 
     const { SupabaseCompetitionService } = await import(

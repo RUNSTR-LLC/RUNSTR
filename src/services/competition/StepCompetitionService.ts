@@ -18,6 +18,7 @@ import { dailyStepCounterService } from '../activity/DailyStepCounterService';
 import { activityMetricsService } from '../activity/ActivityMetricsService';
 import LocalWorkoutStorageService from '../fitness/LocalWorkoutStorageService';
 import { safeGetItem, safeSetItem } from '../../utils/asyncStorageTimeout';
+import { dailyStepsEventId } from '../../utils/stepEventId';
 import { WoTService } from '../wot/WoTService';
 import { buildRewardTags } from '../../utils/rewardTags';
 import { nip19 } from 'nostr-tools';
@@ -139,8 +140,7 @@ export class StepCompetitionService {
    * @returns Deterministic event ID
    */
   private static generateEventId(npub: string): string {
-    const today = new Date().toLocaleDateString('en-CA');
-    return `steps_${today}_${npub.slice(0, 12)}`;
+    return dailyStepsEventId(npub);
   }
 
   /**

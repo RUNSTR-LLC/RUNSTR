@@ -342,8 +342,10 @@ export class HealthKitBackgroundService {
       // Estimate distance from steps (avg stride 0.762m)
       const estimatedDistanceMeters = Math.round(totalSteps * 0.762);
 
-      const dateStr = startOfDay.toISOString().split('T')[0]; // YYYY-MM-DD
-      const eventId = `steps_${npub}_${dateStr}`;
+      // Canonical daily-steps ID shared with the foreground + Android writers
+      // so the server dedupes all three to one row per user per (local) day.
+      const { dailyStepsEventId } = await import('../../utils/stepEventId');
+      const eventId = dailyStepsEventId(npub, now);
 
       const { SupabaseCompetitionService } = await import(
         '../backend/SupabaseCompetitionService'
