@@ -754,7 +754,7 @@ export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
           await routeStorageService.addWorkoutToRoute(
             selectedRoute.id,
             result.workoutId,
-            elapsedTime,
+            finalDuration,
             undefined // No pace for walking
           );
           console.log(`[WalkingTracker] Workout added to route "${selectedRoute.name}"`);

@@ -629,14 +629,17 @@ export const CyclingTrackerScreen: React.FC<CyclingTrackerScreenProps> = ({
   };
 
   const showWorkoutSummary = async (session: RunSession) => {
+    // Use the tracker's pause-aware duration, not the local elapsedTime state —
+    // the two diverge after pause/resume (same fix as WalkingTrackerScreen).
+    const finalDuration = session.duration || elapsedTime;
     const avgSpeed = activityMetricsService.calculateSpeed(
       session.distance,
-      elapsedTime
+      finalDuration
     );
     const calories = activityMetricsService.estimateCalories(
       'cycling',
       session.distance,
-      elapsedTime
+      finalDuration
     );
 
     // Save workout to local storage BEFORE showing modal
@@ -644,7 +647,7 @@ export const CyclingTrackerScreen: React.FC<CyclingTrackerScreenProps> = ({
       const result = await LocalWorkoutStorageService.saveGPSWorkout({
         type: 'cycling',
         distance: session.distance,
-        duration: elapsedTime,
+        duration: finalDuration,
         calories,
         elevation: session.elevationGain || 0,
         speed: avgSpeed,
@@ -664,7 +667,7 @@ export const CyclingTrackerScreen: React.FC<CyclingTrackerScreenProps> = ({
           await routeStorageService.addWorkoutToRoute(
             selectedRoute.id,
             result.workoutId,
-            elapsedTime,
+            finalDuration,
             undefined // No pace for cycling
           );
           console.log(`[CyclingTracker] Workout added to route "${selectedRoute.name}"`);
@@ -676,7 +679,7 @@ export const CyclingTrackerScreen: React.FC<CyclingTrackerScreenProps> = ({
       setWorkoutData({
         type: 'cycling',
         distance: session.distance,
-        duration: elapsedTime,
+        duration: finalDuration,
         calories,
         elevation: session.elevationGain || 0,
         speed: avgSpeed,
@@ -693,7 +696,7 @@ export const CyclingTrackerScreen: React.FC<CyclingTrackerScreenProps> = ({
       setWorkoutData({
         type: 'cycling',
         distance: session.distance,
-        duration: elapsedTime,
+        duration: finalDuration,
         calories,
         elevation: session.elevationGain || 0,
         speed: avgSpeed,

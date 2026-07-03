@@ -401,7 +401,7 @@ export const HikingTrackerScreen: React.FC<HikingTrackerScreenProps> = ({
           await routeStorageService.addWorkoutToRoute(
             selectedRoute.id,
             result.workoutId,
-            elapsedTime,
+            finalDuration,
             undefined
           );
         } catch (routeError) {
