@@ -18,7 +18,6 @@ interface WorkoutTabNavigatorProps {
   onPostToSocial?: (workout: LocalWorkout) => Promise<void>;
   onSocialShareHealthKit?: (workout: any) => Promise<void>;
   onSocialShareHealthConnect?: (workout: any) => Promise<void>;
-  onNavigateToAnalytics?: () => void;
 }
 
 export const WorkoutTabNavigator: React.FC<WorkoutTabNavigatorProps> = ({

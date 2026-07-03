@@ -234,10 +234,6 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
     }
   };
 
-  const handleNavigateToAnalytics = () => {
-    navigation.navigate('AdvancedAnalytics' as any);
-  };
-
   if (isInitializing) {
     return (
       <SafeAreaView style={styles.container}>
@@ -311,7 +307,6 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
         onPostToSocial={handlePostToSocial}
         onSocialShareHealthKit={handleSocialShareHealthKit}
         onSocialShareHealthConnect={handleSocialShareHealthConnect}
-        onNavigateToAnalytics={handleNavigateToAnalytics}
       />
 
       {/* Enhanced Social Share Modal */}

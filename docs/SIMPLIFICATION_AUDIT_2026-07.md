@@ -12,7 +12,8 @@ Five parallel deep-inspection agents traced every screen and service to a live n
 
 - **Unauthenticated:** AppNavigator renders only `Login`. Its other ~19 registrations are shadow copies plus two ghosts (`Wallet`, `FitnessTestResults`) reachable nowhere.
 - **Tabs:** Home → ProfileScreen (renders Running/Walking/Cycling/Hiking trackers inline) · Social → SocialScreen · Leaderboard → LeaderboardsScreen.
-- **Live stack screens:** Settings (+Help/Contact/Privacy), WorkoutHistory, ProfileEdit, LevelDetail, AdvancedAnalytics, Rewards, DynamicEventDetail, ClubPage, ClubChat, Comments.
+- **Live stack screens:** Settings (+Help/Contact/Privacy), WorkoutHistory, ProfileEdit, LevelDetail, Rewards, DynamicEventDetail, ClubPage, ClubChat, Comments.
+- **Correction (2026-07-03):** AdvancedAnalyticsScreen is NOT reachable — WorkoutHistoryScreen passed `onNavigateToAnalytics` into WorkoutTabNavigator, which declared the prop but never rendered a caller. The dead handler/prop were removed; the screen joins the orphaned-registered list (with its FitnessTestResults crash path, now moot).
 - **Gated/notification-only:** CompeteScreen → Season3Screen / EinundzwanzigDetailScreen — hidden by `FEATURES.customEvents=false`, still reachable via push deep links (ExpoNotificationProvider).
 - **Registered but orphaned (nothing navigates):** SavedRoutes, HealthProfile, JournalHistory, StatsDetail, Experimental, Season2.
 
@@ -75,7 +76,7 @@ Prerequisite one-liners: remove the unused hook in `useCachedData.ts`; remove th
 
 ## 5. Bugs found (fix before v2.0)
 
-1. **Broken navigation:** `AdvancedAnalyticsScreen.tsx:225` navigates to `FitnessTestResults`, registered only in the unauthenticated stack → runtime crash from a live screen; `as any` hides the type error.
+1. **Broken navigation (downgraded 2026-07-03):** `AdvancedAnalyticsScreen.tsx:225` navigates to unregistered `FitnessTestResults` — but AdvancedAnalytics itself turned out to be unreachable (see §1 correction), so this is dead-code-in-dead-code, not a live crash. Entry-point remnants removed from WorkoutHistoryScreen/WorkoutTabNavigator.
 2. **Cycling duration bug:** `CyclingTrackerScreen` `showWorkoutSummary` (~634–647) saves `elapsedTime` state instead of `session.duration` — same pause/resume divergence WalkingTrackerScreen already fixed (comment at Walking:783).
 3. **Duplicate step rows:** three writers submit daily-steps with two different eventId formats (`steps_YYYY-MM-DD_npub12` vs `steps_${npub}_${dateStr}`) → up to two rows/user/day in `workout_submissions`; leaderboard only looks right because buildStepsLeaderboard dedupes by npub/max. Unify scheme + submit function.
 4. **Season-2 startup fetch:** LeaderboardBaselineService.fetchBaseline() runs every launch for a finished season.
