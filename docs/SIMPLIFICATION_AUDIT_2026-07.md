@@ -77,12 +77,12 @@ Prerequisite one-liners: remove the unused hook in `useCachedData.ts`; remove th
 ## 5. Bugs found (fix before v2.0)
 
 1. **Broken navigation (downgraded 2026-07-03):** `AdvancedAnalyticsScreen.tsx:225` navigates to unregistered `FitnessTestResults` — but AdvancedAnalytics itself turned out to be unreachable (see §1 correction), so this is dead-code-in-dead-code, not a live crash. Entry-point remnants removed from WorkoutHistoryScreen/WorkoutTabNavigator.
-2. **Cycling duration bug:** `CyclingTrackerScreen` `showWorkoutSummary` (~634–647) saves `elapsedTime` state instead of `session.duration` — same pause/resume divergence WalkingTrackerScreen already fixed (comment at Walking:783).
-3. **Duplicate step rows:** three writers submit daily-steps with two different eventId formats (`steps_YYYY-MM-DD_npub12` vs `steps_${npub}_${dateStr}`) → up to two rows/user/day in `workout_submissions`; leaderboard only looks right because buildStepsLeaderboard dedupes by npub/max. Unify scheme + submit function.
-4. **Season-2 startup fetch:** LeaderboardBaselineService.fetchBaseline() runs every launch for a finished season.
-5. **Silent success semantics:** `workoutPublishingService.saveWorkoutToNostr` returns `success:true` when Supabase submit failed (queued) — acceptable — but out-of-bounds metrics **silently skip submission with no toast/queue** → workout invisibly reward-ineligible.
+2. **FIXED 2026-07-03 — Cycling duration bug:** now uses the session's pause-aware duration; residual raw `elapsedTime` in Walking/Hiking route calls fixed too (verify-tracker-duration-source.ts).
+3. **FIXED 2026-07-03 — Duplicate step rows:** all three writers share `utils/stepEventId.ts` (canonical local-date ID; verify-step-eventid-unification.ts).
+4. **FIXED 2026-07-03 — Season-2 startup fetch:** removed from core AppInitializationService; sole remaining consumer is the dead useSeason2 hook.
+5. **PARTIALLY FIXED 2026-07-03 — Silent success semantics:** out-of-bounds metrics now toast the user (verify-invalid-metrics-notice.ts). Remaining: queued-vs-submitted still indistinguishable to callers (acceptable by design, revisit post-2.0).
 6. **healthKit vs healthConnect submitter drift:** HealthConnect lacks metric validation; HealthKit lacks flagged-vs-transient failure distinction.
-7. **Doc-vs-code:** 1301 auto-post defaults OFF (`NostrPostingPreferencesService.ts:30-40`) while CLAUDE.md/positioning say "publish by default". Flip the default or fix the docs.
+7. **FIXED 2026-07-03 — Doc-vs-code:** auto-post now defaults ON (explicit opt-outs respected, one-time toast announces it; verify-autopost-default.ts). Docs and code agree.
 8. **Kind-1 shares publish team/charity tags** (createSocialPostTags) — the 1301 allowlist doesn't cover the kind-1 path.
 9. **Terminology firewall breaches on live surfaces:** DefaultZapAmountSetting, EnhancedZapModal/ExternalZapModal, RewardEarnedModal ("sats queued"), DynamicEventDetailScreen payout strings, ZapsBottomSheet, NostrPostingSection ("Nostr app"), ContactSupport "Bitcoin & Payments", WalletConfigModal "Bitcoin features", LoginScreen "Amber Nostr". Product decision: v2.0 positioning may deliberately relax some zap surfaces — decide, then sweep.
 10. **Zombie stores:** `teamStore` (319 ln, zero consumers, all stubs) delete; `walletStore` (all methods disabled, but live importers incl. AppNavigator's no-op createWallet flow) untangle.
