@@ -216,6 +216,37 @@ export function inferActivityTypeSimple(
   return inferActivityType(input).type;
 }
 
+// Speed at/above which a "walking" label is clearly wrong and the session is a run.
+// Deliberately higher than WALK_MAX (6.5) so genuine brisk/race walks stay walks —
+// we only override when the source app or Health Connect obviously mislabeled a run.
+const WALK_OVERRIDE_SPEED_KMH = 8.0;
+
+/**
+ * Correct a workout mislabeled as "walking" when its average speed clearly
+ * indicates running. Source apps and Health Connect sometimes tag runs as
+ * walks; when that happens we trust the measured speed over the label.
+ *
+ * Only ever promotes walking -> running (never the reverse), and only when
+ * distance/duration are present and speed is unambiguously in running range.
+ *
+ * @param labeledType - The activity type from the source label or mapping
+ * @param distanceMeters - Total distance in meters
+ * @param durationSeconds - Duration in seconds
+ * @returns 'running' if a walk label looks like a run, otherwise labeledType unchanged
+ */
+export function correctWalkingMislabel(
+  labeledType: WorkoutType,
+  distanceMeters?: number,
+  durationSeconds?: number
+): WorkoutType {
+  if (labeledType !== 'walking') return labeledType;
+  if (!distanceMeters || !durationSeconds || durationSeconds <= 0) {
+    return labeledType;
+  }
+  const speedKmh = (distanceMeters / durationSeconds) * 3.6;
+  return speedKmh >= WALK_OVERRIDE_SPEED_KMH ? 'running' : labeledType;
+}
+
 /**
  * Format pace as MM:SS string for logging
  */

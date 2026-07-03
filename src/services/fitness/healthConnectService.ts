@@ -7,7 +7,7 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { WorkoutType } from '../../types/workout';
-import { inferActivityTypeSimple } from '../../utils/activityInference';
+import { inferActivityTypeSimple, correctWalkingMislabel } from '../../utils/activityInference';
 import { SubmittedIdStore } from '../../utils/SubmittedIdStore';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
 import { buildRewardTags } from '../../utils/rewardTags';
@@ -613,6 +613,14 @@ export class HealthConnectService {
           heartRate: avgHeartRate > 0 ? { avg: avgHeartRate, max: maxHeartRate } : undefined,
         });
         debugLog(`Health Connect: Inferred activity type '${activityType}' for unmapped exercise type ${exerciseType}`);
+      }
+
+      // Some source apps / watches tag a run as a walk. If the label says walking
+      // but the measured speed clearly indicates running, trust the speed.
+      const correctedType = correctWalkingMislabel(activityType, totalDistance, duration);
+      if (correctedType !== activityType) {
+        debugLog(`Health Connect: Corrected mislabeled '${activityType}' -> '${correctedType}' (exerciseType ${exerciseType}, ${Math.round(totalDistance)}m / ${duration}s)`);
+        activityType = correctedType;
       }
 
       return {

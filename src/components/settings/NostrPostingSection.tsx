@@ -39,7 +39,7 @@ const FORMAT_OPTIONS: { value: PostFormat; title: string; subtitle: string }[] =
   {
     value: 'kind1301',
     title: 'Workout note',
-    subtitle: 'Structured workout data — shows natively in Amethyst',
+    subtitle: 'Structured workout data — shows natively in POWR and Amethyst',
   },
 ];
 
