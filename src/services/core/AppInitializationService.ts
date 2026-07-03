@@ -9,7 +9,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NostrInitializationService } from '../nostr/NostrInitializationService';
 import nostrPrefetchService from '../nostr/NostrPrefetchService';
 import { getUserNostrIdentifiers } from '../../utils/nostr';
-import { LeaderboardBaselineService } from '../season/LeaderboardBaselineService';
 import { WoTService } from '../wot/WoTService';
 import { SELF_TEAM_ID, COINOS_TEAM_ID } from '../../constants/charities';
 
@@ -74,18 +73,6 @@ class AppInitializationService {
           // Wait for minimum 2 relays (fast threshold)
           await GlobalNDKService.waitForMinimumConnection(2, 2000);
           console.log('✅ AppInit: Nostr connected');
-
-          // Prefetch leaderboard baseline (1 event, cached for all screens)
-          console.log('📊 AppInit: Prefetching leaderboard baseline...');
-          LeaderboardBaselineService.fetchBaseline().then((baseline) => {
-            if (baseline) {
-              console.log('✅ AppInit: Leaderboard baseline cached');
-            } else {
-              console.log('⚠️ AppInit: No baseline note found');
-            }
-          }).catch((err) => {
-            console.warn('⚠️ AppInit: Baseline prefetch failed:', err);
-          });
         } catch (ndkError) {
           console.error(
             '⚠️ AppInit: NDK connection failed, continuing offline'
