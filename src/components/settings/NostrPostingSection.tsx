@@ -2,7 +2,7 @@
  * NostrPostingSection - "Sharing to Nostr" settings accordion.
  *
  * Controls:
- *  - Auto-post workouts: automatically share each finished workout (default off).
+ *  - Auto-post workouts: automatically share each finished workout (default on).
  *  - Post format: what the Post action produces — a card post (every Nostr app)
  *    or a workout note (structured data, native in Amethyst). Currently HIDDEN
  *    (SHOW_FORMAT_TOGGLE = false); every Post defaults to a workout note (1301).
@@ -44,7 +44,9 @@ const FORMAT_OPTIONS: { value: PostFormat; title: string; subtitle: string }[] =
 ];
 
 export const NostrPostingSection: React.FC = () => {
-  const [autoPost, setAutoPost] = useState(false);
+  // Initial value matches the service default (on) to avoid an off→on flicker
+  // while the stored preference loads.
+  const [autoPost, setAutoPost] = useState(true);
   const [format, setFormat] = useState<PostFormat>('kind1301');
 
   useEffect(() => {

@@ -393,6 +393,18 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
             result.eventId
           );
           console.log(`[AutoPost] Workout auto-posted to Nostr (${format})`);
+          // Auto-post defaults on as of v2.0 — announce it exactly once so
+          // the change is never silent for users with a real identity.
+          if (await NostrPostingPreferencesService.shouldShowAutoPostNotice()) {
+            Toast.show({
+              type: 'success',
+              text1: 'Workout shared',
+              text2:
+                'Finished workouts share automatically. Change this in Settings → Sharing.',
+              position: 'top',
+              visibilityTime: 6000,
+            });
+          }
         }
       } catch (error) {
         // Non-blocking: never disrupt the summary on a failed auto-post.
