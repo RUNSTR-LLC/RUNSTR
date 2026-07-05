@@ -153,7 +153,7 @@ export const CoinOSAccountSetupModal: React.FC<CoinOSAccountSetupModalProps> = (
             <View style={styles.headerIcon}>
               <Ionicons name="wallet-outline" size={24} color={theme.colors.text} />
             </View>
-            <Text style={styles.title}>Bitcoin Wallet</Text>
+            <Text style={styles.title}>Wallet</Text>
             <TouchableOpacity
               onPress={handleClose}
               style={styles.closeButton}
@@ -347,12 +347,12 @@ const styles = StyleSheet.create({
   existingAccountBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0a1a0a',
+    backgroundColor: theme.colors.cardBackground,
     padding: 16,
     borderRadius: 10,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#1a3a1a',
+    borderColor: theme.colors.border,
   },
   existingAccountContent: {
     marginLeft: 12,

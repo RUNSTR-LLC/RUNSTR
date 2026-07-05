@@ -362,12 +362,12 @@ const styles = StyleSheet.create({
   existingAccountBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0a1a0a',
+    backgroundColor: theme.colors.cardBackground,
     padding: 16,
     borderRadius: 10,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#1a3a1a',
+    borderColor: theme.colors.border,
   },
   existingAccountContent: {
     marginLeft: 12,
