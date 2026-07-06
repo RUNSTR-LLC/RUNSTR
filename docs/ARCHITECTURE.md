@@ -391,7 +391,7 @@ This is the most important data flow in the app.
      +-- Upload card to Blossom
      +-- Publish to relays via GlobalNDKService
 
-7. KIND 1301 EVENT STRUCTURE (created locally, submitted to Supabase)
+7. KIND 1301 EVENT STRUCTURE (saved to Supabase + published to relays by default)
    {
      kind: 1301,
      content: "Running workout - 5.2 km in 30:45",
@@ -537,8 +537,8 @@ Restore to local storage (workouts, habits, journal, preferences)
 |  | Event Kinds:                                                |  |
 |  |   kind 0     - Profile metadata (read + write)             |  |
 |  |   kind 1     - Social posts for workout shares (write)     |  |
-|  |   kind 1301  - Workout structure (local only, NOT          |  |
-|  |                published to relays; submitted to Supabase)  |  |
+|  |   kind 1301  - Workout records (write, default) — saved to |  |
+|  |                Supabase AND published to relays for interop |  |
 |  |   kind 30078 - Encrypted backup (write, NIP-44)            |  |
 |  +------------------------------------------------------------+  |
 |                                                                   |
