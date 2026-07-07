@@ -10,24 +10,12 @@ import React, { memo, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
+import { formatDistanceKm } from '../../utils/distanceFormatter';
 import { ZappableUserRow } from '../ui/ZappableUserRow';
 import { getSeason2Avatar } from '../../../assets/images/season2';
 import type { Season2Participant } from '../../types/season2';
 
 const BATCH_SIZE = 21; // Show 21 participants at a time
-
-/**
- * Format distance in km for display
- */
-function formatDistance(km: number): string {
-  if (km >= 1000) {
-    return `${(km / 1000).toFixed(1)}k km`;
-  }
-  if (km >= 100) {
-    return `${km.toFixed(0)} km`;
-  }
-  return `${km.toFixed(1)} km`;
-}
 
 /**
  * Format workout count with activity-specific label
@@ -58,7 +46,7 @@ interface LeaderboardRowProps {
 const LeaderboardRow = memo(
   ({ item, index, activityType }: LeaderboardRowProps) => {
     const rank = index + 1;
-    const formattedDistance = formatDistance(item.totalDistance);
+    const formattedDistance = formatDistanceKm(item.totalDistance);
     const bundledAvatar = getSeason2Avatar(item.pubkey);
 
     return (
