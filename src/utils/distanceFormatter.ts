@@ -77,3 +77,17 @@ export const convertDistance = (
 export const getDistanceUnit = (unitSystem: UnitSystem = 'metric'): string => {
   return unitSystem === 'imperial' ? 'mi' : 'km';
 };
+
+/**
+ * Formats a km distance for leaderboard/ranking display (input is already in km)
+ * 1000+ km → "1.0k km", 100+ km → "123 km", else → "4.5 km"
+ */
+export function formatDistanceKm(km: number): string {
+  if (km >= 1000) {
+    return `${(km / 1000).toFixed(1)}k km`;
+  }
+  if (km >= 100) {
+    return `${km.toFixed(0)} km`;
+  }
+  return `${km.toFixed(1)} km`;
+}
