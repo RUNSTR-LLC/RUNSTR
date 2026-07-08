@@ -187,7 +187,7 @@ export const PPQAccountSetupModal: React.FC<PPQAccountSetupModalProps> = ({
             <>
               {/* Description */}
               <Text style={styles.description}>
-                To earn AI credits instead of sats, we need to create a PPQ.AI account for you.
+                To earn AI credits instead of rewards, we need to create a PPQ.AI account for you.
                 Your rewards will automatically top up your AI balance.
               </Text>
 
@@ -362,12 +362,12 @@ const styles = StyleSheet.create({
   existingAccountBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0a1a0a',
+    backgroundColor: '#0a0a0a',
     padding: 16,
     borderRadius: 10,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#1a3a1a',
+    borderColor: '#1a1a1a',
   },
   existingAccountContent: {
     marginLeft: 12,
@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#2a1a1a',
+    backgroundColor: '#2a2a2a',
     padding: 12,
     borderRadius: 8,
     marginTop: 12,
