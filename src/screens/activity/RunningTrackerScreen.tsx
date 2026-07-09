@@ -58,6 +58,7 @@ import { CountdownOverlay } from '../../components/activity/CountdownOverlay';
 // Debug overlays for GPS and step diagnosis
 import { ActivityDebugOverlay } from '../../components/debug/ActivityDebugOverlay';
 import { StepDebugOverlay } from '../../components/debug/StepDebugOverlay';
+import { formatElapsedTime } from '../../utils/workoutFormatters';
 
 type PostingState = 'idle' | 'posting' | 'posted';
 
@@ -585,18 +586,6 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
     startMetricsInterval();
   };
 
-  const formatElapsedTime = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-
-    if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs
-        .toString()
-        .padStart(2, '0')}`;
-    }
-    return `${minutes}:${secs.toString().padStart(2, '0')}`;
-  };
 
   const pauseTracking = async () => {
     if (!isPaused) {

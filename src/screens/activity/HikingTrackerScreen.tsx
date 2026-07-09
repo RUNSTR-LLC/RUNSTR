@@ -37,6 +37,7 @@ import { CountdownOverlay } from '../../components/activity/CountdownOverlay';
 import { ControlBar } from '../../components/activity/ControlBar';
 import { theme } from '../../styles/theme';
 import { StepDebugOverlay } from '../../components/debug/StepDebugOverlay';
+import { formatElapsedTime } from '../../utils/workoutFormatters';
 
 interface HikingTrackerScreenProps {
   onWorkoutStateChange?: (isActive: boolean) => void;
@@ -223,17 +224,6 @@ export const HikingTrackerScreen: React.FC<HikingTrackerScreenProps> = ({
       }
     };
   }, []);
-
-  const formatElapsedTime = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-
-    if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    }
-    return `${minutes}:${secs.toString().padStart(2, '0')}`;
-  };
 
   // AppState listener for background/foreground transitions
   useEffect(() => {
