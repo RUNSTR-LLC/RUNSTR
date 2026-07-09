@@ -54,6 +54,7 @@ import { UnifiedSigningService } from '../../services/auth/UnifiedSigningService
 import { theme } from '../../styles/theme';
 import { KM_PER_STEP } from '../../constants/appConstants';
 import { StepDebugOverlay } from '../../components/debug/StepDebugOverlay';
+import { formatElapsedTime } from '../../utils/workoutFormatters';
 
 type PostingState = 'idle' | 'posting' | 'posted';
 
@@ -302,18 +303,6 @@ export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
       }
     };
   }, []);
-
-  // Helper function for time formatting
-  const formatElapsedTime = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-
-    if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    }
-    return `${minutes}:${secs.toString().padStart(2, '0')}`;
-  };
 
   // Load user profile for social sharing
   useEffect(() => {

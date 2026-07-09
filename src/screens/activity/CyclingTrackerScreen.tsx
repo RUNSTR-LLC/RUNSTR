@@ -45,6 +45,7 @@ import { CountdownOverlay } from '../../components/activity/CountdownOverlay';
 import { ControlBar } from '../../components/activity/ControlBar';
 import { HoldToStartButton } from '../../components/activity/HoldToStartButton';
 import { StepDebugOverlay } from '../../components/debug/StepDebugOverlay';
+import { formatElapsedTime } from '../../utils/workoutFormatters';
 
 type PostingState = 'idle' | 'posting' | 'posted';
 
@@ -290,18 +291,6 @@ export const CyclingTrackerScreen: React.FC<CyclingTrackerScreenProps> = ({
       }
     };
   }, []);
-
-  // Helper function for time formatting
-  const formatElapsedTime = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-
-    if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    }
-    return `${minutes}:${secs.toString().padStart(2, '0')}`;
-  };
 
   // Load user profile for social sharing
   useEffect(() => {
