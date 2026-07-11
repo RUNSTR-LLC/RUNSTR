@@ -154,13 +154,13 @@ export const SavedRoutesScreen: React.FC = () => {
   const getActivityColor = (type: WorkoutType): string => {
     switch (type) {
       case 'running':
-        return '#FF6B00';
+        return theme.colors.accent;
       case 'walking':
-        return '#4ECDC4';
+        return theme.colors.orangeBright;
       case 'cycling':
-        return '#45B7D1';
+        return theme.colors.orangeDeep;
       case 'hiking':
-        return '#96CEB4';
+        return theme.colors.orangeBurnt;
       default:
         return theme.colors.accent;
     }
