@@ -32,7 +32,7 @@ LogBox.ignoreLogs([
   // This warning appears intermittently from third-party libraries
   'Text strings must be rendered within a <Text> component',
   // Expected when new users haven't configured NWC wallet yet
-  '[NWC] ❌ User wallet initialization failed: No NWC connection string found',
+  '[NWC] User wallet initialization failed: No NWC connection string found',
   // Expected on iOS Simulator (no pedometer hardware) or when HealthKit permissions not granted
   '[DailyStepCounterService] Steps unavailable',
   // Normal Nostr relay responses during connection/query - not errors
@@ -58,7 +58,7 @@ function installGlobalJsExceptionHandler(): void {
 
   const defaultHandler = errorUtils.getGlobalHandler();
   errorUtils.setGlobalHandler((error: Error, isFatal?: boolean) => {
-    console.error('🚨 Global JS exception captured:', {
+    console.error('Global JS exception captured:', {
       message: error?.message,
       isFatal: Boolean(isFatal),
       stack: error?.stack,
@@ -68,13 +68,13 @@ function installGlobalJsExceptionHandler(): void {
       try {
         defaultHandler(error, isFatal);
       } catch (handlerError) {
-        console.error('🚨 Default global error handler failed:', handlerError);
+        console.error('Default global error handler failed:', handlerError);
       }
     }
   });
 
   globalJsExceptionHandlerInstalled = true;
-  console.log('[App] ✅ Installed global JS exception handler');
+  console.log('[App] Installed global JS exception handler');
 }
 
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -99,8 +99,8 @@ class AppErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('🚨 AppErrorBoundary caught error:', error);
-    console.error('🚨 Error info:', errorInfo);
+    console.error('AppErrorBoundary caught error:', error);
+    console.error('Error info:', errorInfo);
   }
 
   render() {
@@ -248,7 +248,7 @@ import { RewardPollingService } from './services/rewards/RewardPollingService';
 import { ExpandedMusicPlayer } from './components/music/ExpandedMusicPlayer';
 import { PlaylistBrowser } from './components/music/PlaylistBrowser';
 
-// ✅ FIX #18: Permission modal removed from startup to prevent iOS freeze
+// FIX #18: Permission modal removed from startup to prevent iOS freeze
 // Permissions are now requested at point of use (when starting exercise tracking)
 
 // Types for authenticated app navigation
@@ -259,8 +259,8 @@ type AuthenticatedStackParamList = {
   EventDetail: {
     eventId: string;
     eventData?: any;
-    teamId?: string; // ✅ NEW: Team context for fallback
-    captainPubkey?: string; // ✅ NEW: Captain context for fallback
+    teamId?: string; // NEW: Team context for fallback
+    captainPubkey?: string; // NEW: Captain context for fallback
   };
   CaptainDashboard: {
     teamId?: string;
@@ -296,7 +296,7 @@ type AuthenticatedStackParamList = {
 
 const AuthenticatedStack = createStackNavigator<AuthenticatedStackParamList>();
 
-// ✅ FIX: AuthenticatedNavigator defined at MODULE LEVEL to prevent
+// FIX: AuthenticatedNavigator defined at MODULE LEVEL to prevent
 // unmount/remount loops. Previously defined inside AppContent, causing
 // React to treat it as a new component type on every re-render.
 const AuthenticatedNavigator: React.FC = () => {
@@ -306,7 +306,7 @@ const AuthenticatedNavigator: React.FC = () => {
   React.useEffect(() => {
     const initializeData = async () => {
       try {
-        // ✅ PERFORMANCE: Batch read multiple AsyncStorage keys with timeout
+        // PERFORMANCE: Batch read multiple AsyncStorage keys with timeout
         const keys = [
           '@runstr:app_init_completed',
           '@runstr:hex_pubkey',
@@ -341,10 +341,10 @@ const AuthenticatedNavigator: React.FC = () => {
         }
 
         console.log(
-          '[App] 🚀 Authenticated user detected, cleanup starting...'
+          '[App] Authenticated user detected, cleanup starting...'
         );
 
-        // ✅ CLEANUP: Defer event snapshot cleanup to prevent UI blocking
+        // CLEANUP: Defer event snapshot cleanup to prevent UI blocking
         setTimeout(async () => {
           try {
             const { EventSnapshotStore } = await import(
@@ -352,7 +352,7 @@ const AuthenticatedNavigator: React.FC = () => {
             );
             const removed = await EventSnapshotStore.cleanupExpired();
             if (removed > 0) {
-              console.log(`🧹 Cleaned up ${removed} expired event snapshots`);
+              console.log(`Cleaned up ${removed} expired event snapshots`);
             }
           } catch (error) {
             console.warn(
@@ -363,18 +363,18 @@ const AuthenticatedNavigator: React.FC = () => {
         }, 1000); // Defer by 1 second to let UI settle
 
         console.log(
-          '[App] 💰 Cashu wallet initialization skipped (using NWC for Lightning payments)'
+          '[App] Cashu wallet initialization skipped (using NWC for Lightning payments)'
         );
         console.log('[App] 💳 NWC wallet will connect on-demand (no startup init)');
         console.log(
           '[App] ⚠️  Background challenge monitoring DISABLED for Android stability'
         );
 
-        // ✅ PERFORMANCE: Mark initialization as complete
+        // PERFORMANCE: Mark initialization as complete
         await safeSetItem('@runstr:app_init_completed', 'true', 2000);
-        console.log('[App] ✅ App initialization complete - flag set');
+        console.log('[App] App initialization complete - flag set');
       } catch (error) {
-        console.error('[App] ❌ App data initialization error:', error);
+        console.error('[App] App data initialization error:', error);
         // Don't block app - initialization errors are non-critical
       }
     };
@@ -422,7 +422,7 @@ const AuthenticatedNavigator: React.FC = () => {
             onSignOut={async () => {
               // Reset initialization state on logout
               await AppInitializationService.reset();
-              // ✅ PERFORMANCE: Clear initialization flag for next login
+              // PERFORMANCE: Clear initialization flag for next login
               await safeRemoveItem('@runstr:app_init_completed', 2000);
               await signOut();
               // AuthContext state change will trigger App.tsx to show login screen
@@ -660,12 +660,12 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
   // Initialize AppStateManager as early as possible
   React.useEffect(() => {
     console.log(
-      '[App] 🎯 Initializing AppStateManager - Single source of truth'
+      '[App] Initializing AppStateManager - Single source of truth'
     );
     AppStateManager.initialize();
 
     return () => {
-      console.log('[App] 🧹 Cleaning up AppStateManager listener');
+      console.log('[App] Cleaning up AppStateManager listener');
       AppStateManager.cleanup();
     };
   }, []);
@@ -695,7 +695,7 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
   // Initialize app after authentication
   React.useEffect(() => {
     if (isAuthenticated && currentUser && !hasInitialized) {
-      console.log('✅ App: Starting background initialization...');
+      console.log('App: Starting background initialization...');
 
       // Small delay to let UI settle
       const INIT_DELAY = 500;
@@ -704,17 +704,17 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
       );
 
       const timer = setTimeout(() => {
-        console.log('🚀 App: Starting background initialization NOW...');
+        console.log('App: Starting background initialization NOW...');
         setHasInitialized(true);
 
         // Add error boundary around initialization
         AppInitializationService.initializeInBackground()
           .then(() => {
-            console.log('✅ App: Background initialization completed');
+            console.log('App: Background initialization completed');
             // Rewards are now handled server-side via trigger_auto_reward()
           })
           .catch((error) => {
-            console.error('❌ Background initialization error:', error);
+            console.error('Background initialization error:', error);
             // App can continue with cached data even if initialization fails
           });
       }, INIT_DELAY);
@@ -751,7 +751,7 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
         try {
           const retryResult = await PendingSubmissionService.retryAll();
           if (retryResult.succeeded > 0) {
-            console.log(`[App] ✅ Synced ${retryResult.succeeded} pending workout(s)`);
+            console.log(`[App] Synced ${retryResult.succeeded} pending workout(s)`);
             Toast.show({
               type: 'success',
               text1: `${retryResult.succeeded} workout${retryResult.succeeded > 1 ? 's' : ''} synced!`,
@@ -849,7 +849,7 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
       currentUser
     ) {
       console.log(
-        '🎯 Navigating to event from deep link:',
+        'Navigating to event from deep link:',
         pendingEventNavigation.eventId
       );
 
@@ -861,7 +861,7 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
           });
           setPendingEventNavigation(null);
         } catch (error) {
-          console.error('❌ Failed to navigate to event:', error);
+          console.error('Failed to navigate to event:', error);
           CustomAlertManager.alert(
             'Navigation Error',
             'Failed to open event. Please try again.'
@@ -882,25 +882,25 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
 
       // Handle Event deep link: runstr://event/{eventId}?team={teamId}&name={eventName}
       if (path?.startsWith('event/') || url.includes('runstr://event/')) {
-        console.log('🎯 Event deep link detected');
+        console.log('Event deep link detected');
 
         try {
           const parsedEvent = parseEventDeepLink(url);
           console.log('📦 Parsed event data:', parsedEvent);
 
           if (parsedEvent.isValid && parsedEvent.eventId) {
-            console.log('✅ Valid event data - storing for navigation');
+            console.log('Valid event data - storing for navigation');
             // Store event data for navigation after app is ready
             setPendingEventNavigation(parsedEvent);
           } else {
-            console.error('❌ Invalid event data:', parsedEvent.error);
+            console.error('Invalid event data:', parsedEvent.error);
             CustomAlertManager.alert(
               'Invalid Event',
               parsedEvent.error || 'This event link is invalid or expired.'
             );
           }
         } catch (error) {
-          console.error('❌ Failed to parse event deep link:', error);
+          console.error('Failed to parse event deep link:', error);
           CustomAlertManager.alert(
             'Error',
             'Failed to process event link. Please try again.'
@@ -958,7 +958,7 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
       <NavigationContainer ref={navigationRef} theme={RunstrDarkTheme}>
         {(() => {
           console.log(
-            '🚀 AppContent: Navigation decision - isAuthenticated:',
+            'AppContent: Navigation decision - isAuthenticated:',
             isAuthenticated,
             'currentUser:',
             !!currentUser,
@@ -1030,7 +1030,7 @@ export default function App() {
         try {
           initializeWebSocketPolyfill();
         } catch (error) {
-          console.error('🚨 WebSocket polyfill initialization failed:', error);
+          console.error('WebSocket polyfill initialization failed:', error);
           // App can continue without polyfill in most cases
         }
 
@@ -1077,14 +1077,14 @@ export default function App() {
 
           if (!isTaskDefined) {
             console.error(
-              '❌ Background location task NOT defined - distance tracking will fail'
+              'Background location task NOT defined - distance tracking will fail'
             );
             console.error(
               '   This should not happen - check SimpleRunTrackerTask import in index.js'
             );
           } else {
             console.log(
-              '✅ Background location task defined and ready for distance tracking'
+              'Background location task defined and ready for distance tracking'
             );
 
             // 🔧 ZOMBIE SESSION CLEANUP: Stop any registered background tasks from previous sessions
@@ -1103,7 +1103,7 @@ export default function App() {
                 // Stop the background location task directly — bypasses SimpleRunTracker's
                 // isTracking guard that would cause it to no-op after a fresh restart
                 await Location.stopLocationUpdatesAsync(SIMPLE_TRACKER_TASK);
-                console.log('✅ Zombie background location task stopped');
+                console.log('Zombie background location task stopped');
 
                 // Clear stale session state from AsyncStorage
                 // (recovery checkpoint is preserved for workout recovery)
@@ -1112,7 +1112,7 @@ export default function App() {
                 await safeRemoveItem('@runstr:active_metrics', 2000);
                 await safeRemoveItem('@runstr:last_gps_point', 2000);
                 await safeRemoveItem('@runstr:last_gps_time', 2000);
-                console.log('✅ Zombie session cleaned up successfully');
+                console.log('Zombie session cleaned up successfully');
               } catch (cleanupError) {
                 console.warn(
                   '⚠️  Failed to cleanup zombie session:',
@@ -1123,7 +1123,7 @@ export default function App() {
             }
           }
         } catch (error) {
-          console.error('❌ Failed to check background task status:', error);
+          console.error('Failed to check background task status:', error);
           // Don't block app initialization - tracking will fall back to foreground only
         }
 
@@ -1131,7 +1131,7 @@ export default function App() {
         await new Promise((resolve) => setTimeout(resolve, 100));
 
         // Pre-load any critical resources here if needed
-        console.log('🚀 App initialization complete');
+        console.log('App initialization complete');
       } catch (e) {
         console.warn('App initialization warning:', e);
       } finally {
