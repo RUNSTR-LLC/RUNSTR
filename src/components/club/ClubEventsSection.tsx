@@ -21,8 +21,8 @@ import { theme } from '../../styles/theme';
 import { SupabaseCompetitionService } from '../../services/backend/SupabaseCompetitionService';
 import { SimpleEventCreationModal } from '../creation/SimpleEventCreationModal';
 import { CustomAlert } from '../ui/CustomAlert';
-import type { Competition } from '../../utils/supabase';
 import type { CompetitionStatus, DynamicCompetition } from '../../hooks/useDynamicCompetitions';
+import { deriveStatus } from '../../utils/competitionStatus';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -46,17 +46,6 @@ const CACHE_TTL = 3 * 60 * 1000;
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function deriveStatus(comp: Competition): CompetitionStatus {
-  const now = Date.now();
-  const start = new Date(comp.start_date).getTime();
-  const endDate = new Date(comp.end_date);
-  endDate.setUTCHours(23, 59, 59, 999);
-  const end = endDate.getTime();
-  if (now < start) return 'upcoming';
-  if (now > end) return 'ended';
-  return 'active';
-}
 
 const STATUS_ORDER: Record<CompetitionStatus, number> = {
   active: 0,
