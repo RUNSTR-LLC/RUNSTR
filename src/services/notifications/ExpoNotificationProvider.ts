@@ -15,6 +15,9 @@ export class ExpoNotificationProvider {
   private static instance: ExpoNotificationProvider;
   private deviceToken: string | null = null;
   private isInitialized = false;
+  private appStateSubscription: { remove: () => void } | null = null;
+  private notifReceivedSub: { remove: () => void } | null = null;
+  private notifResponseSub: { remove: () => void } | null = null;
 
   private constructor() {}
 
@@ -52,7 +55,7 @@ export class ExpoNotificationProvider {
     this.setupNotificationListeners();
 
     // Clear badge when app comes to foreground
-    AppState.addEventListener('change', (state: AppStateStatus) => {
+    this.appStateSubscription = AppState.addEventListener('change', (state: AppStateStatus) => {
       if (state === 'active') {
         Notifications.setBadgeCountAsync(0).catch(() => {});
       }
@@ -160,7 +163,7 @@ export class ExpoNotificationProvider {
   // Setup notification event listeners
   private setupNotificationListeners(): void {
     // Handle notification received while app is in foreground
-    Notifications.addNotificationReceivedListener((notification) => {
+    this.notifReceivedSub = Notifications.addNotificationReceivedListener((notification) => {
       console.log(
         'Notification received in foreground:',
         notification.request.content
@@ -169,7 +172,7 @@ export class ExpoNotificationProvider {
     });
 
     // Handle notification tap/interaction
-    Notifications.addNotificationResponseReceivedListener((response) => {
+    this.notifResponseSub = Notifications.addNotificationResponseReceivedListener((response) => {
       const { actionIdentifier, userText } = response;
       const notificationData = response.notification.request.content.data;
 
@@ -358,8 +361,12 @@ export class ExpoNotificationProvider {
 
   // Cleanup method
   cleanup(): void {
-    // Remove notification listeners (manually tracked)
-    // Note: expo-notifications doesn't have removeAllNotificationListeners in newer versions
+    this.appStateSubscription?.remove();
+    this.appStateSubscription = null;
+    this.notifReceivedSub?.remove();
+    this.notifReceivedSub = null;
+    this.notifResponseSub?.remove();
+    this.notifResponseSub = null;
     this.isInitialized = false;
     this.deviceToken = null;
   }
