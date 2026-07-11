@@ -50,7 +50,7 @@ Severity:
 - **Medium** — inefficient pattern that hurts cold start
 - **Low** — code could be tighter
 
-File one issue `[Perf] Performance sweep YYYY-MM-DD` with sections per severity. Use format from `audit.md`. Label: `perf`. Add `auto-pr-ok` if trivially fixable.
+File one issue `[Perf] Performance sweep YYYY-MM-DD` with sections per severity. Use format from `audit.md`. Label: `perf`, `cron-run-log`. Add `auto-pr-ok` if trivially fixable.
 
 ### 4. Self-assessment
 
