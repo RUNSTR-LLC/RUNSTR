@@ -77,3 +77,13 @@ export const convertDistance = (
 export const getDistanceUnit = (unitSystem: UnitSystem = 'metric'): string => {
   return unitSystem === 'imperial' ? 'mi' : 'km';
 };
+
+/**
+ * Formats a distance value already in km for display (e.g. leaderboard totals).
+ * Use formatDistance() for raw meter values.
+ */
+export function formatDistanceKm(km: number): string {
+  if (km >= 1000) return `${(km / 1000).toFixed(1)}k km`;
+  if (km >= 100) return `${km.toFixed(0)} km`;
+  return `${km.toFixed(1)} km`;
+}

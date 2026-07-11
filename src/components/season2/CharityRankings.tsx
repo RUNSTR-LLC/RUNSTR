@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
+import { formatDistanceKm } from '../../utils/distanceFormatter';
 import type { CharityRanking } from '../../types/season2';
 
 // Enable LayoutAnimation on Android
@@ -89,7 +90,7 @@ export const CharityRankings: React.FC<CharityRankingsProps> = ({
 
               {/* Distance - already in km from backend */}
               <Text style={styles.distanceText}>
-                {formatDistance(charity.totalDistance)}
+                {formatDistanceKm(charity.totalDistance)}
               </Text>
             </View>
           ))}
@@ -98,19 +99,6 @@ export const CharityRankings: React.FC<CharityRankingsProps> = ({
     </View>
   );
 };
-
-/**
- * Format distance in km for display
- */
-function formatDistance(km: number): string {
-  if (km >= 1000) {
-    return `${(km / 1000).toFixed(1)}k km`;
-  }
-  if (km >= 100) {
-    return `${km.toFixed(0)} km`;
-  }
-  return `${km.toFixed(1)} km`;
-}
 
 const styles = StyleSheet.create({
   container: {
