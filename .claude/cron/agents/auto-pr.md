@@ -29,7 +29,7 @@ Pick the first issue that meets ALL of:
 - No new dependency implied
 - Single concern (not a bundle of findings)
 
-If nothing qualifies, file a `[CronLog] Auto-PR YYYY-MM-DD` issue labeled `cron-run-log` saying "no eligible issues" and exit.
+If nothing qualifies, file a `[CronLog] Auto-PR YYYY-MM-DD` issue labeled `cron-run-log` describing the queue state. Then add a `CRON-RUN-LOG` comment to that issue (using `gh issue comment`) with your self-assessment scores before exiting.
 
 ### 3. Implement
 
