@@ -318,7 +318,7 @@ export const ExternalZapModal: React.FC<ExternalZapModalProps> = ({
         const amountValid = validateInvoiceAmount(invoiceResult.invoice, amount);
 
         if (!amountValid) {
-          const errorMsg = `Invoice amount mismatch! Expected ${amount} sats. Please try again.`;
+          const errorMsg = `Invoice amount mismatch! Expected ${amount} rewards. Please try again.`;
           console.error('[ExternalZapModal] ❌', errorMsg);
           throw new Error(errorMsg);
         }
@@ -337,7 +337,7 @@ export const ExternalZapModal: React.FC<ExternalZapModalProps> = ({
         console.log(
           '[ExternalZapModal] 🔄 Requesting invoice for',
           amount,
-          'sats'
+          'rewards'
         );
         console.log(
           '[ExternalZapModal] Memo:',
@@ -365,7 +365,7 @@ export const ExternalZapModal: React.FC<ExternalZapModalProps> = ({
           );
 
           if (!amountValid) {
-            const errorMsg = `Invoice amount mismatch! Expected ${amount} sats. Please try again.`;
+            const errorMsg = `Invoice amount mismatch! Expected ${amount} rewards. Please try again.`;
             console.error('[ExternalZapModal] ❌', errorMsg);
             throw new Error(errorMsg);
           }
@@ -473,7 +473,7 @@ export const ExternalZapModal: React.FC<ExternalZapModalProps> = ({
           charityName: recipientName,
         });
 
-        console.log('[ExternalZapModal] ✅ Charity donation recorded:', paidAmount, 'sats to', recipientName);
+        console.log('[ExternalZapModal] ✅ Charity donation recorded:', paidAmount, 'rewards to', recipientName);
       } catch (err) {
         console.error('[ExternalZapModal] Error recording donation:', err);
         // Don't block - donation was still made to charity
@@ -482,7 +482,7 @@ export const ExternalZapModal: React.FC<ExternalZapModalProps> = ({
 
     Alert.alert(
       'Zap Sent!',
-      `Successfully sent ${paidAmount} sats to ${recipientName}`,
+      `Successfully sent ${paidAmount} rewards to ${recipientName}`,
       [
         {
           text: 'OK',
@@ -529,7 +529,7 @@ export const ExternalZapModal: React.FC<ExternalZapModalProps> = ({
               <Text style={styles.recipientLabel}>Sending to:</Text>
               <Text style={styles.recipientName}>{recipientName}</Text>
               {showInvoice && (
-                <Text style={styles.amount}>{effectiveAmount} sats</Text>
+                <Text style={styles.amount}>{effectiveAmount} rewards</Text>
               )}
             </View>
 
@@ -569,7 +569,7 @@ export const ExternalZapModal: React.FC<ExternalZapModalProps> = ({
                             styles.presetButtonTextSelected,
                         ]}
                       >
-                        sats
+                        rewards
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -590,7 +590,7 @@ export const ExternalZapModal: React.FC<ExternalZapModalProps> = ({
                       value={customAmount}
                       onChangeText={handleCustomAmountChange}
                     />
-                    <Text style={styles.satsLabel}>sats</Text>
+                    <Text style={styles.satsLabel}>rewards</Text>
                   </View>
                 </View>
 
@@ -644,7 +644,7 @@ export const ExternalZapModal: React.FC<ExternalZapModalProps> = ({
                     {effectiveAmount > 0
                       ? effectiveAmount.toLocaleString()
                       : '0'}{' '}
-                    sats
+                    rewards
                   </Text>
                   <Ionicons
                     name="arrow-forward"
