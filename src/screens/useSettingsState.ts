@@ -364,9 +364,9 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
     const dataSummary = await deleteService.getDataSummary();
 
     let warningDetails = 'This action will:\n\n';
-    warningDetails += '• Permanently remove your nsec from this device\n';
+    warningDetails += '• Permanently remove your password from this device\n';
     if (dataSummary.hasWallet) {
-      warningDetails += '• Delete your Lightning wallet and any remaining balance\n';
+      warningDetails += '• Delete your wallet and any remaining balance\n';
     }
     if (dataSummary.teamCount > 0) {
       warningDetails += `• Remove you from ${dataSummary.teamCount} team${dataSummary.teamCount > 1 ? 's' : ''}\n`;
