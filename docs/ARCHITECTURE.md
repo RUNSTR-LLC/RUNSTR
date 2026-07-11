@@ -46,7 +46,7 @@ LoginScreen         AppInitialization
 (Tap "Start" for     |
 anonymous use, or    +---> GlobalNDKService.initialize()  (4 relay connections)
 "Advanced" to log    +---> Load profile from cache/Nostr  (kind 0)
-in with nsec/Amber)  +---> Prefetch destinations, competitions
+in with nsec/Amber)  +---> Prefetch competitions
   |                  +---> Start step counter
   v                  +---> Register background health sync
 MainTabs                |
@@ -135,7 +135,7 @@ App.tsx
 |  +------------------------------------+  |
 |  +------------------------------------+  |
 |  | NavigationDataContext               |  |
-|  |   user, destinations, competitions, |  |
+|  |   user, competitions,               |  |
 |  |   wallet, prefetched data           |  |
 |  +------------------------------------+  |
 |                                          |
@@ -365,10 +365,8 @@ This is the most important data flow in the app.
      |
      v
    Database trigger on workout_submissions INSERT:
-     +-- Reads reward destination tag (user, charity, project, or service)
-     +-- Reads Lightning address from tags
-     +-- Calls claim-reward Edge Function
-     +-- Sends reward via LNURL to destination's address
+     +-- Reads user's lightning address from profile
+     +-- Sends reward via LNURL to user's lightning address
      +-- Records payment in reward_payments table
 
 5. BACKGROUND SYNC PATH (No App Interaction Required)
@@ -420,7 +418,7 @@ Collect local data:
   +-- Step history
   +-- Habits (with streaks)
   +-- Journal entries
-  +-- User preferences (unit system, selected destination)
+  +-- User preferences (unit system)
   |
   v
 Compress with gzip (NIP-44 has 64KB payload limit)
@@ -548,7 +546,6 @@ Restore to local storage (workouts, habits, journal, preferences)
 |  |   workout_submissions  - Submitted workouts                 |  |
 |  |   competitions         - Events and competitions            |  |
 |  |   reward_payments      - Verified payment records           |  |
-|  |   reward_sponsors      - Active sponsor configuration       |  |
 |  |   user_teams           - Fitness Clubs                      |  |
 |  |   club_memberships     - Club member/captain roles          |  |
 |  |   club_messages        - Club chat messages                 |  |
