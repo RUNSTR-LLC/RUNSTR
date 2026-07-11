@@ -53,10 +53,10 @@ export const NostrConnectionStatus: React.FC<NostrConnectionStatusProps> = ({
   const getStatusColor = () => {
     const { connected, total, error } = connectionStatus;
 
-    if (connected === 0) return theme.colors.textMuted; // No connections
-    if (error > 0) return '#FF6B00'; // Has errors
-    if (connected === total) return '#51cf66'; // All connected
-    return '#ffd43b'; // Partial connection
+    if (connected === 0) return theme.colors.textMuted;
+    if (error > 0) return theme.colors.accent;
+    if (connected === total) return theme.colors.statusConnected;
+    return theme.colors.orangeBright;
   };
 
   const getStatusText = () => {
@@ -130,11 +130,11 @@ export const NostrConnectionStatus: React.FC<NostrConnectionStatusProps> = ({
   const getRelayStatusColor = (status: string) => {
     switch (status) {
       case 'connected':
-        return '#51cf66';
+        return theme.colors.statusConnected;
       case 'connecting':
-        return '#ffd43b';
+        return theme.colors.orangeBright;
       case 'error':
-        return '#FF6B00';
+        return theme.colors.accent;
       case 'disconnected':
         return theme.colors.textMuted;
       default:
