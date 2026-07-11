@@ -81,15 +81,15 @@ App.tsx
                                 |    |
                                 |    +-- BottomTabNavigator
                                 |         |
-                                |         +-- Profile Tab (eager load)
+                                |         +-- Home Tab    (eager load)
                                 |         +-- Social Tab  (React.lazy)
-                                |         +-- Events Tab  (React.lazy)
+                                |         +-- History Tab (React.lazy; RewardHistoryScreen)
                                 |
                                 +-- Modal Screens (~21 reachable)
                                      |
                                      +-- Activity Tracking
                                      |    +-- ActivityTrackerScreen (SwipeGridNavigator
-                                     |    |     for cardio/strength/wellness/mindfulness)
+                                     |    |     for cardio only: Run/Walk/Cycle/Hike)
                                      |    +-- StepsDisplayScreen
                                      |    +-- ManualEntryScreen
                                      |
@@ -329,7 +329,7 @@ This is the most important data flow in the app.
    ProfileScreen -> "Start Workout" button
      |
      v
-   ActivityTrackerScreen (SwipeGridNavigator: cardio/strength/wellness/mindfulness)
+   ActivityTrackerScreen (SwipeGridNavigator: cardio only — Run/Walk/Cycle/Hike)
      |
      v
    SimpleRunTracker.startTracking() [for cardio]
@@ -587,8 +587,7 @@ Restore to local storage (workouts, habits, journal, preferences)
 // Core workout type (src/types/workout.ts)
 interface Workout {
   id: string;
-  type: 'running' | 'walking' | 'cycling' | 'hiking' |
-        'strength' | 'meditation' | 'diet' | 'other';
+  type: 'running' | 'walking' | 'cycling' | 'hiking';
   source: 'gps_tracker' | 'imported_healthkit' | 'imported_health_connect' |
           'imported_garmin' | 'manual_entry' | 'nostr';
   distance?: number;      // meters

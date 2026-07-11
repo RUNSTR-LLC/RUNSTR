@@ -8,16 +8,16 @@
 
 ## Executive Summary
 
-**App Type**: Decentralized fitness social app powered by Nostr protocol
-**Data Sources**: 100% Nostr relays (no traditional backend/database)
+**App Type**: Fitness social app with Nostr identity/social data and Supabase-backed workouts, teams, events, leaderboards, and rewards
+**Data Sources**: Hybrid: Nostr relays for identity/social events; Supabase for workout submissions, user-created teams, dynamic competitions, leaderboards, and reward/payment state
 **Screens**: 32 screens total
 **Active Relays**: 3 relays (Damus, nos.lol, Nostr.band)
-**Current Cache**: Custom UnifiedNostrCache with AsyncStorage persistence
+**Current Cache**: UnifiedNostrCache/AsyncStorage for relay data plus service-level Supabase caches for teams, competitions, leaderboards, and reward summaries
 
 **Key Challenges**:
-- All data fetched via WebSocket subscriptions from distributed relays
-- No centralized server to invalidate caches or push updates
-- Relay response times vary (200ms-5s depending on query complexity)
+- Nostr identity/social data still depends on distributed relay subscriptions
+- Supabase-backed product surfaces need freshness rules separate from relay cache invalidation
+- Relay response times vary (200ms-5s depending on query complexity), while Supabase-backed leaderboards target faster reads
 - Mobile network constraints (battery, data usage, offline scenarios)
 
 ---

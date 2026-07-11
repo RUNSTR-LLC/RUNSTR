@@ -21,22 +21,22 @@
 3. On success: nsec stored in SecureStore, npub + hex pubkey in AsyncStorage
 
 ### First-Time Setup
-1. **WelcomePermissionModal** appears after first entry
-2. Requests location permission (required for GPS workout tracking)
-3. On grant → navigates to Profile tab (home screen)
+1. After authentication, the app enters the main Home tab without the deleted WelcomePermissionModal flow
+2. Location permission is requested from workout/GPS surfaces when needed
+3. The Home tab is the default authenticated landing screen
 
 ### Session Persistence
 - On subsequent launches, app checks AsyncStorage for `@runstr:npub`
-- If found → skip login, go straight to Profile tab
+- If found → skip login, go straight to the Home tab
 - If not found → show LoginScreen with "Start" button
 
 ---
 
 ## 2. Three-Tab Navigation
 
-The app uses a bottom tab bar with three tabs. Profile is the default/home tab.
+The app uses a bottom tab bar with three tabs. Home is the default tab.
 
-### Profile Tab (Default)
+### Home Tab (Default)
 - **Profile card** at top: avatar, display name, npub, bio (tap → ProfileEditScreen)
 - **Three action buttons**:
   - **Start Workout** → ActivityTrackerScreen (GPS tracking)
@@ -50,16 +50,16 @@ The app uses a bottom tab bar with three tabs. Profile is the default/home tab.
 - **Clubs row**: Horizontal list of Fitness Clubs. Tap to browse, join, or view club pages.
 - **Tap a club** → ClubPageScreen (member leaderboard, chat, events)
 
-### Events Tab
-- **Daily Leaderboards**: 5K, 10K, Half Marathon, Marathon, Steps — always active
-- **Club Events**: Captain-created events; all club members auto-entered
+### History Tab
+- **Reward transaction history**: reward payment activity and historical reward state
+- Loaded lazily via RewardHistoryScreen
 
 ---
 
 ## 3. Workout Flow (GPS Tracking)
 
 ### Starting a Workout
-1. Tap **Start Workout** on Profile tab → ActivityTrackerScreen
+1. Tap **Start Workout** on the Home tab → ActivityTrackerScreen
 2. **SwipeGridNavigator** presents the four cardio activities (swipe to navigate):
 
 | Col 0 | Col 1 | Col 2 | Col 3 |
