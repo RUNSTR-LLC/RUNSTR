@@ -66,7 +66,7 @@ const groupByDate = (payments: PaymentRecord[]): RewardSection[] => {
   const today = new Date();
   const sections = new Map<string, PaymentRecord[]>();
   for (const p of payments) {
-    const d = new Date(p.paid_at);
+    const d = p.paid_at ? new Date(p.paid_at) : new Date();
     const key = formatDateHeader(d, today);
     const arr = sections.get(key) ?? [];
     arr.push(p);
@@ -149,9 +149,12 @@ export const RewardHistoryScreen: React.FC = () => {
   // Load pubkey once on mount
   useEffect(() => {
     let cancelled = false;
-    AsyncStorage.getItem('@runstr:hex_pubkey').then((value) => {
-      if (!cancelled && value) setPubkey(value);
-    });
+    AsyncStorage.getItem('@runstr:hex_pubkey')
+      .then((value) => {
+        if (!cancelled && value) setPubkey(value);
+        else if (!cancelled) setIsLoading(false);
+      })
+      .catch(() => { if (!cancelled) setIsLoading(false); });
     return () => {
       cancelled = true;
     };
