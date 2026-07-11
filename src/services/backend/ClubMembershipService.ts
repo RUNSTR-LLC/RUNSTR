@@ -341,7 +341,8 @@ export class ClubMembershipService {
         .from('club_memberships')
         .select('*')
         .eq('club_id', clubId)
-        .order('joined_at', { ascending: true });
+        .order('joined_at', { ascending: true })
+        .limit(500);
 
       if (error) {
         console.error(`${TAG} getClubMembers error for ${clubId}:`, error);
