@@ -11,7 +11,7 @@
 |  React Native (Expo) + TypeScript                                |
 |                                                                   |
 |  +-----------+  +----------+  +---------+                        |
-|  | Profile   |  | Social   |  | Events  |   <- 3 Bottom Tabs     |
+|  | Profile   |  | Social   |  | Leaderboard |   <- 3 Bottom Tabs  |
 |  | Tab       |  | Tab      |  | Tab     |                        |
 |  +-----------+  +----------+  +---------+                        |
 |        |              |             |                              |
@@ -83,7 +83,7 @@ App.tsx
                                 |         |
                                 |         +-- Profile Tab (eager load)
                                 |         +-- Social Tab  (React.lazy)
-                                |         +-- Events Tab  (React.lazy)
+                                |         +-- Leaderboard Tab  (React.lazy)
                                 |
                                 +-- Modal Screens (~21 reachable)
                                      |

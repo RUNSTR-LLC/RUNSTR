@@ -31,7 +31,7 @@ Never use "cryptocurrency", "blockchain", or "decentralized" in user-facing cont
 
 ## Product Structure
 
-**Three-Tab Navigation:** Profile (workouts, history, settings) · Social (feed, Fitness Clubs) · Events (daily leaderboard, club events)
+**Three-Tab Navigation:** Profile (workouts, history, settings) · Social (feed, Fitness Clubs) · Leaderboard (daily leaderboard, club events)
 
 **Social Pillar:** Three surfaces — the Nostr feed (workout posts, zaps, likes, reposts), Fitness Clubs (captain-run groups with chat + events), and Events (daily leaderboard + club events). The pillar spans both the Social tab and the Events tab.
 

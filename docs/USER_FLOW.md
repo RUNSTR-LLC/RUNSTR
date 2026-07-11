@@ -50,7 +50,7 @@ The app uses a bottom tab bar with three tabs. Profile is the default/home tab.
 - **Clubs row**: Horizontal list of Fitness Clubs. Tap to browse, join, or view club pages.
 - **Tap a club** → ClubPageScreen (member leaderboard, chat, events)
 
-### Events Tab
+### Leaderboard Tab
 - **Daily Leaderboards**: 5K, 10K, Half Marathon, Marathon, Steps — always active
 - **Club Events**: Captain-created events; all club members auto-entered
 
