@@ -423,7 +423,8 @@ export class ClubChatService {
       const cached = await ClubChatService.getCachedMessages(clubId);
       let count = 0;
       for (const msg of cached) {
-        const createdMs = new Date(msg.created_at).getTime();
+        const createdMs = msg.created_at ? new Date(msg.created_at).getTime() : 0;
+        if (!Number.isFinite(createdMs)) continue;
         if (createdMs > lastSeenMs) {
           count += 1;
           if (count > 99) return 100;
