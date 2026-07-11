@@ -157,7 +157,7 @@ export class ProfileDataService {
         .select('id, activity_type, distance_meters, duration_seconds, created_at')
         .eq('npub', npub)
         .order('created_at', { ascending: false })
-        .limit(5000);
+        .limit(1000);
 
       if (error || !data) {
         console.warn(TAG, 'getUserStats error:', error?.message);
