@@ -85,27 +85,6 @@ export function getDurationByMinutes(
 }
 
 /**
- * Format duration for display
- */
-export function formatDuration(durationMinutes: number): string {
-  const option = getDurationByMinutes(durationMinutes);
-  if (option) {
-    return option.label;
-  }
-
-  // Fallback formatting for custom durations
-  if (durationMinutes < 60) {
-    return `${durationMinutes} Minutes`;
-  } else if (durationMinutes < 1440) {
-    const hours = Math.floor(durationMinutes / 60);
-    return `${hours} Hour${hours > 1 ? 's' : ''}`;
-  } else {
-    const days = Math.floor(durationMinutes / 1440);
-    return `${days} Day${days > 1 ? 's' : ''}`;
-  }
-}
-
-/**
  * Check if duration is a short duration (< 24 hours)
  */
 export function isShortDuration(durationMinutes: number): boolean {
