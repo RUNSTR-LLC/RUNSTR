@@ -11,6 +11,7 @@ import { inferActivityTypeSimple, correctWalkingMislabel } from '../../utils/act
 import { SubmittedIdStore } from '../../utils/SubmittedIdStore';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
 import { buildRewardTags } from '../../utils/rewardTags';
+import { isValidWorkoutMetrics } from '../../utils/rewardEligibility';
 
 // Environment-based logging utility
 const isDevelopment = __DEV__;
@@ -809,7 +810,7 @@ export class HealthConnectService {
       // the workout can exist in cache but still needs retry.
       if (!w.id || submittedIds.has(w.id)) return false;
       if (!w.activityType || !CARDIO_TYPES.includes(w.activityType)) return false;
-      if (!w.totalDistance || w.totalDistance <= 0) return false;
+      if (!isValidWorkoutMetrics(w.totalDistance, w.duration)) return false;
       return true;
     });
 
