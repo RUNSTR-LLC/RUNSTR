@@ -379,8 +379,8 @@ export const ProfileEditScreen: React.FC = () => {
                   color={theme.colors.textMuted}
                 />
                 <Text style={styles.helperText}>
-                  Your Lightning address allows others to send you Bitcoin tips
-                  (zaps). This is where you'll receive rewards, challenge
+                  Your lightning address lets others send you rewards directly.
+                  This is where you'll receive workout rewards, challenge
                   winnings, and donations.
                 </Text>
               </View>
