@@ -428,7 +428,7 @@ export const HikingTrackerScreen: React.FC<HikingTrackerScreenProps> = ({
       setWorkoutData({
         type: 'hiking',
         distance: session.distance,
-        duration: elapsedTime,
+        duration: finalDuration,
         calories,
         elevation: session.elevationGain || 0,
         steps,
