@@ -390,8 +390,8 @@ export class Competition1301QueryService {
       distance: distance, // in meters
       calories: parseInt(this.extractTag(tags, 'calories') || '0'),
       heartRate: {
-        avg: parseInt(this.extractTag(tags, 'avg_hr') || '0'),
-        max: parseInt(this.extractTag(tags, 'max_hr') || '0'),
+        avg: parseInt(this.extractTag(tags, 'avg_heart_rate') || '0'),
+        max: parseInt(this.extractTag(tags, 'max_heart_rate') || '0'),
       },
       nostrEventId: event.id,
       nostrPubkey: event.pubkey,
