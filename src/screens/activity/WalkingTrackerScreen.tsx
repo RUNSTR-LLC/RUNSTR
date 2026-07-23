@@ -797,7 +797,7 @@ export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
       setWorkoutData({
         type: 'walking',
         distance: session.distance,
-        duration: elapsedTime,
+        duration: finalDuration,
         calories,
         elevation: session.elevationGain || 0,
         steps,
