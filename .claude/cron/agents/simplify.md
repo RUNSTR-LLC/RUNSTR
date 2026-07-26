@@ -59,7 +59,7 @@ Severity is about **signal**, not bug severity:
 - **Medium** — file 500-1000 lines, small unused-code clusters
 - **Low** — stylistic nits
 
-File one issue `[Simplify] Cleanup opportunities YYYY-MM-DD`. Label: `simplify`. Add `auto-pr-ok` for deletions and single-file splits. Do NOT add `auto-pr-ok` for large architectural splits — those need human thought.
+File one issue `[Simplify] Cleanup opportunities YYYY-MM-DD`. Label: `simplify`, `cron-run-log`. Add `auto-pr-ok` for deletions and single-file splits. Do NOT add `auto-pr-ok` for large architectural splits — those need human thought.
 
 ### 4. Self-assessment
 

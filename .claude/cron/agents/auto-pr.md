@@ -24,7 +24,11 @@ gh issue list --label auto-pr-ok --state open --json number,title,body,labels --
 Pick the first issue that meets ALL of:
 - Opened within the last 14 days
 - Not assigned to anyone
-- Does NOT already have a linked PR (`gh pr list --search "fixes #NUMBER"`)
+- Does NOT already have a linked PR — check with:
+  ```bash
+  gh pr list --search "#${ISSUE_NUM}" --state open --json number,title | head -5
+  ```
+  Skip the issue if any open PR references its number (covers "Closes", "Fixes", "Addresses", etc.)
 - Estimated diff based on issue description is < 100 lines
 - No new dependency implied
 - Single concern (not a bundle of findings)
