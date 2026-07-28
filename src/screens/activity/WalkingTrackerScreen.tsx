@@ -278,6 +278,12 @@ export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
           }
         }, 1000);
 
+        // Start metrics update interval (distance/elevation/calories) — missing from recovery path
+        if (metricsUpdateRef.current) {
+          clearInterval(metricsUpdateRef.current);
+        }
+        metricsUpdateRef.current = setInterval(updateMetrics, 5000);
+
         // Show notification
         setAlertConfig({
           title: 'Walk Resumed',
@@ -299,6 +305,10 @@ export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
+      }
+      if (metricsUpdateRef.current) {
+        clearInterval(metricsUpdateRef.current);
+        metricsUpdateRef.current = null;
       }
     };
   }, []);
