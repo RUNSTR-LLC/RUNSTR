@@ -6,6 +6,7 @@ import { AnimatedNumber } from '../ui/AnimatedNumber';
 import { DailyStepCounterService } from '../../services/activity/DailyStepCounterService';
 import { supabase, isSupabaseConfigured } from '../../utils/supabase';
 import { nip19 } from 'nostr-tools';
+import { formatDurationOrDash } from '../../utils/formatters';
 
 interface StatsCardProps {
   userPubkey: string;
@@ -40,16 +41,6 @@ const M_CYC_40K = 40000;
 const M_CYC_100K = 100000;
 const DAILY_STEP_GOAL = 10000;
 
-function formatDuration(seconds: number): string {
-  if (!seconds || seconds <= 0) return '—';
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  if (h > 0) {
-    return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  }
-  return `${m}:${String(s).padStart(2, '0')}`;
-}
 
 function formatCount(n: number): string {
   return n > 0 ? n.toLocaleString() : '—';
@@ -192,16 +183,16 @@ export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey, refreshKey = 0
   const hasAnyBest = hasRunning || hasCycling || hasPushups || hasPullups;
 
   const runningRaceStats = [
-    { label: '5K', value: formatDuration(records.fastest5kSeconds) },
-    { label: '10K', value: formatDuration(records.fastest10kSeconds) },
-    { label: 'HALF', value: formatDuration(records.fastestHalfSeconds) },
-    { label: 'MARATHON', value: formatDuration(records.fastestMarathonSeconds) },
+    { label: '5K', value: formatDurationOrDash(records.fastest5kSeconds) },
+    { label: '10K', value: formatDurationOrDash(records.fastest10kSeconds) },
+    { label: 'HALF', value: formatDurationOrDash(records.fastestHalfSeconds) },
+    { label: 'MARATHON', value: formatDurationOrDash(records.fastestMarathonSeconds) },
   ];
 
   const cyclingRaceStats = [
-    { label: '20K', value: formatDuration(records.fastestCycling20kSeconds) },
-    { label: '40K', value: formatDuration(records.fastestCycling40kSeconds) },
-    { label: '100K', value: formatDuration(records.fastestCycling100kSeconds) },
+    { label: '20K', value: formatDurationOrDash(records.fastestCycling20kSeconds) },
+    { label: '40K', value: formatDurationOrDash(records.fastestCycling40kSeconds) },
+    { label: '100K', value: formatDurationOrDash(records.fastestCycling100kSeconds) },
     {
       label: 'LONGEST',
       value:

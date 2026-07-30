@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { Avatar } from '../ui/Avatar';
 import type { ClubMessage, ReplyContext, WorkoutMessageMetadata } from '../../types/club';
+import { formatDuration } from '../../utils/formatters';
 
 function isWorkoutMetadata(meta: unknown): meta is WorkoutMessageMetadata {
   return meta != null && typeof meta === 'object' && 'duration_seconds' in meta;
@@ -66,13 +67,6 @@ function formatRelativeTime(dateString: string): string {
   return `${years}y`;
 }
 
-function formatDuration(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
 
 function getActivityIcon(exerciseType: string): string {
   switch (exerciseType) {
