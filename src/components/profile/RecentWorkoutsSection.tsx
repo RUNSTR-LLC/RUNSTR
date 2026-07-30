@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { theme } from '../../styles/theme';
 import type { RecentWorkout } from '../../services/backend/ProfileDataService';
+import { formatDuration } from '../../utils/formatters';
 
 interface RecentWorkoutsSectionProps {
   workouts: RecentWorkout[];
@@ -47,18 +48,6 @@ function relativeDate(isoDate: string): string {
   return `${months[date.getMonth()]} ${date.getDate()}`;
 }
 
-/** Format duration from seconds to H:MM:SS or MM:SS */
-function formatDuration(totalSeconds: number): string {
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = Math.floor(totalSeconds % 60);
-
-  const mm = String(minutes).padStart(2, '0');
-  const ss = String(seconds).padStart(2, '0');
-
-  if (hours > 0) return `${hours}:${mm}:${ss}`;
-  return `${mm}:${ss}`;
-}
 
 /** Format distance in km */
 function formatDistance(km: number): string {
