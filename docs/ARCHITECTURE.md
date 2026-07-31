@@ -275,7 +275,6 @@ Competition Management (ALL Supabase-based at runtime):
   DailyLeaderboardService        Built-in daily leaderboards (5K/10K/Half/Marathon/Steps)
   StepCompetitionService         Step-based competitions
   PendingSubmissionService       Retry failed Supabase submissions
-  LeaderboardBaselineService     Pre-compute baselines for long events
   AutoJoinService                Auto-join matching competitions on workout submit
 
 Hardcoded Events:
