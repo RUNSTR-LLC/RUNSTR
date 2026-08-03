@@ -13,7 +13,7 @@ const CHECKPOINT_INTERVAL_MS = 30000; // Save checkpoint every 30 seconds
 
 export interface WorkoutCheckpoint {
   sessionId: string;
-  activityType: 'running' | 'walking' | 'cycling';
+  activityType: 'running' | 'walking' | 'cycling' | 'hiking';
   startTime: number;
   distance: number;
   duration: number;
@@ -30,7 +30,7 @@ export class WorkoutRecovery {
    */
   startCheckpointing(
     sessionId: string,
-    activityType: 'running' | 'walking' | 'cycling',
+    activityType: 'running' | 'walking' | 'cycling' | 'hiking',
     startTime: number,
     getSessionData: () => {
       distance: number;
@@ -140,7 +140,7 @@ export class WorkoutRecovery {
    */
   async saveFinalCheckpoint(
     sessionId: string,
-    activityType: 'running' | 'walking' | 'cycling',
+    activityType: 'running' | 'walking' | 'cycling' | 'hiking',
     startTime: number,
     distance: number,
     duration: number,
