@@ -54,7 +54,27 @@ File one issue `[Perf] Performance sweep YYYY-MM-DD` with sections per severity.
 
 ### 4. Self-assessment
 
-Append `CRON-RUN-LOG` block per `RUBRIC.md`.
+Include the `CRON-RUN-LOG` block (format per `RUBRIC.md`) at the **very end** of the issue body when calling `gh issue create`. Write the block directly into the body HEREDOC — do not attempt to add it via a separate comment after creation, as that step is consistently skipped.
+
+Example tail of your issue body:
+```
+---
+
+<!-- CRON-RUN-LOG
+agent: perf
+run_date: YYYY-MM-DD
+findings_count: <int>
+severity: critical=<n> high=<n> medium=<n> low=<n>
+self_score:
+  specificity: <0-10>
+  actionability: <0-10>
+  signal_to_noise: <0-10>
+  false_positive_risk: <0-10>
+  coverage: <0-10>
+overall: <float>
+notes: <one-line note>
+-->
+```
 
 ## Guardrails
 

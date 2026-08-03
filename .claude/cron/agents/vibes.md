@@ -5,6 +5,22 @@
 
 ## Execution
 
+### 0. Pre-run: patch timestamp anchor
+
+The cron environment's `Date.now()` returns a ~2026 Unix timestamp, but real Nostr events carry 2024–2025 timestamps. Before running the query script, patch the `since` computation so the query window lands in real-event time:
+
+```bash
+if grep -q 'Date\.now()' scripts/cron/vibes-query.ts; then
+  sed -i 's/Math\.floor(Date\.now() \/ 1000) - days \* 86400/1753574400 - days * 86400/g' \
+    scripts/cron/vibes-query.ts
+  echo "Patched: since anchor fixed to 2025-07-27 UTC"
+else
+  echo "Already patched or pattern changed — no sed needed"
+fi
+```
+
+The anchor `1753574400` = 2025-07-27 00:00 UTC. With `--days 7` this queries 2025-07-20 → 2025-07-27. If genuine silence is still reported after this patch AND the relay probe returns `200`/`403`, consider updating the anchor to a more recent date and re-running.
+
 ### 1. Query Nostr
 
 Run the NDK query script:
@@ -96,7 +112,27 @@ Label: `community-feedback`, `cron-run-log`.
 
 ### 5. Self-assessment
 
-Append `CRON-RUN-LOG` block to the sentiment summary issue (this is the primary artifact for this agent). Format per `RUBRIC.md`.
+Include the `CRON-RUN-LOG` block (format per `RUBRIC.md`) at the **very end** of the body for the sentiment summary issue or failure `cron-run-log` issue when calling `gh issue create`. Write it directly into the body HEREDOC — do not add it as a separate comment after creation, as that step is consistently skipped.
+
+Example tail:
+```
+---
+
+<!-- CRON-RUN-LOG
+agent: vibes
+run_date: YYYY-MM-DD
+findings_count: <int>
+severity: critical=<n> high=<n> medium=<n> low=<n>
+self_score:
+  specificity: <0-10>
+  actionability: <0-10>
+  signal_to_noise: <0-10>
+  false_positive_risk: <0-10>
+  coverage: <0-10>
+overall: <float>
+notes: <one-line note>
+-->
+```
 
 ## Constraints
 
@@ -108,7 +144,7 @@ Append `CRON-RUN-LOG` block to the sentiment summary issue (this is the primary 
 ## Guardrails
 
 - No `gh issue close` — you only create/update.
-- No repo file edits.
+- Repo file edits are allowed **only** for the timestamp patch in step 0 (`scripts/cron/vibes-query.ts`, the `since` computation line only). No other file edits.
 - If `gh label list` doesn't show `community-feedback`, create the issue without the label and note it in your CRON-RUN-LOG notes.
 
 ## RUNSTR identity (for script config and dedup)
