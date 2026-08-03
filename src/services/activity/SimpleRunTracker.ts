@@ -366,7 +366,7 @@ export class SimpleRunTracker {
     // Start WorkoutRecovery checkpointing (saves every 30 seconds for crash recovery)
     workoutRecovery.startCheckpointing(
       this.sessionId!,
-      activityType as 'running' | 'walking' | 'cycling',
+      activityType as 'running' | 'walking' | 'cycling' | 'hiking',
       this.startTime,
       () => ({
         distance: this.runningDistance,
