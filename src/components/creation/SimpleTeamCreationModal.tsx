@@ -26,16 +26,12 @@ import { isSupabaseConfigured } from '../../utils/supabase';
 import { callEdgeFunction } from '../../utils/edgeFunctions';
 import { ClubWalletService } from '../../services/club/ClubWalletService';
 import { pickBannerImage, uploadBannerImage } from '../../services/club/ClubBannerStorageService';
+import { isValidLightningAddress } from '../../utils/lnurl';
 
 interface SimpleTeamCreationModalProps {
   visible: boolean;
   onClose: () => void;
   onTeamCreated?: (teamId: string) => void;
-}
-
-function isValidLightningAddress(address: string): boolean {
-  if (!address) return true; // Optional field
-  return /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(address);
 }
 
 export const SimpleTeamCreationModal: React.FC<SimpleTeamCreationModalProps> = ({
@@ -85,7 +81,7 @@ export const SimpleTeamCreationModal: React.FC<SimpleTeamCreationModalProps> = (
 
   const isValid =
     teamName.trim().length > 0 &&
-    isValidLightningAddress(lightningAddress);
+    (!lightningAddress || isValidLightningAddress(lightningAddress));
 
   const handleCreate = useCallback(async () => {
     if (isSubmittingRef.current) return; // Synchronous check prevents double-submit
