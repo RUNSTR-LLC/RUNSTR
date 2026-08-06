@@ -51,7 +51,7 @@ export const PrizeDisplay: React.FC<PrizeDisplayProps> = ({
 
       {recentPayout && (
         <Text style={styles.recentPayout}>
-          Last payout: {formatSats(recentPayout.amount)} sats •{' '}
+          Last payout: {formatSats(recentPayout.amount)} rewards •{' '}
           {formatPayoutTime(recentPayout.timestamp)}
         </Text>
       )}

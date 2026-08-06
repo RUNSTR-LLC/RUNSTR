@@ -109,7 +109,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onPress }) => {
           }}
         >
           <Text style={styles.badgeText}>
-            {event.prizePoolSats.toLocaleString()} sats
+            {event.prizePoolSats.toLocaleString()} rewards
           </Text>
         </TouchableOpacity>
       )}
@@ -127,7 +127,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onPress }) => {
           }}
         >
           <Text style={styles.badgeTextOrange}>
-            {event.entryFeesSats.toLocaleString()} sats
+            {event.entryFeesSats.toLocaleString()} rewards
           </Text>
         </TouchableOpacity>
       )}

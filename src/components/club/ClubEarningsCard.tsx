@@ -102,7 +102,7 @@ const ClubEarningsCardComponent: React.FC<ClubEarningsCardProps> = ({
       {/* Big weekly number — verified payments only */}
       <View style={styles.verifiedRow}>
         <Text style={styles.bigNumber}>
-          {earnings.weeklyEarnings.toLocaleString()} sats
+          {earnings.weeklyEarnings.toLocaleString()} rewards
         </Text>
         {lightningAddress && (
           <Ionicons name="checkmark-circle" size={18} color={theme.colors.success} style={{ marginLeft: 6, marginTop: 4 }} />
@@ -138,7 +138,7 @@ const ClubEarningsCardComponent: React.FC<ClubEarningsCardProps> = ({
           color={theme.colors.textMuted}
         />
         <Text style={styles.allTimeText}>
-          All-time: {earnings.allTimeEarnings.toLocaleString()} sats ({earnings.allTimeWorkouts} workouts)
+          All-time: {earnings.allTimeEarnings.toLocaleString()} rewards ({earnings.allTimeWorkouts} workouts)
         </Text>
       </View>
 
@@ -170,7 +170,7 @@ const ClubEarningsCardComponent: React.FC<ClubEarningsCardProps> = ({
       {/* Empty state hint */}
       {!hasWeeklyActivity && (
         <Text style={styles.emptyHint}>
-          Members earn 10 sats for the club with each workout
+          Members earn rewards for the club with each workout
         </Text>
       )}
     </View>
