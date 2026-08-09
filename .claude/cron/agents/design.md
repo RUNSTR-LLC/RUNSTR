@@ -42,6 +42,16 @@ Look for screens/components that deviate from the base Card/Button/Avatar patter
 - Text color on background with insufficient contrast
 - Touch targets <44px
 
+### 2b. Dedup against prior findings
+
+Before filing, read the 2 most recent design issues to identify carryover findings:
+
+```bash
+gh issue list --label design --state all --limit 2 --json number,title,body
+```
+
+Only lead the new issue with findings that are NOT already in a prior design issue. For carryovers (verified still present in HEAD), include a compact carryover table at the bottom (prior issue # + file + 1-line description) rather than restating the full finding. This keeps the new issue focused on what actually changed this week.
+
 ### 3. Rank + file
 
 Severity:
