@@ -52,6 +52,16 @@ grep -rn "^\s*//\s*\(const\|function\|import\|if\|return\)" src/ | head -20
 **f. Dead imports**
 Any file with >10 imports but uses <5. Cross-reference with tsc unused check.
 
+### 2b. Dedup against prior findings
+
+Before filing, fetch the 3 most recent simplify issues and identify any already-reported findings:
+
+```bash
+gh issue list --label simplify --state all --limit 3 --json number,title,body
+```
+
+Only include findings that are NOT already present in a prior simplify issue. For carryovers (still open, still unpatched), include a compact table at the bottom of the new issue (issue # + 1-line description) rather than repeating the full write-up. If ALL findings this run are carryovers with no new ones, file a standalone `cron-run-log` issue noting "No net-new findings; all [N] are carryovers from [issue links]" rather than a new simplify issue.
+
 ### 3. Rank + file
 
 Severity is about **signal**, not bug severity:

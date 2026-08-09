@@ -34,7 +34,11 @@ curl -s -o /dev/null -w "%{http_code}" --max-time 5 https://relay.damus.io
   ```
   Use the retry output if it contains more results. Whether or not the retry finds anything, note `"15s timeout possible — retried with 30s"` in your CRON-RUN-LOG notes and score `coverage` as 7 (confirmed reachable, retry done) rather than ≤5.
 
-- **`000` or connection error** — network is down. Score `coverage: 0`, note `"infrastructure failure — relays unreachable"`, and file a `cron-run-log` issue rather than a sentiment summary. Do not report 0 results as genuine community silence.
+- **`000` or connection error** — network is down. Score `coverage: 0`, note `"infrastructure failure — relays unreachable"`. Before creating a new issue, check whether a vibes failure issue already exists from the past 3 days:
+  ```bash
+  gh issue list --label cron-run-log --state open --search "[CronLog] vibes" --limit 5 --json number,title,createdAt
+  ```
+  If a failure issue was created within the last 3 days, add a comment to it (note the date and relay probe result) instead of opening a new issue. Only open a new `cron-run-log` issue if no recent failure issue exists. Do not report 0 results as genuine community silence.
 
 Only report genuine silence (skip the retry note, score coverage 8+) when the HTTP probe confirms reachability AND the 30s retry also returns `total_count == 0`.
 
