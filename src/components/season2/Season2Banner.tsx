@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   text: {
-    color: '#f5a623',
+    color: theme.colors.orangeBright,
     fontSize: 14,
     fontWeight: theme.typography.weights.bold,
     letterSpacing: 0.5,
