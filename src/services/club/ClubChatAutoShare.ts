@@ -8,6 +8,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ClubChatService } from '../backend/ClubChatService';
 import type { WorkoutMessageMetadata } from '../../types/club';
+import { formatDuration } from '../../types/satlantis';
 
 interface ShareWorkoutParams {
   senderNpub: string;
@@ -15,17 +16,6 @@ interface ShareWorkoutParams {
   distanceMeters?: number;
   durationSeconds: number;
   profileName?: string;
-}
-
-/**
- * Format duration as MM:SS or HH:MM:SS
- */
-function formatDuration(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
 /**

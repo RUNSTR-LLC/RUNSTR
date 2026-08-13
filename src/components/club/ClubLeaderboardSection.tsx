@@ -13,6 +13,7 @@ import { theme } from '../../styles/theme';
 import { supabase, isSupabaseConfigured } from '../../utils/supabase';
 import { nostrProfileService } from '../../services/nostr/NostrProfileService';
 import { Avatar } from '../ui/Avatar';
+import { formatDuration } from '../../types/satlantis';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -47,17 +48,6 @@ const CACHE_TTL = 5 * 60 * 1000;
 
 function getTodayDate(): string {
   return new Date().toISOString().split('T')[0];
-}
-
-function formatDuration(totalSeconds: number): string {
-  if (totalSeconds <= 0) return '0:00';
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = Math.floor(totalSeconds % 60);
-  if (h > 0) {
-    return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  }
-  return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
 function formatSteps(steps: number): string {
