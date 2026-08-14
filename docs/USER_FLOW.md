@@ -134,7 +134,7 @@ If user enables Private Mode in Settings:
 ## 5. Reward Flow
 
 ### Overview
-Users earn rewards for qualifying workouts. Rewards are funded by sponsors and sent to the user's chosen destination.
+Users earn rewards for qualifying workouts. Rewards are funded by RUNSTR and sent to the user's lightning address.
 
 ### Trigger
 Two paths:
