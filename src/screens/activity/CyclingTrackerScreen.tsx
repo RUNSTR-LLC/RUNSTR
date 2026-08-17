@@ -543,11 +543,9 @@ export const CyclingTrackerScreen: React.FC<CyclingTrackerScreenProps> = ({
 
   // FIXED: Get elapsed time directly from refs to avoid stale closure
   const updateMetricsFromSession = () => {
-    // CRITICAL: Don't update UI if app is backgrounded
-    const appStateManager = AppStateManager;
-    if (!appStateManager.isActive()) {
-      return;
-    }
+    // NOTE: AppStateManager.isActive() check intentionally removed — iOS sends spurious
+    // background events while the screen is visible, which froze cycling metrics permanently.
+    // Interval lifecycle in useEffect handles background/foreground correctly instead.
 
     const session = simpleRunTracker.getCurrentSession();
     if (session) {
