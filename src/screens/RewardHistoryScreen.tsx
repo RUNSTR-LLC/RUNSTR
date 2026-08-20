@@ -105,7 +105,7 @@ const RewardRow: React.FC<RewardRowProps> = ({ payment, expanded, onToggle }) =>
       activeOpacity={0.7}
       onPress={onToggle}
       accessibilityRole="button"
-      accessibilityLabel={`${label}, ${payment.amount_sats} sats, tap for details`}
+      accessibilityLabel={`${label}, ${payment.amount_sats} rewards, tap for details`}
     >
       <View style={styles.rowMain}>
         <Ionicons
@@ -117,7 +117,7 @@ const RewardRow: React.FC<RewardRowProps> = ({ payment, expanded, onToggle }) =>
         <Text style={styles.rowLabel} numberOfLines={1}>
           {label}
         </Text>
-        <Text style={styles.rowAmount}>+{payment.amount_sats} sats</Text>
+        <Text style={styles.rowAmount}>+{payment.amount_sats} rewards</Text>
       </View>
       {expanded && (
         <View style={styles.rowDetails}>
@@ -212,7 +212,7 @@ export const RewardHistoryScreen: React.FC = () => {
       <TexturedBackground edges={[]}>
         <View style={styles.header}>
           <Text style={styles.headerNumber}>{monthlyTotal.toLocaleString()}</Text>
-          <Text style={styles.headerSubtitle}>sats this month</Text>
+          <Text style={styles.headerSubtitle}>rewards this month</Text>
         </View>
 
         {isLoading && payments.length === 0 ? (
