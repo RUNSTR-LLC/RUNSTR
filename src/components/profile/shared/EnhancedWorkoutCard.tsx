@@ -17,6 +17,7 @@ import { WorkoutStatusTracker } from '../../../services/fitness/WorkoutStatusTra
 import { WorkoutDetailModal } from './WorkoutDetailModal';
 import type { Workout } from '../../../types/workout';
 import { formatDistance } from '../../../utils/distanceFormatter';
+import { formatDuration } from '../../../types/satlantis';
 import { useUnitPreference } from '../../../hooks/useUnitPreference';
 import { VerifiedCheckmark } from '../../activity/VerifiedCheckmark';
 
@@ -74,15 +75,6 @@ export const EnhancedWorkoutCard: React.FC<EnhancedWorkoutCardProps> = React.mem
     } finally {
       setLoading((prev) => ({ ...prev, post: false }));
     }
-  };
-
-  const formatDuration = (seconds: number): string => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    return h > 0
-      ? `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
-      : `${m}:${s.toString().padStart(2, '0')}`;
   };
 
   // Format pace from seconds per km to MM:SS format

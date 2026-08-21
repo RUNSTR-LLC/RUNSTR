@@ -18,6 +18,7 @@ import { AnimatedNumber } from '../ui/AnimatedNumber';
 import { deriveWorkoutCardDisplay } from './workoutCardDisplay';
 import type { WorkoutCardData } from './workoutCardDisplay';
 import type { FeedWorkout } from '../../types/feedWorkout';
+import { formatDuration } from '../../types/satlantis';
 
 export type { WorkoutCardData } from './workoutCardDisplay';
 
@@ -28,13 +29,6 @@ interface WorkoutPostCardProps {
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
-
-const formatDuration = (seconds: number): string => {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
-};
 
 const formatPace = (distanceMeters: number, durationSeconds: number, unit: 'km' | 'mi'): string => {
   if (!distanceMeters || !durationSeconds) return '—';
