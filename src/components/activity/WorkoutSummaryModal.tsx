@@ -35,6 +35,7 @@ import { LocalTeamMembershipService } from '../../services/team/LocalTeamMembers
 import { AutoCompetePreferencesService } from '../../services/activity/AutoCompetePreferencesService';
 import { NostrPostingPreferencesService } from '../../services/activity/NostrPostingPreferencesService';
 import Toast from 'react-native-toast-message';
+import { formatDuration } from '../../types/satlantis';
 import { useUnitPreference } from '../../hooks/useUnitPreference';
 import { WoTService } from '../../services/wot/WoTService';
 import * as Haptics from 'expo-haptics';
@@ -423,19 +424,6 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
       const miles = meters * 0.000621371;
       return `${miles.toFixed(2)} ${distanceLabel}`;
     }
-  };
-
-  const formatDuration = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-
-    if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs
-        .toString()
-        .padStart(2, '0')}`;
-    }
-    return `${minutes}:${secs.toString().padStart(2, '0')}`;
   };
 
   const formatSpeed = (speed?: number): string => {

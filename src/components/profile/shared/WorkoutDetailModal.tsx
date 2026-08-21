@@ -20,6 +20,7 @@ import type { Workout } from '../../../types/workout';
 import type { PublishableWorkout } from '../../../services/nostr/workoutPublishingService';
 import { FullScreenCardModal } from './FullScreenCardModal';
 import { useUnitPreference } from '../../../hooks/useUnitPreference';
+import { formatDuration } from '../../../types/satlantis';
 import { VerifiedCheckmark } from '../../activity/VerifiedCheckmark';
 
 interface WorkoutDetailModalProps {
@@ -41,16 +42,6 @@ export const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
   // Check if this workout has a saved card
   const localWorkout = workout as LocalWorkout;
   const hasSavedCard = !!localWorkout.savedCard;
-
-  // Format helpers
-  const formatDuration = (seconds: number): string => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    return h > 0
-      ? `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
-      : `${m}:${s.toString().padStart(2, '0')}`;
-  };
 
   const formatDistance = (meters?: number): string => {
     if (!meters) return '--';
