@@ -206,6 +206,7 @@ import { LevelDetailScreen } from './screens/LevelDetailScreen';
 import { SavedRoutesScreen } from './screens/routes/SavedRoutesScreen';
 import { AdvancedAnalyticsScreen } from './screens/AdvancedAnalyticsScreen';
 import { HealthProfileScreen } from './screens/HealthProfileScreen';
+import { FitnessTestResultsScreen } from './screens/FitnessTestResultsScreen';
 import { EinundzwanzigDetailScreen } from './screens/events/EinundzwanzigDetailScreen';
 import { DynamicEventDetailScreen } from './screens/events/DynamicEventDetailScreen';
 import { Season2Screen } from './screens/season2/Season2Screen';
@@ -278,6 +279,7 @@ type AuthenticatedStackParamList = {
   SavedRoutes: { activityType?: 'running' | 'cycling' | 'walking' };
   AdvancedAnalytics: undefined;
   HealthProfile: undefined;
+  FitnessTestResults: { testId: string };
   EinundzwanzigDetail: undefined;
   Season2: undefined;
   Season3: undefined;
@@ -513,6 +515,15 @@ const AuthenticatedNavigator: React.FC = () => {
           headerShown: false,
         }}
         component={HealthProfileScreen}
+      />
+
+      {/* Fitness Test Results Screen - Displays completed fitness test results */}
+      <AuthenticatedStack.Screen
+        name="FitnessTestResults"
+        options={{
+          headerShown: false,
+        }}
+        component={FitnessTestResultsScreen}
       />
 
       {/* Einundzwanzig Fitness Challenge Detail Screen */}
