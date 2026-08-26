@@ -4,8 +4,8 @@ Single source of truth for reward logic across the app, website, and backend.
 
 ## Daily Reward
 
-- **Amount:** 50 sats per qualifying workout
-- **Applies to:** All users (no tiers, no subscriptions)
+- **Amount:** Distance-tiered — 5K → 500 sats, 10K → 1000 sats, Half marathon → 2100 sats, Marathon → 4200 sats
+- **Applies to:** All users — reward scales by distance milestone, no subscription required
 - **Daily limit:** 1 reward per user per day
 
 ## Event Rewards
@@ -22,7 +22,7 @@ Cardio only — running, walking, cycling, hiking.
 
 Daily steps (5,000+) also qualify as a walking workout via the daily step submission path.
 
-No distance minimum. No duration minimum.
+Minimum distance: 5 km. Workouts below 5 km (including non-GPS activities with no recorded distance) earn no reward. No minimum duration beyond what the anti-cheat validator enforces.
 
 ## Payout Destination
 
