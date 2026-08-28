@@ -21,6 +21,7 @@ import {
   type CardioPR,
 } from '../../services/analytics/PersonalRecordsService';
 import { useUnitPreference } from '../../hooks/useUnitPreference';
+import { formatDuration } from '../../types/satlantis';
 
 interface WorkoutStatsSheetProps {
   visible: boolean;
@@ -123,19 +124,6 @@ export const WorkoutStatsSheet: React.FC<WorkoutStatsSheetProps> = ({
       const miles = meters * 0.000621371;
       return `${miles.toFixed(1)} ${distanceLabel}`;
     }
-  };
-
-  const formatDuration = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-
-    if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs
-        .toString()
-        .padStart(2, '0')}`;
-    }
-    return `${minutes}:${secs.toString().padStart(2, '0')}`;
   };
 
   const formatPRTime = (seconds: number): string => {
