@@ -9,6 +9,7 @@ import { theme } from '../../../styles/theme';
 import type { WorkoutType } from '../../../types/workout';
 import { formatDistance } from '../../../utils/distanceFormatter';
 import { useUnitPreference } from '../../../hooks/useUnitPreference';
+import { formatDuration } from '../../../types/satlantis';
 
 interface Workout {
   id: string;
@@ -46,15 +47,6 @@ export const WorkoutCard: React.FC<WorkoutCardProps> = React.memo(({
   children,
 }) => {
   const { unitSystem } = useUnitPreference();
-
-  const formatDuration = (seconds: number): string => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    return h > 0
-      ? `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
-      : `${m}:${s.toString().padStart(2, '0')}`;
-  };
 
   const formatDate = (dateString: string): string => {
     const workoutDate = new Date(dateString);
