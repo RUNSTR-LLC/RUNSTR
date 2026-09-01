@@ -81,9 +81,9 @@ App.tsx
                                 |    |
                                 |    +-- BottomTabNavigator
                                 |         |
-                                |         +-- Profile Tab (eager load)
-                                |         +-- Social Tab  (React.lazy)
-                                |         +-- Events Tab  (React.lazy)
+                                |         +-- Home Tab        (eager load)
+                                |         +-- Social Tab      (React.lazy)
+                                |         +-- Leaderboard Tab (React.lazy)
                                 |
                                 +-- Modal Screens (~21 reachable)
                                      |
