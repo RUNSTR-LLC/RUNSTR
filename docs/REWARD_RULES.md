@@ -4,7 +4,16 @@ Single source of truth for reward logic across the app, website, and backend.
 
 ## Daily Reward
 
-- **Amount:** 50 sats per qualifying workout
+Rewards are distance-tiered — a workout earns the highest milestone it crosses:
+
+| Distance | Reward |
+|----------|--------|
+| Marathon (42.2K+) | 4,200 sats |
+| Half marathon (21.1K+) | 2,100 sats |
+| 10K+ | 1,000 sats |
+| 5K – 9.99K | 500 sats |
+| Under 5K | 0 (does not qualify) |
+
 - **Applies to:** All users (no tiers, no subscriptions)
 - **Daily limit:** 1 reward per user per day
 
@@ -22,17 +31,17 @@ Cardio only — running, walking, cycling, hiking.
 
 Daily steps (5,000+) also qualify as a walking workout via the daily step submission path.
 
-No distance minimum. No duration minimum.
+Minimum distance: 5K (5,000 m). Minimum duration: 60 seconds. Workouts below either threshold earn nothing.
 
 ## Payout Destination
 
-Rewards are sent via LNURL to the user's lightning address. There is no destination picker — no charities, no projects, no AI credits, no splits.
+Rewards are sent via LNURL to the destination the user selects on the Rewards screen. The destination picker offers three options:
 
-Address resolution priority:
-1. Stored address (from Settings) if set
-2. Nostr profile lud16 otherwise
+1. **Your lightning address** — default; either the stored address (from Settings) or the user's Nostr profile lud16
+2. **Charity** — routes to the selected charity's lightning address (default: ALS Network)
+3. **PPQ.AI** — rewards are paid to a PPQ.AI bolt11 invoice instead of a Lightning address
 
-If neither is available, the user cannot receive rewards until they paste one into Settings.
+If no lightning address is available and no alternative is selected, the user cannot receive rewards until they paste one into Settings.
 
 ## Implementation Notes
 
