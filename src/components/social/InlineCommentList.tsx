@@ -60,41 +60,43 @@ export const InlineCommentList: React.FC<InlineCommentListProps> = ({
     Keyboard.dismiss();
     setIsSending(true);
 
-    const userName = await AsyncStorage.getItem('@runstr:display_name');
-    const userAvatar = await AsyncStorage.getItem('@runstr:profile_picture');
+    try {
+      const userName = await AsyncStorage.getItem('@runstr:display_name');
+      const userAvatar = await AsyncStorage.getItem('@runstr:profile_picture');
 
-    const optimistic: WorkoutComment = {
-      id: `optimistic-${Date.now()}`,
-      event_id: eventId,
-      npub: userNpub,
-      content: trimmed,
-      author_name: userName || null,
-      author_avatar: userAvatar || null,
-      created_at: new Date().toISOString(),
-    };
+      const optimistic: WorkoutComment = {
+        id: `optimistic-${Date.now()}`,
+        event_id: eventId,
+        npub: userNpub,
+        content: trimmed,
+        author_name: userName || null,
+        author_avatar: userAvatar || null,
+        created_at: new Date().toISOString(),
+      };
 
-    setOptimisticComments((prev) => [optimistic, ...prev]);
+      setOptimisticComments((prev) => [optimistic, ...prev]);
 
-    const result = await WorkoutInteractionService.getInstance().addComment(
-      eventId,
-      userNpub,
-      trimmed,
-      userName || undefined,
-      userAvatar || undefined,
-    );
+      const result = await WorkoutInteractionService.getInstance().addComment(
+        eventId,
+        userNpub,
+        trimmed,
+        userName || undefined,
+        userAvatar || undefined,
+      );
 
-    if (result) {
-      // Replace optimistic entry with the real one and notify parent
-      setOptimisticComments((prev) => prev.filter((c) => c.id !== optimistic.id));
-      setComments((prev) => [result, ...prev]);
-      onCommentAdded?.();
-    } else {
-      setOptimisticComments((prev) => prev.filter((c) => c.id !== optimistic.id));
-      setInputText(trimmed);
-      Toast.show({ type: 'error', text1: 'Comment not sent', visibilityTime: 2000 });
+      if (result) {
+        // Replace optimistic entry with the real one and notify parent
+        setOptimisticComments((prev) => prev.filter((c) => c.id !== optimistic.id));
+        setComments((prev) => [result, ...prev]);
+        onCommentAdded?.();
+      } else {
+        setOptimisticComments((prev) => prev.filter((c) => c.id !== optimistic.id));
+        setInputText(trimmed);
+        Toast.show({ type: 'error', text1: 'Comment not sent', visibilityTime: 2000 });
+      }
+    } finally {
+      setIsSending(false);
     }
-
-    setIsSending(false);
   }, [inputText, isSending, eventId, userNpub, onCommentAdded]);
 
   if (!expanded) return null;
