@@ -26,7 +26,12 @@ No distance minimum. No duration minimum.
 
 ## Payout Destination
 
-Rewards are sent via LNURL to the user's lightning address. There is no destination picker — no charities, no projects, no AI credits, no splits.
+Rewards are sent via LNURL to the user's selected destination. Users can choose their reward destination via the in-app destination picker (Rewards screen → Change Destination). Available options:
+
+- **You** — sent to your lightning address (default)
+- **Services** — PPQ.AI credits
+- **Charities** — ALS Network, HRF
+- **Projects** — Bitcoin circular economy projects worldwide
 
 Address resolution priority:
 1. Stored address (from Settings) if set
