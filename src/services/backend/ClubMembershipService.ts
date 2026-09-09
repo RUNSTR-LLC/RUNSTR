@@ -339,9 +339,10 @@ export class ClubMembershipService {
     try {
       const { data, error } = await supabase!
         .from('club_memberships')
-        .select('*')
+        .select('id, club_id, member_npub, role, joined_at')
         .eq('club_id', clubId)
-        .order('joined_at', { ascending: true });
+        .order('joined_at', { ascending: true })
+        .limit(500);
 
       if (error) {
         console.error(`${TAG} getClubMembers error for ${clubId}:`, error);
