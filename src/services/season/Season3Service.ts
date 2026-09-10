@@ -109,7 +109,8 @@ class Season3ServiceClass {
       .from('workout_submissions')
       .select('club_id, step_count, npub')
       .in('club_id', [clubAId, clubBId])
-      .eq('leaderboard_date', matchDate);
+      .eq('leaderboard_date', matchDate)
+      .limit(2000);
 
     if (error) throw new Error(`Failed to fetch live steps: ${error.message}`);
 
