@@ -45,8 +45,10 @@ export class GPSHealthMonitor {
       this.recentAccuracies.reduce((a, b) => a + b, 0) /
       this.recentAccuracies.length;
 
-    // Update last good signal time if accuracy is acceptable
-    if (avgAccuracy <= 20) {
+    // Update last good signal time if accuracy is acceptable.
+    // Also reset on a strong instantaneous reading so signal recovery after a tunnel
+    // doesn't wait for 10 rolling-average cycles to clear (fixes ~30s false "signal lost").
+    if (avgAccuracy <= 20 || accuracy <= 10) {
       this.lastGoodSignalTime = now;
     }
 
