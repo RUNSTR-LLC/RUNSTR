@@ -4,7 +4,7 @@ Single source of truth for reward logic across the app, website, and backend.
 
 ## Daily Reward
 
-- **Amount:** 50 sats per qualifying workout
+- **Amount:** Distance-tiered reward per qualifying workout — see `src/config/rewards.ts` → `REWARD_DISTANCE_TIERS` for current values
 - **Applies to:** All users (no tiers, no subscriptions)
 - **Daily limit:** 1 reward per user per day
 
