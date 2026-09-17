@@ -198,14 +198,6 @@ export const PlaylistBrowser: React.FC = React.memo(() => {
     serverName: string;
   } | null>(null);
 
-  // NOTE: Library state disabled - Wavlake library API not publicly available yet
-  // const [likedTracks, setLikedTracks] = useState<WavlakeTrack[]>([]);
-  // const [userPlaylists, setUserPlaylists] = useState<UserPlaylist[]>([]);
-  // const [isAuthenticated, setIsAuthenticated] = useState(false);
-  // const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
-  // const [isCreatePlaylistOpen, setIsCreatePlaylistOpen] = useState(false);
-  // const [addToPlaylistTrack, setAddToPlaylistTrack] = useState<WavlakeTrack | null>(null);
-
   // UI state
   const [selectedPlaylist, setSelectedPlaylist] = useState<PlaylistId>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -467,12 +459,6 @@ export const PlaylistBrowser: React.FC = React.memo(() => {
   const goBackToBrowse = useCallback(() => {
     setSelectedPlaylist(null);
   }, []);
-
-  /**
-   * NOTE: Track options disabled - Wavlake library API not publicly available yet
-   */
-  // const handleTrackOptions = useCallback((track: WavlakeTrack) => { ... }, []);
-  // const handlePlaylistCreated = useCallback(() => { ... }, []);
 
   /**
    * Render Your Library section
