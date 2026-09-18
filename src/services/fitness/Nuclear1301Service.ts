@@ -9,6 +9,49 @@ import type { Split } from '../activity/SplitTrackingService';
 import { GlobalNDKService } from '../nostr/GlobalNDKService';
 import { inferActivityTypeSimple, normalizeActivityType } from '../../utils/activityInference';
 
+// Nostr genesis (2009-01-01T00:00:00Z) — anything before this in a
+// `workout_start_time` tag is bogus, not a real workout.
+const NOSTR_GENESIS_SECONDS = 1230768000;
+const ONE_DAY_SECONDS = 24 * 60 * 60;
+
+/**
+ * Resolve a workout's actual start time (unix seconds).
+ *
+ * `event.created_at` is when the Nostr note was PUBLISHED, not when the
+ * workout started — a run at 06:00 published at 06:35 would otherwise get a
+ * `startTime` ~35 minutes off. The dedup helper used by automatic backfill
+ * matches on start time within +/-60s, so that drift would make it re-import
+ * the same workout on every launch. Prefer the `workout_start_time` tag
+ * (unix seconds, emitted by workoutPublishingService.ts) when present and
+ * sane; fall back to `created_at` — the previous behavior — otherwise.
+ *
+ * The tag value comes from an untrusted relay: reject non-numeric,
+ * non-finite, and absurd values (before the Nostr genesis or more than a day
+ * in the future) and fall back to `created_at` in those cases.
+ */
+function resolveWorkoutStartSeconds(tags: any[], createdAt: number): number {
+  const startTag = Array.isArray(tags)
+    ? tags.find(
+        (t: any[]) =>
+          Array.isArray(t) && t[0] === 'workout_start_time' && t[1] !== undefined
+      )
+    : undefined;
+
+  if (startTag) {
+    const parsed = Number(startTag[1]);
+    const maxAllowed = Math.floor(Date.now() / 1000) + ONE_DAY_SECONDS;
+    if (
+      Number.isFinite(parsed) &&
+      parsed >= NOSTR_GENESIS_SECONDS &&
+      parsed <= maxAllowed
+    ) {
+      return parsed;
+    }
+  }
+
+  return createdAt;
+}
+
 export class Nuclear1301Service {
   private static instance: Nuclear1301Service;
 
@@ -358,14 +401,18 @@ export class Nuclear1301Service {
             });
           }
 
+          // Prefer the workout_start_time tag over created_at (publish time) —
+          // see resolveWorkoutStartSeconds for why this matters for dedup.
+          const startSeconds = resolveWorkoutStartSeconds(tags, event.created_at);
+
           // ULTRA NUCLEAR: Create workout even if ALL fields are missing/zero
           const workout: NostrWorkout = {
             id: event.id,
             userId: 'nostr_user', // Generic for tab display
             type: finalType as any,
-            startTime: new Date(event.created_at * 1000).toISOString(),
+            startTime: new Date(startSeconds * 1000).toISOString(),
             endTime: new Date(
-              (event.created_at + Math.max(duration, 60)) * 1000
+              (startSeconds + Math.max(duration, 60)) * 1000
             ).toISOString(), // duration is already in seconds
             duration: duration, // Duration in seconds
             distance: distance, // Distance in meters
@@ -403,12 +450,19 @@ export class Nuclear1301Service {
           console.warn(`⚠️ Error in ultra nuclear parsing ${event.id}:`, error);
           // ULTRA NUCLEAR: Even if parsing fails, create a basic workout
           // Use 'other' for truly unparseable events (no metrics to infer from)
+          // `tags` from the try block is out of scope here — re-derive from
+          // the raw event so workout_start_time is still honored.
+          const fallbackTags = event.tags || [];
+          const fallbackStartSeconds = resolveWorkoutStartSeconds(
+            fallbackTags,
+            event.created_at
+          );
           const fallbackWorkout: NostrWorkout = {
             id: event.id,
             userId: 'nostr_user',
             type: 'other' as any,
-            startTime: new Date(event.created_at * 1000).toISOString(),
-            endTime: new Date((event.created_at + 60) * 1000).toISOString(),
+            startTime: new Date(fallbackStartSeconds * 1000).toISOString(),
+            endTime: new Date((fallbackStartSeconds + 60) * 1000).toISOString(),
             duration: 0,
             distance: 0,
             calories: 0,
@@ -559,12 +613,16 @@ export class Nuclear1301Service {
           const mealTypeTag = tags.find((tag: any[]) => tag[0] === 'meal_type');
           const mealSizeTag = tags.find((tag: any[]) => tag[0] === 'meal_size');
 
+          // Prefer workout_start_time over created_at (publish time) — same
+          // reasoning as getUserWorkouts() above.
+          const startSeconds = resolveWorkoutStartSeconds(tags, event.created_at);
+
           const workout: NostrWorkout = {
             id: event.id,
             userId: 'nostr_user',
             type: exerciseTag?.[1] || 'other',
-            startTime: new Date(event.created_at * 1000).toISOString(),
-            endTime: new Date((event.created_at + 60) * 1000).toISOString(),
+            startTime: new Date(startSeconds * 1000).toISOString(),
+            endTime: new Date((startSeconds + 60) * 1000).toISOString(),
             duration: durationTag ? parseInt(durationTag[1]) : 0,
             distance: distanceTag ? parseFloat(distanceTag[1]) : 0,
             calories: caloriesTag ? parseInt(caloriesTag[1]) : 0,
