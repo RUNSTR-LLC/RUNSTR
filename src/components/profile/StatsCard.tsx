@@ -82,18 +82,19 @@ export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey, refreshKey = 0
   }, [userPubkey, refreshKey]);
 
   const loadData = async (isCancelled: () => boolean) => {
-    try {
-      if (!FEATURES.stepTracking) return;
-      // Bypass the 5s service-level cache so a pull-to-refresh on the parent
-      // tab actually re-queries HealthKit instead of returning the stale value.
-      const stepService = DailyStepCounterService.getInstance();
-      if (refreshKey > 0) {
-        stepService.clearCache();
+    if (FEATURES.stepTracking) {
+      try {
+        // Bypass the 5s service-level cache so a pull-to-refresh on the parent
+        // tab actually re-queries HealthKit instead of returning the stale value.
+        const stepService = DailyStepCounterService.getInstance();
+        if (refreshKey > 0) {
+          stepService.clearCache();
+        }
+        const stepData = await stepService.getTodaySteps();
+        if (!isCancelled() && stepData) setTodaySteps(stepData.steps);
+      } catch (e) {
+        console.warn('[StatsCard] Failed to get today steps:', e);
       }
-      const stepData = await stepService.getTodaySteps();
-      if (!isCancelled() && stepData) setTodaySteps(stepData.steps);
-    } catch (e) {
-      console.warn('[StatsCard] Failed to get today steps:', e);
     }
 
     if (!isSupabaseConfigured() || !supabase || !userPubkey) return;
