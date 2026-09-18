@@ -194,6 +194,11 @@ export class Nostr1301ImportService {
       if (!raw) return true;
       const last = Number(raw);
       if (!Number.isFinite(last)) return true;
+      // A future-dated timestamp (clock skew, timezone change, DST) would
+      // otherwise make `Date.now() - last` negative — always < the interval
+      // — and silently disable backfill until wall-clock time catches up.
+      // Treat it as "no record" rather than failing closed.
+      if (last > Date.now()) return true;
       return Date.now() - last > Nostr1301ImportService.BACKFILL_INTERVAL_MS;
     } catch {
       return true;
@@ -212,6 +217,17 @@ export class Nostr1301ImportService {
       if (!(await this.shouldBackfill())) return;
 
       const nostrWorkouts = await Nuclear1301Service.getInstance().getUserWorkouts(pubkey);
+
+      // Record the attempt as soon as the relay round-trip completes —
+      // regardless of how many workouts came back. Recording only after a
+      // successful merge would mean a user with zero 1301 history (a
+      // legitimate, common case) re-queries every relay on every single
+      // launch forever, since `nostrWorkouts.length` would always be 0.
+      await AsyncStorage.setItem(
+        Nostr1301ImportService.BACKFILL_TS_KEY,
+        String(Date.now())
+      ).catch(() => {});
+
       if (!nostrWorkouts.length) return;
 
       // Amendment 2: always dedup on the normalized NostrWorkout.type, never
@@ -233,11 +249,6 @@ export class Nostr1301ImportService {
           splits: w.splits,
         }))
       );
-
-      await AsyncStorage.setItem(
-        Nostr1301ImportService.BACKFILL_TS_KEY,
-        String(Date.now())
-      ).catch(() => {});
 
       console.log(`[1301Backfill] merged ${written} new workout(s) from relays`);
     } catch (error) {

@@ -864,21 +864,31 @@ export class LocalWorkoutStorageService {
   }
 
   /**
-   * Get all local workouts (both synced and unsynced)
+   * Read the full workout list, additionally reporting whether the read
+   * itself succeeded. `getAllWorkouts()` collapses this to a plain array
+   * (unchanged for its many existing callers, all of which already treat
+   * "[]" as "nothing to do"); callers that must NOT confuse "storage was
+   * unreadable" with "storage is genuinely empty" — notably the bulk Nostr
+   * import, where that confusion would make every incoming workout look new
+   * and overwrite the user's whole history with just the incoming batch —
+   * use this directly and check `ok`.
    */
-  async getAllWorkouts(): Promise<LocalWorkout[]> {
+  private async readAllWorkoutsChecked(): Promise<{
+    workouts: LocalWorkout[];
+    ok: boolean;
+  }> {
     try {
       // Return a COPY of the cache — the same reference is handed to React
       // state, and callers push/mutate the result before persisting.
       if (this.cacheValid && this.workoutCache) {
-        return [...this.workoutCache];
+        return { workouts: [...this.workoutCache], ok: true };
       }
 
       const data = await AsyncStorage.getItem(STORAGE_KEYS.LOCAL_WORKOUTS);
       if (!data) {
         this.workoutCache = [];
         this.cacheValid = true;
-        return [];
+        return { workouts: [], ok: true };
       }
 
       let workouts: LocalWorkout[];
@@ -898,7 +908,7 @@ export class LocalWorkoutStorageService {
             'Writes are now blocked to prevent data loss.',
           parseError
         );
-        return [];
+        return { workouts: [], ok: false };
       }
 
       // Sort by start time (newest first)
@@ -909,11 +919,22 @@ export class LocalWorkoutStorageService {
 
       this.workoutCache = workouts;
       this.cacheValid = true;
-      return [...workouts];
+      return { workouts: [...workouts], ok: true };
     } catch (error) {
+      // The read itself failed (e.g. a transient AsyncStorage error) — this
+      // is NOT the same as "no workouts" and must not be reported as such
+      // to callers that make write decisions based on an empty snapshot.
       console.error('❌ Failed to retrieve local workouts:', error);
-      return [];
+      return { workouts: [], ok: false };
     }
+  }
+
+  /**
+   * Get all local workouts (both synced and unsynced)
+   */
+  async getAllWorkouts(): Promise<LocalWorkout[]> {
+    const { workouts } = await this.readAllWorkoutsChecked();
+    return workouts;
   }
 
   /**
@@ -1128,6 +1149,37 @@ export class LocalWorkoutStorageService {
   // ========================================================================
 
   /**
+   * Build the LocalWorkout record for an imported Nostr workout, including a
+   * freshly generated local id. Shared by the per-item and bulk import paths
+   * so the field mapping lives in exactly one place.
+   */
+  private async buildImportedLocalWorkout(
+    workout: ImportedNostrWorkout
+  ): Promise<LocalWorkout> {
+    const workoutId = await this.generateWorkoutId();
+    return {
+      id: workoutId,
+      type: workout.type,
+      startTime: workout.startTime,
+      endTime: workout.endTime,
+      duration: workout.duration,
+      distance: workout.distance,
+      calories: workout.calories,
+      reps: workout.reps,
+      sets: workout.sets,
+      notes: workout.notes,
+      // NEW: Include enhanced fields from Nostr
+      elevation: workout.elevation,
+      pace: workout.pace,
+      splits: workout.splits,
+      source: 'imported_nostr',
+      createdAt: new Date().toISOString(),
+      syncedToNostr: true, // Already exists on Nostr
+      nostrEventId: workout.id, // Store original Nostr event ID
+    };
+  }
+
+  /**
    * Save imported Nostr workout to local storage
    * Used during one-time import of user's Nostr workout history
    */
@@ -1146,36 +1198,15 @@ export class LocalWorkoutStorageService {
         return workout.id;
       }
 
-      const workoutId = await this.generateWorkoutId();
-
-      const localWorkout: LocalWorkout = {
-        id: workoutId,
-        type: workout.type,
-        startTime: workout.startTime,
-        endTime: workout.endTime,
-        duration: workout.duration,
-        distance: workout.distance,
-        calories: workout.calories,
-        reps: workout.reps,
-        sets: workout.sets,
-        notes: workout.notes,
-        // NEW: Include enhanced fields from Nostr
-        elevation: workout.elevation,
-        pace: workout.pace,
-        splits: workout.splits,
-        source: 'imported_nostr',
-        createdAt: new Date().toISOString(),
-        syncedToNostr: true, // Already exists on Nostr
-        nostrEventId: workout.id, // Store original Nostr event ID
-      };
+      const localWorkout = await this.buildImportedLocalWorkout(workout);
 
       await this.saveWorkout(localWorkout);
       console.log(
-        `✅ Imported Nostr workout: ${workoutId} (${workout.type}, ${new Date(
+        `✅ Imported Nostr workout: ${localWorkout.id} (${workout.type}, ${new Date(
           workout.startTime
         ).toLocaleDateString()})${workout.splits ? ` [${workout.splits.length} splits]` : ''}`
       );
-      return workoutId;
+      return localWorkout.id;
     } catch (error) {
       console.error('❌ Failed to save imported Nostr workout:', error);
       throw error;
@@ -1183,16 +1214,36 @@ export class LocalWorkoutStorageService {
   }
 
   /**
-   * Bulk-import Nostr workouts. Loads the existing set once instead of once per
-   * workout, and dedups against both stored workouts and earlier members of this
-   * batch. Returns the number actually written.
+   * Bulk-import Nostr workouts. Loads the existing set ONCE, dedups in memory
+   * against both stored workouts and earlier members of this batch, and
+   * persists the merged list back in a SINGLE write — not once per accepted
+   * workout. Unlike saveImportedNostrWorkout (still O(n²), acceptable behind
+   * a one-time progress bar), this path runs unattended at every login and
+   * must not pay a full array read+stringify+write per workout.
+   *
+   * Refuses to write when the existing snapshot could not be confirmed (a
+   * transient or corrupted read reporting "no workouts" must never be
+   * treated as "the user genuinely has no local history" — that would make
+   * every relay workout look new and overwrite real history with just this
+   * batch). An abandoned backfill is harmless; a destroyed history is not.
    *
    * Only ever adds — never deletes or overwrites a local workout.
    */
   async saveImportedNostrWorkoutsBulk(
     workouts: ImportedNostrWorkout[]
   ): Promise<number> {
-    const existing = await this.getAllWorkouts();
+    if (workouts.length === 0) return 0;
+
+    const { workouts: existing, ok } = await this.readAllWorkoutsChecked();
+    if (!ok) {
+      console.warn(
+        '[LocalWorkoutStorage] Bulk import aborted: could not confirm the existing ' +
+          'workout snapshot (storage read failed or is corrupted). Refusing to write ' +
+          'so an unreadable history is never mistaken for an empty one.'
+      );
+      return 0;
+    }
+
     const seen: DedupCandidate[] = existing.map((w) => ({
       nostrEventId: w.nostrEventId,
       type: w.type,
@@ -1200,7 +1251,7 @@ export class LocalWorkoutStorageService {
       duration: w.duration,
     }));
 
-    let written = 0;
+    const accepted: LocalWorkout[] = [];
     for (const workout of workouts) {
       const candidate: DedupCandidate = {
         nostrEventId: workout.id,
@@ -1210,13 +1261,33 @@ export class LocalWorkoutStorageService {
       };
       if (isDuplicateWorkout(seen, candidate)) continue;
 
-      await this.saveImportedNostrWorkout(workout);
+      const localWorkout = await this.buildImportedLocalWorkout(workout);
+      accepted.push(localWorkout);
       seen.push(candidate);
-      written++;
     }
 
+    if (accepted.length === 0) return 0;
+
+    await this.persistWorkouts([...existing, ...accepted]);
     this.invalidateCache();
-    return written;
+
+    // Mirror saveWorkout()'s backup side effect, scheduled ONCE for the whole
+    // batch (the underlying debounce would collapse N per-item calls to this
+    // anyway). Reward and Supabase-submit side effects are intentionally NOT
+    // replayed here: both already no-op for source 'imported_nostr'
+    // (DailyRewardService excludes it from REWARD_ELIGIBLE_SOURCES;
+    // autoSubmitToSupabase returns early for it) — nothing is skipped.
+    try {
+      const { AutoBackupService } = await import('../backup/AutoBackupService');
+      AutoBackupService.getInstance().scheduleBackup();
+    } catch (error) {
+      console.warn(
+        '[LocalWorkoutStorage] Failed to schedule backup after bulk import (non-critical):',
+        error
+      );
+    }
+
+    return accepted.length;
   }
 
   /**
