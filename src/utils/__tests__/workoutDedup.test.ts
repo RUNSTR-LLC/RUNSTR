@@ -53,4 +53,57 @@ describe('isDuplicateWorkout', () => {
     const local = { ...base, nostrEventId: undefined, startTime: 'not-a-date' };
     expect(isDuplicateWorkout([local], base)).toBe(false);
   });
+
+  it('rejects when existing item has undefined duration (data loss bug)', () => {
+    const local = { ...base, nostrEventId: undefined, duration: undefined as any };
+    const candidate = { ...base, nostrEventId: undefined, startTime: '2026-09-18T10:00:30.000Z' };
+    expect(isDuplicateWorkout([local], candidate)).toBe(false);
+  });
+
+  it('rejects when candidate has NaN duration', () => {
+    const local = { ...base, nostrEventId: undefined };
+    const candidate = { ...base, nostrEventId: undefined, duration: NaN };
+    expect(isDuplicateWorkout([local], candidate)).toBe(false);
+  });
+
+  it('rejects when either side has zero duration (parse failure sentinel)', () => {
+    const local = { ...base, nostrEventId: undefined, duration: 0 };
+    const candidate = { ...base, nostrEventId: undefined };
+    expect(isDuplicateWorkout([local], candidate)).toBe(false);
+  });
+
+  it('does not short-circuit on event id mismatch if ids differ', () => {
+    const local = { ...base, nostrEventId: 'abc123' };
+    const candidate = { ...base, nostrEventId: 'xyz789', type: 'running', startTime: base.startTime, duration: base.duration };
+    expect(isDuplicateWorkout([local], candidate)).toBe(true);
+  });
+
+  it('normalizes type case and whitespace for matching', () => {
+    const local = { ...base, nostrEventId: undefined, type: 'Running' };
+    const candidate = { ...base, nostrEventId: undefined, type: ' running ', startTime: base.startTime, duration: base.duration };
+    expect(isDuplicateWorkout([local], candidate)).toBe(true);
+  });
+
+  it('iterates over multi-element existing array and matches the correct one', () => {
+    const existing = [
+      { nostrEventId: 'other1', type: 'cycling', startTime: '2026-09-18T08:00:00.000Z', duration: 900 },
+      { nostrEventId: 'other2', type: 'walking', startTime: '2026-09-18T09:00:00.000Z', duration: 1200 },
+      { nostrEventId: undefined, type: 'running', startTime: '2026-09-18T10:00:00.000Z', duration: 1800 },
+      { nostrEventId: 'other3', type: 'hiking', startTime: '2026-09-18T11:00:00.000Z', duration: 2400 },
+    ];
+    const candidate = { nostrEventId: undefined, type: 'running', startTime: '2026-09-18T10:00:30.000Z', duration: 1805 };
+    expect(isDuplicateWorkout(existing, candidate)).toBe(true);
+  });
+
+  it('matches at exactly 60000ms time boundary', () => {
+    const local = { ...base, nostrEventId: undefined };
+    const candidate = { ...base, nostrEventId: undefined, startTime: '2026-09-18T10:01:00.000Z' };
+    expect(isDuplicateWorkout([local], candidate)).toBe(true);
+  });
+
+  it('matches at exactly 5 second duration boundary', () => {
+    const local = { ...base, nostrEventId: undefined, duration: 1800 };
+    const candidate = { ...base, nostrEventId: undefined, duration: 1805 };
+    expect(isDuplicateWorkout([local], candidate)).toBe(true);
+  });
 });

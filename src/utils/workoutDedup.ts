@@ -44,6 +44,20 @@ export function isDuplicateWorkout(
     const itemStart = Date.parse(item.startTime);
     if (Number.isNaN(itemStart)) return false;
 
+    // A non-finite or zero duration means "unknown", not "zero seconds" — upstream
+    // parsing uses 0 as its failure sentinel. Without a trustworthy duration the
+    // time/type key cannot distinguish two workouts, so decline to match on it and
+    // let the event-id key above be the only route to `true`. Erring toward a
+    // possible duplicate is correct; erring toward discarding a real workout is not.
+    if (
+      !Number.isFinite(item.duration) ||
+      !Number.isFinite(candidate.duration) ||
+      item.duration === 0 ||
+      candidate.duration === 0
+    ) {
+      return false;
+    }
+
     if (normalizeType(item.type) !== candidateType) return false;
     if (Math.abs(itemStart - candidateStart) > START_TIME_TOLERANCE_MS) return false;
     if (Math.abs(item.duration - candidate.duration) > DURATION_TOLERANCE_S) return false;
