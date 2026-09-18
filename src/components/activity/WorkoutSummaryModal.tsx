@@ -864,7 +864,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
           {/* Action Buttons */}
           <View style={styles.actionButtons}>
             {/* Post Workout - Only visible if WoT > 0 */}
-            {isWoTEligible && !postedToNostr && (
+            {FEATURES.shareSheet && isWoTEligible && !postedToNostr && (
               <TouchableOpacity
                 style={[styles.actionButton, styles.postButton]}
                 onPress={handleShowSocialModal}
@@ -892,7 +892,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
           </View>
 
           {/* Info Text - Only show if WoT eligible */}
-          {isWoTEligible && !postedToNostr && (
+          {FEATURES.shareSheet && isWoTEligible && !postedToNostr && (
             <View style={styles.infoContainer}>
               <Text style={styles.infoText}>
                 Create a workout card and share it

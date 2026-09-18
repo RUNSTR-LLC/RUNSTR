@@ -22,6 +22,7 @@ import { StepCountDiagnostics } from '../permissions/StepCountDiagnostics';
 import { defaultActivityService, type DefaultActivity } from '../../services/activity/DefaultActivityService';
 import type { TTSSettings } from '../../services/activity/TTSPreferencesService';
 import { useTranslation } from 'react-i18next';
+import { FEATURES } from '../../config/features';
 
 interface FitnessTrackingSectionProps {
   ttsSettings: TTSSettings;
@@ -96,16 +97,18 @@ export const FitnessTrackingSection: React.FC<FitnessTrackingSectionProps> = ({
             {/* Privacy Subsection */}
             <View style={styles.voiceSubsection}>
               <Text style={styles.subsectionTitle}>Privacy</Text>
-              <SettingItem
-                title="Private Mode"
-                subtitle="Workouts stay on your device. Events and rewards require this to be off."
-                rightElement={
-                  <ThemedSwitch
-                    value={privateModeEnabled}
-                    onValueChange={onPrivateModeToggle}
-                  />
-                }
-              />
+              {FEATURES.privateMode && (
+                <SettingItem
+                  title="Private Mode"
+                  subtitle="Workouts stay on your device. Events and rewards require this to be off."
+                  rightElement={
+                    <ThemedSwitch
+                      value={privateModeEnabled}
+                      onValueChange={onPrivateModeToggle}
+                    />
+                  }
+                />
+              )}
             </View>
 
             {/* Apple Health Subsection (iOS only) */}

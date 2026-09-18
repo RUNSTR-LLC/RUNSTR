@@ -28,6 +28,7 @@ import { PPQAPIKeyModal } from '../components/ai/PPQAPIKeyModal';
 import { settingsStyles as styles } from './settingsStyles';
 import { useSettingsState } from './useSettingsState';
 import { RewardNotificationManager } from '../services/rewards/RewardNotificationManager';
+import { FEATURES } from '../config/features';
 
 // Section components
 import { LanguageSection } from '../components/settings/LanguageSection';
@@ -137,14 +138,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             onShowImportModal={() => state.setShowImportModal(true)}
           />
 
-          <WalletSection
-            onRewardsPress={state.handleRewardsPress}
-            onAIKeyPress={() => setShowPPQModal(true)}
-            hasNWCWallet={state.hasNWCWallet}
-            onDisconnectWallet={state.handleDisconnectWallet}
-            onShowWalletConfigModal={() => state.setShowWalletConfigModal(true)}
-            onShowQRScannerModal={() => state.setShowQRScannerModal(true)}
-          />
+          {FEATURES.walletSettings && (
+            <WalletSection
+              onRewardsPress={state.handleRewardsPress}
+              onAIKeyPress={() => setShowPPQModal(true)}
+              hasNWCWallet={state.hasNWCWallet}
+              onDisconnectWallet={state.handleDisconnectWallet}
+              onShowWalletConfigModal={() => state.setShowWalletConfigModal(true)}
+              onShowQRScannerModal={() => state.setShowQRScannerModal(true)}
+            />
+          )}
 
           <PasswordSection
             userNsec={state.userNsec}

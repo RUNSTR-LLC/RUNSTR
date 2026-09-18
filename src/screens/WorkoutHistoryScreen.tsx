@@ -12,6 +12,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { theme } from '../styles/theme';
+import { FEATURES } from '../config/features';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { nostrProfileService } from '../services/nostr/NostrProfileService';
 import type { NostrProfile } from '../services/nostr/NostrProfileService';
@@ -271,33 +272,35 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
         <View style={styles.headerSpacer} />
-        <View style={styles.cloudButtonContainer}>
-          <TouchableOpacity
-            onPress={() => setShowBackupMenu(!showBackupMenu)}
-            style={styles.cloudButton}
-          >
-            <Ionicons name="cloud-outline" size={22} color="#CC7A33" />
-          </TouchableOpacity>
-          {showBackupMenu && (
-            <View style={styles.backupMenu}>
-              <TouchableOpacity
-                style={styles.backupMenuItem}
-                onPress={() => { setShowBackupMenu(false); setShowExportModal(true); }}
-              >
-                <Ionicons name="cloud-upload-outline" size={18} color={theme.colors.text} />
-                <Text style={styles.backupMenuText}>Backup</Text>
-              </TouchableOpacity>
-              <View style={styles.backupMenuDivider} />
-              <TouchableOpacity
-                style={styles.backupMenuItem}
-                onPress={() => { setShowBackupMenu(false); setShowImportModal(true); }}
-              >
-                <Ionicons name="cloud-download-outline" size={18} color={theme.colors.text} />
-                <Text style={styles.backupMenuText}>Restore</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
+        {FEATURES.cloudBackupButton && (
+          <View style={styles.cloudButtonContainer}>
+            <TouchableOpacity
+              onPress={() => setShowBackupMenu(!showBackupMenu)}
+              style={styles.cloudButton}
+            >
+              <Ionicons name="cloud-outline" size={22} color="#CC7A33" />
+            </TouchableOpacity>
+            {showBackupMenu && (
+              <View style={styles.backupMenu}>
+                <TouchableOpacity
+                  style={styles.backupMenuItem}
+                  onPress={() => { setShowBackupMenu(false); setShowExportModal(true); }}
+                >
+                  <Ionicons name="cloud-upload-outline" size={18} color={theme.colors.text} />
+                  <Text style={styles.backupMenuText}>Backup</Text>
+                </TouchableOpacity>
+                <View style={styles.backupMenuDivider} />
+                <TouchableOpacity
+                  style={styles.backupMenuItem}
+                  onPress={() => { setShowBackupMenu(false); setShowImportModal(true); }}
+                >
+                  <Ionicons name="cloud-download-outline" size={18} color={theme.colors.text} />
+                  <Text style={styles.backupMenuText}>Restore</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
       </View>
 
       {/* Unified Workout List - all sources merged into one view */}
