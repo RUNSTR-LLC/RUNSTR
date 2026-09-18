@@ -14,6 +14,7 @@ import { buildRewardTags } from '../../utils/rewardTags';
 import { isValidWorkoutMetrics } from '../../utils/rewardEligibility';
 import Toast from 'react-native-toast-message';
 import type { VerificationReceipt } from '../../types/verification';
+import { isDuplicateWorkout, type DedupCandidate } from '../../utils/workoutDedup';
 
 /**
  * Result returned from saveGPSWorkout including reward info
@@ -22,6 +23,26 @@ export interface SaveGPSWorkoutResult {
   workoutId: string;
   rewardSent?: boolean;
   rewardAmount?: number;
+}
+
+/**
+ * Param shape shared by both the manual (one-at-a-time) and bulk Nostr
+ * import paths — the workout data as read off a 1301 event.
+ */
+export interface ImportedNostrWorkout {
+  id: string; // Nostr event ID
+  type: WorkoutType;
+  startTime: string;
+  endTime: string;
+  duration: number; // seconds
+  distance?: number; // meters
+  calories?: number;
+  reps?: number;
+  sets?: number;
+  notes?: string;
+  elevation?: number; // meters (elevation gain)
+  pace?: number; // seconds per km
+  splits?: Split[];
 }
 
 export interface LocalWorkout {
@@ -1110,22 +1131,7 @@ export class LocalWorkoutStorageService {
    * Save imported Nostr workout to local storage
    * Used during one-time import of user's Nostr workout history
    */
-  async saveImportedNostrWorkout(workout: {
-    id: string; // Nostr event ID
-    type: WorkoutType;
-    startTime: string;
-    endTime: string;
-    duration: number; // seconds
-    distance?: number; // meters
-    calories?: number;
-    reps?: number;
-    sets?: number;
-    notes?: string;
-    // NEW: Enhanced fields from Nostr kind 1301
-    elevation?: number; // meters (elevation gain)
-    pace?: number; // seconds per km
-    splits?: Split[];
-  }): Promise<string> {
+  async saveImportedNostrWorkout(workout: ImportedNostrWorkout): Promise<string> {
     try {
       // Check if this Nostr event ID already exists to prevent duplicates
       const existingWorkouts = await this.getAllWorkouts();
@@ -1174,6 +1180,43 @@ export class LocalWorkoutStorageService {
       console.error('❌ Failed to save imported Nostr workout:', error);
       throw error;
     }
+  }
+
+  /**
+   * Bulk-import Nostr workouts. Loads the existing set once instead of once per
+   * workout, and dedups against both stored workouts and earlier members of this
+   * batch. Returns the number actually written.
+   *
+   * Only ever adds — never deletes or overwrites a local workout.
+   */
+  async saveImportedNostrWorkoutsBulk(
+    workouts: ImportedNostrWorkout[]
+  ): Promise<number> {
+    const existing = await this.getAllWorkouts();
+    const seen: DedupCandidate[] = existing.map((w) => ({
+      nostrEventId: w.nostrEventId,
+      type: w.type,
+      startTime: w.startTime,
+      duration: w.duration,
+    }));
+
+    let written = 0;
+    for (const workout of workouts) {
+      const candidate: DedupCandidate = {
+        nostrEventId: workout.id,
+        type: workout.type,
+        startTime: workout.startTime,
+        duration: workout.duration,
+      };
+      if (isDuplicateWorkout(seen, candidate)) continue;
+
+      await this.saveImportedNostrWorkout(workout);
+      seen.push(candidate);
+      written++;
+    }
+
+    this.invalidateCache();
+    return written;
   }
 
   /**

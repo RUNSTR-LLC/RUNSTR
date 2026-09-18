@@ -30,6 +30,13 @@ export interface ImportResult {
 export class Nostr1301ImportService {
   private static instance: Nostr1301ImportService;
 
+  // Throttle for the automatic background backfill (Step 5) — the widened
+  // dedup makes a full fetch on every launch *correct*, but it is still
+  // wasteful without relay-level `since` filtering, so gate at the call
+  // site instead.
+  private static readonly BACKFILL_TS_KEY = '@runstr:last_1301_backfill';
+  private static readonly BACKFILL_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+
   private constructor() {}
 
   static getInstance(): Nostr1301ImportService {
@@ -173,6 +180,68 @@ export class Nostr1301ImportService {
         activityTypes: [],
         error: error instanceof Error ? error.message : 'Unknown error',
       };
+    }
+  }
+
+  /**
+   * Whether enough time has passed since the last automatic backfill to run
+   * another one. Fails open: a backfill we did not strictly need is
+   * harmless, a backfill we skipped forever is missing history.
+   */
+  private async shouldBackfill(): Promise<boolean> {
+    try {
+      const raw = await AsyncStorage.getItem(Nostr1301ImportService.BACKFILL_TS_KEY);
+      if (!raw) return true;
+      const last = Number(raw);
+      if (!Number.isFinite(last)) return true;
+      return Date.now() - last > Nostr1301ImportService.BACKFILL_INTERVAL_MS;
+    } catch {
+      return true;
+    }
+  }
+
+  /**
+   * Background backfill. Fetches the user's 1301 history and merges anything
+   * missing into local storage. Local is the source of truth — this only adds.
+   *
+   * Never throws: history must render from local storage whether or not relays
+   * answer. Failures are logged and swallowed.
+   */
+  async backfillInBackground(pubkey: string): Promise<void> {
+    try {
+      if (!(await this.shouldBackfill())) return;
+
+      const nostrWorkouts = await Nuclear1301Service.getInstance().getUserWorkouts(pubkey);
+      if (!nostrWorkouts.length) return;
+
+      // Amendment 2: always dedup on the normalized NostrWorkout.type, never
+      // a raw exercise/activity tag value — otherwise a POWR note tagged
+      // 'run' would not match a local 'running' workout.
+      const written = await LocalWorkoutStorageService.saveImportedNostrWorkoutsBulk(
+        nostrWorkouts.map((w) => ({
+          id: w.nostrEventId || w.id,
+          type: this.normalizeWorkoutType(w.type),
+          startTime: w.startTime,
+          endTime: w.endTime,
+          duration: w.duration,
+          distance: w.distance,
+          calories: w.calories,
+          reps: w.reps,
+          sets: w.sets,
+          elevation: w.elevationGain,
+          pace: w.pace,
+          splits: w.splits,
+        }))
+      );
+
+      await AsyncStorage.setItem(
+        Nostr1301ImportService.BACKFILL_TS_KEY,
+        String(Date.now())
+      ).catch(() => {});
+
+      console.log(`[1301Backfill] merged ${written} new workout(s) from relays`);
+    } catch (error) {
+      console.warn('[1301Backfill] failed (local history is unaffected):', error);
     }
   }
 
