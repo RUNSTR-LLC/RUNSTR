@@ -56,15 +56,16 @@ export class GlobalNDKService {
   /**
    * Default relay configuration
    * These are fast, reliable relays used across the app
+   *
+   * Archival coverage note: an archival relay (relay.nostr.band) was considered
+   * for 1301 history backfill and rejected — see UnifiedWorkoutCache.ts for the
+   * SSL/WebSocket stall it caused in the iOS Simulator. Backfill runs against
+   * these three; coverage of long-past events is best-effort.
    */
   private static readonly DEFAULT_RELAYS = [
     'wss://relay.damus.io',
     'wss://nos.lol',
     'wss://relay.primal.net',
-    // Archival index. The three above are general-purpose and make no retention
-    // promise, so a 1301 published months ago may no longer be served by them.
-    // Backfill depends on coverage, not speed.
-    'wss://relay.nostr.band',
   ];
 
   /**
