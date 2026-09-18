@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 import { theme } from '../styles/theme';
+import { FEATURES } from '../config/features';
 import { PerformanceLogger } from '../utils/PerformanceLogger';
 
 // ✅ PERFORMANCE: Load Profile immediately, lazy load others when needed
@@ -108,7 +109,9 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
       }}
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: FEATURES.social || FEATURES.leaderboard
+          ? styles.tabBar
+          : { display: 'none' as const },
         tabBarActiveTintColor: theme.colors.text,
         tabBarInactiveTintColor: theme.colors.textMuted,
         tabBarShowLabel: false,
@@ -153,7 +156,7 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
               onNavigateToTeam={() => navigation.navigate('Social')}
               onNavigateToTeamDiscovery={() => navigation.navigate('Social')}
               onViewCurrentTeam={() => {
-                if (profileData.currentTeam) {
+                if (FEATURES.teams && profileData.currentTeam) {
                   navigation.navigate('ClubPage', {
                     clubId: profileData.currentTeam.id,
                     clubName: profileData.currentTeam.name,
@@ -190,29 +193,33 @@ export const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({
       </Tab.Screen>
 
       {/* Social Tab - Feed & Fitness Clubs */}
-      <Tab.Screen name="Social" options={{ title: t('profile:tabSocial'), lazy: true }}>
-        {() => (
-          <Suspense fallback={<LoadingFallback />}>
-            <SocialScreen />
-          </Suspense>
-        )}
-      </Tab.Screen>
+      {FEATURES.social && (
+        <Tab.Screen name="Social" options={{ title: t('profile:tabSocial'), lazy: true }}>
+          {() => (
+            <Suspense fallback={<LoadingFallback />}>
+              <SocialScreen />
+            </Suspense>
+          )}
+        </Tab.Screen>
+      )}
 
       {/* Leaderboard Tab - Always-on daily competitions */}
-      <Tab.Screen
-        name="Leaderboard"
-        options={{
-          title: t('profile:tabLeaderboard', 'Leaderboard'),
-          headerShown: false,
-          lazy: true,
-        }}
-      >
-        {() => (
-          <Suspense fallback={<LoadingFallback />}>
-            <LeaderboardsScreen />
-          </Suspense>
-        )}
-      </Tab.Screen>
+      {FEATURES.leaderboard && (
+        <Tab.Screen
+          name="Leaderboard"
+          options={{
+            title: t('profile:tabLeaderboard', 'Leaderboard'),
+            headerShown: false,
+            lazy: true,
+          }}
+        >
+          {() => (
+            <Suspense fallback={<LoadingFallback />}>
+              <LeaderboardsScreen />
+            </Suspense>
+          )}
+        </Tab.Screen>
+      )}
     </Tab.Navigator>
   );
 };
