@@ -61,6 +61,10 @@ export class GlobalNDKService {
     'wss://relay.damus.io',
     'wss://nos.lol',
     'wss://relay.primal.net',
+    // Archival index. The three above are general-purpose and make no retention
+    // promise, so a 1301 published months ago may no longer be served by them.
+    // Backfill depends on coverage, not speed.
+    'wss://relay.nostr.band',
   ];
 
   /**
