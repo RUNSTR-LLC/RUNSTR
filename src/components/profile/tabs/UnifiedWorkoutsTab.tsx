@@ -244,16 +244,22 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
   // Timeline Building
   // ============================================================================
 
+  // Running-only display filter. Storage and sync are unaffected — this is the
+  // single place history decides which workouts it shows.
+  const visibleWorkouts = useMemo(
+    () =>
+      FEATURES.nonRunningHistory
+        ? mergedWorkouts
+        : mergedWorkouts.filter(isRunningWorkout),
+    [mergedWorkouts]
+  );
+
   const monthlyGroups = useMemo((): MonthlyGroup[] => {
     // Build timeline items from all sources
     const items: TimelineItem[] = [];
 
     // Add workouts (always, unless filtered to journal/habits only)
     if (activeFilter === 'all' || activeFilter === 'workouts') {
-      const visibleWorkouts = FEATURES.nonRunningHistory
-        ? mergedWorkouts
-        : mergedWorkouts.filter(isRunningWorkout);
-
       visibleWorkouts.forEach((w) => {
         if (!w.startTime) return; // Skip corrupted entries without a timestamp
         // HealthKit workouts carry startTime as a Date object; local workouts as
@@ -341,7 +347,7 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
     });
 
     return monthlyResult.sort((a, b) => b.key.localeCompare(a.key));
-  }, [mergedWorkouts, journalEntries, habits, activeFilter]);
+  }, [visibleWorkouts, journalEntries, habits, activeFilter]);
 
   // ============================================================================
   // Handlers
@@ -643,7 +649,7 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
                 {totalItems} item{totalItems !== 1 ? 's' : ''}
               </Text>
               <Text style={styles.footerSubtext}>
-                {mergedWorkouts.length} workout{mergedWorkouts.length !== 1 ? 's' : ''}
+                {visibleWorkouts.length} workout{visibleWorkouts.length !== 1 ? 's' : ''}
                 {FEATURES.journalHabits && journalEntries.length > 0 && ` \u2022 ${journalEntries.length} journal`}
                 {FEATURES.journalHabits && habits.length > 0 && ` \u2022 ${habits.reduce((sum, h) => sum + h.checkIns.length, 0)} habit check-ins`}
               </Text>
