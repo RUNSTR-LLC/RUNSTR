@@ -76,6 +76,8 @@ see the Reachability Check section of `CLAUDE.md`.
 | Its only caller is `ImportDataModal`, behind the history cloud button | The backfill is currently reachable only via the button being hidden |
 | `markAsSynced` has exactly one caller: `WorkoutSummaryModal.tsx:309` | **Duplication risk** — see §5.2 |
 | `AgentSkillSection.tsx` / `AgentSkillSetupModal.tsx` rendered nowhere | Pre-existing dead code. Flagged, not touched. |
+| `WorkoutsTab.tsx` has no consumers | `AllWorkoutsTab`, `PublicWorkoutsTab`, `PrivateWorkoutsTab`, `AppleHealthTab`, `HealthConnectTab` are all dead. Only `UnifiedWorkoutsTab` is live. |
+| `ProfileHero` already guards on `earnings != null` / `streak != null` | Hiding both is a prop change in `ProfileScreen`; no component edit. The LEVEL badge is driven by `streak`, not `level`. |
 
 ---
 
@@ -139,10 +141,14 @@ makes "running only" true at the tracker while sync keeps collecting everything.
 A single predicate, `isRunningWorkout(workout)`, in `src/utils/`, gated by a
 `runningOnlyHistory` flag, applied at the **display layer only**:
 
-- `UnifiedWorkoutsTab` merge output
-- the `WorkoutTabNavigator` tabs (`AllWorkoutsTab`, `PublicWorkoutsTab`,
-  `PrivateWorkoutsTab`, `AppleHealthTab`, `HealthConnectTab`)
+- `UnifiedWorkoutsTab` merge output (the only live history surface)
 - `StatsCard` aggregates
+
+**Correction (found during planning):** `WorkoutTabNavigator` renders only
+`UnifiedWorkoutsTab`. `WorkoutsTab.tsx` has no consumers, which makes
+`AllWorkoutsTab`, `PublicWorkoutsTab`, `PrivateWorkoutsTab`, `AppleHealthTab`
+and `HealthConnectTab` all unreachable. They are dead code, flagged not touched,
+and need no filter.
 
 Storage, sync and publishing are untouched. One predicate, not per-site
 conditions, so the definition of "a run" cannot drift between surfaces.
