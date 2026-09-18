@@ -352,6 +352,16 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
       );
     }
 
+    // Phase 1: the app tracks running only. The activity grid still exists and
+    // sync still collects every activity type — this pins the *tracker* to runs.
+    if (!FEATURES.activitySelector) {
+      return (
+        <ScreenErrorBoundary screenName="Workout Tracker">
+          <RunningTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />
+        </ScreenErrorBoundary>
+      );
+    }
+
     let tracker: React.ReactNode;
     switch (category.key) {
       case 'cardio':
@@ -421,9 +431,9 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
               <View style={styles.sectionGap}>
                 <ProfileHero user={data.user} isOwner={true}
                   isLoading={isLoadingSections}
-                  level={levelData?.level ?? 0}
-                  streak={currentStreak}
-                  earnings={totalEarnings}
+                  level={FEATURES.level ? (levelData?.level ?? 0) : undefined}
+                  streak={FEATURES.level ? currentStreak : undefined}
+                  earnings={FEATURES.earnings ? totalEarnings : undefined}
                   currentTeam={data.currentTeam ? {
                     id: data.currentTeam.id,
                     name: data.currentTeam.name,
@@ -442,7 +452,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
               </View>
             )}
 
-            {!isWorkoutActive && (
+            {!isWorkoutActive && FEATURES.activitySelector && (
               <View style={styles.sectionGap}>
                 <ActivityCategoryBar
                   gridPosition={gridPosition}
@@ -467,14 +477,16 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
           <View style={styles.sectionGap}>
             <ProfileHero user={otherUser} isOwner={false}
               isLoading={!otherUser}
-              level={levelData?.level ?? 0}
+              level={FEATURES.level ? (levelData?.level ?? 0) : undefined}
               onBackPress={() => navigation.goBack()}
               onSettingsPress={undefined} />
           </View>
 
+          {FEATURES.level && (
           <View style={styles.sectionGap}>
             <LevelCard levelData={levelData} isLoading={isLoadingSections} />
           </View>
+          )}
           <View style={styles.sectionGap}>
             <ActivityBreakdown breakdown={activityBreakdown} isLoading={isLoadingSections} />
           </View>
