@@ -43,6 +43,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatsCard } from '../StatsCard';
 import { WorkoutActionSheet, type WorkoutAction } from '../shared/WorkoutActionSheet';
 import { PressableScale } from '../../ui/PressableScale';
+import { isRunningWorkout } from '../../../utils/isRunningWorkout';
+import { FEATURES } from '../../../config/features';
 
 interface UnifiedWorkoutsTabProps {
   userId: string;
@@ -248,7 +250,11 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
 
     // Add workouts (always, unless filtered to journal/habits only)
     if (activeFilter === 'all' || activeFilter === 'workouts') {
-      mergedWorkouts.forEach((w) => {
+      const visibleWorkouts = FEATURES.nonRunningHistory
+        ? mergedWorkouts
+        : mergedWorkouts.filter(isRunningWorkout);
+
+      visibleWorkouts.forEach((w) => {
         if (!w.startTime) return; // Skip corrupted entries without a timestamp
         // HealthKit workouts carry startTime as a Date object; local workouts as
         // an ISO string. Normalize so `.split('T')` can never throw (this was
@@ -267,7 +273,7 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
     }
 
     // Add journal entries
-    if (activeFilter === 'all' || activeFilter === 'journal') {
+    if (FEATURES.journalHabits && (activeFilter === 'all' || activeFilter === 'journal')) {
       journalEntries.forEach((e) => {
         items.push({
           type: 'journal', id: `j_${e.id}`,
@@ -279,7 +285,7 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
     }
 
     // Add habit check-ins (expand each habit's check-in dates)
-    if (activeFilter === 'all' || activeFilter === 'habits') {
+    if (FEATURES.journalHabits && (activeFilter === 'all' || activeFilter === 'habits')) {
       habits.forEach((habit) => {
         habit.checkIns.forEach((checkInDate) => {
           items.push({
@@ -638,8 +644,8 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
               </Text>
               <Text style={styles.footerSubtext}>
                 {mergedWorkouts.length} workout{mergedWorkouts.length !== 1 ? 's' : ''}
-                {journalEntries.length > 0 && ` \u2022 ${journalEntries.length} journal`}
-                {habits.length > 0 && ` \u2022 ${habits.reduce((sum, h) => sum + h.checkIns.length, 0)} habit check-ins`}
+                {FEATURES.journalHabits && journalEntries.length > 0 && ` \u2022 ${journalEntries.length} journal`}
+                {FEATURES.journalHabits && habits.length > 0 && ` \u2022 ${habits.reduce((sum, h) => sum + h.checkIns.length, 0)} habit check-ins`}
               </Text>
             </View>
           ) : null
