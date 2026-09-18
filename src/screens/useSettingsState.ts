@@ -29,6 +29,7 @@ import { defaultActivityService, type DefaultActivity } from '../services/activi
 import { NWCStorageService } from '../services/wallet/NWCStorageService';
 import { NWCWalletService } from '../services/wallet/NWCWalletService';
 import type { QRData } from '../services/qr/QRCodeService';
+import { FEATURES } from '../config/features';
 
 export interface AlertState {
   visible: boolean;
@@ -331,7 +332,9 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
   };
 
   const handleRewardsPress = useCallback(() => {
-    navigation.navigate('Rewards');
+    if (FEATURES.earnings) {
+      navigation.navigate('Rewards');
+    }
   }, [navigation]);
 
   const handleSignOut = async () => {

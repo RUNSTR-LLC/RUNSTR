@@ -35,7 +35,6 @@ import type { RecentWorkout, ClubAffiliation, ProfileLevelData, ActivityBreakdow
 import { useNostrProfile } from '../hooks/useCachedData';
 import LocalWorkoutStorageService from '../services/fitness/LocalWorkoutStorageService';
 import { SupabaseRewardService } from '../services/rewards/SupabaseRewardService';
-import { navigate } from '../navigation/navigationRef';
 import { ActivityCategoryBar } from '../components/activity/ActivityCategoryBar';
 import { activityGridService, type GridPosition } from '../services/activity/ActivityGridService';
 import { appPermissionService } from '../services/initialization/AppPermissionService';
@@ -310,11 +309,13 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
   }, [onRefresh, targetNpub, loadProfileSections]);
 
   const handleClubPress = useCallback((id: string, name: string) => {
+    if (!FEATURES.teams) return;
     const parent = navigation.getParent();
     (parent || navigation).navigate('ClubPage' as any, { clubId: id, clubName: name });
   }, [navigation]);
 
   const handleTeamPress = useCallback(() => {
+    if (!FEATURES.teams) return;
     const team = data?.currentTeam;
     if (!team) return;
     navigation.navigate('ClubChat', {
@@ -431,12 +432,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
                   unreadChatCount={unreadChatCount}
                   onTeamPress={handleTeamPress}
                   onEditPress={handleEditPress}
-                  onSettingsPress={undefined}
-                  onLevelPress={() => {
-                    const parent = navigation.getParent();
-                    (parent || navigation).navigate('LevelDetail' as any);
-                  }}
-                  onEarningsPress={() => navigate('Rewards')} />
+                  onSettingsPress={undefined} />
               </View>
             )}
 
@@ -473,12 +469,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
               isLoading={!otherUser}
               level={levelData?.level ?? 0}
               onBackPress={() => navigation.goBack()}
-              onSettingsPress={undefined}
-              onLevelPress={() => {
-                const parent = navigation.getParent();
-                (parent || navigation).navigate('LevelDetail' as any);
-              }}
-              onEarningsPress={() => navigate('Rewards')} />
+              onSettingsPress={undefined} />
           </View>
 
           <View style={styles.sectionGap}>

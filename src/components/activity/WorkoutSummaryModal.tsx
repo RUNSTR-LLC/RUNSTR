@@ -39,6 +39,7 @@ import { useUnitPreference } from '../../hooks/useUnitPreference';
 import { WoTService } from '../../services/wot/WoTService';
 import * as Haptics from 'expo-haptics';
 import { AnimatedNumber } from '../ui/AnimatedNumber';
+import { FEATURES } from '../../config/features';
 
 interface WorkoutSummaryProps {
   visible: boolean;
@@ -908,7 +909,9 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
           <TouchableOpacity
             onPress={() => {
               onClose();
-              navigation.navigate('Rewards' as never);
+              if (FEATURES.earnings) {
+                navigation.navigate('Rewards' as never);
+              }
             }}
             activeOpacity={0.7}
             accessibilityLabel="View rewards"

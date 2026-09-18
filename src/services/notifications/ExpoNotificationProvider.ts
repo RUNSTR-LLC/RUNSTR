@@ -10,6 +10,7 @@ import Constants from 'expo-constants';
 import { RichNotificationData } from '../../types';
 import { analytics } from '../../utils/analytics';
 import { BroadcastTokenService } from './BroadcastTokenService';
+import { FEATURES } from '../../config/features';
 
 export class ExpoNotificationProvider {
   private static instance: ExpoNotificationProvider;
@@ -197,21 +198,41 @@ export class ExpoNotificationProvider {
         case 'step_reward_earned':
           // 'Rewards' is a stack screen sibling to MainTabs, not a tab inside
           // it — navigating into MainTabs silently no-ops. Target it directly.
-          navigate('Rewards');
+          if (FEATURES.earnings) {
+            navigate('Rewards');
+          } else {
+            navigate('MainTabs');
+          }
           break;
         case 'auto_joined':
         case 'leaderboard_change':
           if (data?.competition_id) {
-            navigate('DynamicEventDetail', { eventId: data.competition_id });
+            if (FEATURES.customEvents) {
+              navigate('DynamicEventDetail', { eventId: data.competition_id });
+            } else {
+              navigate('MainTabs');
+            }
           } else {
-            navigate('Compete');
+            if (FEATURES.customEvents) {
+              navigate('Compete');
+            } else {
+              navigate('MainTabs');
+            }
           }
           break;
         case 'rank_change':
           if (data?.event_id) {
-            navigate('DynamicEventDetail', { eventId: data.event_id });
+            if (FEATURES.customEvents) {
+              navigate('DynamicEventDetail', { eventId: data.event_id });
+            } else {
+              navigate('MainTabs');
+            }
           } else {
-            navigate('Leaderboards');
+            if (FEATURES.leaderboard) {
+              navigate('Leaderboards');
+            } else {
+              navigate('MainTabs');
+            }
           }
           break;
         default:
