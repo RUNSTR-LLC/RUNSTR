@@ -25,18 +25,43 @@ export const FEATURES = {
   ENABLE_EVENT_TICKETS: true, // Paid event entry with Lightning invoices
 
   // ---------------------------------------------------------------------------
-  // Simplification visibility flags (added 2026-06-08).
-  // Set to `false` to HIDE a surface from the UI without deleting its code.
-  // Hidden features stay compiled and reachable by flipping the flag back to `true`.
+  // Simplification visibility flags.
+  // Every flag means "is this visible". `false` = hidden, code stays compiled.
   // NOTE: hiding stops UI access only; a hidden feature's background behavior
-  // (e.g. auto-share-to-club-chat) may still run. That is intentional for this pass.
+  // may still run. That is intentional.
   // ---------------------------------------------------------------------------
   /** Fitness Clubs / Teams: club pages, team chat, captain tools, club affiliations. */
-  teams: true,
+  teams: false,
   /** Captain/user-created events and the Compete hub. */
   customEvents: false,
   /** Season 2 / Season 3 / Einundzwanzig competitions and banners. */
   seasons: false,
+
+  // --- Phase 1 (2026-09-18): Nostr-native running tracker ---
+  /** Social tab: the workout feed. */
+  social: false,
+  /** Leaderboard tab: daily always-on competitions. */
+  leaderboard: false,
+  /** Level badge, level ring, and the LevelDetail screen. */
+  level: false,
+  /** Earnings badge and the Rewards screen. */
+  earnings: false,
+  /** Activity selector bar. When false the tracker is pinned to running. */
+  activitySelector: false,
+  /** Steps hero on the stats card. Counter services keep running regardless. */
+  stepTracking: false,
+  /** Cloud export/import button on the workout history screen. */
+  cloudBackupButton: false,
+  /** Wallet section in Settings. */
+  walletSettings: false,
+  /** Private-mode toggle. Private is implicit now: nothing posts unless shared. */
+  privateMode: false,
+  /** Share sheet on a finished workout. When false, the 1301 note is the default. */
+  shareSheet: false,
+  /** Journal entries and habit check-ins in the history timeline. */
+  journalHabits: false,
+  /** Non-running workouts in history. Collection is unaffected — display only. */
+  nonRunningHistory: false,
 } as const;
 
 // Type for feature keys
