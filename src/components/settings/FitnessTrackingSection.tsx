@@ -95,9 +95,9 @@ export const FitnessTrackingSection: React.FC<FitnessTrackingSectionProps> = ({
             {Platform.OS === 'android' && <StepCountDiagnostics />}
 
             {/* Privacy Subsection */}
-            <View style={styles.voiceSubsection}>
-              <Text style={styles.subsectionTitle}>Privacy</Text>
-              {FEATURES.privateMode && (
+            {FEATURES.privateMode && (
+              <View style={styles.voiceSubsection}>
+                <Text style={styles.subsectionTitle}>Privacy</Text>
                 <SettingItem
                   title="Private Mode"
                   subtitle="Workouts stay on your device. Events and rewards require this to be off."
@@ -108,8 +108,8 @@ export const FitnessTrackingSection: React.FC<FitnessTrackingSectionProps> = ({
                     />
                   }
                 />
-              )}
-            </View>
+              </View>
+            )}
 
             {/* Apple Health Subsection (iOS only) */}
             {Platform.OS === 'ios' && (
