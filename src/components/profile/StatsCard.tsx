@@ -6,6 +6,7 @@ import { AnimatedNumber } from '../ui/AnimatedNumber';
 import { DailyStepCounterService } from '../../services/activity/DailyStepCounterService';
 import { supabase, isSupabaseConfigured } from '../../utils/supabase';
 import { nip19 } from 'nostr-tools';
+import { FEATURES } from '../../config/features';
 
 interface StatsCardProps {
   userPubkey: string;
@@ -82,6 +83,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey, refreshKey = 0
 
   const loadData = async (isCancelled: () => boolean) => {
     try {
+      if (!FEATURES.stepTracking) return;
       // Bypass the 5s service-level cache so a pull-to-refresh on the parent
       // tab actually re-queries HealthKit instead of returning the stale value.
       const stepService = DailyStepCounterService.getInstance();
@@ -214,25 +216,27 @@ export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey, refreshKey = 0
   return (
     <Card style={styles.container}>
       {/* Hero: Today's Steps */}
-      <View style={styles.hero}>
-        <View style={styles.heroHeader}>
-          <Text style={styles.heroLabel}>STEPS TODAY</Text>
+      {FEATURES.stepTracking && (
+        <View style={styles.hero}>
+          <View style={styles.heroHeader}>
+            <Text style={styles.heroLabel}>STEPS TODAY</Text>
+          </View>
+          <AnimatedNumber value={todaySteps} style={styles.heroValue} />
+          <View style={styles.progressTrack}>
+            <View
+              style={[styles.progressFill, { width: `${stepProgressPercent}%` }]}
+            />
+          </View>
+          <Text style={styles.progressLabel}>
+            {stepProgressPercent}% of {DAILY_STEP_GOAL.toLocaleString()} goal
+          </Text>
         </View>
-        <AnimatedNumber value={todaySteps} style={styles.heroValue} />
-        <View style={styles.progressTrack}>
-          <View
-            style={[styles.progressFill, { width: `${stepProgressPercent}%` }]}
-          />
-        </View>
-        <Text style={styles.progressLabel}>
-          {stepProgressPercent}% of {DAILY_STEP_GOAL.toLocaleString()} goal
-        </Text>
-      </View>
+      )}
 
       {/* Running Race PRs */}
       {hasRunning && (
         <>
-          <View style={styles.divider} />
+          {FEATURES.stepTracking && <View style={styles.divider} />}
           <Text style={styles.sectionTitle}>RUNNING PERSONAL RECORDS</Text>
           <View style={styles.raceRow}>
             {runningRaceStats.map((stat) => (
