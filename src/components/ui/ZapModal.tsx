@@ -59,7 +59,7 @@ export const ZapModal: React.FC<ZapModalProps> = ({
     if (amount > balance) {
       Alert.alert(
         'Insufficient Balance',
-        `You only have ${balance} sats available`
+        `You only have ${balance} rewards available`
       );
       return;
     }
@@ -76,7 +76,7 @@ export const ZapModal: React.FC<ZapModalProps> = ({
       if (success) {
         Alert.alert(
           'Zap Sent!',
-          `Successfully sent ${amount} sats to ${recipientName}`,
+          `Successfully sent ${amount} rewards to ${recipientName}`,
           [
             {
               text: 'OK',
@@ -138,7 +138,7 @@ export const ZapModal: React.FC<ZapModalProps> = ({
           <View style={styles.balanceSection}>
             <Text style={styles.balanceLabel}>Your Balance:</Text>
             <Text style={styles.balanceAmount}>
-              {balance.toLocaleString()} sats
+              {balance.toLocaleString()} rewards
             </Text>
           </View>
 
@@ -180,7 +180,7 @@ export const ZapModal: React.FC<ZapModalProps> = ({
                 placeholderTextColor={theme.colors.textMuted}
                 keyboardType="numeric"
               />
-              <Text style={styles.satsSuffix}>sats</Text>
+              <Text style={styles.satsSuffix}>rewards</Text>
             </View>
           </View>
 

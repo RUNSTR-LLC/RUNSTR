@@ -170,7 +170,7 @@ const ClubEarningsCardComponent: React.FC<ClubEarningsCardProps> = ({
       {/* Empty state hint */}
       {!hasWeeklyActivity && (
         <Text style={styles.emptyHint}>
-          Members earn 10 sats for the club with each workout
+          Members earn rewards for the club with each workout
         </Text>
       )}
     </View>

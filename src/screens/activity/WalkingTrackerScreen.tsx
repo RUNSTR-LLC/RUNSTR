@@ -1056,7 +1056,7 @@ export const WalkingTrackerScreen: React.FC<WalkingTrackerScreenProps> = ({
         // Show success alert (steps count toward competitions but do not earn rewards)
         setAlertConfig({
           title: 'Steps Entered!',
-          message: `${dailySteps.toLocaleString()} steps have been submitted to the competition.`,
+          message: `${dailySteps.toLocaleString()} steps have been submitted to the event.`,
           buttons: [{ text: 'OK', style: 'default' }],
         });
         setAlertVisible(true);

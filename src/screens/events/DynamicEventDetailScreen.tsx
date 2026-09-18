@@ -758,7 +758,7 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
                   <Ionicons name="trophy-outline" size={20} color={theme.colors.primary} />
                   <View style={styles.prizePoolText}>
                     <Text style={styles.prizePoolAmount}>
-                      {competition.config.prize_pool_sats.toLocaleString()} sats prize pool
+                      {competition.config.prize_pool_sats.toLocaleString()} rewards prize pool
                     </Text>
                     <Text style={styles.prizePoolDistribution}>
                       {competition.config.prize_distribution === 'all_participants'
@@ -1054,7 +1054,7 @@ export const DynamicEventDetailScreen: React.FC<DynamicEventDetailScreenProps> =
                 Pay Winners
               </Text>
               <Text style={[styles.finalizationSubtitle, { color: theme.colors.textMuted, marginBottom: 12 }]}>
-                {(competition.config.prize_pool_sats || 0).toLocaleString()} sats ·{' '}
+                {(competition.config.prize_pool_sats || 0).toLocaleString()} rewards ·{' '}
                 {competition.config.prize_distribution === 'all_participants'
                   ? 'split among all finishers'
                   : 'Top 3 (50/30/20)'}
