@@ -17,7 +17,6 @@ Basic reusable UI components for consistent design across the RUNSTR application
 - **LeaderboardLimiter.tsx** - Shared component for "Top N + Your Position" display pattern, showing top entries and the logged-in user's rank.
 - **LoadingStates.tsx** - Loading indicators and skeleton screens.
 - **MemberAvatar.tsx** - Team member avatar with online status and team context.
-- **NostrConnectionStatus.tsx** - Visual indicator for Nostr relay connection status.
 - **ParticipantList.tsx** - List component for displaying competition participants.
 - **PostingErrorBoundary.tsx** - Error boundary for workout posting flows, displaying fallback UI instead of crashing the app.
 - **PrivacyNoticeModal.tsx** - Modal explaining local-only analytics processing with no data transmission.
