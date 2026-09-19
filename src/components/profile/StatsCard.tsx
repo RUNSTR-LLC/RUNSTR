@@ -189,9 +189,13 @@ export const StatsCard: React.FC<StatsCardProps> = ({ userPubkey, refreshKey = 0
   const stepProgressPercent = Math.round(stepProgress * 100);
 
   const hasRunning = records.longestRunKm > 0;
-  const hasCycling = records.longestRideKm > 0;
-  const hasPushups = records.mostPushups > 0;
-  const hasPullups = records.mostPullups > 0;
+  // Non-running record types (cycling, pushups, pullups) are still imported from
+  // HealthKit/Health Connect, but display is filtered while nonRunningHistory is
+  // off — gate every non-running "has*" flag here so both the dedicated PR block
+  // and the shared Personal Bests rows stay in sync automatically.
+  const hasCycling = records.longestRideKm > 0 && FEATURES.nonRunningHistory;
+  const hasPushups = records.mostPushups > 0 && FEATURES.nonRunningHistory;
+  const hasPullups = records.mostPullups > 0 && FEATURES.nonRunningHistory;
   const hasAnyBest = hasRunning || hasCycling || hasPushups || hasPullups;
 
   const runningRaceStats = [

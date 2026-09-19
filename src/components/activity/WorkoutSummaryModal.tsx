@@ -906,22 +906,22 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
           </TouchableOpacity>
 
           {/* View Rewards link */}
-          <TouchableOpacity
-            onPress={() => {
-              onClose();
-              if (FEATURES.earnings) {
+          {FEATURES.earnings && (
+            <TouchableOpacity
+              onPress={() => {
+                onClose();
                 navigation.navigate('Rewards' as never);
-              }
-            }}
-            activeOpacity={0.7}
-            accessibilityLabel="View rewards"
-            accessibilityRole="button"
-            style={{ alignSelf: 'center', paddingVertical: 8 }}
-          >
-            <Text style={{ color: theme.colors.textMuted, fontSize: 13 }}>
-              View Rewards →
-            </Text>
-          </TouchableOpacity>
+              }}
+              activeOpacity={0.7}
+              accessibilityLabel="View rewards"
+              accessibilityRole="button"
+              style={{ alignSelf: 'center', paddingVertical: 8 }}
+            >
+              <Text style={{ color: theme.colors.textMuted, fontSize: 13 }}>
+                View Rewards →
+              </Text>
+            </TouchableOpacity>
+          )}
           </ScrollView>
         </View>
       </View>
