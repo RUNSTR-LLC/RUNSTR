@@ -1589,6 +1589,13 @@ export class SimpleRunTracker {
       // Start GPS tracking (use restartGPSOnly to preserve AsyncStorage state)
       await this.restartGPSOnly(this.activityType);
 
+      // Re-acquire Android wake lock — without this, Doze Mode can kill GPS within minutes
+      try {
+        await activateKeepAwakeAsync('gps-tracking');
+      } catch (error) {
+        console.warn('[SimpleRunTracker] Keep-awake re-activation failed after recovery:', error);
+      }
+
       // Start watchdog
       this.startWatchdog();
 
