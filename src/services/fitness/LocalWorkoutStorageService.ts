@@ -233,6 +233,47 @@ export class LocalWorkoutStorageService {
   }
 
   /**
+   * Reserve a contiguous block of `count` workout ids in a SINGLE counter
+   * read+write, instead of calling generateWorkoutId() once per id (which
+   * would each do its own getItem+setItem). Used by the bulk Nostr import so
+   * the gap between reading the existing snapshot and writing it back stays
+   * O(1) regardless of batch size — a concurrent write (e.g. a foreground
+   * steps submission) landing in a wide, per-item id-generation loop would
+   * otherwise risk being silently dropped by the eventual persist.
+   * Same id format and same-error fallback as generateWorkoutId().
+   */
+  private async reserveWorkoutIdBlock(count: number): Promise<string[]> {
+    if (count <= 0) return [];
+    try {
+      const counterStr = await AsyncStorage.getItem(
+        STORAGE_KEYS.WORKOUT_ID_COUNTER
+      );
+      const counter = counterStr ? parseInt(counterStr, 10) : 0;
+      const newCounter = counter + count;
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.WORKOUT_ID_COUNTER,
+        newCounter.toString()
+      );
+
+      const timestamp = Date.now();
+      const ids: string[] = [];
+      for (let i = 0; i < count; i++) {
+        const random = Math.random().toString(36).substring(2, 9);
+        ids.push(`local_${timestamp}_${counter + i + 1}_${random}`);
+      }
+      return ids;
+    } catch (error) {
+      console.error('❌ Failed to reserve workout ID block:', error);
+      // Fallback: synthesize ids without touching the counter (mirrors
+      // generateWorkoutId()'s own catch-path fallback).
+      return Array.from(
+        { length: count },
+        () => `local_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+      );
+    }
+  }
+
+  /**
    * Save GPS-tracked workout to local storage
    * Returns workout ID and reward info if a reward was sent
    */
@@ -447,7 +488,17 @@ export class LocalWorkoutStorageService {
     calories?: number;
   }, deterministicId: string): Promise<string> {
     try {
-      const workouts = await this.getAllWorkouts();
+      // Checked read — same reasoning as saveWorkout(): this runs unattended
+      // (StepCompetitionService on every foreground/background sync cycle),
+      // and a transient read failure must abort rather than silently
+      // persist a single steps entry over the user's real history.
+      const { workouts, ok } = await this.readAllWorkoutsChecked();
+      if (!ok) {
+        throw new Error(
+          'LocalWorkoutStorage: refusing to upsert daily steps — could not confirm ' +
+            'the existing workout snapshot (storage read failed or is corrupted).'
+        );
+      }
       const existingIndex = workouts.findIndex(w => w.id === deterministicId);
 
       if (existingIndex !== -1) {
@@ -532,7 +583,20 @@ export class LocalWorkoutStorageService {
    */
   private async saveWorkout(workout: LocalWorkout): Promise<RewardResult | undefined> {
     try {
-      const workouts = await this.getAllWorkouts();
+      // Use the checked read, not getAllWorkouts(): a transient/corrupted read
+      // must never be treated as "no history" here — that would persist a
+      // single-workout array over the user's real history (the same defect
+      // fixed in saveImportedNostrWorkoutsBulk). Abort the save instead; a
+      // failed save the user (or the background caller) can retry is
+      // strictly better than a silently destroyed history.
+      const { workouts, ok } = await this.readAllWorkoutsChecked();
+      if (!ok) {
+        throw new Error(
+          'LocalWorkoutStorage: refusing to save — could not confirm the existing ' +
+            'workout snapshot (storage read failed or is corrupted). Aborting rather ' +
+            'than risk overwriting history.'
+        );
+      }
       workouts.push(workout);
       await this.persistWorkouts(workouts);
       this.invalidateCache();
@@ -1149,16 +1213,20 @@ export class LocalWorkoutStorageService {
   // ========================================================================
 
   /**
-   * Build the LocalWorkout record for an imported Nostr workout, including a
-   * freshly generated local id. Shared by the per-item and bulk import paths
-   * so the field mapping lives in exactly one place.
+   * Build the LocalWorkout record for an imported Nostr workout, given an
+   * already-generated local id. Pure/synchronous — id generation is the
+   * caller's responsibility (a single generateWorkoutId() call for the
+   * per-item path, a single reserveWorkoutIdBlock() call for the bulk path)
+   * so this can be reused without adding a storage round-trip per workout.
+   * Shared by the per-item and bulk import paths so the field mapping lives
+   * in exactly one place.
    */
-  private async buildImportedLocalWorkout(
-    workout: ImportedNostrWorkout
-  ): Promise<LocalWorkout> {
-    const workoutId = await this.generateWorkoutId();
+  private buildImportedLocalWorkout(
+    workout: ImportedNostrWorkout,
+    id: string
+  ): LocalWorkout {
     return {
-      id: workoutId,
+      id,
       type: workout.type,
       startTime: workout.startTime,
       endTime: workout.endTime,
@@ -1198,7 +1266,8 @@ export class LocalWorkoutStorageService {
         return workout.id;
       }
 
-      const localWorkout = await this.buildImportedLocalWorkout(workout);
+      const workoutId = await this.generateWorkoutId();
+      const localWorkout = this.buildImportedLocalWorkout(workout, workoutId);
 
       await this.saveWorkout(localWorkout);
       console.log(
@@ -1219,13 +1288,16 @@ export class LocalWorkoutStorageService {
    * persists the merged list back in a SINGLE write — not once per accepted
    * workout. Unlike saveImportedNostrWorkout (still O(n²), acceptable behind
    * a one-time progress bar), this path runs unattended at every login and
-   * must not pay a full array read+stringify+write per workout.
+   * must not pay a full array read+stringify+write per workout, nor hold a
+   * stale snapshot across N per-item storage round-trips (a concurrent write
+   * — e.g. StepCompetitionService's foreground steps submission — landing in
+   * that window would otherwise be silently dropped by the eventual persist).
    *
-   * Refuses to write when the existing snapshot could not be confirmed (a
-   * transient or corrupted read reporting "no workouts" must never be
-   * treated as "the user genuinely has no local history" — that would make
-   * every relay workout look new and overwrite real history with just this
-   * batch). An abandoned backfill is harmless; a destroyed history is not.
+   * Refuses to write when a snapshot could not be confirmed (a transient or
+   * corrupted read reporting "no workouts" must never be treated as "the
+   * user genuinely has no local history" — that would make every relay
+   * workout look new and overwrite real history with just this batch). An
+   * abandoned backfill is harmless; a destroyed history is not.
    *
    * Only ever adds — never deletes or overwrites a local workout.
    */
@@ -1244,6 +1316,7 @@ export class LocalWorkoutStorageService {
       return 0;
     }
 
+    // Phase 1: decide what's new — pure in-memory dedup, no I/O, no ids yet.
     const seen: DedupCandidate[] = existing.map((w) => ({
       nostrEventId: w.nostrEventId,
       type: w.type,
@@ -1251,7 +1324,7 @@ export class LocalWorkoutStorageService {
       duration: w.duration,
     }));
 
-    const accepted: LocalWorkout[] = [];
+    const toAccept: ImportedNostrWorkout[] = [];
     for (const workout of workouts) {
       const candidate: DedupCandidate = {
         nostrEventId: workout.id,
@@ -1260,15 +1333,40 @@ export class LocalWorkoutStorageService {
         duration: workout.duration,
       };
       if (isDuplicateWorkout(seen, candidate)) continue;
-
-      const localWorkout = await this.buildImportedLocalWorkout(workout);
-      accepted.push(localWorkout);
+      toAccept.push(workout);
       seen.push(candidate);
     }
 
-    if (accepted.length === 0) return 0;
+    if (toAccept.length === 0) return 0;
 
-    await this.persistWorkouts([...existing, ...accepted]);
+    // Phase 2: reserve every id needed in ONE counter read+write (not one
+    // pair per workout), then build all LocalWorkout records synchronously —
+    // no awaits between reserving ids and persisting below, so the window in
+    // which a concurrent write could be missed stays O(1), not O(N).
+    const ids = await this.reserveWorkoutIdBlock(toAccept.length);
+    const accepted: LocalWorkout[] = toAccept.map((workout, i) =>
+      this.buildImportedLocalWorkout(workout, ids[i])
+    );
+
+    // Phase 3: re-read immediately before writing and merge onto that FRESH
+    // snapshot — not `existing` captured at the top of this method — so a
+    // concurrent write that landed during id reservation is not clobbered.
+    // Deliberately NOT re-running dedup against the fresh read: `accepted`
+    // was already validated against `existing` and must not be dropped
+    // because of an unrelated concurrent write; this is a merge, not a
+    // re-decision. If the fresh read itself can't be confirmed, abort
+    // rather than fall back to the now-stale initial snapshot.
+    const freshRead = await this.readAllWorkoutsChecked();
+    if (!freshRead.ok) {
+      console.warn(
+        '[LocalWorkoutStorage] Bulk import aborted: could not confirm the workout ' +
+          'snapshot immediately before writing (storage read failed). Refusing to ' +
+          'write rather than risk dropping a concurrent write.'
+      );
+      return 0;
+    }
+
+    await this.persistWorkouts([...freshRead.workouts, ...accepted]);
     this.invalidateCache();
 
     // Mirror saveWorkout()'s backup side effect, scheduled ONCE for the whole

@@ -6,6 +6,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Nuclear1301Service } from './Nuclear1301Service';
+import { GlobalNDKService } from '../nostr/GlobalNDKService';
 import LocalWorkoutStorageService from './LocalWorkoutStorageService';
 import { PendingSubmissionService, type PendingSubmission } from '../competition/PendingSubmissionService';
 import type { NostrWorkout } from '../../types/nostrWorkout';
@@ -216,17 +217,37 @@ export class Nostr1301ImportService {
     try {
       if (!(await this.shouldBackfill())) return;
 
+      // Nuclear1301Service.getUserWorkouts() swallows every internal error
+      // (relay connection failures included) and always resolves — even to
+      // [] — rather than throwing, so its return value alone cannot tell
+      // "the user genuinely has zero 1301 history" apart from "we're
+      // offline / relays are unreachable right now". Check connectivity
+      // first, without touching that method's signature or behavior, so an
+      // offline login isn't stamped as a completed check for the next 6h.
+      // Ensure the shared NDK instance exists before waiting on it — if
+      // nothing else has touched it yet, waitForMinimumConnection would
+      // otherwise see no instance and report "unreachable" immediately.
+      await GlobalNDKService.getInstance();
+      const relaysReachable = await GlobalNDKService.waitForMinimumConnection(1, 5000);
+
       const nostrWorkouts = await Nuclear1301Service.getInstance().getUserWorkouts(pubkey);
 
-      // Record the attempt as soon as the relay round-trip completes —
-      // regardless of how many workouts came back. Recording only after a
-      // successful merge would mean a user with zero 1301 history (a
-      // legitimate, common case) re-queries every relay on every single
-      // launch forever, since `nostrWorkouts.length` would always be 0.
-      await AsyncStorage.setItem(
-        Nostr1301ImportService.BACKFILL_TS_KEY,
-        String(Date.now())
-      ).catch(() => {});
+      if (relaysReachable) {
+        // A genuine attempt reached at least one relay — stamp the full
+        // throttle regardless of how many workouts came back (0 is a real,
+        // common answer for a brand-new account, not a failure).
+        await AsyncStorage.setItem(
+          Nostr1301ImportService.BACKFILL_TS_KEY,
+          String(Date.now())
+        ).catch(() => {});
+      } else {
+        // Offline / relay outage — this was not a real attempt. Leave the
+        // throttle untouched so the very next launch retries, matching the
+        // pre-throttle behavior for exactly this case.
+        console.log(
+          '[1301Backfill] no relays reachable — skipping throttle stamp, will retry next launch'
+        );
+      }
 
       if (!nostrWorkouts.length) return;
 
