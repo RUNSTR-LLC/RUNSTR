@@ -1,6 +1,11 @@
 /**
  * BottomTabNavigator - Main tab navigation for authenticated users
- * Exercise tab for tracking, Compete tab for Season II, Profile tab for user data
+ * Phase 1 (2026-09-18): Social and Leaderboard tabs are hidden behind feature
+ * flags (FEATURES.social, FEATURES.leaderboard) and the bar itself is hidden
+ * via tabBarStyle when both are off, leaving a single Home tab (ProfileScreen)
+ * as the app's one visible surface. The tab navigator is kept even with one
+ * tab — see the design doc's Tier 2 note on why MainTabs isn't replaced with
+ * a bare screen.
  */
 
 import React, { Suspense } from 'react';
