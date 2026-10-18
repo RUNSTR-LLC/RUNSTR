@@ -15,6 +15,7 @@ import { LocalWorkoutStorageService } from '../fitness/LocalWorkoutStorageServic
 import { getAllHabits, createHabit } from '../habits/HabitTrackerService';
 import { JournalService } from '../journal/JournalService';
 import { UnifiedSigningService } from '../auth/UnifiedSigningService';
+import { FEATURES } from '../../config/features';
 import { PendingSubmissionService, type PendingSubmission } from '../competition/PendingSubmissionService';
 import type { LocalWorkout } from '../fitness/LocalWorkoutStorageService';
 import type { Habit } from '../habits/HabitTrackerService';
@@ -23,6 +24,7 @@ import type { JournalEntry } from '../../types/journal';
 // Backup event kind
 const BACKUP_EVENT_KIND = 30078;
 const BACKUP_D_TAG = 'runstr-workout-backup';
+const AUTO_RESTORE_KEY = '@runstr:auto_restore_done';
 
 /**
  * Backup metadata from event tags (before decryption)
@@ -195,6 +197,33 @@ export class RestoreService {
    * Decrypt a backup event
    * Tries NIP-44 first, falls back to NIP-04 for older backups
    */
+  /**
+   * Restore the encrypted 30078 backup once per install, silently, on login.
+   * Additive only — importWorkouts dedups against local history. Never throws.
+   * Skipped for Amber: decrypting opens an Amber prompt, so those users
+   * restore from Settings instead. Not stamped when relays are unreachable,
+   * so an offline first launch retries next time.
+   */
+  async restoreInBackground(): Promise<void> {
+    try {
+      if (await AsyncStorage.getItem(AUTO_RESTORE_KEY)) return;
+      if ((await UnifiedSigningService.getInstance().getAuthMethod()) !== 'nostr') return;
+
+      await GlobalNDKService.getInstance();
+      if (!(await GlobalNDKService.waitForMinimumConnection(1, 5000))) return;
+
+      const search = await this.searchForBackup();
+      if (search.error) return;
+      if (search.found && search.backup) {
+        const result = await this.importBackup(search.backup);
+        console.log(`[RestoreService] Auto-restore imported ${result.workoutsImported} workouts`);
+      }
+      await AsyncStorage.setItem(AUTO_RESTORE_KEY, String(Date.now()));
+    } catch (error) {
+      console.warn('[RestoreService] Auto-restore failed (silent):', error);
+    }
+  }
+
   private async decryptBackup(event: NDKEvent): Promise<DecryptedBackup> {
     // Get signer via UnifiedSigningService (works for both nsec and Amber)
     const signingService = UnifiedSigningService.getInstance();
@@ -319,7 +348,7 @@ export class RestoreService {
         result.workoutsSkipped = workoutResult.skipped;
 
         // Queue imported workouts for Supabase submission
-        if (workoutResult.imported > 0) {
+        if (workoutResult.imported > 0 && FEATURES.supabaseSubmission) {
           await this.queueWorkoutsForSupabase(backup.payload.workouts);
         }
       }

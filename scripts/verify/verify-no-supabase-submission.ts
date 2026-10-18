@@ -1,6 +1,7 @@
 /**
- * Verify Phase 2 steps 1-3: workouts are no longer sent to Supabase, personal
- * records are computed from local storage, and every post is a kind 1301 note.
+ * Verify Phase 2 steps 1-4: workouts are no longer sent to Supabase, personal
+ * records are computed from local storage, every post is a kind 1301 note, and
+ * the encrypted backup restores on login.
  * Static check — the services import React Native and can't run under tsx.
  * Run: npx tsx scripts/verify/verify-no-supabase-submission.ts
  */
@@ -50,6 +51,16 @@ if (!only1301) failed++;
 const toggleOff = readFileSync('src/components/settings/NostrPostingSection.tsx', 'utf8').includes('const SHOW_FORMAT_TOGGLE = false;');
 console.log(`${toggleOff ? 'PASS' : 'FAIL'}  Post format picker hidden`);
 if (!toggleOff) failed++;
+
+// Step 4: encrypted 30078 backup restores on login, before the 1301 backfill
+const app = readFileSync('src/App.tsx', 'utf8');
+const restoreFirst = /restoreInBackground\(\)\s*\.then\(\(\) => Nostr1301ImportService\.getInstance\(\)\.backfillInBackground/.test(app);
+console.log(`${restoreFirst ? 'PASS' : 'FAIL'}  login restores 30078 backup, then backfills 1301s`);
+if (!restoreFirst) failed++;
+const restore = readFileSync('src/services/backup/RestoreService.ts', 'utf8');
+const noQueue = restore.includes('workoutResult.imported > 0 && FEATURES.supabaseSubmission');
+console.log(`${noQueue ? 'PASS' : 'FAIL'}  restore no longer queues workouts for Supabase`);
+if (!noQueue) failed++;
 
 console.log(failed ? `\n${failed} check(s) failed` : '\nAll checks passed');
 process.exit(failed ? 1 : 0);

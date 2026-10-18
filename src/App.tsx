@@ -228,6 +228,7 @@ import {
 import { AppStateManager } from './services/core/AppStateManager';
 import AppInitializationService from './services/core/AppInitializationService';
 import { Nostr1301ImportService } from './services/fitness/Nostr1301ImportService';
+import { RestoreService } from './services/backup/RestoreService';
 import { StepCompetitionService } from './services/competition/StepCompetitionService';
 import { analytics } from './utils/analytics';
 import {
@@ -569,13 +570,17 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
             // App can continue with cached data even if initialization fails
           });
 
-        // Merge any 1301 history published from other clients or a previous
+        // Restore the encrypted 30078 backup (once per install), then merge
+        // any 1301 history published from other clients or a previous
         // install. Deliberately not awaited: local history renders
         // immediately from AsyncStorage, relays catch up in the background.
-        // Internally throttled to once per 6h and never throws.
+        // Restore runs first so the full private history lands before the
+        // public 1301s are deduped against it. Neither ever throws.
         if (currentUser?.npub) {
-          Nostr1301ImportService.getInstance()
-            .backfillInBackground(currentUser.npub)
+          const npub = currentUser.npub;
+          RestoreService.getInstance()
+            .restoreInBackground()
+            .then(() => Nostr1301ImportService.getInstance().backfillInBackground(npub))
             .catch(() => {});
         }
       }, INIT_DELAY);

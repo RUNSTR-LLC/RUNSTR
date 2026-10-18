@@ -331,9 +331,9 @@ export class BackupService {
     // Compress with gzip to handle large payloads (NIP-44 has 64KB limit)
     const compressed = pako.gzip(plaintext);
 
-    // NIP-44 has a ~65KB plaintext limit. After compression, the base64-encoded
-    // data will be ~33% larger, so check compressed size against a safe threshold.
-    const MAX_COMPRESSED_BYTES = 64000;
+    // NIP-44 caps plaintext at 65535 bytes, and the base64 encoding below
+    // grows the compressed bytes by 4/3 — so the real compressed limit is ~49KB.
+    const MAX_COMPRESSED_BYTES = 49000;
     if (compressed.length > MAX_COMPRESSED_BYTES) {
       throw new Error(
         `Backup too large for encryption: ${compressed.length} bytes compressed ` +
