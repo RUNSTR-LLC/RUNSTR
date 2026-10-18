@@ -28,7 +28,6 @@ import {
   getInvoiceTimeRemaining,
 } from '../../utils/bolt11Parser';
 import { openInCashApp } from '../../utils/walletDeepLinks';
-import { DonationTrackingService } from '../../services/donation/DonationTrackingService';
 import { NWCStorageService } from '../../services/wallet/NWCStorageService';
 import { NWCWalletService } from '../../services/wallet/NWCWalletService';
 import { DEFAULT_ZAP_AMOUNT_KEY } from '../../constants/zap';
@@ -453,32 +452,6 @@ export const ExternalZapModal: React.FC<ExternalZapModalProps> = ({
   const handlePaymentConfirmed = async () => {
     const paidAmount = getEffectiveAmount();
 
-    // For charity donations, record the donation locally (for donation leaderboards only)
-    // Note: Direct donations do NOT affect Impact Level XP - only workout rewards do
-    if (isCharityDonation && charityId) {
-      try {
-        // Get donor pubkey from cached storage
-        const storedPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
-        const donorPubkey = storedPubkey || 'anonymous';
-
-        if (!storedPubkey) {
-          console.warn('[ExternalZapModal] No cached pubkey found, donation will be anonymous');
-        }
-
-        // Record donation (no forwarding needed - user paid directly)
-        await DonationTrackingService.recordDonation({
-          donorPubkey,
-          amount: paidAmount,
-          charityId,
-          charityName: recipientName,
-        });
-
-        console.log('[ExternalZapModal] ✅ Charity donation recorded:', paidAmount, 'sats to', recipientName);
-      } catch (err) {
-        console.error('[ExternalZapModal] Error recording donation:', err);
-        // Don't block - donation was still made to charity
-      }
-    }
 
     Alert.alert(
       'Zap Sent!',

@@ -8,9 +8,6 @@
 import { Platform, InteractionManager } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { WorkoutData, WorkoutType } from '../../types/workout';
-import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
-import { buildRewardTags } from '../../utils/rewardTags';
-import { isValidWorkoutMetrics } from '../../utils/rewardEligibility';
 
 // Environment-based logging utility
 const isDevelopment = __DEV__;
@@ -23,8 +20,6 @@ const errorLog = (message: string, ...args: any[]) => {
   console.error(message, ...args); // Always log errors
 };
 
-const SUBMITTED_IDS_KEY = '@healthkit:submitted_workout_ids';
-const MAX_SUBMITTED_IDS = 500;
 
 // Import @yzlin/expo-healthkit for iOS only
 let ExpoHealthKit: any = null;
@@ -982,156 +977,9 @@ export class HealthKitService {
 
       await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
       debugLog(`HealthKit: Cached ${workouts.length} workouts`);
-
-      // Auto-submit new cardio workouts to Supabase (fire-and-forget)
-      this.submitNewWorkoutsToSupabase(workouts).catch((err) => {
-        console.warn('[HealthKit] Supabase auto-submit error (silent):', err);
-      });
     } catch (error) {
       console.warn('Failed to cache workouts:', error);
     }
-  }
-
-  /**
-   * Submit newly discovered cardio workouts to Supabase for leaderboard tracking.
-   */
-  private async submitNewWorkoutsToSupabase(
-    workouts: HealthKitWorkout[]
-  ): Promise<void> {
-    const CARDIO_TYPES = ['running', 'walking', 'cycling', 'hiking'];
-    const npub = await AsyncStorage.getItem('@runstr:npub');
-    if (!npub) return;
-
-    // Build lightning address + charity tags for zapper reward routing
-    const rewardTags = await buildRewardTags();
-
-    // Fetch cached profile for leaderboard display (name/picture)
-    const profile = await this.getCachedProfile();
-    const submittedIds = await this.getSubmittedIds();
-
-    const newCardio = workouts.filter((w) => {
-      const id = w.UUID || w.id || '';
-
-      // Only suppress workouts that are already confirmed submitted.
-      // Do NOT suppress by previous cache presence: if a prior submit failed,
-      // the workout can exist in cache but still needs retry.
-      if (!id || submittedIds.has(id)) return false;
-      if (!w.activityType || !CARDIO_TYPES.includes(w.activityType)) return false;
-      if (!w.totalDistance || w.totalDistance <= 0) return false;
-      if (!isValidWorkoutMetrics(w.totalDistance, w.duration)) {
-        debugLog(`[HealthKit] Skipping ${id}: metrics out of bounds (distance=${w.totalDistance}, duration=${w.duration})`);
-        return false;
-      }
-      return true;
-    });
-
-    for (const w of newCardio) {
-      try {
-        const workoutId = w.UUID || w.id || '';
-        const eventId = `hk_${workoutId}`;
-        const tags: string[][] = [...rewardTags];
-
-        await SupabaseCompetitionService.submitWorkoutSimple({
-          eventId,
-          npub,
-          type: w.activityType || 'running',
-          distance: w.totalDistance,
-          duration: w.duration,
-          calories: w.totalEnergyBurned,
-          startTime: w.startDate,
-          tags,
-          profileName: profile.name,
-          profilePicture: profile.picture,
-        });
-
-        if (workoutId) {
-          submittedIds.add(workoutId);
-        }
-        debugLog(`[HealthKit] Auto-submitted ${w.activityType} workout to Supabase: ${eventId}`);
-
-        // Auto-join RUNSTR competitions for this workout (fire-and-forget)
-        import('../competition/AutoJoinService').then(({ AutoJoinService }) => {
-          AutoJoinService.checkAndAutoJoin(
-            npub,
-            w.activityType || 'running',
-            new Date(w.startDate),
-            profile
-          ).catch(() => {});
-        }).catch(() => {});
-      } catch (err) {
-        console.warn(`[HealthKit] Failed to submit workout ${w.UUID}:`, err);
-
-        // Queue for retry via PendingSubmissionService
-        try {
-          const { PendingSubmissionService } = await import('../competition/PendingSubmissionService');
-          const errorMsg = err instanceof Error ? err.message : 'Unknown error';
-          const workoutId = w.UUID || w.id || '';
-          const eventId = `hk_${workoutId}`;
-          await PendingSubmissionService.addPending({
-            id: eventId,
-            submissionData: {
-              eventId,
-              npub,
-              type: w.activityType || 'running',
-              distance: w.totalDistance || 0,
-              duration: w.duration,
-              calories: w.totalEnergyBurned,
-              startTime: w.startDate,
-              tags: [...rewardTags],
-              profileName: profile.name,
-              profilePicture: profile.picture,
-            },
-            createdAt: Date.now(),
-            retryCount: 0,
-            lastError: errorMsg,
-            nextRetryTime: Date.now() + 60000,
-          });
-        } catch (queueError) {
-          console.warn('[HealthKit] Failed to queue for retry:', queueError);
-        }
-      }
-    }
-
-    await this.saveSubmittedIds(submittedIds);
-  }
-
-  private async getSubmittedIds(): Promise<Set<string>> {
-    try {
-      const raw = await AsyncStorage.getItem(SUBMITTED_IDS_KEY);
-      if (!raw) return new Set();
-      return new Set(JSON.parse(raw));
-    } catch {
-      return new Set();
-    }
-  }
-
-  private async saveSubmittedIds(ids: Set<string>): Promise<void> {
-    try {
-      const trimmed = Array.from(ids).slice(-MAX_SUBMITTED_IDS);
-      await AsyncStorage.setItem(SUBMITTED_IDS_KEY, JSON.stringify(trimmed));
-    } catch (error) {
-      console.warn('[HealthKit] Failed to save submitted workout IDs:', error);
-    }
-  }
-
-  /**
-   * Get cached profile data for leaderboard display.
-   */
-  private async getCachedProfile(): Promise<{ name?: string; picture?: string }> {
-    try {
-      const profilesJson = await AsyncStorage.getItem('@runstr:nostr_profiles');
-      if (profilesJson) {
-        const profiles = JSON.parse(profilesJson);
-        const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
-        if (hexPubkey && profiles[hexPubkey]) {
-          return {
-            name: profiles[hexPubkey].name || profiles[hexPubkey].displayName,
-            picture: profiles[hexPubkey].picture,
-          };
-        }
-      }
-    } catch { /* non-critical */ }
-    return {};
   }
 
   /**

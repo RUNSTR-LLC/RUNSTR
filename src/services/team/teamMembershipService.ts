@@ -261,23 +261,6 @@ export class TeamMembershipService {
     return false;
   }
 
-  /**
-   * Get team members via Supabase
-   */
-  async getTeamMembers(
-    teamId: string,
-    _captainPubkey: string
-  ): Promise<string[]> {
-    try {
-      const { ClubMembershipService } = await import('../backend/ClubMembershipService');
-      const members = await ClubMembershipService.getClubMembers(teamId);
-      return members.map((m) => m.member_npub);
-    } catch (error) {
-      console.error('Failed to get team members:', error);
-      return [];
-    }
-  }
-
   // ================================================================================
   // UTILITIES
   // ================================================================================

@@ -51,10 +51,8 @@ console.log('\n--- Cache cleanup ---');
 check('Clears appCache', authService.includes('appCache') && authService.includes('.clear()'));
 check('Clears competition cache', authService.includes('CompetitionCacheService') && authService.includes('clearCache'));
 check('Clears UnifiedNostrCache', authService.includes('UnifiedNostrCache') || authService.includes('unifiedCache'));
-check('Clears ClubMembershipService cache', authService.includes('ClubMembershipService') && authService.includes('clearCache'));
 check('Clears UnifiedSigningService cache', authService.includes('UnifiedSigningService') && authService.includes('clearCache'));
 check('Clears NWC wallet', authService.includes('NWCStorageService') && authService.includes('clearNWC'));
-check('Clears team memberships', authService.includes('LocalTeamMembershipService') && authService.includes('clearAll'));
 
 // --- AuthContext.signOut ---
 console.log('\n--- AuthContext.signOut (navigation + state) ---');

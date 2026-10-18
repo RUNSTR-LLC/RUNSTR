@@ -36,7 +36,6 @@ import type { LocalWorkout } from '../services/fitness/LocalWorkoutStorageServic
 import workoutPublishingService from '../services/nostr/workoutPublishingService';
 import type { PublishableWorkout } from '../services/nostr/workoutPublishingService';
 import { UnifiedSigningService } from '../services/auth/UnifiedSigningService';
-import { LocalTeamMembershipService } from '../services/team/LocalTeamMembershipService';
 import { NostrPostingPreferencesService } from '../services/activity/NostrPostingPreferencesService';
 
 interface WorkoutHistoryScreenProps {
@@ -194,14 +193,11 @@ export const WorkoutHistoryScreen: React.FC<WorkoutHistoryScreenProps> = ({
       // selectedWorkout is an already-complete stored workout (local /
       // HealthKit / Health Connect), normalized to the Workout shape by the
       // tabs. Coerce it into a PublishableWorkout for the kind 1 post.
-      const competitionTeam =
-        await LocalTeamMembershipService.getCompetitionTeam();
       const publishableWorkout: PublishableWorkout = {
         ...(selectedWorkout as any),
         userId: selectedWorkout.userId || npub || 'unknown',
         sourceApp: selectedWorkout.sourceApp || 'RUNSTR',
         canSyncToNostr: true,
-        competitionTeam,
       };
 
       // Plain-text posts (no cardImageUri) skip card generation / upload.

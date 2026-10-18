@@ -157,21 +157,6 @@ export class NostrInitializationService {
     }
   }
 
-  async prefetchSeason1(): Promise<void> {
-    try {
-      const { season1Service } = await import('../season/Season1Service');
-      await season1Service.prefetchAll();
-      console.log('[NostrInit] Season 1 prefetch complete');
-    } catch (error) {
-      console.error('❌ ================================');
-      console.error('❌ SEASON 1 PREFETCH FAILED');
-      console.error('❌ ================================');
-      console.error('❌ Error:', error);
-      console.error('❌ ================================');
-      // Don't throw - continue app loading
-    }
-  }
-
   getPrefetchedTeams(): any[] {
     return this.prefetchedTeams;
   }

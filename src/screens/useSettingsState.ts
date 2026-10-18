@@ -2,7 +2,7 @@
  * useSettingsState - Custom hook encapsulating all SettingsScreen state and handlers
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Platform } from 'react-native';
 import {
   TTSPreferencesService,
@@ -29,7 +29,6 @@ import { defaultActivityService, type DefaultActivity } from '../services/activi
 import { NWCStorageService } from '../services/wallet/NWCStorageService';
 import { NWCWalletService } from '../services/wallet/NWCWalletService';
 import type { QRData } from '../services/qr/QRCodeService';
-import { FEATURES } from '../config/features';
 
 export interface AlertState {
   visible: boolean;
@@ -237,9 +236,6 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
           await AsyncStorage.setItem('@runstr:healthkit_sync_enabled', 'true');
           setHealthKitSyncEnabled(true);
           setHealthKitAuthorized(true);
-          const { HealthKitBackgroundService } = await import('../services/fitness/HealthKitBackgroundService');
-          const bgService = HealthKitBackgroundService.getInstance();
-          await bgService.setupBackgroundDelivery();
         } else {
           showAlert('Apple Health Access',
             'RUNSTR needs access to Apple Health to sync your workouts automatically.\n\n' +
@@ -249,9 +245,6 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
       } else {
         await AsyncStorage.setItem('@runstr:healthkit_sync_enabled', 'false');
         setHealthKitSyncEnabled(false);
-        const { HealthKitBackgroundService } = await import('../services/fitness/HealthKitBackgroundService');
-        const bgService = HealthKitBackgroundService.getInstance();
-        await bgService.cleanup();
       }
     } catch (error) {
       console.error('[Settings] HealthKit sync toggle error:', error);
@@ -275,8 +268,6 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
           await AsyncStorage.setItem('@runstr:healthconnect_sync_enabled', 'true');
           setHealthConnectSyncEnabled(true);
           setHealthConnectAuthorized(true);
-          const { BackgroundSyncRegistration } = await import('../services/fitness/BackgroundSyncRegistration');
-          await BackgroundSyncRegistration.register();
         } else {
           showAlert(
             'Health Connect Access',
@@ -288,8 +279,6 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
       } else {
         await AsyncStorage.setItem('@runstr:healthconnect_sync_enabled', 'false');
         setHealthConnectSyncEnabled(false);
-        const { BackgroundSyncRegistration } = await import('../services/fitness/BackgroundSyncRegistration');
-        await BackgroundSyncRegistration.unregister();
       }
     } catch (error) {
       console.error('[Settings] Health Connect sync toggle error:', error);
@@ -330,12 +319,6 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
       navigation.goBack();
     }
   };
-
-  const handleRewardsPress = useCallback(() => {
-    if (FEATURES.earnings) {
-      navigation.navigate('Rewards');
-    }
-  }, [navigation]);
 
   const handleSignOut = async () => {
     showAlert('Sign Out', 'Are you sure you want to sign out?', [
@@ -522,7 +505,6 @@ export function useSettingsState(onSignOut?: () => void | Promise<void>) {
     handleTTSSettingChange, handleAutoBackupToggle, handleHealthKitSyncToggle,
     handleHealthConnectSyncToggle,
     handleMusicPlayerHeaderToggle, handleDefaultActivityChange, handleBack,
-    handleRewardsPress,
     handleSignOut, handleDeleteAccount, handleRefresh, handlePrivateModeToggle,
     handleLanguageChange, handleBackupPassword, handleCopyNpub,
   };

@@ -22,7 +22,6 @@ import type { Split } from '../../services/activity/SplitTrackingService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { EnhancedSocialShareModal } from '../profile/shared/EnhancedSocialShareModal';
 import TTSAnnouncementService from '../../services/activity/TTSAnnouncementService';
-import LocalWorkoutStorageService from '../../services/fitness/LocalWorkoutStorageService';
 import { activityMetricsService } from '../../services/activity/ActivityMetricsService';
 import { UnifiedSigningService } from '../../services/auth/UnifiedSigningService';
 import WorkoutStatusTracker from '../../services/fitness/WorkoutStatusTracker';
@@ -31,8 +30,6 @@ import { PostingErrorBoundary } from '../ui/PostingErrorBoundary';
 import routeStorageService from '../../services/routes/RouteStorageService';
 import { nostrProfileService } from '../../services/nostr/NostrProfileService';
 import type { NostrProfile } from '../../services/nostr/NostrProfileService';
-import { LocalTeamMembershipService } from '../../services/team/LocalTeamMembershipService';
-import { AutoCompetePreferencesService } from '../../services/activity/AutoCompetePreferencesService';
 import { NostrPostingPreferencesService } from '../../services/activity/NostrPostingPreferencesService';
 import Toast from 'react-native-toast-message';
 import { useUnitPreference } from '../../hooks/useUnitPreference';
@@ -57,8 +54,6 @@ interface WorkoutSummaryProps {
     localWorkoutId?: string; // For marking as synced after posting
     routeId?: string; // Route label ID if workout was tagged
     routeName?: string; // Route label name for display
-    rewardSent?: boolean; // True if Bitcoin reward was sent on save
-    rewardAmount?: number; // Amount of sats rewarded
   };
 }
 
@@ -69,7 +64,6 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
 }) => {
   const { isMetric, distanceLabel, speedLabel } = useUnitPreference();
   const navigation = useNavigation();
-  const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showSocialModal, setShowSocialModal] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -77,7 +71,6 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
   const [userId, setUserId] = useState<string>('');
   const [preparedWorkout, setPreparedWorkout] =
     useState<PublishableWorkout | null>(null);
-  const [autoCompeteTriggered, setAutoCompeteTriggered] = useState(false);
   const [autoPostTriggered, setAutoPostTriggered] = useState(false);
   const [wotScore, setWotScore] = useState<number | null>(null);
   const [postedToNostr, setPostedToNostr] = useState(false);
@@ -234,13 +227,6 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
     checkExistingStatus();
   }, [visible, workout.localWorkoutId]);
 
-  // Reset auto-compete trigger when modal closes
-  useEffect(() => {
-    if (!visible) {
-      setAutoCompeteTriggered(false);
-    }
-  }, [visible]);
-
   // Success haptic the first time this modal is shown for a fresh workout
   // (not fired on re-opens of already-saved workouts).
   const savedHapticFiredRef = useRef(false);
@@ -254,88 +240,6 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
     savedHapticFiredRef.current = true;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
   }, [visible, saved]);
-
-  // Auto-compete: trigger publish on modal open if enabled
-  useEffect(() => {
-    const attemptAutoCompete = async () => {
-      // Guards: only run once, only when visible, only if not already competed
-      if (!visible || !workout.localWorkoutId || autoCompeteTriggered || saved || isSaving) {
-        return;
-      }
-
-      const isEnabled = await AutoCompetePreferencesService.isAutoCompeteEnabled();
-      if (!isEnabled) return;
-
-      // Check if already competed (redundant safety check)
-      const status = await WorkoutStatusTracker.getStatus(workout.localWorkoutId);
-      if (status.competedInNostr) {
-        setSaved(true);
-        return;
-      }
-
-      // Mark as triggered to prevent duplicate attempts
-      setAutoCompeteTriggered(true);
-
-      // Trigger the publish
-      setIsSaving(true);
-      try {
-        const signer = await UnifiedSigningService.getInstance().getSigner();
-        const npub = await AsyncStorage.getItem('@runstr:npub');
-
-        if (!signer) {
-          Toast.show({
-            type: 'error',
-            text1: 'Auto-compete failed',
-            text2: 'No authentication found. Tap Compete to retry.',
-            position: 'top',
-            visibilityTime: 4000,
-          });
-          return;
-        }
-
-        const publishableWorkout = await createPublishableWorkout();
-        if (!publishableWorkout) return;
-
-        const result = await workoutPublishingService.saveWorkoutToNostr(
-          publishableWorkout,
-          signer,
-          npub || 'unknown'
-        );
-
-        if (result.success) {
-          setSaved(true);
-          const workoutId = workout.localWorkoutId || publishableWorkout.id;
-          await WorkoutStatusTracker.markAsCompeted(workoutId, result.eventId);
-          if (workout.localWorkoutId && result.eventId) {
-            await LocalWorkoutStorageService.markAsSynced(workout.localWorkoutId, result.eventId);
-          }
-          console.log('[AutoCompete] Workout automatically published to Nostr');
-          // No alert for auto-compete success - button just shows "Competing"
-        } else {
-          Toast.show({
-            type: 'error',
-            text1: 'Auto-compete failed',
-            text2: 'Tap Compete to retry manually.',
-            position: 'top',
-            visibilityTime: 4000,
-          });
-        }
-      } catch (error) {
-        console.error('[AutoCompete] Error:', error);
-        Toast.show({
-          type: 'error',
-          text1: 'Auto-compete failed',
-          text2: 'Tap Compete to retry manually.',
-          position: 'top',
-          visibilityTime: 4000,
-        });
-      } finally {
-        setIsSaving(false);
-      }
-    };
-
-    attemptAutoCompete();
-  }, [visible, workout.localWorkoutId, autoCompeteTriggered, saved, isSaving]);
 
   // Auto-post to Nostr: independent of auto-compete. When the user has enabled
   // "Auto-post workouts to Nostr", publish on modal open in their chosen format
@@ -491,9 +395,6 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
         workout.localWorkoutId ||
         `workout_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-      // ✅ Get competition team for leaderboard participation
-      const competitionTeam =
-        await LocalTeamMembershipService.getCompetitionTeam();
 
       return {
         id: workoutId,
@@ -519,7 +420,6 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
         },
         pace: workout.pace,
         splits: workout.splits, // ✅ Pass splits through for leaderboard qualification
-        competitionTeam, // ✅ Include team for kind 1301 tagging
       };
     };
 
@@ -635,11 +535,6 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryProps> = ({
               <Ionicons name="close" size={24} color={theme.colors.textMuted} />
             </TouchableOpacity>
           </View>
-
-          {/* Reward feedback is intentionally NOT shown here. The earned amount
-              is a client-side guess at save time; the only truthful "you earned X"
-              surface is the confirmed toast fired by RewardPollingService once the
-              zapper has actually paid (reads the reward_payments table). */}
 
           {/* Stats Grid */}
           <View style={styles.statsGrid}>

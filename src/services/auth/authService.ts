@@ -115,17 +115,6 @@ export class AuthService {
         console.warn('⚠️ AuthService: NWC wallet clear failed:', err);
       }
 
-      // Clear local team membership data
-      try {
-        const { LocalTeamMembershipService } = await import(
-          '../team/LocalTeamMembershipService'
-        );
-        await LocalTeamMembershipService.clearAll();
-        console.log('✅ AuthService: Local team memberships cleared');
-      } catch (err) {
-        console.warn('⚠️ AuthService: Team membership clear failed:', err);
-      }
-
       // Clear unified Nostr cache
       try {
         const unifiedCache = (await import('../cache/UnifiedNostrCache')).default;
@@ -133,17 +122,6 @@ export class AuthService {
         console.log('✅ AuthService: Unified Nostr cache cleared');
       } catch (err) {
         console.warn('⚠️ AuthService: Unified cache clear failed:', err);
-      }
-
-      // Clear club membership data (prevent cross-user contamination)
-      try {
-        const { ClubMembershipService } = await import(
-          '../backend/ClubMembershipService'
-        );
-        await ClubMembershipService.clearCache();
-        console.log('✅ AuthService: Club membership cache cleared');
-      } catch (err) {
-        console.warn('⚠️ AuthService: Club membership cache clear failed:', err);
       }
 
       // Clear all remaining user-specific AsyncStorage keys

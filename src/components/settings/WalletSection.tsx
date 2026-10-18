@@ -5,17 +5,13 @@
 
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { Card } from '../ui/Card';
 import { SettingsAccordion } from '../ui/SettingsAccordion';
-import { SettingItem } from './SettingItem';
 import { settingsStyles as styles } from '../../screens/settingsStyles';
 import { DefaultZapAmountSetting } from './DefaultZapAmountSetting';
 
 interface WalletSectionProps {
-  onRewardsPress: () => void;
-  onAIKeyPress: () => void;
   hasNWCWallet: boolean;
   onDisconnectWallet: () => void;
   onShowWalletConfigModal: () => void;
@@ -23,8 +19,6 @@ interface WalletSectionProps {
 }
 
 export const WalletSection: React.FC<WalletSectionProps> = ({
-  onRewardsPress,
-  onAIKeyPress,
   hasNWCWallet,
   onDisconnectWallet,
   onShowWalletConfigModal,
@@ -33,36 +27,6 @@ export const WalletSection: React.FC<WalletSectionProps> = ({
   <View style={styles.section}>
     <SettingsAccordion title="Wallet" defaultExpanded={false}>
       <Card style={styles.accordionCard}>
-        <SettingItem
-          title="Rewards"
-          subtitle="Choose where your rewards go"
-          onPress={onRewardsPress}
-          rightElement={
-            <View style={styles.securityIcon}>
-              <Ionicons
-                name="flash-outline"
-                size={20}
-                color={theme.colors.text}
-              />
-            </View>
-          }
-        />
-
-        <SettingItem
-          title="PPQ.AI"
-          subtitle="Send your rewards to your PPQ.AI account"
-          onPress={onAIKeyPress}
-          rightElement={
-            <View style={styles.securityIcon}>
-              <Ionicons
-                name="sparkles-outline"
-                size={20}
-                color={theme.colors.text}
-              />
-            </View>
-          }
-        />
-
         <View style={styles.voiceSubsection}>
           <Text style={styles.subsectionTitle}>Connected Wallet</Text>
           {hasNWCWallet ? (

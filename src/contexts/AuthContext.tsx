@@ -24,8 +24,6 @@ import { PerformanceLogger } from '../utils/PerformanceLogger';
 import { NostrFetchLogger } from '../utils/NostrFetchLogger';
 import VerificationService from '../services/verification/VerificationService';
 import { UnifiedSigningService } from '../services/auth/UnifiedSigningService';
-import { PPQAccountService } from '../services/ai/PPQAccountService';
-import { FEATURES } from '../config/features';
 
 // Authentication state interface
 interface AuthState {
@@ -695,14 +693,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   }, [checkStoredCredentials]);
 
-  // One-time migration: upload PPQ.AI key to backend if it hasn't been yet.
-  // Runs after the NDK signer is ready (isAuthenticated=true implies signer attached).
-  // migrateLocalKeyToBackend() is idempotent — early-returns if already uploaded or no account.
-  useEffect(() => {
-    if (!isAuthenticated || isInitializing || !FEATURES.supabase) return;
-    void PPQAccountService.migrateLocalKeyToBackend();
-  }, [isAuthenticated, isInitializing]);
-
   // Sync health platform workouts on app foreground and cold start
   // Replaces the disabled BackgroundSyncService (which conflicted with active GPS tracking).
   // This is safe because it only fires on foreground (user isn't mid-workout) and has a 5-min throttle.
@@ -730,68 +720,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   }, [isAuthenticated, isInitializing]);
 
-  // Register Android background fetch on login, unregister on logout
+  // Phase 2: the Android background sync task only submitted to Supabase and
+  // was removed. Unregister it so installs that registered it stop waking up.
   useEffect(() => {
     if (Platform.OS !== 'android') return;
-
-    const { BackgroundSyncRegistration } = require('../services/fitness/BackgroundSyncRegistration');
-
-    if (isAuthenticated && !isInitializing) {
-      BackgroundSyncRegistration.register().catch(() => {});
-    } else if (isAuthenticated === false) {
-      BackgroundSyncRegistration.unregister().catch(() => {});
-    }
-  }, [isAuthenticated, isInitializing]);
-
-  // Register push token_key so the server can send reward notifications to this device.
-  // Uses UPSERT to guarantee the token_key is set even if the broadcast_tokens row
-  // was created without one (e.g. app opened before login).
-  useEffect(() => {
-    if (!isAuthenticated || isInitializing || !FEATURES.supabase) return;
-
-    (async () => {
-      try {
-        const npub = await getNpubFromStorage();
-        if (!npub) return;
-
-        const provider = (await import('../services/notifications/ExpoNotificationProvider'))
-          .ExpoNotificationProvider.getInstance();
-        await provider.initialize();
-        const token = provider.getDeviceToken();
-        if (!token) {
-          console.log('[Auth] No push token available (simulator or permission denied)');
-          return;
-        }
-
-        const Crypto = await import('expo-crypto');
-        const tokenKey = await Crypto.digestStringAsync(
-          Crypto.CryptoDigestAlgorithm.SHA256,
-          npub
-        );
-
-        const { supabase, isSupabaseConfigured } = await import('../utils/supabase');
-        if (!isSupabaseConfigured() || !supabase) return;
-
-        // Use UPSERT instead of UPDATE to guarantee the row exists with token_key.
-        // The registerToken call in ExpoNotificationProvider should have created the row,
-        // but this is a safety net in case of race conditions or prior registration without npub.
-        const { error } = await supabase
-          .from('broadcast_tokens')
-          .upsert(
-            { token, token_key: tokenKey, platform: Platform.OS, is_active: true },
-            { onConflict: 'token' }
-          );
-
-        if (error) {
-          console.warn('[Auth] Push token_key upsert failed:', error.message);
-        } else {
-          console.log('[Auth] Push token_key registered for reward notifications (key:', tokenKey.slice(0, 12) + '...)');
-        }
-      } catch (err) {
-        console.warn('[Auth] token_key registration failed (silent):', err);
-      }
-    })();
-  }, [isAuthenticated, isInitializing]);
+    require('expo-background-fetch')
+      .unregisterTaskAsync('runstr-background-sync')
+      .catch(() => {}); // not registered — nothing to clean up
+  }, []);
 
   // Context value - memoized to prevent unnecessary re-renders
   // This prevents cascading re-renders when context consumers check for changes

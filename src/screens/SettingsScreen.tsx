@@ -5,15 +5,8 @@
  * Rewards are handled server-side via trigger_auto_reward() + push notifications.
  */
 
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  SafeAreaView,
-  KeyboardAvoidingView,
-  TouchableOpacity,
-  Platform,
-} from 'react-native';
+import React from 'react';
+import { View, SafeAreaView, KeyboardAvoidingView, TouchableOpacity, Platform } from 'react-native';
 import { OstrichRefreshScrollView } from '../components/ui/OstrichRefreshScrollView';
 import { theme } from '../styles/theme';
 import { CustomAlert } from '../components/ui/CustomAlert';
@@ -24,10 +17,8 @@ import { ImportDataModal } from '../components/backup/ImportDataModal';
 import { WalletConfigModal } from '../components/wallet/WalletConfigModal';
 import { NWCQRConfirmationModal } from '../components/wallet/NWCQRConfirmationModal';
 import { QRScannerModal } from '../components/qr/QRScannerModal';
-import { PPQAPIKeyModal } from '../components/ai/PPQAPIKeyModal';
 import { settingsStyles as styles } from './settingsStyles';
 import { useSettingsState } from './useSettingsState';
-import { RewardNotificationManager } from '../services/rewards/RewardNotificationManager';
 import { FEATURES } from '../config/features';
 
 // Section components
@@ -54,7 +45,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onSignOut,
 }) => {
   const state = useSettingsState(onSignOut);
-  const [showPPQModal, setShowPPQModal] = useState(false);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -83,29 +73,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           refreshing={state.isRefreshing}
           onRefresh={state.handleRefresh}
         >
-          {__DEV__ && (
-            <TouchableOpacity
-              style={{
-                marginHorizontal: 16,
-                marginBottom: 16,
-                paddingVertical: 12,
-                borderRadius: 8,
-                borderWidth: 1,
-                borderColor: theme.colors.orangeDeep,
-                alignItems: 'center',
-              }}
-              onPress={() => {
-                // Prototype: fire the reward toast to preview the bolt animation.
-                // Single toast per press so the animation replay is easy to verify.
-                RewardNotificationManager.showRewardConfirmed(50);
-              }}
-            >
-              <Text style={{ color: theme.colors.orangeDeep, fontWeight: '600' }}>
-                ⚡ Preview reward animation (DEV)
-              </Text>
-            </TouchableOpacity>
-          )}
-
           <FitnessTrackingSection
             ttsSettings={state.ttsSettings}
             onTTSSettingChange={state.handleTTSSettingChange}
@@ -140,8 +107,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
           {FEATURES.walletSettings && (
             <WalletSection
-              onRewardsPress={state.handleRewardsPress}
-              onAIKeyPress={() => setShowPPQModal(true)}
               hasNWCWallet={state.hasNWCWallet}
               onDisconnectWallet={state.handleDisconnectWallet}
               onShowWalletConfigModal={() => state.setShowWalletConfigModal(true)}
@@ -211,11 +176,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         onClose={() => state.setShowNWCQRConfirmModal(false)}
         connectionString={state.scannedNWCString}
         onSuccess={state.handleNWCConnectSuccess}
-      />
-      <PPQAPIKeyModal
-        visible={showPPQModal}
-        onClose={() => setShowPPQModal(false)}
-        onSuccess={() => {}}
       />
     </SafeAreaView>
   );

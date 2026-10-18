@@ -23,19 +23,15 @@ import { VerifiedCheckmark } from '../../activity/VerifiedCheckmark';
 interface EnhancedWorkoutCardProps {
   workout: Workout;
   onSocialShare?: (workout: Workout) => void;
-  onCompete?: (workoutId: string) => void;
   hideActions?: boolean;
   isWoTEligible?: boolean;
-  supabaseSubmitted?: boolean;
 }
 
 export const EnhancedWorkoutCard: React.FC<EnhancedWorkoutCardProps> = React.memo(({
   workout,
   onSocialShare,
-  onCompete,
   hideActions = false,
   isWoTEligible = false,
-  supabaseSubmitted,
 }) => {
   const { unitSystem, paceLabel } = useUnitPreference();
   const [status, setStatus] = useState({
@@ -506,23 +502,6 @@ export const EnhancedWorkoutCard: React.FC<EnhancedWorkoutCardProps> = React.mem
           </View>
         )}
 
-        {/* Compete Button - shown when Supabase submission failed */}
-        {!hideActions && supabaseSubmitted === false && onCompete && (
-          <View style={styles.actions}>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.competeButton]}
-              onPress={() => onCompete(workout.id)}
-            >
-              <Ionicons
-                name="trophy-outline"
-                size={16}
-                color="#FF9D42"
-                style={styles.buttonIcon}
-              />
-              <Text style={styles.competeButtonText}>Compete</Text>
-            </TouchableOpacity>
-          </View>
-        )}
       </TouchableOpacity>
 
       {/* Workout Detail Modal */}
@@ -682,16 +661,6 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     color: theme.colors.background,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  competeButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#FF9D42',
-  },
-  competeButtonText: {
-    color: '#FF9D42',
     fontSize: 14,
     fontWeight: '600',
   },

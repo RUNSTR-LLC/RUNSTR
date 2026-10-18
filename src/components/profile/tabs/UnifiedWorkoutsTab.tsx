@@ -18,7 +18,6 @@ import {
 import * as Haptics from 'expo-haptics';
 import { OstrichRefreshFlatList } from '../../ui/OstrichRefreshScrollView';
 import { theme } from '../../../styles/theme';
-import { Card } from '../../ui/Card';
 import { CustomAlert } from '../../ui/CustomAlert';
 import { EnhancedWorkoutCard } from '../shared/EnhancedWorkoutCard';
 import { TimelineEntryCard } from '../shared/TimelineEntryCard';
@@ -429,43 +428,6 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
     } finally { setPostingWorkoutId(null); setPostingType(null); }
   };
 
-  const handleRetryCompete = async (workoutId: string) => {
-    try {
-      setPostingWorkoutId(workoutId);
-      setPostingType('nostr');
-      const result = await localWorkoutStorage.retrySupabaseSubmission(workoutId);
-      if (result.success) {
-        Toast.show({
-          type: 'success',
-          text1: 'Workout Submitted',
-          text2: 'Your workout is on the leaderboard',
-          position: 'bottom',
-          visibilityTime: 3000,
-        });
-        await loadLocalWorkouts();
-      } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Submission Failed',
-          text2: result.error || 'Please try again later',
-          position: 'bottom',
-          visibilityTime: 4000,
-        });
-      }
-    } catch (error) {
-      Toast.show({
-        type: 'error',
-        text1: 'Submission Failed',
-        text2: 'Please try again later',
-        position: 'bottom',
-        visibilityTime: 4000,
-      });
-    } finally {
-      setPostingWorkoutId(null);
-      setPostingType(null);
-    }
-  };
-
   const handleDeleteWorkout = async (workoutId: string) => {
     setAlertConfig({
       title: 'Delete Workout', message: 'Are you sure? This cannot be undone.',
@@ -529,22 +491,6 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
                   <>
                     <Ionicons name="paper-plane-outline" size={16} color="#000" />
                     <Text style={styles.postButtonText}>Post</Text>
-                  </>
-                )}
-              </PressableScale>
-            )}
-            {isLocal && FEATURES.supabase && localWorkout?.supabaseSubmitted === false && (
-              <PressableScale
-                style={[styles.actionButton, styles.competeButton]}
-                onPress={() => handleRetryCompete(workout.id)}
-                disabled={isPosting && postingType === 'nostr'}
-              >
-                {isPosting && postingType === 'nostr' ? (
-                  <ActivityIndicator size="small" color={theme.colors.textMuted} />
-                ) : (
-                  <>
-                    <Ionicons name="trophy-outline" size={16} color={theme.colors.text} />
-                    <Text style={styles.competeButtonText}>Compete</Text>
                   </>
                 )}
               </PressableScale>
@@ -706,14 +652,6 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
       });
     }
 
-    if (isLocal && FEATURES.supabase && localWorkout?.supabaseSubmitted === false) {
-      actions.push({
-        id: 'compete',
-        label: 'Retry Compete',
-        icon: 'trophy-outline',
-        onPress: () => handleRetryCompete(workout.id),
-      });
-    }
 
     if (canDelete) {
       actions.push({
@@ -766,11 +704,6 @@ const styles = StyleSheet.create({
   },
   postButton: { backgroundColor: theme.colors.text, flex: 1.5 },
   postButtonText: { color: '#000', fontSize: 14, fontWeight: '600' },
-  competeButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1, borderColor: theme.colors.border, flex: 1,
-  },
-  competeButtonText: { color: theme.colors.text, fontSize: 14, fontWeight: '600' },
   deleteButton: {
     backgroundColor: '#111111',
     borderWidth: 1, borderColor: theme.colors.border, flex: 1,

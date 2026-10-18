@@ -15,17 +15,7 @@ import * as Location from 'expo-location';
 import { SIMPLE_TRACKER_TASK } from './services/activity/SimpleRunTracker';
 
 import React from 'react';
-import {
-  StatusBar,
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  AppState,
-  AppStateStatus,
-  Platform,
-  LogBox,
-} from 'react-native';
+import { StatusBar, View, Text, StyleSheet, TouchableOpacity, AppState, Platform, LogBox } from 'react-native';
 
 // Suppress specific warnings that don't affect app functionality
 LogBox.ignoreLogs([
@@ -205,9 +195,7 @@ import { ProfileEditScreen } from './screens/ProfileEditScreen';
 import { SavedRoutesScreen } from './screens/routes/SavedRoutesScreen';
 import { useWalletStore } from './store/walletStore';
 import { theme } from './styles/theme';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-  safeGetItem,
   safeSetItem,
   safeMultiGet,
   safeRemoveItem,
@@ -216,22 +204,17 @@ import { AppStateManager } from './services/core/AppStateManager';
 import AppInitializationService from './services/core/AppInitializationService';
 import { Nostr1301ImportService } from './services/fitness/Nostr1301ImportService';
 import { RestoreService } from './services/backup/RestoreService';
-import { StepCompetitionService } from './services/competition/StepCompetitionService';
 import { analytics } from './utils/analytics';
 import {
   CustomAlertProvider,
   CustomAlertManager,
 } from './components/ui/CustomAlert';
-import { RewardNotificationProvider } from './components/rewards/RewardNotificationProvider';
 import Toast from 'react-native-toast-message';
 import { toastConfig } from './components/ui/toastConfig';
 import {
   parseEventDeepLink,
   type ParsedEventData,
 } from './utils/eventDeepLink';
-import { PendingSubmissionService } from './services/competition/PendingSubmissionService';
-import { RewardPollingService } from './services/rewards/RewardPollingService';
-import { FEATURES } from './config/features';
 
 // Music player components for Wavlake integration
 // Note: MiniMusicPlayer removed - replaced by ProfileMusicBar in ProfileScreen
@@ -333,24 +316,6 @@ const AuthenticatedNavigator: React.FC = () => {
         console.log(
           '[App] 🚀 Authenticated user detected, cleanup starting...'
         );
-
-        // ✅ CLEANUP: Defer event snapshot cleanup to prevent UI blocking
-        setTimeout(async () => {
-          try {
-            const { EventSnapshotStore } = await import(
-              './services/event/EventSnapshotStore'
-            );
-            const removed = await EventSnapshotStore.cleanupExpired();
-            if (removed > 0) {
-              console.log(`🧹 Cleaned up ${removed} expired event snapshots`);
-            }
-          } catch (error) {
-            console.warn(
-              '⚠️ Event snapshot cleanup failed (non-critical):',
-              error
-            );
-          }
-        }, 1000); // Defer by 1 second to let UI settle
 
         console.log(
           '[App] 💰 Cashu wallet initialization skipped (using NWC for Lightning payments)'
@@ -579,56 +544,18 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
     }
   }, [isAuthenticated, currentUser, hasInitialized]);
 
-  // Step Competition: Auto-submit daily steps on app foreground
-  // Users in step-based competitions (January Walking) have their passive
-  // pedometer steps submitted automatically for leaderboard tracking
-  // Also: Retry pending workout submissions that failed to sync
+  // Foreground/background: flush the encrypted backup
   React.useEffect(() => {
     if (!isAuthenticated || !currentUser) {
       return;
     }
-
-    const npub = currentUser.npub || currentUser.id;
-    if (!npub) {
-      return;
-    }
-
-    console.log('[App] Registering foreground handlers (step competition + pending sync)');
 
     // Register callback with AppStateManager for foreground events
     const unsubscribe = AppStateManager.onStateChange(async (isActive) => {
       if (isActive) {
         console.log('[App] App foregrounded - running foreground tasks...');
 
-        // Task 1: Retry pending workout submissions
-        try {
-          const retryResult = FEATURES.supabase
-            ? await PendingSubmissionService.retryAll()
-            : { succeeded: 0 };
-          if (retryResult.succeeded > 0) {
-            console.log(`[App] ✅ Synced ${retryResult.succeeded} pending workout(s)`);
-            Toast.show({
-              type: 'success',
-              text1: `${retryResult.succeeded} workout${retryResult.succeeded > 1 ? 's' : ''} synced!`,
-              text2: 'Your workout is now on the leaderboard',
-              position: 'bottom',
-              visibilityTime: 3000,
-            });
-          }
-        } catch (error) {
-          console.warn('[App] Pending submission retry failed:', error);
-          // Non-critical - don't block app functionality
-        }
-
-        // Task 2: Check step competitions
-        try {
-          await StepCompetitionService.checkAndSubmitSteps(npub);
-        } catch (error) {
-          console.warn('[App] Step competition check failed:', error);
-          // Non-critical - don't block app functionality
-        }
-
-        // Task 3: Fire any pending backup (Amber users deferred from background)
+        // Fire any pending backup (Amber users deferred from background)
         try {
           const { AutoBackupService } = require('./services/backup/AutoBackupService');
           AutoBackupService.getInstance().onAppForeground();
@@ -646,52 +573,9 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
       }
     });
 
-    // Also check on initial mount (user may have opened app fresh)
-    const initialCheckTimer = setTimeout(async () => {
-      try {
-        await StepCompetitionService.checkAndSubmitSteps(npub);
-      } catch (error) {
-        console.warn('[App] Initial step competition check failed:', error);
-      }
-    }, 2000); // Delay to let app fully initialize
-
     return () => {
       console.log('[App] Unregistering foreground handlers');
       unsubscribe();
-      clearTimeout(initialCheckTimer);
-    };
-  }, [isAuthenticated, currentUser]);
-
-  // Reward Polling: Check for confirmed payments from Supabase
-  // Shows toast notifications when payments are actually confirmed
-  React.useEffect(() => {
-    if (!isAuthenticated || !currentUser || !FEATURES.supabase) {
-      // User logged out (or Supabase off) - cleanup polling
-      RewardPollingService.cleanup();
-      return;
-    }
-
-    // Get hex pubkey for polling service
-    const initializePolling = async () => {
-      try {
-        const hexPubkey = await safeGetItem('@runstr:hex_pubkey', 2000, null);
-        if (hexPubkey) {
-          console.log('[App] Initializing RewardPollingService');
-          await RewardPollingService.initialize(hexPubkey);
-        } else {
-          console.warn('[App] No hex pubkey found for reward polling');
-        }
-      } catch (error) {
-        console.warn('[App] Failed to initialize reward polling:', error);
-        // Non-critical - app continues without polling
-      }
-    };
-
-    initializePolling();
-
-    return () => {
-      console.log('[App] Cleaning up RewardPollingService');
-      RewardPollingService.cleanup();
     };
   }, [isAuthenticated, currentUser]);
 
@@ -1012,7 +896,6 @@ export default function App() {
   return (
     <AppErrorBoundary>
       <CustomAlertProvider>
-        <RewardNotificationProvider>
           <AuthProvider>
             <NavigationDataProvider>
               <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
@@ -1020,7 +903,6 @@ export default function App() {
               </View>
             </NavigationDataProvider>
           </AuthProvider>
-        </RewardNotificationProvider>
       </CustomAlertProvider>
       <Toast config={toastConfig} />
     </AppErrorBoundary>

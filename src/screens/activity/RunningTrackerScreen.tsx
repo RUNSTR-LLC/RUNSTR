@@ -709,9 +709,6 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
       });
 
       console.log(`[RunningTracker] GPS workout saved locally: ${result.workoutId}`);
-      if (result.rewardSent) {
-        console.log(`[RunningTracker] ⚡ Reward sent: ${result.rewardAmount} sats!`);
-      }
 
       // If a route was selected, add this workout to the route
       if (selectedRoute && pace !== undefined) {
@@ -739,8 +736,6 @@ export const RunningTrackerScreen: React.FC<RunningTrackerScreenProps> = ({
         localWorkoutId: result.workoutId, // Pass to modal for sync tracking
         routeId: selectedRoute?.id, // Pass route info for achievements
         routeName: selectedRoute?.name,
-        rewardSent: result.rewardSent, // Pass reward info to modal
-        rewardAmount: result.rewardAmount,
       });
       setSummaryModalVisible(true);
     } catch (error) {

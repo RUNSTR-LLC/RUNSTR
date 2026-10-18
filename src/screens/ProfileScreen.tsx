@@ -1,22 +1,17 @@
 /**
  * ProfileScreen - Unified profile page
  *
- * Composes section components for both the current user (tab root)
- * and other users (navigated via pubkey route param).
+ * The signed-in user's home: profile hero and the running tracker.
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { OstrichRefreshScrollView } from '../components/ui/OstrichRefreshScrollView';
 import { theme } from '../styles/theme';
 import { TexturedBackground } from '../components/ui/TexturedBackground';
 import { ProfileScreenData } from '../types';
-import type { User } from '../types';
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { npubEncode } from '../utils/nostrEncoding';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 import { NostrFetchLogger } from '../utils/NostrFetchLogger';
 import { MusicPlayerPreferencesService } from '../services/music/MusicPlayerPreferencesService';
@@ -24,26 +19,15 @@ import { HeaderMusicControls } from '../components/music/HeaderMusicControls';
 import { ProfileHero } from '../components/profile/ProfileHero';
 import { ScreenErrorBoundary } from '../components/ui/ScreenErrorBoundary';
 import { TopBar } from '../components/ui/TopBar';
-import { LevelCard } from '../components/profile/LevelCard';
-import { ActivityBreakdown } from '../components/profile/ActivityBreakdown';
-import { ClubAffiliationsSection } from '../components/profile/ClubAffiliationsSection';
 import { NotificationBadge } from '../components/profile/NotificationBadge';
 import { NotificationModal } from '../components/profile/NotificationModal';
-import { ProfileDataService } from '../services/backend/ProfileDataService';
-import { ClubChatService } from '../services/backend/ClubChatService';
-import type { RecentWorkout, ClubAffiliation, ProfileLevelData, ActivityBreakdownData } from '../services/backend/ProfileDataService';
-import { useNostrProfile } from '../hooks/useCachedData';
 import LocalWorkoutStorageService from '../services/fitness/LocalWorkoutStorageService';
-import { SupabaseRewardService } from '../services/rewards/SupabaseRewardService';
 import { ActivityCategoryBar } from '../components/activity/ActivityCategoryBar';
 import { activityGridService, type GridPosition } from '../services/activity/ActivityGridService';
 import { appPermissionService } from '../services/initialization/AppPermissionService';
 import { PermissionRequestModal } from '../components/permissions/PermissionRequestModal';
 import { FEATURES } from '../config/features';
 import { RunningTrackerScreen } from './activity/RunningTrackerScreen';
-import { WalkingTrackerScreen } from './activity/WalkingTrackerScreen';
-import { CyclingTrackerScreen } from './activity/CyclingTrackerScreen';
-import { HikingTrackerScreen } from './activity/HikingTrackerScreen';
 
 const GRACE_PERIOD_DAYS = 3;
 
@@ -104,22 +88,11 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
   onHelp, onContactSupport, onPrivacyPolicy, onSignOut, onRefresh,
 }) => {
   const navigation = useNavigation<any>();
-  const route = useRoute<any>();
-  const pubkey: string | undefined = route?.params?.pubkey;
 
-  const [userNpub, setUserNpub] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [musicPlayerHeaderEnabled, setMusicPlayerHeaderEnabled] = useState(false);
-  const isMountedRef = useRef(true);
-  const [levelData, setLevelData] = useState<ProfileLevelData | null>(null);
-  const [activityBreakdown, setActivityBreakdown] = useState<ActivityBreakdownData | null>(null);
-  const [recentWorkouts, setRecentWorkouts] = useState<RecentWorkout[]>([]);
-  const [clubs, setClubs] = useState<ClubAffiliation[]>([]);
-  const [isLoadingSections, setIsLoadingSections] = useState(true);
   const [currentStreak, setCurrentStreak] = useState(0);
-  const [totalEarnings, setTotalEarnings] = useState<number>(0);
-  const [unreadChatCount, setUnreadChatCount] = useState<number>(0);
 
   // Activity launcher state
   const [gridPosition, setGridPosition] = useState<GridPosition>({ row: 0, column: 0 });
@@ -130,115 +103,14 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
   const [permissionsReady, setPermissionsReady] = useState(false);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
 
-  const isOwner = !pubkey || pubkey === userNpub || (pubkey.length === 64 && !pubkey.startsWith('npub1') && npubEncode(pubkey) === userNpub);
-  const targetNpub = pubkey || userNpub;
-
-  // Fetch Nostr profile for other users
-  const { profile: otherProfile } = useNostrProfile(pubkey && !isOwner ? pubkey : null);
-  const otherUser: User | null = otherProfile ? {
-    id: pubkey!, name: otherProfile.name || otherProfile.display_name || '',
-    npub: otherProfile.npub || pubkey!, role: 'member' as const, createdAt: '',
-    bio: otherProfile.about, picture: otherProfile.picture, banner: otherProfile.banner,
-    lud16: otherProfile.lud16, displayName: otherProfile.display_name || otherProfile.name,
-    website: otherProfile.website,
-  } : null;
-
-  useEffect(() => { isMountedRef.current = true; return () => { isMountedRef.current = false; }; }, []);
-
-  // Load user npub on mount
-  useEffect(() => {
-    let isMounted = true;
-    (async () => {
-      try {
-        const id = data.user.id;
-        if (!id) return;
-        if (id.startsWith('npub')) { if (isMounted) setUserNpub(id); return; }
-        if (id.length === 64) { if (isMounted) setUserNpub(npubEncode(id)); return; }
-        const stored = await AsyncStorage.getItem('@runstr:npub');
-        if (stored && isMounted) setUserNpub(stored);
-      } catch {
-        try { const s = await AsyncStorage.getItem('@runstr:npub'); if (s && isMounted) setUserNpub(s); } catch {}
-      }
-    })();
-    return () => { isMounted = false; };
-  }, [data.user.id]);
-
-  // Load profile sections via ProfileDataService
-  const loadProfileSections = useCallback(async (npub: string) => {
-    setIsLoadingSections(true);
-    try {
-      // Use allSettled so one failing query doesn't block others
-      const [ldR, abR, wR, clR] = await Promise.allSettled([
-        ProfileDataService.getLevelData(npub),
-        ProfileDataService.getActivityBreakdown(npub),
-        ProfileDataService.getUserRecentWorkouts(npub, 5),
-        ProfileDataService.getUserClubs(npub),
-      ]);
-      if (!isMountedRef.current) return;
-      if (ldR.status === 'fulfilled') setLevelData(ldR.value);
-      if (abR.status === 'fulfilled') setActivityBreakdown(abR.value);
-      if (wR.status === 'fulfilled') setRecentWorkouts(wR.value);
-      if (clR.status === 'fulfilled') setClubs(clR.value);
-    } catch (err) {
-      console.error('[ProfileScreen] Failed to load profile sections:', err);
-    } finally {
-      if (isMountedRef.current) setIsLoadingSections(false);
-    }
-  }, []);
-
-  // Load sections when targetNpub is available; if empty, stop loading
-  useEffect(() => {
-    if (targetNpub && FEATURES.supabase) { loadProfileSections(targetNpub); }
-    else { setIsLoadingSections(false); }
-  }, [targetNpub, loadProfileSections]);
-
-  // Refresh clubs + streak + music header on focus
+  // Refresh streak + music header on focus
   useFocusEffect(useCallback(() => {
     MusicPlayerPreferencesService.isMusicPlayerHeaderEnabled().then(setMusicPlayerHeaderEnabled);
-    if (isOwner) {
-      LocalWorkoutStorageService.getAllWorkouts()
-        .then((w) => setCurrentStreak(computeCurrentStreak(w)))
-        .catch(() => {});
+    LocalWorkoutStorageService.getAllWorkouts()
+      .then((w) => setCurrentStreak(computeCurrentStreak(w)))
+      .catch(() => {});
+  }, []));
 
-      // Load total earnings for the ProfileHero earnings badge
-      (async () => {
-        try {
-          const pubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
-          if (!pubkey || !FEATURES.supabase) return;
-          const data = await SupabaseRewardService.getEarningsByDestination(pubkey);
-          setTotalEarnings(data.reduce((sum, d) => sum + d.totalSats, 0));
-        } catch (err) {
-          console.warn('[ProfileScreen] Failed to load earnings:', err);
-        }
-      })();
-    }
-    if (targetNpub && FEATURES.supabase) {
-      ProfileDataService.clearProfileCache(targetNpub);
-      ProfileDataService.getUserClubs(targetNpub).then(setClubs).catch(() => {});
-    }
-  }, [targetNpub, isOwner]));
-
-  // Refresh unread chat count for the user's current team on focus
-  useFocusEffect(
-    useCallback(() => {
-      const teamId = data?.currentTeam?.id;
-      if (!teamId) {
-        setUnreadChatCount(0);
-        return;
-      }
-      let cancelled = false;
-      ClubChatService.getUnreadCount(teamId)
-        .then((count) => {
-          if (!cancelled) setUnreadChatCount(count);
-        })
-        .catch(() => {
-          if (!cancelled) setUnreadChatCount(0);
-        });
-      return () => {
-        cancelled = true;
-      };
-    }, [data?.currentTeam?.id]),
-  );
 
   // Load saved activity grid position on mount
   useEffect(() => {
@@ -299,20 +171,13 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
       await Promise.all([
         DPS.getCurrentUserProfile(true).catch(() => {}),
         onRefresh?.() ?? Promise.resolve(),
-        targetNpub && FEATURES.supabase ? loadProfileSections(targetNpub) : Promise.resolve(),
       ]);
       NostrFetchLogger.end('ProfileScreen.pullToRefresh', 1, 'success');
     } catch (error) {
       NostrFetchLogger.error('ProfileScreen.pullToRefresh', error as Error);
       Toast.show({ type: 'error', text1: 'Refresh failed', text2: 'Check your connection and try again', position: 'bottom', visibilityTime: 3000 });
     } finally { setIsRefreshing(false); }
-  }, [onRefresh, targetNpub, loadProfileSections]);
-
-  const handleClubPress = useCallback((id: string, name: string) => {
-    if (!FEATURES.teams) return;
-    const parent = navigation.getParent();
-    (parent || navigation).navigate('ClubPage' as any, { clubId: id, clubName: name });
-  }, [navigation]);
+  }, [onRefresh]);
 
   const handleTeamPress = useCallback(() => {
     if (!FEATURES.teams) return;
@@ -333,7 +198,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
   const renderTracker = () => {
     if (!positionLoaded) return null;
 
-    const { category, activity } = activityGridService.getActivityAt(gridPosition);
+    const { category } = activityGridService.getActivityAt(gridPosition);
     const isCardio = category.key === 'cardio';
 
     // For cardio, check permissions before rendering tracker
@@ -352,46 +217,13 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
       );
     }
 
-    // Phase 1: the app tracks running only. The activity grid still exists and
-    // sync still collects every activity type — this pins the *tracker* to runs.
-    if (!FEATURES.activitySelector) {
-      return (
-        <ScreenErrorBoundary screenName="Workout Tracker">
-          <RunningTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />
-        </ScreenErrorBoundary>
-      );
-    }
-
-    let tracker: React.ReactNode;
-    switch (category.key) {
-      case 'cardio':
-        switch (activity) {
-          case 'run':
-            tracker = <RunningTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
-            break;
-          case 'walk':
-            tracker = <WalkingTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
-            break;
-          case 'cycle':
-            tracker = <CyclingTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
-            break;
-          case 'hiking':
-            tracker = <HikingTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
-            break;
-          default:
-            tracker = <RunningTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
-        }
-        break;
-      default:
-        tracker = <RunningTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />;
-    }
-
-    // A render-time crash inside an active tracker used to white-screen the whole
-    // app (and lose the workout). The in-progress session lives in the
-    // simpleRunTracker singleton, so "Retry" re-mounts the tracker and resumes it.
+    // The app tracks running only. A render-time crash inside an active tracker
+    // used to white-screen the whole app (and lose the workout). The in-progress
+    // session lives in the simpleRunTracker singleton, so "Retry" re-mounts the
+    // tracker and resumes it.
     return (
       <ScreenErrorBoundary screenName="Workout Tracker">
-        {tracker}
+        <RunningTrackerScreen onWorkoutStateChange={setIsWorkoutActive} />
       </ScreenErrorBoundary>
     );
   };
@@ -403,7 +235,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
           inset and push the TopBar lower than on the Social/Leaderboard tabs. */}
       <TexturedBackground edges={[]}>
         {/* Header — hidden during active workout */}
-      {isOwner && !isWorkoutActive && (
+      {!isWorkoutActive && (
         musicPlayerHeaderEnabled ? (
           <View style={styles.header}>
             <HeaderMusicControls onSettingsPress={handleSettingsPress} />
@@ -417,8 +249,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
           or not, so the tracker component below keeps a stable position in the
           tree and React does not unmount it when isWorkoutActive flips.
           scrollEnabled toggles pull-to-refresh off during a workout. */}
-      {isOwner ? (
-        <View style={isWorkoutActive ? styles.fullScreenTracker : styles.ownerContent}>
+      <View style={isWorkoutActive ? styles.fullScreenTracker : styles.ownerContent}>
           <OstrichRefreshScrollView
             style={styles.ownerScroll}
             contentContainerStyle={styles.ownerScrollContent}
@@ -430,16 +261,12 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
             {!isWorkoutActive && (
               <View style={styles.sectionGap}>
                 <ProfileHero user={data.user} isOwner={true}
-                  isLoading={isLoadingSections}
-                  level={FEATURES.level ? (levelData?.level ?? 0) : undefined}
                   streak={FEATURES.level ? currentStreak : undefined}
-                  earnings={FEATURES.earnings ? totalEarnings : undefined}
                   currentTeam={data.currentTeam ? {
                     id: data.currentTeam.id,
                     name: data.currentTeam.name,
                     avatarUrl: null,
                   } : null}
-                  unreadChatCount={unreadChatCount}
                   onTeamPress={handleTeamPress}
                   onEditPress={handleEditPress}
                   onSettingsPress={undefined} />
@@ -467,39 +294,6 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
             </View>
           </OstrichRefreshScrollView>
         </View>
-      ) : (
-        <OstrichRefreshScrollView
-          style={styles.content}
-          contentContainerStyle={styles.scrollContent}
-          refreshing={isRefreshing}
-          onRefresh={handleRefresh}
-        >
-          <View style={styles.sectionGap}>
-            <ProfileHero user={otherUser} isOwner={false}
-              isLoading={!otherUser}
-              level={FEATURES.level ? (levelData?.level ?? 0) : undefined}
-              onBackPress={() => navigation.goBack()}
-              onSettingsPress={undefined} />
-          </View>
-
-          {FEATURES.level && (
-          <View style={styles.sectionGap}>
-            <LevelCard levelData={levelData} isLoading={isLoadingSections} />
-          </View>
-          )}
-          <View style={styles.sectionGap}>
-            <ActivityBreakdown breakdown={activityBreakdown} isLoading={isLoadingSections} />
-          </View>
-          {FEATURES.teams && (
-          <View style={styles.sectionGap}>
-            <ClubAffiliationsSection clubs={clubs} onClubPress={(id) => {
-              const club = clubs.find(c => c.id === id);
-              handleClubPress(id, club?.name || '');
-            }} />
-          </View>
-          )}
-        </OstrichRefreshScrollView>
-      )}
 
       {/* Permission modal — shown when user taps "enable location" for cardio */}
       {showPermissionModal && (
@@ -516,9 +310,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
         />
       )}
 
-      {isOwner && (
-        <NotificationModal visible={showNotificationModal} onClose={() => setShowNotificationModal(false)} />
-      )}
+      <NotificationModal visible={showNotificationModal} onClose={() => setShowNotificationModal(false)} />
       </TexturedBackground>
     </SafeAreaView>
   );

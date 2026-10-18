@@ -8,9 +8,6 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { WorkoutType } from '../../types/workout';
 import { inferActivityTypeSimple, correctWalkingMislabel } from '../../utils/activityInference';
-import { SubmittedIdStore } from '../../utils/SubmittedIdStore';
-import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
-import { buildRewardTags } from '../../utils/rewardTags';
 
 // Environment-based logging utility
 const isDevelopment = __DEV__;
@@ -22,11 +19,6 @@ const debugLog = (message: string, ...args: any[]) => {
 const errorLog = (message: string, ...args: any[]) => {
   console.error(message, ...args);
 };
-
-const submittedIdStore = new SubmittedIdStore({
-  storageKey: '@healthconnect:submitted_workout_ids',
-  maxIds: 500,
-});
 
 // Import react-native-health-connect for Android only
 let HealthConnect: any = null;
@@ -781,114 +773,9 @@ export class HealthConnectService {
       await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
       this.lastSyncAt = new Date();
       debugLog(`Health Connect: Cached ${workouts.length} workouts`);
-
-      // Auto-submit new cardio workouts to Supabase (fire-and-forget)
-      this.submitNewWorkoutsToSupabase(workouts).catch((err) => {
-        console.warn('[HealthConnect] Supabase auto-submit error (silent):', err);
-      });
     } catch (error) {
       console.warn('Failed to cache Health Connect workouts:', error);
     }
-  }
-
-  /**
-   * Submit newly discovered cardio workouts to Supabase for leaderboard tracking.
-   */
-  private async submitNewWorkoutsToSupabase(
-    workouts: HealthConnectWorkout[]
-  ): Promise<void> {
-    const CARDIO_TYPES = ['running', 'walking', 'cycling', 'hiking'];
-    const npub = await AsyncStorage.getItem('@runstr:npub');
-    if (!npub) return;
-
-    const submittedIds = await submittedIdStore.get();
-
-    const newCardio = workouts.filter((w) => {
-      // Only suppress workouts that are already confirmed submitted.
-      // Do NOT suppress by previous cache presence: if a prior submit failed,
-      // the workout can exist in cache but still needs retry.
-      if (!w.id || submittedIds.has(w.id)) return false;
-      if (!w.activityType || !CARDIO_TYPES.includes(w.activityType)) return false;
-      if (!w.totalDistance || w.totalDistance <= 0) return false;
-      return true;
-    });
-
-    // Build reward tags once for all workouts (lightning, team, charity, reward_destination)
-    const rewardTags = await buildRewardTags();
-
-    // Fetch cached profile for leaderboard display (name/picture)
-    const profile = await this.getCachedProfile();
-
-    for (const w of newCardio) {
-      try {
-        const eventId = `hc_${w.id}`;
-        const result = await SupabaseCompetitionService.submitWorkoutSimple({
-          eventId,
-          npub,
-          type: w.activityType || 'running',
-          distance: w.totalDistance,
-          duration: w.duration,
-          calories: w.totalEnergyBurned,
-          startTime: w.startTime,
-          tags: [...rewardTags],
-          profileName: profile.name,
-          profilePicture: profile.picture,
-        });
-
-        if (!result.success) {
-          // Permanent rejections (anti-cheat flagged): mark as submitted to avoid infinite retries
-          if (result.flagged) {
-            submittedIds.add(w.id);
-            console.warn(`[HealthConnect] Workout flagged by anti-cheat, skipping: ${eventId} - ${result.error}`);
-          } else {
-            // Transient failure (network, timeout): leave unmarked so next sync retries
-            console.warn(`[HealthConnect] Submission failed (will retry): ${eventId} - ${result.error}`);
-          }
-          continue;
-        }
-
-        submittedIds.add(w.id);
-        debugLog(`[HealthConnect] Auto-submitted ${w.activityType} workout to Supabase: ${eventId}`);
-
-        // Auto-join RUNSTR competitions for this workout (fire-and-forget)
-        import('../competition/AutoJoinService').then(({ AutoJoinService }) => {
-          AutoJoinService.checkAndAutoJoin(
-            npub,
-            w.activityType || 'running',
-            new Date(w.startTime),
-            profile
-          ).catch(() => {});
-        }).catch(() => {});
-      } catch (err) {
-        console.warn(`[HealthConnect] Failed to submit workout ${w.id}:`, err);
-      }
-    }
-
-    try {
-      await submittedIdStore.save(submittedIds);
-    } catch (error) {
-      console.warn('[HealthConnect] Failed to save submitted workout IDs:', error);
-    }
-  }
-
-  /**
-   * Get cached profile data for leaderboard display.
-   */
-  private async getCachedProfile(): Promise<{ name?: string; picture?: string }> {
-    try {
-      const profilesJson = await AsyncStorage.getItem('@runstr:nostr_profiles');
-      if (profilesJson) {
-        const profiles = JSON.parse(profilesJson);
-        const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
-        if (hexPubkey && profiles[hexPubkey]) {
-          return {
-            name: profiles[hexPubkey].name || profiles[hexPubkey].displayName,
-            picture: profiles[hexPubkey].picture,
-          };
-        }
-      }
-    } catch { /* non-critical */ }
-    return {};
   }
 
   /**

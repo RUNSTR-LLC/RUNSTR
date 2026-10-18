@@ -4,13 +4,11 @@
  * Handles initial data prefetching for authenticated users
  */
 
-import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NostrInitializationService } from '../nostr/NostrInitializationService';
 import nostrPrefetchService from '../nostr/NostrPrefetchService';
 import { getUserNostrIdentifiers } from '../../utils/nostr';
 import { WoTService } from '../wot/WoTService';
-import { SELF_TEAM_ID, COINOS_TEAM_ID } from '../../constants/charities';
 
 class AppInitializationService {
   private static instance: AppInitializationService | null = null;
@@ -50,9 +48,6 @@ class AppInitializationService {
 
     const initializationPromise = (async () => {
       try {
-        // Run one-time CoinOS → Self team migration
-        await this.migrateCoinOSToSelf();
-
         console.log('🚀 AppInit: Starting background data loading...');
 
         // Step 1: Connect to Nostr relays
@@ -128,24 +123,6 @@ class AppInitializationService {
           );
 
           console.log('✅ AppInit: All data loaded!');
-
-          // Step 4: Set up HealthKit background delivery (iOS only)
-          // Must be re-registered every app launch per Apple requirements
-          if (Platform.OS === 'ios') {
-            try {
-              const { HealthKitService } = await import('../fitness/healthKitService');
-              const healthKit = HealthKitService.getInstance();
-              if (healthKit.getStatus().authorized) {
-                const { HealthKitBackgroundService } = await import(
-                  '../fitness/HealthKitBackgroundService'
-                );
-                await HealthKitBackgroundService.getInstance().setupBackgroundDelivery();
-                console.log('✅ AppInit: HealthKit background delivery registered');
-              }
-            } catch (hkError) {
-              console.warn('⚠️ AppInit: HealthKit background setup failed (non-blocking):', hkError);
-            }
-          }
         }
 
         // CRITICAL FIX: Only set flags if not aborted and not already completed
@@ -210,63 +187,6 @@ class AppInitializationService {
 
     // Final cleanup
     this.abortController = null;
-  }
-
-  /**
-   * One-time migration: CoinOS team → Self team
-   * If user had CoinOS selected, swap to 'self' and recover Lightning address
-   */
-  private async migrateCoinOSToSelf(): Promise<void> {
-    const MIGRATION_KEY = '@runstr:migration_coinos_to_self_done';
-    try {
-      const done = await AsyncStorage.getItem(MIGRATION_KEY);
-      if (done === 'true') return;
-
-      const selectedTeam = await AsyncStorage.getItem('@runstr:selected_team_id');
-      if (selectedTeam !== COINOS_TEAM_ID) {
-        await AsyncStorage.setItem(MIGRATION_KEY, 'true');
-        return;
-      }
-
-      console.log('🔄 AppInit: Migrating CoinOS team → Self team...');
-
-      // Check if user already has a reward Lightning address
-      const { RewardLightningAddressService } = await import('../rewards/RewardLightningAddressService');
-      const hasAddress = await RewardLightningAddressService.hasRewardLightningAddress();
-
-      if (hasAddress) {
-        // User has Lightning address - just swap team
-        await AsyncStorage.setItem('@runstr:selected_team_id', SELF_TEAM_ID);
-        console.log('✅ AppInit: Migrated CoinOS → Self (existing Lightning address)');
-      } else {
-        // Try to recover address from CoinOS account
-        const { CoinOSAccountService } = await import('../wallet/CoinOSAccountService');
-        const hasCoinOS = await CoinOSAccountService.hasAccount();
-
-        if (hasCoinOS) {
-          const addr = await CoinOSAccountService.getLightningAddress();
-          if (addr) {
-            await RewardLightningAddressService.setRewardLightningAddress(addr);
-            await AsyncStorage.setItem('@runstr:selected_team_id', SELF_TEAM_ID);
-            console.log(`✅ AppInit: Migrated CoinOS → Self (recovered ${addr})`);
-          } else {
-            // CoinOS account but no address - default to self (post cardio-only simplification)
-            await AsyncStorage.setItem('@runstr:selected_team_id', SELF_TEAM_ID);
-            console.log('⚠️ AppInit: CoinOS no address, defaulting to Self');
-          }
-        } else {
-          // No CoinOS account at all - default to self
-          await AsyncStorage.setItem('@runstr:selected_team_id', SELF_TEAM_ID);
-          console.log('⚠️ AppInit: No CoinOS account, defaulting to Self');
-        }
-      }
-
-      await AsyncStorage.setItem(MIGRATION_KEY, 'true');
-    } catch (error) {
-      console.warn('⚠️ AppInit: CoinOS migration failed (non-blocking):', error);
-      // Don't block app startup - mark as done to avoid retrying
-      await AsyncStorage.setItem(MIGRATION_KEY, 'true').catch(() => {});
-    }
   }
 
   /**

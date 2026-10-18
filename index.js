@@ -11,8 +11,6 @@ import App from './src/App';
 // Register background location task BEFORE app initialization
 // This ensures TaskManager knows about the background task on both iOS and Android
 import './src/services/activity/SimpleRunTrackerTask'; // Unified tracker for all activities
-import './src/services/fitness/HealthKitBackgroundTask'; // Early HK listener for background wakes
-import './src/services/fitness/AndroidBackgroundSyncTask'; // Android WorkManager background sync
 
 /**
  * Global error handlers to prevent white screen crashes

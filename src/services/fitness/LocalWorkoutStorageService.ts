@@ -7,23 +7,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { WorkoutType } from '../../types/workout';
 import type { Split } from '../activity/SplitTrackingService';
-import { DailyRewardService, type RewardResult } from '../rewards/DailyRewardService';
-import { RewardDestinationService } from '../rewards/RewardDestinationService';
-import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
 import { FEATURES } from '../../config/features';
-import { buildRewardTags } from '../../utils/rewardTags';
-import { isValidWorkoutMetrics } from '../../utils/rewardEligibility';
 import Toast from 'react-native-toast-message';
 import type { VerificationReceipt } from '../../types/verification';
 import { isDuplicateWorkout, type DedupCandidate } from '../../utils/workoutDedup';
 
 /**
- * Result returned from saveGPSWorkout including reward info
+ * Result returned from saveGPSWorkout
  */
 export interface SaveGPSWorkoutResult {
   workoutId: string;
-  rewardSent?: boolean;
-  rewardAmount?: number;
 }
 
 /**
@@ -140,9 +133,6 @@ export interface LocalWorkout {
   // Manual entry flag for competition filtering
   isManualEntry?: boolean; // True for custom/manual workouts (excluded from competitions)
 
-  // Supabase competition submission status
-  supabaseSubmitted?: boolean; // true=success, false=failed, undefined=not attempted
-  supabaseError?: string; // Last error message on failure
 }
 
 const STORAGE_KEYS = {
@@ -276,7 +266,7 @@ export class LocalWorkoutStorageService {
 
   /**
    * Save GPS-tracked workout to local storage
-   * Returns workout ID and reward info if a reward was sent
+   * Returns the workout ID
    */
   async saveGPSWorkout(workout: {
     type: WorkoutType;
@@ -326,21 +316,14 @@ export class LocalWorkoutStorageService {
         syncedToNostr: false,
       };
 
-      const rewardResult = await this.saveWorkout(localWorkout);
+      await this.saveWorkout(localWorkout);
       console.log(
         `✅ Saved GPS workout locally: ${workoutId} (${workout.type}, ${(
           workout.distance / 1000
         ).toFixed(2)}km)`
       );
 
-      // Reward is triggered in the central saveWorkout() method (rate limited to
-      // 1 per day, distance-tiered). Surface the result so the post-workout
-      // summary can show the earned amount.
-      return {
-        workoutId,
-        rewardSent: rewardResult?.success ?? false,
-        rewardAmount: rewardResult?.amount ?? 0,
-      };
+      return { workoutId };
     } catch (error) {
       console.error('❌ Failed to save GPS workout:', error);
       throw error;
@@ -478,7 +461,6 @@ export class LocalWorkoutStorageService {
    * Upsert today's daily step workout entry (create or update)
    * Uses deterministic ID: steps_YYYY-MM-DD_npub12chars
    * Called by StepCompetitionService to keep workout history in sync with step count.
-   * Does NOT trigger autoSubmitToSupabase (StepCompetitionService handles Supabase separately).
    */
   async upsertDailyStepsWorkout(workout: {
     steps: number;
@@ -519,7 +501,6 @@ export class LocalWorkoutStorageService {
         );
       } else {
         // CREATE new entry - write directly to storage (no saveWorkout to skip autoSubmit/reward)
-        // supabaseSubmitted defaults to false so the Compete button shows if submission failed
         const localWorkout: LocalWorkout = {
           id: deterministicId,
           type: 'walking',
@@ -532,7 +513,6 @@ export class LocalWorkoutStorageService {
           source: 'daily_steps',
           createdAt: new Date().toISOString(),
           syncedToNostr: false,
-          supabaseSubmitted: false,
         };
 
         workouts.push(localWorkout);
@@ -580,9 +560,8 @@ export class LocalWorkoutStorageService {
   /**
    * Internal method to save workout to AsyncStorage
    * This is the central point for ALL local workout saves - GPS, manual, etc.
-   * Reward trigger is here to ensure ANY workout triggers the daily reward check.
    */
-  private async saveWorkout(workout: LocalWorkout): Promise<RewardResult | undefined> {
+  private async saveWorkout(workout: LocalWorkout): Promise<void> {
     try {
       // Use the checked read, not getAllWorkouts(): a transient/corrupted read
       // must never be treated as "no history" here — that would persist a
@@ -602,332 +581,13 @@ export class LocalWorkoutStorageService {
       await this.persistWorkouts(workouts);
       this.invalidateCache();
 
-      // REWARD TRIGGER: Only user-generated cardio workouts on a new day trigger rewards
-      // Uses checkStreakAndReward() which:
-      // 1. Filters by source (only gps_tracker, manual_entry)
-      // 2. Filters by activity type (only running, walking, cycling)
-      // 3. Applies the distance tier (>= 5K) to resolve the reward amount
-      // 4. Uses atomic "streak incremented today" flag to prevent race conditions
-      // Awaited (local AsyncStorage, fast) so the post-workout summary can show
-      // the earned amount. Never blocks the save on failure.
-      let rewardResult: RewardResult | undefined;
-      try {
-        const pubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
-        if (pubkey) {
-          console.log(`[LocalWorkoutStorage] Checking streak reward for ${workout.source} ${workout.type} workout...`);
-          // Pass distance (meters) so the reward uses the correct distance tier
-          rewardResult = await DailyRewardService.checkStreakAndReward(pubkey, workout.source, workout.type, workout.distance);
-        }
-      } catch (rewardError) {
-        // Silent failure - never block workout saves for reward issues
-        console.warn('[LocalWorkoutStorage] Reward trigger error (silent):', rewardError);
-      }
-
-      // AUTO-SUBMIT TO SUPABASE: Fire-and-forget for leaderboard/competition tracking
-      this.autoSubmitToSupabase(workout).catch((err) => {
-        console.warn('[LocalWorkoutStorage] Supabase auto-submit error (silent):', err);
-      });
-
       // AUTO-BACKUP: Schedule backup to Nostr (3-min debounce collapses rapid saves)
       // Lazy import to avoid circular dependency
       const { AutoBackupService } = await import('../backup/AutoBackupService');
       AutoBackupService.getInstance().scheduleBackup();
-
-      return rewardResult;
     } catch (error) {
       console.error('❌ Failed to save workout to storage:', error);
       throw error;
-    }
-  }
-
-  /**
-   * Format seconds into HH:MM:SS string for kind 1301 tags
-   */
-  private formatHHMMSS(totalSeconds: number): string {
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = Math.floor(totalSeconds % 60);
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-  }
-
-  /**
-   * Build kind 1301 tags array from a local workout
-   */
-  private buildWorkoutTags(workout: LocalWorkout): string[][] {
-    const tags: string[][] = [];
-    tags.push(['exercise', workout.type]);
-
-    if (workout.distance) {
-      tags.push(['distance', (workout.distance / 1000).toFixed(2), 'km']);
-    }
-
-    if (workout.duration) {
-      tags.push(['duration', this.formatHHMMSS(workout.duration)]);
-    }
-
-    // Splits — critical for accurate 5K/10K/Half/Marathon target times
-    if (workout.splits && workout.splits.length > 0) {
-      for (const split of workout.splits) {
-        tags.push(['split', String(split.number), this.formatHHMMSS(split.elapsedTime)]);
-      }
-    }
-
-    // Steps (for daily_steps workouts)
-    if (workout.steps) {
-      tags.push(['steps', workout.steps.toString()]);
-      tags.push(['source', 'auto_steps']);
-    }
-
-    return tags;
-  }
-
-  /**
-   * Get cached profile data (name/picture) for the current user
-   */
-  private async getCachedProfile(): Promise<{ name?: string; picture?: string }> {
-    try {
-      const profilesJson = await AsyncStorage.getItem('@runstr:nostr_profiles');
-      if (profilesJson) {
-        const profiles = JSON.parse(profilesJson);
-        const hexPubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
-        if (hexPubkey && profiles[hexPubkey]) {
-          return {
-            name: profiles[hexPubkey].name || profiles[hexPubkey].displayName,
-            picture: profiles[hexPubkey].picture,
-          };
-        }
-      }
-    } catch { /* non-critical */ }
-    return {};
-  }
-
-  /**
-   * Add reward-routing audit tags without leaking user Lightning addresses.
-   */
-  private async appendRewardDestinationTags(tags: string[][]): Promise<void> {
-    try {
-      const destination = await RewardDestinationService.getDestinationAddress();
-
-      if (destination.isPPQ) {
-        tags.push(['reward_destination', 'ppq']);
-      } else if (destination.isCharity) {
-        tags.push(['reward_destination', 'charity']);
-      } else {
-        tags.push(['reward_destination', 'user']);
-      }
-
-      if (destination.charityId) {
-        tags.push(['reward_charity_id', destination.charityId]);
-      }
-    } catch (error) {
-      console.warn('[LocalWorkoutStorage] Failed to add reward destination tags:', error);
-    }
-  }
-
-  /**
-   * Auto-submit cardio workouts to Supabase for leaderboard tracking.
-   * Fire-and-forget — errors are logged, never block the save path.
-   */
-  private async autoSubmitToSupabase(workout: LocalWorkout): Promise<void> {
-    if (!FEATURES.supabase) {
-      return;
-    }
-    // Historical imports should NOT enter competitions — they would pollute
-    // the daily leaderboard because workout_submissions.created_at = NOW()
-    if (workout.source === 'imported_nostr') {
-      return;
-    }
-    const CARDIO_TYPES: string[] = ['running', 'walking', 'cycling', 'hiking'];
-    if (!CARDIO_TYPES.includes(workout.type)) {
-      console.log(`[LocalWorkoutStorage] Skipping Supabase submit: type '${workout.type}' is not cardio`);
-      return;
-    }
-    if (!workout.distance || workout.distance <= 0) {
-      console.warn(`[LocalWorkoutStorage] Skipping Supabase submit: distance is ${workout.distance} for ${workout.type} workout ${workout.id}`);
-      await this.updateSupabaseStatus(workout.id, false, `Distance is ${workout.distance}`).catch(() => {});
-      return;
-    }
-    if (!isValidWorkoutMetrics(workout.distance, workout.duration)) {
-      console.warn('[LocalWorkoutStorage] Workout metrics out of bounds, skipping:', { distance: workout.distance, duration: workout.duration });
-      await this.updateSupabaseStatus(workout.id, false, 'Metrics out of bounds').catch(() => {});
-      return;
-    }
-
-    const npub = await AsyncStorage.getItem('@runstr:npub');
-    if (!npub) {
-      console.warn('[LocalWorkoutStorage] Skipping Supabase submit: no npub in AsyncStorage');
-      await this.updateSupabaseStatus(workout.id, false, 'No npub in AsyncStorage').catch(() => {});
-      return;
-    }
-
-    console.log(`[LocalWorkoutStorage] Auto-submitting ${workout.type} workout to Supabase...`);
-
-    try {
-      // Build tags with splits, team, and exercise metadata
-      const tags = this.buildWorkoutTags(workout);
-
-      // Include lightning address + charity tags for zapper reward routing
-      // 10s timeout prevents entire submission from hanging if AsyncStorage or Supabase stalls
-      const rewardTags = await Promise.race([
-        buildRewardTags(),
-        new Promise<string[][]>((resolve) => setTimeout(() => {
-          console.warn('[LocalWorkoutStorage] buildRewardTags timed out after 10s, submitting without reward tags');
-          resolve([]);
-        }, 10000)),
-      ]);
-      tags.push(...rewardTags);
-
-      // Include reward routing audit tags (user/charity/ppq)
-      await this.appendRewardDestinationTags(tags);
-
-      // Get profile for leaderboard display
-      const profile = await this.getCachedProfile();
-
-      const result = await SupabaseCompetitionService.submitWorkoutSimple({
-        eventId: workout.id,
-        npub,
-        type: workout.type,
-        distance: workout.distance,
-        duration: workout.duration,
-        calories: workout.calories,
-        startTime: workout.startTime,
-        tags,
-        profileName: profile.name,
-        profilePicture: profile.picture,
-      });
-
-      if (result.success) {
-        await this.updateSupabaseStatus(workout.id, true);
-        Toast.show({
-          type: 'success',
-          text1: 'Workout Submitted',
-          text2: 'Your workout is on the leaderboard',
-          position: 'bottom',
-          visibilityTime: 3000,
-        });
-      } else if (result.flagged) {
-        await this.updateSupabaseStatus(workout.id, true); // Flagged but submitted
-        Toast.show({
-          type: 'error',
-          text1: 'Workout Under Review',
-          text2: 'May take time to appear on leaderboard',
-          position: 'bottom',
-          visibilityTime: 4000,
-        });
-      } else {
-        await this.updateSupabaseStatus(workout.id, false, result.error || 'Submission failed');
-      }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      await this.updateSupabaseStatus(workout.id, false, errorMsg).catch(() => {});
-      console.warn(`[LocalWorkoutStorage] Supabase auto-submit failed for ${workout.id}:`, errorMsg);
-
-      // Queue for retry via PendingSubmissionService
-      try {
-        const { PendingSubmissionService } = await import('../competition/PendingSubmissionService');
-        await PendingSubmissionService.addPending({
-          id: workout.id,
-          submissionData: {
-            eventId: workout.id,
-            npub: npub!,
-            type: workout.type,
-            distance: workout.distance,
-            duration: workout.duration,
-            calories: workout.calories,
-            startTime: workout.startTime,
-            tags: this.buildWorkoutTags(workout),
-          },
-          createdAt: Date.now(),
-          retryCount: 0,
-          lastError: errorMsg,
-          nextRetryTime: Date.now() + 60000,
-        });
-      } catch (queueError) {
-        console.warn('[LocalWorkoutStorage] Failed to queue for retry:', queueError);
-      }
-    }
-
-    console.log(`[LocalWorkoutStorage] Supabase auto-submit complete for ${workout.id}`);
-  }
-
-  /**
-   * Update Supabase submission status for a workout
-   */
-  async updateSupabaseStatus(
-    workoutId: string,
-    submitted: boolean,
-    error?: string
-  ): Promise<void> {
-    try {
-      const data = await AsyncStorage.getItem(STORAGE_KEYS.LOCAL_WORKOUTS);
-      if (!data) return;
-      const workouts: LocalWorkout[] = JSON.parse(data);
-      const workout = workouts.find((w) => w.id === workoutId);
-      if (!workout) return;
-
-      workout.supabaseSubmitted = submitted;
-      workout.supabaseError = submitted ? undefined : error;
-
-      await this.persistWorkouts(workouts);
-      this.invalidateCache();
-    } catch (err) {
-      console.warn('[LocalWorkoutStorage] Failed to update supabase status:', err);
-    }
-  }
-
-  /**
-   * Retry Supabase submission for a failed workout (called by Compete button)
-   */
-  async retrySupabaseSubmission(
-    workoutId: string
-  ): Promise<{ success: boolean; error?: string }> {
-    try {
-      const workout = await this.getWorkoutById(workoutId);
-      if (!workout) return { success: false, error: 'Workout not found' };
-
-      const npub = await AsyncStorage.getItem('@runstr:npub');
-      if (!npub) return { success: false, error: 'Not logged in' };
-
-      // Build full tags (splits, exercise, team, lightning, charity) — same logic as autoSubmitToSupabase
-      const tags = this.buildWorkoutTags(workout);
-
-      // Include lightning address + charity tags for zapper reward routing
-      const rewardTags = await buildRewardTags();
-      tags.push(...rewardTags);
-
-      await this.appendRewardDestinationTags(tags);
-
-      const profile = await this.getCachedProfile();
-
-      // For step workouts (source: 'daily_steps'), send duration as 0
-      // The locally-stored duration is time-since-midnight, not actual workout duration
-      const isStepWorkout = workout.source === 'daily_steps' || workout.id.startsWith('steps_');
-      const duration = isStepWorkout ? 0 : workout.duration;
-
-      const result = await SupabaseCompetitionService.submitWorkoutSimple({
-        eventId: workout.id,
-        npub,
-        type: workout.type,
-        distance: workout.distance ?? 0,
-        duration,
-        calories: workout.calories,
-        startTime: workout.startTime,
-        tags,
-        profileName: profile.name,
-        profilePicture: profile.picture,
-      });
-
-      if (result.success || result.flagged) {
-        await this.updateSupabaseStatus(workoutId, true);
-        return { success: true };
-      }
-
-      await this.updateSupabaseStatus(workoutId, false, result.error || 'Retry failed');
-      return { success: false, error: result.error };
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      await this.updateSupabaseStatus(workoutId, false, errorMsg).catch(() => {});
-      return { success: false, error: errorMsg };
     }
   }
 
@@ -1375,10 +1035,7 @@ export class LocalWorkoutStorageService {
 
     // Mirror saveWorkout()'s backup side effect, scheduled ONCE for the whole
     // batch (the underlying debounce would collapse N per-item calls to this
-    // anyway). Reward and Supabase-submit side effects are intentionally NOT
-    // replayed here: both already no-op for source 'imported_nostr'
-    // (DailyRewardService excludes it from REWARD_ELIGIBLE_SOURCES;
-    // autoSubmitToSupabase returns early for it) — nothing is skipped.
+    // anyway).
     try {
       const { AutoBackupService } = await import('../backup/AutoBackupService');
       AutoBackupService.getInstance().scheduleBackup();

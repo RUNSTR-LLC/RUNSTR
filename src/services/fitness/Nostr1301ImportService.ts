@@ -8,8 +8,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Nuclear1301Service } from './Nuclear1301Service';
 import { GlobalNDKService } from '../nostr/GlobalNDKService';
 import LocalWorkoutStorageService from './LocalWorkoutStorageService';
-import { PendingSubmissionService, type PendingSubmission } from '../competition/PendingSubmissionService';
-import type { NostrWorkout } from '../../types/nostrWorkout';
 import type { WorkoutType } from '../../types/workout';
 
 export interface ImportProgress {
@@ -274,50 +272,6 @@ export class Nostr1301ImportService {
       console.log(`[1301Backfill] merged ${written} new workout(s) from relays`);
     } catch (error) {
       console.warn('[1301Backfill] failed (local history is unaffected):', error);
-    }
-  }
-
-  /**
-   * Queue imported Nostr workouts for Supabase submission (fire-and-forget)
-   */
-  private async queueImportedForSupabase(nostrWorkouts: NostrWorkout[]): Promise<void> {
-    try {
-      const userNpub = await AsyncStorage.getItem('@runstr:npub');
-      if (!userNpub) {
-        console.warn('[Nostr1301Import] No npub found, skipping Supabase queue');
-        return;
-      }
-
-      let queued = 0;
-      for (const workout of nostrWorkouts) {
-        try {
-          const submission: PendingSubmission = {
-            id: workout.id,
-            submissionData: {
-              eventId: workout.nostrEventId || workout.id,
-              npub: userNpub,
-              type: workout.type,
-              distance: workout.distance || 0,
-              duration: workout.duration || 0,
-              calories: workout.calories,
-              startTime: workout.startTime,
-              tags: [],
-            },
-            createdAt: Date.now(),
-            retryCount: 0,
-            lastError: '',
-            nextRetryTime: Date.now(),
-          };
-          await PendingSubmissionService.addPending(submission);
-          queued++;
-        } catch (err) {
-          console.warn('[Nostr1301Import] Failed to queue workout for Supabase:', err);
-        }
-      }
-
-      console.log(`[Nostr1301Import] Queued ${queued}/${nostrWorkouts.length} workouts for Supabase submission`);
-    } catch (error) {
-      console.warn('[Nostr1301Import] Failed to queue workouts for Supabase:', error);
     }
   }
 
