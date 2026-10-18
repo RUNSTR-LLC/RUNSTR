@@ -6,7 +6,7 @@ RUNSTR is a Nostr-native running tracker. Tagline: **RUNSTR — Run with Nostr.*
 
 One loop: log in, track a run, it becomes a kind 1301 note on relays. That is the whole product surface right now. Login is anonymous-first ("Start"), the tracker is pinned to running, and a finished run auto-publishes as a kind 1301 workout note that renders natively in Amethyst, POWR, and Chachi.
 
-**Phase 1** of a simplification (design: `docs/superpowers/specs/2026-09-18-runstr-simplification-design.md`) hid the old three-pillar cardio/social/rewards product — still on disk, nothing deleted. **Phase 2 (2026-10-18) made the live app fully Nostr:** no Supabase traffic, 1301 is the only workout post, and the encrypted kind 30078 backup is the private copy of history. See "What's hidden, not gone" and "Phase 2: fully Nostr" below before assuming a feature doesn't exist.
+RUNSTR used to be a three-pillar cardio/social/rewards app. **Phase 1** (2026-09-18, design: `docs/superpowers/specs/2026-09-18-runstr-simplification-design.md`) hid that product behind flags. **Phase 2** (2026-10-18) made the app fully Nostr and **deleted** the hidden product: there is no Supabase client, no in-app rewards, no social feed, clubs, events, seasons, or leaderboards, and no kind 1 workout posts. Those live only in git history (pre-`7c05cbe2`). See "Phase 2: fully Nostr" below.
 
 **The in-app terminology firewall is gone.** Saying "Nostr" to the user is now correct and expected — the tagline says it. There is no longer a rule against user-facing "Nostr", "nsec", "relay", or "1301" language; use whatever is clearest. The one framing rule that survives:
 
@@ -14,33 +14,20 @@ One loop: log in, track a run, it becomes a kind 1301 note on relays. That is th
 
 **Read [North Star.md](./docs/North%20Star.md) for the full product identity and direction.**
 
-## What's hidden, not gone
-
-Twelve of thirteen simplification tasks are committed (this doc is the thirteenth). Concretely:
-
-- **One surface.** The bottom tab bar is hidden (`tabBarStyle: { display: 'none' }` in `BottomTabNavigator.tsx`, gated on `FEATURES.social || FEATURES.leaderboard`, both `false`). Social, Leaderboard, Clubs, Events, Rewards, Level, seasons — 16 routes total — are unregistered from `AuthenticatedStack` in `src/App.tsx` but the screen files still exist.
-- **Running only, by display.** The activity selector is hidden (`FEATURES.activitySelector: false`) and `ProfileScreen.renderTracker()` is pinned to `RunningTrackerScreen`. History filters through the single predicate `isRunningWorkout()` in `src/utils/isRunningWorkout.ts`.
-- **Collection is untouched.** Apple Health and Health Connect still import walks, rides, hikes, and steps — only what's *shown* is filtered. Step counter services (`DailyStepCounterService`, `NativeStepCounterService`) keep running in the background; `FEATURES.stepTracking: false` just hides the steps hero from the stats card and history.
-- **1301 backfill is automatic now.** On login, `Nostr1301ImportService.backfillInBackground()` merges the user's 1301 history from relays into local storage, throttled to once per 6 hours (`BACKFILL_INTERVAL_MS`, `@runstr:last_1301_backfill` in AsyncStorage). It runs after `currentUser` resolves in `src/App.tsx`, never blocks the UI, and only ever adds — it does not delete or overwrite local workouts. Local AsyncStorage remains the source of truth.
-- **Everything is a flag, not a deletion.** All Phase 1 hiding lives in `src/config/features.ts` under the "Phase 1 (2026-09-18)" block. Flip a flag back to `true` and the route/UI reappears; nothing needs to be rebuilt. Reversal is a config change plus a `git revert` of the route-prune commit if the route itself was unregistered.
-- **Supabase code is still on disk** (~60 files, mostly hidden screens) but the live app makes no Supabase calls — see "Phase 2: fully Nostr" below.
-- **Rewards still exist in the codebase.** The external zapper and `reward_payments` table are untouched — they're just not surfaced in the UI (`FEATURES.earnings: false`, `walletSettings: false`). With `FEATURES.supabase: false` the zapper receives no new workouts.
-
 ## Phase 2: fully Nostr (2026-10-18)
 
-One flag, `FEATURES.supabase: false` in `src/config/features.ts` ("Phase 2" block), gates every Supabase call from the live app. Flip it to `true` to restore all of it. Gated paths:
-
-- **Workout submission** — the `SupabaseCompetitionService.submitWorkoutSimple` choke point (all ~10 callers: tracker, HealthKit, Health Connect, background sync, pending queue, steps, journal), the Supabase branch of `saveWorkoutToNostr`, `LocalWorkoutStorageService.autoSubmitToSupabase`, the foreground retry queue, the restore → Supabase queue, and the 1301 feed dual-write.
-- **Startup/login reads and writes** — reward polling (`App.tsx`), push token registration (`ExpoNotificationProvider` + the `token_key` upsert in `AuthContext`), PPQ key migration, Season 2 leaderboard prefetch, profile earnings badge, profile section queries.
-- **UI** — the "Compete" / "Retry Compete" button in history is hidden.
-
-What replaced it:
-
-- **Kind 1301 only.** `workoutPublishingService.postWorkout()` always publishes a 1301 and ignores the stored post-format preference; the Settings "Post format" picker is hidden (`SHOW_FORMAT_TOGGLE = false`). The kind 1 path (`postWorkoutToSocial`, card uploads, `SocialFeedService`) is unreachable but not deleted.
-- **Personal records are local.** `StatsCard` computes PRs from `LocalWorkoutStorageService`, not the Supabase `workouts` table.
-- **Encrypted backup is chunked.** Workouts live in kind 30078 chunk events (`d` = `runstr-workout-backup:w0…wN`, 100 per chunk oldest-first, halved if over ~49KB compressed — the NIP-44 limit after base64). The main event (`d` = `runstr-workout-backup`) holds habits/journal/preferences and a `['chunks', N]` tag. Chunks publish before the main event; unchanged chunks are skipped, with a full re-send weekly. Logic in `src/services/backup/backupChunks.ts`. v1 single-event backups still restore.
-- **Auto-restore on login.** `RestoreService.restoreInBackground()` runs once per install (`@runstr:auto_restore_done`) for nsec users, then the 1301 backfill runs. Additive only. Amber users are skipped (decrypt opens an Amber prompt) and restore from Settings → Import.
-- **Verified statically only** (`scripts/verify/verify-no-supabase-submission.ts`, `verify-backup-chunks.ts`). A simulator run confirming zero `supabase.co` requests and a real fresh-install restore has not been done yet.
+- **No Supabase.** `src/` has no Supabase client (`utils/supabase.ts`, `edgeFunctions.ts`, and every backend/reward/competition/social/club/season service are deleted). New code must not add one. `@supabase/supabase-js` stays in `package.json` only for dev scripts under `scripts/`; `supabase/functions/` and migrations are untouched because the external zapper may still use that database — ask before deleting them.
+- **No in-app rewards.** Rewards are paid by the external zapper running against public 1301 notes on Nostr feeds; the app never triggers, estimates, polls, or displays rewards. 1301s carry no lightning/reward/WoT/charity/team tags.
+- **Kind 1301 is the only workout post.** `workoutPublishingService.postWorkout()` always publishes a 1301 (allowlisted tags only, `publishWorkout1301()`); the kind 1 card post is deleted and the Settings "Post format" picker is hidden (`SHOW_FORMAT_TOGGLE = false`).
+- **Running only.** `ProfileScreen.renderTracker()` always renders `RunningTrackerScreen`; the walking/cycling/hiking trackers are deleted. History filters through `isRunningWorkout()` in `src/utils/isRunningWorkout.ts`. Apple Health / Health Connect still import other activity types on foreground sync — only display is filtered.
+- **No background sync.** The HealthKit background-delivery and Android WorkManager tasks only submitted to Supabase and are deleted; `AuthContext` unregisters the stale Android task (`runstr-background-sync`) on existing installs. Health data imports when the app is foregrounded.
+- **One surface.** `BottomTabNavigator` has a single Home tab (bar hidden). `AppNavigator` is a Login-only stack — `App.tsx` swaps to `AuthenticatedNavigator` once a user exists. `ProfileScreen` is owner-only (nothing navigates to another user's profile).
+- **Personal records are local.** `StatsCard` computes PRs from `LocalWorkoutStorageService`.
+- **Encrypted backup is chunked.** Workouts live in kind 30078 chunk events (`d` = `runstr-workout-backup:w0…wN`, 100 per chunk oldest-first, halved if over ~49KB compressed — the NIP-44 limit after base64). The main event (`d` = `runstr-workout-backup`) holds habits/journal/preferences and a `['chunks', N]` tag. Chunks publish before the main event; unchanged chunks are skipped, with a full re-send weekly. Logic in `src/services/backup/backupChunks.ts`. v1 single-event backups still restore. Amber users get 2 prompts per changed chunk.
+- **Restore + backfill on login.** `RestoreService.restoreInBackground()` runs once per install (`@runstr:auto_restore_done`) for nsec users, then `Nostr1301ImportService.backfillInBackground()` merges relay 1301s (throttled to once per 6 hours, `@runstr:last_1301_backfill`). Both are additive only and never block the UI. Amber users restore from Settings → Import (decrypt opens an Amber prompt).
+- **Remaining flags.** `src/config/features.ts` still has Phase 1 flags; flags whose features were deleted no longer restore anything.
+- **Verification.** `scripts/verify/verify-fully-nostr.ts` and `verify-backup-chunks.ts` (static). A simulator run confirming zero `supabase.co` requests and a real fresh-install restore has not been done yet.
+- **Finding dead code.** `python3 scripts/diagnostics/find-unreachable-files.py` lists src files unreachable from `index.js` (follows static imports, `require()`, and dynamic `import()`). `src/config/encryptedSecrets.ts` is unreachable but gitignored — leave it.
 
 ## Deferred (not bugs)
 
@@ -48,30 +35,30 @@ These are deliberate Phase 1 gaps, not defects. Do not "fix" them without checki
 
 - **NIP-46 bunker login** — no code exists yet anywhere in `src/`. Amber (Android) is the only real external-signer path today; anonymous `Start` still works on both platforms and remains the hero action.
 - **Login screen inversion** — Amber/bunker become the headline and `Start` moves under Advanced only once bunker login ships. Today's login screen is unchanged from before Phase 1.
-- **MCP tab** — parked, undecided. `AgentSkillSection.tsx` and `AgentSkillSetupModal.tsx` already exist in `src/components/settings/` but are rendered nowhere — pre-existing dead code, not new breakage.
-- **WOT reward selection** — moved *out* of the app entirely. It now runs as a Claude Code skill (see `runstr-fitness` skill) operating against public 1301 notes, not as in-app logic.
+- **MCP tab** — parked, undecided. The old unrendered `AgentSkillSection`/`AgentSkillSetupModal` were deleted in Phase 2.
+- **WOT reward selection** — outside the app entirely. It runs as a Claude Code skill (see `runstr-fitness` skill) against public 1301 notes.
 - **Split voice announcements** — a known bug, tracked separately from this simplification. Not touched here.
 
 ## Known limitations
 
-- **Archival relay coverage is unresolved.** The design originally chose to add `wss://relay.nostr.band` for backfill (broad archival index), but that relay is excluded in this codebase — it causes SSL failures that stall the iOS Simulator for 40+ seconds (see the note in `src/services/cache/UnifiedWorkoutCache.ts` and in `GlobalNDKService.DEFAULT_RELAYS`). Backfill runs against the three existing relays (`relay.damus.io`, `nos.lol`, `relay.primal.net`) only. Coverage of long-past 1301s — especially ones published before those relays retained the event — is best-effort, not guaranteed. This is an open question, not a settled tradeoff.
+- **Archival relay coverage is unresolved.** The design originally chose to add `wss://relay.nostr.band` for backfill (broad archival index), but that relay is excluded in this codebase — it causes SSL failures that stall the iOS Simulator for 40+ seconds (see the note in `GlobalNDKService.DEFAULT_RELAYS`). Backfill runs against the three existing relays (`relay.damus.io`, `nos.lol`, `relay.primal.net`) only. Coverage of long-past 1301s — especially ones published before those relays retained the event — is best-effort, not guaranteed. This is an open question, not a settled tradeoff.
 - **A foreign 1301 note can import one duplicate.** A workout note published by another client (Amethyst, POWR) without a `workout_start_time` tag falls back to the note's publish time for dedup matching, which can miss the dedup time window and import one extra copy alongside the original. It does not recur on later backfills — the Nostr event id is stored once imported, so subsequent runs match on event id and skip it. This is a one-time, bounded imperfection, not an ongoing duplication bug.
 
 ## Activities
 
-Running only, in the tracker and in history. The old cardio set (run/walk/cycle/hike) still gets collected via Apple Health and Health Connect sync — see "What's hidden, not gone" — but the app only tracks and displays running.
+Running only, in the tracker and in history. Apple Health and Health Connect still import other activity types on foreground sync, but the app only tracks and displays running.
 
 ## Integrations
 
-- **Apple Health** (iOS) and **Health Connect** (Android) — background sync, unchanged by Phase 1.
+- **Apple Health** (iOS) and **Health Connect** (Android) — foreground sync into local history (background sync removed in Phase 2).
 - **MCP** — planned, not built. See "Deferred" above.
 
 ## Key Technologies
 
 - **Frontend**: React Native + TypeScript (Expo)
-- **Data Store**: Local AsyncStorage is the source of truth for history. Relays are the only backend: public 1301 notes plus the private encrypted 30078 backup. Supabase code remains on disk but is switched off (`FEATURES.supabase: false`).
+- **Data Store**: Local AsyncStorage is the source of truth for history. Relays are the only backend: public 1301 notes plus the private encrypted 30078 backup. No Supabase.
 - **Identity**: Nostr via NDK (auth, profiles, publishing, relay backfill) — now a visible, named part of the product, not a hidden layer.
-- **Rewards**: Present in the codebase, unsurfaced in the UI, and receiving no new workouts while `FEATURES.supabase` is off (`FEATURES.earnings: false`, `walletSettings: false`). An external service ("runstr-zapper", separate repo, not in this codebase) polls Supabase, validates workouts, sends payments to the user's lightning address, and writes payment records to the `reward_payments` table. The app only reads payment status (via `SupabaseRewardService`) — it never sends rewards itself. The in-repo `claim-reward` Edge Function exists but its `claim_reward` workout-reward branch is vestigial; the live operations are `pay_invoice`, `create_invoice`, `lookup_invoice`, `get_balance`, and `register_donation` (called from `NWCGatewayService`)
+- **Rewards**: Not in the app. The external "runstr-zapper" (separate repo) rewards users from public 1301 notes on Nostr feeds.
 - **State**: Zustand + AsyncStorage (local-first, cache-first)
 
 ## Nostr Usage
@@ -81,10 +68,10 @@ Nostr is the substrate the product is named after — visible and named in the U
 | Action | Kind | Notes |
 |--------|------|-------|
 | Profile reads | 0 | Names, pictures, addresses |
-| Social posts | 1 | Retired in Phase 2 — workout posts are 1301 only; kind 1 code is unreachable |
+| Social posts | 1 | None — workout posts are 1301 only (kind 1 posting deleted in Phase 2) |
 | Profile updates | 0 | When user edits profile |
 | Encrypted backups | 30078 | Auto-backup after workouts (3-min debounce), NIP-44 self-encrypted, chunked (`runstr-workout-backup` + `:w0…wN`). Auto-restored once per install on login (nsec users) |
-| **Workouts** | **1301** | **Auto-published to relays by default (the card-share sheet is hidden) for cross-app interop (Amethyst/POWR/Chachi). The only workout upload — no Supabase submission. Sensitive tags — lightning/team/charity/verification — are stripped by the allowlist in `publishWorkout1301()` before publishing. On login, `Nostr1301ImportService.backfillInBackground()` merges the user's relay history back into local AsyncStorage, which remains the source of truth for what history displays — see "What's hidden, not gone" above.** |
+| **Workouts** | **1301** | **Auto-published to relays by default (the card-share sheet is hidden) for cross-app interop (Amethyst/POWR/Chachi). The only workout upload. Only allowlisted workout-data tags are published (`publishWorkout1301()`). On login, `Nostr1301ImportService.backfillInBackground()` merges the user's relay history back into local AsyncStorage, which remains the source of truth for what history displays.** |
 
 ## Critical Rules
 
@@ -99,8 +86,7 @@ Nostr is the substrate the product is named after — visible and named in the U
 
 - **Local history is the source of truth** — AsyncStorage is authoritative for what the user sees; relay backfill only ever adds to it, never deletes or overwrites
 - **Nostr is visible** — Auth, publishing, relay backfill; named as "Nostr" in the UI, no firewall
-- **No Supabase in the live app** — Everything goes through `FEATURES.supabase` (off). New code must not call Supabase; use relays (1301, 30078) and local storage
-- **Background-first** — App works passively via HealthKit/Health Connect sync
+- **No Supabase** — Relays (1301, 30078) and local storage only; never add a Supabase client to `src/`
 - **Performance-first** — Aggressive caching eliminates loading states. See [docs/PERFORMANCE_GUIDE.md](./docs/PERFORMANCE_GUIDE.md)
 - **Local-first** — Store locally, sync in background
 
@@ -109,20 +95,17 @@ Nostr is the substrate the product is named after — visible and named in the U
 ```
 src/
 ├── components/        # UI components (<500 lines each)
-│   ├── ui/           # Card, Button, Avatar, StatusBar
-│   ├── activity/     # Workout tracking (GPS)
-│   ├── club/         # Fitness Club (chat, events, leaderboard)
-│   ├── rewards/      # Lightning address, earnings
-│   ├── profile/      # Profile components
-│   └── compete/      # Event components
-├── screens/          # App screens
+│   ├── ui/           # Card, Button, Avatar, StatusBar, toasts
+│   ├── activity/     # Run tracking UI, post-run summary
+│   ├── profile/      # Profile hero, history tabs, stats card
+│   ├── backup/       # Encrypted backup export/import modals
+│   └── settings/     # Settings sections
+├── screens/          # App screens (Profile/Home, Settings, history, login)
 ├── services/         # Business logic
-│   ├── nostr/        # NDK services (identity layer)
-│   ├── backend/      # Supabase services (switched off — FEATURES.supabase)
-│   ├── rewards/      # Reward delivery, payments
-│   ├── fitness/      # HealthKit, Health Connect, background sync
-│   ├── activity/     # GPS tracking, step counting
-│   └── competition/  # Leaderboards and events
+│   ├── nostr/        # NDK services, 1301 publishing
+│   ├── backup/       # Chunked encrypted 30078 backup + restore
+│   ├── fitness/      # Local workout storage, HealthKit, Health Connect, 1301 import
+│   └── activity/     # GPS tracking, splits, step counting
 ├── store/           # Zustand state management
 ├── types/           # TypeScript definitions
 └── utils/           # Helper functions
@@ -132,11 +115,11 @@ src/
 
 The one loop: log in → track a run → it becomes a kind 1301 note on relays.
 
-1. **Auth (anonymous-first, unchanged by Phase 1):** Tap "Start" — no login required. Optional "Advanced" login with nsec or Amber. NIP-46 bunker login does not exist yet — see Deferred above.
-2. **Track:** The tracker opens directly on running — the activity selector is hidden. GPS tracks the run; Apple Health / Health Connect still sync everything else in the background, unshown.
+1. **Auth (anonymous-first):** Tap "Start" — no login required. Optional "Advanced" login with nsec or Amber. NIP-46 bunker login does not exist yet — see Deferred above.
+2. **Track:** The tracker opens directly on running. GPS tracks the run; Apple Health / Health Connect import other workouts on foreground sync, unshown.
 3. **Publish:** Finishing a run auto-publishes it as a kind 1301 note to relays (the card-share sheet is hidden; 1301 is the only format). The encrypted 30078 backup updates 3 minutes later.
-4. **History:** Local AsyncStorage renders immediately. On login, the encrypted backup restores once per install (nsec users), then `Nostr1301ImportService` backfills relay history (throttled to once per 6 hours) — see "What's hidden, not gone" and "Phase 2" above for the dedup, relay-coverage, and Amber caveats.
-5. **Rewards:** Not part of the visible loop. The reward pipeline (external zapper, `reward_payments`) still exists but gets no new workouts while `FEATURES.supabase` is off — see Deferred and Known limitations.
+4. **History:** Local AsyncStorage renders immediately. On login, the encrypted backup restores once per install (nsec users), then `Nostr1301ImportService` backfills relay history (throttled to once per 6 hours) — see "Phase 2" and "Known limitations" above for the dedup, relay-coverage, and Amber caveats.
+5. **Rewards:** Not in the app. The external zapper rewards users from their public 1301 notes on Nostr feeds.
 
 ## Git Workflow
 
@@ -161,7 +144,7 @@ Full testing protocol and troubleshooting: [docs/DEV_WORKFLOW.md](./docs/DEV_WOR
 
 ## Reachability Check (do this BEFORE editing)
 
-Names lie. This codebase has accumulated multiple plausible owners for the same feature — e.g. `StepsDisplayScreen`, `WalkingTrackerScreen`, `ActivityTrackerScreen`, and `StatsCard` all render daily steps; `DailyStepCounterService`, `NativeStepCounterService`, and `HealthKitBackgroundService` all touch step data. Editing the wrong file looks like progress and ships nothing.
+Names lie. This codebase accumulated multiple plausible owners for the same feature (Phase 2 deleted most duplicates, but not all — e.g. `DailyStepCounterService` and `NativeStepCounterService` both touch step data). Editing the wrong file looks like progress and ships nothing. `python3 scripts/diagnostics/find-unreachable-files.py` lists files nothing loads.
 
 Before investing in a fix or feature in a file:
 

@@ -107,10 +107,8 @@ export class WorkoutPublishingService {
   }
 
   /**
-   * Entry point for posting a workout to Nostr. Phase 2: always a kind 1301
-   * workout note (native in Amethyst, POWR, Chachi) — the kind 1 card post is
-   * retired and `options.format` is ignored. The Supabase feed dual-write only
-   * runs while FEATURES.supabase is on.
+   * Entry point for posting a workout to Nostr: always a kind 1301 workout
+   * note (native in Amethyst, POWR, Chachi). `options.format` is ignored.
    */
   async postWorkout(
     workout: PublishableWorkout,

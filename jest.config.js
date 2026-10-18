@@ -17,6 +17,8 @@ module.exports = {
   testEnvironment: 'node',
   setupFiles: ['<rootDir>/jest.setup.js'],
   testMatch: ['**/__tests__/**/*.test.ts', '**/__tests__/**/*.test.tsx'],
+  // Agent worktrees under .claude/ hold stale copies of the repo
+  testPathIgnorePatterns: ['/node_modules/', '/.claude/'],
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
     '!src/**/*.d.ts',
