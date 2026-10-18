@@ -675,14 +675,10 @@ export class WorkoutPublishingService {
   }
 
   /**
-   * Format-aware entry point for posting a workout to Nostr + the RUNSTR feed.
-   * Honors the user's "Post format" preference:
-   *  - 'kind1'   → the existing card post (visible in every client) via
-   *               postWorkoutToSocial (which also dual-writes the feed).
-   *  - 'kind1301' → a structured workout event (native in Amethyst) via
-   *               publishWorkout1301, plus a feed dual-write so the in-app feed
-   *               still shows the native workout card (rendered from Supabase
-   *               data — no pre-rendered image needed).
+   * Entry point for posting a workout to Nostr. Phase 2: always a kind 1301
+   * workout note (native in Amethyst, POWR, Chachi) — the kind 1 card post is
+   * retired and `options.format` is ignored. The Supabase feed dual-write only
+   * runs while FEATURES.supabaseSubmission is on.
    */
   async postWorkout(
     workout: PublishableWorkout,
@@ -690,13 +686,11 @@ export class WorkoutPublishingService {
     userId: string,
     options: (SocialPostOptions & { format?: 'kind1' | 'kind1301' }) = {}
   ): Promise<WorkoutPublishResult> {
-    const format = options.format || 'kind1301';
-    if (format === 'kind1301') {
-      const eventId = await this.publishWorkout1301(workout, signer, userId);
+    const eventId = await this.publishWorkout1301(workout, signer, userId);
+    if (FEATURES.supabaseSubmission) {
       await this.dualWriteWorkoutFeed(workout, userId, eventId);
-      return { success: !!eventId, eventId: eventId || undefined };
     }
-    return this.postWorkoutToSocial(workout, signer, userId, options);
+    return { success: !!eventId, eventId: eventId || undefined };
   }
 
   /**

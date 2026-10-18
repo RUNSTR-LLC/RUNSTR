@@ -1,6 +1,6 @@
 /**
- * Verify Phase 2 steps 1-2: workouts are no longer sent to Supabase, and
- * personal records are computed from local storage.
+ * Verify Phase 2 steps 1-3: workouts are no longer sent to Supabase, personal
+ * records are computed from local storage, and every post is a kind 1301 note.
  * Static check — the services import React Native and can't run under tsx.
  * Run: npx tsx scripts/verify/verify-no-supabase-submission.ts
  */
@@ -40,6 +40,16 @@ const prsLocal =
   !/utils\/supabase|nostr-tools/.test(statsCard) && statsCard.includes('localWorkoutStorage.getAllWorkouts()');
 console.log(`${prsLocal ? 'PASS' : 'FAIL'}  StatsCard PRs computed from local workouts`);
 if (!prsLocal) failed++;
+
+// Step 3: every post is a kind 1301 note; kind 1 path and format picker retired
+const publishing = readFileSync('src/services/nostr/workoutPublishingService.ts', 'utf8');
+const postWorkoutBody = publishing.slice(publishing.indexOf('async postWorkout('), publishing.indexOf('private async dualWriteWorkoutFeed('));
+const only1301 = !postWorkoutBody.includes('postWorkoutToSocial(') && postWorkoutBody.includes('publishWorkout1301(');
+console.log(`${only1301 ? 'PASS' : 'FAIL'}  postWorkout publishes 1301 only`);
+if (!only1301) failed++;
+const toggleOff = readFileSync('src/components/settings/NostrPostingSection.tsx', 'utf8').includes('const SHOW_FORMAT_TOGGLE = false;');
+console.log(`${toggleOff ? 'PASS' : 'FAIL'}  Post format picker hidden`);
+if (!toggleOff) failed++;
 
 console.log(failed ? `\n${failed} check(s) failed` : '\nAll checks passed');
 process.exit(failed ? 1 : 0);

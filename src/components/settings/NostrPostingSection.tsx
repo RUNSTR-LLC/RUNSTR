@@ -28,7 +28,7 @@ import {
 // Post-format picker, surfaced in the Sharing accordion. Default is a workout
 // note (kind 1301) for cross-app interop (Amethyst/POWR/Chachi); a user can
 // opt into a card post (kind 1) that renders in every Nostr client.
-const SHOW_FORMAT_TOGGLE = true;
+const SHOW_FORMAT_TOGGLE = false;
 
 const FORMAT_OPTIONS: { value: PostFormat; title: string; subtitle: string }[] = [
   {
