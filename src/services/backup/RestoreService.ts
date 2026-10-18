@@ -363,7 +363,7 @@ export class RestoreService {
         result.workoutsSkipped = workoutResult.skipped;
 
         // Queue imported workouts for Supabase submission
-        if (workoutResult.imported > 0 && FEATURES.supabaseSubmission) {
+        if (workoutResult.imported > 0 && FEATURES.supabase) {
           await this.queueWorkoutsForSupabase(backup.payload.workouts);
         }
       }

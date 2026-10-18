@@ -729,7 +729,7 @@ export class LocalWorkoutStorageService {
    * Fire-and-forget — errors are logged, never block the save path.
    */
   private async autoSubmitToSupabase(workout: LocalWorkout): Promise<void> {
-    if (!FEATURES.supabaseSubmission) {
+    if (!FEATURES.supabase) {
       return;
     }
     // Historical imports should NOT enter competitions — they would pollute

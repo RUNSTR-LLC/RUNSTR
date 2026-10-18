@@ -615,7 +615,7 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
 
         // Task 1: Retry pending workout submissions
         try {
-          const retryResult = FEATURES.supabaseSubmission
+          const retryResult = FEATURES.supabase
             ? await PendingSubmissionService.retryAll()
             : { succeeded: 0 };
           if (retryResult.succeeded > 0) {
@@ -678,8 +678,8 @@ const AppContent: React.FC<AppContentProps> = ({ onPermissionComplete }) => {
   // Reward Polling: Check for confirmed payments from Supabase
   // Shows toast notifications when payments are actually confirmed
   React.useEffect(() => {
-    if (!isAuthenticated || !currentUser) {
-      // User logged out - cleanup polling
+    if (!isAuthenticated || !currentUser || !FEATURES.supabase) {
+      // User logged out (or Supabase off) - cleanup polling
       RewardPollingService.cleanup();
       return;
     }

@@ -533,7 +533,7 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
                 )}
               </PressableScale>
             )}
-            {isLocal && FEATURES.supabaseSubmission && localWorkout?.supabaseSubmitted === false && (
+            {isLocal && FEATURES.supabase && localWorkout?.supabaseSubmitted === false && (
               <PressableScale
                 style={[styles.actionButton, styles.competeButton]}
                 onPress={() => handleRetryCompete(workout.id)}
@@ -706,7 +706,7 @@ export const UnifiedWorkoutsTab: React.FC<UnifiedWorkoutsTabProps> = ({
       });
     }
 
-    if (isLocal && FEATURES.supabaseSubmission && localWorkout?.supabaseSubmitted === false) {
+    if (isLocal && FEATURES.supabase && localWorkout?.supabaseSubmitted === false) {
       actions.push({
         id: 'compete',
         label: 'Retry Compete',

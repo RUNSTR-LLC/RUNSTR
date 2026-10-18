@@ -64,8 +64,12 @@ export const FEATURES = {
   nonRunningHistory: false,
 
   // --- Phase 2 (2026-10-18): fully Nostr, no Supabase ---
-  /** Send workouts to Supabase (leaderboards, rewards). When false, the 1301 note is the only upload. */
-  supabaseSubmission: false,
+  /**
+   * Any Supabase traffic from the live app: workout submission, feed writes,
+   * push-token registration, reward polling, earnings, leaderboard prefetch.
+   * When false, the 1301 note is the only upload and relays are the only backend.
+   */
+  supabase: false,
 } as const;
 
 // Type for feature keys

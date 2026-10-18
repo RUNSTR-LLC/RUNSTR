@@ -279,7 +279,7 @@ export class WorkoutPublishingService {
         console.warn('[WorkoutPublishing] ⚠️ Skipping Supabase submission: no distance or duration');
         console.warn('[WorkoutPublishing]    This workout will not appear on leaderboards');
         // Continue - wellness activities (meditation, etc.) don't need leaderboard entry
-      } else if (!FEATURES.supabaseSubmission) {
+      } else if (!FEATURES.supabase) {
         // Phase 2: no Supabase. The 1301 note is the only upload.
       } else {
         // PPQ.AI bolt11 creation is now handled inside submitWorkoutSimple()
@@ -678,7 +678,7 @@ export class WorkoutPublishingService {
    * Entry point for posting a workout to Nostr. Phase 2: always a kind 1301
    * workout note (native in Amethyst, POWR, Chachi) — the kind 1 card post is
    * retired and `options.format` is ignored. The Supabase feed dual-write only
-   * runs while FEATURES.supabaseSubmission is on.
+   * runs while FEATURES.supabase is on.
    */
   async postWorkout(
     workout: PublishableWorkout,
@@ -687,7 +687,7 @@ export class WorkoutPublishingService {
     options: (SocialPostOptions & { format?: 'kind1' | 'kind1301' }) = {}
   ): Promise<WorkoutPublishResult> {
     const eventId = await this.publishWorkout1301(workout, signer, userId);
-    if (FEATURES.supabaseSubmission) {
+    if (FEATURES.supabase) {
       await this.dualWriteWorkoutFeed(workout, userId, eventId);
     }
     return { success: !!eventId, eventId: eventId || undefined };

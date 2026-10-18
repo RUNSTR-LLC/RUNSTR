@@ -8,6 +8,7 @@ import { WorkoutCacheService } from '../cache/WorkoutCacheService';
 import { season1Service } from '../season/Season1Service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SupabaseCompetitionService } from '../backend/SupabaseCompetitionService';
+import { FEATURES } from '../../config/features';
 
 export class AppInitializationService {
   private static instance: AppInitializationService;
@@ -58,7 +59,7 @@ export class AppInitializationService {
         // Workout cache should be warmed lazily when user actually needs workout data
         // this.warmUpWorkoutCache(pubkey),
         this.prefetchSeasonData(),
-        this.prefetchSeason2Data(),
+        FEATURES.supabase ? this.prefetchSeason2Data() : Promise.resolve(),
         this.warmUpTeamData(),
       ]);
 

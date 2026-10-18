@@ -188,7 +188,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
 
   // Load sections when targetNpub is available; if empty, stop loading
   useEffect(() => {
-    if (targetNpub) { loadProfileSections(targetNpub); }
+    if (targetNpub && FEATURES.supabase) { loadProfileSections(targetNpub); }
     else { setIsLoadingSections(false); }
   }, [targetNpub, loadProfileSections]);
 
@@ -204,7 +204,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
       (async () => {
         try {
           const pubkey = await AsyncStorage.getItem('@runstr:hex_pubkey');
-          if (!pubkey) return;
+          if (!pubkey || !FEATURES.supabase) return;
           const data = await SupabaseRewardService.getEarningsByDestination(pubkey);
           setTotalEarnings(data.reduce((sum, d) => sum + d.totalSats, 0));
         } catch (err) {
@@ -212,7 +212,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
         }
       })();
     }
-    if (targetNpub) {
+    if (targetNpub && FEATURES.supabase) {
       ProfileDataService.clearProfileCache(targetNpub);
       ProfileDataService.getUserClubs(targetNpub).then(setClubs).catch(() => {});
     }
@@ -299,7 +299,7 @@ const ProfileScreenComponent: React.FC<ProfileScreenProps> = ({
       await Promise.all([
         DPS.getCurrentUserProfile(true).catch(() => {}),
         onRefresh?.() ?? Promise.resolve(),
-        targetNpub ? loadProfileSections(targetNpub) : Promise.resolve(),
+        targetNpub && FEATURES.supabase ? loadProfileSections(targetNpub) : Promise.resolve(),
       ]);
       NostrFetchLogger.end('ProfileScreen.pullToRefresh', 1, 'success');
     } catch (error) {

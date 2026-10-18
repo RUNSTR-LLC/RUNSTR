@@ -302,7 +302,7 @@ export class SupabaseCompetitionService {
   static async submitWorkoutSimple(
     data: WorkoutSubmissionData
   ): Promise<{ success: boolean; error?: string; flagged?: boolean }> {
-    if (!FEATURES.supabaseSubmission) {
+    if (!FEATURES.supabase) {
       return { success: false, error: 'Supabase submission disabled' };
     }
 

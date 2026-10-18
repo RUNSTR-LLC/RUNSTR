@@ -108,14 +108,16 @@ export class ExpoNotificationProvider {
       // tries to update token_key on it (was fire-and-forget, caused race condition)
       const AsyncStorage = require('@react-native-async-storage/async-storage').default;
       const npub = await AsyncStorage.getItem('@runstr:npub');
-      try {
-        await BroadcastTokenService.registerToken(
-          this.deviceToken,
-          npub ?? undefined
-        );
-        console.log('[ExpoNotificationProvider] Broadcast token registered successfully');
-      } catch (err) {
-        console.warn('[ExpoNotificationProvider] Broadcast registration failed:', err);
+      if (FEATURES.supabase) {
+        try {
+          await BroadcastTokenService.registerToken(
+            this.deviceToken,
+            npub ?? undefined
+          );
+          console.log('[ExpoNotificationProvider] Broadcast token registered successfully');
+        } catch (err) {
+          console.warn('[ExpoNotificationProvider] Broadcast registration failed:', err);
+        }
       }
     } catch (error) {
       console.error('Failed to get push token:', error);

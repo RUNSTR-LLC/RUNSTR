@@ -25,6 +25,7 @@ import { NostrFetchLogger } from '../utils/NostrFetchLogger';
 import VerificationService from '../services/verification/VerificationService';
 import { UnifiedSigningService } from '../services/auth/UnifiedSigningService';
 import { PPQAccountService } from '../services/ai/PPQAccountService';
+import { FEATURES } from '../config/features';
 
 // Authentication state interface
 interface AuthState {
@@ -698,7 +699,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Runs after the NDK signer is ready (isAuthenticated=true implies signer attached).
   // migrateLocalKeyToBackend() is idempotent — early-returns if already uploaded or no account.
   useEffect(() => {
-    if (!isAuthenticated || isInitializing) return;
+    if (!isAuthenticated || isInitializing || !FEATURES.supabase) return;
     void PPQAccountService.migrateLocalKeyToBackend();
   }, [isAuthenticated, isInitializing]);
 
@@ -746,7 +747,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Uses UPSERT to guarantee the token_key is set even if the broadcast_tokens row
   // was created without one (e.g. app opened before login).
   useEffect(() => {
-    if (!isAuthenticated || isInitializing) return;
+    if (!isAuthenticated || isInitializing || !FEATURES.supabase) return;
 
     (async () => {
       try {
