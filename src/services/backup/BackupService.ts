@@ -26,10 +26,21 @@ import type { LocalWorkout } from '../fitness/LocalWorkoutStorageService';
 import type { Habit } from '../habits/HabitTrackerService';
 import type { JournalEntry } from '../../types/journal';
 
-// Backup event kind (replaceable parameterized)
-const BACKUP_EVENT_KIND = 30078;
-const BACKUP_D_TAG = 'runstr-workout-backup';
-const BACKUP_VERSION = 1;
+import {
+  BACKUP_EVENT_KIND,
+  BACKUP_D_TAG,
+  CHUNKED_BACKUP_VERSION as BACKUP_VERSION,
+  MAX_COMPRESSED_BYTES,
+  chunkWorkouts,
+  chunkDTag,
+  hashString,
+  type WorkoutChunkPayload,
+} from './backupChunks';
+
+// Unchanged chunks are skipped on republish; re-send everything weekly anyway
+// in case a relay dropped an old chunk.
+const CHUNK_HASHES_KEY = '@runstr:backup_chunk_hashes';
+const CHUNK_HASH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 // Default relays for backup (reliable, high-availability)
 export const DEFAULT_BACKUP_RELAYS = [
@@ -170,7 +181,7 @@ export class BackupService {
    * @param selectedRelays - Relays to publish to
    * @returns Export result with success status and published relays
    */
-  async exportToNostr(selectedRelays: string[]): Promise<ExportResult> {
+  async exportToNostr(_selectedRelays: string[]): Promise<ExportResult> {
     console.log('[BackupService] Starting export...');
 
     // Step 1: Get signer via UnifiedSigningService (works for both nsec and Amber)
@@ -210,45 +221,41 @@ export class BackupService {
       };
     }
 
-    // Step 3: Encrypt payload with NIP-44 via signer (routes through Amber for Amber users)
-    let encryptedContent: string;
-    try {
-      encryptedContent = await this.encryptPayload(payload, signer);
-      console.log('[BackupService] Payload encrypted successfully, length:', encryptedContent.length);
-    } catch (encryptError) {
-      console.error('[BackupService] NIP-44 encryption failed:', encryptError);
-      return {
-        success: false,
-        relaysPublished: [],
-        error: 'Encryption failed: ' + (encryptError instanceof Error ? encryptError.message : 'Unknown error'),
-      };
-    }
-
-    // Step 4: Create and sign the kind 30078 event
+    // Step 3: Publish workout chunks that changed, then the main event.
+    // Chunks go first so the main event never lists a chunk that isn't on relays.
     let event: NDKEvent;
-    try {
-      event = await this.createBackupEvent(encryptedContent, pubkey, payload, signer);
-      console.log('[BackupService] Backup event created, id:', event.id?.slice(0, 8));
-    } catch (eventError) {
-      console.error('[BackupService] Failed to create event:', eventError);
-      return {
-        success: false,
-        relaysPublished: [],
-        error: 'Failed to create event: ' + (eventError instanceof Error ? eventError.message : 'Unknown error'),
-      };
-    }
-
-    // Step 5: Publish to relays
     let relaysPublished: string[];
     try {
-      relaysPublished = await this.publishToRelays(event, selectedRelays);
+      const chunks = chunkWorkouts(payload.workouts);
+      const hashes = await this.loadChunkHashes(pubkey);
+      for (let i = 0; i < chunks.length; i++) {
+        const dTag = chunkDTag(i);
+        const chunkPayload: WorkoutChunkPayload = { version: BACKUP_VERSION, chunk: i, workouts: chunks[i] };
+        const hash = hashString(JSON.stringify(chunkPayload));
+        if (hashes[dTag] === hash) continue;
+        const chunkContent = await this.encryptPayload(chunkPayload, signer);
+        const chunkEvent = await this.createBackupEvent(chunkContent, pubkey, signer, dTag, chunks[i]);
+        if ((await this.publishToRelays(chunkEvent)).length === 0) {
+          throw new Error(`Failed to publish backup chunk ${i + 1} of ${chunks.length}`);
+        }
+        hashes[dTag] = hash;
+        await this.saveChunkHashes(pubkey, hashes);
+      }
+      console.log(`[BackupService] ${chunks.length} workout chunk(s) up to date`);
+
+      const mainContent = await this.encryptPayload({ ...payload, workouts: [] }, signer);
+      const mainTags = [['chunks', String(chunks.length)]];
+      if (payload.habits && payload.habits.length > 0) mainTags.push(['habit_count', String(payload.habits.length)]);
+      if (payload.journal && payload.journal.length > 0) mainTags.push(['journal_count', String(payload.journal.length)]);
+      event = await this.createBackupEvent(mainContent, pubkey, signer, BACKUP_D_TAG, payload.workouts, mainTags);
+      relaysPublished = await this.publishToRelays(event);
       console.log(`[BackupService] Published to ${relaysPublished.length} relays:`, relaysPublished);
-    } catch (publishError) {
-      console.error('[BackupService] Failed to publish event:', publishError);
+    } catch (backupError) {
+      console.error('[BackupService] Backup failed:', backupError);
       return {
         success: false,
         relaysPublished: [],
-        error: 'Failed to publish: ' + (publishError instanceof Error ? publishError.message : 'Unknown error'),
+        error: 'Backup failed: ' + (backupError instanceof Error ? backupError.message : 'Unknown error'),
       };
     }
 
@@ -318,7 +325,7 @@ export class BackupService {
    * Uses gzip compression to handle payloads exceeding NIP-44's 64KB limit
    */
   private async encryptPayload(
-    payload: WorkoutBackupPayload,
+    payload: WorkoutBackupPayload | WorkoutChunkPayload,
     signer: NDKSigner
   ): Promise<string> {
     // Stringify then release the payload reference to free memory sooner.
@@ -332,8 +339,7 @@ export class BackupService {
     const compressed = pako.gzip(plaintext);
 
     // NIP-44 caps plaintext at 65535 bytes, and the base64 encoding below
-    // grows the compressed bytes by 4/3 — so the real compressed limit is ~49KB.
-    const MAX_COMPRESSED_BYTES = 49000;
+    // grows the compressed bytes by 4/3 — see MAX_COMPRESSED_BYTES.
     if (compressed.length > MAX_COMPRESSED_BYTES) {
       throw new Error(
         `Backup too large for encryption: ${compressed.length} bytes compressed ` +
@@ -359,13 +365,15 @@ export class BackupService {
   }
 
   /**
-   * Create the kind 30078 backup event
+   * Create a kind 30078 backup event — the main event or one workout chunk
    */
   private async createBackupEvent(
     encryptedContent: string,
     pubkey: string,
-    payload: WorkoutBackupPayload,
-    signer: NDKSigner
+    signer: NDKSigner,
+    dTag: string,
+    workouts: LocalWorkout[],
+    extraTags: string[][] = []
   ): Promise<NDKEvent> {
     const ndk = await GlobalNDKService.getInstance();
 
@@ -377,30 +385,18 @@ export class BackupService {
 
     // Tags (metadata visible to relays, content is encrypted)
     event.tags = [
-      ['d', BACKUP_D_TAG], // Replaceable identifier
+      ['d', dTag], // Replaceable identifier
       ['client', 'RUNSTR', Application.nativeApplicationVersion || '1.7.5'],
       ['encrypted', 'nip44'],
       ['compression', 'gzip'], // Content is gzip compressed before encryption
       ['backup_version', String(BACKUP_VERSION)],
-      ['workout_count', String(payload.workouts.length)],
+      ['workout_count', String(workouts.length)],
+      ...extraTags,
     ];
 
-    // Add optional metadata tags
-    if (payload.habits && payload.habits.length > 0) {
-      event.tags.push(['habit_count', String(payload.habits.length)]);
-    }
-    if (payload.journal && payload.journal.length > 0) {
-      event.tags.push(['journal_count', String(payload.journal.length)]);
-    }
-
-    // Add date range
-    if (payload.workouts.length > 0) {
-      const sortedWorkouts = [...payload.workouts].sort(
-        (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
-      );
-      const oldest = sortedWorkouts[0].startTime.split('T')[0];
-      const newest = sortedWorkouts[sortedWorkouts.length - 1].startTime.split('T')[0];
-      event.tags.push(['date_range', oldest, newest]);
+    if (workouts.length > 0) {
+      const sorted = workouts.map((w) => w.startTime).sort();
+      event.tags.push(['date_range', sorted[0].split('T')[0], sorted[sorted.length - 1].split('T')[0]]);
     }
 
     // Sign the event via UnifiedSigningService signer
@@ -408,6 +404,30 @@ export class BackupService {
     await event.sign(signer);
 
     return event;
+  }
+
+  private async loadChunkHashes(pubkey: string): Promise<Record<string, string>> {
+    try {
+      const raw = await AsyncStorage.getItem(`${CHUNK_HASHES_KEY}:${pubkey}`);
+      const stored = raw ? JSON.parse(raw) : null;
+      if (!stored || Date.now() - stored.savedAt > CHUNK_HASH_TTL_MS) return {};
+      return stored.hashes || {};
+    } catch {
+      return {};
+    }
+  }
+
+  private async saveChunkHashes(pubkey: string, hashes: Record<string, string>): Promise<void> {
+    // Keep the original savedAt so the weekly full re-send still happens
+    let savedAt = Date.now();
+    try {
+      const raw = await AsyncStorage.getItem(`${CHUNK_HASHES_KEY}:${pubkey}`);
+      const stored = raw ? JSON.parse(raw) : null;
+      if (stored && Date.now() - stored.savedAt <= CHUNK_HASH_TTL_MS) savedAt = stored.savedAt;
+    } catch {
+      // Corrupt entry — start a fresh window
+    }
+    await AsyncStorage.setItem(`${CHUNK_HASHES_KEY}:${pubkey}`, JSON.stringify({ savedAt, hashes })).catch(() => {});
   }
 
   /**

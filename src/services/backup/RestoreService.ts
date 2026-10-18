@@ -22,8 +22,13 @@ import type { Habit } from '../habits/HabitTrackerService';
 import type { JournalEntry } from '../../types/journal';
 
 // Backup event kind
-const BACKUP_EVENT_KIND = 30078;
-const BACKUP_D_TAG = 'runstr-workout-backup';
+import {
+  BACKUP_EVENT_KIND,
+  BACKUP_D_TAG,
+  getChunkCount,
+  fetchChunkWorkouts,
+  type WorkoutChunkPayload,
+} from './backupChunks';
 const AUTO_RESTORE_KEY = '@runstr:auto_restore_done';
 
 /**
@@ -149,6 +154,16 @@ export class RestoreService {
 
         try {
           const decrypted = await this.decryptBackup(event);
+          // v2 backups keep workouts in chunk events; v1 has them inline
+          const chunkCount = getChunkCount(event);
+          if (chunkCount > 0) {
+            decrypted.payload.workouts = await fetchChunkWorkouts(
+              ndk,
+              pubkey,
+              chunkCount,
+              async (chunk) => (await this.decryptBackup(chunk)).payload as unknown as WorkoutChunkPayload
+            );
+          }
           return { found: true, backup: decrypted };
         } catch (decryptError) {
           lastError = decryptError instanceof Error ? decryptError.message : String(decryptError);
